@@ -62,7 +62,7 @@ export interface PackageEntry {
 
 /**
  * The package's own entries a project imports standard classes from (`WorkflowStartTextDto` from
- * `@agboss/core/dto`, #904: `WorkflowFinishFileDto` and `A2AFileDto` from `@agboss/core/a2a`) — every
+ * `@agboss/core/dto`, #904: `WorkflowFinishFileDto` and `FileDto` from `@agboss/core/dto`) — every
  * entry that exports a DTO class (`tests/flow/types/package-entries.test.ts` holds it so): an
  * installed package is not a project module, so it is never in tsx's record.
  */

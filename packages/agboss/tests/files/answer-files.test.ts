@@ -2,8 +2,9 @@
  * #899 §8: the files of an agent's answer — picked by number from the ones it saw (the default), the
  * model's own descriptors only when the developer allows them, and checked against origins and ownership.
  */
+import { bytes as byteSize } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import { Nested, Text, List } from "../../src/dto/index.js";
 import { modelWrittenFileProblem } from "../../src/files/answer-files.js";
 import { AnswerFiles, FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
@@ -25,16 +26,16 @@ import {
 const asAnswer = (value: object): never => value as never;
 
 class PickedDto {
-  @Nested(A2AFileDto, { prompt: "the file" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the file" })
+  file!: FileDto;
 
   @Text({ prompt: "a note", optional: true })
   note?: string;
 }
 
 class ManyDto {
-  @List(A2AFileDto, { prompt: "the files" })
-  files!: A2AFileDto[];
+  @List(FileDto, { prompt: "the files" })
+  files!: FileDto[];
 }
 
 describe("AC2: by default an agent returns only files it saw, picked by number", () => {
@@ -336,14 +337,14 @@ describe("AC2: the ownership of a stored file the model wrote", () => {
     ownerId,
     mediaType: "application/pdf",
     sha256: "a".repeat(64),
-    sizeBytes: 3,
+    sizeBytes: byteSize(3),
     createdAt: now,
   });
   const file = {
     mediaType: "application/pdf",
     fileId: "f-1",
     sha256: "a".repeat(64),
-    sizeBytes: 3,
+    sizeBytes: byteSize(3),
   };
   const check = (kept: ReturnType<typeof stored> | undefined) => ({
     allowedOrigins: [],

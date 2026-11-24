@@ -1,7 +1,8 @@
+import { bytes as byteSize } from "../units/index.js";
 import { createHash } from "node:crypto";
 import { isOfMediaType } from "../a2a/files/a2a-media-check.js";
 import type { UsageRecord } from "../finops/usage.js";
-import { InlineA2AFileRepository } from "../infrastructure/a2a-file.repository.js";
+import { InlineFileRepository } from "../infrastructure/file.repository.js";
 import { kindsOf } from "../pii/kinds.js";
 import { fileContentOf, sha256Of, type FileContent } from "./file-bytes.js";
 import { FileRedactionFailedError } from "./file-errors.js";
@@ -71,7 +72,7 @@ async function keptOf(batch: FileBatch, copy: FileContent): Promise<KeptRedacted
   const context = batch.runtime.context();
   // only ever serialized, where an absent name is left out: no need to leave the key out here
   const base = { mediaType: copy.mediaType, sha256: copy.sha256, filename: copy.filename };
-  if (context.store instanceof InlineA2AFileRepository) {
+  if (context.store instanceof InlineFileRepository) {
     if (copy.bytes.byteLength > MAX_INLINE_REDACTED)
       throw new FileRedactionFailedError({
         agent: batch.runtime.agent,
@@ -86,7 +87,7 @@ async function keptOf(batch: FileBatch, copy: FileContent): Promise<KeptRedacted
     ownerId: context.ownerId,
     mediaType: copy.mediaType,
     sha256: copy.sha256,
-    sizeBytes: copy.bytes.byteLength,
+    sizeBytes: byteSize(copy.bytes.byteLength),
     createdAt: context.clock.now(),
     ...(copy.filename === undefined ? {} : { filename: copy.filename }),
     bytes: copy.bytes,

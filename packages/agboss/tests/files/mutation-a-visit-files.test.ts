@@ -13,7 +13,7 @@ import {
   type FileRuntime,
   type SourceFile,
 } from "../../src/files/visit-files.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
@@ -49,7 +49,7 @@ function runtimeOf(over: Partial<typeof baseSettings> = {}): FileRuntime {
     transcriberKey: () => "t",
     transcribe: (file) => Promise.resolve({ text: `read ${String(file.bytes.byteLength)}` }),
     context: () => ({
-      store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
+      store: new InMemoryFileRepository(new InMemoryDatabase()),
       tenantId: "t",
       ownerId: "o",
       signal: new AbortController().signal,

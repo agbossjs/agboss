@@ -20,7 +20,7 @@ import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
  * tool reaches (`[a2a.message-skill-effect]`); only `@Tool({ readOnly: true })` tools, no `@McpTool`
  * (`[a2a.message-skill-tool]`); no `compensateWith` / `committedBy` (`[a2a.message-skill-compensation]`);
  * no child workflow, no recursion (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's
- * files (`A2AFiles`) is allowed. A `reply` set for no exported start is `[a2a.unknown-skill-option]`
+ * files (`Files`) is allowed. A `reply` set for no exported start is `[a2a.unknown-skill-option]`
  * (a misspelt one would answer with a task); a `defaultSkill` that is no export
  * `[a2a.unknown-skill-option]` too.
  */

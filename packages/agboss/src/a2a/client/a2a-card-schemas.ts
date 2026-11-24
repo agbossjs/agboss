@@ -2,7 +2,7 @@ import type { DtoClass } from "../../dto/types.js";
 import { jsonSchemaOf, type JsonSchema } from "../../dto/schema.js";
 import { incompatibilitiesOf } from "../../federation/schema-compat.js";
 import { withoutFileFields } from "../a2a-card-file-fields.js";
-import { fileFieldsOf } from "../files/a2a-file.dto.js";
+import { fileFieldsOf } from "../../dto/standard/file.js";
 import {
   declaredFileFieldsOf,
   declaredOutputFileFieldsOf,

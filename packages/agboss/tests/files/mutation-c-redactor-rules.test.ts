@@ -22,7 +22,7 @@ import {
   type RedactionResult,
 } from "../../src/index.js";
 import type { RuleViolation } from "../../src/graph/rule-error.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { kilobytes } from "../../src/units/index.js";
 import { readerApplication, type ReaderOptions } from "./reader.factory.js";
 
@@ -157,7 +157,7 @@ describe("[files.redacted-needs-store]", () => {
     expect(found).toEqual([
       {
         code: "files.redacted-needs-store",
-        message: `${name}: FileView.Redacted with maxFileSize over ${String(MAX_INLINE_REDACTED)} bytes needs an A2AFileRepository in @Application({ providers }): a redacted copy over that does not fit in an execution's state`,
+        message: `${name}: FileView.Redacted with maxFileSize over ${String(MAX_INLINE_REDACTED)} bytes needs a FileRepository in @Application({ providers }): a redacted copy over that does not fit in an execution's state`,
         nodes: [name],
       },
     ]);
@@ -166,7 +166,7 @@ describe("[files.redacted-needs-store]", () => {
   it("a file store or a limit that fits leaves none", async () => {
     const stored = await thrownBy({
       files: REDACTED(["image/png"], kilobytes(65)),
-      providers: [InMemoryA2AFileRepository],
+      providers: [InMemoryFileRepository],
     });
     const fits = await thrownBy({
       files: REDACTED(["image/png"], kilobytes(64)),

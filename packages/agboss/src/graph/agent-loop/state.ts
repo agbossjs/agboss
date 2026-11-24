@@ -1,4 +1,4 @@
-import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
+import type { FileDto } from "../../dto/standard/file.js";
 import {
   NO_FILES,
   type FileTally,
@@ -122,7 +122,7 @@ export const AgentLoopState = Annotation.Root({
    */
   seen: Annotation<SeenFile[]>({ reducer: append, default: () => [] }),
   /** The files of the answer (#899 §8): what the output guardrails check with it; none while working. */
-  answerFiles: Annotation<A2AFileDto[]>({ reducer: replace, default: () => [] }),
+  answerFiles: Annotation<FileDto[]>({ reducer: replace, default: () => [] }),
   /** How many source files and bytes of them the conversation holds (#899): its limits are checked on it. */
   fileTally: Annotation<FileTally>({ reducer: replace, default: () => NO_FILES }),
   /** The flow nodes visited up to and including this agent (limit errors name it). */

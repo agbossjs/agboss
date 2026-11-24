@@ -3,8 +3,8 @@
 // expose's `defaultSkill`. Stores: the in-memory defaults (DirectApplication), the SQLite files of
 // the instances' environment (SqliteDirectApplication, two instances).
 import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
-import { WorkflowFinishFileDto } from "../../../src/a2a/files/a2a-file.dto.js";
-import { A2AFiles } from "../../../src/a2a/files/a2a-files.service.js";
+import { WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
+import { Files } from "../../../src/a2a/files/files.service.js";
 import { Application } from "../../../src/application/application.js";
 import { Tool } from "../../../src/components/decorators.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -14,7 +14,7 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { EmptyEnvironment, type Produced } from "../../../src/index.js";
-import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { BearerCallerResolver } from "./bearer-caller-resolver.js";
@@ -79,10 +79,10 @@ export class QuoteWorkflow {}
   description: "Writes the quote as a file",
   input: { message: WorkflowStartTextDto },
   output: WorkflowFinishFileDto,
-  deps: [A2AFiles],
+  deps: [Files],
 })
 export class QuoteFileAction {
-  constructor(private readonly a2aFiles: A2AFiles) {}
+  constructor(private readonly a2aFiles: Files) {}
 
   async execute(input: {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
@@ -171,7 +171,7 @@ export class QuotesA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, QuoteFileWorkflow, AckWorkflow],
-  providers: [BearerCallerResolver, InMemoryA2AFileRepository],
+  providers: [BearerCallerResolver, InMemoryFileRepository],
   exposes: [QuotesA2AExpose],
   budgets: TEST_BUDGETS,
 })

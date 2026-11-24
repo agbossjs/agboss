@@ -4,7 +4,7 @@
  * any agent sets its types) and which agents give it files.
  */
 import { describe, expect, it } from "vitest";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import { GuardrailSide } from "../../src/components/policy-decorators.js";
 import type { AgentsConfigOf } from "../../src/config/types.js";
 import { Nested, Text } from "../../src/dto/index.js";
@@ -23,8 +23,8 @@ import type { LoadedGuardrail } from "../../src/guardrails/loaded.js";
 import { DecidedBy } from "../../src/flow/decorators/router.js";
 
 class ScanDto {
-  @Nested(A2AFileDto, { prompt: "the scan" })
-  scan!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the scan" })
+  scan!: FileDto;
 }
 
 class NoteDto {

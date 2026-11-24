@@ -15,8 +15,8 @@ import {
   type NewA2ADirectMessage,
 } from "../../../src/infrastructure/a2a-direct-message.repository.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
-import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
-import { A2AFileRepository } from "../../../src/infrastructure/a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
+import { FileRepository } from "../../../src/infrastructure/file.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
@@ -46,7 +46,7 @@ const lostMessage = (overrides: Partial<NewA2ADirectMessage> = {}): NewA2ADirect
 function sweepOn(clock: VirtualClock) {
   const database = new InMemoryDatabase();
   const messages = new InMemoryA2ADirectMessageRepository(database);
-  const files = new InMemoryA2AFileRepository(database);
+  const files = new InMemoryFileRepository(database);
   const deleteByOwner = vi.spyOn(files, "deleteByOwner");
   const expiry = a2aDirectMessageExpiryOf({ messages, files, clock, retention: minutes(15) });
   const sweep = () =>
@@ -126,7 +126,7 @@ describe("#860: a resend that finds its attempt lost", () => {
     await app
       .resolve(A2ADirectMessageRepository)
       .saveIfAbsent(lostMessage({ requestHash, startedAt: now, createdAt: now, expiresAt: now }));
-    const deleteByOwner = vi.spyOn(app.resolve(A2AFileRepository), "deleteByOwner");
+    const deleteByOwner = vi.spyOn(app.resolve(FileRepository), "deleteByOwner");
 
     const answer = await rpc(url, "SendMessage", {
       message: userMessage("m-1", [text("price?")], { metadata: QUOTE }),

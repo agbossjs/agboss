@@ -1,7 +1,7 @@
 /**
  * #1366: what an A2A client reads of its class and its application: the origins `@A2AAgent({ allowedOrigins })` names
  * (none when it names none), the services an application remembers for its executions' calls (its stored-file reader among
- * them), and how a stored file is read before it is sent — through the application's `A2AFiles`, and refused outside one.
+ * them), and how a stored file is read before it is sent — through the application's `Files`, and refused outside one.
  */
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../../src/a2a/a2a-decorator.js";
@@ -12,9 +12,9 @@ import {
   rememberA2AClientServicesOf,
   storedFileReaderOf,
 } from "../../../../src/a2a/client/a2a-client-services.js";
-import { A2AFileUnavailableReason } from "../../../../src/a2a/files/a2a-file-errors.js";
-import type { A2AFileDto } from "../../../../src/a2a/files/a2a-file.dto.js";
-import { A2AFiles } from "../../../../src/a2a/files/a2a-files.service.js";
+import { FileUnavailableReason } from "../../../../src/files/file-errors.js";
+import type { FileDto } from "../../../../src/dto/standard/file.js";
+import { Files } from "../../../../src/a2a/files/files.service.js";
 import { OutboundCalls } from "../../../../src/app/outbound-calls.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto } from "../../../../src/dto/index.js";
 import { ApplicationContext } from "../../../../src/flow/context/application-context.js";
@@ -48,7 +48,7 @@ describe("#1366: the origins a client's class names", () => {
   });
 });
 
-const stored: A2AFileDto = { mediaType: "text/plain", fileId: "f-1" };
+const stored: FileDto = { mediaType: "text/plain", fileId: "f-1" };
 
 describe("#1366: a stored file is read before it is sent", () => {
   it("outside an execution (no services, or services with no files) it is unavailable as outside-execution", async () => {
@@ -59,7 +59,7 @@ describe("#1366: a stored file is read before it is sent", () => {
       );
 
     expect(await reasonOf(storedFileReaderOf(undefined)(stored))).toBe(
-      A2AFileUnavailableReason.OutsideExecution,
+      FileUnavailableReason.OutsideExecution,
     );
     expect(
       await reasonOf(
@@ -67,7 +67,7 @@ describe("#1366: a stored file is read before it is sent", () => {
           stored,
         ),
       ),
-    ).toBe(A2AFileUnavailableReason.OutsideExecution);
+    ).toBe(FileUnavailableReason.OutsideExecution);
     expect(
       await reasonOf(
         storedFileReaderOf({
@@ -76,13 +76,13 @@ describe("#1366: a stored file is read before it is sent", () => {
           files: () => undefined as never,
         })(stored),
       ),
-    ).toBe(A2AFileUnavailableReason.OutsideExecution);
+    ).toBe(FileUnavailableReason.OutsideExecution);
   });
 
-  it("inside an application the bytes are what the application's A2AFiles reads for that descriptor", async () => {
-    const read: A2AFileDto[] = [];
+  it("inside an application the bytes are what the application's Files reads for that descriptor", async () => {
+    const read: FileDto[] = [];
     const files = {
-      read: (file: A2AFileDto) => {
+      read: (file: FileDto) => {
         read.push(file);
         return Promise.resolve(new Uint8Array([1, 2, 3]));
       },
@@ -104,7 +104,7 @@ describe("#1366: what an application remembers for its executions' A2A calls", (
     const context = {} as ApplicationContext;
     const clock = new VirtualClock();
     const outbound = {} as OutboundCalls;
-    const filesService = {} as A2AFiles;
+    const filesService = {} as Files;
     const resolved: unknown[] = [];
     const app = {
       resolve: (token: unknown) => {
@@ -112,7 +112,7 @@ describe("#1366: what an application remembers for its executions' A2A calls", (
         if (token === ApplicationContext) return context;
         if (token === Clock) return clock;
         if (token === OutboundCalls) return outbound;
-        if (token === A2AFiles) return filesService;
+        if (token === Files) return filesService;
         throw new Error("unexpected token");
       },
     };
@@ -122,7 +122,7 @@ describe("#1366: what an application remembers for its executions' A2A calls", (
 
     expect(services?.clock).toBe(clock);
     expect(resolved).not.toContain(OutboundCalls);
-    expect(resolved).not.toContain(A2AFiles);
+    expect(resolved).not.toContain(Files);
     expect(services?.outboundCalls()).toBe(outbound);
     expect(services?.files?.()).toBe(filesService);
     expect(a2aClientServicesOf({} as ApplicationContext)).toBeUndefined();

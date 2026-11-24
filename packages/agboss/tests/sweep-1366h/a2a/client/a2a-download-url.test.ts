@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { downloadedFile } from "../../../../src/a2a/client/a2a-download.js";
 import { AGBossError } from "../../../../src/core/errors.js";
-import { A2AFileUnavailableReason } from "../../../../src/a2a/files/a2a-file-errors.js";
+import { FileUnavailableReason } from "../../../../src/files/file-errors.js";
 import { kilobytes } from "../../../../src/units/index.js";
 
 const byUrl = { mediaType: "application/octet-stream", url: "https://files.example/a" };
@@ -39,7 +39,7 @@ const outcomeOf = (
 ): Promise<unknown> =>
   downloadedFile(file, download).then(
     (bytes) => bytes.byteLength,
-    (error: unknown) => (error as { reason?: A2AFileUnavailableReason }).reason ?? error,
+    (error: unknown) => (error as { reason?: FileUnavailableReason }).reason ?? error,
   );
 
 const bytesOf = (size: number): Uint8Array => new Uint8Array(size).fill(7);
@@ -56,7 +56,7 @@ describe("#1366: a file by url is bounded by maxSize", () => {
     const { fetcher } = fetching([bytesOf(1025)]);
 
     expect(await outcomeOf(byUrl, { fetcher, maxSize: kilobytes(1) })).toBe(
-      A2AFileUnavailableReason.TooLarge,
+      FileUnavailableReason.TooLarge,
     );
   });
 
@@ -64,7 +64,7 @@ describe("#1366: a file by url is bounded by maxSize", () => {
     const { fetcher } = fetching([bytesOf(600), bytesOf(600)]);
 
     expect(await outcomeOf(byUrl, { fetcher, maxSize: kilobytes(1) })).toBe(
-      A2AFileUnavailableReason.TooLarge,
+      FileUnavailableReason.TooLarge,
     );
   });
 
@@ -72,7 +72,7 @@ describe("#1366: a file by url is bounded by maxSize", () => {
     const empty: typeof fetch = () => Promise.resolve(new Response(null));
     const { fetcher } = fetching([bytesOf(10 * 1024 * 1024 + 1)]);
 
-    expect(await outcomeOf(byUrl, { fetcher })).toBe(A2AFileUnavailableReason.TooLarge);
+    expect(await outcomeOf(byUrl, { fetcher })).toBe(FileUnavailableReason.TooLarge);
     expect(await outcomeOf(byUrl, { fetcher: empty })).toBe(0);
   });
 
@@ -95,11 +95,9 @@ describe("#1366: why a file is unavailable", () => {
     const broken: typeof fetch = () => Promise.reject(new Error("socket closed"));
 
     expect(await outcomeOf(byUrl, { fetcher: refused.fetcher })).toBe(
-      A2AFileUnavailableReason.DownloadFailed,
+      FileUnavailableReason.DownloadFailed,
     );
-    expect(await outcomeOf(byUrl, { fetcher: broken })).toBe(
-      A2AFileUnavailableReason.DownloadFailed,
-    );
+    expect(await outcomeOf(byUrl, { fetcher: broken })).toBe(FileUnavailableReason.DownloadFailed);
   });
 
   it("an origin the client refuses is said as it is, not as a failed download", async () => {
@@ -113,7 +111,7 @@ describe("#1366: why a file is unavailable", () => {
     const { fetcher, calls } = fetching([bytesOf(1)]);
 
     expect(await outcomeOf({ mediaType: "text/plain", fileId: "f-1" }, { fetcher })).toBe(
-      A2AFileUnavailableReason.NotFound,
+      FileUnavailableReason.NotFound,
     );
     expect(calls).toEqual([]);
   });
@@ -126,6 +124,6 @@ describe("#1366: why a file is unavailable", () => {
     expect(await outcomeOf({ ...byUrl, sha256: digest }, { fetcher })).toBe(10);
     expect(
       await outcomeOf({ ...byUrl, sha256: "0".repeat(64) }, { fetcher: fetching([body]).fetcher }),
-    ).toBe(A2AFileUnavailableReason.DigestMismatch);
+    ).toBe(FileUnavailableReason.DigestMismatch);
   });
 });

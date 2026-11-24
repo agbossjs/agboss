@@ -732,9 +732,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/infrastructure/execution-record-status-page.ts",
       "src/infrastructure/execution-id-store.ts",
       "src/infrastructure/expiry.ts",
-      "src/infrastructure/in-memory-a2a-file.repository.ts",
+      "src/infrastructure/in-memory-file.repository.ts",
       "src/infrastructure/listing-window.ts",
-      "src/infrastructure/local-disk-a2a-file.repository.ts",
+      "src/infrastructure/local-disk-file.repository.ts",
       "src/infrastructure/logger.ts",
       "src/infrastructure/orphan-pauses.ts",
       "src/infrastructure/recovery.ts",
@@ -1319,7 +1319,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (orphan cutoff max; orphan cutoff cutoff only) - not mutated: covered by tests/a2a/files/a2a-file-orphan-cutoff.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
-    ["src/infrastructure/a2a-file.repository.ts"],
+    ["src/infrastructure/file.repository.ts"],
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (oldest queued max) - not mutated: covered by tests/infrastructure/store-conformance.in-memory.test.ts, tests/testing/contracts/conformance-sabotage.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",

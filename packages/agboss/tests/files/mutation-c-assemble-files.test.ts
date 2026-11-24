@@ -25,8 +25,8 @@ import { FileTranscriber, ModelFileTranscriber } from "../../src/files/file-tran
 import { AnswerFiles, FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NodeKind } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
-import { InlineA2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InlineFileRepository } from "../../src/infrastructure/file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import type { ModelUse } from "../../src/models/uses.js";
 import { kilobytes } from "../../src/units/index.js";
 import { Agent, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
@@ -49,8 +49,8 @@ class OwnRedactor extends FileRedactor {
     return Promise.reject(new Error("not asked"));
   }
 }
-class OwnStore extends InMemoryA2AFileRepository {}
-class OwnInline extends InlineA2AFileRepository {}
+class OwnStore extends InMemoryFileRepository {}
+class OwnInline extends InlineFileRepository {}
 class Plain {
   readonly kind = "plain";
 }
@@ -78,10 +78,10 @@ describe("the application's own providers", () => {
     expect(ownFileRedactorOf(undefined)).toBeUndefined();
   });
 
-  it("a file store: an A2AFileRepository that is not the inline default nor one of its kind", () => {
+  it("a file store: a FileRepository that is not the inline default nor one of its kind", () => {
     expect(hasFileStore([OwnStore])).toBe(true);
-    expect(hasFileStore([Plain, InMemoryA2AFileRepository])).toBe(true);
-    expect(hasFileStore([InlineA2AFileRepository])).toBe(false);
+    expect(hasFileStore([Plain, InMemoryFileRepository])).toBe(true);
+    expect(hasFileStore([InlineFileRepository])).toBe(false);
     expect(hasFileStore([OwnInline])).toBe(false);
     expect(hasFileStore([Plain, OwnTranscriber])).toBe(false);
     expect(hasFileStore([lookalike(OwnStore)])).toBe(false);

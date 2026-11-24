@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  A2AFileRepository,
+  FileRepository,
   A2ATaskRepository,
   ChildExecutionQueueRepository,
   ExecutionLeaseLostError,
@@ -151,7 +151,7 @@ describe("#928 AC1: a long call is bounded by 5 min and never hands over", () =>
   const long = [
     ["a retention delete", FencedEffectRepository, "deleteByStoredAtBefore"],
     ["the cancel-mark pruning of a retention delete", ExecutionHistoryRepository, "deleteExpired"],
-    ["an A2A file save", A2AFileRepository, "save"],
+    ["an A2A file save", FileRepository, "save"],
   ] as const;
 
   it.each(long)(

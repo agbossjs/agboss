@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
 import { wireReplyOf } from "../../../src/a2a/server/a2a-direct-view.js";
 import type { TaskViewParts } from "../../../src/a2a/server/a2a-task-view.js";
-import { InlineA2AFileRepository } from "../../../src/infrastructure/a2a-file.repository.js";
+import { InlineFileRepository } from "../../../src/infrastructure/file.repository.js";
 import {
   A2ADirectMessageState,
   type A2ADirectMessageRecord,
@@ -37,7 +37,7 @@ const viewParts = (signs: boolean, skill = DIRECT_SKILL): TaskViewParts => ({
     application: "unit-application",
     keys: { peers: new Map(), ...(signs ? { signingKey: privateKey } : {}) },
   },
-  files: { store: new InlineA2AFileRepository() },
+  files: { store: new InlineFileRepository() },
 });
 
 const meshOf = async (message: A2ADirectMessageRecord, signs: boolean) =>

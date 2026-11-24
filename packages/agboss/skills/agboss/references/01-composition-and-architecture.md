@@ -360,7 +360,7 @@ What this shows:
   it is, ending with `Dto`; DTO names are unique in the application (`[dto.duplicate-name]`).
 - **Standard DTOs** (`@agboss/core/dto`): `WorkflowStartTextDto` (`text`, `author?`),
   `WorkflowFinishTextDto` (`text`), `PlainTextDto` (`text` — a text agent's reply to a judge),
-  `AttachmentDto`, `MoneyDto`, `AddressDto`, `DateRangeDto`, `ToolCallApprovalDecisionDto`, ….
+  `FileDto`, `MoneyDto`, `AddressDto`, `DateRangeDto`, `ToolCallApprovalDecisionDto`, ….
 
 Anti-pattern — the "God DTO":
 
@@ -390,7 +390,7 @@ forces `if (x.found)` checks in every reader, and makes outdating (reference 02)
 ## Files, images and large blobs
 
 - **What a chat agent reads is text**: its input message renders each input field as JSON. Pass a
-  file as a reference — an `AttachmentDto` with `url` (or a storage key in your own DTO) — and let a
+  file as a reference — a `FileDto` with `url` (`FileDto.fromUrl`, or a storage key in your own DTO) — and let a
   tool or an action fetch, extract or summarise it. Never put base64 content of a large file into a
   DTO on the path: every value in the scope is kept in the checkpoint (`BaseCheckpointSaver`), on
   every step, for the whole thread.
@@ -418,13 +418,13 @@ class DocumentTextDto {
 
 ```ts file=src/shortlist/tools/read-document.tool.ts
 import { ExecutionContext } from "@agboss/core";
-import { AttachmentDto } from "@agboss/core/dto";
+import { FileDto } from "@agboss/core/dto";
 import { kilobytes, seconds } from "@agboss/core/units";
 
 @Tool({
   name: "read-document-tool",
   description: "Reads the text of an attached document by its link",
-  input: AttachmentDto, // { name, mediaType, url } — the model passes the link, not the bytes
+  input: FileDto, // { mediaType, filename?, url } — the model passes the link, not the bytes
   output: DocumentTextDto,
   timeout: seconds(20),
   maxResultSize: kilobytes(64),
@@ -436,7 +436,7 @@ export class ReadDocumentTool {
     private readonly documentStoreService: DocumentStoreService,
   ) {}
 
-  async execute({ url }: AttachmentDto): Promise<DocumentTextDto> {
+  async execute({ url }: FileDto): Promise<DocumentTextDto> {
     const text: string = await this.documentStoreService.textOf(
       url ?? "",
       this.executionContext.signal, // the call's: aborted at the timeout or on cancel

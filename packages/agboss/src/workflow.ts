@@ -110,7 +110,7 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly ownFileTranscriber?: Class | undefined;
   /** The application's own `FileRedactor` (#899): the built-in's model is no use then; its `supports` answers at start; its class is in `configHash` (#1269). */
   readonly ownFileRedactor?: Class | undefined;
-  /** The application lists an `A2AFileRepository` that keeps files (#899 §7): not the inline default. */
+  /** The application lists an `FileRepository` that keeps files (#899 §7): not the inline default. */
   readonly hasFileStore?: boolean;
   /** Its tool interceptors (#384): each agent's chain per tool, outer first. */
   readonly toolInterceptors?: AssembledToolInterceptors;

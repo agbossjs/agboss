@@ -139,7 +139,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * How much its A2A skills take as files (#859): `maxFileSize`, `maxTotalFileSize`, `maxFiles`,
    * `allowedMediaTypes`, `allowedFileOrigins` — each skill's `@A2AExpose({ skills: { [id]: { files }
    * } })` over it, field by field; `[a2a.file-options-invalid]`. A total above 64 KB without an
-   * `A2AFileRepository` listed warns `[a2a.inline-files-without-store]`, above 256 KB it is
+   * `FileRepository` listed warns `[a2a.inline-files-without-store]`, above 256 KB it is
    * `[a2a.file-store-required]`. How long files are kept is `retention.a2aFiles`.
    */
   readonly a2aFiles?: A2AFileOptions;

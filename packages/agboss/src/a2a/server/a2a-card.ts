@@ -99,7 +99,7 @@ const inputModesOf = (skill: ServedSkill): string[] =>
 
 /**
  * What a skill's finishes give: a file finish the media types its files may be (#859; #904: what
- * `A2AFiles.save` takes, the application's), its data JSON.
+ * `Files.save` takes, the application's), its data JSON.
  */
 const outputModesOf = (skill: ServedSkill): string[] =>
   unique(

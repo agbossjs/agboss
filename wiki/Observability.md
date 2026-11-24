@@ -634,6 +634,6 @@ there):
 ## Files in events, traces and records (#899)
 
 A file in a model request, an event, a trace, the record or a cassette is shown as `{ kind, mediaType,
-filename?, sizeBytes, sha256 }` — a content part's bytes and an `A2AFileDto`'s `inline` never leave as text.
+filename?, sizeBytes, sha256 }` — a content part's bytes and an `FileDto`'s `inline` never leave as text.
 An input guardrail's event lists the files it checked the same way (`GuardedFileShown`). See [Files for
 models](Files-for-models).

@@ -1,22 +1,20 @@
 /**
- * #859 AC2: an `A2AClient` sends and receives file parts — `A2AClientFile.fromBytes` / `.fromUrl`
+ * #859 AC2: an `A2AClient` sends and receives file parts — `FileDto.fromBytes` / `.fromUrl`
  * in a typed input, an AGBoss agent's file artifact back into the output DTO, a foreign agent's
  * plain file parts (a task's artifact, a direct message) into `WorkflowFinishFileDto(s)`, a file by
  * url downloaded through the client's own fetch — and never a descriptor taken from a data part.
  */
+import { FileError } from "../../../src/core/error-families/remote-errors.js";
 import { AgentEvent } from "@a2a-js/sdk/server";
 import type { Part } from "@a2a-js/sdk";
 import { describe, expect, it } from "vitest";
+import { A2AClient, A2AOriginError, A2ARemoteCallError } from "../../../src/a2a/index.js";
 import {
-  A2AClient,
-  A2AClientFile,
-  A2AFileUnavailableError,
-  A2AOriginError,
-  A2ARemoteCallError,
+  FileDto,
   WorkflowFinishFileDto,
   WorkflowFinishFilesDto,
-} from "../../../src/a2a/index.js";
-import { WorkflowStartTextDto } from "../../../src/dto/index.js";
+  WorkflowStartTextDto,
+} from "../../../src/dto/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { kilobytes } from "../../../src/units/index.js";
 import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
@@ -77,7 +75,7 @@ describe("#859 AC2: an AGBoss agent, called with a file, answers with one", () =
       fetcher: fetchAs("dana"),
       contract: { input: ReviewRequestDto, output: ReviewResultDto },
     });
-    const document = A2AClientFile.fromBytes(PDF, {
+    const document = FileDto.fromBytes(PDF, {
       mediaType: "application/pdf",
       filename: "c.pdf",
     });
@@ -216,7 +214,7 @@ describe("#859: downloadFile", () => {
       fetcher: serving(agent, TEXT),
       allowedOrigins: [FILES],
     });
-    const file = A2AClientFile.fromUrl(`${FILES}/a.txt`, { mediaType: "text/plain" });
+    const file = FileDto.fromUrl(`${FILES}/a.txt`, { mediaType: "text/plain" });
 
     const bytes = await client.downloadFile(file);
     const small = client.downloadFile(file, { maxSize: kilobytes(0) });
@@ -230,16 +228,16 @@ describe("#859: downloadFile", () => {
     const client = new A2AClient({ url: AGENT_URL, fetcher: serving(agent, TEXT) });
 
     await expect(
-      client.downloadFile(A2AClientFile.fromUrl(`${FILES}/a.txt`, { mediaType: "text/plain" })),
+      client.downloadFile(FileDto.fromUrl(`${FILES}/a.txt`, { mediaType: "text/plain" })),
     ).rejects.toBeInstanceOf(A2AOriginError);
   });
 
   it("inline bytes that do not match their sha256: digest-mismatch", async () => {
     const client = new A2AClient({ url: AGENT_URL, fetcher: completingWith([]).fetcher });
-    const file = Object.assign(A2AClientFile.fromBytes(TEXT, { mediaType: "text/plain" }), {
+    const file = Object.assign(FileDto.fromBytes(TEXT, { mediaType: "text/plain" }), {
       sha256: "0".repeat(64),
     });
 
-    await expect(client.downloadFile(file)).rejects.toBeInstanceOf(A2AFileUnavailableError);
+    await expect(client.downloadFile(file)).rejects.toBeInstanceOf(FileError.Unavailable);
   });
 });

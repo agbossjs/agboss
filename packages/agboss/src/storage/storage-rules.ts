@@ -128,7 +128,7 @@ function conflictViolations(
     const contract = cls === undefined ? undefined : infrastructureContractOf(cls);
     if (cls === undefined || contract === undefined || NOT_STORAGE.has(contract.name)) return [];
     // files: the objects' to name, only when the application declares them
-    if (contract.name === "A2AFileRepository" && storage.objects === undefined) return [];
+    if (contract.name === "FileRepository" && storage.objects === undefined) return [];
     return [
       violation(
         "storage.providers-conflict",

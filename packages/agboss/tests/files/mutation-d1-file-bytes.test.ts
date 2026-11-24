@@ -2,16 +2,13 @@
  * #1269 (mutation shard files-pii): `fileContentOf` — the size bound on any source, what a fetch's
  * failure is read as whatever it throws, a descriptor with no source, and what the content names.
  */
+import { bytes as byteSize } from "../../src/units/index.js";
+import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { describe, expect, it } from "vitest";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import { fileContentOf, sha256Of, type FileReadContext } from "../../src/files/file-bytes.js";
-import {
-  ModelFileRefusal,
-  ModelFileRefusedError,
-  ModelFileUnavailableError,
-  ModelFileUnavailableReason,
-} from "../../src/files/file-errors.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { FileRefusal, FileUnavailableReason } from "../../src/files/file-errors.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, seconds } from "../../src/units/index.js";
@@ -19,7 +16,7 @@ import { kilobytes, seconds } from "../../src/units/index.js";
 const URL_OF = "https://files.example/a.txt";
 
 const contextOn = (parts: Partial<FileReadContext> = {}): FileReadContext => ({
-  store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
+  store: new InMemoryFileRepository(new InMemoryDatabase()),
   tenantId: "acme",
   ownerId: "root-1",
   signal: new AbortController().signal,
@@ -38,7 +35,7 @@ const failureOf = (work: Promise<unknown>): Promise<unknown> =>
   );
 
 const textOf = (size: number): Uint8Array => new Uint8Array(size).fill(0x61);
-const inlineOf = (bytes: Uint8Array, rest: Partial<A2AFileDto> = {}): A2AFileDto => ({
+const inlineOf = (bytes: Uint8Array, rest: Partial<FileDto> = {}): FileDto => ({
   mediaType: "text/plain",
   inline: Buffer.from(bytes).toString("base64"),
   ...rest,
@@ -52,8 +49,8 @@ describe("the size bound holds for every source, at the byte", () => {
     const failure = await failureOf(fileContentOf(inlineOf(textOf(1025)), context));
 
     expect(fits.bytes.byteLength).toBe(1024);
-    expect(failure).toBeInstanceOf(ModelFileRefusedError);
-    expect(failure).toMatchObject({ refusal: ModelFileRefusal.TooLarge });
+    expect(failure).toBeInstanceOf(FileError.Refused);
+    expect(failure).toMatchObject({ refusal: FileRefusal.TooLarge });
   });
 
   it("a stored file over maxFileSize is refused too, before its digest is looked at", async () => {
@@ -65,7 +62,7 @@ describe("the size bound holds for every source, at the byte", () => {
       ownerId: "root-1",
       mediaType: "text/plain",
       sha256: sha256Of(bytes),
-      sizeBytes: bytes.byteLength,
+      sizeBytes: byteSize(bytes.byteLength),
       createdAt: new Date(0),
       bytes,
     });
@@ -77,7 +74,7 @@ describe("the size bound holds for every source, at the byte", () => {
       ),
     );
 
-    expect(failure).toMatchObject({ refusal: ModelFileRefusal.TooLarge });
+    expect(failure).toMatchObject({ refusal: FileRefusal.TooLarge });
   });
 });
 
@@ -104,15 +101,15 @@ describe("a descriptor with no source at all", () => {
       ownerId: "root-1",
       mediaType: "text/plain",
       sha256: sha256Of(bytes),
-      sizeBytes: bytes.byteLength,
+      sizeBytes: byteSize(bytes.byteLength),
       createdAt: new Date(0),
       bytes,
     });
 
     const failure = await failureOf(fileContentOf({ mediaType: "text/plain" }, context));
 
-    expect(failure).toBeInstanceOf(ModelFileRefusedError);
-    expect(failure).toMatchObject({ refusal: ModelFileRefusal.UrlInvalid });
+    expect(failure).toBeInstanceOf(FileError.Refused);
+    expect(failure).toMatchObject({ refusal: FileRefusal.UrlInvalid });
   });
 
   it("a stored descriptor without an id (none is a stored file's) finds nothing", async () => {
@@ -122,7 +119,7 @@ describe("a descriptor with no source at all", () => {
       fileContentOf({ mediaType: "text/plain", fileId: "" }, context),
     );
 
-    expect(failure).toMatchObject({ reason: ModelFileUnavailableReason.NotFound });
+    expect(failure).toMatchObject({ reason: FileUnavailableReason.NotFound });
   });
 });
 
@@ -156,8 +153,8 @@ describe("a fetch that fails some way of its own is unavailable (download-failed
   ])("%s", async (_name, thrown) => {
     const failure = await failureOf(fileContentOf(download, failingWith(thrown)));
 
-    expect(failure).toBeInstanceOf(ModelFileUnavailableError);
-    expect(failure).toMatchObject({ reason: ModelFileUnavailableReason.DownloadFailed });
+    expect(failure).toBeInstanceOf(FileError.Unavailable);
+    expect(failure).toMatchObject({ reason: FileUnavailableReason.DownloadFailed });
     expect(failure).toHaveProperty("cause", thrown);
   });
 
@@ -166,21 +163,21 @@ describe("a fetch that fails some way of its own is unavailable (download-failed
       fileContentOf(download, failingWith({ metadata: { code: ["a2a.file-too-large"] } })),
     );
 
-    expect(failure).toBeInstanceOf(ModelFileUnavailableError);
+    expect(failure).toBeInstanceOf(FileError.Unavailable);
   });
 
   it.each([
-    ["a2a.file-origin-denied", ModelFileRefusal.OriginDenied],
-    ["a2a.file-url-not-allowed", ModelFileRefusal.OriginDenied],
-    ["a2a.file-address-denied", ModelFileRefusal.AddressDenied],
-    ["a2a.file-url-invalid", ModelFileRefusal.UrlInvalid],
-    ["a2a.file-too-large", ModelFileRefusal.TooLarge],
+    ["a2a.file-origin-denied", FileRefusal.OriginDenied],
+    ["a2a.file-url-not-allowed", FileRefusal.OriginDenied],
+    ["a2a.file-address-denied", FileRefusal.AddressDenied],
+    ["a2a.file-url-invalid", FileRefusal.UrlInvalid],
+    ["a2a.file-too-large", FileRefusal.TooLarge],
   ])("the code %s is the refusal %s", async (code, refusal) => {
     const thrown = { metadata: { code } };
 
     const failure = await failureOf(fileContentOf(download, failingWith(thrown)));
 
-    expect(failure).toBeInstanceOf(ModelFileRefusedError);
+    expect(failure).toBeInstanceOf(FileError.Refused);
     expect(failure).toMatchObject({ refusal, cause: thrown });
   });
 });

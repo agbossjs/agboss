@@ -402,7 +402,7 @@ describe("#859: what is checked before the message's id is looked up", () => {
 });
 
 describe("#859: the Agent Card publishes the files a skill takes and gives", () => {
-  test("its input modes list the skill's file media types; #904 item 5 AC5.2: its output modes what A2AFiles.save takes, the application's", async ({
+  test("its input modes list the skill's file media types; #904 item 5 AC5.2: its output modes what Files.save takes, the application's", async ({
     a2aServer,
   }) => {
     const { url } = await a2aServer(listener);

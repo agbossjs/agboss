@@ -2,10 +2,10 @@
 import { describe, expect, it } from "vitest";
 import {
   AddressDto,
-  AttachmentDto,
   ContactInfoDto,
   DateRangeDto,
   DateTimeRangeDto,
+  FileDto,
   type DtoClass,
   MoneyDto,
   NoInputDto,
@@ -42,7 +42,7 @@ const examples: readonly (readonly [DtoClass, object])[] = [
   [MoneyDto, { amount: "19.99", currency: "USD" }],
   [DateRangeDto, { from: "2026-09-01", to: "2026-09-30", timeZone: "Asia/Jerusalem" }],
   [DateTimeRangeDto, { from: "2026-09-01T09:00:00+03:00", to: "2026-09-01T18:00:00+03:00" }],
-  [AttachmentDto, { name: "invoice.pdf", mediaType: "application/pdf", url: "https://x.io/i.pdf" }],
+  [FileDto, { mediaType: "application/pdf", filename: "invoice.pdf", url: "https://x.io/i.pdf" }],
   [AddressDto, { street: "Herzl 1", city: "Haifa", country: "IL" }],
   [PersonNameDto, { given: "Pavel" }],
   [ContactInfoDto, { phone: "+972521234567" }],
@@ -94,11 +94,11 @@ describe("standard DTOs (#118)", () => {
     );
   });
 
-  it("AC5: AttachmentDto needs exactly one of url and content", () => {
-    const file = { name: "a.txt", mediaType: "text/plain" };
-    expect(rejects(AttachmentDto, { ...file, content: "aGk=" })).toBe(false);
-    expect(rejects(AttachmentDto, { ...file, url: "https://x.io/a", content: "aGk=" })).toBe(true);
-    expect(rejects(AttachmentDto, file)).toBe(true);
+  it("AC5: FileDto is exactly one of fileId, inline or url", () => {
+    const file = { mediaType: "text/plain", filename: "a.txt" };
+    expect(rejects(FileDto, { ...file, url: "https://x.io/a" })).toBe(false);
+    expect(rejects(FileDto, { ...file, url: "https://x.io/a", fileId: "f-1" })).toBe(true);
+    expect(rejects(FileDto, file)).toBe(true);
   });
 
   it("AC5: ContactInfoDto needs an email, a phone or both", () => {

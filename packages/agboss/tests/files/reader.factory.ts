@@ -2,6 +2,7 @@
  * #899: a reader application on demand — an agent with the files setting a test gives it, a tool that
  * returns a file, a bundle of input files — so each test says only what it changes.
  */
+import { bytes as byteSize } from "../../src/units/index.js";
 import { createHash } from "node:crypto";
 import {
   Agent,
@@ -11,7 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../src/index.js";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import type { A2AFileOptions } from "../../src/a2a/files/a2a-file-options.js";
 import { Application } from "../../src/application/application.js";
 import type { ExecutionContextClass } from "../../src/flow/context/context-values.js";
@@ -23,18 +24,18 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import type { ModelFiles } from "../../src/files/model-files.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
-import type { A2AFileKey, A2AFileMetadata } from "../../src/infrastructure/a2a-file.repository.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import type { FileKey, FileMetadata } from "../../src/infrastructure/file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 
 /** What a caller sends: a document, more pages, a note. */
 export class BundleDto {
-  @Nested(A2AFileDto, { prompt: "the document" })
-  document!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the document" })
+  document!: FileDto;
 
-  @List(A2AFileDto, { prompt: "more files", optional: true })
-  pages?: A2AFileDto[];
+  @List(FileDto, { prompt: "more files", optional: true })
+  pages?: FileDto[];
 
   @Text({ prompt: "a note", optional: true })
   note?: string;
@@ -46,12 +47,12 @@ export class FetchQueryDto {
 }
 
 export class FetchedDto {
-  @Nested(A2AFileDto, { prompt: "the file" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the file" })
+  file!: FileDto;
 }
 
 /** The files `fetch-tool` hands out, by the name asked. */
-export const FETCHABLE = new Map<string, A2AFileDto>();
+export const FETCHABLE = new Map<string, FileDto>();
 
 @Tool({
   name: "fetch-tool",
@@ -80,7 +81,7 @@ export const sha256Of = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 
 /** An inline descriptor of bytes. */
-export const inline = (bytes: Buffer, mediaType: string, filename: string): A2AFileDto => ({
+export const inline = (bytes: Buffer, mediaType: string, filename: string): FileDto => ({
   mediaType,
   filename,
   inline: bytes.toString("base64"),
@@ -177,8 +178,7 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [ReaderWorkflow],
-    providers:
-      options.providers === undefined ? [InMemoryA2AFileRepository] : [...options.providers],
+    providers: options.providers === undefined ? [InMemoryFileRepository] : [...options.providers],
     ...(options.piiPolicies === undefined ? {} : { piiPolicies: [...options.piiPolicies] }),
     ...(options.a2aFiles === undefined ? {} : { a2aFiles: options.a2aFiles }),
     ...(options.executionContext === undefined
@@ -193,16 +193,16 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
 
 /** A store that serves one stored file to any task and counts how often its bytes are read. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
-export class CountingFileRepository extends InMemoryA2AFileRepository {
+export class CountingFileRepository extends InMemoryFileRepository {
   static reads = 0;
 
-  override findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined> {
+  override findMetadata(key: FileKey): Promise<FileMetadata | undefined> {
     const meta = {
       ...key,
       ownerId: "execution-1",
       mediaType: "application/pdf",
       sha256: sha256Of(PDF_BYTES),
-      sizeBytes: PDF_BYTES.byteLength,
+      sizeBytes: byteSize(PDF_BYTES.byteLength),
       createdAt: new Date(0),
     };
     return Promise.resolve(meta);

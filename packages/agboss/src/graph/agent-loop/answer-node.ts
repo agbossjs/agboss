@@ -12,7 +12,7 @@ import {
   type InvalidToolCallRequest,
   type ToolCallRequest,
 } from "./deps.js";
-import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
+import type { FileDto } from "../../dto/standard/file.js";
 import { modelWrittenFileProblem, seenPicker, type FilePicker } from "../../files/answer-files.js";
 import { AnswerFiles, FileView } from "../../files/model-files.js";
 import { AgentRetryReason, reportAgentRetry } from "./retry-event.js";
@@ -141,7 +141,7 @@ function pickerOf(state: AgentLoopStateType, deps: AgentLoopDeps): FilePicker | 
  */
 function writtenFilesProblem(
   deps: AgentLoopDeps,
-  files: readonly A2AFileDto[],
+  files: readonly FileDto[],
 ): Promise<string | undefined> {
   const { fileRuntime, agent } = deps;
   if (

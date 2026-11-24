@@ -4,13 +4,14 @@
  * reads it; another thread's or tenant's file is never read; a file retention removed is `(removed)`; the
  * source needs a file store.
  */
+import { bytes as byteSize } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import { Nested } from "../../src/dto/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { sha256Of } from "../../src/files/file-bytes.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { Injectable } from "../../src/index.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
@@ -20,10 +21,10 @@ import { PNG_BYTES, readerApplication } from "./reader.factory.js";
 
 /** The store of the application under test, reachable by the test. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
-class KeptFiles extends InMemoryA2AFileRepository {
+class KeptFiles extends InMemoryFileRepository {
   static last: KeptFiles | undefined;
 
-  constructor(...args: ConstructorParameters<typeof InMemoryA2AFileRepository>) {
+  constructor(...args: ConstructorParameters<typeof InMemoryFileRepository>) {
     super(...args);
     KeptFiles.last = this;
   }
@@ -55,7 +56,7 @@ const keep = (owner: string, tenantId = "default", fileId = FILE_ID) =>
     mediaType: "image/png",
     filename: "scan.png",
     sha256: sha256Of(PNG_BYTES),
-    sizeBytes: PNG_BYTES.byteLength,
+    sizeBytes: byteSize(PNG_BYTES.byteLength),
     createdAt: new Date(0),
     bytes: PNG_BYTES,
   });
@@ -118,8 +119,8 @@ describe("AC2: the files of the turns the agent remembers", () => {
 
 describe("AC2: a history file handed back in an answer is a copy this execution owns", () => {
   class MaybeFileDto {
-    @Nested(A2AFileDto, { prompt: "the file", optional: true })
-    file?: A2AFileDto;
+    @Nested(FileDto, { prompt: "the file", optional: true })
+    file?: FileDto;
   }
   const answering = readerApplication({
     files: HISTORY,
@@ -161,7 +162,7 @@ describe("AC2: a history file handed back in an answer is a copy this execution 
 });
 
 describe("[files.history-needs-store]: an earlier turn keeps a descriptor, not bytes", () => {
-  it("without an A2AFileRepository that keeps files the source is a start error", async () => {
+  it("without a FileRepository that keeps files the source is a start error", async () => {
     const inlineOnly = readerApplication({ files: HISTORY, providers: [] });
 
     const failure = await applicationOf(inlineOnly.Application).then(

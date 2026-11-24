@@ -2,13 +2,10 @@
  * #899 AC6: audio and video follow the rules of images — read through the guarded path, checked by their
  * magic bytes, shown to the model as parts, held to the limits and the allowed types before any model call.
  */
+import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { describe, expect, it } from "vitest";
 import { isOfMediaType } from "../../src/a2a/files/a2a-media-check.js";
-import {
-  ModelFileLimitError,
-  ModelFileRefusal,
-  ModelFileRefusedError,
-} from "../../src/files/file-errors.js";
+import { ModelFileLimitError, FileRefusal } from "../../src/files/file-errors.js";
 import { FileView, ModelFileLimit, ModelFiles } from "../../src/files/model-files.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { kilobytes } from "../../src/units/index.js";
@@ -102,8 +99,8 @@ describe("AC6: audio and video reach the model as parts", () => {
 
       const run = execute(app, reader.Start, { document: inline(WAV, "audio/mpeg", "fake.mp3") });
 
-      await expect(run).rejects.toFailWith(ModelFileRefusedError, {
-        refusal: ModelFileRefusal.MediaTypeMismatch,
+      await expect(run).rejects.toFailWith(FileError.Refused, {
+        refusal: FileRefusal.MediaTypeMismatch,
       });
       expect(agent).toHaveBeenCalledTimes(0);
     },

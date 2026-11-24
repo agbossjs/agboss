@@ -16,7 +16,7 @@ import {
   checkedDirectMessageLimit,
   InMemoryA2ADirectMessageRepository,
 } from "../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { directMessageOf } from "../../src/infrastructure/sqlite/sqlite-a2a-direct-message-rows.js";
 import { SqliteA2ADirectMessageRepository } from "../../src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
@@ -143,7 +143,7 @@ async function pagesRead(sizes: readonly number[], kind: "lost" | "old"): Promis
   vi.spyOn(messages, "deleteByCreatedAtBefore").mockImplementation(() =>
     Promise.resolve(kind === "old" ? page() : []),
   );
-  const files = new InMemoryA2AFileRepository(new InMemoryDatabase());
+  const files = new InMemoryFileRepository(new InMemoryDatabase());
   vi.spyOn(files, "deleteByOwner").mockResolvedValue(undefined);
   const expiry = a2aDirectMessageExpiryOf({
     messages,
@@ -159,7 +159,7 @@ describe("#860: the sweep's pages", () => {
   it("is the sweep of the direct A2A messages", () => {
     const expiry = a2aDirectMessageExpiryOf({
       messages: {} as A2ADirectMessageRepository,
-      files: new InMemoryA2AFileRepository(new InMemoryDatabase()),
+      files: new InMemoryFileRepository(new InMemoryDatabase()),
       clock: new VirtualClock(NINE),
       retention: minutes(15),
     });

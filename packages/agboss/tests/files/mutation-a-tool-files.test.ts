@@ -2,7 +2,7 @@ import { usd } from "../../src/units/index.js";
 /** #1269: the files of a tool's result — read, guarded, counted and stored — called with fake deps. */
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import type { BudgetCheck } from "../../src/budgets/budget-check.js";
 import { GuardrailSide } from "../../src/components/policy-decorators.js";
 import { Nested, Text } from "../../src/dto/index.js";
@@ -19,7 +19,7 @@ import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js
 import { taskFilesOf, toolFilesOf, withFiles } from "../../src/files/tool-files.js";
 import { NO_FILES, type FileRuntime } from "../../src/files/visit-files.js";
 import type { RuntimeGuardrail } from "../../src/guardrails/runtime.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import {} from "../../src/pii/actions.js";
 import { PiiKind } from "../../src/pii/kinds.js";
@@ -38,8 +38,8 @@ class ScanQueryDto {
 }
 
 class ScanResultDto {
-  @Nested(A2AFileDto, { prompt: "the scan" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the scan" })
+  file!: FileDto;
 }
 
 const scanTool: AnyTool = {
@@ -93,7 +93,7 @@ function runtimeOf(
       return Promise.resolve({ text: "the scan", usage: usageOf("transcriber") });
     },
     context: () => ({
-      store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
+      store: new InMemoryFileRepository(new InMemoryDatabase()),
       tenantId: "t",
       ownerId: "o",
       signal: new AbortController().signal,

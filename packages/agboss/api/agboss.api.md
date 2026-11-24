@@ -91,72 +91,12 @@ export enum A2ADirectMessageState {
 }
 
 // @public
-export class A2AFileConflictError extends AGBossError {
-    constructor(options: A2AFileConflictErrorOptions);
-    // (undocumented)
-    static readonly code: "a2a.file-conflict";
-    // (undocumented)
-    readonly code: typeof A2AFileConflictError.code;
-    // (undocumented)
-    readonly fileId: string;
-}
-
-// @public
-export interface A2AFileConflictErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly fileId: string;
-}
-
-// @public
-export interface A2AFileKey {
-    // (undocumented)
-    readonly fileId: string;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface A2AFileMetadata extends A2AFileKey {
-    readonly createdAt: Date;
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
-    // (undocumented)
-    readonly ownerId: string;
-    readonly sha256: string;
-    // (undocumented)
-    readonly sizeBytes: number;
-}
-
-// @public
 export interface A2AFileOptions {
     readonly allowedFileOrigins?: readonly string[];
     readonly allowedMediaTypes?: readonly string[];
     readonly maxFiles?: number;
     readonly maxFileSize?: Bytes;
     readonly maxTotalFileSize?: Bytes;
-}
-
-// @public
-export interface A2AFileOwner {
-    // (undocumented)
-    readonly ownerId: string;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public (undocumented)
-export abstract class A2AFileRepository {
-    abstract deleteByOwner(owner: A2AFileOwner): Promise<void>;
-    abstract findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
-    abstract findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
-    abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
-    abstract ping(): Promise<void>;
-    abstract save(file: NewA2AFile): Promise<void>;
-    static readonly store: StoreDescriptor;
 }
 
 // @public
@@ -4094,13 +4034,16 @@ export type FileError = FileError.Conflict | FileError.Refused | FileError.Unava
 
 // @public
 export namespace FileError {
-    export type Conflict = ErrorVariant<FileErrorKind.Conflict, "files.conflict">;
+    export type Conflict = ErrorVariant<FileErrorKind.Conflict, "files.conflict"> & {
+        readonly fileId: string;
+    };
     export type Refused = ErrorVariant<FileErrorKind.Refused, "files.refused"> & {
-        readonly refusal: ModelFileRefusal;
-        readonly sizeBytes: Bytes;
+        readonly refusal: FileRefusal;
+        readonly mediaType?: string;
+        readonly sizeBytes?: Bytes;
     };
     export type Unavailable = ErrorVariant<FileErrorKind.Unavailable, "files.unavailable"> & {
-        readonly reason: ModelFileUnavailableReason;
+        readonly reason: FileUnavailableReason;
     };
 }
 
@@ -4119,6 +4062,36 @@ export enum FileErrorKind {
     Refused = "refused",
     // (undocumented)
     Unavailable = "unavailable"
+}
+
+// @public
+export interface FileKey {
+    // (undocumented)
+    readonly fileId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface FileMetadata extends FileKey {
+    readonly createdAt: Date;
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+    // (undocumented)
+    readonly ownerId: string;
+    readonly sha256: string;
+    // (undocumented)
+    readonly sizeBytes: Bytes;
+}
+
+// @public
+export interface FileOwner {
+    // (undocumented)
+    readonly ownerId: string;
+    // (undocumented)
+    readonly tenantId: string;
 }
 
 // @public
@@ -4154,7 +4127,45 @@ export abstract class FileRedactor {
 }
 
 // @public
+export interface FileReference {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
+export enum FileRefusal {
+    AddressDenied = "address-denied",
+    MediaType = "media-type",
+    MediaTypeMismatch = "media-type-mismatch",
+    OriginDenied = "origin-denied",
+    OutsideExecution = "outside-execution",
+    TooLarge = "too-large",
+    UrlInvalid = "url-invalid"
+}
+
+// @public (undocumented)
+export abstract class FileRepository {
+    abstract deleteByOwner(owner: FileOwner): Promise<void>;
+    abstract findBytes(key: FileKey): Promise<Uint8Array | undefined>;
+    abstract findMetadata(key: FileKey): Promise<FileMetadata | undefined>;
+    abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: FileOwner): Promise<readonly FileOwner[]>;
+    abstract ping(): Promise<void>;
+    abstract save(file: NewFile): Promise<void>;
+    static readonly store: StoreDescriptor;
+}
+
+// @public
 export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds";
+
+// @public
+export class Files {
+    constructor(store: FileRepository, clock: Clock);
+    fromUrl(url: string, reference: FileReference): FileDto;
+    read(file: FileDto): Promise<Uint8Array>;
+    save(content: FileToSave): Promise<FileDto>;
+}
 
 // @public
 export enum FileSource {
@@ -4164,9 +4175,29 @@ export enum FileSource {
 }
 
 // @public
+export interface FileToSave {
+    // (undocumented)
+    readonly bytes: Uint8Array;
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
 export abstract class FileTranscriber {
     // (undocumented)
     abstract transcribe(file: FileContent, options: TranscribeOptions): Promise<TranscriptionResult>;
+}
+
+// @public
+export enum FileUnavailableReason {
+    ByReference = "by-reference",
+    DigestMismatch = "digest-mismatch",
+    DownloadFailed = "download-failed",
+    NotFound = "not-found",
+    OutsideExecution = "outside-execution",
+    TooLarge = "too-large"
 }
 
 // @public
@@ -6091,34 +6122,6 @@ export interface ModelFileLimitErrorOptions {
 }
 
 // @public
-export enum ModelFileRefusal {
-    AddressDenied = "address-denied",
-    MediaTypeMismatch = "media-type-mismatch",
-    OriginDenied = "origin-denied",
-    TooLarge = "too-large",
-    UrlInvalid = "url-invalid"
-}
-
-// @public
-export class ModelFileRefusedError extends AGBossError {
-    constructor(options: ModelFileRefusedErrorOptions);
-    // (undocumented)
-    static readonly code: "model.file-refused";
-    // (undocumented)
-    readonly code: typeof ModelFileRefusedError.code;
-    // (undocumented)
-    readonly refusal: ModelFileRefusal;
-}
-
-// @public (undocumented)
-export interface ModelFileRefusedErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly refusal: ModelFileRefusal;
-}
-
-// @public
 export class ModelFiles {
     static of(options?: ModelFilesOptions): ModelFiles;
     // (undocumented)
@@ -6140,33 +6143,6 @@ export interface ModelFilesOptions {
 // @public
 export class ModelFileTranscriber extends FileTranscriber {
     transcribe(): Promise<TranscriptionResult>;
-}
-
-// @public
-export class ModelFileUnavailableError extends AGBossError {
-    constructor(options: ModelFileUnavailableErrorOptions);
-    // (undocumented)
-    static readonly code: "model.file-unavailable";
-    // (undocumented)
-    readonly code: typeof ModelFileUnavailableError.code;
-    // (undocumented)
-    readonly reason: ModelFileUnavailableReason;
-}
-
-// @public (undocumented)
-export interface ModelFileUnavailableErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly reason: ModelFileUnavailableReason;
-}
-
-// @public
-export enum ModelFileUnavailableReason {
-    DigestMismatch = "digest-mismatch",
-    DownloadFailed = "download-failed",
-    NotFound = "not-found",
-    OutsideExecution = "outside-execution"
 }
 
 // @public
@@ -6314,17 +6290,17 @@ export function nameOf<TComponent extends Class>(component: TComponent): Compone
 export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
 
 // @public
-export interface NewA2AFile extends A2AFileMetadata {
-    // (undocumented)
-    readonly bytes: Uint8Array;
-}
-
-// @public
 export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> {
     // (undocumented)
     readonly messageId: string;
     // (undocumented)
     readonly requestHash: string;
+}
+
+// @public
+export interface NewFile extends FileMetadata {
+    // (undocumented)
+    readonly bytes: Uint8Array;
 }
 
 // @public (undocumented)
@@ -11107,6 +11083,11 @@ interface WrongKind<TName extends string, TLabel extends string> {
 
 // Warnings were encountered during analysis:
 //
+// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "bytes".
+// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "filename".
+// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "filename".
 // src/app/create-app.ts - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "cause".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
@@ -11831,18 +11812,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/files/file-bytes.ts - (ae-undocumented) Missing documentation for "filename".
 // src/files/file-bytes.ts - (ae-undocumented) Missing documentation for "bytes".
 // src/files/file-bytes.ts - (ae-undocumented) Missing documentation for "sha256".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "ModelFileUnavailableErrorOptions".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "reason".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "reason".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "ModelFileRefusedErrorOptions".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "refusal".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "refusal".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "agent".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "limit".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "cause".
@@ -12389,21 +12358,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "A2ADirectMessageSave".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "filename".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "sizeBytes".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "bytes".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "A2AFileRepository".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Submitted".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Working".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "InputRequired".
@@ -12562,6 +12516,16 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "filename".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "bytes".
+// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "FileRepository".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".

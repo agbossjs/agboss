@@ -52,7 +52,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "List",
     "Nested",
     "Url",
-    "AttachmentDto",
+    "FileDto",
     "WorkflowStartTextDto",
     "PlainTextDto",
     "DtoValidationError",

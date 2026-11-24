@@ -3,7 +3,7 @@ import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { appFileSlotsOf } from "../../src/a2a/files/a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "../../src/a2a/files/a2a-file-slots.js";
-import { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
+import { FileRepository } from "../../src/infrastructure/file.repository.js";
 import { DEFAULT_FILE_FETCH_TIMEOUT } from "../../src/a2a/files/a2a-file-options.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { fileRuntimeOf } from "../../src/files/file-runtime.js";
@@ -51,7 +51,7 @@ function depsOf(
   const store = {};
   return {
     container: {
-      get: (token: Token) => (token === A2AFileRepository ? store : instances.get(token)),
+      get: (token: Token) => (token === FileRepository ? store : instances.get(token)),
     },
     registry: {
       fileTranscribers: extra.transcribers ?? new Map(),
@@ -139,7 +139,7 @@ describe("#1269: the read context", () => {
   it("a download takes the application's fetch slots, under its tenant's and its thread owner's keys (#1312)", async () => {
     const deps = depsOf(new Map());
     const store = (deps as { container: { get: (token: Token) => object } }).container.get(
-      A2AFileRepository,
+      FileRepository,
     );
     const context = await inFrame(() => Promise.resolve(runtimeOf(deps).context()));
     const { execution } = testFrame();

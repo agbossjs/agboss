@@ -15,7 +15,7 @@ import {
   INFRASTRUCTURE_DEFAULTS,
   boundedContractOf,
 } from "../../src/infrastructure/contracts.js";
-import { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
+import { FileRepository } from "../../src/infrastructure/file.repository.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryFencedEffectRepository } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { StoreCallTimeoutError } from "../../src/infrastructure/store-call-timeout.js";
@@ -77,7 +77,7 @@ describe("#928 AC1 guard: every method of every bounded contract is bounded", ()
           Promise.resolve("pending"),
         ]);
         expect(await settled).toBe("pending");
-        const isLong = MAINTENANCE_METHODS.test(name) || contract === A2AFileRepository;
+        const isLong = MAINTENANCE_METHODS.test(name) || contract === FileRepository;
         const bound = isLong
           ? LONG_CALL_BOUND
           : name === "renew" && contract === ExecutionLeaseRepository

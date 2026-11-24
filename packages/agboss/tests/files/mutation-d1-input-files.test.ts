@@ -3,7 +3,7 @@
  * DTO and `inputFilesOf` for a node's fields: single fields, lists, `listOf(oneOf(…))`, pass-through.
  */
 import { describe, expect, it } from "vitest";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import { List, Nested, Text } from "../../src/dto/index.js";
 import type { ResolvedField } from "../../src/flow/analyse/fields.js";
 import { slotOfField } from "../../src/flow/analyse/scope.js";
@@ -13,30 +13,30 @@ import type { ScopeRecords, ScopeValueRecord } from "../../src/flow/runtime/reco
 import { filesOfValue, inputFilesOf } from "../../src/files/input-files.js";
 
 class ParcelDto {
-  @Nested(A2AFileDto, { prompt: "the cover" })
-  cover!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the cover" })
+  cover!: FileDto;
 
-  @List(A2AFileDto, { prompt: "pages", optional: true })
-  pages?: A2AFileDto[];
+  @List(FileDto, { prompt: "pages", optional: true })
+  pages?: FileDto[];
 
   @Text({ prompt: "a note", optional: true })
   note?: string;
 }
 
-class SpecialFileDto extends A2AFileDto {}
+class SpecialFileDto extends FileDto {}
 
 class LetterDto {
-  @Nested(A2AFileDto, { prompt: "the scan" })
-  scan!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the scan" })
+  scan!: FileDto;
 }
 
-const file = (id: string): A2AFileDto => ({ mediaType: "image/png", fileId: id });
+const file = (id: string): FileDto => ({ mediaType: "image/png", fileId: id });
 const [a, b, c, d] = [file("a"), file("b"), file("c"), file("d")];
 
 describe("filesOfValue: one value of a DTO", () => {
   it("a value of the file DTO is its own descriptor, shown under the field", () => {
-    expect(filesOfValue(A2AFileDto, a, "doc")).toEqual([{ descriptor: a, field: "doc" }]);
-    expect(filesOfValue(A2AFileDto, { nope: 1 }, "doc")).toEqual([]);
+    expect(filesOfValue(FileDto, a, "doc")).toEqual([{ descriptor: a, field: "doc" }]);
+    expect(filesOfValue(FileDto, { nope: 1 }, "doc")).toEqual([]);
   });
 
   it("a value of a DTO that extends the file DTO is one too", () => {
@@ -92,7 +92,7 @@ const scopeOf = (...records: ScopeValueRecord[]): ScopeRecords =>
 
 describe("inputFilesOf: single fields", () => {
   it("a field holding a file is a source, its producer the value's producer", () => {
-    const field = fieldOf("doc", A2AFileDto);
+    const field = fieldOf("doc", FileDto);
 
     expect(inputFilesOf([field], scopeOf(recordOf(field, a)))).toEqual([
       { descriptor: a, field: "doc", producer: "maker" },
@@ -101,7 +101,7 @@ describe("inputFilesOf: single fields", () => {
 
   it("a DTO field's files are sources in declaration order across fields", () => {
     const parcel = fieldOf("parcel", ParcelDto);
-    const doc = fieldOf("doc", A2AFileDto);
+    const doc = fieldOf("doc", FileDto);
 
     const found = inputFilesOf(
       [parcel, doc],
@@ -119,7 +119,7 @@ describe("inputFilesOf: single fields", () => {
   });
 
   it("a field the scope has no value for, and a pass-through field, give no files", () => {
-    const missing = fieldOf("missing", A2AFileDto);
+    const missing = fieldOf("missing", FileDto);
     const passed = fieldOf("passed", LetterDto, true);
     const held = fieldOf("held", LetterDto);
 
@@ -132,13 +132,13 @@ describe("inputFilesOf: single fields", () => {
   });
 
   it("a pass-through field whose value is a file is not read either", () => {
-    const passed = fieldOf("passed", A2AFileDto, true);
+    const passed = fieldOf("passed", FileDto, true);
 
     expect(inputFilesOf([passed], scopeOf(recordOf(passed, a)))).toEqual([]);
   });
 
   it("an optional field is read through its wrapper", () => {
-    const field = fieldOf("doc", optional(A2AFileDto));
+    const field = fieldOf("doc", optional(FileDto));
 
     expect(field.isRequired).toBe(false);
     expect(inputFilesOf([field], scopeOf(recordOf(field, a)))).toEqual([
@@ -149,7 +149,7 @@ describe("inputFilesOf: single fields", () => {
 
 describe("inputFilesOf: lists", () => {
   it("a list of files gives each element, its own producer when a join gathered several", () => {
-    const field = fieldOf("pages", listOf(A2AFileDto));
+    const field = fieldOf("pages", listOf(FileDto));
     const record = recordOf(field, [a, b, c], { elementProducers: ["x", "y"] });
 
     expect(inputFilesOf([field], scopeOf(record))).toEqual([
@@ -160,8 +160,8 @@ describe("inputFilesOf: lists", () => {
   });
 
   it("a plain list's element that looks like a variant is the value itself, not unwrapped", () => {
-    const field = fieldOf("pages", listOf(A2AFileDto));
-    const looksLikeVariant = { variant: "A2AFileDto", value: a };
+    const field = fieldOf("pages", listOf(FileDto));
+    const looksLikeVariant = { variant: "FileDto", value: a };
 
     expect(inputFilesOf([field], scopeOf(recordOf(field, [looksLikeVariant, d])))).toEqual([
       { descriptor: d, field: "pages", producer: "maker" },
@@ -179,7 +179,7 @@ describe("inputFilesOf: lists", () => {
 });
 
 describe("inputFilesOf: listOf(oneOf(…))", () => {
-  const field = fieldOf("mixed", listOf(oneOf(A2AFileDto, LetterDto)));
+  const field = fieldOf("mixed", listOf(oneOf(FileDto, LetterDto)));
 
   it("its slot is the polymorphic list's", () => {
     expect(field.slot.startsWith("list:oneOf(")).toBe(true);
@@ -189,7 +189,7 @@ describe("inputFilesOf: listOf(oneOf(…))", () => {
     const record = recordOf(
       field,
       [
-        { variant: "A2AFileDto", value: a },
+        { variant: "FileDto", value: a },
         { variant: "LetterDto", value: { scan: b } },
       ],
       { elementProducers: ["p1", "p2"] },
@@ -208,16 +208,16 @@ describe("inputFilesOf: listOf(oneOf(…))", () => {
       null,
       "text",
       { variant: 5, value: a },
-      { variant: "A2AFileDto" },
+      { variant: "FileDto" },
       { value: a },
-      { variant: "A2AFileDto", value: c },
+      { variant: "FileDto", value: c },
     ]);
 
     expect(inputFilesOf([field], scopeOf(record)).map((one) => one.descriptor)).toEqual([c]);
   });
 
   it("a variant element needs its value: the key counts, not its content", () => {
-    const record = recordOf(field, [{ variant: "A2AFileDto", value: undefined }]);
+    const record = recordOf(field, [{ variant: "FileDto", value: undefined }]);
 
     expect(inputFilesOf([field], scopeOf(record))).toEqual([]);
   });

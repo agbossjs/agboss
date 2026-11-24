@@ -3,7 +3,7 @@
  * minute (a file uploaded as its task is being created has no task yet): the earlier of the two.
  */
 import { describe, expect, it } from "vitest";
-import { a2aFileExpiryOf } from "../../../src/infrastructure/a2a-file.repository.js";
+import { fileExpiryOf } from "../../../src/infrastructure/file.repository.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { hours, minutes, seconds } from "../../../src/units/index.js";
 
@@ -27,7 +27,7 @@ function sweepWith(clock: VirtualClock) {
     },
     tasks: { findById: () => Promise.resolve(undefined) },
   };
-  return { expiry: a2aFileExpiryOf(sources as never), asked, removed };
+  return { expiry: fileExpiryOf(sources as never), asked, removed };
 }
 
 describe("#1366: which A2A files the sweep looks at", () => {

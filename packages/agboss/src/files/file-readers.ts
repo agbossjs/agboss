@@ -1,4 +1,4 @@
-import { hasFileAtAnyDepth } from "../a2a/files/a2a-file.dto.js";
+import { hasFileAtAnyDepth } from "../dto/standard/file.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { classesOf } from "../flow/runtime/answer-tools.js";

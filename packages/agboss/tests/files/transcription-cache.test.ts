@@ -8,7 +8,7 @@ import { fileMaskOf } from "../../src/files/file-mask.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NO_FILES, filePiecesOf, type FileRuntime } from "../../src/files/visit-files.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { PiiAction, type AnyPiiAction } from "../../src/pii/actions.js";
@@ -39,7 +39,7 @@ const runtime: FileRuntime = {
     return Promise.resolve({ text: "card 4242 4242 4242 4242" });
   },
   context: () => ({
-    store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
+    store: new InMemoryFileRepository(new InMemoryDatabase()),
     tenantId: "t",
     ownerId: "o",
     signal: new AbortController().signal,

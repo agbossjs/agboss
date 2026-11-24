@@ -12,10 +12,7 @@ import { workflowDeclarationOf } from "../components/module.js";
 import type { Provider } from "../components/injection.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { AssembledPii } from "../pii/assembly.js";
-import {
-  A2AFileRepository,
-  InlineA2AFileRepository,
-} from "../infrastructure/a2a-file.repository.js";
+import { FileRepository, InlineFileRepository } from "../infrastructure/file.repository.js";
 import { FileRedactor, ModelImageRedactor } from "./file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "./file-transcriber.js";
 import { mergedFileDefaults, resolvedFilesOf, type ResolvedModelFiles } from "./file-settings.js";
@@ -53,14 +50,14 @@ export const ownFileTranscriberOf = (
       provider !== ModelFileTranscriber,
   );
 
-/** Whether the application lists an `A2AFileRepository` that keeps the files' bytes, not the inline default (#899 §7). */
+/** Whether the application lists an `FileRepository` that keeps the files' bytes, not the inline default (#899 §7). */
 export const hasFileStore = (providers: readonly Provider[] | undefined): boolean =>
   providers?.some(
     (provider) =>
       typeof provider === "function" &&
-      provider.prototype instanceof A2AFileRepository &&
-      provider !== InlineA2AFileRepository &&
-      !(provider.prototype instanceof InlineA2AFileRepository),
+      provider.prototype instanceof FileRepository &&
+      provider !== InlineFileRepository &&
+      !(provider.prototype instanceof InlineFileRepository),
   ) === true;
 
 /** The application's own `FileRedactor` (#899), not the built-in: the listed class, when there is one. */

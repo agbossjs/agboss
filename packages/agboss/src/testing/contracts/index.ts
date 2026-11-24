@@ -36,7 +36,7 @@ export {
 export { executionTreeContract } from "./execution-tree.contract.js";
 export { meshRequestContract } from "./mesh-request.contract.js";
 export { a2aTaskContract } from "./a2a-task.contract.js";
-export { a2aFileContract } from "./a2a-file.contract.js";
+export { fileContract } from "./file.contract.js";
 export {
   a2aDirectMessageContract,
   type A2ADirectMessageStores,
