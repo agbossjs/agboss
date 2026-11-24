@@ -165,9 +165,20 @@ export class HoldPoints {
     disarm(armId: string): void;
     get held(): readonly HeldOperation[];
     onHeld(listener: (operation: HeldOperation) => void): () => void;
-    reach(point: string, phase: HoldPhase, key: string | undefined, signal?: AbortSignal): Promise<void>;
+    reach(input: HoldReach): Promise<void>;
     release(holdId: string): boolean;
     releaseAll(): void;
+}
+
+// @public
+export interface HoldReach {
+    readonly key?: string | undefined;
+    // (undocumented)
+    readonly phase: HoldPhase;
+    // (undocumented)
+    readonly point: string;
+    // (undocumented)
+    readonly signal?: AbortSignal | undefined;
 }
 
 // @public
@@ -306,6 +317,9 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "point".
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "phase".
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "key".
+// src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "point".
+// src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "phase".
+// src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "signal".
 // src/testing/faults/invariants/violations.ts - (ae-undocumented) Missing documentation for "invariant".
 // src/testing/faults/invariants/violations.ts - (ae-undocumented) Missing documentation for "message".
 // src/testing/faults/invariants/violations.ts - (ae-undocumented) Missing documentation for "scenario".

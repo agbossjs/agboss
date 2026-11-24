@@ -74,7 +74,12 @@ export class FaultPodLink {
   ): Promise<void> {
     this.emit("step", { ...fields, point });
     try {
-      await processHoldPoints.reach(stepPointOf(point), HoldPhase.Before, fields.orderId, signal);
+      await processHoldPoints.reach({
+        point: stepPointOf(point),
+        phase: HoldPhase.Before,
+        key: fields.orderId,
+        signal,
+      });
     } catch (error) {
       // held, then stopped: its lease was lost or its instance stops — it hands over
       this.emit("step-stopped", { ...fields, point, reason: String(error) });

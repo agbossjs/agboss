@@ -23,6 +23,7 @@ export {
   processHoldPoints,
   StoreAnswerLostError,
   type HeldOperation,
+  type HoldReach,
   type HoldRequest,
 } from "./hold-points.js";
 export { reportHeldOperations, withHoldPoints, type HeldOperationsReport } from "./held-stores.js";

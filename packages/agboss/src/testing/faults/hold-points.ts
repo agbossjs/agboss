@@ -160,12 +160,7 @@ export class HoldPoints {
    * An operation at `point`: resolves at once unless an armed hold matches, else once released.
    * `signal` (a step's) ends the wait with its reason, as the step it belongs to stops.
    */
-  reach(
-    point: string,
-    phase: HoldPhase,
-    key: string | undefined,
-    signal?: AbortSignal,
-  ): Promise<void> {
+  reach({ point, phase, key, signal }: HoldReach): Promise<void> {
     const armed = this.#armed.find((candidate) => matches(candidate, point, phase, key));
     if (armed === undefined) return Promise.resolve();
     if (signal?.aborted === true) return Promise.reject(reasonOf(signal));
@@ -202,6 +197,15 @@ export class HoldPoints {
         }
     });
   }
+}
+
+/** Where an operation is, as `HoldPoints.reach({ point, phase, key?, signal? })` takes it (#1328). */
+export interface HoldReach {
+  readonly point: string;
+  readonly phase: HoldPhase;
+  /** The operation's key (an execution id, a pause id); a hold armed for a key matches only it. */
+  readonly key?: string | undefined;
+  readonly signal?: AbortSignal | undefined;
 }
 
 /** The hold points of this process: what the fault pods and `withHoldPoints` use by default. */

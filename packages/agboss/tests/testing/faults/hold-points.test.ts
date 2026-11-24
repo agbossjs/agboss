@@ -26,7 +26,11 @@ const settled = async (promise: Promise<unknown>): Promise<boolean> => {
 describe("#484 AC5: hold points — an armed point holds the next matching operation until released", () => {
   it("an unarmed point lets every operation through at once", async () => {
     const points = new HoldPoints();
-    expect(await settled(points.reach("lease.acquire", HoldPhase.Before, "root-1"))).toBe(true);
+    expect(
+      await settled(
+        points.reach({ point: "lease.acquire", phase: HoldPhase.Before, key: "root-1" }),
+      ),
+    ).toBe(true);
   });
 
   it("a hold holds the next arrival with its key and phase, announces it, and lets it go on release", async () => {
@@ -35,10 +39,20 @@ describe("#484 AC5: hold points — an armed point holds the next matching opera
     points.onHeld((operation) => heard.push(operation));
     const armId = points.arm({ point: "lease.acquire", key: "root-1" });
     // another key, another phase, another point: through
-    expect(await settled(points.reach("lease.acquire", HoldPhase.Before, "root-2"))).toBe(true);
-    expect(await settled(points.reach("lease.acquire", HoldPhase.After, "root-1"))).toBe(true);
-    expect(await settled(points.reach("lease.renew", HoldPhase.Before, "root-1"))).toBe(true);
-    const held = points.reach("lease.acquire", HoldPhase.Before, "root-1");
+    expect(
+      await settled(
+        points.reach({ point: "lease.acquire", phase: HoldPhase.Before, key: "root-2" }),
+      ),
+    ).toBe(true);
+    expect(
+      await settled(
+        points.reach({ point: "lease.acquire", phase: HoldPhase.After, key: "root-1" }),
+      ),
+    ).toBe(true);
+    expect(
+      await settled(points.reach({ point: "lease.renew", phase: HoldPhase.Before, key: "root-1" })),
+    ).toBe(true);
+    const held = points.reach({ point: "lease.acquire", phase: HoldPhase.Before, key: "root-1" });
     expect(await settled(held)).toBe(false);
     expect(heard).toEqual([
       { holdId: "hold-2", armId, point: "lease.acquire", phase: HoldPhase.Before, key: "root-1" },
@@ -48,15 +62,27 @@ describe("#484 AC5: hold points — an armed point holds the next matching opera
     expect(await settled(held)).toBe(true);
     expect(points.release("hold-2")).toBe(false);
     // used up: the next arrival goes through
-    expect(await settled(points.reach("lease.acquire", HoldPhase.Before, "root-1"))).toBe(true);
+    expect(
+      await settled(
+        points.reach({ point: "lease.acquire", phase: HoldPhase.Before, key: "root-1" }),
+      ),
+    ).toBe(true);
   });
 
   it("a hold without a key holds any key, `times` arrivals, each its own hold", async () => {
     const points = new HoldPoints();
     points.arm({ point: "fencedEffect.write", phase: HoldPhase.After, times: 2 });
-    const first = points.reach("fencedEffect.write", HoldPhase.After, "a");
-    const second = points.reach("fencedEffect.write", HoldPhase.After, undefined);
-    expect(await settled(points.reach("fencedEffect.write", HoldPhase.After, "c"))).toBe(true);
+    const first = points.reach({ point: "fencedEffect.write", phase: HoldPhase.After, key: "a" });
+    const second = points.reach({
+      point: "fencedEffect.write",
+      phase: HoldPhase.After,
+      key: undefined,
+    });
+    expect(
+      await settled(
+        points.reach({ point: "fencedEffect.write", phase: HoldPhase.After, key: "c" }),
+      ),
+    ).toBe(true);
     expect(points.held.map((operation) => operation.key)).toEqual(["a", undefined]);
     points.releaseAll();
     expect(await settled(first)).toBe(true);
@@ -66,10 +92,12 @@ describe("#484 AC5: hold points — an armed point holds the next matching opera
   it("a disarmed hold holds nothing more, and keeps what it holds", async () => {
     const points = new HoldPoints();
     const armId = points.arm({ point: "p", times: 3 });
-    const held = points.reach("p", HoldPhase.Before, undefined);
+    const held = points.reach({ point: "p", phase: HoldPhase.Before, key: undefined });
     points.disarm(armId);
     points.disarm("arm-none");
-    expect(await settled(points.reach("p", HoldPhase.Before, undefined))).toBe(true);
+    expect(
+      await settled(points.reach({ point: "p", phase: HoldPhase.Before, key: undefined })),
+    ).toBe(true);
     expect(await settled(held)).toBe(false);
     points.releaseAll();
     expect(await settled(held)).toBe(true);
@@ -79,14 +107,24 @@ describe("#484 AC5: hold points — an armed point holds the next matching opera
     const points = new HoldPoints();
     points.arm({ point: "step.charge.before", times: 2 });
     const step = new AbortController();
-    const held = points.reach("step.charge.before", HoldPhase.Before, "o-1", step.signal);
+    const held = points.reach({
+      point: "step.charge.before",
+      phase: HoldPhase.Before,
+      key: "o-1",
+      signal: step.signal,
+    });
     step.abort(new Error("lease lost"));
     await expect(held).rejects.toThrow("lease lost");
     expect(points.held).toEqual([]);
     const aborted = new AbortController();
     aborted.abort("stopping");
     await expect(
-      points.reach("step.charge.before", HoldPhase.Before, "o-1", aborted.signal),
+      points.reach({
+        point: "step.charge.before",
+        phase: HoldPhase.Before,
+        key: "o-1",
+        signal: aborted.signal,
+      }),
     ).rejects.toThrow("the step stopped");
   });
 
@@ -97,7 +135,7 @@ describe("#484 AC5: hold points — an armed point holds the next matching opera
     const stop = points.onHeld((operation) => heard.push(operation.holdId));
     stop();
     points.arm({ point: "p" });
-    void points.reach("p", HoldPhase.Before, undefined);
+    void points.reach({ point: "p", phase: HoldPhase.Before, key: undefined });
     expect(heard).toEqual([]);
     points.releaseAll();
   });
@@ -111,18 +149,20 @@ describe("#720: a lost answer — the operation took effect, its caller hears an
     points.arm({ point: "childQueue.claim", phase: HoldPhase.After, times: 2, loseAnswer: true });
     // an answer with no key (a claim of nothing) and another phase: through
     await expect(
-      points.reach("childQueue.claim", HoldPhase.After, undefined),
+      points.reach({ point: "childQueue.claim", phase: HoldPhase.After, key: undefined }),
     ).resolves.toBeUndefined();
     await expect(
-      points.reach("childQueue.claim", HoldPhase.Before, "c-1"),
+      points.reach({ point: "childQueue.claim", phase: HoldPhase.Before, key: "c-1" }),
     ).resolves.toBeUndefined();
-    await expect(points.reach("childQueue.claim", HoldPhase.After, "c-1")).rejects.toThrow(
-      StoreAnswerLostError,
-    );
-    await expect(points.reach("childQueue.claim", HoldPhase.After, "c-2")).rejects.toThrow(
-      "the answer of childQueue.claim was lost",
-    );
-    await expect(points.reach("childQueue.claim", HoldPhase.After, "c-3")).resolves.toBeUndefined();
+    await expect(
+      points.reach({ point: "childQueue.claim", phase: HoldPhase.After, key: "c-1" }),
+    ).rejects.toThrow(StoreAnswerLostError);
+    await expect(
+      points.reach({ point: "childQueue.claim", phase: HoldPhase.After, key: "c-2" }),
+    ).rejects.toThrow("the answer of childQueue.claim was lost");
+    await expect(
+      points.reach({ point: "childQueue.claim", phase: HoldPhase.After, key: "c-3" }),
+    ).resolves.toBeUndefined();
     expect(heard).toEqual([]);
     expect(points.held).toEqual([]);
   });
@@ -135,7 +175,7 @@ describe("#720: a lost answer — the operation took effect, its caller hears an
     });
 
     const error: unknown = await points
-      .reach("fencedEffect.write", HoldPhase.After, "k-1")
+      .reach({ point: "fencedEffect.write", phase: HoldPhase.After, key: "k-1" })
       .catch((thrown: unknown) => thrown);
 
     expect(error).toBeInstanceOf(StoreOutcomeUnknownError);
