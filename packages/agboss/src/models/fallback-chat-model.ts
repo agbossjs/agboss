@@ -10,6 +10,7 @@ import { ChatGenerationChunk, type ChatResult } from "@langchain/core/outputs";
 import type { Runnable } from "@langchain/core/runnables";
 import { ModelCallError, type CircuitBreaker } from "./circuit-breaker.js";
 import type { ModelCost } from "./cost.js";
+import { isFailoverError } from "./failover-error.js";
 import { markedFallbackMessage } from "./fallback.js";
 import {
   partialSpendOf,
@@ -37,41 +38,6 @@ export interface FallbackChatModelParts {
   readonly breaker?: CircuitBreaker;
   /** The chain after the primary, in order: the first that answers serves the call. */
   readonly hops: readonly FallbackTarget[];
-}
-
-/** Statuses of a provider that cannot serve: its key, its model or endpoint, its quota, its load. */
-const FAILING_STATUSES: readonly number[] = [401, 402, 403, 404, 408, 429];
-const HTTP_SERVER_ERROR = 500;
-const MAX_CAUSES = 5;
-
-/** The HTTP status an error (or one of its causes) carries, when it carries one. */
-function statusOf(error: unknown): number | undefined {
-  for (let cause = error, depth = 0; cause instanceof Error && depth < MAX_CAUSES; depth++) {
-    const status: unknown = Reflect.get(cause, "status");
-    if (typeof status === "number") return status;
-    cause = cause.cause;
-  }
-  return undefined;
-}
-
-/**
- * Whether a failed call is the provider's to answer for — and so goes to the fallback: its breaker
- * open, or the call failed after its retries (a timeout, a 429, a 5xx, a broken connection, a refused
- * key, an unknown model). Never the caller's own cancel, an input the model cannot take, or a request
- * the provider refused as wrong (a 400, a 422): it would fail the same way at the fallback.
- */
-export function isFailoverError(error: unknown, caller: AbortSignal | undefined): boolean {
-  if (caller?.aborted === true) return false;
-  for (
-    let cause: unknown = error, depth = 0;
-    cause instanceof Error && depth < MAX_CAUSES;
-    depth++
-  ) {
-    if (cause instanceof ModelCallError) return cause.code === "model.circuit-open";
-    cause = cause.cause;
-  }
-  const status = statusOf(error);
-  return status === undefined || FAILING_STATUSES.includes(status) || status >= HTTP_SERVER_ERROR;
 }
 
 /** Whether a call failed because the breaker opened (the error, or one of its causes). */

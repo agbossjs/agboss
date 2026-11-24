@@ -37,7 +37,7 @@ export type Attempt<TAnswer> =
       readonly settledAtEnd?: true;
       /**
        * An answer with a client-error status that is no retried failure: `provider` — the provider
-       * itself is at fault (its key, its endpoint or model, its quota: a 401, 402, 403, 404) — counts
+       * itself is at fault (its credential or quota: a 401, 402, or a 403, 404 whose body names the provider) — counts
        * as a failure of the breaker, `request` — the request was wrong (a 400, a 422) — tells it
        * nothing. Neither is a success: a breaker never closes on an error answer.
        */

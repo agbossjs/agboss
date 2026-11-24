@@ -73,6 +73,24 @@ describe("AC6: the circuit breaker", () => {
     expect(stub.requests).toHaveLength(3);
   });
 
+  it("a moderation 403 or a per-request 404 does not open the breaker for every tenant", async () => {
+    const moderated = { status: 403, body: { error: { code: "content_policy_violation" } } };
+    const { send, breaker } = breakerClient([moderated, moderated, moderated, { status: 404 }]);
+
+    for (let call = 0; call < 4; call++) expect((await send()).status).toBeGreaterThanOrEqual(403);
+
+    expect(await breaker.isOpen()).toBe(false);
+  });
+
+  it("a 401, or a 403 naming the provider's quota, opens it", async () => {
+    const quota = { status: 403, body: { error: { code: "insufficient_quota" } } };
+    const { send, breaker } = breakerClient([{ status: 401 }, quota, { status: 401 }]);
+
+    for (let call = 0; call < 3; call++) await send();
+
+    expect(await breaker.isOpen()).toBe(true);
+  });
+
   it("AC6: failures spread wider than the window do not open it; a success clears the count", async () => {
     const { send, breaker, clock } = breakerClient([
       { status: 500 },

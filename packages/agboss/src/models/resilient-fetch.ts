@@ -127,9 +127,18 @@ async function refusedBy(
   return { kind: "threw", error: refused, isRejected: true };
 }
 
+const HTTP_FORBIDDEN = 403;
+
 /** The attempt, told what an error status that is no retried failure means to the breaker. */
-function withRefusal(attempt: Attempt<Response>, status: number): Attempt<Response> {
-  const refusal = refusalOfStatus(status);
+async function withRefusal(attempt: Attempt<Response>, status: number): Promise<Attempt<Response>> {
+  const body =
+    attempt.kind === "answered" && status >= HTTP_FORBIDDEN
+      ? await attempt.answer
+          .clone()
+          .text()
+          .catch(() => undefined)
+      : undefined;
+  const refusal = refusalOfStatus(status, body);
   return refusal === undefined || attempt.kind !== "answered" ? attempt : { ...attempt, refusal };
 }
 
@@ -166,7 +175,7 @@ function httpCarrier(
           limits,
           signal,
         );
-        return failure === undefined ? withRefusal(attempt, sent.status) : attempt;
+        return failure === undefined ? await withRefusal(attempt, sent.status) : attempt;
       } catch (error) {
         if (init?.signal?.aborted === true) throw error;
         return { kind: "threw", error, failure: failureOfError(error) };

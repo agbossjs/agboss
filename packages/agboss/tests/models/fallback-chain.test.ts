@@ -8,7 +8,8 @@ import type { ChatResult } from "@langchain/core/outputs";
 import { describe, expect, it } from "vitest";
 import { fallbackMarkOf } from "../../src/finops/fallback-mark.js";
 import { fallbackCycleOf, fallbackHopsOf } from "../../src/models/fallback-chain.js";
-import { FallbackChatModel, isFailoverError } from "../../src/models/fallback-chat-model.js";
+import { isFailoverError } from "../../src/models/failover-error.js";
+import { FallbackChatModel } from "../../src/models/fallback-chat-model.js";
 import {
   DecisionsDriver,
   ModelCallError,
@@ -111,9 +112,30 @@ describe("#1313c: the fallback rules", () => {
 describe("#1313c: which failures go to the fallback", () => {
   const status = (value: number): Error => Object.assign(new Error("http"), { status: value });
 
-  it("a refused key, a missing model, a quota, a timeout, a 429 and a 5xx do", () => {
-    for (const value of [401, 402, 403, 404, 408, 429, 500, 503])
+  it("a refused key, a quota, a timeout, a 429 and a 5xx do", () => {
+    for (const value of [401, 402, 408, 429, 500, 503])
       expect(isFailoverError(status(value), undefined)).toBe(true);
+  });
+
+  it("a moderation 403 or a per-request 404 does not: the refusal surfaces as it is", () => {
+    for (const value of [403, 404]) {
+      expect(isFailoverError(status(value), undefined)).toBe(false);
+      const moderated = Object.assign(new Error("flagged"), {
+        status: value,
+        error: { code: "content_policy_violation" },
+      });
+      expect(isFailoverError(moderated, undefined)).toBe(false);
+    }
+  });
+
+  it("a 403 or a 404 whose body names the provider (its key, its quota) does", () => {
+    for (const value of [403, 404]) {
+      const quota = Object.assign(new Error("quota"), {
+        status: value,
+        error: { code: "insufficient_quota" },
+      });
+      expect(isFailoverError(quota, undefined)).toBe(true);
+    }
   });
 
   it("a request the provider refused as wrong (a 400, a 422) does not", () => {
@@ -121,8 +143,19 @@ describe("#1313c: which failures go to the fallback", () => {
       expect(isFailoverError(status(value), undefined)).toBe(false);
   });
 
-  it("a broken connection or an error with no status does, found through its causes", () => {
+  it("an error with no status and no known network class does not fail over", () => {
+    expect(isFailoverError(new Error("something odd"), undefined)).toBe(false);
+    expect(isFailoverError(new TypeError("x is not a function"), undefined)).toBe(false);
+  });
+
+  it("a broken connection or a timeout does, found through its causes", () => {
     expect(isFailoverError(new Error("socket hang up"), undefined)).toBe(true);
+    const reset = new Error("boom", {
+      cause: Object.assign(new Error("r"), { code: "ECONNRESET" }),
+    });
+    expect(isFailoverError(reset, undefined)).toBe(true);
+    const timeout = Object.assign(new Error("t"), { name: "TimeoutError" });
+    expect(isFailoverError(timeout, undefined)).toBe(true);
     expect(isFailoverError(new Error("wrapped", { cause: status(503) }), undefined)).toBe(true);
     expect(isFailoverError(new Error("wrapped", { cause: status(400) }), undefined)).toBe(false);
   });

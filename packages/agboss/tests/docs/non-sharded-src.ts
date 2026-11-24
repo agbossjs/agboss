@@ -966,6 +966,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/models/connections.ts",
       "src/models/content.ts",
       "src/models/decision-models.ts",
+      "src/models/failover-error.ts",
       "src/models/fallback-chat-model.ts",
       "src/models/fallback-check.ts",
       "src/models/finish-reason.ts",
