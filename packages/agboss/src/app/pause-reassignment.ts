@@ -23,6 +23,7 @@ import type { AppDeps } from "./app-deps.js";
 import type { ChannelDecision } from "./channel-decision.js";
 import { errorNamesOf } from "./error-names.js";
 import { ownDepsOf } from "./own-deps.js";
+import { toldReassigned } from "./pause-change-events.js";
 import { callInFrame } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import { pauseClosed } from "./pause-closed.js";
@@ -208,6 +209,7 @@ export const reassignPauseOf =
     // counted once, by the call whose transaction won: the old pause closed `reassigned`
     pauseTallyOf(parts.deps.pause)?.closed(reassignedPause(pause, replacement.pauseId, at));
     pauseTallyOf(parts.deps.pause)?.reassigned(replacement);
+    await toldReassigned(parts.deps, pause, channelOf(parts.deps, pause), replacement);
     await sentAfter(parts, replacement);
     return { pauseKey: pauseKeyOf(tenantId, replacement.pauseId) };
   };

@@ -23,7 +23,8 @@ import type { ComponentRecord } from "./records.js";
 import { componentKindOf } from "./join-keys.js";
 import { recordOfComponent } from "./workflow-keys.js";
 import { inStepEntry } from "./step-entries.js";
-import { outboundChainOf, type InboundMesh } from "../../mesh/inbound-mesh.js";
+import { meshFactsOf, rootMeshOf } from "./step-mesh.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 
 /** The workflow an execution runs, as the runtime knows it before the execution starts. */
 export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
@@ -31,27 +32,6 @@ export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
 /** The version the execution started on: kept in state from its first node, so a resume keeps it. */
 export const startedVersionOf = (state: ExecutionStateType, workflow: WorkflowIdentity): string =>
   state.startedVersion === "" ? workflow.version : state.startedVersion;
-
-/** The origin and deadline an execution's contexts keep (#398 PR 2), as its frames' facts. */
-const meshFactsOf = (
-  contexts: ExecutionStateType["contexts"],
-): Pick<ExecutionFacts, "origin" | "deadline" | "quorumDeadlineAt"> => ({
-  ...(contexts.mesh?.trusted === undefined ? {} : { origin: contexts.mesh.trusted.origin }),
-  ...(contexts.deadline === undefined ? {} : { deadline: contexts.deadline }),
-  ...(contexts.quorumDeadlineAt === undefined
-    ? {}
-    : { quorumDeadlineAt: contexts.quorumDeadlineAt }),
-});
-
-/** A root's call chain for its mesh calls (#398): what reached it, then its own hop. */
-const rootMeshOf = (
-  contexts: RuntimeContexts,
-  state: ExecutionStateType,
-  executionId: string,
-): InboundMesh => {
-  const entry = { application: contexts.application.name, start: state.start };
-  return outboundChainOf(entry, executionId, state.contexts.mesh);
-};
 
 /** The pass through `node` this visit is, from 1 — the counter `maxVisits` checks (#280 Q43). */
 export const visitNumberOf = (node: RuntimeNode, state: ExecutionStateType): number =>
@@ -75,6 +55,8 @@ export interface StepFrameDeps {
   readonly contexts: RuntimeContexts;
   /** Every component's record with its join keys (#268 S93), by `name`. */
   readonly components: ReadonlyMap<string, ComponentRecord>;
+  /** The execution's observers, masked by its workflow's policies (`reportFrameEvent`). */
+  readonly observer?: ExecutionObserverManager;
 }
 
 /**
@@ -98,7 +80,7 @@ export function stepFrameAt(
   site: StepSite,
   state: ExecutionStateType,
   config: RunnableConfig | undefined,
-  { workflow, contexts, components }: StepFrameDeps,
+  { workflow, contexts, components, observer }: StepFrameDeps,
 ): FrameSpec {
   const { run } = extractRunContext(config, state.runId);
   const executionId: string = run.runId;
@@ -130,6 +112,7 @@ export function stepFrameAt(
       // the lease its steps run under (#471): the root's, or an AnyWorker child's own
       ...(run.lease === undefined ? {} : { lease: run.lease }),
       observability: run.observability,
+      ...(observer === undefined ? {} : { observer }),
       correlationKey: state.piiKey ?? run.correlationKey,
       fingerprintKeys: run.fingerprintKeys,
       // a child execution (#263): its parent's execution and launching step, its item; a root: the

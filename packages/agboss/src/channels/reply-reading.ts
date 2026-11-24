@@ -11,6 +11,7 @@ import { ReplyInterpreterMissingError, UninterpretableReplyError } from "./decis
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
+import { observedReading } from "./reply-events.js";
 import {
   readByModel,
   replyInterpreterCaller,
@@ -64,7 +65,16 @@ export interface InterpreterCall extends Omit<ReplyCall, "pause"> {
  * One interpreter reads one reply: in the call's frame, by code or by its model, the answer
  * validated by the call — the reader of a tree's pauses, and `testReplyInterpreter` (#644).
  */
-export async function readReplyBy(
+export function readReplyBy(
+  interpreter: AssembledReplyInterpreter,
+  call: InterpreterCall,
+  parts: ReplyReaderParts,
+): Promise<ReplyReading> {
+  const site = { observer: call.observer, frame: call.frame, interpreter };
+  return observedReading(site, () => readOnce(interpreter, call, parts));
+}
+
+async function readOnce(
   interpreter: AssembledReplyInterpreter,
   call: InterpreterCall,
   parts: ReplyReaderParts,

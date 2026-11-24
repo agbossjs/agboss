@@ -3,6 +3,7 @@ import {
   type ApplicationBudgets,
   type BudgetMeter,
 } from "../budgets/execution-budgets.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ReplyPii, ReplyReader } from "../channels/reply-reader.js";
 import { replyReaderOf } from "../channels/reply-reading.js";
@@ -58,6 +59,8 @@ export interface ReplyAnsweringParts {
   /** What the interpreter's model reads through: the policies and the execution's tokens. */
   /** The policies the paused execution's interpreter reads through: its workflow's chain (#1150). */
   readonly piiOf: (state: TreeState, pause: PauseRecord) => ReplyPii;
+  /** The workflow's observers, masked by its policies (`onChannelInterpreterStart` / `End`). */
+  readonly observer?: ExecutionObserverManager | undefined;
 }
 
 /** The tree's budgets as the reading counts them: none without the application's budgets. */
@@ -73,6 +76,7 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
   workflow: deps.config.name,
   budgets: deps.budgets,
   tracing: deps.tracing,
+  observer: deps.observer,
   treeStateOf: (rootExecutionId) => treeStateOf(deps, rootExecutionId),
   frameOf: async (pause, state) => pauseFrameOf(deps, pause, await pauseTreeOf(deps, pause, state)),
   piiOf: (state, pause) => {
@@ -107,7 +111,8 @@ export function replyAnsweringOf(parts: ReplyAnsweringParts, reader: ReplyReader
     const callbacks = parts.tracing?.callbacks(trace) ?? [];
     const frame = await parts.frameOf(pause, state);
     const pii = parts.piiOf(state, pause);
-    const call = { pause, reply, validate, beforeModelCall, callbacks, frame, pii };
+    const { observer } = parts;
+    const call = { pause, reply, validate, beforeModelCall, callbacks, frame, pii, observer };
     const reading = await reader(call);
     await meter?.record(reading.usage);
     if (reading.kind === "unreadable") throw reading.error;

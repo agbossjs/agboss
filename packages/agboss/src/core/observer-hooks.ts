@@ -2,6 +2,18 @@ import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
+import type { ArbiterEndEvent, ArbiterStartEvent } from "../flow/observers/arbiter.js";
+import type { RerankEndEvent, RerankStartEvent } from "../flow/observers/rerank.js";
+import type { ModelFallbackEvent } from "../flow/observers/model-fallback.js";
+import type {
+  ChannelInterpreterEndEvent,
+  ChannelInterpreterStartEvent,
+} from "../flow/observers/channel-interpreter.js";
+import type { TtlSweepEvent } from "../flow/observers/ttl-sweep.js";
+import type {
+  PauseReassignedEvent,
+  PauseTimeoutChangedEvent,
+} from "../flow/observers/pause-changes.js";
 import type { CircuitStateChangeEvent } from "../flow/observers/circuit-state.js";
 import type {
   CompensationEndEvent,
@@ -105,6 +117,26 @@ export interface ExecutionObserver {
   onCompactionStart?(event: CompactionStartEvent): void | Promise<void>;
   /** A memory ended summarising (#1303), with what it spent; a failed compaction fails the execution (`StepError.Memory`) and has no end. */
   onCompactionEnd?(event: CompactionEndEvent): void | Promise<void>;
+  /** #1283: an arbiter starts judging one answer of a quorum launch, in its branch's step; once per answer judged. A model arbiter's judging, or a code arbiter's `@Arbitrate` method. */
+  onArbiterStart?(event: ArbiterStartEvent): void | Promise<void>;
+  /** An arbiter ended judging (`ArbiterOutcome`), with what it spent; once per `onArbiterStart`, also when it failed. */
+  onArbiterEnd?(event: ArbiterEndEvent): void | Promise<void>;
+  /** A knowledge base's reranker starts on the retrieval's candidates (#1299); an empty retrieval has none. */
+  onRerankStart?(event: RerankStartEvent): void | Promise<void>;
+  /** A reranker ended (`RerankOutcome`: reranked, fell back, failed), with what it spent; once per `onRerankStart`. */
+  onRerankEnd?(event: RerankEndEvent): void | Promise<void>;
+  /** A model call moved down its provider's fallback chain (#202): once per hop it tries, before the fallback is asked, in the step it is made for. */
+  onModelFallback?(event: ModelFallbackEvent): void | Promise<void>;
+  /** A `@ChannelInterpreter` starts reading a free-text reply (#1310), before its pause is closed. */
+  onChannelInterpreterStart?(event: ChannelInterpreterStartEvent): void | Promise<void>;
+  /** An interpreter ended reading (`ChannelInterpreterOutcome`), with what it spent; once per `onChannelInterpreterStart`. */
+  onChannelInterpreterEnd?(event: ChannelInterpreterEndEvent): void | Promise<void>;
+  /** A look of the retention sweep ended: the rows each kind lost, how long it took and which stores failed. An event of the application: no `workflows` / `agents` filter lets it through. */
+  onTtlSweep?(event: TtlSweepEvent): void | Promise<void>;
+  /** An operator moved a pause's deadline later (`app.extendPause`, #942): once, by the call that won; never the pause's id. */
+  onPauseTimeoutChanged?(event: PauseTimeoutChangedEvent): void | Promise<void>;
+  /** An operator moved a pause to another addressee (`app.reassignPause`, #946): once, by the call that won; never the pause's id or the assignee. */
+  onPauseReassigned?(event: PauseReassignedEvent): void | Promise<void>;
   /** An automatic undo action starts (#340): before each one runs, in its frame. */
   onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
   /** An automatic undo action ended: `Compensated` or `Failed` (with its `error`). */
@@ -234,14 +266,20 @@ function agentOf(event: object): string | undefined {
   return component.kind === ComponentKind.Agent ? component.name : undefined;
 }
 
+/** The name of the workflow an event is about: its record's `name`, or the name itself (a pause's events carry no record). */
+function workflowNameOf(event: object): string | undefined {
+  if (!("workflow" in event)) return undefined;
+  const workflow = event.workflow as { readonly name: string } | string;
+  return typeof workflow === "string" ? workflow : workflow.name;
+}
+
 /** Whether the observer's `workflows` / `agents` let the event through (an unfiltered side lets all). */
 export function isWanted(observer: ExecutionObserver, event: object): boolean {
   const filter = filterOf(observer);
   if (filter === undefined) return true;
   if (filter.workflows.size > 0) {
-    const workflow =
-      "workflow" in event ? (event.workflow as { readonly name: string }) : undefined;
-    if (workflow === undefined || !filter.workflows.has(workflow.name)) return false;
+    const name = workflowNameOf(event);
+    if (name === undefined || !filter.workflows.has(name)) return false;
   }
   if (filter.agents.size > 0) {
     const agent = agentOf(event);

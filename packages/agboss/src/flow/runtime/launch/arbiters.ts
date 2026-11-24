@@ -17,6 +17,7 @@ import { passesThrough } from "../errors.js";
 import type { ArbiterModels } from "./arbiter-call.js";
 import { runArbiterCall } from "./arbiter-live.js";
 import { ArbiterError } from "./quorum-errors.js";
+import { observedJudging } from "./arbiter-events.js";
 
 /**
  * The arbiter of a branch (#279 AC12, #1282): run inside the branch, under its slot and in its
@@ -220,6 +221,12 @@ async function judgeOnce(
   }
 }
 
+/** Whether the arbiter is code, else a model (a class that is no `@Arbiter` counts as code: it fails in `judgeOnce`). */
+const isCodeOf = (arbiter: ArbiterClass): boolean => {
+  const declaration = arbiterOf(arbiter);
+  return declaration === undefined || isCodeArbiter(declaration.options);
+};
+
 /** The launch's arbiter on one answer; an answer of a launch without one counts. */
 export async function judgeAnswer(
   arbiter: ArbiterClass | undefined,
@@ -228,9 +235,14 @@ export async function judgeAnswer(
 ): Promise<ChainVerdict> {
   const usage: UsageRecord[] = [];
   if (arbiter === undefined) return { isAccepted: true, rejectedBy: [], usage };
+  const about = { arbiter: arbiterNameOf(arbiter), target: site.node, isCode: isCodeOf(arbiter) };
   try {
-    const isAccepted = await judgeOnce(arbiter, site, usage, deps);
-    if (deps.signal.aborted) return { isAccepted: false, rejectedBy: [], usage };
+    const judged = await observedJudging(about, usage, async () => {
+      const isAccepted = await judgeOnce(arbiter, site, usage, deps);
+      return { isAccepted, isAbandoned: deps.signal.aborted };
+    });
+    if (judged.isAbandoned) return { isAccepted: false, rejectedBy: [], usage };
+    const { isAccepted } = judged;
     return { isAccepted, rejectedBy: isAccepted ? [] : [arbiterNameOf(arbiter)], usage };
   } catch (error) {
     // a limit or a cancel ends the check with no verdict: its spend is kept by the branch (#1399)

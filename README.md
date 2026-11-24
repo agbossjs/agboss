@@ -1704,7 +1704,7 @@ await app.close({ timeout: seconds(10) });
 for an orchestrator (Kubernetes, Cloud Run) — the project's own server exposes them, the framework
 opens no endpoint. Liveness does no I/O: the instance (`Unhealthy`, `stopping`, from `app.close()`
 on) and its recovery loop (`Unhealthy` when its last sweep ended more than three sweep intervals ago
-on the `Clock`). Readiness adds every store's `ping()` (each #265 contract has one — a project's own
+on the `Clock`). Readiness adds one `ping()` per storage component (each #265 contract has one — a project's own
 implementation adds it; the SQLite ones run `SELECT 1`), every model provider's circuit breaker as
 `RateLimitRepository` keeps it (open → `Degraded`; never a model call) and the project's
 `@HealthCheck`s, listed in `@Application({ healthChecks })` — all at once, each under its timeout

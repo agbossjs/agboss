@@ -3,6 +3,7 @@ import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages
 import type { ChatDefaults, ModelSettings, ResolvedModelSettings } from "../config/types.js";
 import type { Class } from "../components/injection.js";
 import { recordUsage, type UsageRecord } from "../finops/usage.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ModelGateway } from "../llm/gateway.js";
@@ -166,6 +167,8 @@ export interface ReplyCall {
   /** The pause's execution and step: what the interpreter's `ExecutionContext` reads. */
   readonly frame: FrameSpec;
   readonly pii: ReplyPii;
+  /** The paused execution's observers (`onChannelInterpreterStart` / `End`); none for a reading on its own. */
+  readonly observer?: ExecutionObserverManager | undefined;
 }
 
 /** What reading gave: the validated decision, or why there is none — and what it cost. */

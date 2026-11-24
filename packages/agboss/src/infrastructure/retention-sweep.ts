@@ -16,6 +16,7 @@ import type { Clock } from "./clock.js";
 import type { FrameworkLog } from "./logger.js";
 import { pauseKeyOf } from "./pause-record.js";
 import type { Milliseconds } from "../units/index.js";
+import { observedFailureOf, type ObservedFailure } from "../flow/observers/failure.js";
 
 /**
  * What every look of the recovery sweep removes once its retention is over, on the `Clock`: the
@@ -205,11 +206,13 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
 export interface SweptRows {
   readonly what: string;
   readonly removed: number | undefined;
+  /** Why the store could not remove them (asked again at the next look). */
+  readonly failure?: ObservedFailure;
 }
 
 /**
- * Removes every kind of rows past its retention and tells what each look removed; `report` hears of
- * each store that failed.
+ * Removes every kind of rows past its retention and tells what each look removed (and which stores
+ * failed, by their error's class and code: `onTtlSweep`); `report` hears of each store that failed.
  */
 export async function removeExpired(
   sources: RetentionSources,
@@ -223,6 +226,7 @@ export async function removeExpired(
       swept.push({ what, removed: typeof removed === "number" ? removed : undefined });
     } catch (error) {
       report(`${what} could not be removed: ${String(error)}`);
+      swept.push({ what, removed: undefined, failure: observedFailureOf(error) });
     }
   }
   return swept;

@@ -170,7 +170,8 @@ async function builtOn(
     await releaseAll(workflows);
     throw error;
   }
-  const surface = { ...common, log, contexts, quiet, isolated: isolatedPartsOf(seams, contexts) };
+  const isolated = isolatedPartsOf(seams, contexts);
+  const surface = { ...common, observer, log, contexts, quiet, isolated };
   return { ...byId(instanceAppOf(assembled, workflows, surface), workflows), assembled, workflows };
 }
 

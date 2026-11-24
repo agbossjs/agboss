@@ -25,6 +25,7 @@ import { noticesWritten, recipientsIn } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import type { AppDeps } from "./app-deps.js";
 import { ownDepsOf } from "./own-deps.js";
+import { toldTimeoutChanged } from "./pause-change-events.js";
 import type { AnswerParts } from "./resume.js";
 import { answeredByOf, pauseOf } from "./resume.js";
 import { pauseClosed } from "./pause-closed.js";
@@ -228,6 +229,7 @@ export const extendPauseOf =
       if (extended !== undefined) {
         noticesWritten(parts.deps.pause);
         pauseTallyOf(parts.deps.pause)?.timeoutChanged(extended);
+        await toldTimeoutChanged(parts.deps, pause, channel, { previousExpiresAt, expiresAt });
         return { pauseKey: pauseKeyOf(tenantId, pause.pauseId), expiresAt, previousExpiresAt };
       }
       // lost the compare-and-set: the expiry, an answer, a cancel or another extension won — read what it left

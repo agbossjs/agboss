@@ -10,6 +10,7 @@ import {
   type ExecutionRecordRepository,
 } from "./execution-record.repository.js";
 import type { FrameworkLog } from "./logger.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import { removeExpired, type RetentionSources } from "./retention-sweep.js";
 
@@ -66,6 +67,8 @@ export interface RecoverySources extends RetentionSources {
   readonly signal: AbortSignal;
   /** The instance's step slots (#332); absent = no cap, every recoverable root is taken. */
   readonly capacity?: StepCapacity | undefined;
+  /** The application's observers: told of each look that removed or failed to remove rows (`onTtlSweep`). */
+  readonly observer?: Pick<ExecutionObserverManager, "onTtlSweep"> | undefined;
 }
 
 /** One instance's sweep: its look-ups, the recoveries it started, the problems it logged. */
@@ -115,12 +118,29 @@ class Sweeper implements RecoverySweep {
           isBroken: true,
         });
       }
-      await removeExpired(this.sources, (text) => {
-        this.#log({ code: "recovery.failed", text, isBroken: true });
-      });
+      await this.#removeExpired();
       this.#lastSweptAt = this.sources.clock.now();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
+  }
+
+  /** The rows past their retention removed, and told to the observers (`onTtlSweep`). */
+  async #removeExpired(): Promise<void> {
+    const { clock, observer } = this.sources;
+    const at = clock.now();
+    const swept = await removeExpired(this.sources, (text) => {
+      this.#log({ code: "recovery.failed", text, isBroken: true });
+    });
+    if (observer === undefined || swept.length === 0) return;
+    await observer.onTtlSweep({
+      at,
+      durationMs: clock.now().getTime() - at.getTime(),
+      categories: swept.map(({ what, removed, failure }) => ({
+        category: what,
+        removed,
+        ...(failure === undefined ? {} : { error: failure }),
+      })),
+    });
   }
 
   /** How many recoveries this look may start: the free step slots (#332), else every one. */

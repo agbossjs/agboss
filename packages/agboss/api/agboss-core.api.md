@@ -171,8 +171,12 @@ export interface ExecutionObserver {
     onAgentRetry?(event: AgentRetryEvent): void | Promise<void>;
     // (undocumented)
     onAgentStart?(event: AgentStartEvent): void | Promise<void>;
+    onArbiterEnd?(event: ArbiterEndEvent): void | Promise<void>;
+    onArbiterStart?(event: ArbiterStartEvent): void | Promise<void>;
     // (undocumented)
     onChannelEnd?(event: ChannelEndEvent): void | Promise<void>;
+    onChannelInterpreterEnd?(event: ChannelInterpreterEndEvent): void | Promise<void>;
+    onChannelInterpreterStart?(event: ChannelInterpreterStartEvent): void | Promise<void>;
     // (undocumented)
     onChannelStart?(event: ChannelStartEvent): void | Promise<void>;
     onCircuitStateChange?(event: CircuitStateChangeEvent): void | Promise<void>;
@@ -202,13 +206,18 @@ export interface ExecutionObserver {
     onLaunchItemsTruncated?(event: LaunchItemsTruncatedEvent): void | Promise<void>;
     // (undocumented)
     onModelEnd?(event: ModelEndEvent): void | Promise<void>;
+    onModelFallback?(event: ModelFallbackEvent): void | Promise<void>;
     onModelStart?(event: ModelStartEvent): void | Promise<void>;
     onOutboundCall?(event: OutboundCallEvent): void | Promise<void>;
+    onPauseReassigned?(event: PauseReassignedEvent): void | Promise<void>;
+    onPauseTimeoutChanged?(event: PauseTimeoutChangedEvent): void | Promise<void>;
     onQuorumDecided?(event: QuorumDecidedEvent): void | Promise<void>;
     // (undocumented)
     onRagEnd?(event: RagEndEvent): void | Promise<void>;
     // (undocumented)
     onRagStart?(event: RagStartEvent): void | Promise<void>;
+    onRerankEnd?(event: RerankEndEvent): void | Promise<void>;
+    onRerankStart?(event: RerankStartEvent): void | Promise<void>;
     // (undocumented)
     onRouterEnd?(event: RouterEndEvent): void | Promise<void>;
     // (undocumented)
@@ -218,6 +227,7 @@ export interface ExecutionObserver {
     onToolEnd?(event: ToolEndEvent): void | Promise<void>;
     // (undocumented)
     onToolStart?(event: ToolStartEvent): void | Promise<void>;
+    onTtlSweep?(event: TtlSweepEvent): void | Promise<void>;
     onValuesOutdated?(event: ValuesOutdatedEvent): void | Promise<void>;
 }
 

@@ -5,6 +5,9 @@ import { FallbackChatModel } from "../models/fallback-chat-model.js";
 import { fallbackHopsOf } from "../models/fallback-chain.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
+import { reportFrameEvent } from "../flow/observers/execution-event.js";
+import { ModelFallbackReason } from "../flow/observers/model-fallback.js";
+import { observedFailureOf } from "../flow/observers/failure.js";
 
 /** A chat model of a provider for settings (its `chat`, else its `complete`). */
 export type ChatOf = (
@@ -47,8 +50,22 @@ export function withFallback(primary: BaseChatModel, parts: FallbackParts): Base
       provider: hop.options.name,
     };
   });
+  const told = (hop: (typeof hops)[number], after: unknown): Promise<void> =>
+    reportFrameEvent((observer, base) =>
+      observer.onModelFallback({
+        ...base,
+        primaryProvider: provider.options.name,
+        primaryModel: settings.model,
+        fallbackProvider: hop.provider,
+        fallbackModel: hop.model,
+        reason: after === undefined ? ModelFallbackReason.CircuitOpen : ModelFallbackReason.Failed,
+        error: after === undefined ? undefined : observedFailureOf(after),
+        caller: base.step.component.name,
+      }),
+    );
   return new FallbackChatModel({
     primary,
+    onHop: told,
     ...(calls === undefined || policy === undefined
       ? {}
       : { breaker: calls.breakerOf(provider.options.name, policy) }),

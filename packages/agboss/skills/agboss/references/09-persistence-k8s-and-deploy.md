@@ -291,10 +291,10 @@ createServer((request, response) => {
 rejection; `status` is the worst component's `HealthStatus.Healthy | Degraded | Unhealthy`, each
 `HealthComponentReport { name, kind: HealthComponentKind, status, reason?, duration }`.
 
-| Probe     | Components                                                                                                                                                                                           |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| liveness  | no I/O: the application (`Unhealthy`, `stopping` from `app.close()` on) and the recovery loop (`Unhealthy` when its last sweep ended over 90 s ago)                                                  |
-| readiness | liveness's, every store's `ping()` (`seconds(2)` each), every model provider's circuit breaker (open → `Degraded`), every `@HealthCheck` of `@Application({ healthChecks })` under its own `timeout` |
+| Probe     | Components                                                                                                                                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| liveness  | no I/O: the application (`Unhealthy`, `stopping` from `app.close()` on) and the recovery loop (`Unhealthy` when its last sweep ended over 90 s ago)                                                              |
+| readiness | liveness's, one `ping()` per storage component (`seconds(2)` each), every model provider's circuit breaker (open → `Degraded`), every `@HealthCheck` of `@Application({ healthChecks })` under its own `timeout` |
 
 A check that throws or times out is that component's `Unhealthy` (`check(ctx)` gets `HealthCheckContext`: its `signal` aborts at the timeout). `HealthCheckResult.healthy()` /
 `.degraded(reason)` / `.unhealthy(reason)` are the only results (a plain object does not

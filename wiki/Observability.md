@@ -16,7 +16,7 @@ an execution is `result.record`). Every execution event extends `ExecutionEvent`
 
 | Field               | What                                                                          |
 | ------------------- | ----------------------------------------------------------------------------- |
-| `executionId`       | unique per execution, the same after a resume (`result.executionId`)                |
+| `executionId`       | unique per execution, the same after a resume (`result.executionId`)          |
 | `parentExecutionId` | the execution that launched this child (#263); `undefined` at the root        |
 | `rootExecutionId`   | the root's id; the execution's own at the root                                |
 | `threadId`          | the conversation                                                              |
@@ -39,15 +39,15 @@ Every event, record and trace joins the declarative snapshot of [`agboss describ
 S93) — for analytics over Langfuse and `ExecutionRecordRepository`, OpenAPI generators, or checking
 a checkpoint against a release:
 
-| Key                       | Where                                                       | What                                                                                                   |
-| ------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `configHash`              | `event.workflow`, `executionContext.workflow`, records      | the one key of the workflow: the fingerprint of its config, flow and every text its models read         |
-| `component.kind`          | `event.step.component`, `finish`, errors, handled errors    | `ComponentKind`: `WorkflowStart`, `Agent`, `Router`, `Action`, `WorkflowFinish`, `Workflow`, `Budget`, … |
-| `component.promptHash`    | the same                                                    | the hash of what its model is told (an agent's instructions, a model router's prompt and routes); `undefined` without a model |
-| `component.schemaHash`    | the same                                                    | the hash of what it reads and writes (`input` fields, `output`), each DTO by its JSON Schema's hash; `undefined` when it declares neither |
-| `step.toolLoopIteration`  | `event.step`, `executionContext.step`, `record.pauses[].step` | an agent's model call in the visit, from 1 — during the call and the tool calls its move asks for; `undefined` elsewhere |
-| `step.validationAttempts` | the same                                                    | the step's answers and tool arguments that failed validation so far, each sent back to the model        |
-| `visitNumber`, `copyNumber`, `itemIndex` | `event.step`                                 | the visit, the copy and the item of a launch (#273)                                                    |
+| Key                                      | Where                                                         | What                                                                                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `configHash`                             | `event.workflow`, `executionContext.workflow`, records        | the one key of the workflow: the fingerprint of its config, flow and every text its models read                                           |
+| `component.kind`                         | `event.step.component`, `finish`, errors, handled errors      | `ComponentKind`: `WorkflowStart`, `Agent`, `Router`, `Action`, `WorkflowFinish`, `Workflow`, `Budget`, …                                  |
+| `component.promptHash`                   | the same                                                      | the hash of what its model is told (an agent's instructions, a model router's prompt and routes); `undefined` without a model             |
+| `component.schemaHash`                   | the same                                                      | the hash of what it reads and writes (`input` fields, `output`), each DTO by its JSON Schema's hash; `undefined` when it declares neither |
+| `step.toolLoopIteration`                 | `event.step`, `executionContext.step`, `record.pauses[].step` | an agent's model call in the visit, from 1 — during the call and the tool calls its move asks for; `undefined` elsewhere                  |
+| `step.validationAttempts`                | the same                                                      | the step's answers and tool arguments that failed validation so far, each sent back to the model                                          |
+| `visitNumber`, `copyNumber`, `itemIndex` | `event.step`                                                  | the visit, the copy and the item of a launch (#273)                                                                                       |
 
 A branch's outcome — `BranchStatus` and, under a quorum, `BranchVerdict` — is in `result.launches`
 and `onQuorumDecided`, joined by `nodeId`, `copyNumber` and `itemIndex`. `toolLoopIteration` is not
@@ -78,31 +78,37 @@ misspelled `on…` method is `[observer.unknown-hook]` with the hook it meant, a
 of those workflows / agents; app-level events (no workflow or agent) go to an observer without that
 filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 
-| Hook                                      | Payload                                                                                   |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `onExecutionStart`                        | `ExecutionStartEvent` (the common fields)                                                 |
-| `onExecutionEnd`                          | `ExecutionEndEvent` (`finish`: a `ComponentRecord`, `output`, `spend`)                              |
-| `onExecutionPause` / `onExecutionResume`  | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `answeredBy`)|
-| `onExecutionError`                        | `ExecutionErrorEvent` (`error`)                                                           |
-| `onExecutionRejected`                     | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)        |
-| `onAgentStart` / `onAgentEnd`             | `AgentStartEvent` / `AgentEndEvent` (`output`)                                            |
-| `onAgentRetry`                            | `AgentRetryEvent` (`agent`, `reason`: `InvalidAnswer`, `InvalidToolInput`, `JudgeRejected`; `attempt`, `maxAttempts`, `feedback`) |
-| `onRouterStart` / `onRouterEnd`           | `RouterStartEvent` / `RouterEndEvent`                                                     |
-| `onToolStart` / `onToolEnd`               | `ToolStartEvent` (`tool`, `agent?`, `input`) / `ToolEndEvent` (`tool`, `agent?`, `output`, `isResultTruncated` — #336) |
-| `onModelStart` / `onModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (`model`, `caller`; the end: `usage` (`TokenUsage`), `costUsd`) |
-| `onCircuitStateChange`                    | `CircuitStateChangeEvent` (`provider`, `from`, `to`: `closed`, `open`, `half-open`; `at`) — the application's, no `workflows` / `agents` filter lets it through |
-| `onRagStart` / `onRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
-| `onActionStart` / `onActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |
-| `onGuardrailStart` / `onGuardrailEnd`     | `GuardrailStartEvent` (`input`: `side`, `component` (a `ComponentRecord`), the masked `text`) / `GuardrailEndEvent` (`output`: `isBlocked`, `probability`) |
-| `onChannelStart` / `onChannelEnd`         | `ChannelStartEvent` / `ChannelEndEvent`                                                   |
-| `onJudgeStart` / `onJudgeEnd`             | `JudgeStartEvent` / `JudgeEndEvent` (`judge`, `agent`, `output`)                                                       |
-| `onValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |
-| `onLaunchItemsTruncated`                  | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
-| `onQuorumDecided`                         | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))       |
-| `onCompensationStart` / `onCompensationEnd` | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo)) |
-| `onExecutionLeaseTakeover`                | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501)) |
-| `onStepHandedOver`                        | `StepHandedOverEvent` (step, reason, site, scope key, holder, token, observedToken — [below](#hand-overs-501)) |
-| `onIdempotencyRun`                        | `IdempotencyRunEvent` (step, name, scope key, token, outcome, writtenToken, observedToken — [below](#idempotent-writes-501)) |
+| Hook                                                  | Payload                                                                                                                                                         |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onExecutionStart`                                    | `ExecutionStartEvent` (the common fields)                                                                                                                       |
+| `onExecutionEnd`                                      | `ExecutionEndEvent` (`finish`: a `ComponentRecord`, `output`, `spend`)                                                                                          |
+| `onExecutionPause` / `onExecutionResume`              | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `answeredBy`)                                                                 |
+| `onExecutionError`                                    | `ExecutionErrorEvent` (`error`)                                                                                                                                 |
+| `onExecutionRejected`                                 | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)                                                                              |
+| `onAgentStart` / `onAgentEnd`                         | `AgentStartEvent` / `AgentEndEvent` (`output`)                                                                                                                  |
+| `onAgentRetry`                                        | `AgentRetryEvent` (`agent`, `reason`: `InvalidAnswer`, `InvalidToolInput`, `JudgeRejected`; `attempt`, `maxAttempts`, `feedback`)                               |
+| `onRouterStart` / `onRouterEnd`                       | `RouterStartEvent` / `RouterEndEvent`                                                                                                                           |
+| `onToolStart` / `onToolEnd`                           | `ToolStartEvent` (`tool`, `agent?`, `input`) / `ToolEndEvent` (`tool`, `agent?`, `output`, `isResultTruncated` — #336)                                          |
+| `onModelStart` / `onModelEnd`                         | `ModelStartEvent` / `ModelEndEvent` (`model`, `caller`; the end: `usage` (`TokenUsage`), `costUsd`)                                                             |
+| `onCircuitStateChange`                                | `CircuitStateChangeEvent` (`provider`, `from`, `to`: `closed`, `open`, `half-open`; `at`) — the application's, no `workflows` / `agents` filter lets it through |
+| `onArbiterStart / onArbiterEnd`                       | `ArbiterStartEvent` / `ArbiterEndEvent` (`arbiter`, `target`, `isCode`; the end: `outcome`, `costUsd`)                                                          |
+| `onRerankStart / onRerankEnd`                         | `RerankStartEvent` / `RerankEndEvent` (`rag`, `reranker`, `candidates`, `topK`; the end: `outcome`, `results`, `costUsd`)                                       |
+| `onModelFallback`                                     | `ModelFallbackEvent` (the providers and models, `reason`, `error` as class and code, `caller`), once per hop, in the step that made the call                    |
+| `onChannelInterpreterStart / onChannelInterpreterEnd` | `ChannelInterpreterStartEvent` / `ChannelInterpreterEndEvent` (`interpreter`, `channel`, `isCode`; the end: `outcome`, `costUsd`)                               |
+| `onTtlSweep`                                          | `TtlSweepEvent` (`at`, `durationMs`, `categories`) — the application's, no `workflows` / `agents` filter lets it through                                        |
+| `onPauseTimeoutChanged / onPauseReassigned`           | `PauseTimeoutChangedEvent` / `PauseReassignedEvent` (where the pause waits and its deadlines; never its id or the assignee)                                     |
+| `onRagStart` / `onRagEnd`                             | `RagStartEvent` / `RagEndEvent`                                                                                                                                 |
+| `onActionStart` / `onActionEnd`                       | `ActionStartEvent` / `ActionEndEvent`                                                                                                                           |
+| `onGuardrailStart` / `onGuardrailEnd`                 | `GuardrailStartEvent` (`input`: `side`, `component` (a `ComponentRecord`), the masked `text`) / `GuardrailEndEvent` (`output`: `isBlocked`, `probability`)      |
+| `onChannelStart` / `onChannelEnd`                     | `ChannelStartEvent` / `ChannelEndEvent`                                                                                                                         |
+| `onJudgeStart` / `onJudgeEnd`                         | `JudgeStartEvent` / `JudgeEndEvent` (`judge`, `agent`, `output`)                                                                                                |
+| `onValuesOutdated`                                    | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))                                                                                     |
+| `onLaunchItemsTruncated`                              | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches))                                                                       |
+| `onQuorumDecided`                                     | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))                                                                             |
+| `onCompensationStart` / `onCompensationEnd`           | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo))                                      |
+| `onExecutionLeaseTakeover`                            | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501))                                |
+| `onStepHandedOver`                                    | `StepHandedOverEvent` (step, reason, site, scope key, holder, token, observedToken — [below](#hand-overs-501))                                                  |
+| `onIdempotencyRun`                                    | `IdempotencyRunEvent` (step, name, scope key, token, outcome, writtenToken, observedToken — [below](#idempotent-writes-501))                                    |
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
@@ -125,15 +131,15 @@ for an `execute` without one), the `tenantId` it named (`"default"` otherwise), 
 `code` and a `message` without the input values. It never carries an `executionId`: no execution
 started, and another owner's is not revealed.
 
-| Refusal                                                    | Operation                     | `code`                 |
-| ---------------------------------------------------------- | ----------------------------- | ---------------------- |
-| a thread of another owner (`ThreadOwnerError`)             | `Execute`, `Resume`, `Cancel` | `run.thread-owner`     |
-| nothing paused on the thread (`NotPausedError`)            | `Resume`                      | `run.not-paused`       |
-| an unknown thread of the tenant (`UnknownThreadError`)     | `Execute`, `Cancel`           | `run.unknown-thread`   |
-| a class that is not a start of the workflow                | `Execute`                     | `workflow.not-a-start` |
-| invalid start input or context values (`DtoValidationError`) | `Execute`                   | `dto.invalid`          |
-| an exhausted budget before the first step                  | `Execute`                     | `limit.budget`         |
-| the app is stopping (`ApplicationStoppingError`)           | `Execute`, `Resume`           | `app.stopping`         |
+| Refusal                                                      | Operation                     | `code`                 |
+| ------------------------------------------------------------ | ----------------------------- | ---------------------- |
+| a thread of another owner (`ThreadOwnerError`)               | `Execute`, `Resume`, `Cancel` | `run.thread-owner`     |
+| nothing paused on the thread (`NotPausedError`)              | `Resume`                      | `run.not-paused`       |
+| an unknown thread of the tenant (`UnknownThreadError`)       | `Execute`, `Cancel`           | `run.unknown-thread`   |
+| a class that is not a start of the workflow                  | `Execute`                     | `workflow.not-a-start` |
+| invalid start input or context values (`DtoValidationError`) | `Execute`                     | `dto.invalid`          |
+| an exhausted budget before the first step                    | `Execute`                     | `limit.budget`         |
+| the app is stopping (`ApplicationStoppingError`)             | `Execute`, `Resume`           | `app.stopping`         |
 
 For invalid input the message names the DTO and its fields (`invalid Voucher at code`), never
 their values; the thrown error keeps the full message. A resume refused after a deploy
@@ -168,7 +174,7 @@ are in `result.record.outdatedValues`):
 - the execution's common fields ([below](#every-event)): `executionId`, `parentExecutionId`,
   `rootExecutionId`, `threadId`, `tenantId`, `workflow`;
 - `step` — the step that wrote, a `StepRecord`: `component` (`{ name, kind, promptHash,
-  schemaHash }`), `nodeId`, `visitNumber`, `copyNumber` (from 1), `itemIndex`, `idempotencyKey`,
+schemaHash }`), `nodeId`, `visitNumber`, `copyNumber` (from 1), `itemIndex`, `idempotencyKey`,
   `callId`, `toolLoopIteration`, `validationAttempts`;
 - `trigger` — the new value (`valueId`, `slot`, `producer`), the root of the cascade;
 - `outdated` — the replaced value first, then what was built from it, each with its `reason`
@@ -437,9 +443,9 @@ What an execution did step by step is in its result and record too (#395), not o
 - `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
   ended: `step`, `inputHash` (a stable hash of the values it read — the same input, the same hash on
   every machine and run; a start's is its input's), `decision?` (#401: what it decided — `route:<node>`
-for a router, `launch:<node>,…` for the routes it launched, `variant:<class>` for a `oneOf` answer,
-else `answer:<hash>` of its value — never the value itself, so it holds no PII; none when it gave
-nothing — what the [Mesh Hub](Mesh-Hub)'s radar counts), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`,
+  for a router, `launch:<node>,…` for the routes it launched, `variant:<class>` for a `oneOf` answer,
+  else `answer:<hash>` of its value — never the value itself, so it holds no PII; none when it gave
+  nothing — what the [Mesh Hub](Mesh-Hub)'s radar counts), `judgeVerdicts` (`JudgeVerdictRecord`: `judge`,
   `attempt`, `passed`, `reason?`, `metrics?`), `guardrailDecisions` (`GuardrailDecisionRecord`:
   `guardrail`, `side`, `isBlocked`, `probability`), `spend`, `startedAt`, `endedAt` and `error?` —
   the failure a side path took. Each child's own are in `result.children[i].steps` (#395 S6).
@@ -626,11 +632,11 @@ are its trace; a tenant's spend is the cost ledger; a rejected execution is `onE
 silent in tests — `testWith` logs no start and no warning, and an unlisted `Logger` is silent
 there):
 
-| Code                                 | When                                                                                         |
-| ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `application.in-memory-cost-ledger`  | tenant or application budgets on the built-in in-memory ledger: each instance counts on its own, the counters reset on restart |
-| `application.in-memory-pauses`       | a workflow can pause (a tool with a channel) on the built-in in-memory paused executions or checkpoints — the message names the one left in memory (#644) |
-| `application.in-memory-child-queue`  | a child is launched with `placement: ChildPlacement.AnyWorker` on the built-in in-memory child queue: it runs only on the instances of the process that launched it (#333 PR 2) |
+| Code                                | When                                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `application.in-memory-cost-ledger` | tenant or application budgets on the built-in in-memory ledger: each instance counts on its own, the counters reset on restart                                                  |
+| `application.in-memory-pauses`      | a workflow can pause (a tool with a channel) on the built-in in-memory paused executions or checkpoints — the message names the one left in memory (#644)                       |
+| `application.in-memory-child-queue` | a child is launched with `placement: ChildPlacement.AnyWorker` on the built-in in-memory child queue: it runs only on the instances of the process that launched it (#333 PR 2) |
 
 ## Files in events, traces and records (#899)
 

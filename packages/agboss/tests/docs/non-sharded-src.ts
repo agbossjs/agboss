@@ -12,6 +12,27 @@ const reviewed = (reason: string, names: readonly string[]): [string, string][] 
 
 export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntries([
   ...reviewed(
+    "the observer events of an arbiter's judging, a reranking, an interpreter's reading and an operator's change of a pause (#1343): each tells an observer what already happened — names, counts, an outcome and the spend the call already carries, never a value of a run — and a hook that throws is only a warning, so none decides a spend, a limit, a lease or a fence; covered by tests/core/observers/arbiter-hooks.test.ts, tests/core/observers/rerank-hooks.test.ts, tests/core/observers/interpreter-hooks.test.ts, tests/core/observers/pause-change-hooks.test.ts",
+    [
+      "src/flow/runtime/launch/arbiter-events.ts",
+      "src/rag/rerank-events.ts",
+      "src/channels/reply-events.ts",
+      "src/app/pause-change-events.ts",
+    ],
+  ),
+  ...reviewed(
+    "the hook calls of the observers that are not a step's events, moved out of `observer-manager.ts` as they were (#1343) to keep it under the line limit: each calls the observers through the manager's `each`; no decision of money, a limit or a deadline; covered by tests/core/observers/circuit-state-hook.test.ts, tests/core/observers/ttl-sweep-hook.test.ts and tests/core/observers/model-fallback-hook.test.ts",
+    ["src/core/observer-manager-calls.ts"],
+  ),
+  ...reviewed(
+    "a reranking's subset check, moved out of `rerank.ts` as it was (#1343) to keep it under the line limit: what comes back is the candidate itself, found by key; covered by tests/rag/rerank-content.test.ts and tests/rag/rerank.test.ts",
+    ["src/rag/rerank-results.ts"],
+  ),
+  ...reviewed(
+    "the mesh facts of a step's frame, moved out of `step-frame.ts` as they were (#1343) to keep it under the line limit: the origin and deadline an execution's contexts keep and a root's call chain; covered by tests/mesh/mesh-envelope.test.ts",
+    ["src/flow/runtime/step-mesh.ts"],
+  ),
+  ...reviewed(
     "a compaction's observer events (#1303): the execution part of the event read in the execution's frame and the cost read from the finished compaction, reported to an observer that never reaches the run; no spend, lease or cancel decision of its own; covered by tests/memory/compaction.test.ts",
     ["src/run/compaction-events.ts"],
   ),

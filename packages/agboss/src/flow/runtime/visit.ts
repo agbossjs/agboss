@@ -31,7 +31,6 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { exitOf, visitWrite, type SpentOutcome, type VisitWrite } from "./visit-write.js";
 import { succeededStepsOf, type VisitAt } from "./visit-step.js";
 import { caught, visited } from "./visit-failure.js";
-import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { itemBoundOf, type FlowEdge } from "../analyse/flow-graph.js";
 import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/launch-exit.js";
 import { itemsOverflowOf } from "./launch/items-limit.js";
@@ -57,7 +56,6 @@ export interface VisitDeps extends StepFrameDeps {
   readonly provenance: RuntimeProvenance;
   /** The graph: what a launch dispatches (#273). */
   readonly graph: RuntimeGraph;
-  readonly observer?: ExecutionObserverManager;
   /** The trees' concurrency caps of this pass (#264): every step takes a slot of its tree. */
   readonly slots?: TreeSlotRegistry;
   /** The instance's undo bound and registry (#340); absent = the default bound, no registry. */

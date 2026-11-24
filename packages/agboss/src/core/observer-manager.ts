@@ -1,4 +1,4 @@
-import { AuditObserverHooks } from "./observer-audit-hooks.js";
+import { ObserverHookCalls } from "./observer-manager-calls.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
@@ -55,7 +55,7 @@ const ignore: ObserverFailure = () => undefined;
  * skipped: it never fails the execution.
  */
 export class ExecutionObserverManager
-  extends AuditObserverHooks
+  extends ObserverHookCalls
   implements Required<ExecutionObserver>
 {
   /**

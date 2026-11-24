@@ -2680,7 +2680,7 @@ components }` (the worst component's `HealthStatus.Healthy | Degraded | Unhealth
 ModelProvider | HealthCheck | StepSlots, status, reason?, duration }`) — the project's server exposes them, no
   endpoint of the framework. Liveness: no I/O — the application (`Unhealthy`, `stopping`, from
   `app.close()` on) and the recovery loop (`Unhealthy` when its last sweep ended more than three
-  sweep intervals ago on the `Clock`). Readiness: liveness's components, every store's `ping()`
+  sweep intervals ago on the `Clock`). Readiness: liveness's components, one `ping()` per storage component
   (the #265 contracts, the checkpoint saver — one without `ping()` is read for a thread that does not
   exist), every model provider's circuit breaker from `RateLimitRepository` (open → `Degraded`, never
   a model call) and every `@HealthCheck` of `@Application({ healthChecks })` — at once, each under

@@ -88,7 +88,6 @@ describe("#300 AC2: readiness", () => {
         kind: HealthComponentKind.Storage,
         status: "healthy",
       },
-      { name: "SharedCheckpointSaver", kind: HealthComponentKind.Storage, status: "healthy" },
       {
         name: "openrouter-model-provider",
         kind: HealthComponentKind.ModelProvider,

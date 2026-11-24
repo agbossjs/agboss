@@ -1,5 +1,5 @@
 import { RunnableLambda } from "@langchain/core/runnables";
-import { copyOfResult, type RagSearchResultDto } from "./dto.js";
+import type { RagSearchResultDto } from "./dto.js";
 import { recordReportedCost, type UsageRecord } from "../finops/usage.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
@@ -10,6 +10,9 @@ import {
   RerankReplyError,
   type RerankReading,
 } from "./llm-reranker.js";
+import { checkedResults } from "./rerank-results.js";
+import { observedRerank } from "./rerank-events.js";
+import { RerankOutcome } from "../flow/observers/rerank.js";
 import { modelReadingNow } from "../pii/model-boundary.js";
 import {
   RERANK_FAILED_CODE,
@@ -81,47 +84,6 @@ export class RerankFailedError extends StepFailedError {
     this.rag = rag;
     this.reranker = reranker;
   }
-}
-
-/** A reranking that is not a subset of the candidates, or longer than `topK`. */
-class InvalidRerankingError extends Error {
-  override name = "InvalidRerankingError";
-}
-
-/** A candidate's identity: its `id` when it has one, else its source and text (two chunks of one document may share a text). */
-const keyOf = (result: RagSearchResultDto): string =>
-  result.id === undefined
-    ? `${result.source}\u0000${result.text}`
-    : `id\u0000${result.id}\u0000${result.source}`;
-
-/**
- * The reranking's results: each is one of the candidates, none twice, at most `topK`. What comes
- * back is the CANDIDATE itself, found by key — the reranker contributes its order and its score
- * only, never a text or a field: a model-backed reranker is untrusted, and what it returns must
- * not reach the agent's context rewritten.
- */
-function checkedResults(
-  candidates: readonly RagSearchResultDto[],
-  reranking: RerankResult,
-  topK: number,
-): readonly RagSearchResultDto[] {
-  const known = new Map(candidates.map((candidate) => [keyOf(candidate), candidate] as const));
-  const seen = new Set<string>();
-  if (reranking.results.length > topK)
-    throw new InvalidRerankingError(
-      `it returned ${String(reranking.results.length)} > topK ${String(topK)}`,
-    );
-  return reranking.results.map((result) => {
-    const key = keyOf(result);
-    const candidate = known.get(key);
-    if (candidate === undefined)
-      throw new InvalidRerankingError("it returned a passage that is no candidate");
-    if (seen.has(key)) throw new InvalidRerankingError("it returned one candidate twice");
-    seen.add(key);
-    return typeof result.score === "number" && Number.isFinite(result.score)
-      ? copyOfResult(candidate, { score: result.score })
-      : candidate;
-  });
 }
 
 /**
@@ -211,6 +173,22 @@ export async function rerankedRetrieval(
 ): Promise<KnowledgeRetrieval> {
   const fetched = await retrieve(Math.max(bound.candidates, call.topK));
   if (fetched.results.length === 0) return fetched;
+  return observedRerank(bound, { candidates: fetched.results.length, topK: call.topK }, () =>
+    rerankedOf(fetched, bound, call),
+  );
+}
+
+/** What a reranking ended with: the retrieval that goes on, and how. */
+interface Reranked {
+  readonly retrieval: KnowledgeRetrieval;
+  readonly outcome: RerankOutcome;
+}
+
+async function rerankedOf(
+  fetched: RagRetrieval,
+  bound: BoundReranker,
+  call: RerankCall,
+): Promise<Reranked> {
   const { query, topK, tenantId, scopeId, signal } = call;
   // outside the failure policy: a block rule refuses as the agent's own boundary would (#708)
   const masked = await maskedRerankOf(bound, query, fetched.results);
@@ -231,7 +209,10 @@ export async function rerankedRetrieval(
       { query: shown.query, candidates: shown.sources },
       { runName: `rerank:${bound.rag}` },
     );
-    return { ...fetched, results: reranked.results, usage: reranked.usage };
+    return {
+      retrieval: { ...fetched, results: reranked.results, usage: reranked.usage },
+      outcome: RerankOutcome.Reranked,
+    };
   } catch (error) {
     if (signal.aborted) throw error;
     const usage = [...masked.usage, ...failedSpendOf(error)];
@@ -247,6 +228,9 @@ export async function rerankedRetrieval(
       { reason },
       { runName: `rerank:${bound.rag}:fallback` },
     );
-    return { ...fetched, results: fetched.results.slice(0, topK), usage };
+    return {
+      retrieval: { ...fetched, results: fetched.results.slice(0, topK), usage },
+      outcome: RerankOutcome.FellBack,
+    };
   }
 }

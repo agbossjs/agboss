@@ -950,7 +950,7 @@ export interface ExecutionControl extends WorkflowExecutionControl {
 export const executionControlOf: (instance: Pick<AnyTenantApp, "execute"> | object) => ExecutionControl | undefined;
 
 // @public
-export class ExecutionObserverManager extends AuditObserverHooks implements Required<ExecutionObserver> {
+export class ExecutionObserverManager extends ObserverHookCalls implements Required<ExecutionObserver> {
     constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure, mask?: EventMask, builtIn?: readonly ExecutionObserver[], unknownCosts?: UnknownCostTally | undefined);
     // (undocumented)
     protected each<TEvent>(hook: ObserverHook, event: TEvent, call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void): Promise<void>;

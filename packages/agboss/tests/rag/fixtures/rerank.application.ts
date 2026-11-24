@@ -1,6 +1,11 @@
 import { usd } from "../../../src/units/index.js";
 import { Agent, EmptyEnvironment, Tool, Workflow, inline } from "../../../src/index.js";
-import { WorkflowFinish, WorkflowStart, type Class } from "../../../src/index.js";
+import {
+  WorkflowFinish,
+  WorkflowStart,
+  type Class,
+  type ExecutionObserver,
+} from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
@@ -217,7 +222,10 @@ export const STRICT_CONTEXT = workflowWith("strict-context", StrictRankedRag, "c
 export const INVENTING_CONTEXT = workflowWith("inventing-context", InventingRankedRag, "context");
 
 /** The application of every reranking workflow, on the local model provider. */
-export function rerankApplication(budgets: readonly Class[] = TEST_BUDGETS): Class {
+export function rerankApplication(
+  budgets: readonly Class[] = TEST_BUDGETS,
+  observers: readonly Class<ExecutionObserver>[] = [],
+): Class {
   @Application({
     name: "rerank-application",
     version: "1.0.0",
@@ -232,6 +240,7 @@ export function rerankApplication(budgets: readonly Class[] = TEST_BUDGETS): Cla
       INVENTING_CONTEXT,
     ].map((w) => w.workflow),
     providers: MODEL_PROVIDERS,
+    observers,
     budgets,
   })
   class RerankApplication {}

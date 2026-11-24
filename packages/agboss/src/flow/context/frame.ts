@@ -31,6 +31,7 @@ import type {
   OutboundCallReport,
 } from "../../app/audit-log.js";
 import type { ObservabilityMask } from "../../pii/observability-mask.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -76,6 +77,11 @@ export interface ExecutionFacts {
    * request is stored (#505); `undefined` where the frame has no workflow (a unit runner).
    */
   readonly observability?: ObservabilityMask | undefined;
+  /**
+   * The execution's observers, masked by its workflow's policies (#1343): what a component inside a
+   * step tells its hooks through (`reportFrameEvent`); `undefined` where none observes (a unit runner).
+   */
+  readonly observer?: ExecutionObserverManager | undefined;
   /**
    * The key a business key's handle is made with (#508): the execution's PII key — its own (#334),
    * else the application's. None where no key is available: an error then shows no handle.

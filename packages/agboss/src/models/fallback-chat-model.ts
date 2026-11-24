@@ -38,6 +38,11 @@ export interface FallbackChatModelParts {
   readonly breaker?: CircuitBreaker;
   /** The chain after the primary, in order: the first that answers serves the call. */
   readonly hops: readonly FallbackTarget[];
+  /**
+   * Told before each hop is asked (`onModelFallback`), with the failure that sent the call there —
+   * none when the primary's breaker was open; never fails the call (the listener's own errors are its).
+   */
+  readonly onHop?: (hop: FallbackTarget, after: unknown) => Promise<void>;
 }
 
 /** Whether a call failed because the breaker opened (the error, or one of its causes). */
@@ -102,6 +107,15 @@ export class FallbackChatModel extends BaseChatModel {
     });
   }
 
+  /** Tells the listener the call goes to `hop`; what the listener throws is not the call's failure. */
+  async #told(hop: FallbackTarget, after: unknown): Promise<void> {
+    try {
+      await this.parts.onHop?.(hop, after);
+    } catch {
+      // an observer's own failure is its manager's to report; the call goes on
+    }
+  }
+
   /** The call served by the first of the chain that answers; the last one's error when none does. */
   private async viaFallback(
     messages: BaseMessage[],
@@ -110,6 +124,7 @@ export class FallbackChatModel extends BaseChatModel {
   ): Promise<BaseMessage> {
     let last = failed;
     for (const hop of this.parts.hops) {
+      await this.#told(hop, last);
       try {
         const answer = await this.callOf(hop.chatModel(), messages, signal);
         return markedFallbackMessage(answer, hop);
@@ -151,10 +166,12 @@ export class FallbackChatModel extends BaseChatModel {
     runManager: CallbackManagerForLLMRun | undefined,
     signal: AbortSignal | undefined,
     earlier: readonly EarlierShare[] = [],
+    failed?: unknown,
   ): Promise<AIMessageChunk> {
     const [fallback] = this.parts.hops;
     if (fallback === undefined)
       throw new ModelProviderError({ message: "the fallback chain is empty" });
+    await this.#told(fallback, failed);
     const model = this.boundOf(fallback.chatModel());
     try {
       const answer = await streamedAnswer(model, messages, runManager, signal, {
@@ -202,7 +219,13 @@ export class FallbackChatModel extends BaseChatModel {
           reported: partialSpendOf(error),
           chars: told.chars,
         };
-        return this.streamedViaFallback(messages, runManager, signal, told.text ? [share] : []);
+        return this.streamedViaFallback(
+          messages,
+          runManager,
+          signal,
+          told.text ? [share] : [],
+          error,
+        );
       }
     };
     const message = await answered();

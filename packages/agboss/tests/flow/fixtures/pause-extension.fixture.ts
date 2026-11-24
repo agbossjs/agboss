@@ -27,7 +27,11 @@ import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
 import { onStart } from "./paths.js";
-import { Observer } from "../../../src/index.js";
+import {
+  Observer,
+  type PauseReassignedEvent,
+  type PauseTimeoutChangedEvent,
+} from "../../../src/index.js";
 
 /**
  * #942 — a pause that is extended and reminded: a manager's approval (24 h, a reminder 2 h before),
@@ -62,6 +66,8 @@ export const told = {
   expiryAsked: [] as ChannelAsk<ExtendManagerQuestion>[],
   /** The errors executions failed with. */
   errors: [] as Error[],
+  /** Every pause an operator extended or reassigned, as the observers were told (#1343). */
+  changes: [] as (PauseTimeoutChangedEvent | PauseReassignedEvent)[],
   /** Every close the manager's channel was told, with the pause it names (#946). */
   closed: [] as { readonly pauseId: string; readonly reason: string }[],
   /** The decision the owner's channel gives at once to a reassigned send (#946); none: it waits. */
@@ -75,6 +81,7 @@ export function resetTold(): void {
   told.recorded.length = 0;
   told.expiryAsked.length = 0;
   told.errors.length = 0;
+  told.changes.length = 0;
   told.closed.length = 0;
   told.ownerDecides = undefined;
 }
@@ -224,6 +231,14 @@ export class ExtensionPauseListener implements PauseListenerHandler {
 export class ExtensionLog {
   onExecutionError(event: ExecutionErrorEvent): void {
     told.errors.push(event.error);
+  }
+
+  onPauseTimeoutChanged(event: PauseTimeoutChangedEvent): void {
+    told.changes.push(event);
+  }
+
+  onPauseReassigned(event: PauseReassignedEvent): void {
+    told.changes.push(event);
   }
 }
 

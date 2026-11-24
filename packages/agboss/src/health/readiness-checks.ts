@@ -1,4 +1,7 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import type { Class } from "../components/injection.js";
+import { classOf, type AssembledStorage } from "../storage/storage-assembly.js";
+import { storageDriverOf } from "../storage/storage-driver.js";
 import { isInlineFileStore } from "../infrastructure/file.repository.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
 import { CircuitBreaker, circuitOpenKeyOf } from "../models/circuit-breaker.js";
@@ -9,7 +12,7 @@ import { HealthComponentKind, HealthStatus, type HealthComponentReport } from ".
 import type { HealthSources, ProjectHealthCheck } from "./health-sources.js";
 
 /**
- * What only readiness checks (#300): every store's `ping()`, every model provider's circuit
+ * What only readiness checks (#300): one `ping()` per storage component (#1321), every model provider's circuit
  * breaker as `RateLimitRepository` keeps it (open → `Degraded`; never a model call) and every
  * project `@HealthCheck` — each under its own timeout, all at once.
  */
@@ -37,12 +40,26 @@ export async function pingCheckpointSaver(saver: BaseCheckpointSaver): Promise<v
   await saver.getTuple(PROBE_THREAD);
 }
 
+/** A store of the instance with the ping that reaches it. */
+type Pinged = readonly [store: object, ping: () => Promise<void>];
+
+/** The checkpoint saver's own `ping()`; a saver without one is not probed (LangGraph's contract has none). */
+const saverPingOf = (saver: BaseCheckpointSaver): (() => Promise<void>) | undefined => {
+  const ping: unknown = Reflect.get(saver, "ping");
+  return typeof ping === "function"
+    ? async () => {
+        await Reflect.apply(ping, saver, []);
+      }
+    : undefined;
+};
+
 /** The stores of the instance, each with its ping: the #265 contracts and the checkpoint saver. */
-function storesOf(sources: HealthSources): readonly [object, () => Promise<void>][] {
+function storesOf(sources: HealthSources): readonly Pinged[] {
   const { infrastructure: stores } = sources;
   // the listed saver, under the ordered checkpointer the instance reads through (#682)
   const { checkpointer } = stores;
   const saver = checkpointer instanceof OrderedCheckpointSaver ? checkpointer.saver : checkpointer;
+  const saverPing = saverPingOf(saver);
   return [
     [stores.records, () => stores.records.ping()],
     [stores.costLedger, () => stores.costLedger.ping()],
@@ -55,18 +72,58 @@ function storesOf(sources: HealthSources): readonly [object, () => Promise<void>
     // #859: the default keeps no file (they ride inline): nothing to reach
     ...(isInlineFileStore(stores.a2aFiles)
       ? []
-      : [[stores.a2aFiles, () => stores.a2aFiles.ping()] satisfies [object, () => Promise<void>]]),
+      : [[stores.a2aFiles, () => stores.a2aFiles.ping()] satisfies Pinged]),
     [stores.a2aDirectMessages, () => stores.a2aDirectMessages.ping()],
     [stores.executionHistory, () => stores.executionHistory.ping()],
     [stores.auditLog, () => stores.auditLog.ping()],
-    [saver, () => pingCheckpointSaver(saver)],
+    ...(saverPing === undefined ? [] : [[saver, saverPing] satisfies Pinged]),
   ];
 }
 
+/** One probe: the component's name and the ping that reaches it. */
+interface StorageProbe {
+  readonly name: string;
+  readonly ping: () => Promise<void>;
+}
+
+/** Every storage component of the application (`@DatabaseStorage`, `@ClusterStorage`, `@ObjectStorage`) with the classes its driver creates. */
+function storageComponentsOf(
+  storage: AssembledStorage | undefined,
+): readonly { readonly name: string; readonly classes: readonly Class[] }[] {
+  const entries = [storage?.database, storage?.cluster, storage?.objects];
+  return entries.flatMap((entry) => {
+    const driver = storageDriverOf(entry?.meta.driver);
+    return entry === undefined || driver === undefined
+      ? []
+      : [{ name: entry.meta.name, classes: driver.providers.flatMap((one) => classOf(one) ?? []) }];
+  });
+}
+
+/**
+ * One ping per storage component (#1321): the stores a component's driver creates share its
+ * connection, so the first of them reaches it for all and the component is reported under its own
+ * name. A store the application replaced or brought itself (no driver created it) is its own probe.
+ */
+function storageProbesOf(sources: HealthSources): readonly StorageProbe[] {
+  const components = storageComponentsOf(sources.storage);
+  const probes: StorageProbe[] = [];
+  const pinged = new Set<string>();
+  for (const [store, ping] of storesOf(sources)) {
+    const component = components.find(({ classes }) => classes.some((cls) => store instanceof cls));
+    if (component === undefined) {
+      probes.push({ name: store.constructor.name, ping });
+    } else if (!pinged.has(component.name)) {
+      pinged.add(component.name);
+      probes.push({ name: component.name, ping });
+    }
+  }
+  return probes;
+}
+
 const storeProbes = (sources: HealthSources): Promise<HealthComponentReport>[] =>
-  storesOf(sources).map(([store, ping]) =>
+  storageProbesOf(sources).map(({ name, ping }) =>
     probe(
-      { name: store.constructor.name, kind: HealthComponentKind.Storage, timeout: STORE_TIMEOUT },
+      { name, kind: HealthComponentKind.Storage, timeout: STORE_TIMEOUT },
       sources.infrastructure.clock,
       async () => {
         await ping();

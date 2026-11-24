@@ -3,6 +3,7 @@ import { ApplicationStoppingError } from "../core/errors.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { CloseOptions } from "../app/types.js";
 import { stopComponents } from "../components/container/lifecycle.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import { startRecoverySweep, type RecoverySweep } from "../infrastructure/recovery.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
@@ -173,6 +174,8 @@ export interface InstanceParts {
   readonly auditLog?: AuditLogWriter;
   /** The instance's pause notices (#940): the pause timers' look, and the fast path's looks. */
   readonly notices: PauseNoticeHub;
+  /** The application's observers: told of the retention sweep's looks (`onTtlSweep`). */
+  readonly observer?: ExecutionObserverManager | undefined;
 }
 
 /** The instance's recovery sweep and graceful stop. */
@@ -203,7 +206,7 @@ export function stopOf(
       orphans: new Map(workflows.map((one) => [one.deps.config.name, one.closeOrphan])),
       wakes: new Map(workflows.map((one) => [one.deps.config.name, one.wakeAnswered])),
       ...retentionSourcesOf(parts.infrastructure, assembled),
-      capacity: parts.stepSlots,
+      ...{ capacity: parts.stepSlots, observer: parts.observer },
     });
   const { shutdownTimeout } = assembled;
   const workers = childWorkersOf(workflows, parts, interruption.signal);

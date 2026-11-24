@@ -621,6 +621,13 @@ export interface ArbiterCriterion {
 export type ArbiterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass) => TClass;
 
 // @public
+export interface ArbiterEndEvent extends ArbiterStartEvent {
+    readonly costUsd: Usd;
+    // (undocumented)
+    readonly outcome: ArbiterOutcome;
+}
+
+// @public
 export class ArbiterError extends StepFailedError {
     constructor(options: ArbiterErrorOptions);
     readonly arbiter: string;
@@ -649,6 +656,21 @@ export abstract class ArbiterModel {
 
 // @public
 export type ArbiterOptions = ModelArbiterOptions | RecordedCodeArbiterOptions;
+
+// @public
+export enum ArbiterOutcome {
+    Abandoned = "abandoned",
+    Accepted = "accepted",
+    NoVerdict = "no-verdict",
+    Rejected = "rejected"
+}
+
+// @public
+export interface ArbiterStartEvent extends NodeEvent {
+    readonly arbiter: string;
+    readonly isCode: boolean;
+    readonly target: string;
+}
 
 // @public
 type ArbitrableKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question;
@@ -1085,6 +1107,13 @@ export function ChannelInterpreter(options: ModelChannelInterpreterOptions): Cha
 export type ChannelInterpreterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass) => TClass;
 
 // @public
+export interface ChannelInterpreterEndEvent extends ChannelInterpreterStartEvent {
+    readonly costUsd: Usd;
+    // (undocumented)
+    readonly outcome: ChannelInterpreterOutcome;
+}
+
+// @public
 export interface ChannelInterpreterHandler<TSelf> {
     // (undocumented)
     readonly interpret: (input: ChannelInterpreterInput<TSelf>) => ChannelInterpretation<OutputOf<TSelf>> | Promise<ChannelInterpretation<OutputOf<TSelf>>>;
@@ -1095,6 +1124,19 @@ export type ChannelInterpreterInput<TSelf> = InputOf<TSelf>;
 
 // @public
 export type ChannelInterpreterOptions = ModelChannelInterpreterOptions | CodeChannelInterpreterOptions;
+
+// @public
+export enum ChannelInterpreterOutcome {
+    Read = "read",
+    Unreadable = "unreadable"
+}
+
+// @public
+export interface ChannelInterpreterStartEvent extends NodeEvent {
+    readonly channel: string;
+    readonly interpreter: string;
+    readonly isCode: boolean;
+}
 
 // @public
 export function ChannelListener<const TDeps extends readonly Token[] = []>(options?: ChannelListenerOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object & ChannelListenerHandler>(value: TClass) => TClass;
@@ -3354,8 +3396,12 @@ export interface ExecutionObserver {
     onAgentRetry?(event: AgentRetryEvent): void | Promise<void>;
     // (undocumented)
     onAgentStart?(event: AgentStartEvent): void | Promise<void>;
+    onArbiterEnd?(event: ArbiterEndEvent): void | Promise<void>;
+    onArbiterStart?(event: ArbiterStartEvent): void | Promise<void>;
     // (undocumented)
     onChannelEnd?(event: ChannelEndEvent): void | Promise<void>;
+    onChannelInterpreterEnd?(event: ChannelInterpreterEndEvent): void | Promise<void>;
+    onChannelInterpreterStart?(event: ChannelInterpreterStartEvent): void | Promise<void>;
     // (undocumented)
     onChannelStart?(event: ChannelStartEvent): void | Promise<void>;
     onCircuitStateChange?(event: CircuitStateChangeEvent): void | Promise<void>;
@@ -3385,13 +3431,18 @@ export interface ExecutionObserver {
     onLaunchItemsTruncated?(event: LaunchItemsTruncatedEvent): void | Promise<void>;
     // (undocumented)
     onModelEnd?(event: ModelEndEvent): void | Promise<void>;
+    onModelFallback?(event: ModelFallbackEvent): void | Promise<void>;
     onModelStart?(event: ModelStartEvent): void | Promise<void>;
     onOutboundCall?(event: OutboundCallEvent): void | Promise<void>;
+    onPauseReassigned?(event: PauseReassignedEvent): void | Promise<void>;
+    onPauseTimeoutChanged?(event: PauseTimeoutChangedEvent): void | Promise<void>;
     onQuorumDecided?(event: QuorumDecidedEvent): void | Promise<void>;
     // (undocumented)
     onRagEnd?(event: RagEndEvent): void | Promise<void>;
     // (undocumented)
     onRagStart?(event: RagStartEvent): void | Promise<void>;
+    onRerankEnd?(event: RerankEndEvent): void | Promise<void>;
+    onRerankStart?(event: RerankStartEvent): void | Promise<void>;
     // (undocumented)
     onRouterEnd?(event: RouterEndEvent): void | Promise<void>;
     // (undocumented)
@@ -3401,6 +3452,7 @@ export interface ExecutionObserver {
     onToolEnd?(event: ToolEndEvent): void | Promise<void>;
     // (undocumented)
     onToolStart?(event: ToolStartEvent): void | Promise<void>;
+    onTtlSweep?(event: TtlSweepEvent): void | Promise<void>;
     onValuesOutdated?(event: ValuesOutdatedEvent): void | Promise<void>;
 }
 
@@ -6268,6 +6320,26 @@ export interface ModelEndEvent extends NodeEvent {
 }
 
 // @public
+export interface ModelFallbackEvent extends Partial<NodeEvent> {
+    readonly caller: string;
+    readonly error: ObservedFailure | undefined;
+    // (undocumented)
+    readonly fallbackModel: string;
+    readonly fallbackProvider: string;
+    // (undocumented)
+    readonly primaryModel: string;
+    readonly primaryProvider: string;
+    // (undocumented)
+    readonly reason: ModelFallbackReason;
+}
+
+// @public
+export enum ModelFallbackReason {
+    CircuitOpen = "circuit-open",
+    Failed = "failed"
+}
+
+// @public
 export enum ModelFileLimit {
     MaxFiles = "max-files",
     MaxFileSize = "max-file-size",
@@ -6661,6 +6733,12 @@ export interface ObjectStorageOptions {
     readonly driver: ObjectDriver;
     // (undocumented)
     readonly name?: string;
+}
+
+// @public
+export interface ObservedFailure {
+    readonly code: string | undefined;
+    readonly name: string;
 }
 
 // @public
@@ -7331,6 +7409,17 @@ export type PauseCallerOptions = ThreadOwnerPauseOptions | ChannelPauseOptions;
 export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled | PauseResolution.TreeEnded;
 
 // @public
+export interface PauseChange {
+    readonly channel?: string;
+    readonly executionId: string;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    readonly workflow: string;
+}
+
+// @public
 export class PauseClosedError extends AGBossError {
     constructor(options: PauseClosedErrorOptions);
     // (undocumented)
@@ -7730,6 +7819,12 @@ export type PauseOutputOf<TTarget> = [TTarget] extends [never] ? never : Generat
 } ? TOutput : MissingGeneratedTypes;
 
 // @public
+export interface PauseReassignedEvent extends PauseChange {
+    readonly expiresAt?: Date;
+    readonly previousChannel?: string;
+}
+
+// @public
 export interface PauseReassignment {
     readonly pauseKey: string;
 }
@@ -7875,6 +7970,14 @@ export interface PauseTargetOverlay {
 
 // @public
 type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "pause.setting-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
+
+// @public
+export interface PauseTimeoutChangedEvent extends PauseChange {
+    // (undocumented)
+    readonly expiresAt: Date;
+    // (undocumented)
+    readonly previousExpiresAt: Date;
+}
 
 // @public
 export interface PauseToolCallSummary {
@@ -8698,6 +8801,30 @@ export interface ReplyResumeRequest {
     readonly decision?: never;
     readonly pauseId: string;
     readonly reply: string;
+}
+
+// @public
+export interface RerankEndEvent extends RerankStartEvent {
+    readonly costUsd: Usd;
+    // (undocumented)
+    readonly outcome: RerankOutcome;
+    readonly results: number;
+}
+
+// @public
+export enum RerankOutcome {
+    Failed = "failed",
+    FellBack = "fell-back",
+    Reranked = "reranked"
+}
+
+// @public
+export interface RerankStartEvent extends NodeEvent {
+    readonly candidates: number;
+    readonly rag: string;
+    readonly reranker: string;
+    // (undocumented)
+    readonly topK: number;
 }
 
 // @public
@@ -10800,6 +10927,21 @@ export enum Ttl {
     None = "none"
 }
 
+// @public
+export interface TtlSweepCategory {
+    readonly category: string;
+    readonly error?: ObservedFailure;
+    readonly removed: number | undefined;
+}
+
+// @public
+export interface TtlSweepEvent {
+    readonly at: Date;
+    // (undocumented)
+    readonly categories: readonly TtlSweepCategory[];
+    readonly durationMs: number;
+}
+
 // @public (undocumented)
 export interface Turn {
     // (undocumented)
@@ -12455,6 +12597,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "has".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "createdBy".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "ancestors".
+// src/flow/observers/arbiter.ts - (ae-undocumented) Missing documentation for "outcome".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "previousToken".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "reason".
@@ -12470,9 +12613,20 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "attempt".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "outcome".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "scopeKey".
+// src/flow/observers/channel-interpreter.ts - (ae-undocumented) Missing documentation for "outcome".
 // src/flow/observers/circuit-state.ts - (ae-undocumented) Missing documentation for "from".
 // src/flow/observers/circuit-state.ts - (ae-undocumented) Missing documentation for "to".
 // src/flow/observers/execution-event.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/flow/observers/model-fallback.ts - (ae-undocumented) Missing documentation for "primaryModel".
+// src/flow/observers/model-fallback.ts - (ae-undocumented) Missing documentation for "fallbackModel".
+// src/flow/observers/model-fallback.ts - (ae-undocumented) Missing documentation for "reason".
+// src/flow/observers/pause-changes.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/flow/observers/pause-changes.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/flow/observers/pause-changes.ts - (ae-undocumented) Missing documentation for "previousExpiresAt".
+// src/flow/observers/pause-changes.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/flow/observers/rerank.ts - (ae-undocumented) Missing documentation for "topK".
+// src/flow/observers/rerank.ts - (ae-undocumented) Missing documentation for "outcome".
+// src/flow/observers/ttl-sweep.ts - (ae-undocumented) Missing documentation for "categories".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "PlainDto".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "OneOfError".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "__error".

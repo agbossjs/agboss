@@ -193,6 +193,7 @@ export function instanceHealthOf(
     infrastructure: parts.infrastructure,
     modelProviders: modelProvidersOf(assembled.providers),
     healthChecks: projectChecksOf(assembled.healthChecks, workflows),
+    storage: assembled.storage,
     stepSlots: parts.stepSlots,
   });
 }
