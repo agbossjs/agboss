@@ -16,7 +16,7 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * output is in the scope and with no branch dispatched and nothing spent past the producer:
  * a list past `.forEachItem(…, { maxItems })` is `LimitError.Items` (#1280); a quorum deadline in
  * working time whose `@WorkingCalendar` fails is `PauseError.WorkingCalendar` (#1306). Without such a
- * handler the error is thrown, as any step's.
+ * handler the error is thrown, like any step's.
  */
 
 /** A launch a visit took: its graph launch and the ticket of its branches (#273). */

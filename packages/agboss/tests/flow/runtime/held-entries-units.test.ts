@@ -138,9 +138,9 @@ describe("#1281b: the parent's step takes what was moved up to it", () => {
 
   it("the tree of a frame: its tenant and its root's id", () => {
     const root = { executionId: "root", tenant: { tenantId: "t" } };
-    const frame = {
+    const frame: FrameSpec = {
       execution: { executionId: "c", tenant: { tenantId: "t" }, parent: { execution: root } },
-    } as never as FrameSpec;
+    } as never;
 
     expect(treeOfFrame(frame)).toEqual({ tenantId: "t", rootExecutionId: "root" });
   });
@@ -295,13 +295,13 @@ describe("#1281b: where a held entry undoes", () => {
     [workflowNode("middle", Middle), workflowNode("self", Root), action("charge", true)],
     new Map<unknown, FakeDeps>([[Middle, middle]]),
   );
-  const holder = {
+  const holder: UndoSite = {
     graph: root.graph,
     container: root.container,
     components: new Map(),
     execution: { executionId: "root", workflow: { name: "root" }, tenant: { tenantId: "t" } },
     reason: "quorum-excluded",
-  } as never as UndoSite;
+  } as never;
 
   it("one of the holder's own: the holder's site itself", () => {
     expect(heldUndoSiteOf(holder, root, entry())).toBe(holder);

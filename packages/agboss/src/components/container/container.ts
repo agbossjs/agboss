@@ -146,7 +146,7 @@ function construct(cls: Class, resolve: Resolve): unknown {
       message: `[di.undecorated-provider] ${tokenName(cls)} takes ${String(cls.length)} constructor argument(s) but has no @Injectable({ deps }) or similar decorator.`,
     });
   }
-  return new (cls as unknown as new (...a: unknown[]) => unknown)(...args);
+  return Reflect.construct(cls, args);
 }
 
 /** The container's own sources and its application's, one registration per token. */

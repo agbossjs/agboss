@@ -204,7 +204,7 @@ describe("#1288a: masking fails closed on every object that is not a leaf", () =
   it.each(cases)("maskDto masks a sensitive field inside %s", (_name, note) => {
     validate(NoteDto, { secret: "x" });
     validate(FancyNoteDto, { secret: "x" });
-    const shown = maskDto(HolderDto, { note } as unknown as HolderDto);
+    const shown = maskDto(HolderDto, Object.assign(new HolderDto(), { note }));
 
     expect(JSON.stringify(shown)).not.toContain("TOP-SECRET");
   });

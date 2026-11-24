@@ -10,6 +10,6 @@ const isDefinition = (value: unknown): value is { settings(): WorkflowSettings }
 /** The workflow's `settings()` when it has one (`implements WorkflowDefinition`), else the defaults. */
 export function settingsOf(workflow: Class): WorkflowSettings {
   // a @Workflow class is constructed with no arguments: it holds declarations only
-  const instance: unknown = new (workflow as unknown as new () => unknown)();
+  const instance: unknown = Reflect.construct(workflow, []);
   return isDefinition(instance) ? instance.settings() : DEFAULT_WORKFLOW_SETTINGS;
 }

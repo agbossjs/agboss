@@ -1,6 +1,6 @@
 {
   "src @ts-ignore": 2,
-  "src as unknown as": 7,
+  "src as unknown as": 4,
   "src eslint:@typescript-eslint/ban-ts-comment": 2,
   "src eslint:@typescript-eslint/explicit-module-boundary-types": 1,
   "src eslint:@typescript-eslint/no-base-to-string": 1,

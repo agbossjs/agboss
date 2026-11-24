@@ -63,6 +63,12 @@ export const isDriverProvider = (provider: RegisteredModelProvider): boolean =>
 const names = (providers: readonly RegisteredModelProvider[]): string =>
   providers.map((provider) => provider.options.name).join(", ");
 
+/** An HTTP provider's handler: its class constructed with no arguments (all its members are optional). */
+function handlerOf(cls: ModelProviderType): ModelProviderHandler {
+  const made: unknown = Reflect.construct(cls, []);
+  return typeof made === "object" && made !== null ? made : {};
+}
+
 /** A provider class as registered: an HTTP one constructed with no arguments, a transport not yet. */
 export function registeredOf(cls: ModelProviderType): RegisteredModelProvider {
   const options = modelProviderOf(cls);
@@ -75,7 +81,7 @@ export function registeredOf(cls: ModelProviderType): RegisteredModelProvider {
       : isTransportClass(cls)
         ? undefined
         : // an HTTP @ModelProvider class takes no arguments (the decorator's overload requires it)
-          new (cls as unknown as new () => ModelProviderHandler)(),
+          handlerOf(cls),
   };
 }
 

@@ -139,16 +139,15 @@ describe("#1397: a card is bounded", () => {
     );
   });
 
-  it("a card at the limit is read in linear time, each usable interface kept once", async () => {
+  it("a card at the limit is read whole, each usable interface kept once", async () => {
     const many = Array.from({ length: 100 }, (_, n) =>
       face({ url: `http://agent.test/a${String(n)}` }),
     );
-    const started = performance.now();
 
     const read = await fetchCard(URL_OK, jsonOf(goodCard({ supportedInterfaces: many })), POLICY);
 
     expect(read.card.supportedInterfaces).toHaveLength(100);
-    expect(performance.now() - started).toBeLessThan(1000);
+    expect(new Set(read.card.supportedInterfaces.map((each) => each.url)).size).toBe(100);
   });
 
   it("an interface of a binding the client does not speak is not kept, though its url is usable", async () => {

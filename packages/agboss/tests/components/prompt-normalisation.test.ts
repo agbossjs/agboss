@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { normalisePromptText, PromptLoader } from "../../src/components/prompt-render.js";
-import { inline, type PromptSource } from "../../src/components/prompt-source.js";
+import { inline } from "../../src/components/prompt-source.js";
 
 const dir = mkdtempSync(join(tmpdir(), "agboss-120-prompts-"));
 const source = join(dir, "owner.ts");
@@ -17,17 +17,18 @@ writeFileSync(join(dir, "first.prompt.md"), "﻿\r\n\r\nFirst part,\r\n  indente
 writeFileSync(join(dir, "second.prompt.md"), "\n\tSecond part.\n\n\nStill second.\n");
 writeFileSync(join(dir, "blank.prompt.md"), "\n  \n\t\n");
 
-const load = (prompt: string | undefined, files: readonly string[] = []): Promise<string> =>
-  new PromptLoader().load({
+const load = (prompt: string | undefined, files: readonly string[] = []): Promise<string> => {
+  const [head, ...rest] = [
+    ...(prompt === undefined ? [] : [inline(prompt)]),
+    ...files.map((file): `./${string}` => `./${file}`),
+  ];
+  if (head === undefined) throw new Error("the loader tests give at least one prompt part");
+  return new PromptLoader().load({
     label: '@Guardrail "test-guardrail"',
-    options: {
-      prompt: [
-        ...(prompt === undefined ? [] : [inline(prompt)]),
-        ...files.map((file) => `./${file}`),
-      ] as unknown as PromptSource,
-    },
+    options: { prompt: [head, ...rest] },
     source,
   });
+};
 
 describe("#120 PR 4: prompts are normalised at load", () => {
   it("removes the BOM, CRLF and the blank lines at the edges; keeps what is inside", () => {

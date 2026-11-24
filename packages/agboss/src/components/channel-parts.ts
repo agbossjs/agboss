@@ -86,7 +86,7 @@ function permitAnswerOf(cls: Class, container: Container): PermitAnswer | undefi
   const hook: unknown = Reflect.get(cls.prototype as object, "permitAnswer");
   if (declaration === undefined || typeof hook !== "function") return undefined;
   const args = (declaration.options.deps ?? []).map((dep) => container.get(dep));
-  const holder: unknown = new (cls as unknown as new (...a: unknown[]) => unknown)(...args);
+  const holder: unknown = Reflect.construct(cls, args);
   return async (ctx) => (await Reflect.apply(hook, holder, [ctx])) as unknown;
 }
 
