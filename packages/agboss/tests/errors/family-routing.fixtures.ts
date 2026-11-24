@@ -16,7 +16,7 @@ import { BearerCallerResolver } from "../a2a/fixtures/bearer-caller-resolver.js"
 import { Text } from "../../src/dto/index.js";
 import { ComponentKind, bareRecordOf } from "../../src/flow/runtime/records.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start, toFinish } from "../helpers/flow.js";
+import { onStart, toFinish } from "../helpers/flow.js";
 
 /** Which error the action throws. */
 export class AskDto {
@@ -123,7 +123,7 @@ export class OwnCaughtFinish {}
   name: "family-route-workflow",
   version: "1.0.0",
   flow: [
-    start(FamilyRouteStart)
+    onStart(FamilyRouteStart)
       .returns(AskDto)
       .toAction(ThrowingAction)
       .onError(StepError.Action, toFinish(VariantCaughtFinish))
