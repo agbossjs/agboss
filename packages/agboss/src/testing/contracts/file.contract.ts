@@ -7,6 +7,7 @@ import {
   type FileRepository,
   type NewFile,
 } from "../../infrastructure/file.repository.js";
+import { fileOrphanCases } from "./file-orphan.cases.js";
 import { fileSweepCases } from "./file-sweep.cases.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import type { ContractTarget } from "./instance-context.js";
@@ -38,6 +39,7 @@ const metaOf = (file: NewFile): FileMetadata => metadataOf(file);
 
 const FILE_CASES: readonly ContractCase<FileRepository>[] = [
   ...fileSweepCases(),
+  ...fileOrphanCases(),
   {
     name: "a saved file is read back on another instance: its bytes and its metadata",
     run: async ({ first, second }) => {

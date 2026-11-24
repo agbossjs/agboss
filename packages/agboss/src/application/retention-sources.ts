@@ -30,6 +30,9 @@ export const retentionSourcesOf = (
       files: infrastructure.a2aFiles,
       clock: infrastructure.clock,
       workflows: assembled.workflows.map((workflow) => workflow.graph.type),
+      isLive: async ({ tenantId, ownerId }) =>
+        (await infrastructure.records.findByTenantIdAndRunId(tenantId, ownerId)) !== undefined ||
+        (await infrastructure.a2aTasks.findById({ tenantId, taskId: ownerId })) !== undefined,
     }),
   ],
   outboundCalls: infrastructure.outboundCalls,

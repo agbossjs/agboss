@@ -11,28 +11,30 @@ import {
   FileRepository,
   isSameFile,
   isFileExpired,
+  orphanOwnersOf,
   metadataOf,
   type FileKey,
   type FileMetadata,
   type FileOwner,
+  type FileOrphanSweep,
   type FileOwnerCompletion,
   type FileSweep,
   type NewFile,
 } from "./file.repository.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 import { parsedStoredJson } from "./stored-step.js";
+import {
+  COMPLETED_OWNERS,
+  completionPathOf,
+  completionsIn,
+  type StoredCompletion,
+} from "./local-disk-completions.js";
 
 /** A name of a folder or a file for any text: its SHA-256, so no id reaches a path. */
 const nameOf = (text: string): string => createHash("sha256").update(text).digest("hex");
 
 /** A file's metadata as kept on disk: JSON, its time as ISO 8601. */
 type StoredMetadata = Omit<FileMetadata, "createdAt"> & { readonly createdAt: string };
-
-/** The folder of the owners' completion marks: not a tenant's. */
-const COMPLETED = "completed-owners";
-
-/** A completion as kept on disk: its time as ISO 8601. */
-type StoredCompletion = Omit<FileOwnerCompletion, "completedAt"> & { readonly completedAt: string };
 
 const isMissing = (error: unknown): boolean =>
   typeof error === "object" && error !== null && Reflect.get(error, "code") === "ENOENT";
@@ -116,23 +118,19 @@ export class LocalDiskFileRepository extends FileRepository {
   }
 
   async markOwnerCompleted(completion: FileOwnerCompletion): Promise<void> {
-    const folder = join(this.folder, COMPLETED);
-    await mkdir(folder, { recursive: true });
+    await mkdir(join(this.folder, COMPLETED_OWNERS), { recursive: true });
     const stored: StoredCompletion = {
       ...completion,
       completedAt: completion.completedAt.toISOString(),
     };
     // linked into place, never replacing: the first moment is kept
-    await this.#placed(
-      join(folder, `${nameOf(completion.tenantId)}.${nameOf(completion.ownerId)}.json`),
-      JSON.stringify(stored),
-    );
+    await this.#placed(completionPathOf(this.folder, completion), JSON.stringify(stored));
   }
 
   async deleteExpired(sweep: FileSweep): Promise<number> {
     const files = await this.#all();
     let removed = 0;
-    for (const completion of await this.#completions()) {
+    for (const completion of await completionsIn(this.folder)) {
       const owned = files.filter(
         (file) => file.tenantId === completion.tenantId && file.ownerId === completion.ownerId,
       );
@@ -143,16 +141,33 @@ export class LocalDiskFileRepository extends FileRepository {
           kept -= 1;
           removed += 1;
         }
-      if (kept === 0) await rm(this.#completionPath(completion), { force: true });
+      if (kept === 0) await rm(completionPathOf(this.folder, completion), { force: true });
     }
     return removed;
+  }
+
+  async deleteOrphans(sweep: FileOrphanSweep): Promise<number> {
+    const completed = new Set(
+      (await completionsIn(this.folder)).map((owner) => `${owner.tenantId}\u0000${owner.ownerId}`),
+    );
+    const files = await this.#all();
+    const orphans = await orphanOwnersOf(
+      files,
+      (owner) => completed.has(`${owner.tenantId}\u0000${owner.ownerId}`),
+      sweep,
+    );
+    const gone = files.filter((file) =>
+      orphans.some((o) => o.tenantId === file.tenantId && o.ownerId === file.ownerId),
+    );
+    for (const owner of orphans) await this.deleteByOwner(owner);
+    return gone.length;
   }
 
   async deleteByOwner(owner: FileOwner): Promise<void> {
     for (const file of await this.#all())
       if (file.tenantId === owner.tenantId && file.ownerId === owner.ownerId)
         await this.#remove(file);
-    await rm(this.#completionPath(owner), { force: true });
+    await rm(completionPathOf(this.folder, owner), { force: true });
   }
 
   /** One file removed: its metadata first (a file is gone once it is), then every bytes file of its id. */
@@ -162,25 +177,6 @@ export class LocalDiskFileRepository extends FileRepository {
     await rm(join(tenant, `${base}.json`), { force: true });
     for (const name of await this.#names(tenant))
       if (name.startsWith(`${base}.`)) await rm(join(tenant, name), { force: true });
-  }
-
-  #completionPath(owner: FileOwner): string {
-    return join(this.folder, COMPLETED, `${nameOf(owner.tenantId)}.${nameOf(owner.ownerId)}.json`);
-  }
-
-  /** The owners whose execution ended. */
-  async #completions(): Promise<readonly FileOwnerCompletion[]> {
-    const found: FileOwnerCompletion[] = [];
-    for (const name of await this.#names(join(this.folder, COMPLETED))) {
-      const text = await this.#read(join(this.folder, COMPLETED, name));
-      if (text === undefined) continue;
-      const stored = parsedStoredJson({
-        what: "file completion",
-        text: Buffer.from(text).toString("utf8"),
-      }) as StoredCompletion;
-      found.push({ ...stored, completedAt: new Date(stored.completedAt) });
-    }
-    return found;
   }
 
   #baseOf(key: FileKey): string {
@@ -215,7 +211,7 @@ export class LocalDiskFileRepository extends FileRepository {
   async #all(): Promise<readonly FileMetadata[]> {
     const tenants = await this.#names(this.folder);
     const found: FileMetadata[] = [];
-    for (const tenant of tenants.filter((name) => name !== COMPLETED)) {
+    for (const tenant of tenants.filter((name) => name !== COMPLETED_OWNERS)) {
       for (const name of await this.#names(join(this.folder, tenant))) {
         if (!name.endsWith(".json")) continue;
         const text = await this.#read(join(this.folder, tenant, name));

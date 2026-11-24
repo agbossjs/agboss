@@ -186,7 +186,11 @@ async function savedUnder(parts: A2AServerParts, caller: A2ARequestCaller, unacc
     requestHash: sent.requestHash,
     ...meshFieldsOf(caller),
   };
-  return { save: await parts.tasks.saveIfAbsent(task), start };
+  const save = await parts.tasks.saveIfAbsent(task);
+  // a task that was not saved (its message or id taken) never runs: its kept files are no one's (#1316)
+  if (save.status !== A2ATaskSaveStatus.Saved && (start?.toSave.length ?? 0) > 0)
+    await parts.files.store.deleteByOwner({ tenantId: caller.tenantId, ownerId: taskId });
+  return { save, start };
 }
 
 /** The task of a message no task was found for: minted, saved and started — or found after all. */

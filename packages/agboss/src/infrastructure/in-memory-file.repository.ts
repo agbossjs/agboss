@@ -4,10 +4,12 @@ import {
   FileRepository,
   isSameFile,
   isFileExpired,
+  orphanOwnersOf,
   metadataOf,
   type FileKey,
   type FileMetadata,
   type FileOwner,
+  type FileOrphanSweep,
   type FileOwnerCompletion,
   type FileSweep,
   type NewFile,
@@ -83,6 +85,23 @@ export class InMemoryFileRepository extends FileRepository {
       if (owned.every(([key]) => !a2aFiles.has(key))) fileCompletions.delete(row);
     }
     return Promise.resolve(removed);
+  }
+
+  async deleteOrphans(sweep: FileOrphanSweep): Promise<number> {
+    const { a2aFiles, fileCompletions } = this.database;
+    const orphans = await orphanOwnersOf(
+      a2aFiles.values(),
+      (owner) => fileCompletions.has(ownerRowOf(owner)),
+      sweep,
+    );
+    let removed = 0;
+    for (const owner of orphans)
+      for (const [key, file] of [...a2aFiles])
+        if (file.tenantId === owner.tenantId && file.ownerId === owner.ownerId) {
+          a2aFiles.delete(key);
+          removed += 1;
+        }
+    return removed;
   }
 
   deleteByOwner(owner: FileOwner): Promise<void> {

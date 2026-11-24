@@ -167,6 +167,7 @@ export {
   type FileKey,
   type FileMetadata,
   type FileOwner,
+  type FileOrphanSweep,
   type FileOwnerCompletion,
   type FileSweep,
   type NewFile,

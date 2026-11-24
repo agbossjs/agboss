@@ -51,3 +51,8 @@ Added: `FileRepository.{markOwnerCompleted, deleteExpired}`, `FileOwnerCompletio
 moves every inline file over 64 KB — then the largest until a payload's inline bytes fit 256 KB — into the
 store under `<ownerId>.<sha256>`, or refuses with no store. Wiring it into `app.execute`, `app.resume` and
 tool outputs belongs to the app lane (src/app/**), not yet done.
+
+**Orphans.** Files of an owner that was never marked completed (a crashed upload, an attempt that ran no
+tree) are removed by `FileRepository.deleteOrphans({ createdBefore, isLive })`: all the owner's files older
+than 30 minutes, no execution record and no A2A task for it, never a live or completed owner's. An accept
+that loses its race (`MessageTaken`, `TaskIdTaken`) removes the files it kept for its task.

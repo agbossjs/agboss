@@ -4016,6 +4016,12 @@ export interface FileMetadata extends FileKey {
 }
 
 // @public
+export interface FileOrphanSweep {
+    readonly createdBefore: Date;
+    readonly isLive: (owner: FileOwner) => Promise<boolean>;
+}
+
+// @public
 export interface FileOwner {
     // (undocumented)
     readonly ownerId: string;
@@ -4114,6 +4120,7 @@ export enum FileRefusal {
 export abstract class FileRepository {
     abstract deleteByOwner(owner: FileOwner): Promise<void>;
     abstract deleteExpired(sweep: FileSweep): Promise<number>;
+    abstract deleteOrphans(sweep: FileOrphanSweep): Promise<number>;
     abstract findBytes(key: FileKey): Promise<Uint8Array | undefined>;
     abstract findMetadata(key: FileKey): Promise<FileMetadata | undefined>;
     abstract markOwnerCompleted(completion: FileOwnerCompletion): Promise<void>;

@@ -54,6 +54,14 @@ export interface FileOwnerCompletion extends FileOwner {
   readonly completedAt: Date;
 }
 
+/** What one sweep of `deleteOrphans` is given. */
+export interface FileOrphanSweep {
+  /** Only owners whose files were all saved before this: a younger one's execution may not have begun. */
+  readonly createdBefore: Date;
+  /** Whether the owner has an execution (running, paused or ended), an A2A task: asked of the stores. */
+  readonly isLive: (owner: FileOwner) => Promise<boolean>;
+}
+
 /** What one sweep of `deleteExpired` is given. */
 export interface FileSweep {
   /** The moment of the sweep, on the application's `Clock`. */
@@ -105,6 +113,14 @@ export abstract class FileRepository {
    */
   abstract deleteExpired(sweep: FileSweep): Promise<number>;
 
+  /**
+   * The sweep of orphans (#1316): the files of owners that were never marked completed, were all
+   * saved before `createdBefore` and that `isLive` says have no execution or task — a crashed
+   * upload, an attempt that never ran a tree. An owner that is live, or is marked completed (the
+   * `deleteExpired` sweep's), keeps its files whatever their age. Gives the number of files removed.
+   */
+  abstract deleteOrphans(sweep: FileOrphanSweep): Promise<number>;
+
   /** Removes every file of one owner. */
   abstract deleteByOwner(owner: FileOwner): Promise<void>;
 }
@@ -138,6 +154,10 @@ export class InlineFileRepository extends FileRepository {
   }
 
   deleteExpired(): Promise<number> {
+    return Promise.resolve(0);
+  }
+
+  deleteOrphans(): Promise<number> {
     return Promise.resolve(0);
   }
 
@@ -177,4 +197,26 @@ export function isFileExpired(
   const cutoff = sweep.cutoffsByWorkflow.get(completion.workflow);
   if (cutoff !== undefined && completed < cutoff.getTime()) return true;
   return file.ttl !== undefined && completed + file.ttl < sweep.now.getTime();
+}
+
+/**
+ * The owners of `files` a sweep of orphans removes: not completed, all their files saved before the
+ * cutoff, and not live. One owner once.
+ */
+export async function orphanOwnersOf(
+  files: Iterable<FileMetadata>,
+  isCompleted: (owner: FileOwner) => boolean,
+  sweep: FileOrphanSweep,
+): Promise<readonly FileOwner[]> {
+  const newest = new Map<string, { owner: FileOwner; at: number }>();
+  for (const file of files) {
+    const owner = { tenantId: file.tenantId, ownerId: file.ownerId };
+    const key = `${owner.tenantId}\u0000${owner.ownerId}`;
+    newest.set(key, { owner, at: Math.max(newest.get(key)?.at ?? 0, file.createdAt.getTime()) });
+  }
+  const orphans: FileOwner[] = [];
+  for (const { owner, at } of newest.values())
+    if (at < sweep.createdBefore.getTime() && !isCompleted(owner) && !(await sweep.isLive(owner)))
+      orphans.push(owner);
+  return orphans;
 }

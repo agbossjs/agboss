@@ -28,7 +28,13 @@ const START = new Date("2026-01-05T09:00:00.000Z");
 function lifecycle(workflows: readonly (new () => object)[] = [FileReviewWorkflow]) {
   const clock = new VirtualClock(START);
   const files = new InMemoryFileRepository(new InMemoryDatabase());
-  const expiry = fileExpiryOf({ files, clock, workflows });
+  const live = new Set<string>();
+  const expiry = fileExpiryOf({
+    files,
+    clock,
+    workflows,
+    isLive: (owner) => Promise.resolve(live.has(owner.ownerId)),
+  });
   const sweep = async () =>
     (
       await removeExpired(
@@ -62,13 +68,15 @@ function lifecycle(workflows: readonly (new () => object)[] = [FileReviewWorkflo
       workflow: "file-review-workflow",
       completedAt: clock.now(),
     });
-  return { clock, files, sweep, save, has, complete };
+  return { clock, files, sweep, save, has, complete, live };
 }
 
 describe("#1316b: a file of a live execution is never swept", () => {
   it("a running or paused execution keeps its file however long, an ended one's goes after the ttl: counted", async () => {
     const stores = lifecycle();
     await stores.save("paused");
+    // a paused execution has its record: live to the orphan sweep
+    stores.live.add("paused");
     await stores.save("done");
     await stores.complete("done");
 
@@ -117,6 +125,38 @@ describe("#1316b: a file of a live execution is never swept", () => {
       false,
       true,
     ]);
+  });
+});
+
+describe("#1316b: orphans", () => {
+  it("a file of a crashed attempt goes after ORPHAN_AFTER; a live owner's of the same age stays; a younger one stays", async () => {
+    const stores = lifecycle();
+    await stores.save("crashed");
+    await stores.save("running");
+    stores.live.add("running");
+
+    await stores.clock.advance(minutes(29));
+    await stores.save("fresh");
+    const early = await stores.sweep();
+    await stores.clock.advance(minutes(2));
+    const late = await stores.sweep();
+
+    expect(early[0]?.removed).toBe(0);
+    expect(late[0]?.removed).toBe(1);
+    expect(await stores.has("crashed")).toBe(false);
+    expect(await stores.has("running")).toBe(true);
+    expect(await stores.has("fresh")).toBe(true);
+  });
+
+  it("an owner that completed is the ttl's, never the orphan sweep's", async () => {
+    const stores = lifecycle();
+    await stores.save("done");
+    await stores.complete("done");
+
+    await stores.clock.advance(hours(2));
+    await stores.sweep();
+
+    expect(await stores.has("done")).toBe(true);
   });
 });
 
