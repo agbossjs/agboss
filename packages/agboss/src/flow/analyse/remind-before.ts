@@ -2,7 +2,7 @@ import { PAUSE_TIMERS_EVERY } from "../../application/pause-timers.js";
 import {
   channelRoleOf,
   channelRoleOptionsOf,
-  type ChannelRoleOptions,
+  type StoredChannelRole,
 } from "../../channels/channel-role.decorator.js";
 import { isExpiresIn, isNotShorter, isRemindBefore } from "../../channels/channel-rules.js";
 import { isWorkingDuration } from "../../units/index.js";
@@ -86,7 +86,7 @@ const belowTickMessage = (role: string, remindBefore: number): string =>
   `${role}: remindBefore (${String(remindBefore)} ms) is shorter than the pause timers' tick (${String(PAUSE_TIMERS_EVERY)} ms) — its reminder can be skipped; use at least ${String(PAUSE_TIMERS_EVERY)} ms`;
 
 /** The roles of the workflow's question steps and of its tools' channels, each once. */
-function rolesOf(context: AnalysisContext): readonly ChannelRoleOptions[] {
+function rolesOf(context: AnalysisContext): readonly StoredChannelRole[] {
   const fromQuestions = [...questionExpiriesOf(context.workflow.flow).keys()].flatMap(
     (question) => {
       const role = channelRoleOptionsOf(question);

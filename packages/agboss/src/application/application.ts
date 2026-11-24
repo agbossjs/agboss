@@ -45,6 +45,16 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly providers?: readonly Provider[];
   /**
+   * The `@Channel({ target })` classes of the application's pause targets (#1307): the transport of
+   * each `@ToolApproval` and `@ExternalTask`, created by the container like a provider. Several
+   * channels for one target need a `@ChannelSelector`.
+   */
+  readonly channels?: readonly Class[];
+  /** The `@ChannelSelector` classes: each picks the channel of one target (#1307). */
+  readonly channelSelectors?: readonly Class[];
+  /** The `@ChannelListener` classes: told of every pause of the application (#1307, #1310). */
+  readonly channelListeners?: readonly Class[];
+  /**
    * Where the application's rows go (#1321): `storage: AppDatabaseStorage`, or `storage: { database,
    * cluster?, objects? }` — `@DatabaseStorage`, `@ClusterStorage` and `@ObjectStorage` classes, each
    * holding its driver (`SqliteDriver`, `PostgresDriver`, `RedisDriver`, `S3Driver`, …). The stores
@@ -258,12 +268,27 @@ const applications = new WeakMap<Class, ApplicationDeclaration>();
 /** The applications that list each workflow, as they are declared (loaded modules only). */
 const listedIn = new WeakMap<Class, Class[]>();
 
+/**
+ * `options` with the flat shelves (`channels`, `channelSelectors`, `channelListeners`) listed in
+ * `providers`, after the application's own: everything downstream reads one list (#1307).
+ */
+function withShelfProviders(options: ApplicationOptions): ApplicationOptions {
+  const shelves = [
+    ...(options.channels ?? []),
+    ...(options.channelSelectors ?? []),
+    ...(options.channelListeners ?? []),
+  ];
+  if (shelves.length === 0) return options;
+  const listed = options.providers ?? [];
+  return { ...options, providers: [...listed, ...shelves.filter((cls) => !listed.includes(cls))] };
+}
+
 export function Application<TEnvironment>(options: ApplicationOptions<TEnvironment>) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
     // kept as the application's options: the contract's field types are a compile-time check only
     // `storage` becomes the stores in `providers`: everything downstream reads one list
-    const declared = withStorageProviders(options as ApplicationOptions);
+    const declared = withStorageProviders(withShelfProviders(options as ApplicationOptions));
     applications.set(
       value,
       source === undefined ? { options: declared } : { options: declared, source },

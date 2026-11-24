@@ -2,7 +2,7 @@
  * The types the options and the settings of the root API name (#895): what a user writes or reads.
  * Types only: re-exported with `export type *`, so it is no module the root import loads.
  */
-export { type ChannelOptions } from "../components/decorators.js";
+export { type ChannelOptions, type TargetChannelOptions } from "../components/decorators.js";
 export { type CustomCompactionOptions } from "../compaction/compaction.decorator.js";
 export { type AgentSettings, type AgentSettingsOf } from "../config/types.js";
 export { type UnavailableRead } from "../flow/context/errors.js";

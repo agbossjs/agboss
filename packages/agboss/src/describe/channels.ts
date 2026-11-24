@@ -112,7 +112,11 @@ function roleChannel(
     name: options.name,
     className: role.name,
     isRole: true,
-    question: dtoLabel(isQuestionRole(options) ? options.ask : options.approves),
+    question: isQuestionRole(options)
+      ? dtoLabel(options.ask)
+      : options.approves === undefined
+        ? inputsLabel(uses)
+        : dtoLabel(options.approves),
     answer: dtoLabel(isQuestionRole(options) ? options.answer : ToolCallApprovalDecisionDto),
     answerer: options.answerer,
     answeredBy: options.answerer,

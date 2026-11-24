@@ -643,6 +643,24 @@ export type AnswerJudgement<This, TAgent extends Class> = (this: This, answer: A
 export type AnswerOf<Q> = Q extends ChoiceQuestion<infer O> ? ChoiceAnswer<O> : Q extends BooleanQuestion ? BooleanAnswer : Q extends ScoreQuestion ? ScoreAnswer : never;
 
 // @public
+export interface AnswerPermissionContext<TTarget> {
+    // (undocumented)
+    readonly actor?: PauseActor;
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    // (undocumented)
+    readonly externalRef?: string;
+    // (undocumented)
+    readonly input: PauseInputOf<TTarget>;
+    // (undocumented)
+    readonly output: PauseOutputOf<TTarget>;
+    // (undocumented)
+    readonly toolCall?: PauseToolCallSummary;
+    // (undocumented)
+    readonly trail: readonly PauseTrailEntry[];
+}
+
+// @public
 export type AnswersOf<Q extends DecisionQuestions> = {
     readonly [K in keyof Q]: AnswerOf<Q[K]>;
 };
@@ -709,6 +727,9 @@ export abstract class ApplicationContext {
 export interface ApplicationOptions<TEnvironment = unknown> {
     readonly a2aFiles?: A2AFileOptions;
     readonly budgets?: readonly Class[];
+    readonly channelListeners?: readonly Class[];
+    readonly channels?: readonly Class[];
+    readonly channelSelectors?: readonly Class[];
     readonly compaction?: Class;
     readonly compensationTimeout?: Milliseconds;
     readonly defaults?: WorkflowDefaults;
@@ -782,6 +803,16 @@ export interface AppOptions {
 }
 
 // @public
+export interface ApprovalDecision<TInput = unknown> {
+    // (undocumented)
+    readonly approved: boolean;
+    // (undocumented)
+    readonly overrideInput?: TInput;
+    // (undocumented)
+    readonly reason?: string;
+}
+
+// @public
 export function Arbiter(options: ModelArbiterOptions): ArbiterDecorator<[]>;
 
 // @public
@@ -829,6 +860,16 @@ export interface ArbiterErrorOptions {
 
 // @public
 export type ArbiterOptions = ModelArbiterOptions | CodeArbiterOptions;
+
+// @public
+export interface AssignContext<TTarget> {
+    // (undocumented)
+    readonly input: PauseInputOf<TTarget>;
+    // (undocumented)
+    readonly toolCall?: PauseToolCallSummary;
+    // (undocumented)
+    readonly trail: readonly PauseTrailEntry[];
+}
 
 // @public
 export interface AuditEventStep {
@@ -1105,7 +1146,15 @@ type CaseValueOf<TPath> = TPath extends {
 } ? T : never;
 
 // @public
-export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
+export function Channel<const D extends readonly Token[] = []>(options: TargetChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
+    send(ask: never): unknown;
+}>(value: C) => C;
+
+// @public (undocumented)
+export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D> & {
+    readonly target?: never;
+    readonly ttl?: never;
+}): <C extends new (...args: ResolvedAll<D>) => {
     send(ask: never): Promise<unknown>;
 }>(value: C) => C;
 
@@ -1145,9 +1194,108 @@ export interface ChannelHandler<TRole> {
     readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TRole>) => Promise<void>;
     readonly onPauseExtended?: (event: ChannelPauseExtendedEvent<TRole>) => Promise<void>;
     readonly onPauseJoinFailed?: (event: ChannelPauseJoinFailedEvent<TRole>) => Promise<void>;
+    readonly onPauseReassigned?: (event: ChannelPauseReassignedEvent<TRole>) => Promise<void>;
+    readonly onPauseTimeoutChanged?: (event: ChannelPauseTimeoutChangedEvent<TRole>) => Promise<void>;
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
 }
+
+// @public
+export type ChannelInterpretation<TOutput = never> = UnderstoodChannelInterpretation<TOutput> | NotUnderstoodChannelInterpretation;
+
+// @public
+export const ChannelInterpretation: {
+    readonly understood: <TOutput>(output: TOutput) => UnderstoodChannelInterpretation<TOutput>;
+    readonly notUnderstood: (reason: string) => NotUnderstoodChannelInterpretation;
+};
+
+// @public
+export function ChannelInterpreter(options: ModelChannelInterpreterOptions): ChannelInterpreterDecorator<[]>;
+
+// @public
+export function ChannelInterpreter<const TDeps extends readonly Token[] = []>(options?: CodeChannelInterpreterOptions<TDeps>): ChannelInterpreterDecorator<TDeps>;
+
+// @public
+export type ChannelInterpreterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass) => TClass;
+
+// @public
+export interface ChannelInterpreterHandler<TSelf> {
+    // (undocumented)
+    readonly interpret: (input: ChannelInterpreterInput<TSelf>) => ChannelInterpretation<OutputOf<TSelf>> | Promise<ChannelInterpretation<OutputOf<TSelf>>>;
+}
+
+// @public
+export type ChannelInterpreterInput<TSelf> = InputOf<TSelf>;
+
+// @public
+export type ChannelInterpreterOptions = ModelChannelInterpreterOptions | CodeChannelInterpreterOptions;
+
+// @public
+export function ChannelListener<const TDeps extends readonly Token[] = []>(options?: ChannelListenerOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object & ChannelListenerHandler>(value: TClass) => TClass;
+
+// @public (undocumented)
+export type ChannelListenerAnswerNotTakenEvent = PauseListenerAnswerNotTakenEvent;
+
+// @public (undocumented)
+export type ChannelListenerClosedEvent = PauseListenerClosedEvent;
+
+// @public
+export type ChannelListenerEventBase = PauseListenerEventBase;
+
+// @public (undocumented)
+export type ChannelListenerExpiringEvent = PauseListenerExpiringEvent;
+
+// @public
+export interface ChannelListenerHandler {
+    // (undocumented)
+    onPauseAnswerNotTaken?(event: ChannelListenerAnswerNotTakenEvent): void | Promise<void>;
+    // (undocumented)
+    onPauseClosed?(event: ChannelListenerClosedEvent): void | Promise<void>;
+    // (undocumented)
+    onPauseExpiring?(event: ChannelListenerExpiringEvent): void | Promise<void>;
+    // (undocumented)
+    onPauseJoinFailed?(event: ChannelListenerJoinFailedEvent): void | Promise<void>;
+    // (undocumented)
+    onPauseOpened?(event: ChannelListenerOpenedEvent): void | Promise<void>;
+    // (undocumented)
+    onPauseReassigned?(event: ChannelListenerReassignedEvent): void | Promise<void>;
+    // (undocumented)
+    onPauseTimeoutChanged?(event: ChannelListenerTimeoutChangedEvent): void | Promise<void>;
+}
+
+// @public (undocumented)
+export type ChannelListenerJoinFailedEvent = PauseListenerJoinFailedEvent;
+
+// @public (undocumented)
+export type ChannelListenerOpenedEvent = PauseListenerOpenedEvent;
+
+// @public
+export interface ChannelListenerOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly description?: string;
+    readonly includePauseIds?: boolean;
+    readonly name?: string;
+}
+
+// @public
+export interface ChannelListenerReassignedEvent extends PauseListenerEventBase {
+    // (undocumented)
+    readonly previousAssignees?: readonly string[];
+    // (undocumented)
+    readonly previousChannel?: string;
+    // (undocumented)
+    readonly previousExpiresAt?: Date;
+    // (undocumented)
+    readonly previousExternalRef?: string;
+    // (undocumented)
+    readonly previousTarget: string;
+    // (undocumented)
+    readonly reason?: string;
+}
+
+// @public
+export type ChannelListenerTimeoutChangedEvent = PauseListenerExtendedEvent;
 
 // @public
 export abstract class ChannelOf<TRole> implements ChannelHandler<TRole> {
@@ -1167,6 +1315,9 @@ export interface ChannelOptions<D extends readonly Token[] = readonly Token[]> {
     readonly description?: string;
     // (undocumented)
     readonly name: string;
+    readonly target?: Class;
+    readonly timeout?: Milliseconds;
+    readonly ttl?: Milliseconds;
 }
 
 // @public
@@ -1244,6 +1395,24 @@ export interface ChannelPauseOptions {
 }
 
 // @public
+export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEvent {
+    // (undocumented)
+    readonly channel: string;
+    // (undocumented)
+    readonly pauseId: string;
+    // (undocumented)
+    readonly previousChannel: string;
+    // (undocumented)
+    readonly previousTarget: string;
+    // (undocumented)
+    readonly reason?: string;
+    readonly value: ChannelQuestionOf<TTarget>;
+}
+
+// @public
+export type ChannelPauseTimeoutChangedEvent<TTarget> = ChannelPauseExtendedEvent<TTarget>;
+
+// @public
 export type ChannelQuestionOf<TRole> = GeneratedEntry<ChannelRoles, TRole> extends {
     readonly ask: infer TAsk;
 } ? TAsk : MissingGeneratedTypes;
@@ -1302,6 +1471,38 @@ export interface ChannelRoles {
     };
     // (undocumented)
     readonly [notGenerated]?: never;
+}
+
+// @public
+export interface ChannelSelectContext<TTarget> {
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    // (undocumented)
+    readonly expiresAt?: Date;
+    // (undocumented)
+    readonly input: PauseInputOf<TTarget>;
+    // (undocumented)
+    readonly toolCall?: PauseToolCallSummary;
+    // (undocumented)
+    readonly trail: readonly PauseTrailEntry[];
+}
+
+// @public
+export function ChannelSelector<const TDeps extends readonly Token[] = []>(options: ChannelSelectorOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => ChannelSelectorHandler>(value: TClass) => TClass;
+
+// @public
+export interface ChannelSelectorHandler {
+    // (undocumented)
+    readonly selectChannel: (ctx: never) => Class | Promise<Class>;
+}
+
+// @public
+export interface ChannelSelectorOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly description?: string;
+    readonly name?: string;
+    readonly target: Class;
 }
 
 // @public
@@ -1521,6 +1722,21 @@ export interface CodeArbiterOptions<TDeps extends readonly Token[] = readonly To
     readonly name?: string;
     // (undocumented)
     readonly prompt?: never;
+}
+
+// @public
+export interface CodeChannelInterpreterOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly description?: string;
+    // (undocumented)
+    readonly model?: never;
+    // (undocumented)
+    readonly name?: string;
+    // (undocumented)
+    readonly prompt?: never;
+    // (undocumented)
+    readonly promptUrls?: never;
 }
 
 // @public
@@ -3490,7 +3706,17 @@ export interface ExtendPauseRequest {
 }
 
 // @public
-export type ExtraRuleCode = FileRuleCode | PiiRuleCode | StorageRuleCode;
+export function ExternalTask<const TDeps extends readonly Token[] = []>(options: ExternalTaskOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object & PauseTargetHooks>(value: TClass) => TClass;
+
+// @public
+export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly Token[]> extends PauseTargetBaseOptions<TDeps> {
+    readonly input: DtoClass;
+    readonly maxVisits?: number;
+    readonly output: DtoClass;
+}
+
+// @public
+export type ExtraRuleCode = FileRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export interface FailedHealthCheckResult {
@@ -5103,7 +5329,7 @@ interface KindLabels {
 type KindOf<TInstance> = KindOfName<NameOf<TInstance>>;
 
 // @public
-type KindOfName<TName extends string> = TName extends `${string}-workflow-start` ? NodeKind.Start : TName extends `${string}-workflow-finish` ? NodeKind.Finish : TName extends `${string}-workflow` ? NodeKind.Workflow : TName extends `${string}-agent` ? NodeKind.Agent : TName extends `${string}-router` ? NodeKind.Router : TName extends `${string}-action` ? NodeKind.Action : TName extends `${string}-question` ? NodeKind.Question : never;
+type KindOfName<TName extends string> = TName extends `${string}-workflow-start` ? NodeKind.Start : TName extends `${string}-workflow-finish` ? NodeKind.Finish : TName extends `${string}-workflow` ? NodeKind.Workflow : TName extends `${string}-agent` ? NodeKind.Agent : TName extends `${string}-router` ? NodeKind.Router : TName extends `${string}-action` ? NodeKind.Action : TName extends `${string}-question` | `${string}-external-task` ? NodeKind.Question : never;
 
 // @public
 type LastValue<TValue> = IsSeveral<TValue> extends true ? TValue extends readonly [...unknown[], infer TLast] ? TLast : never : TValue;
@@ -5658,6 +5884,19 @@ export interface ModelCallErrorOptions {
 }
 
 // @public
+export interface ModelChannelInterpreterOptions {
+    // (undocumented)
+    readonly deps?: never;
+    // (undocumented)
+    readonly description?: string;
+    readonly model: string;
+    readonly name?: string;
+    readonly prompt?: PromptValue;
+    // (undocumented)
+    readonly promptUrls?: readonly string[];
+}
+
+// @public
 export interface ModelDefaults {
     // (undocumented)
     readonly cache?: CacheSetting;
@@ -6090,6 +6329,16 @@ export interface NotSentReconciliation {
 export enum NotSentTrust {
     KeyReplay = "key-replay",
     Lookup = "lookup"
+}
+
+// @public
+export interface NotUnderstoodChannelInterpretation {
+    // (undocumented)
+    readonly [channelInterpretation]: true;
+    // (undocumented)
+    readonly kind: ReplyInterpretationKind.NotUnderstood;
+    // (undocumented)
+    readonly reason: string;
 }
 
 // @public
@@ -7073,6 +7322,14 @@ export type PathHead = SourceHead<unknown> | RouteHead<unknown> | CaseHead<unkno
 export type PathSource = StartSource | ComponentSource;
 
 // @public
+export interface PauseActor {
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly orgId?: string;
+}
+
+// @public
 export interface PauseAnswer {
     readonly answeredBy: string | undefined;
     readonly byChannel?: true;
@@ -7300,6 +7557,16 @@ export enum PauseErrorKind {
 }
 
 // @public
+export interface PauseEscalationLimits {
+    // (undocumented)
+    readonly maxExtensions?: number;
+    // (undocumented)
+    readonly maxReassignments?: number;
+    // (undocumented)
+    readonly maxTotalTimeout?: WorkingDuration | Milliseconds;
+}
+
+// @public
 export type PauseExpiration<TRole> = FailExpiration | DecideExpiration<ChannelAnswerOf<TRole>>;
 
 // @public
@@ -7384,6 +7651,11 @@ export interface PauseExtensionContendedErrorOptions {
     readonly cause?: unknown;
     readonly pauseKey: string;
 }
+
+// @public
+export type PauseInputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<PauseTargets, TTarget> extends {
+    readonly input: infer TInput;
+} ? TInput : MissingGeneratedTypes;
 
 // @public
 export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
@@ -7486,6 +7758,11 @@ export interface PauseListenerOptions<TDeps extends readonly Token[] = readonly 
 }
 
 // @public
+export type PauseOutputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<PauseTargets, TTarget> extends {
+    readonly output: infer TOutput;
+} ? TOutput : MissingGeneratedTypes;
+
+// @public
 export interface PauseReassignment {
     readonly pauseKey: string;
 }
@@ -7528,6 +7805,12 @@ export enum PauseResolution {
     Replied = "replied",
     TreeEnded = "tree-ended",
     Withdrawn = "withdrawn"
+}
+
+// @public
+export enum PauseRespondent {
+    Delegate = "delegate",
+    Owner = "owner"
 }
 
 // @public
@@ -7577,6 +7860,77 @@ export enum PauseStatus {
     Pending = "pending",
     Resolved = "resolved",
     Taken = "taken"
+}
+
+// @public
+export interface PauseTargetBaseOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly calendar?: Class;
+    readonly channelInterpreter?: Class;
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly description: string;
+    readonly escalatesTo?: readonly Class[];
+    // (undocumented)
+    readonly escalationLimits?: PauseEscalationLimits;
+    readonly name: string;
+    readonly remindBefore?: Milliseconds | WorkingDuration;
+    readonly respondent: PauseRespondent;
+    readonly timeout: Milliseconds | WorkingDuration;
+}
+
+// @public
+export interface PauseTargetHooks {
+    // (undocumented)
+    readonly assign?: (ctx: never) => readonly string[] | undefined | Promise<readonly string[] | undefined>;
+    // (undocumented)
+    readonly permitAnswer?: (ctx: never) => boolean | Promise<boolean>;
+    // (undocumented)
+    readonly permitReassign?: (ctx: never) => boolean | Promise<boolean>;
+    // (undocumented)
+    readonly permitTimeoutChange?: (ctx: never) => boolean | Promise<boolean>;
+    // (undocumented)
+    readonly resolveTimeout?: (ctx: never) => Milliseconds | WorkingDuration | undefined | Promise<Milliseconds | WorkingDuration | undefined>;
+}
+
+// @public
+export type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
+
+// @public
+export interface PauseTargets {
+    // (undocumented)
+    readonly [notGenerated]?: never;
+}
+
+// @public
+export interface PauseToolCallSummary {
+    // (undocumented)
+    readonly callId: string;
+    // (undocumented)
+    readonly summary?: string;
+    // (undocumented)
+    readonly tool: string;
+}
+
+// @public
+export interface PauseTrailEntry {
+    // (undocumented)
+    readonly action: "opened" | "reassigned" | "timeout-changed" | "escalated";
+    // (undocumented)
+    readonly actor?: PauseActor;
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    // (undocumented)
+    readonly at: Date;
+    // (undocumented)
+    readonly channel?: string;
+    // (undocumented)
+    readonly expiresAt?: Date;
+    // (undocumented)
+    readonly externalRef?: string;
+    // (undocumented)
+    readonly reason?: string;
+    // (undocumented)
+    readonly target: string;
 }
 
 // @public
@@ -8188,6 +8542,36 @@ export abstract class RateLimitRepository {
 export interface ReassignPauseRequest {
     readonly assignee: string;
     readonly pauseId: string;
+}
+
+// @public
+export interface ReassignPermissionContext<TTarget> {
+    // (undocumented)
+    readonly actor?: PauseActor;
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    // (undocumented)
+    readonly channel?: string;
+    // (undocumented)
+    readonly externalRef?: string;
+    // (undocumented)
+    readonly input: PauseInputOf<TTarget>;
+    // (undocumented)
+    readonly reason?: string;
+    // (undocumented)
+    readonly target: string;
+    // (undocumented)
+    readonly timeout?: WorkingDuration | Milliseconds;
+    // (undocumented)
+    readonly toAssignees?: readonly string[];
+    // (undocumented)
+    readonly toChannel?: Class;
+    // (undocumented)
+    readonly toolCall?: PauseToolCallSummary;
+    // (undocumented)
+    readonly toTarget?: Class;
+    // (undocumented)
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public
@@ -9659,6 +10043,14 @@ export interface SyncWorkRequiredErrorOptions {
 }
 
 // @public
+export interface TargetChannelOptions<D extends readonly Token[] = readonly Token[]> extends ChannelOptions<D> {
+    // (undocumented)
+    readonly target: Class;
+    // (undocumented)
+    readonly ttl: Milliseconds;
+}
+
+// @public
 type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = KindCheck<TClass, TKind, TLabel> extends infer TResult ? unknown extends TResult ? InputCheck<InstanceType<TClass>> : TResult : never;
 
 // @public
@@ -9840,6 +10232,40 @@ export interface ThreadOwnerResumeOptions extends ThreadOwnerPauseOptions, CallO
 }
 
 // @public
+export interface TimeoutPermissionContext<TTarget> {
+    // (undocumented)
+    readonly actor?: PauseActor;
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    // (undocumented)
+    readonly currentExpiresAt?: Date;
+    // (undocumented)
+    readonly externalRef?: string;
+    // (undocumented)
+    readonly input: PauseInputOf<TTarget>;
+    // (undocumented)
+    readonly reason?: string;
+    // (undocumented)
+    readonly timeout: WorkingDuration | Milliseconds;
+    // (undocumented)
+    readonly toolCall?: PauseToolCallSummary;
+    // (undocumented)
+    readonly trail: readonly PauseTrailEntry[];
+}
+
+// @public
+export interface TimeoutResolveContext<TTarget> {
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    // (undocumented)
+    readonly input: PauseInputOf<TTarget>;
+    // (undocumented)
+    readonly toolCall?: PauseToolCallSummary;
+    // (undocumented)
+    readonly trail: readonly PauseTrailEntry[];
+}
+
+// @public
 export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead>;
 
 // @public
@@ -9876,6 +10302,19 @@ export interface TokenUsage {
 
 // @public
 export function Tool<In extends DtoClass, Out extends DtoClass, const D extends readonly Token[] = []>(options: ToolOptions<In, Out, D>): <C extends new (...args: ResolvedAll<D>) => ToolHandler<InstanceType<In>, InstanceType<Out>>>(value: C) => C;
+
+// @public
+export function ToolApproval<const TDeps extends readonly Token[] = []>(options: ToolApprovalOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => object & PauseTargetHooks>(value: TClass) => TClass;
+
+// @public
+export interface ToolApprovalOptions<TDeps extends readonly Token[] = readonly Token[]> extends PauseTargetBaseOptions<TDeps> {
+    // (undocumented)
+    readonly input?: DtoClass;
+    // (undocumented)
+    readonly maxVisits?: never;
+    // (undocumented)
+    readonly output?: never;
+}
 
 // @public
 export class ToolBlockedError extends StepFailedError {
@@ -10018,6 +10457,7 @@ export type ToolNameOf<TTool> = [NameOf<TTool>] extends [never] ? string : NameO
 
 // @public (undocumented)
 export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extends readonly Token[]> {
+    readonly approval?: Class;
     // (undocumented)
     readonly channel?: Class;
     readonly deps?: D;
@@ -10210,6 +10650,15 @@ export interface UncheckedToolCall extends ToolCallRecord {
 
 // @public
 export type UncompactedTurns = number | TurnLimit;
+
+// @public
+export interface UnderstoodChannelInterpretation<out TOutput> {
+    readonly [channelInterpretation]: true;
+    // (undocumented)
+    readonly kind: ReplyInterpretationKind.Understood;
+    // (undocumented)
+    readonly output: TOutput;
+}
 
 // @public
 export interface UnderstoodReply<TDecision> {
@@ -10883,6 +11332,20 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/calendar/working-week.ts - (ae-undocumented) Missing documentation for "days".
 // src/channels/channel-handler.ts - (ae-undocumented) Missing documentation for "send".
 // src/channels/channel-handler.ts - (ae-undocumented) Missing documentation for "send".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "output".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "[channelInterpretation]".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "kind".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "reason".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "interpret".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "description".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "deps".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "name".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "description".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "model".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "prompt".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "decision".
@@ -10894,21 +11357,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "maxVisits".
 // src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "approves".
 // src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "ChannelRole".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "deps".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "model".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "decision".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "kind".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "reason".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "interpret".
+// src/channels/channel-selector.ts - (ae-undocumented) Missing documentation for "description".
+// src/channels/channel-selector.ts - (ae-undocumented) Missing documentation for "selectChannel".
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "message".
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "reason".
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "cause".
@@ -10918,10 +11368,96 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "code".
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "code".
 // src/channels/decision.ts - (ae-undocumented) Missing documentation for "name".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "id".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "orgId".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "callId".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "tool".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "summary".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "action".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "at".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "actor".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "target".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "channel".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "reason".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "maxExtensions".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "maxTotalTimeout".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "maxReassignments".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "approved".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "reason".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "overrideInput".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "actor".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "output".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "actor".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "timeout".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "currentExpiresAt".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "reason".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "actor".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "target".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "channel".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toAssignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toTarget".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toChannel".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "timeout".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "reason".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "answer".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "onPauseExpired".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "assign".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "resolveTimeout".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "permitAnswer".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "permitTimeoutChange".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "permitReassign".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "description".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "escalationLimits".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "input".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "output".
+// src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "maxVisits".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "deps".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "model".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "kind".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "decision".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "kind".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "reason".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "reason".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "interpret".
 // src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "send".
 // src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
@@ -10967,6 +11503,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "output".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "target".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "ttl".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "Channel".
 // src/components/guardrail-handler.ts - (ae-undocumented) Missing documentation for "text".
 // src/components/guardrail-handler.ts - (ae-undocumented) Missing documentation for "files".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "__type".
@@ -11659,6 +12198,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
+// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "StartExecutionOf".
@@ -12365,6 +12905,14 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseOpened".
+// src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseClosed".
+// src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseExpiring".
+// src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseTimeoutChanged".
+// src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseReassigned".
+// src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseAnswerNotTaken".
+// src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseJoinFailed".
+// src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "description".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "deliveryId".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
@@ -12386,6 +12934,22 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "launch".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "errorCode".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "at".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerOpenedEvent".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerClosedEvent".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerAnswerNotTakenEvent".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerExpiringEvent".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "ChannelListenerJoinFailedEvent".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousTarget".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousChannel".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousAssignees".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousExternalRef".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousExpiresAt".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "pauseId".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousTarget".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "previousChannel".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "channel".
+// src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
 // src/pause/pause-listener.ts - (ae-undocumented) Missing documentation for "description".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".

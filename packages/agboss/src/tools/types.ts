@@ -45,6 +45,8 @@ export interface Tool<TName extends string = string, TInput = unknown, TOutput =
   readonly name: TName;
   readonly description: string;
   readonly channel?: string;
+  /** The name of the `@ToolApproval` the tool waits for (#1307), when it was given as `approval`. */
+  readonly approval?: string;
   /** How long one call may run. */
   readonly timeout: Milliseconds;
   /** The deadline of its approval pause (#941), over its channel role's; none → the role's. */

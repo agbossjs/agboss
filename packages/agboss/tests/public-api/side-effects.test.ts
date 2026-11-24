@@ -109,8 +109,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * contract and the container resolves a `defineEnv` token: 3 modules.
  * 1,490 at #1321a (the root was 1,487): the storage components, their drivers, settings, rules and the
  * reading of a driver's references — modules of their own under the line limits.
+ * 1,500 at #1307a / #1310c (the root was 1,490): the pause targets, the channel selector, interpreter
+ * and listener, and the rules of the targets — 5 modules of their own under the line limits.
  */
-const MODULE_BUDGET = 1_490;
+const MODULE_BUDGET = 1_500;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

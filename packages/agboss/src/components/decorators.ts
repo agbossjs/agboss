@@ -4,7 +4,7 @@ import type { DtoClass } from "../dto/types.js";
 import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
-import { recordComponent } from "./metadata.js";
+import { ComponentError, recordComponent } from "./metadata.js";
 import { declareEnvironmentFields, type EnvironmentFields } from "../environments/contract.js";
 
 /**
@@ -29,6 +29,23 @@ export type QuestionRoleClass = Class<{ send(ask: never): Promise<unknown> }>;
 /** What an agent's `tools: [...]` takes: `@Tool` / `@McpTool` classes and question roles (#712). */
 export type AgentToolClass = ToolHandlerClass | QuestionRoleClass;
 
+/**
+ * `@Tool({ approval })` is the approval its calls wait for (#1307): recorded as the channel the
+ * runtime reads, `approval` kept beside it. Both → a mistake, said once.
+ */
+function approvalAsChannel<O extends { readonly channel?: Class; readonly approval?: Class }>(
+  options: O,
+): O {
+  if (options.approval === undefined) return options;
+  if (options.channel !== undefined) {
+    throw new ComponentError({
+      message:
+        "[tool.approval-and-channel] a tool names its approval with approval — channel is its old spelling; give one of them",
+    });
+  }
+  return { ...options, channel: options.approval };
+}
+
 /** A decorator's options as recorded: `deps` always present. */
 const withDeps = <O extends { readonly deps?: readonly Token[] }>(options: O) => ({
   ...options,
@@ -45,6 +62,11 @@ export interface ToolOptions<
   readonly prompt?: string;
   readonly promptUrls?: readonly string[];
   readonly channel?: Class;
+  /**
+   * The `@ToolApproval` this tool's calls wait for (#1307): the new name of `channel`; one of the
+   * two, never both.
+   */
+  readonly approval?: Class;
   /**
    * Whether the tool only reads (#860): it changes nothing outside — no write, no payment, no
    * message sent. An agent of a skill that answers with a direct A2A message (`A2AReply.Message`)
@@ -88,7 +110,7 @@ export function Tool<
   >(
     value: C,
   ): C => {
-    recordComponent(value, { kind: "tool", meta: withDeps(options) });
+    recordComponent(value, { kind: "tool", meta: withDeps(approvalAsChannel(options)) });
     return value;
   };
 }
@@ -148,7 +170,10 @@ export function McpTool<
     value: C,
   ): C => {
     const { server, ...tool } = options;
-    recordComponent(value, { kind: "mcp-tool", meta: { ...tool, deps: tool.deps ?? [], server } });
+    recordComponent(value, {
+      kind: "mcp-tool",
+      meta: { ...approvalAsChannel(tool), deps: tool.deps ?? [], server },
+    });
     return value;
   };
 }
@@ -190,6 +215,26 @@ export interface ChannelOptions<D extends readonly Token[] = readonly Token[]> {
   readonly description?: string;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
+  /**
+   * The `@ToolApproval` or `@ExternalTask` this channel serves (#1307) — in place of `extends` the
+   * role. With it, `ttl` is required.
+   */
+  readonly target?: Class;
+  /**
+   * How long a closed pause of this channel is kept, for duplicate webhook and click detection
+   * (#1307): more than the execution lease (30 s). Required with `target`.
+   */
+  readonly ttl?: Milliseconds;
+  /** How long one call of the channel may run (#1307); default 30 s. */
+  readonly timeout?: Milliseconds;
+}
+
+/** `@Channel({ target, ttl })`: a channel bound to its pause target (#1307). */
+export interface TargetChannelOptions<
+  D extends readonly Token[] = readonly Token[],
+> extends ChannelOptions<D> {
+  readonly target: Class;
+  readonly ttl: Milliseconds;
 }
 
 /**
@@ -197,9 +242,17 @@ export interface ChannelOptions<D extends readonly Token[] = readonly Token[]> {
  * channel a tool names as is. The container creates it with its `deps`; the execution comes
  * through an injected `ExecutionContext`. One instance per application, shared by all workflows.
  */
+export function Channel<const D extends readonly Token[] = []>(
+  options: TargetChannelOptions<D>,
+): <C extends new (...args: ResolvedAll<D>) => { send(ask: never): unknown }>(value: C) => C;
+export function Channel<const D extends readonly Token[] = []>(
+  options: ChannelOptions<D> & { readonly target?: never; readonly ttl?: never },
+): <C extends new (...args: ResolvedAll<D>) => { send(ask: never): Promise<unknown> }>(
+  value: C,
+) => C;
 export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D>) {
   // any role's `send` (`ChannelHandler<Role>`): the ask's type is the role's, checked by `implements`
-  return <C extends new (...args: ResolvedAll<D>) => { send(ask: never): Promise<unknown> }>(
+  return <C extends new (...args: ResolvedAll<D>) => { send(ask: never): unknown }>(
     value: C,
   ): C => {
     recordComponent(value, { kind: "channel", meta: withDeps(options) });

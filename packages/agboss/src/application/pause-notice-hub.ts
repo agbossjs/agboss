@@ -2,7 +2,7 @@ import type { BuiltApp } from "../app/create-app.js";
 import { graphDepsNamed } from "../app/own-deps.js";
 import type { AppDeps } from "../app/app-deps.js";
 import { listensTo, recipientsOf } from "../app/pause-notices.js";
-import type { ListenerReceiver } from "../app/pause-notice-receive.js";
+import type { ListenerHooks, ListenerReceiver } from "../app/pause-notice-receive.js";
 import type { PauseNoticeDelivery } from "../app/pause-notice-delivery.js";
 import type { Class } from "../components/injection.js";
 import { lazyLoad } from "../infrastructure/clock.js";
@@ -10,13 +10,10 @@ import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { PauseRecipients, PauseRecord } from "../infrastructure/pause-record.js";
 import type { PauseNotices } from "../pause/types.js";
+import { CHANNEL_LISTENER_HOOKS } from "../pause/channel-listener.js";
 import type { PauseTally } from "../pause/pause-tally.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
-import {
-  listenersOf,
-  pauseListenerOf,
-  type PauseListenerHandler,
-} from "../pause/pause-listener.js";
+import { listenersOf, pauseListenerOf } from "../pause/pause-listener.js";
 import type { AssembledApplication } from "./assemble.js";
 
 /**
@@ -51,13 +48,14 @@ export interface PauseNoticeHub {
   readonly settled: () => Promise<void>;
 }
 
-const isHandler = (value: unknown): value is PauseListenerHandler =>
+/** Every hook a listener may have: the two a `@PauseListener` needs, the rest optional. */
+const LISTENER_HOOKS = [...CHANNEL_LISTENER_HOOKS, "onPauseExtended"] as const;
+
+const isHandler = (value: unknown): value is ListenerHooks =>
   typeof value === "object" &&
   value !== null &&
-  "onPauseOpened" in value &&
-  typeof value.onPauseOpened === "function" &&
-  "onPauseClosed" in value &&
-  typeof value.onPauseClosed === "function";
+  // a `@PauseListener` has both; a `@ChannelListener`'s hooks are optional, its rules check it has one
+  LISTENER_HOOKS.some((hook) => typeof Reflect.get(value, hook) === "function");
 
 /** The `channel:<name>` of every channel of the instance that listens to a notice (V11.4). */
 const listeningChannels = (workflows: readonly BuiltApp[]): readonly string[] => [

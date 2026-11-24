@@ -8,6 +8,7 @@ import {
   type Token,
 } from "../injection.js";
 import { isEnvContract } from "../../environments/define-env.js";
+import { channelTargetOf } from "../../channels/pause-targets.js";
 import { ComponentError } from "../metadata.js";
 import { STORAGE_SETTINGS_TOKENS } from "../../storage/settings.js";
 
@@ -34,9 +35,11 @@ export type Registration =
   | { readonly kind: "value"; readonly value: unknown }
   | { readonly kind: "class"; readonly cls: Class };
 
-/** Whether `cls` is `contract` or extends it. */
+/** Whether `cls` is `contract`, extends it, or is a `@Channel` serving it as its `target`. */
 const implementsContract = (cls: Class, contract: Class): boolean =>
-  cls === contract || Object.prototype.isPrototypeOf.call(contract.prototype, cls.prototype);
+  cls === contract ||
+  Object.prototype.isPrototypeOf.call(contract.prototype, cls.prototype) ||
+  channelTargetOf(cls) === contract;
 
 /** Values must come with an `InjectionToken`: a class is listed and created by the container. */
 function checkValueToken(token: Token, owner: string): void {

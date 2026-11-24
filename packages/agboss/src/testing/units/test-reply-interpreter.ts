@@ -10,6 +10,7 @@ import type { AssembledReplyInterpreter } from "../../channels/discovery.js";
 import { roleInterpreterOf } from "../../channels/role-interpreter.js";
 import { readReplyBy } from "../../channels/reply-reading.js";
 import { schemaOf, validate } from "../../dto/schema.js";
+import { ToolCallApprovalDecisionDto } from "../../dto/standard/framework.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import type { ChannelAnswerOf, ChannelQuestionOf } from "../../flow/generated-types.js";
@@ -73,7 +74,9 @@ async function interpreterOfRole(role: Class): Promise<RoleInterpreter> {
 const validatorOf = ({ options }: FoundChannelRole): ((decision: unknown) => unknown) =>
   isQuestionRole(options)
     ? (decision) => validate(options.answer, decision)
-    : (decision) => validDecisionOf(decision, { input: schemaOf(options.approves) });
+    : options.approves === undefined
+      ? (decision) => validate(ToolCallApprovalDecisionDto, decision)
+      : (decision) => validDecisionOf(decision, { input: schemaOf(options.approves) });
 
 /** One call of a runner, without its clock. */
 type ReadReply<TRole> = (

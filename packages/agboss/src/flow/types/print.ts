@@ -89,6 +89,7 @@ export function printTypes(
   tables: TypeTables & {
     readonly environments?: readonly string[];
     readonly channelRoles?: TypeTable;
+    readonly pauseTargets?: TypeTable;
     readonly agentTools?: TypeTable;
   },
   names: ImportTable,
@@ -105,6 +106,7 @@ export function printTypes(
     ...tableLines("RouterAnswers", tables.routerAnswers),
     ...tableLines("ThisWorkflowOutputs", tables.thisWorkflowOutputs),
     ...tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
+    ...tableLines("PauseTargets", tables.pauseTargets ?? new Map()),
     ...tableLines("AgentTools", tables.agentTools ?? new Map()),
     ...tableLines("DtoBrands", dtoBrands(names)),
   ];

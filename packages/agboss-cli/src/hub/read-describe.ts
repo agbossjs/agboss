@@ -26,11 +26,13 @@ const DESCRIBE_SCHEMA = 1;
 const toolOf = (tool: JsonObject, path: string): DescribedTool => {
   const server = optionalTextAt(tool, "server", path);
   const channel = optionalTextAt(tool, "channel", path);
+  const approval = optionalTextAt(tool, "approval", path);
   return {
     name: textAt(tool, "name", path),
     kind: textAt(tool, "kind", path),
     ...(server === undefined ? {} : { server }),
     ...(channel === undefined ? {} : { channel }),
+    ...(approval === undefined ? {} : { approval }),
   };
 };
 

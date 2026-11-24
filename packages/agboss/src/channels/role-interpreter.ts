@@ -1,5 +1,6 @@
 /** A role's `@ReplyInterpreter` on its own, as assembly finds it (`testReplyInterpreter`, #644). */
 import { isQuestionRole, type FoundChannelRole } from "./channel-role.decorator.js";
+import { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 import type { PromptLoader } from "../components/prompt-render.js";
 import type { RuleViolation } from "../graph/rule-error.js";
 import {
@@ -25,7 +26,10 @@ export async function roleInterpreterOf(
   loader: PromptLoader,
 ): Promise<RoleInterpreterFound> {
   const { options } = role;
-  const toolInput = isQuestionRole(options) ? options.ask : options.approves;
+  // a tool approval with no `input` approves any tool: no input to name
+  const toolInput = isQuestionRole(options)
+    ? options.ask
+    : (options.approves ?? ToolCallApprovalAskDto);
   const use = { tool: options.name, toolInput, channel: role.role, workflow: "" };
   const violations = replyInterpreterViolations([use]);
   const [found] = interpretedRolesOf([use]);

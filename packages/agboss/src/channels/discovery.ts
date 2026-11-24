@@ -8,6 +8,7 @@ import { ComponentError, componentOf } from "../components/metadata.js";
 import type { PromptLoader } from "../components/prompt-render.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 import type { DtoClass } from "../dto/types.js";
+import { pauseTargetOf } from "./pause-targets.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { kebabNameProblem } from "../flow/names.js";
 import { isDecisionModel } from "../models/decision-models.js";
@@ -192,8 +193,12 @@ function declarationViolations({
   if (isCodeReplyInterpreter(options)) {
     const interpret: unknown = Reflect.get(interpreter.prototype as object, "interpret");
     if (typeof interpret === "function") return found;
-    const message = `${nameOf(interpreter)} (${options.name}) is decided by code but has no interpret(input) method — implements ReplyInterpreterHandler<${nameOf(interpreter)}>`;
-    return [...found, violation("reply-interpreter.no-interpret-method", message, [options.name])];
+    const message = `${nameOf(interpreter)} (${options.name}) is decided by code but has no interpret(input) method — add interpret(input), or give it a model and a prompt`;
+    const code =
+      declaration.isChannelInterpreter === true
+        ? "channel-interpreter.no-interpret-method"
+        : "reply-interpreter.no-interpret-method";
+    return [...found, violation(code, message, [options.name])];
   }
   // a decision model answers yes / no: an approval's `approved` only (#267 S124 a)
   if (!isDecisionModel(options.model) || !isQuestionRole(role.options)) return found;
@@ -204,11 +209,15 @@ function declarationViolations({
 
 /** Every interpreter rule over a workflow's channel uses. */
 export function replyInterpreterViolations(uses: readonly ChannelUse[]): RuleViolation[] {
-  const undecorated = rolesOf(uses).flatMap(({ options }) => {
+  const undecorated = rolesOf(uses).flatMap(({ options, role }) => {
     const interpreter = options.replyInterpreter;
     if (interpreter === undefined || replyInterpreterOf(interpreter) !== undefined) return [];
-    const message = `channel role ${options.name} names ${nameOf(interpreter)} as its replyInterpreter, but it has no @ReplyInterpreter — decorate it`;
-    return [violation("reply-interpreter.not-an-interpreter", message, [options.name])];
+    const message = `channel role ${options.name} names ${nameOf(interpreter)} as its interpreter, but it has no @ChannelInterpreter (@ReplyInterpreter) — decorate it`;
+    const code =
+      pauseTargetOf(role) === undefined
+        ? "reply-interpreter.not-an-interpreter"
+        : "channel-interpreter.not-an-interpreter";
+    return [violation(code, message, [options.name])];
   });
   return [...undecorated, ...interpretedRolesOf(uses).flatMap(declarationViolations)];
 }

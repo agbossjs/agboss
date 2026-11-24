@@ -149,6 +149,29 @@ export type ChannelAnswerOf<TRole> =
     : MissingGeneratedTypes;
 
 /**
+ * What each pause target asks and is answered with (#1307), by the target's `name`:
+ * `@ToolApproval` — `input` the gated tools' input, `output` the `ApprovalDecision` of it;
+ * `@ExternalTask` — its `input` and `output` DTOs.
+ */
+export interface PauseTargets {
+  readonly [notGenerated]?: never;
+}
+
+/** What a pause of `TTarget` asks (its generated `PauseTargets` entry); `never` for `never`. */
+export type PauseInputOf<TTarget> = [TTarget] extends [never]
+  ? never
+  : GeneratedEntry<PauseTargets, TTarget> extends { readonly input: infer TInput }
+    ? TInput
+    : MissingGeneratedTypes;
+
+/** What answers a pause of `TTarget` (its generated `PauseTargets` entry); `never` for `never`. */
+export type PauseOutputOf<TTarget> = [TTarget] extends [never]
+  ? never
+  : GeneratedEntry<PauseTargets, TTarget> extends { readonly output: infer TOutput }
+    ? TOutput
+    : MissingGeneratedTypes;
+
+/**
  * The application's environment (#261): `applicationContext.environment`. The generated file makes it the
  * application's contract — `interface Environment extends AppEnvironment {}` for
  * `@Application({ environment: AppEnvironment })`; the project writes no `declare module`.
@@ -179,7 +202,7 @@ export type KindOfName<TName extends string> = TName extends `${string}-workflow
           ? NodeKind.Router
           : TName extends `${string}-action`
             ? NodeKind.Action
-            : TName extends `${string}-question`
+            : TName extends `${string}-question` | `${string}-external-task`
               ? NodeKind.Question
               : never;
 

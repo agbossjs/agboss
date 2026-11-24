@@ -21,6 +21,10 @@ export enum NameKind {
   EvalSuite = "eval-suite",
   /** A question role (#659): `@ChannelRole({ ask, answer })` — its step's node. */
   Question = "question",
+  /** An `@ExternalTask` (#1307): what `@ChannelRole({ ask, answer })` was, under its new name. */
+  ExternalTask = "external-task",
+  /** A `@ToolApproval` (#1307). */
+  ToolApproval = "tool-approval",
 }
 
 /** The decorator each kind is declared with, as a message names it. */
@@ -35,6 +39,8 @@ const DECORATORS: Readonly<Record<NameKind, string>> = {
   [NameKind.Budget]: "@Budget",
   [NameKind.EvalSuite]: "@EvalSuite",
   [NameKind.Question]: "@ChannelRole",
+  [NameKind.ExternalTask]: "@ExternalTask",
+  [NameKind.ToolApproval]: "@ToolApproval",
 };
 
 /** The stable codes of the name rules. */

@@ -6,6 +6,8 @@ import type { Class } from "../components/injection.js";
 import { isCountLimit, shownLimit } from "../graph/count-limit.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelRoleOf, isQuestionRole } from "./channel-role.decorator.js";
+import { channelTargetOf, listedClassesOf, pauseTargetOf } from "./pause-targets.js";
+import { pauseTargetViolations } from "./pause-target-rules.js";
 import { replyInterpreterViolations } from "./discovery.js";
 import { workingTimeViolations } from "./working-time-rules.js";
 import {
@@ -28,14 +30,13 @@ const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
 /** The listed classes that extend `role` (the role itself is not its implementation). */
 export function implementationsOf(role: Class, modules: readonly ProviderModule[]): Class[] {
-  const listed = modules.flatMap((module) =>
-    module.providers.filter((provider): provider is Class => typeof provider === "function"),
-  );
-  return [...new Set(listed)].filter(
+  return listedClassesOf(modules).filter(
     (cls) =>
-      Object.prototype.isPrototypeOf.call(role.prototype, cls.prototype) &&
-      // Stryker disable next-line ConditionalExpression: equivalent: `role.prototype` is not in its own prototype chain, so the first test is already false for the role itself; the guard says what the rule is
-      cls !== role,
+      (Object.prototype.isPrototypeOf.call(role.prototype, cls.prototype) &&
+        // Stryker disable next-line ConditionalExpression: equivalent: `role.prototype` is not in its own prototype chain, so the first test is already false for the role itself; the guard says what the rule is
+        cls !== role) ||
+      // a `@Channel({ target })` serves the pause target it names, no `extends` (#1307)
+      channelTargetOf(cls) === role,
   );
 }
 
@@ -48,7 +49,12 @@ function wrongToolViolations(uses: readonly ChannelUse[]): RuleViolation[] {
     const found = channelRoleOf(use.channel);
     if (found === undefined || use.isQuestion === true) return [];
     const { options } = found;
-    if (!isQuestionRole(options) && options.approves === use.toolInput) return [];
+    // a tool approval with no `input` approves any tool (#1307)
+    if (
+      !isQuestionRole(options) &&
+      (options.approves === undefined || options.approves === use.toolInput)
+    )
+      return [];
     const why = isQuestionRole(options)
       ? `${options.name} asks a question (ask / answer), it approves no tool — ask it with .toExternalTask(${nameOf(found.role)})`
       : `${options.name} approves ${nameOf(options.approves)}`;
@@ -67,7 +73,10 @@ function implementationViolations(
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
 ): RuleViolation[] {
-  const roles = [...new Set(uses.map((use) => use.channel))].filter(isChannelRole);
+  // a pause target has its own rules (`channel.missing-for-target`, …): see pause-target-rules.ts
+  const roles = [...new Set(uses.map((use) => use.channel))]
+    .filter(isChannelRole)
+    .filter((role) => pauseTargetOf(role) === undefined);
   return roles.flatMap((role) => {
     const found = implementationsOf(role, modules);
     const name = channelNameOf(role);
@@ -209,6 +218,7 @@ export function channelRuleViolations(
   return [
     ...wrongToolViolations(uses),
     ...implementationViolations(uses, modules),
+    ...pauseTargetViolations(uses, modules),
     ...replyInterpreterViolations(uses),
     ...maxVisitsViolations(uses),
     ...expiresInViolations(uses),

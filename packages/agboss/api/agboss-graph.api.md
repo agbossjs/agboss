@@ -12,7 +12,7 @@ export type ExecutionId = string & {
 };
 
 // @public
-export type ExtraRuleCode = FileRuleCode | PiiRuleCode | StorageRuleCode;
+export type ExtraRuleCode = FileRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds";
@@ -80,6 +80,9 @@ export interface LimitExceededErrorOptions {
 
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
+
+// @public
+export type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
 
 // @public
 export type PiiRuleCode = "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.duplicate-target" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model";

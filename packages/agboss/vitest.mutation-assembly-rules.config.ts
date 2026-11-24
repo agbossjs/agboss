@@ -16,7 +16,7 @@ export default defineConfig({
       "tests/flow/limit-values.test.ts",
       "tests/flow/analyse/*.test.ts",
       "tests/units/timer-caps.test.ts",
-      "tests/channels/{channel-rules-direct,working-time-rules-direct,question-*,expiry-rules,remind-before-rules,roles,discovery}.test.ts",
+      "tests/channels/{channel-rules-direct,pause-target-rules,working-time-rules-direct,question-*,expiry-rules,remind-before-rules,roles,discovery}.test.ts",
       "tests/calendar/working-calendar-rules.test.ts",
       "tests/graph/count-limit.test.ts",
       "tests/health/{rules,health-rules-direct}.test.ts",

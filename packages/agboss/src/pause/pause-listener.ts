@@ -3,6 +3,7 @@ import { isClassProvider } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import { kebabNameProblem, resolvedName } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
+import { CHANNEL_LISTENER_HOOKS, unknownListenerHooksOf } from "./channel-listener.js";
 import type {
   PauseListenerAnswerNotTakenEvent,
   PauseListenerClosedEvent,
@@ -57,6 +58,8 @@ export interface PauseListenerMeta {
   readonly description?: string;
   readonly deps: readonly Token[];
   readonly allowAnswering: boolean;
+  /** Set by `@ChannelListener`: every hook is optional (`[channel-listener.*]` rules apply). */
+  readonly hooksOptional?: true;
 }
 
 /** `@PauseListener({ name?, deps?, allowAnswering? })` on a class that `implements PauseListenerHandler`. */
@@ -100,6 +103,34 @@ const isHandler = (cls: Class): boolean => {
   );
 };
 
+/** `[channel-listener.missing-handler]` / `[channel-listener.unknown-hook]` of one `@ChannelListener`. */
+function channelListenerViolations(cls: Class, name: string, application: string): RuleViolation[] {
+  const unknown = unknownListenerHooksOf(cls);
+  const found = unknown.map((hook) =>
+    violation(
+      "channel-listener.unknown-hook",
+      `${classNameOf(cls)} (@ChannelListener "${name}") has ${hook}, which is no listener hook — the hooks are ${CHANNEL_LISTENER_HOOKS.join(", ")}`,
+      [application],
+    ),
+  );
+  const hasHook = CHANNEL_LISTENER_HOOKS.some(
+    (hook) => typeof Reflect.get(cls.prototype as object, hook) === "function",
+  );
+  if (hasHook) return found;
+  const message = `${classNameOf(cls)} (@ChannelListener "${name}") has none of the hooks ${CHANNEL_LISTENER_HOOKS.join(", ")} — it would be told nothing`;
+  return [violation("channel-listener.missing-handler", message, [application]), ...found];
+}
+
+/** What is wrong with a listener's hooks: a `@PauseListener` needs two, a `@ChannelListener` one. */
+function handlerViolations(cls: Class, name: string, application: string): RuleViolation[] {
+  if (pauseListenerOf(cls)?.hooksOptional === true) {
+    return channelListenerViolations(cls, name, application);
+  }
+  if (isHandler(cls)) return [];
+  const message = `${classNameOf(cls)} (@PauseListener "${name}") must implement onPauseOpened(event) and onPauseClosed(event)`;
+  return [violation("pause-listener.not-a-handler", message, [application])];
+}
+
 /**
  * The rules of the listeners an application lists: a kebab-case name
  * (`[name.not-kebab-case]`), one class per name (`[pause-listener.duplicate-name]`) and both
@@ -117,10 +148,7 @@ export function pauseListenerRuleViolations(
     byName.set(name, [...(byName.get(name) ?? []), cls]);
     const problem = kebabNameProblem(name, "@PauseListener");
     if (problem !== undefined) found.push(violation(problem.code, problem.message, [application]));
-    if (!isHandler(cls)) {
-      const message = `${classNameOf(cls)} (@PauseListener "${name}") must implement onPauseOpened(event) and onPauseClosed(event)`;
-      found.push(violation("pause-listener.not-a-handler", message, [application]));
-    }
+    found.push(...handlerViolations(cls, name, application));
   }
   for (const [name, classes] of byName) {
     if (classes.length < 2) continue;

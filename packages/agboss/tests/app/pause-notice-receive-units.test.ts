@@ -107,7 +107,7 @@ function partsOf(listeners: Record<string, { handler: object; allowAnswering: bo
   const parts: ReceiveParts = {
     clock: new VirtualClock(),
     interruption: () => stop,
-    listenerOf: (name) => listeners[name] as ReturnType<ReceiveParts["listenerOf"]>,
+    listenerOf: (name) => listeners[name],
   };
   return { parts, stop };
 }
@@ -414,5 +414,92 @@ describe("#1356: a listener is told the notices it has a method for", () => {
     await expect(tell(parts, "listener:team:gone", PauseNoticeKind.Closed)).rejects.toThrow(
       "no listener team:gone",
     );
+  });
+});
+
+describe("#1310c: a @ChannelListener's hooks are each optional, and a deadline that moved is onPauseTimeoutChanged", () => {
+  const handlerWith = (names: readonly string[]) =>
+    Object.fromEntries(names.map((name) => [name, hookOf(name)]));
+
+  it("a listener with onPauseExpiring alone is told the reminder, and nothing of an opening or a closing", async () => {
+    seen.own = {};
+    const { parts } = partsOf({
+      expiring: { handler: handlerWith(["onPauseExpiring"]), allowAnswering: false },
+    });
+
+    await expect(tell(parts, "listener:expiring", PauseNoticeKind.Opened)).resolves.toBeUndefined();
+    await expect(tell(parts, "listener:expiring", PauseNoticeKind.Closed)).resolves.toBeUndefined();
+    expect(told).toEqual([]);
+    expect(seen.calls).toEqual([]);
+
+    await tell(parts, "listener:expiring", PauseNoticeKind.Expiring);
+    expect(told).toEqual([{ hook: "onPauseExpiring", event: "listener-expiring-event:false" }]);
+  });
+
+  it("a listener with only the opening or only the closing is told that one, with the event of it", async () => {
+    seen.own = {};
+    const { parts } = partsOf({
+      opened: { handler: handlerWith(["onPauseOpened"]), allowAnswering: true },
+      closed: { handler: handlerWith(["onPauseClosed"]), allowAnswering: false },
+    });
+
+    await tell(parts, "listener:opened", PauseNoticeKind.Opened);
+    await tell(parts, "listener:closed", PauseNoticeKind.Closed);
+
+    expect(told).toEqual([
+      { hook: "onPauseOpened", event: "listener-opened-event:true" },
+      { hook: "onPauseClosed", event: "listener-closed-event:false" },
+    ]);
+  });
+
+  it("onPauseTimeoutChanged is told for the notice of a moved deadline, with the extension's event", async () => {
+    seen.own = {};
+    const { parts } = partsOf({
+      moved: { handler: handlerWith(["onPauseTimeoutChanged"]), allowAnswering: true },
+    });
+
+    await tell(parts, "listener:moved", PauseNoticeKind.Extended);
+
+    expect(told).toEqual([
+      { hook: "onPauseTimeoutChanged", event: "listener-extended-event:true" },
+    ]);
+  });
+
+  it("a listener with both names of the hook is told by the old one only, once", async () => {
+    seen.own = {};
+    const { parts } = partsOf({
+      both: {
+        handler: handlerWith(["onPauseExtended", "onPauseTimeoutChanged"]),
+        allowAnswering: false,
+      },
+    });
+
+    await tell(parts, "listener:both", PauseNoticeKind.Extended);
+
+    expect(told.map(({ hook }) => hook)).toEqual(["onPauseExtended"]);
+  });
+
+  it("a channel with onPauseTimeoutChanged is told the moved deadline, with the extension's event", async () => {
+    seen.own = {
+      channelOf: () => ({ sender: senderWith(["onPauseTimeoutChanged"]) }),
+      tools: () => ({ timeout: seconds(7) }),
+    };
+    const { parts } = partsOf();
+
+    await tell(parts, "channel:refund", PauseNoticeKind.Extended);
+
+    expect(told).toEqual([{ hook: "onPauseTimeoutChanged", event: "channel-extended-event" }]);
+  });
+
+  it("a channel with both names of the hook is told by the old one only, once", async () => {
+    seen.own = {
+      channelOf: () => ({ sender: senderWith(["onPauseExtended", "onPauseTimeoutChanged"]) }),
+      tools: () => ({ timeout: seconds(7) }),
+    };
+    const { parts } = partsOf();
+
+    await tell(parts, "channel:refund", PauseNoticeKind.Extended);
+
+    expect(told.map(({ hook }) => hook)).toEqual(["onPauseExtended"]);
   });
 });

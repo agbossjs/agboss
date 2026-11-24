@@ -103,6 +103,20 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@HealthCheck({ name: "crm-health-check", timeout: seconds(2) })',
     "async check(): Promise<void>",
   ),
+  ToolApproval: statefulClass(
+    '@ToolApproval({ name: "refund-tool-approval", description: "d", respondent: PauseRespondent.Owner, timeout: hours(1) })',
+    "assign(): void",
+  ),
+  ExternalTask: statefulClass(
+    '@ExternalTask({ name: "limit-external-task", description: "d", input: AskDto, output: AnswerDto, respondent: PauseRespondent.Owner, timeout: hours(1) })',
+    "permitAnswer(): void",
+  ),
+  ChannelSelector: statefulClass(
+    "@ChannelSelector({ target: RefundToolApproval })",
+    "selectChannel(): void",
+  ),
+  ChannelInterpreter: statefulClass("@ChannelInterpreter()", "interpret(): void"),
+  ChannelListener: statefulClass("@ChannelListener()", "onPauseOpened(): void"),
   PauseListener: statefulClass(
     '@PauseListener({ name: "back-office-pause-listener" })',
     "async onPauseClosed(): Promise<void>",

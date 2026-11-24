@@ -154,3 +154,42 @@ export interface PauseListenerJoinFailedEvent extends PauseListenerEventBase {
   readonly errorCode: string;
   readonly at: string;
 }
+
+/*
+ * The `@ChannelListener` / `@Channel` names of the notices (#1310c, #1307a). A notice is told under
+ * the shape it has today; the shapes of #1307b / #1307d (`actor`, `target`, `assignees`, `trail`, …)
+ * come with the records they are made from.
+ */
+
+/** Every event a `@ChannelListener` receives has what a pause listener's has. */
+export type ChannelListenerEventBase = PauseListenerEventBase;
+export type ChannelListenerOpenedEvent = PauseListenerOpenedEvent;
+export type ChannelListenerClosedEvent = PauseListenerClosedEvent;
+export type ChannelListenerAnswerNotTakenEvent = PauseListenerAnswerNotTakenEvent;
+export type ChannelListenerExpiringEvent = PauseListenerExpiringEvent;
+export type ChannelListenerJoinFailedEvent = PauseListenerJoinFailedEvent;
+/** A pause's deadline moved: today an operator's extension (#942). */
+export type ChannelListenerTimeoutChangedEvent = PauseListenerExtendedEvent;
+/** A pause this channel sent has another deadline: today an operator's extension (#942). */
+export type ChannelPauseTimeoutChangedEvent<TTarget> = ChannelPauseExtendedEvent<TTarget>;
+
+/** A pause moved to another assignee, channel or target (#1307d tells it; the shape is fixed here). */
+export interface ChannelListenerReassignedEvent extends PauseListenerEventBase {
+  readonly previousTarget: string;
+  readonly previousChannel?: string;
+  readonly previousAssignees?: readonly string[];
+  readonly previousExternalRef?: string;
+  readonly previousExpiresAt?: Date;
+  readonly reason?: string;
+}
+
+/** A pause this channel sent was reassigned in place, on the same channel (#1307d). */
+export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEvent {
+  readonly pauseId: string;
+  /** The question as `send` got it. */
+  readonly value: ChannelQuestionOf<TTarget>;
+  readonly previousTarget: string;
+  readonly previousChannel: string;
+  readonly channel: string;
+  readonly reason?: string;
+}

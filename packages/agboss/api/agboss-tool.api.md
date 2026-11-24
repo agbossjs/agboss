@@ -17,6 +17,7 @@ export interface ToolHandler<TInput, TOutput> {
 
 // @public (undocumented)
 export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extends readonly Token[]> {
+    readonly approval?: Class;
     // (undocumented)
     readonly channel?: Class;
     readonly deps?: D;

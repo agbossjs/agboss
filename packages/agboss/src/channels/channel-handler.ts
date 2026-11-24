@@ -5,6 +5,8 @@ import type {
   ChannelPauseExpiringEvent,
   ChannelPauseExtendedEvent,
   ChannelPauseJoinFailedEvent,
+  ChannelPauseReassignedEvent,
+  ChannelPauseTimeoutChangedEvent,
 } from "../pause/notice-events.js";
 import type { ChannelOutcome } from "./channel-outcome.js";
 
@@ -64,6 +66,13 @@ export interface ChannelHandler<TRole> {
    * delivery as `onPauseClosed`.
    */
   readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TRole>) => Promise<void>;
+  /**
+   * Called at least once when a pause this channel sent has another deadline (#1307): the new name of
+   * `onPauseExtended`. Told with the extension's notice for now.
+   */
+  readonly onPauseTimeoutChanged?: (event: ChannelPauseTimeoutChangedEvent<TRole>) => Promise<void>;
+  /** Called when a pause this channel sent was reassigned on the same channel (#1307d). */
+  readonly onPauseReassigned?: (event: ChannelPauseReassignedEvent<TRole>) => Promise<void>;
   /**
    * Called at least once, once per pause, when the parallel step an answered pause belongs to did
    * not collect all its answers (#945): "the step failed on <errorCode>; its error path is running".

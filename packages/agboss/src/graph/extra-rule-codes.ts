@@ -13,5 +13,20 @@ export type StorageRuleCode =
   | "storage.secret-shared"
   | "storage.ttl-invalid";
 
+/** Codes of the pause targets, their channels, selectors, interpreters and listeners (#1307, #1310). */
+export type PauseTargetRuleCode =
+  | "channel.missing-for-target"
+  | "channel.ambiguous-for-target"
+  | "channel.target-invalid"
+  | "channel.ttl-invalid"
+  | "channel-selector.no-select-method"
+  | "channel-selector.target-invalid"
+  | "pause.incompatible-escalation-target"
+  | "pause.permit-hook-not-enforced"
+  | "channel-listener.missing-handler"
+  | "channel-listener.unknown-hook"
+  | "channel-interpreter.not-an-interpreter"
+  | "channel-interpreter.no-interpret-method";
+
 /** The rule codes that live beside their feature, not in the one list. */
-export type ExtraRuleCode = FileRuleCode | PiiRuleCode | StorageRuleCode;
+export type ExtraRuleCode = FileRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;

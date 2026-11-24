@@ -1,5 +1,6 @@
 import type { UsageRecord } from "../finops/usage.js";
 import { ReplyInterpretationKind, type ReplyInterpretation } from "./channel-role.decorator.js";
+import type { ChannelInterpretation } from "./channel-interpreter.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import type { ReplyInterpreterInput } from "./reply-reader.js";
 
@@ -34,9 +35,13 @@ export const crashed = (cause: unknown, usage: readonly UsageRecord[]): Declined
 });
 
 /** Whether `interpret` returned an interpretation (a JS caller may return anything). */
-function isReplyInterpretation(value: unknown): value is ReplyInterpretation<unknown> {
+function isReplyInterpretation(
+  value: unknown,
+): value is ReplyInterpretation<unknown> | ChannelInterpretation<unknown> {
   if (typeof value !== "object" || value === null || !("kind" in value)) return false;
-  if (value.kind === ReplyInterpretationKind.Understood) return "decision" in value;
+  // `decision` is `ReplyInterpretation`'s, `output` `ChannelInterpretation`'s (#1310c)
+  if (value.kind === ReplyInterpretationKind.Understood)
+    return "decision" in value || "output" in value;
   return value.kind === ReplyInterpretationKind.NotUnderstood && "reason" in value;
 }
 
@@ -48,7 +53,11 @@ function interpretationOf(returned: unknown): Interpreted {
     return crashed(new TypeError(message), []);
   }
   return returned.kind === ReplyInterpretationKind.Understood
-    ? { kind: "answered", answer: returned.decision, usage: [] }
+    ? {
+        kind: "answered",
+        answer: "output" in returned ? returned.output : returned.decision,
+        usage: [],
+      }
     : { kind: "declined", reason: returned.reason, usage: [] };
 }
 

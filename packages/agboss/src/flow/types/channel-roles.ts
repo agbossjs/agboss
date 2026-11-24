@@ -8,6 +8,7 @@ import {
   ToolCallApprovalAskDto,
   ToolCallApprovalDecisionDto,
 } from "../../dto/standard/framework.js";
+import { gatedInputsOf, pauseTargetEntriesOf } from "./pause-target-tables.js";
 import type { ImportTable } from "./imports.js";
 import type { TypeTable, TypeTables } from "./tables.js";
 
@@ -56,7 +57,11 @@ interface RoleTypes {
   readonly interpreter: Class | undefined;
 }
 
-function roleTypesOf(use: ChannelUse, names: ImportTable): RoleTypes | undefined {
+function roleTypesOf(
+  use: ChannelUse,
+  names: ImportTable,
+  gatedInputs: readonly DtoClass[],
+): RoleTypes | undefined {
   const found = channelRoleOf(use.channel);
   if (found === undefined) return undefined;
   const { options, role } = found;
@@ -64,13 +69,15 @@ function roleTypesOf(use: ChannelUse, names: ImportTable): RoleTypes | undefined
   const interpreter = options.replyInterpreter;
   const types = isQuestionRole(options)
     ? { ask: names.dto(options.ask), answer: names.dto(options.answer) }
-    : approvalTypes([options.approves], names);
+    : approvalTypes(options.approves === undefined ? gatedInputs : [options.approves], names);
   return { name: options.name, types, interpreter };
 }
 
 /** The tables of the channels: `ChannelRoles`, and `Inputs` / `Outputs` with the interpreters'. */
 export interface ChannelTables {
   readonly channelRoles: TypeTable;
+  /** `PauseTargets` (#1307): `{ input, output }` per `@ToolApproval` / `@ExternalTask`. */
+  readonly pauseTargets: TypeTable;
   readonly inputs: TypeTable;
   readonly outputs: TypeTable;
 }
@@ -113,12 +120,15 @@ export function channelTablesOf(
   const uses = channelUsesOf(workflows);
   const table = new Map<string, string>();
   const interpreters = { inputs: new Map(tables.inputs), outputs: new Map(tables.outputs) };
+  // a tool approval with no `input` approves every tool that names it: the union of their inputs
+  const gatedBy = gatedInputsOf(uses);
   for (const use of uses) {
-    const role = roleTypesOf(use, names);
+    const role = roleTypesOf(use, names, gatedBy.get(use.channel) ?? [use.toolInput]);
     if (role === undefined) continue;
     table.set(role.name, entryOf(role.types));
     interpreterEntries(role, names, interpreters);
   }
+  const pauseTargets = pauseTargetEntriesOf(gatedBy, names);
   const concrete = new Map<Class, DtoClass[]>();
   for (const use of uses) {
     if (concreteChannelName(use.channel) === undefined) continue;
@@ -129,7 +139,12 @@ export function channelTablesOf(
     if (name === undefined || names.refIfExported(cls) === undefined) continue;
     table.set(name, entryOf(approvalTypes(inputs, names)));
   }
-  return { channelRoles: table, inputs: interpreters.inputs, outputs: interpreters.outputs };
+  return {
+    channelRoles: table,
+    pauseTargets,
+    inputs: interpreters.inputs,
+    outputs: interpreters.outputs,
+  };
 }
 
 /**

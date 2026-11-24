@@ -1,5 +1,9 @@
 import type { ChannelSender } from "../channels/channel-sender.js";
+import type { ChannelListenerHandler } from "../pause/channel-listener.js";
 import type { PauseListenerHandler } from "../pause/pause-listener.js";
+
+/** The hooks a listener may have: a `@PauseListener`'s and a `@ChannelListener`'s, each optional. */
+export type ListenerHooks = Partial<PauseListenerHandler> & ChannelListenerHandler;
 import { channelJoinFailedOf, listenerJoinFailedOf } from "./pause-join-notices.js";
 import { isApprovalPause, type PauseRecord } from "../infrastructure/pause-record.js";
 import { PauseNoticeKind, type PauseNotice } from "../infrastructure/pause-notices.js";
@@ -35,7 +39,8 @@ import {
 
 /** A listener as the delivery calls it. */
 export interface ListenerReceiver {
-  readonly handler: PauseListenerHandler;
+  /** A `@PauseListener`'s (both required) or a `@ChannelListener`'s (every hook optional, #1310c). */
+  readonly handler: ListenerHooks;
   readonly allowAnswering: boolean;
 }
 
@@ -62,6 +67,13 @@ function laterChannelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | 
       const event = channelExtendedOf(sources);
       // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return Promise.resolve(() => sender.onPauseExtended?.(event) ?? Promise.resolve());
+    };
+  // a deadline that moved is `onPauseTimeoutChanged` on a channel that names its target (#1307)
+  if (kind === PauseNoticeKind.Extended && hookOverridden(sender, "onPauseTimeoutChanged"))
+    return (sources) => {
+      const event = channelExtendedOf(sources);
+      // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
+      return Promise.resolve(() => sender.onPauseTimeoutChanged?.(event) ?? Promise.resolve());
     };
   if (kind === PauseNoticeKind.Expiring && hookOverridden(sender, "onPauseExpiring"))
     return (sources) => {
@@ -103,6 +115,13 @@ function laterListenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): H
       // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
       return () => handler.onPauseExtended?.(event) ?? Promise.resolve();
     };
+  // a deadline that moved is `onPauseTimeoutChanged` to a `@ChannelListener` (#1310c)
+  if (kind === PauseNoticeKind.Extended && handler.onPauseTimeoutChanged !== undefined)
+    return async (sources) => {
+      const event = await listenerExtendedOf(sources, allowAnswering);
+      // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
+      return () => Promise.resolve(handler.onPauseTimeoutChanged?.(event));
+    };
   if (kind === PauseNoticeKind.Expiring && handler.onPauseExpiring !== undefined)
     return async (sources) => {
       const event = await listenerExpiringOf(sources, allowAnswering);
@@ -120,15 +139,17 @@ function laterListenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): H
 
 function listenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): Hook | undefined {
   const { handler, allowAnswering } = listener;
-  if (kind === PauseNoticeKind.Opened)
+  if (kind === PauseNoticeKind.Opened && handler.onPauseOpened !== undefined)
     return async (sources) => {
       const event = await listenerOpenedOf(sources, allowAnswering);
-      return () => handler.onPauseOpened(event);
+      // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
+      return () => Promise.resolve(handler.onPauseOpened?.(event));
     };
-  if (kind === PauseNoticeKind.Closed)
+  if (kind === PauseNoticeKind.Closed && handler.onPauseClosed !== undefined)
     return async (sources) => {
       const event = await listenerClosedOf(sources, allowAnswering);
-      return () => handler.onPauseClosed(event);
+      // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
+      return () => Promise.resolve(handler.onPauseClosed?.(event));
     };
   if (kind === PauseNoticeKind.AnswerNotTaken && handler.onPauseAnswerNotTaken !== undefined)
     return async (sources) => {

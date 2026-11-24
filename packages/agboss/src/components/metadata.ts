@@ -14,6 +14,8 @@ export interface ToolMeta {
   readonly prompt?: string;
   readonly promptUrls?: readonly string[];
   readonly channel?: Class;
+  /** The `@ToolApproval` it was given as `approval` (#1307); `channel` holds the same class. */
+  readonly approval?: Class;
   /** Whether it only reads (#860): what a direct-reply A2A skill's agents may call. */
   readonly readOnly?: boolean;
   /** How long one call may run (`seconds(5)`); default 30 s. */
@@ -114,6 +116,11 @@ export type ComponentMeta =
       readonly kind: "health-check";
       readonly meta: import("../health/health-check.js").HealthCheckMeta;
     }
+  /** `@ChannelSelector` (#1307): picks the channel when two or more serve one target. */
+  | {
+      readonly kind: "channel-selector";
+      readonly meta: import("../channels/channel-selector.js").ChannelSelectorMeta;
+    }
   /** `@PauseListener` (#940): an application-wide listener of every pause, listed in `providers`. */
   | {
       readonly kind: "pause-listener";
@@ -192,6 +199,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   reranker: "Reranker",
   judge: "Judge",
   channel: "Channel",
+  "channel-selector": "ChannelSelector",
   budget: "Budget",
   "health-check": "HealthCheck",
   "pause-listener": "PauseListener",

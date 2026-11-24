@@ -44,7 +44,15 @@ export type AnswersOf<Q extends DecisionQuestions> = {
 export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall;
 
 // @public
-export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
+export function Channel<const D extends readonly Token[] = []>(options: TargetChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
+    send(ask: never): unknown;
+}>(value: C) => C;
+
+// @public (undocumented)
+export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D> & {
+    readonly target?: never;
+    readonly ttl?: never;
+}): <C extends new (...args: ResolvedAll<D>) => {
     send(ask: never): Promise<unknown>;
 }>(value: C) => C;
 
@@ -58,6 +66,8 @@ export interface ChannelHandler<TRole> {
     readonly onPauseExpiring?: (event: ChannelPauseExpiringEvent<TRole>) => Promise<void>;
     readonly onPauseExtended?: (event: ChannelPauseExtendedEvent<TRole>) => Promise<void>;
     readonly onPauseJoinFailed?: (event: ChannelPauseJoinFailedEvent<TRole>) => Promise<void>;
+    readonly onPauseReassigned?: (event: ChannelPauseReassignedEvent<TRole>) => Promise<void>;
+    readonly onPauseTimeoutChanged?: (event: ChannelPauseTimeoutChangedEvent<TRole>) => Promise<void>;
     // (undocumented)
     readonly send: (ask: ChannelAsk<TRole>) => Promise<ChannelOutcome<TRole>>;
 }
@@ -646,6 +656,7 @@ export class WorkflowSettings {
 // Warnings were encountered during analysis:
 //
 // src/channels/channel-handler.ts - (ae-undocumented) Missing documentation for "send".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "Channel".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "provide".

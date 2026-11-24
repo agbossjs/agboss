@@ -4,7 +4,22 @@ export {
   type PauseListenerHandler,
   type PauseListenerOptions,
 } from "../pause/pause-listener.js";
+export {
+  ChannelListener,
+  type ChannelListenerHandler,
+  type ChannelListenerOptions,
+} from "../pause/channel-listener.js";
 export type {
+  ChannelListenerAnswerNotTakenEvent,
+  ChannelListenerClosedEvent,
+  ChannelListenerEventBase,
+  ChannelListenerExpiringEvent,
+  ChannelListenerJoinFailedEvent,
+  ChannelListenerOpenedEvent,
+  ChannelListenerReassignedEvent,
+  ChannelListenerTimeoutChangedEvent,
+  ChannelPauseReassignedEvent,
+  ChannelPauseTimeoutChangedEvent,
   ChannelPauseAnswerNotTakenEvent,
   ChannelPauseClosedEvent,
   ChannelPauseExpiringEvent,
