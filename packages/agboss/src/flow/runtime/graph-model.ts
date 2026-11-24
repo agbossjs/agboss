@@ -2,7 +2,8 @@ import type { Milliseconds, WorkingDuration } from "../../units/index.js";
 import { CompensationFailedError } from "../compensation.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
-import { codeOfErrorClass, errorMatchOf, type ErrorRecord } from "../../core/error-record.js";
+import type { ErrorRecord } from "../../core/error-record.js";
+import { bestHandlerOf } from "./error-handler-rank.js";
 import { isHandOverRecord } from "../../core/error-families/run-errors.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
@@ -227,26 +228,6 @@ const ACTION_WRAPPER_CODE = "step.action";
 /** The code every framework error has: a handler on it says nothing about the original's own class. */
 const FRAMEWORK_CODE = "agboss";
 
-/** The best handler among `exits` for `record`, by distance in its class line, then in its cause chain. */
-function bestHandlerOf(
-  exits: Pick<NodeExits, "errors">,
-  record: ErrorRecord,
-  skip?: (code: string) => boolean,
-): FlowEdge | undefined {
-  let best: { readonly edge: FlowEdge; readonly rank: readonly number[] } | undefined;
-  for (const edge of exits.errors) {
-    if (edge.error === undefined) continue;
-    const code = codeOfErrorClass(edge.error);
-    if (code !== undefined && skip?.(code) === true) continue;
-    const match =
-      code === undefined ? { distance: Infinity, depth: Infinity } : errorMatchOf(record, code);
-    if (match === undefined) continue;
-    const rank = [match.distance, match.depth];
-    if (best === undefined || isBefore(rank, best.rank)) best = { edge, rank };
-  }
-  return best?.edge;
-}
-
 /**
  * The `.onError` handler of a failure: the one whose class matches most specifically — nearest in
  * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
@@ -267,7 +248,3 @@ export function errorHandlerOf(
       : bestHandlerOf(exits, original, (code) => code === FRAMEWORK_CODE);
   return ofOriginal ?? bestHandlerOf(exits, record);
 }
-
-const isBefore = (rank: readonly number[], other: readonly number[]): boolean =>
-  (rank[0] ?? 0) < (other[0] ?? 0) ||
-  ((rank[0] ?? 0) === (other[0] ?? 0) && (rank[1] ?? 0) < (other[1] ?? 0));

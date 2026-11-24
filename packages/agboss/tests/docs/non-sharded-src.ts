@@ -656,6 +656,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "the run's steps, records and child handling: no spend, lease or cancel rule of its own",
     [
+      "src/flow/runtime/error-handler-rank.ts",
       "src/flow/runtime/execution-record.ts",
       "src/flow/runtime/graph-model.ts",
       "src/flow/runtime/history.ts",
