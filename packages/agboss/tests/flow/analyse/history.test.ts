@@ -33,7 +33,7 @@ const errorsOf = (workflow: abstract new () => unknown, code: string): readonly 
   description: "Reads the drafts so far",
   prompt: "Compare the drafts.",
   model: "moonshotai/kimi-k2.6",
-  input: { drafts: historyOf(OfferDraftDto, { limit: 2 }) },
+  input: { drafts: historyOf(OfferDraftDto, { maxPrevious: 2 }) },
   output: DraftChangesDto,
 })
 class DraftHistoryAgent {}
@@ -103,10 +103,10 @@ class StaleDraftWorkflow {}
 
 @Agent({
   name: "limitless-agent",
-  description: "A history with a limit that is not one",
+  description: "A history with a maxPrevious that is not one",
   prompt: "Read.",
   model: "moonshotai/kimi-k2.6",
-  input: { drafts: historyOf(OfferDraftDto, { limit: 0 }) },
+  input: { drafts: historyOf(OfferDraftDto, { maxPrevious: 0 }) },
   output: DraftChangesDto,
 })
 class LimitlessAgent {}
@@ -137,20 +137,20 @@ describe("#299 AC4: historyOf(Dto) in the analysis", () => {
 
   it("without a current Dto on the path → [input.missing-on-path]", () => {
     expect(errorsOf(NoDraftWorkflow, "input.missing-on-path")).toContain(
-      "no-draft-workflow: draft-history-agent.drafts (historyOf(OfferDraftDto, { limit: 2 })) is not produced on the path history-offer-workflow-start → draft-history-agent",
+      "no-draft-workflow: draft-history-agent.drafts (historyOf(OfferDraftDto, { maxPrevious: 2 })) is not produced on the path history-offer-workflow-start → draft-history-agent",
     );
   });
 
   it("a latest Dto that is outdated is no current one: [input.missing-on-path], not outdated-on-path", () => {
     expect(errorsOf(StaleDraftWorkflow, "input.missing-on-path")).toContain(
-      "stale-draft-workflow: draft-history-agent.drafts (historyOf(OfferDraftDto, { limit: 2 })) has no current OfferDraftDto on the path history-offer-workflow-start → research-agent → research-draft-agent → research-again-agent → draft-history-agent — the latest one is outdated; renew it on that path before draft-history-agent",
+      "stale-draft-workflow: draft-history-agent.drafts (historyOf(OfferDraftDto, { maxPrevious: 2 })) has no current OfferDraftDto on the path history-offer-workflow-start → research-agent → research-draft-agent → research-again-agent → draft-history-agent — the latest one is outdated; renew it on that path before draft-history-agent",
     );
     expect(errorsOf(StaleDraftWorkflow, "input.outdated-on-path")).toEqual([]);
   });
 
-  it("a limit that is not a positive integer → [input.history-limit]", () => {
-    expect(errorsOf(BadLimitWorkflow, "input.history-limit")).toEqual([
-      "bad-limit-workflow: limitless-agent.drafts (historyOf(OfferDraftDto, { limit: 0 })): limit 0 — historyOf(…, { limit }) takes a positive integer, or no limit for every earlier version",
+  it("a maxPrevious that is not a positive integer → [input.history-max-previous]", () => {
+    expect(errorsOf(BadLimitWorkflow, "input.history-max-previous")).toEqual([
+      "bad-limit-workflow: limitless-agent.drafts (historyOf(OfferDraftDto, { maxPrevious: 0 })): maxPrevious 0 — historyOf(…, { maxPrevious }) takes a positive integer, or no maxPrevious for every earlier version",
     ]);
   });
 });

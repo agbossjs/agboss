@@ -147,10 +147,10 @@ describe("describe a workflow", () => {
     expect(describeWorkflow(test)).not.toContain("about");
   });
 
-  it("#299 S56: a historyOf field says so, with its limit", () => {
+  it("#299 S56: a historyOf field says so, with its maxPrevious", () => {
     expect(describeWorkflow(history)).toEqual(
       expect.arrayContaining([
-        "  review-draft-action ← draft: draft-editor-agent | first-draft-agent (latest, historyOf, limit 2)",
+        "  review-draft-action ← draft: draft-editor-agent | first-draft-agent (latest, historyOf, maxPrevious 2)",
         "  draft-history-workflow-finish ← drafts: draft-editor-agent | first-draft-agent (latest, historyOf)",
       ]),
     );

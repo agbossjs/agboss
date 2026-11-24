@@ -20,7 +20,7 @@ import {
 } from "../fixtures/history.fixture.js";
 
 /**
- * #299 AC4 (S56) at run time: `historyOf(OfferDraftDto, { limit: 2 })` on the review loop is the
+ * #299 AC4 (S56) at run time: `historyOf(OfferDraftDto, { maxPrevious: 2 })` on the review loop is the
  * current draft and at most the two before it, oldest first; `historyOf(OfferDraftDto)` every
  * earlier version. `previous` comes from the slot's `outdatedValues`; the input message shows it.
  */
@@ -80,7 +80,7 @@ describe("#299 AC4: the input message shows the history", () => {
     outdated: { byValueId: "next", reason: OutdatedReason.Replaced },
   });
 
-  it("the current value, then its earlier versions oldest first (at most the limit)", () => {
+  it("the current value, then its earlier versions oldest first (at most maxPrevious)", () => {
     if (field === undefined) throw new Error("review-draft-action has no field");
     const view = {
       scope: { OfferDraftDto: record("draft-editor-agent:3/OfferDraftDto", "v4") },

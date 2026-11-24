@@ -354,7 +354,11 @@ describe("#299: [io.ambiguous-about] — a value about T whose producer reads T 
   });
 
   it("historyOf alone: the answers are about its current value, nothing is ambiguous", () => {
-    const workflow = editLoop("history", { drafts: historyOf(DraftDto, { limit: 1 }) }, DraftDto);
+    const workflow = editLoop(
+      "history",
+      { drafts: historyOf(DraftDto, { maxPrevious: 1 }) },
+      DraftDto,
+    );
 
     expect(checkWorkflow(workflow as never)).toMatchObject({ errors: [] });
   });

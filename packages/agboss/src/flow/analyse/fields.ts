@@ -24,8 +24,8 @@ export interface ResolvedField {
   readonly slot: SlotKey;
   readonly isRequired: boolean;
   readonly isList: boolean;
-  /** `historyOf(XDto, { limit })`: it reads the earlier versions too (#299 S56). */
-  readonly history?: { readonly limit?: number };
+  /** `historyOf(XDto, { maxPrevious })`: it reads the earlier versions too (#299 S56). */
+  readonly history?: { readonly maxPrevious?: number };
   /** The output of a finish without `input`: not a field of `InputOf<X>`. */
   readonly isPassThrough: boolean;
 }

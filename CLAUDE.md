@@ -814,7 +814,7 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   #271); in a cycle of classes built from each other the flow says what one value is about —
   `.returns(CritiqueDto, { about: DraftDto })`, or on a case `caseOf(ChangesRequestedDto, { about:
 OfferDraftDto })` (`[io.ambiguous-cycle]`, #299); a node reads the earlier versions of a value as
-  `historyOf(OfferDraftDto, { limit: 2 })` — `{ current, previous }` (no tags). At run time the scope holds
+  `historyOf(OfferDraftDto, { maxPrevious: 2 })` — `{ current, previous }` (no tags). At run time the scope holds
   current values only: a write moves the older value and everything built from it to
   `outdatedValues` (`result.record`, `outdated: { byValueId, reason: OutdatedReason… }`), one
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
@@ -1549,7 +1549,7 @@ export class SeenJobsRepository {
 
 - **Data are DTO classes** (`@agboss/core/dto`): `@Text`, `@Integer`, `@Flag`, `@OneOf`,
   `@ListOf`, `@Nested`, …; plain data, no methods; on paths wrapped as `listOf(Dto)`,
-  `oneOf(A, B)`, `optional(Dto)`, `historyOf(Dto, { limit })` (an input: the current value and the
+  `oneOf(A, B)`, `optional(Dto)`, `historyOf(Dto, { maxPrevious })` (an input: the current value and the
   earlier versions), `variant(Dto, value)`. Standard ones: `WorkflowStartTextDto`,
   `WorkflowFinishTextDto`, `ToolCallApprovalDecisionDto`, `RagSearchResultDto`, `PlainTextDto`
   (Wiki → Standard-DTOs). zod stays inside the framework.

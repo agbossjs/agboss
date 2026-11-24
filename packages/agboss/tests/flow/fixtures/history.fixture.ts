@@ -15,7 +15,7 @@ import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * #299 S56 — earlier versions without tags: the review loop's reviewer reads
- * `historyOf(OfferDraftDto, { limit: 2 })` (the current draft and the two before it), the finish
+ * `historyOf(OfferDraftDto, { maxPrevious: 2 })` (the current draft and the two before it), the finish
  * reads every version (`historyOf(OfferDraftDto)`). The editor's draft replaces the old one, whose
  * versions are the history's `previous`.
  */
@@ -51,7 +51,7 @@ export class FirstDraftAgent {}
   name: "review-draft-action",
   description: "Reviews the latest draft against the two before it",
   input: {
-    draft: historyOf(OfferDraftDto, { limit: 2 }),
+    draft: historyOf(OfferDraftDto, { maxPrevious: 2 }),
   },
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
 })

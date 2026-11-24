@@ -2,7 +2,7 @@ import type { DtoClass } from "../dto/types.js";
 
 /**
  * The type wrappers of #270 — `optional(XDto)`, `listOf(XDto)`, `oneOf(ADto, BDto, …)` — with
- * `historyOf(XDto, { limit })` for an input that reads the earlier versions too (#299, S56), and the
+ * `historyOf(XDto, { maxPrevious })` for an input that reads the earlier versions too (#299, S56), and the
  * variant helpers `variant(XDto, value)` / `isVariant(item, XDto)`. Each wrapper is a frozen
  * descriptor the analyser and the runtime read, typed so the builder and `InputOf` can read it too.
  */
@@ -51,25 +51,25 @@ export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 /** What one `.returns(…)` names (#299, S54): a value shape, or the `oneOf(…)` a `.switch` branches. */
 export type ReturnedShape = ValueShape | OneOfWrapper;
 
-/** `historyOf(XDto, { limit })`'s options. */
+/** `historyOf(XDto, { maxPrevious })`'s options. */
 export interface HistoryOptions {
   /** At most this many earlier versions, the latest ones; every earlier version when omitted. */
-  readonly limit?: number;
+  readonly maxPrevious?: number;
 }
 
 /**
- * `historyOf(XDto, { limit })` (#299, S56) — an input field that reads the current `XDto` and the
+ * `historyOf(XDto, { maxPrevious })` (#299, S56) — an input field that reads the current `XDto` and the
  * earlier versions of it in this execution: `HistoryOf<Produced<XDto, P>>` in `InputOf`.
  */
 export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
   readonly kind: Wrapper.History;
   readonly dto: TDto;
-  readonly limit?: number;
+  readonly maxPrevious?: number;
 }
 
 /**
  * What a `historyOf(XDto)` field holds: the current value and the earlier versions, oldest first
- * (at most `limit` of them, the latest ones); `previous` is empty on the first visit.
+ * (at most `maxPrevious` of them, the latest ones); `previous` is empty on the first visit.
  */
 export interface HistoryOf<TValue> {
   readonly current: TValue;
@@ -112,16 +112,18 @@ export function oneOf<const TVariants extends OneOfVariants>(
 }
 
 /**
- * `historyOf(OfferDraftDto, { limit: 2 })` — an `input` field that reads the current value of the
+ * `historyOf(OfferDraftDto, { maxPrevious: 2 })` — an `input` field that reads the current value of the
  * class and its earlier versions (#299, S56); a path must bring a current value.
  */
 export function historyOf<const TDto extends DtoClass>(
   dto: TDto,
   options: HistoryOptions = {},
 ): HistoryWrapper<TDto> {
-  const { limit } = options;
+  const { maxPrevious } = options;
   return Object.freeze(
-    limit === undefined ? { kind: Wrapper.History, dto } : { kind: Wrapper.History, dto, limit },
+    maxPrevious === undefined
+      ? { kind: Wrapper.History, dto }
+      : { kind: Wrapper.History, dto, maxPrevious },
   );
 }
 

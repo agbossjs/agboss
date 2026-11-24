@@ -135,7 +135,9 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     expectTypeOf<InputOf<DraftHistoryWorkflowFinish>["drafts"]["previous"]>().toEqualTypeOf<
       readonly Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>[]
     >();
-    expectTypeOf(historyOf(OfferDraftDto, { limit: 2 }).limit).toEqualTypeOf<number | undefined>();
+    expectTypeOf(historyOf(OfferDraftDto, { maxPrevious: 2 }).maxPrevious).toEqualTypeOf<
+      number | undefined
+    >();
   });
 
   it("a list start returns its list; a single producer one value", () => {

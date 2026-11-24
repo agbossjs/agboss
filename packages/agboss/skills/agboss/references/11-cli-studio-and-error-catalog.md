@@ -214,22 +214,22 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[flow.switch-unknown-case]`     | a case the step does not give, or a switch after a non-`oneOf` step | `caseOf(C)` → remove it; a single output → `.returns(XDto)` instead of `.switch`                                        |
 | `[flow.duplicate-error-handler]` | two handlers for one class on one step (or join)                    | `.onError(E, …).onError(E, …)` → one `.onError(E, …)`                                                                   |
 | `[flow.text-agent-target]`       | a text agent (no `output`) leads anywhere but a text finish         | `route(TextAgent).toAction(A)` → give it `output`, or `route(TextAgent).toFinish(TextFinish)` (`WorkflowFinishTextDto`) |
-| `[flow.ambiguous-field]`         | two fields of one node read the same class                          | `{ draft: DraftDto, oldDraft: DraftDto }` → `{ draft: historyOf(DraftDto, { limit: 1 }) }`                              |
+| `[flow.ambiguous-field]`         | two fields of one node read the same class                          | `{ draft: DraftDto, oldDraft: DraftDto }` → `{ draft: historyOf(DraftDto, { maxPrevious: 1 }) }`                        |
 | `[flow.path-too-deep]`           | a warning: a path nests more than four branches                     | a `switch` in a `chooseOne` in a `switch` … → move a branch into a child workflow                                       |
 | `[flow.analysis-too-large]`      | a node is reached with too many path scopes                         | many optional values multiplying → move a branch into a child workflow                                                  |
 
 ### What a node reads: inputs, outdating, `about`
 
-| Code                       | Means                                                               | Before → after                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `[input.missing-on-path]`  | a required input field is not produced on some path into the node   | `input: { order: OrderDto }` with no `.returns(OrderDto)` before → return it on that path, or `optional(OrderDto)` |
-| `[input.never-produced]`   | an `optional` field no path into the node ever produces             | `refund: optional(RefundDto)` never returned → return it somewhere, or remove the field                            |
-| `[input.several-on-path]`  | a single field reads a class that is several values there           | `check: CheckDto` after a launch of two checkers → `checks: listOf(CheckDto)`                                      |
-| `[input.history-limit]`    | `historyOf(…, { limit })` is not a positive integer                 | `{ limit: 0 }` → `{ limit: 2 }`, or no `limit` for every version                                                   |
-| `[input.outdated-on-path]` | the field's latest value is outdated on some path                   | reading `CritiqueDto` after the draft was rewritten → renew it on that path, or read it earlier                    |
-| `[io.ambiguous-cycle]`     | classes built from each other in a cycle: the direction is not said | `caseOf(ChangesDto)` → `caseOf(ChangesDto, { about: DraftDto })`                                                   |
-| `[io.ambiguous-about]`     | a node reads a class twice and a value is `{ about }` it            | two `DraftDto` fields → one `historyOf(DraftDto)` field                                                            |
-| `[io.about-on-start]`      | `{ about }` on a start's input                                      | `start(S).returns(XDto, { about: YDto })` → `.returns(XDto)`                                                       |
+| Code                           | Means                                                               | Before → after                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `[input.missing-on-path]`      | a required input field is not produced on some path into the node   | `input: { order: OrderDto }` with no `.returns(OrderDto)` before → return it on that path, or `optional(OrderDto)` |
+| `[input.never-produced]`       | an `optional` field no path into the node ever produces             | `refund: optional(RefundDto)` never returned → return it somewhere, or remove the field                            |
+| `[input.several-on-path]`      | a single field reads a class that is several values there           | `check: CheckDto` after a launch of two checkers → `checks: listOf(CheckDto)`                                      |
+| `[input.history-max-previous]` | `historyOf(…, { maxPrevious })` is not a positive integer           | `{ maxPrevious: 0 }` → `{ maxPrevious: 2 }`, or no `maxPrevious` for every version                                 |
+| `[input.outdated-on-path]`     | the field's latest value is outdated on some path                   | reading `CritiqueDto` after the draft was rewritten → renew it on that path, or read it earlier                    |
+| `[io.ambiguous-cycle]`         | classes built from each other in a cycle: the direction is not said | `caseOf(ChangesDto)` → `caseOf(ChangesDto, { about: DraftDto })`                                                   |
+| `[io.ambiguous-about]`         | a node reads a class twice and a value is `{ about }` it            | two `DraftDto` fields → one `historyOf(DraftDto)` field                                                            |
+| `[io.about-on-start]`          | `{ about }` on a start's input                                      | `start(S).returns(XDto, { about: YDto })` → `.returns(XDto)`                                                       |
 
 ### Routers
 

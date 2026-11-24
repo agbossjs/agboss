@@ -28,7 +28,7 @@ export type RuleCode =
   | "input.missing-on-path"
   | "input.never-produced"
   | "input.several-on-path"
-  | "input.history-limit"
+  | "input.history-max-previous"
   // outdating (#271 PR 1), reported by `src/flow/analyse`
   | "input.outdated-on-path"
   | "io.ambiguous-cycle"

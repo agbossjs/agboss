@@ -99,8 +99,8 @@ export interface FieldSlot {
   readonly slot: SlotKey;
   readonly isRequired: boolean;
   readonly isList: boolean;
-  /** `historyOf(XDto, { limit })`: the current value and the earlier versions (#299 S56). */
-  readonly history?: { readonly limit?: number };
+  /** `historyOf(XDto, { maxPrevious })`: the current value and the earlier versions (#299 S56). */
+  readonly history?: { readonly maxPrevious?: number };
 }
 
 export function slotOfField(shape: InputFieldShape): FieldSlot {
@@ -110,7 +110,7 @@ export function slotOfField(shape: InputFieldShape): FieldSlot {
     case Wrapper.List:
       return { slot: listSlot(shape), isRequired: true, isList: true };
     case Wrapper.History: {
-      const history = shape.limit === undefined ? {} : { limit: shape.limit };
+      const history = shape.maxPrevious === undefined ? {} : { maxPrevious: shape.maxPrevious };
       return { slot: slotOfDto(shape.dto), isRequired: true, isList: false, history };
     }
     case Wrapper.Optional:

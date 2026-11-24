@@ -191,7 +191,7 @@ export function historyOf<const TDto extends DtoClass>(dto: TDto, options?: Hist
 
 // @public
 export interface HistoryOptions {
-    readonly limit?: number;
+    readonly maxPrevious?: number;
 }
 
 // @public
@@ -201,7 +201,7 @@ export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
     // (undocumented)
     readonly kind: Wrapper.History;
     // (undocumented)
-    readonly limit?: number;
+    readonly maxPrevious?: number;
 }
 
 // @public
@@ -618,7 +618,7 @@ enum Wrapper {
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "inner".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "dto".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "limit".
+// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "maxPrevious".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "current".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "previous".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "optional".

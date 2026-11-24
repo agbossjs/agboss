@@ -25,7 +25,7 @@ import { leftOutHint } from "./quorum-inputs.js";
  * one step brought several values → `[input.several-on-path]`; two fields of one node that read
  * one slot → `[flow.ambiguous-field]` (they would read the same value; the earlier versions are
  * `historyOf(XDto)`), unless the node's values are `{ about }` that class (`[io.ambiguous-about]`);
- * a `historyOf` limit that is not a positive integer → `[input.history-limit]`; too many scopes →
+ * a `historyOf` maxPrevious that is not a positive integer → `[input.history-max-previous]`; too many scopes →
  * `[flow.analysis-too-large]`.
  */
 
@@ -147,16 +147,16 @@ function ambiguousFields(
     });
 }
 
-/** A `historyOf(XDto, { limit })` whose limit is not a positive integer. */
-function historyLimits(
+/** A `historyOf(XDto, { maxPrevious })` whose maxPrevious is not a positive integer. */
+function historyMaxPrevious(
   node: ComponentName,
   fields: readonly ResolvedField[],
 ): readonly RuleViolation[] {
   return fields.flatMap((field) => {
-    const limit = field.history?.limit;
-    if (limit === undefined || (Number.isInteger(limit) && limit > 0)) return [];
-    const message = `${field.label}: limit ${String(limit)} — historyOf(…, { limit }) takes a positive integer, or no limit for every earlier version`;
-    return [violation("input.history-limit", message, [node])];
+    const maxPrevious = field.history?.maxPrevious;
+    if (maxPrevious === undefined || (Number.isInteger(maxPrevious) && maxPrevious > 0)) return [];
+    const message = `${field.label}: maxPrevious ${String(maxPrevious)} — historyOf(…, { maxPrevious }) takes a positive integer, or no maxPrevious for every earlier version`;
+    return [violation("input.history-max-previous", message, [node])];
   });
 }
 
@@ -178,7 +178,7 @@ function nodeViolations(
   about: ReadonlySet<string>,
 ): readonly RuleViolation[] {
   const fields = context.fields.get(node) ?? [];
-  const declared = [...ambiguousFields(node, fields, about), ...historyLimits(node, fields)];
+  const declared = [...ambiguousFields(node, fields, about), ...historyMaxPrevious(node, fields)];
   const scopes = context.dataflow.scopes.get(node);
   if (scopes === undefined) return declared;
   if (scopes.isTooLarge) {
