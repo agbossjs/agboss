@@ -39,8 +39,6 @@ export type {
   CaseHead,
   CasePath,
   ErrorHandling,
-  FinishesOf,
-  FinishHandling,
   GroupHead,
   PathHead,
   RouteContinuation,
@@ -52,7 +50,6 @@ export type {
   SourceHead,
   Switching,
   Transitions,
-  WithFinishes,
 } from "../flow/builder-types.js";
 export type {
   AgentsLaunched,

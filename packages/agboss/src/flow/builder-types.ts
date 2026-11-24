@@ -1,8 +1,6 @@
 import type { Class } from "../components/injection.js";
 import type { ErrorClass, FlowPath, NodeKind, SubPath } from "./ast.js";
 import type {
-  AGBossTypes,
-  GeneratedEntry,
   GeneratedTypeError,
   InputOf,
   KindOf,
@@ -13,6 +11,7 @@ import type {
 } from "./generated-types.js";
 import type { ChildStepOptions, QuestionStepOptions } from "./child-placement.js";
 import type { Launches, RouterLaunches } from "./launch-types.js";
+import type { ClaimsOf, OneOfCheck, WithFinishes } from "./one-of-types.js";
 import type { ClassOf, TargetRef } from "./target-ref.js";
 
 /**
@@ -35,8 +34,13 @@ export interface RouteHead {
 export interface CaseHead<TValue> {
   readonly case: TValue;
 }
-export interface SideHead {
+/**
+ * A side path (`.onError`, `.toOneOf`, `.onFinish`): `TClaims` are the DTOs its entry consumer reads
+ * — `never` while no step that reads anything was entered (#1275c), `unknown` for any side path.
+ */
+export interface SideHead<TClaims = unknown> {
   readonly side: true;
+  readonly claims?: TClaims;
 }
 /** A `group(…)` of `.joinQuorumGroups(…)` (#279): the path of the group's own steps. */
 export interface GroupHead {
@@ -137,6 +141,19 @@ export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
     : { readonly __error: "the switch is not exhaustive — one caseOf(…) per class of the output" }
   : { readonly __error: "a caseOf(…) names a class the step does not give" };
 
+/** The head after entering `TInstance`: a side path still without claims takes this step's. */
+export type NextHead<THead extends PathHead, TInstance> =
+  THead extends SideHead<infer TClaims>
+    ? [TClaims] extends [never]
+      ? SideHead<ClaimsOf<TInstance>>
+      : THead
+    : THead;
+
+/** The claims of a side path built by the starters (`toAction(X)…`). */
+export type ClaimsOfPath<TPath> = TPath extends { readonly [pathHead]?: SideHead<infer TClaims> }
+  ? TClaims
+  : never;
+
 /** After a step (a transition or a path source): what its kind and output allow. */
 export type AfterStep<TInstance, THead extends PathHead> = BuiltPath<THead> &
   StepContinuation<TInstance, THead>;
@@ -192,16 +209,16 @@ export type AfterValue<TValue, THead extends PathHead> = BuiltPath<THead> &
 export interface Transitions<THead extends PathHead> {
   toAgent<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>,
-  ): AfterStep<InstanceType<TClass>, THead>;
+  ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   toRouter<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>,
-  ): AfterStep<InstanceType<TClass>, THead>;
+  ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   toAction<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>,
-  ): AfterStep<InstanceType<TClass>, THead>;
+  ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   toFinish<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>,
-  ): BuiltPath<THead>;
+  ): BuiltPath<NextHead<THead, InstanceType<TClass>>>;
   /**
    * A question role's step (#659): it reads the role's `ask` from the path, pauses on the role's
    * channel and gives its `answer`; `.onError(…)` right after takes a failed `send`.
@@ -209,7 +226,7 @@ export interface Transitions<THead extends PathHead> {
   toExternalTask<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
     options?: QuestionStepOptions,
-  ): AfterStep<InstanceType<TClass>, THead>;
+  ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   /**
    * One child execution of `W` (#263) — the class, or `() => W` for one declared below (#1287, its own
    * `@Workflow` included): it enters through the start whose input takes the chain's value, gives one of its finishes' outputs — one class, or a `oneOf(…)` and a `.switch(…)` with
@@ -218,7 +235,7 @@ export interface Transitions<THead extends PathHead> {
   toWorkflow<const TRef extends TargetRef>(
     target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
     options?: ChildStepOptions,
-  ): AfterStep<InstanceType<ClassOf<TRef>>, THead>;
+  ): AfterStep<InstanceType<ClassOf<TRef>>, NextHead<THead, InstanceType<ClassOf<TRef>>>>;
 }
 
 export interface Switching<TOutput, THead extends PathHead> {
@@ -226,33 +243,12 @@ export interface Switching<TOutput, THead extends PathHead> {
    * One side path per variant of the `oneOf(…)` the step gives (#1275): no DTO is named, each
    * branch takes the variant its entry consumer reads.
    */
-  toOneOf(branches: readonly [SidePath, SidePath, ...SidePath[]]): BuiltPath<THead>;
+  toOneOf<const TBranches extends readonly [SidePath, SidePath, ...SidePath[]]>(
+    branches: TBranches & OneOfCheck<TBranches, TOutput>,
+  ): BuiltPath<THead>;
   switch<const TCases extends readonly [CasePath, ...CasePath[]]>(
     ...cases: TCases & SwitchCheck<TCases, TOutput>
   ): BuiltPath<THead>;
-}
-
-/** The finishes a child workflow ends at, as classes; `never` for anything else or before generation. */
-export type FinishesOf<TInstance> =
-  GeneratedEntry<AGBossTypes.WorkflowFinishes, TInstance> extends infer TEntry
-    ? TEntry extends Class
-      ? TEntry
-      : never
-    : never;
-
-/** After a child workflow with two or more finishes: `.onFinish(ChildFinish, subPath)` (#1275b). */
-export type WithFinishes<TInstance, THead extends PathHead> =
-  true extends IsUnion<FinishesOf<TInstance>> ? FinishHandling<TInstance, THead> : unknown;
-
-/**
- * `.onFinish(KycFraudFinish, toAction(X)…)`: the path one finish of the child takes, named by the
- * finish's component class — never by a DTO, two finishes may give one.
- */
-export interface FinishHandling<TInstance, THead extends PathHead> {
-  onFinish(
-    finish: FinishesOf<TInstance>,
-    path: SidePath,
-  ): BuiltPath<THead> & FinishHandling<TInstance, THead>;
 }
 
 /** `.onError(E, toAction(X)…)` right after the step that throws; the main path goes on. */

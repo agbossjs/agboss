@@ -1534,6 +1534,9 @@ export interface ChannelSelectorOptions<TDeps extends readonly Token[] = readonl
 export type ChannelStartEvent = StartEvent<unknown>;
 
 // @public
+type CheckClaims<TClaims extends readonly unknown[], TVariants, TSeen = never, TLoose extends readonly unknown[] = []> = TClaims extends readonly [infer TFirst, ...infer TRest] ? [TFirst] extends [never] ? CheckClaims<TRest, TVariants, TSeen, [...TLoose, unknown]> : true extends IsUnion<TFirst> ? OneOfError<"a branch reads several variants of the oneOf — a branch takes exactly one"> : [Extract<TSeen, TFirst>] extends [never] ? CheckClaims<TRest, TVariants, TSeen | TFirst, TLoose> : OneOfError<"two branches read one variant of the oneOf — a variant has one branch"> : [Exclude<TVariants, TSeen>] extends [never] ? TLoose extends readonly [] ? unknown : OneOfError<"a branch reads no variant and none is left — one branch may read none"> : TLoose extends readonly [unknown] ? true extends IsUnion<Exclude<TVariants, TSeen>> ? OneOfError<"the oneOf is not exhaustive — a variant has no branch"> : unknown : OneOfError<"the oneOf is not exhaustive — a variant has no branch">;
+
+// @public
 export interface ChildExecutionEnd {
     readonly failure?: string | undefined;
     readonly status: ExecutionRecordStatus.Answered | ExecutionRecordStatus.Paused | ExecutionRecordStatus.Failed;
@@ -1668,6 +1671,19 @@ export interface ChosenRouterRoute {
     readonly spawn?: SpawnPolicy.OnDemand;
     readonly target: TargetRef;
 }
+
+// @public
+type ClaimedDtosOf<TInput> = TInput extends GeneratedTypeError ? never : TInput extends MissingGeneratedTypes ? never : typeof agbossDto extends keyof TInput ? TInput : TInput extends object ? {
+    [K in keyof TInput]-?: FieldDto<TInput[K]>;
+}[keyof TInput] : never;
+
+// @public
+type ClaimsOf<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish] ? PlainDto<OutputOf<TInstance>> extends infer TOut ? [TOut] extends [GeneratedTypeError | MissingGeneratedTypes] ? never : TOut extends readonly unknown[] ? never : TOut : never : ClaimedDtosOf<InputOf<TInstance>>;
+
+// @public
+type ClaimsOfPath<TPath> = TPath extends {
+    readonly [pathHead]?: SideHead<infer TClaims>;
+} ? TClaims : never;
 
 // @public
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
@@ -3825,6 +3841,9 @@ export interface FencedWriteRefusal {
 }
 
 // @public
+type FieldDto<TField> = [TField] extends [readonly unknown[]] ? never : TField extends HistoryOf<infer TValue> ? PlainDto<TValue> : PlainDto<TField>;
+
+// @public
 export function file(filePath: string): string;
 
 // @public
@@ -4038,12 +4057,12 @@ export enum FileView {
 }
 
 // @public
-export type FinishesOf<TInstance> = GeneratedEntry<AGBossTypes.WorkflowFinishes, TInstance> extends infer TEntry ? TEntry extends Class ? TEntry : never : never;
+type FinishesOf<TInstance> = GeneratedEntry<AGBossTypes.WorkflowFinishes, TInstance> extends infer TEntry ? TEntry extends Class ? TEntry : never : never;
 
 // @public
-export interface FinishHandling<TInstance, THead extends PathHead> {
+interface FinishHandling<TInstance, THead extends PathHead, TRemaining> {
     // (undocumented)
-    onFinish(finish: FinishesOf<TInstance>, path: SidePath): BuiltPath<THead> & FinishHandling<TInstance, THead>;
+    onFinish<const TFinish extends TRemaining>(finish: TFinish, path: SidePath): WorkflowFinishStep<TInstance, THead, Exclude<TRemaining, TFinish>>;
 }
 
 // @public
@@ -4123,7 +4142,20 @@ declare namespace FlowTypes {
         PiiRefusalShape,
         CacheSetting,
         ModelSettings,
-        Thinking
+        Thinking,
+        CheckClaims,
+        ClaimedDtosOf,
+        ClaimsOf,
+        FinishesOf,
+        FieldDto,
+        FinishHandling,
+        OneOfCheck,
+        OneOfError,
+        PlainDto,
+        WithFinishes,
+        WorkflowFinishStep,
+        ClaimsOfPath,
+        NextHead
     }
 }
 
@@ -6297,6 +6329,9 @@ export interface NewThread {
 export type NewTurn = Omit<Turn, "id" | "createdAt">;
 
 // @public
+type NextHead<THead extends PathHead, TInstance> = THead extends SideHead<infer TClaims> ? [TClaims] extends [never] ? SideHead<ClaimsOf<TInstance>> : THead : THead;
+
+// @public
 export interface NodeEvent extends ExecutionEvent {
     readonly step: StepRecord;
 }
@@ -6460,6 +6495,17 @@ export interface OnDestroy {
 
 // @public (undocumented)
 export function oneOf<const TVariants extends OneOfVariants>(...variants: TVariants): OneOfWrapper<TVariants>;
+
+// @public
+type OneOfCheck<TBranches extends readonly SidePath[], TOutput> = CheckClaims<{
+    [K in keyof TBranches]: Extract<TOutput, ClaimsOfPath<TBranches[K]>>;
+}, TOutput>;
+
+// @public (undocumented)
+interface OneOfError<TMessage extends string> {
+    // (undocumented)
+    readonly __error: TMessage;
+}
 
 // @public
 export interface OneOfStep {
@@ -7857,6 +7903,9 @@ export interface PiiTargetDescriptor {
     toString(): string;
 }
 
+// @public (undocumented)
+type PlainDto<TValue> = TValue extends ProducedValue<infer TDto, unknown> ? TDto : TValue extends undefined ? never : TValue;
+
 // @public
 export interface PlainErrorOptions {
     // (undocumented)
@@ -8771,8 +8820,10 @@ export interface ServiceSpend {
     readonly tokens?: Partial<TokenUsage>;
 }
 
-// @public (undocumented)
-export interface SideHead {
+// @public
+export interface SideHead<TClaims = unknown> {
+    // (undocumented)
+    readonly claims?: TClaims;
     // (undocumented)
     readonly side: true;
 }
@@ -9689,7 +9740,7 @@ CaseValueOf<TCases[number]>
 export interface Switching<TOutput, THead extends PathHead> {
     // (undocumented)
     switch<const TCases extends readonly [CasePath, ...CasePath[]]>(...cases: TCases & SwitchCheck<TCases, TOutput>): BuiltPath<THead>;
-    toOneOf(branches: readonly [SidePath, SidePath, ...SidePath[]]): BuiltPath<THead>;
+    toOneOf<const TBranches extends readonly [SidePath, SidePath, ...SidePath[]]>(branches: TBranches & OneOfCheck<TBranches, TOutput>): BuiltPath<THead>;
 }
 
 // @public (undocumented)
@@ -9918,16 +9969,16 @@ export interface TimeWindow {
 }
 
 // @public
-export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead>;
+export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>>>;
 
 // @public
-export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead>;
+export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>>>;
 
 // @public
-export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead>;
+export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>>>;
 
 // @public
-export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead>;
+export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead<ClaimsOf<InstanceType<TClass>>>>;
 
 // @public
 export type Token = Class | InjectionToken<unknown> | EnvContract;
@@ -10183,7 +10234,7 @@ export interface ToolTimeoutErrorOptions {
 }
 
 // @public
-export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead>;
+export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>>>;
 
 // @public
 export interface ToStep {
@@ -10203,7 +10254,7 @@ export function totalCost(records: readonly {
 }[]): Usd;
 
 // @public
-export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, SideHead>;
+export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>>>;
 
 // @public
 export type Tracked<TValue extends object, TComponent extends Class = Class> = TValue & {
@@ -10229,15 +10280,15 @@ export interface TranscriptionResult {
 // @public (undocumented)
 export interface Transitions<THead extends PathHead> {
     // (undocumented)
-    toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, THead>;
+    toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
-    toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, THead>;
-    toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, THead>;
+    toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
+    toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
-    toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<THead>;
+    toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
-    toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, THead>;
-    toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, THead>;
+    toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
+    toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, NextHead<THead, InstanceType<ClassOf<TRef>>>>;
 }
 
 // @public
@@ -10599,7 +10650,7 @@ export enum Weekday {
 }
 
 // @public
-export type WithFinishes<TInstance, THead extends PathHead> = true extends IsUnion<FinishesOf<TInstance>> ? FinishHandling<TInstance, THead> : unknown;
+type WithFinishes<TInstance, THead extends PathHead> = true extends IsUnion<FinishesOf<TInstance>> ? FinishHandling<TInstance, THead, FinishesOf<TInstance>> : unknown;
 
 // @public (undocumented)
 export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow>): (value: Class) => void;
@@ -10648,6 +10699,13 @@ export interface WorkflowFinishOptions {
     readonly name: string;
     readonly output: DtoClass | ListWrapper;
 }
+
+// @public
+type WorkflowFinishStep<TInstance, THead extends PathHead, TRemaining> = [
+TRemaining
+] extends [never] ? BuiltPath<THead> : FinishHandling<TInstance, THead, TRemaining> & {
+    readonly __error: "a finish of the child workflow has no .onFinish(…)";
+};
 
 // @public
 export interface WorkflowIsNotAnApplication {
@@ -11636,8 +11694,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "route".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "CaseHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "case".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "SideHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "side".
+// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "group".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "PathHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""workflow-start"".
@@ -11661,7 +11719,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "toFinish".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "Switching".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "switch".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onFinish".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "chooseOne".
@@ -11834,6 +11891,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "outcome".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "scopeKey".
 // src/flow/observers/execution-event.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "PlainDto".
+// src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "OneOfError".
+// src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "__error".
+// src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "onFinish".
 // src/flow/quorum-step.ts - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
 // src/flow/quorum-step.ts - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "deadline".

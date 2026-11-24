@@ -1,4 +1,5 @@
 import { describe, expectTypeOf, it } from "vitest";
+import type { FlowPath } from "../../../src/flow/ast.js";
 import { onAgent, caseOf, onStart, toAction, toAgent } from "../../../src/flow/builder.js";
 import {
   historyOf,
@@ -57,6 +58,7 @@ import { ExpertAnswerAgent, FastAnswerAgent, SupportAction } from "../fixtures/s
 import {
   CompanyGradedWorkflowFinish,
   CompanyRejectedWorkflowFinish,
+  CompanyReviewFailedWorkflowFinish,
   CompanyReviewerAgent,
   CompanyReviewWorkflow,
   CompanyReviewWorkflowStart,
@@ -109,6 +111,38 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     onAgent(DraftAgent).toOneOf([toAgent(EditorAgent), toAction(SendOfferAction)]);
     // @ts-expect-error — a transition right after a oneOf output is not offered
     reviewed.toAction(SendOfferAction);
+  });
+
+  it("1275c: the branches read each variant once; one branch may read none and takes the one left", () => {
+    const reviewed = onAgent(ReviewerAgent);
+    // EditorAgent reads ChangesRequestedDto; SendOfferAction reads no variant: it takes the other
+    reviewed.toOneOf([toAgent(EditorAgent), toAction(SendOfferAction)]);
+    reviewed.toOneOf([toAction(SendOfferAction), toAgent(EditorAgent)]);
+    // @ts-expect-error — two branches read ChangesRequestedDto
+    reviewed.toOneOf([toAgent(EditorAgent), toAgent(EditorAgent)]);
+    // @ts-expect-error — two branches read no variant: only one may take the one left
+    reviewed.toOneOf([toAction(SendOfferAction), toAction(SendOfferAction)]);
+  });
+
+  it("1275c: a child's .onFinish chain is a path only when every finish is named, once", () => {
+    const child = () => onStart(CompanyCheckWorkflowStart).toWorkflow(CompanyReviewWorkflow);
+    const path = (flow: FlowPath): FlowPath => flow;
+    path(
+      child()
+        .onFinish(CompanyGradedWorkflowFinish, toAgent(CompanyReviewerAgent))
+        .onFinish(CompanyRejectedWorkflowFinish, toAgent(CompanyReviewerAgent))
+        .onFinish(CompanyReviewFailedWorkflowFinish, toAgent(CompanyReviewerAgent)),
+    );
+    path(
+      // @ts-expect-error — CompanyReviewFailedWorkflowFinish has no .onFinish
+      child()
+        .onFinish(CompanyGradedWorkflowFinish, toAgent(CompanyReviewerAgent))
+        .onFinish(CompanyRejectedWorkflowFinish, toAgent(CompanyReviewerAgent)),
+    );
+    child()
+      .onFinish(CompanyGradedWorkflowFinish, toAgent(CompanyReviewerAgent))
+      // @ts-expect-error — a finish is named once
+      .onFinish(CompanyGradedWorkflowFinish, toAgent(CompanyReviewerAgent));
   });
 
   it("1275b: .onFinish(ChildFinish, subPath) follows a child with two or more finishes", () => {

@@ -60,3 +60,17 @@ export { type ClassOf, type UnwrapTarget } from "../flow/target-ref.js";
 export { type UntrackedLeaf } from "../flow/metadata.js";
 export { type PiiRefusalShape } from "../pii/pii-policy.decorator.js";
 export { type CacheSetting, type ModelSettings, type Thinking } from "../config/settings-types.js";
+export {
+  type CheckClaims,
+  type ClaimedDtosOf,
+  type ClaimsOf,
+  type FinishesOf,
+  type FieldDto,
+  type FinishHandling,
+  type OneOfCheck,
+  type OneOfError,
+  type PlainDto,
+  type WithFinishes,
+  type WorkflowFinishStep,
+} from "../flow/one-of-types.js";
+export { type ClaimsOfPath, type NextHead } from "../flow/builder-types.js";
