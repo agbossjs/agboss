@@ -14,6 +14,7 @@ import {
   type ComponentDecoratorName,
 } from "../../src/components/component-decorators.js";
 import { agbossPlugin } from "../../src/eslint/index.js";
+import { HttpAuthenticator } from "../../src/index.js";
 
 const linter = new TSESLint.Linter({ configType: "flat" });
 
@@ -117,6 +118,7 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
   ),
   ChannelInterpreter: statefulClass("@ChannelInterpreter()", "interpret(): void"),
   ChannelListener: statefulClass("@ChannelListener()", "onPauseOpened(): void"),
+  HttpAuthenticator: statefulClass("@HttpAuthenticator()", "authenticate(): void"),
   Observer: statefulClass('@Observer({ name: "desk-observer" })', "onExecutionEnd(): void"),
   PauseListener: statefulClass(
     '@PauseListener({ name: "back-office-pause-listener" })',

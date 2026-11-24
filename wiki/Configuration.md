@@ -195,7 +195,7 @@ unreachable, lacks an env variable or has a drifted contract stops startup (`Mcp
 | Option             | What it is                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------- |
 | `expose`           | the `@A2AExpose` (listed in `@Application({ exposes })`): its exported starts are the skills      |
-| `callerResolver`   | the `A2ACallerResolver` class (listed in `providers`): who calls, per request                     |
+| `authenticator`   | the `@HttpAuthenticator` class (listed in `services`): who calls, per request                     |
 | `publicUrl`        | required: where callers reach the listener, an absolute http(s) URL — the card's interface URL    |
 | `base?`            | its path (`"/a2a"`): JSON-RPC at `POST <base>`, the card at `<base>/.well-known/agent-card.json` |
 | `maxBodySize?`     | the largest request body read, default `kilobytes(1024)`; over it `413`, nothing run             |

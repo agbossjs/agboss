@@ -99,14 +99,6 @@ export interface A2ACallDeadlineErrorOptions extends A2ATaskErrorOptions {
 }
 
 // @public
-export type A2ACaller<TStart extends Class> = Pick<ExecutionOptionsOf<InstanceType<TStart>>, "tenant" | "ownerId" | "execution"> & A2APeer;
-
-// @public
-export interface A2ACallerForbiddenOptions {
-    readonly reason: string;
-}
-
-// @public
 export class A2ACallerRejectedError extends AGBossError {
     constructor(options: A2ACallerRejectedErrorOptions);
     static readonly code: "a2a.caller-rejected";
@@ -126,41 +118,6 @@ export interface A2ACallerRejectedErrorOptions {
     // (undocumented)
     readonly reason: string;
     readonly wireCode: string;
-}
-
-// @public
-export interface A2ACallerRequest {
-    readonly http: IncomingMessage;
-    readonly operation: A2AOperation;
-    readonly taskId?: string;
-}
-
-// @public
-export type A2ACallerResolution<TStart extends Class> = ResolvedA2ACallerResolution<TStart> | RejectedA2ACallerResolution;
-
-// @public
-export const A2ACallerResolution: {
-    readonly resolved: <TStart extends Class>(caller: A2ACaller<TStart>) => ResolvedA2ACallerResolution<TStart>;
-    readonly unauthenticated: (options: A2ACallerUnauthenticatedOptions) => RejectedA2ACallerResolution;
-    readonly forbidden: (options: A2ACallerForbiddenOptions) => RejectedA2ACallerResolution;
-};
-
-// @public
-export enum A2ACallerResolutionKind {
-    Forbidden = "forbidden",
-    Resolved = "resolved",
-    Unauthenticated = "unauthenticated"
-}
-
-// @public
-export interface A2ACallerResolver<TStart extends Class> {
-    readonly resolveCaller: (request: A2ACallerRequest) => A2ACallerResolution<TStart> | Promise<A2ACallerResolution<TStart>>;
-}
-
-// @public
-export interface A2ACallerUnauthenticatedOptions {
-    readonly challenge?: string;
-    readonly reason: string;
 }
 
 // @public
@@ -448,11 +405,6 @@ export interface A2AExposeOptions {
     readonly description: string;
     readonly exports: readonly Class[];
     readonly name: string;
-    readonly provider?: {
-        readonly organization: string;
-        readonly url: string;
-    };
-    readonly security?: readonly A2ASecurityScheme[];
     readonly skills?: Readonly<Record<string, A2AExposedSkillOptions>>;
     readonly version: string;
 }
@@ -467,12 +419,12 @@ export interface A2AFileOptions {
 }
 
 // @public
-export function a2aHttpListener<TStart extends Class>(app: A2AApp, options: A2AHttpListenerOptions<TStart>): (req: IncomingMessage, res: ServerResponse) => void;
+export function a2aHttpListener(app: A2AApp, options: A2AHttpListenerOptions): (req: IncomingMessage, res: ServerResponse) => void;
 
 // @public
-export interface A2AHttpListenerOptions<TStart extends Class> {
+export interface A2AHttpListenerOptions {
+    readonly authenticator: Class;
     readonly base?: string;
-    readonly callerResolver: Class<A2ACallerResolver<TStart>>;
     readonly expose: Class;
     readonly fileFetchTimeout?: Milliseconds;
     readonly maxBodySize?: Bytes;
@@ -480,6 +432,11 @@ export interface A2AHttpListenerOptions<TStart extends Class> {
     readonly maxConcurrentFileFetchesPerOwner?: number;
     readonly maxConcurrentFileFetchesPerTenant?: number;
     readonly maxTaskDuration?: Milliseconds;
+    readonly onError?: (error: unknown, req: IncomingMessage) => void;
+    readonly provider?: {
+        readonly organization: string;
+        readonly url: string;
+    };
     readonly publicUrl: string;
 }
 
@@ -575,12 +532,6 @@ export const A2APart: {
 };
 
 // @public
-export interface A2APeer {
-    // (undocumented)
-    readonly peer?: string;
-}
-
-// @public
 export enum A2APeerKind {
     AGBoss = "agboss",
     Foreign = "foreign"
@@ -669,53 +620,6 @@ export type A2ARemotePeer = {
 export enum A2AReply {
     Message = "message",
     Task = "task"
-}
-
-// @public
-export const A2ASecurity: {
-    readonly bearer: (options?: {
-        readonly name?: string;
-        readonly bearerFormat?: string;
-    }) => A2ASecurityScheme;
-    readonly apiKey: (options: {
-        readonly header: string;
-        readonly name?: string;
-    }) => A2ASecurityScheme;
-    readonly oauth2ClientCredentials: (options: {
-        readonly tokenUrl: string;
-        readonly scopes?: Readonly<Record<string, string>>;
-        readonly name?: string;
-    }) => A2ASecurityScheme;
-    readonly mtls: (options?: {
-        readonly name?: string;
-    }) => A2ASecurityScheme;
-};
-
-// @public
-export type A2ASecurityScheme = {
-    readonly kind: A2ASecuritySchemeKind.Bearer;
-    readonly name: string;
-    readonly bearerFormat?: string;
-} | {
-    readonly kind: A2ASecuritySchemeKind.ApiKey;
-    readonly name: string;
-    readonly header: string;
-} | {
-    readonly kind: A2ASecuritySchemeKind.OAuth2ClientCredentials;
-    readonly name: string;
-    readonly tokenUrl: string;
-    readonly scopes: Readonly<Record<string, string>>;
-} | {
-    readonly kind: A2ASecuritySchemeKind.MutualTls;
-    readonly name: string;
-};
-
-// @public
-export enum A2ASecuritySchemeKind {
-    ApiKey = "api-key",
-    Bearer = "bearer",
-    MutualTls = "mtls",
-    OAuth2ClientCredentials = "oauth2-client-credentials"
 }
 
 // @public
@@ -919,23 +823,6 @@ export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply"
 export { Part }
 
 // @public
-export interface RejectedA2ACallerResolution {
-    readonly [a2aCallerResolution]: true;
-    readonly challenge?: string;
-    // (undocumented)
-    readonly kind: A2ACallerResolutionKind.Unauthenticated | A2ACallerResolutionKind.Forbidden;
-    readonly reason: string;
-}
-
-// @public
-export interface ResolvedA2ACallerResolution<TStart extends Class> {
-    readonly [a2aCallerResolution]: true;
-    readonly caller: A2ACaller<TStart>;
-    // (undocumented)
-    readonly kind: A2ACallerResolutionKind.Resolved;
-}
-
-// @public
 export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
@@ -989,9 +876,6 @@ export { TaskState }
 
 // Warnings were encountered during analysis:
 //
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "kind".
 // src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "reason".
 // src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "cause".
 // src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "code".

@@ -17,13 +17,13 @@ import {
   seen,
   Step,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application.js";
 import { eventually } from "./rpc.js";
 import { sdkClientOf, textMessage } from "./sdk-client.js";
 
 const test = testWith(OrdersApplication);
-const listener = { expose: OrdersA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const done = replyWith(ReceiptDto, { text: "Done." });
 
 beforeEach(resetRecovery);

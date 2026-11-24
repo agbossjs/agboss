@@ -23,7 +23,7 @@ the AGBoss guarantees as two extensions
 | `@A2AAgent({ target: { application, start } })` | `target: { application, skill }` — the skill id is the exported start's name, so the value stays; `target` itself is optional (a foreign agent has none) |
 | `client.cancel(threadId)` | `client.cancel(taskId)` — cancels that task only; `call.threadId` is `call.contextId` |
 | `A2ARoute` (`Execute`, `Resume`, `Cancel`), `request.route` | `A2AOperation`, `request.operation`; a resume is `SendMessage` with a `taskId` |
-| `a2aHttpListener(app, { expose, callerResolver })` | adds `publicUrl`: where callers reach it, the card's interface URL |
+| `a2aHttpListener(app, { expose, authenticator })` | adds `publicUrl`: where callers reach it, the card's interface URL |
 | `@A2AExpose({ name, version, exports })` | adds a `description` (`[a2a.expose-description-required]`) and, for a card worth finding, `skills: { [start]: { tags } }` (`[a2a.skill-tags]`, a warning) |
 | `A2AExecutionResponse`, `A2AStatus`, `A2AEvent`, `A2AExecutionRequest` | removed; a call returns the remote output (`execute`) or an `A2ATaskResult` (`send`) |
 | `A2ARemoteError`, `A2AContract` | `A2ARemoteCallError`, `A2AClientContract`; the adapter types are gone |

@@ -1176,21 +1176,19 @@ export class HelpdeskWorkflow {}
 
 What the help desk serves over A2A — who calls, and what they may run:
 
-```ts file=helpdesk/src/a2a/helpdesk.a2a-caller-resolver.ts
+```ts file=helpdesk/src/a2a/helpdesk.http-authenticator.ts
 // who calls over A2A: the API gateway in front authenticated the caller and named its tenant
-import { Injectable } from "@agboss/core";
-import { A2ACallerResolution, type A2ACallerRequest, type A2ACallerResolver } from "@agboss/core/a2a";
-import type { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-start.js";
+import { HttpAuthenticator, HttpAuthResult, type HttpAuthRequest } from "@agboss/core";
 
-@Injectable()
-export class HelpdeskA2aCallerResolver implements A2ACallerResolver<typeof HelpdeskWorkflowStart> {
-  resolveCaller(request: A2ACallerRequest): A2ACallerResolution<typeof HelpdeskWorkflowStart> {
+@HttpAuthenticator()
+export class HelpdeskHttpAuthenticator {
+  authenticate(request: HttpAuthRequest): HttpAuthResult {
     const tenantId = request.http.headers["x-gateway-tenant"];
     const clientId = request.http.headers["x-gateway-client"];
     if (typeof tenantId !== "string" || typeof clientId !== "string") {
-      return A2ACallerResolution.unauthenticated({ reason: "not through the gateway" });
+      return HttpAuthResult.unauthenticated("not through the gateway");
     }
-    return A2ACallerResolution.resolved({ tenant: { tenantId }, ownerId: clientId });
+    return HttpAuthResult.authenticated({ tenant: { tenantId }, ownerId: clientId });
   }
 }
 ```
@@ -1249,7 +1247,7 @@ export class HelpdeskExecutionBudget implements BudgetHandler {
 
 ```ts file=helpdesk/src/helpdesk.application.ts
 import { Application, EmptyEnvironment } from "@agboss/core";
-import { HelpdeskA2aCallerResolver } from "./a2a/helpdesk.a2a-caller-resolver.js";
+import { HelpdeskHttpAuthenticator } from "./a2a/helpdesk.http-authenticator.js";
 import { HelpdeskA2AExpose } from "./a2a/helpdesk.a2a-expose.js";
 import { HelpdeskApplicationBudget } from "./budgets/helpdesk-application.budget.js";
 import { HelpdeskExecutionBudget } from "./budgets/helpdesk-execution.budget.js";
@@ -1261,7 +1259,7 @@ import { HelpdeskWorkflow } from "./workflows/helpdesk/helpdesk.workflow.js";
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HelpdeskWorkflow],
-  providers: [HelpdeskA2aCallerResolver], // an ordinary service may be listed here too
+  services: [HelpdeskHttpAuthenticator], // an @HttpAuthenticator is a service: the listener resolves it
   budgets: [HelpdeskApplicationBudget, HelpdeskTenantBudget, HelpdeskExecutionBudget],
   exposes: [HelpdeskA2AExpose],
 })
@@ -1274,7 +1272,7 @@ The caller streams the text as it arrives and serves the same workflow to A2A ca
 import { createServer } from "node:http";
 import { createApp, StreamEventKind } from "@agboss/core";
 import { a2aHttpListener } from "@agboss/core/a2a";
-import { HelpdeskA2aCallerResolver } from "../a2a/helpdesk.a2a-caller-resolver.js";
+import { HelpdeskHttpAuthenticator } from "../a2a/helpdesk.http-authenticator.js";
 import { HelpdeskA2AExpose } from "../a2a/helpdesk.a2a-expose.js";
 import { HelpdeskApplication } from "../helpdesk.application.js";
 import { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-start.js";
@@ -1301,11 +1299,11 @@ const result = await app.execute(
 console.log("\n", result.output?.text, result.spend.totalUsd); // the kept steps' text is the output
 
 // other applications call this workflow as an A2A v1.0 agent: its card at
-// /a2a/.well-known/agent-card.json, JSON-RPC at POST /a2a — each request's tenant from the resolver
+// /a2a/.well-known/agent-card.json, JSON-RPC at POST /a2a — each request's tenant from the authenticator
 // the application lists (reference 04)
 const listener = a2aHttpListener(app, {
   expose: HelpdeskA2AExpose,
-  callerResolver: HelpdeskA2aCallerResolver,
+  authenticator: HelpdeskHttpAuthenticator,
   publicUrl: "https://helpdesk.example",
   base: "/a2a",
 });

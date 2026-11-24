@@ -16,7 +16,7 @@ import { TestAPI } from 'vitest';
 import type { ToolDefinition } from '@langchain/core/language_models/base';
 
 // @public
-export type A2AServerFixture = <TStart extends Class>(options: Omit<A2AHttpListenerOptions<TStart>, "publicUrl"> & {
+export type A2AServerFixture = (options: Omit<A2AHttpListenerOptions, "publicUrl"> & {
     readonly publicUrl?: string;
 }) => Promise<A2ATestServer>;
 

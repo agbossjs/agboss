@@ -3,12 +3,6 @@
 // listener (P2a), its mesh signed and verifying the caller.
 import "../keys.js";
 import { A2AExpose } from "../../../../../src/a2a/a2a-expose.decorator.js";
-import { A2ASecurity } from "../../../../../src/a2a/a2a-security.js";
-import {
-  A2ACallerResolution,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-} from "../../../../../src/a2a/a2a-caller.js";
 import { Application } from "../../../../../src/application/application.js";
 import type { Class } from "../../../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../../src/dto/index.js";
@@ -36,6 +30,12 @@ import {
 import { MeshLoopDetectedError } from "../../../../../src/mesh/mesh-errors.js";
 import { IN_MEMORY_DATABASE } from "../../../../../src/infrastructure/in-memory-database.js";
 import { InMemoryA2ATaskRepository } from "../../../../../src/infrastructure/in-memory-a2a-task.repository.js";
+import {
+  HttpAuthResult,
+  type HttpAuthRequest,
+  HttpSecurity,
+  HttpAuthenticator,
+} from "../../../../../src/index.js";
 
 /** The peer's name: the audience a caller's envelope must be addressed to. */
 export const PEER_APPLICATION = "peer-application";
@@ -107,23 +107,22 @@ export class SharedTestClock extends Clock {
 }
 
 /** `Bearer caller` is the mesh peer `caller-application`; `Bearer stranger` an owner only. */
-@Injectable()
-export class PeerCallerResolver implements A2ACallerResolver<Class> {
-  resolveCaller(request: A2ACallerRequest): A2ACallerResolution<Class> {
+@HttpAuthenticator({ schemes: [HttpSecurity.bearer()] })
+export class PeerAuthenticator {
+  authenticate(request: HttpAuthRequest): HttpAuthResult {
     const token = /^Bearer (.+)$/.exec(request.http.headers.authorization ?? "")?.[1];
     if (token === CALLER_TOKEN)
-      return A2ACallerResolution.resolved<Class>({
+      return HttpAuthResult.authenticated({
         ownerId: "caller-application",
         peer: "caller-application",
       });
-    if (token === STRANGER_TOKEN)
-      return A2ACallerResolution.resolved<Class>({ ownerId: "stranger" });
+    if (token === STRANGER_TOKEN) return HttpAuthResult.authenticated({ ownerId: "stranger" });
     if (token === OTHER_PEER_TOKEN)
-      return A2ACallerResolution.resolved<Class>({
+      return HttpAuthResult.authenticated({
         ownerId: "other-application",
         peer: "other-application",
       });
-    return A2ACallerResolution.unauthenticated({ reason: "no token" });
+    return HttpAuthResult.unauthenticated("no token");
   }
 }
 
@@ -205,7 +204,6 @@ export class PeerWorkflow {}
   version: "1.0.0",
   description: "Answers questions",
   exports: [PeerAskWorkflowStart],
-  security: [A2ASecurity.bearer()],
 })
 export class PeerA2AExpose {}
 
@@ -214,7 +212,7 @@ const PEER_OPTIONS = {
   version: "1.0.0",
   environment: MeshEnvironment,
   workflows: [PeerWorkflow],
-  providers: [SharedTestClock, PeerCallerResolver],
+  providers: [SharedTestClock, PeerAuthenticator],
   observers: [PeerStarts],
   exposes: [PeerA2AExpose],
   budgets: TEST_BUDGETS,
@@ -234,7 +232,7 @@ export class PeerApplication {}
   version: "1.0.0",
   environment: MeshEnvironment,
   workflows: [PeerWorkflow],
-  providers: [SharedTestClock, PeerCallerResolver],
+  providers: [SharedTestClock, PeerAuthenticator],
   observers: [PeerStarts],
   exposes: [PeerA2AExpose],
   budgets: TEST_BUDGETS,

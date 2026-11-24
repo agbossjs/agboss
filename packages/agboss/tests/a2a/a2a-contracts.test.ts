@@ -11,7 +11,7 @@ import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
-  OpenCallerResolver,
+  OpenAuthenticator,
   QuoteA2AExpose,
   QuoteWorkflow,
   QuoteWorkflowStart,
@@ -36,7 +36,7 @@ describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
     const built = () =>
       a2aHttpListener(app, {
         expose: QuoteA2AExpose,
-        callerResolver: OpenCallerResolver,
+        authenticator: OpenAuthenticator,
         publicUrl: "http://127.0.0.1",
       });
 

@@ -16,12 +16,12 @@ import {
   QuickLookup,
   RemoteDeskA2AExpose,
   RemoteDeskApplication,
-  SingleTenantCallerResolver,
+  SingleTenantAuthenticator,
 } from "../fixtures/remote.workflow.js";
 import { sdkClientOf, textMessage } from "./sdk-client.js";
 
 const test = testWith(RemoteDeskApplication);
-const listener = { expose: RemoteDeskA2AExpose, callerResolver: SingleTenantCallerResolver };
+const listener = { expose: RemoteDeskA2AExpose, authenticator: SingleTenantAuthenticator };
 
 const request = (messageId: string) => ({
   tenant: "",

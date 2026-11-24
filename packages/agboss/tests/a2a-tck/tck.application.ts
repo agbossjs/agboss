@@ -10,11 +10,6 @@
 import { A2AExpose, A2AReply } from "../../src/a2a/a2a-expose.decorator.js";
 import { WorkflowFinishFileDto } from "../../src/dto/standard/file.js";
 import { Files } from "../../src/a2a/files/files.service.js";
-import {
-  A2ACallerResolution,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-} from "../../src/a2a/a2a-caller.js";
 import { Application } from "../../src/application/application.js";
 import { Channel, Injectable } from "../../src/components/decorators.js";
 import { ChannelOf, type ChannelAsk } from "../../src/channels/channel-handler.js";
@@ -38,6 +33,7 @@ import { oneOf, variant, type Variant } from "../../src/flow/dto-wrappers.js";
 import { EmptyEnvironment, type Produced } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { caseOf, onStart } from "../helpers/flow.js";
+import { HttpAuthResult, type HttpAuthRequest, HttpAuthenticator } from "../../src/index.js";
 
 /** The header the TCK adapter (`tck-serve.ts`) names a message's scenario in. */
 export const TCK_SCENARIO_HEADER = "x-agboss-tck-scenario";
@@ -231,9 +227,9 @@ export class TckDataFinish {}
 export class TckWorkflow {}
 
 /** Every caller is the TCK; its scenario is the adapter's header. */
-@Injectable()
-export class TckCallerResolver implements A2ACallerResolver<Class> {
-  resolveCaller(request: A2ACallerRequest): A2ACallerResolution<Class> {
+@HttpAuthenticator()
+export class TckAuthenticator {
+  authenticate(request: HttpAuthRequest): HttpAuthResult {
     const scenario = request.http.headers[TCK_SCENARIO_HEADER];
     const caller: Record<string, unknown> =
       typeof scenario === "string"
@@ -241,7 +237,7 @@ export class TckCallerResolver implements A2ACallerResolver<Class> {
         : { ownerId: TCK_OWNER };
     // the generated types (check:types) cover the flow fixtures, not this application: its
     // declared context field is checked when the execution starts, like every caller's values
-    return A2ACallerResolution.resolved(caller);
+    return HttpAuthResult.authenticated(caller);
   }
 }
 
@@ -297,7 +293,7 @@ export class TckA2AExpose {}
   environment: EmptyEnvironment,
   executionContext: TckExecutionContext,
   workflows: [TckWorkflow, TckMessageWorkflow],
-  providers: [TckCallerChannel, TckCallerResolver],
+  providers: [TckCallerChannel, TckAuthenticator],
   exposes: [TckA2AExpose],
   budgets: TEST_BUDGETS,
 })

@@ -21,7 +21,7 @@ import { withFileTransport } from "../../../src/a2a/files/a2a-file-seam.js";
 import type { FileTransport } from "../../../src/a2a/files/a2a-file-transport.js";
 import { testWith, type A2AServerFixture } from "../../../src/testing/index.js";
 import { until } from "../../helpers/until.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { FILE_ORIGIN, FilesA2AExpose, FilesApplication } from "../fixtures/files.application.js";
 import { rpc } from "../server/rpc.js";
 import { fileMessage, PDF, scriptedTransport, urlPart } from "./support.js";
@@ -544,7 +544,7 @@ describe("#1256: over the wire", () => {
       withFileTransport(
         {
           expose: FilesA2AExpose,
-          callerResolver: BearerCallerResolver,
+          authenticator: BearerAuthenticator,
           maxConcurrentFileFetches: 1,
         },
         transport,
@@ -584,7 +584,7 @@ describe("#1256: a tenant's share, over the wire", () => {
       withFileTransport(
         {
           expose: FilesA2AExpose,
-          callerResolver: BearerCallerResolver,
+          authenticator: BearerAuthenticator,
           maxConcurrentFileFetches: 8,
           maxConcurrentFileFetchesPerTenant: 3,
           maxConcurrentFileFetchesPerOwner: 3,
@@ -626,7 +626,7 @@ describe("#1297: a tenant's share bounds the sum of its owners; an owner's share
     };
     const { url } = await a2aServer(
       withFileTransport(
-        { expose: FilesA2AExpose, callerResolver: BearerCallerResolver, ...limits },
+        { expose: FilesA2AExpose, authenticator: BearerAuthenticator, ...limits },
         transport,
       ),
     );
@@ -701,7 +701,7 @@ describe("#1256: maxConcurrentFileFetches is checked when the listener is made",
         {} as never,
         {
           expose: {},
-          callerResolver: {},
+          authenticator: {},
           publicUrl: "https://x.test",
           maxConcurrentFileFetches: value,
           maxConcurrentFileFetchesPerTenant: perTenant,

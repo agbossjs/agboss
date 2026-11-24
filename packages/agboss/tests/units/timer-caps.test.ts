@@ -258,7 +258,7 @@ describe("#1141: A2A", () => {
         {
           ...options,
           expose: {},
-          callerResolver: {},
+          authenticator: {},
           publicUrl: "https://x.test",
         } as never,
       );

@@ -1,6 +1,6 @@
 import { Window2Memory } from "../../helpers/window-memory.js";
 import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
-import { A2AExpose, A2ACallerResolution, type A2ACallerResolver } from "../../../src/a2a/index.js";
+import { A2AExpose } from "../../../src/a2a/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import {
   Agent,
@@ -19,6 +19,7 @@ import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
 
 export class LookupQuery {
   @Text({ prompt: "the order id" })
@@ -92,10 +93,10 @@ export class AskStart {}
 export class DeskAnswer {}
 
 /** One tenant: every caller runs in the default tenant (#387: said by the host, never implied). */
-@Injectable()
-export class SingleTenantCallerResolver implements A2ACallerResolver<typeof AskStart> {
-  resolveCaller(): A2ACallerResolution<typeof AskStart> {
-    return A2ACallerResolution.resolved({});
+@HttpAuthenticator()
+export class SingleTenantAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({});
   }
 }
 
@@ -116,7 +117,7 @@ const defaults = {
   ],
   defaults,
   memory: Window2Memory,
-  providers: [SingleTenantCallerResolver],
+  providers: [SingleTenantAuthenticator],
 })
 export class RemoteDesk implements WorkflowDefinition {
   settings(): WorkflowSettings {

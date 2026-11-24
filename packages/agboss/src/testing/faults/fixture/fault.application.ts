@@ -27,7 +27,7 @@ import {
   FaultSecondPauseChannel,
   FaultTwicePauseWorkflow,
 } from "./window.workflow.js";
-import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
+import { FaultA2AExpose, FaultAuthenticator, keepsA2ATasks } from "./fault.a2a.js";
 import { breaksContract, isOutsideHolds, sabotagedStoreOf } from "../sabotage-stores.js";
 import type { FaultStoreSabotage } from "../pod-protocol.js";
 import { FaultPodLink } from "./pod-link.js";
@@ -107,7 +107,7 @@ function a2aPartsOf(stores: FaultStoreSet): FaultA2AParts {
   return {
     workflows: [FaultApprovalWorkflow],
     exposes: [FaultA2AExpose],
-    providers: [FaultCallerResolver, FaultCallerChannel],
+    providers: [FaultAuthenticator, FaultCallerChannel],
   };
 }
 

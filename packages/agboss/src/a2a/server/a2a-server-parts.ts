@@ -2,7 +2,6 @@ import type { ServerCallContext } from "@a2a-js/sdk/server";
 import type { ExecutionControl } from "../../app/execution-control.js";
 import type { ExecutionOptions } from "../../app/types.js";
 import { EXECUTION_LEASE } from "../../app/lease-fence.js";
-import type { Class } from "../../components/injection.js";
 import { keyTextRuleOf } from "../../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../flow/context/tenant-context.js";
 import {
@@ -16,7 +15,8 @@ import { taskChanged } from "../tasks/task-changes.js";
 import type { Clock, IdGenerator } from "../../infrastructure/clock.js";
 import type { FrameworkLog, LogSubject } from "../../infrastructure/logger.js";
 import type { Milliseconds } from "../../units/index.js";
-import type { A2AApp, A2ACaller, A2AOperation } from "../a2a-caller.js";
+import type { HttpCaller } from "../../http/http-auth.js";
+import type { A2AApp, A2AOperation } from "../a2a-caller.js";
 import { repairedTask } from "../tasks/a2a-task-repair.js";
 import type { LocalRuns } from "./a2a-local-runs.js";
 import type { ServedSkill } from "./a2a-skills.js";
@@ -82,7 +82,7 @@ export interface A2AServerFiles {
 export interface A2ARequestCaller {
   /** What the resolver admitted it for: the operation and task, as the transport decoded them. */
   readonly admitted: AdmittedRequest;
-  readonly caller: A2ACaller<Class>;
+  readonly caller: HttpCaller;
   readonly tenantId: string;
   readonly ownerId: string | undefined;
   /** Aborted when the request's connection closes: what waits for the task stops — never the task. */
@@ -122,7 +122,7 @@ export const callerOptionsOf = (caller: A2ARequestCaller): CallerOptions => call
 
 /** The call context's state holding an admitted caller. */
 export function callerState(
-  caller: A2ACaller<Class>,
+  caller: HttpCaller,
   signal: AbortSignal,
   admitted: AdmittedRequest,
   mesh: A2ARequestMesh,

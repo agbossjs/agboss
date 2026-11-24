@@ -217,8 +217,7 @@ an offer whose steps declare their undo, `compensateWith` / `committedBy`, #339,
 bookings a failed join undoes automatically, #340, `src/desk/` the extension points — a custom
 compaction, code guardrails, a tool interceptor — on a transport model provider that answers by the
 request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`, a `PiiPolicyHandler`,
-an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, a caller
-resolver) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
+an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, an `@HttpAuthenticator`) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
 `tests/desk/a2a/desk.a2a-expose.test.ts`, #398) that also reads policies through a stubbed `@McpServer` /
 `@Tool` (`mcpOf`), and an
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
@@ -1867,12 +1866,12 @@ docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, reran
   and `agboss describe` lists every `@A2AAgent` (`a2a agents`: `mesh: required` / `mesh: not
 guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-admission.ts`):
   the card declares the mesh extension (`params.idempotencyRetention` = `retention.a2aTasks`); a
-  `SendMessage`'s envelope is read from the message as the SDK decodes it, before the caller
-  resolver — the audience first, against the application's own name whatever its mesh settings
+  `SendMessage`'s envelope is read from the message as the SDK decodes it, before the
+  authenticator — the audience first, against the application's own name whatever its mesh settings
   (fail closed), then a known issuer's signature, replay window and `meshBodyHashOf` of the decoded
   message — a refusal `401 { code }`, nothing run; a chain through the skill or as long as
   `maxMeshHops` is a `REJECTED` task (`metadata[mesh-uri] = { code, details }`, nothing started, a
-  resend gets it); otherwise the execution runs with the chain and, for the resolver's `peer` that
+  resend gets it); otherwise the execution runs with the chain and, for the authenticator's `peer` that
   signed it, its origin, budget (`caller-budget`, an action's remote call passing its own too) and
   deadline; that task keeps the message's `bodyHash` (`A2ATaskRecord.meshBodyHash`) and, completed,
   carries the signed run report in `task.metadata[mesh-uri].report` (and on the stream's last
@@ -1881,22 +1880,22 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   memory update, so it is the end event's spend (#844: never the price alone for a missed end,
   `tests/a2a/mesh/a2a-mesh-read-repair.test.ts`). What
   an application serves is an `@A2AExpose({ name: "-a2a-expose", version, description, exports:
-[Start], skills?, provider?, security? })` (`a2a/*.a2a-expose.ts`) listed in
+[Start], skills? })` (`a2a/*.a2a-expose.ts`) listed in
   `@Application({ exposes })` with its `@McpExpose`s (`[application.expose-unknown-start]`,
   `[application.not-an-expose]`) and served as an **A2A v1.0 agent** (#808) by
-  `a2aHttpListener(app, { expose, callerResolver, publicUrl, base?, maxBodySize?, maxTaskDuration? })`
+  `a2aHttpListener(app, { expose, authenticator, publicUrl, base?, provider?, onError?, maxBodySize?, maxTaskDuration? })`
   (`[application.expose-unlisted]`) on the official SDK `@a2a-js/sdk` (exact pin; our own
   `A2ARequestHandler` over the app, never its `DefaultRequestHandler`): the Agent Card at
   `<base>/.well-known/agent-card.json` (one skill per exported start, `capabilities.streaming`, the
-  skills extension `A2A_SKILLS_EXTENSION` with each skill's JSON Schemas, `securitySchemes` from
-  `A2ASecurity.bearer()` / `.apiKey({ header })` / `.oauth2ClientCredentials(…)` / `.mtls()`, one
+  skills extension `A2A_SKILLS_EXTENSION` with each skill's JSON Schemas, `securitySchemes` from the
+  listener's `@HttpAuthenticator({ schemes: [HttpSecurity.bearer()] })`, i.e. `HttpSecurity.bearer()` / `.apiKey({ header })` / `.oauth2ClientCredentials(…)` / `.mtls()`, one
   JSONRPC 1.0 interface at `publicUrl` + `base`) and JSON-RPC 2.0 at `POST <base>` — `SendMessage`
   (blocking, or `returnImmediately`), `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`,
   `SubscribeToTask` (server-sent events: the task first); push methods `-32003`, `GetExtendedAgentCard`
   `-32004` (none declared, spec §3.3.4, #811), the card's `Last-Modified` its first request's time, no or a `0.3`
-  `A2A-Version` `-32009` (`src/a2a/server/`). The caller resolver runs after the body is read
+  `A2A-Version` `-32009` (`src/a2a/server/`). The `@HttpAuthenticator` (`src/http/`, resolved from the container; `authenticate(request)` answers with `HttpAuthResult` only) runs after the body is read
   (`maxBodySize`, default 1 MB, else `413`) and decoded once, by the SDK's own decoder, for its
-  `A2ACallerRequest { operation: A2AOperation, taskId?, http }` (a refusal is `401` / `403`); the
+  `HttpAuthRequest { operation: A2AOperation, taskId?, http }` (a refusal is `401` / `403`); the
   handler refuses a decoded request that is not the admitted one (`-32602 a2a.request-mismatch`). A
   message names its skill in `metadata[A2A_SKILLS_EXTENSION].skill` (optional with one export) and
   carries text parts (a `WorkflowStartTextDto` start) or one `data` part, checked before anything is
@@ -2827,7 +2826,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   its `@Application({ maxMeshHops })`, default 8: the receiver refuses it before it runs (MCP `409`,
   A2A a `REJECTED` task), and
   the calling tool's step fails with it, never read by the model; with `@Application({ mesh: {
-signingKey, peers } })` the envelope is a signed JWS and a peer the caller resolver names whose
+signingKey, peers } })` the envelope is a signed JWS and a peer the authenticator names whose
   signature verifies is trusted: its budget becomes `caller-budget`, its deadline the execution's
   — `limit.deadline`, `DeadlineExceededError` —, its origin `executionContext.origin`, and its
   answer a signed run report the caller records as `ToolCallRecord.remote` and `a2a:<issuer>`

@@ -10,7 +10,7 @@ import {
   peer,
   PeerA2AExpose,
   PeerApplication,
-  PeerCallerResolver,
+  PeerAuthenticator,
   type EndLosingPeerApplication,
   type KeylessPeerApplication,
   type StrictPeerApplication,
@@ -40,7 +40,7 @@ export async function servePeer(
   const app = await createApp(Peer, { env: "test" });
   const listener = a2aHttpListener(app, {
     expose: PeerA2AExpose,
-    callerResolver: PeerCallerResolver,
+    authenticator: PeerAuthenticator,
     publicUrl: "http://peer.test",
     base: "/a2a",
   });

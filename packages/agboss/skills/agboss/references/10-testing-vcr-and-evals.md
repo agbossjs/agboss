@@ -617,8 +617,8 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   profile (a child's too).
 - **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
   blocked except `allowNetwork: ["localhost"]`.
-- **A2A**: `const { url } = await a2aServer({ expose, callerResolver })` serves the test's `app` through
-  `a2aHttpListener` on `127.0.0.1:0` (the resolver from its container, the loopback open, closed at
+- **A2A**: `const { url } = await a2aServer({ expose, authenticator })` serves the test's `app` through
+  `a2aHttpListener` on `127.0.0.1:0` (the authenticator from its container, the loopback open, closed at
   the test's end); call it with `new A2AClient({ url, headers })` (#387, reference 04).
 - **Matchers**: `toFollowPath([Start, …, Finish])`, `toFinishWith(Finish, output?)` (the whole output),
   `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain),
@@ -650,7 +650,7 @@ partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
 
 The `a2aServer` fixture (#387, an `A2AServerFixture`) serves the test's `app` through
 `a2aHttpListener` (its `@A2AExpose`, listed in `@Application({ exposes })`, #398 PR 3) on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
-url, headers })`. The app is built first and the caller resolver taken from its container (so
+url, headers })`. The app is built first and the authenticator taken from its container (so
 `override(…)` and `mockOf` reach its services); the loopback is open for the test without
 `allowNetwork`, its `publicUrl` is its own address, and the server closes when the test ends. It
 serves A2A v1.0 (#808): the Agent Card at `<url>/.well-known/agent-card.json` and JSON-RPC 2.0 at
@@ -658,20 +658,20 @@ serves A2A v1.0 (#808): the Agent Card at `<url>/.well-known/agent-card.json` an
 `401 a2a.caller-unauthenticated`, `A2ACallerRejectedError` on an AGBoss client (reference 04):
 
 <!-- snippet-context
-import { type A2ACallerResolver } from "@agboss/core/a2a";
+import { type HttpAuthenticatorHandler } from "@agboss/core";
 import { replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { SkillsAgent } from "./src/screening/agents/skills/skills.agent.js";
 import { ScreeningWorkflowStart } from "./src/screening/workflows/screening/screening.workflow-start.js";
 import { ScreeningApplication } from "./src/screening.application.js";
-declare const ScreeningA2aCallerResolver: new () => A2ACallerResolver<typeof ScreeningWorkflowStart>;
+declare const ScreeningHttpAuthenticator: new () => HttpAuthenticatorHandler;
 declare const ScreeningA2AExpose: new () => object;
 const test = testWith(ScreeningApplication);
 const candidate = { name: "Dana", cv: "TypeScript, 6 years" };
 -->
 
 ```ts
-const screening = { expose: ScreeningA2AExpose, callerResolver: ScreeningA2aCallerResolver };
+const screening = { expose: ScreeningA2AExpose, authenticator: ScreeningHttpAuthenticator };
 
 /** A JSON-RPC `SendMessage` of one data part: what any A2A v1.0 client sends. */
 const sendMessage = (url: string, data: object, headers: Record<string, string> = {}) =>

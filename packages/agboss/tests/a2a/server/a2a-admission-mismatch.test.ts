@@ -13,7 +13,7 @@ import {
   resetRecovery,
   seen,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { BearerCallerResolver, resetAsked } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator, resetAsked } from "../fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application.js";
 import { errorInfoOf, rpc, text, userMessage } from "./rpc.js";
 
@@ -36,7 +36,7 @@ vi.mock("../../../src/a2a/server/a2a-admitted.js", async (original) => {
 });
 
 const test = testWith(OrdersApplication);
-const listener = { expose: OrdersA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
 
 beforeEach(() => {
   resetRecovery();

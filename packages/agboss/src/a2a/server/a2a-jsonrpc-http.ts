@@ -7,10 +7,10 @@ import {
   validateVersion,
   type A2ARequestHandler,
 } from "@a2a-js/sdk/server";
-import type { Class } from "../../components/injection.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import type { Bytes } from "../../units/index.js";
-import type { A2ACaller, A2ACallerResolver } from "../a2a-caller.js";
+import type { HttpAuthenticatorHandler } from "../../http/http-authenticator.js";
+import type { HttpCaller } from "../../http/http-auth.js";
 import { admitCaller } from "../a2a-caller-gate.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { A2A_VERSION, AGENT_CARD_PATH, type ServedAgentCard } from "./a2a-card.js";
@@ -50,7 +50,9 @@ const LEGACY_VERSION = "0.3";
 export interface A2AHttpBinding {
   readonly card: ServedAgentCard;
   readonly handler: A2ARequestHandler;
-  readonly resolver: A2ACallerResolver<Class>;
+  readonly authenticator: HttpAuthenticatorHandler;
+  /** The host's own error hook (`a2aHttpListener({ onError })`). */
+  readonly onError?: (error: unknown, req: IncomingMessage) => void;
   /** The application's mesh settings: its name (the audience it accepts), its peers' keys. */
   readonly mesh: MeshSettings;
   readonly base: string;
@@ -130,7 +132,7 @@ const SERVED_EXTENSIONS = [A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION] as const;
 function contextOf(
   req: IncomingMessage,
   closed: AbortSignal,
-  caller: A2ACaller<Class>,
+  caller: HttpCaller,
   admitted: AdmittedRequest,
   mesh: A2ARequestMesh,
 ) {
@@ -200,7 +202,13 @@ async function serveAdmitted(binding: A2AHttpBinding, rpc: AdmittedRpc): Promise
     operation: admitted.operation,
     ...(admitted.taskId === "" ? {} : { taskId: admitted.taskId }),
   };
-  const gate = await admitCaller(binding.resolver, { ...asked, http: req }, res, log);
+  const gate = await admitCaller(
+    binding.authenticator,
+    { ...asked, http: req },
+    res,
+    log,
+    binding.onError,
+  );
   if (!gate.isAdmitted) return;
   if (res.destroyed) closed.abort();
   const mesh = requestMeshOf(verdict, gate.caller.peer, headerOf(req, TRACEPARENT_HEADER));

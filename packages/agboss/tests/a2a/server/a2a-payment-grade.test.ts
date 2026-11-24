@@ -35,7 +35,7 @@ import {
   seen,
   Step,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application.js";
 import { textMessage } from "./sdk-client.js";
 import {
@@ -51,7 +51,7 @@ import {
 
 const one = testWith(OrdersApplication);
 const two = testWith(OrdersApplication, { instances: 2 });
-const listener = { expose: OrdersA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const done = replyWith(ReceiptDto, { text: "Done." });
 const go = (messageId: string, value = "go") => ({
   message: userMessage(messageId, [text(value)]),

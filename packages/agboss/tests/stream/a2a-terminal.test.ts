@@ -19,7 +19,7 @@ import {
   Desk,
   RemoteDeskApplication,
   RemoteDeskA2AExpose,
-  SingleTenantCallerResolver,
+  SingleTenantAuthenticator,
   SlowLookup,
   slowLookups,
 } from "../a2a/fixtures/remote.workflow.js";
@@ -93,7 +93,7 @@ function taskIdOf(events: readonly StreamResponse[]): string {
 
 describe("#1006 AC4: a CANCELED task", () => {
   useCanary();
-  const listener = { expose: RemoteDeskA2AExpose, callerResolver: SingleTenantCallerResolver };
+  const listener = { expose: RemoteDeskA2AExpose, authenticator: SingleTenantAuthenticator };
 
   remote(
     "its stream's view is emptied before the CANCELED status",

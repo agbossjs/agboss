@@ -1,10 +1,4 @@
-import {
-  A2AAgent,
-  A2ACallerResolution,
-  A2AClient,
-  A2AExpose,
-  type A2ACallerResolver,
-} from "../../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AExpose } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import { McpServer } from "../../../src/components/decorators.js";
 import { McpTransport } from "../../../src/config/mcp-server-config.js";
@@ -23,6 +17,7 @@ import { McpExpose } from "../../../src/mcp/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
+import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
 
 /**
  * Declared contracts (#398 PR 3): a shop that exports two starts over A2A and one over MCP, and
@@ -165,10 +160,10 @@ export class RefundWorkflowFinish {}
 })
 export class KbWorkflowFinish {}
 
-@Injectable()
-export class OpenCallerResolver implements A2ACallerResolver<typeof QuoteWorkflowStart> {
-  resolveCaller(): A2ACallerResolution<typeof QuoteWorkflowStart> {
-    return A2ACallerResolution.resolved({});
+@HttpAuthenticator()
+export class OpenAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({});
   }
 }
 
@@ -181,7 +176,7 @@ export class OpenCallerResolver implements A2ACallerResolver<typeof QuoteWorkflo
       .toFinish(QuoteWorkflowFinish),
   ],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-  providers: [BillingDeskA2AAgent, WeatherA2AAgent, OracleA2AAgent, OpenCallerResolver],
+  providers: [BillingDeskA2AAgent, WeatherA2AAgent, OracleA2AAgent, OpenAuthenticator],
 })
 export class QuoteWorkflow {}
 

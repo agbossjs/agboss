@@ -633,7 +633,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
   `+ @agboss/core/testing/vitest`: `agbossVitest()`, the vitest preset)
 - `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
 - `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`,
-  `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `A2ACallerResolver`, memory)
+  `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `HttpAuthenticator`, memory)
 - `@agboss/core/eslint` — ESLint plugin (`agboss/no-component-state`, `agboss/no-direct-time`)
 
 Importing `@agboss/core` has no side effects: tracing, the MCP SDK and SQLite load only when an app
@@ -1482,7 +1482,7 @@ _What `onStream` carries_ below) and
 channel, a guardrail or any component reads them through its injected `ExecutionContext`
 (`this.executionContext.tenant.tenantId`, the project's own fields), and an MCP session
 (`createMcpService(app, Mcp).connect(transport, { tenant, execution, ownerId })`) or an A2A call
-(`a2aHttpListener(app, { expose, callerResolver, publicUrl })`, whose resolver returns them per
+(`a2aHttpListener(app, { expose, authenticator, publicUrl })`, whose authenticator returns them per
 request, #387, #808) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` rejects with

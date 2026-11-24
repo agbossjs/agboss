@@ -12,7 +12,7 @@ import {
   OwnerWorkflowStart,
 } from "../../flow/fixtures/expiry.fixture.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { BearerCallerResolver } from "./bearer-caller-resolver.js";
+import { BearerAuthenticator } from "./bearer-authenticator.js";
 
 @A2AExpose({
   name: "owner-a2a-expose",
@@ -27,7 +27,7 @@ export class OwnerA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OwnerWorkflow],
-  providers: [OwnerChannel, ExpiryPausedExecutionRepository, RecordingLogger, BearerCallerResolver],
+  providers: [OwnerChannel, ExpiryPausedExecutionRepository, RecordingLogger, BearerAuthenticator],
   observers: [ExpiryLog],
   exposes: [OwnerA2AExpose],
   budgets: TEST_BUDGETS,

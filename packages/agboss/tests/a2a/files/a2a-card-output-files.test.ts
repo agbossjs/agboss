@@ -20,7 +20,7 @@ import { List, Nested, Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import {
   FileCallerChannel,
   FileReviewWorkflow,
@@ -60,7 +60,7 @@ export class SummaryFilesA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow],
-  providers: [BearerCallerResolver, FileCallerChannel],
+  providers: [BearerAuthenticator, FileCallerChannel],
   exposes: [FilesA2AExpose, MarkedOutputsA2AExpose, SummaryFilesA2AExpose],
   a2aFiles: { allowedMediaTypes: OUTPUT_MEDIA },
   budgets: TEST_BUDGETS,
@@ -88,7 +88,7 @@ async function entryOf(url: string, skill: string): Promise<SkillEntry> {
   return entry;
 }
 
-const serve = (expose: Class) => ({ expose, callerResolver: BearerCallerResolver });
+const serve = (expose: Class) => ({ expose, authenticator: BearerAuthenticator });
 
 /** What `checkCard` throws for a client of `skill` with these DTOs on the card at `url`. */
 async function refusalOf(

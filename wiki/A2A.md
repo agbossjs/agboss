@@ -9,17 +9,17 @@
   ([Components](Components)); `execute(input, call)` sends the input and returns the remote output,
   both validated by the contract's DTOs, `send(message, call)` an untyped call's `A2ATaskResult`.
 - **Serving a workflow** — an `@A2AExpose` listed in `@Application({ exposes })`, served by
-  `a2aHttpListener(app, { expose, callerResolver, publicUrl, base? })` as an **A2A v1.0 agent**
+  `a2aHttpListener(app, { expose, authenticator, publicUrl, base? })` as an **A2A v1.0 agent**
   (#808, [the specification](https://a2a-protocol.org/v1.0.0/specification/)): its Agent Card at
   `<base>/.well-known/agent-card.json` and the JSON-RPC 2.0 binding at `POST <base>`. Any A2A v1.0
   client calls it — the official SDK `@a2a-js/sdk`, which the server is built on, or another
   vendor's. This page is mostly about this side. (The 0.1.0 wire is gone, with no shim: [Upgrading to 0.1.1](Upgrading-to-0.1.1).)
 
-## 1. Who calls — the caller resolver
+## 1. Who calls — the HTTP authenticator
 
 The framework never guesses a tenant from a request. The host says who calls, for every request,
-with a **caller resolver**: an ordinary `@Injectable` that `implements A2ACallerResolver<typeof
-Start>`, listed in `@Application({ providers })` or a `@Workflow({ providers })` and created by the
+with an **`@HttpAuthenticator`**: a class with `authenticate(request)` (sync or async, no
+`implements`), listed in `@Application({ services })` and created by the
 application's container like any service — its own services through `deps`, its environment, its
 hooks and a test's `override(…)` apply; never `new`.
 
@@ -41,35 +41,34 @@ export class ApiKeyDirectory {
 export class SupportWorkflowStart {}
 -->
 
-```ts file=shop.a2a-caller-resolver.ts
+```ts file=shop.http-authenticator.ts
 import {
-  A2ACallerResolution,
-  A2AOperation,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-} from "@agboss/core/a2a";
+  HttpAuthenticator,
+  HttpAuthResult,
+  HttpSecurity,
+  type HttpAuthRequest,
+} from "@agboss/core";
+import { A2AOperation } from "@agboss/core/a2a";
 
-@Injectable({ deps: [ApiKeyDirectory] }) // created by the container, like any service
-export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWorkflowStart> {
+// created by the container, like any service; its schemes are the card's securitySchemes
+@HttpAuthenticator({ deps: [ApiKeyDirectory], schemes: [HttpSecurity.bearer()] })
+export class ShopHttpAuthenticator {
   constructor(private readonly apiKeyDirectory: ApiKeyDirectory) {}
 
-  async resolveCaller(
-    request: A2ACallerRequest,
-  ): Promise<A2ACallerResolution<typeof SupportWorkflowStart>> {
+  async authenticate(
+    request: HttpAuthRequest,
+  ): Promise<HttpAuthResult> {
     const header: string = request.http.headers.authorization ?? "";
     if (!header.startsWith("Bearer ")) {
-      return A2ACallerResolution.unauthenticated({
-        reason: "no API key",
-        challenge: 'Bearer realm="a2a"',
-      });
+      return HttpAuthResult.unauthenticated("no API key", { challenge: 'Bearer realm="a2a"' });
     }
     const grant = await this.apiKeyDirectory.grantOf(header.slice("Bearer ".length));
-    if (grant === undefined) return A2ACallerResolution.unauthenticated({ reason: "unknown API key" });
+    if (grant === undefined) return HttpAuthResult.unauthenticated("unknown API key");
     const isResume = request.operation === A2AOperation.SendMessage && request.taskId !== undefined;
     if (isResume && !grant.canAnswerPauses) {
-      return A2ACallerResolution.forbidden({ reason: "this key may not answer pauses" });
+      return HttpAuthResult.forbidden("this key may not answer pauses");
     }
-    return A2ACallerResolution.resolved({
+    return HttpAuthResult.authenticated({
       tenant: { tenantId: grant.tenantId }, // the declared TenantContext's values: typed, required
       ownerId: grant.clientId, // the thread's owner — also who may answer its pauses
     });
@@ -77,22 +76,22 @@ export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWo
 }
 ```
 
-- `resolveCaller({ operation, taskId?, http })` gets the JSON-RPC method as an `A2AOperation`
+- `authenticate({ operation, taskId?, http })` gets the JSON-RPC method as an `A2AOperation`
   (`SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`),
   the task it names (a `SendMessage` with a `taskId` answers a task's pause), and the raw
   `IncomingMessage` — its headers and its socket (a client certificate for mTLS). The body is read
   first (up to `maxBodySize`, default 1 MB, else `413`) and decoded once — by the SDK's own decoder,
   the one the handler acts on, so `task_id`, a number or a key given twice names the same task to
   both — for the operation and the task only: nothing of it runs, and no header is written, before
-  the resolver answers. Should the request the handler decodes ever differ from the admitted one,
+  the authenticator answers. Should the request the handler decodes ever differ from the admitted one,
   it is refused: `-32602`, `a2a.request-mismatch`.
-- It answers with `A2ACallerResolution` only (`A2ACallerResolutionKind`; branded — a plain object
-  does not compile): `resolved(caller)`, `unauthenticated({ reason, challenge? })` or
-  `forbidden({ reason })`. `A2ACaller<typeof Start>` is the `tenant`, `ownerId` and `execution` of
-  `app.execute(Start, …)`'s options — typed by the start's application: with a declared
-  `TenantContext` its values are required ([Context and Authorization](Context-And-Authorization)).
-- A single-tenant host says so: `resolveCaller() { return A2ACallerResolution.resolved({}); }` — it
-  does not compile when the application declares a `TenantContext`. There is no default.
+- It answers with `HttpAuthResult` only (`HttpAuthKind`; branded — a plain object
+  does not compile): `authenticated(caller)`, `unauthenticated(reason, { challenge? })` or
+  `forbidden(reason)`. The `HttpCaller` is the `tenant`, `ownerId` and `execution` of
+  `app.execute(Start, …)`'s options, plus the mesh `peer` and an optional `rateLimitKey`: with a declared
+  `TenantContext` its values are required when the request runs ([Context and Authorization](Context-And-Authorization)).
+- A single-tenant host says so: `authenticate() { return HttpAuthResult.authenticated({}); }` — a
+  request that runs without the tenant an application declares is refused. There is no default.
 
 ## 2. Serving — `a2aHttpListener(app, options)`
 
@@ -106,7 +105,7 @@ const app = await createApp(ShopApplication, { env: "prod" });
 createServer(
   a2aHttpListener(app, {
     expose: ShopA2AExpose, // listed in @Application({ exposes })
-    callerResolver: ShopA2aCallerResolver, // the class: its instance is the container's
+    authenticator: ShopHttpAuthenticator, // the class: its instance is the container's
     publicUrl: "https://shop.example", // where callers reach it: the card's interface URL
     base: "/a2a",
     // maxBodySize: kilobytes(1024), maxTaskDuration: minutes(10)
@@ -114,24 +113,24 @@ createServer(
 ).listen(8080);
 ```
 
-The listener takes the resolver's instance from the application's container when it is built: a
-class neither the application nor any of its workflows lists stops it there —
-`[a2a.caller-resolver-not-listed] ShopA2aCallerResolver is not listed …` — and an expose the
+The listener takes the authenticator's instance from the application's container when it is built: a
+class without `@HttpAuthenticator` stops it there —
+`[http.not-an-authenticator] … is not an @HttpAuthenticator` — and an expose the
 application does not list too: `[application.expose-unlisted]`; a `publicUrl` that is no absolute
 http(s) URL is `[a2a.public-url-invalid]`. `app` is an `A2AApp` (`execute`, `resume`, `cancel`,
 `resolve` of `App`): `createApp`'s app and `testWith`'s `app` both fit.
 
 **The Agent Card** (`GET <base>/.well-known/agent-card.json`, `ETag`, `Last-Modified` — when the
 listener built it, at its first request (#811) —, `Cache-Control: max-age=300`):
-the expose's `name`, `description`, `version` and `provider`; one skill per exported start (its id
+the expose's `name`, `description` and `version`, the listener's `provider`; one skill per exported start (its id
 the start's name, its description the start's, `tags` from `@A2AExpose({ skills })`, default the
 application's name; `inputModes` `text/plain` for a `WorkflowStartTextDto` start, else
 `application/json`); `capabilities.streaming: true`, no push notifications; the skills extension
 `https://agboss.dev/a2a/skills/v1` (`A2A_SKILLS_EXTENSION`) whose `params.skills[id]` holds each
 skill's input JSON Schema, its `schemaHash` and each finish's output schema; `securitySchemes` from
-`@A2AExpose({ security: [A2ASecurity.bearer()] })` (`.apiKey({ header })`,
+`@HttpAuthenticator({ schemes: [HttpSecurity.bearer()] })` (`.apiKey({ header })`,
 `.oauth2ClientCredentials({ tokenUrl, scopes })`, `.mtls()` — any one accepted; described only, the
-resolver enforces it); one interface `{ url: publicUrl + base, protocolBinding: "JSONRPC",
+authenticator enforces it); one interface `{ url: publicUrl + base, protocolBinding: "JSONRPC",
 protocolVersion: "1.0" }`.
 
 **The JSON-RPC binding** (`POST <base>`, `A2A-Version: 1.0` required — none means 0.3: `-32009`):
@@ -205,11 +204,11 @@ protocolVersion: "1.0" }`.
   (`stream.listener-failed`, with the `executionId` and `tenantId`, never the text); the run and
   the other listeners go on.
 
-| The resolver returns                       | The caller gets                                                                                     |
+| The authenticator returns                  | The caller gets                                                                                     |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `resolved({ tenant, ownerId, execution })` | the operation, for that tenant and owner                                                            |
-| `unauthenticated({ reason, challenge })`   | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
-| `forbidden({ reason })`                    | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                        |
+| `authenticated({ tenant, ownerId, execution })` | the operation, for that tenant and owner                                                            |
+| `unauthenticated(reason, { challenge })`   | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
+| `forbidden(reason)`                        | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                        |
 | it throws (or answers anything else)       | `500`, `{ "code": "a2a.caller-resolution-failed", "error": "the caller could not be resolved" }`    |
 
 - A refused request **runs nothing**: no task, no `onExecutionStart`, no thread, no record, no model
@@ -455,9 +454,9 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 
 ## 5. Testing — the `a2aServer` fixture
 
-`testWith`'s `a2aServer({ expose, callerResolver, base? })` serves the test's `app` through
+`testWith`'s `a2aServer({ expose, authenticator, base? })` serves the test's `app` through
 `a2aHttpListener` on `127.0.0.1:0` and returns `{ url }` (`A2ATestServer`); the loopback is open
-for it (no `allowNetwork` needed) and the server is closed at the test's end. The resolver comes
+for it (no `allowNetwork` needed) and the server is closed at the test's end. The authenticator comes
 from the test app's container, so `override(ApiKeyDirectory, FixedApiKeyDirectory)` and `mockOf`
 reach it.
 
@@ -473,7 +472,7 @@ class FixedApiKeyDirectory extends ApiKeyDirectory {
 const test = testWith(ShopApplication, { overrides: [override(ApiKeyDirectory, FixedApiKeyDirectory)] });
 
 test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
-  const { url } = await a2aServer({ expose: ShopA2AExpose, callerResolver: ShopA2aCallerResolver });
+  const { url } = await a2aServer({ expose: ShopA2AExpose, authenticator: ShopHttpAuthenticator });
 
   // any A2A v1.0 client calls the listener; a plain JSON-RPC SendMessage is the smallest one
   const sent = await fetch(url, {
@@ -520,7 +519,7 @@ caller's own hop last. Ids only: no `ownerId`, no `tenantId`, no input values. O
 
 **On the receiver the envelope is a claim** — unless a trusted peer signed it
 ([below](#trusted-peers--signed-envelopes-398-pr-2)). The listener reads it into
-`A2ACallerRequest.envelope` for the resolver: never the tenant. An envelope it cannot read (not an unsecured JWS of `schema: 1`, too long, a hop without
+`HttpAuthRequest.envelope` for the mesh checks: never the tenant. An envelope it cannot read (not an unsecured JWS of `schema: 1`, too long, a hop without
 its id) is ignored: the request runs as one without — stripping it is no different. What
 the receiver applies anyway (a caller can only make its own request fail with it):
 
@@ -619,13 +618,13 @@ and the caller's claims `budget { remaining, currency: "USD" }` (what its execut
 `deadline { remaining }` (ISO 8601 duration: the calling tool's timeout or its execution's
 deadline, the earlier). `origin.step.tool` names the calling tool.
 
-**A request is trusted only when both hold:** the caller resolver names its `peer` —
-`A2ACallerResolution.resolved({ …, peer: "orders-application" })`, what your transport proved
+**A request is trusted only when both hold:** the authenticator names its `peer` —
+`HttpAuthResult.authenticated({ …, peer: "orders-application" })`, what your transport proved
 (mTLS, a token) — and the envelope carries that peer's valid signature. The order of a `POST`:
 
 1. the envelope read; a signed one of a known issuer verified — its signature, then `issuedAt` +
    `expiresIn` on the application's `Clock` (30 s of tolerance): a bad one is `401`
-   `{ "code": "mesh.signature-invalid" | "mesh.envelope-expired" }`, before the resolver;
+   `{ "code": "mesh.signature-invalid" | "mesh.envelope-expired" }`, before the authenticator;
 2. the caller resolved (above), then the chain (loops, hops);
 3. the body: a trusted envelope's `bodyHash` must be its hash — else `401 mesh.body-mismatch`;
 4. over MCP a trusted call is deduplicated by `(tenant, peer, _meta.callId)` in the application's
@@ -675,7 +674,7 @@ The envelope's `audience` and a contract price come with declared contracts ([§
 
 `a2aHttpListener` reads the envelope of a `SendMessage` / `SendStreamingMessage` from the message
 **as the SDK's transport decodes it** — what is checked is what runs — once its `A2A-Version` and
-its operation are read, **before the caller resolver and before anything runs**:
+its operation are read, **before the authenticator and before anything runs**:
 
 1. **The audience, first**: an envelope addressed to another application is `401 { "code":
    "mesh.audience-mismatch" }`, a signed one addressed to none `401 mesh.audience-missing` — against
@@ -685,7 +684,7 @@ its operation are read, **before the caller resolver and before anything runs**:
    (`issuedAt` + `expiresIn`, the `Clock`): `401 mesh.envelope-expired`; its `bodyHash` against
    `meshBodyHashOf` of the decoded message: `401 mesh.body-mismatch` — an envelope cannot be moved
    to another message. A signed envelope of an unknown issuer is an unsigned claim.
-3. The caller resolved; the request is **trusted** when the resolver's `peer` is the envelope's
+3. The caller resolved; the request is **trusted** when the authenticator's `peer` is the envelope's
    verified issuer.
 4. **The chain**, on every envelope, trusted or not: one that already passed through this skill, or
    is as long as `maxMeshHops`, is accepted as a **`REJECTED` task** — `status.message.metadata[uri]
@@ -768,7 +767,7 @@ export class AskBillingTool {
   nothing for a call the agent `REJECTED` before anything ran (#849).
 - **The audience**: the envelope's `audience` is `target.application` (over MCP an `@McpServer({
   target: { application, expose } })`'s). A receiver of another name refuses it, signed or not,
-  before its resolver — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
+  before its authenticator — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
   code): a call meant for one application is never run by another it was forwarded to. A signed
   envelope must name one (#809): a sender signs only with an audience, and a signed envelope without
   one is refused as `mesh.audience-missing` before its signature is verified (the receivers' shared

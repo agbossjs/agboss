@@ -1,6 +1,6 @@
 /** A judged text agent served over A2A (#1004, #1006): `a2aServer(listener)` streams its answers. */
 import { Injectable } from "../../src/components/decorators.js";
-import { A2AExpose, A2ACallerResolution, type A2ACallerResolver } from "../../src/a2a/index.js";
+import { A2AExpose } from "../../src/a2a/index.js";
 import {
   Agent,
   EmptyEnvironment,
@@ -18,6 +18,7 @@ import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../..
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
+import { HttpAuthResult, HttpAuthenticator } from "../../src/index.js";
 
 @Judge({ name: "a2a-audit-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class A2AJudge implements JudgeHandler<PlainTextDto> {
@@ -48,10 +49,10 @@ class A2AStart {}
 })
 class A2AFinish {}
 
-@Injectable()
-export class AuditCallerResolver implements A2ACallerResolver<typeof A2AStart> {
-  resolveCaller(): A2ACallerResolution<typeof A2AStart> {
-    return A2ACallerResolution.resolved({});
+@HttpAuthenticator()
+export class AuditAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({});
   }
 }
 
@@ -60,7 +61,7 @@ export class AuditCallerResolver implements A2ACallerResolver<typeof A2AStart> {
   version: "1.0.0",
   flow: [onStart(A2AStart).toAgent(A2AWriter).toFinish(A2AFinish)],
   defaults: DEFAULTS,
-  providers: [AuditCallerResolver],
+  providers: [AuditAuthenticator],
 })
 class A2AWorkflow {}
 
@@ -83,4 +84,4 @@ export class AuditA2AExpose {}
 })
 export class A2AJudgedApplication {}
 
-export const judgedListener = { expose: AuditA2AExpose, callerResolver: AuditCallerResolver };
+export const judgedListener = { expose: AuditA2AExpose, authenticator: AuditAuthenticator };

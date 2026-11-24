@@ -1,18 +1,20 @@
-import type { ServerResponse } from "node:http";
-import { isListedProvider } from "../application/listed-providers.js";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Class } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
-import type { FrameworkLog } from "../infrastructure/logger.js";
 import {
-  A2A_CALLER_CODES,
-  A2ACallerResolutionKind,
-  isA2ACallerResolution,
-  type A2AApp,
-  type A2ACaller,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-  type RejectedA2ACallerResolution,
-} from "./a2a-caller.js";
+  HttpAuthKind,
+  isHttpAuthResult,
+  type HttpAuthRequest,
+  type HttpCaller,
+  type RejectedHttpAuthResult,
+} from "../http/http-auth.js";
+import {
+  httpAuthenticatorOf,
+  type HttpAuthenticatorHandler,
+  type HttpAuthenticatorMeta,
+} from "../http/http-authenticator.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
+import { A2A_CALLER_CODES, type A2AApp } from "./a2a-caller.js";
 
 /** A refusal on the wire (#387): its code and reason. */
 export interface A2ARejectionBody {
@@ -25,30 +27,30 @@ const HTTP_FORBIDDEN = 403;
 const HTTP_INTERNAL_SERVER_ERROR = 500;
 
 /** What the gate decided: the caller to run for, or the answer already written. */
-export type CallerGateOutcome<TStart extends Class> =
-  | { readonly isAdmitted: true; readonly caller: A2ACaller<TStart> }
-  | { readonly isAdmitted: false };
+export type CallerGateOutcome =
+  { readonly isAdmitted: true; readonly caller: HttpCaller } | { readonly isAdmitted: false };
 
-/**
- * The caller resolver of a listener, from the application's container (#387): listed in the
- * application's or a workflow's `providers`, else the listener does not start — never `new`.
- */
-export function callerResolverOf<TStart extends Class>(
-  app: A2AApp,
-  callerResolver: Class<A2ACallerResolver<TStart>>,
-): A2ACallerResolver<TStart> {
-  return listedInstanceOf(app, callerResolver, "a2a.caller-resolver-not-listed");
+/** The authenticator of a listener: its instance and what it declared. */
+export interface ListenerAuthenticator {
+  readonly instance: HttpAuthenticatorHandler;
+  readonly meta: HttpAuthenticatorMeta;
 }
 
-function listedInstanceOf<T>(app: A2AApp, cls: Class<T>, code: string): T {
-  if (isListedProvider(app, cls) === false) {
+/**
+ * The `@HttpAuthenticator` of a listener, from the application's container (#387, #1316): a class
+ * without the decorator, or one the application's container cannot create, and the listener does
+ * not start.
+ */
+export function authenticatorOf(app: A2AApp, authenticator: Class): ListenerAuthenticator {
+  const meta = httpAuthenticatorOf(authenticator);
+  if (meta === undefined) {
     throw new ComponentError({
       message:
-        `[${code}] ${cls.name} is not listed in the application's providers — ` +
-        `list it in @Application({ providers }) or a @Workflow({ providers }): the listener takes it from the container`,
+        `[http.not-an-authenticator] ${authenticator.name} is not an @HttpAuthenticator — ` +
+        `decorate it with @HttpAuthenticator() and list it in @Application({ services })`,
     });
   }
-  return app.resolve(cls);
+  return { instance: app.resolve(authenticator) as HttpAuthenticatorHandler, meta };
 }
 
 /** Writes a refusal: its status, `{ code, error, … }`, a challenge for a `401`. */
@@ -66,9 +68,9 @@ export const writeRejection = (
 };
 
 /** A refused caller: `401` (+ its challenge) or `403`, with the host's reason. */
-function reject(res: ServerResponse, resolution: RejectedA2ACallerResolution): void {
+function reject(res: ServerResponse, resolution: RejectedHttpAuthResult): void {
   const error = resolution.reason;
-  if (resolution.kind === A2ACallerResolutionKind.Forbidden) {
+  if (resolution.kind === HttpAuthKind.Forbidden) {
     writeRejection(res, HTTP_FORBIDDEN, { code: A2A_CALLER_CODES.forbidden, error });
     return;
   }
@@ -76,7 +78,7 @@ function reject(res: ServerResponse, resolution: RejectedA2ACallerResolution): v
   writeRejection(res, HTTP_UNAUTHORIZED, body, resolution.challenge);
 }
 
-/** A resolver that threw or answered nothing it built: `500`, never the error's text. */
+/** An authenticator that threw or answered nothing it built: `500`, never the error's text. */
 function failResolution(res: ServerResponse): void {
   const body = {
     code: A2A_CALLER_CODES.resolutionFailed,
@@ -85,35 +87,51 @@ function failResolution(res: ServerResponse): void {
   writeRejection(res, HTTP_INTERNAL_SERVER_ERROR, body);
 }
 
-/** The resolver's answer, or `undefined` when it threw or returned something else. */
-async function resolutionOf<TStart extends Class>(
-  resolver: A2ACallerResolver<TStart>,
-  request: A2ACallerRequest,
+/** Tells the host's `onError` of an error; a failure of the hook itself is the host's, never the answer's. */
+export function notifyHost(
+  onError: ((error: unknown, req: IncomingMessage) => void) | undefined,
+  error: unknown,
+  req: IncomingMessage,
+): void {
+  try {
+    onError?.(error, req);
+  } catch {
+    // the hook is the host's: its own failure never changes the answer
+  }
+}
+
+/** The authenticator's answer, or `undefined` when it threw or returned something else. */
+async function resolutionOf(
+  authenticator: HttpAuthenticatorHandler,
+  request: HttpAuthRequest,
   log: Pick<FrameworkLog, "error">,
+  onError: ((error: unknown, req: IncomingMessage) => void) | undefined,
 ): Promise<unknown> {
   try {
-    return await resolver.resolveCaller(request);
+    return await authenticator.authenticate(request);
   } catch (error) {
     // the host's own bug: its class in the log, never its text on the wire
     const name = error instanceof Error ? error.name : typeof error;
-    log.error("a2a.caller-resolution-failed", `the A2A caller resolver threw: ${name}`);
+    log.error("a2a.caller-resolution-failed", `the HTTP authenticator threw: ${name}`);
+    notifyHost(onError, error, request.http);
     return undefined;
   }
 }
 
 /**
- * Resolves the request's caller before anything of it runs or a header is written (#387, #808):
- * admitted, or answered `401` / `403` / `500` — nothing run.
+ * Authenticates the request's caller before anything of it runs or a header is written (#387,
+ * #808): admitted, or answered `401` / `403` / `500` — nothing run.
  */
-export async function admitCaller<TStart extends Class>(
-  resolver: A2ACallerResolver<TStart>,
-  request: A2ACallerRequest,
+export async function admitCaller(
+  authenticator: HttpAuthenticatorHandler,
+  request: HttpAuthRequest,
   res: ServerResponse,
   log: Pick<FrameworkLog, "error">,
-): Promise<CallerGateOutcome<TStart>> {
-  const resolution = await resolutionOf(resolver, request, log);
-  if (isA2ACallerResolution<TStart>(resolution)) {
-    if (resolution.kind === A2ACallerResolutionKind.Resolved) {
+  onError?: (error: unknown, req: IncomingMessage) => void,
+): Promise<CallerGateOutcome> {
+  const resolution = await resolutionOf(authenticator, request, log, onError);
+  if (isHttpAuthResult(resolution)) {
+    if (resolution.kind === HttpAuthKind.Authenticated) {
       return { isAdmitted: true, caller: resolution.caller };
     }
     reject(res, resolution);

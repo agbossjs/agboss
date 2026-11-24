@@ -305,13 +305,13 @@ or any other component needs of the execution it reads through its injected `Exe
 (the tenant, the owner, the project's own fields — `deps: [ExecutionContext]`; a channel's request
 is made inside the paused step). An MCP session takes the values from its authenticated caller —
 `createMcpService(app, Mcp).connect(transport, { tenant, execution, ownerId })` (`McpSessionOptions`,
-`@agboss/core/mcp`) — and so does an A2A call: `a2aHttpListener(app, { expose, callerResolver, publicUrl })` asks
-the host's **caller resolver** (an `@Injectable` in `providers`) for every request, with its
+`@agboss/core/mcp`) — and so does an A2A call: `a2aHttpListener(app, { expose, authenticator, publicUrl })` asks
+the host's **`@HttpAuthenticator`** (a class in `services`) for every request, with its
 operation and task decoded from its body and nothing of it run before —
-`A2ACallerResolution.resolved({ tenant, ownerId, execution })`, typed by the start's application
-(a declared `TenantContext`'s values are required), or `.unauthenticated(…)` / `.forbidden(…)`: a
+`HttpAuthResult.authenticated({ tenant, ownerId, execution })`
+(a declared `TenantContext`'s values are required when the request runs), or `.unauthenticated(…)` / `.forbidden(…)`: a
 real `401` / `403`, nothing run, never the default tenant (#387, #808,
-[A2A](A2A#1-who-calls--the-caller-resolver)). A
+[A2A](A2A#1-who-calls--the-http-authenticator)). A
 resume through either takes the tenant's id; an A2A `CancelTask` cancels only the caller's own task.
 
 Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's `sensitive`

@@ -16,7 +16,7 @@ import {
   PauseLog,
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
-import { BearerCallerResolver } from "./bearer-caller-resolver.js";
+import { BearerAuthenticator } from "./bearer-authenticator.js";
 
 @A2AExpose({
   name: "desk-a2a-expose",
@@ -24,7 +24,6 @@ import { BearerCallerResolver } from "./bearer-caller-resolver.js";
   description: "Refunds and confirms orders",
   exports: [DeskWorkflowStart, AuditWorkflowStart],
   skills: { "audit-workflow-start": { tags: ["audit", "refunds"], examples: ["refund order 7"] } },
-  provider: { organization: "Example Corp", url: "https://example.test" },
 })
 export class DeskA2AExpose {}
 
@@ -38,7 +37,7 @@ export class DeskA2AExpose {}
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
     RecordingLogger,
-    BearerCallerResolver,
+    BearerAuthenticator,
   ],
   observers: [PauseLog],
   exposes: [DeskA2AExpose],

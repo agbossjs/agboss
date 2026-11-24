@@ -16,16 +16,16 @@ import {
 } from "../../infrastructure/fixtures/recovery.workflow.js";
 import {
   asked,
-  BearerCallerResolver,
+  BearerAuthenticator,
   EXPLODING_TOKEN,
   RESOLVER_SECRET,
   resetAsked,
-} from "../fixtures/bearer-caller-resolver.js";
+} from "../fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application.js";
 import { errorInfoOf, errorOf, post, rpc, rpcBody, sseEvents, text, userMessage } from "./rpc.js";
 
 const test = testWith(OrdersApplication);
-const listener = { expose: OrdersA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const done = replyWith(ReceiptDto, { text: "Done." });
 const send = (messageId: string) => ({ message: userMessage(messageId, [text("go")]) });
 

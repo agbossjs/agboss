@@ -1,5 +1,5 @@
 import { Workflow, onStart } from "@agboss/core";
-import { DeskA2aCallerResolver } from "../../a2a/desk.a2a-caller-resolver.js";
+import { DeskHttpAuthenticator } from "../../a2a/desk.http-authenticator.js";
 import { DeskAgent } from "../../agents/desk/desk.agent.js";
 import { CaseNotesMemory } from "../../memories/case-notes/case-notes.memory.js";
 import { CustomerIdPiiPolicy } from "../../pii-policies/customer-id.pii-policy.js";
@@ -23,6 +23,6 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
   ],
   memory: CaseNotesMemory,
   piiPolicies: [CustomerIdPiiPolicy],
-  providers: [OrderDeskService, CaseNotesService, DeskA2aCallerResolver], // the last: A2A callers
+  providers: [OrderDeskService, CaseNotesService, DeskHttpAuthenticator], // the last: A2A callers
 })
 export class DeskWorkflow {}

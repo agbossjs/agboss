@@ -7,30 +7,45 @@ import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
 import { Clock, IdGenerator, lazyLoad } from "../infrastructure/clock.js";
 import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
 import { kilobytes, type Bytes, type Milliseconds } from "../units/index.js";
-import type { A2AApp, A2ACallerResolver } from "./a2a-caller.js";
-import { callerResolverOf, writeRejection } from "./a2a-caller-gate.js";
+import type { A2AApp } from "./a2a-caller.js";
+import {
+  authenticatorOf,
+  notifyHost,
+  writeRejection,
+  type ListenerAuthenticator,
+} from "./a2a-caller-gate.js";
 import { exportsOf } from "./a2a-exports.js";
-import { meshSettingsOf } from "../mesh/mesh-settings.js";
+import { meshSettingsOf, type MeshSettings } from "../mesh/mesh-settings.js";
 import type { A2AHttpBinding } from "./server/a2a-jsonrpc-http.js";
 import type { ServedSkill } from "./server/a2a-skills.js";
 import type { A2ADirectParts } from "./server/a2a-server-parts.js";
 import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
 import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message.repository.js";
 import { checkedFetchLimit } from "./files/a2a-file-slots.js";
+import { interfaceUrlOf } from "./a2a-public-url.js";
 import { serverFilesOf } from "./files/a2a-server-files.js";
 
-/** `a2aHttpListener(app, { expose, callerResolver, publicUrl, base?, maxBodySize?, maxTaskDuration? })` (#387, #808). */
-export interface A2AHttpListenerOptions<TStart extends Class> {
+/** `a2aHttpListener(app, { expose, authenticator, publicUrl, base?, provider?, onError?, maxBodySize?, maxTaskDuration? })` (#387, #808, #1316). */
+export interface A2AHttpListenerOptions {
   /**
    * What it serves (#398 PR 3): an `@A2AExpose` listed in `@Application({ exposes })` — its
    * exported starts are the agent's skills.
    */
   readonly expose: Class;
   /**
-   * Who calls (an `@Injectable` listed in the application's or a workflow's `providers`): the
-   * listener takes its instance from the application's container and asks it on every request.
+   * Who calls (an `@HttpAuthenticator` listed in `@Application({ services })`): the listener takes
+   * its instance from the application's container when it is created and asks it on every request.
+   * Its `schemes` are the card's `securitySchemes`.
    */
-  readonly callerResolver: Class<A2ACallerResolver<TStart>>;
+  readonly authenticator: Class;
+  /** Who runs the agent: the card's `provider`. */
+  readonly provider?: { readonly organization: string; readonly url: string };
+  /**
+   * Told of an error the listener or the authenticator hit (an authenticator that threw, a request
+   * that failed past its own answers) with the request: for the host's own logging; its text never
+   * goes on the wire. An error `onError` throws is ignored.
+   */
+  readonly onError?: (error: unknown, req: IncomingMessage) => void;
   /**
    * Where callers reach the listener, an absolute URL without the `base` (`https://billing.example`):
    * the card's interface URL is `publicUrl` + `base`. An environment text field in practice.
@@ -95,30 +110,8 @@ export function maxBodySizeOf(
   return Math.max(MAX_BODY_SIZE, Math.ceil((largest * 4) / 3) + kilobytes(256)) as Bytes;
 }
 
-/** A listener's `publicUrl` + `base`, checked: an absolute http(s) URL, no query or fragment. */
-function interfaceUrlOf(publicUrl: string, base: string): string {
-  let url: URL;
-  try {
-    url = new URL(publicUrl);
-  } catch {
-    throw new ComponentError({
-      message: `[a2a.public-url-invalid] a2aHttpListener's publicUrl is not an absolute URL`,
-    });
-  }
-  const isHttp = url.protocol === "http:" || url.protocol === "https:";
-  if (!isHttp || url.search !== "" || url.hash !== "")
-    throw new ComponentError({
-      message: `[a2a.public-url-invalid] a2aHttpListener's publicUrl is an http(s) URL without a query or fragment`,
-    });
-  if (base !== "" && (!base.startsWith("/") || base.endsWith("/")))
-    throw new ComponentError({
-      message: `[a2a.base-invalid] a2aHttpListener's base starts with "/" and does not end with one`,
-    });
-  return `${publicUrl.replace(/\/+$/, "")}${base}`;
-}
-
 /** `fileFetchTimeout` and `maxTaskDuration` bound timers: above their maximum, `[a2a.timeout-invalid]` (#1141). */
-function checkedListenerTimers(options: A2AHttpListenerOptions<Class>): void {
+function checkedListenerTimers(options: A2AHttpListenerOptions): void {
   const problems = [
     options.fileFetchTimeout === undefined
       ? undefined
@@ -171,12 +164,28 @@ const directPartsOf = (
   defaultSkill: skills.find((skill) => skill.start === defaultSkill),
 });
 
+/** What the card says besides the expose and the skills: the application, the URL, the retention, who runs it. */
+function cardSourceOf(
+  mesh: MeshSettings,
+  options: A2AHttpListenerOptions,
+  checked: { readonly authenticator: ListenerAuthenticator; readonly url: string },
+) {
+  return {
+    application: mesh.application,
+    url: checked.url,
+    idempotencyRetention: mesh.a2aTaskRetention,
+    messageIdempotencyRetention: mesh.a2aMessageRetention,
+    schemes: checked.authenticator.meta.schemes,
+    ...(options.provider === undefined ? {} : { provider: options.provider }),
+  };
+}
+
 /** Builds what the listener serves with, on its first request: the card, the handler, the stores. */
-async function bindingOf<TStart extends Class>(
+async function bindingOf(
   app: A2AApp,
-  options: A2AHttpListenerOptions<TStart>,
+  options: A2AHttpListenerOptions,
   checked: {
-    readonly resolver: A2ACallerResolver<TStart>;
+    readonly authenticator: ListenerAuthenticator;
     readonly exports: readonly Class[];
     readonly url: string;
   },
@@ -189,12 +198,9 @@ async function bindingOf<TStart extends Class>(
   const skills = servedSkillsOf(checked.exports, { ...sources, files: mesh.a2aFiles });
   const clock = app.resolve(Clock);
   const card = agentCardOf({
+    ...cardSourceOf(mesh, options, checked),
     expose,
     skills,
-    application: mesh.application,
-    url: checked.url,
-    idempotencyRetention: mesh.a2aTaskRetention,
-    messageIdempotencyRetention: mesh.a2aMessageRetention,
     madeAt: clock.now(),
   });
   const log = frameworkLogOf(app.resolve(Logger), clock);
@@ -215,7 +221,8 @@ async function bindingOf<TStart extends Class>(
   return {
     card,
     handler: new A2AServerRequestHandler(parts, card.card),
-    resolver: checked.resolver,
+    authenticator: checked.authenticator.instance,
+    ...(options.onError === undefined ? {} : { onError: options.onError }),
     mesh,
     log: parts.log,
     base: options.base ?? "",
@@ -225,10 +232,10 @@ async function bindingOf<TStart extends Class>(
 
 /**
  * Serves an application's `@A2AExpose` as an A2A v1.0 agent (#387, #808), for
- * `http.createServer(a2aHttpListener(app, { expose, callerResolver, publicUrl, base }))`: its Agent
+ * `http.createServer(a2aHttpListener(app, { expose, authenticator, publicUrl, base }))`: its Agent
  * Card at `<base>/.well-known/agent-card.json` and the JSON-RPC binding at `POST <base>` —
  * `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`
- * (push methods `-32003`). Every request's caller is resolved by the `callerResolver` the
+ * (push methods `-32003`). Every request's caller is authenticated by the `authenticator` the
  * application's container created (not listed → this call throws), after its body is read and
  * parsed for its operation and task — nothing of it acted on before: a refused one is a real `401` /
  * `403` (a resolver that throws: `500`), and nothing runs. Each task is one root execution under the
@@ -236,22 +243,22 @@ async function bindingOf<TStart extends Class>(
  * `messageId` finds its task, a task outlives its connection — a caller that disconnects never
  * cancels it —, and `CancelTask` cancels that task alone.
  */
-export function a2aHttpListener<TStart extends Class>(
+export function a2aHttpListener(
   app: A2AApp,
-  options: A2AHttpListenerOptions<TStart>,
+  options: A2AHttpListenerOptions,
 ): (req: IncomingMessage, res: ServerResponse) => void {
   checkedListenerTimers(options);
   checkedFetchLimit("maxConcurrentFileFetches", options.maxConcurrentFileFetches);
   checkedFetchLimit("maxConcurrentFileFetchesPerTenant", options.maxConcurrentFileFetchesPerTenant);
   checkedFetchLimit("maxConcurrentFileFetchesPerOwner", options.maxConcurrentFileFetchesPerOwner);
-  const resolver = callerResolverOf(app, options.callerResolver);
+  const authenticator = authenticatorOf(app, options.authenticator);
   const exports = exportsOf(app, options.expose);
   const url = interfaceUrlOf(options.publicUrl, options.base ?? "");
   const log = frameworkLogOf(app.resolve(Logger), app.resolve(Clock));
   let binding: Promise<A2AHttpBinding> | undefined;
   const http = () => lazyLoad(import("./server/a2a-jsonrpc-http.js"));
   const bound = (): Promise<A2AHttpBinding> => {
-    binding ??= bindingOf(app, options, { resolver, exports, url }).catch((error: unknown) => {
+    binding ??= bindingOf(app, options, { authenticator, exports, url }).catch((error: unknown) => {
       binding = undefined; // built again by the next request
       throw error;
     });
@@ -266,6 +273,7 @@ export function a2aHttpListener<TStart extends Class>(
       // (a framework error by its own fixed text), never an error's text on the wire
       const what = error instanceof ComponentError ? error.message : nameOf(error);
       log.error("a2a.listener-failed", `the A2A listener failed to serve a request: ${what}`);
+      notifyHost(options.onError, error, req);
       if (res.headersSent) res.destroy();
       else writeRejection(res, HTTP_UNAVAILABLE, LISTENER_UNAVAILABLE);
     });

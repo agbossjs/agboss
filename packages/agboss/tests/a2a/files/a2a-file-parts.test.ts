@@ -9,7 +9,7 @@ import { describe, expect } from "vitest";
 import { DEFAULT_A2A_FILE_MEDIA_TYPES } from "../../../src/a2a/files/a2a-file-options.js";
 import { withFileTransport } from "../../../src/a2a/files/a2a-file-seam.js";
 import { testWith } from "../../../src/testing/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import {
   FILE_ORIGIN,
   FilesA2AExpose,
@@ -31,7 +31,7 @@ import {
 
 const test = testWith(FilesApplication);
 const stored = testWith(StoredFilesApplication);
-const listener = { expose: FilesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: FilesA2AExpose, authenticator: BearerAuthenticator };
 const SKILLS = "https://agboss.dev/a2a/skills/v1";
 
 const sdkPart = (bytes: Uint8Array, mediaType: string, filename: string): Part => ({

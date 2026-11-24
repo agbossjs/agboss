@@ -9,6 +9,7 @@ import type { BaseMessage } from '@langchain/core/messages';
 import type { BaseMessageLike } from '@langchain/core/messages';
 import { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
+import type { IncomingMessage } from 'node:http';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
@@ -893,6 +894,14 @@ export interface AuditEventStep {
     readonly nodeId: string;
     // (undocumented)
     readonly visitNumber: number;
+}
+
+// @public
+export interface AuthenticatedHttpAuthResult {
+    readonly [httpAuthResult]: true;
+    readonly caller: HttpCaller;
+    // (undocumented)
+    readonly kind: HttpAuthKind.Authenticated;
 }
 
 // @public
@@ -4743,6 +4752,114 @@ export interface HostContext {
 }
 
 // @public
+export function HttpAuthenticator<const TDeps extends readonly Token[] = []>(options?: HttpAuthenticatorOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => HttpAuthenticatorHandler>(value: TClass) => TClass;
+
+// @public
+export interface HttpAuthenticatorHandler {
+    readonly authenticate: (request: HttpAuthRequest) => HttpAuthResult | Promise<HttpAuthResult>;
+}
+
+// @public
+export interface HttpAuthenticatorMeta {
+    // (undocumented)
+    readonly deps: readonly Token[];
+    // (undocumented)
+    readonly description?: string;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly schemes: readonly HttpSecurityScheme[];
+}
+
+// @public
+export interface HttpAuthenticatorOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly description?: string;
+    readonly name?: string;
+    readonly schemes?: readonly HttpSecurityScheme[];
+}
+
+// @public
+export enum HttpAuthKind {
+    Authenticated = "authenticated",
+    Forbidden = "forbidden",
+    Unauthenticated = "unauthenticated"
+}
+
+// @public
+export interface HttpAuthRequest {
+    readonly http: IncomingMessage;
+    readonly operation?: string;
+    readonly taskId?: string;
+}
+
+// @public
+export type HttpAuthResult = AuthenticatedHttpAuthResult | RejectedHttpAuthResult;
+
+// @public
+export const HttpAuthResult: {
+    readonly authenticated: (caller: HttpCaller) => AuthenticatedHttpAuthResult;
+    readonly unauthenticated: (reason: string, options?: {
+        readonly challenge?: string;
+    }) => RejectedHttpAuthResult;
+    readonly forbidden: (reason: string) => RejectedHttpAuthResult;
+};
+
+// @public
+export type HttpCaller = Pick<ExecutionOptionsOf<object>, "tenant" | "ownerId" | "execution"> & {
+    readonly peer?: string;
+    readonly rateLimitKey?: string;
+};
+
+// @public
+export const HttpSecurity: {
+    readonly bearer: (options?: {
+        readonly name?: string;
+        readonly bearerFormat?: string;
+    }) => HttpSecurityScheme;
+    readonly apiKey: (options: {
+        readonly header: string;
+        readonly name?: string;
+    }) => HttpSecurityScheme;
+    readonly oauth2ClientCredentials: (options: {
+        readonly tokenUrl: string;
+        readonly scopes?: Readonly<Record<string, string>>;
+        readonly name?: string;
+    }) => HttpSecurityScheme;
+    readonly mtls: (options?: {
+        readonly name?: string;
+    }) => HttpSecurityScheme;
+};
+
+// @public
+export type HttpSecurityScheme = {
+    readonly kind: HttpSecuritySchemeKind.Bearer;
+    readonly name: string;
+    readonly bearerFormat?: string;
+} | {
+    readonly kind: HttpSecuritySchemeKind.ApiKey;
+    readonly name: string;
+    readonly header: string;
+} | {
+    readonly kind: HttpSecuritySchemeKind.OAuth2ClientCredentials;
+    readonly name: string;
+    readonly tokenUrl: string;
+    readonly scopes: Readonly<Record<string, string>>;
+} | {
+    readonly kind: HttpSecuritySchemeKind.MutualTls;
+    readonly name: string;
+};
+
+// @public
+export enum HttpSecuritySchemeKind {
+    ApiKey = "api-key",
+    Bearer = "bearer",
+    MutualTls = "mtls",
+    OAuth2ClientCredentials = "oauth2-client-credentials"
+}
+
+// @public
 export type HybridJudgeModelOptions<TDeps extends readonly Token[]> = [
 Extract<TDeps[number], typeof JudgeModel>
 ] extends [never] ? {
@@ -8478,6 +8595,15 @@ export interface RedactOptions {
     // (undocumented)
     readonly tenantId: string;
     readonly values: readonly string[];
+}
+
+// @public
+export interface RejectedHttpAuthResult {
+    readonly [httpAuthResult]: true;
+    readonly challenge?: string;
+    // (undocumented)
+    readonly kind: HttpAuthKind.Unauthenticated | HttpAuthKind.Forbidden;
+    readonly reason: string;
 }
 
 // @public
@@ -12227,6 +12353,13 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/health/health-check.ts - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts - (ae-undocumented) Missing documentation for "description".
+// src/http/http-auth.ts - (ae-undocumented) Missing documentation for "kind".
+// src/http/http-auth.ts - (ae-undocumented) Missing documentation for "kind".
+// src/http/http-authenticator.ts - (ae-undocumented) Missing documentation for "description".
+// src/http/http-authenticator.ts - (ae-undocumented) Missing documentation for "name".
+// src/http/http-authenticator.ts - (ae-undocumented) Missing documentation for "description".
+// src/http/http-authenticator.ts - (ae-undocumented) Missing documentation for "schemes".
+// src/http/http-authenticator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "messageId".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "finish".

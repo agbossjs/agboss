@@ -13,7 +13,7 @@ import {
 import { A2AExpose } from "../../src/a2a/index.js";
 import { errorRecordOf, RecordedError } from "../../src/core/error-record.js";
 import { Application } from "../../src/application/application.js";
-import { BearerCallerResolver } from "../a2a/fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../a2a/fixtures/bearer-authenticator.js";
 import { Text } from "../../src/dto/index.js";
 import { ComponentKind, bareRecordOf } from "../../src/flow/runtime/records.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -158,7 +158,7 @@ export class FamilyRouteA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FamilyRouteWorkflow],
-  providers: [BearerCallerResolver],
+  providers: [BearerAuthenticator],
   exposes: [FamilyRouteA2AExpose],
   budgets: TEST_BUDGETS,
 })

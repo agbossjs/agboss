@@ -17,7 +17,7 @@ import type { App } from "../../../src/app/types.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
 import { hours, minutes, seconds } from "../../../src/units/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { DirectApplication, QuoteAgent, QuotesA2AExpose } from "../fixtures/direct.application.js";
 import { callerOf } from "./fixtures/caller.js";
 import { agentMessage, scripts, SdkAgent, type AgentScript } from "./support/sdk-agent.js";
@@ -154,7 +154,7 @@ describe("#860 AC2: a Message answer inside an execution", () => {
 });
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: QuotesA2AExpose, authenticator: BearerAuthenticator };
 
 describe("#860 AC2: A2AClient against an AGBoss direct-reply skill", () => {
   test("AC2: execute and send get the reply; a second call is another message, the model called again", async ({

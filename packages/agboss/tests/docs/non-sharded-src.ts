@@ -30,7 +30,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the A2A decorators, rules and card checks: declarations and build-time checks", [
     "src/a2a/a2a-caller-gate.ts",
+    "src/a2a/a2a-public-url.ts",
   ]),
+  ...reviewed(
+    "the HTTP authenticator (#1316): the decorator, the branded result and the scheme descriptors — declarations; the gate that enforces them is src/a2a/a2a-caller-gate.ts, covered by tests/a2a/server/a2a-admission.test.ts and tests/http/http-auth-result.test.ts",
+    ["src/http/http-auth.ts", "src/http/http-authenticator.ts", "src/http/http-security.ts"],
+  ),
   ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 16 mutants, 12 killed in the final run; the 5 that had lived in the first run each got a test (1), an equivalence reason (4) or was classed message text (0); covered by tests/sweep-1366h/a2a/a2a-caller-fields-1366h.test.ts, tests/a2a/files/a2a-file-slots.test.ts, tests/a2a/server/a2a-payment-grade.test.ts, tests/a2a/mesh/a2a-mesh-takeover.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/a2a/a2a-caller.ts"],
@@ -54,7 +59,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the A2A decorators, rules and card checks: declarations and build-time checks", [
     "src/a2a/a2a-nested-file-rule.ts",
-    "src/a2a/a2a-security.ts",
     "src/a2a/index.ts",
   ]),
   ...reviewed(
@@ -995,6 +999,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/public/files.ts",
     "src/public/flow-types.ts",
     "src/public/flow.ts",
+    "src/public/http.ts",
     "src/public/mesh.ts",
     "src/public/pause-targets.ts",
     "src/public/observers.ts",

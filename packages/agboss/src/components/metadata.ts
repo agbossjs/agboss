@@ -113,6 +113,11 @@ export type ComponentMeta =
       readonly kind: "channel-selector";
       readonly meta: import("../channels/channel-selector.js").ChannelSelectorMeta;
     }
+  /** `@HttpAuthenticator` (#1316): who calls an HTTP listener, named by the listener's `authenticator`. */
+  | {
+      readonly kind: "http-authenticator";
+      readonly meta: import("../http/http-authenticator.js").HttpAuthenticatorMeta;
+    }
   /** `@Observer` (#1343): an execution observer, listed in `@Application({ observers })`. */
   | { readonly kind: "observer"; readonly meta: import("../core/observer-hooks.js").ObserverMeta }
   /** `@PauseListener` (#940): an application-wide listener of every pause, listed in `providers`. */
@@ -193,6 +198,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   judge: "Judge",
   channel: "Channel",
   "channel-selector": "ChannelSelector",
+  "http-authenticator": "HttpAuthenticator",
   budget: "Budget",
   "health-check": "HealthCheck",
   observer: "Observer",

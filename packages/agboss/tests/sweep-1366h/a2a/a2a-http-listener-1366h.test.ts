@@ -20,7 +20,7 @@ import { rememberMeshSettings, type MeshSettings } from "../../../src/mesh/mesh-
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { testWith } from "../../../src/testing/index.js";
 import { until } from "../../helpers/until.js";
-import { BearerCallerResolver } from "../../a2a/fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../../a2a/fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../../a2a/fixtures/task.application.js";
 import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import { recordComponent } from "../../../src/components/metadata.js";
@@ -51,7 +51,7 @@ interface Host {
 function hostOf(given: { mesh: boolean; control: boolean }): Host {
   const logger = new MemoryLogger();
   const clock = new VirtualClock();
-  const resolver = new BearerCallerResolver();
+  const resolver = new BearerAuthenticator();
   let built = 0;
   const app: Host["app"] = {
     execute: () => Promise.reject(new Boom("not used")),
@@ -60,7 +60,7 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
     resolve: ((cls: unknown) => {
       if (cls === Logger) return logger;
       if (cls === Clock) return clock;
-      if (cls === BearerCallerResolver) return resolver;
+      if (cls === BearerAuthenticator) return resolver;
       throw new Boom("resolved");
     }) as never,
   };
@@ -98,7 +98,7 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
 const listenerOn = (host: Host, more: { publicUrl?: string; base?: string } = {}) =>
   a2aHttpListener(host.app, {
     expose: OrdersA2AExpose,
-    callerResolver: BearerCallerResolver,
+    authenticator: BearerAuthenticator,
     publicUrl: "https://desk.example",
     ...more,
   });
@@ -149,7 +149,7 @@ describe("#1366: the listener's URL checks", () => {
     const make = () =>
       a2aHttpListener(host.app, {
         expose: OrdersA2AExpose,
-        callerResolver: BearerCallerResolver,
+        authenticator: BearerAuthenticator,
         publicUrl: "https://desk.example",
         fileFetchTimeout: 86_400_001 as never,
         maxTaskDuration: 2_073_600_001 as never,
@@ -164,7 +164,7 @@ describe("#1366: the card's URL", () => {
   orders("is the publicUrl without trailing slashes plus the base", async ({ a2aServer }) => {
     const { url } = await a2aServer({
       expose: OrdersA2AExpose,
-      callerResolver: BearerCallerResolver,
+      authenticator: BearerAuthenticator,
       publicUrl: "https://desk.example///",
       base: "/a2a",
     });
@@ -221,7 +221,7 @@ describe("#1366: a request the listener cannot serve", () => {
     const host = hostOf({ mesh: true, control: true });
     const listener = a2aHttpListener(host.app, {
       expose: FlippedExpose,
-      callerResolver: BearerCallerResolver,
+      authenticator: BearerAuthenticator,
       publicUrl: "https://desk.example",
     });
     // the listener checked the class when it was made; its metadata is replaced before the first request

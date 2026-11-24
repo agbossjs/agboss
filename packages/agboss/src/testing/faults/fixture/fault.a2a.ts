@@ -1,6 +1,6 @@
 import { A2AExpose } from "../../../a2a/a2a-expose.decorator.js";
-import { A2ACallerResolution, type A2ACallerResolver } from "../../../a2a/a2a-caller.js";
-import { Injectable } from "../../../components/decorators.js";
+import { HttpAuthenticator } from "../../../http/http-authenticator.js";
+import { HttpAuthResult } from "../../../http/http-auth.js";
 import type { Class } from "../../../components/injection.js";
 import { A2ATaskRepository } from "../../../infrastructure/a2a-task.repository.js";
 import { FaultApprovalWorkflowStart } from "./approval.workflow.js";
@@ -25,10 +25,10 @@ export const FAULT_A2A_OWNER = "fault-caller";
 export class FaultA2AExpose {}
 
 /** Every caller is the fixture's owner, in the default tenant. */
-@Injectable()
-export class FaultCallerResolver implements A2ACallerResolver<Class> {
-  resolveCaller(): A2ACallerResolution<Class> {
-    return A2ACallerResolution.resolved<Class>({ ownerId: FAULT_A2A_OWNER });
+@HttpAuthenticator()
+export class FaultAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({ ownerId: FAULT_A2A_OWNER });
   }
 }
 

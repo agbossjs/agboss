@@ -6,7 +6,6 @@
  */
 import { beforeEach, describe, expect, vi } from "vitest";
 import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
-import { A2ASecurity } from "../../src/a2a/a2a-security.js";
 import { SqliteA2ATaskRepository } from "../../src/a2a/index.js";
 import { Application } from "../../src/application/application.js";
 import { A2ATaskRepository } from "../../src/infrastructure/a2a-task.repository.js";
@@ -30,7 +29,7 @@ import {
   resetRecovery,
   seen,
 } from "../infrastructure/fixtures/recovery.workflow.js";
-import { BearerCallerResolver } from "./fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "./fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "./fixtures/task.application.js";
 import {
   MortalSqliteExecutionLeaseRepository,
@@ -52,7 +51,6 @@ import {
   version: "1.0.0",
   description: "Takes orders",
   exports: [OrderWorkflowStart],
-  security: [A2ASecurity.bearer()],
 })
 class SqliteOrdersA2AExpose {}
 
@@ -71,7 +69,7 @@ class SqliteOrdersA2AExpose {}
     SqliteExecutionTreeRepository,
     SqliteRateLimitRepository,
     SqliteA2ATaskRepository,
-    BearerCallerResolver,
+    BearerAuthenticator,
   ],
   exposes: [SqliteOrdersA2AExpose],
   budgets: TEST_BUDGETS,
@@ -112,7 +110,7 @@ for (const [name, test, expose] of CASES) {
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Done." }),
       );
-      const { url } = await a2aServer({ expose, callerResolver: BearerCallerResolver });
+      const { url } = await a2aServer({ expose, authenticator: BearerAuthenticator });
       const task = taskOf(
         await rpc(url, "SendMessage", { message: userMessage("m-1", [text("go")]) }),
       );
@@ -138,7 +136,7 @@ for (const [name, test, expose] of CASES) {
       mockLlm,
     }) => {
       mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
-      const { url } = await a2aServer({ expose, callerResolver: BearerCallerResolver });
+      const { url } = await a2aServer({ expose, authenticator: BearerAuthenticator });
       const task = taskOf(
         await rpc(url, "SendMessage", { message: userMessage("m-1", [text("go")]) }),
       );

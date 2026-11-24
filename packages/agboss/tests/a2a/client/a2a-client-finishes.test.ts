@@ -15,7 +15,7 @@ import {
 import type { DtoClass } from "../../../src/dto/types.js";
 import { FileDto, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testWith } from "../../../src/testing/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import {
   FilesA2AExpose,
   FilesApplication,
@@ -62,7 +62,7 @@ async function cardCheckOf(
   );
 }
 
-const serve = { expose: FilesA2AExpose, callerResolver: BearerCallerResolver };
+const serve = { expose: FilesA2AExpose, authenticator: BearerAuthenticator };
 
 describe("#916 item 3: the card check of a client's output against its skill's finishes", () => {
   test("AC3.1 by default every finish: a DTO of one finish is [a2a.schema-mismatch] naming the other", async ({

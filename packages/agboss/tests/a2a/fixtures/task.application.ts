@@ -1,8 +1,7 @@
 // #807 — the recovery workflow served over A2A: an application with an @A2AExpose, so the framework
 // registers its A2A task projection.
 import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
-import { A2ASecurity } from "../../../src/a2a/a2a-security.js";
-import { BearerCallerResolver } from "./bearer-caller-resolver.js";
+import { BearerAuthenticator } from "./bearer-authenticator.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -18,7 +17,6 @@ import {
   version: "1.0.0",
   description: "Takes orders: steps, holds and charges",
   exports: [OrderWorkflowStart],
-  security: [A2ASecurity.bearer()],
 })
 export class OrdersA2AExpose {}
 
@@ -28,7 +26,7 @@ export class OrdersA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
-  providers: [StampedExecutionRecordRepository, BearerCallerResolver],
+  providers: [StampedExecutionRecordRepository, BearerAuthenticator],
   exposes: [OrdersA2AExpose],
   budgets: TEST_BUDGETS,
 })

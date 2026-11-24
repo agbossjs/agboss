@@ -21,7 +21,7 @@ import { Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import {
   FileCallerChannel,
   FilesA2AExpose,
@@ -58,7 +58,7 @@ export class OwnFilesA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow],
-  providers: [BearerCallerResolver, FileCallerChannel],
+  providers: [BearerAuthenticator, FileCallerChannel],
   exposes: [FilesA2AExpose, MarkedFilesA2AExpose, OwnFilesA2AExpose],
   budgets: TEST_BUDGETS,
 })
@@ -85,7 +85,7 @@ async function entryOf(url: string): Promise<SkillEntry> {
   return entry;
 }
 
-const serve = (expose: Class) => ({ expose, callerResolver: BearerCallerResolver });
+const serve = (expose: Class) => ({ expose, authenticator: BearerAuthenticator });
 
 describe("#904 item 5 AC5.1: the card's file fields", () => {
   test("Extension (the default): out of input and required, declared in the extension's files", async ({

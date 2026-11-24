@@ -20,14 +20,14 @@ import {
   resetPauses,
   seen,
 } from "../../channels/fixtures/pauses.workflow.js";
-import { BearerCallerResolver, resetAsked } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator, resetAsked } from "../fixtures/bearer-authenticator.js";
 import { DeskA2AExpose, ServedPausesApplication } from "../fixtures/served-pauses.application.js";
 import { requestHashOf } from "../../../src/a2a/server/a2a-message-input.js";
 import { data, errorInfoOf, errorOf, rpc, text, userMessage, type RpcAnswer } from "./rpc.js";
 import { dataMessage } from "./sdk-client.js";
 
 const test = testWith(ServedPausesApplication);
-const listener = { expose: DeskA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: DeskA2AExpose, authenticator: BearerAuthenticator };
 const DESK = { [A2A_SKILLS_EXTENSION]: { skill: "desk-workflow-start" } };
 const AUDIT = { [A2A_SKILLS_EXTENSION]: { skill: "audit-workflow-start" } };
 

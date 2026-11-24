@@ -1,11 +1,4 @@
-import {
-  A2AAgent,
-  A2AClient,
-  A2AExpose,
-  A2ACallerResolution,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-} from "../../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AExpose } from "../../../src/a2a/index.js";
 import {
   Agent,
   EmptyEnvironment,
@@ -27,6 +20,7 @@ import type { ToolClass } from "../../../src/testing/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toFinish } from "../../helpers/flow.js";
+import { HttpAuthenticator, HttpAuthResult, type HttpAuthRequest } from "../../../src/index.js";
 
 /**
  * One application of a mesh (#398): its agent asks a peer application over A2A through one tool,
@@ -73,16 +67,16 @@ export interface MeshAppParts {
   readonly MeshDesk: Class;
   readonly CallPeer: ToolClass<PeerQuestion>;
   readonly LoopFinish: Class;
-  readonly Resolver: Class<A2ACallerResolver<Class>>;
-  /** Every request the listener's resolver read, in order. */
-  readonly seen: A2ACallerRequest[];
+  readonly Authenticator: Class;
+  /** Every request the listener's authenticator read, in order. */
+  readonly seen: HttpAuthRequest[];
   /** Every execution the application started, as `onExecutionStart` saw it. */
   readonly started: ExecutionEvent[];
 }
 
 export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   const { name } = spec;
-  const seen: A2ACallerRequest[] = [];
+  const seen: HttpAuthRequest[] = [];
   const started: ExecutionEvent[] = [];
 
   const peerName = spec.peerName ?? "peer";
@@ -141,11 +135,11 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   })
   class LoopFinish {}
 
-  @Injectable()
-  class Resolver implements A2ACallerResolver<typeof MeshStart> {
-    resolveCaller(request: A2ACallerRequest): A2ACallerResolution<typeof MeshStart> {
+  @HttpAuthenticator()
+  class Authenticator {
+    authenticate(request: HttpAuthRequest): HttpAuthResult {
       seen.push(request);
-      return A2ACallerResolution.resolved(spec.peer === undefined ? {} : { peer: spec.peer });
+      return HttpAuthResult.authenticated(spec.peer === undefined ? {} : { peer: spec.peer });
     }
   }
 
@@ -164,7 +158,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     version: "1.0.0",
     flow: [flow],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-    providers: [PeerA2AAgent, Resolver, ...(spec.providers ?? [])],
+    providers: [PeerA2AAgent, Authenticator, ...(spec.providers ?? [])],
   })
   class MeshWorkflow {}
 
@@ -206,5 +200,5 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     MeshDesk,
     LoopFinish,
   };
-  return { ...workflow, CallPeer, Resolver, seen, started };
+  return { ...workflow, CallPeer, Authenticator, seen, started };
 }

@@ -1,11 +1,11 @@
 /**
- * How an A2A agent's callers authenticate (#808, spec §4.5): declared on `@A2AExpose({ security })`
- * and written into its Agent Card's `securitySchemes` and `securityRequirements` (any one of them
- * is enough). It only describes: the listener's caller resolver enforces it.
+ * How the callers of an HTTP listener authenticate (#808, A2A spec §4.5; #1316): declared on the
+ * `@HttpAuthenticator({ schemes })` that enforces them, and written by a protocol's listener into
+ * what it advertises (an Agent Card's `securitySchemes`). It only describes: `authenticate` enforces.
  */
 
 /** How a scheme is carried. */
-export enum A2ASecuritySchemeKind {
+export enum HttpSecuritySchemeKind {
   /** `Authorization: Bearer <token>`. */
   Bearer = "bearer",
   /** A key in a request header. */
@@ -16,38 +16,42 @@ export enum A2ASecuritySchemeKind {
   MutualTls = "mtls",
 }
 
-/** One declared scheme: its name in the card, and how it is carried. */
-export type A2ASecurityScheme =
+/** One declared scheme: its name, and how it is carried. */
+export type HttpSecurityScheme =
   | {
-      readonly kind: A2ASecuritySchemeKind.Bearer;
+      readonly kind: HttpSecuritySchemeKind.Bearer;
       readonly name: string;
       readonly bearerFormat?: string;
     }
-  | { readonly kind: A2ASecuritySchemeKind.ApiKey; readonly name: string; readonly header: string }
   | {
-      readonly kind: A2ASecuritySchemeKind.OAuth2ClientCredentials;
+      readonly kind: HttpSecuritySchemeKind.ApiKey;
+      readonly name: string;
+      readonly header: string;
+    }
+  | {
+      readonly kind: HttpSecuritySchemeKind.OAuth2ClientCredentials;
       readonly name: string;
       readonly tokenUrl: string;
       readonly scopes: Readonly<Record<string, string>>;
     }
-  | { readonly kind: A2ASecuritySchemeKind.MutualTls; readonly name: string };
+  | { readonly kind: HttpSecuritySchemeKind.MutualTls; readonly name: string };
 
-/** The schemes of `@A2AExpose({ security: [A2ASecurity.bearer(), …] })`. */
-export const A2ASecurity = {
+/** The schemes of `@HttpAuthenticator({ schemes: [HttpSecurity.bearer(), …] })`. */
+export const HttpSecurity = {
   /** A bearer token (`name` default `"bearer"`; `bearerFormat`, e.g. `"JWT"`). */
   bearer(
     options: { readonly name?: string; readonly bearerFormat?: string } = {},
-  ): A2ASecurityScheme {
+  ): HttpSecurityScheme {
     return {
-      kind: A2ASecuritySchemeKind.Bearer,
+      kind: HttpSecuritySchemeKind.Bearer,
       name: options.name ?? "bearer",
       ...(options.bearerFormat === undefined ? {} : { bearerFormat: options.bearerFormat }),
     };
   },
   /** A key in the header `header` (`name` default `"api-key"`). */
-  apiKey(options: { readonly header: string; readonly name?: string }): A2ASecurityScheme {
+  apiKey(options: { readonly header: string; readonly name?: string }): HttpSecurityScheme {
     return {
-      kind: A2ASecuritySchemeKind.ApiKey,
+      kind: HttpSecuritySchemeKind.ApiKey,
       name: options.name ?? "api-key",
       header: options.header,
     };
@@ -57,16 +61,16 @@ export const A2ASecurity = {
     readonly tokenUrl: string;
     readonly scopes?: Readonly<Record<string, string>>;
     readonly name?: string;
-  }): A2ASecurityScheme {
+  }): HttpSecurityScheme {
     return {
-      kind: A2ASecuritySchemeKind.OAuth2ClientCredentials,
+      kind: HttpSecuritySchemeKind.OAuth2ClientCredentials,
       name: options.name ?? "oauth2",
       tokenUrl: options.tokenUrl,
       scopes: options.scopes ?? {},
     };
   },
   /** A client certificate (`name` default `"mtls"`). */
-  mtls(options: { readonly name?: string } = {}): A2ASecurityScheme {
-    return { kind: A2ASecuritySchemeKind.MutualTls, name: options.name ?? "mtls" };
+  mtls(options: { readonly name?: string } = {}): HttpSecurityScheme {
+    return { kind: HttpSecuritySchemeKind.MutualTls, name: options.name ?? "mtls" };
   },
 } as const;

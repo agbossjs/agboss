@@ -28,7 +28,7 @@ import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-fi
 import { kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { caseOf, onStart } from "../../helpers/flow.js";
-import { BearerCallerResolver } from "./bearer-caller-resolver.js";
+import { BearerAuthenticator } from "./bearer-authenticator.js";
 
 /** What a caller sends: a document, maybe more pages, and a note ("ask" pauses first). */
 export class ReviewRequestDto {
@@ -252,7 +252,7 @@ export class FilesA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow],
-  providers: [BearerCallerResolver, FileCallerChannel],
+  providers: [BearerAuthenticator, FileCallerChannel],
   exposes: [FilesA2AExpose, FileSummaryA2AExpose],
   budgets: TEST_BUDGETS,
 })
@@ -263,7 +263,7 @@ export class FilesApplication {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow],
-  providers: [BearerCallerResolver, FileCallerChannel, InMemoryFileRepository],
+  providers: [BearerAuthenticator, FileCallerChannel, InMemoryFileRepository],
   exposes: [FilesA2AExpose],
   a2aFiles: { maxFileSize: kilobytes(512), maxTotalFileSize: kilobytes(1024) },
   budgets: TEST_BUDGETS,

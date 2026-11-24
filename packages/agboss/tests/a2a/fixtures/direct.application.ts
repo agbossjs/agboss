@@ -17,7 +17,7 @@ import { EmptyEnvironment, type Produced } from "../../../src/index.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
-import { BearerCallerResolver } from "./bearer-caller-resolver.js";
+import { BearerAuthenticator } from "./bearer-authenticator.js";
 
 export class SkuDto {
   @Text({ prompt: "the product" })
@@ -171,7 +171,7 @@ export class QuotesA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, QuoteFileWorkflow, AckWorkflow],
-  providers: [BearerCallerResolver, InMemoryFileRepository],
+  providers: [BearerAuthenticator, InMemoryFileRepository],
   exposes: [QuotesA2AExpose],
   budgets: TEST_BUDGETS,
 })

@@ -6,8 +6,8 @@ import type { MeshHop } from "./mesh-hop.js";
  * input — A2A in `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`, MCP in `_meta["agboss.dev/mesh"]`, both as a
  * compact JWS: signed (`EdDSA`) when the caller's `@Application({ mesh: { signingKey } })` is set,
  * else unsecured (`alg: "none"`). On the receiver it is a **claim** — parsed into
- * `A2ACallerRequest.envelope` — trusted (its `budget`, `deadline`, `origin` and idempotency key)
- * only when the caller resolver names an authenticated `peer` and the signature is that peer's
+ * the request's envelope — trusted (its `budget`, `deadline`, `origin` and idempotency key)
+ * only when the authenticator names an authenticated `peer` and the signature is that peer's
  * (PR 2). Its `callChain` is applied anyway — a loop or the hops limit refuses the request; a caller
  * can only make its own request fail with it. Ids only: no `ownerId`, no `tenantId`, no input values.
  */

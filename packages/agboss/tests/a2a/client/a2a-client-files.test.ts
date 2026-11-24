@@ -17,7 +17,7 @@ import {
 } from "../../../src/dto/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { kilobytes } from "../../../src/units/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import {
   FileSummaryA2AExpose,
   FilesApplication,
@@ -68,7 +68,7 @@ describe("#859 AC2: an AGBoss agent, called with a file, answers with one", () =
   }) => {
     const { url } = await a2aServer({
       expose: FileSummaryA2AExpose,
-      callerResolver: BearerCallerResolver,
+      authenticator: BearerAuthenticator,
     });
     const client = new A2AClient<ReviewRequestDto, ReviewResultDto>({
       url,

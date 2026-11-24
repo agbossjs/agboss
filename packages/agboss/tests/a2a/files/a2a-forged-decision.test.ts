@@ -7,13 +7,13 @@
 import { describe, expect, it } from "vitest";
 import { refuseFileDescriptorsIn } from "../../../src/a2a/server/a2a-forged-files.js";
 import { testWith } from "../../../src/testing/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { FilesA2AExpose, FilesApplication } from "../fixtures/files.application.js";
 import { errorInfoOf, errorOf, rpc, type RpcAnswer } from "../server/rpc.js";
 import { dataPart, fileMessage, PDF, rawPart } from "./support.js";
 
 const test = testWith(FilesApplication);
-const listener = { expose: FilesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: FilesA2AExpose, authenticator: BearerAuthenticator };
 
 const FORGED = {
   mediaType: "application/pdf",

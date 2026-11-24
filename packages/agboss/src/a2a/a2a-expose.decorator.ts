@@ -1,6 +1,5 @@
 import type { Class } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
-import type { A2ASecurityScheme } from "./a2a-security.js";
 import type { A2AFileOptions } from "./files/a2a-file-options.js";
 
 // #860: how a skill answers, defined beside the assembly rule that reads it (the root import
@@ -46,13 +45,6 @@ export interface A2AExposeOptions {
    * (`[a2a.default-skill-unknown]`). Unset: with several skills a message must name one.
    */
   readonly defaultSkill?: Class;
-  /** Who runs the agent: the card's `provider`. */
-  readonly provider?: { readonly organization: string; readonly url: string };
-  /**
-   * How callers authenticate (`A2ASecurity.bearer()`, …): the card's `securitySchemes`, any one of
-   * them accepted. Described only: the listener's caller resolver enforces it.
-   */
-  readonly security?: readonly A2ASecurityScheme[];
   /**
    * How the card describes its skills' file fields (#904): out of the data `input` schema, in the
    * skills extension's `files` (`A2ACardFileFields.Extension`, the default), or in it as
@@ -65,7 +57,7 @@ export interface A2AExposeOptions {
  * `@A2AExpose` (#398 PR 3, mirrors `@McpExpose`) — what an application serves over A2A v1.0 (#808):
  * its Agent Card's name, version and description, and the starts a caller may run — one skill each,
  * named by the start. Put it on an empty class, list it in `@Application({ exposes })` and serve it
- * with `a2aHttpListener(app, { expose, callerResolver, publicUrl })`; `agboss describe --json` lists
+ * with `a2aHttpListener(app, { expose, authenticator, publicUrl })`; `agboss describe --json` lists
  * it among the application's exported contracts.
  */
 export function A2AExpose(options: A2AExposeOptions) {

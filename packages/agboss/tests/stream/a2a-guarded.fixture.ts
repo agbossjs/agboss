@@ -1,5 +1,5 @@
 /** The guarded agents (#1006) served over A2A: what a client's socket receives of a blocked answer. */
-import { A2AExpose, A2ACallerResolution, type A2ACallerResolver } from "../../src/a2a/index.js";
+import { A2AExpose } from "../../src/a2a/index.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
@@ -8,6 +8,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { GuardedAgent } from "./guarded.fixture.js";
+import { HttpAuthResult, HttpAuthenticator } from "../../src/index.js";
 
 @WorkflowStart({
   name: "wire-guarded-workflow-start",
@@ -23,10 +24,10 @@ class WireGuardedStart {}
 })
 class WireGuardedFinish {}
 
-@Injectable()
-export class WireCallerResolver implements A2ACallerResolver<typeof WireGuardedStart> {
-  resolveCaller(): A2ACallerResolution<typeof WireGuardedStart> {
-    return A2ACallerResolution.resolved({});
+@HttpAuthenticator()
+export class WireAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({});
   }
 }
 
@@ -35,7 +36,7 @@ export class WireCallerResolver implements A2ACallerResolver<typeof WireGuardedS
   version: "1.0.0",
   flow: [onStart(WireGuardedStart).toAgent(GuardedAgent).toFinish(WireGuardedFinish)],
   defaults: DEFAULTS,
-  providers: [WireCallerResolver],
+  providers: [WireAuthenticator],
 })
 class WireGuardedWorkflow {}
 
@@ -58,4 +59,4 @@ export class WireA2AExpose {}
 })
 export class WireApplication {}
 
-export const wireListener = { expose: WireA2AExpose, callerResolver: WireCallerResolver };
+export const wireListener = { expose: WireA2AExpose, authenticator: WireAuthenticator };

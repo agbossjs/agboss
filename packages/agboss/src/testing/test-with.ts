@@ -63,7 +63,7 @@ export interface WorkflowFixtures {
   ) => McpStub<TServer>;
   /**
    * The application served over A2A (#387): `const { url } = await a2aServer({ expose,
-   * callerResolver })` — `a2aHttpListener(app, …)` on `127.0.0.1:0`, the resolver from the app's
+   * authenticator })` — `a2aHttpListener(app, …)` on `127.0.0.1:0`, the authenticator from the app's
    * container, the loopback open for the test (no `allowNetwork` needed), closed at its end.
    */
   readonly a2aServer: A2AServerFixture;

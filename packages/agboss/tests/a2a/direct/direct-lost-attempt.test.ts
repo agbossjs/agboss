@@ -21,7 +21,7 @@ import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
 import { minutes, seconds } from "../../../src/units/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { DirectApplication, QuoteAgent, QuotesA2AExpose } from "../fixtures/direct.application.js";
 import { rpc, text, userMessage } from "../server/rpc.js";
 import { textMessage } from "../server/sdk-client.js";
@@ -106,7 +106,7 @@ describe("#860: the sweep of the direct messages", () => {
 });
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: QuotesA2AExpose, authenticator: BearerAuthenticator };
 const QUOTE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-workflow-start" } };
 
 describe("#860: a resend that finds its attempt lost", () => {

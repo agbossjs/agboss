@@ -507,7 +507,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
   `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers)
 - `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
 - `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`,
-  `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `A2ACallerResolver`, memory)
+  `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `HttpAuthenticator`, memory)
 - `@agboss/core/eslint` — ESLint plugin (`agboss/no-component-state`, `agboss/no-direct-time`)
 
 Importing `@agboss/core` has no side effects: tracing, the MCP SDK and SQLite load only when an app

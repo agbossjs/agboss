@@ -1,6 +1,5 @@
 import type { Server } from "node:http";
 import type { A2AHttpListenerOptions } from "../a2a/a2a-http.js";
-import type { Class } from "../components/injection.js";
 import { blockNetwork } from "./network-guard.js";
 import type { TestApp } from "./test-app.js";
 import { lazyLoad } from "../infrastructure/clock.js";
@@ -12,11 +11,11 @@ export interface A2ATestServer {
 }
 
 /**
- * `a2aServer({ expose, callerResolver, base?, … })`: the listener of the test's app, on a free port
+ * `a2aServer({ expose, authenticator, base?, … })`: the listener of the test's app, on a free port
  * — its `publicUrl` that port's, unless given.
  */
-export type A2AServerFixture = <TStart extends Class>(
-  options: Omit<A2AHttpListenerOptions<TStart>, "publicUrl"> & { readonly publicUrl?: string },
+export type A2AServerFixture = (
+  options: Omit<A2AHttpListenerOptions, "publicUrl"> & { readonly publicUrl?: string },
 ) => Promise<A2ATestServer>;
 
 /** The servers one test started, closed at its end. */
@@ -45,7 +44,7 @@ async function close(server: Server): Promise<void> {
 
 /**
  * The `a2aServer` fixture (#387): `a2aHttpListener(app, options)` on `127.0.0.1:0` — the app built
- * first, its resolver taken from its container — the loopback reachable for the test while it runs
+ * first, its authenticator taken from its container — the loopback reachable for the test while it runs
  * (`allowNetwork` implied), every server closed when the test ends. The listener's module loads on
  * first use.
  */

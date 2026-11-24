@@ -12,12 +12,12 @@ import { testWith } from "../../src/testing/index.js";
 import { minutes } from "../../src/units/index.js";
 import { until } from "../channels/fixtures/pause-scripts.js";
 import { expiry, expiryStore, resetExpiry } from "../flow/fixtures/expiry.fixture.js";
-import { BearerCallerResolver } from "./fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "./fixtures/bearer-authenticator.js";
 import { ExpiryServedApplication, OwnerA2AExpose } from "./fixtures/expiry-served.application.js";
 import { data, errorInfoOf, errorOf, rpc, userMessage, type RpcAnswer } from "./server/rpc.js";
 
 const test = testWith(ExpiryServedApplication);
-const listener = { expose: OwnerA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { expose: OwnerA2AExpose, authenticator: BearerAuthenticator };
 
 beforeEach(resetExpiry);
 
