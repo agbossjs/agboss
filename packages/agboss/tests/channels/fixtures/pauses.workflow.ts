@@ -459,7 +459,11 @@ export class DeskClerkAgent {}
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
-  flow: [onStart(DeskWorkflowStart).toAgent(DeskClerkAgent).toFinish(DeskWorkflowFinish)],
+  flow: [
+    onStart(DeskWorkflowStart)
+      .toAgent(DeskClerkAgent)
+      .toFinish(DeskWorkflowFinish),
+  ],
 })
 export class DeskWorkflow {}
 
@@ -499,7 +503,9 @@ export class BatchAction {
     readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
   }): Promise<BatchSummaryDto> {
     return {
-      text: input.refunds.map((refund) => refund.value.orderId).join(", "),
+      text: input.refunds
+        .map((refund) => refund.value.orderId)
+        .join(", "),
     };
   }
 }

@@ -61,7 +61,9 @@ export class ChildRefundAgent {}
   name: "refund-one-workflow",
   version: "1.0.0",
   flow: [
-    onStart(RefundOneWorkflowStart).toAgent(ChildRefundAgent).toFinish(RefundOneWorkflowFinish),
+    onStart(RefundOneWorkflowStart)
+      .toAgent(ChildRefundAgent)
+      .toFinish(RefundOneWorkflowFinish),
   ],
 })
 export class RefundOneWorkflow {}
@@ -110,7 +112,9 @@ export class ChildBatchAction {
     readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
   }): Promise<BatchSummaryDto> {
     return {
-      text: input.refunds.map((refund) => refund.value.orderId).join(", "),
+      text: input.refunds
+        .map((refund) => refund.value.orderId)
+        .join(", "),
     };
   }
 }
