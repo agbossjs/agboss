@@ -1,4 +1,5 @@
 import { WorkingCalendarError } from "../../calendar/working-calendar.js";
+import { approvalChannelOf } from "../../tools/index.js";
 import type { AsyncNode } from "../types.js";
 import { awaitingApproval } from "./boundary.js";
 import { toolNamed } from "./deps.js";
@@ -56,7 +57,7 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
     const { approval } = deps;
     if (call === undefined || approval === undefined) return {};
     const tool = toolNamed(deps.agent, call.tool);
-    if (tool?.channel === undefined) return {};
+    if (tool === undefined || approvalChannelOf(tool) === undefined) return {};
     if (tool.question !== undefined)
       return askQuestion(state, deps, { call, tool, approval }, config);
 

@@ -19,7 +19,7 @@ import {
 } from "./defaults.js";
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
 import { shortVersion, versionOf } from "../turns/index.js";
-import { isMcpFacade, type AnyTool } from "../tools/index.js";
+import { approvalChannelOf, isMcpFacade, type AnyTool } from "../tools/index.js";
 import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
 import { applicationContextOf } from "../flow/context/application-context.js";
@@ -71,9 +71,10 @@ const thinkingLabel = (thinking: Thinking | undefined): string =>
 
 function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
   const kind = isMcpFacade(tool) ? `MCP ${tool.mcp.server}` : "local";
-  const waits = tool.channel ? ", uses channel" : "";
+  const channel = approvalChannelOf(tool);
+  const waits = channel ? ", uses channel" : "";
   const deps = bundle.toolDependencies?.[tool.name];
-  return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}${expiryLabel(tool)}`;
+  return `${tool.name} (${channel ? `channel:${channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}${expiryLabel(tool)}`;
 }
 
 /** The start each edge into a child workflow enters through (#263), when the workflow has one. */

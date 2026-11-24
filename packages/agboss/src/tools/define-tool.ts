@@ -1,3 +1,4 @@
+import { namedChannelOf } from "./approval-channel.js";
 import { checkedTimer, MAX_TIMEOUT } from "../units/timer-limits.js";
 import { handedOverOf, recordedHandOver } from "../app/handed-over.js";
 import { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
@@ -149,6 +150,7 @@ export function defineTool<TName extends string, TInput, TOutput>(
       `Tool name "${definition.name}" must match ${String(TOOL_NAME)}`,
     );
   }
+  const channel = namedChannelOf(definition);
   const timeout = checkedTimer(
     `tool ${definition.name}: timeout`,
     definition.timeout ?? DEFAULT_TOOL_TIMEOUT,
@@ -178,7 +180,8 @@ export function defineTool<TName extends string, TInput, TOutput>(
   return {
     name: definition.name,
     description: definition.description,
-    ...(definition.channel === undefined ? {} : { channel: definition.channel }),
+    // `approval` is the new name of `channel`: the one the runtime waits on is the same (#1307)
+    ...(channel === undefined ? {} : { channel }),
     ...(definition.approval === undefined ? {} : { approval: definition.approval }),
     timeout,
     ...(definition.expiresIn === undefined ? {} : { expiresIn: definition.expiresIn }),

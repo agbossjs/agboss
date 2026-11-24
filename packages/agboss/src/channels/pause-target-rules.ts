@@ -5,7 +5,8 @@ import { EXECUTION_LEASE } from "../app/lease-fence.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelSelectorOf } from "./channel-selector.js";
-import { rolesOf, type ChannelUse } from "./discovery.js";
+import type { ChannelUse } from "./discovery.js";
+import { ignoredSettingViolations, targetsOf } from "./pause-setting-rules.js";
 import {
   channelTargetOf,
   listedClassesOf,
@@ -24,15 +25,6 @@ import {
  */
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
-
-/** The pause targets the uses name (each once), with what they recorded. */
-const targetsOf = (uses: readonly ChannelUse[]): readonly [Class, PauseTargetDeclaration][] =>
-  rolesOf(uses).flatMap(({ role }) => {
-    const declaration = pauseTargetOf(role);
-    return declaration === undefined
-      ? []
-      : [[role, declaration] as [Class, PauseTargetDeclaration]];
-  });
 
 /** `[channel.missing-for-target]` / `[channel.ambiguous-for-target]` for each target in use. */
 function bindingViolations(
@@ -204,6 +196,7 @@ export function pauseTargetViolations(
   return [
     ...nameViolations(uses),
     ...permitHookViolations(uses),
+    ...ignoredSettingViolations(uses, modules),
     ...bindingViolations(uses, modules),
     ...channelViolations(modules),
     ...selectorViolations(modules),

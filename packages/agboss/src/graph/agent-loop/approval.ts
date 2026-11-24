@@ -7,7 +7,7 @@ import { PauseKind, questionAskOf, type PauseAsk } from "../../infrastructure/pa
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { ComponentRecord } from "../../flow/runtime/records.js";
 import type { ToolCallApprovalAskDto } from "../../dto/standard/framework.js";
-import type { AnyTool } from "../../tools/index.js";
+import { approvalChannelOf, type AnyTool } from "../../tools/index.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import type { PauseNotices } from "../../pause/index.js";
@@ -174,7 +174,7 @@ export function pauseSeamApproval(channels: ApprovalChannels = {}): ToolCallAppr
     requestApproval: async (ask, agent, tool, signal) => {
       const shown = shownAsk(ask, tool);
       const validate = (decision: unknown): unknown => validDecisionOf(decision, tool);
-      const channel = tool.channel ?? "";
+      const channel = approvalChannelOf(tool) ?? "";
       const seam = {
         kind: PauseKind.Approval,
         ...{ channel, agent, shown, input: shown.arguments, validate },

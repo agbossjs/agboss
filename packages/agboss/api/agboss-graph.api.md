@@ -82,7 +82,7 @@ export interface LimitExceededErrorOptions {
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
 
 // @public
-export type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
+export type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "pause.setting-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
 
 // @public
 export type PiiRuleCode = "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.duplicate-target" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model";

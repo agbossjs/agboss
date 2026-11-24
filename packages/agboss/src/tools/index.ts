@@ -15,6 +15,7 @@ export {
   type ToolDefinition,
 } from "./define-tool.js";
 
+export { approvalChannelOf } from "./approval-channel.js";
 export type { ToolInputOf, ToolOutputOf, UnionToIntersection } from "./tool-io.js";
 export { renderToolResult, toolDefinitionOf } from "./langchain.js";
 export type {

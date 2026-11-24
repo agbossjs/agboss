@@ -79,6 +79,7 @@ export function assemblyRulesShard() {
       "src/application/limit-rules.ts",
       "src/channels/channel-rules.ts",
       "src/channels/pause-target-rules.ts",
+      "src/channels/pause-setting-rules.ts",
       "src/components/tool-expiry-rules.ts",
       "src/flow/analyse/rules/options.ts",
       "src/flow/analyse/rules/limit-handlers.ts",

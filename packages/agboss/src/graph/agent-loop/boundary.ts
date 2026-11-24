@@ -1,4 +1,5 @@
 import { Send } from "@langchain/langgraph";
+import { approvalChannelOf } from "../../tools/index.js";
 import { loopUsage } from "./state.js";
 import { invalidArgumentsMessage, unknownToolMessage } from "../../prompts/agents.js";
 import { AgentRetryReason, reportAgentRetry } from "./retry-event.js";
@@ -34,7 +35,12 @@ export function awaitingApproval(
   if (approval === undefined) return [];
   return callsOf(state.move).filter((call) => {
     const tool = toolNamed(deps.agent, call.tool);
-    if (tool?.channel === undefined || state.results[call.callId] !== undefined) return false;
+    if (
+      tool === undefined ||
+      approvalChannelOf(tool) === undefined ||
+      state.results[call.callId] !== undefined
+    )
+      return false;
     // a question call (#712) waits for its answer, an approval's for its decision
     return tool.question === undefined
       ? state.decisions[call.callId] === undefined

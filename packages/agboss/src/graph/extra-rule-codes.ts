@@ -23,6 +23,7 @@ export type PauseTargetRuleCode =
   | "channel-selector.target-invalid"
   | "pause.incompatible-escalation-target"
   | "pause.permit-hook-not-enforced"
+  | "pause.setting-not-enforced"
   | "channel-listener.missing-handler"
   | "channel-listener.unknown-hook"
   | "channel-interpreter.not-an-interpreter"

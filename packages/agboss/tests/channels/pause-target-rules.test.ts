@@ -132,7 +132,10 @@ describe("#1307a: a target has a channel", () => {
       channelOf(target, "two-channel"),
       Selector,
     ];
-    expect(found([useOf(target)], providers)).toEqual([]);
+    // the ambiguity is answered; the selector itself is refused until the runtime picks (below)
+    expect(found([useOf(target)], providers).map((one) => one.code)).toEqual([
+      "pause.setting-not-enforced",
+    ]);
   });
 
   it("an external task is checked like an approval", () => {
@@ -182,6 +185,7 @@ describe("#1307a: a channel and a selector name a target", () => {
     @ChannelSelector({ target: Plain })
     class Selector {}
     expect(found([], [Selector as never]).map((one) => one.code)).toEqual([
+      "pause.setting-not-enforced",
       "channel-selector.no-select-method",
       "channel-selector.target-invalid",
     ]);
@@ -371,5 +375,85 @@ describe("#1307a: a permission hook nothing calls fails assembly (fail closed)",
   it("a target without the hooks is clean", () => {
     const target = approval("plain-tool-approval");
     expect(found([useOf(target)], [channelOf(target, "plain-channel")])).toEqual([]);
+  });
+});
+
+describe("#1307a: a setting nothing reads yet fails assembly (fail closed)", () => {
+  const message = (what: string, name: string, owner: string) =>
+    `${owner} (${name}) sets ${what}, which nothing reads yet — it would be silently ignored; remove it until the runtime enforces it`;
+
+  it.each(["assign", "resolveTimeout"])("[pause.setting-not-enforced]: the hook %s", (hook) => {
+    class Hooked {
+      [key: string]: unknown;
+    }
+    Object.defineProperty(Hooked.prototype, hook, { value: () => undefined });
+    ToolApproval({
+      name: "hooked-tool-approval",
+      description: "d",
+      input: InputDto,
+      respondent: PauseRespondent.Delegate,
+      timeout: hours(1),
+    })(Hooked);
+    expect(found([useOf(Hooked)], [channelOf(Hooked, "hooked-channel")])).toEqual([
+      {
+        code: "pause.setting-not-enforced",
+        message: message(`the hook ${hook}`, "hooked-tool-approval", "Hooked"),
+        nodes: ["hooked-tool-approval"],
+      },
+    ]);
+  });
+
+  it("[pause.setting-not-enforced]: escalationLimits", () => {
+    const target = approval("limited-tool-approval", {
+      escalationLimits: { maxExtensions: 1 },
+    });
+    expect(found([useOf(target)], [channelOf(target, "limited-channel")])).toEqual([
+      {
+        code: "pause.setting-not-enforced",
+        message: message("escalationLimits", "limited-tool-approval", "SomeApproval"),
+        nodes: ["limited-tool-approval"],
+      },
+    ]);
+  });
+
+  it("[pause.setting-not-enforced]: an external task's escalationLimits", () => {
+    const target = task("limited-external-task", { escalationLimits: { maxExtensions: 1 } });
+    expect(
+      found([useOf(target, true)], [channelOf(target, "limited-channel")]).map((one) => one.code),
+    ).toEqual(["pause.setting-not-enforced"]);
+  });
+
+  it("[pause.setting-not-enforced]: a @ChannelSelector", () => {
+    const target = approval("picked-tool-approval");
+    @ChannelSelector({ name: "pick-selector", target })
+    class Pick {
+      selectChannel() {
+        return channelOf(target, "x-channel");
+      }
+    }
+    expect(found([useOf(target)], [channelOf(target, "picked-channel"), Pick])).toEqual([
+      {
+        code: "pause.setting-not-enforced",
+        message: message("a @ChannelSelector", "pick-selector", "Pick"),
+        nodes: ["pick-selector"],
+      },
+    ]);
+  });
+
+  it("[pause.setting-not-enforced]: a channel's timeout", () => {
+    const target = approval("slow-tool-approval");
+    @Channel({ name: "slow-channel", target, ttl: days(1), timeout: seconds(5) })
+    class Slow {
+      send() {
+        return undefined;
+      }
+    }
+    expect(found([useOf(target)], [Slow])).toEqual([
+      {
+        code: "pause.setting-not-enforced",
+        message: message("timeout", "slow-channel", "Slow"),
+        nodes: ["slow-channel"],
+      },
+    ]);
   });
 });
