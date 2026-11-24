@@ -1,26 +1,26 @@
-// #700 AC2 — the RAG connector contract run on a sound in-memory connector and on one broken way
+// #700 AC2 — the RAG source contract run on a sound in-memory connector and on one broken way
 // per rule; tests/testing/contracts/rag-sabotage.test.ts reads which cases each fails.
-import { RagTenancy } from "../../../src/rag/types.js";
-import { ragConnectorContract } from "../../../src/testing/contracts/index.js";
-import { memoryTarget } from "./rag-connectors.js";
+import { RagScope } from "../../../src/rag/types.js";
+import { ragSourceContract } from "../../../src/testing/contracts/index.js";
+import { memoryTarget } from "./rag-sources.js";
 
-ragConnectorContract(memoryTarget("sound"));
-ragConnectorContract(memoryTarget("ignores the tenant", { keyOf: () => "everyone" }));
-ragConnectorContract(
+ragSourceContract(memoryTarget("sound"));
+ragSourceContract(memoryTarget("ignores the tenant", { keyOf: () => "everyone" }));
+ragSourceContract(
   memoryTarget("folds the tenant id", {
-    keyOf: (tenantId) => tenantId.normalize("NFKC").toLowerCase(),
+    keyOf: (scopeId) => scopeId.normalize("NFKC").toLowerCase(),
   }),
 );
-ragConnectorContract(memoryTarget("appends on re-index", { appendsOnReindex: true }));
-ragConnectorContract(memoryTarget("ignores topK", { ignoresTopK: true }));
-ragConnectorContract(memoryTarget("ignores the signal", { ignoresSignal: true }));
-ragConnectorContract(memoryTarget("reports NaN", { costUsd: Number.NaN }));
-// #703 AC5: a reranker in place does not hide a connector that ignores the tenant
-ragConnectorContract({
+ragSourceContract(memoryTarget("appends on re-index", { appendsOnReindex: true }));
+ragSourceContract(memoryTarget("ignores topK", { ignoresTopK: true }));
+ragSourceContract(memoryTarget("ignores the signal", { ignoresSignal: true }));
+ragSourceContract(memoryTarget("reports NaN", { costUsd: Number.NaN }));
+// #703 AC5: a reranker in place does not hide a source that ignores the tenant
+ragSourceContract({
   ...memoryTarget("ignores the tenant, reranked", { keyOf: () => "everyone" }),
   rerank: {
     by: {
-      rerank: (_q, candidates, { topK }) => Promise.resolve({ results: candidates.slice(0, topK) }),
+      rerank: (_q, candidates, { topK }) => ({ results: candidates.slice(0, topK) }),
     },
     candidates: 10,
   },
@@ -28,13 +28,12 @@ ragConnectorContract({
 // #799 AC2: the contract reranks under FailStep — a sound reranker passes every case, and one that
 // fails quietly (a throw, a passage that is no candidate) fails the cases that retrieve, never
 // falling back to the retrieval's own order
-const reranked = (name: string, by: Parameters<typeof ragConnectorContract>[0]["rerank"]): void => {
-  ragConnectorContract({ ...memoryTarget(name), rerank: by });
+const reranked = (name: string, by: Parameters<typeof ragSourceContract>[0]["rerank"]): void => {
+  ragSourceContract({ ...memoryTarget(name), rerank: by });
 };
 reranked("sound, reranked", {
   by: {
-    rerank: (_q, candidates, { topK }) =>
-      Promise.resolve({ results: [...candidates].reverse().slice(0, topK) }),
+    rerank: (_q, candidates, { topK }) => ({ results: [...candidates].reverse().slice(0, topK) }),
   },
   candidates: 10,
 });
@@ -53,22 +52,21 @@ reranked("a reranker that returns no candidate", {
   },
   candidates: 10,
 });
-// #818 AC5: a shared corpus — a connector that serves every tenant one corpus passes the Shared
-// cases (reranked too); one that keys by tenant, declared Shared, fails them
+// #818 AC5: a shared corpus — a source that serves every tenant one corpus passes the Shared
+// cases (reranked too); one that keys by scope, declared Shared, fails them
 const shared = (name: string, flaws: Parameters<typeof memoryTarget>[1] = {}) => ({
   ...memoryTarget(name, flaws),
-  tenancy: RagTenancy.Shared,
+  scope: RagScope.Shared,
 });
-ragConnectorContract(shared("shared", { keyOf: () => "everyone" }));
-ragConnectorContract({
+ragSourceContract(shared("shared", { keyOf: () => "everyone" }));
+ragSourceContract({
   ...shared("shared, reranked", { keyOf: () => "everyone" }),
   rerank: {
     by: {
-      rerank: (_q, candidates, { topK }) =>
-        Promise.resolve({ results: [...candidates].reverse().slice(0, topK) }),
+      rerank: (_q, candidates, { topK }) => ({ results: [...candidates].reverse().slice(0, topK) }),
     },
     candidates: 10,
   },
 });
-ragConnectorContract(shared("shared, keyed by tenant"));
-ragConnectorContract(shared("shared, a copy per tenant", { copiesPerTenant: true }));
+ragSourceContract(shared("shared, keyed by tenant"));
+// (a copy per tenant cannot happen to a shared source any more: the core hands it no scope id)

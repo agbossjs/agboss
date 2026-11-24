@@ -1,67 +1,48 @@
 import { recordComponent } from "../components/metadata.js";
-import type { ResolvedAll, Token } from "../components/injection.js";
+import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { resolvedName } from "../flow/names.js";
-import { DecidedBy } from "../flow/decorators/router.js";
-import { DEFAULT_RERANKER_MODEL, type ModelReranker, type RerankerHandler } from "./types.js";
+import type { RerankFailurePolicy } from "./types.js";
 
 /**
- * `@Reranker` (#703): what re-orders a knowledge base's candidates before the agent reads them —
- * bound by `@Rag({ rerank: { by, candidates, topK } })`. By model (the default): the core's LLM
- * reranker on any chat model of the application's providers. By code: your class's `rerank()`
- * (`implements RerankerHandler`), a dedicated rerank API on its official SDK.
+ * `@RagReranker`: what re-orders a knowledge base's candidates before the agent reads them — bound
+ * by `@Rag({ reranker })`. An empty class is the core's LLM reranker on the cascade's model; a class
+ * with a `rerank(query, candidates, options)` method is your own (a dedicated rerank API on its
+ * official SDK, or plain code), created by the container with its `deps`.
  */
-
-/** The core's LLM reranker on `model` (`DecidedBy.Model`, the default). */
-export interface ModelRerankerMeta {
-  /** Kebab-case; the class name in kebab-case when left out (`Docs` → `docs`). */
+export interface RagRerankerOptions<D extends readonly Token[] = readonly Token[]> {
+  /** Kebab-case; the class name in kebab-case when left out (`DocsReranker` → `docs-reranker`). */
   readonly name?: string;
   readonly description?: string;
-  readonly decidedBy?: DecidedBy.Model;
-  /** A chat model of the application's providers; default `DEFAULT_RERANKER_MODEL`. */
+  /** How many results the source is asked for, before reranking (`@Rag({ topK })` ≤ `candidates`). */
+  readonly candidates: number;
+  /** A candidate's text is cut to this many characters for a model reranker (default 1200). */
+  readonly maxCandidateLength?: number;
+  /** Default `RerankFailurePolicy.FailStep`: a broken reranker fails the step, never degrades silently. */
+  readonly onFailure?: RerankFailurePolicy;
+  /** A model reranker's model: a role of its provider or a vendor's name; default its provider's. */
   readonly model?: string;
-  readonly deps?: never;
-}
-
-/** Your own reranker: the class's `rerank()` (`DecidedBy.Code`), its services through `deps`. */
-export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> {
-  /** Kebab-case; the class name in kebab-case when left out (`Docs` → `docs`). */
-  readonly name?: string;
-  readonly description?: string;
-  readonly decidedBy: DecidedBy.Code;
-  readonly model?: never;
+  /** A model reranker's `@ModelProvider`; default the workflow's, else the application's. */
+  readonly modelProvider?: Class;
+  /** A code reranker's services. */
   readonly deps?: D;
 }
 
-/** `@Reranker`'s options. */
-export type RerankerMeta = ModelRerankerMeta | CodeRerankerMeta;
+/** A `@RagReranker`'s options as recorded: its name resolved and its `deps` always set. */
+export type RecordedRerankerMeta = Omit<RagRerankerOptions, "deps" | "name"> & {
+  readonly name: string;
+  readonly deps: readonly Token[];
+};
 
-/** A `@Reranker`'s options as recorded: its `deps` always set (none for a model one). */
-export type RecordedRerankerMeta = (
-  Omit<ModelRerankerMeta, "deps"> | Omit<CodeRerankerMeta, "deps">
-) & { readonly name: string; readonly deps: readonly Token[] };
+/** Whether a reranker class is code (it has `rerank()`) or the core's model reranker. */
+export const isCodeRerankerClass = (cls: Class): boolean =>
+  typeof Reflect.get(cls.prototype as object, "rerank") === "function";
 
-/** Whether a reranker is decided by its class's code. */
-export const isCodeReranker = (meta: RerankerMeta): meta is CodeRerankerMeta =>
-  meta.decidedBy === DecidedBy.Code;
-
-/** The model of a model reranker: its own, else the default. */
-export const rerankerModelOf = (meta: ModelRerankerMeta): string =>
-  meta.model ?? DEFAULT_RERANKER_MODEL;
-
-/** A model reranker: `extends ModelReranker` with no code, decided by the core's LLM reranker on its model. */
-export function Reranker(
-  options: ModelRerankerMeta,
-): <C extends abstract new () => ModelReranker>(value: C) => C;
-/** A code reranker: `implements RerankerHandler`, created by the container with its `deps`. */
-export function Reranker<const D extends readonly Token[] = []>(
-  options: CodeRerankerMeta<D>,
-): <C extends new (...args: ResolvedAll<D>) => RerankerHandler>(value: C) => C;
-export function Reranker(options: RerankerMeta) {
-  return <C extends abstract new (...args: never[]) => object>(value: C): C => {
-    const deps: readonly Token[] = isCodeReranker(options) ? (options.deps ?? []) : [];
+/** A reranker: an empty class (LLM) or one with `rerank()` (code). */
+export function RagReranker<const D extends readonly Token[] = []>(options: RagRerankerOptions<D>) {
+  return <C extends new (...args: ResolvedAll<D>) => object>(value: C): C => {
     recordComponent(value, {
       kind: "reranker",
-      meta: { ...options, name: resolvedName(options.name, value), deps },
+      meta: { ...options, name: resolvedName(options.name, value), deps: options.deps ?? [] },
     });
     return value;
   };

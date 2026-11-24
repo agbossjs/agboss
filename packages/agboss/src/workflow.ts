@@ -2,7 +2,7 @@ import type { BusinessKeyWriterUse } from "./components/container/fenced-reach.j
 import type { JudgeInstance } from "./components/judge-decorators.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
 import type { McpServerConfig } from "./config/mcp-server-config.js";
-import type { KnowledgeSource, RagConnector } from "./rag/types.js";
+import type { KnowledgeSource, RagIndexOptions, RagIndexReport, RagScope } from "./rag/types.js";
 import type { ModelBinding } from "./llm/registry.js";
 import type { PauseChannel } from "./flow/runtime/pause.js";
 import type { AssembledPii } from "./pii/assembly.js";
@@ -37,7 +37,7 @@ export interface WorkflowServices {
    * A model `@Reranker`'s chat model (#703), through the application's model gateway with the
    * workflow's chat defaults; absent where no gateway is (describe, the CLI's index).
    */
-  readonly rerankModel?: (reranker: string, model: string) => ModelBinding;
+  readonly rerankModel?: (reranker: string, model: string, modelProvider?: string) => ModelBinding;
 }
 
 /** Tools as a list, or a factory when they need core services. */
@@ -82,12 +82,19 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly knowledge?: (
     services: WorkflowServices,
   ) => ReadonlyMap<string, readonly KnowledgeSource[]>;
-  /** Its knowledge bases' model rerankers (#703), by name and model: model uses `rerankers.<name>`. */
-  readonly rerankers?: readonly { readonly name: string; readonly model: string }[];
+  /** Its knowledge bases' model rerankers, by name and resolved model: model uses `rerankers.<name>`. */
+  readonly rerankers?: readonly {
+    readonly name: string;
+    readonly model: string;
+    readonly modelProvider?: string;
+  }[];
   /** Every knowledge base of the workflow (for `npm run rag:index`). */
-  readonly knowledgeBases?: (
-    services: WorkflowServices,
-  ) => readonly { readonly name: string; readonly connector: RagConnector }[];
+  readonly knowledgeBases?: (services: WorkflowServices) => readonly {
+    readonly name: string;
+    readonly scope: RagScope;
+    /** Builds or updates one scope's index; `undefined` for a source without `index`. */
+    readonly index: (options: RagIndexOptions) => Promise<RagIndexReport | undefined>;
+  }[];
   /** Per tool: its constructor dependencies as a tree, e.g. `JobFitJudge (ROUTER_FACTORY), JOB_SEARCH`. */
   readonly toolDependencies?: Readonly<Record<string, string>>;
   /** Its memories (#1303): every one in use, with its prompt, and each reader's. */

@@ -14,7 +14,7 @@ import { modelResolverOf, type ModelResolver } from "../models/model-resolver.js
 import type { WorkflowDefaults, WorkflowOptions } from "../flow/decorators/workflow.js";
 import type { Class, Provider } from "./injection.js";
 import { componentOf } from "./metadata.js";
-import { rerankerModelsOf } from "./rag.js";
+import { rerankerModelsOf } from "./rag-reranker.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { AssembledReplyInterpreter } from "../channels/discovery.js";
 
@@ -153,7 +153,7 @@ export const workflowModelPartsOf = (
     owner,
     { config, routers },
     graph,
-    { ...rest, rerankers: rerankerModelsOf(rags), arbiters },
+    { ...rest, rerankers: rerankerModelsOf(rags, bundle.modelCascade ?? {}), arbiters },
     cascade,
   );
 };

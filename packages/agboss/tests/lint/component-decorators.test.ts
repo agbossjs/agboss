@@ -152,8 +152,8 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@Rag({ name: "jobs-rag", description: "d" })',
     "async search(): Promise<void>",
   ),
-  Reranker: statefulClass(
-    '@Reranker({ name: "jobs-reranker", description: "d", decidedBy: DecidedBy.Code })',
+  RagReranker: statefulClass(
+    '@RagReranker({ name: "jobs-reranker", description: "d", candidates: 5 })',
     "async rerank(): Promise<void>",
   ),
   A2AAgent: statefulClass(

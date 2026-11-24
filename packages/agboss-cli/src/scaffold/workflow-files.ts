@@ -4,7 +4,7 @@ import { agentRoute, endpointFiles, MAIN_ROUTER, routerFile } from "./flow-files
 import { fullNameOf, namesOf, type FullName, type Names } from "./names.js";
 import { mcpFiles, ragFiles } from "./parts.js";
 import { agentFiles, render, toolFiles, vars, type ToolApi, type WorkflowSpec } from "./plan.js";
-import { addImport, wire } from "./wire.js";
+import { wire } from "./wire.js";
 import { importPath } from "./workflow-graph.js";
 import type { FileToWrite } from "./write.js";
 
@@ -45,11 +45,9 @@ function extras(
     const name = fullNameOf(spec.rag.name, "rag");
     const rag = ragFiles(srcDir, { name, folder: spec.rag.folder });
     files.push(...rag.files);
-    const element = `{ use: ${rag.knowledge}, mode: RagMode.Tool }`;
     const from = `../../rag/${name.kebab}.rag.js`;
-    agent = wire(agent, "Agent", "rag", element, rag.knowledge, from);
-    // the mode is an enum (#269): its import goes with the knowledge base's
-    agent = { ...agent, content: addImport(agent.content, agent.path, "RagMode", "@agboss/core") };
+    // `rag: [Knowledge]`: its passages come with the agent's input, before its first model call
+    agent = wire(agent, "Agent", "rag", rag.knowledge, rag.knowledge, from);
   }
   return { files, agent };
 }

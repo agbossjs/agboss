@@ -3,7 +3,7 @@ import { memoryPlanOf, readerOf } from "../memory/plan.js";
 import type { UncompactedTurns } from "../memory/memory.decorator.js";
 import { promptTextOf } from "../components/prompt-render.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
-import type { RagMode, RagTenancy } from "../rag/types.js";
+import type { RagScope } from "../rag/types.js";
 import { NodeKind } from "../flow/ast.js";
 import {
   DecidedBy,
@@ -47,12 +47,11 @@ type AgentSettings = AssembledWorkflow["config"]["agents"][string];
  * action's `compensateWith` / `committedBy` (#339).
  */
 
-/** One knowledge base of an agent (#796: whose content it serves). */
+/** One knowledge base of an agent (whose content it serves). */
 export interface RagSnapshot {
   readonly name: string;
-  readonly mode: RagMode;
   readonly topK: number;
-  readonly tenancy: RagTenancy;
+  readonly scope: RagScope;
 }
 
 /** An agent's internals. */
@@ -158,7 +157,7 @@ function agentOf(
     uncompactedTurns: reader.window,
     ...(reader.compaction === undefined ? {} : { memory: reader.compaction.name }),
     tools: agent.tools ?? [],
-    rag: (agent.rag ?? []).map(({ name, mode, topK, tenancy }) => ({ name, mode, topK, tenancy })),
+    rag: (agent.rag ?? []).map(({ name, topK, scope }) => ({ name, topK, scope })),
     guardrails: guardrailsAt(bundle, name),
     ...toolInterceptorsAt(bundle, name),
     piiPolicies: piiPoliciesAt(bundle, name),

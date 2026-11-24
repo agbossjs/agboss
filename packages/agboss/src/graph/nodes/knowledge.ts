@@ -1,17 +1,13 @@
 import { RunnableLambda, type RunnableConfig } from "@langchain/core/runnables";
-import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
+import type { UsageRecord } from "../../finops/usage.js";
 import { CITE_INSTRUCTION, knowledgeBlock } from "../../prompts/rag.js";
-import {
-  RERANK_FAILED_CODE,
-  type KnowledgeRetrieval,
-  type KnowledgeSource,
-} from "../../rag/types.js";
+import { RERANK_FAILED_CODE, type KnowledgeSource } from "../../rag/types.js";
+import { retrievalRecordsOf } from "../../rag/retrieval-spend.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { DEFAULT_MAX_RESULT_SIZE } from "../../tools/index.js";
 import type { Bytes } from "../../units/index.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
-import { PiiRefusedError } from "../../pii/errors.js";
 
 /** A knowledge base's block within the agent's `maxResultSize` (#336), the marker after a cut. */
 async function boundedBlock(block: string, maxResultSize: Bytes): Promise<string> {
@@ -20,29 +16,19 @@ async function boundedBlock(block: string, maxResultSize: Bytes): Promise<string
   return `${kept}${marker}`;
 }
 
-/** A retrieval's spend: the connector's reported cost, and its reranker's calls (#703). */
-const recordsOf = (name: string, retrieval: KnowledgeRetrieval): UsageRecord[] => [
-  recordReportedCost({ name, costCaller: `rag:${name}` }, retrieval.costUsd ?? 0),
-  ...(retrieval.usage ?? []),
-];
-
 /** A reranking that failed under `RerankFailurePolicy.FailStep` (by its code: its class loads lazily). */
 export const isRerankFailure = (error: unknown): boolean =>
   error instanceof Error && Reflect.get(error, "code") === RERANK_FAILED_CODE;
 
 /**
- * A block rule in what a reranker's model would have read (#708): the agent's own boundary refuses
- * the same passages, so the step fails as it would — never a knowledge base left out.
- */
-const isPiiRefusal = (error: unknown): boolean => error instanceof PiiRefusedError;
-
-/**
- * Context mode: before the agent's loop, each knowledge base is asked for the task's top-k
- * search results. Each retrieval is a named runnable (`rag:<name>`), so it is a span in the trace; its
- * cost is billed to `rag:<name>` (category retrieval), a reranker's too (#703). A failure leaves
- * those results out — the turn goes on (fail-open), the error stays on the span — except a reranking
- * that failed under `RerankFailurePolicy.FailStep` (`step.rerank-failed`), which fails the step, and
- * a block rule in what the reranker's model would read (`PiiRefusedError`, #708), which refuses.
+ * Before the agent's loop, each knowledge base is asked for the task's top-k search results. Each
+ * retrieval is a named runnable (`rag:<name>`), so it is a span in the trace; its cost and tokens
+ * are billed to `rag:<name>`, a reranker's to `reranker:<name>` (both the rag category). A failure
+ * fails the step — a broken endpoint, credentials, a source that cannot name its scope, a reranker
+ * that failed under `RerankFailurePolicy.FailStep` (the default), a block rule of a PII policy on
+ * what the reranker's model would read — never a silent turn without the knowledge the agent was
+ * given. A knowledge base that is allowed to degrade says so: its `RagReranker` has
+ * `onFailure: RerankFailurePolicy.Fallback`.
  */
 export async function gatherKnowledge(
   sources: readonly KnowledgeSource[],
@@ -55,22 +41,17 @@ export async function gatherKnowledge(
   const blocks: string[] = [];
   const signal = config?.signal ?? new AbortController().signal;
   for (const source of sources) {
-    try {
-      const { name } = source;
-      await reportNodeEvent((base) => observer?.onRagStart({ ...base, name, input: query }));
-      const retrieval = await RunnableLambda.from((q: string) =>
-        source.retrieve(q, { topK: source.topK, signal }),
-      ).invoke(query, { ...config, runName: `rag:${source.name}` });
-      await reportNodeEvent((base) => observer?.onRagEnd({ ...base, name, output: retrieval }));
-      records.push(...recordsOf(source.name, retrieval));
-      if (retrieval.results.length > 0)
-        blocks.push(
-          await boundedBlock(knowledgeBlock(source.name, retrieval.results), maxResultSize),
-        );
-    } catch (error) {
-      // fail-open: knowledge is an aid, not a gate — unless its reranking must fail the step (#703)
-      if (isRerankFailure(error) || isPiiRefusal(error)) throw error;
-    }
+    const { name } = source;
+    await reportNodeEvent((base) => observer?.onRagStart({ ...base, name, input: query }));
+    const retrieval = await RunnableLambda.from((q: string) =>
+      source.retrieve(q, { topK: source.topK, signal }),
+    ).invoke(query, { ...config, runName: `rag:${source.name}` });
+    await reportNodeEvent((base) => observer?.onRagEnd({ ...base, name, output: retrieval }));
+    records.push(...retrievalRecordsOf(source.name, retrieval));
+    if (retrieval.results.length > 0)
+      blocks.push(
+        await boundedBlock(knowledgeBlock(source.name, retrieval.results), maxResultSize),
+      );
   }
   return {
     block: blocks.length === 0 ? "" : `${blocks.join("\n\n")}\n\n${CITE_INSTRUCTION}\n\n`,

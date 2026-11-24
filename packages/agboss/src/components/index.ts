@@ -8,7 +8,7 @@ export { InjectionToken, type Class, type Provider, type Token } from "./injecti
 export { ComponentError, componentOf } from "./metadata.js";
 export { PromptError, type PromptProblem, type PromptProblemCode } from "./prompt-problems.js";
 export type { OnDestroy, OnInit, OnStart, OnStop } from "./container/lifecycle.js";
-export type { AgentMeta, WorkflowMeta, RagBinding } from "./meta-types.js";
+export type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 export {
   McpServerClient,
   mcpServerStub,

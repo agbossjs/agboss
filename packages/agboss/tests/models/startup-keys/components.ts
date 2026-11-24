@@ -35,8 +35,8 @@ import {
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
-import { Rag, RagMode, RagTenancy, Reranker, ModelReranker } from "../../../src/rag/index.js";
-import type { RagConnector, RagRetrieval } from "../../../src/rag/index.js";
+import { Rag, RagReranker, RagScope, RagSource } from "../../../src/rag/index.js";
+import type { RagRetrieval } from "../../../src/rag/index.js";
 import type { ModelUseKind } from "../../../src/models/uses.js";
 import { arbiterWorkflow, AnswerDto } from "./arbiter.js";
 import { route, onStart } from "../../helpers/flow.js";
@@ -60,16 +60,22 @@ export function everyKindWorkflows(models: KindModels): {
       return Promise.resolve(JudgeVerdict.passed());
     }
   }
-  @Reranker({ name: "docs-reranker", description: "Reranks", model: models.rerankers })
-  class DocsReranker extends ModelReranker {}
+  @RagReranker({
+    name: "docs-reranker",
+    description: "Reranks",
+    candidates: 5,
+    model: models.rerankers,
+  })
+  class DocsReranker {}
   @Rag({
     name: "docs-rag",
     description: "Docs",
-    tenancy: RagTenancy.PerTenant,
-    rerank: { by: DocsReranker, candidates: 5, topK: 2 },
+    scope: RagScope.Tenant,
+    topK: 2,
+    reranker: DocsReranker,
   })
-  class DocsRag implements RagConnector {
-    retrieve(): Promise<RagRetrieval> {
+  class DocsRag extends RagSource {
+    protected override retrieve(): Promise<RagRetrieval> {
       return Promise.resolve({ results: [] });
     }
   }
@@ -128,7 +134,7 @@ export function everyKindWorkflows(models: KindModels): {
     prompt: "Answer.",
     model: models.agents,
     judges: [ToneJudge],
-    rag: [{ use: DocsRag, mode: RagMode.Tool }],
+    rag: [DocsRag],
     piiPolicies: [NamesPiiPolicy],
     tools: [FileNoteTool],
   })

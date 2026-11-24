@@ -61,18 +61,16 @@ export type ComponentMeta =
       readonly meta: {
         readonly name: string;
         readonly description: string;
-        readonly prompt?: string;
-        readonly promptUrls?: readonly string[];
-        /** Whose content it serves (#796); checked at assembly — a JS caller may leave it out. */
-        readonly tenancy: import("../rag/types.js").RagTenancy;
-        /** What the agent gets per retrieval: `topK`, or `rerank.topK` (#703). */
+        /** Whose content it serves; checked at assembly — a JS caller may leave it out. */
+        readonly scope: import("../rag/types.js").RagScope;
+        /** What the agent gets per retrieval. */
         readonly topK: number;
-        /** Fetch `candidates`, rerank, keep `topK` (#703). */
-        readonly rerank?: import("../rag/types.js").RagRerank;
+        /** A `@RagReranker` class: fetch its `candidates`, keep `topK`. */
+        readonly reranker?: Class;
         readonly deps: readonly Token[];
       };
     }
-  /** `@Reranker` (#703): re-orders a knowledge base's candidates — by model or by code. */
+  /** `@RagReranker`: re-orders a knowledge base's candidates — by model or by code. */
   | {
       readonly kind: "reranker";
       readonly meta: import("../rag/reranker.decorator.js").RecordedRerankerMeta;
@@ -194,7 +192,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "a2a-agent": "A2AAgent",
   injectable: "Injectable",
   rag: "Rag",
-  reranker: "Reranker",
+  reranker: "RagReranker",
   judge: "Judge",
   channel: "Channel",
   "channel-selector": "ChannelSelector",

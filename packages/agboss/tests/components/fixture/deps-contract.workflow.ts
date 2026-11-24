@@ -3,7 +3,6 @@ import { type BuildApplicationOptions } from "../../../src/application/create-ap
 import {
   Agent,
   provide,
-  RagMode,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -67,7 +66,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
   tools: [RevealTool],
   guardrails: [AuditGuardrail],
   judges: [StrictJudge],
-  rag: [{ use: VaultDocs, mode: RagMode.Context }],
+  rag: [VaultDocs],
   input: { message: WorkflowStartTextDto },
   output: KeptDto,
 })
@@ -94,11 +93,9 @@ export function workflowWith(
 ): Class {
   @Workflow({
     name,
-    flow: [
-      onStart(Chat)
-        .toAgent(agent)
-        .toFinish(Done),
-    ],
+    flow: [onStart(Chat)
+      .toAgent(agent)
+      .toFinish(Done)],
     ...base,
     ...extra,
   })
@@ -127,12 +124,10 @@ export function applicationWith(
 /** Every kind that takes `deps`, all wired: tool, guardrail, judge, RAG, action, PII, channel, A2A. */
 @Workflow({
   name: "vault-workflow",
-  flow: [
-    onStart(Chat)
-      .toAgent(Keeper)
-      .toAction(StampAction)
-      .toFinish(Kept),
-  ],
+  flow: [onStart(Chat)
+    .toAgent(Keeper)
+    .toAction(StampAction)
+    .toFinish(Kept)],
   ...base,
   piiPolicies: [MaskSecret],
   providers: [Vault, provide(SECRET, "s3cret"), RemoteA2AAgent],

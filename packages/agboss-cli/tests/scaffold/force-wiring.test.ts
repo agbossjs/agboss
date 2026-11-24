@@ -68,7 +68,7 @@ describe("#237: --force keeps the wiring", () => {
     expect(regenerated).toContain('description: "Bills customers"');
     expect(regenerated).not.toBe(wired);
     expect(regenerated).toContain("tools: [QuoteTool, TicketsSearchTool]");
-    expect(regenerated).toContain("rag: [{ use: PoliciesRag, mode: RagMode.Tool }]");
+    expect(regenerated).toContain("rag: [PoliciesRag]");
     expect(regenerated).toContain('import { QuoteTool } from "../../tools/quote.tool.js";');
     expectStaticChecks(project, ["src"]);
     const tests = vitestOf(project);

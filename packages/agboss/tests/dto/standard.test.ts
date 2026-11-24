@@ -11,8 +11,6 @@ import {
   NoInputDto,
   PersonNameDto,
   PlainTextDto,
-  RagSearchResultDto,
-  RagSourceReferenceDto,
   ToolCallApprovalAskDto,
   ToolCallApprovalDecisionDto,
   WorkflowFinishTextDto,
@@ -21,6 +19,7 @@ import {
   WorkflowStartTextDto,
 } from "../../src/dto/index.js";
 import { jsonSchemaOf, validate } from "../../src/dto/schema.js";
+import { RagSearchResultDto, RagSourceReferenceDto } from "../../src/rag/dto.js";
 
 const examples: readonly (readonly [DtoClass, object])[] = [
   [WorkflowStartTextDto, { text: "find TypeScript jobs", author: "pavel" }],
@@ -106,8 +105,7 @@ describe("standard DTOs (#118)", () => {
     expect(() => validate(ContactInfoDto, {})).toThrow(/email: give an email, a phone or both/);
   });
 
-  it("AC5: RagSearchResultDto.score is from 0 to 1; WorkflowPauseQuestionDto has at most 6 options; RagSourceReferenceDto.quote ≤ 300", () => {
-    expect(rejects(RagSearchResultDto, { text: "t", source: "s", score: 1.2 })).toBe(true);
+  it("AC5: WorkflowPauseQuestionDto has at most 6 options; RagSourceReferenceDto.quote ≤ 300", () => {
     expect(
       rejects(WorkflowPauseQuestionDto, {
         question: "q",

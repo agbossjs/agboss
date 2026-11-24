@@ -46,6 +46,12 @@ export interface ContractInstances<TStore> {
 }
 
 // @public
+export interface ContractReranker {
+    // (undocumented)
+    readonly rerank: (query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions) => RerankResult | Promise<RerankResult>;
+}
+
+// @public
 export interface ContractTarget<TStore> {
     readonly capabilities?: readonly StoreCapability[];
     close?(store: TStore): void | Promise<void>;
@@ -127,26 +133,26 @@ export interface OutboundCallTarget {
 export function pausedExecutionContract(target: ContractTarget<PausedExecutionRepository>): void;
 
 // @public
-export function ragConnectorContract<TConnector extends RagConnector>(target: RagConnectorContractTarget<TConnector>): void;
-
-// @public
-export interface RagConnectorContractTarget<TConnector extends RagConnector = RagConnector> {
-    readonly connector: () => TConnector | Promise<TConnector>;
-    readonly documents: (connector: TConnector, tenantId: string, documents: readonly RagContractDocument[]) => Promise<void>;
-    readonly name: string;
-    readonly rerank?: {
-        readonly by: RerankerHandler;
-        readonly candidates: number;
-    };
-    readonly reset?: () => Promise<void>;
-    readonly tenancy?: RagTenancy;
-}
-
-// @public
 export interface RagContractDocument {
     readonly source: string;
     // (undocumented)
     readonly text: string;
+}
+
+// @public
+export function ragSourceContract<TSource extends object>(target: RagSourceContractTarget<TSource>): void;
+
+// @public
+export interface RagSourceContractTarget<TSource extends object = object> {
+    readonly documents: (source: TSource, scopeId: string, documents: readonly RagContractDocument[]) => Promise<void>;
+    readonly name: string;
+    readonly rerank?: {
+        readonly by: ContractReranker;
+        readonly candidates: number;
+    };
+    readonly reset?: () => Promise<void>;
+    readonly scope?: RagScope;
+    readonly source: () => TSource | Promise<TSource>;
 }
 
 // @public
@@ -285,7 +291,8 @@ export interface VirtualClockOptions {
 //
 // src/testing/contracts/a2a-direct-message-data.ts - (ae-undocumented) Missing documentation for "messages".
 // src/testing/contracts/a2a-direct-message-data.ts - (ae-undocumented) Missing documentation for "tasks".
-// src/testing/contracts/rag-connector-data.ts - (ae-undocumented) Missing documentation for "text".
+// src/testing/contracts/rag-source-data.ts - (ae-undocumented) Missing documentation for "text".
+// src/testing/contracts/rag-source-data.ts - (ae-undocumented) Missing documentation for "rerank".
 // src/testing/contracts/sabotage-run.ts - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/sabotage-run.ts - (ae-undocumented) Missing documentation for "state".
 // src/testing/contracts/sabotage-run.ts - (ae-undocumented) Missing documentation for "cases".

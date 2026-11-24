@@ -5,6 +5,7 @@ import { CaseNotesMemory } from "../../memories/case-notes/case-notes.memory.js"
 import { CustomerIdPiiPolicy } from "../../pii-policies/customer-id.pii-policy.js";
 import { CaseNotesService } from "../../services/case-notes.service.js";
 import { OrderDeskService } from "../../services/order-desk.service.js";
+import { ShippingPolicyRag } from "../../rag/shipping-policy.rag.js";
 import { DeskAnswerWorkflowFinish } from "./desk-answer.workflow-finish.js";
 import { DeskWorkflowStart } from "./desk.workflow-start.js";
 
@@ -23,6 +24,6 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
   ],
   memory: CaseNotesMemory,
   piiPolicies: [CustomerIdPiiPolicy],
-  providers: [OrderDeskService, CaseNotesService, DeskHttpAuthenticator], // the last: A2A callers
+  providers: [OrderDeskService, CaseNotesService, ShippingPolicyRag, DeskHttpAuthenticator], // the last: A2A callers
 })
 export class DeskWorkflow {}

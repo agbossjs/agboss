@@ -2,9 +2,8 @@
 import { Agent, Application, EmptyEnvironment, Workflow } from "../../../../agboss/src/index.js";
 import {
   Rag,
-  RagMode,
-  RagTenancy,
-  type RagConnector,
+  RagScope,
+  RagSource,
   type RagIndexOptions,
   type RagIndexReport,
   type RagRetrieval,
@@ -29,15 +28,15 @@ export const interruptProbe = (): InterruptProbe => {
 @Rag({
   name: "slow-rag",
   description: "An index that takes long",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Shared,
   topK: 2,
 })
-export class SlowRag implements RagConnector {
-  retrieve(): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [] });
+export class SlowRag extends RagSource {
+  protected override retrieve(): RagRetrieval {
+    return { results: [] };
   }
 
-  index({ signal }: RagIndexOptions): Promise<RagIndexReport> {
+  protected override index({ signal }: RagIndexOptions): Promise<RagIndexReport> {
     const probe = interruptProbe();
     probe.started = true;
     return new Promise((_resolve, reject) => {
@@ -55,7 +54,7 @@ export class SlowRag implements RagConnector {
   prompt: "Read.",
   model: "test/alpha",
   price: testConfig.agents.alpha.price,
-  rag: [{ use: SlowRag, mode: RagMode.Tool }],
+  rag: [SlowRag],
 })
 export class SlowReaderAgent {}
 

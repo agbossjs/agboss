@@ -1,240 +1,125 @@
-import { z } from "zod";
-import { SEARCH_TOOL_SUFFIX } from "../prompts/rag.js";
-import { checkedTenantId } from "../flow/context/context-values.js";
-import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
-import { currentFrame } from "../flow/context/frame.js";
-import {
-  DEFAULT_RERANKER_MODEL,
-  RagMode,
-  RerankFailurePolicy,
-  type KnowledgeRetrieval,
-  type KnowledgeRetrieve,
-  type KnowledgeSource,
-  type RagConnector,
-} from "../rag/types.js";
-import type { BoundReranker } from "../rag/rerank.js";
-import { DecidedBy } from "../flow/decorators/router.js";
+import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
+import type { RagRuntime } from "../rag/rag-source.js";
+import type { RecordedRerankerMeta } from "../rag/reranker.decorator.js";
+import { RerankFailurePolicy, type KnowledgeSource } from "../rag/types.js";
 import { lazyLoad } from "../infrastructure/clock.js";
-import type { WorkflowServices } from "../workflow.js";
-import { defineTool, type AnyTool } from "../tools/index.js";
 import type { AgentsConfigOf } from "../config/types.js";
-import type { Class } from "./injection.js";
+import type { Class, Token } from "./injection.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 
 export type RagMeta = Extract<ReturnType<typeof componentOf>, { kind: "rag" }>["meta"];
 
-/** The `@Rag` classes the workflow's agents bind, checked. */
-export function ragClassesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[]): Class[] {
-  const classes = [
-    ...new Set(agents.flatMap((agent) => (agent.rag ?? []).map((binding) => binding.use))),
-  ];
-  for (const cls of classes) {
+/** `[agent.duplicate-rag]`: one `@Rag` listed twice in one agent's `rag`. */
+const duplicateRagViolations = (agents: readonly AgentMeta[]): RuleViolation[] =>
+  agents.flatMap((agent) => {
+    const rags = agent.rag ?? [];
+    const twice = rags.filter((cls, index) => rags.indexOf(cls) !== index);
+    return [...new Set(twice)].map((cls) =>
+      violation(
+        "agent.duplicate-rag",
+        `@Agent "${agent.name}": ${cls.name} is listed twice in rag — list it once`,
+        [agent.name],
+      ),
+    );
+  });
+
+/**
+ * The `@Rag` classes of a workflow, checked: the agents' `rag` (context injection) and the ones the
+ * workflow's tools inject (`deps`), each once.
+ */
+export function ragClassesOf(
+  bundle: WorkflowMeta,
+  agents: readonly AgentMeta[],
+  tools: readonly Class[] = [],
+): Class[] {
+  const duplicates = duplicateRagViolations(agents);
+  if (duplicates.length > 0) throw new GraphRuleError({ violations: duplicates });
+  const listed = agents.flatMap((agent) => agent.rag ?? []);
+  for (const cls of listed) {
     if (componentOf(cls)?.kind !== "rag") {
       throw new ComponentError({
         message: `@Workflow "${bundle.name}": ${cls.name} in an agent's rag is not a @Rag`,
       });
     }
   }
-  return classes;
+  const injected = tools.flatMap((cls) => {
+    const found = componentOf(cls);
+    const deps: readonly Token[] = found?.kind === "tool" ? found.meta.deps : [];
+    return deps.filter((dep): dep is Class => typeof dep === "function" && isRagClass(dep));
+  });
+  return [...new Set([...listed, ...injected])];
 }
+
+const isRagClass = (cls: Class): boolean => componentOf(cls)?.kind === "rag";
 
 export const ragMeta = (cls: Class): RagMeta => requireComponent(cls, "rag", "workflowOf").meta;
 
-/** The `@Rag` classes the agents bind: tenancy declared (#796), reranking checked (#703, lazily). */
+/** The `@Rag` classes the workflow uses: scope declared, reranking checked (lazily). */
 export async function checkedRagClassesOf(
   bundle: WorkflowMeta,
   agents: readonly AgentMeta[],
+  tools: readonly Class[] = [],
 ): Promise<Class[]> {
-  const rags = ragClassesOf(bundle, agents);
+  const rags = ragClassesOf(bundle, agents, tools);
   if (rags.length > 0) (await lazyLoad(import("../rag/rag-checks.js"))).checkRags(rags);
   return rags;
 }
 
-/** A knowledge base's search tool: `search-jobs-rag-tool` for `jobs-rag` (#268 AC9). */
-export const searchToolName = (meta: RagMeta): string => `search-${meta.name}-tool`;
-
-/** A knowledge base's reranking as its config entry says it (#703). */
+/** A knowledge base's reranking as its config entry says it. */
 export interface RagRerankSetting {
   readonly reranker: string;
   readonly candidates: number;
   readonly onFailure: RerankFailurePolicy;
 }
 
-/** A knowledge base's `rerank` and the `@Reranker` meta of its `rerank.by`; none without `rerank`, or when `by` is no reranker. */
-const rerankedBy = (meta: RagMeta) => {
-  const { rerank } = meta;
-  if (rerank === undefined) return undefined;
-  const found = componentOf(rerank.by);
-  return found?.kind === "reranker" ? { rerank, reranker: found.meta } : undefined;
+/** A knowledge base's reranker class and its meta; none without `reranker`, or when it is no reranker. */
+export const rerankedBy = (
+  meta: RagMeta,
+): { readonly cls: Class; readonly meta: RecordedRerankerMeta } | undefined => {
+  const { reranker } = meta;
+  if (reranker === undefined) return undefined;
+  const found = componentOf(reranker);
+  return found?.kind === "reranker" ? { cls: reranker, meta: found.meta } : undefined;
 };
 
-/** A knowledge base's reranking for describe and `configHash` (#703). */
+/** A knowledge base's reranking for describe and `configHash`. */
 const rerankSettingOf = (meta: RagMeta): { readonly rerank?: RagRerankSetting } => {
   const reranked = rerankedBy(meta);
   if (reranked === undefined) return {};
-  const { candidates, onFailure = RerankFailurePolicy.Fallback } = reranked.rerank;
-  return { rerank: { reranker: reranked.reranker.name, candidates, onFailure } };
+  const { name, candidates, onFailure = RerankFailurePolicy.FailStep } = reranked.meta;
+  return { rerank: { reranker: name, candidates, onFailure } };
 };
 
-/** An agent's knowledge bases as config entries (describe, profiles, `configHash`; #796: tenancy). */
+/** An agent's knowledge bases as config entries (describe, profiles, `configHash`). */
 export const ragSettings = (
   agent: AgentMeta,
 ): AgentsConfigOf<string>["agents"][string]["rag"] & {} =>
-  (agent.rag ?? []).map((binding) => {
-    const meta = ragMeta(binding.use);
-    const { name, topK, tenancy } = meta;
-    return { name, mode: binding.mode, topK, tenancy, ...rerankSettingOf(meta) };
+  (agent.rag ?? []).map((cls) => {
+    const meta = ragMeta(cls);
+    const { name, topK, scope } = meta;
+    return { name, topK, scope, ...rerankSettingOf(meta) };
   });
 
-/** The `@Reranker` classes of knowledge bases, for the container (#703). */
+/** The `@RagReranker` classes of knowledge bases, for the container. */
 export const rerankerClassesOf = (rags: readonly Class[]): Class[] =>
   rags.flatMap((cls) => {
-    const by = ragMeta(cls).rerank?.by;
-    return by === undefined ? [] : [by];
+    const reranker = ragMeta(cls).reranker;
+    return reranker === undefined ? [] : [reranker];
   });
-
-/** A model reranker's model: its own, else the default (#703). */
-export const rerankerModelsOf = (
-  rags: readonly Class[],
-): readonly { readonly name: string; readonly model: string }[] =>
-  [
-    ...new Map(
-      rags.flatMap((cls) => {
-        const reranker = rerankedBy(ragMeta(cls))?.reranker;
-        if (reranker === undefined || reranker.decidedBy === DecidedBy.Code) return [];
-        return [[reranker.name, reranker.model ?? DEFAULT_RERANKER_MODEL] as const];
-      }),
-    ),
-  ].map(([name, model]) => ({ name, model }));
-
-/**
- * The tenant of a retrieval (#700): the execution's, read from the frame of the step or tool call
- * that runs it, checked as a key's text (#552: `dto.invalid` naming the rule, never the id). No
- * open frame → `context.unavailable` — never the default tenant.
- */
-export function tenantOfRetrieval(meta: RagMeta): string {
-  const frame = currentFrame();
-  const consumer = `@Rag ${meta.name}`;
-  if (frame === undefined)
-    throw ExecutionContextUnavailableError.outside({ consumer, field: "tenantContext.tenantId" });
-  if (frame.isClosed())
-    throw ExecutionContextUnavailableError.ended(frame.step, frame.execution.executionId);
-  const { tenantId } = frame.execution.tenant;
-  checkedTenantId(tenantId);
-  return tenantId;
-}
-
-/** A connector's retrieval with the execution's tenant on every call (#700). */
-export const tenantRetrieve =
-  (meta: RagMeta, connector: RagConnector): KnowledgeRetrieve =>
-  (query, { topK, signal }) =>
-    connector.retrieve(query, { topK, signal, tenantId: tenantOfRetrieval(meta) });
-
-/** A knowledge base's reranker as the core runs it (#703); none without `rerank`. */
-export function boundRerankerOf(
-  meta: RagMeta,
-  instance: (cls: Class) => unknown,
-  services: WorkflowServices,
-): BoundReranker | undefined {
-  const reranked = rerankedBy(meta);
-  if (reranked === undefined) return undefined;
-  const { rerank, reranker } = reranked;
-  const model = reranker.model ?? DEFAULT_RERANKER_MODEL;
-  const message = `[reranker.no-model-gateway] ${reranker.name}: no model gateway here`;
-  const binding = () => {
-    if (services.rerankModel === undefined) throw new ComponentError({ message });
-    return services.rerankModel(reranker.name, model);
-  };
-  return {
-    rag: meta.name,
-    reranker: reranker.name,
-    candidates: rerank.candidates,
-    onFailure: rerank.onFailure ?? RerankFailurePolicy.Fallback,
-    source:
-      reranker.decidedBy === DecidedBy.Code
-        ? { kind: "code", instance: () => instance(rerank.by) as never }
-        : { kind: "model", binding },
-  };
-}
-
-/** The core's retrieval of a knowledge base: the tenant's (#700), reranked when it says so (#703). */
-export function knowledgeRetrieveOf(
-  meta: RagMeta,
-  connector: RagConnector,
-  reranker: BoundReranker | undefined,
-): KnowledgeRetrieve {
-  if (reranker === undefined) return tenantRetrieve(meta, connector);
-  return async (query, { topK, signal }): Promise<KnowledgeRetrieval> => {
-    const { rerankedRetrieval } = await lazyLoad(import("../rag/rerank.js"));
-    const tenantId = tenantOfRetrieval(meta);
-    const fetch = (k: number) => connector.retrieve(query, { topK: k, signal, tenantId });
-    return rerankedRetrieval(fetch, reranker, { query, topK, tenantId, signal });
-  };
-}
-
-/** A reranker's spend in a tool call: its records into the call's frame, else as a cost. */
-function reportRerankUsage(retrieval: KnowledgeRetrieval, reportCost: (usd: number) => void): void {
-  const report = currentFrame()?.services.reportUsage;
-  for (const record of retrieval.usage ?? []) {
-    if (report === undefined) reportCost(record.costUsd);
-    else report(record);
-  }
-}
-
-const Output = z.object({
-  results: z.array(
-    z.object({ source: z.string(), text: z.string(), score: z.number().optional() }),
-  ),
-});
-
-/** Tool mode: `search-<name>-tool(query)`; its cost is billed to `rag:<name>` (category retrieval). */
-export function searchTool(
-  meta: RagMeta,
-  connector: RagConnector,
-  reranker?: BoundReranker,
-): AnyTool {
-  const tool = defineTool({
-    name: searchToolName(meta),
-    description: `${meta.description}. ${SEARCH_TOOL_SUFFIX}`,
-    input: z.object({ query: z.string().min(1) }),
-    output: Output,
-    run: async ({ query }, ctx) => {
-      const retrieve = knowledgeRetrieveOf(meta, connector, reranker);
-      const retrieval = await retrieve(query, { topK: meta.topK, signal: ctx.signal });
-      ctx.reportCost(retrieval.costUsd ?? 0);
-      reportRerankUsage(retrieval, ctx.reportCost);
-      return {
-        results: retrieval.results.map((result) => ({
-          source: result.source,
-          text: result.text,
-          ...(result.score === undefined ? {} : { score: result.score }),
-        })),
-      };
-    },
-  });
-  return { ...tool, costCaller: `rag:${meta.name}` };
-}
 
 /** Context mode: per agent, the knowledge bases the core retrieves from before the agent runs. */
 export function contextSources(
   agents: readonly AgentMeta[],
-  instance: (cls: Class) => unknown,
-  services: WorkflowServices,
+  runtimeOf: (cls: Class) => RagRuntime,
 ): ReadonlyMap<string, readonly KnowledgeSource[]> {
   return new Map(
     agents.map((agent) => [
       agent.name,
-      // Stryker disable next-line ArrayDeclaration: equivalent: a text in the place of no bindings is no binding of the context mode, the filter drops it
-      (agent.rag ?? [])
-        .filter((binding) => binding.mode === RagMode.Context)
-        .map((binding) => {
-          const meta = ragMeta(binding.use);
-          const connector = instance(binding.use) as RagConnector;
-          const reranker = boundRerankerOf(meta, instance, services);
-          const retrieve = knowledgeRetrieveOf(meta, connector, reranker);
-          return { name: meta.name, topK: meta.topK, retrieve };
-        }),
+      (agent.rag ?? []).map((cls): KnowledgeSource => {
+        const { name, topK, retrieve } = runtimeOf(cls);
+        return { name, topK, retrieve };
+      }),
     ]),
   );
 }

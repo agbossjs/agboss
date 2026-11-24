@@ -68,16 +68,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
   "references/03-components-di-and-lifecycle.md": [
     ...["AGBossError", "StepFailedError"],
     ...["Application", "Workflow", "WorkflowStart", "WorkflowFinish", "Agent", "Tool", "Action"],
-    ...["Reasoning", "ReasoningEffort", "RagMode", "TurnLimit", "TokenLimit"],
-    ...[
-      "Memory",
-      "NoMemory",
-      "CompactionStrategy",
-      "Rag",
-      "RagConnector",
-      "Router",
-      "RouterHandler",
-    ],
+    ...["Reasoning", "ReasoningEffort", "TurnLimit", "TokenLimit"],
+    ...["Memory", "NoMemory", "CompactionStrategy", "Rag", "RagSource", "Router", "RouterHandler"],
     ...["CompactionInput", "CompactionTurn"],
     ...["Arbiter", "OnAnswer", "Judge", "JudgeHandler", "JudgeInput", "JudgeVerdict", "JudgeModel"],
     ...["isVariant", "VariantOf", "QualityGateError", "Decision"],

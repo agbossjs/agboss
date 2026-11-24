@@ -96,8 +96,8 @@ npm test
   answers offline (`offline`: the stores in memory, only the PII key read — the desk's PII policy
   makes tokens with it outside tests).
   The same agent carries the operational contracts: a code `@Judge` that reads the visit's
-  `toolCalls` (`maxRetries: 1`, then `QualityGateError`), a `@Rag` it searches
-  (`search-shipping-policy-rag-tool`), and the workflow a `PiiPolicyHandler` detector
+  `toolCalls` (`maxRetries: 1`, then `QualityGateError`), a `@Rag` it searches through a tool
+  (`SearchShippingPolicyTool`), and the workflow a `PiiPolicyHandler` detector
   (`<customer-id:…>` in what the model reads); the application lists an observer, a `@HealthCheck`
   (`app.checkReadiness()`) and `maxConcurrentSteps: 16`. Each unit runner runs on the patterns' own components in the test that mirrors the
   component (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …) — `testAction` with an `override`, `testRouter`,

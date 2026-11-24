@@ -132,6 +132,7 @@ export type RuleCode =
   // a maxSteps, maxVisits, maxToolCalls or maxRetries that is no whole number from 0 (#1373)
   | "limits.count-invalid"
   | "agent.dynamic-options"
+  | "agent.duplicate-rag"
   | "model.no-tool-calling"
   // type generation (#272 PR 3), reported by `src/flow/types`
   | "types.unexported-class"
@@ -173,10 +174,9 @@ export type RuleCode =
   // knowledge bases' reranking (#703)
   | "rag.rerank-invalid"
   // a knowledge base's declared tenancy (#796)
-  | "rag.tenancy-required"
+  | "rag.scope-required"
+  | "rag.custom-scope-missing-resolver"
   | "rag.not-a-reranker"
-  | "reranker.missing-handler"
-  | "reranker.decision-model"
   // code guardrails (#383): a DecidedBy.Code guardrail's class has its check(text)
   | "guardrail.missing-handler"
   // tool interceptors (#384), reported at each workflow's assembly

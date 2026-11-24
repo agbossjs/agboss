@@ -2,16 +2,9 @@ import type { PromptVariables } from "./prompt-variables.js";
 import type { PromptValue } from "./prompt-source.js";
 import type { AgentSettings, AgentsConfig } from "../config/types.js";
 import type { ModelFiles } from "../files/model-files.js";
-import type { RagMode } from "../rag/types.js";
 import type { AgentToolClass } from "./decorators.js";
 import type { ModelCascade } from "../models/model-cascade.js";
 import type { Class, Provider } from "./injection.js";
-
-/** An agent's use of a `@Rag` knowledge base; both fields required (no defaults). */
-export interface RagBinding {
-  readonly use: Class;
-  readonly mode: RagMode;
-}
 
 /**
  * The guardrails an agent or a router adds to what it inherits (`@Application` → `@Workflow`), and
@@ -74,8 +67,8 @@ export interface AgentMeta
   /** `@Judge` classes. */
   readonly judges?: readonly Class<object>[];
   readonly maxRetries?: number;
-  /** Knowledge bases: `{ use: CompanyDocs, mode: RagMode.Tool }` — `mode` is required. */
-  readonly rag?: readonly RagBinding[];
+  /** Knowledge bases (`@Rag` classes): their passages come with the input, before the first model call. */
+  readonly rag?: readonly Class[];
   /** Files for the agent's model (#899): the sources, views and limits it opted in to. */
   readonly files?: ModelFiles;
   /** The file the agent is declared in. */

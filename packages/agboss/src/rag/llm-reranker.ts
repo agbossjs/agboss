@@ -1,11 +1,16 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import type { RagSearchResultDto } from "../dto/standard/framework.js";
+import { copyOfResult, type RagSearchResultDto } from "./dto.js";
 import { recordUsage, type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import type { RerankerHandler, RerankResult } from "./types.js";
 
+/** The core's LLM reranker: a code reranker whose `rerank` always answers with a promise. */
+export interface ModelRerankerHandler extends RerankerHandler {
+  readonly rerank: (...args: Parameters<RerankerHandler["rerank"]>) => Promise<RerankResult>;
+}
+
 /**
- * The core's LLM reranker (#703): one call on the `@Reranker`'s chat model — the query and the
+ * The core's LLM reranker: one call on the `@RagReranker`'s chat model — the query and the
  * numbered candidates in, `{"ranking":[3,1,…]}` out. The model names candidates by number, never
  * rewrites one; the numbers it gives (in range, each once) come first, the rest follow in retrieval
  * order, cut to `topK` — it never loses a candidate it did not rank. A reply with no ranking is a
@@ -15,8 +20,8 @@ import type { RerankerHandler, RerankResult } from "./types.js";
 /** Where a model reranking keeps its call's spend (the core reads it, a code reranker cannot set it). */
 export const MODEL_RERANKER_USAGE: unique symbol = Symbol("agboss.model-reranker-usage");
 
-/** A candidate's text as the model reads it: at most this many characters. */
-const MAX_CANDIDATE_CHARS = 1200;
+/** A candidate's text as the model reads it: at most this many characters, unless the reranker says otherwise. */
+export const DEFAULT_MAX_CANDIDATE_LENGTH = 1200;
 
 export const RERANKER_SYSTEM = [
   "You rerank search results for a query.",
@@ -41,10 +46,11 @@ export function rerankPromptOf(
   query: string,
   candidates: readonly RagSearchResultDto[],
   topK: number,
+  maxLength: number = DEFAULT_MAX_CANDIDATE_LENGTH,
 ): string {
   const lines = candidates.map(
     (candidate, index) =>
-      `[${String(index + 1)}] (${candidate.source}) ${candidate.text.slice(0, MAX_CANDIDATE_CHARS)}`,
+      `[${String(index + 1)}] (${candidate.source}) ${candidate.text.slice(0, maxLength)}`,
   );
   return `Query: ${query}\n\nAt most ${String(topK)} numbers.\n\nResults:\n${lines.join("\n")}`;
 }
@@ -81,13 +87,7 @@ export function rankedCandidates(
     const candidate = candidates[index];
     return candidate === undefined
       ? []
-      : [
-          {
-            source: candidate.source,
-            text: candidate.text,
-            score: (order.length - position) / order.length,
-          },
-        ];
+      : [copyOfResult(candidate, { score: (order.length - position) / order.length })];
   });
 }
 
@@ -108,27 +108,29 @@ const readCandidates = (
 ): readonly RagSearchResultDto[] =>
   reading === undefined
     ? candidates
-    : candidates.map((candidate, index) => ({
-        source: reading.sources[index] ?? candidate.source,
-        text: reading.texts[index] ?? candidate.text,
-        ...(candidate.score === undefined ? {} : { score: candidate.score }),
-      }));
+    : candidates.map((candidate, index) =>
+        copyOfResult(candidate, {
+          source: reading.sources[index] ?? candidate.source,
+          text: reading.texts[index] ?? candidate.text,
+        }),
+      );
 
 /**
- * The LLM reranker of the `@Reranker` named `name`, on its bound model; its model reads `reading`
+ * The LLM reranker of the `@RagReranker` named `name`, on its bound model; its model reads `reading`
  * (#708), the ranking it gives orders the candidates as retrieved.
  */
 export function modelRerankerOf(
   name: string,
   binding: ModelBinding,
   reading?: RerankReading,
-): RerankerHandler {
+  maxCandidateLength?: number,
+): ModelRerankerHandler {
   return {
     rerank: async (query, candidates, { topK, signal }) => {
       const read = readCandidates(candidates, reading);
       const messages = [
         new SystemMessage(RERANKER_SYSTEM),
-        new HumanMessage(rerankPromptOf(reading?.query ?? query, read, topK)),
+        new HumanMessage(rerankPromptOf(reading?.query ?? query, read, topK, maxCandidateLength)),
       ];
       const response = await binding.model.invoke(messages, { signal });
       const usage = [recordUsage(`reranker:${name}`, binding.settings, response)];

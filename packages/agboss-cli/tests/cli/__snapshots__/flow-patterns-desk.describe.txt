@@ -46,7 +46,7 @@ guardrails
   no-credentials-guardrail — input · decidedBy: code · refusal: "Please never send passwords or card codes to the help desk." · on desk-agent
   no-promises-guardrail — output · decidedBy: code · refusal: "We will follow up with a confirmed delivery date." · on desk-agent
 tool interceptors
-  desk-audit-tool-interceptor — before, after · on desk-agent: order-status-tool, close-account-tool
+  desk-audit-tool-interceptor — before, after · on desk-agent: order-status-tool, close-account-tool, search-shipping-policy-tool
 pii policies
   customer-id-pii-policy — findMatches(): tokenize() · on desk-agent · masks logs and traces
 memory
@@ -72,9 +72,8 @@ agents
   desk-agent  harness/desk · reasoning the provider's · max 8192 tokens · uncompactedTurns 2 · compaction case-notes-memory (desk-workflow)
     Answers questions about orders
     limits: modelCalls 12 (default) · toolCalls 3
-    rag: shipping-policy-rag (tool, k 2, shared)
     defaults: temperature 0 (built-in) · maxTokens 8192 (built-in) · uncompactedTurns 2 (desk-workflow)
     · order-status-tool (local) ← OrderDeskService — Where an order is · maxResultSize 128 KB (built-in)
     · close-account-tool (local) — Closes a customer's account · maxResultSize 128 KB (built-in)
-    · search-shipping-policy-rag-tool (local) — Shipping and refund articles. Returns the most relevant search results with their source; cite them as [source]. · maxResultSize 128 KB (built-in)
+    · search-shipping-policy-tool (local) ← ShippingPolicyRag — Searches the shipping and refund articles · maxResultSize 128 KB (built-in)
 unassigned tools: none

@@ -8,8 +8,8 @@
  * `storeConformance({ name, stores: { executionLease, fencedEffect, … } })` (#526) runs every
  * contract a store set claims in one call and refuses a set that leaves a fencing contract out.
  *
- * `ragConnectorContract({ name, connector, documents })` (#700) is a knowledge base connector's:
- * tenant isolation, re-indexing that replaces, `topK`, the signal, the cost.
+ * `ragSourceContract({ name, source, documents })` is a knowledge base source's:
+ * scope isolation, re-indexing that replaces, `topK`, the signal, the cost.
  *
  * One function per contract; each registers `describe("<contract> contract (<name>)")` with the
  * contract's rules as cases, every case on two instances over one backing store and the suite's
@@ -60,7 +60,7 @@ export {
 } from "./store-conformance-check.js";
 export type { FencingContractOptions } from "./fencing-gate.js";
 export type { InterleavingOptions } from "./explorer/register.js";
-export { ragConnectorContract } from "./rag-connector.contract.js";
+export { ragSourceContract } from "./rag-source.contract.js";
 export { StoreCapability } from "./store-capability.js";
 export {
   runConformanceSabotage,
@@ -69,4 +69,8 @@ export {
   type SabotageRun,
 } from "./sabotage-run.js";
 export { VirtualClock, type VirtualClockOptions } from "../clock.js";
-export type { RagConnectorContractTarget, RagContractDocument } from "./rag-connector-data.js";
+export type {
+  ContractReranker,
+  RagSourceContractTarget,
+  RagContractDocument,
+} from "./rag-source-data.js";

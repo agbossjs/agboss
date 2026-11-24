@@ -29,7 +29,7 @@ function workflowComponentsOf(bundle: AssembledWorkflow): Class[] {
   return [
     ...providers,
     ...agents.flatMap((agent) => agent.tools ?? []),
-    ...agents.flatMap((agent) => (agent.rag ?? []).map((binding) => binding.use)),
+    ...agents.flatMap((agent) => agent.rag ?? []),
     ...codeNodes,
     ...codeClassesOf(bundle.graph),
     ...codeInterpreterClassesOf(bundle.replyInterpreters ?? []),

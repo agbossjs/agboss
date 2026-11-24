@@ -1,4 +1,3 @@
-import { addImport } from "./wire.js";
 import type { GenerateOptions } from "./generate.js";
 import { fullNameOf } from "./names.js";
 import { mcpFiles, ragFiles } from "./parts.js";
@@ -90,7 +89,7 @@ export function planMcp(root: string, name: string, o: GenerateOptions): Changes
   return { create: mcp.files, modify };
 }
 
-/** `agboss g rag <name> --workflow … --folder … [--agent …]`: the knowledge base, a tool of the agent. */
+/** `agboss g rag <name> --workflow … --folder … [--agent …]`: the knowledge base, listed in the agent's `rag`. */
 export function planRag(root: string, name: string, o: GenerateOptions): Changes {
   const n = fullNameOf(name, "rag");
   const graph = workflowGraph(root, o);
@@ -99,9 +98,6 @@ export function planRag(root: string, name: string, o: GenerateOptions): Changes
   if (o.agent === undefined) return { create: rag.files, modify: [] };
   const agent = agentFileOf(root, graph, o.agent);
   const from = importPath(agent.path, `${srcDir}/rag/${n.kebab}.rag.ts`);
-  const element = `{ use: ${rag.knowledge}, mode: RagMode.Tool }`;
-  const wired = wire(agent, "Agent", "rag", element, rag.knowledge, from);
-  // the mode is an enum (#269): its import goes with the knowledge base's
-  const modeImported = addImport(wired.content, wired.path, "RagMode", "@agboss/core");
-  return { create: rag.files, modify: [{ ...wired, content: modeImported }] };
+  const wired = wire(agent, "Agent", "rag", rag.knowledge, rag.knowledge, from);
+  return { create: rag.files, modify: [wired] };
 }

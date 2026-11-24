@@ -76,8 +76,8 @@ the money limits ([FinOps](FinOps)).
 
 A tool's `name` is what the model calls (#268 AC9, #1343a): letters, digits, `_` and `-`, at most 64
 characters (`[tool.name-invalid]`, `[tool.name-too-long]`); no `-tool` suffix is needed (`search-issues`,
-`search_issues`). A knowledge base's tool is
-`search-<rag name>-tool` (`search-jobs-rag-tool` for `jobs-rag`, [Knowledge bases](Knowledge-bases)).
+`search_issues`). A knowledge base has no tool of its own: a `@Tool` injects the `@Rag` (`deps: [JobsRag]`)
+and calls `search(query)`, with the ready-made `RagQueryDto` / `RagSearchResultsDto` ([Knowledge bases](Knowledge-bases)).
 The tools an MCP server offers keep the server's own names (`read_text_file`, declared in
 `@McpServer({ tools })`) — a model never sees them, only the `@Tool` calling them. Every name a
 model sees — the framework's answer tools (`answer-<dto>`) too — fits what the providers accept
@@ -147,7 +147,7 @@ export class FetchPageTool {
   part of every workflow's `configHash`. The result stays useful; it is never turned into an error.
 - It is cut **before** PII masking: the policies read only the kept part, the marker follows it in
   what the model reads and in the checkpoint.
-- A knowledge base in `RagMode.Context` is bounded the same way: each knowledge base's block in the
+- A knowledge base listed in an agent's `rag` is bounded the same way: each knowledge base's block in the
   agent's input message by the agent's `maxResultSize` (its workflow's `defaults.tools`, else 128 KB).
 - `onToolEnd` carries `isResultTruncated` (`update` then ends with the marker,
   [Observability](Observability)); `agboss describe` prints each tool's bound and where it came from

@@ -8,7 +8,7 @@ import type { ResolvedModelFiles } from "../files/file-settings.js";
 import type { CompactionStrategy } from "../memory/memory.decorator.js";
 import type { CachedPart, CacheRetention } from "../models/prompt-caching.js";
 import type { ReasoningEffort } from "../models/reasoning.js";
-import type { RagMode, RagTenancy, RerankFailurePolicy } from "../rag/types.js";
+import type { RagScope, RerankFailurePolicy } from "../rag/types.js";
 import type { TokenLimit, TurnLimit } from "./types.js";
 
 /** USD per 1M tokens — take from openrouter.ai/models. Cache prices fall back to input price. */
@@ -94,13 +94,12 @@ export interface AgentSettings extends ModelSettings {
   maxRetries?: number | undefined;
   /** Files for the agent's model (#899), every level applied; absent = no byte goes to the model. */
   files?: ResolvedModelFiles | undefined;
-  /** Knowledge bases the agent uses: name, mode and passages per retrieval. */
+  /** Knowledge bases the agent uses: name, scope and passages per retrieval. */
   rag?:
     | {
         name: string;
-        mode: RagMode;
         topK: number;
-        tenancy: RagTenancy;
+        scope: RagScope;
         rerank?:
           { reranker: string; candidates: number; onFailure: RerankFailurePolicy } | undefined;
       }[]

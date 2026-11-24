@@ -1237,9 +1237,8 @@ export const quorumPaths = [
   `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, `*.reranker.ts`,
   `*.helper.ts`, `*.eval-suite.ts`, `*.a2a-agent.ts`, `*.a2a-expose.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
-  own (`ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
-  `RagConnector`), `extends` +
-  `override` for a standard implementation (`McpServerClient`, `SqliteFtsConnector`). The check is
+  own (`ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`), `extends` +
+  `override` for a standard implementation (`McpServerClient`, `RagSource`, `SqliteFtsRagSource`). The check is
   on the decorator line, `implements` is documentation (#120 PR 4): every contract is a
   function-typed property (strict variance), so a method with a narrower parameter fails on
   `@Tool`, `@Rag`, `@Judge`, `@PiiPolicy`, `@ModelProvider`, … Prompts are
@@ -1533,8 +1532,8 @@ export class SeenJobsRepository {
   `WorkflowFinishTextDto`, `ToolCallApprovalDecisionDto`, `RagSearchResultDto`, `PlainTextDto`
   (Wiki → Standard-DTOs). zod stays inside the framework.
 - **Tool names** (#268 AC9): a project's `@Tool` is named like every component —
-  kebab-case ending with `-tool` (`order-status-tool`, `[name.kind-suffix]`); a knowledge base's
-  tool is `search-<rag name>-tool` (`search-jobs-rag-tool` for `jobs-rag`); an MCP server's own
+  kebab-case ending with `-tool` (`order-status-tool`, `[name.kind-suffix]`); a knowledge base has no
+  tool of its own (a `@Tool` injects the `@Rag`); an MCP server's own
   tools keep the server's names (`read_text_file`, in `@McpServer({ tools })`). Every name a model
   sees fits `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`, `[tool.name-invalid]`),
   and is unique over local, MCP, knowledge-base and answer tools (`answer-<dto>`) — else
@@ -1786,47 +1785,35 @@ export class ArchiveMemory {}
 export class ArchiveAgent {}
 ```
 
-- **Knowledge bases:** a `@Rag` class implementing `RagConnector`, bound per agent with
-  `rag: [{ use, mode: RagMode.Tool | RagMode.Context }]`. Tenant-scoped (#700): the core passes the
-  execution's tenant on every `retrieve(query, { topK, signal, tenantId })` and `index({ tenantId,
-signal })` (read from the step's frame, checked as a key's text — `dto.invalid` naming the rule,
-  never the id; none → `context.unavailable`, never `"default"`); a connector returns and indexes
-  that tenant's passages only, compared as given. Whose content it serves is declared (#796):
-  `@Rag({ tenancy: RagTenancy.PerTenant | RagTenancy.Shared })` is required — `PerTenant` reads
-  `options.tenantId`, `Shared` is one corpus every tenant may read, a reviewed choice; none is a
-  compile error, and a JS project or a cast is `[rag.tenancy-required]` at assembly; describe prints
-  it (`rag: docs-rag (tool, k 3, per-tenant)`), `describe --json` and `configHash` carry it. `SqliteFtsConnector` keys every chunk by tenant
-  (`folder`: one folder every tenant indexes, or `tenantId → folder | undefined`; a pre-#700 index
-  file migrates in place to the `default` tenant, a later version is `rag.index-version`; a `node:sqlite` without FTS5, Node 22.13–22.15, is `rag.fts5-unavailable` on first use, #1226), a tenant's
-  index built whole by `index()` — every document read first, every change written in one transaction
-  (#891: an interrupted run leaves the index it found) —, a tenant never indexed indexed by its first retrieval on the instance, once and whole — one transaction, so a failure midway leaves nothing and the next retrieval builds it again (#818: later retrievals only read; `OncePerTenant`, each caller waiting under its own signal); `SqliteFtsOptions { folder, sqlitePath, maxChunkLength? }`; `agboss rag index --tenant <id>` (#797: required when the application declares a tenant
-  context — none is `rag.tenant-required`, exit 2, nothing built; else default `default`; #891:
-  Ctrl+C aborts the connector's signal — `rag.interrupted`, exit 1). A
-  connector proves it with `ragConnectorContract({ name, connector, documents, reset? })`
-  (`@agboss/core/testing/contracts`: isolation, near-identical tenant ids, re-index replaces, `topK`,
-  the abort signal, a cost the ledger can add; bites in `tests/testing/contracts/rag-sabotage.test.ts`; #818: `tenancy: RagTenancy.Shared` runs, in place of the isolation cases, one corpus for every tenant — near-identical ids too —, a re-index that replaces it for every tenant that read it, and a tenant it never saw served, its calls carrying it; that the core passes the tenant to a shared connector is `tests/rag/tenancy.test.ts`). **Reranking (#703):** `@Rag({ rerank: { by, candidates, topK, onFailure? } })` in place of `topK`
-  (both, or neither, do not compile; `[rag.rerank-invalid]`: whole numbers `1 ≤ topK ≤ candidates`;
-  `by` is a `RerankerClass` — a model `@Reranker` `extends ModelReranker`, a code one `implements RerankerHandler`; any other class does not compile, #818, a JS caller's is
-  `[rag.not-a-reranker]`) — the connector is asked for `candidates`, the `@Reranker`
-  (`rerankers/*.reranker.ts`, `-reranker`, `@agboss/core/rag`) re-orders them, the agent gets `topK`,
-  in tool and context mode alike (`testRag` too). `DecidedBy.Model` (the default, `extends ModelReranker`, no code):
-  the core's LLM reranker on `model` (else `DEFAULT_RERANKER_MODEL`, `openai/gpt-4.1-nano`), a model use
-  `rerankers.<name>` (`[model.unserved]`; a decision model `[reranker.decision-model]`), one call —
-  the numbered candidates in, `{"ranking":[…]}` out (unranked ones follow in retrieval order),
-  `mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[27,1]}'))`, unscripted the retrieval's
-  order; `DecidedBy.Code` — `implements RerankerHandler` (`rerank(query, candidates, { topK, signal,
-tenantId })` → `RerankResult { results, costUsd? }`, everything from `@agboss/core/rag` — `DecidedBy` and `RagSearchResultDto` too, `deps`; a dedicated API such as Cohere Rerank on
-  its official SDK; none → `[reranker.missing-handler]`). The result must be a subset of the
-  candidates (by `source` + `text`, none twice, at most `topK`), else it is a failure — no reranker can
-  put a passage the tenant's retrieval did not return before the agent. A failure (a throw, an
-  unreadable reply, an invalid result) under `RerankFailurePolicy.Fallback` (default) gives the
-  retrieval's first `topK` and a span `rerank:<name>:fallback`; under `FailStep` it is
-  `RerankFailedError` (`step.rerank-failed`, a `StepFailedError`; `new RerankFailedError({ rag, reranker, cause, usage })`) failing the agent's step in both
-  modes. The LLM reranker's model reads the query and the candidates (texts and sources) as the reading agent's own model does (#708: that agent's PII policies, its execution's sensitive values and key — in context mode the agent's, in tool mode the searching agent's; a block rule in them refuses as at the agent's boundary: the search call refused, the execution refused in context mode, and no model reads them); a code reranker's call is the project's own. The same holds for a model judge's calls in an agent's quality gate (`judgeModel.invoke` / `decide` masked, its chat reply revealed before the judge reads it) and a model arbiter's (the answering agent's policies). The reranking is the span `rerank:<rag>` (its model call inside, both masked); its spend a `UsageRecord`
-  under `rag:<rag>` (category `retrieval`, the reranker's model; a code one's `costUsd` cost source
-  `tool`), counted by the budgets at once; describe: `rag: docs-rag (tool, k 3, per-tenant, reranked by
-docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, rerank: { by, candidates } })`
-  runs the suite through the core's reranking; a scripted agent searches with `callTool(HandbookRag, { query })` (the `@Rag`'s search tool), `testRag(R, { model })` scripts its model reranker. **MCP:** `@McpServer`
+- **Knowledge bases:** a `@Rag` class extending `RagSource` (`protected retrieve(query, { topK, signal,
+  scopeId?, filter? })`, optional `protected index`, `resolveScope?(context)` for `RagScope.Custom`);
+  the one public way in is `search(query, { topK?, filter? })`, which runs the pipeline (scope,
+  reranking, PII policies, `costUsd` and `tokens` into the budgets under `rag:<name>`, a reranker's
+  under `reranker:<name>`) and returns a clean `RagSearchResultsDto`. `@Rag` and `@Tool` are
+  orthogonal: `@Agent({ rag: [Docs] })` is a list of classes whose passages come with the input
+  (a retrieval that fails fails the step); a `@Tool` / `@Action` injects the `@Rag` (`deps: [Docs]`)
+  and calls `search` — with the ready-made `RagQueryDto` / `RagSearchResultsDto` of
+  `@agboss/core/rag`. There is no `RagMode` and no synthesized search tool; one `@Rag` listed twice
+  in an agent is `[agent.duplicate-rag]`. `@Rag({ scope })` is required (`[rag.scope-required]`):
+  `Shared` (one corpus, the source is told no scope), `Tenant` (the execution's tenant), `Owner`
+  (the call's owner), `Custom` (`resolveScope(context)`, `[rag.custom-scope-missing-resolver]`) — a
+  data-isolation boundary: every non-global scope is keyed by the pair (`tenantId`, `scopeId`) — an owner id is unique within a tenant only — and a call that cannot name its scope reads nothing (`RagScopeError`), ids are
+  key's text compared as given, `describe` and `configHash` carry the scope. `topK` stays on `@Rag`;
+  `reranker: Class` names a `@RagReranker({ candidates, maxCandidateLength?, onFailure?, model?,
+  modelProvider? })` (an empty class is the LLM reranker on its provider's model through the cascade —
+  no default model of the core's own, `[model.missing]`; a class with `rerank()` is code); `1 ≤ topK ≤
+  candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePolicy.FailStep`.
+  `SqliteFtsRagSource({ directory, path, maxChunkLength? })` keys every chunk by its scope (a
+  shared source has one copy; an index file of an older version is rebuilt, never migrated; a
+  `node:sqlite` without FTS5, Node 22.13–22.15, is `rag.fts5-unavailable` on first use, #1226), a
+  scope's index built whole by `index` in one transaction (#891), a scope never indexed indexed by
+  its first retrieval on the instance, once and whole (#818: `OncePerScope`), its handle closed by
+  `onDestroy`. `agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>]`: `--tenant` is required for a
+  knowledge base whose scope is not `Shared` (`rag.tenant-required`), `--scope` too for an Owner or
+  Custom one (`rag.scope-required`; exit 2, nothing built); Ctrl+C
+  aborts the source's signal (`rag.interrupted`, exit 1, #891). A source proves itself with
+  `ragSourceContract({ name, source, documents, reset?, scope? })` (`@agboss/core/testing/contracts`),
+  the cases of the reference source; bites in `tests/testing/contracts/rag-sabotage.test.ts`. **MCP:** `@McpServer`
   (`extends McpServerClient`) listed in the `deps` of the `@Tool`s that call it (connected at start, no `mcp: [...]`; `McpTransport`, `defineEnv` references, `call(name, args, { key, signal, timeout })`, `McpError`).
   **A2A (#387, #398 PR 3, #809) — declared contracts:** a call to an A2A v1.0 agent (another AGBoss
   application or a foreign one, on the official `@a2a-js/sdk`, exact pin) is an
@@ -3142,7 +3129,7 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
     units/          `@agboss/core/units`: usd(), seconds(), minutes(), kilobytes()
     workflow.ts     the assembled workflow type
     config/         typed config schema, profiles (YAML overlays), defaults resolution
-    rag/            knowledge-base contract (RagConnector) + reference SQLite FTS5 connector
+    rag/            knowledge-base source (RagSource) + reference SQLite FTS5 source
     flow/           the paths (#272): builder.ts (start/agent/router/action/route/caseOf/to…), ast.ts,
                     decorators/ (@WorkflowStart @Router @Agent @Action @WorkflowFinish @Workflow),
                     dto-wrappers.ts, handlers.ts, print.ts (the grammar printed); analyse/ (path walk,

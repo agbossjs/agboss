@@ -1,21 +1,14 @@
 /**
- * #703 — the assembly rules of reranking, all at once before any model call: `topK` and
- * `candidates` whole numbers with `1 ≤ topK ≤ candidates`, `by` a `@Reranker`, its name's suffix, a
- * code reranker's `rerank()`, a model reranker on a chat model served by the application's providers.
+ * The assembly rules of reranking, all at once before any model call: `reranker.candidates` and
+ * `@Rag({ topK })` whole numbers with `1 ≤ topK ≤ candidates` (`[rag.rerank-invalid]`), `reranker` a
+ * `@RagReranker` (`[rag.not-a-reranker]`), its name kebab-case, a model reranker's model from its
+ * provider (`[model.missing]`, `[model.missing-provider]`) — and no default model of the core's own.
  */
 import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { Agent, DecidedBy, EmptyEnvironment, Workflow, type Class } from "../../src/index.js";
+import { Agent, EmptyEnvironment, Workflow, type Class } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
-import {
-  ModelReranker,
-  Rag,
-  RagMode,
-  RagTenancy,
-  Reranker,
-  type RagConnector,
-  type RagRetrieval,
-} from "../../src/rag/index.js";
+import { Rag, RagReranker, RagScope, RagSource, type RagRetrieval } from "../../src/rag/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -25,40 +18,43 @@ import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { starOf } from "../fixtures/test-flow/star.js";
 import { testDefaults } from "../helpers.js";
 
-class Empty implements RagConnector {
-  retrieve(): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [] });
+class Empty extends RagSource {
+  protected override retrieve(): RagRetrieval {
+    return { results: [] };
   }
 }
 
-@Reranker({ name: "docs-reranker", description: "On the default model" })
-class DefaultModelReranker extends ModelReranker {}
+@RagReranker({
+  name: "docs-reranker",
+  description: "On a named model",
+  candidates: 10,
+  model: "local/llama",
+})
+class NamedModelReranker {}
 
-@Reranker({ name: "Docs_Ranker", description: "Not kebab-case", model: "local/llama" })
-class BadNameReranker extends ModelReranker {}
+@RagReranker({ name: "no-model-reranker", description: "Names no model", candidates: 10 })
+class NoModelReranker {}
 
-@Reranker({ name: "jev-reranker", description: "A decision model", model: "typesafe/jev-1.13" })
-class DecisionReranker extends ModelReranker {}
-
-// a JS project, or a cast: a code reranker without rerank()
-@Reranker({
-  name: "empty-reranker",
-  description: "No rerank()",
-  decidedBy: DecidedBy.Code,
-} as never)
-class NoHandlerReranker extends ModelReranker {}
+@RagReranker({
+  name: "Docs_Ranker",
+  description: "Not kebab-case",
+  candidates: 10,
+  model: "local/llama",
+})
+class BadNameReranker {}
 
 class NotAReranker {
   readonly isReranker = false;
 }
 
-function workflowReading(by: Class, counts = { candidates: 10, topK: 3 }): Class {
+function workflowReading(reranker: Class, topK = 3): Class {
   @Rag({
     name: "docs-rag",
     description: "Docs",
-    tenancy: RagTenancy.PerTenant,
-    // a JS caller's `by` may be any class: the assembly refuses what the type does
-    rerank: { by: by as never, ...counts },
+    scope: RagScope.Tenant,
+    topK,
+    // a JS caller's `reranker` may be any class: the assembly refuses what the type does
+    reranker,
   })
   class DocsRag extends Empty {}
   @Agent({
@@ -66,7 +62,7 @@ function workflowReading(by: Class, counts = { candidates: 10, topK: 3 }): Class
     description: "Reads",
     prompt: "Read.",
     model: "local/llama",
-    rag: [{ use: DocsRag, mode: RagMode.Tool }],
+    rag: [DocsRag],
   })
   class ReaderAgent {}
   @Workflow({
@@ -85,48 +81,44 @@ const codesOf = async (workflow: Class): Promise<readonly string[]> => {
   return violations.map((v) => v.code);
 };
 
-describe("#703: reranking at assembly", () => {
+/** A reranker that fetches `candidates`, named by them. */
+function rerankerOfCount(candidates: number): Class {
+  @RagReranker({
+    name: "counted-reranker",
+    description: "Counted",
+    candidates,
+    model: "local/llama",
+  })
+  class CountedReranker {}
+  return CountedReranker;
+}
+
+describe("reranking at assembly", () => {
   it.each([
     [{ candidates: 3, topK: 5 }, "topK above candidates"],
     [{ candidates: 10, topK: 0 }, "topK 0"],
     [{ candidates: 2.5, topK: 1 }, "candidates not whole"],
-  ])("[rag.rerank-invalid]: %j (%s)", async (counts) => {
-    expect(await codesOf(workflowReading(DefaultModelReranker, counts))).toContain(
+  ])("[rag.rerank-invalid]: %j (%s)", async ({ candidates, topK }) => {
+    expect(await codesOf(workflowReading(rerankerOfCount(candidates), topK))).toContain(
       "rag.rerank-invalid",
     );
   });
 
-  it("[rag.not-a-reranker], [name.not-kebab-case], [reranker.decision-model], [reranker.missing-handler]", async () => {
+  it("[rag.not-a-reranker], [name.not-kebab-case]", async () => {
     expect(await codesOf(workflowReading(NotAReranker))).toEqual(["rag.not-a-reranker"]);
     expect(await codesOf(workflowReading(BadNameReranker))).toEqual(["name.not-kebab-case"]);
-    expect(await codesOf(workflowReading(DecisionReranker))).toEqual(["reranker.decision-model"]);
-    expect(await codesOf(workflowReading(NoHandlerReranker))).toEqual(["reranker.missing-handler"]);
   });
 
-  it("describe: k is topK, the reranker, the candidates and the failure policy", async () => {
-    const bundle = await workflowOf(workflowReading(DefaultModelReranker));
+  it("describe: k is topK, the reranker, the candidates and the failure policy (fail the step by default)", async () => {
+    const bundle = await workflowOf(workflowReading(NamedModelReranker));
 
     expect(describeWorkflow(bundle)).toContain(
-      "    rag: docs-rag (tool, k 3, per-tenant, reranked by docs-reranker from 10, on failure fallback)",
+      "    rag: docs-rag (k 3, tenant, reranked by docs-reranker from 10, on failure fail-step)",
     );
-    expect(bundle.rerankers).toEqual([{ name: "docs-reranker", model: "openai/gpt-4.1-nano" }]);
+    expect(bundle.rerankers).toEqual([{ name: "docs-reranker", model: "local/llama" }]);
   });
 
-  it("[model.unserved]: the default model under providers that do not serve it names rerankers.<name>", async () => {
-    @Application({
-      name: "local-application",
-      version: "1.0.0",
-      environment: EmptyEnvironment,
-      workflows: [workflowReading(DefaultModelReranker)],
-      providers: MODEL_PROVIDERS,
-      budgets: TEST_BUDGETS,
-    })
-    class LocalApplication {}
-
-    const failed = await createAppWith(LocalApplication, {
-      gateway: createScriptedGateway(new ScriptBook()),
-    }).catch((e: unknown) => e);
-
-    expect((failed as Error).message).toContain("rerankers.docs-reranker = openai/gpt-4.1-nano");
+  it("a model reranker that names no model, under no model provider: [model.missing-provider] — the core has no default model", async () => {
+    expect(await codesOf(workflowReading(NoModelReranker))).toEqual(["model.missing-provider"]);
   });
 });

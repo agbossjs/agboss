@@ -1,15 +1,6 @@
-import {
-  createContainer,
-  DependantValue,
-  UnavailableValue,
-  type Container,
-} from "../../components/container/container.js";
-import { contextValuesOf } from "../../components/context-tokens.js";
-import type { Class, Token } from "../../components/injection.js";
-import { JudgeModel } from "../../components/judge-decorators.js";
-import { LiveJudgeModel } from "../../components/judge-call.js";
-import { ROUTER_FACTORY } from "../../components/runtime.js";
-import { LiveSpendRecorder, SpendRecorder } from "../../components/spend-recorder.js";
+import { type Container } from "../../components/container/container.js";
+import type { Class } from "../../components/injection.js";
+import { unitContainer } from "./unit-container.js";
 import { NO_ENVIRONMENT_VALUES, unitEnvironmentOf } from "../../environments/resolve.js";
 import { CostReport, type UsageRecord } from "../../finops/usage.js";
 import { applicationContextOf } from "../../flow/context/application-context.js";
@@ -24,9 +15,9 @@ import {
   type TenantFields,
 } from "../../flow/context/context-values.js";
 import { TenantContext } from "../../flow/context/tenant-context.js";
-import { Clock, StoreClock, StoreTimeSource } from "../../infrastructure/clock.js";
 import { timeoutError, timeoutOn } from "../../infrastructure/clock.js";
 import type { ModelGateway } from "../../llm/gateway.js";
+import type { Clock } from "../../infrastructure/clock.js";
 import type { Milliseconds } from "../../units/index.js";
 import { VirtualClock } from "../clock.js";
 import { asError } from "../errors.js";
@@ -35,7 +26,6 @@ import { ScriptBook, type ModelScript } from "../script-book.js";
 import type { TurnFor } from "../script-types.js";
 import { createScriptedGateway } from "../scripted-gateway.js";
 import type { UnitModelScript, UnitOptions, UnitRun } from "./unit-types.js";
-import { replacementsOf } from "./override.js";
 import { testFenceLeaseOf } from "../fence.js";
 import { UnitFencedEffects } from "./unit-fenced-effects.js";
 import type { FrameLease } from "../../flow/context/frame.js";
@@ -94,33 +84,6 @@ function unitContexts(clock: Clock, options: UnitOptions): RuntimeContexts {
   };
 }
 
-const noRouterFactory = new UnavailableValue(
-  (dependant) =>
-    `${dependant} injects ROUTER_FACTORY, which a unit runner does not have — override the class that uses it`,
-);
-
-function unitContainer(
-  clock: Clock,
-  contexts: RuntimeContexts,
-  options: UnitOptions,
-  fencedEffects: UnitFencedEffects,
-): Container {
-  const core = new Map<Token, unknown>([
-    ...fencedEffects.core,
-    [ROUTER_FACTORY, noRouterFactory],
-    ...contextValuesOf(contexts),
-    [JudgeModel, new DependantValue((dependant) => new LiveJudgeModel(dependant))],
-    [SpendRecorder, new DependantValue((dependant) => new LiveSpendRecorder(dependant))],
-    [Clock, clock],
-    // the runner's stores decide by its clock (#533)
-    [StoreClock, new StoreClock(StoreTimeSource.Test, clock)],
-  ]);
-  return createContainer(
-    { modules: [], core, defaults: fencedEffects.defaults },
-    { replacements: replacementsOf(options.overrides), onCreate: fencedEffects.onCreate },
-  );
-}
-
 /** One turn or a list of them, as the list. */
 const turnsOf = <TSelf>(model: UnitModelScript<TSelf>): readonly TurnFor<TSelf>[] =>
   isTurnList(model) ? model : [model];
@@ -151,6 +114,8 @@ export class UnitSite {
   /** The runner's lease in the lease store of every fenced-effect store it creates (#500). */
   readonly #fencedEffects: UnitFencedEffects;
   #gateway: ModelGateway | undefined;
+  /** Who the unit's calls are made for (`ownerId`); default none. */
+  readonly #ownerId: string | undefined;
 
   constructor(options: UnitOptions) {
     this.contexts = unitContexts(this.clock, options);
@@ -162,7 +127,14 @@ export class UnitSite {
       clock: this.clock,
     });
     this.#fencedEffects = new UnitFencedEffects(this.#lease, options.fence ?? {}, this.clock);
-    this.container = unitContainer(this.clock, this.contexts, options, this.#fencedEffects);
+    this.#ownerId = options.ownerId;
+    this.container = unitContainer(
+      this.clock,
+      this.contexts,
+      options,
+      this.#fencedEffects,
+      () => this.gateway,
+    );
   }
 
   /** The component's instance (its `deps` resolved, `overrides` applied). */
@@ -213,7 +185,7 @@ export class UnitSite {
       execution: Object.freeze({
         executionId: UNIT_EXECUTION,
         threadId: UNIT_EXECUTION,
-        ownerId: undefined,
+        ownerId: this.#ownerId,
         signal,
         workflow,
         tenant: tenantOfExecution(this.contexts, this.#tenant),

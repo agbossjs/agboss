@@ -1,4 +1,3 @@
-import { RagMode } from "../rag/types.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { Class } from "./injection.js";
 import { judgeNamesOf } from "./judge-parts.js";
@@ -6,7 +5,7 @@ import type { AgentMeta } from "./meta-types.js";
 import { OMITTED_MODEL } from "../models/model-cascade.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
 import { windowOfClass } from "../memory/memory.decorator.js";
-import { ragMeta, ragSettings, searchToolName } from "./rag.js";
+import { ragSettings } from "./rag.js";
 
 /** An agent's settings as the config holds them (tools by name). */
 export function agentSettings(
@@ -23,9 +22,6 @@ export function agentSettings(
     maxRetries: agent.maxRetries,
     price: agent.price,
   };
-  const search = (agent.rag ?? [])
-    .filter((b) => b.mode === RagMode.Tool)
-    .map((b) => searchToolName(ragMeta(b.use)));
   const rag = ragSettings(agent);
   const judges = judgeNamesOf(agent);
   return {
@@ -36,7 +32,7 @@ export function agentSettings(
       : { modelProvider: modelProviderOf(agent.modelProvider).name }),
     description: agent.description,
     ...(judges.length === 0 ? {} : { judges }),
-    tools: [...(agent.tools ?? []).map((cls) => names.get(cls) ?? cls.name), ...search],
+    tools: (agent.tools ?? []).map((cls) => names.get(cls) ?? cls.name),
     ...(rag.length === 0 ? {} : { rag }),
     ...Object.fromEntries(Object.entries(optional).filter(([, value]) => value !== undefined)),
   };

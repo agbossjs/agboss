@@ -17,7 +17,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@Router` (`routers/<name>/<name>.router.ts` (+ `<name>.prompt.md`))                            | code: `RouterHandler<Self>`: `route(input)`                                        | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                                                             |
 | `@Arbiter` (`arbiters/<name>/<name>.arbiter.ts` (+ `<name>.prompt.md`))                         | code: one `@OnAnswer(Agent)` method per agent of the launch                        | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                                                                 |
 | `@Judge` (`judges/<name>/<name>.judge.ts` (+ `<name>.prompt.md`))                               | `judge(input)`, sync or async                                                      | `name`, `output` (the answer's shape), `model` / `modelProvider` (with `JudgeModel` in `deps`), `deps`                                                                                                                                                                                                                                                                                          |
-| `@Rag` (`rag/<name>.rag.ts`, `@agboss/core/rag`)                                                | `RagConnector`: `retrieve(query, { topK, signal, tenantId })`                      | `name` (`-rag`), `description`, `topK`, `deps`                                                                                                                                                                                                                                                                                                                                                  |
+| `@Rag` (`rag/<name>.rag.ts`, `@agboss/core/rag`)                                                | `RagSource`: `retrieve(query, { topK, signal, scopeId })`                          | `name` (`-rag`), `description`, `scope`, `topK`, `reranker`, `deps`                                                                                                                                                                                                                                                                                                                             |
 | `@Memory` (`memories/<name>/<name>.memory.ts` (+ `<name>.prompt.md`))                           | none; a code compaction: a `compact(input)` method (no `implements`)               | `name` (`-memory`), `description`, `ttl`, `uncompactedTurns`, `turnsBetweenCompactions`, `compaction: { strategy, prompt, modelProvider, model, summaryQueueLength, summaryMaxTokens }` or `compact()` + `deps`; `NoMemory` is the built-in "no earlier turn"                                                                                                                                   |
 | `@InputGuardrail` / `@OutputGuardrail` (`guardrails/<name>/<name>.guardrail.ts`)                | code: `InputGuardrailHandler` / `OutputGuardrailHandler`                           | `name`, `description`, `decidedBy`; model: `model`, `prompt`, `refusalMessage`; code: `deps`                                                                                                                                                                                                                                                                                                    |
 | `@ReplyInterpreter` (`reply-interpreters/<name>/<name>.reply-interpreter.ts`)                   | —                                                                                  | `name?`, `model`, `prompt` / `promptUrls`, `decision`                                                                                                                                                                                                                                                                                                                                           |
@@ -169,14 +169,14 @@ export class CustomerLookupTool {
 ```
 
 ```ts file=src/desk/rag/help-center.rag.ts
-// rag/help-center.rag.ts — a knowledge base: any class implementing RagConnector; every retrieval
-// carries the execution's tenant (#700) — return that tenant's passages only. `tenancy` is required
-// (#796): `RagTenancy.PerTenant` reads `options.tenantId`; `RagTenancy.Shared` is one corpus every
-// tenant may read, a declared choice (none → `[rag.tenancy-required]`)
+// rag/help-center.rag.ts — a knowledge base: a class extending RagSource; every retrieval carries the
+// scope's id (a tenant's, an owner's, a custom one's) — return that scope's passages only. `scope` is
+// required: `RagScope.Tenant` reads `options.scopeId`; `RagScope.Shared` is one corpus every tenant may
+// read and is told no scope, a declared choice (none → `[rag.scope-required]`)
 import {
   Rag,
-  RagTenancy,
-  type RagConnector,
+  RagScope,
+  RagSource,
   type RagRetrieval,
   type RagRetrieveOptions,
 } from "@agboss/core/rag";
@@ -186,58 +186,59 @@ const ARTICLES = new Map([["default", [{ text: "Refunds take 5 days.", source: "
 @Rag({
   name: "help-center-rag",
   description: "Help-center articles",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Tenant,
   topK: 3,
 })
-export class HelpCenterRag implements RagConnector {
-  retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
-    const results = (ARTICLES.get(options.tenantId) ?? []).filter(() => query !== "");
-    return Promise.resolve({ results: results.slice(0, options.topK) });
+export class HelpCenterRag extends RagSource {
+  protected override retrieve(query: string, options: RagRetrieveOptions): RagRetrieval {
+    const results = (ARTICLES.get(options.scopeId ?? "") ?? []).filter(() => query !== "");
+    return { results: results.slice(0, options.topK) };
   }
 }
 ```
 
-A knowledge base may rerank its candidates before the agent reads them (#703): `rerank: { by,
-candidates, topK }` in place of `topK` — the connector is asked for `candidates`, the agent gets the
-best `topK`. `by` is a `@Reranker` class, nothing else compiles (#818): a model one `extends
-ModelReranker` (the core's LLM reranker), a code one `implements RerankerHandler`. Everything a
-reranker needs is in `@agboss/core/rag`, `DecidedBy` and `RagSearchResultDto` included:
+An agent lists a knowledge base in `rag: [HelpCenterRag]` (its passages come with the input, before the
+first model call), or a `@Tool` injects it (`deps: [HelpCenterRag]`) and calls `search(query)` — with the
+ready-made `RagQueryDto` / `RagSearchResultsDto` of `@agboss/core/rag`; `@Tool` knows nothing of RAG.
+A knowledge base may rerank its candidates before the agent reads them: `@Rag({ topK, reranker })`
+names a `@RagReranker` class that carries the `candidates` — the source is asked for `candidates`, the
+agent gets the best `topK`. An empty class is the core's LLM reranker on the cascade's model; a class
+with a `rerank` method is your own (no `implements`). A failing reranker fails the step unless it says
+`onFailure: RerankFailurePolicy.Fallback`:
 
 ```ts file=src/desk/rerankers/help-center.reranker.ts
 // rerankers/help-center.reranker.ts — by code: a subset of the candidates, best first, at most topK
 import {
-  DecidedBy,
-  Reranker,
+  RagReranker,
   type RagSearchResultDto,
-  type RerankerHandler,
   type RerankOptions,
   type RerankResult,
 } from "@agboss/core/rag";
 
-@Reranker({
+@RagReranker({
   name: "help-center-reranker",
   description: "Puts articles that name the query first",
-  decidedBy: DecidedBy.Code,
+  candidates: 20,
 })
-export class HelpCenterReranker implements RerankerHandler {
+export class HelpCenterReranker {
   rerank(
     query: string,
     candidates: readonly RagSearchResultDto[],
     { topK }: RerankOptions,
-  ): Promise<RerankResult> {
+  ): RerankResult {
     const named = candidates.filter((candidate) => candidate.text.includes(query));
     const rest = candidates.filter((candidate) => !candidate.text.includes(query));
-    return Promise.resolve({ results: [...named, ...rest].slice(0, topK) });
+    return { results: [...named, ...rest].slice(0, topK) };
   }
 }
 ```
 
 ```ts file=src/desk/rerankers/help-model.reranker.ts
-// rerankers/help-model.reranker.ts — by model (the default): the core's LLM reranker, no code
-import { ModelReranker, Reranker } from "@agboss/core/rag";
+// rerankers/help-model.reranker.ts — by model: the core's LLM reranker, no code
+import { RagReranker } from "@agboss/core/rag";
 
-@Reranker({ name: "help-model-reranker", description: "Reranks on a cheap model" })
-export class HelpModelReranker extends ModelReranker {}
+@RagReranker({ name: "help-model-reranker", description: "Reranks on a cheap model", candidates: 20, model: "fast" })
+export class HelpModelReranker {}
 ```
 
 ```ts file=src/desk/memories/conversation/conversation.memory.ts
@@ -342,7 +343,7 @@ export class CitesSourceJudge implements JudgeHandler<DeskAnswerDto> {
 
 ```ts file=src/desk/agents/support/support.agent.ts
 // agents/support/support.agent.ts — every model setting in one place; the prompt in a file next to it
-import { Agent, RagMode, TokenLimit } from "@agboss/core";
+import { Agent, TokenLimit } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { Reasoning, ReasoningEffort } from "@agboss/core/models";
 import { ConversationMemory } from "../../memories/conversation/conversation.memory.js";
@@ -360,7 +361,7 @@ import { CustomerLookupTool } from "../../tools/customer-lookup.tool.js";
   output: DeskAnswerDto,
   tools: [CustomerLookupTool],
   maxToolCalls: 4, // per visit; over it → the step fails
-  rag: [{ use: HelpCenterRag, mode: RagMode.Tool }], // the tool search-help-center-rag-tool
+  rag: [HelpCenterRag], // its passages come with the input
   reasoning: Reasoning.on({ effort: ReasoningEffort.Low }), // not `thinking`
   maxTokens: TokenLimit.ModelMax, // the only way to say "no output cap"
   judges: [CitesSourceJudge],
@@ -371,8 +372,7 @@ export class SupportAgent {}
 ```
 
 ```md file=src/desk/agents/support/support.prompt.md
-You answer customers. Look the customer up with customer-lookup-tool, search the help center with
-search-help-center-rag-tool, and cite every claim as [source].
+You answer customers. Look the customer up with customer-lookup-tool, read the help-center passages that come with the question, and cite every claim as [source].
 ```
 
 ```ts file=src/desk/health-checks/crm.health-check.ts

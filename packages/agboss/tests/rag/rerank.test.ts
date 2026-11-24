@@ -1,8 +1,9 @@
 /**
- * #703 — reranking on `@Rag({ rerank })`: the agent gets the reranked best `topK` of `candidates`,
- * in tool and in context mode (AC1); the reranker's spend is in the turn's cost and its budgets
- * (AC2); a failing reranker falls back to the retrieval's order with a trace, or fails the step under
- * `FailStep` (AC3); a reranking that is no subset of the candidates is a failure (isolation).
+ * Reranking on `@Rag({ reranker })`: the agent gets the reranked best `topK` of the reranker's
+ * `candidates`, through a search tool and through `rag: [...]` (AC1); the reranker's spend is in the
+ * turn's cost and its budgets (AC2); a failing reranker fails the step (the default `FailStep`), or
+ * falls back to the retrieval's order with a trace when the reranker says `Fallback` (AC3); a
+ * reranking that is no subset of the candidates is a failure (isolation).
  */
 import { createAppWith } from "../../src/application/create-app.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
@@ -10,9 +11,10 @@ import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { Budget, BudgetScope, type BudgetHandler } from "../../src/budgets/budget.js";
 import { BudgetExceededError } from "../../src/index.js";
-import { boundRerankerOf, knowledgeRetrieveOf, ragMeta } from "../../src/components/rag.js";
+import { ragMeta } from "../../src/components/rag.js";
+import { boundRerankerOf } from "../../src/components/rag-reranker.js";
+import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
-import type { RagConnector } from "../../src/rag/index.js";
 import type { KnowledgeSource } from "../../src/rag/types.js";
 import { inTestFrame } from "../helpers/frame.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
@@ -67,7 +69,7 @@ const sourcesOf = (output: unknown): readonly string[] =>
   );
 
 describe("#703 AC1: the agent gets the reranked best topK of the candidates", () => {
-  it("tool mode, model reranker: the 27th candidate, ranked first, reaches the agent first; topK 3", async () => {
+  it("search tool, model reranker: the 27th candidate, ranked first, reaches the agent first; topK 3", async () => {
     const book = new ScriptBook();
     book.scriptOf("reranker:docs-reranker").thenReturn(replyWith(RANKING));
     book
@@ -85,7 +87,7 @@ describe("#703 AC1: the agent gets the reranked best topK of the candidates", ()
     expect(asked).toContain(`[27] (${ANSWER.source}) ${ANSWER.text}`);
   });
 
-  it("context mode, model reranker: the knowledge block starts with the reranked first", async () => {
+  it("rag list, model reranker: the knowledge block starts with the reranked first", async () => {
     const book = new ScriptBook();
     book.scriptOf("reranker:docs-reranker").thenReturn(replyWith(RANKING));
     book.scriptOf("agent:model-context-agent").thenReturn(replyWith("done"));
@@ -97,7 +99,7 @@ describe("#703 AC1: the agent gets the reranked best topK of the candidates", ()
     expect(sent).not.toContain("near-miss-2.md");
   });
 
-  it("tool mode, code reranker: its own order, its reported cost billed to rag:<name>", async () => {
+  it("search tool, code reranker: its own order; its reported cost billed to reranker:<name>", async () => {
     const book = new ScriptBook();
     book
       .scriptOf("agent:keyword-tool-agent")
@@ -111,7 +113,7 @@ describe("#703 AC1: the agent gets the reranked best topK of the candidates", ()
 });
 
 describe("#703 AC2: the reranker's cost is in the turn and counts against the budgets", () => {
-  it("context mode: the model reranker's call is a retrieval line under rag:<name> on its model", async () => {
+  it("rag list: the model reranker's call is a rag line under reranker:<name> on its model", async () => {
     const book = new ScriptBook();
     book.scriptOf("reranker:docs-reranker").thenReturn(replyWith(RANKING, { cost: usd(0.002) }));
     book.scriptOf("agent:model-context-agent").thenReturn(replyWith("done"));
@@ -121,14 +123,14 @@ describe("#703 AC2: the reranker's cost is in the turn and counts against the bu
     expect(result.spend.byCategory.rag).toBeCloseTo(0.0001 + 0.002, 10);
     expect(result.spend.trace).toContainEqual(
       expect.objectContaining({
-        caller: "rag:model-ranked-rag",
+        caller: "reranker:docs-reranker",
         model: "local/llama",
         category: "rag",
       }),
     );
   });
 
-  it("tool mode: the model reranker's call is in the tool call's spend", async () => {
+  it("search tool: the model reranker's call is in the tool call's spend", async () => {
     const book = new ScriptBook();
     book.scriptOf("reranker:docs-reranker").thenReturn(replyWith(RANKING, { cost: usd(0.003) }));
     book
@@ -142,7 +144,7 @@ describe("#703 AC2: the reranker's cost is in the turn and counts against the bu
 });
 
 describe("#703 AC3: a failing reranker", () => {
-  it("default: the retrieval's own first topK, the turn goes on", async () => {
+  it("onFailure: Fallback: the retrieval's own first topK, the turn goes on", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:fallback-context-agent").thenReturn(replyWith("done"));
 
@@ -167,10 +169,10 @@ describe("#703 AC3: a failing reranker", () => {
   });
 
   it.each([
-    ["tool mode", STRICT_TOOL, [search("strict-ranked-rag"), replyWith("never")]],
-    ["context mode", STRICT_CONTEXT, [replyWith("never")]],
+    ["search tool", STRICT_TOOL, [search("strict-ranked-rag"), replyWith("never")]],
+    ["rag list", STRICT_CONTEXT, [replyWith("never")]],
   ] as const)(
-    "FailStep, %s: the step fails with RerankFailedError (step.rerank-failed)",
+    "the default FailStep, %s: the step fails with step.rerank-failed",
     async (_mode, flow, turns) => {
       const book = new ScriptBook();
       book
@@ -246,11 +248,11 @@ describe("#703 AC2, AC3: the trace", () => {
         },
       }),
     });
-    const connector = new (rag as new () => RagConnector)();
+    const source = new (rag as new () => object)();
     return {
       name: meta.name,
       topK: meta.topK,
-      retrieve: knowledgeRetrieveOf(meta, connector, reranker),
+      retrieve: knowledgeRetrieveOf(meta, source, reranker, services),
     };
   };
 
@@ -266,7 +268,10 @@ describe("#703 AC2, AC3: the trace", () => {
       expect.arrayContaining(["rag:model-ranked-rag", "rerank:model-ranked-rag"]),
     );
     expect(chatModels).toBe(1);
-    expect(records.map((r) => r.caller)).toEqual(["rag:model-ranked-rag", "rag:model-ranked-rag"]);
+    expect(records.map((r) => r.caller)).toEqual([
+      "rag:model-ranked-rag",
+      "reranker:docs-reranker",
+    ]);
   });
 
   it("AC3: a fallback is a span rerank:<name>:fallback after the failed rerank:<name>", async () => {

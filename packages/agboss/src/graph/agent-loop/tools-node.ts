@@ -1,5 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
+import { callerOfSpend } from "../../finops/explicit-caller.js";
 import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
 import { argumentsRefusal, readingAgent, closedResult, type ClosedResult } from "./tool-pii.js";
 import { runTool } from "./run-tool.js";
@@ -164,7 +165,7 @@ function runTask(
       },
     };
     const reportUsage = (spent: UsageRecord): void => {
-      keep({ ...spent, caller });
+      keep({ ...spent, caller: callerOfSpend(spent, caller) });
     };
     const event = { tool: task.tool, agent: deps.agent.name };
     await reportNodeEvent((b) => deps.observer?.onToolStart({ ...b, ...event, input: task.args }));

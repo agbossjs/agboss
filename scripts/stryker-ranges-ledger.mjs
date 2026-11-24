@@ -84,12 +84,22 @@ export function ledgerA2aClientShard() {
 
 /**
  * The `ledger-retention` shard (#1366): what the sweep removes once its retention is over — the ledger's old
- * entries (#771) with the other kinds of rows beside them — and the spend of a knowledge base's search (#268):
- * its cost and a reranker's records into the call's frame.
+ * entries (#771) with the other kinds of rows beside them — and a knowledge base's search (#268): the scope
+ * its every call is made for (a data-isolation boundary: it fails closed), its cost, tokens and a reranker's
+ * records into the call's frame, each under its own caller.
  */
 export function ledgerRetentionShard() {
   return {
     configFile: "vitest.mutation-ledger-retention.config.ts",
-    mutate: ["src/infrastructure/retention-sweep.ts", "src/components/rag.ts"],
+    mutate: [
+      "src/infrastructure/retention-sweep.ts",
+      "src/components/rag.ts",
+      "src/components/rag-reranker.ts",
+      "src/components/rag-retrieval.ts",
+      "src/components/rag-scope.ts",
+      "src/rag/rag-source.ts",
+      "src/rag/retrieval-spend.ts",
+      "src/finops/explicit-caller.ts",
+    ],
   };
 }

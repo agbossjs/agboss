@@ -144,8 +144,7 @@ function settingsLines(
   return [
     limitsLine(agent, config),
     ...(agent.rag ?? []).map(
-      (kb) =>
-        `    rag: ${kb.name} (${kb.mode}, k ${String(kb.topK)}, ${kb.tenancy}${rerankText(kb.rerank)})`,
+      (kb) => `    rag: ${kb.name} (k ${String(kb.topK)}, ${kb.scope}${rerankText(kb.rerank)})`,
     ),
   ];
 }

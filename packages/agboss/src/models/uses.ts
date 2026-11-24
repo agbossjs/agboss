@@ -102,7 +102,7 @@ export interface ModelNamingComponents {
   readonly interpreters?: readonly ModelNamingInterpreter[] | undefined;
   /** Guardrails (#120 PR 2). */
   readonly guardrails?: readonly ModelNamingRouter[] | undefined;
-  /** Model rerankers of knowledge bases (#703): chat models. */
+  /** Model rerankers of knowledge bases: chat models. */
   readonly rerankers?: readonly ModelNamingRouter[] | undefined;
   /**
    * Whether the built-in transcriber is the one in use (#899): its model is a use only then — an
@@ -193,7 +193,7 @@ function judgeUsesOf(
 
 /** A component that names its model (and maybe its provider): a model router's or an arbiter's use. */
 const namedUse =
-  (kind: "routers" | "arbiters", kinds: ProviderKinds | undefined) =>
+  (kind: "routers" | "arbiters" | "rerankers", kinds: ProviderKinds | undefined) =>
   (named: ModelNamingRouter): ModelUse => ({
     key: `${kind}.${named.name}`,
     model: named.model,
@@ -245,6 +245,6 @@ export function modelUsesOf(
       ...providerOf(guardrail.modelProvider),
       ...fileReadsOf(guardrail.reads),
     })),
-    ...(components.rerankers ?? []).map(({ name, model }) => chat(`rerankers.${name}`, { model })),
+    ...(components.rerankers ?? []).map(namedUse("rerankers", kinds)),
   ];
 }

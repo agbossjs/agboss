@@ -1,13 +1,13 @@
 import { usd, type Usd } from "../../../src/units/index.js";
+import { RagSource } from "../../../src/rag/rag-source.js";
 import type {
   RagIndexReport,
-  RagConnector,
   RagIndexOptions,
   RagRetrieval,
   RagRetrieveOptions,
 } from "../../../src/rag/types.js";
 import type {
-  RagConnectorContractTarget,
+  RagSourceContractTarget,
   RagContractDocument,
 } from "../../../src/testing/contracts/index.js";
 
@@ -18,7 +18,7 @@ import type {
 
 /** What a variant changes: how a tenant is keyed, how an index lands, what a retrieval gives. */
 export interface ConnectorFlaws {
-  readonly keyOf?: (tenantId: string) => string;
+  readonly keyOf?: (scopeId: string) => string;
   readonly appendsOnReindex?: boolean;
   /** One source, a copy per tenant: taken at a tenant's first read, refreshed by its own index only. */
   readonly copiesPerTenant?: boolean;
@@ -31,20 +31,22 @@ const wordsOf = (text: string): readonly string[] =>
   text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [];
 
 /** A knowledge base in memory: a source per tenant, indexed into chunks per tenant. */
-export class MemoryConnector implements RagConnector {
+export class MemorySource extends RagSource {
   readonly sources = new Map<string, readonly RagContractDocument[]>();
   private readonly chunks = new Map<string, RagContractDocument[]>();
 
-  constructor(private readonly flaws: ConnectorFlaws = {}) {}
-
-  setDocuments(tenantId: string, documents: readonly RagContractDocument[]): void {
-    this.sources.set(this.sourceKey(tenantId), documents);
+  constructor(private readonly flaws: ConnectorFlaws = {}) {
+    super();
   }
 
-  index({ tenantId, signal }: RagIndexOptions): Promise<RagIndexReport> {
+  setDocuments(scopeId: string, documents: readonly RagContractDocument[]): void {
+    this.sources.set(this.sourceKey(scopeId), documents);
+  }
+
+  protected override index({ scopeId, signal }: RagIndexOptions): Promise<RagIndexReport> {
     if (this.flaws.ignoresSignal !== true) signal.throwIfAborted();
-    const key = this.key(tenantId);
-    const documents = this.sources.get(this.sourceKey(tenantId)) ?? [];
+    const key = this.key(scopeId ?? "");
+    const documents = this.sources.get(this.sourceKey(scopeId ?? "")) ?? [];
     const kept = this.flaws.appendsOnReindex === true ? (this.chunks.get(key) ?? []) : [];
     this.chunks.set(key, [...kept, ...documents]);
     return Promise.resolve({
@@ -55,13 +57,14 @@ export class MemoryConnector implements RagConnector {
     });
   }
 
-  retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
+  protected override retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
     if (this.flaws.ignoresSignal !== true) options.signal.throwIfAborted();
     const words = new Set(wordsOf(query));
-    const own = this.key(options.tenantId);
+    const asker = options.scopeId ?? "";
+    const own = this.key(asker);
     if (this.flaws.copiesPerTenant === true && !this.chunks.has(own))
-      this.chunks.set(own, [...(this.sources.get(this.sourceKey(options.tenantId)) ?? [])]);
-    const scored = (this.chunks.get(this.key(options.tenantId)) ?? [])
+      this.chunks.set(own, [...(this.sources.get(this.sourceKey(asker)) ?? [])]);
+    const scored = (this.chunks.get(own) ?? [])
       .map((chunk) => ({ chunk, score: wordsOf(chunk.text).filter((w) => words.has(w)).length }))
       .filter(({ score }) => score > 0)
       .sort((left, right) => right.score - left.score);
@@ -72,28 +75,28 @@ export class MemoryConnector implements RagConnector {
     });
   }
 
-  private sourceKey(tenantId: string): string {
-    return this.flaws.copiesPerTenant === true ? "shared" : this.key(tenantId);
+  private sourceKey(scopeId: string): string {
+    return this.flaws.copiesPerTenant === true ? "shared" : this.key(scopeId);
   }
 
-  private key(tenantId: string): string {
-    return this.flaws.keyOf?.(tenantId) ?? tenantId;
+  private key(scopeId: string): string {
+    return this.flaws.keyOf?.(scopeId) ?? scopeId;
   }
 }
 
-/** The target of one variant, for `ragConnectorContract`. */
+/** The target of one variant, for `ragSourceContract`. */
 export const memoryTarget = (
   name: string,
   flaws: ConnectorFlaws = {},
-): RagConnectorContractTarget<MemoryConnector> => ({
+): RagSourceContractTarget<MemorySource> => ({
   name,
-  connector: () => new MemoryConnector(flaws),
+  source: () => new MemorySource(flaws),
   documents: (
-    connector: MemoryConnector,
-    tenantId: string,
+    source: MemorySource,
+    scopeId: string,
     documents: readonly RagContractDocument[],
   ): Promise<void> => {
-    connector.setDocuments(tenantId, documents);
+    source.setDocuments(scopeId, documents);
     return Promise.resolve();
   },
 });

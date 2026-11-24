@@ -3,6 +3,8 @@
  * undecorated provider class, a tool shadowing a RAG search tool; a raw `useValue` literal is a
  * compile error.
  */
+import { RagScope } from "../../src/rag/types.js";
+import { RagSource } from "../../src/rag/rag-source.js";
 import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -20,7 +22,7 @@ import {
   type JudgeHandler,
 } from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
-import { Action, Agent, InjectionToken, provide, RagMode, Tool } from "../../src/index.js";
+import { Action, Agent, InjectionToken, provide, Tool } from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { Text } from "../../src/dto/index.js";
@@ -32,7 +34,6 @@ import {
   Plain as PlainAgent,
   applicationWith,
 } from "./fixture/deps-contract.workflow.js";
-import { RagTenancy } from "../../src/rag/types.js";
 
 const MISSING = new InjectionToken<string>("MISSING");
 const notRegistered = (consumer: string): string =>
@@ -141,37 +142,6 @@ class Topic {
   @Text({ prompt: "the topic" })
   topic!: string;
 }
-
-@Rag({ name: "manuals", description: "Manuals", tenancy: RagTenancy.PerTenant, topK: 1 })
-class Manuals {
-  retrieve(): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [] });
-  }
-}
-
-@Tool({ name: "search-manuals-tool", description: "Shadows", input: Topic, output: Topic })
-class ShadowSearch {
-  execute(input: Topic): Promise<Topic> {
-    return Promise.resolve(input);
-  }
-}
-
-@Agent({
-  name: "reader-agent",
-  description: "d",
-  model: "test/r",
-  tools: [ShadowSearch],
-  rag: [{ use: Manuals, mode: RagMode.Tool }],
-})
-class Reader {}
-
-describe("#183 AC3: tool names are unique over the exposed names", () => {
-  it("a tool named like a RAG search tool (search-<rag>-tool) fails at assembly", async () => {
-    await expect(assemble(applicationWith("shadow-workflow", {}, Reader))).rejects.toThrow(
-      '[tool.duplicate-name] Duplicate tool name "search-manuals-tool" found in classes ShadowSearch and Manuals',
-    );
-  });
-});
 
 class Plain {
   readonly label = "plain";

@@ -1,5 +1,6 @@
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
+import { callerOfSpend } from "../../finops/explicit-caller.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import { countBoundOf } from "../../graph/count-limit.js";
 import { LimitExceededError, StepsLimitExceededError } from "../../graph/limits.js";
@@ -192,7 +193,7 @@ export function countedServiceSpend(
   path: readonly string[],
   record: UsageRecord,
 ): UsageRecord {
-  const named = { ...record, caller: `${node.kind}:${node.id}` };
+  const named = { ...record, caller: callerOfSpend(record, `${node.kind}:${node.id}`) };
   const [kept = named] = limits.budgets.tally([named], [...path, node.id]);
   return kept;
 }

@@ -1,39 +1,26 @@
 import "../polyfills/symbol-metadata.js";
 
 /**
- * Knowledge bases (RAG): the connector contract and the reference implementation (Wiki → Knowledge
- * bases). A reranker's author needs this entry only: `DecidedBy` and `RagSearchResultDto` are here
- * too (the same as the root's and `/dto`'s).
+ * Knowledge bases (RAG): `@Rag` on a `RagSource`, the search DTOs, the reranker decorator and the
+ * reference source (Wiki → Knowledge bases). A reranker's author needs this entry only.
  */
 export { Rag } from "../components/decorators.js";
-export { DecidedBy } from "../flow/decorators/router.js";
-export type { RagSearchResultDto } from "../dto/standard/framework.js";
 export {
-  DEFAULT_RERANKER_MODEL,
-  ModelReranker,
-  RagMode,
-  RagTenancy,
-  RerankFailurePolicy,
-} from "./types.js";
+  RagQueryDto,
+  RagSearchResultDto,
+  RagSearchResultsDto,
+  RagSourceReferenceDto,
+} from "./dto.js";
+export { RagSource } from "./rag-source.js";
+export { RagScope, RerankFailurePolicy } from "./types.js";
 export type {
-  RagConnector,
   RagIndexOptions,
   RagIndexReport,
-  RagRerank,
   RagRetrieval,
   RagRetrieveOptions,
-  RerankerClass,
-  RerankerHandler,
+  RagSearchOptions,
   RerankOptions,
   RerankResult,
 } from "./types.js";
-export {
-  Reranker,
-  type CodeRerankerMeta,
-  type ModelRerankerMeta,
-  type RerankerMeta,
-} from "./reranker.decorator.js";
-export { RerankFailedError, type RerankFailedErrorOptions } from "./rerank.js";
-export { RagFts5UnavailableError, RagIndexVersionError } from "./sqlite-fts-schema.js";
-export { SqliteFtsConnector, type SqliteFtsOptions } from "./sqlite-fts.js";
-export { type RagResultCount } from "../components/decorators.js";
+export { RagReranker, type RagRerankerOptions } from "./reranker.decorator.js";
+export { SqliteFtsRagSource, type SqliteFtsOptions } from "./sqlite-fts.js";

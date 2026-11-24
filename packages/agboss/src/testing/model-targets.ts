@@ -5,7 +5,7 @@ import { isCodeJudge } from "../components/judge-decorators.js";
 import { componentOf } from "../components/metadata.js";
 import { NodeKind } from "../flow/ast.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
-import { DecidedBy } from "../flow/decorators/router.js";
+import { isCodeRerankerClass } from "../rag/reranker.decorator.js";
 import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
 import { arbiterClassesOf } from "../flow/runtime/launch/runtime-launch.js";
 import {
@@ -31,7 +31,7 @@ import {
 /** The script key of a model `@Reranker` (#703); a code one calls no model. */
 const rerankerScriptKeyOf = (target: ModelTarget): string | undefined => {
   const found = componentOf(target);
-  return found?.kind === "reranker" && found.meta.decidedBy !== DecidedBy.Code
+  return found?.kind === "reranker" && !isCodeRerankerClass(target)
     ? rerankerKeyOf(found.meta.name)
     : undefined;
 };

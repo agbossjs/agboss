@@ -151,19 +151,19 @@ export class CandidateArchiveTool {
 ```
 
 ```ts file=src/screening/rag/hiring-policy.rag.ts
-import { Rag, RagTenancy, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
+import { Rag, RagScope, RagSource, type RagRetrieval } from "@agboss/core/rag";
 
-// one policy every tenant reads: declared Shared (#796), so the connector may ignore the tenant
+// one policy every tenant reads: declared Shared, so the source is told no scope
 @Rag({
   name: "hiring-policy-rag",
   description: "The hiring policy",
-  tenancy: RagTenancy.Shared,
+  scope: RagScope.Shared,
   topK: 2,
 })
-export class HiringPolicyRag implements RagConnector {
-  retrieve(query: string, options: { readonly topK: number }): Promise<RagRetrieval> {
+export class HiringPolicyRag extends RagSource {
+  protected override retrieve(query: string, options: { readonly topK: number }): RagRetrieval {
     const results = [{ text: `Hire at 7 or more (${query.slice(0, 20)}).`, source: "policy.md#bar" }];
-    return Promise.resolve({ results: results.slice(0, options.topK) });
+    return { results: results.slice(0, options.topK) };
   }
 }
 ```
@@ -335,7 +335,7 @@ export class CultureAgent {}
 ```
 
 ```ts file=src/screening/agents/verdict/verdict.agent.ts
-import { Agent, RagMode } from "@agboss/core";
+import { Agent } from "@agboss/core";
 import { CultureReportDto } from "../../dto/culture-report.dto.js";
 import { SkillsReportDto } from "../../dto/skills-report.dto.js";
 import { VerdictDto } from "../../dto/verdict.dto.js";
@@ -351,7 +351,7 @@ import { HiringPolicyRag } from "../../rag/hiring-policy.rag.js";
   model: "moonshotai/kimi-k2.6",
   input: { skills: SkillsReportDto, culture: CultureReportDto },
   output: VerdictDto,
-  rag: [{ use: HiringPolicyRag, mode: RagMode.Context }],
+  rag: [HiringPolicyRag],
   judges: [ShortReasonJudge, ReasonedVerdictJudge], // every judge runs; the code one costs nothing
   maxRetries: 1,
   guardrails: [BiasGuardrail],

@@ -60,12 +60,20 @@ export const DRY_RUN: OptionSpec = {
   help: "show what would be written, write nothing",
 };
 
-/** `agboss rag index --tenant <id>` (#700): whose knowledge bases to build (#797: required with a tenant context). */
+/** `agboss rag index --tenant <id>`: the tenant a non-shared knowledge base is built for. */
 export const INDEX_TENANT: OptionSpec = {
   name: "tenant",
   type: "string",
   value: "<id>",
-  help: 'the tenant whose knowledge bases to build — required when the application declares a tenant context (rag.tenant-required); without it: the tenant "default"',
+  help: "the tenant to build for — required for a knowledge base whose @Rag declares a scope other than Shared (rag.tenant-required): an owner id or a custom key is unique within a tenant only",
+};
+
+/** `agboss rag index --scope <id>`: whose passages to build — required only for a knowledge base whose scope is not Shared. */
+export const INDEX_SCOPE: OptionSpec = {
+  name: "scope",
+  type: "string",
+  value: "<id>",
+  help: "the owner's or custom scope's id within the tenant — required for an Owner or Custom knowledge base (rag.scope-required); a Tenant one is the tenant's own, a Shared one has none",
 };
 
 /** A string option: `--<name> <value>`. */
@@ -95,4 +103,13 @@ export const COMMON_OPTIONS: readonly OptionSpec[] = [
 export const optionsOf = (spec: CommandSpec): readonly OptionSpec[] => [
   ...spec.options,
   ...COMMON_OPTIONS,
+];
+
+/** `agboss rag index`'s options. */
+export const RAG_INDEX_OPTIONS: readonly OptionSpec[] = [
+  APPLICATION,
+  text("rag", "<name>", "only this knowledge base"),
+  INDEX_TENANT,
+  INDEX_SCOPE,
+  ENV,
 ];

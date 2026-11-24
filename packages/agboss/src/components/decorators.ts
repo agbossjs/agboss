@@ -1,5 +1,6 @@
 import type { McpServerConfig } from "../config/mcp-server-config.js";
-import type { RagConnector, RagRerank, RagTenancy } from "../rag/types.js";
+import type { RagScope } from "../rag/types.js";
+import type { RagSource } from "../rag/rag-source.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
@@ -180,33 +181,27 @@ export function McpServer<
   };
 }
 
-/** How many results a knowledge base gives (#703): `topK`, or `rerank` — never both, never neither. */
-export type RagResultCount =
-  | { readonly topK: number; readonly rerank?: never }
-  | { readonly topK?: never; readonly rerank: RagRerank };
-
 /**
- * A knowledge base: a class implementing `RagConnector`. `topK` (passages per retrieval) is required —
- * there is no default — or `rerank` in its place (#703: fetch `candidates`, a `@Reranker` keeps
- * `rerank.topK`); `tenancy` is required too (#796: `RagTenancy.PerTenant` or `Shared`, else
- * `[rag.tenancy-required]` at assembly). Agents bind it with a required `mode`:
- * `rag: [{ use: CompanyDocs, mode: "tool" }]`.
+ * A knowledge base: a class extending `RagSource`. `topK` (passages per retrieval, or what the agent
+ * keeps after reranking) and `scope` are required — there is no default, so content many readers
+ * share is always an explicit choice (`RagScope.Shared`, `Tenant`, `Owner`, `Custom`; else
+ * `[rag.scope-required]` at assembly). `reranker` is a `@RagReranker` class (it fetches `candidates`,
+ * the reranker keeps `topK`). Agents list it in `rag: [CompanyDocs]`; a `@Tool` or an `@Action`
+ * injects it (`deps: [CompanyDocs]`) and calls `search(query)`.
  */
-export function Rag<const D extends readonly Token[] = []>(
-  options: {
-    readonly name: string;
-    readonly description: string;
-    /** Whose content it serves (#796): each tenant's own, or one corpus every tenant may read. */
-    readonly tenancy: RagTenancy;
-    readonly prompt?: string;
-    readonly promptUrls?: readonly string[];
-    readonly deps?: D;
-  } & RagResultCount,
-) {
-  return <C extends new (...args: ResolvedAll<D>) => RagConnector>(value: C): C => {
-    const { rerank, topK, ...rest } = options;
-    const kept = rerank === undefined ? { topK } : { topK: rerank.topK, rerank };
-    recordComponent(value, { kind: "rag", meta: withDeps({ ...rest, ...kept }) });
+export function Rag<const D extends readonly Token[] = []>(options: {
+  readonly name: string;
+  readonly description: string;
+  /** Whose content it serves: one corpus for all, each tenant's, each owner's, or a custom scope. */
+  readonly scope: RagScope;
+  /** What the agent gets per retrieval. */
+  readonly topK: number;
+  /** A `@RagReranker` class: fetch its `candidates`, keep `topK`. */
+  readonly reranker?: Class;
+  readonly deps?: D;
+}) {
+  return <C extends new (...args: ResolvedAll<D>) => RagSource<never, never>>(value: C): C => {
+    recordComponent(value, { kind: "rag", meta: withDeps(options) });
     return value;
   };
 }

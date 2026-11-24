@@ -3,6 +3,8 @@
  * `testGuardrail`): each injects what the runner gives (`ExecutionContext`, `SpendRecorder`,
  * `JudgeModel`, `ApplicationContext`) and a service the tests replace with `override(…)`.
  */
+import { RagScope } from "../../../src/rag/types.js";
+import { RagSource } from "../../../src/rag/rag-source.js";
 import {
   ApplicationContext,
   Decision,
@@ -26,9 +28,8 @@ import {
 } from "../../../src/index.js";
 import { Rag } from "../../../src/components/decorators.js";
 import { Enum, PlainTextDto, Text } from "../../../src/dto/index.js";
-import type { RagConnector, RagRetrieval } from "../../../src/rag/types.js";
+import type { RagRetrieval } from "../../../src/rag/types.js";
 import { seconds, usd } from "../../../src/units/index.js";
-import { RagTenancy } from "../../../src/rag/types.js";
 
 // ── services the tests replace ──
 
@@ -159,14 +160,16 @@ export class ToneJudge implements JudgeHandler<PlainTextDto> {
 @Rag({
   name: "handbook",
   description: "The team handbook",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Tenant,
   topK: 2,
   deps: [JobBoardService],
 })
-export class HandbookRag implements RagConnector {
-  constructor(private readonly jobBoardService: JobBoardService) {}
+export class HandbookRag extends RagSource {
+  constructor(private readonly jobBoardService: JobBoardService) {
+    super();
+  }
 
-  async retrieve(
+  protected override async retrieve(
     query: string,
     options: { readonly topK: number; readonly signal: AbortSignal },
   ): Promise<RagRetrieval> {

@@ -6,6 +6,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { retrieve, index } from "./access.js";
 import { describe, expect, it, vi } from "vitest";
 
 const noFts5 = vi.hoisted(() => ({ on: false }));
@@ -22,29 +23,34 @@ vi.mock("node:sqlite", async (importOriginal) => {
   return { ...original, DatabaseSync: WithoutFts5 };
 });
 
-const { SqliteFtsConnector } = await import("../../src/rag/sqlite-fts.js");
+const { SqliteFtsRagSource } = await import("../../src/rag/sqlite-fts.js");
 const { RagFts5UnavailableError, requireFts5 } = await import("../../src/rag/sqlite-fts-schema.js");
 
 const signal = new AbortController().signal;
 
-async function folderWithDocument(): Promise<{ folder: string; sqlitePath: string }> {
+async function folderWithDocument(): Promise<{ directory: string; path: string }> {
   const folder = await mkdtemp(join(tmpdir(), "fts-no-fts5-"));
   await writeFile(join(folder, "leave.md"), "Leave is twenty five days a year.");
-  return { folder, sqlitePath: join(folder, "fts.sqlite") };
+  return { directory: folder, path: join(folder, "fts.sqlite") };
 }
 
 describe("#1226: no FTS5 in node:sqlite fails closed", () => {
   it("retrieve and index refuse rag.fts5-unavailable, naming the Node needed, creating no index", async () => {
-    const { folder, sqlitePath } = await folderWithDocument();
-    const connector = new SqliteFtsConnector({ folder, sqlitePath });
+    const { directory: folder, path } = await folderWithDocument();
+    const connector = new SqliteFtsRagSource({ directory: folder, path });
     noFts5.on = true;
     try {
-      const retrieved = await connector
-        .retrieve("leave", { topK: 3, tenantId: "default", signal })
-        .catch((e: unknown) => e);
-      const indexed = await connector
-        .index({ tenantId: "default", signal })
-        .catch((e: unknown) => e);
+      const retrieved = await retrieve(connector, "leave", {
+        topK: 3,
+        tenantId: "default",
+        scopeId: "default",
+        signal,
+      }).catch((e: unknown) => e);
+      const indexed = await index(connector, {
+        tenantId: "default",
+        scopeId: "default",
+        signal,
+      }).catch((e: unknown) => e);
 
       for (const refused of [retrieved, indexed]) {
         expect(refused).toBeInstanceOf(RagFts5UnavailableError);
@@ -56,15 +62,20 @@ describe("#1226: no FTS5 in node:sqlite fails closed", () => {
     } finally {
       noFts5.on = false;
     }
-    const db = new DatabaseSync(sqlitePath);
+    const db = new DatabaseSync(path);
     expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()).toEqual([]);
     db.close();
   });
 
   it("with FTS5 the connector works as before", async () => {
-    const { folder, sqlitePath } = await folderWithDocument();
-    const connector = new SqliteFtsConnector({ folder, sqlitePath });
-    const found = await connector.retrieve("leave", { topK: 3, tenantId: "default", signal });
+    const { directory: folder, path } = await folderWithDocument();
+    const connector = new SqliteFtsRagSource({ directory: folder, path });
+    const found = await retrieve(connector, "leave", {
+      topK: 3,
+      tenantId: "default",
+      scopeId: "default",
+      signal,
+    });
     expect(found.results.map((r) => r.source)).toEqual(["leave.md"]);
   });
 

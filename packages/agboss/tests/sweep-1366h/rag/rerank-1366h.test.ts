@@ -29,7 +29,7 @@ const retrieve = (results: readonly (typeof A)[] = [A, B, C]) =>
 const callOf = (topK: number, signal = new AbortController().signal): RerankCall => ({
   query: "q",
   topK,
-  tenantId: "t",
+  scopeId: "t",
   signal,
 });
 

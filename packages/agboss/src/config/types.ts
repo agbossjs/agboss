@@ -4,7 +4,7 @@ import type { AgentSettings, AgentsConfig, MaxTokens, Price } from "./settings-t
 
 import { z } from "zod";
 import { ReasoningEffort, type Reasoning } from "../models/reasoning.js";
-import { RagMode, RagTenancy, RerankFailurePolicy } from "../rag/types.js";
+import { RagScope, RerankFailurePolicy } from "../rag/types.js";
 import { CachedPart, CacheRetention, type PromptCaching } from "../models/prompt-caching.js";
 import { CompactionStrategy, CUSTOM_COMPACTION } from "../memory/memory.decorator.js";
 
@@ -138,16 +138,15 @@ export const AgentSettingsSchema = ModelSettingsSchema.extend({
   /** Judges of the agent's reply (names in `judges`), and how often a rejected reply is retried (default 0). */
   judges: z.array(z.string()).optional(),
   maxRetries: z.number().int().nonnegative().optional(),
-  /** Knowledge bases the agent uses (from `@Agent({ rag })`): name, mode and passages per retrieval. */
+  /** Knowledge bases the agent uses (from `@Agent({ rag })`): name, scope and passages per retrieval. */
   rag: z
     .array(
       z.object({
         name: z.string(),
-        mode: z.enum(RagMode),
         topK: z.number().int().positive(),
-        /** Whose content it serves (#796). */
-        tenancy: z.enum(RagTenancy),
-        /** Reranked (#703): its `@Reranker`, the candidates fetched, what a failure does. */
+        /** Whose content it serves. */
+        scope: z.enum(RagScope),
+        /** Reranked: its `@RagReranker`, the candidates fetched, what a failure does. */
         rerank: z
           .object({
             reranker: z.string(),

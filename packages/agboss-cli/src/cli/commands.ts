@@ -7,7 +7,7 @@ import {
   DRY_RUN,
   ENV,
   flag,
-  INDEX_TENANT,
+  RAG_INDEX_OPTIONS,
   PROFILE,
   START,
   text,
@@ -115,9 +115,10 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   },
   rag: {
     summary: "build / update the application's knowledge bases",
-    usage: "agboss rag index [--rag <name>] [--tenant <id>] [--env <name>] [--application <path>]",
+    usage:
+      "agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>] [--env <name>] [--application <path>]",
     positionals: "index",
-    options: [APPLICATION, text("rag", "<name>", "only this knowledge base"), INDEX_TENANT, ENV],
+    options: RAG_INDEX_OPTIONS,
   },
   records: {
     summary: "export the application's kept execution records as JSON Lines (masked)",

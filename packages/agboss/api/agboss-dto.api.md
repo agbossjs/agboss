@@ -432,26 +432,6 @@ export interface ProducedValue<TValue, TProducer> {
 }
 
 // @public
-export class RagSearchResultDto {
-    // (undocumented)
-    score?: number;
-    // (undocumented)
-    source: string;
-    // (undocumented)
-    text: string;
-}
-
-// @public
-export class RagSourceReferenceDto {
-    // (undocumented)
-    quote?: string;
-    // (undocumented)
-    title: string;
-    // (undocumented)
-    url?: string;
-}
-
-// @public
 export class ReplyInterpreterNotUnderstoodDto {
     // (undocumented)
     reason: string;
@@ -670,9 +650,6 @@ enum Wrapper {
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "family".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "email".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "phone".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "title".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "url".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "quote".
 // src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "filename".
 // src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "mediaType".
@@ -701,9 +678,6 @@ enum Wrapper {
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "reason".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "source".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "score".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "sensitive".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "example".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "optional".

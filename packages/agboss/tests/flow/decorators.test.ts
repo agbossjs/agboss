@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { NodeKind } from "../../src/flow/ast.js";
 import { onStart } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
-import { Agent, RagMode } from "../../src/flow/decorators/agent.js";
+import { Agent } from "../../src/flow/decorators/agent.js";
 import { declarationOf, declared } from "../../src/flow/decorators/declaration.js";
 import { agbossComponent, agbossDto } from "../../src/flow/generated-types.js";
 import { DecidedBy, Router } from "../../src/flow/decorators/router.js";
@@ -226,20 +226,20 @@ describe("AC13: the name is explicit, never derived from the class", () => {
 });
 
 describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
-  it("records reasoning as a Reasoning value and rag modes as RagMode", () => {
+  it("records reasoning as a Reasoning value and rag as a list of classes", () => {
     @Agent({
       name: "researcher-agent",
       description: "Researches",
       prompt: "Research.",
       model: "moonshotai/kimi-k2.6",
       reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
-      rag: [{ use: EditorAgent, mode: RagMode.Context }],
+      rag: [EditorAgent],
     })
     class ResearcherAgent {}
 
     expect(declarationOf(ResearcherAgent)?.options).toMatchObject({
       reasoning: { kind: "on", effort: ReasoningEffort.Low },
-      rag: [{ use: EditorAgent, mode: "context" }],
+      rag: [EditorAgent],
     });
   });
 

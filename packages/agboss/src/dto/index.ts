@@ -46,7 +46,6 @@ export type {
 export {
   NoInputDto,
   PlainTextDto,
-  RagSearchResultDto,
   ReplyInterpreterNotUnderstoodDto,
   ToolCallApprovalAskDto,
   ToolCallApprovalDecisionDto,
@@ -71,7 +70,6 @@ export {
   DateTimeRangeDto,
   MoneyDto,
   PersonNameDto,
-  RagSourceReferenceDto,
 } from "./standard/domain.js";
 /** The DTO wrappers of the flow (#272): the same values as the root entry's. */
 export {

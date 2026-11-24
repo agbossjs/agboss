@@ -10,7 +10,6 @@ import { CITE_INSTRUCTION } from "../../src/prompts/rag.js";
 import type { KnowledgeSource } from "../../src/rag/types.js";
 import { ScriptedChatModel } from "../fakes/scripted-model.js";
 import { routeTo, fakeDeps, fakeGateway, runText } from "../helpers.js";
-import { ExecutionStatus } from "../../src/app/types.js";
 
 const handbook = (retrieve: KnowledgeSource["retrieve"]): KnowledgeSource => ({
   name: "handbook",
@@ -42,7 +41,7 @@ const agentInput = (model: ScriptedChatModel): string =>
 
 const question = "When does on-call start?";
 
-describe("knowledge bases — context mode", () => {
+describe("knowledge bases — context injection", () => {
   it("AC2, AC3, #141 AC4, #148 AC3: { results } with sources come before the task, with the cite instruction; cost in retrieval", async () => {
     const retrieve = vi.fn(found);
     const { deps, alpha } = await setup(handbook(retrieve));
@@ -64,13 +63,12 @@ describe("knowledge bases — context mode", () => {
     expect(JSON.stringify(result.output)).toContain("[oncall.md]");
   });
 
-  it("AC2: a retrieval failure never fails the turn (fail-open)", async () => {
+  it("a retrieval failure fails the step: a broken endpoint is never a silent turn without its knowledge", async () => {
     const { deps, alpha } = await setup(handbook(() => Promise.reject(new Error("index down"))));
 
-    const result = await runText(question, deps);
+    await expect(runText(question, deps)).rejects.toThrow("index down");
 
-    expect(result.status).toBe(ExecutionStatus.Finished);
-    expect(agentInput(alpha)).not.toContain("Knowledge (");
+    expect(alpha.sent).toHaveLength(0);
   });
 
   it("AC3: each retrieval is a named span in the trace", async () => {
@@ -89,11 +87,8 @@ describe("knowledge bases — context mode", () => {
     expect(names).toContain("rag:handbook");
   });
 
-  it("AC3: tool-mode costs are billed to rag:<name> — category retrieval", () => {
-    const record = recordReportedCost(
-      { name: "search-handbook-tool", costCaller: "rag:handbook" },
-      0.001,
-    );
+  it("a search's costs are billed to rag:<name> — category rag", () => {
+    const record = recordReportedCost({ name: "handbook", costCaller: "rag:handbook" }, 0.001);
 
     expect(record.caller).toBe("rag:handbook");
     expect(costCategoryOf(record.caller)).toBe("rag");

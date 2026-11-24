@@ -1,4 +1,3 @@
-import type { RagConnector } from "../rag/types.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
@@ -71,17 +70,15 @@ export type CalledToolArguments<TInstance> = TInstance extends {
   : never;
 
 /**
- * The name an agent's model calls a `@Tool` class by — a `@Rag`'s search tool too
- * (#703), a question role's name (#712).
+ * The name an agent's model calls a `@Tool` class by, or a question role's name (#712).
  */
 export function toolNameOf(tool: Class): string {
   const role = questionRoleOf(tool);
   if (role !== undefined) return role.name;
   const meta = componentOf(tool);
-  if (meta?.kind === "rag") return `search-${meta.meta.name}-tool`;
   if (meta?.kind !== "tool") {
     throw new TestSetupError({
-      message: `${tool.name} is not a @Tool, @Rag or question role`,
+      message: `${tool.name} is not a @Tool or question role`,
     });
   }
   return meta.meta.name;
@@ -96,11 +93,6 @@ export function callTool<TTool extends ToolClass<never>>(
   tool: TTool,
   args: NoInfer<CalledToolArguments<InstanceType<TTool>>>,
 ): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
-/** A knowledge base's search (#703): `callTool(HandbookRag, { query: "on-call" })` — its tool mode. */
-export function callTool<TRag extends Class<RagConnector>>(
-  rag: TRag,
-  args: { readonly query: string },
-): ToolCallTurn<SearchToolNameOf<InstanceType<TRag>>>;
 /**
  * A question role the agent asks (#712): `callTool(SpendingLimitQuestion, { item, priceUsd })` —
  * the arguments typed by the role's `ask` (the generated `ChannelRoles`), the turn by its name.
@@ -116,10 +108,6 @@ export function callTool(tool: Class, args: object): ToolCallTurn {
     args: Object.fromEntries(Object.entries(args)),
   };
 }
-
-/** The search tool a knowledge base gives its agents (#703, #679): `search-<rag>-tool`. */
-export type SearchToolNameOf<TRag> =
-  string extends ToolNameOf<TRag> ? string : `search-${ToolNameOf<TRag>}-tool`;
 
 /**
  * An agent's model calls several tools in one move (#508): `callTools(callTool(ChargeTool, a),

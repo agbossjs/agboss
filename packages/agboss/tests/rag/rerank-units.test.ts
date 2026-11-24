@@ -4,6 +4,8 @@
  * `mockLlm(Reranker)` scripts a model reranker in `testWith`; a code reranker has no script, named.
  */
 import { describe, expect } from "vitest";
+import type { Class } from "../../src/index.js";
+import type { RagQueryDto } from "../../src/rag/index.js";
 import { callTool, replyWith, testRag, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -47,8 +49,10 @@ describe("#703: testRag reranks", () => {
 
 describe("#703: mockLlm(Reranker)", () => {
   test("scripts the model reranker of the application", async ({ app, mockLlm }) => {
-    // #703: callTool names a knowledge base's search tool by its @Rag class
-    const search = callTool(ModelRankedRag, { query: "on-call" });
+    // a search tool over the knowledge base is a @Tool: callTool names it by its class
+    const search = callTool(MODEL_TOOL.tool as Class<{ execute(input: RagQueryDto): unknown }>, {
+      query: "on-call",
+    });
     mockLlm(DocsReranker).thenReturn(replyWith('{"ranking":[27]}'));
     mockLlm(MODEL_TOOL.agent).thenReturn(search, replyWith("done"));
 

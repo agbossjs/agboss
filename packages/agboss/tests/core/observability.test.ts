@@ -1,3 +1,5 @@
+import { RagScope } from "../../src/rag/types.js";
+import { RagSource } from "../../src/rag/rag-source.js";
 import { describe, expect, it } from "vitest";
 import {
   Agent,
@@ -18,7 +20,7 @@ import {
   Router,
   WorkflowStart,
 } from "../../src/index.js";
-import { DecidedBy, RagMode, WorkflowFinish } from "../../src/index.js";
+import { DecidedBy, WorkflowFinish } from "../../src/index.js";
 import { Rag } from "../../src/components/decorators.js";
 import { RagRetrieval } from "../../src/rag/types.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../src/dto/index.js";
@@ -32,7 +34,6 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
-import { RagTenancy } from "../../src/rag/types.js";
 
 class ToolInput {
   @Text() text!: string;
@@ -119,9 +120,9 @@ class ObsFinish {}
 })
 class ObsNoReply {}
 
-@Rag({ name: "ObsRag", description: "test rag", tenancy: RagTenancy.PerTenant, topK: 5 })
-class ObsRag {
-  async retrieve(): Promise<RagRetrieval> {
+@Rag({ name: "ObsRag", description: "test rag", scope: RagScope.Tenant, topK: 5 })
+class ObsRag extends RagSource {
+  protected override async retrieve(): Promise<RagRetrieval> {
     return { results: [] };
   }
 }
@@ -132,7 +133,7 @@ class ObsRag {
   model: "test",
 
   tools: [ObsTool],
-  rag: [{ use: ObsRag, mode: RagMode.Context }],
+  rag: [ObsRag],
 })
 class ObsAgent {}
 

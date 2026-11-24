@@ -15,7 +15,7 @@ import {
   onWorkflow,
 } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
-import { Agent, RagMode, type AgentOptions } from "../../src/flow/decorators/agent.js";
+import { Agent, type AgentOptions } from "../../src/flow/decorators/agent.js";
 import {
   DecidedBy,
   FailurePolicy,
@@ -417,11 +417,11 @@ describe("#269 AC1 / AC2: closed sets are enums, reasoning has one form", () => 
     expectTypeOf(options).toEqualTypeOf<AgentOptions>();
   });
 
-  it("rag mode string does not compile", () => {
-    const tool: AgentOptions = { ...base, rag: [{ use: DraftAgent, mode: RagMode.Tool }] };
-    // @ts-expect-error — the mode is RagMode.Context, not a string
-    const context: AgentOptions = { ...base, rag: [{ use: DraftAgent, mode: "context" }] };
-    expectTypeOf([tool, context]).toEqualTypeOf<AgentOptions[]>();
+  it("rag is a list of classes: { use, mode } does not compile", () => {
+    const classes: AgentOptions = { ...base, rag: [DraftAgent] };
+    // @ts-expect-error — `{ use, mode }` is removed: a @Tool that injects the @Rag searches, `rag` is context
+    const wrapped: AgentOptions = { ...base, rag: [{ use: DraftAgent, mode: "context" }] };
+    expectTypeOf([classes, wrapped]).toEqualTypeOf<AgentOptions[]>();
   });
 });
 

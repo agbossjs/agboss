@@ -62,13 +62,15 @@ export interface PackageEntry {
 
 /**
  * The package's own entries a project imports standard classes from (`WorkflowStartTextDto` from
- * `@agboss/core/dto`, #904: `WorkflowFinishFileDto` and `FileDto` from `@agboss/core/dto`) — every
+ * `@agboss/core/dto`, #904: `WorkflowFinishFileDto` and `FileDto` from `@agboss/core/dto`, #1299: `RagQueryDto` and
+ * `RagSearchResultsDto` from `@agboss/core/rag`) — every
  * entry that exports a DTO class (`tests/flow/types/package-entries.test.ts` holds it so): an
  * installed package is not a project module, so it is never in tsx's record.
  */
 export const PACKAGE_ENTRIES: readonly PackageEntry[] = [
   { specifier: "@agboss/core/dto", load: () => lazyLoad(import("../../dto/index.js")) },
   { specifier: "@agboss/core/a2a", load: () => lazyLoad(import("../../a2a/index.js")) },
+  { specifier: "@agboss/core/rag", load: () => lazyLoad(import("../../rag/index.js")) },
   { specifier: "@agboss/core", load: () => lazyLoad(import("../../index.js")) },
 ];
 

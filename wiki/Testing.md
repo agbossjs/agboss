@@ -1168,9 +1168,9 @@ close? }` — [Several instances → Writing your own store](Several-instances#w
 It is an entry of its own: `@agboss/core/testing` does not load it.
 
 
-A knowledge base connector has its own suite in the same entry: `ragConnectorContract({ name,
-connector, documents, reset? })` (#700) — tenant isolation, re-indexing that replaces, `topK`, the
-signal, the cost ([Knowledge bases](Knowledge-bases#prove-it--ragconnectorcontract)).
+A knowledge base source has its own suite in the same entry: `ragSourceContract({ name,
+source, documents, reset? })` — scope isolation, re-indexing that replaces, `topK`, the
+signal, the cost ([Knowledge bases](Knowledge-bases#prove-it--ragsourcecontract)).
 
 ## Lower level
 

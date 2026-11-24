@@ -1,6 +1,12 @@
-import { RagMode } from "../rag/types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
-import type { RagConnector } from "../rag/types.js";
+import {
+  bindRagRuntime,
+  indexOf,
+  RagScopeError,
+  RagSource,
+  ragRuntimeOf as boundRagRuntimeOf,
+  type RagRuntime,
+} from "../rag/rag-source.js";
 import type { RouterEngine } from "../routers/index.js";
 import { z } from "zod";
 import { schemaOf } from "../dto/schema.js";
@@ -15,9 +21,10 @@ import { createContainer, DependantValue, type Container } from "./container/con
 import type { ProviderModule } from "./container/registrations.js";
 import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
-import { requireComponent, type ToolMeta } from "./metadata.js";
+import { componentOf, requireComponent, type ToolMeta } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
-import { boundRerankerOf, contextSources, ragMeta, searchTool } from "./rag.js";
+import { contextSources, ragMeta } from "./rag.js";
+import { buildRagRuntime } from "./rag-retrieval.js";
 import { channelNameOf, questionRoleOf } from "../channels/discovery.js";
 import type { ChannelQuestionRoleOptions } from "../channels/channel-role.decorator.js";
 import type { ToolClasses } from "./assemble-checks.js";
@@ -110,9 +117,17 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
   for (const [token, instance] of serverInstances.get(bundle) ?? []) core.set(token, instance);
   // #890: no application's container (`agboss check`, a workflow on its own) has no fenced-effect store
   if (services.container === undefined) core.set(Idempotency, IDEMPOTENCY_OUTSIDE_APPLICATION);
-  const container = createContainer(
+  const container: Container = createContainer(
     { modules: providerModulesOf(bundle), core },
-    services.container,
+    {
+      ...services.container,
+      // a `@Rag` source gets its pipeline (scope, reranker, spend) when the container creates it
+      onCreate: (instance) => {
+        services.container?.onCreate?.(instance);
+        if (instance instanceof RagSource)
+          bindRag(instance, bundle, services, (cls) => container.get(cls));
+      },
+    },
   );
   perBundle.set(services, container);
   return container;
@@ -150,9 +165,9 @@ export function questionToolOf(role: ChannelQuestionRoleOptions): AnyTool {
 const strictObjectOf = (schema: z.ZodType): z.ZodType =>
   schema instanceof z.ZodObject ? schema.strict() : schema;
 
-/** Tools per run of the app: tools (created by the container), knowledge-base search tools. */
+/** Tools per run of the app: tools (created by the container). */
 export const toolBuilder =
-  (bundle: WorkflowMeta, agents: readonly AgentMeta[], tools: ToolClasses) =>
+  (bundle: WorkflowMeta, tools: ToolClasses) =>
   (services: WorkflowServices): readonly AnyTool[] => {
     const { local } = tools;
     const container = containerFor(bundle, services);
@@ -163,24 +178,39 @@ export const toolBuilder =
         requireComponent(cls, "tool", "workflowOf").meta,
       ),
     );
-    const searched = [
-      ...new Set(
-        agents.flatMap((a) =>
-          (a.rag ?? []).filter((b) => b.mode === RagMode.Tool).map((b) => b.use),
-        ),
-      ),
-    ];
-    const search = searched.map((cls) => {
-      const meta = ragMeta(cls);
-      const reranker = boundRerankerOf(meta, (c) => container.get(c), services);
-      return searchTool(meta, container.get(cls) as RagConnector, reranker);
-    });
     const asked = (tools.asked ?? []).flatMap((cls) => {
       const role = questionRoleOf(cls);
       return role === undefined ? [] : [questionToolOf(role)];
     });
-    return [...instances, ...search, ...asked];
+    return [...instances, ...asked];
   };
+
+/** Binds a created `@Rag` source to its pipeline: its scope, reranker and spend (internal). */
+function bindRag(
+  source: object,
+  bundle: WorkflowMeta,
+  services: WorkflowServices,
+  instance: (cls: Class) => unknown,
+): void {
+  const cls = source.constructor as Class;
+  if (componentOf(cls)?.kind !== "rag") return;
+  bindRagRuntime(
+    source,
+    buildRagRuntime(ragMeta(cls), source, instance, services, bundle.modelCascade ?? {}),
+  );
+}
+
+/** A created `@Rag` source's pipeline; one the container did not create has none. */
+function runtimeOf(source: unknown): RagRuntime {
+  const runtime =
+    typeof source === "object" && source !== null ? boundRagRuntimeOf(source) : undefined;
+  if (runtime === undefined)
+    throw new RagScopeError({
+      message:
+        "[rag.unbound] a @Rag listed in an agent's rag is no RagSource the application created — extend RagSource",
+    });
+  return runtime;
+}
 
 export const ragParts = (
   bundle: WorkflowMeta,
@@ -188,10 +218,15 @@ export const ragParts = (
   rags: readonly Class[],
 ): Required<Pick<AssembledWorkflow, "knowledge" | "knowledgeBases">> => ({
   knowledge: (services: WorkflowServices) =>
-    contextSources(agents, (cls) => containerFor(bundle, services).get(cls), services),
+    contextSources(agents, (cls) => runtimeOf(containerFor(bundle, services).get(cls))),
   knowledgeBases: (services: WorkflowServices) =>
-    rags.map((cls) => ({
-      name: ragMeta(cls).name,
-      connector: containerFor(bundle, services).get(cls) as RagConnector,
-    })),
+    rags.map((cls) => {
+      const meta = ragMeta(cls);
+      const source = containerFor(bundle, services).get(cls) as object;
+      return {
+        name: meta.name,
+        scope: meta.scope,
+        index: (options) => indexOf(source, options),
+      };
+    }),
 });

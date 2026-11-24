@@ -1,4 +1,4 @@
-import { Float, Bool, List, Nested, Text } from "../decorators.js";
+import { Bool, List, Nested, Text } from "../decorators.js";
 import { markOpen } from "../metadata.js";
 import { crossFieldRule } from "../schema.js";
 import { PiiAction } from "../../pii/actions.js";
@@ -111,16 +111,4 @@ export class PlainTextDto {
 export class WorkflowFinishTextDto extends PlainTextDto {
   @Text({ prompt: "the text the run finishes with, in plain words" })
   override text = "";
-}
-
-/** A piece of text a knowledge base (`@Rag`) found for a query. */
-export class RagSearchResultDto {
-  @Text({ prompt: "the found text" })
-  text!: string;
-
-  @Text({ prompt: "where it comes from: a document, a page, a file" })
-  source!: string;
-
-  @Float({ prompt: "how well it matches the query, from 0 to 1", optional: true, min: 0, max: 1 })
-  score?: number;
 }

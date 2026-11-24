@@ -1,12 +1,11 @@
-// `agboss rag index` fixture (#268 AC12): two agents share one knowledge base that builds an index,
-// one of them reads a second that has none
+// `agboss rag index` fixture (#268 AC12): two agents share one knowledge base that builds an index
+// (a tenant's own), one of them reads a second that has none; a third is shared and builds one
 import { Agent, Application, EmptyEnvironment, Workflow } from "../../../../agboss/src/index.js";
 import {
   Rag,
-  RagMode,
-  RagTenancy,
+  RagScope,
+  RagSource,
   type RagIndexReport,
-  type RagConnector,
   type RagIndexOptions,
   type RagRetrieval,
 } from "../../../../agboss/src/rag/index.js";
@@ -18,30 +17,47 @@ import { usd } from "@agboss/core/units";
 @Rag({
   name: "notes-rag",
   description: "Notes about companies",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Tenant,
   topK: 2,
 })
-export class NotesRag implements RagConnector {
-  retrieve(): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [] });
+export class NotesRag extends RagSource {
+  protected override retrieve(): RagRetrieval {
+    return { results: [] };
   }
 
-  // #700: each tenant its own index — another tenant has more documents here
-  index({ tenantId }: RagIndexOptions): Promise<RagIndexReport> {
-    const documents = tenantId === "default" ? 2 : 7;
-    return Promise.resolve({ documents, chunks: 3, skipped: 1, costUsd: usd(0.000_5) });
+  // each scope its own index — another one has more documents here
+  protected override index({ scopeId }: RagIndexOptions): RagIndexReport {
+    const documents = scopeId === "default" ? 2 : 7;
+    return { documents, chunks: 3, skipped: 1, costUsd: usd(0.000_5) };
   }
 }
 
 @Rag({
   name: "handbook-rag",
   description: "The team handbook",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Shared,
   topK: 2,
 })
-export class HandbookRag implements RagConnector {
-  retrieve(): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [] });
+export class HandbookRag extends RagSource {
+  protected override retrieve(): RagRetrieval {
+    return { results: [] };
+  }
+}
+
+@Rag({
+  name: "guides-rag",
+  description: "Guides every tenant reads",
+  scope: RagScope.Shared,
+  topK: 2,
+})
+export class GuidesRag extends RagSource {
+  protected override retrieve(): RagRetrieval {
+    return { results: [] };
+  }
+
+  // a shared corpus: built once, for no scope
+  protected override index({ scopeId }: RagIndexOptions): RagIndexReport {
+    return { documents: scopeId === undefined ? 4 : 99, chunks: 5, skipped: 0 };
   }
 }
 
@@ -51,10 +67,7 @@ export class HandbookRag implements RagConnector {
   prompt: "Read.",
   model: "test/alpha",
   price: testConfig.agents.alpha.price,
-  rag: [
-    { use: NotesRag, mode: RagMode.Tool },
-    { use: HandbookRag, mode: RagMode.Tool },
-  ],
+  rag: [NotesRag, HandbookRag],
 })
 export class ReaderAgent {}
 
@@ -64,7 +77,7 @@ export class ReaderAgent {}
   prompt: "Write.",
   model: "test/beta",
   price: testConfig.agents.alpha.price,
-  rag: [{ use: NotesRag, mode: RagMode.Context }],
+  rag: [NotesRag, GuidesRag],
 })
 export class WriterAgent {}
 

@@ -42,7 +42,7 @@ export const COMPONENT_DECORATORS = [
   "McpServer",
   // `@agboss/core/rag`
   "Rag",
-  "Reranker",
+  "RagReranker",
   // `@agboss/core/a2a`
   "A2AAgent",
 ] as const;

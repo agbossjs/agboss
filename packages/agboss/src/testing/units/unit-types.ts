@@ -28,6 +28,8 @@ export interface UnitOptions<
    * default: none.
    */
   readonly environment?: Partial<Environment>;
+  /** Who the unit's calls are made for (`CallOptions.owner`): what a `RagScope.Owner` source reads. */
+  readonly ownerId?: string;
 }
 
 /**

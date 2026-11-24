@@ -99,7 +99,7 @@ describe("#481 AC1: the published entry", () => {
     const named = [...Object.keys(SUITES), "storeConformance", "StoreConformanceError"];
     const kit = ["StoreCapability", "VirtualClock", "runConformanceSabotage"];
     expect(Object.keys(contracts).sort()).toEqual(
-      [...named, ...kit, "ragConnectorContract", "effectKeyForTesting"].sort(),
+      [...named, ...kit, "ragSourceContract", "effectKeyForTesting"].sort(),
     );
     for (const [name, value] of Object.entries(contracts))
       if (name !== "StoreCapability") expect(value).toBeTypeOf("function");

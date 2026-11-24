@@ -174,13 +174,16 @@ export function judgeBindingOf(
 }
 
 /**
- * A model `@Reranker`'s chat model (#703) through the gateway, with the chat defaults: its script key
+ * A model `@RagReranker`'s chat model through the gateway, with the chat defaults: its script key
  * `reranker:<name>`, its spend billed by the core to the knowledge base (`rag:<name>`).
  */
 export const rerankerBindingOf =
   (config: Pick<AgentsConfigOf<string>, "defaults">, gateway: RegistryGateway) =>
-  (reranker: string, model: string): ModelBinding => {
-    const settings = resolveSettings({ model }, config.defaults.models);
+  (reranker: string, model: string, modelProvider?: string): ModelBinding => {
+    const settings = resolveSettings(
+      { model, ...(modelProvider === undefined ? {} : { modelProvider }) },
+      config.defaults.models,
+    );
     const user: ChatModelUser = { kind: "reranker", reranker };
     return { model: gateway.chatModel({ user, settings }), settings };
   };

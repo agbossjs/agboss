@@ -1,7 +1,6 @@
 import { questionRoleOf } from "../../channels/discovery.js";
 import { componentOf } from "../../components/metadata.js";
 import type { Class } from "../../components/injection.js";
-import { RagMode } from "../../rag/types.js";
 import { NodeKind } from "../ast.js";
 import { declarationOf, type AgentDeclaration } from "../decorators/declaration.js";
 import type { ImportTable } from "./imports.js";
@@ -25,7 +24,6 @@ export function toolComponentNameOf(cls: Class): string | undefined {
   const component = componentOf(cls);
   switch (component?.kind) {
     case "tool":
-    case "rag":
       return component.meta.name;
     default:
       return undefined;
@@ -34,7 +32,7 @@ export function toolComponentNameOf(cls: Class): string | undefined {
 
 /** The tool names of one agent's options, its classes registered for their brands. */
 function toolNamesOf(
-  options: Pick<AgentDeclaration["options"], "tools" | "rag">,
+  options: Pick<AgentDeclaration["options"], "tools">,
   names: ImportTable,
 ): readonly string[] {
   const tools = (options.tools ?? []).flatMap((cls) => {
@@ -42,13 +40,7 @@ function toolNamesOf(
     if (name === undefined || names.refIfExported(cls) === undefined) return [];
     return [name];
   });
-  const searches = (options.rag ?? []).flatMap(({ use, mode }) => {
-    const name = toolComponentNameOf(use);
-    if (mode !== RagMode.Tool || name === undefined) return [];
-    names.refIfExported(use);
-    return [`search-${name}-tool`];
-  });
-  return [...new Set([...tools, ...searches])].sort();
+  return [...new Set(tools)].sort();
 }
 
 /** Every agent's entry: the union of its tool names, `never` for an agent without tools. */

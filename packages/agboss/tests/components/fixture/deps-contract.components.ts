@@ -1,3 +1,5 @@
+import { RagScope } from "../../../src/rag/types.js";
+import { RagSource } from "../../../src/rag/rag-source.js";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
 import {
   PiiAction,
@@ -25,7 +27,6 @@ import {
 import { Injectable, InjectionToken, Tool } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
-import { RagTenancy } from "../../../src/rag/types.js";
 
 /** One component of every kind that takes `deps`, each depending on `Vault` (which depends on SECRET). */
 export const SECRET = new InjectionToken<string>("SECRET");
@@ -123,10 +124,12 @@ export class StrictJudge implements JudgeHandler<KeptDto> {
   }
 }
 
-@Rag({ name: "docs", description: "Docs", tenancy: RagTenancy.PerTenant, topK: 1, deps: [Vault] })
-export class VaultDocs {
-  constructor(private readonly vault: Vault) {}
-  retrieve(): Promise<RagRetrieval> {
+@Rag({ name: "docs", description: "Docs", scope: RagScope.Tenant, topK: 1, deps: [Vault] })
+export class VaultDocs extends RagSource {
+  constructor(private readonly vault: Vault) {
+    super();
+  }
+  protected override retrieve(): Promise<RagRetrieval> {
     seen.push(`rag:${this.vault.secret}`);
     return Promise.resolve({ results: [{ text: "the vault", source: "vault.md" }] });
   }

@@ -5,7 +5,7 @@ import { tokenName, type Class, type Provider } from "./injection.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import { transportProviderClassesOf } from "../models/resolution.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
-import { ragMeta, rerankerClassesOf, searchToolName } from "./rag.js";
+import { rerankerClassesOf } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
 import { channelNameOf } from "../channels/discovery.js";
@@ -36,16 +36,15 @@ export interface ToolClasses {
 }
 
 /**
- * Tool classes → the tool names they expose to a model (a `@Rag` → `search-<name>-tool`); a name
- * that breaks the name rules (`toolNameViolations`) or is exposed twice (local, MCP or
- * knowledge-base search) fails assembly — with the `others` found in the tools (their bounds, #336).
+ * Tool classes → the tool names they expose to a model; a name
+ * that breaks the name rules (`toolNameViolations`) or is exposed twice (local, MCP
+ * or question role) fails assembly — with the `others` found in the tools (their bounds, #336).
  */
 export const toolNames = (
   tools: ToolClasses,
-  rags: readonly Class[],
   others: readonly RuleViolation[] = [],
 ): Map<Class, string> => {
-  throwIfViolated([...toolNameViolations(tools, rags), ...others]);
+  throwIfViolated([...toolNameViolations(tools), ...others]);
   const map = new Map<Class, string>();
   const byName = new Map<string, Class>();
 
@@ -62,9 +61,6 @@ export const toolNames = (
 
   tools.local.forEach((cls) => {
     add(cls, requireComponent(cls, "tool", "workflowOf").meta.name);
-  });
-  rags.forEach((cls) => {
-    add(cls, searchToolName(ragMeta(cls)));
   });
   (tools.asked ?? []).forEach((cls) => {
     add(cls, channelNameOf(cls));
@@ -93,10 +89,9 @@ function modelNameViolations(name: string, owner: string): RuleViolation[] {
 
 /**
  * The names of a workflow's tools (#268 AC9, #1343a): every name a model sees — a project's `@Tool`s
- * (no `-tool` suffix needed for an MCP one), a knowledge base's
- * `search-<name>-tool` too — fits the providers' `[a-zA-Z0-9_-]`, at most 64 characters. All at once.
+ * (no `-tool` suffix needed for an MCP one) — fits the providers' `[a-zA-Z0-9_-]`, at most 64 characters. All at once.
  */
-export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): RuleViolation[] {
+export function toolNameViolations(tools: ToolClasses): RuleViolation[] {
   const named = [
     ...tools.local.map((cls) => ({
       cls,
@@ -104,14 +99,11 @@ export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): 
     })),
   ];
   const own = named.flatMap(({ cls, name }) => modelNameViolations(name, tokenName(cls)));
-  const searches = rags.flatMap((cls) =>
-    modelNameViolations(searchToolName(ragMeta(cls)), tokenName(cls)),
-  );
   // a question role's name is the tool name its agents' models see (#712)
   const questions = (tools.asked ?? []).flatMap((cls) =>
     modelNameViolations(channelNameOf(cls), tokenName(cls)),
   );
-  return [...own, ...searches, ...questions, ...toolExpiryViolations(tools)];
+  return [...own, ...questions, ...toolExpiryViolations(tools)];
 }
 
 /** The classes among a workflow's `providers` (values excluded). */

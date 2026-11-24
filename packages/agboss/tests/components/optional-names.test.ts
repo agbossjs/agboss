@@ -32,8 +32,7 @@ import { ModelCost, ModelProvider, RetryPolicy } from "../../src/models/index.js
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { pauseListenerOf } from "../../src/pause/pause-listener.js";
 import { piiPolicyMetaOf } from "../../src/pii/policy-checks.js";
-import { Reranker } from "../../src/rag/reranker.decorator.js";
-import { ModelReranker } from "../../src/rag/types.js";
+import { RagReranker } from "../../src/rag/reranker.decorator.js";
 import { toolInterceptorMetaOf } from "../../src/tool-interceptors/decorator.js";
 import { workingCalendarOf } from "../../src/calendar/working-calendar.js";
 import { minutes, seconds } from "../../src/units/index.js";
@@ -80,8 +79,8 @@ class GoodScore {}
 @ReplyInterpreter({ decidedBy: DecidedBy.Model, model: "test/reader" })
 class RefundReader {}
 
-@Reranker({ model: "test/rerank" })
-class DocsRanker extends ModelReranker {}
+@RagReranker({ candidates: 5, model: "test/rerank" })
+class DocsRanker {}
 
 @ModelProvider({
   serves: [/^bedrock\//],
@@ -118,7 +117,7 @@ describe("#1343a: a name left out is the class name in kebab-case", () => {
     ["@PiiPolicy", piiPolicyMetaOf(ContactDetails)?.name, "contact-details"],
     ["@Arbiter", arbiterOf(GoodScore)?.options.name, "good-score"],
     ["@ReplyInterpreter", replyInterpreterOf(RefundReader)?.options.name, "refund-reader"],
-    ["@Reranker", nameOfKind(DocsRanker, "reranker"), "docs-ranker"],
+    ["@RagReranker", nameOfKind(DocsRanker, "reranker"), "docs-ranker"],
     ["@ModelProvider", modelProviderOf(AwsBedrock).name, "aws-bedrock"],
     ["@Judge", nameOfKind(FairAnswer, "judge"), "fair-answer"],
   ])("%s", (_decorator, recorded, expected) => {

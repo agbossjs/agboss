@@ -8,7 +8,6 @@ import {
   PhoneNumber,
   Text,
   TimeZone,
-  Url,
 } from "../decorators.js";
 import { crossFieldRule } from "../schema.js";
 
@@ -96,15 +95,3 @@ crossFieldRule(ContactInfoDto, ({ email, phone }) =>
     ? undefined
     : { field: "email", reason: "give an email, a phone or both" },
 );
-
-/** Where a statement in an replyWith comes from, in a knowledge base. */
-export class RagSourceReferenceDto {
-  @Text({ prompt: "what the source is: a document title, a page name" })
-  title!: string;
-
-  @Url({ prompt: "a link to the source", optional: true })
-  url?: string;
-
-  @Text({ prompt: "the exact words the replyWith relies on", optional: true, maxLength: 300 })
-  quote?: string;
-}

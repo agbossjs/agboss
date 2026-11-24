@@ -136,11 +136,6 @@ export interface CallMatchers<TSelf> {
 export function callTool<TTool extends ToolClass<never>>(tool: TTool, args: NoInfer<CalledToolArguments<InstanceType<TTool>>>): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
 
 // @public
-export function callTool<TRag extends Class<RagConnector>>(rag: TRag, args: {
-    readonly query: string;
-}): ToolCallTurn<SearchToolNameOf<InstanceType<TRag>>>;
-
-// @public
 export function callTool<TRole extends Class<{
     send(ask: never): Promise<unknown>;
 }>>(role: TRole, args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
@@ -708,6 +703,7 @@ export interface PlainErrorOptions {
 
 // @public
 export interface RagCallOptions extends UnitCallOptions {
+    readonly filter?: unknown;
     readonly topK?: number;
 }
 
@@ -823,9 +819,6 @@ export type ScriptedAnswer = number | string;
 
 // @public
 export type ScriptedTurn = ReplyTurn | AnswerTurn | ToolCallTurn | ToolCallsTurn | InvalidToolCallTurn | TruncatedToolCallTurn | InvalidAnswerTurn | RouteTurn | DecideTurn | FailureTurn | WaitTurn;
-
-// @public
-type SearchToolNameOf<TRag> = string extends ToolNameOf<TRag> ? string : `search-${ToolNameOf<TRag>}-tool`;
 
 // @public
 export class SequentialIdGenerator extends IdGenerator {
@@ -1035,7 +1028,6 @@ export function testGuardrail<TExecution extends ExecutionContext = ExecutionCon
 declare namespace TestingTypes {
     export {
         CalledToolArguments,
-        SearchToolNameOf,
         AgentTurnFor,
         AnswerFor,
         FieldPartial,
@@ -1069,7 +1061,7 @@ export interface TestLeases {
 export function testPii<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(policies: readonly Class[], options?: UnitModelOptions<unknown, TExecution, TTenant>): PiiRunner;
 
 // @public
-export function testRag<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(rag: Class<RagConnector>, options?: UnitModelOptions<unknown, TExecution, TTenant>): RagRunner;
+export function testRag<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(rag: Class<RagSource<never, never>>, options?: UnitModelOptions<unknown, TExecution, TTenant>): RagRunner;
 
 // @public
 export function testReplyInterpreter<TRole extends Class, TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(role: TRole, options?: UnitModelOptions<unknown, TExecution, TTenant>): ReplyInterpreterRunner<InstanceType<TRole>>;
@@ -1247,6 +1239,7 @@ export type UnitModelScript<TSelf = unknown> = TurnFor<TSelf> | readonly TurnFor
 export interface UnitOptions<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext> extends Omit<TestContextOptions<TExecution, TTenant>, "application"> {
     readonly environment?: Partial<Environment>;
     readonly overrides?: readonly Override[];
+    readonly ownerId?: string;
 }
 
 // @public

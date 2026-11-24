@@ -7,18 +7,9 @@ import type { Class } from "../../components/injection.js";
 import type { ToolHandler } from "../../components/decorators.js";
 import type { CacheSetting, MaxTokens, Price } from "../../config/settings-types.js";
 import type { Reasoning } from "../../models/reasoning.js";
-import { RagMode } from "../../rag/types.js";
 import { NodeKind } from "../ast.js";
 import type { OutputShape } from "../dto-wrappers.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
-
-export { RagMode };
-
-/** An agent's use of a `@Rag` knowledge base: `{ use: JobsRag, mode: RagMode.Tool }`. */
-export interface AgentRag {
-  readonly use: Class;
-  readonly mode: RagMode;
-}
 
 /**
  * `@Agent` — the agent options of today plus `input` / `output` (#270) and `maxVisits`; reasoning
@@ -55,7 +46,8 @@ export interface AgentOptions {
     Class<ToolHandler<never, unknown>> | Class<{ send(ask: never): Promise<unknown> }>
   )[];
   readonly reasoning?: Reasoning;
-  readonly rag?: readonly AgentRag[];
+  /** `@Rag` classes: their passages come with the input, before the first model call (a tool injects a `@Rag` through `deps`). */
+  readonly rag?: readonly Class[];
   readonly price?: Price;
   readonly temperature?: number;
   readonly maxTokens?: MaxTokens;

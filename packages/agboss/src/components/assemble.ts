@@ -199,7 +199,7 @@ export async function workflowOf(
   const resolver = resolverOf(bundle, agents);
   const routers = await loadRouters(graph, loader, bundle.defaults.router?.model, resolver);
   const tools = toolClassesOf(bundle, agents, graph);
-  const rags = await checkedRagClassesOf(bundle, agents);
+  const rags = await checkedRagClassesOf(bundle, agents, tools.local);
   const judges = checkedJudgeClassesOf(bundle, agents);
   const sources = { workflow, bundle, owner, agents, graph, loader };
   const policies = await policyPartsOf({ ...sources, resolver });
@@ -210,7 +210,7 @@ export async function workflowOf(
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules, owner);
   const mcp = mcpOf(mcpServerClassesOf(components, modules));
   checkComponents(bundle, { components, modules, mcp, contexts });
-  const names = toolNames(tools, rags, resultSizeViolations(bundle, tools));
+  const names = toolNames(tools, resultSizeViolations(bundle, tools));
   const files = { ...sources, pii: policies.assembled.pii };
   const plain = withAgentFiles(configOf(bundle, agents, names, judges, memories), files);
   const config = cascadedConfigOf(plain, bundle, agents, resolver);
@@ -229,7 +229,7 @@ export async function workflowOf(
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
     routers,
     prompts: await promptsOf(agents, loader),
-    tools: toolBuilder(bundle, agents, tools),
+    tools: toolBuilder(bundle, tools),
     ...(rags.length === 0 ? {} : ragParts(bundle, agents, rags)),
     ...judgePartsOf(bundle, judges),
     ...mcpPartsOf(mcp),

@@ -185,7 +185,8 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
     readonly knowledgeBases?: (services: WorkflowServices) => readonly {
         readonly name: string;
-        readonly connector: RagConnector;
+        readonly scope: RagScope;
+        readonly index: (options: RagIndexOptions) => Promise<RagIndexReport | undefined>;
     }[];
     readonly maxSteps: number;
     readonly mcpServerClasses?: ReadonlyMap<Class, string>;
@@ -205,6 +206,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly rerankers?: readonly {
         readonly name: string;
         readonly model: string;
+        readonly modelProvider?: string;
     }[];
     readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
     readonly routers: readonly LoadedRouter[];
@@ -1238,6 +1240,7 @@ export interface KnowledgeRetrieval extends RagRetrieval {
 export type KnowledgeRetrieve = (query: string, options: {
     readonly topK: number;
     readonly signal: AbortSignal;
+    readonly filter?: unknown;
 }) => Promise<KnowledgeRetrieval>;
 
 // @public
@@ -1608,7 +1611,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 export interface WorkflowServices {
     readonly container?: ContainerOptions;
     readonly contexts?: RuntimeContexts;
-    readonly rerankModel?: (reranker: string, model: string) => ModelBinding;
+    readonly rerankModel?: (reranker: string, model: string, modelProvider?: string) => ModelBinding;
     readonly router: (name: string) => RouterEngine;
 }
 

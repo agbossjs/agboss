@@ -1,33 +1,24 @@
-// `agboss rag index` interrupted in its write phase (#891 D1): a real SqliteFtsConnector over the folder and file the test names
-import {
-  Agent,
-  Application,
-  EmptyEnvironment,
-  InjectionToken,
-  provide,
-  Workflow,
-} from "../../../../agboss/src/index.js";
-import {
-  Rag,
-  RagMode,
-  RagTenancy,
-  SqliteFtsConnector,
-  type SqliteFtsOptions,
-} from "../../../../agboss/src/rag/index.js";
+// `agboss rag index` interrupted in its write phase (#891 D1): a real SqliteFtsRagSource over the folder and file the test names
+import { Agent, Application, EmptyEnvironment, Workflow } from "../../../../agboss/src/index.js";
+import { Rag, RagScope, SqliteFtsRagSource } from "../../../../agboss/src/rag/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";
 import { testConfig, testDefaults } from "../../../../agboss/tests/helpers.js";
 
-export const WRITE_DOCS = new InjectionToken<SqliteFtsOptions>("WRITE_DOCS");
-
 @Rag({
   name: "write-rag",
   description: "A real index over the folder the test fills",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Shared,
   topK: 2,
-  deps: [WRITE_DOCS],
 })
-export class WriteRag extends SqliteFtsConnector {}
+export class WriteRag extends SqliteFtsRagSource {
+  constructor() {
+    super({
+      directory: process.env.RAG_WRITE_FOLDER ?? "",
+      path: process.env.RAG_WRITE_SQLITE ?? "",
+    });
+  }
+}
 
 @Agent({
   name: "write-reader-agent",
@@ -35,7 +26,7 @@ export class WriteRag extends SqliteFtsConnector {}
   prompt: "Read.",
   model: "test/alpha",
   price: testConfig.agents.alpha.price,
-  rag: [{ use: WriteRag, mode: RagMode.Tool }],
+  rag: [WriteRag],
 })
 export class WriteReaderAgent {}
 
@@ -44,12 +35,6 @@ export class WriteReaderAgent {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: starOf(WriteReaderAgent),
-  providers: [
-    provide(WRITE_DOCS, {
-      folder: process.env.RAG_WRITE_FOLDER ?? "",
-      sqlitePath: process.env.RAG_WRITE_SQLITE ?? "",
-    }),
-  ],
 })
 export class WriteNotesWorkflow {}
 

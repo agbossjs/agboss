@@ -33,7 +33,7 @@ import {
 const QUESTION = "What is the vault code?";
 const searchVault: ToolCallTurn = {
   kind: "tool-call",
-  tool: "search-tenant-docs-rag-tool",
+  tool: "search-tenant-docs",
   args: { query: "vault code" },
 };
 

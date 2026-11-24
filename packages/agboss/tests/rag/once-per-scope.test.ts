@@ -1,20 +1,20 @@
 /**
- * #818 — `OncePerTenant`, the knowledge base's first look at a tenant: run by the first caller,
+ * #818 — `OncePerScope`, the knowledge base's first look at a scope: run by the first caller,
  * joined by the rest, each waiting under its own signal; a failed run is no run.
  */
 import { describe, expect, it } from "vitest";
-import { OncePerTenant } from "../../src/rag/once-per-tenant.js";
+import { OncePerScope } from "../../src/rag/once-per-scope.js";
 
 /** Work the test ends by hand, counting its runs. */
 function controlled() {
-  const runs: { readonly tenantId: string; end: () => void; fail: (error: Error) => void }[] = [];
-  const once = new OncePerTenant(
-    (tenantId, signal) =>
+  const runs: { readonly scopeId: string; end: () => void; fail: (error: Error) => void }[] = [];
+  const once = new OncePerScope(
+    (scopeId, signal) =>
       new Promise<void>((resolve, reject) => {
         signal.addEventListener("abort", () => {
           reject(signal.reason as Error);
         });
-        runs.push({ tenantId, end: resolve, fail: reject });
+        runs.push({ scopeId, end: resolve, fail: reject });
       }),
   );
   return { once, runs };
@@ -23,8 +23,8 @@ function controlled() {
 const live = (): AbortSignal => new AbortController().signal;
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-describe("#818: OncePerTenant", () => {
-  it("one run per tenant, however many callers come while it runs; another tenant runs its own", async () => {
+describe("#818: OncePerScope", () => {
+  it("one run per scope, however many callers come while it runs; another scope runs its own", async () => {
     const { once, runs } = controlled();
 
     const calls = [once.run("acme", live()), once.run("acme", live()), once.run("globex", live())];
@@ -32,7 +32,7 @@ describe("#818: OncePerTenant", () => {
     await Promise.all(calls);
     await once.run("acme", live());
 
-    expect(runs.map((run) => run.tenantId)).toEqual(["acme", "globex"]);
+    expect(runs.map((run) => run.scopeId)).toEqual(["acme", "globex"]);
   });
 
   it("a waiter's own abort ends its wait at once, with its reason; the run goes on for the others", async () => {

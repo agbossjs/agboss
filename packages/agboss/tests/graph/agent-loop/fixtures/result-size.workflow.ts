@@ -1,8 +1,9 @@
+import { RagScope } from "../../../../src/rag/types.js";
+import { RagSource } from "../../../../src/rag/rag-source.js";
 import {
   Agent,
   Injectable,
   Observer,
-  RagMode,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -23,7 +24,6 @@ import type { RagRetrieval } from "../../../../src/rag/types.js";
 import { kilobytes } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
-import { RagTenancy } from "../../../../src/rag/types.js";
 
 /** What the observer saw of each tool call, and every text the PII detector read (tests reset both). */
 export const toolEnds: ToolEndEvent[] = [];
@@ -100,14 +100,16 @@ export class BrokenPageTool {
 @Rag({
   name: "pages-rag",
   description: "Pages",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Tenant,
   topK: 1,
   deps: [PageReader],
 })
-export class PagesRag {
-  constructor(private readonly pageReader: PageReader) {}
+export class PagesRag extends RagSource {
+  constructor(private readonly pageReader: PageReader) {
+    super();
+  }
 
-  async retrieve(query: string): Promise<RagRetrieval> {
+  protected override async retrieve(query: string): Promise<RagRetrieval> {
     return { results: [{ text: await this.pageReader.textOf(query), source: "pages.md" }] };
   }
 }
@@ -142,7 +144,7 @@ export class ResearchAgent {}
   description: "Answers from the pages",
   prompt: "Answer from the pages.",
   model: "test/research",
-  rag: [{ use: PagesRag, mode: RagMode.Context }],
+  rag: [PagesRag],
 })
 export class ContextAgent {}
 
@@ -238,11 +240,9 @@ export class ZeroBoundStart {}
 @Workflow({
   name: "zero-bound-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ZeroBoundStart)
-      .toAgent(ZeroBoundAgent)
-      .toFinish(PageFinish),
-  ],
+  flow: [onStart(ZeroBoundStart)
+    .toAgent(ZeroBoundAgent)
+    .toFinish(PageFinish)],
   defaults: { tools: { maxResultSize: kilobytes(0.1) } },
 })
 export class ZeroBoundWorkflow {}
