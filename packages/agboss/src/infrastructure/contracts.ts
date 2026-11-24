@@ -40,7 +40,7 @@ import {
   InMemoryExecutionAuditLogRepository,
 } from "./execution-audit-log.repository.js";
 import { OutboundCallRepository } from "./outbound-call.repository.js";
-import { InMemoryOutboundCallRepository } from "./outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "./in-memory-outbound-call.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
 import { Idempotency } from "../app/idempotency.js";
 import { FileRedactor, ModelImageRedactor } from "../files/file-redactor.js";

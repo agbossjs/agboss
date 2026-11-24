@@ -17,7 +17,7 @@ import { countQuorumOf } from "../../src/flow/quorum-step.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SystemClock } from "../../src/infrastructure/clock.js";
 import { Idempotency } from "../../src/app/idempotency.js";
-import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { hours } from "../../src/units/index.js";
 import { meshContextValuesOf } from "../../src/mesh/mesh-context-values.js";
 import { EmptyEnvironment, HealthCheck, HealthCheckResult, Tool } from "../../src/index.js";
@@ -118,7 +118,7 @@ describe("#1141: @Application timers", () => {
     const idempotency = new Idempotency(
       {} as never,
       {} as never,
-      new OutboundCallSettings({ requiresMask: false }),
+      new OutboundMasking({ requiresMask: false }),
       {} as never,
       {} as never,
     );

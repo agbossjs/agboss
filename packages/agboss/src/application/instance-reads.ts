@@ -41,10 +41,10 @@ export function pendingCallsOf(
 ): Promise<OutboundCallPage> {
   return tenantRead(tenantId, async () => {
     const status = OutboundCallStatus.Pending;
-    const query = { tenantId, status, limit: pageLimitOf(limit), ...afterOf(after) };
+    const query = { tenantId, status, limit: pageLimitOf(limit), ...cursorOf(after) };
     const page = await outboundCalls.findAllByTenantIdAndStatus(query).catch(cursorRefused);
-    const calls = page.calls.map(shownCallOf);
-    return page.next === undefined ? { calls } : { calls, next: page.next };
+    const calls = page.items.map(shownCallOf);
+    return page.nextCursor === undefined ? { calls } : { calls, next: page.nextCursor };
   });
 }
 
@@ -70,9 +70,9 @@ function cursorRefused(error: unknown): never {
 }
 
 /** A page's cursor (#825): a non-empty text a page before gave as `next` — `dto.invalid` else. */
-function afterOf(after: string | undefined): { readonly after?: string } {
+function cursorOf(after: string | undefined): { readonly cursor?: string } {
   if (after === undefined) return {};
-  if (typeof after === "string" && after !== "") return { after };
+  if (typeof after === "string" && after !== "") return { cursor: after };
   const reason = "a cursor is the next of a page before: a non-empty text";
   throw new DtoValidationError({ dto: PENDING_QUERY, issues: [{ path: "after", reason }] });
 }

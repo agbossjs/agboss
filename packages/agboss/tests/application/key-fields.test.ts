@@ -136,7 +136,7 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
     await expect(applicationOf(PlainApplication)).resolves.toBeDefined();
   });
 
-  it("no storage declared (the in-memory defaults): none is required — a test's keys are given", async () => {
+  it("no storage declared: a component that reaches Idempotency is refused at assembly, not at its first keyed call", async () => {
     @Application({
       name: "in-memory-application",
       version: "1.0.0",
@@ -146,7 +146,37 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
     })
     class InMemoryApplication {}
 
-    await expect(applicationOf(InMemoryApplication)).resolves.toBeDefined();
+    await expect(applicationOf(InMemoryApplication)).rejects.toThrow(
+      /\[application\.idempotency-key-required\] BookOrderAction reaches Idempotency.*declare a @DatabaseStorage and name the secret/su,
+    );
+  });
+
+  it("no storage declared, a test's assembly (or one that runs no effect): the test's keys are given", async () => {
+    @Application({
+      name: "in-memory-test-application",
+      version: "1.0.0",
+      environment: KeysEnvironment,
+      workflows: [BookOrderWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class InMemoryTestApplication {}
+
+    await expect(
+      applicationOf(InMemoryTestApplication, { withoutIdempotencyKeys: true }),
+    ).resolves.toBeDefined();
+  });
+
+  it("no storage declared, no component that reaches Idempotency: assembles", async () => {
+    @Application({
+      name: "in-memory-plain-application",
+      version: "1.0.0",
+      environment: EmptyEnvironment,
+      workflows: [PlainWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class InMemoryPlainApplication {}
+
+    await expect(applicationOf(InMemoryPlainApplication)).resolves.toBeDefined();
   });
 
   it("a service the application lists that reaches Idempotency — a component injects it by an abstract token — needs one too", async () => {

@@ -569,7 +569,7 @@ const { status, result } = await this.idempotency.runOnce({
   results are not logged; what reaches a record or a trace is the step's output, masked as always.
 
 A store of another database (PostgreSQL, #482) extends the contract, declares its backend in `static store`,
-implements `runInTransaction` (the four steps), `deleteByStoredAtBefore` and `ping`, keeps the key's rules (the call's largest result is `key.maxResultSize`) with the core's own helpers of `@agboss/core/stores`
+implements `runInTransaction` (the four steps), `deleteExpired` (the rows whose `expires_at` has come, the number removed) and `ping`, keeps the key's rules (the call's largest result is `key.maxResultSize`) with the core's own helpers of `@agboss/core/stores`
 (#526, #890: `assertEffectName`, `assertBusinessKey` and `fingerprintErrorOf` at its entry — the base class's `runOnce` checks them first —, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
 `effectKeyIdentityOf`, `pendingOutboundCallOf`), and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
 cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
@@ -753,7 +753,7 @@ the two listings — #825: `findAllByTenantIdAndStatus({ tenantId, status, limit
 on an immutable order of its own (`{ calls, next? }`, a call in the status for the whole read listed
 exactly once); `leaseStateOf` — which closes an expired lease in the same atomic step, so a late
 renewal and the check never both win —;
-`deleteByEndedAtBefore`; `ping`; `static store`) and proves itself with
+`deleteExpired`; `ping`; `static store`) and proves itself with
 `outboundCallContract` of `@agboss/core/testing/contracts`
 ([ADR-0027](ADR-0027-An-intent-before-every-outbound-call)).
 

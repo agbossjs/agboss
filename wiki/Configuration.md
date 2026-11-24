@@ -296,8 +296,6 @@ export class ClaimsWorkflow {} // a @Workflow of its own
     executionRecords: hours(24 * 30), // each root execution's history (unset: nothing kept)
     auditLog: hours(24), // the audit log (default hours(24))
     costLedgerEntries: hours(24), // the cost ledger's entries (default hours(24))
-    fencedEffects: hours(24), // idempotent writes' results and marks (default hours(24))
-    outboundCalls: hours(168), // ended outbound calls (default hours(168))
     a2aTasks: hours(24), // finished A2A tasks (default hours(24))
     a2aFiles: hours(24), // a finished A2A task's files (#859; default and at most a2aTasks)
     a2aMessages: minutes(15), // a direct A2A reply and its messageId (#860; default minutes(15))

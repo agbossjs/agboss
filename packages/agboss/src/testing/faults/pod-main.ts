@@ -99,7 +99,7 @@ const application = faultApplicationOf(stores, {
     (one) => one === process.env[POD_VARIABLES.sabotage],
   ),
 });
-const assembled = await applicationOf(application);
+const assembled = await applicationOf(application, { withoutIdempotencyKeys: true });
 const loaded = {
   name: "fault",
   contract: stores.environment.contract.name,

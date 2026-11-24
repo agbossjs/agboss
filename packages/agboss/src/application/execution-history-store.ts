@@ -26,7 +26,11 @@ export async function openExecutionHistory(
   application: Class,
   options: Pick<BuildApplicationOptions, "env" | "processEnv"> = {},
 ): Promise<OpenedExecutionHistory> {
-  const assembled = await applicationOf(application, {}, "agboss records export");
+  const assembled = await applicationOf(
+    application,
+    { withoutIdempotencyKeys: true },
+    "agboss records export",
+  );
   const processEnv = options.processEnv ?? process.env;
   const owner = environmentOwnerOf(assembled);
   const environment = await namedEnvironmentFor(owner, options, processEnv);

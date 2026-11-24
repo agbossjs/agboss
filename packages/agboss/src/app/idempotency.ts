@@ -8,10 +8,9 @@ import {
   FencedEffectRepository,
   type EffectKey,
   type EffectKeyFields,
-  type FencedEffectWork,
   type IdempotencyRunOutcome,
 } from "../infrastructure/fenced-effect.repository.js";
-import { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "./outbound-masking.js";
 import { Clock, lazyLoad } from "../infrastructure/clock.js";
 import { issuedKey } from "../infrastructure/issued-keys.js";
 import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
@@ -20,9 +19,9 @@ import { kilobytes, seconds, Ttl, type Bytes, type Milliseconds } from "../units
 import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import { EXECUTION_LEASE } from "./lease-fence.js";
 import type { IdempotencyRunOptions } from "./idempotency-types.js";
-import { isThenable, revocable } from "./idempotency-work.js";
+import { boundedWork } from "./idempotency-work.js";
 import { callKeyErrorOf, checkedRecovery } from "./outbound-call-contract.js";
-import type { LiveCall } from "./outbound-call-parts.js";
+import { expiryOf, type LiveCall } from "./outbound-call-parts.js";
 import type {
   IdempotencySendOptions,
   OutboundCallOutcome,
@@ -68,7 +67,7 @@ function timeoutProblemOf(timeout: unknown): string | undefined {
  * step the call is made in, so a component threads nothing through. Wiki → Several-instances.
  */
 @Injectable({
-  deps: [FencedEffectRepository, OutboundCallRepository, OutboundCallSettings, Logger, Clock],
+  deps: [FencedEffectRepository, OutboundCallRepository, OutboundMasking, Logger, Clock],
 })
 export class Idempotency {
   /** The calls this instance is making now, by key: a second send of one meanwhile joins it. */
@@ -83,7 +82,7 @@ export class Idempotency {
   constructor(
     private readonly effects: FencedEffectRepository<unknown>,
     private readonly calls: OutboundCallRepository,
-    private readonly mask: OutboundCallSettings,
+    private readonly masking: OutboundMasking,
     // the instance's log (#508), names and ids only — said by whoever builds it (#825)
     private readonly logger: Logger,
     // the application's clock (#825): a call's attempt and its key's age, never the wall clock by default
@@ -114,8 +113,9 @@ export class Idempotency {
     if (timeoutProblem !== undefined) throw refused("runOnce", timeoutProblem);
     if (timeout >= EXECUTION_LEASE) throw refused("runOnce", `timeout is not below the lease`);
     if (typeof execute !== "function") throw refused("runOnce", "execute is not a function");
-    const effectKey = this.#effectKey(name, key, options, maxResultSize);
-    const bounded = this.#bounded(name, timeout, execute);
+    const expiresAt = expiryOf(this.clock, ttl);
+    const effectKey = this.#effectKey(name, key, options, { maxResultSize, expiresAt });
+    const bounded = boundedWork(this.clock, { name, timeout }, execute);
     return this.effects.runOnce(effectKey, bounded);
   }
 
@@ -124,7 +124,7 @@ export class Idempotency {
     name: string,
     key: string | undefined,
     options: { readonly fingerprint?: unknown; readonly withoutFingerprint?: unknown },
-    maxResultSize: Bytes | undefined,
+    keyed: { readonly maxResultSize: Bytes | undefined; readonly expiresAt: Date | null },
   ): EffectKey {
     const context = liveExecutionContextOf(undefined, "Idempotency");
     const { fingerprint, withoutFingerprint } = options;
@@ -138,49 +138,12 @@ export class Idempotency {
           } as Parameters<typeof effectKeyOf>[2]);
     if (key === undefined && (fingerprint !== undefined || withoutFingerprint !== undefined))
       throw refused("runOnce", "a fingerprint needs a key: it says what the work under it does");
-    return maxResultSize === undefined
-      ? (made as EffectKey)
-      : (issuedKey({ ...(made as EffectKeyFields), maxResultSize }) as EffectKey);
-  }
-
-  /** `execute` bounded by `timeout` on the application's clock: a stalled one rejects, so its transaction rolls back. */
-  #bounded<TResult, TTransaction>(
-    name: string,
-    timeout: Milliseconds,
-    execute: IdempotencyRunOptions<TResult, never, TTransaction>["execute"],
-  ): FencedEffectWork<unknown, TResult> {
-    return (transaction) => {
-      const guarded = revocable(transaction);
-      let work: unknown;
-      try {
-        // the transaction is the listed store's: `TTransaction` is the component's word for it
-        work = execute(guarded.value as TTransaction);
-      } catch (error) {
-        guarded.revoke();
-        throw error;
-      }
-      // a synchronous work (SQLite's) is returned as it is: a promise would be refused by its store,
-      // and nothing synchronous can be bounded by a timer anyway
-      if (!isThenable(work)) {
-        guarded.revoke();
-        return work as never;
-      }
-      const stop = new AbortController();
-      const timer = this.clock.sleep(timeout, stop.signal).then(() => {
-        if (stop.signal.aborted) return new Promise<never>(() => undefined);
-        // the transaction is dead from here: a late completion of `execute` can write nothing
-        guarded.revoke();
-        throw new DOMException(
-          `idempotent effect "${name}" passed its timeout of ${String(timeout)} ms: rolled back`,
-          "TimeoutError",
-        );
-      });
-      timer.catch(() => undefined);
-      return Promise.race([work as Promise<never>, timer]).finally(() => {
-        stop.abort();
-        guarded.revoke();
-      });
-    };
+    const { maxResultSize, expiresAt } = keyed;
+    return issuedKey({
+      ...(made as EffectKeyFields),
+      expiresAt,
+      ...(maxResultSize === undefined ? {} : { maxResultSize }),
+    }) as EffectKey;
   }
 
   /**
@@ -207,10 +170,15 @@ export class Idempotency {
       throw refused("sendOnce", "target is not a name");
     const checked = checkedRecovery(name, recovery, { timeout, ttl });
     const context = liveExecutionContextOf(undefined, "Idempotency");
-    const stepKey =
+    const keyed =
       key === undefined
         ? effectKeyOf(context, name)
         : effectKeyOf(context, name, { businessKey: key });
+    // the scope's mark lives as long as the longest ttl written under it (`null`: for good)
+    const stepKey = issuedKey({
+      ...(keyed as EffectKeyFields),
+      expiresAt: expiryOf(this.clock, ttl),
+    }) as EffectKey;
     // the checked copy is the one the protocol reads (`options` as given is the caller's, live)
     callKeyErrorOf(stepKey);
     const run: OutboundCallRun<TRequest, TResult> = {
@@ -219,6 +187,7 @@ export class Idempotency {
       operation,
       request,
       timeout,
+      ttl,
       maxPayloadSize,
       send,
       isDefiniteFailure,
@@ -228,7 +197,7 @@ export class Idempotency {
     const { sendOutboundCall } = await lazyLoad(import("./outbound-call-protocol.js"));
     const parts = {
       repository: this.calls,
-      requiresMask: this.mask.requiresMask,
+      requiresMask: this.masking.requiresMask,
       live: this.#live,
       owners: this.#owners,
       log: frameworkLogOf(this.logger, this.clock),

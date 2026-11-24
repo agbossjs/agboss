@@ -26,7 +26,7 @@ import {
   type IdempotencySendOptions,
   type OutboundCallRecord,
 } from "../../src/index.js";
-import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { type EffectKey } from "../../src/stores/index.js";
 import { ExecutionCancelFencedError, type OutboundCallIntent } from "../../src/stores/index.js";
 import {
@@ -81,7 +81,7 @@ function callsInFrame() {
   const idempotency = new Idempotency(
     effects,
     store,
-    new OutboundCallSettings({ requiresMask: false }),
+    new OutboundMasking({ requiresMask: false }),
     new SilentLogger(),
     clock,
   );

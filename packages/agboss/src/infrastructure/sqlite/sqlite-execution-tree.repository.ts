@@ -62,7 +62,13 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
       .get(tree.tenantId, tree.rootExecutionId, key);
     if (row === undefined) return Promise.resolve(undefined);
     return Promise.resolve(
-      TreeValue.parse(parsedStoredJson("execution tree value", ValueRow.parse(row).value, { key })),
+      TreeValue.parse(
+        parsedStoredJson({
+          what: "execution tree value",
+          text: ValueRow.parse(row).value,
+          ids: { key },
+        }),
+      ),
     );
   }
 

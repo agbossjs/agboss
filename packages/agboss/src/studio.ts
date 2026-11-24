@@ -62,7 +62,11 @@ export async function studioOfWith(
   options: StudioOptions & { readonly gateway?: ModelGateway } = {},
 ): Promise<StudioGraphs> {
   const processEnv = options.processEnv ?? process.env;
-  const assembled = await applicationOf(application, {}, "agboss studio");
+  const assembled = await applicationOf(
+    application,
+    { withoutIdempotencyKeys: true },
+    "agboss studio",
+  );
   const environment = await namedEnvironmentFor(
     environmentOwnerOf(assembled),
     { env: options.env },

@@ -30,7 +30,7 @@ export interface FencedEffectBusinessRows<TTransaction> {
 
 /**
  * One instance's stores on the backing database: the fenced-effect store under test, built with
- * the default `FencedEffectSettings` (64 KB), the lease store it reads, and the business rows.
+ * the lease store it reads, and the business rows.
  */
 export interface FencedEffectTarget<TTransaction> {
   /** The store under test. */

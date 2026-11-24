@@ -106,7 +106,7 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
   override async markCompleted(key: EffectKey, owner: string, result: string) {
     const found = await this.findByKey(key);
     if (found !== undefined) await this.#takenOver(key, found);
-    return super.markCompleted(key, owner, result);
+    return super.markCompleted(key, owner, result, null);
   }
 
   async #takenOver(key: EffectKey, found: OutboundCallRecord): Promise<void> {

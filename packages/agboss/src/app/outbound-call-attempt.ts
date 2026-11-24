@@ -2,7 +2,14 @@ import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.
 import { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
 import { failedOrPending, leftPending } from "./outbound-call-ambiguity.js";
 import { fencedEnd, supersededErrorOf } from "./outbound-call-endings.js";
-import { callOf, outcomeOf, storedResultOf, told, type CallRun } from "./outbound-call-parts.js";
+import {
+  callOf,
+  endExpiryOf,
+  outcomeOf,
+  storedResultOf,
+  told,
+  type CallRun,
+} from "./outbound-call-parts.js";
 import { OutboundCallSendStatus, type OutboundCallOutcome } from "./outbound-call-types.js";
 
 /**
@@ -57,7 +64,8 @@ async function lateAnswerOf<TRequest, TResult>(
   try {
     const answer = await sending;
     const stored = await storedResultOf(run, answer);
-    const isCompleted = () => run.parts.repository.markCompleted(run.key, owner, stored);
+    const isCompleted = () =>
+      run.parts.repository.markCompleted(run.key, owner, stored, endExpiryOf(run));
     if (await fencedEnd(run, attempt, isCompleted)) {
       told(run, OutboundCallEventOutcome.Sent, [OutboundCallStatus.Completed, attempt]);
       return;
@@ -119,7 +127,7 @@ export async function sendNow<TRequest, TResult>(
   }
   // stored masked (or a marker: the call happened); the step gets the answer as it is
   const stored = await storedResultOf(run, answer);
-  const isCompleted = () => repository.markCompleted(run.key, owner, stored);
+  const isCompleted = () => repository.markCompleted(run.key, owner, stored, endExpiryOf(run));
   // both reached the other system (#795): the step fails, never goes on as if all were well
   if (!(await fencedEnd(run, attempt, isCompleted))) {
     // the other system answered: a call joined to this one shares the error, never sends again

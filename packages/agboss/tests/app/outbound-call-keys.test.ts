@@ -13,7 +13,7 @@ import {
   Reconciliation,
 } from "../../src/index.js";
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
-import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { effectKeyOf } from "../../src/stores/index.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
@@ -36,7 +36,7 @@ function parts() {
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const store = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
   const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
-  return { effects, store, settings: new OutboundCallSettings({ requiresMask: false }) };
+  return { effects, store, settings: new OutboundMasking({ requiresMask: false }) };
 }
 
 const options: OutboundSendCase<{ amountUsd: number }, object> = {

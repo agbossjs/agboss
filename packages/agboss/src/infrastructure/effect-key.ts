@@ -44,6 +44,14 @@ export interface EffectKeyFields {
    * any work under it replays the first. Absent otherwise.
    */
   readonly withoutFingerprint?: true;
+  /**
+   * When the rows the key writes — its result, the scope's mark — may be removed: `now + ttl` of the
+   * call (`Idempotency.runOnce` / `sendOnce`, on the framework's `Clock`), or `null` for `Ttl.Forever`
+   * (kept for good). A store keeps it as the row's `expires_at`; the scope's mark keeps the latest of
+   * every key's, `null` winning over any date (a short ttl never truncates a long one). A key made
+   * by `effectKeyOf` has `null` until the caller says another.
+   */
+  readonly expiresAt: Date | null;
   /** The largest result the effect may store, in UTF-8 bytes of its JSON: the store's check (default 64 KB). */
   readonly maxResultSize?: Bytes;
   /** The step that made the key: what a replay from another step or execution names. */

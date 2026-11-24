@@ -83,7 +83,7 @@ const Status = z.looseObject({
 /** The status of a row whose `state` column agrees with it (M6: a compare-and-set reads the column). */
 function statusOf(row: z.infer<typeof TaskRow>): A2ATaskStatus {
   const status = Status.parse(
-    parsedStoredJson("a2a task status", row.status, { taskId: row.task_id }),
+    parsedStoredJson({ what: "a2a task status", text: row.status, ids: { taskId: row.task_id } }),
   );
   if (status.state !== row.state)
     throw new Error(`a2a_tasks row ${row.task_id}: its state column and its status disagree`);
@@ -124,8 +124,12 @@ export const messageOf = (row: unknown): A2AMessageRecord => {
     ...(parsed.reply === null
       ? {}
       : {
-          reply: parsedStoredJson("a2a message reply", parsed.reply, {
-            messageId: parsed.message_id,
+          reply: parsedStoredJson({
+            what: "a2a message reply",
+            text: parsed.reply,
+            ids: {
+              messageId: parsed.message_id,
+            },
           }),
         }),
   };

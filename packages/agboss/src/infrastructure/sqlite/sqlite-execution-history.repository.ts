@@ -20,7 +20,7 @@ const ORDER = "ORDER BY started_at, execution_id";
 const recordOf = (row: unknown): ExecutionHistoryRecord => {
   const { execution_id: executionId, record } = Row.parse(row);
   return executionHistoryRecordOfJson(
-    parsedStoredJson("execution history record", record, { executionId }),
+    parsedStoredJson({ what: "execution history record", text: record, ids: { executionId } }),
   );
 };
 

@@ -63,7 +63,11 @@ function replyOf(
   }
   if (reply === null || completedAt === null) throw disagree();
   const kept = Reply.parse(
-    parsedStoredJson("a2a direct message reply", reply, { messageId: row.message_id }),
+    parsedStoredJson({
+      what: "a2a direct message reply",
+      text: reply,
+      ids: { messageId: row.message_id },
+    }),
   );
   return {
     reply: {

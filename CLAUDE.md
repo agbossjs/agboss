@@ -2512,7 +2512,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   one instance share the first's outcome (`Joined`), two instances serialize (`Replayed`). On SQLite
   `execute` gets the connection's `DatabaseSync` and must be synchronous (a promise →
   `SyncWorkRequiredError`, rolled back). A bad option rejects (never throws synchronously): `ConfigError.Option`. Results and marks are removed by the recovery sweep
-  after their `ttl`; the application's `retention.fencedEffects` (default `hours(24)`, above the lease: `[application.retention-invalid]`) stays the sweep's bound for what a store writes without one.
+  after their `ttl` (`expires_at`; the scope's mark keeps the latest of every key's, `Ttl.Forever` first). There is no application retention for them.
   Unit runners hold their lease in the
   store's lease store. `fencedEffectContract` (`@agboss/core/testing/contracts`) for a store of your own;
   its key's rules are exported by `@agboss/core/stores` (#526 AC5, #890): `assertEffectName`, `assertBusinessKey`, `fingerprintErrorOf` (#825), `replayedFromOf` (a row's `null`s
@@ -2560,7 +2560,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   and the step get real values, a replay the masked result, a lookup the stored request
   (`lookup.storedRequest`) and the key to look the call up by; no mask where policies exist →
   `OutboundCallError.Unmasked`. The largest request and result is the call's `maxPayloadSize` (default 64 KB; `OutboundCallError.PayloadTooLarge`);
-  ended intents are removed by the sweep after the call's `ttl` (the application's `retention.outboundCalls`, default `hours(168)`, bounds the rest),
+  ended intents are removed by the sweep after the call's `ttl`,
   pending ones never. Read by `app.outboundCallsOf({ tenantId, rootExecutionId })` /
   `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` (#825: `OutboundCallPage { calls, next? }`, default 100, at most
   1000, keyset-paged — the store's `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })`,

@@ -377,7 +377,7 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
         attempt: found.attempt + 1,
         attemptOwner: "x",
       });
-    return super.markCompleted(key, owner, result);
+    return super.markCompleted(key, owner, result, null);
   }
 }
 

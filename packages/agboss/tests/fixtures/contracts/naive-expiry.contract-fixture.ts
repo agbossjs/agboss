@@ -2,7 +2,7 @@
 import { StoreClock, StoreTimeSource } from "../../../src/infrastructure/clock.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
-import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import {
   executionLeaseContract,
   fencedEffectContract,

@@ -132,7 +132,7 @@ export async function compareProfilesWith<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
   options: CompareProfilesOptions & { readonly gateway?: ModelGateway },
 ): Promise<ProfileComparison> {
-  const assembled = await applicationOf(application, {}, WHERE);
+  const assembled = await applicationOf(application, { withoutIdempotencyKeys: true }, WHERE);
   const workflow = workflowOfStart(application, assembled, options.start);
   const environment = await environmentFor(
     environmentOwnerOf(assembled),

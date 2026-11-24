@@ -147,22 +147,22 @@ describe("#626: the SQLite fencing stores beyond their contracts", () => {
 });
 
 describe("#626: a pending intent, a thenable that is none, a replay, the async-work error", () => {
-  it("a pending intent has no ended_at, an ended one has its time: the sweep removes only the ended one", async () => {
+  it("a pending intent has no expires_at, an ended one has its expiry: the sweep removes only the ended one", async () => {
     const stores = storesOn();
     const lease = await held(stores.leases);
     const [pending, ended] = [keyOf(lease, "pending"), keyOf(lease, "ended")];
     await stores.calls.saveIfAbsent(pending, intentOf(pending));
     await stores.calls.saveIfAbsent(ended, intentOf(ended));
-    await stores.calls.markCompleted(ended, "owner-1", '{"receipt":"r1"}');
+    await stores.calls.markCompleted(ended, "owner-1", '{"receipt":"r1"}', new Date(1_000));
 
     const rows = stores.connection.database
-      .prepare("SELECT name, ended_at FROM outbound_calls ORDER BY name")
+      .prepare("SELECT name, expires_at FROM outbound_calls ORDER BY name")
       .all();
-    expect(rows.map((row) => [row.name, row.ended_at === null])).toEqual([
+    expect(rows.map((row) => [row.name, row.expires_at === null])).toEqual([
       ["ended", false],
       ["pending", true],
     ]);
-    await stores.calls.deleteByEndedAtBefore(new Date(8_640_000_000_000_000));
+    await stores.calls.deleteExpired(new Date(8_640_000_000_000_000));
     expect(await stores.calls.findByKey(pending)).toMatchObject({ name: "pending" });
     expect(await stores.calls.findByKey(ended)).toBeUndefined();
   });

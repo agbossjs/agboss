@@ -268,12 +268,17 @@ async function callCommand(
       return run(
         callEnded(world.state, facts, command.owner, command.status, now),
         command.status === "completed"
-          ? calls.markCompleted(key, command.owner, '"paid"')
-          : calls.markFailed(key, command.owner, {
-              name: "DeclinedError",
-              code: "DeclinedError",
-              message: "declined",
-            }),
+          ? calls.markCompleted(key, command.owner, '"paid"', null)
+          : calls.markFailed(
+              key,
+              command.owner,
+              {
+                name: "DeclinedError",
+                code: "DeclinedError",
+                message: "declined",
+              },
+              null,
+            ),
       );
     case "state": {
       const lease = { tenantId: TENANT, leaseExecutionId: command.tree, token: command.token };

@@ -796,10 +796,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("audit event record types, enums and an in-memory audit log repository", [
     "src/infrastructure/execution-audit-log.repository.ts",
   ]),
-  ...reviewed(
-    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 67 mutants, 65 killed in the final run; the 6 that had lived in the first run each got a test (4), an equivalence reason (1) or was classed message text (1); covered by tests/sweep-1366h/infrastructure/fenced-effect-settings-1366h.test.ts, tests/models/streaming/http-streaming-failures.test.ts, tests/application/fenced-effects.test.ts, tests/application/outbound-calls.test.ts; survivors listed in the #1366 round-8 notes",
-    ["src/infrastructure/fenced-effect-settings.ts"],
-  ),
   ...reviewed("checkpoint ordering: its own shard is #1165", [
     "src/infrastructure/in-memory-checkpoint-order.ts",
     "src/infrastructure/in-memory-checkpoint-saver.ts",

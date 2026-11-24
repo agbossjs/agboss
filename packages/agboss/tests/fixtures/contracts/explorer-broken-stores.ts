@@ -10,10 +10,10 @@ import {
 } from "../../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import {
-  InMemoryOutboundCallRepository,
   type OutboundCallClaim,
   type OutboundCallState,
 } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import type { EffectKey } from "../../../src/infrastructure/fenced-effect.repository.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 import { StoreClock, StoreTimeSource } from "../../../src/infrastructure/clock.js";

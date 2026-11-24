@@ -32,7 +32,7 @@ const isTaken = (error: unknown): boolean =>
   typeof error === "object" && error !== null && Reflect.get(error, "code") === "EEXIST";
 
 const parsedOf = (text: string): FileMetadata => {
-  const stored = parsedStoredJson("a2a file metadata", text, {}) as StoredMetadata;
+  const stored = parsedStoredJson({ what: "a2a file metadata", text }) as StoredMetadata;
   return metadataOf({ ...stored, createdAt: new Date(stored.createdAt) });
 };
 

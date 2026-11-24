@@ -652,6 +652,7 @@ export type EffectKey = EffectKeyFields & EffectKeyMark;
 export interface EffectKeyFields {
     readonly businessKey?: string;
     readonly businessKeyHash?: string;
+    readonly expiresAt: Date | null;
     readonly fingerprint?: string;
     readonly idempotencyKey: string;
     readonly isCompensation?: true;
@@ -1085,7 +1086,7 @@ export interface FencedEffectOrigin {
 
 // @public
 export abstract class FencedEffectRepository<TTransaction> {
-    abstract deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(now: Date): Promise<number>;
     abstract ping(): Promise<void>;
     protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
@@ -1499,13 +1500,6 @@ export enum OutboundCallLeaseState {
 }
 
 // @public
-export interface OutboundCallPage {
-    // (undocumented)
-    readonly calls: readonly OutboundCallRecord[];
-    readonly next?: string;
-}
-
-// @public
 export interface OutboundCallRecord extends OutboundCallIntent {
     readonly attemptStartedAt?: string;
     readonly businessKey?: string;
@@ -1528,13 +1522,13 @@ export interface OutboundCallRecord extends OutboundCallIntent {
 
 // @public
 export abstract class OutboundCallRepository {
-    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(now: Date): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
-    abstract findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage>;
+    abstract findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<Page<OutboundCallRecord>>;
     abstract findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
     abstract leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
-    abstract markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
-    abstract markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean>;
+    abstract markCompleted(key: EffectKey, attemptOwner: string, result: string, expiresAt: Date | null): Promise<boolean>;
+    abstract markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure, expiresAt: Date | null): Promise<boolean>;
     abstract markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean>;
@@ -1559,9 +1553,7 @@ export enum OutboundCallStatus {
 }
 
 // @public
-export interface OutboundCallStatusQuery {
-    readonly after?: string | undefined;
-    readonly limit: number;
+export interface OutboundCallStatusQuery extends PageQuery {
     // (undocumented)
     readonly status: OutboundCallStatus;
     // (undocumented)
@@ -1608,7 +1600,12 @@ export interface PageQuery {
 }
 
 // @public
-export function parsedStoredJson(what: string, text: string, ids: Readonly<Record<string, string | undefined>>, reviver?: (key: string, value: unknown) => unknown): unknown;
+export function parsedStoredJson(options: {
+    readonly what: string;
+    readonly text: string;
+    readonly ids?: Readonly<Record<string, string | undefined>>;
+    readonly reviver?: (key: string, value: unknown) => unknown;
+}): unknown;
 
 // @public
 export interface PauseAnswer {
@@ -2788,7 +2785,6 @@ export interface WrittenLedgerMark {
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "MeshRequestRepository".
 // src/infrastructure/outbound-call-pages.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/outbound-call-pages.ts - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/outbound-call-pages.ts - (ae-undocumented) Missing documentation for "calls".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "message".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "nodeId".

@@ -99,11 +99,10 @@ export function objectBodyOf(stored: StoredMetadata, bytes: Uint8Array): Uint8Ar
 export function storedMetadataOf(head: Uint8Array): StoredMetadata | undefined {
   const end = head.indexOf(NEWLINE);
   if (end < 0) return undefined;
-  return parsedStoredJson(
-    "a2a file metadata",
-    Buffer.from(head.subarray(0, end)).toString("utf8"),
-    {},
-  ) as StoredMetadata;
+  return parsedStoredJson({
+    what: "a2a file metadata",
+    text: Buffer.from(head.subarray(0, end)).toString("utf8"),
+  }) as StoredMetadata;
 }
 
 /** A file's bytes, from its whole object. */
@@ -117,10 +116,9 @@ export const entryBodyOf = (owner: FileOwner): Uint8Array =>
 
 /** The owner an index entry's body names. */
 export const ownerOfEntryBody = (body: Uint8Array): FileOwner => {
-  const parsed = parsedStoredJson(
-    "a2a file index entry",
-    Buffer.from(body).toString("utf8"),
-    {},
-  ) as FileOwner;
+  const parsed = parsedStoredJson({
+    what: "a2a file index entry",
+    text: Buffer.from(body).toString("utf8"),
+  }) as FileOwner;
   return { tenantId: parsed.tenantId, ownerId: parsed.ownerId };
 };

@@ -38,7 +38,7 @@ const sweptBoth = async <TTransaction>(
   stores: readonly FencedEffectTarget<TTransaction>[],
   cutoff: Date,
 ): Promise<void> => {
-  for (const { effects } of stores) await effects.deleteByStoredAtBefore(cutoff);
+  for (const { effects } of stores) await effects.deleteExpired(cutoff);
 };
 
 const childFencedAfterRootRetired = <TTransaction>(): Case<TTransaction> => ({

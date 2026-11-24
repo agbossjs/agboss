@@ -103,11 +103,13 @@ describe("#505: no mask where policies exist — fail closed", () => {
     })
     class NoPiiApplication {}
 
-    const withPolicies = await applicationOf(OutboundCallApplication);
-    const without = await applicationOf(NoPiiApplication);
+    const withPolicies = await applicationOf(OutboundCallApplication, {
+      withoutIdempotencyKeys: true,
+    });
+    const without = await applicationOf(NoPiiApplication, { withoutIdempotencyKeys: true });
 
-    expect(withPolicies.outboundCalls.requiresMask).toBe(true);
-    expect(without.outboundCalls.requiresMask).toBe(false);
+    expect(withPolicies.outboundMasking.requiresMask).toBe(true);
+    expect(without.outboundMasking.requiresMask).toBe(false);
   });
 });
 

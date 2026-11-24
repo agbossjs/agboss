@@ -1,19 +1,17 @@
 /**
- * #505 — the retention of ended intents (`@Application({ retention: { outboundCalls } })`, checked at
- * assembly) and the largest request and result of a call (`maxPayloadSize` of `sendOnce`: a request
+ * #505, #1317 — the largest request and result of a call (`maxPayloadSize` of `sendOnce`: a request
  * above it is neither recorded nor sent; a result above it leaves the intent marked as not stored),
- * and the recovery sweep, which removes ended intents past the retention on the `Clock` — never a
+ * and the recovery sweep, which removes ended intents whose expiry has come, on the `Clock` — never a
  * pending one. A call's `timeout` is refused when it is not a positive duration.
  */
 import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
-import type { RetentionOptions } from "../../src/application/retention.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { OutboundCallRepository, OutboundCallStatus } from "../../src/index.js";
-import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { testWith } from "../../src/testing/index.js";
-import { hours, kilobytes, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
+import { kilobytes, seconds, type Milliseconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { RecoveryLog, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -37,39 +35,20 @@ beforeEach(() => {
 
 const TREE = { tenantId: "default", rootExecutionId: "execution-1" };
 
-const assembledWith = (retention?: RetentionOptions) => {
-  @Application({
-    name: "settings-application",
-    version: "1.0.0",
-    environment: IdempotencyKeyEnvironment,
-    workflows: [ChargeWorkflow],
-    budgets: TEST_BUDGETS,
-    ...(retention === undefined ? {} : { retention }),
-  })
-  class SettingsApplication {}
-  return applicationOf(SettingsApplication);
-};
+describe("#505, #1317: the outbound calls' masking at assembly", () => {
+  it("a request is stored masked only where the application lists PII policies", async () => {
+    @Application({
+      name: "masking-application",
+      version: "1.0.0",
+      environment: IdempotencyKeyEnvironment,
+      workflows: [ChargeWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class MaskingApplication {}
 
-describe("#505: the outbound calls' settings at assembly", () => {
-  it("defaults to a week of retention", async () => {
-    const assembled = await assembledWith();
+    const assembled = await applicationOf(MaskingApplication, { withoutIdempotencyKeys: true });
 
-    expect(assembled.outboundCalls).toEqual(new OutboundCallSettings({ requiresMask: false }));
-    expect(assembled.outboundCalls).toMatchObject({ retention: hours(168) });
-  });
-
-  it("#834: a retention.outboundCalls not above the lease's 30 s fails assembly", async () => {
-    const assembly = assembledWith({ outboundCalls: seconds(30) });
-
-    await expect(assembly).rejects.toThrow(
-      "[application.retention-invalid] its retention.outboundCalls is 30000 ms, not above the lease's 30000 ms",
-    );
-  });
-
-  it("takes what it sets", async () => {
-    const assembled = await assembledWith({ outboundCalls: seconds(31) });
-
-    expect(assembled.outboundCalls).toMatchObject({ retention: seconds(31) });
+    expect(assembled.outboundMasking).toEqual(new OutboundMasking({ requiresMask: false }));
   });
 });
 
@@ -81,7 +60,6 @@ describe("#505: the outbound calls' settings at assembly", () => {
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
   providers: [RecordingLogger],
-  retention: { outboundCalls: minutes(1) },
 })
 class SmallOutboundCallApplication {}
 
@@ -124,21 +102,21 @@ describe("#505: sendOnce's maxPayloadSize and the sweep read the settings", () =
   );
 
   small(
-    "the recovery sweep removes ended intents older than the retention, on the Clock",
+    "the recovery sweep removes the intents whose expiry has come, on the Clock",
     async ({ app, clock }) => {
       await app.ready();
-      const removal = vi.spyOn(app.resolve(OutboundCallRepository), "deleteByEndedAtBefore");
+      const removal = vi.spyOn(app.resolve(OutboundCallRepository), "deleteExpired");
       await execute(app, ChargeWorkflowStart, { text: "order-1" });
 
       await clock.advance(seconds(31));
 
-      expect(removal).toHaveBeenCalledWith(new Date(clock.now().getTime() - minutes(1)));
+      expect(removal).toHaveBeenCalledWith(clock.now());
     },
   );
 
   small("a store that fails to remove is logged as recovery.failed", async ({ app, clock }) => {
     await app.ready();
-    vi.spyOn(app.resolve(OutboundCallRepository), "deleteByEndedAtBefore").mockRejectedValue(
+    vi.spyOn(app.resolve(OutboundCallRepository), "deleteExpired").mockRejectedValue(
       new Error("disk full"),
     );
 
@@ -147,7 +125,7 @@ describe("#505: sendOnce's maxPayloadSize and the sweep read the settings", () =
     expect(logged).toContainEqual(
       expect.objectContaining({
         code: "recovery.failed",
-        message: "the ended outbound calls could not be removed: Error: disk full",
+        message: "the expired outbound calls could not be removed: Error: disk full",
       }),
     );
   });

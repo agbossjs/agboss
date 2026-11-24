@@ -43,7 +43,9 @@ const JsonObject = z.record(z.string(), z.unknown());
 export function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
   return pauseRecordOfJson({
-    ...JsonObject.parse(parsedStoredJson("pause", r.pause, { pauseId: r.pause_id })),
+    ...JsonObject.parse(
+      parsedStoredJson({ what: "pause", text: r.pause, ids: { pauseId: r.pause_id } }),
+    ),
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
     stepKey: r.step_key,
@@ -52,7 +54,13 @@ export function toPauseRecord(row: unknown): PauseRecord {
     isSent: r.is_sent === 1,
     ...(r.answer === null
       ? {}
-      : { answer: parsedStoredJson("pause answer", r.answer, { pauseId: r.pause_id }) }),
+      : {
+          answer: parsedStoredJson({
+            what: "pause answer",
+            text: r.answer,
+            ids: { pauseId: r.pause_id },
+          }),
+        }),
     ...resolutionOf(r),
     ...(r.resolved_at === null ? {} : { resolvedAt: r.resolved_at }),
     ...(r.expires_at === null ? {} : { expiresAt: r.expires_at }),

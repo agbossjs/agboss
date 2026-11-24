@@ -146,12 +146,17 @@ export const CALL_RACES: readonly ForcedRace[] = [
     first: (run, { lease }) => {
       const { calls, key } = onKey(run, 1, lease);
       return ending === "markCompleted"
-        ? calls.markCompleted(key, "owner-1", '"paid"')
-        : calls.markFailed(key, "owner-1", {
-            name: "DeclinedError",
-            code: "DeclinedError",
-            message: "declined",
-          });
+        ? calls.markCompleted(key, "owner-1", '"paid"', null)
+        : calls.markFailed(
+            key,
+            "owner-1",
+            {
+              name: "DeclinedError",
+              code: "DeclinedError",
+              message: "declined",
+            },
+            null,
+          );
     },
     second: (run, { lease }) => moveBy(run, 2, lease),
     firstWins: async (answers, run, { lease }) =>

@@ -1,8 +1,8 @@
 /**
  * #533 item 3 — the in-memory fenced-effect store and the contract's base class at their edges: the
  * transactions of one scope wait for each other even when a write is asynchronous, and each scope's
- * lock is gone once its last transaction settled; a result and a mark stored at the sweep's cutoff
- * are kept; the scope's mark is the highest token that wrote or replayed it; a step's replay names
+ * lock is gone once its last transaction settled; a result and a mark expiring at the sweep's now
+ * are removed; the scope's mark is the highest token that wrote or replayed it; a step's replay names
  * no origin; the entry checks run in their order (name, business key, the key's shape) and a key's
  * join is its own; a result of exactly `maxResultSize` bytes is stored.
  */
@@ -147,12 +147,19 @@ describe("#533: the scope's mark and the sweep", () => {
     expect(database.fencedEffectMarks.get(keyOf(second).scopeKey)?.highestToken).toBe(2);
   });
 
-  it("a result and a mark stored exactly at the cutoff are kept", async () => {
+  it("a result and a mark expiring exactly now are removed, and counted; one with no expiry is kept", async () => {
     const { clock, database, leases, effects } = storesOn();
-    await effects.runOnce(keyOf(await held(leases)), () => ({ receipt: "r" }));
+    const lease = await held(leases);
+    await effects.runOnce(keyOf(lease), () => ({ receipt: "r" }));
+    await expect(effects.deleteExpired(clock.now())).resolves.toBe(0);
+    expect([database.fencedEffectResults.size, database.fencedEffectMarks.size]).toEqual([1, 1]);
 
-    await effects.deleteByStoredAtBefore(clock.now());
-
+    await effects.runOnce(
+      effectKeyForTesting(keyOf(lease, "ends"), { expiresAt: clock.now() }),
+      () => ({ receipt: "r" }),
+    );
+    await expect(effects.deleteExpired(clock.now())).resolves.toBe(1);
+    // the scope's mark holds the latest expiry written under it: Forever
     expect([database.fencedEffectResults.size, database.fencedEffectMarks.size]).toEqual([1, 1]);
   });
 
@@ -258,13 +265,13 @@ describe("#909, #1117: a tree's cancel mark in memory", () => {
     const key = keyOf(lease);
     await leases.requestCancel(tree);
     await clock.advance(seconds(60));
-    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() + seconds(60)));
+    await effects.deleteExpired(new Date(clock.now().getTime() + seconds(60)));
     await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(
       ExecutionCancelFencedError,
     );
     await leases.retire(lease);
 
-    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() + seconds(60)));
+    await effects.deleteExpired(new Date(clock.now().getTime() + seconds(60)));
 
     expect(database.executionLeases.get(ROW)).toMatchObject({ isRetired: true });
     expect(database.executionLeases.get(ROW)?.cancelRequestedAt).toBeDefined();

@@ -36,8 +36,6 @@ class SilentStore {
   requestCancel = silent;
   resolveByTenantIdAndPauseId = silent;
   saveIfAbsent = silent;
-  deleteByStoredAtBefore = silent;
-  deleteByEndedAtBefore = silent;
   deleteExpired = silent;
   save = silent;
 }
@@ -149,7 +147,7 @@ describe("#928 AC1: the sweep runs again next period", () => {
 
 describe("#928 AC1: a long call is bounded by 5 min and never hands over", () => {
   const long = [
-    ["a retention delete", FencedEffectRepository, "deleteByStoredAtBefore"],
+    ["a retention delete", FencedEffectRepository, "deleteExpired"],
     ["the cancel-mark pruning of a retention delete", ExecutionHistoryRepository, "deleteExpired"],
     ["an A2A file save", FileRepository, "save"],
   ] as const;

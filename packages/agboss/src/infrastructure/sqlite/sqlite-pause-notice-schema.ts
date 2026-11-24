@@ -41,9 +41,13 @@ export function toMailbox(row: unknown): StoredMailbox {
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
     recipient: r.recipient,
-    notices: z
-      .array(StoredNotice)
-      .parse(parsedStoredJson("pause notice mailbox", r.notices, { pauseId: r.pause_id })),
+    notices: z.array(StoredNotice).parse(
+      parsedStoredJson({
+        what: "pause notice mailbox",
+        text: r.notices,
+        ids: { pauseId: r.pause_id },
+      }),
+    ),
     delivered: r.delivered,
     attempts: r.attempts,
     nextAttemptAt: new Date(r.next_attempt_at),

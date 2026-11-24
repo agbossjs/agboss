@@ -36,10 +36,8 @@ import {
   InMemoryFencedEffectRepository,
   raiseInMemoryMark,
 } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
-import {
-  InMemoryOutboundCallRepository,
-  type OutboundCallLease,
-} from "../../../src/infrastructure/outbound-call.repository.js";
+import { type OutboundCallLease } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import type {
   FencedEffectTarget,
   OutboundCallTarget,
@@ -68,6 +66,7 @@ export class BufferedTransaction {
 interface StoredResult {
   readonly token: number;
   readonly storedAt: number;
+  readonly expiresAt: number | null;
   readonly result: string;
   readonly fingerprint?: string;
   readonly origin?: unknown;
@@ -88,10 +87,14 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
     return Promise.resolve();
   }
 
-  deleteByStoredAtBefore(cutoff: Date): Promise<void> {
+  deleteExpired(now: Date): Promise<number> {
+    let removed = 0;
     for (const [row, stored] of this.results)
-      if (stored.storedAt < cutoff.getTime()) this.results.delete(row);
-    return Promise.resolve();
+      if (stored.expiresAt !== null && stored.expiresAt <= now.getTime()) {
+        this.results.delete(row);
+        removed += 1;
+      }
+    return Promise.resolve(removed);
   }
 
   /** The stored result of `key`, replayed. */
@@ -114,6 +117,7 @@ abstract class BrokenEffects extends FencedEffectRepository<BufferedTransaction>
     this.results.set(effectKeyIdentityOf(key), {
       token: key.token,
       storedAt: this.seam.storeClock.now().getTime(),
+      expiresAt: key.expiresAt?.getTime() ?? null,
       result: text,
       ...storedKeyFactsOf(key),
     });

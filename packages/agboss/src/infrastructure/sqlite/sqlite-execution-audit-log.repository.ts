@@ -14,11 +14,10 @@ const TreeRow = z.object({ tenant_id: z.string(), root_execution_id: z.string() 
 /** A row's record (written by `save`: the record as JSON). */
 const recordOf = (row: unknown): ExecutionAuditEventRecord =>
   // the column holds exactly what `save` wrote
-  parsedStoredJson(
-    "execution audit event",
-    EventRow.parse(row).record,
-    {},
-  ) as ExecutionAuditEventRecord;
+  parsedStoredJson({
+    what: "execution audit event",
+    text: EventRow.parse(row).record,
+  }) as ExecutionAuditEventRecord;
 
 /**
  * `ExecutionAuditLogRepository` on the application's SQLite file (#501): one row per event, its

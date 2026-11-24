@@ -1,4 +1,4 @@
-import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import type { OutboundCallReport } from "../../src/app/audit-log.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
@@ -51,7 +51,7 @@ class KeptLogger extends Logger {
 /** How the frame is made: the instance's own clock (default: the stores'), its settings, its store. */
 export interface OutboundFrameOptions {
   readonly instanceClock?: (clock: VirtualClock) => Clock;
-  readonly settings?: OutboundCallSettings;
+  readonly settings?: OutboundMasking;
   readonly store?: typeof InMemoryOutboundCallRepository;
 }
 
@@ -108,7 +108,7 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   const reports: OutboundCallReport[] = [];
   const base = testFrame();
   const logger = new KeptLogger();
-  const settings = options.settings ?? new OutboundCallSettings({ requiresMask: false });
+  const settings = options.settings ?? new OutboundMasking({ requiresMask: false });
   const instanceClock = options.instanceClock?.(clock) ?? clock;
   const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
   const idempotency = new Idempotency(effects, store, settings, logger, instanceClock);

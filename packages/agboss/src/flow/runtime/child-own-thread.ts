@@ -75,7 +75,7 @@ export type OwnThreadEnd =
 /** A forwarded resume map, read from the marker's answer (the drain wrote it as JSON). */
 export function resumeMapOf(answer: unknown): Readonly<Record<string, string>> {
   if (typeof answer !== "string") return {};
-  const parsed = parsedStoredJson("forwarded resume map", answer, {});
+  const parsed = parsedStoredJson({ what: "forwarded resume map", text: answer });
   if (typeof parsed !== "object" || parsed === null) return {};
   return Object.fromEntries(
     Object.entries(parsed).filter(

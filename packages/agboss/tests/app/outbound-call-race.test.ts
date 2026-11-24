@@ -54,13 +54,18 @@ class RacedOutboundCallRepository extends InMemoryOutboundCallRepository {
     if (!(await super.markPending(key, stateOf(found), claim))) return;
     rival.moves += 1;
     if (rival.move === RivalMove.Completes)
-      await this.markCompleted(key, "rival", '{"chargeId":"ch-rival"}');
+      await this.markCompleted(key, "rival", '{"chargeId":"ch-rival"}', null);
     if (rival.move === RivalMove.KeepsFailing)
-      await this.markFailed(key, "rival", {
-        name: "Error",
-        code: "Error",
-        message: "declined again",
-      });
+      await this.markFailed(
+        key,
+        "rival",
+        {
+          name: "Error",
+          code: "Error",
+          message: "declined again",
+        },
+        null,
+      );
   }
 }
 

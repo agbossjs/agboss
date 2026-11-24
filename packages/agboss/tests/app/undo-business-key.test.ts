@@ -44,7 +44,7 @@ describe("#825: an undo under a business key", () => {
       status: OutboundCallStatus.Completed,
       limit: 10,
     });
-    expect(sent.calls.map((call) => call.businessKeyHash)).toEqual([
+    expect(sent.items.map((call) => call.businessKeyHash)).toEqual([
       expect.stringMatching(/^[0-9a-f]{12}$/u),
     ]);
   });
@@ -61,7 +61,7 @@ describe("#825: an undo under a business key", () => {
       status: OutboundCallStatus.Completed,
       limit: 10,
     });
-    expect(sent.calls.map((call) => call.businessKeyHash)).toEqual([
+    expect(sent.items.map((call) => call.businessKeyHash)).toEqual([
       expect.stringMatching(/^[0-9a-f]{12}$/u),
     ]);
   });

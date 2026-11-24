@@ -29,11 +29,11 @@ const KEYED_METHODS: readonly (readonly [
         { attempt: 2, attemptOwner: "owner-2" },
       ),
   ],
-  ["markCompleted", (stores, key) => stores.calls.markCompleted(key, "owner-1", '"done"')],
+  ["markCompleted", (stores, key) => stores.calls.markCompleted(key, "owner-1", '"done"', null)],
   [
     "markFailed",
     (stores, key) =>
-      stores.calls.markFailed(key, "owner-1", { name: "E", code: "E", message: "failed" }),
+      stores.calls.markFailed(key, "owner-1", { name: "E", code: "E", message: "failed" }, null),
   ],
 ];
 

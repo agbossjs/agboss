@@ -64,18 +64,27 @@ CREATE INDEX IF NOT EXISTS cost_ledger_entries_made_at ON cost_ledger_entries (m
 CREATE TABLE IF NOT EXISTS cost_ledger_entries_pruned (
   id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1), pruned_before INTEGER NOT NULL);`;
 
-/** The scopes' marks and the results (#500); the marks are every fenced store's of the file. */
+/**
+ * The scopes' marks and the results (#500); the marks are every fenced store's of the file. A row's
+ * `expires_at` (#1317) is when the sweep may remove it, `NULL` = never (`Ttl.Forever`).
+ */
 export const FENCED_EFFECTS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS fenced_effect_marks (
-  scope_key TEXT PRIMARY KEY, highest_token INTEGER NOT NULL, stored_at INTEGER NOT NULL);
+  scope_key TEXT PRIMARY KEY, highest_token INTEGER NOT NULL, stored_at INTEGER NOT NULL,
+  expires_at INTEGER);
 CREATE TABLE IF NOT EXISTS fenced_effect_results (
   scope_key TEXT NOT NULL, idempotency_key TEXT NOT NULL, name TEXT NOT NULL,
-  token INTEGER NOT NULL, stored_at INTEGER NOT NULL, result TEXT NOT NULL,
+  token INTEGER NOT NULL, stored_at INTEGER NOT NULL, result TEXT NOT NULL, expires_at INTEGER,
   PRIMARY KEY (scope_key, idempotency_key, name));
 CREATE TABLE IF NOT EXISTS fenced_effect_business_results (
   tenant_id TEXT NOT NULL, name TEXT NOT NULL, business_key TEXT NOT NULL,
   token INTEGER NOT NULL, stored_at INTEGER NOT NULL, result TEXT NOT NULL, facts TEXT NOT NULL,
-  PRIMARY KEY (tenant_id, name, business_key));`;
+  expires_at INTEGER,
+  PRIMARY KEY (tenant_id, name, business_key));
+CREATE INDEX IF NOT EXISTS fenced_effect_marks_expiry ON fenced_effect_marks (expires_at);
+CREATE INDEX IF NOT EXISTS fenced_effect_results_expiry ON fenced_effect_results (expires_at);
+CREATE INDEX IF NOT EXISTS fenced_effect_business_results_expiry
+  ON fenced_effect_business_results (expires_at);`;
 
 /**
  * Every execution id handed out (#591), by the id alone, in the lease store's file: inserted once,

@@ -49,6 +49,6 @@ function failureOf(value: unknown, depth: number): RemoteChildFailure {
 /** The error a row's `failure` text names: rebuilt from its record, or a legacy row's names. */
 export function remoteFailureOf(text: string | undefined): Error {
   const value: unknown =
-    text === undefined ? undefined : parsedStoredJson("child failure", text, {});
+    text === undefined ? undefined : parsedStoredJson({ what: "child failure", text });
   return recordedErrorOf(value) ?? failureOf(value, 1);
 }

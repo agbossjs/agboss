@@ -1,6 +1,10 @@
 // #825 acceptance: the paged listing's cases against stores that page the naive ways — by an offset
 // into the matching rows, and by the identity of the last row (gone once the row is removed).
-import { InMemoryOutboundCallRepository, type OutboundCallPage } from "../../../src/index.js";
+import {
+  InMemoryOutboundCallRepository,
+  type OutboundCallRecord,
+  type Page,
+} from "../../../src/index.js";
 import { type OutboundCallStatusQuery } from "../../../src/stores/index.js";
 import { outboundCallContract } from "../../../src/testing/contracts/index.js";
 import { inMemoryOutboundCalls } from "../../infrastructure/contracts/outbound-call-stores.js";
@@ -10,24 +14,25 @@ import { inMemoryTarget } from "../../infrastructure/contracts/store-kinds.js";
 async function allOf(
   store: InMemoryOutboundCallRepository,
   query: OutboundCallStatusQuery,
-): Promise<OutboundCallPage["calls"]> {
+): Promise<readonly OutboundCallRecord[]> {
   const page = await InMemoryOutboundCallRepository.prototype.findAllByTenantIdAndStatus.call(
     store,
-    { ...query, limit: 1_000_000, after: undefined },
+    { ...query, limit: 1_000_000 },
   );
-  return page.calls;
+  return page.items;
 }
 
 /** Pages by an offset into what matches now: a row that leaves the status shifts the next page. */
 class OffsetPagedCalls extends InMemoryOutboundCallRepository {
   override async findAllByTenantIdAndStatus(
     query: OutboundCallStatusQuery,
-  ): Promise<OutboundCallPage> {
+  ): Promise<Page<OutboundCallRecord>> {
     const all = await allOf(this, query);
-    const from = query.after === undefined ? 0 : Number(query.after);
-    const calls = all.slice(from, from + query.limit);
-    const next = from + query.limit;
-    return next < all.length ? { calls, next: String(next) } : { calls };
+    const limit = query.limit ?? 100;
+    const from = query.cursor === undefined ? 0 : Number(query.cursor);
+    const items = all.slice(from, from + limit);
+    const next = from + limit;
+    return next < all.length ? { items, nextCursor: String(next) } : { items };
   }
 }
 
@@ -35,14 +40,16 @@ class OffsetPagedCalls extends InMemoryOutboundCallRepository {
 class NamedCursorCalls extends InMemoryOutboundCallRepository {
   override async findAllByTenantIdAndStatus(
     query: OutboundCallStatusQuery,
-  ): Promise<OutboundCallPage> {
+  ): Promise<Page<OutboundCallRecord>> {
     const all = await allOf(this, query);
-    const at = query.after === undefined ? -1 : all.findIndex((call) => call.name === query.after);
-    const calls = all.slice(at + 1, at + 1 + query.limit);
-    const last = calls.at(-1);
-    return last === undefined || at + 1 + query.limit >= all.length
-      ? { calls }
-      : { calls, next: last.name };
+    const limit = query.limit ?? 100;
+    const at =
+      query.cursor === undefined ? -1 : all.findIndex((call) => call.name === query.cursor);
+    const items = all.slice(at + 1, at + 1 + limit);
+    const last = items.at(-1);
+    return last === undefined || at + 1 + limit >= all.length
+      ? { items }
+      : { items, nextCursor: last.name };
   }
 }
 

@@ -9,10 +9,10 @@ import { describe, expect, it } from "vitest";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import type { EffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import {
-  InMemoryOutboundCallRepository,
   type OutboundCallClaim,
   type OutboundCallState,
 } from "../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../src/infrastructure/in-memory-outbound-call.repository.js";
 import type { OutboundCallTarget } from "../../src/testing/contracts/index.js";
 import { inMemoryTarget, type InstanceSeam } from "../infrastructure/contracts/store-kinds.js";
 import { commandArbitrary, firstDifference } from "./fencing-model.js";
@@ -38,7 +38,7 @@ class UncomparedCalls extends InMemoryOutboundCallRepository {
 class OwnerBlindCalls extends InMemoryOutboundCallRepository {
   override async markCompleted(key: EffectKey, _owner: string, result: string): Promise<boolean> {
     const found = await this.findByKey(key);
-    return found === undefined ? false : super.markCompleted(key, found.attemptOwner, result);
+    return found === undefined ? false : super.markCompleted(key, found.attemptOwner, result, null);
   }
 }
 

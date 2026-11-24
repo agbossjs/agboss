@@ -37,17 +37,20 @@ export const keyFieldsOf = (
 
 /**
  * `[application.idempotency-key-required]` (#825): a component that can make a business key — it
- * reaches `Idempotency` or a fenced-effect store through its `deps` — in an application whose
- * `@DatabaseStorage` names no `idempotencySecret`: a business key's fingerprint is keyed by it, never an unkeyed digest.
+ * reaches `Idempotency` (`runOnce` / `sendOnce`) or a fenced-effect store through its `deps` — in an
+ * application whose `@DatabaseStorage` names no `idempotencySecret`, or that names no storage at
+ * all (a test's assembly, or one that runs no effect, excepted): a business key's fingerprint is
+ * keyed by it, never an unkeyed digest.
  */
 export function idempotencyKeyViolations(
   options: ApplicationOptions,
   workflows: readonly AssembledWorkflow[],
+  isExempt = false,
 ): RuleViolation[] {
-  // an application with no storage runs on the in-memory defaults (tests, a first run): a call under
-  // a key there fails closed at run time (`IdempotencyError.SecretKeyMissing`), never an unkeyed digest
+  // no `@DatabaseStorage` is no secret either: the application fails at assembly, not at its first
+  // keyed call — a test's assembly gets the test's keys for the in-memory defaults
   const database = assembledStorageOf(options.storage)?.database;
-  if (database === undefined || database.meta.idempotencySecret !== undefined) return [];
+  if (database === undefined ? isExempt : database.meta.idempotencySecret !== undefined) return [];
   const use = workflows.find(
     (workflow) => workflow.businessKeyWriter !== undefined,
   )?.businessKeyWriter;
@@ -56,7 +59,7 @@ export function idempotencyKeyViolations(
   return [
     violation(
       "application.idempotency-key-required",
-      `${use.component.name} ${reaches} can write under a business key, whose fingerprint is keyed by the application's idempotency key — name the secret in @DatabaseStorage({ …, idempotencySecret: secret("AGBOSS_IDEMPOTENCY_SECRET") })`,
+      `${use.component.name} ${reaches} can write under a business key, whose fingerprint is keyed by the application's idempotency key — ${database === undefined ? "declare a @DatabaseStorage and name" : "name"} the secret in @DatabaseStorage({ …, idempotencySecret: secret("AGBOSS_IDEMPOTENCY_SECRET") })`,
       [options.name],
     ),
   ];

@@ -22,10 +22,7 @@ import {
 } from "../infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../infrastructure/in-memory-database.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
-import {
-  FencedEffectSettings,
-  OutboundCallSettings,
-} from "../infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../app/outbound-masking.js";
 import {
   CONTAINER_DEFAULTS,
   INFRASTRUCTURE_DEFAULTS,
@@ -68,10 +65,8 @@ export interface ApplicationContainerSources {
   readonly instances?: ReadonlyMap<Class, unknown>;
   /** A test's instance (`testWith`): an unlisted `Logger` is silent. */
   readonly quiet?: boolean | undefined;
-  /** `@Application({ fencedEffects })` (#500), as the fenced-effect store reads it; else the defaults. */
-  readonly fencedEffects?: FencedEffectSettings | undefined;
-  /** `@Application({ outboundCalls })` (#505), as `OutboundCalls` and its store read it. */
-  readonly outboundCalls?: OutboundCallSettings | undefined;
+  /** Whether a call's request is stored only masked (#505), as `Idempotency` reads it; else it is. */
+  readonly outboundMasking?: OutboundMasking | undefined;
   /** The storage components' drivers' settings, resolved (#1321): what the connections read. */
   readonly storage?: ResolvedStorage | undefined;
 }
@@ -94,12 +89,8 @@ export function applicationContainerOf(
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
       ...settingsEntriesOf(sources.storage),
-      [FencedEffectSettings, sources.fencedEffects ?? new FencedEffectSettings()],
       // no assembled settings (a store opened on its own): fail closed, every request masked (#795)
-      [
-        OutboundCallSettings,
-        sources.outboundCalls ?? new OutboundCallSettings({ requiresMask: true }),
-      ],
+      [OutboundMasking, sources.outboundMasking ?? new OutboundMasking({ requiresMask: true })],
       ...contextValuesOf(sources.contexts),
     ]),
     bounds,

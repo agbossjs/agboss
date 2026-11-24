@@ -20,7 +20,7 @@ import {
   type IdempotencySendOptions,
   type OutboundCallFailure,
 } from "../../src/index.js";
-import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { supersededError } from "../../src/app/outbound-call-errors.js";
 import { type EffectKey } from "../../src/stores/index.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
@@ -269,11 +269,11 @@ describe("#795 AC3: OutboundCallError.Superseded", () => {
 describe("#795 AC4: settings built by hand fail closed", () => {
   it("requiresMask is required in the options; none given at all is masked", () => {
     // @ts-expect-error — whether a request is stored only masked is never a silent default
-    const unsaid = new OutboundCallSettings({});
+    const unsaid = new OutboundMasking({});
 
-    expect(unsaid).toBeInstanceOf(OutboundCallSettings);
-    expect(new OutboundCallSettings().requiresMask).toBe(true); // none given: masked
-    expect(new OutboundCallSettings({ requiresMask: false }).requiresMask).toBe(false);
+    expect(unsaid).toBeInstanceOf(OutboundMasking);
+    expect(new OutboundMasking().requiresMask).toBe(true); // none given: masked
+    expect(new OutboundMasking({ requiresMask: false }).requiresMask).toBe(false);
   });
 
   it.each([
@@ -282,7 +282,7 @@ describe("#795 AC4: settings built by hand fail closed", () => {
     ["a requiresMask that is not a boolean", { requiresMask: "no" }],
   ])("a JavaScript caller with %s requires the mask", (_, options) => {
     // a JavaScript caller's options: anything at all, or none
-    expect(new OutboundCallSettings(options as never).requiresMask).toBe(true);
+    expect(new OutboundMasking(options as never).requiresMask).toBe(true);
   });
 });
 
@@ -294,12 +294,12 @@ class TakenOverOutboundCallRepository extends InMemoryOutboundCallRepository {
 
   override async markCompleted(key: EffectKey, owner: string, result: string) {
     await this.#takeOver(key);
-    return super.markCompleted(key, owner, result);
+    return super.markCompleted(key, owner, result, null);
   }
 
   override async markFailed(key: EffectKey, owner: string, failure: OutboundCallFailure) {
     await this.#takeOver(key);
-    return super.markFailed(key, owner, failure);
+    return super.markFailed(key, owner, failure, null);
   }
 
   override findByKey(key: EffectKey) {

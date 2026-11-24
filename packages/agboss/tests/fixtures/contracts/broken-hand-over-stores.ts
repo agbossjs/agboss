@@ -40,6 +40,7 @@ export class DeferredTransaction {
 export interface Stored {
   readonly token: number;
   readonly storedAt: number;
+  readonly expiresAt: number | null;
   readonly result: string;
   readonly fingerprint?: string;
   readonly origin?: unknown;
@@ -62,10 +63,14 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
     return Promise.resolve();
   }
 
-  deleteByStoredAtBefore(cutoff: Date): Promise<void> {
+  deleteExpired(now: Date): Promise<number> {
+    let removed = 0;
     for (const [row, stored] of this.results)
-      if (stored.storedAt < cutoff.getTime()) this.results.delete(row);
-    return Promise.resolve();
+      if (stored.expiresAt !== null && stored.expiresAt <= now.getTime()) {
+        this.results.delete(row);
+        removed += 1;
+      }
+    return Promise.resolve(removed);
   }
 
   protected runInTransaction<TResult>(
@@ -107,7 +112,13 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
     // the commit: the lease is not checked again (the cancel is, #909: this store breaks the lease's lock only)
     checkInMemoryCancel(this.seam.database, key);
     const storedAt = this.seam.storeClock.now().getTime();
-    this.results.set(row, { token: key.token, storedAt, result: text, ...storedKeyFactsOf(key) });
+    this.results.set(row, {
+      token: key.token,
+      storedAt,
+      expiresAt: key.expiresAt?.getTime() ?? null,
+      result: text,
+      ...storedKeyFactsOf(key),
+    });
     for (const write of transaction.writes) write();
     return {
       status: IdempotencyRunStatus.Ran,

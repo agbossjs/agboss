@@ -182,7 +182,7 @@ export class TestEnvironment {
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
     const assembled = await applicationOf(
       application,
-      { profile: options.profile, profileRoot: options.profileRoot },
+      { profile: options.profile, profileRoot: options.profileRoot, withoutIdempotencyKeys: true },
       "testWith",
     );
     const environment = await testKeyedEnvironmentOf(assembled, options, testEnv());

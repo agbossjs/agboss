@@ -85,15 +85,22 @@ describe("#500: SqliteFencedEffectRepository", () => {
     await expect(refused).rejects.toMatchObject({ token: 1, observedToken: 2 });
   });
 
-  it("the sweep's deletion removes a scope's mark stored before the cutoff, and keeps a later one", async () => {
+  it("the sweep's deletion removes a scope's mark whose expiry has come, and keeps a later one", async () => {
     const stores = storesOn();
-    await stores.effects.runOnce(keyOf(await held(stores.leases)), () => "a");
-    await stores.clock.advance(seconds(60));
-    await stores.effects.runOnce(keyOf(await held(stores.leases, "execution-2")), () => "b");
-
-    await stores.effects.deleteByStoredAtBefore(
-      new Date(stores.clock.now().getTime() - seconds(30)),
+    const at = (after: number) => new Date(stores.clock.now().getTime() + after);
+    await stores.effects.runOnce(
+      effectKeyForTesting(keyOf(await held(stores.leases)), { expiresAt: at(seconds(30)) }),
+      () => "a",
     );
+    await stores.effects.runOnce(
+      effectKeyForTesting(keyOf(await held(stores.leases, "execution-2")), {
+        expiresAt: at(seconds(300)),
+      }),
+      () => "b",
+    );
+    await stores.clock.advance(seconds(60));
+
+    await stores.effects.deleteExpired(stores.clock.now());
 
     const marks = stores.connection.database
       .prepare("SELECT scope_key FROM fenced_effect_marks")
@@ -104,8 +111,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
   it.each([
     [
       "the fenced effects' sweep",
-      (stores: ReturnType<typeof storesOn>, before: Date) =>
-        stores.effects.deleteByStoredAtBefore(before),
+      (stores: ReturnType<typeof storesOn>, before: Date) => stores.effects.deleteExpired(before),
     ],
     [
       "the outbound calls' sweep",
@@ -113,7 +119,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
         new SqliteOutboundCallRepository(
           stores.connection,
           storeClockOf(stores.clock),
-        ).deleteByEndedAtBefore(before),
+        ).deleteExpired(before),
     ],
   ])(
     "%s lifts no cancel mark (#1117): of a tree retired long before the cutoff, of one not over, of one cancelled before its first acquire",

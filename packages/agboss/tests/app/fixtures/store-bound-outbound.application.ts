@@ -1,7 +1,7 @@
 import { Application } from "../../../src/application/application.js";
 import { withHoldPoints } from "../../../src/testing/faults/held-stores.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";

@@ -93,8 +93,8 @@ class UnreachedStore extends FencedEffectRepository<void> {
     return Promise.reject(new Error("the transaction was reached"));
   }
 
-  deleteByStoredAtBefore(): Promise<void> {
-    return Promise.resolve();
+  deleteExpired(): Promise<number> {
+    return Promise.resolve(0);
   }
 }
 

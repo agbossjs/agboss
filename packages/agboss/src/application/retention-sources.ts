@@ -20,13 +20,11 @@ export const retentionSourcesOf = (
   executionHistory: infrastructure.executionHistory,
   executionRecordRetention: assembled.executionRecordRetention,
   fencedEffects: infrastructure.fencedEffects,
-  fencedEffectRetention: assembled.fencedEffects.retention,
   auditLog: infrastructure.auditLog,
   treeRecords: infrastructure.records,
   auditLogRetention: assembled.auditLogRetention,
   expiries: a2aExpiriesOf(infrastructure, assembled),
   outboundCalls: infrastructure.outboundCalls,
-  outboundCallRetention: assembled.outboundCalls.retention,
   ledger: infrastructure.costLedger,
   ledgerEntryRetention: assembled.ledgerEntryRetention,
 });

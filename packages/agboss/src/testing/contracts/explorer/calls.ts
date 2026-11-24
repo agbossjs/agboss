@@ -144,7 +144,7 @@ async function reconciled(step: CallStep, found: OutboundCallRecord): Promise<Ca
   const isEnded = await fenced(
     step,
     "markCompleted (reconciled)",
-    step.calls.markCompleted(callKeyOf(step.tree, step.token), found.attemptOwner, '"paid"'),
+    step.calls.markCompleted(callKeyOf(step.tree, step.token), found.attemptOwner, '"paid"', null),
   );
   return {
     next: isEnded ? { phase: "done" } : { phase: "read" },
@@ -200,15 +200,16 @@ async function claimed(step: CallStep, phase: CallPhase): Promise<CallOutcome> {
 async function ended(step: CallStep, owner: string, isAccepted: boolean): Promise<CallOutcome> {
   const key = callKeyOf(step.tree, step.token);
   const isEnded = isAccepted
-    ? await fenced(step, "markCompleted", step.calls.markCompleted(key, owner, '"paid"'))
+    ? await fenced(step, "markCompleted", step.calls.markCompleted(key, owner, '"paid"', null))
     : await fenced(
         step,
         "markFailed",
-        step.calls.markFailed(key, owner, {
-          name: "DeclinedError",
-          code: "DeclinedError",
-          message: "declined",
-        }),
+        step.calls.markFailed(
+          key,
+          owner,
+          { name: "DeclinedError", code: "DeclinedError", message: "declined" },
+          null,
+        ),
       );
   // a declined attempt fails the step, which runs again: it reads the failed intent and claims anew
   const next: CallPhase = isEnded && isAccepted ? { phase: "done" } : { phase: "read" };

@@ -106,7 +106,7 @@ const assembledWith = (providers: readonly Provider[]) => {
     providers: [SqliteConnection, ...providers],
   })
   class OutboundStoresApplication {}
-  return applicationOf(OutboundStoresApplication);
+  return applicationOf(OutboundStoresApplication, { withoutIdempotencyKeys: true });
 };
 
 describe("#505, #526: [application.store-backend-mismatch] for the outbound-call store", () => {

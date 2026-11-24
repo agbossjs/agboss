@@ -64,7 +64,9 @@ export interface ContractTarget<TStore> {
 export function costLedgerContract(target: ContractTarget<CostLedgerRepository>): void;
 
 // @public
-export const effectKeyForTesting: (fields: EffectKeyFields, changes?: Partial<EffectKeyFields>) => EffectKey;
+export const effectKeyForTesting: (fields: Omit<EffectKeyFields, "expiresAt"> & {
+    readonly expiresAt?: Date | null;
+}, changes?: Partial<EffectKeyFields>) => EffectKey;
 
 // @public
 export function executionAuditLogContract(target: ContractTarget<ExecutionAuditLogRepository>): void;

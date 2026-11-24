@@ -25,9 +25,11 @@ export function fencingEffectsShard() {
   return {
     configFile: "vitest.mutation.config.ts",
     mutate: [
-      "src/infrastructure/{fenced-effect,in-memory-fenced-effect,outbound-call}.repository.ts",
-      // the call's changes; #825: the paged listing's keyset, the in-memory record order
-      "src/infrastructure/outbound-call-{changes,pages}.ts",
+      "src/infrastructure/{fenced-effect,in-memory-fenced-effect,outbound-call,in-memory-outbound-call}.repository.ts",
+      // the call's changes; #825: the paged listing's keyset, the in-memory record order; #1317: an intent's status
+      "src/infrastructure/outbound-call-{changes,pages,status}.ts",
+      // #1317: whether a call's request is stored only masked
+      "src/app/outbound-masking.ts",
       // #825: a store's static store, read as declared
       "src/infrastructure/store-descriptor.ts",
       // #657, #658 (ambiguity): an error of unknown outcome, the key's age and its retention

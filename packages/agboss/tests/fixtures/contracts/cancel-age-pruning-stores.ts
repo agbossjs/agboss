@@ -20,7 +20,7 @@ import {
   type ExecutionLeaseRow,
   type InMemoryDatabase,
 } from "../../../src/infrastructure/in-memory-database.js";
-import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 import type {
   FencedEffectTarget,
@@ -51,10 +51,11 @@ const liftingStores = (isLifted: Lifted) => ({
     const built = inMemoryFencedEffects(false)(seam);
     const leases = leasesOf(seam);
     const effects = new InMemoryFencedEffectRepository(seam.storeClock, seam.database, leases);
-    const swept = effects.deleteByStoredAtBefore.bind(effects);
-    effects.deleteByStoredAtBefore = async (cutoff) => {
-      await swept(cutoff);
+    const swept = effects.deleteExpired.bind(effects);
+    effects.deleteExpired = async (cutoff) => {
+      const removed = await swept(cutoff);
       liftedMarks(seam.database, cutoff.getTime(), isLifted);
+      return removed;
     };
     return { ...built, effects, leases };
   }) satisfies StoreFactory<FencedEffectTarget<InMemoryFencedEffectTransaction>>,
@@ -62,10 +63,11 @@ const liftingStores = (isLifted: Lifted) => ({
     const built = inMemoryOutboundCalls(seam);
     const leases = leasesOf(seam);
     const calls = new InMemoryOutboundCallRepository(seam.storeClock, seam.database, leases);
-    const swept = calls.deleteByEndedAtBefore.bind(calls);
-    calls.deleteByEndedAtBefore = async (cutoff) => {
-      await swept(cutoff);
+    const swept = calls.deleteExpired.bind(calls);
+    calls.deleteExpired = async (cutoff) => {
+      const removed = await swept(cutoff);
       liftedMarks(seam.database, cutoff.getTime(), isLifted);
+      return removed;
     };
     return { ...built, calls, leases };
   }) satisfies StoreFactory<OutboundCallTarget>,

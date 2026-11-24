@@ -106,10 +106,8 @@ describe("#928 AC1 guard: every method of every bounded contract is bounded", ()
     );
     expect([...found].sort()).toEqual([
       "deleteByCreatedAtBefore",
-      "deleteByEndedAtBefore",
       "deleteByMadeAtBefore",
       "deleteByResolvedAtBefore",
-      "deleteByStoredAtBefore",
       "deleteExpired",
       "deleteTerminalByStatusAtBefore",
     ]);

@@ -103,6 +103,8 @@ export interface OutboundCallRun<TRequest, TResult> {
   readonly operation: string;
   readonly request: TRequest & JsonValue<TRequest>;
   readonly timeout: Milliseconds;
+  /** How long the ended intent is kept, from its end: the call's `ttl`. */
+  readonly ttl: Milliseconds | Ttl.Forever;
   readonly maxPayloadSize: Bytes;
   readonly send: IdempotencySendOptions<TRequest, TResult>["send"];
   readonly isDefiniteFailure: ((error: unknown) => boolean) | undefined;

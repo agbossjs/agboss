@@ -20,9 +20,9 @@ import type { Milliseconds } from "../units/index.js";
 /**
  * What every look of the recovery sweep removes once its retention is over, on the `Clock`: the
  * resolved pause records (#267 S107), the trusted mesh requests' answers (#398 PR 2), the kept
- * executions that ended (#401 PR 1), the fenced effects' results and marks (#500), the lease
- * log's rows (#501) and the ledger's entries (#771). A store that fails is reported
- * and asked again at the next look.
+ * executions that ended (#401 PR 1), the idempotent effects' results and marks and the ended
+ * outbound calls, each at its own `expires_at` (#1317), the lease log's rows (#501) and the
+ * ledger's entries (#771). A store that fails is reported and asked again at the next look.
  */
 
 /** The stores the sweep removes old rows from, and how long each keeps them. */
@@ -46,9 +46,8 @@ export interface RetentionSources {
    */
   readonly executionHistory?: ExecutionHistoryRepository | undefined;
   readonly executionRecordRetention?: Milliseconds | undefined;
-  /** The fenced effects' results and marks (#500), removed after `retention.fencedEffects`. */
+  /** The idempotent effects' results and marks (#500), each removed once its `expires_at` has come (#1317). */
   readonly fencedEffects?: FencedEffectRepository<unknown> | undefined;
-  readonly fencedEffectRetention?: Milliseconds | undefined;
   /**
    * The audit log (#501) and its retention (`auditLogTtl`): older rows of trees that ended are
    * removed — never a row of a live or paused tree, whose takeover reads them (#853).
@@ -59,13 +58,18 @@ export interface RetentionSources {
   readonly auditLogRetention?: Milliseconds | undefined;
   /** More kinds of rows, each with its own removal (#807: the finished A2A tasks). */
   readonly expiries?: readonly Expiry[] | undefined;
-  /** The ended outbound calls (#505), removed after `retention.outboundCalls`; never a pending one. */
+  /** The ended outbound calls (#505), each removed once its `expires_at` has come (#1317); never a pending one. */
   readonly outboundCalls?: OutboundCallRepository | undefined;
-  readonly outboundCallRetention?: Milliseconds | undefined;
   /** The ledger (#771) and `@Application({ retention: { costLedgerEntries } })`: older entries pruned. */
   readonly ledger?: CostLedgerRepository | undefined;
   readonly ledgerEntryRetention?: Milliseconds | undefined;
 }
+
+/**
+ * The retention of rows that carry their own expiry (#1317: `expires_at`): none after it — the
+ * cutoff of the look is the `Clock`'s now, and the store removes what is due by then.
+ */
+const DUE_NOW = 0;
 
 /** How many mailboxes of unknown receivers one look sets aside. */
 const UNKNOWN_PER_LOOK = 200;
@@ -152,15 +156,15 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
       retention: sources.executionRecordRetention,
     },
     {
-      what: "the fenced effects' results",
-      remove: fencedEffects && ((cutoff) => fencedEffects.deleteByStoredAtBefore(cutoff)),
-      retention: sources.fencedEffectRetention,
+      what: "the idempotent effects' expired results",
+      remove: fencedEffects && ((now) => fencedEffects.deleteExpired(now)),
+      retention: DUE_NOW,
     },
     auditLogExpiry(sources),
     {
-      what: "the ended outbound calls",
-      remove: outboundCalls && ((cutoff) => outboundCalls.deleteByEndedAtBefore(cutoff)),
-      retention: sources.outboundCallRetention,
+      what: "the expired outbound calls",
+      remove: outboundCalls && ((now) => outboundCalls.deleteExpired(now)),
+      retention: DUE_NOW,
     },
     {
       what: "the ledger's old entries",

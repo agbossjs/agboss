@@ -86,7 +86,11 @@ describe("#500: the in-memory fenced-effect store", () => {
     await held(leases);
     // the lease store wiped (its epochs count from 1 again), the scope's mark kept at 2
     database.executionLeases.delete(treeKeyOf("default", "execution-1"));
-    database.fencedEffectMarks.set("default:execution-1", { highestToken: 2, storedAt: 0 });
+    database.fencedEffectMarks.set("default:execution-1", {
+      highestToken: 2,
+      storedAt: 0,
+      expiresAt: null,
+    });
     const again = await held(leases);
 
     const refused = await effects
@@ -120,13 +124,21 @@ describe("#500: the in-memory fenced-effect store", () => {
     expect(database.fencedEffectMarks.size).toBe(0);
   });
 
-  it("the sweep's deletion removes a scope's mark stored before the cutoff, and keeps a later one", async () => {
+  it("the sweep's deletion removes a scope's mark whose expiry has come, and keeps a later one", async () => {
     const { clock, database, leases, effects } = storesOn();
-    await effects.runOnce(keyOf(await held(leases)), receipt("a"));
+    const soon = new Date(clock.now().getTime() + seconds(30));
+    const later = new Date(clock.now().getTime() + seconds(300));
+    await effects.runOnce(
+      effectKeyForTesting(keyOf(await held(leases)), { expiresAt: soon }),
+      receipt("a"),
+    );
+    await effects.runOnce(
+      effectKeyForTesting(keyOf(await held(leases, "execution-2")), { expiresAt: later }),
+      receipt("b"),
+    );
     await clock.advance(seconds(60));
-    await effects.runOnce(keyOf(await held(leases, "execution-2")), receipt("b"));
 
-    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() - seconds(30)));
+    await effects.deleteExpired(clock.now());
 
     expect([...database.fencedEffectMarks.keys()]).toEqual(["default:execution-2"]);
   });

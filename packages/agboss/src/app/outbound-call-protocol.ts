@@ -11,6 +11,7 @@ import {
 } from "../infrastructure/outbound-call.repository.js";
 import { callKeyOf, checkedCall, keyedByRequest, stateOf } from "./outbound-call-business.js";
 import {
+  endExpiryOf,
   lookupOf,
   outcomeOf,
   storedJson,
@@ -109,7 +110,14 @@ async function reconciled<TRequest, TResult>(
     throw await unreconciled("reconcile.unknown", verdict.reason);
   const stored = await storedResultOf(run, verdict.result);
   // settled for its owner, which is gone; one that moved it on meanwhile wins: read again
-  if (!(await run.parts.repository.markCompleted(run.key, found.attemptOwner, stored)))
+  if (
+    !(await run.parts.repository.markCompleted(
+      run.key,
+      found.attemptOwner,
+      stored,
+      endExpiryOf(run),
+    ))
+  )
     return undefined;
   told(run, OutboundCallEventOutcome.Reconciled, [OutboundCallStatus.Completed, found.attempt]);
   return outcomeOf(run, OutboundCallSendStatus.Reconciled, verdict.result, found.attempt);

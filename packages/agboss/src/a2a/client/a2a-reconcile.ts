@@ -97,7 +97,7 @@ const identityOf = (request: object): readonly unknown[] =>
 
 /** The identity a stored request names (its JSON, as stored); none for one that is no object. */
 function storedIdentityOf(storedRequest: string): unknown {
-  const stored = parsedStoredJson("a2a call request", storedRequest, {});
+  const stored = parsedStoredJson({ what: "a2a call request", text: storedRequest });
   return typeof stored === "object" && stored !== null ? identityOf(stored) : null;
 }
 

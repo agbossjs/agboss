@@ -8,8 +8,9 @@ import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 import {
   checkInMemoryCancel,
   InMemoryDatabase,
-  prunedCallsBefore,
-  prunedFencedBefore,
+  laterExpiry,
+  prunedCallsAt,
+  prunedFencedAt,
   treeKeyOf,
   type ExecutionLeaseRow,
 } from "../../src/infrastructure/in-memory-database.js";
@@ -21,7 +22,7 @@ import {
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { connectionTo, temporarySqlitePath } from "./contracts/store-kinds.js";
 
-const FIELDS: EffectKeyFields = {
+const FIELDS: Omit<EffectKeyFields, "expiresAt"> = {
   scopeKey: "scope",
   tenantId: "t1",
   leaseExecutionId: "child",
@@ -88,41 +89,58 @@ describe("#1356: the cancel check of the in-memory stores", () => {
   });
 });
 
-describe("#1356: the retention of the fenced effects", () => {
-  it("prunes the results and the marks stored before the limit, and keeps those stored at it or after", () => {
+describe("#1356, #1317: the expiry of the fenced effects", () => {
+  it("prunes the results and the marks whose expiry has come, counts them, and keeps those expiring later or never", () => {
     const database = new InMemoryDatabase();
-    const result = (storedAt: number) => ({ storedAt }) as never;
+    const result = (expiresAt: number | null) => ({ expiresAt }) as never;
+    const mark = (expiresAt: number | null) => ({ highestToken: 1, storedAt: 0, expiresAt });
     database.fencedEffectResults.set("old", result(9));
     database.fencedEffectResults.set("edge", result(10));
-    database.fencedEffectMarks.set("old", { highestToken: 1, storedAt: 9 });
-    database.fencedEffectMarks.set("edge", { highestToken: 1, storedAt: 10 });
+    database.fencedEffectResults.set("later", result(11));
+    database.fencedEffectResults.set("forever", result(null));
+    database.fencedEffectMarks.set("old", mark(9));
+    database.fencedEffectMarks.set("edge", mark(10));
+    database.fencedEffectMarks.set("later", mark(11));
+    database.fencedEffectMarks.set("forever", mark(null));
 
-    prunedFencedBefore(database, 10);
+    expect(prunedFencedAt(database, 10)).toBe(4);
 
-    expect([...database.fencedEffectResults.keys()]).toEqual(["edge"]);
-    expect([...database.fencedEffectMarks.keys()]).toEqual(["edge"]);
+    expect([...database.fencedEffectResults.keys()]).toEqual(["later", "forever"]);
+    expect([...database.fencedEffectMarks.keys()]).toEqual(["later", "forever"]);
+  });
+
+  it("a scope's mark keeps the latest expiry: never over any date, a later date over an earlier one", () => {
+    expect(laterExpiry(undefined, 5)).toBe(5);
+    expect(laterExpiry(undefined, null)).toBeNull();
+    expect(laterExpiry(null, 5)).toBeNull();
+    expect(laterExpiry(5, null)).toBeNull();
+    expect(laterExpiry(5, 9)).toBe(9);
+    expect(laterExpiry(9, 5)).toBe(9);
   });
 });
 
-describe("#1366: the retention of the in-memory outbound calls", () => {
-  const callEnded = (endedAt: number | undefined) => ({ endedAt }) as never;
-
-  it("removes the intents ended before the cut with their place in the order, keeps the one at it, the later and the pending", () => {
+describe("#1366, #1317: the expiry of the in-memory outbound calls", () => {
+  it("removes the intents whose expiry has come with their place in the order and counts them, keeps the later, the never-expiring and the pending", () => {
     const database = new InMemoryDatabase();
-    for (const [row, endedAt] of [
+    for (const [row, expiresAt] of [
       ["old", 9],
       ["edge", 10],
       ["later", 11],
-      ["pending", undefined],
+      ["forever", null],
     ] as const) {
-      database.outboundCalls.set(row, callEnded(endedAt));
+      database.outboundCalls.set(row, {} as never);
       database.outboundCallOrder.set(row, 1);
+      database.outboundCallExpiries.set(row, expiresAt);
     }
+    // a pending intent has no expiry entry
+    database.outboundCalls.set("pending", {} as never);
+    database.outboundCallOrder.set("pending", 1);
 
-    prunedCallsBefore(database, 10);
+    expect(prunedCallsAt(database, 10)).toBe(2);
 
-    expect([...database.outboundCalls.keys()]).toEqual(["edge", "later", "pending"]);
-    expect([...database.outboundCallOrder.keys()]).toEqual(["edge", "later", "pending"]);
+    expect([...database.outboundCalls.keys()]).toEqual(["later", "forever", "pending"]);
+    expect([...database.outboundCallOrder.keys()]).toEqual(["later", "forever", "pending"]);
+    expect([...database.outboundCallExpiries.keys()]).toEqual(["later", "forever"]);
   });
 });
 

@@ -45,7 +45,7 @@ const intentOf = async (frame: OutboundFrame) => {
       status: OutboundCallStatus.Pending,
       limit: 1000,
     })
-  ).calls;
+  ).items;
   return found;
 };
 

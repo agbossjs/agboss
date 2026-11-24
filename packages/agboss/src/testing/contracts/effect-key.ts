@@ -8,9 +8,10 @@ import type { EffectKey, EffectKeyFields } from "../../infrastructure/fenced-eff
  * of a key compiles as one (its mark is a private member, which a spread drops), and at run time the
  * stores' entry and `OutboundCalls.send` take only the keys the framework made — `effectKeyOf`'s and
  * this function's. The store still checks every key at its entry (its name, its business key, its
- * scope and token, and under a business key a fingerprint or `FingerprintPolicy.None`).
+ * scope and token, and under a business key a fingerprint or `withoutFingerprint: true`); a key with
+ * no `expiresAt` never expires (`null`, as `Ttl.Forever`).
  */
 export const effectKeyForTesting = (
-  fields: EffectKeyFields,
+  fields: Omit<EffectKeyFields, "expiresAt"> & { readonly expiresAt?: Date | null },
   changes: Partial<EffectKeyFields> = {},
-): EffectKey => issuedKey({ ...fields, ...changes }) as EffectKey;
+): EffectKey => issuedKey({ expiresAt: null, ...fields, ...changes }) as EffectKey;

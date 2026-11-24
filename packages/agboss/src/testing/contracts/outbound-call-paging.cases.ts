@@ -26,8 +26,15 @@ const namesOf = (calls: readonly OutboundCallRecord[]): readonly string[] =>
   calls.map((call) => call.name);
 
 /** One page of the tenant's pending calls. */
-const pageOf = (stores: OutboundCallTarget, limit: number, after?: string) =>
-  stores.calls.findAllByTenantIdAndStatus({ tenantId: "default", status: PENDING, limit, after });
+const pageOf = async (stores: OutboundCallTarget, limit: number, after?: string) => {
+  const page = await stores.calls.findAllByTenantIdAndStatus({
+    tenantId: "default",
+    status: PENDING,
+    limit,
+    ...(after === undefined ? {} : { cursor: after }),
+  });
+  return { calls: page.items, next: page.nextCursor };
+};
 
 const pagesCoverOnce: OutboundCallCase = {
   name: "#825: pages of limit 2 list five pending calls once each, in the order recorded — next on every page but the last",
@@ -78,8 +85,8 @@ const changesBetweenPages: OutboundCallCase = {
     for (const name of ["a", "b", "c", "d", "e"]) await recorded(first, keyOf(lease, name));
     const one = await pageOf(second, 2);
     // between the pages: a listed one and an unlisted one end, a new one is recorded
-    await first.calls.markCompleted(keyOf(lease, "a"), "owner-1", "{}");
-    await first.calls.markCompleted(keyOf(lease, "c"), "owner-1", "{}");
+    await first.calls.markCompleted(keyOf(lease, "a"), "owner-1", "{}", null);
+    await first.calls.markCompleted(keyOf(lease, "c"), "owner-1", "{}", null);
     await recorded(first, keyOf(lease, "f"));
 
     const rest = await listedOf(second, PENDING, "default", 2, one.next);
@@ -100,9 +107,14 @@ const cursorRowRemoved: OutboundCallCase = {
     const lease = await leaseOf(first, "execution-1", hours(100));
     for (const name of ["a", "b", "c", "d"]) await recorded(first, keyOf(lease, name));
     const one = await pageOf(second, 2);
-    await first.calls.markCompleted(keyOf(lease, "b"), "owner-1", "{}");
+    await first.calls.markCompleted(
+      keyOf(lease, "b"),
+      "owner-1",
+      "{}",
+      new Date(clock.now().getTime() + hours(1)),
+    );
     await clock.advance(hours(2));
-    await first.calls.deleteByEndedAtBefore(new Date(clock.now().getTime() - hours(1)));
+    await first.calls.deleteExpired(clock.now());
 
     const two = await pageOf(second, 2, one.next);
 

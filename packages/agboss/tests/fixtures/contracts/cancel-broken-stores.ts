@@ -26,7 +26,7 @@ import {
   checkInMemoryCancel,
   type InMemoryDatabase,
 } from "../../../src/infrastructure/in-memory-database.js";
-import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import type {
   FencedEffectTarget,
   OutboundCallTarget,

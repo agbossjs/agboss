@@ -81,6 +81,7 @@ export const CANCEL_CALL_RACES: readonly ForcedRace[] = [
         callKeyOf("tree-1", lease.token),
         "owner-1",
         '"paid"',
+        null,
       ),
     second: (run) => cancelBy(run, 2),
     firstWins: ({ first, second }) =>

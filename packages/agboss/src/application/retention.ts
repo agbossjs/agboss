@@ -1,19 +1,16 @@
 import { EXECUTION_LEASE } from "../app/lease-fence.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import {
-  DEFAULT_FENCED_EFFECT_RETENTION,
-  DEFAULT_OUTBOUND_CALL_RETENTION,
-} from "../infrastructure/fenced-effect-settings.js";
 import { hours, minutes, type Milliseconds } from "../units/index.js";
 import { shownValueOf } from "../core/shown-value.js";
 
 /**
  * `@Application({ retention })` (#834): how long each kind of row the application keeps stays
  * after it is done with, every one removed by the recovery sweep on the `Clock` — the one place a
- * retention is set. Sizes and timeouts stay with their feature (`fencedEffects.maxResultSize`,
- * `outboundCalls.attemptTimeout`). Each is a positive duration (`[application.retention-invalid]`);
- * the fencing ones — `fencedEffects`, `outboundCalls`, `costLedgerEntries` — above the lease's 30 s,
- * so a late zombie or a retried write is still refused, never let through.
+ * retention is set. The rows of `Idempotency` are not here: each call names its own `ttl`
+ * (#1317), kept as the row's `expires_at`. Sizes and timeouts stay with their call (`maxResultSize`,
+ * `timeout`). Each is a positive duration (`[application.retention-invalid]`); the fencing one —
+ * `costLedgerEntries` — above the lease's 30 s, so a late zombie or a retried write is still
+ * refused, never let through.
  */
 export interface RetentionOptions {
   /**
@@ -47,17 +44,6 @@ export interface RetentionOptions {
    */
   readonly costLedgerEntries?: Milliseconds;
   /**
-   * A fenced effect's stored result and its scope's mark (#500, `FencedEffectRepository`) after it
-   * was stored. Above the lease, so a late zombie is still refused. Default `hours(24)`.
-   */
-  readonly fencedEffects?: Milliseconds;
-  /**
-   * A `Completed` or `Failed` outbound call after it ended (#505, `OutboundCalls`); a `Pending` one
-   * is never removed. Above the lease: an intent outlives the holder that may still complete it.
-   * Default `hours(168)` — reconciliation may come days later.
-   */
-  readonly outboundCalls?: Milliseconds;
-  /**
    * A finished A2A task after its last status change (#807) — and with it the ids of its messages:
    * a message resent within it gets the same task, never a second execution. An unfinished task is
    * never removed. Default `hours(24)`.
@@ -85,8 +71,6 @@ export interface ApplicationRetention {
   readonly executionRecords?: Milliseconds;
   readonly auditLog: Milliseconds;
   readonly costLedgerEntries: Milliseconds;
-  readonly fencedEffects: Milliseconds;
-  readonly outboundCalls: Milliseconds;
   readonly a2aTasks: Milliseconds;
   readonly a2aFiles: Milliseconds;
   readonly a2aMessages: Milliseconds;
@@ -101,8 +85,6 @@ export const DEFAULT_RETENTION: Readonly<
   // a pass retries a lost write at its next read of the counters, seconds later: only a pass
   // asleep for a day meets the refusal
   costLedgerEntries: hours(24),
-  fencedEffects: DEFAULT_FENCED_EFFECT_RETENTION,
-  outboundCalls: DEFAULT_OUTBOUND_CALL_RETENTION,
   a2aTasks: hours(24),
   a2aMessages: minutes(15),
 });
@@ -113,8 +95,6 @@ const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
   "executionRecords",
   "auditLog",
   "costLedgerEntries",
-  "fencedEffects",
-  "outboundCalls",
   "a2aTasks",
   "a2aFiles",
   "a2aMessages",
@@ -126,8 +106,6 @@ const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
  * direct message's row (#860) would go while its reply is still being made, and a resend run again.
  */
 const ABOVE_THE_LEASE: ReadonlySet<keyof RetentionOptions> = new Set([
-  "fencedEffects",
-  "outboundCalls",
   "costLedgerEntries",
   "a2aMessages",
 ]);
@@ -153,8 +131,6 @@ export function retentionOf(options: RetentionOptions | undefined): ApplicationR
     ...(given.executionRecords === undefined ? {} : { executionRecords: given.executionRecords }),
     auditLog: given.auditLog ?? DEFAULT_RETENTION.auditLog,
     costLedgerEntries: given.costLedgerEntries ?? DEFAULT_RETENTION.costLedgerEntries,
-    fencedEffects: given.fencedEffects ?? DEFAULT_RETENTION.fencedEffects,
-    outboundCalls: given.outboundCalls ?? DEFAULT_RETENTION.outboundCalls,
     ...a2aRetentionOf(given),
   };
 }
@@ -201,7 +177,7 @@ const unknownFieldProblem = (field: string): string => {
  */
 export function retentionViolations(application: string, options: unknown): RuleViolation[] {
   if (options === undefined) return [];
-  const fail = (text: string, hint = hintOf("fencedEffects", "outboundCalls")): RuleViolation =>
+  const fail = (text: string, hint = hintOf("pauseRecords", "auditLog")): RuleViolation =>
     violation("application.retention-invalid", `its retention${text} — ${hint}`, [application]);
   if (!isPlainObject(options))
     return [fail(` is ${shownValueOf(options)}, not an object of retentions`)];
@@ -239,7 +215,7 @@ export const isPlainObject = (value: unknown): value is object =>
 
 /** A retention option of before #834, where it was and where it is now. */
 interface MovedRetention {
-  /** The option holding it (`fencedEffects`), or none for one of `@Application` itself. */
+  /** The option holding it (`a2a`), or none for one of `@Application` itself. */
   readonly within?: string;
   readonly key: string;
   readonly now: keyof RetentionOptions;
@@ -250,8 +226,6 @@ const MOVED: readonly MovedRetention[] = [
   { key: "executionRecordRetention", now: "executionRecords" },
   { key: "leaseEventRetention", now: "auditLog" },
   { key: "ledgerEntryRetention", now: "costLedgerEntries" },
-  { within: "fencedEffects", key: "retention", now: "fencedEffects" },
-  { within: "outboundCalls", key: "retention", now: "outboundCalls" },
   { within: "a2a", key: "taskRetention", now: "a2aTasks" },
 ];
 

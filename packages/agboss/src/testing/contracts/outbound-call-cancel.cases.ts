@@ -64,7 +64,7 @@ const markPendingRefused: OutboundCallCase = {
     const lease = await leaseOf(first);
     const key = keyOf(lease);
     await recorded(first, key);
-    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE, null);
     await second.leases.requestCancel(treeOf(lease));
 
     const refused = await rejectionOf(
@@ -91,8 +91,8 @@ const attemptEndsAfterCancel: OutboundCallCase = {
     await recorded(first, declined);
     await second.leases.requestCancel(treeOf(lease));
 
-    const isCompleted = await first.calls.markCompleted(sent, "owner-1", '{"receipt":"r1"}');
-    const isFailed = await first.calls.markFailed(declined, "owner-1", FAILURE);
+    const isCompleted = await first.calls.markCompleted(sent, "owner-1", '{"receipt":"r1"}', null);
+    const isFailed = await first.calls.markFailed(declined, "owner-1", FAILURE, null);
 
     expect([isCompleted, isFailed]).toEqual([true, true]);
     expect(await second.calls.findByKey(sent)).toMatchObject({
@@ -116,7 +116,7 @@ const undoPasses: OutboundCallCase = {
     });
 
     expect(await first.calls.saveIfAbsent(undo, intentOf(undo))).toBe(true);
-    await first.calls.markFailed(undo, "owner-1", FAILURE);
+    await first.calls.markFailed(undo, "owner-1", FAILURE, null);
     expect(await first.calls.markPending(undo, FAILED, { attempt: 2, attemptOwner: "o2" })).toBe(
       true,
     );

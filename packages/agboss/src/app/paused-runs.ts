@@ -148,9 +148,14 @@ export function decodePausedRun(
   ids: { readonly threadId?: string; readonly runId?: string } = {},
 ): AgentExecutionOutput {
   return pausedRunOfValue(
-    parsedStoredJson("paused run", text, ids, (_key, item: unknown) => {
-      const tagged = NonFinite.safeParse(item);
-      return tagged.success ? Number(tagged.data.$number) : item;
+    parsedStoredJson({
+      what: "paused run",
+      text,
+      ids,
+      reviver: (_key, item: unknown) => {
+        const tagged = NonFinite.safeParse(item);
+        return tagged.success ? Number(tagged.data.$number) : item;
+      },
     }),
   );
 }

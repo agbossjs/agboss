@@ -30,7 +30,7 @@ const assembledWith = (costLedgerEntries?: Milliseconds) => {
     ...(costLedgerEntries === undefined ? {} : { retention: { costLedgerEntries } }),
   })
   class LedgerApplication {}
-  return applicationOf(LedgerApplication);
+  return applicationOf(LedgerApplication, { withoutIdempotencyKeys: true });
 };
 
 describe("#771, #834: @Application({ retention: { costLedgerEntries } }) at assembly", () => {

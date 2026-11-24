@@ -58,9 +58,13 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
       ...(parsed.response === null
         ? {}
         : {
-            response: parsedStoredJson("mesh request response", parsed.response, {
-              peer: parsed.peer,
-              idempotencyKey: parsed.idempotency_key,
+            response: parsedStoredJson({
+              what: "mesh request response",
+              text: parsed.response,
+              ids: {
+                peer: parsed.peer,
+                idempotencyKey: parsed.idempotency_key,
+              },
             }),
           }),
     };

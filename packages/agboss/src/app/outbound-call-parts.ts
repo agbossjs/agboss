@@ -29,7 +29,7 @@ import type {
   OutboundCallSendStatus,
   OutboundCallResultNotStoredReason,
 } from "./outbound-call-types.js";
-import type { Bytes } from "../units/index.js";
+import { Ttl, type Bytes, type Milliseconds } from "../units/index.js";
 
 /**
  * The parts of the outbound-call protocol (#505), loaded with it: one call in flight and what it
@@ -51,7 +51,7 @@ export interface OutboundCallParts {
   /** The instance's log (#508): two attempts that reached the other system, a late answer. */
   readonly log: FrameworkLog;
   /** The application's clock (#658): its monotonic time ages a key between the read and the resend. */
-  readonly clock: Pick<Clock, "monotonicNow" | "sleep">;
+  readonly clock: Pick<Clock, "monotonicNow" | "now" | "sleep">;
 }
 
 /** How a call this instance makes ended (#508): `isAnswered` once the other system answered it. */
@@ -86,6 +86,21 @@ export interface CallRun<TRequest, TResult> {
   /** Whether the other system answered its attempt with an error: what a joined call shares. */
   readonly answer: CallAnswer;
 }
+
+/**
+ * When a row that is written at `now` may be removed (#1317): `ttl` later on the application's
+ * clock, `null` for `Ttl.Forever` (never).
+ */
+export const expiryOf = (
+  clock: Pick<Clock, "now">,
+  ttl: Milliseconds | Ttl.Forever,
+): Date | null => (ttl === Ttl.Forever ? null : new Date(clock.now().getTime() + ttl));
+
+/** When the intent of `run` that ends now may be removed: its call's `ttl` from now. */
+export const endExpiryOf = (run: {
+  readonly parts: { readonly clock: Pick<Clock, "now"> };
+  readonly options: { readonly ttl: Milliseconds | Ttl.Forever };
+}): Date | null => expiryOf(run.parts.clock, run.options.ttl);
 
 /**
  * `value` as the store keeps it: masked by the frame's mask, as JSON, within the limit — else

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { InMemoryExecutionLeaseRepository } from "../../../../src/infrastructure/execution-lease.repository.js";
-import { InMemoryOutboundCallRepository } from "../../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import {
   exhaustive,
   randomWalks,

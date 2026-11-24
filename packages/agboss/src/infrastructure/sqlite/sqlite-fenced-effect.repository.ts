@@ -50,16 +50,24 @@ function storedRowOf(database: DatabaseSync, key: EffectKey): unknown {
     .get(key.tenantId, key.name, key.businessKey);
 }
 
+/** `key`'s expiry as a column keeps it: the time in ms, `NULL` for none (`Ttl.Forever`). */
+export const expiryOf = (key: Pick<EffectKey, "expiresAt">): number | null =>
+  key.expiresAt?.getTime() ?? null;
+
 /** Writes `key`'s result `text` under `token` at `now`, in the table of its kind. */
 function insertRowOf(database: DatabaseSync, key: EffectKey, now: number, text: string): void {
   if (key.businessKey === undefined) {
     database
-      .prepare("INSERT INTO fenced_effect_results VALUES (?, ?, ?, ?, ?, ?)")
-      .run(key.scopeKey, key.idempotencyKey, key.name, key.token, now, text);
+      .prepare(
+        "INSERT INTO fenced_effect_results (scope_key, idempotency_key, name, token, stored_at, result, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(key.scopeKey, key.idempotencyKey, key.name, key.token, now, text, expiryOf(key));
     return;
   }
   database
-    .prepare("INSERT INTO fenced_effect_business_results VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .prepare(
+      "INSERT INTO fenced_effect_business_results (tenant_id, name, business_key, token, stored_at, result, facts, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    )
     .run(
       key.tenantId,
       key.name,
@@ -68,12 +76,27 @@ function insertRowOf(database: DatabaseSync, key: EffectKey, now: number, text: 
       now,
       text,
       JSON.stringify(storedKeyFactsOf(key)),
+      expiryOf(key),
     );
 }
 
-export const RAISE_MARK = `INSERT INTO fenced_effect_marks (scope_key, highest_token, stored_at) VALUES (?, ?, ?)
+/**
+ * The scope's mark raised to the key's token, its expiry to the latest of every key's — `NULL`
+ * (never) over any date, a later date over an earlier one, in portable SQL: SQLite has no
+ * `GREATEST`, and a short ttl must never truncate the mark of a long one.
+ */
+const RAISE_MARK = `INSERT INTO fenced_effect_marks (scope_key, highest_token, stored_at, expires_at) VALUES (?, ?, ?, ?)
   ON CONFLICT (scope_key) DO UPDATE SET
-  highest_token = max(highest_token, excluded.highest_token), stored_at = excluded.stored_at`;
+  highest_token = max(highest_token, excluded.highest_token), stored_at = excluded.stored_at,
+  expires_at = CASE
+    WHEN fenced_effect_marks.expires_at IS NULL OR excluded.expires_at IS NULL THEN NULL
+    WHEN fenced_effect_marks.expires_at >= excluded.expires_at THEN fenced_effect_marks.expires_at
+    ELSE excluded.expires_at END`;
+
+/** Raises `key`'s scope mark at `now` (inside the caller's transaction): its token, its expiry. */
+export function raiseSqliteMark(database: DatabaseSync, key: EffectKey, now: number): void {
+  database.prepare(RAISE_MARK).run(key.scopeKey, key.token, now, expiryOf(key));
+}
 
 /** Whether a work's result is a promise (or any thenable): an asynchronous work. */
 const isThenable = (value: unknown): value is PromiseLike<unknown> =>
@@ -115,17 +138,22 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     });
   }
 
-  deleteByStoredAtBefore(cutoff: Date): Promise<void> {
-    const before = cutoff.getTime();
-    this.connection.transaction(() => {
-      const { database } = this.connection;
-      database.prepare("DELETE FROM fenced_effect_results WHERE stored_at < ?").run(before);
-      database
-        .prepare("DELETE FROM fenced_effect_business_results WHERE stored_at < ?")
-        .run(before);
-      database.prepare("DELETE FROM fenced_effect_marks WHERE stored_at < ?").run(before);
-    });
-    return Promise.resolve();
+  deleteExpired(now: Date): Promise<number> {
+    const due = now.getTime();
+    return Promise.resolve(
+      this.connection.transaction(() => {
+        const { database } = this.connection;
+        return ["fenced_effect_results", "fenced_effect_business_results", "fenced_effect_marks"]
+          .map((table) =>
+            Number(
+              database
+                .prepare(`DELETE FROM ${table} WHERE expires_at IS NOT NULL AND expires_at <= ?`)
+                .run(due).changes,
+            ),
+          )
+          .reduce((all, removed) => all + removed, 0);
+      }),
+    );
   }
 
   #transaction<TResult>(
@@ -135,7 +163,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     const { database } = this.connection;
     const now = this.clock.now().getTime();
     checkSqliteFence(this.connection.database, key, now);
-    database.prepare(RAISE_MARK).run(key.scopeKey, key.token, now);
+    raiseSqliteMark(database, key, now);
     const stored = storedRowOf(database, key);
     if (stored !== undefined) {
       const { token, result, facts } = ResultRow.parse(stored);
@@ -143,11 +171,11 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
       const ids = { name: key.name };
       const replayedFrom = replayedFromOf(
         key,
-        parsedStoredJson("fenced effect facts", facts, ids) as StoredKeyFacts,
+        parsedStoredJson({ what: "fenced effect facts", text: facts, ids }) as StoredKeyFacts,
       );
       return {
         status: IdempotencyRunStatus.Replayed,
-        result: parsedStoredJson("fenced effect result", result, ids) as TResult,
+        result: parsedStoredJson({ what: "fenced effect result", text: result, ids }) as TResult,
         token,
         ...(replayedFrom === undefined ? {} : { replayedFrom }),
       };

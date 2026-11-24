@@ -160,7 +160,7 @@ class UnreadableChildRunError extends Error {
 
 /** A queue row's `run` text back as the run. */
 export async function decodedRun(serde: SerializerProtocol, text: string): Promise<RemoteChildRun> {
-  const parsed = parsedStoredJson("queued child run", text, {});
+  const parsed = parsedStoredJson({ what: "queued child run", text });
   if (!isRecord(parsed) || typeof parsed.type !== "string" || typeof parsed.data !== "string")
     throw new UnreadableChildRunError("a queued child's run is not readable");
   const run: unknown = await serde.loadsTyped(parsed.type, Buffer.from(parsed.data, "base64"));

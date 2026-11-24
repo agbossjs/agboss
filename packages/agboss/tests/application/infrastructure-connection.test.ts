@@ -59,7 +59,9 @@ beforeEach(() => {
 
 describe("#526 AC8: OutboundCalls on SQLite without SqliteConnection listed", () => {
   it("assembles", async () => {
-    const assembled = await applicationOf(ConnectionlessOutboundApplication);
+    const assembled = await applicationOf(ConnectionlessOutboundApplication, {
+      withoutIdempotencyKeys: true,
+    });
 
     expect(assembled.providers).not.toContain(SqliteConnection);
   });
@@ -87,7 +89,9 @@ describe("#526 AC8: OutboundCalls on SQLite without SqliteConnection listed", ()
 
 describe("#526 AC8: a component that injects a store's own class", () => {
   it("assembles without the connection listed", async () => {
-    await expect(applicationOf(ConnectionlessEffectApplication)).resolves.toBeDefined();
+    await expect(
+      applicationOf(ConnectionlessEffectApplication, { withoutIdempotencyKeys: true }),
+    ).resolves.toBeDefined();
   });
 
   testWith(ConnectionlessEffectApplication)(

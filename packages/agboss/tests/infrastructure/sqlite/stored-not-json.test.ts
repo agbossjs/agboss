@@ -73,7 +73,12 @@ describe.each(TEXTS)("#1121: %s is the coded unreadable refusal", (_name, NOT_JS
 
   it("the helper stores share: the ids it is given, the record it names", async () => {
     await refused(
-      () => parsedStoredJson("pause", NOT_JSON, { pauseId: "p1", tenantId: undefined }),
+      () =>
+        parsedStoredJson({
+          what: "pause",
+          text: NOT_JSON,
+          ids: { pauseId: "p1", tenantId: undefined },
+        }),
       "pause",
       "pauseId p1",
     );
@@ -81,7 +86,11 @@ describe.each(TEXTS)("#1121: %s is the coded unreadable refusal", (_name, NOT_JS
 
   it("a text that is JSON is parsed, its reviver applied", () => {
     expect(
-      parsedStoredJson("pause", '{"a":1}', {}, (_key, value) => (value === 1 ? 2 : value)),
+      parsedStoredJson({
+        what: "pause",
+        text: '{"a":1}',
+        reviver: (_key, value) => (value === 1 ? 2 : value),
+      }),
     ).toEqual({ a: 2 });
   });
 

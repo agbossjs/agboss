@@ -7,7 +7,7 @@ import { OutboundCallError } from "../../src/core/error-families/effect-errors.j
 import { beforeEach, describe, expect } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { testWith } from "../../src/testing/index.js";
-import { kilobytes, minutes } from "../../src/units/index.js";
+import { kilobytes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { RecoveryLog, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -34,7 +34,6 @@ beforeEach(() => {
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
-  retention: { outboundCalls: minutes(1) },
 })
 class EdgeOutboundCallApplication {}
 

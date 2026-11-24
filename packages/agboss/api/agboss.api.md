@@ -3849,7 +3849,7 @@ export interface FencedEffectOrigin {
 
 // @public
 export abstract class FencedEffectRepository<TTransaction> {
-    abstract deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(now: Date): Promise<number>;
     abstract ping(): Promise<void>;
     protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
@@ -5133,7 +5133,7 @@ export class InMemoryDatabaseStorage {
 // @public
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
     // (undocumented)
-    deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(now: Date): Promise<number>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
@@ -5148,19 +5148,19 @@ export function InMemoryObjectDriver(): ObjectDriver;
 // @public
 export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     // (undocumented)
-    deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(now: Date): Promise<number>;
     // (undocumented)
     findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
     // (undocumented)
-    findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage>;
+    findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<Page<OutboundCallRecord>>;
     // (undocumented)
     findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
     // (undocumented)
     leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
     // (undocumented)
-    markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
+    markCompleted(key: EffectKey, attemptOwner: string, result: string, expiresAt: Date | null): Promise<boolean>;
     // (undocumented)
-    markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean>;
+    markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure, expiresAt: Date | null): Promise<boolean>;
     // (undocumented)
     markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     // (undocumented)
@@ -6947,13 +6947,13 @@ export interface OutboundCallRecord extends OutboundCallIntent {
 
 // @public
 export abstract class OutboundCallRepository {
-    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(now: Date): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
-    abstract findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage>;
+    abstract findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<Page<OutboundCallRecord>>;
     abstract findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
     abstract leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
-    abstract markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
-    abstract markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean>;
+    abstract markCompleted(key: EffectKey, attemptOwner: string, result: string, expiresAt: Date | null): Promise<boolean>;
+    abstract markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure, expiresAt: Date | null): Promise<boolean>;
     abstract markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean>;
@@ -8623,8 +8623,6 @@ export interface RetentionOptions {
     readonly auditLog?: Milliseconds;
     readonly costLedgerEntries?: Milliseconds;
     readonly executionRecords?: Milliseconds;
-    readonly fencedEffects?: Milliseconds;
-    readonly outboundCalls?: Milliseconds;
     readonly pauseRecords?: Milliseconds;
 }
 
@@ -9226,7 +9224,7 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
 export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
     constructor(connection: SqliteConnection, clock: Pick<StoreClock, "now">);
     // (undocumented)
-    deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(now: Date): Promise<number>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
@@ -9256,18 +9254,18 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
 export class SqliteOutboundCallRepository extends OutboundCallRepository {
     constructor(connection: SqliteConnection, clock: Pick<StoreClock, "now">);
     // (undocumented)
-    deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(now: Date): Promise<number>;
     // (undocumented)
     findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
-    findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage>;
+    findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<Page<OutboundCallRecord>>;
     // (undocumented)
     findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
     // (undocumented)
     leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
     // (undocumented)
-    markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
+    markCompleted(key: EffectKey, attemptOwner: string, result: string, expiresAt: Date | null): Promise<boolean>;
     // (undocumented)
-    markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean>;
+    markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure, expiresAt: Date | null): Promise<boolean>;
     // (undocumented)
     markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     // (undocumented)
@@ -12437,7 +12435,18 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "runInTransaction".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
+// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "markPending".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "markCompleted".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "markFailed".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "leaseStateOf".
+// src/infrastructure/in-memory-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/logger.ts - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
@@ -12452,17 +12461,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "step".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "markPending".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "markCompleted".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "markFailed".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStatus".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "leaseStateOf".
-// src/infrastructure/outbound-call.repository.ts - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "HandlerFailed".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "HandlerTimeout".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "AnswerInvalid".
@@ -12554,7 +12552,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "runInTransaction".
-// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
+// src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
@@ -12570,7 +12568,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "markFailed".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionId".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "leaseStateOf".
-// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "findByTenantIdAndThreadId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "save".

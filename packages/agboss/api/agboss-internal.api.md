@@ -147,7 +147,6 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields 
     readonly executionContext: ExecutionContextClass;
     readonly executionRecordRetention?: Milliseconds;
     readonly exposes: readonly Class[];
-    readonly fencedEffects: FencedEffectSettings;
     readonly healthChecks: readonly Class[];
     readonly ledgerEntryRetention?: Milliseconds | undefined;
     readonly maxConcurrentSteps?: number;
@@ -158,7 +157,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields 
     // (undocumented)
     readonly name: string;
     readonly observers: readonly Class[];
-    readonly outboundCalls: OutboundCallSettings;
+    readonly outboundMasking: OutboundMasking;
     readonly pauseRecordRetention: Milliseconds;
     readonly piiPolicies: readonly Class[];
     readonly providers: readonly Provider[];

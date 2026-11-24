@@ -167,8 +167,13 @@ export abstract class FencedEffectRepository<TTransaction> {
     work: FencedEffectWork<TTransaction, TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>>;
 
-  /** Removes the results and marks stored before `cutoff` (the recovery sweep, `now - retention`). */
-  abstract deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+  /**
+   * Removes the results and marks whose `expires_at` has come (`<= now`, the recovery sweep, on the
+   * `Clock`): a row with no expiry (`Ttl.Forever`, `NULL`) is never removed. The number of rows
+   * removed. A scope's mark keeps the latest expiry of every key written under it, `NULL` first, so
+   * a short ttl never removes the mark a longer one still relies on.
+   */
+  abstract deleteExpired(now: Date): Promise<number>;
 
   /**
    * The result as stored: its JSON, within `maxResultSize` (UTF-8 bytes) — else

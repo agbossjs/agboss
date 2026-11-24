@@ -19,10 +19,8 @@ import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execu
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { LeaseGate } from "../../src/testing/leases.js";
 import { OutboundCallLeaseState } from "../../src/infrastructure/execution-audit-log.repository.js";
-import {
-  InMemoryOutboundCallRepository,
-  type OutboundCallRepository,
-} from "../../src/infrastructure/outbound-call.repository.js";
+import { type OutboundCallRepository } from "../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { SqliteOutboundCallRepository } from "../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";

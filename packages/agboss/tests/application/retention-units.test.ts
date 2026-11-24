@@ -17,7 +17,7 @@ import { hours, minutes, seconds } from "../../src/units/index.js";
 
 const CODE = "application.retention-invalid";
 const DEFAULT_HINT =
-  "@Application({ retention: { fencedEffects: hours(24), outboundCalls: hours(24) } })";
+  "@Application({ retention: { pauseRecords: hours(24), auditLog: hours(24) } })";
 const hint = (...fields: string[]): string =>
   `@Application({ retention: { ${fields.map((field) => `${field}: hours(24)`).join(", ")} } })`;
 const messagesOf = (application: string, options: unknown): string[] =>
@@ -37,8 +37,6 @@ describe("#1366: the retentions with their defaults", () => {
       executionRecords: hours(2),
       auditLog: hours(3),
       costLedgerEntries: hours(4),
-      fencedEffects: hours(5),
-      outboundCalls: hours(6),
       a2aTasks: hours(8),
       a2aMessages: hours(9),
     };
@@ -70,7 +68,7 @@ describe("#1366: what a retention may not be", () => {
   it("nothing is wrong with none, or with positive durations above the lease", () => {
     expect(retentionViolations("app", undefined)).toEqual([]);
     expect(retentionViolations("app", {})).toEqual([]);
-    expect(retentionViolations("app", { fencedEffects: hours(1), auditLog: seconds(1) })).toEqual(
+    expect(retentionViolations("app", { pauseRecords: hours(1), auditLog: seconds(1) })).toEqual(
       [],
     );
   });
@@ -117,7 +115,7 @@ describe("#1366: what a retention may not be", () => {
     expect(retentionViolations("app", { auditLog: century })).toEqual([]);
   });
 
-  it.each(["fencedEffects", "outboundCalls", "costLedgerEntries", "a2aMessages"])(
+  it.each(["costLedgerEntries", "a2aMessages"])(
     "%s, which a fenced write relies on, is above the lease: 30 s is refused, one millisecond more is not",
     (field) => {
       expect(messagesOf("app", { [field]: seconds(30) })).toEqual([
@@ -137,7 +135,7 @@ describe("#1366: what a retention may not be", () => {
     expect(
       messagesOf("app", { auditlog: hours(1), leaseEvents: hours(1), pauseRecords: -1 }),
     ).toEqual([
-      `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, a2aTasks, a2aFiles, a2aMessages) — ${DEFAULT_HINT}`,
+      `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aFiles, a2aMessages) — ${DEFAULT_HINT}`,
       `its retention.leaseEvents is renamed: the audit log's rows are kept for retention.auditLog — ${DEFAULT_HINT}`,
       `its retention.pauseRecords is -1, not a positive duration — ${hint("pauseRecords")}`,
     ]);
@@ -201,8 +199,6 @@ describe("#1366: an option of before #834", () => {
       executionRecordRetention: hours(1),
       leaseEventRetention: hours(1),
       ledgerEntryRetention: hours(1),
-      fencedEffects: { retention: hours(1) },
-      outboundCalls: { retention: hours(1) },
       a2a: { taskRetention: hours(1) },
     };
 
@@ -213,8 +209,6 @@ describe("#1366: an option of before #834", () => {
       "its executionRecordRetention is gone — @Application({ retention: { executionRecords } }) sets it now",
       "its leaseEventRetention is gone — @Application({ retention: { auditLog } }) sets it now",
       "its ledgerEntryRetention is gone — @Application({ retention: { costLedgerEntries } }) sets it now",
-      "its fencedEffects.retention is gone — @Application({ retention: { fencedEffects } }) sets it now",
-      "its outboundCalls.retention is gone — @Application({ retention: { outboundCalls } }) sets it now",
       "its a2a.taskRetention is gone — @Application({ retention: { a2aTasks } }) sets it now",
     ]);
     expect(found.every((item) => item.code === CODE && item.nodes[0] === "desk")).toBe(true);
@@ -223,9 +217,11 @@ describe("#1366: an option of before #834", () => {
   it("an option that never held a retention, or holds none of those, is no violation", () => {
     expect(movedRetentionViolations("desk", {})).toEqual([]);
     expect(
-      movedRetentionViolations("desk", { fencedEffects: { backend: "x" }, mesh: "on" }),
+      movedRetentionViolations("desk", { pauseRecords: { backend: "x" }, mesh: "on" }),
     ).toEqual([]);
-    expect(movedRetentionViolations("desk", { fencedEffects: null, outboundCalls: 4 })).toEqual([]);
+    expect(movedRetentionViolations("desk", { pauseRecords: null, costLedgerEntries: 4 })).toEqual(
+      [],
+    );
   });
 
   it("an a2a option without its retention is gone too, whatever it is; with it, it is only the retention that moved", () => {

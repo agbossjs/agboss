@@ -32,7 +32,7 @@ const movedOnce: OutboundCallCase = {
   run: async ({ first }) => {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
-    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE, null);
 
     const isMoved = await first.calls.markPending(key, FAILED, nextOf("owner-2"));
     const isMovedAgain = await first.calls.markPending(key, FAILED, nextOf("owner-3"));
@@ -58,7 +58,7 @@ const staleReadRefused = ([what, expected]: (typeof STALE_READS)[number]): Outbo
   run: async ({ first }) => {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
-    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE, null);
 
     const isMoved = await first.calls.markPending(key, expected, nextOf("owner-2"));
 
@@ -86,7 +86,7 @@ const racedOnce: OutboundCallCase = {
   run: async ({ first, second }) => {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
-    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE, null);
 
     const moves = await Promise.all([
       first.calls.markPending(key, FAILED, nextOf("owner-a")),
@@ -120,11 +120,11 @@ const staleAttemptRefused: OutboundCallCase = {
   run: async ({ first }) => {
     const key = keyOf(await leaseOf(first));
     await recorded(first, key);
-    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE, null);
     await first.calls.markPending(key, FAILED, nextOf("owner-2"));
 
-    const isCompleted = await first.calls.markCompleted(key, "owner-1", '"stale"');
-    const isFailed = await first.calls.markFailed(key, "owner-1", FAILURE);
+    const isCompleted = await first.calls.markCompleted(key, "owner-1", '"stale"', null);
+    const isFailed = await first.calls.markFailed(key, "owner-1", FAILURE, null);
 
     expect([isCompleted, isFailed]).toEqual([false, false]);
     expect(await first.calls.findByKey(key)).toMatchObject({
@@ -132,7 +132,7 @@ const staleAttemptRefused: OutboundCallCase = {
       attempt: 2,
       attemptOwner: "owner-2",
     });
-    expect(await first.calls.markCompleted(key, "owner-2", '"fresh"')).toBe(true);
+    expect(await first.calls.markCompleted(key, "owner-2", '"fresh"', null)).toBe(true);
   },
 };
 

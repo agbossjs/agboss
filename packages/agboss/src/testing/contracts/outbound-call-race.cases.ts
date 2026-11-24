@@ -86,8 +86,8 @@ const endingRaced = (ending: "markCompleted" | "markFailed"): OutboundCallCase =
       await recorded(first, key);
       const end = () =>
         ending === "markCompleted"
-          ? first.calls.markCompleted(key, "owner-1", '"r"')
-          : first.calls.markFailed(key, "owner-1", FAILURE);
+          ? first.calls.markCompleted(key, "owner-1", '"r"', null)
+          : first.calls.markFailed(key, "owner-1", FAILURE, null);
 
       const [isEnded, isMoved] = await inTurn(round, end, () =>
         second.calls.markPending(key, PENDING, { attempt: 2, attemptOwner: "owner-2" }),

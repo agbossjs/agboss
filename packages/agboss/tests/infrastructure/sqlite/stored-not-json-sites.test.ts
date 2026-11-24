@@ -183,7 +183,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
     const calls = new SqliteOutboundCallRepository(connection, storeClockOf(new VirtualClock()));
     connection.database
       .prepare(
-        "INSERT INTO outbound_calls (scope_key, idempotency_key, name, tenant_id, root_execution_id, status, ended_at, record, business_key) VALUES ('s', 'i', 'charge', 'default', 'run-1', 'pending', NULL, ?, NULL)",
+        "INSERT INTO outbound_calls (scope_key, idempotency_key, name, tenant_id, root_execution_id, status, expires_at, record, business_key) VALUES ('s', 'i', 'charge', 'default', 'run-1', 'pending', NULL, ?, NULL)",
       )
       .run(NOT_JSON);
 

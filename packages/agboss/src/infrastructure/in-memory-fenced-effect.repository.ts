@@ -25,7 +25,8 @@ import {
 import {
   checkInMemoryCancel,
   IN_MEMORY_DATABASE,
-  prunedFencedBefore,
+  laterExpiry,
+  prunedFencedAt,
   treeKeyOf,
   type InMemoryDatabase,
 } from "./in-memory-database.js";
@@ -91,9 +92,8 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     return this.#serialized(lock, () => this.#transaction(key, work));
   }
 
-  deleteByStoredAtBefore(cutoff: Date): Promise<void> {
-    prunedFencedBefore(this.database, cutoff.getTime());
-    return Promise.resolve();
+  deleteExpired(now: Date): Promise<number> {
+    return Promise.resolve(prunedFencedAt(this.database, now.getTime()));
   }
 
   async #transaction<TResult>(
@@ -127,6 +127,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
       scopeKey: key.scopeKey,
       token: key.token,
       storedAt,
+      expiresAt: key.expiresAt?.getTime() ?? null,
       result: text,
       ...storedKeyFactsOf(key),
     };
@@ -201,10 +202,12 @@ export function raiseInMemoryMark(
   clock: Pick<Clock, "now">,
   key: EffectKey,
 ): void {
-  const highest = database.fencedEffectMarks.get(key.scopeKey)?.highestToken ?? 0;
+  const mark = database.fencedEffectMarks.get(key.scopeKey);
   database.fencedEffectMarks.set(key.scopeKey, {
-    highestToken: Math.max(highest, key.token),
+    highestToken: Math.max(mark?.highestToken ?? 0, key.token),
     storedAt: clock.now().getTime(),
+    // `null` (never) wins over any date, and a later date over an earlier one
+    expiresAt: laterExpiry(mark?.expiresAt, key.expiresAt?.getTime() ?? null),
   });
 }
 

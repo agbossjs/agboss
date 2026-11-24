@@ -174,8 +174,12 @@ export function replayed<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): OutboundCallOutcome<TResult> {
-  const stored = parsedStoredJson("outbound call result", found.result ?? "null", {
-    name: run.key.name,
+  const stored = parsedStoredJson({
+    what: "outbound call result",
+    text: found.result ?? "null",
+    ids: {
+      name: run.key.name,
+    },
   });
   // answered, its result not stored (#508): no result to give, never the marker as one
   const notStored = notStoredOf(stored);

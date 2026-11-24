@@ -224,6 +224,10 @@ export async function sentOf(
   return { answer, result: resultOf(call.agent, answer, bodyHash !== undefined, facts) };
 }
 
+/** The reply message a store kept as JSON text. */
+const replyOf = (text: string): Message =>
+  Message.fromJSON(parsedStoredJson({ what: "a2a call reply message", text }));
+
 /** An accepted answer from what was stored. */
 export function acceptedOf(
   result: AcceptResult,
@@ -233,9 +237,7 @@ export function acceptedOf(
 ): Accepted {
   if (result.kind === "message") {
     const message =
-      answer !== undefined && "messageId" in answer
-        ? answer
-        : Message.fromJSON(parsedStoredJson("a2a call reply message", result.message, {}));
+      answer !== undefined && "messageId" in answer ? answer : replyOf(result.message);
     return {
       taskId: undefined,
       contextId: message.contextId,

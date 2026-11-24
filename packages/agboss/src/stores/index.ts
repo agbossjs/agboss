@@ -51,7 +51,6 @@ export type {
   OutboundCallClaim,
   OutboundCallIntent,
   OutboundCallLease,
-  OutboundCallPage,
   OutboundCallState,
   OutboundCallStatusQuery,
   OutboundCallStep,

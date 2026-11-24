@@ -82,7 +82,7 @@ type StoredIds = Readonly<Record<string, string | undefined>>;
 
 /** The free text a column keeps (`storedTextOf`). */
 export const textOf = (stored: string, what: string, ids: StoredIds): string =>
-  z.string().parse(parsedStoredJson(what, stored, ids));
+  z.string().parse(parsedStoredJson({ what, text: stored, ids }));
 
 /** A database row → a typed Turn; rows are validated, never trusted. */
 export function toTurn(row: unknown): Turn {
@@ -99,8 +99,8 @@ export function toTurn(row: unknown): Turn {
     replyWith: textOf(r.replyWith, "turn answer", ids),
     status: r.status,
     stopReason: textOf(r.stop_reason, "turn stop reason", ids),
-    route: Route.parse(parsedStoredJson("turn route", r.route, ids)),
-    steps: Steps.parse(parsedStoredJson("turn steps", r.steps, ids)),
+    route: Route.parse(parsedStoredJson({ what: "turn route", text: r.route, ids })),
+    steps: Steps.parse(parsedStoredJson({ what: "turn steps", text: r.steps, ids })),
     costUsd: usd(r.cost_usd),
     promptVersion: r.prompt_version,
     modelVersion: r.model_version,

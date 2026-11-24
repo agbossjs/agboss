@@ -110,6 +110,7 @@ export function effectKeyOf<TFingerprint>(
     token: fence.token,
     idempotencyKey: step.idempotencyKey,
     name,
+    expiresAt: null,
     origin: Object.freeze(origin),
     // #909: the tree whose cancel fences it; an undo's keys are never refused by it
     rootExecutionId: executionContext.root.executionId,

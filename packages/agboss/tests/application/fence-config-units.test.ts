@@ -258,7 +258,7 @@ describe("#1366: which lease store a pairing is made with", () => {
 describe("#1366: a retention stays above the lease", () => {
   const lease = EXECUTION_LEASE;
 
-  it.each(["fencedEffects", "outboundCalls", "costLedgerEntries", "a2aMessages"])(
+  it.each(["costLedgerEntries", "a2aMessages"])(
     "%s at the lease or below is refused naming the lease's length; one ms above is not",
     (field) => {
       const [atLease] = retentionViolations("desk-app", { [field]: lease });
@@ -282,32 +282,29 @@ describe("#1366: a retention stays above the lease", () => {
   it("a century is the longest; one ms more is a cutoff a date cannot hold", () => {
     const century = hours(24 * 365 * 100);
 
-    expect(retentionViolations("a", { fencedEffects: century })).toEqual([]);
-    expect(retentionViolations("a", { fencedEffects: century + 1 })).toEqual([
+    expect(retentionViolations("a", { pauseRecords: century })).toEqual([]);
+    expect(retentionViolations("a", { pauseRecords: century + 1 })).toEqual([
       expect.objectContaining({
-        message: `its retention.fencedEffects is ${String(century + 1)} ms, above a century (${String(century)} ms) — a cutoff a date cannot hold — @Application({ retention: { fencedEffects: hours(24) } })`,
+        message: `its retention.pauseRecords is ${String(century + 1)} ms, above a century (${String(century)} ms) — a cutoff a date cannot hold — @Application({ retention: { pauseRecords: hours(24) } })`,
       }),
     ]);
   });
 
   it("a retention that is no positive finite number is refused, each by what it is", () => {
     for (const value of [0, -5, Number.NaN, Number.POSITIVE_INFINITY, "10", null])
-      expect(retentionViolations("a", { fencedEffects: value })).toHaveLength(1);
-    expect(retentionViolations("a", { fencedEffects: undefined })).toEqual([]);
+      expect(retentionViolations("a", { pauseRecords: value })).toHaveLength(1);
+    expect(retentionViolations("a", { pauseRecords: undefined })).toEqual([]);
     expect(retentionViolations("a", undefined)).toEqual([]);
-    expect(retentionViolations("a", { fencedEffects: hours(1), auditLog: minutes(30) })).toEqual(
-      [],
-    );
+    expect(retentionViolations("a", { pauseRecords: hours(1), auditLog: minutes(30) })).toEqual([]);
   });
 
   it("what is no retention at all names the fix to the fields that matter most", () => {
-    const hint =
-      "@Application({ retention: { fencedEffects: hours(24), outboundCalls: hours(24) } })";
+    const hint = "@Application({ retention: { pauseRecords: hours(24), auditLog: hours(24) } })";
 
-    expect(retentionViolations("desk-app", { fencedEfects: 5 })).toEqual([
+    expect(retentionViolations("desk-app", { pauseRecord: 5 })).toEqual([
       {
         code: "application.retention-invalid",
-        message: `its retention.fencedEfects is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, a2aTasks, a2aFiles, a2aMessages) — ${hint}`,
+        message: `its retention.pauseRecord is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aFiles, a2aMessages) — ${hint}`,
         nodes: ["desk-app"],
       },
     ]);
@@ -318,7 +315,7 @@ describe("#1366: a retention stays above the lease", () => {
 
   it("a retention that is no number is refused without asking whether it is finite", () => {
     const finite = vi.spyOn(Number, "isFinite");
-    const refused = retentionViolations("a", { fencedEffects: "10" });
+    const refused = retentionViolations("a", { pauseRecords: "10" });
     const asked = finite.mock.calls.length;
     finite.mockRestore();
 

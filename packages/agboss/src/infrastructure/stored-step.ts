@@ -145,4 +145,4 @@ export const pauseAnswerRecordOfValue = (value: unknown): PauseAnswerRecord =>
 
 /** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */
 export const pauseAnswerRecordOfJson = (text: string): PauseAnswerRecord =>
-  pauseAnswerRecordOfValue(parsedStoredJson("pause answer", text, {}));
+  pauseAnswerRecordOfValue(parsedStoredJson({ what: "pause answer", text }));

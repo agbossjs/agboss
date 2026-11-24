@@ -60,12 +60,15 @@ function noJsonCause(parseError: unknown): SyntaxError {
  * the row, `undefined` ones left out) named, never the text. The `cause` is a `SyntaxError` of the
  * parse without the text the parser quotes.
  */
-export function parsedStoredJson(
-  what: string,
-  text: string,
-  ids: Readonly<Record<string, string | undefined>>,
-  reviver?: (key: string, value: unknown) => unknown,
-): unknown {
+export function parsedStoredJson(options: {
+  /** What the text is (`"outbound call record"`), as an error names it. */
+  readonly what: string;
+  readonly text: string;
+  /** The store's own keys of the row, `undefined` ones left out of the error; none → no ids. */
+  readonly ids?: Readonly<Record<string, string | undefined>>;
+  readonly reviver?: (key: string, value: unknown) => unknown;
+}): unknown {
+  const { what, text, ids = {}, reviver } = options;
   try {
     return JSON.parse(text, reviver) as unknown;
   } catch (error) {

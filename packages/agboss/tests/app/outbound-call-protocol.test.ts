@@ -22,7 +22,7 @@ import {
   OutboundRecovery,
   Reconciliation,
 } from "../../src/index.js";
-import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
@@ -251,7 +251,7 @@ describe("#505: what the protocol refuses", () => {
     const idempotency = new Idempotency(
       effects,
       store,
-      new OutboundCallSettings({ requiresMask: false }),
+      new OutboundMasking({ requiresMask: false }),
       new SilentLogger(),
       clock,
     );
@@ -275,7 +275,7 @@ describe("#505: what the protocol refuses", () => {
           status: OutboundCallStatus.Pending,
           limit: 1000,
         })
-      ).calls,
+      ).items,
     ).toEqual([]);
   });
 

@@ -8,7 +8,13 @@ import type { Milliseconds } from "../units/index.js";
 import type { OutboundCallError } from "../core/error-families/effect-errors.js";
 import { fencedEnd, supersededErrorOf } from "./outbound-call-endings.js";
 import { NotSentTrust } from "./outbound-call-contract.js";
-import { maskedFailureOf, subjectOf, told, type CallRun } from "./outbound-call-parts.js";
+import {
+  endExpiryOf,
+  maskedFailureOf,
+  subjectOf,
+  told,
+  type CallRun,
+} from "./outbound-call-parts.js";
 
 /**
  * When the outcome of a call is not known (#657, #658), loaded with the protocol: an error `send`
@@ -130,7 +136,7 @@ export async function failedOrPending<TRequest, TResult>(
     return undefined;
   }
   const failure = await maskedFailureOf(run, error);
-  const isFailed = () => run.parts.repository.markFailed(run.key, owner, failure);
+  const isFailed = () => run.parts.repository.markFailed(run.key, owner, failure, endExpiryOf(run));
   const isRecorded = await fencedEnd(run, attempt, isFailed);
   // shared only once the end is written (#928): a hand-over before it is nobody's answer to share
   run.answer.isAnswered = true;

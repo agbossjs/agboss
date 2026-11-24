@@ -55,8 +55,6 @@ describe("#834 AC1: one retention group", () => {
       ledgerEntryRetention: hours(24),
       a2aTaskRetention: hours(24),
       meshAnswerRetention: minutes(30),
-      fencedEffects: { retention: hours(24) },
-      outboundCalls: { retention: hours(168) },
     });
     expect(assembled.executionRecordRetention).toBeUndefined();
     expect(DEFAULT_RETENTION).not.toHaveProperty("executionRecords");
@@ -76,7 +74,7 @@ describe("#834 AC2: [application.retention-invalid]", () => {
     );
   });
 
-  it.each(["fencedEffects", "outboundCalls", "costLedgerEntries"])(
+  it.each(["costLedgerEntries", "a2aMessages"])(
     "%s at the lease fails assembly: a mark, an intent or an entry would go before a zombie's write",
     async (field) => {
       await expect(assembledWith({ [field]: seconds(30) })).rejects.toThrow(
@@ -93,7 +91,7 @@ describe("#834 AC2: [application.retention-invalid]", () => {
 
   it("a field it does not know is a typo, never a silent default", async () => {
     await expect(assembledWith({ ledgerEntries: hours(1) })).rejects.toThrow(
-      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, a2aTasks, a2aFiles, a2aMessages)",
+      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aFiles, a2aMessages)",
     );
   });
 
@@ -104,11 +102,11 @@ describe("#834 AC2: [application.retention-invalid]", () => {
   });
 
   it("every problem at once, with the fix", async () => {
-    const assembly = assembledWith({ auditLog: 0, outboundCalls: seconds(1) });
+    const assembly = assembledWith({ auditLog: 0, costLedgerEntries: seconds(1) });
 
     await expect(assembly).rejects.toThrow(/retention\.auditLog is 0, not a positive duration/);
     await expect(assembly).rejects.toThrow(
-      /retention\.outboundCalls is 1000 ms, not above the lease's 30000 ms — @Application\(\{ retention: \{/,
+      /retention\.costLedgerEntries is 1000 ms, not above the lease's 30000 ms — @Application\(\{ retention: \{/,
     );
   });
 });
@@ -119,8 +117,6 @@ describe("#834 AC2: a retention set where it was before is refused, never droppe
     [{ executionRecordRetention: hours(720) }, "executionRecordRetention", "executionRecords"],
     [{ leaseEventRetention: hours(1) }, "leaseEventRetention", "auditLog"],
     [{ ledgerEntryRetention: hours(72) }, "ledgerEntryRetention", "costLedgerEntries"],
-    [{ fencedEffects: { retention: hours(48) } }, "fencedEffects.retention", "fencedEffects"],
-    [{ outboundCalls: { retention: hours(720) } }, "outboundCalls.retention", "outboundCalls"],
     [{ a2a: { taskRetention: hours(1) } }, "a2a.taskRetention", "a2aTasks"],
   ])("%o: its %s is gone, naming retention.%s", async (others, where, now) => {
     await expect(assembledWith(undefined, others)).rejects.toThrow(
@@ -161,7 +157,7 @@ describe("#834 AC2: a retention set where it was before is refused, never droppe
   });
 
   it("a Map or a class instance keeps no retentions: refused, not all defaults", async () => {
-    await expect(assembledWith(new Map([["fencedEffects", hours(48)]]))).rejects.toThrow(
+    await expect(assembledWith(new Map([["auditLog", hours(48)]]))).rejects.toThrow(
       /its retention is .*, not an object of retentions/,
     );
     await expect(assembledWith(Object.create(null) as object)).resolves.toMatchObject({
@@ -175,8 +171,6 @@ const RETENTION = {
   executionRecords: minutes(3),
   auditLog: minutes(4),
   costLedgerEntries: minutes(5),
-  fencedEffects: minutes(6),
-  outboundCalls: minutes(7),
   a2aTasks: minutes(9),
 } as const satisfies RetentionOptions;
 
@@ -216,16 +210,6 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
         "costLedgerEntries",
         vi.spyOn(app.resolve(CostLedgerRepository), "deleteByMadeAtBefore"),
         RETENTION.costLedgerEntries,
-      ],
-      [
-        "fencedEffects",
-        vi.spyOn(app.resolve(FencedEffectRepository), "deleteByStoredAtBefore"),
-        RETENTION.fencedEffects,
-      ],
-      [
-        "outboundCalls",
-        vi.spyOn(app.resolve(OutboundCallRepository), "deleteByEndedAtBefore"),
-        RETENTION.outboundCalls,
       ],
       [
         "meshAnswers",

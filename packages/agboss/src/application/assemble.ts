@@ -31,10 +31,7 @@ import { decoratedHealthChecksOf } from "../health/health-check.js";
 import type { ApplicationAssembly } from "./assembly-options.js";
 import { meshOptionsOf } from "../mesh/mesh-assembly.js";
 import type { MeshMeta } from "../mesh/mesh.decorator.js";
-import {
-  FencedEffectSettings,
-  OutboundCallSettings,
-} from "../infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../app/outbound-masking.js";
 
 /**
  * The assembly of an `@Application` (#261): its own rules (names, its workflows, budgets, where the
@@ -84,10 +81,8 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields 
   readonly meshAnswerRetention: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
   readonly compensationTimeout: Milliseconds;
-  /** `@Application({ fencedEffects })` (#500): the fenced-effect store's settings. */
-  readonly fencedEffects: FencedEffectSettings;
-  /** `@Application({ outboundCalls })` (#505): what `OutboundCalls` and its store read. */
-  readonly outboundCalls: OutboundCallSettings;
+  /** Whether a call's request is stored only masked (#505): what `Idempotency.sendOnce` reads. */
+  readonly outboundMasking: OutboundMasking;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
   /** `@Mesh({ maxHops })` (#398): the longest call chain it accepts. */
@@ -214,7 +209,11 @@ export async function applicationOf(
   const modules = [applicationModule(options), ...workflowModules(all)];
   const workflows = all.filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow);
   const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, options);
-  const keys = idempotencyKeyViolations(options, assembled);
+  const keys = idempotencyKeyViolations(
+    options,
+    assembled,
+    assembly.withoutIdempotencyKeys === true,
+  );
   throwIfAny([...own, ...crossWorkflowViolations(assembled), ...keys], errors);
   const retention = retentionOf(options.retention);
   return {
@@ -231,11 +230,7 @@ export async function applicationOf(
     ...assembledRetentionsOf(retention),
     ...storageFieldsOf(options.storage),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
-    fencedEffects: new FencedEffectSettings({ retention: retention.fencedEffects }),
-    outboundCalls: new OutboundCallSettings({
-      retention: retention.outboundCalls,
-      requiresMask: hasPiiPolicies(options, assembled),
-    }),
+    outboundMasking: new OutboundMasking({ requiresMask: hasPiiPolicies(options, assembled) }),
     ...(options.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: options.maxConcurrentSteps }),

@@ -35,9 +35,9 @@ const sourcesOf = (changes: Partial<RetentionSources> = {}) => {
   const stores = {
     meshRequests: store("deleteExpired"),
     executionHistory: store("deleteExpired"),
-    fencedEffects: store("deleteByStoredAtBefore"),
+    fencedEffects: store("deleteExpired"),
     auditLog: store("deleteExpired"),
-    outboundCalls: store("deleteByEndedAtBefore"),
+    outboundCalls: store("deleteExpired"),
   };
   /** The root records the audit sweep reads to tell whether a tree ended (#1321b): by default every tree has. */
   const treeRecords = {
@@ -51,9 +51,7 @@ const sourcesOf = (changes: Partial<RetentionSources> = {}) => {
     treeRecords,
     idempotencyRetention: 2000,
     executionRecordRetention: milliseconds(3000),
-    fencedEffectRetention: milliseconds(4000),
     auditLogRetention: milliseconds(5000),
-    outboundCallRetention: milliseconds(6000),
     ledger: ledgerOwn,
     ledgerEntryRetention: milliseconds(7000),
     ...changes,
@@ -90,7 +88,7 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     expect(report).not.toHaveBeenCalled();
   });
 
-  it("every other kind, each at its own cut", async () => {
+  it("every other kind, each at its own cut (the rows with an expiry of their own: due now)", async () => {
     const { sources, pauses, stores } = sourcesOf();
 
     await sweep(sources).done;
@@ -98,12 +96,12 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     expect(pauses.deleteByResolvedAtBefore).toHaveBeenCalledWith(cutoffOf(1000));
     expect(stores.meshRequests.deleteExpired).toHaveBeenCalledWith(cutoffOf(2000));
     expect(stores.executionHistory.deleteExpired).toHaveBeenCalledWith(cutoffOf(3000));
-    expect(stores.fencedEffects.deleteByStoredAtBefore).toHaveBeenCalledWith(cutoffOf(4000));
+    expect(stores.fencedEffects.deleteExpired).toHaveBeenCalledWith(cutoffOf(0));
     expect(stores.auditLog.deleteExpired).toHaveBeenCalledWith(
       cutoffOf(5000),
       expect.any(Function),
     );
-    expect(stores.outboundCalls.deleteByEndedAtBefore).toHaveBeenCalledWith(cutoffOf(6000));
+    expect(stores.outboundCalls.deleteExpired).toHaveBeenCalledWith(cutoffOf(0));
   });
 
   it("the audit log is swept with the question of whether a tree ended, answered by its root's record", async () => {
@@ -209,9 +207,9 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     pauses.deleteByResolvedAtBefore.mockImplementation(log("pauses") as never);
     stores.meshRequests.deleteExpired.mockImplementation(log("mesh") as never);
     stores.executionHistory.deleteExpired.mockImplementation(log("history") as never);
-    stores.fencedEffects.deleteByStoredAtBefore.mockImplementation(log("effects") as never);
+    stores.fencedEffects.deleteExpired.mockImplementation(log("effects") as never);
     stores.auditLog.deleteExpired.mockImplementation(log("audit") as never);
-    stores.outboundCalls.deleteByEndedAtBefore.mockImplementation(log("calls") as never);
+    stores.outboundCalls.deleteExpired.mockImplementation(log("calls") as never);
     ledgerOwn.deleteByMadeAtBefore.mockImplementation(log("ledger") as never);
 
     await sweep(sources).done;
@@ -282,16 +280,16 @@ describe("#1366: a store that fails is reported and asked again at the next look
       (s: ReturnType<typeof sourcesOf>) => s.stores.executionHistory.deleteExpired,
     ],
     [
-      "the fenced effects' results",
-      (s: ReturnType<typeof sourcesOf>) => s.stores.fencedEffects.deleteByStoredAtBefore,
+      "the idempotent effects' expired results",
+      (s: ReturnType<typeof sourcesOf>) => s.stores.fencedEffects.deleteExpired,
     ],
     [
       "the audit log's old rows",
       (s: ReturnType<typeof sourcesOf>) => s.stores.auditLog.deleteExpired,
     ],
     [
-      "the ended outbound calls",
-      (s: ReturnType<typeof sourcesOf>) => s.stores.outboundCalls.deleteByEndedAtBefore,
+      "the expired outbound calls",
+      (s: ReturnType<typeof sourcesOf>) => s.stores.outboundCalls.deleteExpired,
     ],
     [
       "the ledger's old entries",
@@ -312,6 +310,6 @@ describe("#1366: a store that fails is reported and asked again at the next look
     expect(report).toHaveBeenCalledWith(`${what} could not be removed: Error: down`);
     // the others were still asked
     expect(made.ledgerOwn.deleteByMadeAtBefore).toHaveBeenCalled();
-    expect(made.stores.outboundCalls.deleteByEndedAtBefore).toHaveBeenCalled();
+    expect(made.stores.outboundCalls.deleteExpired).toHaveBeenCalled();
   });
 });

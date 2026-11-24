@@ -24,9 +24,12 @@ const INTENT_WRITES: readonly IntentWrite[] = [
   { name: "findByKey", call: (stores, key) => stores.calls.findByKey(key) },
   {
     name: "markCompleted",
-    call: (stores, key) => stores.calls.markCompleted(key, "owner-1", '{"receipt":"r1"}'),
+    call: (stores, key) => stores.calls.markCompleted(key, "owner-1", '{"receipt":"r1"}', null),
   },
-  { name: "markFailed", call: (stores, key) => stores.calls.markFailed(key, "owner-1", FAILURE) },
+  {
+    name: "markFailed",
+    call: (stores, key) => stores.calls.markFailed(key, "owner-1", FAILURE, null),
+  },
   {
     name: "markPending",
     call: (stores, key) =>

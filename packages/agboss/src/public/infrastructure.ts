@@ -118,7 +118,7 @@ export {
   type OutboundCallRecord,
   type OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
-export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
+export { InMemoryOutboundCallRepository } from "../infrastructure/in-memory-outbound-call.repository.js";
 export {
   OutboundCallSendStatus,
   type OutboundCall,

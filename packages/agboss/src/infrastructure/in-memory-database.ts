@@ -2,7 +2,7 @@ import { ExecutionCancelFencedError } from "../app/lease-lost.js";
 import { InjectionToken } from "../components/injection.js";
 import type { EffectKey } from "./effect-key.js";
 import { cancelTreeOf } from "./issued-keys.js";
-import { FencedEffectSettings, OutboundCallSettings } from "./fenced-effect-settings.js";
+import { OutboundMasking } from "../app/outbound-masking.js";
 import type { StoredKeyFacts } from "./fenced-effect-key.js";
 import type { ExecutionLease } from "./execution-lease.repository.js";
 import type { ExecutionTreeValue } from "./execution-tree.repository.js";
@@ -69,6 +69,12 @@ export class InMemoryDatabase {
   readonly outboundCallOrder = new Map<string, number>();
   /** The highest place given in that order (#825): counted up here, never given again. */
   readonly outboundCallPlaces = { highest: 0 };
+  /**
+   * When each ended intent may be removed (ms; `null` = never), by its row key: set when it ended
+   * (`markCompleted` / `markFailed`), cleared when a new attempt claims it. A pending intent has no
+   * entry — it is never removed.
+   */
+  readonly outboundCallExpiries = new Map<string, number | null>();
 }
 
 /**
@@ -84,37 +90,72 @@ export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey):
   if (row?.cancelRequestedAt !== undefined) throw ExecutionCancelFencedError.of(key);
 }
 
+/** Whether an expiry (ms; `null` = never) has come at `now`: `null` never has. */
+const isDue = (expiresAt: number | null | undefined, now: number): boolean =>
+  expiresAt !== undefined && expiresAt !== null && expiresAt <= now;
+
 /**
- * The fenced effects' retention: their results and marks stored before `before` (ms). A tree's
- * cancel mark is never pruned (#1117): it is on the lease row, kept as the lease rows are.
+ * The later of two expiries (ms; `null` = never, which is later than any date): what a scope's
+ * mark keeps when another key is written under it.
  */
-export function prunedFencedBefore(database: InMemoryDatabase, before: number): void {
+export const laterExpiry = (
+  known: number | null | undefined,
+  given: number | null,
+): number | null =>
+  known === undefined ? given : known === null || given === null ? null : Math.max(known, given);
+
+/**
+ * The fenced effects' expiry: their results and marks whose `expiresAt` has come at `now` (ms); the
+ * rows removed. A tree's cancel mark is never pruned (#1117): it is on the lease row, kept as the
+ * lease rows are.
+ */
+export function prunedFencedAt(database: InMemoryDatabase, now: number): number {
   const { fencedEffectMarks: marks, fencedEffectResults: results } = database;
-  for (const [row, stored] of results) if (stored.storedAt < before) results.delete(row);
-  for (const [scope, mark] of marks) if (mark.storedAt < before) marks.delete(scope);
+  let removed = 0;
+  for (const [row, stored] of results)
+    if (isDue(stored.expiresAt, now)) {
+      results.delete(row);
+      removed += 1;
+    }
+  for (const [scope, mark] of marks)
+    if (isDue(mark.expiresAt, now)) {
+      marks.delete(scope);
+      removed += 1;
+    }
+  return removed;
 }
 
-/** The outbound calls' retention: the intents ended before `before` (ms); no cancel mark (#1117). */
-export function prunedCallsBefore(database: InMemoryDatabase, before: number): void {
-  for (const [row, found] of database.outboundCalls)
-    // a pending row has no `endedAt`: an invalid date, whose NaN is never `< before`
-    if (new Date(found.endedAt ?? Number.NaN).getTime() < before) {
+/**
+ * The outbound calls' expiry: the intents that ended and whose `expiresAt` has come at `now` (ms);
+ * never a pending one (it has none), no cancel mark (#1117). The intents removed.
+ */
+export function prunedCallsAt(database: InMemoryDatabase, now: number): number {
+  let removed = 0;
+  for (const [row, expiresAt] of database.outboundCallExpiries)
+    if (isDue(expiresAt, now)) {
       database.outboundCalls.delete(row);
       database.outboundCallOrder.delete(row);
+      database.outboundCallExpiries.delete(row);
+      removed += 1;
     }
+  return removed;
 }
 
-/** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms). */
+/** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms), and until when. */
 export interface FencedEffectMarkRow {
   readonly highestToken: number;
   readonly storedAt: number;
+  /** The latest expiry of every key written under the scope (ms), `null` = never. */
+  readonly expiresAt: number | null;
 }
 
-/** A stored fenced-effect result: its JSON, the token it was written under, when. */
+/** A stored fenced-effect result: its JSON, the token it was written under, when, and until when. */
 export interface FencedEffectResultRow extends StoredKeyFacts {
   readonly scopeKey: string;
   readonly token: number;
   readonly storedAt: number;
+  /** When it may be removed (ms), `null` = never. */
+  readonly expiresAt: number | null;
   readonly result: string;
 }
 
@@ -174,11 +215,6 @@ export const IN_MEMORY_DATABASE = new InjectionToken<InMemoryDatabase>("IN_MEMOR
 
 /**
  * All of them, as the core values every container of an application has — with the application's
- * `FencedEffectSettings` (#500) and `OutboundCallSettings` (#505), public tokens a store of a
- * project injects.
+ * `OutboundMasking` (#505): whether a call's request is stored only masked.
  */
-export const INFRASTRUCTURE_TOKENS = [
-  IN_MEMORY_DATABASE,
-  FencedEffectSettings,
-  OutboundCallSettings,
-];
+export const INFRASTRUCTURE_TOKENS = [IN_MEMORY_DATABASE, OutboundMasking];

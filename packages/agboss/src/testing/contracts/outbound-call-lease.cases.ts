@@ -44,7 +44,7 @@ const crossLeaseRaced = (ending: "markCompleted" | "markPending"): OutboundCallC
       await recorded(first, a);
       const byFirst = () =>
         ending === "markCompleted"
-          ? first.calls.markCompleted(a, "owner-1", '"r"')
+          ? first.calls.markCompleted(a, "owner-1", '"r"', null)
           : first.calls.markPending(a, PENDING, { attempt: 2, attemptOwner: "owner-a" });
 
       const [isFirst, isSecond] = await inTurn(round, byFirst, () =>

@@ -16,7 +16,7 @@ import {
   WorkflowStart,
   type Produced,
 } from "../../../src/index.js";
-import { OutboundCallSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../../../src/app/outbound-masking.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -94,7 +94,7 @@ export class UnmaskedChargeAction {
     const masked = new Idempotency(
       this.effects,
       this.repository,
-      new OutboundCallSettings({ requiresMask: true }),
+      new OutboundMasking({ requiresMask: true }),
       new SilentLogger(),
       new SystemClock(),
     );
@@ -119,7 +119,7 @@ export class UnmaskedChargeAction {
         status,
         limit: 1000,
       });
-      const pending = page.calls;
+      const pending = page.items;
       unmasked.pendingAfter.push(pending.length);
     }
   }

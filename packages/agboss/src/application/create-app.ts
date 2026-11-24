@@ -170,7 +170,7 @@ export async function buildApplication(
     {
       ...sources,
       ...{ database, instances, quiet, storeClock },
-      ...{ fencedEffects: assembled.fencedEffects, outboundCalls: assembled.outboundCalls },
+      ...{ outboundMasking: assembled.outboundMasking },
     },
     { ...options.container, onCreate },
   );
