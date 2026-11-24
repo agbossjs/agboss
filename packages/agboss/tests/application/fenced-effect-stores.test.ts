@@ -14,7 +14,6 @@ import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import {
-  ActionFailedError,
   Clock,
   StoreClock,
   ExecutionLeaseRepository,
@@ -119,14 +118,12 @@ describe("#500: the unlisted default beside SQLite leases", () => {
         (thrown: unknown) => thrown,
       );
 
-      expect(error).toBeInstanceOf(ActionFailedError);
-      expect(error).toMatchObject({ cause: expect.any(IdempotencyError.StoreMismatch) });
+      // a family's error is not wrapped by the action's step (decision 8)
+      expect(error).toBeInstanceOf(IdempotencyError.StoreMismatch);
       expect(error).toMatchObject({
-        cause: {
-          code: "idempotency.store-mismatch",
-          fencedEffectRepository: "InMemoryFencedEffectRepository",
-          leaseRepository: "SqliteExecutionLeaseRepository",
-        },
+        code: "idempotency.store-mismatch",
+        fencedEffectRepository: "InMemoryFencedEffectRepository",
+        leaseRepository: "SqliteExecutionLeaseRepository",
       });
     },
   );

@@ -70,7 +70,8 @@ describe("#928 AC2: the business-key joiner of a call whose answer was not recor
     // abandoned is live in the store until it expires, so its intent is in flight, not yet its to reconcile
     const joinerError = await second;
     expect(joinerError).not.toBeInstanceOf(ExecutionLeaseLostError);
-    expect(joinerError).toMatchObject({ cause: expect.any(OutboundCallError.InFlight) });
+    // a family's error is not wrapped by the action's step (decision 8)
+    expect(joinerError).toBeInstanceOf(OutboundCallError.InFlight);
     expect(gateway.calls).toHaveLength(1);
     expect(gateway.lookups).toEqual([]);
 

@@ -29,6 +29,14 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/rag/rerank-results.ts"],
   ),
   ...reviewed(
+    "the facts a visit's frame and a node's reads carry, and the hydration of a read value (#1274, #1288, #1316f): where a value came from, the failure an `.onError` side path took in, a value read back from a checkpoint or given by a test made an instance of its DTO class; no spend, limit, lease, fence or cancel decision, and nothing is written; covered by tests/flow/context/handled-error-1316f.test.ts, tests/flow/runtime/metadata.test.ts and tests/flow/variadic-list-of-1288.test.ts",
+    [
+      "src/flow/runtime/handled-error-frame.ts",
+      "src/flow/runtime/scope-metadata.ts",
+      "src/flow/runtime/shape-hydration.ts",
+    ],
+  ),
+  ...reviewed(
     "the mesh facts of a step's frame, moved out of `step-frame.ts` as they were (#1343) to keep it under the line limit: the origin and deadline an execution's contexts keep and a root's call chain; covered by tests/mesh/mesh-envelope.test.ts",
     ["src/flow/runtime/step-mesh.ts"],
   ),
@@ -588,6 +596,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/analyse/rules/cycles.ts",
       "src/flow/analyse/rules/data-outputs.ts",
       "src/flow/analyse/rules/dto-cycles.ts",
+      "src/flow/analyse/rules/dto-one-of.ts",
       "src/flow/analyse/rules/errors.ts",
       "src/flow/analyse/rules/graph.ts",
       "src/flow/analyse/rules/judge-family.ts",
@@ -604,6 +613,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/analyse/rules/switch.ts",
       "src/flow/analyse/rules/text-agents.ts",
       "src/flow/analyse/scope.ts",
+      "src/flow/analyse/slices.ts",
       "src/flow/analyse/walk-cursor.ts",
       "src/flow/analyse/walk-launch.ts",
       "src/flow/analyse/walk-one-of.ts",

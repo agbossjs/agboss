@@ -16,9 +16,9 @@ import { storedUsd } from "../finops/cost-report.js";
 import { readStored, StoredComponent } from "./stored-step.js";
 
 /**
- * A pause as a store keeps it as JSON (#934): every field of `PauseRecord`, either shape of the
- * names — 0.1.0's `answeredBy` (who may answer) or the new `answerer` — with the answer it embeds
- * checked inside. Parsing is reading: the record that comes out has the new names.
+ * A pause as a store keeps it as JSON (#934): every field of `PauseRecord` in the 0.1.1 shape, with
+ * the answer it embeds checked inside. A row of any other shape (an old name, a missing field) is
+ * `StoredNamesUnreadableError`.
  */
 
 /** What reading a reply cost (#267 S107): the fields the ledger is written from, the rest as written. */
@@ -33,11 +33,10 @@ const StoredUsage = z.looseObject({
   provider: z.string(),
 });
 
-/** The answer a pause keeps (#267 S107): the decision, who gave it — 0.1.0 called that `answerer` —, its cost. */
+/** The answer a pause keeps (#267 S107): the decision, who gave it, its cost. */
 export const StoredAnswer = z
   .object({
     decision: z.unknown(),
-    answerer: z.string().optional(),
     answeredBy: z.string().optional(),
     // #1197: the channel's own decision; `false` is no marker
     byChannel: z.boolean().optional(),
@@ -45,7 +44,7 @@ export const StoredAnswer = z
   })
   .transform((stored): PauseAnswer => ({
     decision: stored.decision,
-    answeredBy: stored.answeredBy ?? stored.answerer,
+    answeredBy: stored.answeredBy,
     ...(stored.byChannel === true ? { byChannel: true as const } : {}),
     ...(stored.usage === undefined ? {} : { usage: stored.usage }),
   }));
@@ -67,7 +66,7 @@ const askOfStored = (
   return approval.success ? approval.data : undefined;
 };
 
-/** A pause record as JSON stored it, in either shape of the names; parsing it reads it. */
+/** A pause record as JSON stored it; parsing it reads it. */
 export const StoredPause = z
   .object({
     threadId: z.string(),
@@ -76,9 +75,8 @@ export const StoredPause = z
     nodeId: z.string(),
     visitNumber: z.number(),
     itemIndex: z.number().optional(),
-    // a pause stored before #267 S107 kept neither: the first copy, asked at an unknown time
-    copyNumber: z.number().default(1),
-    askedAt: z.string().default(""),
+    copyNumber: z.number(),
+    askedAt: z.string(),
     kind: z.enum(PauseKind),
     step: z.string(),
     component: StoredComponent.optional(),
@@ -87,8 +85,7 @@ export const StoredPause = z
     channel: z.string(),
     // a pause stored before #337 has none: its own step's key is its only branch key
     branchKeys: z.array(z.string()).optional(),
-    answerer: z.enum(PauseAnswerer).optional(),
-    answeredBy: z.enum(PauseAnswerer).optional(),
+    answerer: z.enum(PauseAnswerer),
     // an approval's tool call, or a question role's own ask (#659, #712, #746): `kind` says
     ask: z.record(z.string(), z.unknown()),
     pauseId: z.string(),
@@ -116,14 +113,12 @@ export const StoredPause = z
     answer: StoredAnswer.optional(),
   })
   .transform((stored, context): PauseRecord => {
-    const { branchKeys, itemIndex, ask, answerer, answeredBy, ...rest } = stored;
-    const kind = answerer ?? answeredBy;
+    const { branchKeys, itemIndex, ask, ...rest } = stored;
     const asked = askOfStored(stored.kind, ask);
-    if (kind === undefined || asked === undefined) {
-      const path = kind === undefined ? "answerer" : "ask";
+    if (asked === undefined) {
       context.addIssue({
         code: "custom",
-        path: [path],
+        path: ["ask"],
         message: "missing or not what was written",
       });
       return z.NEVER;
@@ -131,12 +126,11 @@ export const StoredPause = z
     return {
       ...rest,
       itemIndex,
-      answerer: kind,
       ask: asked,
       ...(branchKeys === undefined ? {} : { branchKeys }),
     };
   });
 
-/** A pause from the JSON a store kept (parsed): read in either shape, or unreadable (ids, field). */
+/** A pause from the JSON a store kept (parsed): read in the 0.1.1 shape, or unreadable (ids, field). */
 export const pauseRecordOfJson = (value: unknown): PauseRecord =>
   readStored(StoredPause, value, "pause", ["pauseId", "executionId"]);

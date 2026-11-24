@@ -55,8 +55,11 @@ const BAD_ENTRIES: readonly (readonly [string, Record<string, unknown>, string])
   ["an entry with a junk answerer", { answerer: "<junk>" }, "answerer"],
   ["an entry whose answeredBy is an object", { answeredBy: { t: SECRET } }, "answeredBy"],
   ["an entry whose answeredBy is a number", { answeredBy: 42 }, "answeredBy"],
-  ["an entry whose responder is a number", { responder: 42 }, "responder"],
-  ["an entry whose responder is an object", { responder: { t: SECRET } }, "responder"],
+  [
+    "an entry with no answerer, the 0.1.0 way",
+    { answerer: undefined, answeredBy: "channel" },
+    "answerer",
+  ],
 ];
 
 function historyOn(path: string, record: unknown): SqliteExecutionHistoryRepository {

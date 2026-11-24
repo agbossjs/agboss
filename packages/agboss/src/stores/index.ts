@@ -95,9 +95,8 @@ export {
 // the class a refusal of minted ids names (#613)
 export { idGeneratorNameOf } from "../infrastructure/clock.js";
 // what a store reads of a pause, a log entry or a kept history record, given the parsed JSON it
-// holds (#934: 0.1.0 wrote `answeredBy` for who may answer, `answerer` / `responder` for the person):
-// every field they read is checked, the record that comes back has the new names, and a value that
-// is neither shape throws `StoredNamesUnreadableError`, naming the record's id and the field
+// holds (#934): every field they read is checked, only the 0.1.1 shape is read, and any other value
+// throws `StoredNamesUnreadableError`, naming the record's id and the field
 export { executionHistoryRecordOfJson } from "../infrastructure/stored-history.js";
 export { pauseAnswerRecordOfValue } from "../infrastructure/stored-step.js";
 export { pauseRecordOfJson } from "../infrastructure/stored-pause.js";

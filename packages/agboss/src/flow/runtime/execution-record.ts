@@ -62,9 +62,7 @@ export interface PauseAnswerRecord {
   readonly answerer: PauseAnswerer;
   /**
    * Who answered: the `ownerId` or the `answeredBy` credential of `app.resume`; `undefined` when
-   * its channel decided at once, it was withdrawn or cancelled, or its thread has no owner. Before
-   * 0.1.1 `answeredBy` held who may answer (now `answerer`) and `responder` the person: an entry
-   * stored then reads with the new names.
+   * its channel decided at once, it was withdrawn or cancelled, or its thread has no owner.
    */
   readonly answeredBy: string | undefined;
   /** @deprecated 0.1.0's name of `answeredBy`, the same value, until 0.2: use `answeredBy`. */

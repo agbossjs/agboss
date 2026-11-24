@@ -11,7 +11,6 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
 import {
-  ActionFailedError,
   ExecutionAuditEventKind,
   ExecutionLeaseLostError,
   InMemoryOutboundCallRepository,
@@ -142,15 +141,13 @@ describe("#505: the unlisted default beside SQLite leases", () => {
         (thrown: unknown) => thrown,
       );
 
-      expect(error).toBeInstanceOf(ActionFailedError);
+      // a family's error is not wrapped by the action's step (decision 8)
+      expect(error).toBeInstanceOf(IdempotencyError.StoreMismatch);
       expect(error).toMatchObject({
-        cause: {
-          code: "idempotency.store-mismatch",
-          fencedEffectRepository: "InMemoryOutboundCallRepository",
-          leaseRepository: "SqliteExecutionLeaseRepository",
-        },
+        code: "idempotency.store-mismatch",
+        fencedEffectRepository: "InMemoryOutboundCallRepository",
+        leaseRepository: "SqliteExecutionLeaseRepository",
       });
-      expect((error as ActionFailedError).cause).toBeInstanceOf(IdempotencyError.StoreMismatch);
       expect(gateway.calls).toEqual([]);
     },
   );

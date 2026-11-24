@@ -10,10 +10,6 @@ import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { PauseResolution } from "./pause-record.js";
 
-/** Whether a value is a `PauseAnswerer`. */
-const isAnswerer = (value: unknown): value is PauseAnswerer =>
-  Object.values(PauseAnswerer).some((one) => one === value);
-
 const optionalText = z.string().optional();
 
 /**
@@ -98,11 +94,10 @@ export function readStored<S extends z.ZodType>(
 }
 
 /**
- * A log entry as JSON stored it, in either shape (#934): 0.1.0's has no `answerer` — its `answeredBy`
- * is the kind, `responder` the person —, the new one has all three. Parsing it IS reading it: the
- * result is the new shape (`answerer` the kind, `answeredBy` the person, `responder` its deprecated
- * alias), and an entry that is neither — a kind that is none, a person that is no text — is
- * refused at its field, wherever it is nested (the history record's pauses and children's too).
+ * A log entry as JSON stored it (#934): `answerer` the kind, `answeredBy` the person. Parsing it IS
+ * reading it (`responder`, the person's deprecated alias, is filled from `answeredBy`), and an entry
+ * of any other shape — a kind that is none, a person that is no text — is refused at its field,
+ * wherever it is nested (the history record's pauses and children's too).
  */
 export const PauseAnswerRecordSchema = z
   .object({
@@ -110,9 +105,8 @@ export const PauseAnswerRecordSchema = z
     executionId: z.string(),
     step: StoredStep,
     role: z.string(),
-    answerer: z.enum(PauseAnswerer).optional(),
+    answerer: z.enum(PauseAnswerer),
     answeredBy: optionalText,
-    responder: optionalText,
     resolution: z.enum(PauseResolution),
     askedAt: z.string(),
     resolvedAt: optionalText,
@@ -120,26 +114,16 @@ export const PauseAnswerRecordSchema = z
     asked: z.unknown().optional(),
     isTaken: z.literal(false).optional(),
   })
-  .transform((stored, context): PauseAnswerRecord => {
-    const { answerer, answeredBy, responder } = stored;
-    const kind = answerer ?? answeredBy;
-    if (!isAnswerer(kind)) {
-      context.addIssue({ code: "custom", path: ["answeredBy"], message: "no PauseAnswerer" });
-      return z.NEVER;
-    }
-    const person = answerer === undefined ? responder : answeredBy;
-    return {
-      ...stored,
-      pauseId: stored.pauseId,
-      resolvedAt: stored.resolvedAt,
-      decision: stored.decision,
-      answerer: kind,
-      answeredBy: person,
-      responder: person,
-    };
-  });
+  .transform((stored): PauseAnswerRecord => ({
+    ...stored,
+    pauseId: stored.pauseId,
+    resolvedAt: stored.resolvedAt,
+    decision: stored.decision,
+    answeredBy: stored.answeredBy,
+    responder: stored.answeredBy,
+  }));
 
-/** A log entry from the parsed JSON a store kept: read in either shape, or unreadable (id, field). */
+/** A log entry from the parsed JSON a store kept: read in the 0.1.1 shape, or unreadable (id, field). */
 export const pauseAnswerRecordOfValue = (value: unknown): PauseAnswerRecord =>
   readStored(PauseAnswerRecordSchema, value, "pause answer", ["pauseId", "executionId"]);
 

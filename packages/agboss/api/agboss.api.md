@@ -1841,13 +1841,6 @@ export interface CompensationEntry {
 }
 
 // @public
-export enum CompensationEntryStatus {
-    Closed = "closed",
-    Committed = "committed",
-    Open = "open"
-}
-
-// @public
 export class CompensationFailedError extends AGBossError {
     constructor(options: CompensationFailedErrorOptions);
     static readonly code: "compensation.failed";
@@ -2134,6 +2127,9 @@ export class ConsoleLogger extends Logger {
     // (undocumented)
     write(entry: LogEntry): void;
 }
+
+// @public
+export type ContextRuleCode = "context.reserved-field";
 
 // @public
 export type ContextValues<T> = T extends ExecutionContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof ExecutionContext>>> : T extends TenantContext ? Readonly<Pick<T, Exclude<DataKeysOf<T>, keyof TenantContext>>> & TenantValues : never;
@@ -10658,18 +10654,6 @@ export const ToolCall: {
 };
 
 // @public
-export class ToolCallApprovalAskDto {
-    // (undocumented)
-    arguments: ToolArguments;
-    // (undocumented)
-    callId: string;
-    // (undocumented)
-    summary: string;
-    // (undocumented)
-    tool: string;
-}
-
-// @public
 export interface ToolCallContext {
     readonly agent: ComponentRecord;
     readonly callId: string;
@@ -12201,10 +12185,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/dto/errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "callId".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "tool".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "arguments".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "summary".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "contract".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "values".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "kind".

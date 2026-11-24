@@ -181,7 +181,7 @@ export {
   type ReplyInterpreterOptions,
 } from "../channels/channel-role.decorator.js";
 export type { ModelProviderRuleCode } from "../models/model-rule-codes.js";
-export type { A2AEndpointRuleCode } from "../graph/extra-rule-codes.js";
+export type { A2AEndpointRuleCode, ContextRuleCode } from "../graph/extra-rule-codes.js";
 export { TerminalUserChannel } from "../channels/terminal-channel.js";
 export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
 // the tools an agent's scripted calls may name (#679), filled by `.agboss/types.d.ts`

@@ -139,7 +139,7 @@ export const encodePausedRun = (value: unknown): string =>
   );
 
 /**
- * The run `encodePausedRun` wrote (one stored by 0.1.0 under `ternId` too), or why it is refused.
+ * The run `encodePausedRun` wrote, or why it is refused.
  * `ids` are the store's own keys of the row: text that is not JSON names no id of its own. A text that
  * is no JSON is `StoredNamesUnreadableError` (#1121), as a value that fails the schema is.
  */

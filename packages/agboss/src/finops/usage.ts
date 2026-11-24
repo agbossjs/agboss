@@ -56,7 +56,7 @@ export interface UsageRecord extends TokenUsage {
    * yet — its pass writes it —; `LedgerState.Written` once a pass wrote it as it was made, under its
    * `ledgerId` and dated `madeAt`; `LedgerState.RecordedElsewhere` for a call of a child that ran on
    * another instance, recorded there. A record in the ledger is never written again, and counted
-   * once. Read it with `ledgerMarkOf(record)`, which also reads a record kept before 0.1.1.
+   * once. Read it with `ledgerMarkOf(record)`.
    */
   readonly ledger?: LedgerMark;
   /**

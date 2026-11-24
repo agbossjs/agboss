@@ -48,7 +48,7 @@ beforeEach(() => {
 
 afterEach(letChargesGo);
 
-const order = { message: { value: { text: "order-1" } } } as never;
+const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
 const KEY = "Tz-xwZPgI5lI-vQYcp_J-q74VIDlA6P2PbD1NRV-wYY";
 
 /** A runner whose first run's call is left pending: frozen at the provider, its timeout fired. */

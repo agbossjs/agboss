@@ -52,7 +52,7 @@ import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
 
 const test = testWith(BusinessKeyApplication);
 const two = testWith(BusinessKeyApplication, { instances: 2 });
-const order = { message: { value: { text: "order-1" } } } as never;
+const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
 const charge = { orderId: "42", amountUsd: 10 };
 
 /** Until `count` outbound charges of the business-key fixture are frozen. */

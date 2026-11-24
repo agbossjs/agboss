@@ -60,10 +60,9 @@ describe("#505 acceptance: a request at maxPayloadSize", () => {
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toMatchObject({
-      cause: expect.any(OutboundCallError.PayloadTooLarge) as unknown,
-    });
-    expect(error).toMatchObject({ cause: { part: "request", size: 1025, maxPayloadSize: 1024 } });
+    // a family's error is not wrapped by the action's step (decision 8)
+    expect(error).toBeInstanceOf(OutboundCallError.PayloadTooLarge);
+    expect(error).toMatchObject({ part: "request", size: 1025, maxPayloadSize: 1024 });
     expect(JSON.stringify(error) + String(error)).not.toContain(orderId.slice(0, 64));
     expect(gateway.calls).toEqual([]);
   });
@@ -73,9 +72,9 @@ describe("#505 acceptance: a request at maxPayloadSize", () => {
   }) => {
     const orderId = "é".repeat(Math.ceil((1025 - FRAME) / 2));
 
-    await expect(execute(app, ChargeWorkflowStart, { text: orderId })).rejects.toMatchObject({
-      cause: expect.any(OutboundCallError.PayloadTooLarge) as unknown,
-    });
+    await expect(execute(app, ChargeWorkflowStart, { text: orderId })).rejects.toBeInstanceOf(
+      OutboundCallError.PayloadTooLarge,
+    );
     expect(gateway.calls).toEqual([]);
   });
 });

@@ -72,7 +72,7 @@ class KeyedChargeAction {
   }
 }
 
-const order = { message: { value: { text: "order-1" } } } as never;
+const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
 
 beforeEach(() => {
   resetGateway();

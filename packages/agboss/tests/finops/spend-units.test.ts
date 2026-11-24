@@ -94,12 +94,10 @@ describe("#1356: where a provider's cost comes from", () => {
 describe("#1356: the usage a checkpoint's tuple gives back", () => {
   const MADE_AT = new Date("2026-11-04T12:00:00.000Z");
   const paid = serviceUsageOf({ service: "serp-api", cost: usd(1) });
-  /** A record as a state of before 0.1.1 kept it. */
-  const legacy = {
+  /** A record as a checkpoint keeps it as JSON: the mark's date is text. */
+  const stored = {
     ...paid,
-    isRecordedElsewhere: true,
-    ledgerId: "p:1",
-    madeAt: MADE_AT.toISOString(),
+    ledger: { state: LedgerState.Written, ledgerId: "p:1", madeAt: MADE_AT.toISOString() },
   };
   const written = {
     ...paid,
@@ -117,11 +115,11 @@ describe("#1356: the usage a checkpoint's tuple gives back", () => {
 
   it("reads each record of the usage channel; what is no record is left as it is", () => {
     const read = withUsageRead(
-      tupleOf({ usage: [legacy, null, "text", 5, paid], other: [legacy] }),
+      tupleOf({ usage: [stored, null, "text", 5, paid], other: [stored] }),
     );
 
     expect(read.checkpoint.channel_values.usage).toEqual([written, null, "text", 5, paid]);
-    expect(read.checkpoint.channel_values.other).toEqual([legacy]);
+    expect(read.checkpoint.channel_values.other).toEqual([stored]);
   });
 
   it("leaves a usage that is no list, and a checkpoint with none, as they are", () => {
@@ -137,21 +135,21 @@ describe("#1356: the usage a checkpoint's tuple gives back", () => {
   it("reads the pending writes to the usage channel, and has none without them", () => {
     const withWrites = withUsageRead(
       tupleOf({}, [
-        ["task-1", "usage", [legacy]],
-        ["task-1", "other", [legacy]],
+        ["task-1", "usage", [stored]],
+        ["task-1", "other", [stored]],
       ]),
     );
     const without = withUsageRead(tupleOf({ usage: [] }));
 
     expect(withWrites.pendingWrites).toEqual([
       ["task-1", "usage", [written]],
-      ["task-1", "other", [legacy]],
+      ["task-1", "other", [stored]],
     ]);
     expect("pendingWrites" in without).toBe(false);
   });
 
   it("a tuple that is not there stays not there", () => {
-    const tuple = tupleOf({ usage: [legacy] });
+    const tuple = tupleOf({ usage: [stored] });
 
     expect(withUsageReadOf(undefined)).toBeUndefined();
     expect(withUsageReadOf(tuple)?.checkpoint.channel_values.usage).toEqual([written]);

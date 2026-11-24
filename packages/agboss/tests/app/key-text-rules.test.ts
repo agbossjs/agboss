@@ -10,7 +10,7 @@ import { IdempotencyError } from "../../src/core/error-families/effect-errors.js
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import { Action, ExecutionContext } from "../../src/index.js";
+import { Action, ExecutionContext, type Produced } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
 import { testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -27,7 +27,7 @@ import { ACCEPTED_KEYS, NFC_PAIRS, REFUSED_KEYS } from "./fixtures/key-texts.js"
 class KeyedChargeAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly message: { readonly value: WorkflowStartTextDto } }) {
+  execute(input: { readonly message: Produced<WorkflowStartTextDto, unknown> }) {
     const key = effectKeyOf(this.executionContext, "charge", {
       businessKey: input.message.value.text,
     });
@@ -36,7 +36,7 @@ class KeyedChargeAction {
 }
 
 const keyed = (businessKey: string) =>
-  testUnit(KeyedChargeAction)({ message: { value: { text: businessKey } } }).then(
+  testUnit(KeyedChargeAction)({ message: { producer: "test", value: { text: businessKey } } }).then(
     (result) => result.output.text,
     (thrown: unknown) => thrown,
   );

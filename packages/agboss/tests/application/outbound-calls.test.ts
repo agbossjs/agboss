@@ -71,10 +71,9 @@ describe("#505: sendOnce's maxPayloadSize and the sweep read the settings", () =
     runs.callOptions = { maxPayloadSize: kilobytes(1) };
     const call = execute(app, ChargeWorkflowStart, { text: "x".repeat(2000) });
 
-    await expect(call).rejects.toMatchObject({
-      cause: expect.any(OutboundCallError.PayloadTooLarge) as unknown,
-    });
-    await expect(call).rejects.toMatchObject({ cause: { part: "request", maxPayloadSize: 1024 } });
+    // a family's error is not wrapped by the action's step (decision 8)
+    await expect(call).rejects.toBeInstanceOf(OutboundCallError.PayloadTooLarge);
+    await expect(call).rejects.toMatchObject({ part: "request", maxPayloadSize: 1024 });
     expect(await app.outboundCallsOf(TREE)).toEqual([]);
     expect(gateway.calls).toEqual([]);
   });

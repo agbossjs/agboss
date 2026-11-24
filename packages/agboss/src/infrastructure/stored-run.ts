@@ -27,9 +27,8 @@ import { readStored, StoredComponent } from "./stored-step.js";
 
 /**
  * A paused run as a store keeps it as JSON (`PausedExecution.run`), read whole and version tolerant
- * like the history record: what 0.1.0 kept — `ternId` for `turnId`, a pending pause with `agent`
- * and `answeredBy` (the kind), no `kind` — reads as what it is now; a key the type does not know is
- * dropped. `budgetUsd` may be `Infinity` (a run without a cost limit: the store's JSON tags it and
+ * like the history record: only the 0.1.1 shape is read (no 0.1.0 name, no default for a missing
+ * field: such a row is `StoredNamesUnreadableError`); a key the type does not know is dropped. `budgetUsd` may be `Infinity` (a run without a cost limit: the store's JSON tags it and
  * the decoded value comes here). Parsing a value reads it: the type is asserted nowhere.
  */
 
@@ -99,23 +98,20 @@ const StoredCompacted: z.ZodType<Compacted> = z.object({
   summaryQueueLength: count.optional(),
 });
 
-/** A pause a run waits on; 0.1.0's has `agent` (now `step`), `answeredBy` (now `answerer`), no `kind`. */
+/** A pause a run waits on. */
 const StoredWaiting = z
   .object({
     pauseId: text,
-    kind: z.enum(PauseKind).default(PauseKind.Approval),
-    answerer: z.enum(PauseAnswerer).optional(),
-    answeredBy: z.enum(PauseAnswerer).optional(),
-    step: text.optional(),
-    agent: text.optional(),
+    kind: z.enum(PauseKind),
+    answerer: z.enum(PauseAnswerer),
+    step: text,
     channel: text,
     childExecutionId: text.optional(),
     itemIndex: count.optional(),
     ask: z.record(text, z.unknown()),
   })
   .transform((stored, context): WaitingPause => {
-    const answerer = stored.answerer ?? stored.answeredBy;
-    const step = stored.step ?? stored.agent;
+    const { answerer, step } = stored;
     const approval = StoredApprovalAsk.safeParse(stored.ask);
     const refused = (path: string): typeof z.NEVER => {
       context.addIssue({
@@ -125,8 +121,6 @@ const StoredWaiting = z
       });
       return z.NEVER;
     };
-    if (answerer === undefined) return refused("answerer");
-    if (step === undefined) return refused("step");
     const base = {
       pauseId: stored.pauseId,
       answerer,
@@ -143,39 +137,26 @@ const StoredWaiting = z
       : refused("ask");
   });
 
-const StoredRun = z
-  .object({
-    status: z.literal(ExecutionStatus.Paused),
-    start: text,
-    startInput: z.unknown(),
-    path: z.array(text),
-    finish: text.optional(),
-    output: z.unknown().optional(),
-    // a run without a cost limit has Infinity (z.number() rejects it)
-    budgetUsd: z.number().or(z.literal(Infinity)),
-    cost: StoredCostReport,
-    threadId: text,
-    // a run stored before tenants (#261) has none: it is the tenant "default"
-    tenantId: text.default("default"),
-    // a run stored by 0.1.0 names its record `ternId` ("Tern" was a misspelling of "turn", #906)
-    turnId: text.optional(),
-    ternId: text.optional(),
-    data: StoredData,
-    compacted: z.array(StoredCompacted).optional(),
-    traceUrl: text.optional(),
-    runId: text,
-    pending: z.array(StoredWaiting),
-    startedVersion: text.optional(),
-  })
-  .transform((stored, context): AgentExecutionOutput => {
-    const { ternId, turnId: current, ...rest } = stored;
-    const turnId = current ?? ternId;
-    if (turnId === undefined) {
-      context.addIssue({ code: "custom", path: ["turnId"], message: "missing" });
-      return z.NEVER;
-    }
-    return { ...rest, turnId };
-  });
+const StoredRun = z.object({
+  status: z.literal(ExecutionStatus.Paused),
+  start: text,
+  startInput: z.unknown(),
+  path: z.array(text),
+  finish: text.optional(),
+  output: z.unknown().optional(),
+  // a run without a cost limit has Infinity (z.number() rejects it)
+  budgetUsd: z.number().or(z.literal(Infinity)),
+  cost: StoredCostReport,
+  threadId: text,
+  tenantId: text,
+  turnId: text,
+  data: StoredData,
+  compacted: z.array(StoredCompacted).optional(),
+  traceUrl: text.optional(),
+  runId: text,
+  pending: z.array(StoredWaiting),
+  startedVersion: text.optional(),
+});
 
 /** A paused run from the JSON a store kept (decoded: its non-finite numbers restored), or unreadable. */
 export const pausedRunOfValue = (value: unknown): AgentExecutionOutput =>

@@ -27,12 +27,10 @@ const written = {
   ledger: { state: LedgerState.Written, ledgerId: "p:0", madeAt: MADE_AT },
 };
 const elsewhere = { ...paid, ledger: { state: LedgerState.RecordedElsewhere } };
-/** A record as a state of before 0.1.1 kept it. */
-const legacy = {
+/** A record as a checkpoint keeps it as JSON: the mark's date is text. */
+const stored = {
   ...paid,
-  isRecordedElsewhere: true,
-  ledgerId: "p:1",
-  madeAt: MADE_AT.toISOString(),
+  ledger: { state: LedgerState.Written, ledgerId: "p:1", madeAt: MADE_AT.toISOString() },
 };
 
 /** Puts a checkpoint holding `usage` (and `other`, a channel that is not usage). */
@@ -53,7 +51,7 @@ describe.each(savers)("#817: a checkpoint's usage read back on %s", (_name, save
   it("the latest, by id and in the list: each mark one field, its date a Date", async () => {
     const saver = saverOf();
     const ordered = new OrderedCheckpointSaver(saver);
-    const at = await put(ordered, [written, elsewhere, legacy, paid]);
+    const at = await put(ordered, [written, elsewhere, stored, paid]);
     const expected = [
       written,
       elsewhere,

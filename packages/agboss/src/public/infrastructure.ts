@@ -112,12 +112,11 @@ export {
 export type { LedgerEntry } from "../infrastructure/cost-ledger.repository.js";
 // the sum a ledger adds to its counters (#521): stores outside the core use the core's own
 export { totalCost } from "../finops/usage.js";
-export type { CompensationEntry, CompensationEntryStatus } from "../flow/compensation.js";
+export type { CompensationEntry } from "../flow/compensation.js";
 export type { ScopeRecords } from "../flow/runtime/records.js";
 export type { WaitingPause } from "../pause/types.js";
 export type { Compacted } from "../run/compaction.js";
 export type { ExecutionData } from "../run/types.js";
-export type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
 export type { Brand } from "../types/brand.js";
 // calls that leave the system (#505): the store's contract, its in-memory default, the service,
 // its verdicts and outcome, its settings

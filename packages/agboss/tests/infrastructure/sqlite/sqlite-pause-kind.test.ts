@@ -19,7 +19,7 @@ const APPROVAL_ASK = {
   summary: "r",
 };
 
-/** What a row kept as JSON before 0.1.1: `agent`, no `kind`. */
+/** A row's pause as JSON, in the 0.1.1 shape. */
 const storedOf = (fields: Record<string, unknown>): string =>
   JSON.stringify({
     threadId: "thread-1",
@@ -29,7 +29,7 @@ const storedOf = (fields: Record<string, unknown>): string =>
     copyNumber: 1,
     askedAt: "2026-01-05T09:00:00.000Z",
     channel: "refund-approval-channel",
-    answeredBy: "channel",
+    answerer: "channel",
     ...fields,
   });
 

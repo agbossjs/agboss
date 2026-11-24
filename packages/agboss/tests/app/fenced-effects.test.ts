@@ -74,7 +74,7 @@ class FencedReceiptAction {
 }
 
 describe("#890 AC2: Idempotency.runOnce, the service an application injects", () => {
-  const order = { message: { value: { text: "order-1" } } } as never;
+  const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
 
   it("AC2: runs the work once per key on the store the container gives, then replays its result", async () => {
     const run = testUnit(FencedReceiptAction);
@@ -131,7 +131,7 @@ describe("#890 AC2: a test's replacement of the listed store reaches Idempotency
       services: [RecordingFencedEffectRepository],
     });
 
-    await run({ message: { value: { text: "order-2" } } } as never);
+    await run({ message: { producer: "test", value: { text: "order-2" } } });
 
     expect(replaced).toEqual(["receipt"]);
   });

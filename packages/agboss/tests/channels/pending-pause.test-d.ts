@@ -7,8 +7,8 @@ import {
   type PendingPauseBase,
   type PendingQuestion,
   type QuestionAsk,
-  type ToolCallApprovalAskDto,
 } from "../../src/index.js";
+import type { ToolCallApprovalAskDto } from "../../src/dto/index.js";
 import { QuestionFailedError } from "../../src/errors.js";
 
 /**
