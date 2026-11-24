@@ -56,7 +56,8 @@ export class IncompatibleResumeError extends AGBossError {
     super(
       `[resume.incompatible] thread "${resume.threadId}" paused under ${label(resume.paused)}, ` +
         `this app runs ${label(resume.current)} — register ` +
-        `WorkflowSettings.builder().onIncompatibleResume(…) to resume it anyway`,
+        `WorkflowSettings.builder().onIncompatibleResume(…) to resume it anyway ` +
+        `(limits, ttl and provider fallback settings are not part of the config, so a profile that only tunes them never causes this)`,
       { cause: resume.cause },
     );
     this.threadId = resume.threadId;

@@ -1,3 +1,4 @@
+import { profileCheckOf } from "./cli/check-profiles.js";
 import { applicationWarningsOf, type AssembledApplication } from "@agboss/core/internal";
 import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { flagOption, textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
@@ -153,11 +154,13 @@ export const handle: CommandHandler = async (context) => {
   // Loop 0 of the eval pipeline (#396 S5): the suites assembled on the application that assembled
   const suites =
     assembly.kind === "failed" ? NO_SUITES : await evalSuiteProblems(context, loaded.application);
+  // every profile of src/config/, the inactive ones too, schema-only; the editor's schema of them
   // a types file not written is never `ok` (#371, #376): generation's errors the assembly did not
   // report, and the assembly's own named by generation's files where it knew none
   const problems: readonly CheckProblem[] = checkProblemsOf(typed, [
     ...checked.problems,
     ...suites.problems,
+    ...(await profileCheckOf(loaded, assembly)),
   ]);
   const { report } = checked;
   const checks = [

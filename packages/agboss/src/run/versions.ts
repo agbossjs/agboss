@@ -14,7 +14,9 @@ import { versionOf } from "../turns/index.js";
 import { byComponentName, flowLines } from "../flow/print.js";
 import type { AgentExecutionDeps } from "./types.js";
 
+import type { AgentsConfigOf } from "../config/types.js";
 import { stripFunctions } from "./strip-functions.js";
+import { componentModels, withoutOperational } from "./operational-config.js";
 import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js";
 import { guardrailSnapshot, toolInterceptorSnapshot } from "./policy-snapshots.js";
 import { transportSnapshot } from "./transport-snapshot.js";
@@ -114,9 +116,9 @@ export function childSourcesIn(workflows: readonly SnapshotSource[]): ChildSnaps
 const ownSnapshot = <TName extends string>(
   deps: SnapshotSource<TName>,
 ): Record<string, unknown> => ({
-  config: stripFunctions(deps.config),
+  // without the operational limits (#1318): a profile tunes them, a paused run still resumes
+  config: stripFunctions(withoutOperational(deps.config)),
   flow: flowLines(deps.graph.flow, byComponentName),
-  maxSteps: deps.maxSteps,
   routers: routerTexts(deps.routers),
   prompts: agentTexts(deps.prompts),
   elements: elementFingerprintsOf(deps),
@@ -223,6 +225,7 @@ export function executionVersions<TName extends string>(
   readonly configHash: string;
 } {
   const guardrails = modelGuardrailsOf(deps.guardrails);
+  const operational = withoutOperational(deps.config) as AgentsConfigOf<string>;
   return {
     promptVersion: versionOf({
       agents: agentTexts(deps.prompts),
@@ -239,10 +242,12 @@ export function executionVersions<TName extends string>(
       ...interpreterPrompts(deps.replyInterpreters),
     }),
     modelVersion: versionOf({
-      defaults: deps.config.defaults,
+      defaults: operational.defaults,
       routers: deps.routers.map(({ name, model }) => ({ name, model })),
       ...(arbitersOf(deps).length === 0 ? {} : { arbiters: arbitersOf(deps) }),
-      agents: deps.config.agents,
+      agents: operational.agents,
+      // every other model-backed component too: the judges' and the compactions' models
+      ...componentModels(operational),
       ...guardrailModels(guardrails),
     }),
     configVersion: deps.config.version,

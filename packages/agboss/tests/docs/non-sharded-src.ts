@@ -340,6 +340,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the components' decorators, assembly and injection: wiring, no money decision", [
     "src/components/agent-settings.ts",
     "src/components/profiled.ts",
+    "src/run/operational-config.ts",
     "src/components/assemble-checks.ts",
     "src/components/assemble-parts.ts",
     "src/components/assemble-tools.ts",

@@ -42,8 +42,6 @@ export const PROFILE: OptionSpec = {
   value: "<name>",
   help: "layer src/config/<name>.config.ts|yaml over base (a,b or a+b: left to right; default dev)",
 };
-/** The two that choose what an application runs on: its profiles, its environment. */
-export const PROFILE_AND_ENV: readonly OptionSpec[] = [PROFILE, ENV];
 export const THREAD: OptionSpec = {
   name: "thread",
   type: "string",
@@ -56,6 +54,8 @@ export const ENV: OptionSpec = {
   value: "<name>",
   help: "the environment: environments/<name>.environment.ts next to the application (default dev)",
 };
+/** The two that choose what an application runs on: its profiles, its environment. */
+export const PROFILE_AND_ENV: readonly OptionSpec[] = [PROFILE, ENV];
 export const DRY_RUN: OptionSpec = {
   name: "dry-run",
   type: "boolean",

@@ -356,6 +356,9 @@ export function compareProfilesWith<TApplication extends Class>(application: App
 export const completedStatusOf: (finish: string, output: unknown, spentUsd: Usd, spentTokens?: number) => A2ATaskStatus;
 
 // @public
+export function configJsonSchemaOf(assembled: AssembledApplication): Schema;
+
+// @public
 export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
 
 // @public
@@ -1407,6 +1410,19 @@ export enum ProfileErrorReason {
 }
 
 // @public
+export interface ProfileProblem {
+    // (undocumented)
+    readonly file: string;
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly profile: string;
+}
+
+// @public
+export function profileProblemsOf(application: Class, where: string): Promise<readonly ProfileProblem[]>;
+
+// @public
 export type ProviderFetch = typeof fetch;
 
 // @public
@@ -1751,6 +1767,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/create-app.ts - (ae-undocumented) Missing documentation for "workflows".
 // src/application/create-app.ts - (ae-undocumented) Missing documentation for "infrastructure".
 // src/application/execution-history-store.ts - (ae-undocumented) Missing documentation for "history".
+// src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "profile".
+// src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "file".
+// src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "message".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "Workflow".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "application".
