@@ -78,16 +78,23 @@ export type EvalCaseOf<TStart> = Omit<EvalCase, "tenant" | "execution" | "turns"
 /** One turn of a case: the input of the suite's start, checked against it by the suite. */
 export const turn = <const TInput>(input: TInput): EvalTurn<TInput> => Object.freeze({ input });
 
+/** What `pastTurn` takes (#1328): the start and its input, the finish and its output. */
+export interface PastTurnOptions<TStart extends Class, TFinish extends Class> {
+  readonly start: TStart;
+  readonly input: ExecutionInputOf<InstanceType<TStart>>;
+  readonly finish: TFinish;
+  readonly output: OutputOf<InstanceType<TFinish>>;
+}
+
 /**
- * One past turn of a case's thread, written and not run: `start` with its `input`, answered by
- * `finish` with its `output` — the thread's memory reads it as `start <name>` / `finish <name>`.
+ * One past turn of a case's thread, written and not run: `pastTurn({ start, input, finish, output })` —
+ * `start` with its `input`, answered by `finish` with its `output`; the thread's memory reads it as
+ * `start <name>` / `finish <name>`.
  */
 export function pastTurn<TStart extends Class, TFinish extends Class>(
-  start: TStart,
-  input: ExecutionInputOf<InstanceType<TStart>>,
-  finish: TFinish,
-  output: OutputOf<InstanceType<TFinish>>,
+  options: PastTurnOptions<TStart, TFinish>,
 ): EvalPastTurn {
+  const { start, input, finish, output } = options;
   return Object.freeze({ start, input, finish, output });
 }
 

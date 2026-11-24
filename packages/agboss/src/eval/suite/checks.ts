@@ -7,7 +7,7 @@ import type { Class } from "../../components/injection.js";
  * and `cascade` are the author's, stated explicitly.
  */
 
-/** How a suite runs its checks after a failed one (`@EvalSuite({ cascade })`, required). */
+/** How a suite runs its checks after a failed one (`@EvalSuite({ cascade })`; default `StopAtFirstFailure`). */
 export enum EvalCascade {
   /** The first failed check stops the rest: they are reported `CheckStatus.Skipped`. */
   StopAtFirstFailure = "stop-at-first-failure",

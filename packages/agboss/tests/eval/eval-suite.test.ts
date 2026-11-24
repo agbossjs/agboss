@@ -91,8 +91,11 @@ class RefundListJudge implements JudgeHandler<readonly RefundCardOutputDto[]> {
     evalCase({
       name: "refund-after-history",
       history: [
-        pastTurn(RefundWorkflowStart, { text: "Refund order 6" }, RefundWorkflowFinish, {
-          status: "refunded 6",
+        pastTurn({
+          start: RefundWorkflowStart,
+          input: { text: "Refund order 6" },
+          finish: RefundWorkflowFinish,
+          output: { status: "refunded 6" },
         }),
       ],
       turns: [turn({ text: "And order 7?" })],
@@ -162,8 +165,13 @@ describe("#396: cases are typed by the suite's start, each tool's input and the 
     toolCall(RefundCardTool, { order: "7" });
     // @ts-expect-error -- amountCents is a number
     toolInvariant(RefundCardTool, (input) => input.amountCents === "1");
-    // @ts-expect-error -- refund-workflow-finish answers { status }
-    pastTurn(RefundWorkflowStart, { text: "a" }, RefundWorkflowFinish, { text: "b" });
+    pastTurn({
+      start: RefundWorkflowStart,
+      input: { text: "a" },
+      finish: RefundWorkflowFinish,
+      // @ts-expect-error -- refund-workflow-finish answers { status }
+      output: { text: "b" },
+    });
 
     expect(toolCall(FreeBedsTool, { ward: "3" })).toEqual({
       tool: FreeBedsTool,
@@ -171,8 +179,7 @@ describe("#396: cases are typed by the suite's start, each tool's input and the 
     });
   });
 
-  it("the suite checks every case's turns against its start; cascade is required", () => {
-    // @ts-expect-error -- no cascade: the order of checks is stated explicitly
+  it("the suite checks every case's turns against its start; cascade is optional", () => {
     EvalSuite({
       name: "a-eval-suite",
       description: "a",
@@ -189,6 +196,11 @@ describe("#396: cases are typed by the suite's start, each tool's input and the 
       // @ts-expect-error -- the start takes { text }, not { message }
       cases: [evalCase({ name: "b", turns: [turn({ message: "hi" })] })],
     });
+
+    @EvalSuite({ name: "c-eval-suite", start: RefundWorkflowStart, checks: [], cases: [] })
+    class DefaultCascade {}
+    expect(evalSuiteOf(DefaultCascade)?.cascade).toBe(EvalCascade.StopAtFirstFailure);
+    expect(evalSuiteOf(DefaultCascade)?.description).toBeUndefined();
 
     expect(checkTrajectory()).toEqual({ trajectory: true });
   });
@@ -346,10 +358,21 @@ describe("#396: eval.case-invalid — the cases' values, every issue at once, no
           tenant: { tenantId: "eval-clinic", units: "u1" },
           execution: { unitId: "u1" },
           history: [
-            // @ts-expect-error -- the finish answers BedsDto
-            pastTurn(BedRequestWorkflowStart, { text: "before" }, BedsWorkflowFinish, { beds: 2 }),
-            // @ts-expect-error -- a past turn starts at a start
-            pastTurn(BedsWorkflowFinish, { text: "x" }, BedRequestWorkflowStart, { text: "y" }),
+            pastTurn({
+              start: BedRequestWorkflowStart,
+              input: { text: "before" },
+              finish: BedsWorkflowFinish,
+              // @ts-expect-error -- the finish answers BedsDto
+              output: { beds: 2 },
+            }),
+            pastTurn({
+              start: BedsWorkflowFinish,
+              // @ts-expect-error -- a past turn starts at a start
+              input: { text: "x" },
+              finish: BedRequestWorkflowStart,
+              // @ts-expect-error -- and ends at a finish
+              output: { text: "y" },
+            }),
           ],
           turns: [turn({ text: 3 })],
         }),

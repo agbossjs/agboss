@@ -1,6 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import type { EvalCase, EvalCaseOf } from "./cases.js";
-import type { EvalCascade, EvalCheck } from "./checks.js";
+import { EvalCascade, type EvalCheck } from "./checks.js";
 
 /**
  * `@EvalSuite` (#396, `@agboss/core/eval`): a named set of cases run through one start of an
@@ -13,19 +13,21 @@ import type { EvalCascade, EvalCheck } from "./checks.js";
 export interface EvalSuiteOptions<TStart extends Class = Class> {
   /** Kebab-case, ending with `-eval-suite` (`[name.kind-suffix]`): `--suite <name>`. */
   readonly name: string;
-  readonly description: string;
+  /** What the suite checks, for a reader of the report. */
+  readonly description?: string;
   /** The `@WorkflowStart` every turn goes through: a start of the application (`[eval.unknown-start]`). */
   readonly start: TStart;
   /** The checks of every run, in order: `checkTrajectory()`, `judgedBy(Judge)`. */
   readonly checks: readonly EvalCheck[];
-  /** What a failed check does to the ones after it — required: no implicit order. */
-  readonly cascade: EvalCascade;
+  /** What a failed check does to the ones after it; default `EvalCascade.StopAtFirstFailure`. */
+  readonly cascade?: EvalCascade;
   /** The cases, each name unique (`[eval.duplicate-case]`); their turns typed by `start`'s input. */
   readonly cases: readonly EvalCaseOf<InstanceType<TStart>>[];
 }
 
 /** A suite as recorded: its options with the cases as written. */
-export interface EvalSuiteMeta extends Omit<EvalSuiteOptions, "cases"> {
+export interface EvalSuiteMeta extends Omit<EvalSuiteOptions, "cases" | "cascade"> {
+  readonly cascade: EvalCascade;
   readonly cases: readonly EvalCase[];
 }
 
@@ -40,7 +42,8 @@ export function EvalSuite<const TStart extends Class>(
 ): <C extends Class>(value: C) => C {
   return (value) => {
     const cases: readonly EvalCase[] = options.cases;
-    suites.set(value, Object.freeze({ ...options, cases: Object.freeze(cases) }));
+    const cascade = options.cascade ?? EvalCascade.StopAtFirstFailure;
+    suites.set(value, Object.freeze({ ...options, cascade, cases: Object.freeze(cases) }));
     return value;
   };
 }

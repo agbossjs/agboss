@@ -1620,7 +1620,7 @@ import { ScreeningWorkflowStart } from "../workflows/screening/screening.workflo
     judgedBy(HireSavedJudge), // 2. a code judge: deterministic, $0
     judgedBy(ReasonedVerdictJudge), // 3. a model judge: paid, runs only if the two above passed
   ],
-  cascade: EvalCascade.StopAtFirstFailure, // required: no implicit order
+  cascade: EvalCascade.StopAtFirstFailure, // optional: this is the default
   cases: [
     evalCase({
       name: "strong-candidate-hired",
@@ -1634,8 +1634,11 @@ import { ScreeningWorkflowStart } from "../workflows/screening/screening.workflo
     evalCase({
       name: "second-application",
       history: [
-        pastTurn(ScreeningWorkflowStart, { name: "Ben", cv: "Go, 2 years" }, HiredWorkflowFinish, {
-          hireId: "hire-ben-1",
+        pastTurn({
+          start: ScreeningWorkflowStart,
+          input: { name: "Ben", cv: "Go, 2 years" },
+          finish: HiredWorkflowFinish,
+          output: { hireId: "hire-ben-1" },
         }),
       ],
       turns: [turn({ name: "Ben", cv: "Go, 4 years" })],
@@ -1840,7 +1843,7 @@ npx agboss generate eval-case refund-from-prod --suite refunds-eval-suite --from
   reference 09) — runs nothing, calls no model — and adds one `evalCase({ … })` to the suite's
   `cases`: its start's input as the case's one `turn(…)`, its tenant and execution values (none for
   the default tenant without fields), the thread's earlier **finished** turns as `history:
-[pastTurn(Start, input, Finish, output)]` (oldest first), and the tool calls it ran (succeeded,
+[pastTurn({ start, input, finish, output })]` (oldest first), and the tool calls it ran (succeeded,
   failed or timed out — not declined or blocked), each tool with the same arguments once, as
   `tools: { required: [toolCall(Tool, arguments)] }`. The classes it names are imported into the
   suite's file (merged into an import of the same module), with `pastTurn` / `toolCall` / `turn`.

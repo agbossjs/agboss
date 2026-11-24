@@ -69,7 +69,7 @@ describe("#396 PR 8: agboss generate eval-case --from-execution", () => {
     const suite = plannedSuite(call.stdout);
     expect(suite?.content).toContain(
       'evalCase({ name: "refund-from-prod", tenant: {"tenantId":"acme","plan":"pro"}, execution: {"userId":"u-1"}, ' +
-        'history: [pastTurn(DeskWorkflowStart, {"text":"Where is order 7?"}, DeskWorkflowFinish, {"text":"Order 7 arrived broken."})], ' +
+        'history: [pastTurn({ start: DeskWorkflowStart, input: {"text":"Where is order 7?"}, finish: DeskWorkflowFinish, output: {"text":"Order 7 arrived broken."} })], ' +
         'turns: [turn({"text":"Refund order 7 for <email>"})], ' +
         'tools: { required: [toolCall(GetOrderTool, {"orderId":"7"}), toolCall(RefundTool, {"orderId":"7","amountCents":5000})] } }),',
     );

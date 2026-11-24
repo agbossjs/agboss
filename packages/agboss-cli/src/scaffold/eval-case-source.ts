@@ -41,7 +41,7 @@ export interface CaseSource {
   readonly skipped: readonly string[];
 }
 
-/** `pastTurn(Start, input, Finish, output)` per turn whose classes are found. */
+/** `pastTurn({ start, input, finish, output })` per turn whose classes are found. */
 function historyOf(draft: EvalCaseDraft, classes: CaseClasses) {
   const used: Component[] = [];
   const skipped: string[] = [];
@@ -53,8 +53,13 @@ function historyOf(draft: EvalCaseDraft, classes: CaseClasses) {
       return [];
     }
     used.push(start, finish);
-    const args = [start.className, literal(turn.input), finish.className, literal(turn.output)];
-    return [`pastTurn(${args.join(", ")})`];
+    const fields = [
+      `start: ${start.className}`,
+      `input: ${literal(turn.input)}`,
+      `finish: ${finish.className}`,
+      `output: ${literal(turn.output)}`,
+    ];
+    return [`pastTurn({ ${fields.join(", ")} })`];
   });
   return { turns, used, skipped };
 }

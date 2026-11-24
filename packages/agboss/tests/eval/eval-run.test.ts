@@ -57,8 +57,11 @@ const TENANT = { tenantId: "eval-acme", plan: "pro" } as const;
       tenant: TENANT,
       execution: { userId: "eval-user-1" },
       history: [
-        pastTurn(DeskWorkflowStart, { text: "Never delete my orders." }, DeskWorkflowFinish, {
-          text: "Understood.",
+        pastTurn({
+          start: DeskWorkflowStart,
+          input: { text: "Never delete my orders." },
+          finish: DeskWorkflowFinish,
+          output: { text: "Understood." },
         }),
       ],
       turns: [turn({ text: "Hi" }), turn({ text: "Refund order 7, it arrived broken" })],

@@ -541,18 +541,19 @@ export interface EvalStepTrace {
 export function EvalSuite<const TStart extends Class>(options: EvalSuiteOptions<TStart>): <C extends Class>(value: C) => C;
 
 // @public
-export interface EvalSuiteMeta extends Omit<EvalSuiteOptions, "cases"> {
+export interface EvalSuiteMeta extends Omit<EvalSuiteOptions, "cases" | "cascade"> {
+    // (undocumented)
+    readonly cascade: EvalCascade;
     // (undocumented)
     readonly cases: readonly EvalCase[];
 }
 
 // @public
 export interface EvalSuiteOptions<TStart extends Class = Class> {
-    readonly cascade: EvalCascade;
+    readonly cascade?: EvalCascade;
     readonly cases: readonly EvalCaseOf<InstanceType<TStart>>[];
     readonly checks: readonly EvalCheck[];
-    // (undocumented)
-    readonly description: string;
+    readonly description?: string;
     readonly name: string;
     readonly start: TStart;
 }
@@ -630,7 +631,19 @@ export interface JudgeEvalCheck {
 }
 
 // @public
-export function pastTurn<TStart extends Class, TFinish extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, finish: TFinish, output: OutputOf<InstanceType<TFinish>>): EvalPastTurn;
+export function pastTurn<TStart extends Class, TFinish extends Class>(options: PastTurnOptions<TStart, TFinish>): EvalPastTurn;
+
+// @public
+export interface PastTurnOptions<TStart extends Class, TFinish extends Class> {
+    // (undocumented)
+    readonly finish: TFinish;
+    // (undocumented)
+    readonly input: ExecutionInputOf<InstanceType<TStart>>;
+    // (undocumented)
+    readonly output: OutputOf<InstanceType<TFinish>>;
+    // (undocumented)
+    readonly start: TStart;
+}
 
 // @public
 export type ToolArgumentsOf<TTool extends Class<ToolHandler<never, unknown>>> = PartialValues<ToolInputOf<InstanceType<TTool>>>;
@@ -794,11 +807,15 @@ export const turn: <const TInput>(input: TInput) => EvalTurn<TInput>;
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "output".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "turns".
 // src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "variants".
+// src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "start".
+// src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "input".
+// src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "finish".
+// src/eval/suite/cases.ts - (ae-undocumented) Missing documentation for "output".
 // src/eval/suite/checks.ts - (ae-undocumented) Missing documentation for "Passed".
 // src/eval/suite/checks.ts - (ae-undocumented) Missing documentation for "Failed".
 // src/eval/suite/checks.ts - (ae-undocumented) Missing documentation for "trajectory".
 // src/eval/suite/checks.ts - (ae-undocumented) Missing documentation for "judge".
-// src/eval/suite/eval-suite.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/eval/suite/eval-suite.decorator.ts - (ae-undocumented) Missing documentation for "cascade".
 // src/eval/suite/eval-suite.decorator.ts - (ae-undocumented) Missing documentation for "cases".
 // src/eval/suite/tool-expectations.ts - (ae-undocumented) Missing documentation for "tool".
 // src/eval/suite/tool-expectations.ts - (ae-undocumented) Missing documentation for "tool".

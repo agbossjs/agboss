@@ -11,6 +11,7 @@ export {
 export {
   evalCase,
   pastTurn,
+  type PastTurnOptions,
   turn,
   type EvalCase,
   type EvalCaseOf,
