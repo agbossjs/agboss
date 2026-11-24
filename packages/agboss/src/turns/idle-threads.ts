@@ -5,8 +5,10 @@ import type { EndedRun, TurnStore } from "./types.js";
 
 /**
  * The sweep of idle threads (#1303c): a thread whose memory's `ttl` has run out since its last
- * activity is removed with its Turns, summaries, owner and pause answers — never while a tree of it
- * is live or paused. Each thread is decided on its own, so one that came back to life keeps its rows.
+ * activity is emptied of its Turns, summaries and pause answers — never while a tree of it is live or
+ * paused. An owned thread stays as a tombstone (its row and owner, marked swept): no other owner can
+ * take the id and read what anything else keyed by it still holds; the owner may restart on it.
+ * A thread with no owner goes whole. Each thread is decided on its own, so one that came back to life keeps its rows.
  */
 
 /** How many threads of one workflow one look removes: the rest go at the next look. */
@@ -27,7 +29,7 @@ interface IdleThread {
 function idleThreadsOf(db: DatabaseSync, workflow: string, cutoff: Date): IdleThread[] {
   return db
     .prepare(
-      `SELECT tenant_id, id FROM threads WHERE bundle = ? AND last_active_at < ?
+      `SELECT tenant_id, id FROM threads WHERE bundle = ? AND is_swept = 0 AND last_active_at < ?
        ORDER BY last_active_at LIMIT ?`,
     )
     .all(workflow, cutoff.toISOString(), THREADS_PER_LOOK)
@@ -58,10 +60,19 @@ function deleteRowsOf(db: DatabaseSync, thread: IdleThread, runs: readonly strin
     ).run(tenantId, ...runs);
   db.prepare("DELETE FROM summaries WHERE tenant_id = ? AND thread_id = ?").run(tenantId, threadId);
   db.prepare("DELETE FROM terns WHERE tenant_id = ? AND thread_id = ?").run(tenantId, threadId);
-  db.prepare("DELETE FROM thread_owners WHERE tenant_id = ? AND thread_id = ?").run(
-    tenantId,
-    threadId,
-  );
+  // a thread with an owner stays as a tombstone: the id is never another owner's to claim
+  // (a different owner is refused at the owner check; the same owner restarts on an empty thread)
+  const isOwned =
+    db
+      .prepare("SELECT 1 FROM thread_owners WHERE tenant_id = ? AND thread_id = ?")
+      .get(tenantId, threadId) !== undefined;
+  if (isOwned) {
+    db.prepare("UPDATE threads SET is_swept = 1 WHERE tenant_id = ? AND id = ?").run(
+      tenantId,
+      threadId,
+    );
+    return;
+  }
   db.prepare("DELETE FROM threads WHERE tenant_id = ? AND id = ?").run(tenantId, threadId);
 }
 
@@ -81,7 +92,7 @@ function removeThread(
     const stillIdle = db
       .prepare(
         `SELECT 1 FROM threads t WHERE t.tenant_id = ? AND t.id = ? AND t.bundle = ?
-         AND t.last_active_at < ?
+         AND t.is_swept = 0 AND t.last_active_at < ?
          AND NOT EXISTS (SELECT 1 FROM terns x WHERE x.tenant_id = t.tenant_id AND x.thread_id = t.id
            AND x.status IN (${placeholders(LIVE_STATUSES.length)}))
          AND NOT EXISTS (SELECT 1 FROM terns y WHERE y.tenant_id = t.tenant_id AND y.thread_id = t.id

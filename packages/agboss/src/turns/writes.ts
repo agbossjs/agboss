@@ -11,8 +11,8 @@ const COMPLETE = `UPDATE terns SET replyWith = ?, status = ?, stop_reason = ?, r
   cost_usd = ? WHERE id = ?`;
 
 /** A write to a thread's Turn is its activity: what a memory's `ttl` counts from (#1303). */
-const TOUCH_THREAD = `UPDATE threads SET last_active_at = ? WHERE tenant_id = ? AND id = ?`;
-const TOUCH_THREAD_OF_TURN = `UPDATE threads SET last_active_at = ? WHERE (tenant_id, id) =
+const TOUCH_THREAD = `UPDATE threads SET last_active_at = ?, is_swept = 0 WHERE tenant_id = ? AND id = ?`;
+const TOUCH_THREAD_OF_TURN = `UPDATE threads SET last_active_at = ?, is_swept = 0 WHERE (tenant_id, id) =
   (SELECT tenant_id, thread_id FROM terns WHERE id = ?)`;
 
 /**

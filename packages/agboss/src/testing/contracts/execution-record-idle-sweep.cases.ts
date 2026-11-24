@@ -69,14 +69,47 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       const removed = await second.deleteIdleThreads(hourAgo(clock.now()), ended);
 
       expect(removed).toBe(1);
-      expect(await first.hasThread(WORKFLOW, "default", thread)).toBe(false);
-      expect(await first.threadOwner(WORKFLOW, "default", thread)).toBeUndefined();
+      // an owned thread stays as a tombstone: its owner is kept, nothing else of it
+      expect(await first.threadOwner(WORKFLOW, "default", thread)).toEqual({ owner: "dana" });
       expect(await first.lastTurns("default", thread, 10)).toEqual([]);
       expect(await first.summaryCount("default", thread, "desk-memory")).toBe(0);
       expect(await first.findPauseAnswersByTenantIdAndRootExecutionId("default", "run-1")).toEqual(
         [],
       );
       expect(await second.deleteIdleThreads(hourAgo(clock.now()), ended)).toBe(0);
+    },
+  },
+  {
+    name: "a swept thread leaves nothing another owner can claim: the id stays its owner's, and the same owner restarts clean (1303c)",
+    run: async ({ clock, first, second }) => {
+      const thread = await first.createThread({
+        workflow: WORKFLOW,
+        tenantId: "default",
+        ownerId: "dana",
+        threadId: "case-7",
+      });
+      await first.append(record(thread, "run-1", ExecutionRecordStatus.Answered));
+      await clock.advance(hours(2));
+      await second.deleteIdleThreads(hourAgo(clock.now()), ended);
+
+      await second.createThread({
+        workflow: WORKFLOW,
+        tenantId: "default",
+        ownerId: "mallory",
+        threadId: "case-7",
+      });
+
+      expect(await first.threadOwner(WORKFLOW, "default", "case-7")).toEqual({ owner: "dana" });
+      expect(await first.lastTurns("default", "case-7", 10)).toEqual([]);
+      await second.createThread({
+        workflow: WORKFLOW,
+        tenantId: "default",
+        ownerId: "dana",
+        threadId: "case-7",
+      });
+      expect(await first.lastTurns("default", "case-7", 10)).toEqual([]);
+      await first.append(record("case-7", "run-2", ExecutionRecordStatus.Answered));
+      expect(await first.lastTurns("default", "case-7", 10)).toHaveLength(1);
     },
   },
   {
