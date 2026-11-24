@@ -13,10 +13,7 @@ import {
   type ToolHandler,
 } from "../../src/index.js";
 import { createMcpService, McpExpose, type McpSessionOptions } from "../../src/mcp/index.js";
-import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text } from "../../src/dto/index.js";
-import { jsonSchemaOf } from "../../src/dto/schema.js";
-import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -33,7 +30,6 @@ import {
   DeskApplication,
 } from "../testing/fixtures/desk.workflow.js";
 import { onStart } from "../helpers/flow.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 /** A paused workflow as the MCP tool reports it. */
@@ -45,6 +41,7 @@ interface PausedReply {
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { jsonSchemaOf } from "../../src/dto/schema.js";
 
 function offline(book: ScriptBook, stubs = new McpStubs(book)): BuildApplicationOptions {
   return {
@@ -101,7 +98,7 @@ class Clerk {}
 @Workflow({
   name: "clerk-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(Clerk).toFinish(Reply)],
+  flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },

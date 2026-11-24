@@ -176,7 +176,6 @@ export class ScreeningWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toFinish(ScreeningWorkflowFinish),
   ],
 })
@@ -329,7 +328,6 @@ on its cost, its tenant's and the application's. All violations at once, before 
 
 ```ts no-check: a fragment of a flow
 onStart(ReviewWorkflowStart)
-  .returns(DraftDto)
   .toParallelAgents(StyleAgent, FactsAgent, LegalAgent)
   .join()
   .onError(
@@ -337,9 +335,7 @@ onStart(ReviewWorkflowStart)
     toAction(NotifyEditorAction)
       .toFinish(ReviewStoppedWorkflowFinish),
   )
-  .returns(listOf(ReviewNoteDto))
   .toAgent(SummaryAgent)
-  .returns(ReviewDto)
   .toFinish(ReviewWorkflowFinish)
 ```
 

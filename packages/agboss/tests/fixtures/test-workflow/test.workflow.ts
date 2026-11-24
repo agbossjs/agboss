@@ -106,7 +106,6 @@ export class MainRouter {}
   guardrails: [PromptInjectionGuardrail, PersonalDataGuardrail],
   flow: [
     onStart(TestChat)
-      .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
       .chooseOne(
         route(NoAnswer),

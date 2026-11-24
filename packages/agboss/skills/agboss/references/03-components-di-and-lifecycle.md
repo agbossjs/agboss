@@ -441,9 +441,7 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(DeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(SupportAgent)
-      .returns(DeskAnswerDto)
       .toFinish(DeskWorkflowFinish),
   ],
   defaults: { tools: { maxToolCalls: 6 } }, // over the application's, under the agent's own
@@ -963,11 +961,8 @@ import { TicketIssuedWorkflowFinish } from "./ticket-issued.workflow-finish.js";
   version: "1.0.0",
   flow: [
     onStart(SeatWorkflowStart)
-      .returns(SeatRequestDto)
       .toAction(HoldSeatAction)
-      .returns(SeatHoldDto)
       .toAction(IssueTicketAction) // commits the hold: no side path after it owes the release
-      .returns(TicketIssuedDto)
       .toFinish(TicketIssuedWorkflowFinish),
   ],
   providers: [AirlineService],

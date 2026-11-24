@@ -61,9 +61,7 @@ export class ItemCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(StudioItemWorkflowStart)
-      .returns(StudioItemDto)
       .toAction(CheckItemAction)
-      .returns(StudioResultDto)
       .toFinish(ItemCheckedWorkflowFinish),
   ],
 })
@@ -107,12 +105,9 @@ export class SummaryWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(StudioItemsWorkflowStart)
-      .returns(listOf(StudioItemDto))
       .toParallelWorkflows(StudioItemWorkflow, { maxConcurrency: 2, maxItems: 10 })
       .join()
-      .returns(listOf(StudioResultDto))
       .toAction(SummaryAction)
-      .returns(StudioSummaryDto)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -134,9 +129,7 @@ export class OneCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(StudioOneWorkflowStart)
-      .returns(StudioItemDto)
       .toWorkflow(StudioItemWorkflow)
-      .returns(StudioResultDto)
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })

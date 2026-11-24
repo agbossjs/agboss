@@ -1,9 +1,6 @@
 import { onStart, Workflow } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { FlightBuyerAgent } from "../../agents/flight-buyer/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "../../agents/venue-buyer/venue-buyer.agent.js";
-import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
-import { VenueBookingDto } from "../../dto/venue-booking.dto.js";
 import { ApprovalTerminal } from "../../services/approval-terminal.service.js";
 import { OffsiteBookingWorkflowFinish } from "./offsite-booking.workflow-finish.js";
 import { OffsiteBookingWorkflowStart } from "./offsite-booking.workflow-start.js";
@@ -20,11 +17,8 @@ import { OffsiteBookingWorkflowStart } from "./offsite-booking.workflow-start.js
   version: "1.0.0",
   flow: [
     onStart(OffsiteBookingWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(VenueBuyerAgent, FlightBuyerAgent)
       .join()
-      .returns(VenueBookingDto)
-      .returns(FlightBookingDto)
       .toFinish(OffsiteBookingWorkflowFinish),
   ],
   providers: [ApprovalTerminal], // what the terminal channel prints on

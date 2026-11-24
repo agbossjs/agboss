@@ -62,7 +62,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`). Every custom error is an
    `AGBossError` subclass in `errors/<name>.error.ts` ending with `Error`.
 3. **The flow is paths, written one call per line.** `@Workflow({ flow: [onStart(S) … .toFinish(F)] })`;
-   `.returns(XDto)` says what the step before put on the path (its scope), and a later node reads its
+   what the step before gives (its declared `output`, a start's `input`) is on the path (its scope), and a later node reads its
    `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
    position. Every path ends in a finish.
 4. **Data are DTO classes, values are plain objects.** One field decorator per field (`@Text`,
@@ -74,7 +74,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    every component — project code never calls `new` on one.
 6. **Components keep no state.** Another instance may continue an execution after a pause: read the
    execution from an injected `ExecutionContext`, time from `Clock`, ids from `IdGenerator`; data
-   that outlive a step go through the path (`.returns`) or your own service over external storage.
+   that outlive a step go through the path (a step's `output`) or your own service over external storage.
 7. **Values carry units.** `seconds(30)`, `minutes(5)`, `hours(24)`, `usd(0.05)`, `kilobytes(256)`
    from `@agboss/core/units` — `timeout: seconds(5)`, never `timeoutMs: 5000`.
 8. **Infrastructure lives in the application only.** Stores (`Sqlite…Repository`), `Clock`,

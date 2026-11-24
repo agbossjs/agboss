@@ -33,7 +33,7 @@ class KidFinish {}
 @Workflow({
   name: "profile-kid-workflow",
   version: "1.0.0",
-  flow: [onStart(KidStart).returns(WorkflowStartTextDto).toAgent(Kid).toFinish(KidFinish)],
+  flow: [onStart(KidStart).toAgent(Kid).toFinish(KidFinish)],
 })
 export class KidWorkflow {}
 
@@ -51,13 +51,7 @@ class BossFinish {}
 @Workflow({
   name: "profile-boss-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(BossStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(KidWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(BossFinish),
-  ],
+  flow: [onStart(BossStart).toWorkflow(KidWorkflow).toFinish(BossFinish)],
 })
 export class BossWorkflow {}
 

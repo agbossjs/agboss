@@ -1,7 +1,6 @@
 import type { Class } from "../components/injection.js";
 import {
   NodeKind,
-  QuorumKind,
   StepKind,
   type ChooseOneRoute,
   type ComponentSource,
@@ -24,7 +23,6 @@ import {
   priorityOf,
   quorumGroupOf,
 } from "./quorum-step.js";
-import { returnedValue } from "./returns-step.js";
 import { placementOptionOf } from "./child-placement.js";
 import { expiresInOptionOf } from "./question-options.js";
 import type { PathStart } from "./path-start.js";
@@ -62,7 +60,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return new PathBuilder(this.start, this.source, [...this.steps, step]);
   }
 
-  /** The join with a new handler or value: `.onError(…)` and `.returns(…)` extend it. */
+  /** The join with a new handler: `.onError(…)` extends it. */
   private withJoin(join: JoinStep): PathBuilder<TSource> {
     return this.withLast(Object.freeze(join));
   }
@@ -79,18 +77,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   ): PathBuilder<TSource> {
     const step: ToStep = { kind: StepKind.To, target, targetKind: kind };
     return this.then({ ...step, ...extra });
-  }
-
-  returns(shape: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
-    const value = returnedValue(shape, rest.length);
-    const { last } = this;
-    if (last?.kind === StepKind.Join && last.quorum?.kind === QuorumKind.Groups)
-      throw syntaxError(
-        "each group names its values: group(…).returns(…) — not after .joinQuorumGroups(…)",
-      );
-    if (last?.kind === StepKind.Join)
-      return this.withJoin({ ...last, returns: Object.freeze([...last.returns, value]) });
-    return this.then({ kind: StepKind.Returns, value });
   }
 
   toAgent(target: Class): PathBuilder<TSource> {
@@ -130,16 +116,13 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   /**
    * `.onError(E, side path)`: after a step it handles that step's failure; right after a join
-   * (`.join()`, `.joinQuorum(…)`, `.joinQuorumGroups(…)`), before its `.returns(…)`, it handles the
-   * join's failure (#1281).
+   * (`.join()`, `.joinQuorum(…)`, `.joinQuorumGroups(…)`) it handles the join's failure (#1281).
    */
   onError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
     const { last } = this;
     if (last?.kind !== StepKind.Join) {
       return this.then({ kind: StepKind.OnError, error, path: path.asSidePath() });
     }
-    if (last.returns.length > 0)
-      throw syntaxError(".onError(E, …) stands right after .join(), before its .returns(…)");
     const handler = Object.freeze({ error, path: path.asSidePath() });
     return this.withJoin({ ...last, onError: Object.freeze([...last.onError, handler]) });
   }
@@ -160,7 +143,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   join(): PathBuilder<TSource> {
     return this.then({
       kind: StepKind.Join,
-      returns: Object.freeze([]),
       onError: Object.freeze([]),
     });
   }
@@ -176,7 +158,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   joinQuorum(options: unknown): PathBuilder<TSource> {
     return this.then({
       kind: StepKind.Join,
-      returns: Object.freeze([]),
       onError: Object.freeze([]),
       quorum: countQuorumOf(options),
     });
@@ -188,7 +169,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
       path instanceof PathBuilder ? path.asGroup() : undefined;
     return this.then({
       kind: StepKind.Join,
-      returns: Object.freeze([]),
       onError: Object.freeze([]),
       quorum: groupsQuorumOf(args, asGroup),
     });
@@ -208,7 +188,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
       last === undefined
         ? this.source?.kind === NodeKind.Router
         : last.kind === StepKind.To && last.targetKind === NodeKind.Router;
-    return this.then(launchStepOf(targetKind, args, { previous: last, followsRouter }));
+    return this.then(launchStepOf(targetKind, args, { followsRouter }));
   }
 
   private subPath(): SubPath {
@@ -227,7 +207,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return Object.freeze({ target, path: this.subPath(), ...(placement && { placement }) });
   }
 
-  /** A group: its leading `.returns(…)` chain are its values, the rest its own path. */
+  /** A group: its agents, priority and own path. */
   private asGroup(): QuorumGroup | undefined {
     return this.start.kind === "group" ? quorumGroupOf(this.start, this.steps) : undefined;
   }

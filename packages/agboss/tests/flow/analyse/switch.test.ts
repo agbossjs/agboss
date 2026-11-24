@@ -7,7 +7,6 @@ import {
   DraftApprovedDto,
   OfferDraftDto,
   OfferSentDto,
-  ShortlistDto,
 } from "../fixtures/dtos.js";
 import {
   DraftKitAgent,
@@ -21,30 +20,19 @@ import {
 import { caseOf, onStart } from "../fixtures/paths.js";
 
 /**
- * `.switch(caseOf(…)…)` is exhaustive over the `oneOf` it follows (#272 AC5), written after
- * `.returns(oneOf(…))` (#299 S54 c).
+ * `.switch(caseOf(…)…)` is exhaustive over the `oneOf` output of the step it follows (#272 AC5,
+ * #299 S54 c).
  */
 
-const reviewed = () =>
-  onStart(KitWorkflowStart)
-    .returns(ShortlistDto)
-    .toAgent(DraftKitAgent)
-    .returns(OfferDraftDto)
-    .toAgent(ReviewKitAgent);
+const reviewed = () => onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent);
 
-const toReview = () => reviewed().returns(oneOf(ChangesRequestedDto, DraftApprovedDto));
+const toReview = () => reviewed();
 
 const changes = () =>
-  caseOf(ChangesRequestedDto)
-    .toAgent(EditKitAgent)
-    .returns(OfferDraftDto)
-    .toFinish(DraftKitWorkflowFinish);
+  caseOf(ChangesRequestedDto).toAgent(EditKitAgent).toFinish(DraftKitWorkflowFinish);
 
 const approved = () =>
-  caseOf(DraftApprovedDto)
-    .toAction(SendKitAction)
-    .returns(OfferSentDto)
-    .toFinish(SentKitWorkflowFinish);
+  caseOf(DraftApprovedDto).toAction(SendKitAction).toFinish(SentKitWorkflowFinish);
 
 @Workflow({
   name: "exhaustive-workflow",
@@ -70,7 +58,6 @@ class UnknownCaseWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
       .switch(caseOf(OfferDraftDto).toFinish(DraftKitWorkflowFinish)),
   ],
@@ -78,20 +65,11 @@ class UnknownCaseWorkflow {}
 class SwitchWithoutOneOfWorkflow {}
 
 @Workflow({
-  name: "unreturned-one-of-workflow",
+  name: "unswitched-one-of-workflow",
   version: "1.0.0",
-  flow: [reviewed().switch(approved(), changes())],
+  flow: [reviewed().toAction(SendKitAction).toFinish(SentKitWorkflowFinish)],
 })
-class UnreturnedOneOfWorkflow {}
-
-@Workflow({
-  name: "wrong-one-of-workflow",
-  version: "1.0.0",
-  flow: [
-    reviewed().returns(oneOf(ChangesRequestedDto, OfferSentDto)).switch(approved(), changes()),
-  ],
-})
-class WrongOneOfWorkflow {}
+class UnswitchedOneOfWorkflow {}
 
 @Workflow({
   name: "empty-case-workflow",
@@ -130,23 +108,19 @@ describe("AC5: exhaustive switch", () => {
       expect.objectContaining({
         code: "flow.switch-unknown-case",
         message:
-          "switch-without-one-of-workflow: draft-kit-agent gives OfferDraftDto, not a oneOf — .switch(caseOf(…)…) follows a step with a oneOf output; write .returns(…) after it instead",
+          "switch-without-one-of-workflow: draft-kit-agent gives OfferDraftDto, not a oneOf — .switch(caseOf(…)…) follows a step with a oneOf output; continue with .to…(…) after it instead",
       }),
     );
   });
 
-  it("#299 S54 c: the oneOf is written before the switch, and is the step's output", () => {
-    const mismatch = (workflow: abstract new () => unknown) =>
-      checkWorkflow(workflow)
-        .errors.filter((found) => found.code === "flow.returns-mismatch")
-        .map((found) => found.message);
-
-    expect(mismatch(UnreturnedOneOfWorkflow)).toEqual([
-      "unreturned-one-of-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — write .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)) before its .switch(…)",
-    ]);
-    expect(mismatch(WrongOneOfWorkflow)).toEqual([
-      "wrong-one-of-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — write .returns(oneOf(ChangesRequestedDto, DraftApprovedDto)), not .returns(oneOf(ChangesRequestedDto, OfferSentDto))",
-    ]);
+  it("a transition right after a oneOf output, without the switch, fails", () => {
+    expect(checkWorkflow(UnswitchedOneOfWorkflow).errors).toContainEqual(
+      expect.objectContaining({
+        code: "flow.switch-not-exhaustive",
+        message:
+          "unswitched-one-of-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — branch it with .switch(caseOf(…)…)",
+      }),
+    );
   });
 
   it("a case that leads nowhere is a dead end", () => {

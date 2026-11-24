@@ -33,12 +33,7 @@ import {
   MemoOrderAction,
   RefundOrderAction,
 } from "./fixtures/paid-steps.actions.js";
-import {
-  OrderDeclinedError,
-  OrderDto,
-  paidSteps,
-  resetPaidSteps,
-} from "./fixtures/paid-steps.dto.js";
+import { OrderDeclinedError, paidSteps, resetPaidSteps } from "./fixtures/paid-steps.dto.js";
 
 const test = testWith(HeldBranchApplication);
 
@@ -113,10 +108,8 @@ function brokenRules(flow: WorkflowOptions["flow"]): readonly string[] {
 }
 
 const launched = onStart(HeldBranchWorkflowStart)
-  .returns(OrderDto)
   .toAction(BookOrderAction)
   .toAction(CheckOrderAction)
-  .returns(OrderDto)
   .toParallelActions(RefundOrderAction, MemoOrderAction)
   .join();
 
@@ -141,7 +134,6 @@ describe("#683: no side path takes the held branch's failure with the booking op
   it("a refund launched on a side path is no undo of it either", () => {
     const flow = [
       onStart(HeldBranchWorkflowStart)
-        .returns(OrderDto)
         .toAction(BookOrderAction)
         .toAction(DeclineOrderAction)
         .onError(
@@ -151,7 +143,6 @@ describe("#683: no side path takes the held branch's failure with the booking op
             .join()
             .toFinish(HeldBranchWorkflowFinish),
         )
-        .returns(OrderDto)
         .toFinish(HeldBranchWorkflowFinish),
     ];
 

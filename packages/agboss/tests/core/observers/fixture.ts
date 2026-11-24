@@ -80,7 +80,6 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
     uncompactedTurns: 1,
     flow: [
       onStart(Start)
-        .returns(WorkflowStartTextDto)
         .toAgent(Worker)
         .toFinish(Finish),
     ],

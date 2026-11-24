@@ -3,11 +3,12 @@ import { z } from "zod";
 import { describeWorkflow } from "../src/describe/describe-workflow.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import { defineTool } from "../src/tools/index.js";
-import { resolveTools, type AssembledWorkflow } from "../src/workflow.js";
+import { type AssembledWorkflow } from "../src/workflow.js";
 import { Greetings } from "./components/fixture/components.js";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
 import { HistoryOfferWorkflow } from "./flow/fixtures/history.fixture.js";
 import { PolishWorkflow, StoryWorkflow } from "./flow/fixtures/review.fixture.js";
+import { resolveTools } from "../src/workflow.js";
 
 const test = await workflowOf(TestWorkflow);
 const greetings = await workflowOf(Greetings);
@@ -101,7 +102,6 @@ describe("describe a workflow", () => {
     expect(section("flow", "inputs")).toEqual([
       "flow",
       "  onStart(TestChat)",
-      "    .returns(WorkflowStartTextDto)",
       "    .toRouter(MainRouter)",
       "    .chooseOne(",
       "      route(NoAnswer),",
@@ -123,18 +123,11 @@ describe("describe a workflow", () => {
     const lines = describeWorkflow(story);
 
     expect(lines).not.toContain("about");
-    expect(lines).toEqual(
-      expect.arrayContaining([
-        "    .returns(oneOf(ApprovalDto, DraftChangesDto))",
-        "      caseOf(DraftChangesDto)",
-      ]),
-    );
+    expect(lines).toEqual(expect.arrayContaining(["      caseOf(DraftChangesDto)"]));
     expect(lines).toContain(
       "  publisher-agent ← draft: story-writer-agent, approval: story-reviewer-agent",
     );
-    expect(describeWorkflow(polish)).toEqual(
-      expect.arrayContaining(["    .returns(listOf(CritiqueDto))"]),
-    );
+    expect(describeWorkflow(polish)).toEqual(expect.arrayContaining(["flow"]));
   });
 
   it("#299 S56: a historyOf field says so, with its maxPrevious", () => {

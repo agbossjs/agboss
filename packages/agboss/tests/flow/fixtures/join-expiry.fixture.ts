@@ -156,9 +156,7 @@ export class ApproveTool implements ToolHandler<ApprovalRequestDto, ApprovalRequ
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
 })
-export class ApproveInThirtyTool
-  implements ToolHandler<ApprovalRequestDto, ApprovalRequestDto>
-{
+export class ApproveInThirtyTool implements ToolHandler<ApprovalRequestDto, ApprovalRequestDto> {
   run(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
     return Promise.resolve(input);
   }
@@ -264,7 +262,6 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
   version: "1.0.0",
   flow: [
     onStart(JoinExpiryWorkflowStart)
-      .returns(ApprovalRequestDto)
       .toParallelAgents(
         LegalApproverAgent,
         FinanceApproverAgent,
@@ -275,13 +272,8 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
       .onError(
         PauseExpiredError,
         toAction(EscalateToCeoAction)
-          .returns(EscalationDto)
           .toFinish(JoinExpiryEscalatedWorkflowFinish),
       )
-      .returns(LegalDecisionDto)
-      .returns(FinanceDecisionDto)
-      .returns(CfoDecisionDto)
-      .returns(CooDecisionDto)
       .toFinish(JoinExpiryApprovedWorkflowFinish),
   ],
 })
@@ -303,11 +295,7 @@ export class JoinExpiryLog implements OnExecutionEnd, OnExecutionError {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JoinExpiryWorkflow],
-  providers: [
-    JoinApproverDeskChannel,
-    JoinFailedPauseListener,
-    RecordingLogger,
-  ],
+  providers: [JoinApproverDeskChannel, JoinFailedPauseListener, RecordingLogger],
   observers: [JoinExpiryLog],
   budgets: TEST_BUDGETS,
 })

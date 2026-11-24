@@ -9,7 +9,7 @@ import { declared, recordDeclaration } from "./declaration.js";
 export type WorkflowStartInput =
   DtoClass | ListWrapper<DtoClass> | Readonly<Record<string, ValueShape>>;
 
-/** `@WorkflowStart` — where an execution starts; in the flow `onStart(S).returns(InputDto)`. */
+/** `@WorkflowStart` — where an execution starts; in the flow `onStart(S).toAgent(…)`. */
 export interface WorkflowStartOptions {
   /** Ends with `-workflow-start` (`chat-workflow-start`). */
   readonly name: string;

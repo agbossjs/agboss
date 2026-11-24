@@ -19,7 +19,6 @@ import {
   type LedgerEntry,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { CostCounter } from "../../../src/infrastructure/cost-ledger.repository.js";
-import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
@@ -184,13 +183,9 @@ class GrandPayWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(GrandPayWorkflowStart)
-      .returns(ItemDto)
       .toAction(GrandOne)
-      .returns(ItemDto)
       .toAction(GrandTwo)
-      .returns(ItemDto)
       .toAction(GrandDoneAction)
-      .returns(ItemResultDto)
       .toFinish(GrandPayWorkflowFinish),
   ],
 })
@@ -209,11 +204,8 @@ class SiblingItemWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SiblingItemWorkflowStart)
-      .returns(ItemDto)
       .toAction(SiblingPayAction)
-      .returns(ItemDto)
       .toWorkflow(GrandPayWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
       .toFinish(SiblingItemWorkflowFinish),
   ],
 })
@@ -231,13 +223,11 @@ export class SiblingItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SiblingItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(SiblingItemWorkflow, {
         maxItems: 2,
         placement: ChildPlacement.ParentInstance,
       })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })

@@ -187,9 +187,7 @@ export class ItemCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ItemCheckWorkflowStart)
-      .returns(ItemDto)
       .toAction(CheckItemAction)
-      .returns(ItemResultDto)
       .toFinish(ItemCheckedWorkflowFinish),
   ],
 })
@@ -240,11 +238,9 @@ export class ChecksFailedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(CheckItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemCheckWorkflow, { maxConcurrency: 2, maxItems: 10 })
       .join()
       .onError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
-      .returns(listOf(ItemResultDto))
       .toFinish(ChecksSummaryWorkflowFinish),
   ],
 })
@@ -282,10 +278,8 @@ export class OneFailedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(CheckOneWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)
       .onError(ItemFailedError, toFinish(OneFailedWorkflowFinish))
-      .returns(ItemResultDto)
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -304,9 +298,7 @@ export class CheckBareWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(CheckBareWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)
-      .returns(ItemResultDto)
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -333,9 +325,7 @@ export class ItemDeepCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ItemDeepCheckWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)
-      .returns(ItemResultDto)
       .toFinish(ItemDeepCheckedWorkflowFinish),
   ],
 })
@@ -353,10 +343,8 @@ export class DeepCheckItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(DeepCheckItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemDeepCheckWorkflow, { maxItems: 10 })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(ChecksSummaryWorkflowFinish),
   ],
 })
@@ -395,9 +383,7 @@ export class FallbackCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FallbackCheckWorkflowStart)
-      .returns(ItemDto)
       .toAction(FallbackCheckAction)
-      .returns(ItemResultDto)
       .toFinish(FallbackCheckedWorkflowFinish),
   ],
 })
@@ -423,15 +409,12 @@ export class RecheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(CheckOrFallbackWorkflowStart)
-      .returns(ItemDto)
       .toAction(CheckItemAction)
       .onError(
         StepFailedError,
         toWorkflow(FallbackCheckWorkflow)
-          .returns(ItemResultDto)
           .toFinish(RecheckedWorkflowFinish),
       )
-      .returns(ItemResultDto)
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -489,10 +472,8 @@ export class ItemReviewedWorkflowFinish {}
   maxSteps: 2,
   flow: [
     onStart(ItemReviewWorkflowStart)
-      .returns(ItemDto)
       .toAgent(ItemReviewerAgent),
     onAgent(ItemReviewerAgent)
-      .returns(oneOf(ItemResultDto, ItemNoteDto))
       .switch(
         caseOf(ItemResultDto)
           .toFinish(ItemReviewedWorkflowFinish),
@@ -550,16 +531,13 @@ export class ReviewsSummaryWorkflowFinish {
   maxSteps: 4,
   flow: [
     onStart(ReviewItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemReviewWorkflow, { maxConcurrency: 2, maxItems: 10 })
       .join()
       .onError(
         ChildExecutionFailedError,
         toAgent(ReviewRescueAgent)
-          .returns(SummaryDto)
           .toFinish(ReviewsWorkflowFinish),
       )
-      .returns(listOf(ItemResultDto))
       .toFinish(ReviewsSummaryWorkflowFinish),
   ],
 })
@@ -590,10 +568,8 @@ export class ReviewStoppedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(ReviewOneWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(ItemReviewWorkflow)
       .onError(StepsLimitExceededError, toFinish(ReviewStoppedWorkflowFinish))
-      .returns(ItemResultDto)
       .toFinish(ItemReviewedWorkflowFinish),
   ],
 })

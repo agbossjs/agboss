@@ -185,13 +185,7 @@ function bookingWorkflow(kind: string, action: (typeof ACTIONS)[number][1]) {
   @Workflow({
     name: `book-${kind}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(BookStart)
-        .returns(OrderDto)
-        .toAction(action)
-        .returns(ReceiptDto)
-        .toFinish(BookedFinish),
-    ],
+    flow: [onStart(BookStart).toAction(action).toFinish(BookedFinish)],
   })
   class BookWorkflow {}
 

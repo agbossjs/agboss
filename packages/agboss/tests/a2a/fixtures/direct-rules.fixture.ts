@@ -142,17 +142,12 @@ export class BusyWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(BusyWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChargeAction)
       .toAction(PayAction)
       .toAction(ReserveAction)
       .toWorkflow(QuoteWorkflow)
-      .returns(WorkflowFinishTextDto)
       .toFinish(BusyWorkflowFinish),
-    onStart(BusyAgentWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(BusyAgent)
-      .toFinish(BusyWorkflowFinish),
+    onStart(BusyAgentWorkflowStart).toAgent(BusyAgent).toFinish(BusyWorkflowFinish),
   ],
   mcp: [JobBoardServer],
   providers: [LedgerService, LedgerWriter],

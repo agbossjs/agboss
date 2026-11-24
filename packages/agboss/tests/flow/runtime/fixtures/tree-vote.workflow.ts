@@ -98,11 +98,9 @@ export class NotVotedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(VoteWorkflowStart)
-      .returns(TaskDto)
       .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
       .joinQuorum({ min: 2, deadline: seconds(30) })
       .onError(QuorumNotReachedError, toFinish(NotVotedWorkflowFinish))
-      .returns(listOf(VoteDto))
       .toFinish(VotedWorkflowFinish),
   ],
 })
@@ -140,14 +138,11 @@ export class MixedNotVotedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(MixedWorkflowStart)
-      .returns(TaskDto)
       .toRouter(TaskKindRouter)
       .chooseOne(
         route(TaskWorkflow)
-          .returns(TaskDoneDto)
           .toFinish(TaskDoneWorkflowFinish),
         route(VoteWorkflow)
-          .returns(oneOf(NotVotedDto, VotedDto))
           .switch(
             caseOf(NotVotedDto)
               .toFinish(MixedNotVotedWorkflowFinish),
@@ -184,10 +179,8 @@ export class VotingDoneWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(VotingWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelWorkflows(MixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
       .join()
-      .returns(listOf(oneOf(NotVotedDto, TaskDoneDto, VotedDto)))
       .toFinish(VotingDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,

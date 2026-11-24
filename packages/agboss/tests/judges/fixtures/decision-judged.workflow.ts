@@ -5,7 +5,7 @@ import {
   type JudgeHandler,
   type JudgeInput,
 } from "../../../src/index.js";
-import { PlainTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { PlainTextDto } from "../../../src/dto/index.js";
 import { ImageDetail } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
@@ -88,7 +88,6 @@ export class Illustrator {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Writer)
       .toFinish(Reply),
   ],
@@ -112,7 +111,6 @@ export class DecisionDeskApplication {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Illustrator)
       .toFinish(Reply),
   ],

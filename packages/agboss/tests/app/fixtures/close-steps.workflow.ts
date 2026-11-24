@@ -3,7 +3,7 @@ import {
   Action,
   Agent,
   ApplicationContext,
-  Clock, StoreClock,
+  StoreClock,
   EmptyEnvironment,
   ExecutionContext,
   Injectable,
@@ -19,7 +19,6 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -174,9 +173,7 @@ export class ToolWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SlowWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(SlowAction)
-      .returns(ReceiptDto)
       .toFinish(SlowWorkflowFinish),
   ],
   providers: [Teardown],
@@ -189,9 +186,7 @@ export class SlowWorkflow {}
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(ToolWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(WorkerAgent)
-      .returns(ReceiptDto)
       .toFinish(ToolWorkflowFinish),
   ],
   providers: [Teardown],

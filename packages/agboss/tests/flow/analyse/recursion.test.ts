@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { RecursionDecider } from "../../../src/flow/analyse/recursion.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { ThisWorkflow } from "../../../src/flow/this-workflow.js";
 import { inputLines } from "../../../src/describe/inputs.js";
 import { recursionLines } from "../../../src/describe/recursion.js";
@@ -54,14 +53,9 @@ const messagesOf = (target: abstract new () => unknown, code: string): readonly 
 /** The countdown's flow: code goes one level deeper while the count lasts. */
 const countdown: Flow = [
   onStart(CountdownWorkflowStart)
-    .returns(CountDto)
     .toAction(CountdownAction)
-    .returns(oneOf(CountDto, CountDoneDto))
     .switch(
-      caseOf(CountDto)
-        .toWorkflow(ThisWorkflow)
-        .returns(CountDoneDto)
-        .toFinish(CountDoneWorkflowFinish),
+      caseOf(CountDto).toWorkflow(ThisWorkflow).toFinish(CountDoneWorkflowFinish),
       caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
     ),
 ];
@@ -117,11 +111,7 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
 
   it("mutual recursion: A launches B, which launches A", () => {
     const through = (other: abstract new () => unknown): Flow => [
-      onStart(CountdownWorkflowStart)
-        .returns(CountDto)
-        .toWorkflow(other)
-        .returns(CountDoneDto)
-        .toFinish(CountDoneWorkflowFinish),
+      onStart(CountdownWorkflowStart).toWorkflow(other).toFinish(CountDoneWorkflowFinish),
     ];
     // declared first with no paths, its flow recorded once the other class exists
     @Workflow({ name: "pong-workflow", version: "1.0.0", flow: [] })
@@ -141,11 +131,7 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
     @Workflow({ name: "loop-workflow", version: "1.0.0", flow: [] })
     class LoopWorkflow {}
     const flow: Flow = [
-      onStart(CountdownWorkflowStart)
-        .returns(CountDto)
-        .toWorkflow(LoopWorkflow)
-        .returns(CountDoneDto)
-        .toFinish(CountDoneWorkflowFinish),
+      onStart(CountdownWorkflowStart).toWorkflow(LoopWorkflow).toFinish(CountDoneWorkflowFinish),
     ];
     Workflow({ name: "loop-workflow", version: "1.0.0", flow })(LoopWorkflow);
 
@@ -158,9 +144,7 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
     const missing: unknown = undefined;
     const flow: Flow = [
       onStart(CountdownWorkflowStart)
-        .returns(CountDto)
         .toWorkflow(missing as never)
-        .returns(CountDoneDto)
         .toFinish(CountDoneWorkflowFinish),
     ];
 
@@ -174,19 +158,15 @@ describe("AC5: [graph.recursion-without-exit]", () => {
   it("every case of a switch launches ThisWorkflow", () => {
     const flow: Flow = [
       onStart(CountdownWorkflowStart)
-        .returns(CountDto)
         .toAction(CountdownAction)
-        .returns(oneOf(CountDto, CountDoneDto))
         .switch(
           caseOf(CountDto).toWorkflow(ThisWorkflow),
           caseOf(CountDoneDto).toWorkflow(ThisWorkflow),
         ),
-      onWorkflow(ThisWorkflow)
-        .returns(oneOf(CountDoneDto, CountStoppedDto))
-        .switch(
-          caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
-          caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
-        ),
+      onWorkflow(ThisWorkflow).switch(
+        caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
+        caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
+      ),
     ];
 
     expect(messagesOf(recursive(flow, 2), "graph.recursion-without-exit")).toEqual([

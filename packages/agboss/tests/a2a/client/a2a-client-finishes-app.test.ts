@@ -94,10 +94,8 @@ class HandedOverFinish {}
   version: "1.0.0",
   flow: [
     onStart(AskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(AskPeerAction)
       .onError(A2AUnexpectedFinishError, toFinish(HandedOverFinish))
-      .returns(AnswerDto)
       .toFinish(AnsweredFinish),
   ],
   providers: [AnswersA2AAgent],

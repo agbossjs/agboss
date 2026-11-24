@@ -31,7 +31,6 @@ export class ApprovalsWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ApprovalsWorkflowStart)
-      .returns(FlightBookingDto)
       .toFinish(ApprovalsWorkflowFinish),
   ],
 })

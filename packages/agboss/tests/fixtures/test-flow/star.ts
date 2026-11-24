@@ -26,7 +26,6 @@ export function starOf(...agents: readonly [Class, ...Class[]]): readonly FlowPa
   class MainRouter {}
   return [
     onStart(TestChat)
-      .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
       .chooseOne(
         route(NoAnswer),

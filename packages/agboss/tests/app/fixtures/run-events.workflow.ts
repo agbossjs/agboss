@@ -211,9 +211,7 @@ export class Done {}
   providers: [FileAway],
   flow: [
     onStart(Ask)
-      .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
-      .returns(AnswerDto)
       .toAction(FileAway)
       .toFinish(Done),
   ],

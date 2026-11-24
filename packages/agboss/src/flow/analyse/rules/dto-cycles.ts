@@ -33,7 +33,7 @@ function cyclesOf(dtos: readonly DtoClass[]): (readonly DtoClass[])[] {
 }
 
 export function dtoCycleRules(context: AnalysisContext): readonly RuleViolation[] {
-  // a `.returns(…)` or `caseOf(…)` DTO must be some node's output, so the nodes cover every DTO
+  // an output or `caseOf(…)` DTO must be some node's output, so the nodes cover every DTO
   return [...context.graph.nodes.values()].flatMap((node) =>
     cyclesOf(declaredDtos(node.declaration)).map((cycle) =>
       violation("dto.cyclic", message(node.name, cycle), [node.name]),

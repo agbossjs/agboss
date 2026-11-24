@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { listOf } from "../../../src/flow/dto-wrappers.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { onStart } from "../../helpers/flow.js";
@@ -13,9 +12,7 @@ import {
 } from "../runtime/fixtures/tree-batch.workflow.js";
 import { NarrowGroupsWorkflow } from "../runtime/fixtures/tree-groups.workflow.js";
 import {
-  TaskDoneDto,
   TaskDoneWorkflowFinish,
-  TaskDto,
   TaskWorkflow,
   TaskWorkflowStart,
   WorkAction,
@@ -39,10 +36,8 @@ function tree(cap: number | undefined, child: Workflowish = TaskWorkflow): Workf
     version: "1.0.0",
     flow: [
       onStart(BatchWorkflowStart)
-        .returns(listOf(TaskDto))
         .toParallelWorkflows(child, { maxItems: 10 })
         .join()
-        .returns(listOf(TaskDoneDto))
         .toFinish(BatchDoneWorkflowFinish),
     ],
   };
@@ -57,13 +52,7 @@ function cappedTask(cap: number): Workflowish {
   @Workflow({
     name: `capped-task-${String(count)}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(TaskWorkflowStart)
-        .returns(TaskDto)
-        .toAction(WorkAction)
-        .returns(TaskDoneDto)
-        .toFinish(TaskDoneWorkflowFinish),
-    ],
+    flow: [onStart(TaskWorkflowStart).toAction(WorkAction).toFinish(TaskDoneWorkflowFinish)],
     maxConcurrentExecutions: cap,
   })
   class CappedTaskWorkflow {}

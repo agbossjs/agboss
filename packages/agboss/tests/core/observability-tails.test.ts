@@ -167,13 +167,7 @@ class FinishNode {}
   name: "tails-test-workflow",
   version: "1.0.0",
   defaults: testDefaults,
-  flow: [
-    onStart(StartNode)
-      .returns(WorkflowStartTextDto)
-      .toAction(FormatAction)
-      .toAgent(SafeAgent)
-      .toFinish(FinishNode),
-  ],
+  flow: [onStart(StartNode).toAction(FormatAction).toAgent(SafeAgent).toFinish(FinishNode)],
 })
 class TailsWorkflow {}
 

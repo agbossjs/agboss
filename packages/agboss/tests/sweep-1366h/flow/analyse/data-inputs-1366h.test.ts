@@ -32,12 +32,11 @@ import {
   ResearchWorkflowStart,
   ScreeningFailedWorkflowFinish,
 } from "../../../flow/fixtures/launch.fixture.js";
-import { WorkflowStartTextDto } from "../../../flow/fixtures/dtos.js";
 import { ArticleDraftDto } from "../../../flow/fixtures/launch-dtos.js";
-import { CritiqueDto, PlanDto, ResearchDto } from "../../../flow/fixtures/review-dtos.js";
-import { onStart, toAction, toFinish } from "../../../flow/fixtures/paths.js";
+import { CritiqueDto, ResearchDto } from "../../../flow/fixtures/review-dtos.js";
+import { onStart, toAction } from "../../../flow/fixtures/paths.js";
 import { MAX_SCOPES_PER_NODE } from "../../../../src/flow/analyse/dataflow.js";
-import { returnsEach } from "../../../flow/fixtures/paths.js";
+import { toFinish } from "../../../flow/fixtures/paths.js";
 
 type Flow = WorkflowOptions["flow"];
 
@@ -72,7 +71,7 @@ const agentOf = (name: string, input: Record<string, unknown>) => {
   return ReadsAgent;
 };
 
-const kit = () => onStart(KitWorkflowStart).returns(ShortlistDto);
+const kit = () => onStart(KitWorkflowStart);
 
 describe("#1366: a field no path brings", () => {
   it("a required field is [input.missing-on-path], an optional one [input.never-produced], both name the node", () => {
@@ -82,11 +81,7 @@ describe("#1366: a field no path brings", () => {
       maybe: optional(OfferSentDto),
     });
 
-    expect(
-      codesAndNodes([
-        kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
-      ]),
-    ).toEqual([
+    expect(codesAndNodes([kit().toAgent(reader).toFinish(DraftKitWorkflowFinish)])).toEqual([
       { code: "input.missing-on-path", nodes: ["needs-unrelated-1366h-agent"] },
       { code: "input.never-produced", nodes: ["needs-unrelated-1366h-agent"] },
     ]);
@@ -95,9 +90,7 @@ describe("#1366: a field no path brings", () => {
   it("a flow whose every field is brought passes", () => {
     const reader = agentOf("reads-shortlist-1366h-agent", { shortlist: ShortlistDto });
 
-    expect(
-      refusals([kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish)]),
-    ).toEqual([]);
+    expect(refusals([kit().toAgent(reader).toFinish(DraftKitWorkflowFinish)])).toEqual([]);
   });
 });
 
@@ -125,14 +118,7 @@ describe("#1366: several values where one field reads", () => {
     })
     class SummaryAgent {}
 
-    const flow: Flow = [
-      onStart(ContractStart)
-        .returns(ReviewDto)
-        .returns(ReviewDto)
-        .toAgent(SummaryAgent)
-        .returns(ShortlistDto)
-        .toFinish(ContractFinish),
-    ];
+    const flow: Flow = [onStart(ContractStart).toAgent(SummaryAgent).toFinish(ContractFinish)];
 
     expect(refusals(flow)).toEqual([
       expect.objectContaining({
@@ -147,15 +133,10 @@ describe("#1366: several values where one field reads", () => {
 /** A planner's parallel agents joined: a research and two critiques (a list of one class), read by `reader`. */
 const joinedInto = (reader: abstract new () => unknown): Flow => [
   onStart(ResearchWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(PlannerAgent)
-    .returns(PlanDto)
     .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent)
     .join()
-    .returns(ResearchDto)
-    .returns(listOf(CritiqueDto))
     .toAgent(reader)
-    .returns(ArticleDraftDto)
     .toFinish(ArticleDraftWorkflowFinish),
 ];
 
@@ -220,21 +201,14 @@ describe("#1366: a side path of a join error reads a settled answer", () => {
   it("as required it is [input.missing-on-path] for an answer its branch may not have given, naming the node", () => {
     const flow: Flow = [
       onStart(ResearchWorkflowStart)
-        .returns(WorkflowStartTextDto)
         .toAgent(PlannerAgent)
-        .returns(PlanDto)
         .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
         .join()
         .onError(
           PauseExpiredError,
-          toAction(SettledRequiredAction)
-            .returns(ScreeningFailedDto)
-            .toFinish(ScreeningFailedWorkflowFinish),
+          toAction(SettledRequiredAction).toFinish(ScreeningFailedWorkflowFinish),
         )
-        .returns(ResearchDto)
-        .returns(listOf(CritiqueDto))
         .toAgent(ArticleWriterAgent)
-        .returns(ArticleDraftDto)
         .toFinish(ArticleDraftWorkflowFinish),
     ];
 
@@ -252,11 +226,9 @@ describe("#1366: two fields reading one class, a bad historyOf maxPrevious", () 
   it("two fields of one class are [flow.ambiguous-field] naming the node", () => {
     const reader = agentOf("twice-1366h-agent", { first: ShortlistDto, second: ShortlistDto });
 
-    expect(
-      codesAndNodes([
-        kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
-      ]),
-    ).toEqual([{ code: "flow.ambiguous-field", nodes: ["twice-1366h-agent"] }]);
+    expect(codesAndNodes([kit().toAgent(reader).toFinish(DraftKitWorkflowFinish)])).toEqual([
+      { code: "flow.ambiguous-field", nodes: ["twice-1366h-agent"] },
+    ]);
   });
 
   it.each([[0], [1.5], [-2]])(
@@ -266,11 +238,9 @@ describe("#1366: two fields reading one class, a bad historyOf maxPrevious", () 
         shortlist: historyOf(ShortlistDto, { maxPrevious }),
       });
 
-      expect(
-        codesAndNodes([
-          kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
-        ]),
-      ).toEqual([{ code: "input.history-max-previous", nodes: ["limit-1366h-agent"] }]);
+      expect(codesAndNodes([kit().toAgent(reader).toFinish(DraftKitWorkflowFinish)])).toEqual([
+        { code: "input.history-max-previous", nodes: ["limit-1366h-agent"] },
+      ]);
     },
   );
 
@@ -280,12 +250,8 @@ describe("#1366: two fields reading one class, a bad historyOf maxPrevious", () 
     });
     const unlimited = agentOf("unlimited-1366h-agent", { shortlist: historyOf(ShortlistDto) });
 
-    expect(
-      refusals([kit().toAgent(limited).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish)]),
-    ).toEqual([]);
-    expect(
-      refusals([kit().toAgent(unlimited).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish)]),
-    ).toEqual([]);
+    expect(refusals([kit().toAgent(limited).toFinish(DraftKitWorkflowFinish)])).toEqual([]);
+    expect(refusals([kit().toAgent(unlimited).toFinish(DraftKitWorkflowFinish)])).toEqual([]);
   });
 });
 
@@ -320,9 +286,7 @@ describe("#1366: a node reached by too many scopes", () => {
       return { candidates: "" };
     }
   }
-  const wide: Flow = [
-    returnsEach(onStart(WideStart), [ShortlistDto, ...manyDtos.map(optional)]).toFinish(WideFinish),
-  ];
+  const wide: Flow = [onStart(WideStart).toFinish(WideFinish)];
 
   it(`more than ${String(MAX_SCOPES_PER_NODE)} scopes at a node are [flow.analysis-too-large] naming the node`, () => {
     expect(codesAndNodes(wide)).toEqual([
@@ -365,13 +329,9 @@ describe("#1366: a field whose latest value is outdated", () => {
       .toAgent(
         researchAgent("stale-research-1366h-agent", { shortlist: ShortlistDto }, ResearchDto),
       )
-      .returns(ResearchDto)
       .toAgent(researchAgent("stale-draft-1366h-agent", { research: ResearchDto }, OfferDraftDto))
-      .returns(OfferDraftDto)
       .toAgent(researchAgent("stale-again-1366h-agent", { shortlist: ShortlistDto }, ResearchDto))
-      .returns(ResearchDto)
       .toAgent(reader)
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ];
 
@@ -414,12 +374,7 @@ describe("#1366: a oneOf field beside two lists of its classes", () => {
     })
     class ListsStart {}
     const reader = agentOf("either-lists-1366h-agent", { either });
-    const flow: Flow = [
-      returnsEach(onStart(ListsStart), [listOf(either), listOf(either)])
-        .toAgent(reader)
-        .returns(OfferDraftDto)
-        .toFinish(DraftKitWorkflowFinish),
-    ];
+    const flow: Flow = [onStart(ListsStart).toAgent(reader).toFinish(DraftKitWorkflowFinish)];
 
     expect(codesAndNodes(flow)).toEqual([
       { code: "input.never-produced", nodes: ["either-lists-1366h-agent"] },

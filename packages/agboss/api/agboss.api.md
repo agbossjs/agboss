@@ -359,9 +359,6 @@ export type ActionResult<TOutput> = [TOutput] extends [NoOutput] ? Promise<void>
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
 
 // @public
-type AfterReturns<TSource extends ValuesSource, TLeft, TGiven extends readonly unknown[], TShape, THead extends PathHead> = [TLeft] extends [never] ? TShape extends OneOfWrapper ? BuiltPath<THead> & Switching<ValueOf<TShape>, THead> : AfterValue<TGiven extends readonly [infer TOne] ? TOne : TGiven, THead, TSource["canLaunch"]> : BuiltPath<THead> & Returning<TSource, TLeft, THead, TGiven>;
-
-// @public
 export type AfterStep<TInstance, THead extends PathHead> = BuiltPath<THead> & StepContinuation<TInstance, THead>;
 
 // @public
@@ -370,7 +367,7 @@ export interface AfterToolCall {
 }
 
 // @public
-export type AfterValue<TValue, THead extends PathHead, TCanLaunch extends boolean = true> = BuiltPath<THead> & Transitions<THead> & (TCanLaunch extends true ? Launches<TValue, THead> : unknown) & {
+export type AfterValue<TValue, THead extends PathHead> = BuiltPath<THead> & Transitions<THead> & Launches<TValue, THead> & {
     readonly [pathValue]?: TValue;
 };
 
@@ -604,7 +601,7 @@ export type AgentSettingsOf<TTool extends string> = Omit<AgentSettings, "tools">
 };
 
 // @public
-export type AgentsLaunched<TKey extends string, THead extends PathHead, TCount extends number> = Launched<TKey, THead> & Quorums<TKey, THead, TCount>;
+export type AgentsLaunched<THead extends PathHead> = Launched<THead> & Quorums<THead>;
 
 // @public
 export type AgentStartEvent = StartEvent<string>;
@@ -1386,11 +1383,11 @@ export enum ChildExecutionStatus {
 
 // @public
 export type ChildLaunchCheck<TClass extends Class, TValue> = IsPerItem<readonly [TClass], TValue> extends true ? TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>> : {
-    readonly __error: "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it";
+    readonly __error: "toParallelWorkflows(W, …) runs one child per item — the step before it gives a list";
 };
 
 // @public
-type ChildLaunched<TClass extends Class, THead extends PathHead> = ThisWorkflowName extends NameOf<InstanceType<TClass>> ? ThisWorkflowLaunched<THead> : Launched<LaunchKey<"toParallelWorkflows", readonly [TClass], true, "">, THead>;
+type ChildLaunched<TClass extends Class, THead extends PathHead> = ThisWorkflowName extends NameOf<InstanceType<TClass>> ? ThisWorkflowLaunched<THead> : Launched<THead>;
 
 // @public
 export interface ChildLaunchRecord {
@@ -1458,25 +1455,14 @@ export interface ChosenRouterRoute {
     readonly target: Class;
 }
 
-// @public
-type ClaimProblem<TClaim, TEntry, TName extends string> = TClaim extends ThisWorkflowStepClaim<infer TValue> ? TEntry extends {
-    readonly output: infer TOutput;
-} ? Same<TValue, TOutput> extends true ? never : StepNotGiven<TName> : StepNotGiven<TName> : TClaim extends ThisWorkflowJoinClaim<infer TValue> ? TEntry extends {
-    readonly join: infer TJoin;
-} ? Same<TValue, TJoin> extends true ? never : JoinNotGiven<TName> : JoinNotGiven<TName> : never;
-
 // @public (undocumented)
-type ClaimsCheck<TClaims, TEntry, TName extends string> = [TEntry] extends [
-GeneratedTypeError
-] ? {
+type ClaimsCheck<TEntry> = [TEntry] extends [GeneratedTypeError] ? {
     readonly flow: TEntry;
 } : TEntry extends {
     readonly input: infer TInput;
 } ? [TInput] extends [GeneratedTypeError] ? {
     readonly flow: TInput;
-} : [ClaimProblem<TClaims, TEntry, TName>] extends [never] ? unknown : {
-    readonly flow: ClaimProblem<TClaims, TEntry, TName>;
-} : never;
+} : unknown : never;
 
 // @public
 type ClaimsOf<TPath> = TPath extends {
@@ -3963,12 +3949,15 @@ declare namespace FlowTypes {
         StartSource,
         CaseValueOf,
         ClaimsOf,
-        GroupOfPath,
+        IsGroupPath,
+        IsOneOf,
+        IsUnion,
         InputCheck,
         KindCheck,
         KindLabel,
         KindLabels,
         OutputContinuation,
+        ValueContinuation,
         RouteOptions,
         RouteTargetKind,
         RouteTargetLabel,
@@ -3996,48 +3985,22 @@ declare namespace FlowTypes {
         WorkflowStartEntry,
         ChildLaunched,
         IsPerItem,
-        JoinContinuation,
+        IsSeveral,
         LastValue,
         LaunchArguments,
         LaunchCheck,
-        LaunchCount,
-        LaunchKey,
-        TargetNames,
-        TargetsOf,
         GroupArguments,
         GroupCheck,
-        GroupKey,
-        GroupValuesCheck,
         GroupsCheck,
-        IsWholeQuorum,
-        MayBeLeftOut,
-        QuorumContinuation,
-        QuorumOutput,
-        QuorumValues,
-        AfterReturns,
-        IsIn,
-        IsSeveral,
-        Member,
-        Members,
-        NotGiven,
-        ReturnsCheck,
-        Same,
-        ValuesLeft,
-        Without,
-        ClaimProblem,
         ClaimsCheck,
         EntryOf,
-        JoinNotGiven,
-        StepNotGiven,
         ThisWorkflowCheck,
-        ThisWorkflowJoinClaim,
-        ThisWorkflowJoinValues,
+        ThisWorkflowClaim,
         ThisWorkflowJoined,
         ThisWorkflowLaunched,
         ThisWorkflowName,
-        ThisWorkflowReturning,
-        ThisWorkflowStepClaim,
-        ThisWorkflowStepValues,
+        ThisWorkflowStep,
+        ThisWorkflowSwitching,
         WithClaims,
         PiiRefusalShape,
         CacheSetting,
@@ -4080,42 +4043,32 @@ export interface GraphRuleErrorOptions {
 }
 
 // @public
-export function group<const TAgents extends readonly [Class, ...Class[]]>(...agents: TAgents & LaunchCheck<TAgents, NodeKind.Agent>): GroupStart<TargetNames<TAgents>>;
+export function group<const TAgents extends readonly [Class, ...Class[]]>(...agents: TAgents & LaunchCheck<TAgents, NodeKind.Agent>): GroupStart;
 
 // @public
 type GroupArguments = readonly [GroupPath, ...GroupPath[]] | readonly [GroupPath, ...GroupPath[], QuorumGroupsOptions];
 
 // @public
-type GroupCheck<TKey extends string, TPath> = [GroupOfPath<TPath>] extends [never] ? {
-    readonly __error: ".joinQuorumGroups(…) takes group(…).returns(…).to…(…) paths";
-} : GroupOfPath<TPath> extends GroupHead<infer TNames extends string, infer TGiven extends readonly unknown[]> ? GroupValuesCheck<JoinOutputOf<GroupKey<TKey, TNames>>, TGiven, GroupKey<TKey, TNames>> : never;
+type GroupCheck<TPath> = IsGroupPath<TPath> extends true ? unknown : {
+    readonly __error: ".joinQuorumGroups(…) takes group(…).to…(…) paths";
+};
 
 // @public
-export interface GroupHead<TNames extends string, TGiven extends readonly unknown[], TClaims = never> {
+export interface GroupHead<TClaims = never> {
     // (undocumented)
     readonly claims: TClaims;
     // (undocumented)
-    readonly given: TGiven;
-    // (undocumented)
-    readonly group: TNames;
+    readonly group: true;
 }
 
 // @public
-type GroupKey<TKey extends string, TNames extends string> = `${TKey} group(${TNames})`;
+export type GroupPath = BuiltPath<GroupHead<unknown>>;
 
 // @public
-type GroupOfPath<TPath> = TPath extends {
-    readonly [pathHead]?: GroupHead<infer TNames, infer TGiven, unknown>;
-} ? GroupHead<TNames, TGiven> : never;
-
-// @public
-export type GroupPath = BuiltPath<GroupHead<string, readonly unknown[], unknown>>;
-
-// @public
-type GroupsCheck<TKey extends string, TArgs extends readonly unknown[]> = {
+type GroupsCheck<TArgs extends readonly unknown[]> = {
     [K in keyof TArgs]: TArgs[K] extends {
         readonly steps: unknown;
-    } ? GroupCheck<TKey, TArgs[K]> : unknown;
+    } ? GroupCheck<TArgs[K]> : unknown;
 };
 
 // @public
@@ -4134,23 +4087,10 @@ export interface GroupsQuorum {
 }
 
 // @public
-export interface GroupStart<TNames extends string> extends GroupValues<TNames, []> {
+export interface GroupStart extends Transitions<GroupHead> {
     // (undocumented)
-    priority(priority: number): GroupValues<TNames, []>;
+    priority(priority: number): Transitions<GroupHead>;
 }
-
-// @public
-export interface GroupValues<TNames extends string, TGiven extends readonly unknown[]> {
-    // (undocumented)
-    returns<const TShape extends ValueShape>(value: TShape): GroupValues<TNames, [...TGiven, ValueOf<TShape>]> & Transitions<GroupHead<TNames, [...TGiven, ValueOf<TShape>]>>;
-}
-
-// @public (undocumented)
-type GroupValuesCheck<TOutput, TGiven extends readonly unknown[], TKey extends string> = [
-TOutput
-] extends [GeneratedTypeError] ? TOutput : Same<ValuesLeft<TOutput>, Members<TGiven>> extends true ? unknown : {
-    readonly __error: `a group's .returns(…) names what its places give — see JoinOutputs["${TKey}"]`;
-};
 
 // @public
 export interface GuardedFileShown {
@@ -4957,8 +4897,13 @@ export interface InvalidThreadIdErrorOptions {
     readonly rule: KeyTextRule;
 }
 
-// @public (undocumented)
-type IsIn<TMember, TMembers> = TMembers extends unknown ? Same<TMember, TMembers> : never;
+// @public
+type IsGroupPath<TPath> = TPath extends {
+    readonly [pathHead]?: GroupHead<unknown>;
+} ? true : false;
+
+// @public
+type IsOneOf<TOutput> = [TOutput] extends [readonly unknown[]] ? false : true extends IsUnion<Exclude<TOutput, undefined>> ? true : false;
 
 // @public
 type IsPerItem<TTargets extends readonly unknown[], TValue> = TTargets extends readonly [
@@ -4971,6 +4916,9 @@ type IsSeveral<TOutput> = TOutput extends readonly unknown[] ? number extends TO
 // @public
 export const isTerminalA2ATaskState: (state: A2ATaskState) => state is A2ATerminalTaskState;
 
+// @public (undocumented)
+type IsUnion<TValue, TAll = TValue> = TValue extends unknown ? [TAll] extends [TValue] ? false : true : never;
+
 // @public
 export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
 
@@ -4982,15 +4930,7 @@ export function isVariant<TItem extends {
 }>;
 
 // @public
-type IsWholeQuorum<TMin, TCount extends number> = number extends TCount ? false : number extends TMin ? false : TMin extends TCount ? true : false;
-
-// @public
-type JoinContinuation<TOutput, TKey extends string, THead extends PathHead> = [
-TOutput
-] extends [GeneratedTypeError] ? Returning<JoinValues<TKey>, TOutput, THead> : [TOutput] extends [NoOutput] ? Transitions<THead> : Returning<JoinValues<TKey>, ValuesLeft<TOutput>, THead>;
-
-// @public
-export type Joined<TKey extends string, THead extends PathHead> = JoinErrorHandling<TKey, THead> & JoinContinuation<JoinOutputOf<TKey>, TKey, THead>;
+export type Joined<THead extends PathHead> = JoinErrorHandling<THead> & Transitions<THead>;
 
 // @public
 export interface JoinErrorHandler {
@@ -5001,24 +4941,9 @@ export interface JoinErrorHandler {
 }
 
 // @public
-export interface JoinErrorHandling<TKey extends string, THead extends PathHead> {
+export interface JoinErrorHandling<THead extends PathHead> {
     // (undocumented)
-    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): Joined<TKey, WithClaims<THead, ClaimsOf<TPath>>>;
-}
-
-// @public (undocumented)
-interface JoinNotGiven<TName extends string> {
-    // (undocumented)
-    readonly __error: `the .returns(…) after the join of .toParallelWorkflows(ThisWorkflow, …) is not what ${TName}'s children give — see ThisWorkflowOutputs["${TName}"]["join"]`;
-}
-
-// @public
-export type JoinOutputOf<TKey extends string> = [TKey] extends [never] ? MissingGeneratedTypes : TKey extends keyof JoinOutputs ? JoinOutputs[TKey] : MissingGeneratedTypes;
-
-// @public
-export interface JoinOutputs {
-    // (undocumented)
-    readonly [notGenerated]?: never;
+    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): Joined<WithClaims<THead, ClaimsOf<TPath>>>;
 }
 
 // @public
@@ -5028,17 +4953,6 @@ export interface JoinStep {
     // (undocumented)
     readonly onError: readonly JoinErrorHandler[];
     readonly quorum?: Quorum;
-    readonly returns: readonly ReturnedValue[];
-}
-
-// @public
-export interface JoinValues<TKey extends string> extends ValuesSource {
-    // (undocumented)
-    readonly canLaunch: false;
-    // (undocumented)
-    readonly entry: `JoinOutputs["${TKey}"]`;
-    // (undocumented)
-    readonly label: "the join";
 }
 
 // @public
@@ -5228,20 +5142,17 @@ type LaunchCheck<TArgs extends readonly unknown[], TKind extends NodeKind> = {
 };
 
 // @public
-type LaunchCount<TTargets extends readonly unknown[], TPerItem extends boolean> = TPerItem extends true ? number : TTargets["length"];
-
-// @public
-export interface Launched<TKey extends string, THead extends PathHead> {
+export interface Launched<THead extends PathHead> {
     // (undocumented)
-    join(): Joined<TKey, THead>;
+    join(): Joined<THead>;
 }
 
 // @public
 export interface Launches<TValue, THead extends PathHead> {
     // (undocumented)
-    toParallelActions<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Action>): Launched<LaunchKey<"toParallelActions", TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>, "">, THead>;
+    toParallelActions<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Action>): Launched<THead>;
     // (undocumented)
-    toParallelAgents<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>): AgentsLaunched<LaunchKey<"toParallelAgents", TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>, "">, THead, LaunchCount<TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>>>;
+    toParallelAgents<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>): AgentsLaunched<THead>;
     toParallelWorkflows<const TClass extends Class>(workflow: TClass & ChildLaunchCheck<TClass, TValue>, options: WorkflowLaunchOptions): ChildLaunched<TClass, THead>;
 }
 
@@ -5251,9 +5162,6 @@ export interface LaunchItemsTruncatedEvent extends NodeEvent {
     readonly launch: string;
     readonly maxItems: number;
 }
-
-// @public
-type LaunchKey<TCall extends string, TTargets extends readonly unknown[], TPerItem extends boolean, TPrefix extends string> = `${TPrefix}${TCall}(${TargetNames<TTargets>})${TPerItem extends true ? " per item" : ""}`;
 
 // @public
 export interface LaunchOptions {
@@ -5278,7 +5186,6 @@ export interface LaunchStep {
     readonly kind: StepKind.Launch;
     readonly maxConcurrency?: number;
     readonly maxItems?: number;
-    readonly perItem: boolean;
     readonly placement?: ChildPlacement;
     // (undocumented)
     readonly targetKind: LaunchTargetKind;
@@ -5575,20 +5482,6 @@ export interface MaskPartAction {
 
 // @public
 export const MAX_DECISION_QUESTIONS = 200;
-
-// @public
-type MayBeLeftOut<TValue> = TValue extends readonly unknown[] ? TValue : TValue | undefined;
-
-// @public
-interface Member<TValue> {
-    // (undocumented)
-    readonly value: TValue;
-}
-
-// @public (undocumented)
-type Members<TValues extends readonly unknown[]> = {
-    [K in keyof TValues]: Member<TValues[K]>;
-}[number];
 
 // @public
 export interface MeshBudgetClaim {
@@ -6191,12 +6084,6 @@ export class NotAWorkflowStartError extends AGBossError {
     readonly code: typeof NotAWorkflowStartError.code;
     // (undocumented)
     name: string;
-}
-
-// @public (undocumented)
-interface NotGiven<TSource extends ValuesSource> {
-    // (undocumented)
-    readonly __error: `not what ${TSource["label"]} gives — see ${TSource["entry"]}`;
 }
 
 // @public
@@ -7097,9 +6984,9 @@ export interface OutdatedValueReference extends ScopeValueReference {
 }
 
 // @public
-type OutputContinuation<TInstance, TOutput, THead extends PathHead> = [TOutput] extends [
+type OutputContinuation<TOutput, THead extends PathHead> = [TOutput] extends [
 GeneratedTypeError
-] ? Returning<StepValues<TInstance>, TOutput, THead> : [TOutput] extends [NoOutput] ? Transitions<THead> & Launches<never, THead> : Returning<StepValues<TInstance>, ValuesLeft<TOutput>, THead>;
+] ? TOutput : [TOutput] extends [NoOutput] ? Transitions<THead> & Launches<never, THead> : ValueContinuation<TOutput, THead>;
 
 // @public
 export function OutputGuardrail<const D extends readonly Token[] = []>(options: GuardrailTextOptions<D>): GuardrailDecorator<D, object>;
@@ -7205,7 +7092,7 @@ export type PassThroughFinishOptions<TDeps extends readonly Token[]> = WorkflowF
 };
 
 // @public (undocumented)
-export type PathHead = SourceHead<unknown> | RouteHead<unknown> | CaseHead<unknown, unknown> | SideHead<unknown> | GroupHead<string, readonly unknown[], unknown>;
+export type PathHead = SourceHead<unknown> | RouteHead<unknown> | CaseHead<unknown, unknown> | SideHead<unknown> | GroupHead<unknown>;
 
 // @public
 export type PathSource = StartSource | ComponentSource;
@@ -8197,11 +8084,6 @@ export interface QueuedChildExecution {
 // @public (undocumented)
 export type Quorum = CountQuorum | GroupsQuorum;
 
-// @public (undocumented)
-type QuorumContinuation<TOutput, TKey extends string, THead extends PathHead> = [
-TOutput
-] extends [GeneratedTypeError] ? Returning<QuorumValues<TKey>, TOutput, THead> : [TOutput] extends [NoOutput] ? Transitions<THead> : Returning<QuorumValues<TKey>, ValuesLeft<TOutput>, THead>;
-
 // @public
 export interface QuorumDecidedEvent extends NodeEvent {
     readonly branches: readonly BranchRecord[];
@@ -8216,8 +8098,6 @@ export interface QuorumGroup {
     readonly path: SubPath;
     // (undocumented)
     readonly priority?: number;
-    // (undocumented)
-    readonly returns: readonly ReturnedValue[];
 }
 
 // @public
@@ -8233,9 +8113,9 @@ export interface QuorumGroupsOptions {
 }
 
 // @public
-export type QuorumJoined<TKey extends string, THead extends PathHead, TWhole extends boolean> = {
-    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): QuorumJoined<TKey, WithClaims<THead, ClaimsOf<TPath>>, TWhole>;
-} & QuorumContinuation<QuorumOutput<JoinOutputOf<TKey>, TWhole>, TKey, THead>;
+export type QuorumJoined<THead extends PathHead> = {
+    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): QuorumJoined<WithClaims<THead, ClaimsOf<TPath>>>;
+} & Transitions<THead>;
 
 // @public
 export enum QuorumKind {
@@ -8274,18 +8154,13 @@ export interface QuorumOptions {
 }
 
 // @public
-type QuorumOutput<TOutput, TWhole extends boolean> = TWhole extends true ? TOutput : [TOutput] extends [GeneratedTypeError | NoOutput] ? TOutput : IsSeveral<TOutput> extends true ? {
-    readonly [K in keyof TOutput]: MayBeLeftOut<TOutput[K]>;
-} : MayBeLeftOut<TOutput>;
-
-// @public
-export interface Quorums<TKey extends string, THead extends PathHead, TCount extends number> {
+export interface Quorums<THead extends PathHead> {
     // (undocumented)
-    acceptedBy(arbiter: ArbiterChoice): Quorums<TKey, THead, TCount>;
+    acceptedBy(arbiter: ArbiterChoice): Quorums<THead>;
     // (undocumented)
-    joinQuorum<const TOptions extends QuorumOptions>(options: TOptions): QuorumJoined<TKey, THead, IsWholeQuorum<TOptions["min"], TCount>>;
+    joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
     // (undocumented)
-    joinQuorumGroups<const TArgs extends GroupArguments>(...groups: TArgs & GroupsCheck<TKey, TArgs>): GroupsJoined<WithClaims<THead, ClaimsOf<TArgs[number]>>>;
+    joinQuorumGroups<const TArgs extends GroupArguments>(...groups: TArgs & GroupsCheck<TArgs>): GroupsJoined<WithClaims<THead, ClaimsOf<TArgs[number]>>>;
 }
 
 // @public
@@ -8294,16 +8169,6 @@ export interface QuorumShortfall {
     readonly expired?: readonly string[];
     readonly min?: number | undefined;
     readonly reason: string;
-}
-
-// @public
-interface QuorumValues<TKey extends string> extends ValuesSource {
-    // (undocumented)
-    readonly canLaunch: false;
-    // (undocumented)
-    readonly entry: `JoinOutputs["${TKey}"]`;
-    // (undocumented)
-    readonly label: "the quorum (a single answer is optional(…) unless min is every agent)";
 }
 
 // @public
@@ -8555,34 +8420,6 @@ export interface RetentionOptions {
 export type ReturnedShape = ValueShape | OneOfWrapper;
 
 // @public
-export interface ReturnedValue {
-    // (undocumented)
-    readonly shape: ReturnedShape;
-}
-
-// @public
-export interface Returning<TSource extends ValuesSource, TLeft, THead extends PathHead, TGiven extends readonly unknown[] = []> {
-    // (undocumented)
-    returns<const TShape extends ReturnedShape>(value: TShape & ReturnsCheck<ValueOf<TShape>, TLeft, TSource>): AfterReturns<TSource, Without<TLeft, ValueOf<TShape>>, [
-    ...TGiven,
-    ValueOf<TShape>
-    ], TShape, THead>;
-}
-
-// @public
-type ReturnsCheck<TValue, TLeft, TSource extends ValuesSource> = [TLeft] extends [
-GeneratedTypeError
-] ? TLeft : true extends IsIn<Member<TValue>, TLeft> ? unknown : NotGiven<TSource>;
-
-// @public (undocumented)
-export interface ReturnsStep {
-    // (undocumented)
-    readonly kind: StepKind.Returns;
-    // (undocumented)
-    readonly value: ReturnedValue;
-}
-
-// @public
 export type Route<TInstance> = GeneratedEntry<Routes, TInstance>;
 
 // @public
@@ -8742,9 +8579,9 @@ export interface RouterHandler<TSelf> {
 }
 
 // @public
-export interface RouterLaunches<TName extends string, THead extends PathHead> {
+export interface RouterLaunches<THead extends PathHead> {
     // (undocumented)
-    toParallelAgents<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>): AgentsLaunched<LaunchKey<"toParallelAgents", TargetsOf<TArgs>, false, `${TName}.`>, THead, TargetsOf<TArgs>["length"]>;
+    toParallelAgents<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>): AgentsLaunched<THead>;
 }
 
 // @public
@@ -8757,7 +8594,7 @@ export type RouterRoute = ChosenRouterRoute | AlwaysRouterRoute;
 export type RouterStartEvent = StartEvent<string>;
 
 // @public
-export interface RouterStep<THead extends PathHead, TInstance = unknown> extends RouterLaunches<NameOf<TInstance>, THead> {
+export interface RouterStep<THead extends PathHead, TInstance = unknown> extends RouterLaunches<THead> {
     // (undocumented)
     chooseOne<const TRoutes extends readonly [RoutePath, ...RoutePath[]]>(...routes: TRoutes): BuiltPath<WithClaims<THead, ClaimsOf<TRoutes[number]>>>;
     // (undocumented)
@@ -8784,7 +8621,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -8809,9 +8646,6 @@ export interface S3DriverOptions {
     readonly region?: string | EnvRef<string>;
     readonly secretAccessKey?: SecretRef;
 }
-
-// @public
-type Same<TFirst, TSecond> = [TFirst] extends [TSecond] ? [TSecond] extends [TFirst] ? true : false : false;
 
 // @public
 export type ScopeRecords = Readonly<Record<string, ScopeValueRecord>>;
@@ -9363,12 +9197,12 @@ type StartTenantOf<TInstance> = WorkflowStartEntry<TInstance> extends {
 } ? TTenant : never;
 
 // @public (undocumented)
-export type Step = ReturnsStep | ToStep | SwitchStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
+export type Step = ToStep | SwitchStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
 
 // @public (undocumented)
 type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [
 never
-] ? Returning<StepValues<TInstance>, MissingGeneratedTypes, THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? Returning<StepValues<TInstance>, ValuesLeft<ProducerOutputOf<TInstance>>, THead> : ThisWorkflowName extends NameOf<TInstance> ? ErrorHandling<TInstance, THead> & ThisWorkflowReturning<THead> : ErrorHandling<TInstance, THead> & OutputContinuation<TInstance, ProducerOutputOf<TInstance>, THead>;
+] ? Transitions<THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ThisWorkflowName extends NameOf<TInstance> ? ErrorHandling<TInstance, THead> & ThisWorkflowStep<THead> : ErrorHandling<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead>;
 
 // @public
 export interface StepCoordinates {
@@ -9584,17 +9418,9 @@ export enum StepKind {
     // (undocumented)
     OnError = "on-error",
     // (undocumented)
-    Returns = "returns",
-    // (undocumented)
     Switch = "switch",
     // (undocumented)
     To = "to"
-}
-
-// @public (undocumented)
-interface StepNotGiven<TName extends string> {
-    // (undocumented)
-    readonly __error: `a .returns(…) after ThisWorkflow is not what ${TName} gives — see ThisWorkflowOutputs["${TName}"]["output"]`;
 }
 
 // @public
@@ -9641,16 +9467,6 @@ export interface StepsLimitExceededErrorOptions {
     readonly spentUsd: number;
     // (undocumented)
     readonly workflow: WorkflowRecord;
-}
-
-// @public
-export interface StepValues<TInstance> extends ValuesSource {
-    // (undocumented)
-    readonly canLaunch: true;
-    // (undocumented)
-    readonly entry: `ProducerOutputs["${NameOf<TInstance>}"]`;
-    // (undocumented)
-    readonly label: NameOf<TInstance>;
 }
 
 // @public
@@ -9871,18 +9687,6 @@ export interface SyncWorkRequiredErrorOptions {
 type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = KindCheck<TClass, TKind, TLabel> extends infer TResult ? unknown extends TResult ? InputCheck<InstanceType<TClass>> : TResult : never;
 
 // @public
-type TargetNames<TTargets extends readonly unknown[]> = TTargets extends readonly [
-infer TFirst extends Class,
-...infer TRest
-] ? TRest extends readonly [] ? NameOf<InstanceType<TFirst>> : `${NameOf<InstanceType<TFirst>>}, ${TargetNames<TRest>}` : never;
-
-// @public
-type TargetsOf<TArgs extends readonly unknown[]> = TArgs extends readonly [
-...infer TTargets,
-infer TLast
-] ? TLast extends Class ? TArgs : TTargets : TArgs;
-
-// @public
 export abstract class TenantContext {
     readonly application: ApplicationContext;
     readonly tenantId: string;
@@ -9949,33 +9753,18 @@ export class ThisWorkflow {
 // @public
 type ThisWorkflowCheck<TName extends string, TFlow extends readonly unknown[]> = [
 ClaimsOf<TFlow[number]>
-] extends [never] ? unknown : ClaimsCheck<ClaimsOf<TFlow[number]>, EntryOf<TName>, TName>;
+] extends [never] ? unknown : ClaimsCheck<EntryOf<TName>>;
 
 // @public
-interface ThisWorkflowJoinClaim<TValue> {
+interface ThisWorkflowClaim {
     // (undocumented)
-    readonly join: TValue;
+    readonly launches: true;
 }
 
 // @public
-interface ThisWorkflowJoined<THead extends PathHead> {
-    // (undocumented)
+type ThisWorkflowJoined<THead extends PathHead> = {
     onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;
-    // (undocumented)
-    returns<const TShape extends ReturnedShape>(value: TShape): AfterReturns<ThisWorkflowJoinValues, never, [
-    ValueOf<TShape>
-    ], TShape, WithClaims<THead, ThisWorkflowJoinClaim<ValueOf<TShape>>>>;
-}
-
-// @public
-interface ThisWorkflowJoinValues extends ValuesSource {
-    // (undocumented)
-    readonly canLaunch: false;
-    // (undocumented)
-    readonly entry: 'ThisWorkflowOutputs["<workflow>"]["join"]';
-    // (undocumented)
-    readonly label: "the join";
-}
+} & Transitions<WithClaims<THead, ThisWorkflowClaim>>;
 
 // @public
 interface ThisWorkflowLaunched<THead extends PathHead> {
@@ -9993,27 +9782,12 @@ export interface ThisWorkflowOutputs {
 }
 
 // @public
-interface ThisWorkflowReturning<THead extends PathHead> {
-    // (undocumented)
-    returns<const TShape extends ReturnedShape>(value: TShape): AfterReturns<ThisWorkflowStepValues, never, [
-    ValueOf<TShape>
-    ], TShape, WithClaims<THead, ThisWorkflowStepClaim<ValueOf<TShape>>>>;
-}
+type ThisWorkflowStep<THead extends PathHead> = Transitions<WithClaims<THead, ThisWorkflowClaim>> & Launches<never, WithClaims<THead, ThisWorkflowClaim>> & ThisWorkflowSwitching<WithClaims<THead, ThisWorkflowClaim>>;
 
 // @public
-interface ThisWorkflowStepClaim<TValue> {
+interface ThisWorkflowSwitching<THead extends PathHead> {
     // (undocumented)
-    readonly step: TValue;
-}
-
-// @public
-interface ThisWorkflowStepValues extends ValuesSource {
-    // (undocumented)
-    readonly canLaunch: true;
-    // (undocumented)
-    readonly entry: 'ThisWorkflowOutputs["<workflow>"]["output"]';
-    // (undocumented)
-    readonly label: ThisWorkflowName;
+    switch<const TCases extends readonly [CasePath, ...CasePath[]]>(...cases: TCases): BuiltPath<WithClaims<THead, ClaimsOf<TCases[number]>>>;
 }
 
 // @public
@@ -10544,6 +10318,9 @@ export enum ValidationErrorKind {
 }
 
 // @public
+type ValueContinuation<TValue, THead extends PathHead> = IsOneOf<TValue> extends true ? BuiltPath<THead> & Switching<TValue, THead> : AfterValue<TValue, THead>;
+
+// @public
 export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
 
 // @public
@@ -10560,19 +10337,9 @@ export interface ValueProvider<T = unknown> {
 export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
 
 // @public
-type ValuesLeft<TOutput> = [TOutput] extends [GeneratedTypeError] ? TOutput : [TOutput] extends [readonly unknown[]] ? IsSeveral<TOutput> extends true ? Members<TOutput> : Member<TOutput> : Member<TOutput>;
-
-// @public
 export interface ValuesOutdatedEvent extends NodeEvent {
     readonly outdated: readonly OutdatedValueReference[];
     readonly trigger: ScopeValueReference;
-}
-
-// @public
-export interface ValuesSource {
-    readonly canLaunch: boolean;
-    readonly entry: string;
-    readonly label: string;
 }
 
 // @public
@@ -10685,10 +10452,7 @@ export enum Weekday {
 }
 
 // @public
-type WithClaims<THead extends PathHead, TNew> = [TNew] extends [never] ? THead : THead extends SourceHead<infer TClaims> ? SourceHead<TClaims | TNew> : THead extends RouteHead<infer TClaims> ? RouteHead<TClaims | TNew> : THead extends CaseHead<infer TValue, infer TClaims> ? CaseHead<TValue, TClaims | TNew> : THead extends SideHead<infer TClaims> ? SideHead<TClaims | TNew> : THead extends GroupHead<infer TNames extends string, infer TGiven extends readonly unknown[], infer TClaims> ? GroupHead<TNames, TGiven, TClaims | TNew> : never;
-
-// @public
-type Without<TLeft, TValue> = TLeft extends unknown ? Same<TLeft, Member<TValue>> extends true ? never : TLeft : never;
+type WithClaims<THead extends PathHead, TNew> = [TNew] extends [never] ? THead : THead extends SourceHead<infer TClaims> ? SourceHead<TClaims | TNew> : THead extends RouteHead<infer TClaims> ? RouteHead<TClaims | TNew> : THead extends CaseHead<infer TValue, infer TClaims> ? CaseHead<TValue, TClaims | TNew> : THead extends SideHead<infer TClaims> ? SideHead<TClaims | TNew> : THead extends GroupHead<infer TClaims> ? GroupHead<TClaims | TNew> : never;
 
 // @public (undocumented)
 export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>): <TClass extends Class>(value: TClass) => TClass;
@@ -11685,7 +11449,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Action".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Router".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Workflow".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "Returns".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "To".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Switch".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "ChooseOne".
@@ -11696,10 +11459,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "ComponentSource".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "node".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "shape".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "ReturnsStep".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "value".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "target".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "targetKind".
@@ -11723,7 +11482,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "path".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "priority".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "returns".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "groups".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "deadline".
@@ -11746,7 +11504,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "side".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "group".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "given".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "PathHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""workflow-start"".
@@ -11762,6 +11519,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "__error".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "SwitchCheck".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "StepContinuation".
+// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "IsUnion".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "Transitions".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "toAgent".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "toRouter".
@@ -11901,7 +11659,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
@@ -11936,28 +11693,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/quorum-step.ts - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
 // src/flow/quorum-step.ts - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "deadline".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "label".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "QuorumContinuation".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "returns".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "priority".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "GroupValuesCheck".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "acceptedBy".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "joinQuorum".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "joinQuorumGroups".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "value".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "Members".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "IsIn".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "label".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "label".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "NotGiven".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "__error".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "returns".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "usage".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
@@ -12071,22 +11810,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/tool-calls.ts - (ae-undocumented) Missing documentation for "input".
 // src/flow/runtime/tool-calls.ts - (ae-undocumented) Missing documentation for "output".
 // src/flow/runtime/tool-calls.ts - (ae-undocumented) Missing documentation for "status".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "step".
+// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "launches".
+// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "switch".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "join".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "label".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "label".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "returns".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "onError".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "returns".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "join".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "StepNotGiven".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "__error".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "JoinNotGiven".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "__error".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "ClaimsCheck".
 // src/flow/this-workflow.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/graph/errors.ts - (ae-undocumented) Missing documentation for "message".

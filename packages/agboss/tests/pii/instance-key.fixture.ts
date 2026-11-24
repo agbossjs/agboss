@@ -154,9 +154,7 @@ export class FollowUpFinish {}
 @Workflow({
   name: "follow-up-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(FollowUpStart).returns(DeskNoteDto).toAgent(FollowUpAgent).toFinish(FollowUpFinish),
-  ],
+  flow: [onStart(FollowUpStart).toAgent(FollowUpAgent).toFinish(FollowUpFinish)],
   defaults,
 })
 export class FollowUpWorkflow {}
@@ -179,15 +177,7 @@ export class DeskFinish {}
 @Workflow({
   name: "instance-key-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(DeskStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(DeskAgent)
-      .returns(DeskNoteDto)
-      .toWorkflow(FollowUpWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(DeskFinish),
-  ],
+  flow: [onStart(DeskStart).toAgent(DeskAgent).toWorkflow(FollowUpWorkflow).toFinish(DeskFinish)],
   defaults,
 })
 export class InstanceKeyWorkflow {}

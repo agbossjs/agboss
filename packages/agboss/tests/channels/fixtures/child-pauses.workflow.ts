@@ -61,9 +61,7 @@ export class ChildRefundAgent {}
   version: "1.0.0",
   flow: [
     onStart(RefundOneWorkflowStart)
-      .returns(RefundRequestDto)
       .toAgent(ChildRefundAgent)
-      .returns(RefundDoneDto)
       .toFinish(RefundOneWorkflowFinish),
   ],
 })
@@ -89,9 +87,7 @@ export class SingleChildWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SingleChildWorkflowStart)
-      .returns(RefundRequestDto)
       .toWorkflow(RefundOneWorkflow)
-      .returns(RefundDoneDto)
       .toFinish(SingleChildWorkflowFinish),
   ],
 })
@@ -128,10 +124,8 @@ export class ChildBatchWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(ChildBatchWorkflowStart)
-      .returns(listOf(RefundRequestDto))
       .toParallelWorkflows(RefundOneWorkflow, { maxConcurrency: 3, maxItems: 5 })
       .join()
-      .returns(listOf(RefundDoneDto))
       .toFinish(ChildBatchWorkflowFinish),
   ],
 })

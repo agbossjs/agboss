@@ -176,9 +176,7 @@ const defaults = {
   providers: [Pay],
   flow: [
     onStart(Start)
-      .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
-      .returns(ReceiptDto)
       .toAction(Pay)
       .toFinish(Finish),
   ],

@@ -1,11 +1,9 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Application } from "../../../src/application/application.js";
 import { anyOf } from "../../../src/flow/builder.js";
 import { groupFrom } from "../../../src/flow/path-builder.js";
 import {
   ArbiterError,
   EmptyEnvironment,
-  listOf,
   QuorumNotReachedError,
   Workflow,
 } from "../../../src/index.js";
@@ -16,16 +14,6 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import {
-  CandidateDto,
-  DealCritiqueDto,
-  DealDto,
-  DueDiligenceReportDto,
-  FastScreenDto,
-  LegalReviewDto,
-  ScoreDto,
-  ScoreReviewDto,
-} from "./quorum-dtos.js";
 import { onStart, toFinish } from "../../helpers/flow.js";
 import {
   CopyArbiter,
@@ -67,12 +55,9 @@ const PANEL = [SkillsPanelAgent, RisksPanelAgent, HirePanelAgent] as const;
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .joinQuorum({ min: 2 })
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -83,15 +68,12 @@ export class QuickPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(InRangeArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
       .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
       .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -102,13 +84,10 @@ export class CheckedPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(InRangeArbiter)
       .joinQuorum({ min: 2 })
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -119,14 +98,11 @@ export class StrictPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(PanelModelArbiter)
       .joinQuorum({ min: 2, max: 3 })
       .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -137,13 +113,10 @@ export class ModelPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(PanelChatArbiter)
       .joinQuorum({ min: 2, max: 3 })
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -154,14 +127,11 @@ export class ChatPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(InRangeArbiter)
       .acceptedBy(PanelModelArbiter)
       .joinQuorum({ min: 1, max: 3 })
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -172,13 +142,10 @@ export class ChainPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .acceptedBy(anyOf(InRangeArbiter, PanelModelArbiter))
       .joinQuorum({ min: 1, max: 3 })
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -190,13 +157,10 @@ export class AnyOfPanelWorkflow {}
   maxSteps: 10,
   flow: [
     onStart(PanelItemsWorkflowStart)
-      .returns(listOf(CandidateDto))
       .toParallelAgents(SkillsPanelAgent, { maxItems: 5 })
       .acceptedBy(EvenItemArbiter)
       .joinQuorum({ min: 3 })
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -207,14 +171,11 @@ export class ItemPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(SkillsPanelAgent, SkillsPanelAgent, SkillsPanelAgent)
       .acceptedBy(CopyArbiter)
       .joinQuorum({ min: 2, max: 3 })
       .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -226,12 +187,9 @@ export class CopiesPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(...PANEL)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(300) })
-      .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
@@ -242,23 +200,17 @@ export class RecoveryPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(DealPanelWorkflowStart)
-      .returns(DealDto)
       .toParallelAgents(LegalPanelAgent, CriticPanelAgent, FastPanelAgent)
       .joinQuorumGroups(
         groupFrom([LegalPanelAgent, CriticPanelAgent])
           .priority(1)
-          .returns(LegalReviewDto)
-          .returns(DealCritiqueDto)
           .toAgent(DealReportPanelAgent)
-          .returns(DueDiligenceReportDto)
           .toFinish(DealReportPanelWorkflowFinish),
         groupFrom([CriticPanelAgent])
           .priority(2)
-          .returns(DealCritiqueDto)
           .toFinish(SecondOpinionPanelWorkflowFinish),
         groupFrom([FastPanelAgent])
           .priority(3)
-          .returns(FastScreenDto)
           .toFinish(QuickRejectPanelWorkflowFinish),
         { deadline: seconds(60) },
       )

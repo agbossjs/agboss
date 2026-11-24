@@ -1,9 +1,7 @@
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { listOf } from "../../../src/flow/dto-wrappers.js";
-import { CompanyDto } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { CompanyCheckDto, RankingDto } from "./launch-dtos.js";
+import { CompanyCheckDto } from "./launch-dtos.js";
 import {
   RankerAgent,
   RankingWorkflowFinish,
@@ -33,14 +31,10 @@ export class ItemBlindAgent {}
   version: "1.0.0",
   flow: [
     onStart(ScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ScreeningAgent)
-      .returns(listOf(CompanyDto))
       .toParallelAgents(ItemBlindAgent, { maxItems: 5 })
       .join()
-      .returns(listOf(CompanyCheckDto))
       .toAgent(RankerAgent)
-      .returns(RankingDto)
       .toFinish(RankingWorkflowFinish),
   ],
 })

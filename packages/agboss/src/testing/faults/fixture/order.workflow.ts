@@ -10,13 +10,7 @@ import type { Class } from "../../../components/injection.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
 import { FaultChargeAction, FaultReserveAction } from "./order.actions.js";
-import {
-  FaultBatchDto,
-  FaultChargeDto,
-  FaultOrderDto,
-  FaultPaymentDto,
-  FaultReservationDto,
-} from "./order.dto.js";
+import { FaultBatchDto, FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
 
 /**
@@ -51,13 +45,9 @@ export class FaultOrderWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FaultOrderWorkflowStart)
-      .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultOrderWorkflowFinish),
   ],
 })
@@ -89,14 +79,12 @@ export class FaultBatchWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(FaultBatchWorkflowStart)
-      .returns(listOf(FaultOrderDto))
       .toParallelWorkflows(FaultOrderWorkflow, {
         maxConcurrency: 4,
         maxItems: 8,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(FaultPaymentDto))
       .toFinish(FaultBatchWorkflowFinish),
   ],
 })

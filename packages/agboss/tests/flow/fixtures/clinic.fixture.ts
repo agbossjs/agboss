@@ -212,9 +212,7 @@ export class BedsWorkflowFinish {}
   providers: [UnitDirectoryService],
   flow: [
     onStart(BedRequestWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(BedAgent)
-      .returns(BedsDto)
       .toAction(AuditBedAction)
       .toFinish(BedsWorkflowFinish),
   ],

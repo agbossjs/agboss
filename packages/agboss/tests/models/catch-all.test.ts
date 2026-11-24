@@ -115,14 +115,8 @@ class CatchAllFinish {}
   name: "catch-all-workflow",
   version: "1.0.0",
   flow: [
-    onStart(CatchAllStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(HarnessAgent)
-      .toFinish(CatchAllFinish),
-    onStart(CatchAllKimiStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(KimiAgent)
-      .toFinish(CatchAllFinish),
+    onStart(CatchAllStart).toAgent(HarnessAgent).toFinish(CatchAllFinish),
+    onStart(CatchAllKimiStart).toAgent(KimiAgent).toFinish(CatchAllFinish),
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },

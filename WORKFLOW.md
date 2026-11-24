@@ -211,7 +211,7 @@ export class ChatFinish {}
 @Workflow({
   name: "admin-workflow",
   version: "1.0.0",
-  flow: [onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(AdminAgent).toFinish(ChatFinish)],
+  flow: [onStart(ChatStart).toAgent(AdminAgent).toFinish(ChatFinish)],
   providers: [SlackClient],
 })
 export class AdminWorkflow {}

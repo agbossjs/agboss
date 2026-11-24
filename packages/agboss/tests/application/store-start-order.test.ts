@@ -105,13 +105,7 @@ class NoteAction {
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(NoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(NoteAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(NoteWorkflowFinish),
-  ],
+  flow: [onStart(NoteWorkflowStart).toAction(NoteAction).toFinish(NoteWorkflowFinish)],
 })
 class NoteWorkflow {}
 

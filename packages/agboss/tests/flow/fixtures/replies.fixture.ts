@@ -365,7 +365,6 @@ export class TreasuryWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TreasuryWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(TreasurerAgent)
       .toFinish(TreasuryWorkflowFinish),
   ],
@@ -395,9 +394,7 @@ export class TreasuryDeskWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TreasuryDeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(TreasuryWorkflow)
-      .returns(WorkflowFinishTextDto)
       .toFinish(TreasuryDeskWorkflowFinish),
   ],
 })
@@ -448,12 +445,9 @@ export class TreasuryBatchWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TreasuryBatchWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(SplitRequestsAction)
-      .returns(listOf(WorkflowStartTextDto))
       .toParallelWorkflows(TreasuryWorkflow, { maxConcurrency: 2, maxItems: 3 })
       .join()
-      .returns(listOf(WorkflowFinishTextDto))
       .toAgent(BatchSummaryAgent)
       .toFinish(TreasuryBatchWorkflowFinish),
   ],

@@ -34,7 +34,7 @@ flowchart LR
 | `tool` | one task (`Send`) per allowed call: runs the tool with the run's signal + its `timeout`; stores the result (or `Tool error: …`) under its `callId`; reported costs join the loop's usage |
 | `collect` | tool messages in the **call order**, `afterToolCall` (tool, then agent) for calls that ran, decisions recorded; back to `model` |
 | `agent-reply` | a text agent's answer: `beforeAgentAnswer`, then the text leaves the loop |
-| `agent-answer` | a structured answer through an answer tool: validated by the DTO, `beforeAgentAnswer`, then it leaves the loop as the step's value (`.returns(…)`) |
+| `agent-answer` | a structured answer through an answer tool: validated by the DTO, `beforeAgentAnswer`, then it leaves the loop as the step's value |
 
 ## The request: static first, then the input message
 
@@ -180,7 +180,6 @@ export class SupportAgent {}
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(SupportAgent)
       .toFinish(ChatFinish),
   ],

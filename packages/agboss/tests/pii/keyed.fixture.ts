@@ -78,9 +78,7 @@ export class KeyedFinish {}
 @Workflow({
   name: "keyed-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KeyedStart).returns(WorkflowStartTextDto).toAgent(KeyedAgent).toFinish(KeyedFinish),
-  ],
+  flow: [onStart(KeyedStart).toAgent(KeyedAgent).toFinish(KeyedFinish)],
   defaults: { models: { temperature: 0 } },
   piiPolicies: [EmployeeTokenPiiPolicy, OwnKeyPiiPolicy, AppKeyPiiPolicy],
   providers: [EmployeeDirectory],

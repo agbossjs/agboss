@@ -44,7 +44,6 @@ export type {
   Switching,
   Transitions,
 } from "../flow/builder-types.js";
-export type { JoinValues, Returning, StepValues, ValuesSource } from "../flow/returns-types.js";
 export type {
   AgentsLaunched,
   JoinErrorHandling,
@@ -59,7 +58,6 @@ export type {
 export type {
   GroupPath,
   GroupStart,
-  GroupValues,
   GroupsJoined,
   QuorumGroupsOptions,
   QuorumJoined,
@@ -87,8 +85,6 @@ export {
   type PathSource,
   type Quorum,
   type QuorumGroup,
-  type ReturnedValue,
-  type ReturnsStep,
   type Step,
   type SubPath,
   type SwitchCase,
@@ -174,8 +170,6 @@ export {
   type GeneratedTypeError,
   type InputOf,
   type Inputs,
-  type JoinOutputOf,
-  type JoinOutputs,
   type MissingGeneratedTypes,
   type NoInput,
   type NoOutput,

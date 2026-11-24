@@ -173,7 +173,7 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
     @Workflow({
       name: "normalised-workflow",
       version: "1",
-      flow: [onStart(Start).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Finish)],
+      flow: [onStart(Start).toAgent(Writer).toFinish(Finish)],
       defaults: {
         models: { temperature: 0 },
         router: { model: "typesafe/jev-1.13" },

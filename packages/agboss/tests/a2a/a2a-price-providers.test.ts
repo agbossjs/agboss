@@ -61,7 +61,7 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
   @Workflow({
     name: `placed-child-${n}-workflow`,
     version: "1.0.0",
-    flow: [onStart(ChildStart).returns(WorkflowStartTextDto).toFinish(ChildFinish)],
+    flow: [onStart(ChildStart).toFinish(ChildFinish)],
     ...providers("child workflow"),
   })
   class ChildWorkflow {}
@@ -81,13 +81,7 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
   @Workflow({
     name: `placed-parent-${n}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(ParentStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(ChildWorkflow)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(ParentFinish),
-    ],
+    flow: [onStart(ParentStart).toWorkflow(ChildWorkflow).toFinish(ParentFinish)],
     ...providers("listed workflow"),
   })
   class ParentWorkflow {}

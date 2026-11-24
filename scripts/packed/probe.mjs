@@ -91,9 +91,7 @@ export class FilesWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FilesWorkflowStart)
-      .returns(DocumentDto)
       .toAction(FilesAction)
-      .returns(WorkflowFinishFileDto)
       .toFinish(FilesWorkflowFinish),
   ],
 })

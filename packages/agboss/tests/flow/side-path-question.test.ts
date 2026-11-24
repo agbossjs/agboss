@@ -11,19 +11,15 @@ import { StepFailedError } from "../../src/graph/errors.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
-import { WorkflowStartTextDto } from "./fixtures/dtos.js";
 import { toExternalTask as publicToQuestion } from "../../src/flow/builder.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { side, onStart, toExternalTask } from "./fixtures/paths.js";
 import {
   DraftQuestionAction,
   PlacePurchaseAction,
-  PurchasePlacedDto,
-  PurchaseQuestionDto,
   PurchaseWorkflowFinish,
   InboxSpendingLimitChannel,
   QuestionInbox,
-  SpendingLimitAnswerDto,
   SpendingLimitQuestion,
 } from "./fixtures/questions.fixture.js";
 import {
@@ -99,19 +95,14 @@ describe("#933 AC1: assembly", () => {
       version: "1.0.0",
       flow: [
         onStart(SideQuestionWorkflowStart)
-          .returns(WorkflowStartTextDto)
           .toAction(DraftQuestionAction)
-          .returns(PurchaseQuestionDto)
           .toAction(FlakyCheckAction)
           .onError(
             error,
             toExternalTask(SpendingLimitQuestion)
-              .returns(SpendingLimitAnswerDto)
               .toAction(PlacePurchaseAction)
-              .returns(PurchasePlacedDto)
               .toFinish(PurchaseWorkflowFinish),
           )
-          .returns(PurchasePlacedDto)
           .toFinish(PurchaseWorkflowFinish),
       ],
     })
@@ -231,17 +222,12 @@ describe("#933: a concrete channel class as the question", () => {
       version: "1.0.0",
       flow: [
         onStart(SideQuestionWorkflowStart)
-          .returns(WorkflowStartTextDto)
           .toAction(DraftQuestionAction)
-          .returns(PurchaseQuestionDto)
           .toAction(FlakyCheckAction)
           .onError(
             StepFailedError,
-            toExternalTask(InboxSpendingLimitChannel)
-              .returns(SpendingLimitAnswerDto)
-              .toFinish(PurchaseWorkflowFinish),
+            toExternalTask(InboxSpendingLimitChannel).toFinish(PurchaseWorkflowFinish),
           )
-          .returns(PurchasePlacedDto)
           .toFinish(PurchaseWorkflowFinish),
       ],
     })

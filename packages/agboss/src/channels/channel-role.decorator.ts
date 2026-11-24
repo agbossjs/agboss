@@ -76,7 +76,7 @@ export interface ChannelApprovalRoleOptions extends ChannelRoleBaseOptions {
 /**
  * A workflow question (#659): asked by a flow step, `.toExternalTask(Role)` — the role is that step's
  * node (its `name` ends with `-question`). The step reads one `ask` value from the path, pauses on
- * the role's channel and puts the `answer` on the path (`.returns(AnswerDto)`).
+ * the role's channel and puts the `answer` on the path (``).
  */
 export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
   /** What is asked: the step reads one value of this class from the path (its field `question`). */

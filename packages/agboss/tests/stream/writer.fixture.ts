@@ -60,9 +60,7 @@ export class AuditFinish {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(AuditStart).returns(WorkflowStartTextDto).toAgent(AuditWriter).toFinish(AuditFinish),
-  ],
+  flow: [onStart(AuditStart).toAgent(AuditWriter).toFinish(AuditFinish)],
   defaults: DEFAULTS,
 })
 export class AuditWorkflow {}

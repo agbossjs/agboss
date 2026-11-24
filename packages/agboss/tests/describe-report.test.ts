@@ -62,12 +62,7 @@ class ClerkWorkflowFinish {}
 @Workflow({
   name: "clerk-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ClerkWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ClerkAgent)
-      .toFinish(ClerkWorkflowFinish),
-  ],
+  flow: [onStart(ClerkWorkflowStart).toAgent(ClerkAgent).toFinish(ClerkWorkflowFinish)],
   piiPolicies: [CardPiiPolicy],
 })
 class ClerkWorkflow {}
@@ -248,12 +243,7 @@ class OwnNoteWorkflowFinish {}
 @Workflow({
   name: "own-note-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(OwnNoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OwnNoteAgent)
-      .toFinish(OwnNoteWorkflowFinish),
-  ],
+  flow: [onStart(OwnNoteWorkflowStart).toAgent(OwnNoteAgent).toFinish(OwnNoteWorkflowFinish)],
 })
 class OwnNoteWorkflow {}
 

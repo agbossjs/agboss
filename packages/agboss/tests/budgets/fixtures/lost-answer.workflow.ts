@@ -17,7 +17,6 @@ import {
   type CostCounter,
   type LedgerEntry,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
-import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { seconds, usd } from "../../../src/units/index.js";
@@ -137,10 +136,8 @@ export class LostAnswerWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(LostAnswerWorkflowStart)
-      .returns(OrderDto)
       .toParallelActions(PayThriceAction, WorkAction)
       .join()
-      .returns(listOf(OrderDto))
       .toFinish(LostAnswerWorkflowFinish),
   ],
 })

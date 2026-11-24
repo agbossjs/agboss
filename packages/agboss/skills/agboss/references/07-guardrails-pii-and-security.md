@@ -347,7 +347,6 @@ import { ClinicWorkflowStart } from "./clinic.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(ClinicWorkflowStart)
-      .returns(PatientMessageDto)
       .toRouter(ClinicRouter)
       .chooseOne(
         route(ClinicAgent)

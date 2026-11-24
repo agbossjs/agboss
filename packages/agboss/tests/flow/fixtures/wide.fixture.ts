@@ -4,7 +4,7 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
-import { returnsEach, onStart } from "./paths.js";
+import { onStart } from "./paths.js";
 
 /**
  * #272 S4 — the 32-shape threshold of `InputOf`: a start whose map has 5 optional fields brings
@@ -86,13 +86,11 @@ const parts = Object.values(sixParts);
   name: "parts-workflow",
   version: "1.0.0",
   flow: [
-    returnsEach(onStart(FivePartsWorkflowStart), parts.slice(0, 5))
+    onStart(FivePartsWorkflowStart)
       .toAgent(FivePartsAgent)
-      .returns(SummaryDto)
       .toFinish(SummaryWorkflowFinish),
-    returnsEach(onStart(SixPartsWorkflowStart), parts)
+    onStart(SixPartsWorkflowStart)
       .toAgent(SixPartsAgent)
-      .returns(SummaryDto)
       .toFinish(SummaryWorkflowFinish),
   ],
 })

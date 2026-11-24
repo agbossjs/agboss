@@ -12,12 +12,7 @@ import {
   FaultChargeDeclinedError,
   FaultReserveAction,
 } from "./order.actions.js";
-import {
-  FaultChargeDto,
-  FaultOrderDto,
-  FaultPaymentDto,
-  FaultReservationDto,
-} from "./order.dto.js";
+import { FaultOrderDto, FaultPaymentDto, FaultReservationDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
 
 /**
@@ -104,18 +99,12 @@ export class FaultApprovalWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FaultApprovalWorkflowStart)
-      .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultAskAction)
-      .returns(FaultApprovalAskDto)
       .toExternalTask(FaultApprovalQuestion)
-      .returns(FaultApprovalDto)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultApprovalWorkflowFinish),
   ],
 })

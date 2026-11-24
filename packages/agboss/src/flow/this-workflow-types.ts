@@ -1,33 +1,34 @@
 import type { ErrorClass } from "./ast.js";
 import type {
   CaseHead,
+  CasePath,
   ClaimsOf,
   GroupHead,
   PathHead,
   RouteHead,
+  BuiltPath,
   SideHead,
   SidePath,
   SourceHead,
+  Transitions,
 } from "./builder-types.js";
-import type { ReturnedShape, ValueOf } from "./dto-wrappers.js";
 import type {
   GeneratedTypeError,
   MissingGeneratedTypes,
   NameOf,
   ThisWorkflowOutputs,
 } from "./generated-types.js";
-import type { AfterReturns, Same, ValuesSource } from "./returns-types.js";
+import type { Launches } from "./launch-types.js";
 import type { ThisWorkflow } from "./this-workflow.js";
 
 /**
  * `ThisWorkflow` typed per path (#264 S112, S114). `ThisWorkflow` is one class for every recursive
- * workflow, so what it gives cannot be one generated entry: a `.returns(…)` after a `ThisWorkflow`
- * step, or after its per-item join, is not checked where it is written — it is recorded as a claim
- * in the path's head (`claims`), carried through every sub-path into `.switch(…)` / `.chooseOne(…)`
- * / `.onError(…)`, and `@Workflow({ name, flow })` checks the claims of its flow
- * against its own entry, `ThisWorkflowOutputs[name]`: the launch's input problems (`input`), the
- * finishes' outputs (`output`) and the join of a per-item launch (`join`). A wrong class is a compile
- * error on `flow`.
+ * workflow, so what it gives cannot be one generated entry: each `ThisWorkflow` step or per-item
+ * launch is recorded as a claim in the path's head (`claims`), carried through every sub-path into
+ * `.switch(…)` / `.chooseOne(…)` / `.onError(…)`, and `@Workflow({ name, flow })` checks the
+ * launch's input problems (`input`) of its own entry, `ThisWorkflowOutputs[name]`. What a child
+ * gives is derived by the analyser (#1270), not typed here: a `ThisWorkflow` step goes on with any
+ * transition, and its `oneOf(…)` is switched without a check of its cases.
  */
 
 /** The name of the `ThisWorkflow` marker's node. */
@@ -44,67 +45,36 @@ export type WithClaims<THead extends PathHead, TNew> = [TNew] extends [never]
         ? CaseHead<TValue, TClaims | TNew>
         : THead extends SideHead<infer TClaims>
           ? SideHead<TClaims | TNew>
-          : THead extends GroupHead<
-                infer TNames extends string,
-                infer TGiven extends readonly unknown[],
-                infer TClaims
-              >
-            ? GroupHead<TNames, TGiven, TClaims | TNew>
+          : THead extends GroupHead<infer TClaims>
+            ? GroupHead<TClaims | TNew>
             : never;
 
-/** `.toWorkflow(ThisWorkflow).returns(X)` (and `route(…)`, `onWorkflow(…)`): X is what it gives. */
-export interface ThisWorkflowStepClaim<TValue> {
-  readonly step: TValue;
+/** A `ThisWorkflow` step or launch (and `route(…)`, `onWorkflow(…)`): the path launches it. */
+export interface ThisWorkflowClaim {
+  readonly launches: true;
 }
 
-/** `.toParallelWorkflows(ThisWorkflow, …).join().returns(X)`: X is what its children give. */
-export interface ThisWorkflowJoinClaim<TValue> {
-  readonly join: TValue;
+/** A `oneOf(…)` of `ThisWorkflow` is branched by `.switch(…)`, its cases are checked by the analyser. */
+export interface ThisWorkflowSwitching<THead extends PathHead> {
+  switch<const TCases extends readonly [CasePath, ...CasePath[]]>(
+    ...cases: TCases
+  ): BuiltPath<WithClaims<THead, ClaimsOf<TCases[number]>>>;
 }
 
-/** The values of a `ThisWorkflow` step: its workflow's `ThisWorkflowOutputs` entry. */
-export interface ThisWorkflowStepValues extends ValuesSource {
-  readonly label: ThisWorkflowName;
-  readonly entry: 'ThisWorkflowOutputs["<workflow>"]["output"]';
-  readonly canLaunch: true;
-}
+/** After a `ThisWorkflow` step: any transition, or its `oneOf(…)` switched — checked by the analyser. */
+export type ThisWorkflowStep<THead extends PathHead> = Transitions<
+  WithClaims<THead, ThisWorkflowClaim>
+> &
+  Launches<never, WithClaims<THead, ThisWorkflowClaim>> &
+  ThisWorkflowSwitching<WithClaims<THead, ThisWorkflowClaim>>;
 
-/** The values of a per-item `ThisWorkflow` launch's join. */
-export interface ThisWorkflowJoinValues extends ValuesSource {
-  readonly label: "the join";
-  readonly entry: 'ThisWorkflowOutputs["<workflow>"]["join"]';
-  readonly canLaunch: false;
-}
-
-/** After a `ThisWorkflow` step: `.returns(…)` names what it gives — claimed, checked by `@Workflow`. */
-export interface ThisWorkflowReturning<THead extends PathHead> {
-  returns<const TShape extends ReturnedShape>(
-    value: TShape,
-  ): AfterReturns<
-    ThisWorkflowStepValues,
-    never,
-    [ValueOf<TShape>],
-    TShape,
-    WithClaims<THead, ThisWorkflowStepClaim<ValueOf<TShape>>>
-  >;
-}
-
-/** After the join of `.toParallelWorkflows(ThisWorkflow, …)`: its `.onError(…)`, its values. */
-export interface ThisWorkflowJoined<THead extends PathHead> {
+/** After the join of `.toParallelWorkflows(ThisWorkflow, …)`: its `.onError(…)`, then a transition. */
+export type ThisWorkflowJoined<THead extends PathHead> = {
   onError<const TPath extends SidePath>(
     error: ErrorClass,
     path: TPath,
   ): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;
-  returns<const TShape extends ReturnedShape>(
-    value: TShape,
-  ): AfterReturns<
-    ThisWorkflowJoinValues,
-    never,
-    [ValueOf<TShape>],
-    TShape,
-    WithClaims<THead, ThisWorkflowJoinClaim<ValueOf<TShape>>>
-  >;
-}
+} & Transitions<WithClaims<THead, ThisWorkflowClaim>>;
 
 /** After `.toParallelWorkflows(ThisWorkflow, …)`: only `.join()`. */
 export interface ThisWorkflowLaunched<THead extends PathHead> {
@@ -116,49 +86,21 @@ export type EntryOf<TName extends string> = TName extends keyof ThisWorkflowOutp
   ? ThisWorkflowOutputs[TName]
   : MissingGeneratedTypes;
 
-export interface StepNotGiven<TName extends string> {
-  readonly __error: `a .returns(…) after ThisWorkflow is not what ${TName} gives — see ThisWorkflowOutputs["${TName}"]["output"]`;
-}
-
-export interface JoinNotGiven<TName extends string> {
-  readonly __error: `the .returns(…) after the join of .toParallelWorkflows(ThisWorkflow, …) is not what ${TName}'s children give — see ThisWorkflowOutputs["${TName}"]["join"]`;
-}
-
-/** The problem of one claim (distributed over the claims): `never` when the entry agrees. */
-export type ClaimProblem<TClaim, TEntry, TName extends string> =
-  TClaim extends ThisWorkflowStepClaim<infer TValue>
-    ? TEntry extends { readonly output: infer TOutput }
-      ? Same<TValue, TOutput> extends true
-        ? never
-        : StepNotGiven<TName>
-      : StepNotGiven<TName>
-    : TClaim extends ThisWorkflowJoinClaim<infer TValue>
-      ? TEntry extends { readonly join: infer TJoin }
-        ? Same<TValue, TJoin> extends true
-          ? never
-          : JoinNotGiven<TName>
-        : JoinNotGiven<TName>
-      : never;
-
-export type ClaimsCheck<TClaims, TEntry, TName extends string> = [TEntry] extends [
-  GeneratedTypeError,
-]
-  ? { readonly flow: TEntry }
-  : TEntry extends { readonly input: infer TInput }
-    ? [TInput] extends [GeneratedTypeError]
-      ? { readonly flow: TInput }
-      : [ClaimProblem<TClaims, TEntry, TName>] extends [never]
-        ? unknown
-        : { readonly flow: ClaimProblem<TClaims, TEntry, TName> }
-    : never;
-
 /**
- * `@Workflow({ name, flow })`: `unknown` when the flow claims nothing of `ThisWorkflow` or its
- * claims agree with `ThisWorkflowOutputs[name]`; else `{ flow: <the problem> }`, so `flow` does not
- * compile.
+ * `@Workflow({ name, flow })`: `unknown` when the flow launches no `ThisWorkflow` or its launches
+ * can be filled from the paths into them (`input` of `ThisWorkflowOutputs[name]`); else
+ * `{ flow: <the problem> }`, so `flow` does not compile.
  */
 export type ThisWorkflowCheck<TName extends string, TFlow extends readonly unknown[]> = [
   ClaimsOf<TFlow[number]>,
 ] extends [never]
   ? unknown
-  : ClaimsCheck<ClaimsOf<TFlow[number]>, EntryOf<TName>, TName>;
+  : ClaimsCheck<EntryOf<TName>>;
+
+export type ClaimsCheck<TEntry> = [TEntry] extends [GeneratedTypeError]
+  ? { readonly flow: TEntry }
+  : TEntry extends { readonly input: infer TInput }
+    ? [TInput] extends [GeneratedTypeError]
+      ? { readonly flow: TInput }
+      : unknown
+    : never;

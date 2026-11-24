@@ -15,13 +15,7 @@ import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { VisitsLimitExceededError } from "../../../src/flow/runtime/errors.js";
 import { runtimeGraphOf } from "../../../src/flow/runtime/graph-model.js";
 import { checkVisit, type ExecutionLimits } from "../../../src/flow/runtime/limits.js";
-import {
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-  ShortlistDto,
-} from "../fixtures/dtos.js";
+import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitAgent,
   KitWorkflowStart,
@@ -55,23 +49,11 @@ class NullBoundReviewAgent {}
   name: "null-bound-loop-workflow",
   version: "1.0.0",
   flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
-      .toAgent(NullBoundReviewAgent),
-    onAgent(NullBoundReviewAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(
-        caseOf(ChangesRequestedDto)
-          .toAgent(NullBoundEditAgent)
-          .returns(OfferDraftDto)
-          .toAgent(NullBoundReviewAgent),
-        caseOf(DraftApprovedDto)
-          .toAction(SendKitAction)
-          .returns(OfferSentDto)
-          .toFinish(SentKitWorkflowFinish),
-      ),
+    onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(NullBoundReviewAgent),
+    onAgent(NullBoundReviewAgent).switch(
+      caseOf(ChangesRequestedDto).toAgent(NullBoundEditAgent).toAgent(NullBoundReviewAgent),
+      caseOf(DraftApprovedDto).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+    ),
   ],
 })
 class NullBoundLoopWorkflow {}

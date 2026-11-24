@@ -1,12 +1,6 @@
-import { listOf, oneOf, onStart, Workflow } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { onStart, Workflow } from "@agboss/core";
 import { VendorFinderAgent } from "../../agents/vendor-finder/vendor-finder.agent.js";
 import { VendorRankerAgent } from "../../agents/vendor-ranker/vendor-ranker.agent.js";
-import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
-import { VendorRankingDto } from "../../dto/vendor-ranking.dto.js";
-import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
-import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
-import { VendorDto } from "../../dto/vendor.dto.js";
 import { VendorCheckWorkflow } from "../vendor-check/vendor-check.workflow.js";
 import { VendorRankingWorkflowFinish } from "./vendor-ranking.workflow-finish.js";
 import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.js";
@@ -22,14 +16,10 @@ import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.
   version: "1.0.0",
   flow: [
     onStart(VendorScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(VendorFinderAgent)
-      .returns(listOf(VendorDto))
       .toParallelWorkflows(VendorCheckWorkflow, { maxConcurrency: 3, maxItems: 20 })
       .join()
-      .returns(listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)))
       .toAgent(VendorRankerAgent)
-      .returns(VendorRankingDto)
       .toFinish(VendorRankingWorkflowFinish),
   ],
 })

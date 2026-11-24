@@ -107,21 +107,16 @@ export class AnswerRouter {}
 
 export const supportPaths = [
   onStart(SupportWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(OrderAgent)
-    .returns(OrderStatusDto)
     .toRouter(AnswerRouter)
     .chooseOne(
       route(FastAnswerAgent)
-        .returns(FastDraftDto)
         .toFinish(SupportWorkflowFinish),
       route(LoyaltyAgent)
-        .returns(LoyaltyOfferDto)
         .toAgent(ExpertAnswerAgent),
       route(ExpertAnswerAgent),
     ),
   onAgent(ExpertAnswerAgent)
-    .returns(ExpertDraftDto)
     .toFinish(SupportWorkflowFinish),
 ];
 

@@ -74,7 +74,7 @@ async function settledValues(
   });
   const edge: FlowEdge = {
     ...handler,
-    join: { launch: launch.launch, values, written: [], groups },
+    join: { launch: launch.launch, values, groups },
   };
   const context: JoinContext = { state: failed.state, deps: failed.deps };
   const config = failed.config;

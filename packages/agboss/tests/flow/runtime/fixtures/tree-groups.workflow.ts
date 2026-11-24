@@ -55,14 +55,10 @@ export class GroupDoneWorkflowFinish {}
 
 const groupPath = (from: typeof GroupWorkflowStart) =>
   onStart(from)
-    .returns(GroupDto)
     .toAction(GroupTasksAction)
-    .returns(listOf(TaskDto))
     .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
     .join()
-    .returns(listOf(TaskDoneDto))
     .toAction(CloseGroupAction)
-    .returns(GroupDoneDto)
     .toFinish(GroupDoneWorkflowFinish);
 
 @Workflow({ name: "group-workflow", version: "1.0.0", flow: [groupPath(GroupWorkflowStart)] })
@@ -106,10 +102,8 @@ export class GroupsDoneWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(GroupsWorkflowStart)
-      .returns(listOf(GroupDto))
       .toParallelWorkflows(GroupWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
-      .returns(listOf(GroupDoneDto))
       .toFinish(GroupsDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,
@@ -129,10 +123,8 @@ export class NarrowGroupsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(NarrowGroupsWorkflowStart)
-      .returns(listOf(GroupDto))
       .toParallelWorkflows(NarrowGroupWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
-      .returns(listOf(GroupDoneDto))
       .toFinish(GroupsDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 4,

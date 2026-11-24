@@ -18,7 +18,7 @@ import {
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
 import { RecordingLogger } from "../../../helpers/log.js";
 import { onStart, toFinish } from "../../../helpers/flow.js";
-import { ItemDto, ItemResultDto, SummaryWorkflowFinish } from "./fan-out.workflow.js";
+import { ItemDto, SummaryWorkflowFinish } from "./fan-out.workflow.js";
 import {
   ChecksFailedWorkflowFinish,
   ChildEventLog,
@@ -74,11 +74,8 @@ export class RemotePrepItemAction {
   version: "1.0.0",
   flow: [
     onStart(HoldCheckWorkflowStart)
-      .returns(ItemDto)
       .toAction(RemotePrepItemAction)
-      .returns(ItemDto)
       .toAction(RecoverableItemAction)
-      .returns(ItemResultDto)
       .toFinish(HoldCheckedWorkflowFinish),
   ],
 })
@@ -96,14 +93,12 @@ export class RemoteHoldItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteHoldItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(RemoteHoldCheckWorkflow, {
         maxItems: 10,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
       .onError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -121,9 +116,7 @@ export class RemoteReviewOneWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteReviewOneWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(ItemReviewWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
       .toFinish(ItemReviewedWorkflowFinish),
   ],
 })
@@ -141,14 +134,12 @@ export class RemoteReviewItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteReviewItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemReviewWorkflow, {
         maxConcurrency: 2,
         maxItems: 10,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(ReviewsSummaryWorkflowFinish),
   ],
 })

@@ -23,7 +23,6 @@ export class TripWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TripWorkflowStart)
-      .returns(FlightBookingDto)
       .toFinish(TripWorkflowFinish),
   ],
 })

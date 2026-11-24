@@ -43,9 +43,7 @@ export class ChangedBillingWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChangedBillingWorkflowStart)
-      .returns(StrictBillingQuestionDto)
       .toAgent(ChangedBillingDeskAgent)
-      .returns(RenamedBillingAnswerDto)
       .toFinish(ChangedBillingWorkflowFinish),
   ],
 })

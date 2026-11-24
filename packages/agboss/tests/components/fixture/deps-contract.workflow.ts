@@ -9,10 +9,9 @@ import {
   type WorkflowOptions,
 } from "../../../src/index.js";
 import type { Class } from "../../../src/components/injection.js";
-import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { onStart } from "../../helpers/flow.js";
-import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import {
@@ -96,7 +95,6 @@ export function workflowWith(
     name,
     flow: [
       onStart(Chat)
-        .returns(WorkflowStartTextDto)
         .toAgent(agent)
         .toFinish(Done),
     ],
@@ -130,9 +128,7 @@ export function applicationWith(
   name: "vault-workflow",
   flow: [
     onStart(Chat)
-      .returns(WorkflowStartTextDto)
       .toAgent(Keeper)
-      .returns(KeptDto)
       .toAction(StampAction)
       .toFinish(Kept),
   ],

@@ -128,7 +128,6 @@ const DEFAULTS = {
   version: "1.0.0",
   flow: [
     onStart(ClerkStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ClerkAgent)
       .toFinish(ClerkFinish),
   ],
@@ -164,10 +163,8 @@ export class HandOverFinish {}
   version: "1.0.0",
   flow: [
     onStart(FrontDeskStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(ClerkWorkflow)
       .onError(ChildExecutionFailedError, toFinish(HandOverFinish))
-      .returns(WorkflowFinishTextDto)
       .toFinish(FrontDeskFinish),
   ],
   defaults: DEFAULTS,
@@ -198,7 +195,6 @@ export class StrictClerkStart {}
   version: "1.0.0",
   flow: [
     onStart(StrictClerkStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(StrictClerkAgent)
       .onError(QualityGateError, toFinish(HandOverFinish))
       .toFinish(ClerkFinish),

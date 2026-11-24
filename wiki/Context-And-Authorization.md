@@ -272,7 +272,6 @@ export class DataAgent {}
   providers: [RoleService],
   flow: [
     onStart(DataWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(DataAgent)
       .toFinish(DataWorkflowFinish),
   ],

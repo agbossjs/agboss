@@ -83,9 +83,7 @@ export class TicketStart {}
   version: "1.0.0",
   flow: [
     onStart(TicketStart)
-      .returns(TicketDto)
       .toAction(ClassifyAction)
-      .returns(oneOf(BugDto, QuestionDto))
       .switch(
         caseOf(BugDto)
           .toFinish(ReportFinish),

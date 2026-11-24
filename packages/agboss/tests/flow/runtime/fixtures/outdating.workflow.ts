@@ -130,20 +130,15 @@ export class LoopWorkflowFinish {}
   maxSteps: 30,
   flow: [
     onStart(LoopWorkflowStart)
-      .returns(ArticleRequestDto)
       .toAgent(LoopResearcherAgent)
-      .returns(ResearchDto)
       .toAgent(LoopWriterAgent),
     onAgent(LoopWriterAgent)
-      .returns(DraftDto)
       .toAgent(LoopReviewerAgent)
-      .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
         caseOf(DraftChangesDto)
           .toAgent(LoopWriterAgent),
         caseOf(ApprovalDto)
           .toAgent(LoopPublisherAgent)
-          .returns(ArticleDto)
           .toFinish(LoopWorkflowFinish),
       ),
   ],
@@ -252,18 +247,12 @@ export class JobsRouter {}
   maxSteps: 20,
   flow: [
     onStart(JobsWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ProfileAgent),
     onAgent(ProfileAgent)
-      .returns(CandidateProfileDto)
       .toAgent(SearchAgent)
-      .returns(JobListDto)
       .toAgent(ScoreAgent)
-      .returns(JobScoresDto)
       .toAgent(AdviceAgent)
-      .returns(AdviceDto)
       .toAgent(PickAgent)
-      .returns(JobPickDto)
       .toRouter(JobsRouter)
       .chooseOne(route(ProfileAgent), route(JobsWorkflowFinish)),
   ],

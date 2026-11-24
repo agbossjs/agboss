@@ -5,8 +5,6 @@ import { launchLabel } from "../join-groups.js";
 import { dtoLabel, shapeLabel } from "../labels.js";
 import { slotOfDto } from "../scope.js";
 import type { AnalysisContext } from "./context.js";
-import { quorumReturnsViolations } from "./quorum-returns.js";
-import { chain, sorted } from "./returns.js";
 import { launchViolations } from "./router-launch.js";
 import { routeSetViolations, type RouteListing } from "./routers.js";
 
@@ -14,7 +12,7 @@ import { routeSetViolations, type RouteListing } from "./routers.js";
  * The launch rules (#273): a per-item launch has `maxItems` (`[launch.max-items-required]`) and
  * only it (`[launch.max-items-without-list]`), and its target reads the item
  * (`[launch.item-not-read]`); a branch is continued by its join only (`[launch.branch-continued]`);
- * `.join().returns(…)` names exactly what the branches give (`[flow.returns-mismatch]`); a router's
+ * a join's value is one the branches' outputs can give (`[launch.unjoinable-output]`); a router's
  * launch lists its routes (`[router.routes-mismatch]`) and follows the routes' launch rules
  * (`launchViolations`). Policies exist only on a router's routes, so a launch from an agent, a
  * start or an action has none.
@@ -30,7 +28,7 @@ function widthViolations(context: AnalysisContext, launch: FlowLaunch): readonly
       : [
           violation(
             "launch.max-items-without-list",
-            `${label}: { maxItems } bounds a per-item launch — one target right after .returns(listOf(XDto)); remove it here`,
+            `${label}: { maxItems } bounds a per-item launch — one target right after a step that gives a list; remove it here`,
             nodes,
           ),
         ];
@@ -73,28 +71,23 @@ function continuedBranches(context: AnalysisContext): readonly RuleViolation[] {
   return [...found.values()];
 }
 
-/** `.join().returns(…)` against what the branches give (a quorum's: `quorumReturnsViolations`). */
-function joinReturnsViolations(join: JoinEdge): readonly RuleViolation[] {
-  if (join.quorum !== undefined) return quorumReturnsViolations(join);
-  const label = launchLabel(join.launch);
-  const nodes = [join.launch.launcher];
-  const problems = join.groups.flatMap((group) =>
+/** A join's value the branches' outputs cannot give: a list of lists, a lone `oneOf`. */
+function joinViolations(join: JoinEdge): readonly RuleViolation[] {
+  const label = join.group === undefined ? launchLabel(join.launch) : groupLabel(join);
+  return join.groups.flatMap((group) =>
     group.problem === undefined
       ? []
-      : [violation("flow.returns-mismatch", `${label}: ${group.problem}`, nodes)],
+      : [
+          violation("launch.unjoinable-output", `${label}: ${group.problem}`, [
+            join.launch.launcher,
+          ]),
+        ],
   );
-  const want = join.groups.flatMap((group) =>
-    group.shape === undefined ? [] : [shapeLabel(group.shape)],
-  );
-  const got = join.written.map(shapeLabel);
-  if (problems.length > 0 || sorted(want) === sorted(got)) return problems;
-  const message =
-    want.length === 0
-      ? `the join of ${label} gives nothing — its actions have no output; remove ${chain(got)} after .join()`
-      : `the join of ${label} gives ${sorted(want)} — write .join()${chain(want)}` +
-        (got.length === 0 ? "" : `, not .join()${chain(got)}`);
-  return [violation("flow.returns-mismatch", message, nodes)];
 }
+
+/** `<launch> group(A, B)` of `.joinQuorumGroups(…)`. */
+const groupLabel = (join: JoinEdge): string =>
+  `${launchLabel(join.launch)} group(${join.group?.agents.join(", ") ?? ""})`;
 
 const ROUTER_LAUNCH: RouteListing = { call: ".toParallelAgents(…)", item: "" };
 
@@ -121,6 +114,6 @@ export function launchRules(context: AnalysisContext): readonly RuleViolation[] 
     ...launches.flatMap((launch) => widthViolations(context, launch)),
     ...launches.flatMap((launch) => routerLaunchViolations(context, launch)),
     ...continuedBranches(context),
-    ...joinsOf(context.graph.edges).flatMap(joinReturnsViolations),
+    ...joinsOf(context.graph.edges).flatMap(joinViolations),
   ];
 }

@@ -37,7 +37,6 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
   version: "2.0.0", // labels every run; profiles set their own
   flow: [
     onStart(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ScoutAgent)
       .toFinish(ChatWorkflowFinish),
   ],
@@ -82,7 +81,6 @@ import { EmptyEnvironment } from "@agboss/core";
   version: "1.0.0",
   flow: [
     onStart(AskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toFinish(AskWorkflowFinish),
   ],
   defaults: { tools: { maxToolCalls: 4 } }, // its own: over the application's tools.maxToolCalls

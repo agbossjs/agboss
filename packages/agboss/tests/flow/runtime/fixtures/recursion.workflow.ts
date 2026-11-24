@@ -160,26 +160,20 @@ export class TopicFailedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TopicResearchWorkflowStart)
-      .returns(TopicDto)
       .toAgent(ResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction))
-      .returns(oneOf(TopicReportDto, TopicTooBroadDto))
       .switch(
         caseOf(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
         caseOf(TopicTooBroadDto)
           .toAction(SubtopicsAction)
-          .returns(listOf(TopicDto))
           .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
           .join()
-          .returns(listOf(oneOf(TopicReportDto, TopicFailedDto)))
           .toAgent(MergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
-          .returns(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
       ),
     onAction(MarkTopicFailedAction)
-      .returns(TopicFailedDto)
       .toFinish(TopicFailedWorkflowFinish),
   ],
   maxDepth: 3,
@@ -253,19 +247,15 @@ export class CountStoppedWorkflowFinish {}
 /** One level deeper while the count lasts; past `maxDepth` the side path finishes. */
 const countdownPath = (from: typeof CountdownWorkflowStart) =>
   onStart(from)
-    .returns(CountDto)
     .toAction(CountdownAction)
-    .returns(oneOf(CountDto, CountDoneDto))
     .switch(
       caseOf(CountDto)
         .toWorkflow(ThisWorkflow)
         .onError(
           LimitExceededError,
           toAction(DepthStoppedAction)
-            .returns(CountStoppedDto)
             .toFinish(CountStoppedWorkflowFinish),
         )
-        .returns(oneOf(CountDoneDto, CountStoppedDto))
         .switch(
           caseOf(CountDoneDto)
             .toFinish(CountDoneWorkflowFinish),
@@ -347,20 +337,15 @@ export class SumAction {
   version: "1.0.0",
   flow: [
     onStart(SplitWorkflowStart)
-      .returns(CountDto)
       .toAction(SplitAction)
-      .returns(listOf(CountDto))
       .toParallelWorkflows(ThisWorkflow, { maxItems: 2 })
       .join()
       .onError(
         LimitExceededError,
         toAction(SplitStoppedAction)
-          .returns(CountStoppedDto)
           .toFinish(CountStoppedWorkflowFinish),
       )
-      .returns(listOf(oneOf(CountDoneDto, CountStoppedDto)))
       .toAction(SumAction)
-      .returns(CountDoneDto)
       .toFinish(CountDoneWorkflowFinish),
   ],
   maxDepth: 2,
@@ -413,14 +398,11 @@ export class ChainDoneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChainWorkflowStart)
-      .returns(LinkDto)
       .toRouter(LinkRouter)
       .chooseOne(
         route(ThisWorkflow)
-          .returns(LinkDoneDto)
           .toFinish(ChainDoneWorkflowFinish),
         route(LinkAgent)
-          .returns(LinkDoneDto)
           .toFinish(ChainDoneWorkflowFinish),
       ),
   ],
@@ -451,14 +433,11 @@ export class DeeperRouter {
   version: "1.0.0",
   flow: [
     onStart(CodeChainWorkflowStart)
-      .returns(LinkDto)
       .toRouter(DeeperRouter)
       .chooseOne(
         route(ThisWorkflow)
-          .returns(LinkDoneDto)
           .toFinish(ChainDoneWorkflowFinish),
         route(LinkAgent)
-          .returns(LinkDoneDto)
           .toFinish(ChainDoneWorkflowFinish),
       ),
   ],

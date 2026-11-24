@@ -17,7 +17,7 @@ import { treeLaunchesOnAnyInstance } from "../../../src/flow/analyse/child-place
 import type { Class } from "../../../src/components/injection.js";
 import { Workflow, WorkflowStart } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
-import { ItemDto, SummaryDto } from "./fixtures/fan-out.workflow.js";
+import { ItemDto } from "./fixtures/fan-out.workflow.js";
 import { RemoteItemWorkflow } from "./fixtures/remote-children.workflow.js";
 import {
   RemoteCappedWorkflow,
@@ -184,9 +184,7 @@ class OuterWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(OuterWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(RemoteSpendWorkflow)
-      .returns(SummaryDto)
       .toFinish(RemoteSpendCheckedWorkflowFinish),
   ],
 })

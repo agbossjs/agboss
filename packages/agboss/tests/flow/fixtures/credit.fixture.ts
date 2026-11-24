@@ -145,16 +145,13 @@ export class DeskRouter {}
 
 export const creditPaths = [
   onStart(CreditWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toRouter(DeskRouter)
     .chooseOne(
       route(OrderIntakeAgent)
-        .returns(CreditOrderDto)
         .toRouter(CreditLimitRouter)
         .onError(CreditServiceUnavailableError, toFinish(OrderHeldWorkflowFinish))
         .chooseOne(
           route(ApprovalAgent)
-            .returns(CreditApprovalDto)
             .toAction(ChargeCardAction),
           route(ChargeCardAction),
         ),
@@ -163,7 +160,6 @@ export const creditPaths = [
 
   // two ways in (ApprovalAgent, CreditLimitRouter) → its own path
   onAction(ChargeCardAction)
-    .returns(ChargeResultDto)
     .toFinish(CreditWorkflowFinish),
 ] as const;
 
@@ -202,22 +198,18 @@ export class CreditLimitByModelRouter {}
 
 export const creditByModelPaths = [
   onStart(CreditWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toRouter(DeskRouter)
     .chooseOne(
       route(OrderIntakeAgent)
-        .returns(CreditOrderDto)
         .toRouter(CreditLimitByModelRouter)
         .chooseOne(
           route(ApprovalAgent)
-            .returns(CreditApprovalDto)
             .toAction(ChargeCardAction),
           route(ChargeCardAction),
         ),
       route(NoOrderWorkflowFinish),
     ),
   onAction(ChargeCardAction)
-    .returns(ChargeResultDto)
     .toFinish(CreditWorkflowFinish),
 ] as const;
 

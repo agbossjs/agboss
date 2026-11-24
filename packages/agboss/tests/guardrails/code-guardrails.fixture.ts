@@ -192,7 +192,6 @@ export class ShopRouter {}
   version: "1.0.0",
   flow: [
     onStart(ShopStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(ShopRouter)
       .chooseOne(
         route(SalesAgent).toFinish(ShopAnswer),

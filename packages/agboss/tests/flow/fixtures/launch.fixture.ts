@@ -103,15 +103,10 @@ export class ArticleDraftWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ResearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(PlannerAgent)
-      .returns(PlanDto)
       .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
       .join()
-      .returns(ResearchDto)
-      .returns(listOf(CritiqueDto))
       .toAgent(ArticleWriterAgent)
-      .returns(ArticleDraftDto)
       .toFinish(ArticleDraftWorkflowFinish),
   ],
 })
@@ -195,20 +190,15 @@ export class ScreeningFailedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ScreeningAgent)
-      .returns(listOf(CompanyDto))
       .toParallelAgents(CompanyAuditAgent, { maxConcurrency: 3, maxItems: 50 })
       .join()
       .onError(
         LimitExceededError,
         toAction(NotifyOperatorAction)
-          .returns(ScreeningFailedDto)
           .toFinish(ScreeningFailedWorkflowFinish),
       )
-      .returns(listOf(CompanyCheckDto))
       .toAgent(RankerAgent)
-      .returns(RankingDto)
       .toFinish(RankingWorkflowFinish),
   ],
   // the worst case (50 items) takes 52 steps: the default (agents + routers) × 3 cannot hold it
@@ -291,9 +281,7 @@ export class PaymentWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(CheckoutWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChargePaymentAction)
-      .returns(PaymentDto)
       .toParallelActions(SendReceiptAction, UpdateCrmAction, ReserveGoodsAction, {
         maxConcurrency: 3,
       })
@@ -396,15 +384,10 @@ export class HelpDeskWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HelpDeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(HelpDeskRouter)
       .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)
       .join()
-      .returns(OrderStatusDto)
-      .returns(optional(RefundPolicyDto))
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(AnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(HelpDeskWorkflowFinish),
   ],
 })
@@ -459,14 +442,10 @@ export class OffersWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OffersWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(OffersRouter)
       .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
       .join()
-      .returns(RefundPolicyDto)
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(OffersAnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(OffersWorkflowFinish),
   ],
 })

@@ -113,9 +113,7 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
   version: "1.0.0",
   flow: [
     onStart(Order)
-      .returns(WorkflowStartTextDto)
       .toAgent(Buyer)
-      .returns(PurchaseDto)
       .toAgent(Checker)
       .onError(BudgetExceededError, toFinish(OverBudget))
       .toFinish(Done),
@@ -140,9 +138,7 @@ export class ShopApplication {}
   version: "1.0.0",
   flow: [
     onStart(Order)
-      .returns(WorkflowStartTextDto)
       .toAgent(Buyer)
-      .returns(PurchaseDto)
       .toAgent(Checker)
       .onError(LimitExceededError, toFinish(OverBudget))
       .toFinish(Done),
@@ -167,9 +163,7 @@ export class ShopCatchingLimitsApplication {}
   version: "1.0.0",
   flow: [
     onStart(Order)
-      .returns(WorkflowStartTextDto)
       .toAgent(Buyer)
-      .returns(PurchaseDto)
       .toAgent(Checker)
       .toFinish(Done),
   ],

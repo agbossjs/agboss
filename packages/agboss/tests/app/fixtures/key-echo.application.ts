@@ -152,26 +152,14 @@ export class HandKeyedFinish {}
 @Workflow({
   name: "keyed-effect-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KeyedEffectStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(KeyedEffectAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(KeyedFinish),
-  ],
+  flow: [onStart(KeyedEffectStart).toAction(KeyedEffectAction).toFinish(KeyedFinish)],
 })
 export class KeyedEffectWorkflow {}
 
 @Workflow({
   name: "hand-keyed-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(HandKeyedStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(HandKeyedSendAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(HandKeyedFinish),
-  ],
+  flow: [onStart(HandKeyedStart).toAction(HandKeyedSendAction).toFinish(HandKeyedFinish)],
 })
 export class HandKeyedWorkflow {}
 

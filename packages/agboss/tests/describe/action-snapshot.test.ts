@@ -10,13 +10,10 @@ import { EmptyEnvironment } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
   BookTripAction,
-  BookingDto,
   CancelBookingAction,
   ConfirmTripAction,
   TripBookedWorkflowFinish,
-  TripConfirmedDto,
   TripNotBookedWorkflowFinish,
-  TripRequestDto,
   TripWorkflowStart,
 } from "../flow/fixtures/compensation-parts.js";
 import { onStart, toAction } from "../flow/fixtures/paths.js";
@@ -32,12 +29,9 @@ import { onStart, toAction } from "../flow/fixtures/paths.js";
   version: "1.0.0",
   flow: [
     onStart(TripWorkflowStart)
-      .returns(TripRequestDto)
       .toAction(BookTripAction)
-      .returns(BookingDto)
       .toAction(ConfirmTripAction)
       .onError(StepFailedError, toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish))
-      .returns(TripConfirmedDto)
       .toFinish(TripBookedWorkflowFinish),
   ],
 })

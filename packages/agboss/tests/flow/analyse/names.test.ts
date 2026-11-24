@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { Text } from "../../../src/dto/index.js";
-import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
+import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { ShortlistDto } from "../fixtures/dtos.js";
 import { KitWorkflowStart } from "../fixtures/kit.fixture.js";
 import { onStart } from "../fixtures/paths.js";
+import { analyseWorkflow } from "../../../src/flow/analyse/analyse.js";
 
 /** Names (#272 AC13; #270 AC14, S5): kind suffixes, the `Dto` suffix, unique DTO names. */
 
@@ -37,13 +38,7 @@ class CritiqueWorkflowFinish {}
 @Workflow({
   name: "offer",
   version: "1.0.0",
-  flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(ScoreSummaryAgent)
-      .returns(Critique)
-      .toFinish(CritiqueWorkflowFinish),
-  ],
+  flow: [onStart(KitWorkflowStart).toAgent(ScoreSummaryAgent).toFinish(CritiqueWorkflowFinish)],
 })
 class BadlyNamedWorkflow {}
 
@@ -70,13 +65,7 @@ class ShortlistWorkflowFinish {}
 @Workflow({
   name: "renamed-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(RenamedLaterAgent)
-      .returns(ShortlistDto)
-      .toFinish(ShortlistWorkflowFinish),
-  ],
+  flow: [onStart(KitWorkflowStart).toAgent(RenamedLaterAgent).toFinish(ShortlistWorkflowFinish)],
 })
 class RenamedWorkflow {}
 
@@ -119,13 +108,7 @@ class ResultWorkflowFinish {}
 @Workflow({
   name: "clashing-dtos-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(SearchAgent)
-      .returns(searchResult)
-      .toFinish(ResultWorkflowFinish),
-  ],
+  flow: [onStart(KitWorkflowStart).toAgent(SearchAgent).toFinish(ResultWorkflowFinish)],
 })
 class ClashingDtosWorkflow {}
 
@@ -149,7 +132,7 @@ describe("AC13: every name ends with its kind", () => {
 });
 
 describe("#270 AC14: dto name", () => {
-  it("a DTO used as an output or in .returns(…) without the Dto suffix fails", () => {
+  it("a DTO used as an output or in without the Dto suffix fails", () => {
     expect(checkWorkflow(BadlyNamedWorkflow).errors).toContainEqual(
       expect.objectContaining({
         code: "dto.name",

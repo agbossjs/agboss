@@ -7,7 +7,6 @@ import {
 } from "../../../../src/index.js";
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
-import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 
@@ -37,7 +36,6 @@ export class Greeter {}
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Greeter)
       .toFinish(Reply),
   ],

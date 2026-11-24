@@ -63,15 +63,10 @@ export class ArticleWorkflowFinish {}
 
 export const articlePaths = [
   onStart(ArticleWorkflowStart)
-    .returns(ArticleRequestDto)
     .toAgent(ArticleDraftAgent)
-    .returns(ArticleDto)
     .toAgent(DraftReviewerAgent)
-    .returns(ReviewDto)
     .toAgent(WriterAgent)
-    .returns(ArticleDto)
     .toAgent(FinalReviewerAgent)
-    .returns(ReviewDto)
     .toFinish(ArticleWorkflowFinish),
 ] as const;
 

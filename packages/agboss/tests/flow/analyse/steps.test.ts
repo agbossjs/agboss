@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { LimitExceededError } from "../../../src/graph/limits.js";
-import { OfferDraftDto, OfferSentDto } from "../fixtures/dtos.js";
 import {
   DraftKitWorkflowFinish,
   EditKitAgent,
@@ -32,13 +31,7 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
     name: "send-offer-workflow",
     version: "1.0.0",
     maxSteps,
-    flow: [
-      onStart(SecondKitWorkflowStart)
-        .returns(OfferDraftDto)
-        .toAction(SendKitAction)
-        .returns(OfferSentDto)
-        .toFinish(SentKitWorkflowFinish),
-    ],
+    flow: [onStart(SecondKitWorkflowStart).toAction(SendKitAction).toFinish(SentKitWorkflowFinish)],
   })
   class SendOfferWorkflow {}
   return SendOfferWorkflow;
@@ -50,12 +43,9 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
   maxSteps: 1,
   flow: [
     onStart(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
-      .returns(OfferDraftDto)
       .toAgent(PolishKitAgent)
       .onError(LimitExceededError, toFinish(DraftKitWorkflowFinish))
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })

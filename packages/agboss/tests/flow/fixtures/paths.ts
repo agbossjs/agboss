@@ -38,12 +38,6 @@ export const route = (target: Class): PathBuilder => subPathFrom({ kind: "route"
 
 export const caseOf = (dto: DtoClass): PathBuilder => subPathFrom({ kind: "case", dto });
 
-/** `.returns(A).returns(B)…` — a start's several values, one `.returns` each (#299 S54). */
-export const returnsEach = <TBuilder extends PathBuilder>(
-  path: TBuilder,
-  shapes: readonly ValueShape[],
-): TBuilder => shapes.reduce<TBuilder>((built, shape) => built.returns(shape) as TBuilder, path);
-
 /** A side path of `.onError(E, …)` with nothing in it yet. */
 export const side = (): PathBuilder => subPathFrom({ kind: "side" });
 

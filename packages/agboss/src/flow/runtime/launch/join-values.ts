@@ -12,7 +12,7 @@ import {
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
 /**
- * What a join writes into the path scope (#273): one value per `.join().returns(…)`, gathered from
+ * What a join writes into the path scope (#273): one value per class the branches give, gathered from
  * the branches that finished — a list in the branches' order (listed order, or the items' order:
  * never the order they finished in), a single value from its one branch, nothing for an `optional`
  * one whose branch did not run or dropped out. Each value is built from what its branches read at

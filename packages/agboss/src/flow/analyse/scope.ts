@@ -115,7 +115,7 @@ export function slotOfField(shape: InputFieldShape): FieldSlot {
   }
 }
 
-/** The value inside a `.returns(…)` shape, and whether a path may not bring it. */
+/** The value inside a value shape, and whether a path may not bring it. */
 export interface WrittenValue {
   readonly value: DtoClass | ListWrapper;
   readonly isOptional: boolean;

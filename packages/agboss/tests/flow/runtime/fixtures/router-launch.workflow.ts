@@ -89,14 +89,10 @@ export class PickyWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PickyWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(PickyRouter)
       .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
       .join()
-      .returns(optional(RefundPolicyDto))
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(PickyAnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(PickyWorkflowFinish),
   ],
 })
@@ -149,14 +145,10 @@ export class StrictRouter {
   version: "1.0.0",
   flow: [
     onStart(StrictWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(StrictRouter)
       .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
       .join()
-      .returns(optional(RefundPolicyDto))
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(PickyAnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(PickyWorkflowFinish),
   ],
 })
@@ -198,17 +190,12 @@ export class BudgetAnswerAgent {}
   version: "1.0.0",
   flow: [
     onStart(BudgetDeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(HelpDeskRouter)
       .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent, {
         maxConcurrency: 1,
       })
       .join()
-      .returns(OrderStatusDto)
-      .returns(optional(RefundPolicyDto))
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(BudgetAnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(HelpDeskWorkflowFinish),
   ],
 })

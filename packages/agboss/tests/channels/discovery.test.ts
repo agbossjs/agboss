@@ -45,11 +45,7 @@ const offline = (book = new ScriptBook()) => ({
   name: "front-desk-workflow",
   version: "1.0.0",
   flow: [
-    onStart(RefundWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(CardRefundsWorkflow)
-      .returns(RefundCardOutputDto)
-      .toFinish(RefundWorkflowFinish),
+    onStart(RefundWorkflowStart).toWorkflow(CardRefundsWorkflow).toFinish(RefundWorkflowFinish),
   ],
 })
 class FrontDeskWorkflow {}
@@ -153,13 +149,7 @@ describe("#267 AC9: implementations in @Application({ providers })", () => {
     @Workflow({
       name: "misplaced-refunds-workflow",
       version: "1.0.0",
-      flow: [
-        onStart(RefundWorkflowStart)
-          .returns(WorkflowStartTextDto)
-          .toAgent(RefundClerkAgent)
-          .returns(RefundCardOutputDto)
-          .toFinish(RefundWorkflowFinish),
-      ],
+      flow: [onStart(RefundWorkflowStart).toAgent(RefundClerkAgent).toFinish(RefundWorkflowFinish)],
       defaults: { router: { model: "typesafe/jev-test" } },
       providers: [RefundDesk, RuleRefundApprovalChannel],
     })
@@ -250,13 +240,7 @@ describe("#267 AC8 (PR 1 part): one interpreter belongs to one role", () => {
     @Workflow({
       name: "replies-workflow",
       version: "1.0.0",
-      flow: [
-        onStart(RefundWorkflowStart)
-          .returns(WorkflowStartTextDto)
-          .toAgent(RepliesAgent)
-          .returns(RefundCardOutputDto)
-          .toFinish(RefundWorkflowFinish),
-      ],
+      flow: [onStart(RefundWorkflowStart).toAgent(RepliesAgent).toFinish(RefundWorkflowFinish)],
       defaults: { router: { model: "typesafe/jev-test" } },
     })
     class RepliesWorkflow {}

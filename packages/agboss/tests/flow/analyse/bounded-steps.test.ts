@@ -11,13 +11,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { StepsLimitExceededError } from "../../../src/graph/limits.js";
-import {
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-  ShortlistDto,
-} from "../fixtures/dtos.js";
+import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftAgent,
   NotifyRecruiterAction,
@@ -59,24 +53,14 @@ class RewriterAgent {}
 const reviewPaths = (
   handled = VisitsLimitExceededError as abstract new (...args: never[]) => Error,
 ) => [
-  onStart(OfferWorkflowStart)
-    .returns(ShortlistDto)
-    .toAgent(DraftAgent)
-    .returns(OfferDraftDto)
-    .toAgent(OfficerAgent),
-  onAgent(OfficerAgent)
-    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-    .switch(
-      caseOf(ChangesRequestedDto)
-        .toAgent(RewriterAgent)
-        .onError(handled, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))
-        .returns(OfferDraftDto)
-        .toAgent(OfficerAgent),
-      caseOf(DraftApprovedDto)
-        .toAction(SendOfferAction)
-        .returns(OfferSentDto)
-        .toFinish(OfferSentWorkflowFinish),
-    ),
+  onStart(OfferWorkflowStart).toAgent(DraftAgent).toAgent(OfficerAgent),
+  onAgent(OfficerAgent).switch(
+    caseOf(ChangesRequestedDto)
+      .toAgent(RewriterAgent)
+      .onError(handled, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))
+      .toAgent(OfficerAgent),
+    caseOf(DraftApprovedDto).toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
+  ),
 ];
 
 function reviewWith(maxSteps: number, handled?: abstract new (...args: never[]) => Error) {
@@ -147,11 +131,7 @@ describe("#643 AC2: what is not warned", () => {
     const walked = walkFlow(reviewPaths());
     expect(boundedStepsFrom(walked.graph, OFFER_START)?.most).toBe(8);
     const straight = walkFlow([
-      onStart(OfferWorkflowStart)
-        .returns(ShortlistDto)
-        .toAgent(DraftAgent)
-        .returns(OfferDraftDto)
-        .toFinish(OfferFailedWorkflowFinish),
+      onStart(OfferWorkflowStart).toAgent(DraftAgent).toFinish(OfferFailedWorkflowFinish),
     ]);
     expect(boundedStepsFrom(straight.graph, OFFER_START)).toEqual({
       most: 1,

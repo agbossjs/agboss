@@ -12,7 +12,6 @@ import {
 import { minutes, seconds, usd } from "../../src/units/index.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
 import { onStart } from "../helpers/flow.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
@@ -96,7 +95,6 @@ const defaults = {
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Answerer)
       .toFinish(Reply),
   ],
@@ -120,7 +118,6 @@ export class WithFallbackApplication {}
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Answerer)
       .toFinish(Reply),
   ],

@@ -42,9 +42,7 @@ export class HoldCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HoldCheckWorkflowStart)
-      .returns(ItemDto)
       .toAction(RecoverableItemAction)
-      .returns(ItemResultDto)
       .toFinish(HoldCheckedWorkflowFinish),
   ],
 })
@@ -62,10 +60,8 @@ export class HoldItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(HoldItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(HoldCheckWorkflow, { maxItems: 10 })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })

@@ -17,7 +17,6 @@ import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js"
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import {
   ChargeOrderAction,
-  ChargeReceiptDto,
   ChargedWorkflowFinish,
   NotChargedWorkflowFinish,
 } from "./fenced-effect.workflow.js";
@@ -62,11 +61,9 @@ export class OrderRouter {}
   version: "1.0.0",
   flow: [
     onStart(RoutedChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(OrderRouter)
       .chooseOne(
         route(ChargeOrderAction)
-          .returns(ChargeReceiptDto)
           .toFinish(ChargedWorkflowFinish),
         route(NotChargedWorkflowFinish),
       ),

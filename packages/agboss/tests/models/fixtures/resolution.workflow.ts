@@ -98,7 +98,6 @@ export class NowhereCompaction {}
   version: "1.0.0",
   flow: [
     onStart(ResolutionStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(NowhereRouter)
       .chooseOne(
         route(NowhereAgent)
@@ -140,7 +139,6 @@ export class LocalStart {}
   version: "1.0.0",
   flow: [
     onStart(LocalStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(LocalAgent)
       .toFinish(ResolutionFinish),
   ],
@@ -193,7 +191,6 @@ export class NotInfrastructure {}
   version: "1.0.0",
   flow: [
     onStart(LocalStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(LocalAgent)
       .toFinish(ResolutionFinish),
   ],

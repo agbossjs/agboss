@@ -57,9 +57,7 @@ export class RejectedWorkflowFinish {}
 
 export const verdictPaths = [
   onStart(VerdictWorkflowStart)
-    .returns(ShortlistDto)
     .toAgent(VerdictAgent)
-    .returns(oneOf(ApprovedVerdictDto, RejectedVerdictDto))
     .switch(
       caseOf(ApprovedVerdictDto)
         .toFinish(ApprovedWorkflowFinish),

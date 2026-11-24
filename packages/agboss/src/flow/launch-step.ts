@@ -8,14 +8,13 @@ import {
   type LaunchTargetKind,
   type Step,
 } from "./ast.js";
-import { isWrapper, Wrapper } from "./dto-wrappers.js";
 import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
 import { FlowSyntaxError } from "./flow-syntax-error.js";
 
 /**
  * The launch step of the path builder (#273): `.toParallelAgents(A, B, …, { maxConcurrency,
  * maxItems })` — and `.toParallelWorkflows(W, …)`, one child per item (#263) — read from its arguments, and the order a launch imposes on the steps around it — a
- * launch is followed by `.join()`, a join by its `.onError(…)`, `.returns(…)` and one `.to…(…)`.
+ * launch is followed by `.join()`, a join by its `.onError(…)` and one `.to…(…)`.
  * The typed builder makes the wrong forms compile errors; these checks hold for untyped code.
  */
 
@@ -61,25 +60,16 @@ function optionsOf(last: unknown, call: string): ReadOptions {
   };
 }
 
-/** Whether the step before carries a list: `.returns(listOf(XDto))` right before the launch. */
-const carriesList = (previous: Step | undefined): boolean =>
-  previous?.kind === StepKind.Returns &&
-  isWrapper(previous.value.shape) &&
-  previous.value.shape.kind === Wrapper.List;
-
-/** Where a launch stands: the step before it, and whether that step is a router. */
+/** Where a launch stands: whether the step before it is a router. */
 export interface LaunchSite {
-  readonly previous: Step | undefined;
   readonly followsRouter: boolean;
 }
 
-/** A child workflow launch (#263) runs one child per item: one workflow, right after a list. */
-function childLaunchProblem(targets: readonly unknown[], site: LaunchSite): string | undefined {
-  if (targets.length !== 1)
-    return "toParallelWorkflows(W, { maxConcurrency, maxItems }) launches one child workflow class";
-  return carriesList(site.previous)
+/** A child workflow launch (#263) runs one child per item: one workflow class. */
+function childLaunchProblem(targets: readonly unknown[]): string | undefined {
+  return targets.length === 1
     ? undefined
-    : "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it";
+    : "toParallelWorkflows(W, { maxConcurrency, maxItems }) launches one child workflow class";
 }
 
 /** Why the launch cannot stand where it does: a router launches agents only; a child, per item. */
@@ -90,7 +80,7 @@ function siteProblem(
 ): string | undefined {
   if (site.followsRouter && targetKind !== NodeKind.Agent)
     return `a router launches agents only — .toParallelAgents(…), not ${LAUNCH_CALLS[targetKind]}(…)`;
-  return targetKind === NodeKind.Workflow ? childLaunchProblem(targets, site) : undefined;
+  return targetKind === NodeKind.Workflow ? childLaunchProblem(targets) : undefined;
 }
 
 /** The launch step of `.toParallelAgents(…)` / `.toParallelActions(…)` / `.toParallelWorkflows(…)`. */
@@ -116,7 +106,6 @@ export function launchStepOf(
     kind: StepKind.Launch,
     targetKind,
     targets: Object.freeze([...(targets as readonly Class[])]),
-    perItem: targets.length === 1 && carriesList(site.previous),
     ...options,
   });
 }
@@ -129,7 +118,7 @@ function afterJoinProblem(join: JoinStep, next: Step): string | undefined {
   if (join.quorum?.kind === QuorumKind.Groups)
     return "nothing follows .joinQuorumGroups(…) but .onError(…) — each group continues its own path";
   if (next.kind === StepKind.To) return undefined;
-  return "after .join() the path goes on with .onError(…), .returns(…) and one .to…(…)";
+  return "after .join() the path goes on with .onError(…) and one .to…(…)";
 }
 
 /** Why a join cannot follow the launch before it: a launch with arbiters needs a quorum (AC12). */

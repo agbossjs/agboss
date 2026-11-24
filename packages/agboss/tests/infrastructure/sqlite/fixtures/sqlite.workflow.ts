@@ -125,9 +125,7 @@ export class SqliteRecoveryApplication {}
   uncompactedTurns: 1,
   flow: [
     onStart(OrderWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
-      .returns(ReceiptDto)
       .toFinish(ReceiptWorkflowFinish),
   ],
 })

@@ -45,7 +45,7 @@ const workflowOf = (name: string, startClass: Class, input: DtoClass = TextDto):
   @Workflow({
     name,
     version: "1.0.0",
-    flow: [onStart(startClass).returns(input).toFinish(TextWorkflowFinish)],
+    flow: [onStart(startClass).toFinish(TextWorkflowFinish)],
   })
   class SomeWorkflow {}
   return SomeWorkflow;

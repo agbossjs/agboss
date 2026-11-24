@@ -12,11 +12,9 @@ import { ExecutionContext } from "../../../src/flow/context/execution-context.js
 import { Arbiter, OnAnswer } from "../../../src/flow/decorators/arbiter.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
+import { optional } from "../../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { minutes, seconds } from "../../../src/units/index.js";
-import { CompanyDto } from "./data-dtos.js";
-import { WorkflowStartTextDto } from "./dtos.js";
 import { CompanyCheckDto } from "./launch-dtos.js";
 import {
   AuditorAgent,
@@ -51,22 +49,7 @@ import {
   SecondOpinionRouter,
   SkillsScoreAgent,
 } from "./quorum-agents.js";
-import {
-  AuditDto,
-  CandidateDto,
-  CompanyShortlistDto,
-  CultureScoreDto,
-  DealCritiqueDto,
-  DealDto,
-  DueDiligenceReportDto,
-  FastScreenDto,
-  FitSummaryDto,
-  LegalReviewDto,
-  SalaryFitDto,
-  ScoreDto,
-  ScoreReviewDto,
-  SkillsScoreDto,
-} from "./quorum-dtos.js";
+import { ScoreDto } from "./quorum-dtos.js";
 
 /**
  * #279 — the issue's quorums, each a workflow: any two of three with a deadline and `anyOf(…)`
@@ -121,14 +104,11 @@ export class ValidScoreArbiter {}
   version: "1.0.0",
   flow: [
     onStart(CandidateReviewWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
       .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
       .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
-      .returns(listOf(ScoreDto))
       .toAgent(ScoreSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(ScoreReviewWorkflowFinish),
   ],
 })
@@ -139,14 +119,9 @@ export class CandidateReviewWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FitReviewWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent)
       .joinQuorum({ min: 2 })
-      .returns(optional(SkillsScoreDto))
-      .returns(optional(CultureScoreDto))
-      .returns(optional(SalaryFitDto))
       .toAgent(FitSummaryAgent)
-      .returns(FitSummaryDto)
       .toFinish(FitSummaryWorkflowFinish),
   ],
 })
@@ -180,16 +155,12 @@ export class ConvincingReasonArbiter {}
   maxSteps: 60, // a launch of up to 50 items
   flow: [
     onStart(CompanySearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(BoardSearchAgent)
-      .returns(listOf(CompanyDto))
       .toParallelAgents(CompanyVetAgent, { maxItems: 50 })
       .acceptedBy(GoodScoreArbiter)
       .acceptedBy(ConvincingReasonArbiter)
       .joinQuorum({ min: 5, deadline: minutes(2) })
-      .returns(listOf(CompanyCheckDto))
       .toAgent(CompanyShortlistAgent)
-      .returns(CompanyShortlistDto)
       .toFinish(CompanyShortlistWorkflowFinish),
   ],
 })
@@ -214,7 +185,6 @@ export class DueDiligenceArbiter {}
   version: "1.0.0",
   flow: [
     onStart(DealWorkflowStart)
-      .returns(DealDto)
       .toParallelAgents(
         LegalAgent,
         DealCriticAgent,
@@ -227,29 +197,23 @@ export class DueDiligenceArbiter {}
       .joinQuorumGroups(
         group(LegalAgent, DealCriticAgent)
           .priority(1)
-          .returns(LegalReviewDto)
-          .returns(listOf(DealCritiqueDto))
           .toAgent(FullReviewAgent),
         group(AuditorAgent)
           .priority(1)
-          .returns(AuditDto)
           .toAction(OpenDealRoomAction)
           .toFinish(DealRoomOpenedWorkflowFinish),
         group(DealCriticAgent, DealCriticAgent)
           .priority(2)
-          .returns(listOf(DealCritiqueDto))
           .toRouter(SecondOpinionRouter)
           .chooseOne(route(FullReviewAgent), route(NotifyReviewerAction)),
         group(FastScreenAgent)
           .priority(3)
-          .returns(FastScreenDto)
           .toFinish(QuickRejectWorkflowFinish),
         { deadline: minutes(1) },
       )
       .onError(StepFailedError, toAction(NotifyReviewerAction)),
 
     onAgent(FullReviewAgent)
-      .returns(DueDiligenceReportDto)
       .toFinish(DueDiligenceReportWorkflowFinish),
 
     onAction(NotifyReviewerAction)

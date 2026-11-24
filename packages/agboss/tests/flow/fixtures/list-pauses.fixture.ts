@@ -159,11 +159,8 @@ export class ListManagerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ListManagerWorkflowStart)
-      .returns(ListOrderDto)
       .toExternalTask(ListManagerQuestion)
-      .returns(ListDecisionDto)
       .toAction(RecordListedAction)
-      .returns(ListDoneDto)
       .toFinish(ListWorkflowFinish),
   ],
   piiPolicies: [ListSsnPiiPolicy],
@@ -178,11 +175,8 @@ export class ListOwnerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ListOwnerWorkflowStart)
-      .returns(ListOrderDto)
       .toExternalTask(ListOwnerQuestion)
-      .returns(ListDecisionDto)
       .toAction(RecordListedAction)
-      .returns(ListDoneDto)
       .toFinish(ListWorkflowFinish),
   ],
 })
@@ -200,11 +194,8 @@ export class ListFinanceWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ListFinanceWorkflowStart)
-      .returns(ListOrderDto)
       .toExternalTask(ListFinanceQuestion)
-      .returns(ListDecisionDto)
       .toAction(RecordListedAction)
-      .returns(ListDoneDto)
       .toFinish(ListWorkflowFinish),
   ],
 })
@@ -218,11 +209,8 @@ export class ListOpenWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ListOpenWorkflowStart)
-      .returns(ListOrderDto)
       .toExternalTask(ListOpenQuestion)
-      .returns(ListDecisionDto)
       .toAction(RecordListedAction)
-      .returns(ListDoneDto)
       .toFinish(ListWorkflowFinish),
   ],
 })

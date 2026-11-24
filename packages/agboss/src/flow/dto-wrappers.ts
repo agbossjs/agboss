@@ -42,13 +42,13 @@ export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInn
   readonly inner: TInner;
 }
 
-/** A value on a path, an input field or a `.returns(…)` value: `XDto`, `listOf(…)`, `optional(…)`. */
+/** A value on a path, an input field or a step's value: `XDto`, `listOf(…)`, `optional(…)`. */
 export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
 
 /** What a component gives: `XDto`, `listOf(…)` or `oneOf(…)` — never `optional(…)`. */
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
-/** What one `.returns(…)` names (#299, S54): a value shape, or the `oneOf(…)` a `.switch` branches. */
+/** What a step gives (#299, S54): a value shape, or the `oneOf(…)` a `.switch` branches. */
 export type ReturnedShape = ValueShape | OneOfWrapper;
 
 /** `historyOf(XDto, { maxPrevious })`'s options. */
@@ -148,7 +148,7 @@ export function isValueShape(value: unknown): value is ValueShape {
   );
 }
 
-/** Whether a value is what one `.returns(…)` takes: a value shape or a `oneOf(…)`. */
+/** Whether a value is what a step can give: a value shape or a `oneOf(…)`. */
 export const isReturnedShape = (value: unknown): value is ReturnedShape =>
   isValueShape(value) || (isWrapper(value) && value.kind === Wrapper.OneOf);
 

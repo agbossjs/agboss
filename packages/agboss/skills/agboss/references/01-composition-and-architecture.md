@@ -12,7 +12,7 @@ Read this before you design a workflow, split one, or write its DTOs. The flow g
 | be callable by an agent zero, one or many times inside its turn        | `@Tool` in the agent's `tools`                                                  | an action (the flow calls it exactly once)     |
 | choose the next step **by data** (a number, a flag, a lookup)          | `@Router({ decidedBy: DecidedBy.Code })` + `route(input)`                       | a model router asked "is total > 1000?"        |
 | choose the next step **by meaning** of text it has not produced        | `@Router({ decidedBy: DecidedBy.Model, model: "typesafe/jev-1.13" })`           | a chat agent whose only job is to pick         |
-| let the agent that did the work say which outcome it is                | `output: oneOf(ADto, BDto)` + `.returns(oneOf(…)).switch(caseOf(…)…)`           | a second model call through a router after it  |
+| let the agent that did the work say which outcome it is                | `output: oneOf(ADto, BDto)` + `.switch(caseOf(…)…)`                             | a second model call through a router after it  |
 | repeat a sub-process per item, give it its own branches and failures   | a child `@Workflow` (`.toWorkflow(W)`, `.toParallelWorkflows(W, { maxItems })`) | one giant flow with copied paths               |
 | ask several agents and combine their answers                           | `.toParallelAgents(…)` + `.join()` / `.joinQuorum(…)` (reference 02)            | one agent prompted to "think as three experts" |
 | wait for a person or a system before a side effect                     | a `@Tool({ channel })` (reference 05)                                           | an action that polls                           |
@@ -225,7 +225,7 @@ export class JobSearchWorkflowStart {}
 ```
 
 ```ts file=src/shortlist/workflows/shortlist/shortlist.workflow.ts
-// workflows/shortlist/shortlist.workflow.ts — the paths: one call per line, a `.returns` after every producing step
+// workflows/shortlist/shortlist.workflow.ts — the paths: one call per line
 import { Workflow, caseOf, oneOf, route, onStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SaveShortlistAction } from "../../actions/save-shortlist.action.js";
@@ -245,15 +245,12 @@ import { TooManyJobsWorkflowFinish } from "./too-many-jobs.workflow-finish.js";
   version: "1.0.0",
   flow: [
     onStart(JobSearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ScreeningAgent)
-      .returns(oneOf(ShortlistDto, NoMatchDto))
       .switch(
         caseOf(ShortlistDto)
           .toRouter(ShortlistSizeRouter)
           .chooseOne(
             route(SaveShortlistAction)
-              .returns(ShortlistSavedDto)
               .toFinish(ShortlistSavedWorkflowFinish),
             route(TooManyJobsWorkflowFinish),
           ),
@@ -325,7 +322,7 @@ export class ShortlistApplication {}
 What this shows:
 
 - **The scope, not arguments.** `SaveShortlistAction` and `ShortlistSizeRouter` read `shortlist`
-  because `.returns(oneOf(ShortlistDto, NoMatchDto))` and `caseOf(ShortlistDto)` put a `ShortlistDto`
+  because the step's `oneOf(ShortlistDto, NoMatchDto)` output and `caseOf(ShortlistDto)` put a `ShortlistDto`
   on that path; a field no path brings is `[input.missing-on-path]`. Each input field arrives as
   `{ producer, value }` — `input.shortlist.value.jobs`.
 - **A marker class for an outcome.** `NoMatchDto` has no fields: the class is the answer, and the

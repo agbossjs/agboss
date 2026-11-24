@@ -13,7 +13,7 @@ export const isGroupsJoin = (step: Step): boolean =>
 /**
  * How the walk reads `.joinQuorumGroups(…)` (#279): each group continues its own path — one join
  * edge per group, from the launching step to the group's first node, carrying the values its
- * `.returns(…)` chain names; the groups count as one nesting level. Nothing follows the join.
+ * places give; the groups count as one nesting level. Nothing follows the join.
  */
 export function walkGroups(
   walker: LaunchRecorder,
@@ -29,7 +29,6 @@ export function walkGroups(
     const join: JoinEdge = {
       launch,
       values: valuesOfGroups(groups),
-      written: group.returns.map((value) => value.shape),
       groups,
       quorum,
       group: group.priority === undefined ? { agents } : { agents, priority: group.priority },

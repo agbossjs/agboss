@@ -189,15 +189,12 @@ export class EscalateRefundAction implements ActionHandler<EscalateRefundAction>
   version: "1.0.0",
   flow: [
     onStart(AgentExpiryWorkflowStart)
-      .returns(AgentRefundDto)
       .toAgent(ExpiryRefundAgent)
       .onError(
         PauseExpiredError,
         toAction(EscalateRefundAction)
-          .returns(AgentRefundDoneDto)
           .toFinish(AgentExpiryWorkflowFinish),
       )
-      .returns(AgentRefundDoneDto)
       .toFinish(AgentExpiryWorkflowFinish),
   ],
 })
@@ -216,9 +213,7 @@ export class AgentBareWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(AgentBareWorkflowStart)
-      .returns(AgentRefundDto)
       .toAgent(ExpiryRefundAgent)
-      .returns(AgentRefundDoneDto)
       .toFinish(AgentExpiryWorkflowFinish),
   ],
 })
@@ -270,10 +265,8 @@ export class AgentBatchWorkflowFinish {
   maxSteps: 20,
   flow: [
     onStart(AgentBatchWorkflowStart)
-      .returns(listOf(AgentRefundDto))
       .toParallelAgents(ExpiryBatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })
       .join()
-      .returns(listOf(AgentRefundDoneDto))
       .toFinish(AgentBatchWorkflowFinish),
   ],
 })
@@ -335,11 +328,8 @@ export class AgentGatedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(AgentGatedWorkflowStart)
-      .returns(AgentRefundDto)
       .toParallelAgents(ExpiryRefundAgent, ExpiryHoldAgent)
       .join()
-      .returns(AgentRefundDoneDto)
-      .returns(GateDto)
       .toFinish(AgentGatedWorkflowFinish),
   ],
 })

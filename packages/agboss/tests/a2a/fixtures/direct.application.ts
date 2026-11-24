@@ -69,12 +69,7 @@ export class QuoteWorkflowFinish {}
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(QuoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(QuoteAgent)
-      .toFinish(QuoteWorkflowFinish),
-  ],
+  flow: [onStart(QuoteWorkflowStart).toAgent(QuoteAgent).toFinish(QuoteWorkflowFinish)],
 })
 export class QuoteWorkflow {}
 
@@ -117,11 +112,7 @@ export class QuoteFileWorkflowFinish {}
   name: "quote-file-workflow",
   version: "1.0.0",
   flow: [
-    onStart(QuoteFileWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(QuoteFileAction)
-      .returns(WorkflowFinishFileDto)
-      .toFinish(QuoteFileWorkflowFinish),
+    onStart(QuoteFileWorkflowStart).toAction(QuoteFileAction).toFinish(QuoteFileWorkflowFinish),
   ],
 })
 export class QuoteFileWorkflow {}
@@ -158,13 +149,7 @@ export class AckWorkflowFinish {}
 @Workflow({
   name: "ack-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(AckWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(AckAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(AckWorkflowFinish),
-  ],
+  flow: [onStart(AckWorkflowStart).toAction(AckAction).toFinish(AckWorkflowFinish)],
 })
 export class AckWorkflow {}
 

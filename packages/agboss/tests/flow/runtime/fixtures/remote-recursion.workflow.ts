@@ -2,7 +2,6 @@ import {
   ChildPlacement,
   EmptyEnvironment,
   LimitExceededError,
-  oneOf,
   ThisWorkflow,
   Workflow,
   WorkflowStart,
@@ -21,7 +20,6 @@ import {
   DeeperRouter,
   DepthStoppedAction,
   LinkAgent,
-  LinkDoneDto,
   LinkDto,
 } from "./recursion.workflow.js";
 
@@ -45,19 +43,15 @@ export class RemoteCountdownWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteCountdownWorkflowStart)
-      .returns(CountDto)
       .toAction(CountdownAction)
-      .returns(oneOf(CountDto, CountDoneDto))
       .switch(
         caseOf(CountDto)
           .toWorkflow(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
           .onError(
             LimitExceededError,
             toAction(DepthStoppedAction)
-              .returns(CountStoppedDto)
               .toFinish(CountStoppedWorkflowFinish),
           )
-          .returns(oneOf(CountDoneDto, CountStoppedDto))
           .switch(
             caseOf(CountDoneDto)
               .toFinish(CountDoneWorkflowFinish),
@@ -84,14 +78,11 @@ export class RemoteChainWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteChainWorkflowStart)
-      .returns(LinkDto)
       .toRouter(DeeperRouter)
       .chooseOne(
         route(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
-          .returns(LinkDoneDto)
           .toFinish(ChainDoneWorkflowFinish),
         route(LinkAgent)
-          .returns(LinkDoneDto)
           .toFinish(ChainDoneWorkflowFinish),
       ),
   ],

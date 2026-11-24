@@ -76,12 +76,7 @@ class FhChildFinish {}
 @Workflow({
   name: "fh-child-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(FhChildStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(FhChildAgent)
-      .toFinish(FhChildFinish),
-  ],
+  flow: [onStart(FhChildStart).toAgent(FhChildAgent).toFinish(FhChildFinish)],
   piiPolicies: [OwnMaskPiiPolicy],
 })
 class FhChildWorkflow {}
@@ -99,13 +94,7 @@ const rootOf = (name: string, piiPolicies: readonly (new () => object)[]) => {
   @Workflow({
     name,
     version: "1.0.0",
-    flow: [
-      onStart(RootStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(FhChildWorkflow)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(FhRootFinish),
-    ],
+    flow: [onStart(RootStart).toWorkflow(FhChildWorkflow).toFinish(FhRootFinish)],
     piiPolicies,
   })
   class Root {}

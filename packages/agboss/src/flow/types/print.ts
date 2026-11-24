@@ -103,7 +103,6 @@ export function printTypes(
     ...tableLines("WorkflowStarts", tables.workflowStarts),
     ...tableLines("Routes", tables.routes),
     ...tableLines("RouterAnswers", tables.routerAnswers),
-    ...tableLines("JoinOutputs", tables.joinOutputs),
     ...tableLines("ThisWorkflowOutputs", tables.thisWorkflowOutputs),
     ...tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
     ...tableLines("AgentTools", tables.agentTools ?? new Map()),

@@ -12,8 +12,8 @@ import type { AnalysisContext } from "./context.js";
  * The quorum rules (#279): a quorum that can never be reached fails assembly
  * (`[flow.quorum-impossible]`: `min` above the agents launched — or above `maxItems` per item — and a
  * group that lists an agent the launch does not run, or more copies than it runs); every arbiter of
- * a launch covers each of its agents (`arbiters.ts`). What a quorum's `.returns(…)` may promise is
- * checked with the join's values (`launches.ts`, `[flow.quorum-return-not-optional]`).
+ * a launch covers each of its agents (`arbiters.ts`). What the counted answers give is
+ * what a consumer may require of them is `[input.missing-on-path]`.
  */
 
 /** How many answers of each agent a launch can give: its copies; per item, `maxItems` (or any). */

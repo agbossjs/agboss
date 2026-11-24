@@ -138,13 +138,7 @@ class DimesFinish {}
 @Workflow({
   name: "dimes-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(DimesStart)
-      .returns(ItemDto)
-      .toAction(DimesAction)
-      .returns(ItemResultDto)
-      .toFinish(DimesFinish),
-  ],
+  flow: [onStart(DimesStart).toAction(DimesAction).toFinish(DimesFinish)],
 })
 class DimesWorkflow {}
 @Application({

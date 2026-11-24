@@ -43,9 +43,7 @@ class DraftHistoryAgent {}
   version: "1.0.0",
   flow: [
     onStart(HistoryOfferWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftHistoryAgent)
-      .returns(DraftChangesDto)
       .toFinish(DraftHistoryWorkflowFinish),
   ],
 })
@@ -87,15 +85,10 @@ class ResearchAgainAgent {}
   version: "1.0.0",
   flow: [
     onStart(HistoryOfferWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(ResearchAgent)
-      .returns(ResearchDto)
       .toAgent(ResearchDraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(ResearchAgainAgent)
-      .returns(ResearchDto)
       .toAgent(DraftHistoryAgent)
-      .returns(DraftChangesDto)
       .toFinish(DraftHistoryWorkflowFinish),
   ],
 })
@@ -116,11 +109,8 @@ class LimitlessAgent {}
   version: "1.0.0",
   flow: [
     onStart(HistoryOfferWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(FirstDraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(LimitlessAgent)
-      .returns(DraftChangesDto)
       .toFinish(DraftHistoryWorkflowFinish),
   ],
 })

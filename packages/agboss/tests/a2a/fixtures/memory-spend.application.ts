@@ -65,7 +65,7 @@ export class MemoFinish {}
 @Workflow({
   name: "memo-workflow",
   version: "1.0.0",
-  flow: [onStart(MemoStart).returns(WorkflowStartTextDto).toAgent(MemoAgent).toFinish(MemoFinish)],
+  flow: [onStart(MemoStart).toAgent(MemoAgent).toFinish(MemoFinish)],
 })
 export class MemoWorkflow {}
 

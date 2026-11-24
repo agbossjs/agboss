@@ -52,7 +52,7 @@ class PlainFinish {}
 @Workflow({
   name: "plain-workflow",
   version: "1.0.0",
-  flow: [onStart(PlainStart).returns(WorkflowStartTextDto).toFinish(PlainFinish)],
+  flow: [onStart(PlainStart).toFinish(PlainFinish)],
 })
 class PlainWorkflow {}
 

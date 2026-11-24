@@ -76,11 +76,8 @@ function questionFlow(name: string, role: Times, step?: Milliseconds) {
     version: "1.0.0",
     flow: [
       onStart(SomeStart)
-        .returns(ExpiryOrderDto)
         .toExternalTask(SomeQuestion, step === undefined ? undefined : { expiresIn: step })
-        .returns(ExpiryDecisionDto)
         .toAction(RecordExtensionAction)
-        .returns(ExpiryDoneDto)
         .toFinish(SomeFinish),
     ],
   })
@@ -148,13 +145,7 @@ function toolFlow(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(SomeStart)
-        .returns(AgentRefundDto)
-        .toAgent(SomeAgent)
-        .returns(AgentRefundDoneDto)
-        .toFinish(SomeFinish),
-    ],
+    flow: [onStart(SomeStart).toAgent(SomeAgent).toFinish(SomeFinish)],
   })
   class SomeWorkflow {}
   return { workflow: SomeWorkflow, channel: SomeChannel };

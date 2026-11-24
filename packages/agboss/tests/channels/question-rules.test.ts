@@ -52,13 +52,9 @@ function askingApplication(name: string, role: Class, providers: readonly Class[
     version: "1.0.0",
     flow: [
       onStart(PurchaseWorkflowStart)
-        .returns(WorkflowStartTextDto)
         .toAction(DraftQuestionAction)
-        .returns(PurchaseQuestionDto)
         .toExternalTask(role)
-        .returns(SpendingLimitAnswerDto)
         .toAction(PlacePurchaseAction)
-        .returns(PurchasePlacedDto)
         .toFinish(PurchaseWorkflowFinish),
     ],
     providers: [QuestionInbox],
@@ -146,13 +142,7 @@ describe("#659 AC1: a question role's name and implementation", () => {
     @Workflow({
       name: "tool-question-workflow",
       version: "1.0.0",
-      flow: [
-        onStart(PurchaseWorkflowStart)
-          .returns(WorkflowStartTextDto)
-          .toAgent(LimitAgent)
-          .returns(PurchasePlacedDto)
-          .toFinish(PurchaseWorkflowFinish),
-      ],
+      flow: [onStart(PurchaseWorkflowStart).toAgent(LimitAgent).toFinish(PurchaseWorkflowFinish)],
     })
     class ToolQuestionWorkflow {}
     const { channel } = questionRole("unused-question");

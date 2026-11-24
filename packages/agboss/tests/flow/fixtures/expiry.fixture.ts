@@ -241,19 +241,14 @@ export class RecordEscalatedAction implements ActionHandler<RecordEscalatedActio
   version: "1.0.0",
   flow: [
     onStart(ExpiryWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ManagerQuestion)
       .onError(
         PauseExpiredError,
         toExternalTask(DirectorQuestion)
-          .returns(ExpiryDecisionDto)
           .toAction(RecordEscalatedAction)
-          .returns(ExpiryDoneDto)
           .toFinish(ExpiryWorkflowFinish),
       )
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -272,11 +267,8 @@ export class ShortExpiryWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ShortExpiryWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ManagerQuestion, { expiresIn: hours(4) })
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -314,17 +306,13 @@ export class SlowExpiryWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SlowExpiryWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ManagerQuestion, { expiresIn: seconds(3) })
       .onError(
         PauseExpiredError,
         toAction(SlowEscalationAction)
-          .returns(ExpiryDoneDto)
           .toFinish(ExpiryWorkflowFinish),
       )
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -339,11 +327,8 @@ export class ReviewerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ReviewerWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ReviewerQuestion)
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -383,11 +368,8 @@ export class OwnerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(OwnerWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(OwnerQuestion)
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -410,11 +392,8 @@ export class PlainWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(PlainWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(DirectorQuestion)
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })

@@ -8,7 +8,7 @@ import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { PlainTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { PlainTextDto } from "../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
@@ -121,12 +121,7 @@ function gatedBy(judge: typeof NamedModelJudge | typeof InjectedModelJudge, name
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(PromiseStart)
-        .returns(WorkflowStartTextDto)
-        .toAgent(GatedAgent)
-        .toFinish(PromiseFinish),
-    ],
+    flow: [onStart(PromiseStart).toAgent(GatedAgent).toFinish(PromiseFinish)],
     defaults: DEFAULTS,
   })
   class GatedWorkflow {}

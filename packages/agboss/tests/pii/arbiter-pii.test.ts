@@ -81,11 +81,9 @@ class OwnersFinish {
   version: "1.0.0",
   flow: [
     onStart(OwnersStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(ContactAnswerAgent, ContactAnswerAgent)
       .acceptedBy(ContactArbiter)
       .joinQuorum({ min: 2 })
-      .returns(listOf(OwnerAnswerDto))
       .toFinish(OwnersFinish),
   ],
 })

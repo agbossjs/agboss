@@ -121,9 +121,7 @@ const sameVersionOnly = (resume: IncompatibleResume): ResumeDecision =>
   version: "1.1.0",
   flow: [
     onStart(ClaimWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ClaimAssessorAgent)
-      .returns(ClaimAssessmentDto)
       .toFinish(ClaimWorkflowFinish),
   ],
   maxSteps: 1,

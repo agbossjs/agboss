@@ -118,7 +118,6 @@ const workflow = {
   uncompactedTurns: 1,
   flow: [
     onStart(Start)
-      .returns(WorkflowStartTextDto)
       .toAgent(Mailer)
       .toFinish(Finish),
   ],

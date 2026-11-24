@@ -5,7 +5,7 @@ import {
   type ChildStepOptions,
   type QuestionStepOptions,
 } from "./child-placement.js";
-import { NodeKind, type PathSource } from "./ast.js";
+import { NodeKind } from "./ast.js";
 import type {
   AfterStep,
   AfterValue,
@@ -22,7 +22,7 @@ import type {
   SourceHead,
   TargetCheck,
 } from "./builder-types.js";
-import type { LaunchCheck, TargetNames } from "./launch-types.js";
+import type { LaunchCheck } from "./launch-types.js";
 import {
   fromComponent,
   fromSource,
@@ -42,11 +42,11 @@ import type { GroupStart } from "./quorum-types.js";
 export { FlowSyntaxError } from "./path-builder.js";
 export { anyOf } from "./quorum-step.js";
 
-/** A path from a start: `onStart(S).returns(InputDto)…`. */
+/** A path from a start: `onStart(S).toAgent(A)…`. */
 export function onStart<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function onStart(source: Class): PathBuilder<PathSource> {
+export function onStart(source: Class): unknown {
   return fromSource({ kind: NodeKind.Start, node: source });
 }
 
@@ -54,7 +54,7 @@ export function onStart(source: Class): PathBuilder<PathSource> {
 export function onAgent<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function onAgent(source: Class): PathBuilder<PathSource> {
+export function onAgent(source: Class): unknown {
   return fromComponent(NodeKind.Agent, source);
 }
 
@@ -62,7 +62,7 @@ export function onAgent(source: Class): PathBuilder<PathSource> {
 export function onRouter<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function onRouter(source: Class): PathBuilder<PathSource> {
+export function onRouter(source: Class): unknown {
   return fromComponent(NodeKind.Router, source);
 }
 
@@ -70,29 +70,29 @@ export function onRouter(source: Class): PathBuilder<PathSource> {
 export function onAction<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function onAction(source: Class): PathBuilder<PathSource> {
+export function onAction(source: Class): unknown {
   return fromComponent(NodeKind.Action, source);
 }
 
 /**
  * The own path of a child workflow reached from two or more places (#263):
- * `onWorkflow(W).onError(…).returns(oneOf(…)).switch(…)`.
+ * `onWorkflow(W).onError(…).switch(…)`.
  */
 export function onWorkflow<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function onWorkflow(source: Class): PathBuilder<PathSource> {
+export function onWorkflow(source: Class): unknown {
   return fromComponent(NodeKind.Workflow, source);
 }
 
 /**
  * The own path of a question role's step reached from two or more places (#659):
- * `onExternalTask(Q).returns(AnswerDto)…` — a question asked again on a cycle.
+ * `onExternalTask(Q).toAgent(A)…` — a question asked again on a cycle.
  */
 export function onExternalTask<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
-export function onExternalTask(source: Class): PathBuilder<PathSource> {
+export function onExternalTask(source: Class): unknown {
   return fromComponent(NodeKind.Question, source);
 }
 
@@ -107,7 +107,7 @@ export function route(target: Class, options?: unknown): PathBuilder<undefined> 
 }
 
 /**
- * One case of `.switch(…)`: the class of the `oneOf` result, put on the path like `.returns`.
+ * One case of `.switch(…)`: the class of the `oneOf` result, put on the path.
  */
 export function caseOf<const TDto extends DtoClass>(
   dto: TDto,
@@ -123,7 +123,7 @@ const sidePath = (): PathBuilder<undefined> => subPathFrom({ kind: "side" });
 export function toAction<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>,
 ): AfterStep<InstanceType<TClass>, SideHead>;
-export function toAction(target: Class): PathBuilder<undefined> {
+export function toAction(target: Class): unknown {
   return sidePath().toAction(target);
 }
 
@@ -131,7 +131,7 @@ export function toAction(target: Class): PathBuilder<undefined> {
 export function toAgent<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>,
 ): AfterStep<InstanceType<TClass>, SideHead>;
-export function toAgent(target: Class): PathBuilder<undefined> {
+export function toAgent(target: Class): unknown {
   return sidePath().toAgent(target);
 }
 
@@ -139,7 +139,7 @@ export function toAgent(target: Class): PathBuilder<undefined> {
 export function toRouter<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>,
 ): AfterStep<InstanceType<TClass>, SideHead>;
-export function toRouter(target: Class): PathBuilder<undefined> {
+export function toRouter(target: Class): unknown {
   return sidePath().toRouter(target);
 }
 
@@ -153,7 +153,7 @@ export function toExternalTask<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
   options?: QuestionStepOptions,
 ): AfterStep<InstanceType<TClass>, SideHead>;
-export function toExternalTask(target: Class, options?: unknown): PathBuilder<undefined> {
+export function toExternalTask(target: Class, options?: unknown): unknown {
   return sidePath().toExternalTask(target, options);
 }
 
@@ -167,7 +167,7 @@ export function toWorkflow<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
   options?: ChildStepOptions,
 ): AfterStep<InstanceType<TClass>, SideHead>;
-export function toWorkflow(target: Class, options?: unknown): PathBuilder<undefined> {
+export function toWorkflow(target: Class, options?: unknown): unknown {
   return sidePath().toWorkflow(target, options);
 }
 
@@ -175,18 +175,18 @@ export function toWorkflow(target: Class, options?: unknown): PathBuilder<undefi
 export function toFinish<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>,
 ): BuiltPath<SideHead>;
-export function toFinish(target: Class): PathBuilder<undefined> {
+export function toFinish(target: Class): unknown {
   return sidePath().toFinish(target);
 }
 
 /**
  * One group of `.joinQuorumGroups(…)` (#279): `group(LegalAgent, CriticAgent).priority(1)
- * .returns(…)….to…(…)` — complete when every place is counted (a repeat needs one more copy); it
- * names its values and continues its own path.
+ * .to…(…)` — complete when every place is counted (a repeat needs one more copy); it continues its
+ * own path.
  */
 export function group<const TAgents extends readonly [Class, ...Class[]]>(
   ...agents: TAgents & LaunchCheck<TAgents, NodeKind.Agent>
-): GroupStart<TargetNames<TAgents>>;
+): GroupStart;
 export function group(...agents: readonly Class[]): unknown {
   return groupFrom(agents);
 }

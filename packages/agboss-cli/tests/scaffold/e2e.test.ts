@@ -39,7 +39,6 @@ function check(): string {
 const FLOW_OF = (agents: readonly string[]): string =>
   [
     "  onStart(TextWorkflowStart)",
-    "    .returns(WorkflowStartTextDto)",
     "    .toRouter(MainRouter)",
     "    .chooseOne(",
     agents

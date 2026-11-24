@@ -29,7 +29,6 @@ import {
   UnitDirectoryService,
 } from "../flow/fixtures/clinic.fixture.js";
 import { onStart } from "../helpers/flow.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   OrdersAgent,
   OrdersWorkflowFinish,
@@ -52,12 +51,7 @@ class UnitNamesService {
   constructor(readonly clinicTenantContext: ClinicTenantContext) {}
 }
 
-const flow = [
-  onStart(RefundsWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(OrdersAgent)
-    .toFinish(OrdersWorkflowFinish),
-];
+const flow = [onStart(RefundsWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)];
 
 @Workflow({ name: "plain-workflow", version: "1.0.0", flow })
 class PlainWorkflow {}

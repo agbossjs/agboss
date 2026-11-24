@@ -99,14 +99,7 @@ export class ReviewerAgent {}
 @Workflow({
   name: "brief-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(BriefStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(DrafterAgent)
-      .returns(DraftDto)
-      .toAgent(ReviewerAgent)
-      .toFinish(BriefFinish),
-  ],
+  flow: [onStart(BriefStart).toAgent(DrafterAgent).toAgent(ReviewerAgent).toFinish(BriefFinish)],
   defaults,
   uncompactedTurns: 2,
 })

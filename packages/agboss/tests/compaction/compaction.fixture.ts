@@ -127,7 +127,6 @@ export class HelpRouter {}
   version: "1.0.0",
   flow: [
     onStart(DeskStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(HelpRouter)
       .chooseOne(route(AnswerAgent).toFinish(DeskAnswer), route(ContactAgent).toFinish(DeskAnswer)),
   ],
@@ -157,7 +156,7 @@ export class NoteAgent {}
 @Workflow({
   name: "notes-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(DeskStart).returns(WorkflowStartTextDto).toAgent(NoteAgent).toFinish(DeskAnswer)],
+  flow: [onStart(DeskStart).toAgent(NoteAgent).toFinish(DeskAnswer)],
   compaction: NoteCompaction,
   uncompactedTurns: 1,
 })
@@ -201,7 +200,6 @@ export class WindowRouter {}
   version: "1.0.0",
   flow: [
     onStart(DeskStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(WindowRouter)
       .chooseOne(route(ArchiveAgent).toFinish(DeskAnswer), route(DeskHandOver)),
   ],
@@ -242,7 +240,7 @@ export class EagerAgent {}
 @Workflow({
   name: "eager-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(DeskStart).returns(WorkflowStartTextDto).toAgent(EagerAgent).toFinish(DeskAnswer)],
+  flow: [onStart(DeskStart).toAgent(EagerAgent).toFinish(DeskAnswer)],
   compaction: EagerCompaction,
   uncompactedTurns: 0,
 })

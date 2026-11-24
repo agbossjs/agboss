@@ -51,7 +51,7 @@ class TicketWriter {}
 @Workflow({
   name: "tickets-workflow",
   version: "1.0.0",
-  flow: [onStart(TicketStart).returns(TicketDto).toAgent(TicketWriter).toFinish(Reply)],
+  flow: [onStart(TicketStart).toAgent(TicketWriter).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },

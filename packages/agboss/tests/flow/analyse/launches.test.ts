@@ -22,14 +22,7 @@ import {
   OrderStatusDto,
 } from "../fixtures/data-dtos.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
-import {
-  ArticleDraftDto,
-  CompanyCheckDto,
-  PaymentDto,
-  RankingDto,
-  RefundPolicyDto,
-  ScreeningFailedDto,
-} from "../fixtures/launch-dtos.js";
+import { ArticleDraftDto, RefundPolicyDto } from "../fixtures/launch-dtos.js";
 import {
   AnswerAgent,
   ArticleDraftWorkflowFinish,
@@ -88,23 +81,10 @@ const errorsOf = (flow: Flow, options: Partial<WorkflowOptions> = {}) =>
 const codesOf = (flow: Flow, options: Partial<WorkflowOptions> = {}): readonly string[] =>
   errorsOf(flow, options).map((found) => found.code);
 
-const planned = () =>
-  onStart(ResearchWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(PlannerAgent)
-    .returns(PlanDto);
-const screened = () =>
-  onStart(ScreeningWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(ScreeningAgent)
-    .returns(listOf(CompanyDto));
+const planned = () => onStart(ResearchWorkflowStart).toAgent(PlannerAgent);
+const screened = () => onStart(ScreeningWorkflowStart).toAgent(ScreeningAgent);
 const ranked = (launched: ReturnType<typeof screened>) =>
-  launched
-    .join()
-    .returns(listOf(CompanyCheckDto))
-    .toAgent(RankerAgent)
-    .returns(RankingDto)
-    .toFinish(RankingWorkflowFinish);
+  launched.join().toAgent(RankerAgent).toFinish(RankingWorkflowFinish);
 
 @Agent({
   name: "critique-reader-agent",
@@ -183,30 +163,9 @@ describe("#273: the issue's examples pass", () => {
 });
 
 describe("#273 AC5: the join's values — checked against the branches, read by type", () => {
-  it("join returns checked: a repeated agent gives listOf(…), named exactly", () => {
-    const flow = researchFlow((joined) =>
-      joined
-        .returns(ResearchDto)
-        .returns(CritiqueDto)
-        .toAgent(ArticleWriterAgent)
-        .returns(ArticleDraftDto)
-        .toFinish(ArticleDraftWorkflowFinish),
-    );
-    expect(errorsOf(flow)).toContainEqual({
-      code: "flow.returns-mismatch",
-      message:
-        "launch-case-1-workflow: the join of planner-agent → toParallelAgents(plan-researcher-agent, critic-agent, critic-agent) gives ResearchDto, listOf(CritiqueDto) — write .join().returns(ResearchDto).returns(listOf(CritiqueDto)), not .join().returns(CritiqueDto).returns(ResearchDto)",
-    });
-  });
-
   it("several of one class → listOf: a single field reading it is [input.several-on-path]", () => {
     const flow = researchFlow((joined) =>
-      joined
-        .returns(ResearchDto)
-        .returns(listOf(CritiqueDto))
-        .toAgent(CritiqueReaderAgent)
-        .returns(ArticleDraftDto)
-        .toFinish(ArticleDraftWorkflowFinish),
+      joined.toAgent(CritiqueReaderAgent).toFinish(ArticleDraftWorkflowFinish),
     );
     expect(codesOf(flow)).toContain("input.several-on-path");
     expect(
@@ -221,15 +180,9 @@ describe("#273 AC5: the join's values — checked against the branches, read by 
       planned()
         .toParallelAgents(CriticAgent, CriticAgent)
         .join()
-        .returns(listOf(CritiqueDto))
         .toAgent(CritiquesAgent)
-        .returns(ArticleDraftDto)
         .toFinish(ArticleDraftWorkflowFinish),
-      planned()
-        .toParallelAgents(PlanResearcherAgent)
-        .join()
-        .returns(ResearchDto)
-        .toFinish(ArticleDraftWorkflowFinish),
+      planned().toParallelAgents(PlanResearcherAgent).join().toFinish(ArticleDraftWorkflowFinish),
     ];
     expect(errorsOf(flow).map((found) => found.message)).toContainEqual(
       expect.stringContaining(
@@ -265,10 +218,7 @@ describe("#273 AC5: the join's values — checked against the branches, read by 
       planned()
         .toParallelAgents(PlanResearcherAgent, SiblingReaderAgent)
         .join()
-        .returns(ResearchDto)
-        .returns(CritiqueDto)
         .toAgent(CritiqueReaderAgent)
-        .returns(ArticleDraftDto)
         .toFinish(ArticleDraftWorkflowFinish),
     ];
     expect(errorsOf(flow)).toContainEqual({
@@ -281,41 +231,12 @@ describe("#273 AC5: the join's values — checked against the branches, read by 
 describe("#273 AC8: a value that may be missing is optional(…) for every consumer", () => {
   const helpDesk = () =>
     onStart(HelpDeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(HelpDeskRouter)
       .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)
       .join();
 
-  it("optional required for OnDemand / Skip: the join's .returns names optional(…)", () => {
-    const flow = [
-      helpDesk()
-        .returns(OrderStatusDto)
-        .returns(RefundPolicyDto)
-        .returns(LoyaltyOfferDto)
-        .toAgent(AnswerAgent)
-        .returns(CustomerReplyDto)
-        .toFinish(HelpDeskWorkflowFinish),
-    ];
-    expect(errorsOf(flow)).toContainEqual(
-      expect.objectContaining({
-        code: "flow.returns-mismatch",
-        message: expect.stringContaining(
-          "write .join().returns(OrderStatusDto).returns(optional(LoyaltyOfferDto)).returns(optional(RefundPolicyDto))",
-        ),
-      }),
-    );
-  });
-
   it("a required consumer field for an OnDemand value is [input.missing-on-path]", () => {
-    const flow = [
-      helpDesk()
-        .returns(OrderStatusDto)
-        .returns(optional(RefundPolicyDto))
-        .returns(optional(LoyaltyOfferDto))
-        .toAgent(RefundReaderAgent)
-        .returns(CustomerReplyDto)
-        .toFinish(HelpDeskWorkflowFinish),
-    ];
+    const flow = [helpDesk().toAgent(RefundReaderAgent).toFinish(HelpDeskWorkflowFinish)];
     expect(errorsOf(flow).map((found) => found.message)).toContainEqual(
       expect.stringContaining(
         "refund-reader-agent.refund (RefundPolicyDto) is not produced on the path",
@@ -338,9 +259,7 @@ describe("#273 AC10: every per-item launch has maxItems", () => {
       planned()
         .toParallelAgents(CriticAgent, CriticAgent, { maxItems: 3 })
         .join()
-        .returns(listOf(CritiqueDto))
         .toAgent(CritiquesAgent)
-        .returns(ArticleDraftDto)
         .toFinish(ArticleDraftWorkflowFinish),
     ];
     expect(codesOf(widened)).toContain("launch.max-items-without-list");
@@ -363,11 +282,9 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
       planned()
         .toParallelAgents(CriticAgent, CriticAgent)
         .join()
-        .returns(listOf(CritiqueDto))
         .toAgent(CritiquesAgent)
-        .returns(ArticleDraftDto)
         .toFinish(ArticleDraftWorkflowFinish),
-      onAgent(CriticAgent).returns(CritiqueDto).toFinish(ArticleDraftWorkflowFinish),
+      onAgent(CriticAgent).toFinish(ArticleDraftWorkflowFinish),
     ];
     expect(errorsOf(flow)).toContainEqual(
       expect.objectContaining({
@@ -380,46 +297,20 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
   });
 
   it("two .onError handlers of one class on a join", () => {
-    const side = () =>
-      toAction(NotifyOperatorAction)
-        .returns(ScreeningFailedDto)
-        .toFinish(ScreeningFailedWorkflowFinish);
+    const side = () => toAction(NotifyOperatorAction).toFinish(ScreeningFailedWorkflowFinish);
     const flow = [
       screened()
         .toParallelAgents(CompanyAuditAgent, { maxItems: 3 })
         .join()
         .onError(LimitExceededError, side())
         .onError(LimitExceededError, side())
-        .returns(listOf(CompanyCheckDto))
         .toAgent(RankerAgent)
-        .returns(RankingDto)
         .toFinish(RankingWorkflowFinish),
     ];
     expect(errorsOf(flow)).toContainEqual({
       code: "flow.duplicate-error-handler",
       message: `launch-case-${String(count)}-workflow: the join of screening-agent → toParallelAgents(company-audit-agent) has 2 handlers for LimitExceededError — one .onError(LimitExceededError, …) per class on a join`,
     });
-  });
-
-  it("AC11: a .returns after an output-less actions join fails", () => {
-    const flow = [
-      onStart(CheckoutWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .toAction(ChargePaymentAction)
-        .returns(PaymentDto)
-        .toParallelActions(SendReceiptAction, UpdateCrmAction, ReserveGoodsAction)
-        .join()
-        .returns(PaymentDto)
-        .toFinish(PaymentWorkflowFinish),
-    ];
-    expect(errorsOf(flow)).toContainEqual(
-      expect.objectContaining({
-        code: "flow.returns-mismatch",
-        message: expect.stringContaining(
-          "gives nothing — its actions have no output; remove .returns(PaymentDto) after .join()",
-        ),
-      }),
-    );
   });
 });
 
@@ -442,14 +333,10 @@ const routerFlow = (
   targets: readonly (abstract new () => unknown)[],
 ): Flow => [
   onStart(HelpDeskWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toRouter(launcher)
     .toParallelAgents(...targets)
     .join()
-    .returns(OrderStatusDto)
-    .returns(optional(RefundPolicyDto))
     .toAgent(RefundReaderAgent)
-    .returns(CustomerReplyDto)
     .toFinish(HelpDeskWorkflowFinish),
 ];
 
@@ -490,14 +377,10 @@ describe("#273 AC6, S50: a router's launch follows its routes' policies", () => 
     ]);
     const flow: Flow = [
       onStart(HelpDeskWorkflowStart)
-        .returns(WorkflowStartTextDto)
         .toRouter(always)
         .toParallelAgents(OrderLookupAgent, RefundPolicyAgent)
         .join()
-        .returns(OrderStatusDto)
-        .returns(RefundPolicyDto)
         .toAgent(RefundReaderAgent)
-        .returns(CustomerReplyDto)
         .toFinish(HelpDeskWorkflowFinish),
     ];
     expect(codesOf(flow)).toContain("router.all-routes-always");

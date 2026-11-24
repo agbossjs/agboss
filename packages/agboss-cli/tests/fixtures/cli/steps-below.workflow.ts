@@ -23,12 +23,10 @@ export { OfferDraftDto };
   maxSteps: 4,
   flow: [
     onStart(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
       .toRouter(KitRouter),
     onRouter(KitRouter)
       .chooseOne(
         route(EditKitAgent)
-          .returns(OfferDraftDto)
           .toRouter(KitRouter),
         route(DraftKitWorkflowFinish),
       ),

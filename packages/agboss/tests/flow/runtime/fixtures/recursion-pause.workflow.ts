@@ -78,13 +78,10 @@ export class DiggerAgent {}
   version: "1.0.0",
   flow: [
     onStart(DigWorkflowStart)
-      .returns(CountDto)
       .toAgent(DiggerAgent)
-      .returns(oneOf(CountDto, CountDoneDto))
       .switch(
         caseOf(CountDto)
           .toWorkflow(ThisWorkflow)
-          .returns(CountDoneDto)
           .toFinish(CountDoneWorkflowFinish),
         caseOf(CountDoneDto)
           .toFinish(CountDoneWorkflowFinish),
@@ -140,13 +137,10 @@ export class HoldDepthAction {
   version: "1.0.0",
   flow: [
     onStart(HoldDepthWorkflowStart)
-      .returns(CountDto)
       .toAction(HoldDepthAction)
-      .returns(oneOf(CountDto, CountDoneDto))
       .switch(
         caseOf(CountDto)
           .toWorkflow(ThisWorkflow)
-          .returns(CountDoneDto)
           .toFinish(CountDoneWorkflowFinish),
         caseOf(CountDoneDto)
           .toFinish(CountDoneWorkflowFinish),

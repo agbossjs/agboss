@@ -5,15 +5,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
-import {
-  ColorDto,
-  Closer,
-  Editor,
-  LaunchColor,
-  LaunchShape,
-  ShapeDto,
-  Shaper,
-} from "./agents.fixture.js";
+import { Closer, Editor, LaunchColor, LaunchShape, ShapeDto, Shaper } from "./agents.fixture.js";
 
 @WorkflowStart({ name: "chain-workflow-start", description: "A task", input: WorkflowStartTextDto })
 export class ChainStart {}
@@ -29,14 +21,7 @@ class ChainFinish {}
 @Workflow({
   name: "chain-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChainStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(Shaper)
-      .returns(ShapeDto)
-      .toAgent(Editor)
-      .toFinish(ChainFinish),
-  ],
+  flow: [onStart(ChainStart).toAgent(Shaper).toAgent(Editor).toFinish(ChainFinish)],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
 class ChainWorkflow {}
@@ -50,13 +35,7 @@ class ShapeFinish {}
 @Workflow({
   name: "shape-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ShapeStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(Shaper)
-      .returns(ShapeDto)
-      .toFinish(ShapeFinish),
-  ],
+  flow: [onStart(ShapeStart).toAgent(Shaper).toFinish(ShapeFinish)],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
 class ShapeWorkflow {}
@@ -81,11 +60,8 @@ class LaunchFinish {}
   version: "1.0.0",
   flow: [
     onStart(LaunchStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(LaunchShape, LaunchColor)
       .join()
-      .returns(ShapeDto)
-      .returns(ColorDto)
       .toAgent(Closer)
       .toFinish(LaunchFinish),
   ],

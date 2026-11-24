@@ -122,13 +122,10 @@ export class OfferSentWorkflowFinish {}
 
 export const offerPaths = [
   onStart(OfferWorkflowStart)
-    .returns(ShortlistDto)
     .toAgent(DraftAgent)
-    .returns(OfferDraftDto)
     .toAgent(ReviewerAgent),
 
   onAgent(ReviewerAgent)
-    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
       caseOf(ChangesRequestedDto)
         .toAgent(EditorAgent)
@@ -137,11 +134,9 @@ export const offerPaths = [
           toAction(NotifyRecruiterAction)
             .toFinish(OfferFailedWorkflowFinish),
         )
-        .returns(OfferDraftDto)
         .toAgent(ReviewerAgent),
       caseOf(DraftApprovedDto)
         .toAction(SendOfferAction)
-        .returns(OfferSentDto)
         .toFinish(OfferSentWorkflowFinish),
     ),
 ] as const;

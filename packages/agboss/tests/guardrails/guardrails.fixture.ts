@@ -148,7 +148,6 @@ export class TriageRouter {}
   version: "1.0.0",
   flow: [
     onStart(ClinicStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(TriageRouter)
       .chooseOne(
         route(AdviceAgent).toFinish(ClinicAnswer),

@@ -442,7 +442,7 @@ export class RefundWorkflowFinish {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
-  flow: [onStart(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
+  flow: [onStart(RefundWorkflowStart).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
   providers: [SlackService],
 })
 export class RefundWorkflow {}

@@ -131,9 +131,7 @@ export class RefundWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RefundWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(RefundClerkAgent)
-      .returns(RefundCardOutputDto)
       .toFinish(RefundWorkflowFinish),
   ],
   defaults: { router: { model: "typesafe/jev-test" } },

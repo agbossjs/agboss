@@ -14,7 +14,10 @@ import { Action } from "../../../src/flow/decorators/action.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { onStart as publicStart, toExternalTask as publicToQuestion } from "../../../src/flow/builder.js";
+import {
+  onStart as publicStart,
+  toExternalTask as publicToQuestion,
+} from "../../../src/flow/builder.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
@@ -54,19 +57,14 @@ export class PublicStarterWorkflowStart {}
   version: "1.0.0",
   flow: [
     publicStart(PublicStarterWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(DraftQuestionAction)
-      .returns(PurchaseQuestionDto)
       .toAction(FlakyCheckAction)
       .onError(
         StepFailedError,
         publicToQuestion(SpendingLimitQuestion)
-          .returns(SpendingLimitAnswerDto)
           .toAction(PlacePurchaseAction)
-          .returns(PurchasePlacedDto)
           .toFinish(PurchaseWorkflowFinish),
       )
-      .returns(PurchasePlacedDto)
       .toFinish(PurchaseWorkflowFinish),
   ],
   providers: [QuestionInbox],
@@ -183,15 +181,11 @@ export const sharedEdgeFlow = (
   role: abstract new () => unknown,
 ): PathBuilder<PathSource>[] => [
   onStart(startClass)
-    .returns(WorkflowStartTextDto)
     .toAction(DraftQuestionAction)
-    .returns(PurchaseQuestionDto)
     .toExternalTask(role),
   onExternalTask(role)
-    .returns(SpendingLimitAnswerDto)
     .toAction(FailFirstPlaceAction)
     .onError(StepFailedError, toExternalTask(role))
-    .returns(PurchasePlacedDto)
     .toFinish(PurchaseWorkflowFinish),
 ];
 
@@ -201,21 +195,15 @@ export const inlineTwiceEdgeFlow = (
   role: abstract new () => unknown,
 ): PathBuilder<PathSource>[] => [
   onStart(startClass)
-    .returns(WorkflowStartTextDto)
     .toAction(DraftQuestionAction)
-    .returns(PurchaseQuestionDto)
     .toExternalTask(role)
-    .returns(SpendingLimitAnswerDto)
     .toAction(FailFirstPlaceAction)
     .onError(
       StepFailedError,
       toExternalTask(role)
-        .returns(SpendingLimitAnswerDto)
         .toAction(PlacePurchaseAction)
-        .returns(PurchasePlacedDto)
         .toFinish(PurchaseWorkflowFinish),
     )
-    .returns(PurchasePlacedDto)
     .toFinish(PurchaseWorkflowFinish),
 ];
 

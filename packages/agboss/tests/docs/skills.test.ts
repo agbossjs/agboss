@@ -156,7 +156,7 @@ describe("#305: the project skills in check:docs", { timeout: 300_000 }, () => {
         fence(
           'import { onStart } from "@agboss/core";',
           "declare const A: never;",
-          "onStart(A).returns(A).toFinish(A);",
+          "onStart(A).toFinish(A);",
         ),
         "",
       ].join("\n"),

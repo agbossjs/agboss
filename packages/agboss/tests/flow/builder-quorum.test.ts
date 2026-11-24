@@ -23,7 +23,6 @@ import {
   ScoreAAgent,
   ScoreBAgent,
 } from "./fixtures/quorum-agents.js";
-import { CandidateDto, FastScreenDto } from "./fixtures/quorum-dtos.js";
 import {
   CandidateReviewWorkflow,
   DueDiligenceWorkflow,
@@ -41,8 +40,7 @@ const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
   return declaration.options.flow;
 };
 
-const launched = () =>
-  onStart(FitReviewWorkflowStart).returns(CandidateDto).toParallelAgents(ScoreAAgent, ScoreBAgent);
+const launched = () => onStart(FitReviewWorkflowStart).toParallelAgents(ScoreAAgent, ScoreBAgent);
 
 const lastJoin = (steps: FlowPath["steps"]): JoinStep | undefined =>
   steps.flatMap((step) => (step.kind === StepKind.Join ? [step] : [])).pop();
@@ -66,16 +64,14 @@ describe("#279: the AST of quorums", () => {
     });
   });
 
-  it("groups keep their agents, priority, values and own path", () => {
+  it("groups keep their agents, priority and own path", () => {
     const join = lastJoin(flowOf(DueDiligenceWorkflow)[0]?.steps ?? []);
     const groups = join?.quorum?.kind === QuorumKind.Groups ? join.quorum.groups : [];
-    expect(
-      groups.map((found) => [found.agents.length, found.priority, found.returns.length]),
-    ).toEqual([
-      [2, 1, 2],
-      [1, 1, 1],
-      [2, 2, 1],
-      [1, 3, 1],
+    expect(groups.map((found) => [found.agents.length, found.priority])).toEqual([
+      [2, 1],
+      [1, 1],
+      [2, 2],
+      [1, 3],
     ]);
     expect(join?.quorum?.deadline).toBe(minutes(1));
     expect(groups[1]?.path.steps[0]).toMatchObject({
@@ -138,19 +134,11 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
     ],
     ["priority 0", () => group(DealCriticAgent).priority(0), "positive integer"],
     [
-      "priority after returns",
-      () => group(DealCriticAgent).returns(FastScreenDto).priority(1),
+      "priority after a step",
+      () => group(DealCriticAgent).toAgent(ScoreAAgent).priority(1),
       "right after group",
     ],
     ["an empty group", () => group(), "one or more agent classes"],
-    [
-      "returns after the groups",
-      () =>
-        launched()
-          .joinQuorumGroups(group(ScoreAAgent).toFinish(NotifyReviewerAction))
-          .returns(FastScreenDto),
-      "each group names its values",
-    ],
     [
       "a step after the groups",
       () =>

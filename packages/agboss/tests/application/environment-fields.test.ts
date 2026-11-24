@@ -68,7 +68,7 @@ class ConnectedFinish {}
 @Workflow({
   name: "connected-workflow",
   version: "1.0.0",
-  flow: [onStart(ConnectedStart).returns(WorkflowStartTextDto).toFinish(ConnectedFinish)],
+  flow: [onStart(ConnectedStart).toFinish(ConnectedFinish)],
   providers: [PostgresLikeLeaseStore],
 })
 class ConnectedWorkflow {}

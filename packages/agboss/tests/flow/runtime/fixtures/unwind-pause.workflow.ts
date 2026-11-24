@@ -93,11 +93,8 @@ export class UnwindGuestWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(UnwindGuestWorkflowStart)
-      .returns(UndoRequestDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAgent(GuestAgent)
-      .returns(ReservedDto)
       .toFinish(GuestReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -132,11 +129,8 @@ export class SeatReservedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(UnwindPausedWorkflowStart)
-      .returns(UndoRequestDto)
       .toAction(ReserveSeatAction)
-      .returns(SeatDto)
       .toWorkflow(UnwindGuestWorkflow)
-      .returns(ReservedDto)
       .toFinish(SeatReservedWorkflowFinish),
   ],
   providers: [UndoDesk],

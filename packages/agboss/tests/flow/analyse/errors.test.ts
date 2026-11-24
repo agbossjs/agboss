@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitWorkflowFinish,
   EditKitAgent,
@@ -20,11 +19,9 @@ class MailError extends Error {}
   version: "1.0.0",
   flow: [
     onStart(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .onError(CarrierError, toAction(NotifyKitAction).toFinish(DraftKitWorkflowFinish))
       .onError(MailError, toFinish(DraftKitWorkflowFinish))
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })
@@ -35,11 +32,9 @@ class TwoHandlersWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .onError(CarrierError, toAction(NotifyKitAction).toFinish(DraftKitWorkflowFinish))
       .onError(CarrierError, toFinish(DraftKitWorkflowFinish))
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })
@@ -50,10 +45,8 @@ class DuplicateHandlerWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .onError(CarrierError, side())
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })

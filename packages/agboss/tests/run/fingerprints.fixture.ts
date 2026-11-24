@@ -129,10 +129,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
     name: "desk-workflow",
     version: "1.0.0",
     flow: [
-      onStart(DeskStart)
-        .returns(WorkflowStartTextDto)
-        .toRouter(HelpRouter)
-        .chooseOne(route(AnswerAgent).toFinish(DeskAnswer)),
+      onStart(DeskStart).toRouter(HelpRouter).chooseOne(route(AnswerAgent).toFinish(DeskAnswer)),
     ],
   })
   class DeskWorkflow {}

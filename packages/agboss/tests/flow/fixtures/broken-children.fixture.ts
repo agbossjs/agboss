@@ -1,7 +1,7 @@
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { CompanyGradeDto, JobOfferDto } from "./child-dtos.js";
+import { CompanyGradeDto } from "./child-dtos.js";
 import {
   CompanyGradedWorkflowFinish,
   CompanyPickerAgent,
@@ -47,13 +47,10 @@ export class CompanyGraderAgent {}
   version: "1.0.0",
   flow: [
     onStart(QuickGradeWorkflowStart)
-      .returns(CompanyDto)
       .toAgent(CompanyGraderAgent),
     onStart(FullGradeWorkflowStart)
-      .returns(CompanyDto)
       .toAgent(CompanyGraderAgent),
     onAgent(CompanyGraderAgent)
-      .returns(CompanyGradeDto)
       .toFinish(CompanyGradedWorkflowFinish),
   ],
 })
@@ -71,13 +68,9 @@ export class BrokenReviewWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(BrokenReviewWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(CompanyPickerAgent)
-      .returns(CompanyDto)
       .toWorkflow(TwinGradeWorkflow)
-      .returns(CompanyGradeDto)
       .toAgent(JobOfferAgent)
-      .returns(JobOfferDto)
       .toFinish(JobOfferWorkflowFinish),
   ],
 })

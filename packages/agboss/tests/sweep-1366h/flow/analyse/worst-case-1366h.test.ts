@@ -18,7 +18,6 @@ import { NodeKind } from "../../../../src/flow/ast.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import { declarationOf } from "../../../../src/flow/decorators/declaration.js";
-import { oneOf } from "../../../../src/flow/dto-wrappers.js";
 import { ThisWorkflow } from "../../../../src/flow/this-workflow.js";
 import { caseOf as caseWhen } from "../../../helpers/flow.js";
 import {
@@ -48,10 +47,10 @@ class OneLastStart {}
   name: "mixed-workflow",
   version: "1.0.0",
   flow: [
-    pathStart(OneFirstStart).returns(CompanyDto),
-    pathStart(TwoFirstStart).returns(CompanyDto).toWorkflow(CompanyReviewWorkflow),
-    pathStart(TwoSecondStart).returns(CompanyDto).toWorkflow(CompanyReviewWorkflow),
-    pathStart(OneLastStart).returns(CompanyDto),
+    pathStart(OneFirstStart),
+    pathStart(TwoFirstStart).toWorkflow(CompanyReviewWorkflow),
+    pathStart(TwoSecondStart).toWorkflow(CompanyReviewWorkflow),
+    pathStart(OneLastStart),
   ],
 })
 class MixedWorkflow {}
@@ -340,9 +339,7 @@ describe("#1366: the start log's line", () => {
 /** A workflow that launches itself, or the other one: mutual recursion, which the analyser refuses but still sizes. */
 const throughBoth = (other: abstract new () => unknown) => [
   pathStart(CountdownWorkflowStart)
-    .returns(CountDto)
     .toAction(CountdownAction)
-    .returns(oneOf(CountDto, CountDoneDto))
     .switch(caseWhen(CountDto).toWorkflow(ThisWorkflow), caseWhen(CountDoneDto).toWorkflow(other)),
 ];
 

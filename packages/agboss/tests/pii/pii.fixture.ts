@@ -175,7 +175,7 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 3 } } as c
 @Workflow({
   name: "pii-workflow",
   version: "1.0.0",
-  flow: [onStart(PiiStart).returns(WorkflowStartTextDto).toAgent(SupportAgent).toFinish(PiiFinish)],
+  flow: [onStart(PiiStart).toAgent(SupportAgent).toFinish(PiiFinish)],
   defaults,
   piiPolicies: [CardPiiPolicy, EmployeeIdPiiPolicy],
   providers: [Outbox, EmployeeDirectory],
@@ -185,7 +185,7 @@ export class PiiWorkflow {}
 @Workflow({
   name: "open-workflow",
   version: "1.0.0",
-  flow: [onStart(OpenStart).returns(WorkflowStartTextDto).toAgent(OpenAgent).toFinish(OpenFinish)],
+  flow: [onStart(OpenStart).toAgent(OpenAgent).toFinish(OpenFinish)],
   defaults,
 })
 export class OpenWorkflow {}

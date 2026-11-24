@@ -117,8 +117,8 @@ export interface ReaderApp {
 
 /** start → agent → finish, the agent answering in `output` when it has one. */
 function flowOf(output: DtoClass | undefined, startNode: Class, agent: Class, finish: Class) {
-  const toAgent = onStart(startNode).returns(BundleDto).toAgent(agent);
-  return output === undefined ? toAgent.toFinish(finish) : toAgent.returns(output).toFinish(finish);
+  const toAgent = onStart(startNode).toAgent(agent);
+  return output === undefined ? toAgent.toFinish(finish) : toAgent.toFinish(finish);
 }
 
 /** The agent's options a test gives: only the ones it names. */

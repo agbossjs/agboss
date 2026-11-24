@@ -129,7 +129,6 @@ export class SearchWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ScoutAgent)
       .toFinish(SearchWorkflowFinish),
   ],
@@ -183,7 +182,6 @@ export class BrokenScoutAgent {}
   version: "1.0.0",
   flow: [
     onStart(SearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(BrokenScoutAgent)
       .toFinish(SearchWorkflowFinish),
   ],

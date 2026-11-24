@@ -91,12 +91,9 @@ export class Unused {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Coder),
     onAgent(Coder)
-      .returns(CodeDto)
-      .toAgent(Reviewer)
-      .returns(ReviewDto) // the review is about this code (#271)
+      .toAgent(Reviewer) // the review is about this code (#271)
       .toRouter(ReviewGate)
       .chooseOne(route(Coder), route(PullRequest)),
   ],

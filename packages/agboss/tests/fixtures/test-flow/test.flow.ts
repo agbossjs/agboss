@@ -74,7 +74,6 @@ export class TestMain {}
 /** The star: workflow start → main router → alpha / beta → the answer (or no answer). */
 export const testPaths: readonly FlowPath[] = [
   onStart(TestChat)
-    .returns(WorkflowStartTextDto)
     .toRouter(TestMain)
     .chooseOne(
       route(Alpha)

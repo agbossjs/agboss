@@ -6,12 +6,10 @@ import {
   type ChooseOneStep,
   type FlowPath,
   type OnErrorStep,
-  type ReturnsStep,
   type Step,
   type SwitchStep,
   type ToStep,
 } from "../ast.js";
-import { Wrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import {
   EdgeKind,
@@ -84,8 +82,6 @@ class FlowWalker implements LaunchRecorder {
   /** One step; returns where the walk stands after it (every kind of step has its case). */
   private walkStep(step: Step, cursor: Cursor, isFollowed: boolean): Cursor {
     switch (step.kind) {
-      case StepKind.Returns:
-        return this.returns(step, cursor);
       case StepKind.To:
         return this.enter(step, cursor, isFollowed);
       case StepKind.Switch:
@@ -102,17 +98,6 @@ class FlowWalker implements LaunchRecorder {
       case StepKind.Join:
         return walkJoin(this, step, cursor, (steps, inner) => this.walkSteps(steps, inner));
     }
-  }
-
-  /**
-   * A `.returns(…)`: its value travels on the next edge; a `oneOf` waits for its `.switch` (one
-   * followed by a transition is the returns rule's `[flow.returns-mismatch]`).
-   */
-  private returns(step: ReturnsStep, cursor: Cursor): Cursor {
-    const { shape } = step.value;
-    if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
-      return { ...cursor, oneOf: shape };
-    return { ...cursor, returned: [...cursor.returned, valueWrite(shape, false)] };
   }
 
   private enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
@@ -137,7 +122,6 @@ class FlowWalker implements LaunchRecorder {
       to: target,
       kind,
       writes: cursor.writes,
-      returned: cursor.returned,
       ...(error === undefined ? {} : { error }),
       ...(launch === undefined ? {} : { launch }),
       ...(join === undefined ? {} : { join }),
@@ -147,17 +131,11 @@ class FlowWalker implements LaunchRecorder {
 
   private walkSwitch(step: SwitchStep, cursor: Cursor): void {
     if (cursor.current === undefined) return;
-    const { oneOf: returned } = cursor;
-    this.switches.push({
-      node: cursor.current,
-      step,
-      ...(returned === undefined ? {} : { returned }),
-    });
+    this.switches.push({ node: cursor.current, step });
     for (const branch of step.cases) {
       const inner: Cursor = {
         current: cursor.current,
         writes: [valueWrite(branch.dto, true)],
-        returned: [],
         entry: EdgeKind.Case,
         path: cursor.path,
         depth: cursor.depth + 1,
@@ -186,7 +164,6 @@ class FlowWalker implements LaunchRecorder {
     const inner: Cursor = {
       ...cursor,
       writes: [],
-      returned: [],
       entry: EdgeKind.Error,
       error: step.error,
       depth: cursor.depth + 1,

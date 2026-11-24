@@ -105,9 +105,7 @@ export class ClaimRoomItemWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ClaimRoomItemWorkflowStart)
-      .returns(ItemDto)
       .toAction(ClaimRoomHoldAction)
-      .returns(ItemResultDto)
       .toFinish(ClaimRoomItemWorkflowFinish),
   ],
 })
@@ -143,14 +141,12 @@ export class ClaimRoomBatchWorkflowFinish {
   maxConcurrentExecutions: 30,
   flow: [
     onStart(ClaimRoomBatchWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(ClaimRoomItemWorkflow, {
         maxConcurrency: 12,
         maxItems: 12,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(ClaimRoomBatchWorkflowFinish),
   ],
 })

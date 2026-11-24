@@ -1,5 +1,3 @@
-import { file } from "../../../src/components/file.js";
-
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -236,7 +234,6 @@ export class MainRouter {}
   maxSteps: 12,
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
       .chooseOne(
         route(Support)

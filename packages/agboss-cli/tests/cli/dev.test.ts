@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkCommandOf, watchedFolderOf } from "../../src/cli/dev.js";
@@ -108,9 +107,7 @@ export class EchoWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(MessageWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(EchoAction)
-      .returns(WorkflowFinishTextDto)
       .toFinish(EchoWorkflowFinish),
   ],
 })

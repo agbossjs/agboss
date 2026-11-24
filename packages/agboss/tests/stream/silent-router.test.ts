@@ -51,7 +51,6 @@ class AuditChatRouter {}
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(AuditChatRouter)
       .chooseOne(route(RoutedAgent).toFinish(Reply), route(HandOver)),
   ],

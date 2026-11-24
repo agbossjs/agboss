@@ -4,7 +4,7 @@ import { declarationOf } from "../decorators/declaration.js";
 import { optional, Wrapper, type ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { FlowLaunch } from "./flow-graph.js";
-import { joinGroupsOf, launchKeyOf, type JoinGroup, type NodeLookup } from "./join-groups.js";
+import { joinGroupsOf, type JoinGroup, type NodeLookup } from "./join-groups.js";
 
 /**
  * What a quorum join gives (#279, AC13, AC14). The shape comes from the launch: a repeated agent
@@ -60,7 +60,3 @@ export const groupAgentNames = (agents: readonly Class[]): readonly ComponentNam
     (agent) =>
       (declarationOf(agent)?.options.name ?? (agent.name || "(anonymous class)")) as ComponentName,
   );
-
-/** The `JoinOutputs` key of a group: `<launch> group(<agents as listed>)`, as the builder spells it. */
-export const groupKeyOf = (launch: FlowLaunch, agents: readonly ComponentName[]): string =>
-  `${launchKeyOf(launch)} group(${agents.join(", ")})`;

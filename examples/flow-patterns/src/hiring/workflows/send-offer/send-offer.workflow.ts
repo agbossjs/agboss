@@ -7,14 +7,6 @@ import { ReleaseOnboardingSlotAction } from "../../actions/release-onboarding-sl
 import { WithdrawOfferAction } from "../../actions/withdraw-offer.action.js";
 import { OfferLetterAgent } from "../../agents/offer-letter/offer-letter.agent.js";
 import { OfferSenderAgent } from "../../agents/offer-sender/offer-sender.agent.js";
-import {
-  OfferConfirmedDto,
-  OfferLetterDto,
-  OfferLetterSentDto,
-  OfferRequestDto,
-  OnboardingSlotDto,
-  RegisteredOfferDto,
-} from "../../dto/offer.dto.js";
 import { AtsClientService, AtsUnavailableError } from "../../services/ats-client.service.js";
 import { HrCalendarService } from "../../services/hr-calendar.service.js";
 import { RecruiterDeskService } from "../../services/recruiter-desk.service.js";
@@ -35,11 +27,8 @@ import { SendOfferWorkflowStart } from "./send-offer.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(SendOfferWorkflowStart)
-      .returns(OfferRequestDto)
       .toAction(RegisterOfferAction)
-      .returns(RegisteredOfferDto)
       .toAction(BookOnboardingSlotAction)
-      .returns(OnboardingSlotDto)
       .toAgent(OfferLetterAgent)
       .onError(
         StepFailedError, // the letter failed: undo both, newest first — checked by agboss check
@@ -52,11 +41,8 @@ import { SendOfferWorkflowStart } from "./send-offer.workflow-start.js";
           )
           .toFinish(OfferWithdrawnWorkflowFinish),
       )
-      .returns(OfferLetterDto)
       .toAgent(OfferSenderAgent) // pauses for the recruiter
-      .returns(OfferLetterSentDto)
       .toAction(ConfirmOfferAction) // commits both undoable steps
-      .returns(OfferConfirmedDto)
       .toFinish(OfferConfirmedWorkflowFinish),
   ],
   providers: [AtsClientService, HrCalendarService, RecruiterDeskService],

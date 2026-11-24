@@ -322,7 +322,6 @@ export class OfficeWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OfficeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(OfficeAgent)
       .toFinish(OfficeWorkflowFinish),
   ],
@@ -378,7 +377,7 @@ an outbound call is still sent once per key and reconciled, one business key is 
 A **question role** — `@ChannelRole({ name: "…-question", description, ask: AskDto, answer:
 AnswerDto, answerer, replyInterpreter?, maxVisits? })` on an abstract class that `extends
 ChannelOf<Self>`, its one `@Channel` implementation in `@Application({ providers })` — is asked by a
-flow step: `.returns(AskDto).toExternalTask(Role).returns(AnswerDto)` (or `onExternalTask(Role)…` for its own
+flow step: `.toExternalTask(Role)` (or `onExternalTask(Role)…` for its own
 path, a question asked again on a cycle; `maxVisits` its limit there). The role is the step's node
 (`NodeKind.Question`; its name ends with `-question`, `[name.kind-suffix]`); the step reads one
 `AskDto` from the path (`[input.missing-on-path]` when none comes), asks the channel —
@@ -402,7 +401,7 @@ value for the steps after it. Everything else is a pause like an approval's:
   before `send` (a holder past its lease asks nothing). A `send` that throws, or a `decided(…)` that
   is not an `AnswerDto`, is `QuestionFailedError` (`step.question`, a `StepFailedError`; `question`
   the step, also in `details`) — `.onError(E, …)` right after `.toExternalTask(Role)` takes it.
-- **As an `.onError` side-path start (#933):** `.onError(E, toExternalTask(Role).returns(AnswerDto)…)` — a
+- **As an `.onError` side-path start (#933):** `.onError(E, toExternalTask(Role)…)` — a
   question role's step handles the failure (the escalation "the manager did not answer, ask the
   director"); it reads its `ask` from the path as it stood before the failed step, and its answer goes
   on the path. One role is one node: its `maxVisits` counts the main path and the side path together.
@@ -636,7 +635,7 @@ export class RefundWorkflowFinish {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
-  flow: [onStart(RefundWorkflowStart).returns(WorkflowStartTextDto).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
+  flow: [onStart(RefundWorkflowStart).toAgent(RefundAgent).toFinish(RefundWorkflowFinish)],
   providers: [SlackClient],
 })
 export class RefundWorkflow {}
@@ -969,19 +968,14 @@ export class RecordEscalatedDeskAction implements ActionHandler<RecordEscalatedD
   version: "1.0.0",
   flow: [
     onStart(DeskWorkflowStart)
-      .returns(DeskOrderDto)
       .toExternalTask(DeskManagerQuestion)
       .onError(
         PauseExpiredError,
         toExternalTask(DeskDirectorQuestion)
-          .returns(DeskDecisionDto)
           .toAction(RecordEscalatedDeskAction)
-          .returns(DeskDoneDto)
           .toFinish(DeskWorkflowFinish),
       )
-      .returns(DeskDecisionDto)
       .toAction(RecordDeskAction)
-      .returns(DeskDoneDto)
       .toFinish(DeskWorkflowFinish),
   ],
   providers: [DeskChat],

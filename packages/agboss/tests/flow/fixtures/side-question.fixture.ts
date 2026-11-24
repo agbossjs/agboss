@@ -1,6 +1,5 @@
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
@@ -17,7 +16,6 @@ import {
   PurchaseQuestionDto,
   PurchaseWorkflowFinish,
   QuestionInbox,
-  SpendingLimitAnswerDto,
   SpendingLimitQuestion,
 } from "./questions.fixture.js";
 import { onStart, toExternalTask } from "./paths.js";
@@ -41,7 +39,11 @@ export class FlakyCheckAction implements ActionHandler<FlakyCheckAction> {
   }
 }
 
-@WorkflowStart({ name: "side-question-workflow-start", description: "d", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "side-question-workflow-start",
+  description: "d",
+  input: WorkflowStartTextDto,
+})
 export class SideQuestionWorkflowStart {}
 
 @Workflow({
@@ -49,19 +51,14 @@ export class SideQuestionWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SideQuestionWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(DraftQuestionAction)
-      .returns(PurchaseQuestionDto)
       .toAction(FlakyCheckAction)
       .onError(
         StepFailedError,
         toExternalTask(SpendingLimitQuestion)
-          .returns(SpendingLimitAnswerDto)
           .toAction(PlacePurchaseAction)
-          .returns(PurchasePlacedDto)
           .toFinish(PurchaseWorkflowFinish),
       )
-      .returns(PurchasePlacedDto)
       .toFinish(PurchaseWorkflowFinish),
   ],
   providers: [QuestionInbox],

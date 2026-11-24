@@ -58,7 +58,7 @@ export class AuditCallerResolver implements A2ACallerResolver<typeof A2AStart> {
 @Workflow({
   name: "a2a-audit-workflow",
   version: "1.0.0",
-  flow: [onStart(A2AStart).returns(WorkflowStartTextDto).toAgent(A2AWriter).toFinish(A2AFinish)],
+  flow: [onStart(A2AStart).toAgent(A2AWriter).toFinish(A2AFinish)],
   defaults: DEFAULTS,
   providers: [AuditCallerResolver],
 })

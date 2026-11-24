@@ -69,9 +69,7 @@ export class MailFinish {}
 @Workflow({
   name: "mail-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(MailStart).returns(WorkflowStartTextDto).toAgent(MailerAgent).toFinish(MailFinish),
-  ],
+  flow: [onStart(MailStart).toAgent(MailerAgent).toFinish(MailFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [ApprovalDesk, Outbox],
 })

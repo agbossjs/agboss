@@ -1,6 +1,5 @@
 import {
   Agent,
-  Arbiter,
   Compaction,
   CompactionStrategy,
   DecidedBy,
@@ -183,7 +182,6 @@ export function everyKindWorkflows(models: KindModels): {
     version: "1.0.0",
     flow: [
       onStart(DeskStart)
-        .returns(WorkflowStartTextDto)
         .toRouter(DeskRouter)
         .chooseOne(
           route(DeskAgent).toFinish(DeskFinish),

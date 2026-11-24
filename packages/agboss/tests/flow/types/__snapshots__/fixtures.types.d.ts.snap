@@ -882,37 +882,9 @@ declare module "../src/flow/generated-types.js" {
     "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
     "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;
   }
-  interface JoinOutputs {
-    "help-desk-router.toParallelAgents(order-lookup-agent, refund-policy-agent, loyalty-offer-agent)": readonly [LoyaltyOfferDto | undefined, OrderStatusDto, RefundPolicyDto | undefined];
-    "offers-router.toParallelAgents(refund-policy-agent, loyalty-offer-agent)": readonly [LoyaltyOfferDto | undefined, RefundPolicyDto];
-    "toParallelActions(send-receipt-action, update-crm-action, reserve-goods-action)": NoOutput;
-    "toParallelAgents(company-audit-agent) per item": readonly CompanyCheckDto[];
-    "toParallelAgents(company-vet-agent) per item": readonly CompanyCheckDto[];
-    "toParallelAgents(expiry-batch-refund-agent) per item": readonly AgentRefundDoneDto[];
-    "toParallelAgents(expiry-refund-agent, expiry-hold-agent)": readonly [AgentRefundDoneDto, GateDto];
-    "toParallelAgents(item-blind-agent) per item": readonly CompanyCheckDto[];
-    "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent)": readonly [AuditDto, FastScreenDto, LegalReviewDto, readonly DealCritiqueDto[]];
-    "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(auditor-agent)": AuditDto;
-    "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(deal-critic-agent, deal-critic-agent)": readonly DealCritiqueDto[];
-    "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(fast-screen-agent)": FastScreenDto;
-    "toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, auditor-agent, fast-screen-agent) group(legal-agent, deal-critic-agent)": readonly [LegalReviewDto, readonly DealCritiqueDto[]];
-    "toParallelAgents(legal-approver-agent, finance-approver-agent, cfo-approver-agent, coo-approver-agent)": readonly [CfoDecisionDto, CooDecisionDto, FinanceDecisionDto, LegalDecisionDto];
-    "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent)": readonly [DealCritiqueDto, FastScreenDto, LegalReviewDto];
-    "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent) group(critic-panel-agent)": DealCritiqueDto;
-    "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent) group(fast-panel-agent)": FastScreenDto;
-    "toParallelAgents(legal-panel-agent, critic-panel-agent, fast-panel-agent) group(legal-panel-agent, critic-panel-agent)": readonly [DealCritiqueDto, LegalReviewDto];
-    "toParallelAgents(plan-researcher-agent, critic-agent, critic-agent)": readonly [readonly CritiqueDto[], ResearchDto];
-    "toParallelAgents(score-a-agent, score-b-agent, score-c-agent)": readonly ScoreDto[];
-    "toParallelAgents(skills-panel-agent, risks-panel-agent, hire-panel-agent)": readonly ScoreDto[];
-    "toParallelAgents(skills-panel-agent, skills-panel-agent, skills-panel-agent)": readonly ScoreDto[];
-    "toParallelAgents(skills-panel-agent) per item": readonly ScoreDto[];
-    "toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent)": readonly [CultureScoreDto, SalaryFitDto, SkillsScoreDto];
-    "toParallelWorkflows(company-review-workflow) per item": readonly (CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto)[];
-    "toParallelWorkflows(treasury-workflow) per item": readonly WorkflowFinishTextDto[];
-  }
   interface ThisWorkflowOutputs {
-    "deep-research-workflow": { readonly input: NoInput; readonly output: ResearchFailedDto | ResearchReportDto; readonly join: readonly (ResearchFailedDto | ResearchReportDto)[] };
-    "org-chart-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto; readonly join: readonly (OrgChartFailedDto | TeamChartDto)[] };
+    "deep-research-workflow": { readonly input: NoInput; readonly output: ResearchFailedDto | ResearchReportDto };
+    "org-chart-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto };
     "org-drill-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto };
     "org-retry-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto };
     "outline-workflow": { readonly input: NoInput; readonly output: ResearchFailedDto | ResearchReportDto };

@@ -1,7 +1,6 @@
 import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { Workflow } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { TestAnswer, TestChat } from "../../../../agboss/tests/fixtures/test-flow/test.flow.js";
 import { onAgent, onStart } from "../../../../agboss/tests/helpers/flow.js";
 import {
@@ -21,7 +20,6 @@ import {
   uncompactedTurns: 2,
   flow: [
     onStart(TestChat)
-      .returns(WorkflowStartTextDto)
       .toAgent(Researcher),
     onAgent(Coder)
       .toFinish(TestAnswer),

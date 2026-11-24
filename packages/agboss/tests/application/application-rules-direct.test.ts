@@ -27,7 +27,6 @@ import {
   SpendReportService,
 } from "./fixtures/desks.application.js";
 import { Workflow } from "../../src/index.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { testDefaults } from "../helpers.js";
 import { onStart } from "../helpers/flow.js";
 
@@ -98,12 +97,7 @@ class PlainService {
   name: "infra-workflow",
   version: "1.0.0",
   defaults: testDefaults,
-  flow: [
-    onStart(OrdersWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OrdersAgent)
-      .toFinish(OrdersWorkflowFinish),
-  ],
+  flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [
     RecordingCostLedgerRepository,
     ShopModelProvider,
@@ -250,12 +244,7 @@ describe("#1366: applicationRuleViolations", () => {
       name: "plain-workflow",
       version: "1.0.0",
       defaults: testDefaults,
-      flow: [
-        onStart(OrdersWorkflowStart)
-          .returns(WorkflowStartTextDto)
-          .toAgent(OrdersAgent)
-          .toFinish(OrdersWorkflowFinish),
-      ],
+      flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
       providers: [Undecorated],
     })
     class PlainWorkflow {
@@ -265,12 +254,7 @@ describe("#1366: applicationRuleViolations", () => {
       name: "bare-workflow",
       version: "1.0.0",
       defaults: testDefaults,
-      flow: [
-        onStart(OrdersWorkflowStart)
-          .returns(WorkflowStartTextDto)
-          .toAgent(OrdersAgent)
-          .toFinish(OrdersWorkflowFinish),
-      ],
+      flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
     })
     class BareWorkflow {
       readonly fixture = true;

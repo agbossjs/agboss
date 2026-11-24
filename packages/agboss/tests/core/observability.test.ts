@@ -185,7 +185,6 @@ class ObsRouter {}
   defaults: testDefaults,
   flow: [
     onStart(ObsStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(ObsRouter)
       .chooseOne(route(ObsAgent).toFinish(ObsFinish), route(ObsNoReply)),
   ],

@@ -115,7 +115,6 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
   version: "1.0.0",
   flow: [
     onStart(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(MainRouter) // picks one of its @Router({ routes })
       .chooseOne(
         route(ProfilerAgent)
@@ -433,8 +432,8 @@ parallel launch (#273): `spawn` (stated on every route of a model router before 
 
 Several steps at once are a **parallel launch** (#273): `.toParallelAgents(ResearcherAgent,
 CriticAgent, CriticAgent, { maxConcurrency: 3 })` or `.toParallelActions(…)`, always followed by
-`.join()` and the values the branches give — `.join().returns(ResearchDto).returns(listOf(CritiqueDto))`,
-checked against the generated `JoinOutputs`; one agent after `.returns(listOf(CompanyDto))` runs once
+`.join()`, whose values — one per class the branches give — are derived from them; one agent right
+after a step whose output is `listOf(CompanyDto)` runs once
 per item (`{ maxItems }` required; a longer list is truncated, never an error — `result.launches`
 says `{ items, taken }`). At most `maxConcurrency` branches run at once, a new one starting as
 another ends; a failed branch cancels the others and the join takes `.onError(E, …)`
@@ -442,12 +441,12 @@ another ends; a failed branch cancels the others and the join takes `.onError(E,
 
 Not every answer is always needed: a **quorum** (#279) counts them — `.joinQuorum({ min: 2, max: 3,
 deadline: seconds(30) })` goes on with the counted answers, `.joinQuorumGroups(group(LegalAgent,
-CriticAgent).priority(1).returns(…).toAgent(…), …)` with the first complete group (by priority),
+CriticAgent).priority(1).toAgent(…), …)` with the first complete group (by priority),
 each group on its own path. `@Arbiter` classes decide which answers count, attached with
 `.acceptedBy(X)` before the quorum (a chain is an AND, `anyOf(A, B)` stops at the first that
 accepts): by model, a criterion per agent; by code, one `@OnAnswer(Agent)` method per agent. A single
-answer a quorum may leave out is `optional(XDto)` in `.returns(…)` — the compiler and `agboss check`
-say so on the quorum. At run time the quorum is decided as answers arrive: once `max` answers are
+answer a quorum may leave out is `optional(XDto)` — a step that requires it fails `agboss check` with
+`[input.missing-on-path]`. At run time the quorum is decided as answers arrive: once `max` answers are
 counted (or a group has won, or the quorum can no longer be reached) the other branches are
 cancelled; the deadline runs on the application's `Clock`; not reached → `QuorumNotReachedError`
 into `.onError(…)`; a failing arbiter is `ArbiterError`. `result.launches` and `onQuorumDecided`
@@ -460,10 +459,10 @@ A whole **workflow is a step** too (#263): `.toWorkflow(CompanyCheckWorkflow)` r
 outputs", runnable and testable on its own. Its start is chosen by the class of what comes in (one
 start, else the one taking the chain's current value; `[graph.no-matching-start]` /
 `[graph.ambiguous-start]` otherwise), its scope starts with that input only, and its result is
-branched by class — `.returns(oneOf(CompanyScoreDto, CompanyRejectedDto)).switch(caseOf(…)…)`, one
+branched by class — `.switch(caseOf(…)…)` over its `oneOf(CompanyScoreDto, CompanyRejectedDto)`, one
 case per finish output class. `.toParallelWorkflows(CompanyCheckWorkflow, { maxConcurrency: 3,
-maxItems: 50 })` runs one child per item, joined as `.join().returns(listOf(oneOf(…)))`; a child
-reached from two places has its own path `onWorkflow(W).onError(…).returns(oneOf(…)).switch(…)`.
+maxItems: 50 })` runs one child per item, joined into `listOf(oneOf(…))`; a child
+reached from two places has its own path `onWorkflow(W).onError(…).switch(…)`.
 At run time each child is an execution of its own — its id, steps and `maxSteps`, no history —
 inside its parent's checkpoint and budgets; an uncaught failure of its own fails the parent's step
 with `ChildExecutionFailedError`, and `result.children` holds the nested records
@@ -483,7 +482,7 @@ and fails its step with `ChildExecutionFailedError` caused by `DepthLimitExceede
 launches it is `[graph.mutual-recursion]`. The root's execution budget counts every level; each
 level has its own `maxSteps`; `agboss describe` prints `recursive: ThisWorkflow, maxDepth 3, on the
 last level: researcher-agent → TopicReportDto only`. Each recursive workflow is typed by its own
-entry: the `.returns(…)` after a `ThisWorkflow` launch is checked by `@Workflow({ name, flow })`
+entry: a `ThisWorkflow` launch is checked by `@Workflow({ name, flow })`
 against the generated `ThisWorkflowOutputs[name]`, so one project holds recursive workflows with
 different finishes.
 
@@ -601,7 +600,7 @@ runs graphify.
 ### In-Repository Example
 
 [`examples/flow-patterns`](examples/flow-patterns) — the flow's patterns with scripted tests only
-(no model key): `src/offer/` a review loop (`onAgent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
+(no model key): `src/offer/` a review loop (`onAgent(ReviewerAgent).switch(…)`,
 `caseOf(ChangesRequestedDto)`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
 parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies),
@@ -677,7 +676,6 @@ export class AuditWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(AuditWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toFinish(AuditWorkflowFinish),
   ],
 })

@@ -1,5 +1,4 @@
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { OfferDraftDto, ShortlistDto } from "./dtos.js";
 import {
   BrokenAgent,
   DraftAgent,
@@ -18,11 +17,8 @@ import { onStart } from "./paths.js";
   version: "1.0.0",
   flow: [
     onStart(OfferWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(BrokenAgent)
-      .returns(OfferDraftDto)
       .toFinish(OfferFailedWorkflowFinish),
   ],
 })

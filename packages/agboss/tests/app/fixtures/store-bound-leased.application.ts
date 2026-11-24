@@ -80,13 +80,7 @@ export class SlotWorkflowFinish {}
 @Workflow({
   name: "slot-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(SlotWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(TakeSlotAction)
-      .returns(SlotReceiptDto)
-      .toFinish(SlotWorkflowFinish),
-  ],
+  flow: [onStart(SlotWorkflowStart).toAction(TakeSlotAction).toFinish(SlotWorkflowFinish)],
 })
 export class SlotWorkflow {}
 

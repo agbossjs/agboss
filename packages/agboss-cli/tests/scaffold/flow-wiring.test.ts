@@ -14,7 +14,7 @@ describe("#116: agboss g agent joins the router's choice; agboss g router", () =
   const TRIAGE = "      route(TriageAgent)\n        .toFinish(TextWorkflowFinish)";
   const BILLING = "      route(BillingAgent)\n        .toFinish(TextWorkflowFinish)";
   const STAR = (routes: string) =>
-    `flow: [\n  onStart(TextWorkflowStart)\n    .returns(WorkflowStartTextDto)\n    .toRouter(MainRouter)\n    .chooseOne(\n${routes},\n    ),\n]`;
+    `flow: [\n  onStart(TextWorkflowStart)\n\n    .toRouter(MainRouter)\n    .chooseOne(\n${routes},\n    ),\n]`;
 
   it("#272: adds route(Agent).toFinish(Finish) after the router's last route, one call per line (#289)", () => {
     const file = workflow(STAR(TRIAGE));
@@ -36,7 +36,7 @@ describe("#116: agboss g agent joins the router's choice; agboss g router", () =
 
   it("an unexpected flow is not guessed: an error naming the file", () => {
     const file = workflow(
-      "[onStart(TextWorkflowStart).returns(WorkflowStartTextDto).toAgent(TriageAgent).toFinish(TextWorkflowFinish)]",
+      "[onStart(TextWorkflowStart).toAgent(TriageAgent).toFinish(TextWorkflowFinish)]",
     );
 
     expect(() => addAgentToFlow(file, "BillingAgent", "MainRouter", "TextWorkflowFinish")).toThrow(

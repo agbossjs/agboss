@@ -101,12 +101,9 @@ const providers = [
   version: "1.0.0",
   flow: [
     onStart(PayoutWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
       .onError(PaymentDeclinedError, toFinish(PayoutDeclinedWorkflowFinish))
-      .returns(OrderConfirmationDto)
-      .returns(RefundDoneDto)
       .toFinish(PayoutWorkflowFinish),
   ],
 })
@@ -129,12 +126,9 @@ export class PayoutsApplication {}
   version: "1.0.0",
   flow: [
     onStart(PayoutWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
       .onError(StepFailedError, toFinish(PayoutDeclinedWorkflowFinish))
-      .returns(OrderConfirmationDto)
-      .returns(RefundDoneDto)
       .toFinish(PayoutWorkflowFinish),
   ],
 })
@@ -157,11 +151,8 @@ export class PayoutStepsApplication {}
   version: "1.0.0",
   flow: [
     onStart(PayoutWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
-      .returns(OrderConfirmationDto)
-      .returns(RefundDoneDto)
       .toFinish(PayoutWorkflowFinish),
   ],
 })

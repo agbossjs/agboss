@@ -12,8 +12,7 @@ import {
   GraphRuleError,
   WorkflowStart,
 } from "../../src/index.js";
-import { DtoValidationError, Text, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { createSqliteTurnStore } from "../../src/turns/index.js";
+import { DtoValidationError, Text } from "../../src/dto/index.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -31,7 +30,6 @@ import {
   Writer,
   DeskApplication,
 } from "../testing/fixtures/desk.workflow.js";
-import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import {
   CodeDto,
   Coder,
@@ -91,8 +89,8 @@ const defaults = {
   name: "two-starts-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TicketStart).returns(TicketDto).toAgent(TicketAgent).toFinish(Reply),
-    onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
+    onStart(TicketStart).toAgent(TicketAgent).toFinish(Reply),
+    onStart(ChatStart).toAgent(Writer).toFinish(Reply),
   ],
   defaults,
   uncompactedTurns: 2,
@@ -113,10 +111,7 @@ export class TwoStartsApplication {}
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
-    onAgent(Support).toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Writer).toFinish(Reply), onAgent(Support).toFinish(Reply)],
   defaults,
   uncompactedTurns: 2,
 })

@@ -90,7 +90,6 @@ export class PromiseFinish {}
   version: "1.0.0",
   flow: [
     onStart(PromiseStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(PromiseAgent)
       .toFinish(PromiseFinish),
   ],

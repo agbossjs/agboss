@@ -161,15 +161,10 @@ export interface GroupStart {
   readonly priority?: number;
 }
 
-/** A group as `.joinQuorumGroups(…)` keeps it: its leading `.returns(…)` are its values. */
+/** A group as `.joinQuorumGroups(…)` keeps it: its agents, priority and own path. */
 export function quorumGroupOf(start: GroupStart, steps: readonly Step[]): QuorumGroup {
   const { agents, priority } = start;
-  const firstStep = steps.findIndex((step) => step.kind !== StepKind.Returns);
-  const split = firstStep === -1 ? steps.length : firstStep;
-  const returns = steps
-    .slice(0, split)
-    .flatMap((step) => (step.kind === StepKind.Returns ? [step.value] : []));
-  const path = Object.freeze({ steps: Object.freeze(steps.slice(split)) });
-  const group = { agents, returns: Object.freeze(returns), path };
+  const path = Object.freeze({ steps: Object.freeze([...steps]) });
+  const group = { agents, path };
   return Object.freeze(priority === undefined ? group : { ...group, priority });
 }

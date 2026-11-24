@@ -124,13 +124,11 @@ export class OwnCaughtFinish {}
   version: "1.0.0",
   flow: [
     onStart(FamilyRouteStart)
-      .returns(AskDto)
       .toAction(ThrowingAction)
       .onError(StepError.Action, toFinish(VariantCaughtFinish))
       .onError(LimitError, toFinish(LimitCaughtFinish))
       .onError(ExecutionError, toFinish(ExecutionCaughtFinish))
       .onError(OnePaymentError, toFinish(OwnCaughtFinish))
-      .returns(OutDto)
       .toFinish(FamilyOkFinish),
   ],
 })

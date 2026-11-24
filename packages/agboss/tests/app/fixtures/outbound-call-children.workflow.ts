@@ -138,9 +138,7 @@ export class ChildChargedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChildChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChildChargeAction)
-      .returns(ChargedDto)
       .toFinish(ChildChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],
@@ -176,9 +174,7 @@ export class FarChargedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(NearChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(ChildChargeWorkflow)
-      .returns(ChargedDto)
       .toFinish(NearChargedWorkflowFinish),
   ],
 })
@@ -189,9 +185,7 @@ export class NearChargeWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FarChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(ChildChargeWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ChargedDto)
       .toFinish(FarChargedWorkflowFinish),
   ],
 })

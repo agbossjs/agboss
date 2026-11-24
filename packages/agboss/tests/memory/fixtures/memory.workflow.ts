@@ -124,11 +124,8 @@ const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Recaller)
-      .returns(RecallDto)
       .toAgent(Windowed)
-      .returns(WindowDto)
       .toAgent(Noter)
       .toFinish(Answer),
   ],
@@ -166,9 +163,7 @@ export class DeskCompaction {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Recaller)
-      .returns(RecallDto)
       .toFinish(Recalled),
   ],
   defaults: DEFAULTS,

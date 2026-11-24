@@ -1,5 +1,5 @@
 // One call per line in flow chains (#289). Prettier joins a short chain such as
-// `onStart(A).returns(B).toFinish(C)` onto one line, so the files that hold flows — workflow modules
+// `onStart(A).toAgent(B).toFinish(C)` onto one line, so the files that hold flows — workflow modules
 // and the framework's flow fixtures — are left out of Prettier (`.prettierignore` lists the same
 // globs, `tests/docs/flow-style.test.ts` keeps the two lists equal) and formatted by ESLint instead:
 // `@stylistic/newline-per-chained-call` puts every call of a chain on its own line, and the

@@ -511,7 +511,7 @@ export class ChatWorkflowFinish {}
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
-  flow: [onStart(ChatWorkflowStart).returns(WorkflowStartTextDto).toAgent(SupportAgent).toFinish(ChatWorkflowFinish)],
+  flow: [onStart(ChatWorkflowStart).toAgent(SupportAgent).toFinish(ChatWorkflowFinish)],
 })
 export class SupportWorkflow {}
 @Budget({ name: "support-application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })

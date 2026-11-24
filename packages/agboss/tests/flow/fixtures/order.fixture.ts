@@ -109,9 +109,7 @@ export class OrderWorkflowFinish implements FinishHandler<OrderWorkflowFinish> {
 
 export const orderPaths = [
   onStart(OrderWorkflowStart)
-    .returns(OrderRequestDto)
     .toAction(ReserveStockAction)
-    .returns(StockReservationDto)
     .toAction(ShipOrderAction)
     .onError(
       CarrierError,
@@ -124,7 +122,6 @@ export const orderPaths = [
         .toAction(ReleaseStockAction)
         .toFinish(OrderFailedWorkflowFinish),
     )
-    .returns(OrderShippedDto)
     .toFinish(OrderWorkflowFinish),
 ] as const;
 

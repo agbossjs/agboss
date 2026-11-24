@@ -86,9 +86,7 @@ export class EndOnceLocalWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(EndOnceLocalWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(YieldCheckWorkflow)
-      .returns(ItemResultDto)
       .toFinish(EndOnceLocalWorkflowFinish),
   ],
 })

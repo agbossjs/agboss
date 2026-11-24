@@ -17,12 +17,7 @@ import {
   FaultChargeDeclinedError,
   FaultReserveAction,
 } from "./order.actions.js";
-import {
-  FaultChargeDto,
-  FaultOrderDto,
-  FaultPaymentDto,
-  FaultReservationDto,
-} from "./order.dto.js";
+import { FaultOrderDto, FaultPaymentDto, FaultReservationDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
 import { FaultPauseQuestion, FaultPauseWorkflow } from "./pause.workflow.js";
 
@@ -57,9 +52,7 @@ export class FaultChildPauseWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FaultChildPauseWorkflowStart)
-      .returns(FaultOrderDto)
       .toWorkflow(FaultPauseWorkflow)
-      .returns(FaultPaymentDto)
       .toFinish(FaultChildPauseWorkflowFinish),
   ],
 })
@@ -127,23 +120,15 @@ export class FaultTwicePauseWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FaultTwicePauseWorkflowStart)
-      .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultAskAction)
-      .returns(FaultApprovalAskDto)
       .toExternalTask(FaultPauseQuestion)
-      .returns(FaultApprovalDto)
       .toAction(FaultApprovedAction)
       .toAction(FaultAskAgainAction)
-      .returns(FaultApprovalAskDto)
       .toExternalTask(FaultSecondPauseQuestion)
-      .returns(FaultApprovalDto)
       .toAction(FaultApprovedAgainAction)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultTwicePauseWorkflowFinish),
   ],
 })

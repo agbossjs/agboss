@@ -92,7 +92,6 @@ export class PauseClerk {}
   version: "1.0.0",
   flow: [
     onStart(PauseAskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(PauseClerk)
       .toFinish(PauseAnswerFinish),
   ],

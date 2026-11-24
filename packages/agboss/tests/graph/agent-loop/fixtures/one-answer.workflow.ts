@@ -71,7 +71,11 @@ export class LegalReviewAgent {}
 })
 export class ClauseReaderAgent {}
 
-@WorkflowStart({ name: "review-workflow-start", description: "A contract", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "review-workflow-start",
+  description: "A contract",
+  input: WorkflowStartTextDto,
+})
 export class ReviewWorkflowStart {}
 
 @WorkflowStart({
@@ -81,7 +85,11 @@ export class ReviewWorkflowStart {}
 })
 export class ReadingWorkflowStart {}
 
-@WorkflowFinish({ name: "review-workflow-finish", description: "The review", output: LegalReviewDto })
+@WorkflowFinish({
+  name: "review-workflow-finish",
+  description: "The review",
+  output: LegalReviewDto,
+})
 export class ReviewWorkflowFinish {}
 
 @WorkflowFinish({
@@ -96,9 +104,7 @@ export class ReadingWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ReviewWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(LegalReviewAgent)
-      .returns(LegalReviewDto)
       .toFinish(ReviewWorkflowFinish),
   ],
 })
@@ -109,9 +115,7 @@ export class ReviewWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(ReadingWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ClauseReaderAgent)
-      .returns(LegalReviewDto)
       .toFinish(ReadingWorkflowFinish),
   ],
 })

@@ -5,7 +5,7 @@ import { NodeKind } from "../../../src/flow/ast.js";
 import { declarationOf, type RouterDeclaration } from "../../../src/flow/decorators/declaration.js";
 import { DecidedBy, Router, SpawnPolicy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { OfferDraftDto, ShortlistDto } from "../fixtures/dtos.js";
+import { OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitAgent,
   DraftKitWorkflowFinish,
@@ -21,8 +21,8 @@ import { TopicsWorkflow } from "../fixtures/topics.fixture.js";
 
 /** Router rules (#272 AC6, #270, #280): routes as sets, input, model. */
 
-const entry = () => onStart(SecondKitWorkflowStart).returns(OfferDraftDto).toRouter(KitRouter);
-const editAgain = () => route(EditKitAgent).returns(OfferDraftDto).toRouter(KitRouter);
+const entry = () => onStart(SecondKitWorkflowStart).toRouter(KitRouter);
+const editAgain = () => route(EditKitAgent).toRouter(KitRouter);
 
 @Workflow({
   name: "reordered-routes-workflow",
@@ -65,10 +65,7 @@ class DuplicateRouteWorkflow {}
 class BlindRouter {}
 
 const blindPaths = [
-  onStart(SecondKitWorkflowStart)
-    .returns(OfferDraftDto)
-    .toRouter(BlindRouter)
-    .chooseOne(route(DraftKitWorkflowFinish)),
+  onStart(SecondKitWorkflowStart).toRouter(BlindRouter).chooseOne(route(DraftKitWorkflowFinish)),
 ];
 
 @Workflow({ name: "blind-router-workflow", version: "1.0.0", flow: blindPaths })
@@ -85,12 +82,7 @@ class DefaultModelWorkflow {}
 @Workflow({
   name: "choose-after-agent-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftKitAgent)
-      .chooseOne(route(DraftKitWorkflowFinish)),
-  ],
+  flow: [onStart(KitWorkflowStart).toAgent(DraftKitAgent).chooseOne(route(DraftKitWorkflowFinish))],
 })
 class ChooseAfterAgentWorkflow {}
 
@@ -191,7 +183,6 @@ class BlindCodeRouter {
   version: "1.0.0",
   flow: [
     onStart(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
       .toRouter(BlindCodeRouter)
       .chooseOne(route(DraftKitWorkflowFinish)),
   ],

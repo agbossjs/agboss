@@ -34,11 +34,7 @@ class SpreadSendAction {
   name: "spread-action-workflow",
   version: "1.0.0",
   flow: [
-    onStart(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
-      .toAction(SpreadSendAction)
-      .returns(OfferSentDto)
-      .toFinish(SentKitWorkflowFinish),
+    onStart(SecondKitWorkflowStart).toAction(SpreadSendAction).toFinish(SentKitWorkflowFinish),
   ],
 })
 class SpreadActionWorkflow {}

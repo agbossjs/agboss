@@ -221,7 +221,6 @@ import { RefundWorkflowStart } from "./refund.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(RefundWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(RefundAgent)
       .toFinish(RefundWorkflowFinish),
   ],
@@ -424,10 +423,8 @@ import { PurchaseWorkflowStart } from "./purchase.workflow-start.js";
   name: "purchase-workflow",
   version: "1.0.0",
   flow: [
-    onStart(PurchaseWorkflowStart)
-      .returns(PurchaseDto) // the ask, on the path (an agent or an action may build it)
-      .toExternalTask(SpendingLimitQuestion) // pauses; .onError(QuestionFailedError, …) may follow
-      .returns(SpendingLimitDto) // the typed answer: later steps read it like any value
+    onStart(PurchaseWorkflowStart) // the ask, on the path (an agent or an action may build it)
+      .toExternalTask(SpendingLimitQuestion) // pauses; .onError(QuestionFailedError, …) may follow // the typed answer: later steps read it like any value
       .toFinish(PurchaseWorkflowFinish),
   ],
   providers: [SlackClientService],
@@ -449,7 +446,7 @@ call and no step of `maxSteps`; the execution's budgets are checked before it as
 names a question role is `[channel.wrong-tool]`.
 
 A question may also start an `.onError` side path (#933): `.onError(StepFailedError,
-toExternalTask(DirectorQuestion).returns(DirectorAnswerDto)…)` — the failure is handled by asking, the
+toExternalTask(DirectorQuestion)…)` — the failure is handled by asking, the
 question reads its `ask` from the path as it stood before the failed step (field rules as for
 `.toExternalTask`), and its answer goes on the path. One role is one node: its `maxVisits` counts the
 main path and the side path together. A side path that can catch a limit (`LimitExceededError`,

@@ -462,7 +462,6 @@ export class DeskClerkAgent {}
   version: "1.0.0",
   flow: [
     onStart(DeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(DeskClerkAgent)
       .toFinish(DeskWorkflowFinish),
   ],
@@ -518,10 +517,8 @@ export class BatchWorkflowFinish {
   maxSteps: 20,
   flow: [
     onStart(BatchWorkflowStart)
-      .returns(listOf(RefundRequestDto))
       .toParallelAgents(BatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })
       .join()
-      .returns(listOf(RefundDoneDto))
       .toFinish(BatchWorkflowFinish),
   ],
 })
@@ -573,11 +570,8 @@ export class AuditWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(AuditWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(AuditRefundAgent, AuditCheckAgent)
       .join()
-      .returns(RefundDoneDto)
-      .returns(BatchSummaryDto)
       .toFinish(AuditWorkflowFinish),
   ],
 })

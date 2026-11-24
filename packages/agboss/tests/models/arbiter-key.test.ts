@@ -62,11 +62,9 @@ class AnsFinish {
   version: "1.0.0",
   flow: [
     onStart(AnsStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(AnsAgent, AnsAgent)
       .acceptedBy(AnsArbiter)
       .joinQuorum({ min: 2 })
-      .returns(listOf(AnsDto))
       .toFinish(AnsFinish),
   ],
 })

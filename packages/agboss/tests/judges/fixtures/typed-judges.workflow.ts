@@ -15,7 +15,6 @@ import {
   List,
   PlainTextDto,
   Text,
-  WorkflowStartTextDto,
   isVariant,
   listOf,
   oneOf,
@@ -106,9 +105,7 @@ export class ReportWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ScoutAgent)
-      .returns(JobReportDto)
       .toFinish(ReportWorkflowFinish),
   ],
   defaults: DEFAULTS,
@@ -191,9 +188,7 @@ export class RefusalWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ScreenerAgent)
-      .returns(oneOf(OfferDto, RefusalDto))
       .switch(
         caseOf(OfferDto)
           .toFinish(OfferWorkflowFinish),
@@ -279,9 +274,7 @@ export class ListJudgedScoutAgent {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(OfferJudgedScreenerAgent)
-      .returns(oneOf(OfferDto, RefusalDto))
       .switch(
         caseOf(OfferDto)
           .toFinish(OfferWorkflowFinish),
@@ -301,9 +294,7 @@ export class WrongReplyWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(TextJudgedScoutAgent)
-      .returns(JobReportDto)
       .toFinish(ReportWorkflowFinish),
   ],
   defaults: DEFAULTS,
@@ -326,9 +317,7 @@ export class JobsSummaryAgent {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ListJudgedScoutAgent)
-      .returns(listOf(JobDto))
       .toAgent(JobsSummaryAgent)
       .toFinish(Reply),
   ],
@@ -387,9 +376,7 @@ export class JobsScoutAgent {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(JobsScoutAgent)
-      .returns(listOf(JobDto))
       .toAgent(JobsSummaryAgent)
       .toFinish(Reply),
   ],
@@ -459,9 +446,7 @@ export class DecisionsSummaryAgent {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(PanelScreenerAgent)
-      .returns(listOf(oneOf(OfferDto, RefusalDto)))
       .toAgent(DecisionsSummaryAgent)
       .toFinish(Reply),
   ],
@@ -496,9 +481,7 @@ export class ListJudgedReporterAgent {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ListJudgedReporterAgent)
-      .returns(JobReportDto)
       .toFinish(ReportWorkflowFinish),
   ],
   defaults: DEFAULTS,

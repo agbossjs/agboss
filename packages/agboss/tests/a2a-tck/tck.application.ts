@@ -12,7 +12,6 @@ import { WorkflowFinishFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import { A2AFiles } from "../../src/a2a/files/a2a-files.service.js";
 import {
   A2ACallerResolution,
-  type A2ACaller,
   type A2ACallerRequest,
   type A2ACallerResolver,
 } from "../../src/a2a/a2a-caller.js";
@@ -217,18 +216,14 @@ export class TckDataFinish {}
   version: "1.0.0",
   flow: [
     onStart(TckWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(TckScenarioAction)
-      .returns(oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto, WorkflowFinishFileDto))
       .switch(
         caseOf(WorkflowFinishTextDto).toFinish(TckTextFinish),
         caseOf(WorkflowFinishFileDto).toFinish(TckFileFinish),
         caseOf(TckDataDto).toFinish(TckDataFinish),
         caseOf(TckAskDto)
           .toExternalTask(TckInputQuestion)
-          .returns(TckReplyDto)
           .toAction(TckAnsweredAction)
-          .returns(WorkflowFinishTextDto)
           .toFinish(TckTextFinish),
       ),
   ],
@@ -282,13 +277,7 @@ export class TckMessageFinish {}
 @Workflow({
   name: "tck-message-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TckMessageWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(TckMessageAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(TckMessageFinish),
-  ],
+  flow: [onStart(TckMessageWorkflowStart).toAction(TckMessageAction).toFinish(TckMessageFinish)],
 })
 export class TckMessageWorkflow {}
 

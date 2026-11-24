@@ -7,7 +7,7 @@ import { declared, recordDeclaration, type InputFields } from "./declaration.js"
 /**
  * `@Action` (was `@WorkflowAction`) — a code node: `implements ActionHandler<Self>`,
  * `execute(input: InputOf<Self>)`. Without `output` it is done for its side effect
- * (`Promise<void>`) and the flow goes straight to the next `.to…` (no `.returns`).
+ * (`Promise<void>`) and the flow goes straight to the next `.to…`.
  */
 export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]> {
   /** Ends with `-action` (`send-offer-action`). */

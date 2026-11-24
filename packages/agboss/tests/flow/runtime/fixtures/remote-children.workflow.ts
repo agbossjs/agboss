@@ -142,9 +142,7 @@ export class RemoteItemCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RemoteItemWorkflowStart)
-      .returns(ItemDto)
       .toAction(RemoteCheckAction)
-      .returns(ItemResultDto)
       .toFinish(RemoteItemCheckedWorkflowFinish),
   ],
 })
@@ -191,7 +189,6 @@ export class RemoteChecksFailedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(RemoteItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(RemoteItemWorkflow, {
         maxConcurrency: 6,
         maxItems: 10,
@@ -199,7 +196,6 @@ export class RemoteChecksFailedWorkflowFinish {
       })
       .join()
       .onError(ChildExecutionFailedError, toFinish(RemoteChecksFailedWorkflowFinish))
-      .returns(listOf(ItemResultDto))
       .toFinish(RemoteChecksWorkflowFinish),
   ],
 })
@@ -225,9 +221,7 @@ export class RemoteOneCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RemoteOneWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
       .toFinish(RemoteOneCheckedWorkflowFinish),
   ],
 })

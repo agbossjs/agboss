@@ -123,7 +123,6 @@ export class MainRouter {}
   version: "1.0.0",
   flow: [
     onStart(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(MainRouter)
       .chooseOne(
         route(Scout)

@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../../src/index.js";
-import { route, onStart, toAction, toFinish } from "../../helpers/flow.js";
+import { route, onStart, toAction } from "../../helpers/flow.js";
 import {
   BookOrderAction,
   DeclineOrderAction,
@@ -16,6 +16,7 @@ import {
   OverspendOrderAction,
 } from "./paid-steps.actions.js";
 import { OrderDeclinedError, OrderDto, OrderNoteDto } from "./paid-steps.dto.js";
+import { toFinish } from "../../helpers/flow.js";
 
 /**
  * #634 — after an overspend, the next step of each kind on a path: an action (behind an undoable
@@ -40,12 +41,9 @@ export class PaidActionWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidActionWorkflowStart)
-      .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
-      .returns(OrderNoteDto)
       .toFinish(PaidActionWorkflowFinish),
   ],
 })
@@ -74,13 +72,12 @@ export class PaidRouterWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidRouterWorkflowStart)
-      .returns(OrderDto)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toRouter(PaidOrderRouter)
-      .chooseOne(route(NoteOrderAction)
-        .returns(OrderNoteDto)
-        .toFinish(PaidRouterWorkflowFinish)),
+      .chooseOne(
+        route(NoteOrderAction)
+          .toFinish(PaidRouterWorkflowFinish),
+      ),
   ],
 })
 export class PaidRouterWorkflow {}
@@ -106,11 +103,8 @@ export class PaidAgentWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidAgentWorkflowStart)
-      .returns(OrderDto)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toAgent(PaidReviewAgent)
-      .returns(OrderNoteDto)
       .toFinish(PaidAgentWorkflowFinish),
   ],
 })
@@ -128,9 +122,7 @@ export class PaidOrderWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidFinishWorkflowStart)
-      .returns(OrderDto)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toFinish(PaidOrderWorkflowFinish),
   ],
 })
@@ -149,17 +141,13 @@ export class DeclinedNotedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidDeclinedWorkflowStart)
-      .returns(OrderDto)
       .toAction(DeclineOrderAction)
       .onError(
         OrderDeclinedError,
         toAction(NotifyOrderAction)
-          .returns(OrderNoteDto)
           .toFinish(DeclinedNotedWorkflowFinish),
       )
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
-      .returns(OrderNoteDto)
       .toFinish(PaidDeclinedWorkflowFinish),
   ],
 })
@@ -178,17 +166,13 @@ export class OverBudgetWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidLimitWorkflowStart)
-      .returns(OrderDto)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
       .onError(
         BudgetExceededError,
         toAction(NotifyOrderAction)
-          .returns(OrderNoteDto)
           .toFinish(OverBudgetWorkflowFinish),
       )
-      .returns(OrderNoteDto)
       .toFinish(PaidLimitWorkflowFinish),
   ],
 })

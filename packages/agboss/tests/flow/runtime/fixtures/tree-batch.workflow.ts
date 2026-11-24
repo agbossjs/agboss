@@ -36,10 +36,8 @@ export class BatchDoneWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(BatchWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
-      .returns(listOf(TaskDoneDto))
       .toFinish(BatchDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 2,
@@ -59,10 +57,8 @@ export class SerialBatchWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SerialBatchWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 1, maxItems: 10 })
       .join()
-      .returns(listOf(TaskDoneDto))
       .toFinish(BatchDoneWorkflowFinish),
   ],
 })
@@ -81,10 +77,8 @@ export class SingleFileWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SingleFileWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
-      .returns(listOf(TaskDoneDto))
       .toFinish(BatchDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,

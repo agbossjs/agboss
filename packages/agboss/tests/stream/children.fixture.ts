@@ -32,9 +32,7 @@ class ChildFinish {}
 @Workflow({
   name: "child-writer-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChildStart).returns(WorkflowStartTextDto).toAgent(ChildWriter).toFinish(ChildFinish),
-  ],
+  flow: [onStart(ChildStart).toAgent(ChildWriter).toFinish(ChildFinish)],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
 class ChildWriterWorkflow {}
@@ -53,13 +51,7 @@ class OnceFinish {}
 @Workflow({
   name: "once-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(OnceStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChildWriterWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(OnceFinish),
-  ],
+  flow: [onStart(OnceStart).toWorkflow(ChildWriterWorkflow).toFinish(OnceFinish)],
 })
 class OnceWorkflow {}
 
@@ -90,10 +82,8 @@ class FanFinish {
   version: "1.0.0",
   flow: [
     onStart(FanStart)
-      .returns(listOf(WorkflowStartTextDto))
       .toParallelWorkflows(ChildWriterWorkflow, { maxItems: 4 })
       .join()
-      .returns(listOf(WorkflowFinishTextDto))
       .toFinish(FanFinish),
   ],
 })

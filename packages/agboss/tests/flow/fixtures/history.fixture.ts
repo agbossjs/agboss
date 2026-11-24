@@ -103,16 +103,12 @@ export class DraftHistoryWorkflowFinish implements FinishHandler<DraftHistoryWor
 
 export const historyPaths = [
   onStart(HistoryOfferWorkflowStart)
-    .returns(ShortlistDto)
     .toAgent(FirstDraftAgent)
-    .returns(OfferDraftDto)
     .toAction(ReviewDraftAction),
   onAction(ReviewDraftAction)
-    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
       caseOf(ChangesRequestedDto)
         .toAgent(DraftEditorAgent)
-        .returns(OfferDraftDto)
         .toAction(ReviewDraftAction),
       caseOf(DraftApprovedDto)
         .toFinish(DraftHistoryWorkflowFinish),

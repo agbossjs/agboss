@@ -135,26 +135,14 @@ export class ReceiptFinish {}
 @Workflow({
   name: "book-order-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(BookOrderStart)
-      .returns(OrderDto)
-      .toAction(BookOrderAction)
-      .returns(ReceiptDto)
-      .toFinish(ReceiptFinish),
-  ],
+  flow: [onStart(BookOrderStart).toAction(BookOrderAction).toFinish(ReceiptFinish)],
 })
 export class BookOrderWorkflow {}
 
 @Workflow({
   name: "charge-order-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChargeOrderStart)
-      .returns(OrderDto)
-      .toAction(ChargeOrderAction)
-      .returns(ReceiptDto)
-      .toFinish(ReceiptFinish),
-  ],
+  flow: [onStart(ChargeOrderStart).toAction(ChargeOrderAction).toFinish(ReceiptFinish)],
   providers: [PaymentGateway],
 })
 export class ChargeOrderWorkflow {}

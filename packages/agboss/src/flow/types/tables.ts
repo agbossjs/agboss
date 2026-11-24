@@ -7,7 +7,6 @@ import { onDemandRoutesOf, routesOf, type RouterOptions } from "../decorators/ro
 import type { ComponentName } from "../registry.js";
 import type { ImportTable } from "./imports.js";
 import { childInputEntry, inputEntry, nodeInput } from "./inputs.js";
-import { joinEntries } from "./joins.js";
 import { isThisWorkflow } from "../this-workflow.js";
 import { thisWorkflowEntries } from "./this-workflow.js";
 import { outputText, startInputText, startOutputText, valueText } from "./shapes.js";
@@ -19,7 +18,7 @@ import { offPathUndoActions } from "./undo-actions.js";
  * `Outputs` (`OutputOf<X>`: what an action or a finish returns), `WorkflowStarts` (input and output
  * per start), `Routes` (`Route<R>`: the targets a router decides on — every route after
  * `.chooseOne(…)`, the `OnDemand` ones before a launch, #280), `RouterAnswers` (what a code
- * router's `route()` returns, and what a model router's scripted `routeTo(…)` gives, #262) and `JoinOutputs` (what the join of each launch gives, #273). A
+ * router's `route()` returns, and what a model router's scripted `routeTo(…)` gives, #262). A
  * component in
  * several workflows gets one entry: the input shapes and the reachable finishes of all of them.
  */
@@ -64,7 +63,6 @@ export interface TypeTables {
   readonly workflowStarts: TypeTable;
   readonly routes: TypeTable;
   readonly routerAnswers: TypeTable;
-  readonly joinOutputs: TypeTable;
   /** `ThisWorkflow` per recursive workflow, by the workflow's name (#264 S112). */
   readonly thisWorkflowOutputs: TypeTable;
   /** S4 lines for `agboss check`: the nodes whose `InputOf` is flat. */
@@ -152,7 +150,7 @@ function writeNode(
       return;
     }
     case NodeKind.Workflow:
-      // a child workflow gives its finishes' outputs (#263): `.returns(oneOf(…))` / `.returns(XDto)`
+      // a child workflow gives its finishes' outputs (#263): one class or a `oneOf(…)`
       tables.producerOutputs.set(name, outputText(outputOf(node), names));
       return;
   }
@@ -207,7 +205,6 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
   }
   return {
     ...tables,
-    joinOutputs: joinEntries(workflows, names),
     thisWorkflowOutputs: thisWorkflowEntries(workflows, names),
   };
 }

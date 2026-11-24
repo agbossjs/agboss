@@ -39,13 +39,7 @@ class LongWorkflowFinish {}
 @Workflow({
   name: "long-answer-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(LongAnswerAgent)
-      .returns(ShortlistOfTheBestCandidatesWithTheirScoresAndTheReviewersNotesDto)
-      .toFinish(LongWorkflowFinish),
-  ],
+  flow: [onStart(KitWorkflowStart).toAgent(LongAnswerAgent).toFinish(LongWorkflowFinish)],
 })
 class LongAnswerWorkflow {}
 

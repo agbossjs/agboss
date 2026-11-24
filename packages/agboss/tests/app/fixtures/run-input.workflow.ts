@@ -159,9 +159,7 @@ export class Done {}
   providers: [Shortlist],
   flow: [
     onStart(SearchStart)
-      .returns(SearchInDto)
       .toAgent(Searcher)
-      .returns(ShortlistDto)
       .toAction(Shortlist)
       .toFinish(Done),
   ],
@@ -196,9 +194,7 @@ export class Typo {}
   uncompactedTurns: 1,
   flow: [
     onStart(SearchStart)
-      .returns(SearchInDto)
       .toAgent(Typo)
-      .returns(ShortlistDto)
       .toFinish(Done),
   ],
 })

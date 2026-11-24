@@ -3,7 +3,6 @@
  * block rule, an application-level one — each on a model the 127.0.0.1 test server answers.
  */
 import { Agent, Workflow } from "../../src/index.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { TokenLimit } from "../../src/config/types.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
@@ -57,7 +56,7 @@ export function heldApplication(
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
-    flow: [onStart(ChatStart).returns(WorkflowStartTextDto).toAgent(HeldAgent).toFinish(Reply)],
+    flow: [onStart(ChatStart).toAgent(HeldAgent).toFinish(Reply)],
     defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
   })
   class HeldWorkflow {}

@@ -86,7 +86,6 @@ export const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Writer)
       .toFinish(Reply),
   ],
@@ -128,7 +127,6 @@ export class Careless {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Careless)
       .toFinish(Reply),
   ],

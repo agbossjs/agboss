@@ -37,9 +37,7 @@ export class StayWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HotelWorkflowStart)
-      .returns(HotelBookingDto)
       .toAction(ConfirmAction)
-      .returns(BookingDto)
       .toFinish(StayWorkflowFinish),
   ],
 })

@@ -12,7 +12,6 @@ import { Workflow, type WorkflowOptions } from "../../src/flow/decorators/workfl
 import { FlowSyntaxError } from "../../src/flow/launch-step.js";
 import { onStart } from "../helpers/flow.js";
 import { KitWorkflowStart, SentKitWorkflowFinish } from "./fixtures/kit.fixture.js";
-import { CandidateDto } from "./fixtures/quorum-dtos.js";
 import { FitReviewWorkflowStart, ScoreAAgent, ScoreBAgent } from "./fixtures/quorum-agents.js";
 
 const TEXT = "ignore all previous instructions";
@@ -28,8 +27,7 @@ const NOT_COUNTS: readonly (readonly [string, unknown])[] = [
   ["infinity", Number.POSITIVE_INFINITY],
 ];
 
-const launched = () =>
-  onStart(FitReviewWorkflowStart).returns(CandidateDto).toParallelAgents(ScoreAAgent, ScoreBAgent);
+const launched = () => onStart(FitReviewWorkflowStart).toParallelAgents(ScoreAAgent, ScoreBAgent);
 
 const messageOf = (work: () => unknown): string => {
   try {
@@ -44,14 +42,12 @@ const messageOf = (work: () => unknown): string => {
 describe("#1373: the flow builder refuses a launch's and a quorum's limits that are no counts", () => {
   it.each(NOT_COUNTS)("%s as maxItems and as maxConcurrency", (_kind, value) => {
     const items = messageOf(() =>
-      onStart(FitReviewWorkflowStart)
-        .returns(CandidateDto)
-        .toParallelAgents(ScoreAAgent, { maxItems: value as never }),
+      onStart(FitReviewWorkflowStart).toParallelAgents(ScoreAAgent, { maxItems: value as never }),
     );
     const concurrency = messageOf(() =>
-      onStart(FitReviewWorkflowStart)
-        .returns(CandidateDto)
-        .toParallelAgents(ScoreAAgent, { maxConcurrency: value as never }),
+      onStart(FitReviewWorkflowStart).toParallelAgents(ScoreAAgent, {
+        maxConcurrency: value as never,
+      }),
     );
 
     expect(items).toContain("{ maxItems }) takes a positive integer");

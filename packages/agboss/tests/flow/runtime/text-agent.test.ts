@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../../src/components/assemble.js";
-import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Agent, GraphRuleError, Workflow, WorkflowFinish } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
@@ -25,9 +24,7 @@ class ChattyAgent {}
 @Workflow({
   name: "wrong-text-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TestChat).returns(WorkflowStartTextDto).toAgent(ChattyAgent).toFinish(SummaryFinish),
-  ],
+  flow: [onStart(TestChat).toAgent(ChattyAgent).toFinish(SummaryFinish)],
 })
 class WrongTextWorkflow {}
 

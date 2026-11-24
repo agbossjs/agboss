@@ -65,12 +65,9 @@ export class PickAgainRouter {
   version: "1.0.0",
   flow: [
     onStart(PickLoopWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ItemPickerAgent),
     onAgent(ItemPickerAgent)
-      .returns(ItemDto)
       .toWorkflow(ItemCheckWorkflow)
-      .returns(ItemResultDto)
       .toRouter(PickAgainRouter)
       .chooseOne(route(ItemPickerAgent), route(PickedWorkflowFinish)),
   ],

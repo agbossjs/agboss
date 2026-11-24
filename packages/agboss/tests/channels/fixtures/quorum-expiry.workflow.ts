@@ -1,4 +1,3 @@
-import { Text } from "../../../src/dto/index.js";
 import {
   Agent,
   Channel,
@@ -34,12 +33,7 @@ import { RecordingLogger } from "../../helpers/log.js";
 import { onStart, toFinish } from "../../helpers/flow.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { hours, minutes } from "../../../src/units/index.js";
-import {
-  FraudAgent,
-  PolicyAgent,
-  RefundScoreDto,
-  RiskAgent,
-} from "./refund-panel.workflow.js";
+import { FraudAgent, PolicyAgent, RefundScoreDto, RiskAgent } from "./refund-panel.workflow.js";
 import {
   FinanceDeskRefundApprovalChannel,
   PauseLog,
@@ -99,8 +93,11 @@ interface ScoresInput {
 
 const record = (input: ScoresInput): RefundDoneDto => {
   qe.finished.push(input.scores.map((score) => String(score.value.score)));
-  return { orderId: input.scores.map((score) => String(score.value.score))
-    .join(",") };
+  return {
+    orderId: input.scores
+      .map((score) => String(score.value.score))
+      .join(","),
+  };
 };
 
 @WorkflowStart({
@@ -140,10 +137,8 @@ export class QuorumExpirySecondWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 2, max: 3, deadline: hours(1) })
-      .returns(listOf(RefundScoreDto))
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -162,10 +157,8 @@ export class QuorumExpiryOneWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryOneWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: hours(1) })
-      .returns(listOf(RefundScoreDto))
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -185,7 +178,10 @@ export class ShortDeskRefundApprovalChannel extends ShortRefundApprovalChannel {
   send(
     ask: ChannelAsk<ShortRefundApprovalChannel>,
   ): Promise<ChannelOutcome<ShortRefundApprovalChannel>> {
-    qe.shortAsks.push({ pauseId: ask.pauseId, orderId: /"orderId":"([^"]+)"/.exec(JSON.stringify(ask.value))?.[1] ?? "?" });
+    qe.shortAsks.push({
+      pauseId: ask.pauseId,
+      orderId: /"orderId":"([^"]+)"/.exec(JSON.stringify(ask.value))?.[1] ?? "?",
+    });
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -252,10 +248,8 @@ export class QuorumExpiryShortWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryShortWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, ShortFraudAgent)
       .joinQuorum({ min: 2, max: 3, deadline: hours(1) })
-      .returns(listOf(RefundScoreDto))
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -273,10 +267,8 @@ export class QuorumExpiryShortOneWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryShortOneWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, ShortFraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: hours(1) })
-      .returns(listOf(RefundScoreDto))
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -305,16 +297,13 @@ export class QuorumExpiryGroupsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryGroupsWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent, QuickScoreAgent)
       .joinQuorumGroups(
         groupFrom([PolicyAgent, RiskAgent, FraudAgent])
           .priority(1)
-          .returns(listOf(RefundScoreDto))
           .toFinish(QuorumExpiryWorkflowFinish),
         groupFrom([QuickScoreAgent])
           .priority(2)
-          .returns(listOf(RefundScoreDto))
           .toFinish(QuorumExpirySecondWorkflowFinish),
         { deadline: hours(1) },
       ),
@@ -342,10 +331,8 @@ export class PlainExpiryEscalatedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PlainExpiryWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
       .join()
-      .returns(listOf(RefundScoreDto))
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -364,11 +351,9 @@ export class PlainExpiryHandledWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(PlainExpiryHandledWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
       .join()
       .onError(PauseExpiredError, toFinish(PlainExpiryEscalatedWorkflowFinish))
-      .returns(listOf(RefundScoreDto))
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })
@@ -401,11 +386,9 @@ export class SkipExpiryWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SkipExpiryWorkflowStart)
-      .returns(RefundRequestDto)
       .toRouter(SkipPanelRouter)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent)
       .join()
-      .returns(listOf(RefundScoreDto))
       .toFinish(QuorumExpiryWorkflowFinish),
   ],
 })

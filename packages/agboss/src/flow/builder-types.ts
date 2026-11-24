@@ -11,25 +11,24 @@ import type {
 } from "./generated-types.js";
 import type { ChildStepOptions, QuestionStepOptions } from "./child-placement.js";
 import type { Launches, RouterLaunches } from "./launch-types.js";
-import type { Returning, StepValues, ValuesLeft } from "./returns-types.js";
-import type { ThisWorkflowName, ThisWorkflowReturning, WithClaims } from "./this-workflow-types.js";
+import type { ThisWorkflowName, ThisWorkflowStep, WithClaims } from "./this-workflow-types.js";
 
 /**
  * The types of the path builder (#272 S3). A builder carries, in its type, how its path starts
  * (`SourceHead` for a flow path, `RouteHead` / `CaseHead` / `SideHead` for sub-paths) and the
  * value the chain carries; each state offers only the steps the grammar allows there. Kinds,
- * `.returns(…)` and `caseOf(…)` are checked against the generated `.agboss/types.d.ts`.
+ * what a step gives (#1270: derived from its declaration) and `caseOf(…)` are checked against the
+ * generated `.agboss/types.d.ts`.
  */
 
 declare const pathHead: unique symbol;
 declare const pathValue: unique symbol;
 
 /**
- * Every head carries `claims`: what the path promised of `ThisWorkflow` so far (#264 S112, S114) —
- * a `ThisWorkflowStepClaim` per `.returns(…)` after a `ThisWorkflow` step, a `ThisWorkflowJoinClaim`
- * per `.returns(…)` after its per-item join, those of its sub-paths added by `.switch(…)`,
- * `.chooseOne(…)`, `.onError(…)` and `.joinQuorumGroups(…)`. `never` for none;
- * `@Workflow({ name, flow })` checks them against its own `ThisWorkflowOutputs` entry.
+ * Every head carries `claims`: that the path launches `ThisWorkflow` (#264 S112, S114) — a
+ * `ThisWorkflowClaim` per `ThisWorkflow` step or per-item launch, those of its sub-paths added by
+ * `.switch(…)`, `.chooseOne(…)`, `.onError(…)` and `.joinQuorumGroups(…)`. `never` for none;
+ * `@Workflow({ name, flow })` checks its own `ThisWorkflowOutputs` entry when there is one.
  */
 export interface SourceHead<TClaims = never> {
   readonly source: true;
@@ -47,17 +46,9 @@ export interface SideHead<TClaims = never> {
   readonly side: true;
   readonly claims: TClaims;
 }
-/**
- * A `group(…)` of `.joinQuorumGroups(…)` (#279): the agents' names as listed and the values its
- * `.returns(…)` chain named, checked by `.joinQuorumGroups(…)` against its `JoinOutputs` entry.
- */
-export interface GroupHead<
-  TNames extends string,
-  TGiven extends readonly unknown[],
-  TClaims = never,
-> {
-  readonly group: TNames;
-  readonly given: TGiven;
+/** A `group(…)` of `.joinQuorumGroups(…)` (#279): the path of the group's own steps. */
+export interface GroupHead<TClaims = never> {
+  readonly group: true;
   readonly claims: TClaims;
 }
 export type PathHead =
@@ -65,7 +56,7 @@ export type PathHead =
   | RouteHead<unknown>
   | CaseHead<unknown, unknown>
   | SideHead<unknown>
-  | GroupHead<string, readonly unknown[], unknown>;
+  | GroupHead<unknown>;
 
 /** A path as built so far: a `FlowPath` from a source, a `SubPath` otherwise, its head in its type. */
 export type BuiltPath<THead extends PathHead> = (THead extends SourceHead<unknown>
@@ -157,12 +148,12 @@ export type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<
   ? T
   : never;
 
-/** The group a path was built from (`group(…)…`, #279); `never` for any other path. */
-export type GroupOfPath<TPath> = TPath extends {
-  readonly [pathHead]?: GroupHead<infer TNames, infer TGiven, unknown>;
+/** Whether a path was built from `group(…)…` (#279). */
+export type IsGroupPath<TPath> = TPath extends {
+  readonly [pathHead]?: GroupHead<unknown>;
 }
-  ? GroupHead<TNames, TGiven>
-  : never;
+  ? true
+  : false;
 
 export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
   CaseValueOf<TCases[number]>,
@@ -172,18 +163,6 @@ export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
     : { readonly __error: "the switch is not exhaustive — one caseOf(…) per class of the output" }
   : { readonly __error: "a caseOf(…) names a class the step does not give" };
 
-/**
- * After `.returns(…)` or `caseOf(…)`: the next transition, or a parallel launch (#273) — not right
- * after a join's values (`TCanLaunch` false).
- */
-export type AfterValue<
-  TValue,
-  THead extends PathHead,
-  TCanLaunch extends boolean = true,
-> = BuiltPath<THead> &
-  Transitions<THead> &
-  (TCanLaunch extends true ? Launches<TValue, THead> : unknown) & { readonly [pathValue]?: TValue };
-
 /** After a step (a transition or a path source): what its kind and output allow. */
 export type AfterStep<TInstance, THead extends PathHead> = BuiltPath<THead> &
   StepContinuation<TInstance, THead>;
@@ -191,27 +170,50 @@ export type AfterStep<TInstance, THead extends PathHead> = BuiltPath<THead> &
 export type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [
   never,
 ]
-  ? Returning<StepValues<TInstance>, MissingGeneratedTypes, THead>
+  ? Transitions<THead>
   : [KindOf<TInstance>] extends [NodeKind.Router]
     ? RouterStep<THead, TInstance>
     : [KindOf<TInstance>] extends [NodeKind.Start]
-      ? Returning<StepValues<TInstance>, ValuesLeft<ProducerOutputOf<TInstance>>, THead>
+      ? ValueContinuation<ProducerOutputOf<TInstance>, THead>
       : ThisWorkflowName extends NameOf<TInstance>
-        ? ErrorHandling<TInstance, THead> & ThisWorkflowReturning<THead>
-        : ErrorHandling<TInstance, THead> &
-            OutputContinuation<TInstance, ProducerOutputOf<TInstance>, THead>;
+        ? ErrorHandling<TInstance, THead> & ThisWorkflowStep<THead>
+        : ErrorHandling<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead>;
+
+/** Whether an output is a `oneOf(…)`: a union of two or more DTOs, not a list or a single DTO. */
+export type IsOneOf<TOutput> = [TOutput] extends [readonly unknown[]]
+  ? false
+  : true extends IsUnion<Exclude<TOutput, undefined>>
+    ? true
+    : false;
+
+export type IsUnion<TValue, TAll = TValue> = TValue extends unknown
+  ? [TAll] extends [TValue]
+    ? false
+    : true
+  : never;
 
 /**
- * A step with `output` names it with `.returns(…)` — a `oneOf` too, before its `.switch(…)`; one
- * without goes on at once, with a transition or a launch (#273).
+ * After the value a step gives (#1270: derived from its declaration — nothing is written for it):
+ * a `oneOf(…)` is branched by `.switch(…)`, any other goes on with a transition or a launch (#273).
  */
-export type OutputContinuation<TInstance, TOutput, THead extends PathHead> = [TOutput] extends [
+export type ValueContinuation<TValue, THead extends PathHead> =
+  IsOneOf<TValue> extends true
+    ? BuiltPath<THead> & Switching<TValue, THead>
+    : AfterValue<TValue, THead>;
+
+/** After a step with `output`: what it gives; one without goes on at once (#273). */
+export type OutputContinuation<TOutput, THead extends PathHead> = [TOutput] extends [
   GeneratedTypeError,
 ]
-  ? Returning<StepValues<TInstance>, TOutput, THead>
+  ? TOutput
   : [TOutput] extends [NoOutput]
     ? Transitions<THead> & Launches<never, THead>
-    : Returning<StepValues<TInstance>, ValuesLeft<TOutput>, THead>;
+    : ValueContinuation<TOutput, THead>;
+
+/** After a value: the next transition, or a parallel launch (#273). */
+export type AfterValue<TValue, THead extends PathHead> = BuiltPath<THead> &
+  Transitions<THead> &
+  Launches<TValue, THead> & { readonly [pathValue]?: TValue };
 
 export interface Transitions<THead extends PathHead> {
   toAgent<const TClass extends Class>(
@@ -228,8 +230,7 @@ export interface Transitions<THead extends PathHead> {
   ): BuiltPath<THead>;
   /**
    * A question role's step (#659): it reads the role's `ask` from the path, pauses on the role's
-   * channel and gives its `answer` — `.returns(AnswerDto)`; `.onError(…)` right after takes a
-   * failed `send`.
+   * channel and gives its `answer`; `.onError(…)` right after takes a failed `send`.
    */
   toExternalTask<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
@@ -237,8 +238,8 @@ export interface Transitions<THead extends PathHead> {
   ): AfterStep<InstanceType<TClass>, THead>;
   /**
    * One child execution of `W` (#263): it enters through the start whose input takes the chain's
-   * value, gives one of its finishes' outputs — `.returns(XDto)`, or `.returns(oneOf(…))` and a
-   * `.switch(…)` with one case per class — and its failure is caught by `.onError(…)` right after.
+   * value, gives one of its finishes' outputs — one class, or a `oneOf(…)` and a `.switch(…)` with
+   * one case per class — and its failure is caught by `.onError(…)` right after.
    */
   toWorkflow<const TClass extends Class>(
     target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
@@ -261,10 +262,10 @@ export interface ErrorHandling<TInstance, THead extends PathHead> {
 }
 
 /** After a router: its `.onError(…)`, then its choice — `.chooseOne(…)` or a launch (#273). */
-export interface RouterStep<THead extends PathHead, TInstance = unknown> extends RouterLaunches<
-  NameOf<TInstance>,
-  THead
-> {
+export interface RouterStep<
+  THead extends PathHead,
+  TInstance = unknown,
+> extends RouterLaunches<THead> {
   onError<const TPath extends SidePath>(
     error: ErrorClass,
     path: TPath,

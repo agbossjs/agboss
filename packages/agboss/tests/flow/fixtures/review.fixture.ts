@@ -17,7 +17,7 @@ import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
  * #271 — the review loop (`caseOf(…)` after the reviewer, #299) and a polish
- * loop (an action's `.returns(listOf(CritiqueDto))`).
+ * loop (an action's ``).
  */
 
 @WorkflowStart({
@@ -89,21 +89,16 @@ export class StoryWorkflowFinish {}
 
 export const storyPaths = [
   onStart(StoryWorkflowStart)
-    .returns(ArticleRequestDto)
     .toAgent(ResearcherAgent)
-    .returns(ResearchDto)
     .toAgent(StoryWriterAgent),
 
   onAgent(StoryWriterAgent)
-    .returns(DraftDto)
     .toAgent(StoryReviewerAgent)
-    .returns(oneOf(ApprovalDto, DraftChangesDto))
     .switch(
       caseOf(DraftChangesDto)
         .toAgent(StoryWriterAgent),
       caseOf(ApprovalDto)
         .toAgent(PublisherAgent)
-        .returns(ArticleDto)
         .toFinish(StoryWorkflowFinish),
     ),
 ] as const;
@@ -181,12 +176,9 @@ export class CritiqueRouter {}
   version: "1.0.0",
   flow: [
     onStart(StoryWorkflowStart)
-      .returns(ArticleRequestDto)
       .toAgent(PolishAgent),
     onAgent(PolishAgent)
-      .returns(DraftDto)
       .toAction(CritiqueAction)
-      .returns(listOf(CritiqueDto))
       .toRouter(CritiqueRouter)
       .chooseOne(route(PolishAgent), route(PolishedWorkflowFinish)),
   ],

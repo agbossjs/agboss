@@ -194,9 +194,7 @@ export class YieldCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(YieldCheckWorkflowStart)
-      .returns(ItemDto)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toFinish(YieldCheckedWorkflowFinish),
   ],
 })
@@ -221,11 +219,8 @@ export class YieldReviewedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(YieldReviewWorkflowStart)
-      .returns(ItemDto)
       .toAgent(YieldReviewerAgent)
-      .returns(ItemResultDto)
       .toAction(GatedResultAction)
-      .returns(ItemResultDto)
       .toFinish(YieldReviewedWorkflowFinish),
   ],
 })
@@ -250,9 +245,7 @@ export class YieldOneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(YieldOneWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(YieldCheckWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
       .toFinish(YieldOneWorkflowFinish),
   ],
 })
@@ -270,14 +263,12 @@ export class YieldReviewsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(YieldReviewsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(YieldReviewWorkflow, {
         maxConcurrency: 2,
         maxItems: 5,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })

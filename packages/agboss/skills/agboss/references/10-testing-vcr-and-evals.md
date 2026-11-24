@@ -431,18 +431,13 @@ import { ScreeningWorkflowStart } from "./screening.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(ScreeningWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(SkillsAgent, CultureAgent)
       .acceptedBy(HasNotesArbiter)
       .joinQuorum({ min: 2 })
-      .returns(SkillsReportDto)
-      .returns(CultureReportDto)
       .toAgent(VerdictAgent)
-      .returns(VerdictDto)
       .toRouter(HireRouter)
       .chooseOne(
         route(SaveHireAction)
-          .returns(HireSavedDto)
           .toFinish(HiredWorkflowFinish),
         route(RejectedWorkflowFinish),
       ),
@@ -979,16 +974,13 @@ import { RentalWorkflowStart } from "./rental.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(RentalWorkflowStart)
-      .returns(RentalRequestDto)
       .toAction(ReserveCarAction)
-      .returns(CarReservationDto)
       .toAction(ChargeDepositAction)
       .onError(
         DepositDeclinedError, // a declined deposit: cancel the car on the side path (SidePath)
         toAction(CancelCarAction)
           .toFinish(RentalDeclinedWorkflowFinish),
       )
-      .returns(DepositDto)
       .toFinish(RentalBookedWorkflowFinish),
   ],
   providers: [FleetService],

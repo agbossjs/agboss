@@ -30,7 +30,6 @@ import {
 import {
   ChargedWorkflowFinish,
   ChargeOrderAction,
-  ChargeReceiptDto,
   ChargeWorkflow,
   ChargeWorkflowStart,
   EmailPiiPolicy,
@@ -38,7 +37,6 @@ import {
 } from "./fixtures/outbound-call.workflow.js";
 import { gateway, PaymentGateway, resetGateway } from "./fixtures/payment-gateway.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
@@ -139,11 +137,7 @@ describe("#505 AC4: an operator reads a stored result masked", () => {
   name: "masked-charge-workflow",
   version: "1.0.0",
   flow: [
-    onStart(MaskedChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(ChargeOrderAction)
-      .returns(ChargeReceiptDto)
-      .toFinish(ChargedWorkflowFinish),
+    onStart(MaskedChargeWorkflowStart).toAction(ChargeOrderAction).toFinish(ChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],
   piiPolicies: [EmailPiiPolicy],

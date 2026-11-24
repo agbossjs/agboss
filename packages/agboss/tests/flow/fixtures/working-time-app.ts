@@ -103,14 +103,11 @@ export function workingParts(name: string, config: WorkingAppConfig): WorkingPar
     version: "1.0.0",
     flow: [
       onStart(SomeStart)
-        .returns(ExpiryOrderDto)
         .toExternalTask(
           SomeQuestion,
           config.step === undefined ? undefined : { expiresIn: config.step },
         )
-        .returns(ExpiryDecisionDto)
         .toAction(RecordExtensionAction)
-        .returns(ExpiryDoneDto)
         .toFinish(SomeFinish),
     ],
   })
@@ -200,9 +197,7 @@ export function workingToolApp(
     version: "1.0.0",
     flow: [
       onStart(SomeStart)
-        .returns(AgentRefundDto)
         .toAgent(SomeAgent)
-        .returns(AgentRefundDoneDto)
         .toFinish(SomeFinish),
     ],
   })

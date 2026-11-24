@@ -9,7 +9,7 @@ import { slotOf, slotOfValue, slotOfWrite, SlotStatus, type SlotKey } from "../s
 import type { AnalysisContext } from "./context.js";
 
 /**
- * Reaching definitions on the same abstract scopes (#270 AC7, AC19): every `.returns(T)` must reach,
+ * Reaching definitions on the same abstract scopes (#270 AC7, AC19): every value a step gives must reach,
  * on at least one path, a node that reads it before a newer value overwrites it, else
  * `[flow.unused-output]` (a dead store fails; a value read on one path and overwritten unread on
  * another passes). A value is identified by its producer and slot — one class is one node, so a

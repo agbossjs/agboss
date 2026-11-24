@@ -15,7 +15,7 @@ import type { AnalysisContext } from "./context.js";
 
 /**
  * Name rules (#272 AC13, #270 AC14, S5): every `name` ends with its kind (`[name.kind-suffix]`);
- * every DTO class used as an input, an output, in `.returns(…)` or `caseOf(…)` ends with `Dto`
+ * every DTO class used as an input, an output, or `caseOf(…)` ends with `Dto`
  * (`[dto.name]`); DTO class names are unique, because they key checkpoints (`[dto.duplicate-name]`).
  */
 
@@ -77,7 +77,6 @@ function usedDtos(context: AnalysisContext): readonly DtoClass[] {
   );
   const cases = context.walked.switches.flatMap((site) => [
     ...site.step.cases.flatMap((branch) => [branch.dto]),
-    ...(site.returned === undefined ? [] : dtosOf(site.returned)),
   ]);
   return [...new Set([...nodes, ...edges, ...cases])].sort((first, second) =>
     first.name.localeCompare(second.name),

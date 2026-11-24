@@ -62,15 +62,10 @@ export class CompanyScoreWorkflowFinish {}
 
 export const startsPaths = [
   onStart(CompanyCheckWorkflowStart)
-    .returns(CompanyDto)
-    .returns(optional(SearchRequestDto))
     .toAgent(CompanyCheckAgent)
-    .returns(CompanyScoreDto)
     .toFinish(CompanyScoreWorkflowFinish),
   onStart(CompanyBatchWorkflowStart)
-    .returns(listOf(CompanyDto))
     .toAgent(BatchRankAgent)
-    .returns(CompanyScoreDto)
     .toFinish(CompanyScoreWorkflowFinish),
 ] as const;
 

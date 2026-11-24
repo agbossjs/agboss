@@ -67,9 +67,7 @@ export class ItemReportWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ItemReportWorkflowStart)
-      .returns(ReportItemDto)
       .toAgent(ItemReporterAgent)
-      .returns(ItemReportDto)
       .toFinish(ItemReportWorkflowFinish),
   ],
 })
@@ -116,14 +114,10 @@ export class BatchReportWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(BatchReportWorkflowStart)
-      .returns(listOf(ReportItemDto))
       .toAction(PickItemsAction)
-      .returns(listOf(ReportItemDto))
       .toParallelWorkflows(ItemReportWorkflow, { maxConcurrency: 4, maxItems: 50 })
       .join()
-      .returns(listOf(ItemReportDto))
       .toAgent(BatchReporterAgent)
-      .returns(BatchReportDto)
       .toFinish(BatchReportWorkflowFinish),
   ],
 })

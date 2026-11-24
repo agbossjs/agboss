@@ -194,15 +194,10 @@ function payItemWorkflowOf(name: string): Class {
     version: "1.0.0",
     flow: [
       onStart(Start)
-        .returns(ItemDto)
         .toAction(PayOne)
-        .returns(ItemDto)
         .toAction(PayTwo)
-        .returns(ItemDto)
         .toAction(PayThree)
-        .returns(ItemDto)
         .toAction(Done)
-        .returns(ItemResultDto)
         .toFinish(Finish),
     ],
   })
@@ -234,13 +229,11 @@ export class AnyPayItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(LocalPayItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(LocalPayItemWorkflow, {
         maxItems: 2,
         placement: ChildPlacement.ParentInstance,
       })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -251,13 +244,11 @@ export class LocalPayItemsWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(AnyPayItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(AnyPayItemWorkflow, {
         maxItems: 2,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -276,13 +267,9 @@ class ChildPayWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChildPayWorkflowStart)
-      .returns(ItemDto)
       .toAction(ChildOne)
-      .returns(ItemDto)
       .toAction(ChildTwo)
-      .returns(ItemDto)
       .toAction(ChildDone)
-      .returns(ItemResultDto)
       .toFinish(ChildPayWorkflowFinish),
   ],
 })
@@ -296,11 +283,8 @@ export class ParentPayWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ParentPayWorkflowStart)
-      .returns(ItemDto)
       .toAction(ParentPay)
-      .returns(ItemDto)
       .toWorkflow(ChildPayWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
       .toFinish(ItemsPaidWorkflowFinish),
   ],
 })

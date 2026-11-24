@@ -168,7 +168,7 @@ function workflowWith(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [onStart(Start).returns(WorkflowStartTextDto).toAgent(ReaderAgent).toFinish(Finish)],
+    flow: [onStart(Start).toAgent(ReaderAgent).toFinish(Finish)],
     defaults: { models: { temperature: 0 }, router: { model: "typesafe/jev-1.13" } },
   })
   class ReaderWorkflow {}

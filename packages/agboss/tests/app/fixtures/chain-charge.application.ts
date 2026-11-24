@@ -48,9 +48,7 @@ export class ChainFarChargeChildStart {}
   version: "1.0.0",
   flow: [
     onStart(ChainFarChargeChildStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChildChargeAction)
-      .returns(ChargedDto)
       .toFinish(ChildChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],
@@ -82,11 +80,7 @@ export class ChainChargedFinish {}
   name: "chain-near-charge-workflow",
   version: "1.0.0",
   flow: [
-    onStart(ChainNearChargeStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChildChargeWorkflow)
-      .returns(ChargedDto)
-      .toFinish(ChainChargedFinish),
+    onStart(ChainNearChargeStart).toWorkflow(ChildChargeWorkflow).toFinish(ChainChargedFinish),
   ],
   piiPolicies: [OrderIdPiiPolicy],
 })
@@ -97,9 +91,7 @@ export class ChainNearChargeWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(ChainFarChargeStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(ChainFarChargeChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ChargedDto)
       .toFinish(ChainChargedFinish),
   ],
   piiPolicies: [OrderIdPiiPolicy],

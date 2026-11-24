@@ -89,12 +89,12 @@ The result — one row per DTO, its producer and its readers — is the plan for
 | `END`                                                          | a `@WorkflowFinish({ output: XDto })` — one per way the graph ends; every path ends in one                                                                                                            |
 | an LLM node, `createReactAgent`, `model.bindTools`, `ToolNode` | `@Agent({ prompt, model, input, output, tools })` + `@Tool` classes; `output` replaces `withStructuredOutput` and its parsing                                                                         |
 | a node of plain code (DB, HTTP, a transform)                   | `@Action({ input, output, deps })` + `ActionHandler`; a side effect to undo on failure: `compensateWith` / `committedBy`                                                                              |
-| `addConditionalEdges` reading what an LLM node just decided    | that agent's `output: oneOf(A, B)` + `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                                                                                           |
+| `addConditionalEdges` reading what an LLM node just decided    | that agent's `output: oneOf(A, B)` + `.switch(caseOf(A)…, caseOf(B)…)`                                                                                                                                |
 | `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).chooseOne(route(X)…, …)`                                                           |
 | `addConditionalEdges` with an LLM classifier                   | `@Router({ decidedBy: DecidedBy.Model, prompt, model, routes: [{ prompt, target }] })` — a decision model or a chat model                                                                             |
 | a cycle `critic → editor → critic`                             | the reviewer in its own path `onAgent(Reviewer)…`; `caseOf(ChangesDto)`; `historyOf(DraftDto, { maxPrevious })` to read earlier versions                                                              |
 | a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ maxSteps })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                                             |
-| `new Send(node, item)` per list item                           | `.returns(listOf(ItemDto)).toParallelAgents(Agent, { maxConcurrency, maxItems })` (or `.toParallelWorkflows(Child, …)`) then `.join().returns(listOf(OutDto))`                                        |
+| `new Send(node, item)` per list item                           | `.toParallelAgents(Agent, { maxConcurrency, maxItems })` after a step whose output is `listOf(ItemDto)` (or `.toParallelWorkflows(Child, …)`) then `.join()` (the join gives `listOf(OutDto)`)        |
 | `Send` to several different nodes, "first N answers win"       | `.toParallelAgents(A, B, C)` + `.join()`, or `.acceptedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                                                |
 | a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                              |
 | a subgraph                                                     | a child `@Workflow`: `.toWorkflow(Child)`, its own scope (only its start's input), its finishes' outputs as the step's result                                                                         |
@@ -728,36 +728,28 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(SupportWorkflowStart)
-      .returns(SupportRequestDto)
       .toRouter(SupportTriageRouter)
       .chooseOne(
         route(ResearchPlannerAgent)
-          .returns(listOf(ResearchQuestionDto))
           .toParallelAgents(OrderResearcherAgent, { maxConcurrency: 3, maxItems: 5 }) // new Send(…) per question
-          .join()
-          .returns(listOf(ResearchFindingDto)) // the reducer's concatenated findings
+          .join() // the reducer's concatenated findings
           .toAgent(ReplyWriterAgent)
-          .returns(ReplyDraftDto)
           .toAgent(ReplyReviewerAgent),
         route(HandOverWorkflowFinish),
       ),
 
     onAgent(ReplyReviewerAgent)
-      .returns(oneOf(ChangesRequestedDto, ReplyApprovedDto))
       .switch(
         caseOf(ChangesRequestedDto) // the changes are about this draft
           .toAgent(ReplyEditorAgent)
           .onError(VisitsLimitExceededError, toFinish(ReplyStuckWorkflowFinish))
-          .returns(ReplyDraftDto)
           .toAgent(ReplyReviewerAgent),
         caseOf(ReplyApprovedDto)
           .toRouter(RefundSizeRouter)
           .chooseOne(
             route(IssueRefundAction)
-              .returns(RefundIssuedDto)
               .toFinish(RefundIssuedWorkflowFinish),
             route(RefundSignOffAgent)
-              .returns(RefundIssuedDto)
               .toFinish(RefundIssuedWorkflowFinish),
           ),
       ),

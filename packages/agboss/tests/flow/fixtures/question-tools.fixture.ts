@@ -182,7 +182,6 @@ export class BuyerWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(BuyerWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(BuyerAgent)
       .toFinish(BuyerWorkflowFinish),
   ],
@@ -209,7 +208,6 @@ export class OwnerBuyerWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OwnerBuyerWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(OwnerBuyerAgent)
       .toFinish(OwnerBuyerWorkflowFinish),
   ],

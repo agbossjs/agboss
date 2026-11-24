@@ -170,16 +170,12 @@ export class FileReturnedFinish {}
   version: "1.0.0",
   flow: [
     onStart(FileReviewWorkflowStart)
-      .returns(ReviewRequestDto)
       .toAction(FileReviewAction)
-      .returns(oneOf(ReviewResultDto, ReviewAskDto))
       .switch(
         caseOf(ReviewResultDto).toFinish(FileReviewFinish),
         caseOf(ReviewAskDto)
           .toExternalTask(FileReviewQuestion)
-          .returns(ReviewReplyDto)
           .toAction(FileAnsweredAction)
-          .returns(WorkflowFinishFileDto)
           .toFinish(FileReturnedFinish),
       ),
   ],
@@ -220,13 +216,7 @@ export class FileSummaryWorkflowStart {}
 @Workflow({
   name: "file-summary-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(FileSummaryWorkflowStart)
-      .returns(ReviewRequestDto)
-      .toAction(FileSummaryAction)
-      .returns(ReviewResultDto)
-      .toFinish(FileReviewFinish),
-  ],
+  flow: [onStart(FileSummaryWorkflowStart).toAction(FileSummaryAction).toFinish(FileReviewFinish)],
 })
 export class FileSummaryWorkflow {}
 

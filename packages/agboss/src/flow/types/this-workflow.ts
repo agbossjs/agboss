@@ -2,7 +2,6 @@ import { outputOf } from "../analyse/flow-graph.js";
 import { THIS_WORKFLOW_NAME } from "../this-workflow.js";
 import type { ImportTable } from "./imports.js";
 import { childInputEntry, nodeInput } from "./inputs.js";
-import { joinText, launchesThisWorkflow } from "./joins.js";
 import { outputText } from "./shapes.js";
 import type { AnalysedWorkflow, TypeTable } from "./tables.js";
 
@@ -25,10 +24,6 @@ export function thisWorkflowEntries(
       `readonly input: ${input}`,
       `readonly output: ${outputText(outputOf(node), names)}`,
     ];
-    const launch = analysis.graph.edges.find(
-      (edge) => edge.launch !== undefined && launchesThisWorkflow(edge.launch),
-    )?.launch;
-    if (launch !== undefined) members.push(`readonly join: ${joinText(analysis, launch, names)}`);
     entries.set(analysis.workflow, `{ ${members.join("; ")} }`);
   }
   return entries;

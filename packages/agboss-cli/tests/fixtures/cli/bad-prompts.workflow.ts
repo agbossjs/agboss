@@ -48,7 +48,6 @@ export class Main {}
   defaults: testDefaults,
   flow: [
     onStart(TestChat)
-      .returns(WorkflowStartTextDto)
       .toRouter(Main)
       .chooseOne(
         route(Scout)

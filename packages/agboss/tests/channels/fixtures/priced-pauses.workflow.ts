@@ -2,7 +2,6 @@ import {
   Agent,
   EmptyEnvironment,
   Injectable,
-  listOf,
   SpendRecorder,
   Tool,
   Workflow,
@@ -86,10 +85,8 @@ export function costLedger(): SeenCostLedgerRepository {
   maxSteps: 20,
   flow: [
     onStart(BatchWorkflowStart)
-      .returns(listOf(RefundRequestDto))
       .toParallelAgents(PricedRefundAgent, { maxConcurrency: 3, maxItems: 5 })
       .join()
-      .returns(listOf(RefundDoneDto))
       .toFinish(BatchWorkflowFinish),
   ],
 })

@@ -17,9 +17,7 @@ import { onStart } from "../../helpers/flow.js";
 import { named } from "./graph-fixture.js";
 import {
   CountDoneWorkflowFinish,
-  CountDto,
   CountdownWorkflowStart,
-  CountDoneDto,
 } from "../runtime/fixtures/recursion.workflow.js";
 
 type Flow = WorkflowOptions["flow"];
@@ -30,11 +28,7 @@ const shown = (found: readonly { code: string; message: string; nodes: readonly 
 const contextOf = (workflow: object): AnalysisContext => ({ workflow }) as never;
 
 const launching = (other: abstract new () => unknown): Flow => [
-  onStart(CountdownWorkflowStart)
-    .returns(CountDto)
-    .toWorkflow(other)
-    .returns(CountDoneDto)
-    .toFinish(CountDoneWorkflowFinish),
+  onStart(CountdownWorkflowStart).toWorkflow(other).toFinish(CountDoneWorkflowFinish),
 ];
 
 const optionsOf = (target: abstract new () => unknown): WorkflowOptions => {

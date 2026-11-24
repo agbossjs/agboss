@@ -43,9 +43,7 @@ export class CompatibleBillingWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(CompatibleBillingWorkflowStart)
-      .returns(BillingQuestionDto)
       .toAgent(CompatibleBillingDeskAgent)
-      .returns(BillingAnswerDto)
       .toFinish(CompatibleBillingWorkflowFinish),
   ],
 })

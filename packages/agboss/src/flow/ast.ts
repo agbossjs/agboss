@@ -1,7 +1,6 @@
 import type { Class } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
-import type { ReturnedShape } from "./dto-wrappers.js";
 import type { ChildPlacement } from "./child-placement.js";
 
 /**
@@ -27,7 +26,6 @@ export enum NodeKind {
 
 /** What a step of a path does. */
 export enum StepKind {
-  Returns = "returns",
   To = "to",
   Switch = "switch",
   ChooseOne = "choose-one",
@@ -37,7 +35,7 @@ export enum StepKind {
    * branches launched at once.
    */
   Launch = "launch",
-  /** `.join()` after a launch, with its `.onError(…)` handlers and `.returns(…)` values. */
+  /** `.join()` after a launch, with its `.onError(…)` handlers. */
   Join = "join",
 }
 
@@ -56,19 +54,6 @@ export interface ComponentSource {
   readonly kind:
     NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Workflow | NodeKind.Question;
   readonly node: Class;
-}
-
-/**
- * The one value a `.returns(…)` puts on the path (#299, S54): `XDto`, `listOf(XDto)`,
- * `optional(XDto)`, or the `oneOf(…)` a `.switch(…)` branches — several values are a chain.
- */
-export interface ReturnedValue {
-  readonly shape: ReturnedShape;
-}
-
-export interface ReturnsStep {
-  readonly kind: StepKind.Returns;
-  readonly value: ReturnedValue;
 }
 
 /**
@@ -133,8 +118,8 @@ export type LaunchTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workf
 
 /**
  * `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })` (#273): each listed target runs once
- * (repeats are copies); with one target right after `.returns(listOf(XDto))` it runs once per item
- * of that list (`perItem`). `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263) runs one
+ * (repeats are copies); with one target right after a step whose output is a list it runs once per
+ * item of that list. `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263) runs one
  * child workflow per item — always per item, one target.
  */
 export interface LaunchStep {
@@ -142,8 +127,6 @@ export interface LaunchStep {
   readonly targetKind: LaunchTargetKind;
   /** As listed, repeats included. */
   readonly targets: readonly Class[];
-  /** One target after `.returns(listOf(XDto))`: one run per item of that list. */
-  readonly perItem: boolean;
   /** At most this many branches in progress at once; a limit only. */
   readonly maxConcurrency?: number;
   /** A per-item launch takes the first `maxItems` items (`[launch.max-items-required]`). */
@@ -183,16 +166,15 @@ export interface CountQuorum {
 }
 
 /**
- * One `group(A, B, …).priority(n).returns(…)….to…(…)` of `.joinQuorumGroups(…)`: the agents whose
- * counted answers complete it (a repeat is one more copy), its priority (1 is the highest; none —
- * equal), the values its places give (`returns`) and the path it continues with.
+ * One `group(A, B, …).priority(n).to…(…)` of `.joinQuorumGroups(…)`: the agents whose counted
+ * answers complete it (a repeat is one more copy), its priority (1 is the highest; none — equal)
+ * and the path it continues with.
  */
 export interface QuorumGroup {
   /** As listed, repeats included. */
   readonly agents: readonly Class[];
   readonly priority?: number;
-  readonly returns: readonly ReturnedValue[];
-  /** The steps after its `.returns(…)` chain: the group's own path. */
+  /** The group's own path. */
   readonly path: SubPath;
 }
 
@@ -206,21 +188,18 @@ export interface GroupsQuorum {
 export type Quorum = CountQuorum | GroupsQuorum;
 
 /**
- * `.join()` (#273): waits for every branch; what the branches give is its `.returns(…)` chain. A
- * quorum join (#279) counts the accepted answers instead: `.joinQuorum(…)` keeps the `.returns(…)`
- * chain, `.joinQuorumGroups(…)` has none — each group names its own.
+ * `.join()` (#273): waits for every branch; what the branches give is derived from them. A quorum
+ * join (#279) counts the accepted answers instead; `.joinQuorumGroups(…)`'s groups each continue
+ * their own path.
  */
 export interface JoinStep {
   readonly kind: StepKind.Join;
-  /** `.join().returns(A).returns(listOf(B))`: one value per class the branches give. */
-  readonly returns: readonly ReturnedValue[];
   readonly onError: readonly JoinErrorHandler[];
   /** `.joinQuorum(…)` / `.joinQuorumGroups(…)`; absent for `.join()`. */
   readonly quorum?: Quorum;
 }
 
-export type Step =
-  ReturnsStep | ToStep | SwitchStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
+export type Step = ToStep | SwitchStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
 
 /** The steps inside `route(X)…`, `caseOf(D)…` or the side path of `.onError`. */
 export interface SubPath {

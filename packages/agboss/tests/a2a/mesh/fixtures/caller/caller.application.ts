@@ -236,13 +236,7 @@ export class CallerAnswerWorkflowFinish {}
 @Workflow({
   name: "caller-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(CallerWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(AskPeerAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(CallerAnswerWorkflowFinish),
-  ],
+  flow: [onStart(CallerWorkflowStart).toAction(AskPeerAction).toFinish(CallerAnswerWorkflowFinish)],
   providers: [PeerA2AAgent, AnyA2AAgent],
 })
 export class CallerWorkflow {}

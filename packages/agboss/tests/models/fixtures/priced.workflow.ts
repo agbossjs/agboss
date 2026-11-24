@@ -1,5 +1,3 @@
-import { file } from "../../../src/components/file.js";
-
 import { Agent, Workflow, TokenLimit, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecisionsModelProvider, Reasoning } from "../../../src/models/index.js";
@@ -55,9 +53,7 @@ export class Answer {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Summariser)
-      .returns(SummaryDto)
       .toAgent(Writer)
       .toFinish(Answer),
   ],

@@ -55,7 +55,6 @@ export function workflowWith(prompts: FlowPrompts): {
     defaults: testDefaults,
     flow: [
       onStart(TestChat)
-        .returns(WorkflowStartTextDto)
         .toRouter(Main)
         .chooseOne(
           route(Scout)

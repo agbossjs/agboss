@@ -56,9 +56,7 @@ export class LimitWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(LimitWorkflowStart)
-      .returns(LimitQuestionDto)
       .toExternalTask(LimitQuestion)
-      .returns(LimitAnswerDto)
       .toFinish(LimitWorkflowFinish),
   ],
 })

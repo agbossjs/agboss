@@ -3,20 +3,16 @@ import type { Class } from "../components/injection.js";
 import type { ErrorClass, NodeKind } from "./ast.js";
 import type { KindLabel, PathHead, SidePath, TargetCheck, Transitions } from "./builder-types.js";
 import type { ClaimsOf } from "./builder-types.js";
-import type { GeneratedTypeError, JoinOutputOf, NameOf, NoOutput } from "./generated-types.js";
+import type { NameOf } from "./generated-types.js";
 import type { Quorums } from "./quorum-types.js";
-import type { IsSeveral, JoinValues, Returning, ValuesLeft } from "./returns-types.js";
 import type { ThisWorkflowLaunched, ThisWorkflowName, WithClaims } from "./this-workflow-types.js";
 
 /**
  * The types of a parallel launch (#273): `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })`,
  * `.toParallelActions(…)` and `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263, one
- * child per item) take targets of their kind only, are followed by `.join()` only (a path
- * that stops at a launch is not a path), and the join names what the branches give with
- * `.returns(…)` — checked against its generated `JoinOutputs` entry, keyed by the launch as written
- * (`toParallelAgents(researcher-agent, critic-agent, critic-agent)`, a router's launch prefixed by
- * its name, a per-item launch suffixed ` per item`). A join whose actions give nothing goes on with
- * `.to…(…)` at once, and nothing but `.onError(…)` stands between a join and its values.
+ * child per item) take targets of their kind only and are followed by `.join()` only (a path
+ * that stops at a launch is not a path); what the join gives is derived from the branches' outputs
+ * (#1270), so after it the path goes on with `.onError(…)` and a transition.
  */
 
 /** `{ maxConcurrency, maxItems }` — the last argument of a parallel launch. */
@@ -39,16 +35,6 @@ export interface WorkflowLaunchOptions extends LaunchOptions, ChildStepOptions {
 export type LaunchArguments =
   readonly [Class, ...Class[]] | readonly [Class, ...Class[], LaunchOptions];
 
-/** The targets of the arguments: every class, the options left out. */
-export type TargetsOf<TArgs extends readonly unknown[]> = TArgs extends readonly [
-  ...infer TTargets,
-  infer TLast,
-]
-  ? TLast extends Class
-    ? TArgs
-    : TTargets
-  : TArgs;
-
 /** Each target checked like a transition's: its kind, and an input the paths into it can fill. */
 export type LaunchCheck<TArgs extends readonly unknown[], TKind extends NodeKind> = {
   [K in keyof TArgs]: TArgs[K] extends Class
@@ -56,17 +42,14 @@ export type LaunchCheck<TArgs extends readonly unknown[], TKind extends NodeKind
     : unknown;
 };
 
-/** The names of the targets, as listed: `researcher-agent, critic-agent, critic-agent`. */
-export type TargetNames<TTargets extends readonly unknown[]> = TTargets extends readonly [
-  infer TFirst extends Class,
-  ...infer TRest,
-]
-  ? TRest extends readonly []
-    ? NameOf<InstanceType<TFirst>>
-    : `${NameOf<InstanceType<TFirst>>}, ${TargetNames<TRest>}`
-  : never;
+/** Whether an output is several values at once (a tuple: a start whose `input` is a map). */
+export type IsSeveral<TOutput> = TOutput extends readonly unknown[]
+  ? number extends TOutput["length"]
+    ? false
+    : true
+  : false;
 
-/** The value the chain carries last: the `.returns(…)` right before the launch. */
+/** The value the chain carries last: the step's output, a start's last field. */
 export type LastValue<TValue> =
   IsSeveral<TValue> extends true
     ? TValue extends readonly [...unknown[], infer TLast]
@@ -74,7 +57,7 @@ export type LastValue<TValue> =
       : never
     : TValue;
 
-/** One target right after `.returns(listOf(XDto))`: one run per item of that list. */
+/** One target right after a step that gives a list: one run per item of that list. */
 export type IsPerItem<TTargets extends readonly unknown[], TValue> = TTargets extends readonly [
   unknown,
 ]
@@ -85,88 +68,50 @@ export type IsPerItem<TTargets extends readonly unknown[], TValue> = TTargets ex
       : false
   : false;
 
-/** The key of a launch's `JoinOutputs` entry, as the generator writes it. */
-export type LaunchKey<
-  TCall extends string,
-  TTargets extends readonly unknown[],
-  TPerItem extends boolean,
-  TPrefix extends string,
-> = `${TPrefix}${TCall}(${TargetNames<TTargets>})${TPerItem extends true ? " per item" : ""}`;
-
 /** After a launch: only `.join()`. */
-export interface Launched<TKey extends string, THead extends PathHead> {
-  join(): Joined<TKey, THead>;
+export interface Launched<THead extends PathHead> {
+  join(): Joined<THead>;
 }
 
-/**
- * After an agents' launch: `.join()`, or its arbiters and a quorum join (#279) — `TCount` the
- * number of agents launched, `number` for a per-item launch.
- */
-export type AgentsLaunched<
-  TKey extends string,
-  THead extends PathHead,
-  TCount extends number,
-> = Launched<TKey, THead> & Quorums<TKey, THead, TCount>;
-
-/** How many agents a launch runs: as listed, repeats included; unknown per item. */
-export type LaunchCount<
-  TTargets extends readonly unknown[],
-  TPerItem extends boolean,
-> = TPerItem extends true ? number : TTargets["length"];
+/** After an agents' launch: `.join()`, or its arbiters and a quorum join (#279). */
+export type AgentsLaunched<THead extends PathHead> = Launched<THead> & Quorums<THead>;
 
 /** `.onError(E, toAction(X)…)` right after `.join()`: a failed branch, a limit in a branch. */
-export interface JoinErrorHandling<TKey extends string, THead extends PathHead> {
+export interface JoinErrorHandling<THead extends PathHead> {
   onError<const TPath extends SidePath>(
     error: ErrorClass,
     path: TPath,
-  ): Joined<TKey, WithClaims<THead, ClaimsOf<TPath>>>;
+  ): Joined<WithClaims<THead, ClaimsOf<TPath>>>;
 }
 
-/** What follows a join: its values named with `.returns(…)`, or — when it gives none — `.to…(…)`. */
-export type JoinContinuation<TOutput, TKey extends string, THead extends PathHead> = [
-  TOutput,
-] extends [GeneratedTypeError]
-  ? Returning<JoinValues<TKey>, TOutput, THead>
-  : [TOutput] extends [NoOutput]
-    ? Transitions<THead>
-    : Returning<JoinValues<TKey>, ValuesLeft<TOutput>, THead>;
-
-/** After `.join()`. */
-export type Joined<TKey extends string, THead extends PathHead> = JoinErrorHandling<TKey, THead> &
-  JoinContinuation<JoinOutputOf<TKey>, TKey, THead>;
+/** After `.join()`: its `.onError(…)`, then one transition — its values are derived (#1270). */
+export type Joined<THead extends PathHead> = JoinErrorHandling<THead> & Transitions<THead>;
 
 /** A child workflow launched per item (#263): the chain's last value is a list, the child checked. */
 export type ChildLaunchCheck<TClass extends Class, TValue> =
   IsPerItem<readonly [TClass], TValue> extends true
     ? TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>
     : {
-        readonly __error: "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it";
+        readonly __error: "toParallelWorkflows(W, …) runs one child per item — the step before it gives a list";
       };
 
 /**
- * After `.toParallelWorkflows(W, …)`: its `.join()` — for `ThisWorkflow` one whose `.returns(…)` is
- * claimed and checked by `@Workflow({ name, flow })` (#264 S112), not a project-wide `JoinOutputs` entry.
+ * After `.toParallelWorkflows(W, …)`: its `.join()` — for `ThisWorkflow` one that claims the launch,
+ * checked by `@Workflow({ name, flow })` (#264 S112).
  */
 export type ChildLaunched<TClass extends Class, THead extends PathHead> =
   ThisWorkflowName extends NameOf<InstanceType<TClass>>
     ? ThisWorkflowLaunched<THead>
-    : Launched<LaunchKey<"toParallelWorkflows", readonly [TClass], true, "">, THead>;
+    : Launched<THead>;
 
 /** The launches a step's values (`TValue`, the chain's last one per item) may lead into. */
 export interface Launches<TValue, THead extends PathHead> {
   toParallelAgents<const TArgs extends LaunchArguments>(
     ...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>
-  ): AgentsLaunched<
-    LaunchKey<"toParallelAgents", TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>, "">,
-    THead,
-    LaunchCount<TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>>
-  >;
+  ): AgentsLaunched<THead>;
   toParallelActions<const TArgs extends LaunchArguments>(
     ...targets: TArgs & LaunchCheck<TArgs, NodeKind.Action>
-  ): Launched<
-    LaunchKey<"toParallelActions", TargetsOf<TArgs>, IsPerItem<TargetsOf<TArgs>, TValue>, "">,
-    THead
-  >;
+  ): Launched<THead>;
   /** One child execution of `W` per item of the list (#263), at most `maxConcurrency` at once. */
   toParallelWorkflows<const TClass extends Class>(
     workflow: TClass & ChildLaunchCheck<TClass, TValue>,
@@ -175,12 +120,8 @@ export interface Launches<TValue, THead extends PathHead> {
 }
 
 /** A router's launch (`.toRouter(R).toParallelAgents(…)`): agents only, never per item. */
-export interface RouterLaunches<TName extends string, THead extends PathHead> {
+export interface RouterLaunches<THead extends PathHead> {
   toParallelAgents<const TArgs extends LaunchArguments>(
     ...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>
-  ): AgentsLaunched<
-    LaunchKey<"toParallelAgents", TargetsOf<TArgs>, false, `${TName}.`>,
-    THead,
-    TargetsOf<TArgs>["length"]
-  >;
+  ): AgentsLaunched<THead>;
 }

@@ -201,9 +201,7 @@ class LevelAgent {}
 @Workflow({
   name: "lv-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(LevelStart).returns(WorkflowStartTextDto).toAgent(LevelAgent).toFinish(LevelFinish),
-  ],
+  flow: [onStart(LevelStart).toAgent(LevelAgent).toFinish(LevelFinish)],
   piiPolicies: [EmailKindPiiPolicy],
 })
 class LevelWorkflow {}

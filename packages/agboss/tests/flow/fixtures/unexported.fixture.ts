@@ -35,9 +35,7 @@ export class HiddenWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HiddenWorkflowStart)
-      .returns(HiddenDto)
       .toAgent(HiddenAgent)
-      .returns(HiddenDto)
       .toFinish(HiddenWorkflowFinish),
   ],
 })

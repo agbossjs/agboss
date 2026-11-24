@@ -1,8 +1,8 @@
 /**
  * The types the flow DSL and the decorators are made of (#895, @beta: type machinery, not a
- * contract): what the signatures of `start`, `agent`, `route`, `.returns(…)`,
- * `.toParallelWorkflows(…)`, `@Router`, `@WorkflowFinish` & co. compute with — `FlowTypes.Same`,
- * `FlowTypes.Member`, … A type error names them; no code of yours writes them, so their names may
+ * contract): what the signatures of `onStart`, `onAgent`, `route`,
+ * `.toParallelWorkflows(…)`, `@Router`, `@WorkflowFinish` & co. compute with — `FlowTypes.IsOneOf`,
+ * `FlowTypes.IsPerItem`, … A type error names them; no code of yours writes them, so their names may
  * change in any release. Types only: re-exported as the namespace `FlowTypes`, no module the root
  * import loads.
  */
@@ -12,12 +12,15 @@ export { type ComponentSource, type StartSource } from "../flow/ast.js";
 export {
   type CaseValueOf,
   type ClaimsOf,
-  type GroupOfPath,
+  type IsGroupPath,
+  type IsOneOf,
+  type IsUnion,
   type InputCheck,
   type KindCheck,
   type KindLabel,
   type KindLabels,
   type OutputContinuation,
+  type ValueContinuation,
   type RouteOptions,
   type RouteTargetKind,
   type RouteTargetLabel,
@@ -50,54 +53,22 @@ export {
 export {
   type ChildLaunched,
   type IsPerItem,
-  type JoinContinuation,
+  type IsSeveral,
   type LastValue,
   type LaunchArguments,
   type LaunchCheck,
-  type LaunchCount,
-  type LaunchKey,
-  type TargetNames,
-  type TargetsOf,
 } from "../flow/launch-types.js";
+export { type GroupArguments, type GroupCheck, type GroupsCheck } from "../flow/quorum-types.js";
 export {
-  type GroupArguments,
-  type GroupCheck,
-  type GroupKey,
-  type GroupValuesCheck,
-  type GroupsCheck,
-  type IsWholeQuorum,
-  type MayBeLeftOut,
-  type QuorumContinuation,
-  type QuorumOutput,
-  type QuorumValues,
-} from "../flow/quorum-types.js";
-export {
-  type AfterReturns,
-  type IsIn,
-  type IsSeveral,
-  type Member,
-  type Members,
-  type NotGiven,
-  type ReturnsCheck,
-  type Same,
-  type ValuesLeft,
-  type Without,
-} from "../flow/returns-types.js";
-export {
-  type ClaimProblem,
   type ClaimsCheck,
   type EntryOf,
-  type JoinNotGiven,
-  type StepNotGiven,
   type ThisWorkflowCheck,
-  type ThisWorkflowJoinClaim,
-  type ThisWorkflowJoinValues,
+  type ThisWorkflowClaim,
   type ThisWorkflowJoined,
   type ThisWorkflowLaunched,
   type ThisWorkflowName,
-  type ThisWorkflowReturning,
-  type ThisWorkflowStepClaim,
-  type ThisWorkflowStepValues,
+  type ThisWorkflowStep,
+  type ThisWorkflowSwitching,
   type WithClaims,
 } from "../flow/this-workflow-types.js";
 export { type PiiRefusalShape } from "../pii/pii-policy.decorator.js";

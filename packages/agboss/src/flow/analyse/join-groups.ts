@@ -21,13 +21,13 @@ import { slotOfValue, writtenValue, type SlotKey } from "./scope.js";
  * branch whose output no join value can carry (a list of lists, a lone `oneOf`) is a problem.
  */
 
-/** One value of a join: the branches that give it, and the shape `.join().returns(…)` names. */
+/** One value of a join: the branches that give it, and the shape the join gives for them. */
 export interface JoinGroup {
   readonly slot: SlotKey;
   readonly producers: readonly ComponentName[];
   /** Several values of one class (copies, several agents, a per-item launch): always a list. */
   readonly isSeveral: boolean;
-  /** What `.join().returns(…)` writes for it; undefined when nothing can (`problem` says why). */
+  /** What the join writes for it; undefined when nothing can (`problem` says why). */
   readonly shape?: ValueShape;
   readonly problem?: string;
 }
@@ -82,7 +82,7 @@ function groupOf(launch: FlowLaunch, gathered: Gathered): JoinGroup {
       slot,
       producers,
       isSeveral,
-      problem: `${names} gives ${label} — a join takes one class per branch; branch it with .toAgent(…).returns(${label}).switch(…) instead`,
+      problem: `${names} gives ${label} — a join takes one class per branch; branch it with .switch(…) on its agent instead`,
     };
   const [branch] = branches;
   return withShape(producers, branch?.isOptional === true ? optional(output) : output, false);
@@ -118,15 +118,4 @@ export function producersOfSlot(
 /** How a message names a launch: `planner-agent → toParallelAgents(researcher-agent, critic-agent)`. */
 export function launchLabel(launch: FlowLaunch): string {
   return `${launch.launcher} → ${LAUNCH_CALLS[launch.targetKind]}(${launch.listed.join(", ")})`;
-}
-
-/**
- * The key of a launch's `JoinOutputs` entry, as the typed builder spells it from the launch as
- * written: `toParallelAgents(researcher-agent, critic-agent, critic-agent)`, a router's
- * `support-router.toParallelAgents(…)`, a per-item `toParallelAgents(company-check-agent) per item`.
- */
-export function launchKeyOf(launch: FlowLaunch): string {
-  const prefix = launch.isRouterLaunch ? `${launch.launcher}.` : "";
-  const suffix = launch.items === undefined ? "" : " per item";
-  return `${prefix}${LAUNCH_CALLS[launch.targetKind]}(${launch.listed.join(", ")})${suffix}`;
 }

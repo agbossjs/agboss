@@ -193,11 +193,8 @@ export class PeerAnswerWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PeerAskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(PeerAnswerAction)
-      .returns(WorkflowFinishTextDto)
       .toAction(PeerSignOffAction)
-      .returns(WorkflowFinishTextDto)
       .toFinish(PeerAnswerWorkflowFinish),
   ],
 })

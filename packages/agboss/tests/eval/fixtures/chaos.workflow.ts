@@ -108,9 +108,7 @@ export class ReleasedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChaosWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ReserveAction)
-      .returns(ReservationDto)
       .toAgent(ConfirmAgent)
       .onError(
         StepFailedError,

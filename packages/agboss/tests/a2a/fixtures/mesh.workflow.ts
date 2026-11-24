@@ -153,12 +153,10 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   const flow =
     spec.handlesLoop === true
       ? onStart(MeshStart)
-          .returns(WorkflowStartTextDto)
           .toAgent(MeshDesk)
           .onError(MeshLoopDetectedError, toFinish(LoopFinish))
           .toFinish(MeshAnswer)
       : onStart(MeshStart)
-          .returns(WorkflowStartTextDto)
           .toAgent(MeshDesk)
           .toFinish(MeshAnswer);
 

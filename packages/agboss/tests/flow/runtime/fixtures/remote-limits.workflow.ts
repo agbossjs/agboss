@@ -39,14 +39,12 @@ export class RemoteCappedWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteCappedWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(RemoteItemWorkflow, {
         maxConcurrency: 6,
         maxItems: 10,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(RemoteChecksWorkflowFinish),
   ],
   maxConcurrentExecutions: 2,
@@ -101,11 +99,8 @@ export class RemoteSpentWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RemoteSpenderWorkflowStart)
-      .returns(ItemDto)
       .toAgent(RemoteSpenderAgent)
-      .returns(ItemResultDto)
       .toAction(RemoteHoldAction)
-      .returns(SummaryDto)
       .toFinish(RemoteSpentWorkflowFinish),
   ],
 })
@@ -131,9 +126,7 @@ export class RemoteSpendCheckedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RemoteSpendWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(RemoteSpenderWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(SummaryDto)
       .toFinish(RemoteSpendCheckedWorkflowFinish),
   ],
 })

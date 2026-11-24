@@ -192,7 +192,7 @@ class OddAgent {}
 @Workflow({
   name: "odd-workflow",
   version: "1.0.0",
-  flow: [onStart(DeskStart).returns(WorkflowStartTextDto).toAgent(OddAgent).toFinish(DeskAnswer)],
+  flow: [onStart(DeskStart).toAgent(OddAgent).toFinish(DeskAnswer)],
   compaction: MisnamedCompaction,
   uncompactedTurns: 2.5,
 })

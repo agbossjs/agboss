@@ -88,11 +88,7 @@ class SoloGraderAgent {}
   name: "solo-grade-workflow",
   version: "1.0.0",
   flow: [
-    onStart(SoloGradeWorkflowStart)
-      .returns(CompanyDto)
-      .toAgent(SoloGraderAgent)
-      .returns(CompanyGradeDto)
-      .toFinish(CompanyGradedWorkflowFinish),
+    onStart(SoloGradeWorkflowStart).toAgent(SoloGraderAgent).toFinish(CompanyGradedWorkflowFinish),
   ],
 })
 class SoloGradeWorkflow {}
@@ -118,10 +114,8 @@ class FallbackGradeWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(TwiceGradeWorkflowStart)
-      .returns(CompanyDto)
       .toAgent(SoloGraderAgent)
       .onError(StepFailedError, toFinish(FallbackGradeWorkflowFinish))
-      .returns(CompanyGradeDto)
       .toFinish(CompanyGradedWorkflowFinish),
   ],
 })
@@ -142,12 +136,9 @@ class PlainCheckWorkflowStart {}
   name: "narrowed-check-workflow",
   version: "1.0.0",
   flow: [
-    onStart(ScopedCheckWorkflowStart)
-      .returns(CompanyDto)
-      .returns(SearchRequestDto)
-      .toAgent(CompanyCheckAgent),
-    onStart(PlainCheckWorkflowStart).returns(CompanyDto).toAgent(CompanyCheckAgent),
-    onAgent(CompanyCheckAgent).returns(CompanyScoreDto).toFinish(CompanyScoreWorkflowFinish),
+    onStart(ScopedCheckWorkflowStart).toAgent(CompanyCheckAgent),
+    onStart(PlainCheckWorkflowStart).toAgent(CompanyCheckAgent),
+    onAgent(CompanyCheckAgent).toFinish(CompanyScoreWorkflowFinish),
   ],
 })
 class NarrowedCheckWorkflow {}
@@ -182,46 +173,25 @@ class LogRequestAction {
 
 // ── paths of the parents ──
 
-const picked = () =>
-  onStart(JobOfferWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(CompanyPickerAgent)
-    .returns(CompanyDto);
+const picked = () => onStart(JobOfferWorkflowStart).toAgent(CompanyPickerAgent);
 
-const searched = () =>
-  onStart(SearchOfferWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .returns(SearchRequestDto)
-    .toAgent(CompanyPickerAgent)
-    .returns(CompanyDto);
+const searched = () => onStart(SearchOfferWorkflowStart).toAgent(CompanyPickerAgent);
 
-const found = () =>
-  onStart(JobOfferWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(CompanyFinderAgent)
-    .returns(listOf(CompanyDto));
+const found = () => onStart(JobOfferWorkflowStart).toAgent(CompanyFinderAgent);
 
 const REVIEWED = oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto);
 
 const reviewCases = () =>
   [
-    caseOf(CompanyGradeDto)
-      .toAgent(JobOfferAgent)
-      .returns(JobOfferDto)
-      .toFinish(JobOfferWorkflowFinish),
+    caseOf(CompanyGradeDto).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
     caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
     caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
   ] as const;
 
 const graded = (path: ReturnType<typeof picked>) =>
-  path
-    .returns(CompanyGradeDto)
-    .toAgent(JobOfferAgent)
-    .returns(JobOfferDto)
-    .toFinish(JobOfferWorkflowFinish);
+  path.toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish);
 
-const scored = (path: ReturnType<typeof picked>) =>
-  path.returns(CompanyScoreDto).toFinish(CompanyScoreWorkflowFinish);
+const scored = (path: ReturnType<typeof picked>) => path.toFinish(CompanyScoreWorkflowFinish);
 
 describe("#263: the issue's examples pass", () => {
   it.each([
@@ -266,7 +236,6 @@ describe("#263 AC2: the start, chosen per edge", () => {
 
   it("one start → it, also after an action without output; its fields must be on the path", () => {
     const after = onStart(JobOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(LogRequestAction)
       .toWorkflow(SoloGradeWorkflow);
     expect(errorsOf([graded(after)])).toEqual([
@@ -281,9 +250,7 @@ describe("#263 AC2: the start, chosen per edge", () => {
 
   it("no matching: no start takes the chain's value — the starts and their inputs listed", () => {
     const path = onStart(JobOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(CompanyReviewWorkflow)
-      .returns(REVIEWED)
       .switch(...reviewCases());
     expect(errorsOf([path])).toContainEqual({
       code: "graph.no-matching-start",
@@ -294,10 +261,8 @@ describe("#263 AC2: the start, chosen per edge", () => {
 
   it("no matching: the path brings no value and the child has two starts", () => {
     const path = onStart(JobOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(LogRequestAction)
       .toWorkflow(CompanyReviewWorkflow)
-      .returns(REVIEWED)
       .switch(...reviewCases());
     const [problem] = errorsOf([path]).filter((found) => found.code === "graph.no-matching-start");
     expect(problem?.message).toContain(
@@ -340,10 +305,7 @@ describe("#263 AC2: the start, chosen per edge", () => {
 
 describe("#263 AC18 / AC21: list and map start inputs", () => {
   it("list start input: a whole list from the parent's path, chosen by the exact shape", () => {
-    const listed = found()
-      .toWorkflow(CompanyCheckWorkflow)
-      .returns(CompanyScoreDto)
-      .toFinish(CompanyScoreWorkflowFinish);
+    const listed = found().toWorkflow(CompanyCheckWorkflow).toFinish(CompanyScoreWorkflowFinish);
     const { analysis, errors } = checkWorkflow(workflowWith([listed]));
     expect(errors).toEqual([]);
     expect(analysis === undefined ? [] : childLines(analysis)).toEqual([
@@ -356,15 +318,9 @@ describe("#263 AC18 / AC21: list and map start inputs", () => {
       path
         .toParallelWorkflows(CompanyCheckWorkflow, { maxItems: 5 })
         .join()
-        .returns(listOf(CompanyScoreDto))
         .toAgent(ScoreListAgent)
-        .returns(GradedShortlistDto)
         .toFinish(GradedShortlistWorkflowFinish);
-    const withRequest = onStart(SearchOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .returns(SearchRequestDto)
-      .toAgent(CompanyFinderAgent)
-      .returns(listOf(CompanyDto));
+    const withRequest = onStart(SearchOfferWorkflowStart).toAgent(CompanyFinderAgent);
     const { analysis, errors } = checkWorkflow(workflowWith([perItem(withRequest)]));
     expect(errors).toEqual([]);
     expect(analysis === undefined ? [] : childLines(analysis)).toEqual([
@@ -382,7 +338,6 @@ describe("#263 AC3 / AC17: the child's output — one case per finish output cla
   const switched = (cases: readonly ReturnType<typeof caseOf>[]) =>
     picked()
       .toWorkflow(CompanyReviewWorkflow)
-      .returns(REVIEWED)
       .switch(...cases);
 
   it("switch exhaustive over finish classes: a missing class and a class no finish gives", () => {
@@ -404,14 +359,12 @@ describe("#263 AC3 / AC17: the child's output — one case per finish output cla
     );
   });
 
-  it("the oneOf is written before the switch; a single class needs no switch", () => {
+  it("a oneOf output is switched; a single class needs no switch", () => {
     const unwritten = picked()
       .toWorkflow(CompanyReviewWorkflow)
-      .returns(CompanyGradeDto)
       .toAgent(JobOfferAgent)
-      .returns(JobOfferDto)
       .toFinish(JobOfferWorkflowFinish);
-    expect(codesOf([unwritten])).toContain("flow.returns-mismatch");
+    expect(codesOf([unwritten])).toContain("flow.switch-not-exhaustive");
     expect(codesOf([graded(picked().toWorkflow(TwiceGradeWorkflow))])).toEqual([]);
   });
 
@@ -419,21 +372,6 @@ describe("#263 AC3 / AC17: the child's output — one case per finish output cla
     const [grade, , failed] = reviewCases();
     const unread = caseOf(CompanyRejectedDto).toFinish(ReviewErrorWorkflowFinish);
     expect(codesOf([switched([grade, unread, failed])])).toEqual([]);
-  });
-
-  it("the join of a per-item child gives the list of its finishes' classes", () => {
-    const joined = found()
-      .toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 })
-      .join()
-      .returns(listOf(CompanyGradeDto))
-      .toAgent(ReviewRankerAgent)
-      .returns(GradedShortlistDto)
-      .toFinish(GradedShortlistWorkflowFinish);
-    expect(errorsOf([joined])).toContainEqual({
-      code: "flow.returns-mismatch",
-      message:
-        "the join of company-finder-agent → toParallelWorkflows(company-review-workflow) gives listOf(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto)) — write .join().returns(listOf(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto))), not .join().returns(listOf(CompanyGradeDto))",
-    });
   });
 });
 
@@ -443,9 +381,7 @@ describe("#263 AC7: the child's scope is its start input", () => {
     version: "1.0.0",
     flow: [
       onStart(SoloGradeWorkflowStart)
-        .returns(CompanyDto)
         .toAgent(JobOfferAgent) // reads a CompanyGradeDto: only the parent's path has one
-        .returns(JobOfferDto)
         .toFinish(JobOfferWorkflowFinish),
     ],
   })
@@ -454,9 +390,7 @@ describe("#263 AC7: the child's scope is its start input", () => {
   it("child scope = start input: a type only the parent's scope holds is missing in the child", () => {
     const parent = picked()
       .toWorkflow(SoloGradeWorkflow)
-      .returns(CompanyGradeDto)
       .toWorkflow(IsolatedGradeWorkflow)
-      .returns(JobOfferDto)
       .toFinish(JobOfferWorkflowFinish);
     // the grade stays in the parent's scope: the child reads its start input only
     expect(errorsOf([parent])).toEqual([
@@ -481,9 +415,7 @@ describe("#263 AC11: a per-item child with no way to fail softly", () => {
     found()
       .toParallelWorkflows(child, { maxConcurrency: 2, maxItems: 5 })
       .join()
-      .returns(listOf(CompanyGradeDto))
       .toAgent(GradeListAgent)
-      .returns(GradedShortlistDto)
       .toFinish(GradedShortlistWorkflowFinish);
 
   it("failure-finish warning, strict error", () => {
@@ -539,7 +471,6 @@ describe("#263: the child's node in the graph", () => {
   it("a child mentioned as another kind is [graph.wrong-kind]", () => {
     const path = picked()
       .toAgent(CompanyReviewWorkflow)
-      .returns(REVIEWED)
       .switch(...reviewCases());
     expect(errorsOf([path])).toContainEqual({
       code: "graph.wrong-kind",
@@ -552,11 +483,7 @@ describe("#263: the child's node in the graph", () => {
     const path = picked()
       .toRouter(ReviewDeskRouter)
       .chooseOne(
-        route(SoloGradeWorkflow)
-          .returns(CompanyGradeDto)
-          .toAgent(JobOfferAgent)
-          .returns(JobOfferDto)
-          .toFinish(JobOfferWorkflowFinish),
+        route(SoloGradeWorkflow).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
         route(ReviewErrorWorkflowFinish),
       );
     const { analysis, errors } = checked([path]);
@@ -598,13 +525,7 @@ describe("S85: toWorkflow(W) starts a side path", () => {
   const handled = (error: typeof StepFailedError | typeof LimitExceededError) =>
     picked()
       .toAgent(SoloGraderAgent)
-      .onError(
-        error,
-        toWorkflow(SoloGradeWorkflow)
-          .returns(CompanyGradeDto)
-          .toFinish(CompanyGradedWorkflowFinish),
-      )
-      .returns(CompanyGradeDto)
+      .onError(error, toWorkflow(SoloGradeWorkflow).toFinish(CompanyGradedWorkflowFinish))
       .toFinish(CompanyGradedWorkflowFinish);
 
   it("a step failure handled by a child: its start chosen, its result continued", () => {

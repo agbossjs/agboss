@@ -254,7 +254,6 @@ class GuardedRouter {}
   version: "1.0.0",
   flow: [
     onStart(GuardedStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(GuardedRouter)
       .chooseOne(route(GuardedAgent).toFinish(GuardedFinish)),
   ],

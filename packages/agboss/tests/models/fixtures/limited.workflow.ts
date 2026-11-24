@@ -1,6 +1,5 @@
 import { Agent, EmptyEnvironment, TokenLimit, Workflow } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   ModelCost,
   ModelFailure,
@@ -63,7 +62,6 @@ export class LimitedAgent {}
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(LimitedAgent)
       .toFinish(Reply),
   ],

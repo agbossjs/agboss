@@ -130,7 +130,6 @@ function graphOf(spec: GraphSpec): FlowGraph {
       to: target(spec.startNext),
       kind: EdgeKind.Next,
       writes: START_WRITES,
-      returned: [],
     },
     ...spec.agents.flatMap((agent, index) =>
       agent.next.map((next): FlowEdge => ({
@@ -138,7 +137,6 @@ function graphOf(spec: GraphSpec): FlowGraph {
         to: target(next),
         kind: EdgeKind.Next,
         writes: [{ shape: dtoAt(agent.output), isCase: false }],
-        returned: [],
       })),
     ),
   ];

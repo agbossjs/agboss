@@ -1,7 +1,6 @@
 import { Workflow, onStart, toFinish } from "@agboss/core";
 import { BookFlightAction } from "../../actions/book-flight.action.js";
 import { BookHotelAction } from "../../actions/book-hotel.action.js";
-import { TripFlightDto, TripHotelDto, TripRequestDto } from "../../dto/trip.dto.js";
 import { BookingDeskService, BookingFailedError } from "../../services/booking-desk.service.js";
 import { TripBookedWorkflowFinish } from "./trip-booked.workflow-finish.js";
 import { TripNotBookedWorkflowFinish } from "./trip-not-booked.workflow-finish.js";
@@ -18,15 +17,12 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(TripWorkflowStart)
-      .returns(TripRequestDto)
       .toParallelActions(BookFlightAction, BookHotelAction)
       .join()
       .onError(
         BookingFailedError, // the hotel failed: the finished flight is cancelled before this path runs
         toFinish(TripNotBookedWorkflowFinish),
       )
-      .returns(TripFlightDto)
-      .returns(TripHotelDto)
       .toFinish(TripBookedWorkflowFinish),
   ],
   providers: [BookingDeskService],

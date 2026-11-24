@@ -40,7 +40,7 @@ application — it runs offline, [Testing](Testing)). Files follow the
 `workflow-finishes/text.workflow-finish.ts` (`TextWorkflowFinish`, `<workflow>-text-workflow-finish`)
 — names carry the workflow, so a second workflow never clashes; a text-only MCP server tool replies
 with `PlainTextDto`. The workflow is one path ([Workflow](Workflow)):
-`onStart(TextWorkflowStart).returns(WorkflowStartTextDto).toRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(TextWorkflowFinish), …)`
+`onStart(TextWorkflowStart).toRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(TextWorkflowFinish), …)`
 — the main router chooses the agent that answers, each agent's text finishes the run. The scripts run
 a workflow by its start's full name (`"chat": "agboss chat --start support-desk-text-workflow-start"`,
 `run` the same), so they keep working when the application gets more workflows; `npm run types`
@@ -60,7 +60,7 @@ AGBoss code follows, the same ones the framework's own gate runs:
 | `agboss/no-component-state`            | `src/**/*.ts` but `*.test.ts`      | `this.x = …` outside the constructor of a component ([Components](Components))        |
 | `agboss/no-direct-time`                | `src/**/*.ts` but `*.test.ts`      | `Date.now()`, `new Date()`, `setTimeout`, … — inject `Clock` (`clock.now()`)          |
 | `agboss/no-internal-import`            | every `.ts` / `.js` file           | an import of `@agboss/core/internal` — the CLI's, no semver promise; `studioOf` is in `@agboss/core/testing` (#818) |
-| `@stylistic/newline-per-chained-call`  | `**/*.workflow.ts`                 | two calls of a chain on one line: `onStart(A)` / `.returns(B)` / `.toFinish(C)`         |
+| `@stylistic/newline-per-chained-call`  | `**/*.workflow.ts`                 | two calls of a chain on one line: `onStart(A)` / `.toAgent(B)` / `.toFinish(C)`         |
 
 The `agboss/…` rules come from the public entry `@agboss/core/eslint` of the framework (#388 S2):
 `agbossPlugin` and `FLOW_CHAIN_RULE` — the one-call-per-line rule with the framework's options

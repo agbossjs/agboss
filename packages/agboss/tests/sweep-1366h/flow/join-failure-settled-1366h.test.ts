@@ -85,7 +85,7 @@ beforeEach(() => {
 });
 
 describe("#1366: the answers a side path starts with", () => {
-  it("one value write per group with a shape (none for a group without), no written shapes, the launch's groups", async () => {
+  it("one value write per group with a shape (none for a group without), the launch's groups", async () => {
     const groups = [
       { slot: "s1", producers: ["a"], isSeveral: false, shape },
       { slot: "s2", producers: ["b"], isSeveral: false, problem: "none" },
@@ -103,7 +103,6 @@ describe("#1366: the answers a side path starts with", () => {
     expect(edge.join).toStrictEqual({
       launch: "the-launch",
       values: [{ shape, isCase: false }],
-      written: [],
       groups,
     });
   });
@@ -118,7 +117,7 @@ describe("#1366: the answers a side path starts with", () => {
     );
 
     const edge = joinedCall()[1] as { join: unknown };
-    expect(edge.join).toStrictEqual({ launch: "the-launch", values: [], written: [], groups: [] });
+    expect(edge.join).toStrictEqual({ launch: "the-launch", values: [], groups: [] });
   });
 
   it("the finished branches are given; those undone by THIS launch's compensations are left out", async () => {

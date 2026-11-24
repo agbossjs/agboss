@@ -27,7 +27,8 @@ import {
   TestExecutionBudget,
   TestTenantDailyBudget,
 } from "../../flow/fixtures/budgets.js";
-import { onStart, toAction, toFinish } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
+import { toFinish } from "../../helpers/flow.js";
 
 /**
  * #338 — a budget crossed inside a parallel launch. Two branches: the spender waits until the
@@ -198,7 +199,6 @@ export class NoteBudgetStopAction {
 export class BudgetStoppedWorkflowFinish {}
 
 const onBudget = toAction(NoteBudgetStopAction)
-  .returns(NoteDto)
   .toFinish(BudgetStoppedWorkflowFinish);
 
 /** Both branches at once; an exhausted budget takes `.onError(…)`. */
@@ -207,11 +207,9 @@ const onBudget = toAction(NoteBudgetStopAction)
   version: "1.0.0",
   flow: [
     onStart(ParallelBudgetWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .join()
       .onError(BudgetExceededError, onBudget)
-      .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -223,10 +221,8 @@ export class ParallelBudgetWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(ParallelBudgetWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .join()
-      .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -238,11 +234,9 @@ export class UnhandledBudgetWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(ParallelBudgetWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .joinQuorum({ min: 2 })
       .onError(BudgetExceededError, onBudget)
-      .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -273,9 +267,7 @@ export class TaskDoneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TaskWorkflowStart)
-      .returns(TaskDto)
       .toAgent(TaskAgent)
-      .returns(NoteDto)
       .toFinish(TaskDoneWorkflowFinish),
   ],
 })
@@ -294,11 +286,9 @@ export class TasksWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(TasksWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelWorkflows(TaskWorkflow, { maxItems: 4 })
       .join()
       .onError(BudgetExceededError, onBudget)
-      .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -346,11 +336,9 @@ export class TaskAction {
   version: "1.0.0",
   flow: [
     onStart(TasksWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelActions(TaskAction, { maxItems: 4 })
       .join()
       .onError(BudgetExceededError, onBudget)
-      .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],
 })

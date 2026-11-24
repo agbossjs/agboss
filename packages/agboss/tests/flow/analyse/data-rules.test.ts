@@ -40,13 +40,7 @@ class NeedsUnrelatedAgent {}
 @Workflow({
   name: "missing-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(NeedsUnrelatedAgent)
-      .returns(OfferDraftDto)
-      .toFinish(DraftKitWorkflowFinish),
-  ],
+  flow: [onStart(KitWorkflowStart).toAgent(NeedsUnrelatedAgent).toFinish(DraftKitWorkflowFinish)],
 })
 class MissingWorkflow {}
 
@@ -67,11 +61,8 @@ class RedraftKitAgent {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
       .toAgent(RedraftKitAgent)
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })
@@ -97,13 +88,11 @@ class BranchRouter {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
       .toRouter(BranchRouter)
       .chooseOne(
-        route(SendKitAction).returns(OfferSentDto).toFinish(SentKitWorkflowFinish),
-        route(RedraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
+        route(SendKitAction).toFinish(SentKitWorkflowFinish),
+        route(RedraftKitAgent).toFinish(DraftKitWorkflowFinish),
       ),
   ],
 })
@@ -161,12 +150,8 @@ class ShortlistKitWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toRouter(DraftsRouter)
-      .chooseOne(
-        route(DraftsAgent).returns(listOf(OfferDraftDto)).toAction(CollectDraftsAction),
-        route(CollectDraftsAction),
-      ),
+      .chooseOne(route(DraftsAgent).toAction(CollectDraftsAction), route(CollectDraftsAction)),
     onAction(CollectDraftsAction).toFinish(ShortlistKitWorkflowFinish),
   ],
 })
@@ -175,12 +160,7 @@ class OptionalListWorkflow {}
 @Workflow({
   name: "no-list-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAction(CollectDraftsAction)
-      .toFinish(DraftKitWorkflowFinish),
-  ],
+  flow: [onStart(KitWorkflowStart).toAction(CollectDraftsAction).toFinish(DraftKitWorkflowFinish)],
 })
 class NoListWorkflow {}
 

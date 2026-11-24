@@ -122,7 +122,6 @@ export class ReaderFinish {}
   version: "1.0.0",
   flow: [
     onStart(ReaderStart)
-      .returns(ReadRequestDto)
       .toRouter(ReaderRouter)
       .chooseOne(route(ReaderAgent).toFinish(ReaderFinish)),
   ],

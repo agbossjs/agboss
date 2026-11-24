@@ -95,9 +95,7 @@ export class LoopPaidWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(LoopPayWorkflowStart)
-      .returns(ItemDto)
       .toAgent(LoopPayAgent)
-      .returns(ItemResultDto)
       .toFinish(LoopPaidWorkflowFinish),
   ],
 })
@@ -114,9 +112,7 @@ export class LoopParentWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(LoopParentWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(LoopPayWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
       .toFinish(LoopParentWorkflowFinish),
   ],
 })

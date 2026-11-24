@@ -124,24 +124,20 @@ describe("#1366: group priority and the group's own steps", () => {
       expect(() => priorityOf(p)).toThrow(FlowSyntaxError);
   });
 
-  const ret = (value: string): Step => ({ kind: StepKind.Returns, value }) as never;
   const to: Step = { kind: StepKind.To } as never;
   const start = { kind: "group" as const, agents: [AgentX] };
 
-  it("leading returns are the values, the rest is the path", () => {
-    const group = quorumGroupOf(start, [ret("a"), ret("b"), to, ret("c")]);
-    expect(group.returns).toEqual(["a", "b"]);
-    expect(group.path.steps).toEqual([to, ret("c")]);
+  it("the steps are the group's own path", () => {
+    const group = quorumGroupOf(start, [to, to]);
+    expect(group.path.steps).toEqual([to, to]);
   });
 
-  it("a group of returns only keeps every one of them, with an empty path", () => {
-    const group = quorumGroupOf(start, [ret("a"), ret("b")]);
-    expect(group.returns).toEqual(["a", "b"]);
-    expect(group.path.steps).toEqual([]);
+  it("a group without steps has an empty path", () => {
+    expect(quorumGroupOf(start, []).path.steps).toEqual([]);
   });
 
   it("priority is carried only when given", () => {
-    expect(Object.keys(quorumGroupOf(start, [])).sort()).toEqual(["agents", "path", "returns"]);
+    expect(Object.keys(quorumGroupOf(start, [])).sort()).toEqual(["agents", "path"]);
     expect(quorumGroupOf({ ...start, priority: 2 }, []).priority).toBe(2);
   });
 });

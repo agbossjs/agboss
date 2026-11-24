@@ -1,4 +1,3 @@
-import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import { onStart } from "../../../helpers/flow.js";
 import { ProbeWorkflowFinish, ProbeWorkflowStart } from "../parts.js";
@@ -9,7 +8,6 @@ import { ProbeWorkflowFinish, ProbeWorkflowStart } from "../parts.js";
   version: "1.0.0",
   flow: [
     onStart(ProbeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toFinish(ProbeWorkflowFinish),
   ],
 })

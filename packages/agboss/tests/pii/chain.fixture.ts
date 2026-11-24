@@ -31,7 +31,6 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { caseOf, route, onStart } from "../helpers/flow.js";
-import { oneOf } from "../../src/flow/dto-wrappers.js";
 import { ContactPiiPolicy } from "./pii.fixture.js";
 
 export const ROOT_SECRET = "ROOT-7731";
@@ -155,7 +154,6 @@ export class ChainChildStart {}
   version: "1.0.0",
   flow: [
     onStart(ChainChildStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(ChainChildRouter)
       .chooseOne(route(ChainChildAgent).toFinish(ChainChildFinish), route(ChainChildDirectFinish)),
   ],
@@ -181,12 +179,7 @@ export class ChainPeekFinish {}
 @Workflow({
   name: "chain-peek-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChainPeekStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ChainPeekAgent)
-      .toFinish(ChainPeekFinish),
-  ],
+  flow: [onStart(ChainPeekStart).toAgent(ChainPeekAgent).toFinish(ChainPeekFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
 })
 export class ChainPeekWorkflow {}
@@ -209,12 +202,7 @@ export class ChainOpenFinish {}
 @Workflow({
   name: "chain-open-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChainOpenStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ChainOpenAgent)
-      .toFinish(ChainOpenFinish),
-  ],
+  flow: [onStart(ChainOpenStart).toAgent(ChainOpenAgent).toFinish(ChainOpenFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
   excludePiiPolicies: [RootSecretPiiPolicy],
 })
@@ -247,12 +235,7 @@ export class ChainFarAgent {}
 @Workflow({
   name: "chain-far-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChainFarStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ChainFarAgent)
-      .toFinish(ChainFarFinish),
-  ],
+  flow: [onStart(ChainFarStart).toAgent(ChainFarAgent).toFinish(ChainFarFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
 })
 export class ChainFarWorkflow {}
@@ -289,27 +272,15 @@ export class ChainRootDirectFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChainRootStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(ChainChildWorkflow)
-      .returns(oneOf(WorkflowFinishTextDto, WorkflowStartTextDto))
       .switch(
         caseOf(WorkflowFinishTextDto).toFinish(ChainRootFinish),
         caseOf(WorkflowStartTextDto).toFinish(ChainRootDirectFinish),
       ),
-    onStart(ChainPeekRootStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChainPeekWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(ChainRootFinish),
-    onStart(ChainOpenRootStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChainOpenWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(ChainRootFinish),
+    onStart(ChainPeekRootStart).toWorkflow(ChainPeekWorkflow).toFinish(ChainRootFinish),
+    onStart(ChainOpenRootStart).toWorkflow(ChainOpenWorkflow).toFinish(ChainRootFinish),
     onStart(ChainFarRootStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(ChainFarWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(WorkflowFinishTextDto)
       .toFinish(ChainRootFinish),
   ],
   piiPolicies: [RootSecretPiiPolicy],
@@ -320,13 +291,7 @@ export class ChainRootWorkflow {}
 @Workflow({
   name: "chain-plain-root-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChainPlainRootStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChainPeekWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(ChainRootFinish),
-  ],
+  flow: [onStart(ChainPlainRootStart).toWorkflow(ChainPeekWorkflow).toFinish(ChainRootFinish)],
 })
 export class ChainPlainRootWorkflow {}
 

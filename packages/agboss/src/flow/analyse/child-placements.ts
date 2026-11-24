@@ -74,8 +74,6 @@ export function subPathsOf(step: Exclude<Step, ToStep | LaunchStep>): readonly S
           ? step.quorum.groups.map((group) => group.path)
           : []),
       ];
-    case StepKind.Returns:
-      return [];
   }
 }
 

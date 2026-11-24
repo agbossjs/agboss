@@ -75,7 +75,6 @@ function childAndParent(
     version: "1.0.0",
     flow: [
       onStart(ChildStart)
-        .returns(WorkflowStartTextDto)
         .toAgent(agent)
         .toFinish(options.finish ?? ChildFinish),
     ],
@@ -97,13 +96,7 @@ function childAndParent(
   @Workflow({
     name: `rules-parent-${n}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(ParentStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(ChildWorkflow)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(ParentFinish),
-    ],
+    flow: [onStart(ParentStart).toWorkflow(ChildWorkflow).toFinish(ParentFinish)],
   })
   class ParentWorkflow {}
   return { ChildWorkflow, ParentWorkflow, ParentFinish };
@@ -168,13 +161,7 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     @Workflow({
       name: "rules-other-workflow",
       version: "1.0.0",
-      flow: [
-        onStart(OtherStart)
-          .returns(WorkflowStartTextDto)
-          .toWorkflow(ParentWorkflow)
-          .returns(WorkflowFinishTextDto)
-          .toFinish(OtherSharedFinish),
-      ],
+      flow: [onStart(OtherStart).toWorkflow(ParentWorkflow).toFinish(OtherSharedFinish)],
     })
     class OtherWorkflow {}
 

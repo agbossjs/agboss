@@ -259,11 +259,8 @@ export class ExtendManagerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ExtendManagerWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ExtendManagerQuestion)
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExtensionAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExtensionWorkflowFinish),
   ],
 })
@@ -282,11 +279,8 @@ export class ExtendOwnerWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ExtendOwnerWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ExtendOwnerQuestion)
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExtensionAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExtensionWorkflowFinish),
   ],
 })
@@ -305,11 +299,8 @@ export class ExtendOpenWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ExtendOpenWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ExtendOpenQuestion)
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExtensionAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExtensionWorkflowFinish),
   ],
 })
@@ -328,11 +319,8 @@ export class ExtendTightWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ExtendTightWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ExtendManagerQuestion, { expiresIn: hours(1) })
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExtensionAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExtensionWorkflowFinish),
   ],
 })

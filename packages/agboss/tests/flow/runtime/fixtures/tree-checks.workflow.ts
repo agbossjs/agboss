@@ -51,9 +51,7 @@ export class TaskCheckWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(TaskCheckWorkflowStart)
-      .returns(TaskDto)
       .toAgent(TaskCheckerAgent)
-      .returns(TaskDoneDto)
       .toFinish(TaskDoneWorkflowFinish),
   ],
 })
@@ -71,10 +69,8 @@ export class ChecksWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ChecksWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelWorkflows(TaskCheckWorkflow, { maxConcurrency: 5, maxItems: 10 })
       .join()
-      .returns(listOf(TaskDoneDto))
       .toFinish(BatchDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,

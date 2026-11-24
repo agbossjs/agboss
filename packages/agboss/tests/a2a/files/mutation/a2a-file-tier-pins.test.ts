@@ -59,7 +59,7 @@ function skill(input: new () => object, output: new () => object, files?: A2AFil
   @Workflow({
     name: `${id}-workflow`,
     version: "1.0.0",
-    flow: [onStart(TierStart).returns(input).toFinish(TierFinish)],
+    flow: [onStart(TierStart).toFinish(TierFinish)],
   })
   class TierWorkflow {}
 
@@ -130,7 +130,7 @@ describe("fileTierSizeOf", () => {
     @Workflow({
       name: `${id}-workflow`,
       version: "1.0.0",
-      flow: [onStart(MapStart).returns(TextDto).toFinish(MapFinish)],
+      flow: [onStart(MapStart).toFinish(MapFinish)],
     })
     class MapWorkflow {}
 
@@ -219,9 +219,7 @@ class MixedTextFinish {}
   version: "1.0.0",
   flow: [
     onStart(FileReviewWorkflowStart)
-      .returns(ReviewRequestDto)
       .toAction(MixedAction)
-      .returns(oneOf(ReviewResultDto, TextDto))
       .switch(
         caseOf(ReviewResultDto).toFinish(FileReviewFinish),
         caseOf(TextDto).toFinish(MixedTextFinish),

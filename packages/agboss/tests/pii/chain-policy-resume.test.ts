@@ -105,9 +105,7 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
   @Workflow({
     name: "cr-child-workflow",
     version: "1.0.0",
-    flow: [
-      onStart(CrChildStart).returns(WorkflowStartTextDto).toAgent(CrMailer).toFinish(CrChildFinish),
-    ],
+    flow: [onStart(CrChildStart).toAgent(CrMailer).toFinish(CrChildFinish)],
     piiPolicies: own,
   })
   class CrChild {}
@@ -115,13 +113,7 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
   @Workflow({
     name: "cr-root-workflow",
     version: "1.0.0",
-    flow: [
-      onStart(CrRootStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(CrChild)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(CrRootFinish),
-    ],
+    flow: [onStart(CrRootStart).toWorkflow(CrChild).toFinish(CrRootFinish)],
     piiPolicies: root,
   })
   class CrRoot {}
@@ -155,9 +147,7 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-leaf-workflow",
     version: "1.0.0",
-    flow: [
-      onStart(CrChildStart).returns(WorkflowStartTextDto).toAgent(CrMailer).toFinish(CrChildFinish),
-    ],
+    flow: [onStart(CrChildStart).toAgent(CrMailer).toFinish(CrChildFinish)],
   })
   class CrLeaf {}
 
@@ -178,13 +168,7 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-middle-workflow",
     version: "1.0.0",
-    flow: [
-      onStart(CrMiddleStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(CrLeaf)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(CrMiddleFinish),
-    ],
+    flow: [onStart(CrMiddleStart).toWorkflow(CrLeaf).toFinish(CrMiddleFinish)],
     piiPolicies: middle,
   })
   class CrMiddle {}
@@ -192,13 +176,7 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-root-workflow",
     version: "1.0.0",
-    flow: [
-      onStart(CrRootStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(CrMiddle)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(CrRootFinish),
-    ],
+    flow: [onStart(CrRootStart).toWorkflow(CrMiddle).toFinish(CrRootFinish)],
   })
   class CrRoot {}
 

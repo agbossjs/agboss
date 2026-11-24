@@ -14,9 +14,7 @@ import {
   ResearchWorkflowStart,
   ScreeningFailedWorkflowFinish,
 } from "../fixtures/launch.fixture.js";
-import { WorkflowStartTextDto } from "../fixtures/dtos.js";
-import { ArticleDraftDto } from "../fixtures/launch-dtos.js";
-import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
+import { CritiqueDto, ResearchDto } from "../fixtures/review-dtos.js";
 import { onStart, toAction, toFinish } from "../fixtures/paths.js";
 
 /**
@@ -57,16 +55,11 @@ function codesOf(sidePath: ReturnType<typeof toAction>): readonly string[] {
   count += 1;
   const flow: Flow = [
     onStart(ResearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(PlannerAgent)
-      .returns(PlanDto)
       .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
       .join()
       .onError(PauseExpiredError, sidePath)
-      .returns(ResearchDto)
-      .returns(listOf(CritiqueDto))
       .toAgent(ArticleWriterAgent)
-      .returns(ArticleDraftDto)
       .toFinish(ArticleDraftWorkflowFinish),
   ];
   @Workflow({ name: `settled-${String(count)}-workflow`, version: "1.0.0", flow })
@@ -76,17 +69,13 @@ function codesOf(sidePath: ReturnType<typeof toAction>): readonly string[] {
 
 describe("V3.6: the settled answers on the error path", () => {
   it("a side path reads a branch output as optional, a list as a list", () => {
-    const side = toAction(SettledOptionalAction)
-      .returns(ScreeningFailedDto)
-      .toFinish(ScreeningFailedWorkflowFinish);
+    const side = toAction(SettledOptionalAction).toFinish(ScreeningFailedWorkflowFinish);
 
     expect(codesOf(side)).toEqual([]);
   });
 
   it("a side path reading a branch output non-optionally is an assembly error", () => {
-    const side = toAction(SettledRequiredAction)
-      .returns(ScreeningFailedDto)
-      .toFinish(ScreeningFailedWorkflowFinish);
+    const side = toAction(SettledRequiredAction).toFinish(ScreeningFailedWorkflowFinish);
 
     expect(codesOf(side)).toContain("input.missing-on-path");
   });

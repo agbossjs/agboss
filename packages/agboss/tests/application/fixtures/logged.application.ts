@@ -130,12 +130,7 @@ export class SentWorkflowFinish {}
   version: "1.0.0",
   defaults: { models: { temperature: 0 } },
   uncompactedTurns: 1,
-  flow: [
-    onStart(NoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ScribeAgent)
-      .toFinish(NoteWorkflowFinish),
-  ],
+  flow: [onStart(NoteWorkflowStart).toAgent(ScribeAgent).toFinish(NoteWorkflowFinish)],
 })
 export class NoteWorkflow {}
 
@@ -145,12 +140,7 @@ export class NoteWorkflow {}
   version: "1.0.0",
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   uncompactedTurns: 1,
-  flow: [
-    onStart(SendWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(SenderAgent)
-      .toFinish(SentWorkflowFinish),
-  ],
+  flow: [onStart(SendWorkflowStart).toAgent(SenderAgent).toFinish(SentWorkflowFinish)],
 })
 export class SendWorkflow {}
 

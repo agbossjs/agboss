@@ -9,7 +9,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
+import { ItemDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import {
   RemoteChecksWorkflowFinish,
   RemoteItemWorkflow,
@@ -36,14 +36,12 @@ export class MetricsBatchWorkflowStart {}
   maxConcurrentExecutions: 30,
   flow: [
     onStart(MetricsBatchWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelWorkflows(RemoteItemWorkflow, {
         maxConcurrency: 20,
         maxItems: 20,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(RemoteChecksWorkflowFinish),
   ],
 })

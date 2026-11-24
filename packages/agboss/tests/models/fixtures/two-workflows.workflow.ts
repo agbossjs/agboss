@@ -42,7 +42,6 @@ export class DraftingStart {}
   version: "1.0.0",
   flow: [
     onStart(DraftingStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(DraftingAgent)
       .toFinish(NotesFinish),
   ],
@@ -71,7 +70,6 @@ export class PolishingStart {}
   version: "1.0.0",
   flow: [
     onStart(PolishingStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(PolishingAgent)
       .toFinish(NotesFinish),
   ],

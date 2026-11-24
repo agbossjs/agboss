@@ -2,7 +2,6 @@ import { NodeKind, type ErrorClass, type PathSource, type ToStep } from "../ast.
 import { declarationOf } from "../decorators/declaration.js";
 import { derivedWrites } from "./derived-writes.js";
 import type { NodeTable } from "./nodes.js";
-import type { OneOfWrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { JoinGroup } from "./join-groups.js";
 import { EdgeKind, type FlowLaunch, type JoinEdge, type ValueWrite } from "./flow-graph.js";
@@ -12,10 +11,6 @@ export interface Cursor {
   readonly current: ComponentName | undefined;
   /** What the step `current` gives, derived from its declaration (#1270). */
   readonly writes: readonly ValueWrite[];
-  /** What the `.returns(…)` chain after it named so far. */
-  readonly returned: readonly ValueWrite[];
-  /** A `.returns(oneOf(…))` the next `.switch(…)` branches (#299 S54 c). */
-  readonly oneOf?: OneOfWrapper;
   readonly entry: EdgeKind;
   readonly error?: ErrorClass;
   readonly depth: number;
@@ -27,7 +22,7 @@ export interface Cursor {
   readonly settled?: readonly JoinGroup[];
 }
 
-/** Where a walk stands after a node is entered: nothing returned yet. */
+/** Where a walk stands after a node is entered. */
 export const nextCursor = (
   current: ComponentName | undefined,
   depth: number,
@@ -36,7 +31,6 @@ export const nextCursor = (
 ): Cursor => ({
   current,
   writes,
-  returned: [],
   entry: EdgeKind.Next,
   depth,
   path,

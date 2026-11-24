@@ -33,12 +33,7 @@ export class WireCallerResolver implements A2ACallerResolver<typeof WireGuardedS
 @Workflow({
   name: "wire-guarded-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(WireGuardedStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(GuardedAgent)
-      .toFinish(WireGuardedFinish),
-  ],
+  flow: [onStart(WireGuardedStart).toAgent(GuardedAgent).toFinish(WireGuardedFinish)],
   defaults: DEFAULTS,
   providers: [WireCallerResolver],
 })

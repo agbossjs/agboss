@@ -2,13 +2,7 @@ import { describe, expect, it } from "vitest";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import {
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-  ShortlistDto,
-} from "../fixtures/dtos.js";
+import { ChangesRequestedDto, DraftApprovedDto } from "../fixtures/dtos.js";
 import {
   DraftKitAgent,
   DraftKitWorkflowFinish,
@@ -22,10 +16,8 @@ import { OrderWorkflow } from "../fixtures/order.fixture.js";
 import { onAgent, caseOf, onStart, onWorkflow } from "../fixtures/paths.js";
 import {
   CompanyGradeDto,
-  CompanyLinkDto,
   CompanyRejectedDto,
   CompanyReviewFailedDto,
-  JobOfferDto,
 } from "../fixtures/child-dtos.js";
 import {
   CompanyPickerAgent,
@@ -38,21 +30,13 @@ import {
   NoOfferRejectedWorkflowFinish,
   PickedOfferWorkflowStart,
 } from "../fixtures/children.fixture.js";
-import { CompanyDto } from "../fixtures/data-dtos.js";
-import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 
 /** Where a node is continued (#272 AC3, AC4): inline from one place, own path from two or more. */
 
 const reviewSwitch = () =>
   [
-    caseOf(ChangesRequestedDto)
-      .toAgent(EditKitAgent)
-      .returns(OfferDraftDto)
-      .toAgent(ReviewKitAgent),
-    caseOf(DraftApprovedDto)
-      .toAction(SendKitAction)
-      .returns(OfferSentDto)
-      .toFinish(SentKitWorkflowFinish),
+    caseOf(ChangesRequestedDto).toAgent(EditKitAgent).toAgent(ReviewKitAgent),
+    caseOf(DraftApprovedDto).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
   ] as const;
 
 @Workflow({
@@ -60,11 +44,8 @@ const reviewSwitch = () =>
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
       .toAgent(ReviewKitAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(...reviewSwitch()),
   ],
 })
@@ -74,14 +55,8 @@ class InlineSharedWorkflow {}
   name: "own-path-workflow",
   version: "1.0.0",
   flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
-      .toAgent(ReviewKitAgent),
-    onAgent(ReviewKitAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(...reviewSwitch()),
+    onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
+    onAgent(ReviewKitAgent).switch(...reviewSwitch()),
   ],
 })
 class OwnPathWorkflow {}
@@ -90,8 +65,8 @@ class OwnPathWorkflow {}
   name: "single-entry-own-path-workflow",
   version: "1.0.0",
   flow: [
-    onStart(KitWorkflowStart).returns(ShortlistDto).toAgent(DraftKitAgent),
-    onAgent(DraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
+    onStart(KitWorkflowStart).toAgent(DraftKitAgent),
+    onAgent(DraftKitAgent).toFinish(DraftKitWorkflowFinish),
   ],
 })
 class SingleEntryOwnPathWorkflow {}
@@ -100,12 +75,8 @@ class SingleEntryOwnPathWorkflow {}
   name: "continued-twice-workflow",
   version: "1.0.0",
   flow: [
-    onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
-      .toFinish(DraftKitWorkflowFinish),
-    onAgent(DraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
+    onStart(KitWorkflowStart).toAgent(DraftKitAgent).toFinish(DraftKitWorkflowFinish),
+    onAgent(DraftKitAgent).toFinish(DraftKitWorkflowFinish),
   ],
 })
 class ContinuedTwiceWorkflow {}
@@ -159,29 +130,19 @@ describe("#263 AC4: child inline / own path", () => {
   const REVIEWED = oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto);
   const reviewCases = () =>
     [
-      caseOf(CompanyGradeDto)
-        .toAgent(JobOfferAgent)
-        .returns(JobOfferDto)
-        .toFinish(JobOfferWorkflowFinish),
+      caseOf(CompanyGradeDto).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
       caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
       caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
     ] as const;
-  const picked = () =>
-    onStart(PickedOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(CompanyPickerAgent)
-      .returns(CompanyDto);
-  const linked = () =>
-    onStart(LinkOfferWorkflowStart).returns(WorkflowStartTextDto).returns(CompanyLinkDto);
+  const picked = () => onStart(PickedOfferWorkflowStart).toAgent(CompanyPickerAgent);
+  const linked = () => onStart(LinkOfferWorkflowStart);
 
   @Workflow({
     name: "child-single-own-path-workflow",
     version: "1.0.0",
     flow: [
       picked().toWorkflow(CompanyReviewWorkflow),
-      onWorkflow(CompanyReviewWorkflow)
-        .returns(REVIEWED)
-        .switch(...reviewCases()),
+      onWorkflow(CompanyReviewWorkflow).switch(...reviewCases()),
     ],
   })
   class ChildSingleOwnPathWorkflow {}
@@ -192,7 +153,6 @@ describe("#263 AC4: child inline / own path", () => {
     flow: [
       picked()
         .toWorkflow(CompanyReviewWorkflow)
-        .returns(REVIEWED)
         .switch(...reviewCases()),
       linked().toWorkflow(CompanyReviewWorkflow),
     ],

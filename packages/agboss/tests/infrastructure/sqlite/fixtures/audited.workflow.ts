@@ -57,9 +57,7 @@ export class AuditedSqliteExecutionRecordRepository extends SqliteExecutionRecor
   },
   flow: [
     onStart(OrderWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
-      .returns(ReceiptDto)
       .toFinish(ReceiptWorkflowFinish),
   ],
 })

@@ -14,7 +14,12 @@ import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js"
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";
 import { testConfig, testDefaults } from "../../../../agboss/tests/helpers.js";
 
-@Rag({ name: "notes-rag", description: "Notes about companies", tenancy: RagTenancy.PerTenant, topK: 2 })
+@Rag({
+  name: "notes-rag",
+  description: "Notes about companies",
+  tenancy: RagTenancy.PerTenant,
+  topK: 2,
+})
 export class NotesRag implements RagConnector {
   retrieve(): Promise<RagRetrieval> {
     return Promise.resolve({ results: [] });
@@ -27,7 +32,12 @@ export class NotesRag implements RagConnector {
   }
 }
 
-@Rag({ name: "handbook-rag", description: "The team handbook", tenancy: RagTenancy.PerTenant, topK: 2 })
+@Rag({
+  name: "handbook-rag",
+  description: "The team handbook",
+  tenancy: RagTenancy.PerTenant,
+  topK: 2,
+})
 export class HandbookRag implements RagConnector {
   retrieve(): Promise<RagRetrieval> {
     return Promise.resolve({ results: [] });

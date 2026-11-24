@@ -183,10 +183,7 @@ function workflowReading(dependency: object): object {
     name: "reading-workflow",
     version: "1.0.0",
     flow: [
-      onStart(LeaseReadingWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .toAction(ReadingAction)
-        .toFinish(LeaseReadWorkflowFinish),
+      onStart(LeaseReadingWorkflowStart).toAction(ReadingAction).toFinish(LeaseReadWorkflowFinish),
     ],
   })
   class ReadingWorkflow {}

@@ -48,7 +48,6 @@ export class Assistant {}
   version: "1.0.0",
   flow: [
     onStart(TaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Assistant)
       .toFinish(Done),
   ],

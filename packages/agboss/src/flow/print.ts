@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { shapeLabel, sourceCallOf, toCallOf } from "./analyse/labels.js";
+import { sourceCallOf, toCallOf } from "./analyse/labels.js";
 import { spanText } from "../units/working-time.js";
 import {
   StepKind,
@@ -7,7 +7,6 @@ import {
   type GroupsQuorum,
   type JoinStep,
   type LaunchStep,
-  type ReturnedValue,
   type Step,
   type ToStep,
 } from "./ast.js";
@@ -36,8 +35,6 @@ export const byClassName: ComponentLabel = (component) => component.name || "(an
 /** A component by its `name` (what records and checkpoints are keyed by). */
 export const byComponentName: ComponentLabel = (component) =>
   declarationOf(component)?.options.name ?? byClassName(component);
-
-const returnsLine = (value: ReturnedValue): string => `.returns(${shapeLabel(value.shape)})`;
 
 /** The enum member's name of a placement: `AnyInstance`. */
 const placementName = (placement: ChildPlacement): string =>
@@ -121,7 +118,7 @@ class Printer {
       this.line(depth, acceptedByLine(accepted, this.label));
   }
 
-  /** `.joinQuorumGroups(` each `group(…)` with its priority, values and path, its options `)` (#279). */
+  /** `.joinQuorumGroups(` each `group(…)` with its priority and path, its options `)` (#279). */
   private groups(quorum: GroupsQuorum, depth: number): void {
     this.line(depth, ".joinQuorumGroups(");
     const options = groupsQuorumOptions(quorum);
@@ -129,7 +126,6 @@ class Printer {
       this.line(depth + 1, `group(${group.agents.map((agent) => this.label(agent)).join(", ")})`);
       if (group.priority !== undefined)
         this.line(depth + 2, `.priority(${String(group.priority)})`);
-      for (const value of group.returns) this.line(depth + 2, returnsLine(value));
       this.steps(group.path.steps, depth + 2);
       if (index < quorum.groups.length - 1 || options !== undefined) this.closeLast(",");
     });
@@ -137,7 +133,7 @@ class Printer {
     this.line(depth, ")");
   }
 
-  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onError(…)`, its `.returns(…)`. */
+  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onError(…)`. */
   private join(step: JoinStep, depth: number): void {
     const { quorum } = step;
     if (isGroupsQuorum(quorum)) this.groups(quorum, depth);
@@ -148,14 +144,10 @@ class Printer {
       );
     for (const handler of step.onError)
       this.sidePath(handler.error.name, handler.path.steps, depth, "onError");
-    for (const value of step.returns) this.line(depth, returnsLine(value));
   }
 
   private step(step: Step, depth: number): void {
     switch (step.kind) {
-      case StepKind.Returns:
-        this.line(depth, returnsLine(step.value));
-        return;
       case StepKind.To:
         this.line(
           depth,

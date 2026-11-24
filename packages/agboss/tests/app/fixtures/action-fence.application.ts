@@ -93,12 +93,9 @@ export class SideKeptWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SideUndoWorkflowStart)
-      .returns(ItemDto)
       .toAction(BookItemAction)
-      .returns(BookingDto)
       .toAction(GatedItemAction)
       .onError(StepFailedError, toAction(CancelBookingAction).toFinish(SideUndoneWorkflowFinish))
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(SideKeptWorkflowFinish),
   ],
@@ -116,11 +113,8 @@ export class ChargedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChargeWorkflowStart)
-      .returns(ItemDto)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toAction(ChargeItemAction)
-      .returns(ItemResultDto)
       .toFinish(ChargedWorkflowFinish),
   ],
 })

@@ -89,9 +89,7 @@ export class EchoWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(EchoWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(EchoAction)
-      .returns(WorkflowFinishTextDto)
       .toFinish(EchoWorkflowFinish),
   ],
 })

@@ -10,7 +10,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { Budget, BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent, GraphRuleError, Injectable, Workflow, WorkflowFinish } from "../../src/index.js";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { usd, type Usd } from "../../src/units/index.js";
@@ -69,12 +69,7 @@ class OtherFinish {}
   name: "orders-workflow",
   version: "1.0.0",
   defaults: testDefaults,
-  flow: [
-    onStart(RefundsWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OtherOrdersAgent)
-      .toFinish(OtherFinish),
-  ],
+  flow: [onStart(RefundsWorkflowStart).toAgent(OtherOrdersAgent).toFinish(OtherFinish)],
 })
 class SecondOrdersWorkflow {}
 
@@ -91,12 +86,7 @@ class ClashingApplication {}
   name: "ledgered-workflow",
   version: "1.0.0",
   defaults: testDefaults,
-  flow: [
-    onStart(RefundsWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OrdersAgent)
-      .toFinish(OrdersWorkflowFinish),
-  ],
+  flow: [onStart(RefundsWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [InMemoryCostLedgerRepository],
 })
 class LedgeredWorkflow {}

@@ -113,7 +113,6 @@ const child = { name: "mail-child-workflow", defaults: { tools: { maxToolCalls: 
   version: "1.0.0",
   flow: [
     onStart(MailChildStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ChildMailerV1)
       .toFinish(MailChildFinish),
   ],
@@ -125,7 +124,6 @@ export class MailChildV1 {}
   version: "2.0.0",
   flow: [
     onStart(MailChildStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ChildMailerV2)
       .toFinish(MailChildFinish),
   ],
@@ -138,9 +136,7 @@ export class MailChildV2 {}
   version: "1.0.0",
   flow: [
     onStart(MailParentStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(MailChildV1)
-      .returns(WorkflowFinishTextDto)
       .toFinish(MailParentFinish),
   ],
 })
@@ -152,9 +148,7 @@ export class MailParentV1 {}
   version: "1.0.0",
   flow: [
     onStart(MailParentStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(MailChildV2)
-      .returns(WorkflowFinishTextDto)
       .toFinish(MailParentFinish),
   ],
 })
@@ -166,9 +160,7 @@ export class MailParentV2 {}
   version: "1.0.0",
   flow: [
     onStart(MailParentStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(MailChildV2)
-      .returns(WorkflowFinishTextDto)
       .toFinish(MailParentFinish),
   ],
 })

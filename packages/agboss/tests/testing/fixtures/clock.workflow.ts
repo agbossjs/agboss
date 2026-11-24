@@ -166,9 +166,7 @@ export class ClockReceiptWorkflowFinish {}
 
 const flow = [
   onStart(ClockWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(ClockClerk)
-    .returns(ReceiptDto)
     .toFinish(ClockReceiptWorkflowFinish),
 ];
 

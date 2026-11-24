@@ -11,11 +11,7 @@ import {
   BatchDoneWorkflowFinish,
   BatchWorkflow,
 } from "../../flow/runtime/fixtures/tree-batch.workflow.js";
-import {
-  TaskDoneDto,
-  TaskDto,
-  WorkAction,
-} from "../../flow/runtime/fixtures/tree-task.workflow.js";
+import { TaskDto, WorkAction } from "../../flow/runtime/fixtures/tree-task.workflow.js";
 
 /**
  * #332 — the instance's cap on steps, `@Application({ maxConcurrentSteps })`. One execution
@@ -37,10 +33,8 @@ export class ItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ItemsWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelActions(WorkAction, { maxConcurrency: 20, maxItems: 20 })
       .join()
-      .returns(listOf(TaskDoneDto))
       .toFinish(BatchDoneWorkflowFinish),
   ],
 })

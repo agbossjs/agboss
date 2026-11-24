@@ -109,9 +109,7 @@ export class GraphAgent {}
 @Workflow({
   name: "graph-desk-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(GraphStart).returns(WorkflowStartTextDto).toAgent(GraphAgent).toFinish(GraphAnswer),
-  ],
+  flow: [onStart(GraphStart).toAgent(GraphAgent).toFinish(GraphAnswer)],
   uncompactedTurns: 1,
   providers: [KnowledgeGraphService],
 })

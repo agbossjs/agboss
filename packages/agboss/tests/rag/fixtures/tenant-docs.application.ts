@@ -100,12 +100,7 @@ const PROVIDERS = [
 @Workflow({
   name: "search-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(SearchStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(SearchingAgent)
-      .toFinish(SearchFinish),
-  ],
+  flow: [onStart(SearchStart).toAgent(SearchingAgent).toFinish(SearchFinish)],
   defaults: DEFAULTS,
   providers: PROVIDERS,
 })
@@ -114,9 +109,7 @@ export class SearchWorkflow {}
 @Workflow({
   name: "read-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ReadStart).returns(WorkflowStartTextDto).toAgent(ReadingAgent).toFinish(ReadFinish),
-  ],
+  flow: [onStart(ReadStart).toAgent(ReadingAgent).toFinish(ReadFinish)],
   defaults: DEFAULTS,
   providers: PROVIDERS,
 })

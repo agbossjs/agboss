@@ -170,13 +170,11 @@ export class FanOutLog implements OnLaunchItemsTruncated {
   version: "1.0.0",
   flow: [
     onStart(ItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelActions(ProcessItemAction, { maxConcurrency: 2, maxItems: 4 })
       .join()
       .onError(ItemFailedError, toFinish(ItemsFailedWorkflowFinish))
       // never taken: a cancel of the execution stops it whole (S21)
       .onError(ExecutionCancelledError, toFinish(ItemsFailedWorkflowFinish))
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -198,10 +196,8 @@ export class FanOutApplication {}
   version: "1.0.0",
   flow: [
     onStart(ItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelActions(ProcessItemAction, { maxItems: 4 })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -268,10 +264,8 @@ export class StampsWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(OneItemWorkflowStart)
-      .returns(ItemDto)
       .toParallelActions(StampAction, StampAction)
       .join()
-      .returns(listOf(StampDto))
       .toFinish(StampsWorkflowFinish),
   ],
 })

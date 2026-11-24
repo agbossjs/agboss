@@ -22,7 +22,6 @@ import { onAgent, route, onStart, toFinish } from "../../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
-  ItemsFailedWorkflowFinish,
   ItemsWorkflowStart,
   SummaryDto,
   SummaryWorkflowFinish,
@@ -98,13 +97,10 @@ export class PlanLoopRouter {
   version: "1.0.0",
   flow: [
     onStart(PlanLoopWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(LoopPlannerAgent),
     onAgent(LoopPlannerAgent)
-      .returns(PlanDto)
       .toParallelAgents(LoopCriticAgent, LoopCriticAgent)
       .join()
-      .returns(listOf(CritiqueDto))
       .toRouter(PlanLoopRouter)
       .chooseOne(route(LoopPlannerAgent), route(CritiquesWorkflowFinish)),
   ],
@@ -158,10 +154,8 @@ export class ItemClerkAgent {}
   maxSteps: 20,
   flow: [
     onStart(ItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelAgents(ItemClerkAgent, { maxConcurrency: 2, maxItems: 10 })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -231,14 +225,11 @@ export class TiredLoopRouter {
   version: "1.0.0",
   flow: [
     onStart(TiredWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(TiredPlannerAgent),
     onAgent(TiredPlannerAgent)
-      .returns(PlanDto)
       .toParallelAgents(TiredCriticAgent, TiredCriticAgent)
       .join()
       .onError(VisitsLimitExceededError, toFinish(TiredWorkflowFinish))
-      .returns(listOf(CritiqueDto))
       .toRouter(TiredLoopRouter)
       .chooseOne(route(TiredPlannerAgent), route(CritiquesWorkflowFinish)),
   ],

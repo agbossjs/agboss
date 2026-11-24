@@ -3,7 +3,6 @@ import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow, type WorkflowDefaults } from "../../../src/flow/decorators/workflow.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
-import { OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitWorkflowFinish,
   EditKitAgent,
@@ -68,10 +67,8 @@ const workflowNesting = (
     version: "1.0.0",
     flow: [
       onStart(SecondKitWorkflowStart)
-        .returns(OfferDraftDto)
         .toAgent(EditKitAgent)
         .onError(DeliveryError, nested(levels))
-        .returns(OfferDraftDto)
         .toFinish(DraftKitWorkflowFinish),
     ],
     ...(defaults === undefined ? {} : { defaults }),

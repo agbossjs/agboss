@@ -14,7 +14,6 @@ import {
   Workflow,
   type ToolHandler,
 } from "../../src/index.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
@@ -93,7 +92,6 @@ function appWith(agentClass: object, lists: { app?: object[]; workflow?: object[
     version: "1.0.0",
     flow: [
       onStart(ScoutStart)
-        .returns(WorkflowStartTextDto)
         .toAgent(agentClass as never)
         .toFinish(ScoutAnswer),
     ],

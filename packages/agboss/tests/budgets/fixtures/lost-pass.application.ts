@@ -175,13 +175,9 @@ export class HoldReportAction {
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(LostPassWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(WriterAgent)
-      .returns(ReportDto)
       .toAgent(ReviewerAgent)
-      .returns(ReportDto)
       .toAction(HoldReportAction)
-      .returns(ReportDto)
       .toFinish(LostPassWorkflowFinish),
   ],
 })
@@ -249,13 +245,9 @@ export class MergeReportAction {
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(LostBranchWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(DrafterAgent, CheckerAgent)
       .join()
-      .returns(ReportDto)
-      .returns(CheckDto)
       .toAction(MergeReportAction)
-      .returns(ReportDto)
       .toFinish(LostBranchWorkflowFinish),
   ],
 })

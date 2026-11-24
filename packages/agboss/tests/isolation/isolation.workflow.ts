@@ -86,7 +86,6 @@ const defaults = {
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Cashier)
       .toFinish(Reply),
   ],
@@ -154,9 +153,7 @@ export class Editor {}
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Drafter)
-      .returns(DraftDto)
       .toAgent(Editor)
       .toFinish(Reply),
   ],

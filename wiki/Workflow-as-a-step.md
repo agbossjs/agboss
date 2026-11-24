@@ -116,19 +116,15 @@ export class LinkContractWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(VendorCheckWorkflowStart)
-      .returns(VendorDto)
       .toAgent(VendorCheckerAgent),
     onStart(VendorLinkCheckWorkflowStart)
-      .returns(VendorLinkDto)
       .toAgent(VendorCheckerAgent),
     onAgent(VendorCheckerAgent) // two ways in (two starts) → its own path
       .onError(
         StepFailedError, // caught inside the child: one more result class for the parent
         toAction(MarkVendorFailedAction)
-          .returns(VendorCheckFailedDto)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )
-      .returns(oneOf(VendorScoreDto, VendorRejectedDto))
       .switch(
         caseOf(VendorScoreDto)
           .toFinish(VendorScoredWorkflowFinish),
@@ -143,9 +139,7 @@ export class VendorCheckWorkflow {}
 // a parent, per item: one child per VendorDto (through vendor-check-workflow-start), 3 at once
 export const perItemPaths = [
   onStart(VendorScreeningWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(VendorFinderAgent)
-    .returns(listOf(VendorDto))
     .toParallelWorkflows(VendorCheckWorkflow, { maxConcurrency: 3, maxItems: 50 })
     .join()
     .onError(
@@ -153,25 +147,19 @@ export const perItemPaths = [
       toAction(NotifyOperatorAction)
         .toFinish(ScreeningStoppedWorkflowFinish),
     )
-    .returns(listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)))
     .toAgent(VendorRankerAgent)
-    .returns(VendorRankingDto)
     .toFinish(VendorRankingWorkflowFinish),
 ] as const;
 
 // a parent, one child, one way in: .onError right after it, one case per finish output class
 export const inlinePaths = [
   onStart(ContractWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(VendorPickerAgent)
-    .returns(VendorDto) // enters vendor-check-workflow-start
+    .toAgent(VendorPickerAgent) // enters vendor-check-workflow-start
     .toWorkflow(VendorCheckWorkflow)
     .onError(StepFailedError, toFinish(CheckErrorWorkflowFinish))
-    .returns(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))
     .switch(
       caseOf(VendorScoreDto)
         .toAgent(ContractAgent)
-        .returns(ContractDto)
         .toFinish(ContractWorkflowFinish),
       caseOf(VendorRejectedDto)
         .toFinish(NoContractRejectedWorkflowFinish),
@@ -183,21 +171,15 @@ export const inlinePaths = [
 // a parent, one child reached from two places: its own path, each edge with its own start
 export const ownPaths = [
   onStart(PickedContractWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(VendorPickerAgent)
-    .returns(VendorDto) // enters vendor-check-workflow-start
+    .toAgent(VendorPickerAgent) // enters vendor-check-workflow-start
     .toWorkflow(VendorCheckWorkflow),
-  onStart(LinkContractWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .returns(VendorLinkDto) // enters vendor-link-check-workflow-start
+  onStart(LinkContractWorkflowStart) // enters vendor-link-check-workflow-start
     .toWorkflow(VendorCheckWorkflow),
   onWorkflow(VendorCheckWorkflow)
     .onError(StepFailedError, toFinish(CheckErrorWorkflowFinish))
-    .returns(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))
     .switch(
       caseOf(VendorScoreDto)
         .toAgent(ContractAgent)
-        .returns(ContractDto)
         .toFinish(ContractWorkflowFinish),
       caseOf(VendorRejectedDto)
         .toFinish(NoContractRejectedWorkflowFinish),
@@ -210,9 +192,9 @@ export const ownPaths = [
 | Form | |
 | --- | --- |
 | `.toWorkflow(W)` | one child execution of `W`; also `route(W)` among a router's routes |
-| `.toParallelWorkflows(W, { maxConcurrency, maxItems })` | one child per item, right after `.returns(listOf(ItemDto))` (else it does not compile); one workflow class; `maxItems` required; followed by `.join()` like any launch ([Workflow → Parallel launches](Workflow#parallel-launches)); a router launches agents only |
-| One way in → inline | a child reached from one place is continued right after `.toWorkflow(W)` (`.onError(…)`, `.returns(…)`, `.switch(…)`); an own path for it → `[flow.single-entry-own-path]` |
-| Two or more ways in → own path | `onWorkflow(W).onError(…).returns(oneOf(…)).switch(…)`; every path into it ends with `.toWorkflow(W)`; inline → `[flow.shared-node-inline]` |
+| `.toParallelWorkflows(W, { maxConcurrency, maxItems })` | one child per item, right after a step whose output is `listOf(ItemDto)` (else `[launch.max-items-without-list]`); one workflow class; `maxItems` required; followed by `.join()` like any launch ([Workflow → Parallel launches](Workflow#parallel-launches)); a router launches agents only |
+| One way in → inline | a child reached from one place is continued right after `.toWorkflow(W)` (`.onError(…)`, `.switch(…)`); an own path for it → `[flow.single-entry-own-path]` |
+| Two or more ways in → own path | `onWorkflow(W).onError(…).switch(…)`; every path into it ends with `.toWorkflow(W)`; inline → `[flow.shared-node-inline]` |
 | One class = one node | `W` mentioned again in the graph is the same node; two stages running the same child are two workflow classes (`[flow.continuation-twice]`) |
 | The kind is checked | `toAgent(VendorCheckWorkflow)` does not compile, and is `[graph.wrong-kind]` in untyped code |
 | Not listed | a child need not be in `@Application({ workflows })`: it belongs to its parent's application, which assembles it and runs it alone through its own starts (`app.execute(VendorCheckWorkflowStart, …)`) |
@@ -227,14 +209,14 @@ The start is chosen **per edge into the child**, by class — it is never named,
 | --- | --- |
 | The child has one start | it — also after an action without `output` or from `route(W)`, where the chain carries no value |
 | Per item (`.toParallelWorkflows`) | the start with a required field of the item's type; the item fills it |
-| Single launch (`.toWorkflow`, a join's `.to…`) | the start with a required field of the chain's current value — the `.returns` / `caseOf` right before |
+| Single launch (`.toWorkflow`, a join's `.to…`) | the start with a required field of the chain's current value — the step's output or `caseOf` right before |
 | Several such starts | the one whose other required fields are all on the parent's path |
 
 None → `[graph.no-matching-start]`, naming the starts and their inputs; still two →
 `[graph.ambiguous-start]`, fixed by a subclass as one start's input
 (`class QuickCheckRequestDto extends VendorDto {}`). Both are compile errors too: the child's
 generated `Inputs` entry carries the message, so `.toWorkflow(W)` does not compile. A start's input
-may be a list (`input: listOf(VendorDto)` takes a whole list, `.returns(listOf(VendorDto)).toWorkflow(W)`)
+may be a list (`input: listOf(VendorDto)` takes a whole list, from a step whose output is `listOf(VendorDto)`)
 or a map of fields (`{ vendor: VendorDto, request: optional(SearchRequestDto) }`): the item or the
 current value fills its field, the other fields come from the parent's path, and an optional one
 may be missing — the same child is entered from parents that have it and parents that do not.
@@ -254,14 +236,14 @@ children
   parent's side the chosen start's required fields must be on every path into the edge
   (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[input.several-on-path]`).
 - **It gives back one value**: the output of the finish it ended at. Its result is the set of its
-  finishes' output classes — `.returns(XDto)` for one class, `.returns(oneOf(…)).switch(caseOf(…)…)`
-  with exactly one case per class otherwise (a missing or extra class →
+  finishes' output classes — one class continues the path, several are a `oneOf(…)` and `.switch(caseOf(…)…)`
+  with exactly one case per class (a missing or extra class →
   `[flow.switch-not-exhaustive]` / `[flow.switch-unknown-case]`, and a compile error through
   `ProducerOutputs`). Two finishes with one output class are one case. A `caseOf(XDto)` counts as
   reading `XDto` (`[flow.unused-output]` never fires on a branch that ends in a finish).
 - After a per-item launch the join gives **one polymorphic list**:
-  `.join().returns(listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)))`,
-  checked against the generated `JoinOutputs` entry `toParallelWorkflows(vendor-check-workflow) per item`;
+  `listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))`,
+  derived from the child's finishes;
   a node reads it as that `listOf(oneOf(…))` field (#299 S53: no filtered `listOf(VendorScoreDto)` slot).
 
 ## Errors
@@ -270,7 +252,7 @@ children
 | --- | --- |
 | One child, one way in | `.onError(E, path)` right after `.toWorkflow(W)` |
 | One child, own path | `.onError(E, path)` right after `onWorkflow(W)` |
-| Per item | `.onError(E, path)` right after the join (before its `.returns(…)`); not between the launch and its join |
+| Per item | `.onError(E, path)` right after the join; not between the launch and its join |
 | Soft failure | an error the child catches itself, ending at a failure finish (`VendorCheckFailedDto` above), is one more ordinary result class for the parent — the way to skip a failed item and go on |
 | No soft failure | a per-item child with no finish reachable from one of its `.onError` side paths warns `[graph.child-without-failure-finish]` — one failed item would cancel the others (FailFast); an error under `agboss check --strict`; no flag silences it |
 | After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError`, not only a child's |
@@ -343,9 +325,7 @@ export class InvoicedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaymentRecoveryWorkflowStart)
-      .returns(PaymentDto)
       .toAction(InvoiceAction)
-      .returns(PaymentDoneDto)
       .toFinish(InvoicedWorkflowFinish),
   ],
 })
@@ -362,15 +342,12 @@ export class PayWorkflow {}
 ```ts
 export const recoveryPaths = [
   onStart(PayWorkflowStart)
-    .returns(PaymentDto)
     .toAction(ChargeCardAction)
     .onError(
       StepFailedError, // the charge failed: the recovery workflow takes it from here
       toWorkflow(PaymentRecoveryWorkflow)
-        .returns(PaymentDoneDto)
         .toFinish(RecoveredWorkflowFinish),
     )
-    .returns(PaymentDoneDto)
     .toFinish(PaidWorkflowFinish),
 ] as const;
 ```
@@ -471,9 +448,7 @@ export class SupplierScoredWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SupplierCheckWorkflowStart)
-      .returns(SupplierDto)
       .toAgent(SupplierCheckerAgent)
-      .returns(SupplierScoreDto)
       .toFinish(SupplierScoredWorkflowFinish),
   ],
 })
@@ -498,9 +473,7 @@ import { ChildPlacement } from "@agboss/core";
 
 export const anyInstancePaths = [
   onStart(SupplierScreeningWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(SupplierFinderAgent)
-    .returns(listOf(SupplierDto))
     .toParallelWorkflows(SupplierCheckWorkflow, {
       maxConcurrency: 6,
       maxItems: 50,
@@ -508,9 +481,7 @@ export const anyInstancePaths = [
     })
     .join()
     .onError(ChildExecutionFailedError, toFinish(ScreeningFailedWorkflowFinish))
-    .returns(listOf(SupplierScoreDto))
     .toAgent(SupplierRankerAgent)
-    .returns(SupplierRankingDto)
     .toFinish(SupplierRankingWorkflowFinish),
 ] as const;
 ```
@@ -646,27 +617,21 @@ export class TopicFailedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TopicResearchWorkflowStart)
-      .returns(TopicDto)
       .toAgent(ResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
-      .returns(oneOf(TopicReportDto, TopicTooBroadDto))
       .switch(
         caseOf(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
         caseOf(TopicTooBroadDto) // left out of the researcher's schema on the last level
           .toAction(SubtopicsAction)
-          .returns(listOf(TopicDto))
           .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
           .join()
-          .returns(listOf(oneOf(TopicReportDto, TopicFailedDto)))
           .toAgent(MergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
-          .returns(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
       ),
 
     onAction(MarkTopicFailedAction) // two ways in: its own path
-      .returns(TopicFailedDto)
       .toFinish(TopicFailedWorkflowFinish),
   ],
   maxDepth: 3,
@@ -734,19 +699,18 @@ recursive workflow, keyed by its `name` — `input` (the problems of launching i
 
 ```ts no-check: an excerpt of a generated .agboss/types.d.ts
 interface ThisWorkflowOutputs {
-  "topic-research-workflow": { readonly input: NoInput; readonly output: TopicFailedDto | TopicReportDto; readonly join: readonly (TopicFailedDto | TopicReportDto)[] };
-  "org-chart-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto; readonly join: readonly (OrgChartFailedDto | TeamChartDto)[] };
+  "topic-research-workflow": { readonly input: NoInput; readonly output: TopicFailedDto | TopicReportDto };
+  "org-chart-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto };
 }
 ```
 
-A `.returns(…)` right after a `ThisWorkflow` launch — `.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)`,
-`onWorkflow(ThisWorkflow)`, the side-path starter `toWorkflow(ThisWorkflow)`, or the `.join()` of
-`.toParallelWorkflows(ThisWorkflow, …)` — is not checked where it is written: the path's type
-carries it as a claim through every sub-path (`caseOf`, `route`, `.switch`, `.chooseOne`,
-`.onError`) up to `@Workflow({ name, flow })`, which checks every claim of its flow
-against its own entry. A wrong class is a compile error on `flow` (`a .returns(…) after
-ThisWorkflow is not what org-chart-workflow gives — see ThisWorkflowOutputs["org-chart-workflow"]["output"]`);
-the project code is the same as for any child. Several recursive workflows with different finishes
+A `ThisWorkflow` launch — `.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)`,
+`onWorkflow(ThisWorkflow)`, the side-path starter `toWorkflow(ThisWorkflow)`, or
+`.toParallelWorkflows(ThisWorkflow, …)` — is recorded as a claim in the path's type, carried through
+every sub-path (`caseOf`, `route`, `.switch`, `.chooseOne`, `.onError`) up to
+`@Workflow({ name, flow })`, which checks the launch's `input` against its own entry. What a child
+gives is derived by the analyser from the workflow's finishes; the project code is the same as for
+any child. Several recursive workflows with different finishes
 live in one project.
 
 ## Testing

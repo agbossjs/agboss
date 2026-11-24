@@ -98,7 +98,13 @@ export class BrokenPageTool implements ToolHandler<PageQuery, PageContent> {
 }
 
 /** A knowledge base in context mode: its block is bounded by the agent's `maxResultSize`. */
-@Rag({ name: "pages-rag", description: "Pages", tenancy: RagTenancy.PerTenant, topK: 1, deps: [PageReader] })
+@Rag({
+  name: "pages-rag",
+  description: "Pages",
+  tenancy: RagTenancy.PerTenant,
+  topK: 1,
+  deps: [PageReader],
+})
 export class PagesRag {
   constructor(private readonly pageReader: PageReader) {}
 
@@ -167,11 +173,9 @@ export class PageFinish {}
   version: "1.0.0",
   flow: [
     onStart(PageStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ResearchAgent)
       .toFinish(PageFinish),
     onStart(ContextStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ContextAgent)
       .toFinish(PageFinish),
   ],
@@ -237,7 +241,6 @@ export class ZeroBoundStart {}
   version: "1.0.0",
   flow: [
     onStart(ZeroBoundStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ZeroBoundAgent)
       .toFinish(PageFinish),
   ],

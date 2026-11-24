@@ -32,7 +32,7 @@ export interface RuntimeLaunch {
   readonly launch: FlowLaunch;
   /** The variant (DTO class name) whose `caseOf(…)` launches it; undefined outside a switch. */
   readonly variant?: string;
-  /** What the launching step writes at the launch: its `.returns(…)` (a branch's item excluded). */
+  /** What the launching step writes at the launch: what its declaration gives (a branch's item excluded). */
   readonly writes: readonly ValueWrite[];
   /** The edge the join takes when every branch finished (or dropped out); a group's for groups. */
   readonly join: FlowEdge;

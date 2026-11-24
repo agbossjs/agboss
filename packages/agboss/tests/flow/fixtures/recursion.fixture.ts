@@ -114,26 +114,20 @@ export class ResearchFailedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(DeepResearchWorkflowStart)
-      .returns(ResearchTopicDto)
       .toAgent(TopicResearcherAgent)
       .onError(StepFailedError, toAction(FailTopicAction))
-      .returns(oneOf(ResearchReportDto, ResearchTooBroadDto))
       .switch(
         caseOf(ResearchReportDto)
           .toFinish(ResearchReportWorkflowFinish),
         caseOf(ResearchTooBroadDto)
           .toAction(SplitTopicAction)
-          .returns(listOf(ResearchTopicDto))
           .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
           .join()
-          .returns(listOf(oneOf(ResearchReportDto, ResearchFailedDto)))
           .toAgent(ReportMergerAgent)
           .onError(StepFailedError, toAction(FailTopicAction))
-          .returns(ResearchReportDto)
           .toFinish(ResearchReportWorkflowFinish),
       ),
     onAction(FailTopicAction)
-      .returns(ResearchFailedDto)
       .toFinish(ResearchFailedWorkflowFinish),
   ],
   maxDepth: 4,
@@ -177,11 +171,9 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
   version: "1.0.0",
   flow: [
     onStart(OutlineWorkflowStart)
-      .returns(ResearchTopicDto)
       .toRouter(OutlineDepthRouter)
       .chooseOne(
         route(ThisWorkflow)
-          .returns(oneOf(ResearchReportDto, ResearchFailedDto))
           .switch(
             caseOf(ResearchReportDto)
               .toFinish(ResearchReportWorkflowFinish),
@@ -192,10 +184,8 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
           .onError(
             StepFailedError,
             toAction(FailTopicAction)
-              .returns(ResearchFailedDto)
               .toFinish(ResearchFailedWorkflowFinish),
           )
-          .returns(ResearchReportDto)
           .toFinish(ResearchReportWorkflowFinish),
       ),
   ],

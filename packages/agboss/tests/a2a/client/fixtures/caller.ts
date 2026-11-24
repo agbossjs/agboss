@@ -21,8 +21,8 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { execute, onStart } from "../../../helpers/flow.js";
 import { MeshEnvironment } from "../../fixtures/environments/mesh.environment.js";
 import { meshEnvOf, meshOf, type MeshKeyPair } from "../../fixtures/mesh-keys.js";
-import { offline } from "../../fixtures/remote.workflow.js";
 import { AGENT_URL, type SdkAgent } from "../support/sdk-agent.js";
+import { offline } from "../../fixtures/remote.workflow.js";
 
 /**
  * An application whose agent calls an A2A agent through one tool (#809): the client is the new
@@ -139,7 +139,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [onStart(Start).returns(WorkflowStartTextDto).toAgent(Desk).toFinish(Answer)],
+    flow: [onStart(Start).toAgent(Desk).toFinish(Answer)],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
     providers: [PeerA2AAgent],
   })

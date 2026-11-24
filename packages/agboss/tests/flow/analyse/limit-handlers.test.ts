@@ -6,7 +6,7 @@ import { catchesLimit } from "../../../src/flow/analyse/rules/limit-handlers.js"
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { AGBossError } from "../../../src/core/errors.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { BudgetExceededError, LimitExceededError } from "../../../src/graph/limits.js";
@@ -15,7 +15,6 @@ import {
   CompanyGradeDto,
   CompanyRejectedDto,
   CompanyReviewFailedDto,
-  GradedShortlistDto,
   JobOfferDto,
 } from "../fixtures/child-dtos.js";
 import {
@@ -31,7 +30,6 @@ import {
   ReviewErrorWorkflowFinish,
   ReviewRankerAgent,
 } from "../fixtures/children.fixture.js";
-import { CompanyDto } from "../fixtures/data-dtos.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { caseOf, onStart, toAction, toAgent, toFinish } from "../fixtures/paths.js";
 
@@ -82,22 +80,16 @@ const REVIEWED = oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedD
 /** `.toWorkflow(CompanyReviewWorkflow)` caught by `error` on the side path `side`. */
 const reviewed = (error: ErrorClass, side: PathBuilder) =>
   onStart(JobOfferWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(CompanyPickerAgent)
-    .returns(CompanyDto)
     .toWorkflow(CompanyReviewWorkflow)
     .onError(error, side)
-    .returns(REVIEWED)
     .switch(
-      caseOf(CompanyGradeDto)
-        .toAgent(JobOfferAgent)
-        .returns(JobOfferDto)
-        .toFinish(JobOfferWorkflowFinish),
+      caseOf(CompanyGradeDto).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
       caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
       caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
     );
 
-const apology = () => toAgent(ApologyAgent).returns(JobOfferDto).toFinish(JobOfferWorkflowFinish);
+const apology = () => toAgent(ApologyAgent).toFinish(JobOfferWorkflowFinish);
 
 describe("#263 AC12: limit handler uses model", () => {
   it("which classes can catch a limit: the class, its subclasses and its parents", () => {
@@ -126,7 +118,6 @@ describe("#263 AC12: limit handler uses model", () => {
   it("a parent of the limits (AGBossError) counts; reaching the agent through an action too", () => {
     const viaAction = toAction(LogFailureAction)
       .toAgent(ApologyAgent)
-      .returns(JobOfferDto)
       .toFinish(JobOfferWorkflowFinish);
     expect(errorsOf([reviewed(AGBossError, viaAction)]).map((found) => found.code)).toEqual([
       "graph.limit-handler-uses-model",
@@ -144,15 +135,11 @@ describe("#263 AC12: limit handler uses model", () => {
 
   it("the join's .onError(LimitExceededError, …) leading to an agent", () => {
     const joined = onStart(JobOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(CompanyFinderAgent)
-      .returns(listOf(CompanyDto))
       .toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 })
       .join()
       .onError(LimitExceededError, apology())
-      .returns(listOf(REVIEWED))
       .toAgent(ReviewRankerAgent)
-      .returns(GradedShortlistDto)
       .toFinish(GradedShortlistWorkflowFinish);
     expect(errorsOf([joined])).toEqual([
       {

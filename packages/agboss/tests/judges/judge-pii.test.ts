@@ -67,12 +67,7 @@ class ContactFinish {}
 @Workflow({
   name: "contact-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ContactStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ContactWriter)
-      .toFinish(ContactFinish),
-  ],
+  flow: [onStart(ContactStart).toAgent(ContactWriter).toFinish(ContactFinish)],
   defaults: DEFAULTS,
 })
 class ContactWorkflow {}

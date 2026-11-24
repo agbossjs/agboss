@@ -221,11 +221,9 @@ export class NotChargedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChargeOrderAction)
       // a catch-all side path: a business error takes it, a fenced write never does
       .onError(Error, toFinish(NotChargedWorkflowFinish))
-      .returns(ChargeReceiptDto)
       .toFinish(ChargedWorkflowFinish),
   ],
 })
@@ -244,9 +242,7 @@ export class DoubleChargedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(DoubleChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(DoubleChargeAction)
-      .returns(ChargeReceiptDto)
       .toFinish(DoubleChargedWorkflowFinish),
   ],
 })

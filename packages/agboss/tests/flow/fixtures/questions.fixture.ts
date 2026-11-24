@@ -225,7 +225,9 @@ export class PlacePurchaseAction implements ActionHandler<PlacePurchaseAction> {
 export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
   execute({ question, answer }: InputOf<CheckLimitAction>): Promise<OutputOf<CheckLimitAction>> {
     if (answer.value.limitUsd >= question.value.priceUsd)
-      return Promise.resolve(variant(PurchasePlacedDto, { status: `placed within ${String(answer.value.limitUsd)}` }));
+      return Promise.resolve(
+        variant(PurchasePlacedDto, { status: `placed within ${String(answer.value.limitUsd)}` }),
+      );
     const { item, priceUsd, requester } = question.value;
     return Promise.resolve(variant(PurchaseQuestionDto, { item, priceUsd, requester }));
   }
@@ -236,24 +238,28 @@ export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
   version: "1.0.0",
   flow: [
     onStart(PurchaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(DraftQuestionAction)
-      .returns(PurchaseQuestionDto)
       .toExternalTask(SpendingLimitQuestion)
       .onError(QuestionFailedError, toFinish(PurchaseUnaskedWorkflowFinish))
-      .returns(SpendingLimitAnswerDto)
       .toAction(PlacePurchaseAction)
-      .returns(PurchasePlacedDto)
       .toFinish(PurchaseWorkflowFinish),
   ],
   providers: [QuestionInbox],
 })
 export class PurchaseWorkflow {}
 
-@WorkflowStart({ name: "owner-purchase-workflow-start", description: "d", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "owner-purchase-workflow-start",
+  description: "d",
+  input: WorkflowStartTextDto,
+})
 export class OwnerPurchaseWorkflowStart {}
 
-@WorkflowFinish({ name: "owner-purchase-workflow-finish", description: "d", output: PurchasePlacedDto })
+@WorkflowFinish({
+  name: "owner-purchase-workflow-finish",
+  description: "d",
+  output: PurchasePlacedDto,
+})
 export class OwnerPurchaseWorkflowFinish {}
 
 @Workflow({
@@ -261,14 +267,10 @@ export class OwnerPurchaseWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OwnerPurchaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(DraftQuestionAction)
-      .returns(PurchaseQuestionDto)
       .toExternalTask(BudgetOwnerQuestion),
     onExternalTask(BudgetOwnerQuestion)
-      .returns(SpendingLimitAnswerDto)
       .toAction(CheckLimitAction)
-      .returns(oneOf(PurchasePlacedDto, PurchaseQuestionDto))
       .switch(
         caseOf(PurchasePlacedDto)
           .toFinish(OwnerPurchaseWorkflowFinish),

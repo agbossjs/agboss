@@ -49,13 +49,7 @@ export class FileOutWorkflowFinish {}
 @Workflow({
   name: "file-out-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(FileOutWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(FileOutAction)
-      .returns(WorkflowFinishFileDto)
-      .toFinish(FileOutWorkflowFinish),
-  ],
+  flow: [onStart(FileOutWorkflowStart).toAction(FileOutAction).toFinish(FileOutWorkflowFinish)],
 })
 export class FileOutWorkflow {}
 

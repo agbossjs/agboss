@@ -85,13 +85,11 @@ export class MainRouter {}
 
 export const chatPaths = [
   onStart(IntakeWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toRouter(MainRouter),
 
   onRouter(MainRouter)
     .chooseOne(
       route(ProfilerAgent)
-        .returns(oneOf(ProfileDto, ResumeMissingDto))
         .switch(
           caseOf(ProfileDto)
             .toRouter(MainRouter),
@@ -99,7 +97,6 @@ export const chatPaths = [
             .toFinish(AskResumeWorkflowFinish),
         ),
       route(ScoutAgent)
-        .returns(OpeningsDto)
         .toFinish(ChatWorkflowFinish),
       route(NoReplyWorkflowFinish),
     ),

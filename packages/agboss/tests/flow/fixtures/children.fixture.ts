@@ -123,24 +123,19 @@ export class CompanyReviewFailedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(CompanyReviewWorkflowStart)
-      .returns(CompanyDto)
       .toAgent(CompanyReviewerAgent),
 
     onStart(CompanyLinkReviewWorkflowStart)
-      .returns(CompanyLinkDto)
       .toAgent(CompanyReviewerAgent),
 
     // two ways in (two starts) → its own path
     onAgent(CompanyReviewerAgent)
-      .returns(oneOf(PromisingCompanyDto, CompanyRejectedDto))
       .switch(
         caseOf(PromisingCompanyDto)
           .toAgent(DeepDiveAgent)
           .onError(StepFailedError, toAction(MarkReviewFailedAction))
-          .returns(DeepDiveDto)
           .toAgent(GraderAgent)
           .onError(StepFailedError, toAction(MarkReviewFailedAction))
-          .returns(CompanyGradeDto)
           .toFinish(CompanyGradedWorkflowFinish),
         caseOf(CompanyRejectedDto)
           .toFinish(CompanyRejectedWorkflowFinish),
@@ -148,7 +143,6 @@ export class CompanyReviewFailedWorkflowFinish {}
 
     // two ways in (two onError side paths) → its own path: the soft failure of a per-item child
     onAction(MarkReviewFailedAction)
-      .returns(CompanyReviewFailedDto)
       .toFinish(CompanyReviewFailedWorkflowFinish),
   ],
   maxSteps: 10,
@@ -214,9 +208,7 @@ export class ScreeningStoppedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(CompanyScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(CompanyFinderAgent)
-      .returns(listOf(CompanyDto)) // each element enters company-review-workflow-start
+      .toAgent(CompanyFinderAgent) // each element enters company-review-workflow-start
       .toParallelWorkflows(CompanyReviewWorkflow, { maxConcurrency: 3, maxItems: 50 })
       .join()
       .onError(
@@ -224,9 +216,7 @@ export class ScreeningStoppedWorkflowFinish {}
         toAction(NotifyReviewStoppedAction)
           .toFinish(ScreeningStoppedWorkflowFinish),
       )
-      .returns(listOf(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto)))
       .toAgent(ReviewRankerAgent)
-      .returns(GradedShortlistDto)
       .toFinish(GradedShortlistWorkflowFinish),
   ],
 })
@@ -294,16 +284,12 @@ export class ReviewErrorWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(JobOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(CompanyPickerAgent)
-      .returns(CompanyDto) // enters company-review-workflow-start
+      .toAgent(CompanyPickerAgent) // enters company-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
-      .returns(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto))
       .switch(
         caseOf(CompanyGradeDto)
           .toAgent(JobOfferAgent)
-          .returns(JobOfferDto)
           .toFinish(JobOfferWorkflowFinish),
         caseOf(CompanyRejectedDto)
           .toFinish(NoOfferRejectedWorkflowFinish),
@@ -335,24 +321,18 @@ export class LinkOfferWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(PickedOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(CompanyPickerAgent)
-      .returns(CompanyDto) // enters company-review-workflow-start
+      .toAgent(CompanyPickerAgent) // enters company-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow),
 
-    onStart(LinkOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .returns(CompanyLinkDto) // enters company-link-review-workflow-start
+    onStart(LinkOfferWorkflowStart) // enters company-link-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow),
 
     // two ways in → its own path
     onWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
-      .returns(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto))
       .switch(
         caseOf(CompanyGradeDto)
           .toAgent(JobOfferAgent)
-          .returns(JobOfferDto)
           .toFinish(JobOfferWorkflowFinish),
         caseOf(CompanyRejectedDto)
           .toFinish(NoOfferRejectedWorkflowFinish),

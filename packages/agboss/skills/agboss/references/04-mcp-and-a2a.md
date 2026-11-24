@@ -291,7 +291,6 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(SupportWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(SupportAgent)
       .toFinish(SupportWorkflowFinish),
   ],
@@ -772,7 +771,6 @@ export class LoopedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OrdersWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(OrdersAgent) // its tool calls the billing application over A2A
       .onError(
         MeshLoopDetectedError, // billing called back into orders-workflow-start

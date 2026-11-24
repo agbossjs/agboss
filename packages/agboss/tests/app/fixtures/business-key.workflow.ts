@@ -24,11 +24,11 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { onStart } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
+import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 
 /**
  * #508 — an order charged under its business key `order:<id>`, whatever step, execution or thread
@@ -245,7 +245,6 @@ export class CashierFinish {}
   version: "1.0.0",
   flow: [
     onStart(CashierStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(CashierAgent)
       .toFinish(CashierFinish),
   ],
@@ -273,9 +272,7 @@ export class OrderChargedFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChargeOrderStart)
-      .returns(ChargeRequestDto)
       .toAction(ChargeOrderAction)
-      .returns(ChargeResultDto)
       .toFinish(OrderChargedFinish),
   ],
 })
@@ -300,9 +297,7 @@ export class ChargeSentFinish {}
   version: "1.0.0",
   flow: [
     onStart(SendChargeStart)
-      .returns(ChargeRequestDto)
       .toAction(SendChargeAction)
-      .returns(ChargeResultDto)
       .toFinish(ChargeSentFinish),
   ],
   providers: [PaymentGateway],
@@ -345,10 +340,8 @@ export class ChargesSentFinish {
   version: "1.0.0",
   flow: [
     onStart(SendChargesStart)
-      .returns(listOf(ChargeRequestDto))
       .toParallelActions(SendChargeAction, { maxItems: 4 })
       .join()
-      .returns(listOf(ChargeResultDto))
       .toFinish(ChargesSentFinish),
   ],
   providers: [PaymentGateway],

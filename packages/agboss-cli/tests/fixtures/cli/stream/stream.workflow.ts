@@ -43,7 +43,6 @@ export class AnsweringAgent {}
   version: "1.0.0",
   flow: [
     onStart(AskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(AnsweringAgent)
       .toFinish(AnswerWorkflowFinish),
   ],

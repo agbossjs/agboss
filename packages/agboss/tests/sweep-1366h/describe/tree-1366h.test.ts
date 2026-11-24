@@ -12,7 +12,6 @@ import { WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "../../flow/fixtures/dtos.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { onStart } from "../../helpers/flow.js";
-import { listOf } from "../../../src/flow/dto-wrappers.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -58,12 +57,9 @@ const perItemWorkflow = (name: string, options: { maxItems: number; maxConcurren
     version: "2.0.0",
     flow: [
       onStart(Start)
-        .returns(WorkflowStartTextDto)
         .toAction(SplitRequestsAction)
-        .returns(listOf(WorkflowStartTextDto))
         .toParallelWorkflows(TreasuryWorkflow, options)
         .join()
-        .returns(listOf(WorkflowFinishTextDto))
         .toAgent(BatchSummaryAgent)
         .toFinish(Finish),
     ],
@@ -122,13 +118,7 @@ describe("#1366: the launch of a child in the tree", () => {
     @Workflow({
       name: "grand-workflow",
       version: "3.1.0",
-      flow: [
-        onStart(GrandStart)
-          .returns(WorkflowStartTextDto)
-          .toWorkflow(TreasuryDeskWorkflow)
-          .returns(WorkflowFinishTextDto)
-          .toFinish(GrandFinish),
-      ],
+      flow: [onStart(GrandStart).toWorkflow(TreasuryDeskWorkflow).toFinish(GrandFinish)],
     })
     class GrandWorkflow {}
 

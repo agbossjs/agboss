@@ -46,10 +46,8 @@ export class HeldBranchWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HeldBranchWorkflowStart)
-      .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
-      .returns(OrderDto)
       .toParallelActions(RefundOrderAction, MemoOrderAction)
       .join()
       .toFinish(HeldBranchWorkflowFinish),
@@ -87,10 +85,8 @@ export class HeldItemsWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HeldItemsWorkflowStart)
-      .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(SplitOrderAction)
-      .returns(listOf(OrderDto))
       .toParallelActions(RefundOrderAction, { maxItems: 2 })
       .join()
       .toFinish(HeldItemsWorkflowFinish),
@@ -109,9 +105,7 @@ export class HeldLocalWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HeldLocalWorkflowStart)
-      .returns(OrderDto)
       .toWorkflow(HeldBranchWorkflow)
-      .returns(OrderDto)
       .toFinish(HeldLocalWorkflowFinish),
   ],
 })
@@ -128,9 +122,7 @@ export class HeldAnyWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HeldAnyWorkflowStart)
-      .returns(OrderDto)
       .toWorkflow(HeldBranchWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(OrderDto)
       .toFinish(HeldAnyWorkflowFinish),
   ],
 })

@@ -125,7 +125,6 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 2 } } as c
   version: "1.0.0",
   flow: [
     onStart(TenantAskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Desk)
       .toFinish(DeskAnswer),
   ],
@@ -167,7 +166,6 @@ export class ListedAskStart {}
   version: "1.0.0",
   flow: [
     onStart(ListedAskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Desk)
       .toFinish(DeskAnswer),
   ],

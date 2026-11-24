@@ -8,7 +8,6 @@ import type {
   SwitchStep,
 } from "../ast.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
-import type { OneOfWrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { FlowGraph, FlowLaunch } from "./flow-graph.js";
 
@@ -40,10 +39,8 @@ export interface BranchSite<TStep extends Step> {
   readonly step: TStep;
 }
 
-/** A `.switch(…)` and the `.returns(oneOf(…))` written before it (#299 S54 c). */
-export interface SwitchSite extends BranchSite<SwitchStep> {
-  readonly returned?: OneOfWrapper;
-}
+/** A `.switch(…)` and the step it follows. */
+export type SwitchSite = BranchSite<SwitchStep>;
 
 /** One `.onError(E, …)` and the launch whose join it follows (#273). */
 export interface JoinErrorSite {

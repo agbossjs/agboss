@@ -178,9 +178,7 @@ export class HandOverWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(DeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(DeskAgent)
-      .returns(oneOf(DeskAnswerDto, HandOverDto))
       .switch(
         caseOf(DeskAnswerDto)
           .toFinish(DeskWorkflowFinish),

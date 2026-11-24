@@ -11,12 +11,9 @@ effects of an agent's tool calls are not undone. The explicit form:
 
 ```ts no-check: the pattern only — the full, compiled example is on the Rollback page
 onStart(OrderWorkflowStart)
-  .returns(OrderRequestDto)
   .toAction(ChargeCardAction)
-  .returns(PaymentDto)
   .toAction(BookHotelAction)
   .onError(HotelUnavailableError, toAction(RefundPaymentAction).toFinish(NotBookedWorkflowFinish))
-  .returns(BookingDto)
   .toFinish(BookedWorkflowFinish),
 ```
 
@@ -94,7 +91,7 @@ export class RefundedWorkflowFinish {}
 import { Action, ExecutionContext, Workflow, onStart, type ActionHandler, type InputOf } from "@agboss/core";
 import { PaymentDto, RefundWorkflowStart, RefundedWorkflowFinish } from "./refund.workflow.js";
 // @snippet
-@Workflow({ name: "refund-workflow", version: "1.0.0", flow: [onStart(RefundWorkflowStart).returns(PaymentDto).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })
+@Workflow({ name: "refund-workflow", version: "1.0.0", flow: [onStart(RefundWorkflowStart).toAction(RefundPaymentAction).toFinish(RefundedWorkflowFinish)] })
 export class RefundWorkflow {}
 -->
 

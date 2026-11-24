@@ -1,4 +1,4 @@
-import { listOf, QuorumNotReachedError, onStart, toFinish, Workflow } from "@agboss/core";
+import { QuorumNotReachedError, onStart, toFinish, Workflow } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CultureScoreAgent } from "../../agents/culture-score/culture-score.agent.js";
 import { HireScoreAgent } from "../../agents/hire-score/hire-score.agent.js";
@@ -6,9 +6,6 @@ import { ScoreSummaryAgent } from "../../agents/score-summary/score-summary.agen
 import { SkillsScoreAgent } from "../../agents/skills-score/skills-score.agent.js";
 import { InRangeArbiter } from "../../arbiters/in-range/in-range.arbiter.js";
 import { ReasonedScoreArbiter } from "../../arbiters/reasoned-score/reasoned-score.arbiter.js";
-import { CandidateDto } from "../../dto/candidate.dto.js";
-import { PanelReviewDto } from "../../dto/panel-review.dto.js";
-import { ScoreDto } from "../../dto/score.dto.js";
 import { PanelReviewWorkflowFinish } from "./panel-review.workflow-finish.js";
 import { PanelUndecidedWorkflowFinish } from "./panel-undecided.workflow-finish.js";
 import { PanelWorkflowStart } from "./panel.workflow-start.js";
@@ -24,15 +21,12 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, HireScoreAgent)
       .acceptedBy(InRangeArbiter)
       .acceptedBy(ReasonedScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
       .onError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish))
-      .returns(listOf(ScoreDto))
       .toAgent(ScoreSummaryAgent)
-      .returns(PanelReviewDto)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })

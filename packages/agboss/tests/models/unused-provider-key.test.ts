@@ -39,13 +39,7 @@ class EchoNoteAction {
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(NoteWorkflowStart)
-      .returns(NoteDto)
-      .toAction(EchoNoteAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(NoteWorkflowStart).toAction(EchoNoteAction).toFinish(Reply)],
 })
 class NoteWorkflow {}
 
@@ -70,7 +64,7 @@ class NoteWriterAgent {}
 @Workflow({
   name: "noted-workflow",
   version: "1.0.0",
-  flow: [onStart(NoteWorkflowStart).returns(NoteDto).toAgent(NoteWriterAgent).toFinish(Reply)],
+  flow: [onStart(NoteWorkflowStart).toAgent(NoteWriterAgent).toFinish(Reply)],
 })
 class NotedWorkflow {}
 

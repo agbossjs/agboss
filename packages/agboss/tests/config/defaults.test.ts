@@ -82,7 +82,6 @@ class OwnRouter {}
 
 const flowThrough = (router: Class) => [
   onStart(AskWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toRouter(router)
     .chooseOne(route(HelperAgent).toFinish(AnswerWorkflowFinish)),
 ];

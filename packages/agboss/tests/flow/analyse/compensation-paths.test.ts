@@ -4,19 +4,14 @@ import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/wor
 import { StepFailedError } from "../../../src/graph/errors.js";
 import {
   BookTripAction,
-  BookingDto,
   CancelBookingAction,
   ChargeAction,
   ConfirmTripAction,
   NotifyAgencyAction,
-  PaymentDto,
   RefundAction,
   TripBookedWorkflowFinish,
-  TripConfirmedDto,
   TripLetterAgent,
-  TripLetterDto,
   TripNotBookedWorkflowFinish,
-  TripRequestDto,
   TripWorkflowStart,
 } from "../fixtures/compensation-parts.js";
 import { onStart, toAction, toFinish } from "../fixtures/paths.js";
@@ -57,16 +52,11 @@ function checked(flow: Flow) {
 /** Book, charge, then a letter that may fail: `side` takes its failure; the confirmation commits. */
 const booked = (side: PathBuilder): Flow => [
   onStart(TripWorkflowStart)
-    .returns(TripRequestDto)
     .toAction(BookTripAction)
-    .returns(BookingDto)
     .toAction(ChargeAction)
-    .returns(PaymentDto)
     .toAgent(TripLetterAgent)
     .onError(StepFailedError, side)
-    .returns(TripLetterDto)
     .toAction(ConfirmTripAction)
-    .returns(TripConfirmedDto)
     .toFinish(TripBookedWorkflowFinish),
 ];
 
@@ -122,14 +112,10 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
   it("after its committing action a side path owes nothing for the committed action", () => {
     const flow: Flow = [
       onStart(TripWorkflowStart)
-        .returns(TripRequestDto)
         .toAction(BookTripAction)
-        .returns(BookingDto)
         .toAction(ConfirmTripAction)
-        .returns(TripConfirmedDto)
         .toAgent(TripLetterAgent)
         .onError(StepFailedError, toFinish(TripNotBookedWorkflowFinish))
-        .returns(TripLetterDto)
         .toFinish(TripBookedWorkflowFinish),
     ];
 
@@ -139,17 +125,13 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
   it("the undoable action's own failure owes only the actions before it", () => {
     const flow: Flow = [
       onStart(TripWorkflowStart)
-        .returns(TripRequestDto)
         .toAction(BookTripAction)
-        .returns(BookingDto)
         .toAction(ChargeAction)
         .onError(
           StepFailedError,
           toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish),
         )
-        .returns(PaymentDto)
         .toAction(ConfirmTripAction)
-        .returns(TripConfirmedDto)
         .toFinish(TripBookedWorkflowFinish),
     ];
 
@@ -160,15 +142,11 @@ describe("#339 AC2: a side path undoes what is open, newest first", () => {
 describe("#339 AC2: a failed join's side path owes what was open before the launch", () => {
   const joined = (side: PathBuilder): Flow => [
     onStart(TripWorkflowStart)
-      .returns(TripRequestDto)
       .toAction(BookTripAction)
-      .returns(BookingDto)
       .toParallelActions(ChargeAction, NotifyAgencyAction)
       .join()
       .onError(StepFailedError, side)
-      .returns(PaymentDto)
       .toAction(ConfirmTripAction)
-      .returns(TripConfirmedDto)
       .toFinish(TripBookedWorkflowFinish),
   ];
 
@@ -189,9 +167,7 @@ describe("#339: committedBy — the committer or the undo on every path", () => 
   it("a path to a finish with neither is [flow.uncommitted-action]", () => {
     const flow: Flow = [
       onStart(TripWorkflowStart)
-        .returns(TripRequestDto)
         .toAction(BookTripAction)
-        .returns(BookingDto)
         .toAction(NotifyAgencyAction)
         .toFinish(TripNotBookedWorkflowFinish),
     ];
@@ -208,9 +184,7 @@ describe("#339: committedBy — the committer or the undo on every path", () => 
   it("a committer no path reaches is a warning", () => {
     const flow: Flow = [
       onStart(TripWorkflowStart)
-        .returns(TripRequestDto)
         .toAction(BookTripAction)
-        .returns(BookingDto)
         .toAction(CancelBookingAction)
         .toFinish(TripNotBookedWorkflowFinish),
     ];

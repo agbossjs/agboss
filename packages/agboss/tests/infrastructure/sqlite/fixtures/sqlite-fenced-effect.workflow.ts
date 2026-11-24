@@ -95,9 +95,7 @@ export class SqliteChargedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SqliteChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(SqliteChargeOrderAction)
-      .returns(ChargeReceiptDto)
       .toFinish(SqliteChargedWorkflowFinish),
   ],
 })

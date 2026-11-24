@@ -130,9 +130,7 @@ export class TaskDoneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(TaskWorkflowStart)
-      .returns(TaskDto)
       .toAction(WorkAction)
-      .returns(TaskDoneDto)
       .toFinish(TaskDoneWorkflowFinish),
   ],
 })

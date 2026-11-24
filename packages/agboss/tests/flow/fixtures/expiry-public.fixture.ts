@@ -2,7 +2,10 @@ import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { onStart as publicStart, toExternalTask as publicToQuestion } from "../../../src/flow/builder.js";
+import {
+  onStart as publicStart,
+  toExternalTask as publicToQuestion,
+} from "../../../src/flow/builder.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { hours } from "../../../src/units/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
@@ -10,8 +13,6 @@ import { TEST_BUDGETS } from "./budgets.js";
 import {
   DirectorChannel,
   DirectorQuestion,
-  ExpiryDecisionDto,
-  ExpiryDoneDto,
   ExpiryLog,
   ExpiryOrderDto,
   ExpiryPausedExecutionRepository,
@@ -41,19 +42,14 @@ export class PublicExpiryWorkflowStart {}
   version: "1.0.0",
   flow: [
     publicStart(PublicExpiryWorkflowStart)
-      .returns(ExpiryOrderDto)
       .toExternalTask(ManagerQuestion, { expiresIn: hours(4) })
       .onError(
         PauseExpiredError,
         publicToQuestion(DirectorQuestion, { expiresIn: hours(1) })
-          .returns(ExpiryDecisionDto)
           .toAction(RecordEscalatedAction)
-          .returns(ExpiryDoneDto)
           .toFinish(ExpiryWorkflowFinish),
       )
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })

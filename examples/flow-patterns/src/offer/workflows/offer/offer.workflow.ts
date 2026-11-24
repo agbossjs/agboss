@@ -1,7 +1,6 @@
 import {
   onAgent,
   caseOf,
-  oneOf,
   onStart,
   toAction,
   VisitsLimitExceededError,
@@ -14,9 +13,6 @@ import { EditorAgent } from "../../agents/editor/editor.agent.js";
 import { ReviewerAgent } from "../../agents/reviewer/reviewer.agent.js";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { DraftApprovedDto } from "../../dto/draft-approved.dto.js";
-import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
-import { OfferSentDto } from "../../dto/offer-sent.dto.js";
-import { ShortlistDto } from "../../dto/shortlist.dto.js";
 import { OfferMailer } from "../../services/offer-mailer.service.js";
 import { RecruiterInbox } from "../../services/recruiter-inbox.service.js";
 import { OfferFailedWorkflowFinish } from "./offer-failed.workflow-finish.js";
@@ -33,13 +29,10 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(OfferWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(ReviewerAgent),
 
     onAgent(ReviewerAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
         caseOf(ChangesRequestedDto) // the changes are about this draft
           .toAgent(EditorAgent)
@@ -48,11 +41,9 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
             toAction(NotifyRecruiterAction)
               .toFinish(OfferFailedWorkflowFinish),
           )
-          .returns(OfferDraftDto)
           .toAgent(ReviewerAgent),
         caseOf(DraftApprovedDto)
           .toAction(SendOfferAction)
-          .returns(OfferSentDto)
           .toFinish(OfferSentWorkflowFinish),
       ),
   ],

@@ -104,6 +104,16 @@
           "contract": "OutboundCallRepository",
           "implementation": "InMemoryOutboundCallRepository",
           "reason": "default"
+        },
+        {
+          "contract": "FileTranscriber",
+          "implementation": "ModelFileTranscriber",
+          "reason": "default"
+        },
+        {
+          "contract": "FileRedactor",
+          "implementation": "ModelImageRedactor",
+          "reason": "default"
         }
       ],
       "modelProviders": [
@@ -143,6 +153,7 @@
       "observers": [
         "DeskMetricsObserver"
       ],
+      "pauseListeners": [],
       "warnings": [],
       "maxConcurrentSteps": 16,
       "tree": [
@@ -234,7 +245,7 @@
         "name": "desk-workflow",
         "version": "1.0.0",
         "profile": "base",
-        "config": "05162c07",
+        "config": "57c83840",
         "piiPolicies": [
           {
             "name": "customer-id-pii-policy",
@@ -253,7 +264,6 @@
         ],
         "flow": [
           "onStart(DeskWorkflowStart)",
-          "  .returns(DeskQuestionDto)",
           "  .toAgent(DeskAgent)",
           "  .toFinish(DeskAnswerWorkflowFinish)"
         ],
@@ -331,7 +341,7 @@
           "least": 1,
           "most": 1
         },
-        "configHash": "05162c07c0b7413794fecc3fc1788e95a23a5c750ff1484bd1f24a14e51bf1c6",
+        "configHash": "57c83840c109b1b07049aa58131609ebb452581824d08334b5cf8290b213ae16",
         "starts": [
           "desk-workflow-start"
         ],

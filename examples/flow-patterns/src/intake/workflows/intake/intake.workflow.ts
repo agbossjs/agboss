@@ -1,9 +1,7 @@
 import { group, onStart, Workflow } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
-import { CandidateDto } from "../../../panel/dto/candidate.dto.js";
 import { FastScreenAgent } from "../../agents/fast-screen/fast-screen.agent.js";
 import { LegalCheckAgent } from "../../agents/legal-check/legal-check.agent.js";
-import { FastScreenDto, LegalReviewDto } from "../../dto/intake.dto.js";
 import { IntakeReportWorkflowFinish } from "./intake-report.workflow-finish.js";
 import { QuickScreenWorkflowFinish } from "./quick-screen.workflow-finish.js";
 import { IntakeWorkflowStart } from "./intake.workflow-start.js";
@@ -18,16 +16,13 @@ import { IntakeWorkflowStart } from "./intake.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(IntakeWorkflowStart)
-      .returns(CandidateDto)
       .toParallelAgents(LegalCheckAgent, FastScreenAgent)
       .joinQuorumGroups(
         group(LegalCheckAgent)
           .priority(1)
-          .returns(LegalReviewDto)
           .toFinish(IntakeReportWorkflowFinish),
         group(FastScreenAgent)
           .priority(2)
-          .returns(FastScreenDto)
           .toFinish(QuickScreenWorkflowFinish),
         { deadline: seconds(30) },
       ),

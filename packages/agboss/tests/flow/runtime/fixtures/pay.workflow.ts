@@ -120,16 +120,13 @@ export class DeclinedFinish {}
   version: "1.0.0",
   flow: [
     onStart(PayStart)
-      .returns(OrderDto)
       .toAction(ChargeAction)
       .onError(PaymentError, toFinish(PaymentFailedFinish))
       .onError(
         CardDeclinedError,
         toAgent(ApologizerAgent)
-          .returns(ApologyDto)
           .toFinish(DeclinedFinish),
       )
-      .returns(ReceiptDto)
       .toFinish(PaidFinish),
   ],
 })

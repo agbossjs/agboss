@@ -2,7 +2,6 @@ import { TokenLimit } from "../../../src/config/types.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import type { Class } from "../../../src/components/injection.js";
 import type { ToolHandlerClass } from "../../../src/components/decorators.js";
-import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
@@ -62,7 +61,6 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
     version: "1.0.0",
     flow: [
       onStart(TestChat)
-        .returns(WorkflowStartTextDto)
         .toAgent(ToolAlpha)
         .toFinish(TestAnswer),
     ],

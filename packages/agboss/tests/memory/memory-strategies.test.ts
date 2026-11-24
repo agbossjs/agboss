@@ -20,7 +20,6 @@ import {
   MemoryDeskApplication,
 } from "./fixtures/memory.workflow.js";
 import { execute, onStart } from "../helpers/flow.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
 
 /** What the model read in its last request: the thread's memory and the input message. */
 const inputOf = (script: ModelScript): string => {
@@ -153,7 +152,7 @@ class Odd {}
 @Workflow({
   name: "odd-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).returns(WorkflowStartTextDto).toAgent(Odd).toFinish(Answer)],
+  flow: [onStart(TaskStart).toAgent(Odd).toFinish(Answer)],
   defaults: {
     models: { temperature: 0 },
     router: { model: "typesafe/jev-1.13" },

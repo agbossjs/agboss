@@ -103,7 +103,7 @@ describe("#299 S56: historyOf(Dto, { maxPrevious }) — the current value and th
     expect(Object.isFrozen(historyOf(OfferDraftDto))).toBe(true);
   });
 
-  it("is an input field shape only: neither a value shape nor what .returns(…) takes", () => {
+  it("is an input field shape only: neither a value shape nor what takes", () => {
     expect(isWrapper(historyOf(OfferDraftDto))).toBe(true);
     expect(isValueShape(historyOf(OfferDraftDto))).toBe(false);
     expect(isReturnedShape(historyOf(OfferDraftDto))).toBe(false);

@@ -179,7 +179,6 @@ export class OpenCallerResolver implements A2ACallerResolver<typeof QuoteWorkflo
   version: "1.0.0",
   flow: [
     onStart(QuoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(QuoteDeskAgent)
       .toFinish(QuoteWorkflowFinish),
   ],
@@ -193,7 +192,6 @@ export class QuoteWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(RefundWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toFinish(RefundWorkflowFinish),
   ],
 })
@@ -204,7 +202,6 @@ export class RefundWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(KbWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(KbDeskAgent)
       .toFinish(KbWorkflowFinish),
   ],

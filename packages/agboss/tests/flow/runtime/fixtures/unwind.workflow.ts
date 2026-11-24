@@ -17,7 +17,7 @@ import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { onStart, toAction, toFinish } from "../../../helpers/flow.js";
+import { onStart, toAction } from "../../../helpers/flow.js";
 import {
   ChargeCardAction,
   ConfirmSeatAction,
@@ -32,11 +32,11 @@ import {
   RoomDto,
   SeatConfirmedDto,
   SeatConfirmedWorkflowFinish,
-  SeatDto,
   UndoDesk,
   UndoDeskError,
   UndoRequestDto,
 } from "./undo.workflow.js";
+import { toFinish } from "../../../helpers/flow.js";
 
 /**
  * #340 PR 3 — executions that end without a finish: the reservations of `undo.workflow.ts`, a
@@ -97,14 +97,10 @@ export class UnwindWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(UnwindWorkflowStart)
-      .returns(UndoRequestDto)
       .toAction(HoldSeatAction)
-      .returns(SeatDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(WaitAction)
       .toAction(ConfirmSeatAction)
-      .returns(SeatConfirmedDto)
       .toFinish(SeatAndRoomWorkflowFinish),
   ],
   providers: [UndoDesk, UnwindGate],
@@ -124,13 +120,9 @@ export class UnwindCommittedWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(UnwindCommittedWorkflowStart)
-      .returns(UndoRequestDto)
       .toAction(HoldSeatAction)
-      .returns(SeatDto)
       .toAction(ConfirmSeatAction)
-      .returns(SeatConfirmedDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(WaitAction)
       .toFinish(SeatAndRoomWorkflowFinish),
   ],
@@ -151,11 +143,8 @@ export class UnwindSidePathWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(UnwindSidePathWorkflowStart)
-      .returns(UndoRequestDto)
       .toAction(HoldSeatAction)
-      .returns(SeatDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(ChargeCardAction)
       .onError(
         UndoDeskError,
@@ -165,7 +154,6 @@ export class UnwindSidePathWorkflowStart {}
           .toFinish(NotReservedWorkflowFinish),
       )
       .toAction(ConfirmSeatAction)
-      .returns(SeatConfirmedDto)
       .toFinish(SeatConfirmedWorkflowFinish),
   ],
   providers: [UndoDesk, UnwindGate],
@@ -188,9 +176,7 @@ export class RoomReservedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(UnwindRoomWorkflowStart)
-      .returns(UndoRequestDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(WaitAction)
       .toFinish(RoomReservedWorkflowFinish),
   ],
@@ -227,10 +213,8 @@ export class RoomsReservedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(UnwindManyWorkflowStart)
-      .returns(listOf(UndoRequestDto))
       .toParallelWorkflows(UnwindRoomWorkflow, { maxConcurrency: 2, maxItems: 5 })
       .join()
-      .returns(listOf(RoomDto))
       .toFinish(RoomsReservedWorkflowFinish),
   ],
 })
@@ -249,16 +233,13 @@ export class UnwindParentWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(UnwindParentWorkflowStart)
-      .returns(UndoRequestDto)
       .toAction(ReserveSeatAction)
-      .returns(SeatDto)
       .toWorkflow(UnwindRoomWorkflow)
       .onError(
         StepFailedError,
         toAction(ReleaseSeatAction)
           .toFinish(NotReservedWorkflowFinish),
       )
-      .returns(RoomDto)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],

@@ -7,7 +7,7 @@ import {
   type Quorum,
 } from "../ast.js";
 import type { ComponentDeclaration } from "../decorators/declaration.js";
-import type { ListWrapper, OutputShape, ReturnedShape, ValueShape } from "../dto-wrappers.js";
+import type { ListWrapper, OutputShape, ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { JoinGroup } from "./join-groups.js";
 import { childWorkflowOf } from "./child-workflow.js";
@@ -23,7 +23,7 @@ import { shapeLabel } from "./labels.js";
 
 /** How an edge was written in the flow. */
 export enum EdgeKind {
-  /** `.to…(X)` after a step (and its `.returns(…)`). */
+  /** `.to…(X)` after a step. */
   Next = "next",
   /** `caseOf(XDto)…` of a `.switch(…)`: the variant enters the scope on this edge. */
   Case = "case",
@@ -46,8 +46,8 @@ export enum EdgeKind {
 }
 
 /**
- * One value an edge puts into the path scope: a `.returns(…)` value or a `caseOf(…)` variant (a
- * `.returns(oneOf(…))` writes nothing itself: each case writes its class).
+ * One value an edge puts into the path scope: a step's own value or a `caseOf(…)` variant (a
+ * `oneOf(…)` output writes nothing itself: each case writes its class).
  */
 export interface ValueWrite {
   readonly shape: ValueShape;
@@ -76,9 +76,9 @@ export interface FlowLaunch {
   readonly targetKind: LaunchTargetKind;
   /** Distinct targets, in the order first listed. */
   readonly branches: readonly LaunchBranch[];
-  /** The targets as listed, repeats included (the key of its `JoinOutputs` entry). */
+  /** The targets as listed, repeats included. */
   readonly listed: readonly ComponentName[];
-  /** The list a per-item launch runs over: the `.returns(listOf(XDto))` right before it. */
+  /** The list a per-item launch runs over: the list the step before it gives. */
   readonly items?: ListWrapper;
   readonly maxConcurrency?: number;
   readonly maxItems?: number;
@@ -98,10 +98,8 @@ export interface JoinGroupOrigin {
 /** What a join edge carries besides the launching step's own values (#273). */
 export interface JoinEdge {
   readonly launch: FlowLaunch;
-  /** `.join().returns(…)`: the branches' values, as written (a `oneOf(…)` is left to the rule). */
+  /** What the join writes: one value per class the branches give. */
   readonly values: readonly ValueWrite[];
-  /** The shapes written after `.join()`, for `[flow.returns-mismatch]` (a `oneOf(…)` included). */
-  readonly written: readonly ReturnedShape[];
   /** What the branches give, by class: the values the join must name. */
   readonly groups: readonly JoinGroup[];
   /** `.joinQuorum(…)` / `.joinQuorumGroups(…)` (#279); absent for `.join()`. */
@@ -119,8 +117,6 @@ export interface FlowEdge {
    * per-item branch's item last).
    */
   readonly writes: readonly ValueWrite[];
-  /** The values its `.returns(…)` chain named: `[flow.returns-mismatch]` compares them with `writes`. */
-  readonly returned: readonly ValueWrite[];
   /** The class an `EdgeKind.Error` / `EdgeKind.JoinError` edge catches. */
   readonly error?: ErrorClass;
   /** `EdgeKind.Launch` and `EdgeKind.Join` / `EdgeKind.JoinError`: the launch (#273). */
@@ -180,10 +176,7 @@ export const isTextAgent = (node: FlowNode): boolean =>
 /** A canonical, comparable key of an edge. */
 export function edgeKey(edge: FlowEdge): string {
   const writes = edge.writes.map((write) => `${shapeLabel(write.shape)}:${String(write.isCase)}`);
-  const joined = (edge.join?.written ?? []).map(shapeLabel).join(",");
-  return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(","), joined].join(
-    "|",
-  );
+  return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(",")].join("|");
 }
 
 /** Edges leaving each node, in canonical order. */

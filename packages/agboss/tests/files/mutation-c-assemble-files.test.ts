@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { nameOf } from "../../src/components/name-of.js";
 import { InjectionToken, provide, type Class } from "../../src/components/injection.js";
@@ -23,12 +22,7 @@ import {
 } from "../../src/files/assemble-files.js";
 import { FileRedactor, ModelImageRedactor } from "../../src/files/file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "../../src/files/file-transcriber.js";
-import {
-  AnswerFiles,
-  FileView,
-  ModelFiles,
-  type FileDefaults,
-} from "../../src/files/model-files.js";
+import { AnswerFiles, FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NodeKind } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { InlineA2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
@@ -36,7 +30,7 @@ import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2
 import type { ModelUse } from "../../src/models/uses.js";
 import { kilobytes } from "../../src/units/index.js";
 import { Agent, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
-import { Nested, WorkflowFinishTextDto } from "../../src/dto/index.js";
+import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
 import { onStart } from "../helpers/flow.js";
 import { BundleDto, readerApplication } from "./reader.factory.js";
@@ -126,7 +120,7 @@ function miniWorkflow(files?: ModelFiles, defaults?: WorkflowDefaults) {
   @Workflow({
     name: `mini-${suffix}-workflow`,
     version: "1.0.0",
-    flow: [onStart(MiniStart).returns(BundleDto).toAgent(MiniAgent).toFinish(MiniFinish)],
+    flow: [onStart(MiniStart).toAgent(MiniAgent).toFinish(MiniFinish)],
     ...(defaults === undefined ? {} : { defaults }),
   })
   class MiniWorkflow {}

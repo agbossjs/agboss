@@ -20,12 +20,7 @@ import {
   FaultAskAction,
 } from "./approval.workflow.js";
 import { FaultChargeAction, FaultReserveAction } from "./order.actions.js";
-import {
-  FaultChargeDto,
-  FaultOrderDto,
-  FaultPaymentDto,
-  FaultReservationDto,
-} from "./order.dto.js";
+import { FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
 import { FaultPodLink } from "./pod-link.js";
 import { seconds } from "../../../units/index.js";
@@ -100,18 +95,12 @@ export class FaultPauseWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FaultPauseWorkflowStart)
-      .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultAskAction)
-      .returns(FaultApprovalAskDto)
       .toExternalTask(FaultPauseQuestion)
-      .returns(FaultApprovalDto)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultPauseWorkflowFinish),
   ],
 })
@@ -174,18 +163,12 @@ export class FaultExpiringWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FaultExpiringWorkflowStart)
-      .returns(FaultOrderDto)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultAskAction)
-      .returns(FaultApprovalAskDto)
       .toExternalTask(FaultExpiringQuestion)
-      .returns(FaultApprovalDto)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultExpiringWorkflowFinish),
   ],
 })

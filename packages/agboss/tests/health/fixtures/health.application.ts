@@ -135,12 +135,7 @@ export class ProbeWorkflowFinish {}
 @Workflow({
   name: "probe-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ProbeWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ProbeAgent)
-      .toFinish(ProbeWorkflowFinish),
-  ],
+  flow: [onStart(ProbeWorkflowStart).toAgent(ProbeAgent).toFinish(ProbeWorkflowFinish)],
   providers: [CrmClient],
 })
 export class ProbeWorkflow {}

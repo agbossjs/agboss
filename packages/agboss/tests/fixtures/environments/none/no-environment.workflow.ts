@@ -1,7 +1,6 @@
 import { Workflow } from "../../../../src/index.js";
 import { ApiClient, ChatStart, Clerk, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
-import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 
@@ -11,7 +10,6 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
       .toFinish(Reply),
   ],

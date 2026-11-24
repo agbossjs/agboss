@@ -102,11 +102,8 @@ export class UndoChildWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(UndoChildWorkflowStart)
-      .returns(ItemDto)
       .toAction(BookItemAction)
-      .returns(BookingDto)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(UndoChildWorkflowFinish),
   ],
@@ -132,9 +129,7 @@ export class UndoOneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(UndoOneWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(UndoChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
       .toFinish(UndoOneWorkflowFinish),
   ],
 })

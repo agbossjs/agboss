@@ -101,13 +101,7 @@ describe("#1080: an agent's output that holds itself", () => {
     @Workflow({
       name: "diamond-workflow",
       version: "1.0.0",
-      flow: [
-        onStart(DiamondStart)
-          .returns(DiamondDto)
-          .toAgent(DiamondAgent)
-          .returns(DiamondDto)
-          .toFinish(DiamondFinish),
-      ],
+      flow: [onStart(DiamondStart).toAgent(DiamondAgent).toFinish(DiamondFinish)],
       ...workflowDefaults,
     })
     class Diamond {}
@@ -141,7 +135,7 @@ describe("#1080: an input that holds itself", () => {
     @Workflow({
       name: "keep-workflow",
       version: "1.0.0",
-      flow: [onStart(KeepStart).returns(SelfDto).toAction(Keep).toFinish(KeepFinish)],
+      flow: [onStart(KeepStart).toAction(Keep).toFinish(KeepFinish)],
       ...workflowDefaults,
     })
     class KeepWorkflow {}

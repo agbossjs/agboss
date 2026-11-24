@@ -272,12 +272,9 @@ export class SeatConfirmedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(UndoWorkflowStart)
-      .returns(UndoRequestDto)
       .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
       .join()
       .onError(UndoDeskError, toFinish(NotReservedWorkflowFinish))
-      .returns(SeatDto)
-      .returns(RoomDto)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -290,11 +287,8 @@ export class UndoWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(UndoUnhandledWorkflowStart)
-      .returns(UndoRequestDto)
       .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
       .join()
-      .returns(SeatDto)
-      .returns(RoomDto)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -310,11 +304,8 @@ export class UndoUnhandledWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(UndoPathWorkflowStart)
-      .returns(UndoRequestDto)
       .toAction(HoldSeatAction)
-      .returns(SeatDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(ChargeCardAction)
       .onError(
         UndoDeskError,
@@ -328,7 +319,6 @@ export class UndoUnhandledWorkflow {}
           .toFinish(NotReservedWorkflowFinish),
       )
       .toAction(ConfirmSeatAction)
-      .returns(SeatConfirmedDto)
       .toFinish(SeatConfirmedWorkflowFinish),
   ],
   providers: [UndoDesk],

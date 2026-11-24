@@ -125,9 +125,7 @@ export class ScoreWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(InboxWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(EchoAction)
-      .returns(WorkflowFinishTextDto)
       .toFinish(EchoWorkflowFinish),
   ],
 })
@@ -138,20 +136,13 @@ export class InboxWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(ScreeningWorkflowStart)
-      .returns(CompanyDto)
       .toAction(ScreenAction)
-      .returns(CompanyScoreDto)
       .toFinish(ScoreWorkflowFinish),
     onStart(BatchScreeningWorkflowStart)
-      .returns(listOf(CompanyDto))
       .toAction(RankAction)
-      .returns(CompanyScoreDto)
       .toFinish(ScoreWorkflowFinish),
     onStart(CriteriaScreeningWorkflowStart)
-      .returns(CompanyDto)
-      .returns(optional(SearchRequestDto))
       .toAction(CriteriaAction)
-      .returns(CompanyScoreDto)
       .toFinish(ScoreWorkflowFinish),
   ],
 })

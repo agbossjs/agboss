@@ -6,9 +6,7 @@ import { ChildPlacement } from "../../../src/flow/child-placement.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { flowLines } from "../../../src/flow/print.js";
 import { FlowSyntaxError } from "../../../src/flow/path-builder.js";
-import { listOf } from "../../../src/flow/dto-wrappers.js";
 import { route, onStart } from "../../helpers/flow.js";
-import { ItemDto, ItemResultDto } from "./fixtures/fan-out.workflow.js";
 import {
   ItemReviewedWorkflowFinish,
   ItemReviewerAgent,
@@ -44,9 +42,7 @@ describe("#333 PR 2: placement at assembly", () => {
     const lines = flowLines(
       [
         onStart(RemoteOneWorkflowStart)
-          .returns(ItemDto)
           .toWorkflow(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance })
-          .returns(ItemResultDto)
           .toFinish(RemoteOneCheckedWorkflowFinish),
       ],
       (cls) => cls.name,
@@ -61,13 +57,11 @@ describe("#333 PR 2: placement at assembly", () => {
     const lines = flowLines(
       [
         onStart(RemoteOneWorkflowStart)
-          .returns(listOf(ItemDto))
           .toParallelWorkflows(RemoteItemWorkflow, {
             maxItems: 3,
             placement: ChildPlacement.AnyInstance,
           })
           .join()
-          .returns(listOf(ItemResultDto))
           .toFinish(RemoteOneCheckedWorkflowFinish),
       ],
       (cls) => cls.name,
@@ -80,23 +74,19 @@ describe("#333 PR 2: placement at assembly", () => {
 
   it("only a child workflow takes one; anything else is refused", () => {
     expect(() =>
-      onStart(RemoteOneWorkflowStart)
-        .returns(ItemDto)
-        .toWorkflow(RemoteItemWorkflow, { placement: "elsewhere" }),
+      onStart(RemoteOneWorkflowStart).toWorkflow(RemoteItemWorkflow, { placement: "elsewhere" }),
     ).toThrow(FlowSyntaxError);
     expect(() =>
-      onStart(RemoteOneWorkflowStart)
-        .returns(ItemDto)
-        .toParallelAgents(ItemReviewerAgent, { placement: ChildPlacement.AnyInstance }),
+      onStart(RemoteOneWorkflowStart).toParallelAgents(ItemReviewerAgent, {
+        placement: ChildPlacement.AnyInstance,
+      }),
     ).toThrow("only a child workflow has a placement");
   });
 
   it("a child that can pause may run on any instance (#333 PR 4)", () => {
     const parent = workflowWith([
       onStart(ReviewOneWorkflowStart)
-        .returns(ItemDto)
         .toWorkflow(ItemReviewWorkflow, { placement: ChildPlacement.AnyInstance })
-        .returns(ItemResultDto)
         .toFinish(ItemReviewedWorkflowFinish),
     ]);
 
@@ -106,9 +96,7 @@ describe("#333 PR 2: placement at assembly", () => {
   it("the same child on its parent's instance may pause", () => {
     const parent = workflowWith([
       onStart(ReviewOneWorkflowStart)
-        .returns(ItemDto)
         .toWorkflow(ItemReviewWorkflow, { placement: ChildPlacement.ParentInstance })
-        .returns(ItemResultDto)
         .toFinish(ItemReviewedWorkflowFinish),
     ]);
 
@@ -118,7 +106,6 @@ describe("#333 PR 2: placement at assembly", () => {
   it("one child with two placements: [flow.conflicting-placement]", () => {
     const parent = workflowWith([
       onStart(RemoteOneWorkflowStart)
-        .returns(ItemDto)
         .toAgent(ItemReviewerAgent)
         .chooseOne(
           route(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance }),

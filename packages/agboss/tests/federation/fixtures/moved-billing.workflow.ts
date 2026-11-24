@@ -43,9 +43,7 @@ export class MovedBillingWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(MovedBillingWorkflowStart)
-      .returns(BillingQuestionDto)
       .toAgent(MovedBillingDeskAgent)
-      .returns(BillingAnswerDto)
       .toFinish(MovedBillingWorkflowFinish),
   ],
 })

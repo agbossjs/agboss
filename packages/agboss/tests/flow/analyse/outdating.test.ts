@@ -77,17 +77,15 @@ class EditorRouter {}
   name: "hub-workflow",
   version: "1.0.0",
   flow: [
-    onStart(StoryWorkflowStart).returns(ArticleRequestDto).toRouter(EditorRouter),
+    onStart(StoryWorkflowStart).toRouter(EditorRouter),
     onRouter(EditorRouter).chooseOne(
-      route(ResearcherAgent).returns(ResearchDto).toRouter(EditorRouter),
-      route(StoryWriterAgent).returns(DraftDto).toRouter(EditorRouter),
-      route(StoryReviewerAgent)
-        .returns(oneOf(ApprovalDto, DraftChangesDto))
-        .switch(
-          caseOf(ApprovalDto).toRouter(EditorRouter),
-          caseOf(DraftChangesDto).toRouter(EditorRouter),
-        ),
-      route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
+      route(ResearcherAgent).toRouter(EditorRouter),
+      route(StoryWriterAgent).toRouter(EditorRouter),
+      route(StoryReviewerAgent).switch(
+        caseOf(ApprovalDto).toRouter(EditorRouter),
+        caseOf(DraftChangesDto).toRouter(EditorRouter),
+      ),
+      route(PublisherAgent).toFinish(StoryWorkflowFinish),
     ),
   ],
 })
@@ -150,15 +148,10 @@ class PickWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(JobsWorkflowStart)
-      .returns(CandidateProfileDto)
       .toAgent(JobSearchAgent)
-      .returns(JobListDto)
       .toAgent(JobScoringAgent)
-      .returns(JobScoresDto)
       .toAgent(ProfileEditorAgent)
-      .returns(CandidateProfileDto)
       .toAgent(JobPickerAgent)
-      .returns(JobPickDto)
       .toFinish(PickWorkflowFinish),
   ],
 })
@@ -169,15 +162,10 @@ class StaleScoresWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(JobsWorkflowStart)
-      .returns(CandidateProfileDto)
       .toAgent(ProfileEditorAgent)
-      .returns(CandidateProfileDto)
       .toAgent(JobSearchAgent)
-      .returns(JobListDto)
       .toAgent(JobScoringAgent)
-      .returns(JobScoresDto)
       .toAgent(JobPickerAgent)
-      .returns(JobPickDto)
       .toFinish(PickWorkflowFinish),
   ],
 })
@@ -198,15 +186,11 @@ class JobsRouter {}
   version: "1.0.0",
   flow: [
     onStart(JobsWorkflowStart)
-      .returns(CandidateProfileDto)
       .toAgent(JobSearchAgent)
-      .returns(JobListDto)
       .toAgent(JobScoringAgent)
-      .returns(JobScoresDto)
       .toAgent(ProfileEditorAgent)
-      .returns(CandidateProfileDto)
       .toRouter(JobsRouter)
-      .chooseOne(route(JobPickerAgent).returns(JobPickDto).toFinish(PickWorkflowFinish)),
+      .chooseOne(route(JobPickerAgent).toFinish(PickWorkflowFinish)),
   ],
 })
 class StaleRouterWorkflow {}
@@ -361,20 +345,14 @@ const gateWorkflow = (name: string, publisher: object): object => {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(GateWriterAgent),
-      onAgent(GateWriterAgent)
-        .returns(DraftDto)
-        .toRouter(gate as never),
+      onStart(StoryWorkflowStart).toAgent(GateWriterAgent),
+      onAgent(GateWriterAgent).toRouter(gate as never),
       onRouter(gate as never).chooseOne(
-        route(StoryReviewerAgent)
-          .returns(oneOf(ApprovalDto, DraftChangesDto))
-          .switch(
-            caseOf(DraftChangesDto).toAgent(GateWriterAgent),
-            caseOf(ApprovalDto).toRouter(gate as never),
-          ),
-        route(publisher as never)
-          .returns(ArticleDto)
-          .toFinish(StoryWorkflowFinish),
+        route(StoryReviewerAgent).switch(
+          caseOf(DraftChangesDto).toAgent(GateWriterAgent),
+          caseOf(ApprovalDto).toRouter(gate as never),
+        ),
+        route(publisher as never).toFinish(StoryWorkflowFinish),
       ),
     ],
   })
@@ -449,16 +427,11 @@ const pickLoop = (name: string, picker: object): object => {
     name: `${name}-workflow`,
     version: "1.0.0",
     flow: [
-      onStart(ThreadWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .returns(CandidateProfileDto)
-        .toAgent(picker as never),
-      onAgent(picker as never)
-        .returns(JobPickDto)
-        .toRouter(PickRouter),
+      onStart(ThreadWorkflowStart).toAgent(picker as never),
+      onAgent(picker as never).toRouter(PickRouter),
       onRouter(PickRouter).chooseOne(
         route(picker as never),
-        route(ProfileEditorAgent).returns(CandidateProfileDto).toFinish(PickWorkflowFinish),
+        route(ProfileEditorAgent).toFinish(PickWorkflowFinish),
       ),
     ],
   })
@@ -503,17 +476,12 @@ class LoopReviewerAgent {}
   name: "broken-review-workflow",
   version: "1.0.0",
   flow: [
-    onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(GateWriterAgent),
+    onStart(StoryWorkflowStart).toAgent(GateWriterAgent),
     onAgent(GateWriterAgent)
-      .returns(DraftDto)
       .toAgent(LoopReviewerAgent)
-      .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
         caseOf(DraftChangesDto).toAgent(GateWriterAgent),
-        caseOf(ApprovalDto)
-          .toAgent(ProfileEditorAgent)
-          .returns(ArticleDto)
-          .toFinish(StoryWorkflowFinish),
+        caseOf(ApprovalDto).toAgent(ProfileEditorAgent).toFinish(StoryWorkflowFinish),
       ),
   ],
 })
@@ -526,7 +494,6 @@ describe("#271 AC13: every assembly error at once, with those of #270 and #272",
     expect(thrown).toThrow(GraphRuleError);
     expect(codesOf(BrokenReviewWorkflow)).toEqual(
       expect.arrayContaining([
-        "flow.returns-mismatch", // #272: the profile editor gives CandidateProfileDto
         "input.missing-on-path", // #270: no profile on the path
       ]),
     );
@@ -608,20 +575,15 @@ class ReplanRouter {}
   name: "one-writer-workflow",
   version: "1.0.0",
   flow: [
-    onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(OuterPlannerAgent),
-    onAgent(OuterPlannerAgent).returns(PlanDto).toAgent(NotesDraftAgent),
+    onStart(StoryWorkflowStart).toAgent(OuterPlannerAgent),
+    onAgent(OuterPlannerAgent).toAgent(NotesDraftAgent),
     onAgent(NotesDraftAgent)
-      .returns(DraftDto)
       .toAgent(InnerReviewerAgent)
-      .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
         caseOf(DraftChangesDto).toAgent(NotesDraftAgent),
         caseOf(ApprovalDto)
           .toRouter(ReplanRouter)
-          .chooseOne(
-            route(OuterPlannerAgent),
-            route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
-          ),
+          .chooseOne(route(OuterPlannerAgent), route(PublisherAgent).toFinish(StoryWorkflowFinish)),
       ),
   ],
 })
@@ -631,23 +593,14 @@ class OneWriterWorkflow {}
   name: "two-writers-workflow",
   version: "1.0.0",
   flow: [
-    onStart(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(OuterPlannerAgent),
-    onAgent(OuterPlannerAgent)
-      .returns(PlanDto)
-      .toAgent(PlanDraftAgent)
-      .returns(DraftDto)
-      .toAgent(InnerReviewerAgent),
-    onAgent(InnerReviewerAgent)
-      .returns(oneOf(ApprovalDto, DraftChangesDto))
-      .switch(
-        caseOf(DraftChangesDto).toAgent(RewriteAgent).returns(DraftDto).toAgent(InnerReviewerAgent),
-        caseOf(ApprovalDto)
-          .toRouter(ReplanRouter)
-          .chooseOne(
-            route(OuterPlannerAgent),
-            route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
-          ),
-      ),
+    onStart(StoryWorkflowStart).toAgent(OuterPlannerAgent),
+    onAgent(OuterPlannerAgent).toAgent(PlanDraftAgent).toAgent(InnerReviewerAgent),
+    onAgent(InnerReviewerAgent).switch(
+      caseOf(DraftChangesDto).toAgent(RewriteAgent).toAgent(InnerReviewerAgent),
+      caseOf(ApprovalDto)
+        .toRouter(ReplanRouter)
+        .chooseOne(route(OuterPlannerAgent), route(PublisherAgent).toFinish(StoryWorkflowFinish)),
+    ),
   ],
 })
 class TwoWritersWorkflow {}

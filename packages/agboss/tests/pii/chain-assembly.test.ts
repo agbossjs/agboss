@@ -129,12 +129,7 @@ class ConflictAgent {}
 @Workflow({
   name: "cc-child-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ConflictChildStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ConflictAgent)
-      .toFinish(ConflictChildFinish),
-  ],
+  flow: [onStart(ConflictChildStart).toAgent(ConflictAgent).toFinish(ConflictChildFinish)],
   piiPolicies: [EmailKindPiiPolicy],
 })
 class ConflictChildWorkflow {}
@@ -162,10 +157,8 @@ class ConflictSummaryAgent {}
   version: "1.0.0",
   flow: [
     onStart(ConflictRootStart)
-      .returns(listOf(WorkflowStartTextDto))
       .toParallelWorkflows(ConflictChildWorkflow, { maxItems: 2 })
       .join()
-      .returns(listOf(WorkflowFinishTextDto))
       .toAgent(ConflictSummaryAgent)
       .toFinish(ConflictRootFinish),
   ],

@@ -1,5 +1,11 @@
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { Agent, EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
+import {
+  Agent,
+  EmptyEnvironment,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+} from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -25,10 +31,18 @@ export class ChunkDraftDto {
 })
 export class ChunkWorkerAgent {}
 
-@WorkflowStart({ name: "chunk-workflow-start", description: "A chunk", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "chunk-workflow-start",
+  description: "A chunk",
+  input: WorkflowStartTextDto,
+})
 export class ChunkWorkflowStart {}
 
-@WorkflowFinish({ name: "chunk-workflow-finish", description: "Its summary", output: ChunkDraftDto })
+@WorkflowFinish({
+  name: "chunk-workflow-finish",
+  description: "Its summary",
+  output: ChunkDraftDto,
+})
 export class ChunkWorkflowFinish {}
 
 @Workflow({
@@ -36,9 +50,7 @@ export class ChunkWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChunkWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ChunkWorkerAgent)
-      .returns(ChunkDraftDto)
       .toFinish(ChunkWorkflowFinish),
   ],
 })

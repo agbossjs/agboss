@@ -87,7 +87,6 @@ export const settingsDefaults = {
   version: "1.0.0",
   flow: [
     onStart(ChatStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(Clerk)
       .toFinish(Reply),
   ],

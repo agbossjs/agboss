@@ -76,13 +76,7 @@ function applicationWith(name: string, tools: readonly (typeof ChargeTool)[]) {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(RefundWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .toAgent(ToolAgent)
-        .returns(RefundCardOutputDto)
-        .toFinish(RefundWorkflowFinish),
-    ],
+    flow: [onStart(RefundWorkflowStart).toAgent(ToolAgent).toFinish(RefundWorkflowFinish)],
     defaults: { router: { model: "typesafe/jev-test" } },
   })
   class ToolWorkflow {}

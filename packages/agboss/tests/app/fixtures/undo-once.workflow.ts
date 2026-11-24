@@ -8,7 +8,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  oneOf,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -16,7 +15,7 @@ import { caseOf, route, onStart, toFinish } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { hours } from "../../../src/units/index.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
-import { BookingDto, ConfirmBookingAction } from "./finished-undo.workflow.js";
+import { ConfirmBookingAction } from "./finished-undo.workflow.js";
 import { GatedItemAction } from "./remote-child-yield.workflow.js";
 import {
   HookedExecutionTreeRepository,
@@ -52,11 +51,8 @@ export class OnceRootWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceRootWorkflowStart)
-      .returns(ItemDto)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(OnceRootWorkflowFinish),
   ],
@@ -73,11 +69,8 @@ export class OnceRemoteChildWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceRemoteChildWorkflowStart)
-      .returns(ItemDto)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(OnceRemoteChildWorkflowFinish),
   ],
@@ -94,11 +87,8 @@ export class OnceJoinWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceJoinWorkflowStart)
-      .returns(ItemDto)
       .toParallelActions(PaidBookingAction, GatedItemAction)
       .join()
-      .returns(BookingDto)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(OnceJoinWorkflowFinish),
   ],
@@ -123,12 +113,9 @@ export class OnceJoinSideFailedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceJoinSideWorkflowStart)
-      .returns(ItemDto)
       .toParallelActions(PaidBookingAction, GatedItemAction)
       .join()
       .onError(StepFailedError, toFinish(OnceJoinSideFailedWorkflowFinish))
-      .returns(BookingDto)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(OnceJoinSideWorkflowFinish),
   ],
@@ -145,9 +132,7 @@ export class OnceLocalWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceLocalWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(OnceRootWorkflow)
-      .returns(ItemResultDto)
       .toFinish(OnceLocalWorkflowFinish),
   ],
 })
@@ -163,9 +148,7 @@ export class OnceAnyWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceAnyWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(OnceRemoteChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
       .toFinish(OnceAnyWorkflowFinish),
   ],
 })
@@ -196,11 +179,8 @@ export class OnceBudgetRouter {
   version: "1.0.0",
   flow: [
     onStart(OnceBudgetWorkflowStart)
-      .returns(ItemDto)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(OverspendAction)
-      .returns(ItemResultDto)
       .toRouter(OnceBudgetRouter)
       .chooseOne(
         route(ConfirmBookingAction)
@@ -224,11 +204,8 @@ export class OnceHeldWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceHeldWorkflowStart)
-      .returns(ItemDto)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(OverspendAction)
-      .returns(ItemResultDto)
       .toAction(RefundBookingAction)
       .onError(BudgetExceededError, toFinish(OnceHeldWorkflowFinish))
       .toFinish(OnceHeldWorkflowFinish),
@@ -250,11 +227,8 @@ export class OnceBranchWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceBranchWorkflowStart)
-      .returns(ItemDto)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(OverspendAction)
-      .returns(ItemResultDto)
       .toParallelActions(RefundBookingAction, ConfirmBookingAction)
       .join()
       .toFinish(OnceBranchWorkflowFinish),
@@ -273,15 +247,11 @@ export class OnceLevelWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceLevelWorkflowStart)
-      .returns(ItemDto)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(LevelItemAction)
-      .returns(oneOf(ItemDto, ItemResultDto))
       .switch(
         caseOf(ItemDto)
           .toWorkflow(ThisWorkflow)
-          .returns(ItemResultDto)
           .toFinish(OnceLevelWorkflowFinish),
         caseOf(ItemResultDto)
           .toFinish(OnceLevelWorkflowFinish),

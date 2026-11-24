@@ -28,38 +28,31 @@ import {
   CandidateReviewWorkflowStart,
   DealRoomOpenedWorkflowFinish,
 } from "./fixtures/quorum-agents.js";
-import {
-  AuditDto,
-  CandidateDto,
-  CultureScoreDto,
-  DealCritiqueDto,
-  DealDto,
-  FastScreenDto,
-  LegalReviewDto,
-  SalaryFitDto,
-  ScoreDto,
-  SkillsScoreDto,
-} from "./fixtures/quorum-dtos.js";
+import { CandidateDto, DealCritiqueDto, ScoreDto, SkillsScoreDto } from "./fixtures/quorum-dtos.js";
 import { GoodScoreArbiter, ValidScoreArbiter } from "./fixtures/quorum.fixture.js";
 
-/** #279 — quorums at compile time: what may follow a launch, what `.returns` may promise, arbiters. */
+/** #279 — quorums at compile time: what may follow a launch, arbiters, groups. */
 
 const scores = () =>
-  onStart(CandidateReviewWorkflowStart)
-    .returns(CandidateDto)
-    .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent);
+  onStart(CandidateReviewWorkflowStart).toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent);
 const fit = () =>
-  onStart(FitReviewWorkflowStart)
-    .returns(CandidateDto)
-    .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent);
+  onStart(FitReviewWorkflowStart).toParallelAgents(
+    SkillsScoreAgent,
+    CultureScoreAgent,
+    SalaryFitAgent,
+  );
 const deal = () =>
-  onStart(DealWorkflowStart)
-    .returns(DealDto)
-    .toParallelAgents(LegalAgent, DealCriticAgent, DealCriticAgent, AuditorAgent, FastScreenAgent, {
+  onStart(DealWorkflowStart).toParallelAgents(
+    LegalAgent,
+    DealCriticAgent,
+    DealCriticAgent,
+    AuditorAgent,
+    FastScreenAgent,
+    {
       maxConcurrency: 4,
-    });
-const fastGroup = () =>
-  group(FastScreenAgent).priority(3).returns(FastScreenDto).toFinish(QuickRejectWorkflowFinish);
+    },
+  );
+const fastGroup = () => group(FastScreenAgent).priority(3).toFinish(QuickRejectWorkflowFinish);
 
 describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
   it("options are always an object; .acceptedBy(…).join() does not compile", () => {
@@ -80,7 +73,6 @@ describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
     const joined = scores().joinQuorum({ min: 2 });
     joined
       .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
-      .returns(listOf(ScoreDto))
       .toAgent(ScoreSummaryAgent);
     // @ts-expect-error — the join's handler is `.onError`: `.onJoinError` is gone (#1281)
     joined.onJoinError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish));
@@ -88,71 +80,39 @@ describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
   });
 });
 
-describe("#279 AC14: what .joinQuorum(…).returns(…) may promise", () => {
+describe("#279 AC14: what follows .joinQuorum(…)", () => {
   it("min below the agents: every single answer is optional", () => {
     const joined = fit().joinQuorum({ min: 2 });
-    joined
-      .returns(optional(SkillsScoreDto))
-      .returns(optional(CultureScoreDto))
-      .returns(optional(SalaryFitDto))
-      .toAgent(FitSummaryAgent);
-    // @ts-expect-error — the quorum may leave skills-score-agent out: optional(SkillsScoreDto)
-    joined.returns(SkillsScoreDto);
-    expectTypeOf(joined).toHaveProperty("returns");
+    joined.toAgent(FitSummaryAgent);
+    expectTypeOf(joined).toHaveProperty("toAgent");
   });
 
   it("min equal to the agents: required answers are allowed", () => {
     const joined = fit().joinQuorum({ min: 3 });
-    joined.returns(SkillsScoreDto).returns(CultureScoreDto).returns(SalaryFitDto);
-    // @ts-expect-error — every answer is counted: not optional(…)
-    joined.returns(optional(SkillsScoreDto));
-    expectTypeOf(joined).toHaveProperty("returns");
+    joined.toAgent(FitSummaryAgent);
+    expectTypeOf(joined).toHaveProperty("toAgent");
   });
 
   it("one output class of several agents stays a list", () => {
-    scores().joinQuorum({ min: 2 }).returns(listOf(ScoreDto)).toAgent(ScoreSummaryAgent);
-    // @ts-expect-error — three agents with one output give a list
-    scores().joinQuorum({ min: 2 }).returns(optional(ScoreDto));
+    scores().joinQuorum({ min: 2 }).toAgent(ScoreSummaryAgent);
     expectTypeOf(scores()).toHaveProperty("joinQuorum");
   });
 });
 
-describe("#279 AC7 / AC13: groups name their values and continue their own path", () => {
-  it("a repeated class is listOf in every group; listed agents are required", () => {
+describe("#279 AC7 / AC13: groups continue their own path", () => {
+  it("groups continue their own path", () => {
     deal().joinQuorumGroups(
-      group(LegalAgent, DealCriticAgent)
-        .priority(1)
-        .returns(LegalReviewDto)
-        .returns(listOf(DealCritiqueDto))
-        .toAgent(FullReviewAgent),
-      group(AuditorAgent)
-        .returns(AuditDto)
-        .toAction(OpenDealRoomAction)
-        .toFinish(DealRoomOpenedWorkflowFinish),
+      group(LegalAgent, DealCriticAgent).priority(1).toAgent(FullReviewAgent),
+      group(AuditorAgent).toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish),
       fastGroup(),
       { deadline: seconds(60) },
-    );
-    deal().joinQuorumGroups(
-      // @ts-expect-error — deal-critic-agent is launched twice: listOf(DealCritiqueDto), even for one copy
-      group(LegalAgent, DealCriticAgent)
-        .returns(LegalReviewDto)
-        .returns(DealCritiqueDto)
-        .toAgent(FullReviewAgent),
-      fastGroup(),
-    );
-    deal().joinQuorumGroups(
-      // @ts-expect-error — a listed agent is present when its group wins: not optional(…)
-      group(AuditorAgent)
-        .returns(optional(AuditDto))
-        .toAction(OpenDealRoomAction)
-        .toFinish(DealRoomOpenedWorkflowFinish),
     );
     expectTypeOf(deal()).toHaveProperty("joinQuorumGroups");
   });
 
   it("a group without a continuation does not compile; nothing follows the groups", () => {
     // @ts-expect-error — a group continues its own path with .to…(…)
-    deal().joinQuorumGroups(group(FastScreenAgent).returns(FastScreenDto));
+    deal().joinQuorumGroups(group(FastScreenAgent));
     // @ts-expect-error — min / max do not apply to groups
     deal().joinQuorumGroups(fastGroup(), { min: 1 });
     const joined = deal().joinQuorumGroups(fastGroup());

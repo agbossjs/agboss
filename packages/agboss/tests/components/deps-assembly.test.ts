@@ -24,7 +24,7 @@ import {
   Tool,
   type ToolHandler,
 } from "../../src/index.js";
-import { PlainTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { PlainTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { Text } from "../../src/dto/index.js";
 import type { RagRetrieval } from "../../src/rag/types.js";
@@ -131,13 +131,7 @@ describe("#183 AC2: a missing provider fails at assembly, naming the consumer an
     [
       "a workflow action",
       applicationWith("a-workflow", {
-        flow: [
-          onStart(Chat)
-            .returns(WorkflowStartTextDto)
-            .toAction(NeedsAction)
-            .toAgent(PlainAgent)
-            .toFinish(Done),
-        ],
+        flow: [onStart(Chat).toAction(NeedsAction).toAgent(PlainAgent).toFinish(Done)],
       }),
       "NeedsAction",
     ],

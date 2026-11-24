@@ -132,11 +132,8 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(DeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(DeskAgent)
-      .returns(DeskAnswerDto)
       .toAction(OpenTicketAction)
-      .returns(DeskTicketDto)
       .toFinish(DeskWorkflowFinish),
   ],
   maxSteps: 2,

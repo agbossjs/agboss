@@ -1,25 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import {
   analyseWorkflow,
   inputShapesOf,
   type FlowAnalysis,
 } from "../../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import {
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-  ShortlistDto,
-  WorkflowStartTextDto,
-} from "../fixtures/dtos.js";
-import {
-  ExpertDraftDto,
-  FastDraftDto,
-  LoyaltyOfferDto,
-  OrderStatusDto,
-} from "../fixtures/data-dtos.js";
+import { ChangesRequestedDto, DraftApprovedDto } from "../fixtures/dtos.js";
 import {
   DraftAgent,
   EditorAgent,
@@ -50,16 +36,14 @@ import {
   name: "support-workflow",
   version: "1.0.0",
   flow: [
-    onAgent(ExpertAnswerAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
+    onAgent(ExpertAnswerAgent).toFinish(SupportWorkflowFinish),
     onStart(SupportWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(OrderAgent)
-      .returns(OrderStatusDto)
       .toRouter(AnswerRouter)
       .chooseOne(
         route(ExpertAnswerAgent),
-        route(LoyaltyAgent).returns(LoyaltyOfferDto).toAgent(ExpertAnswerAgent),
-        route(FastAnswerAgent).returns(FastDraftDto).toFinish(SupportWorkflowFinish),
+        route(LoyaltyAgent).toAgent(ExpertAnswerAgent),
+        route(FastAnswerAgent).toFinish(SupportWorkflowFinish),
       ),
   ],
 })
@@ -69,27 +53,17 @@ class ReorderedSupportWorkflow {}
   name: "offer-workflow",
   version: "1.0.0",
   flow: [
-    onAgent(ReviewerAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(
-        caseOf(DraftApprovedDto)
-          .toAction(SendOfferAction)
-          .returns(OfferSentDto)
-          .toFinish(OfferSentWorkflowFinish),
-        caseOf(ChangesRequestedDto)
-          .toAgent(EditorAgent)
-          .onError(
-            VisitsLimitExceededError,
-            toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
-          )
-          .returns(OfferDraftDto)
-          .toAgent(ReviewerAgent),
-      ),
-    onStart(OfferWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftAgent)
-      .returns(OfferDraftDto)
-      .toAgent(ReviewerAgent),
+    onAgent(ReviewerAgent).switch(
+      caseOf(DraftApprovedDto).toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
+      caseOf(ChangesRequestedDto)
+        .toAgent(EditorAgent)
+        .onError(
+          VisitsLimitExceededError,
+          toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
+        )
+        .toAgent(ReviewerAgent),
+    ),
+    onStart(OfferWorkflowStart).toAgent(DraftAgent).toAgent(ReviewerAgent),
   ],
 })
 class ReorderedOfferWorkflow {}

@@ -109,12 +109,7 @@ class GuardedFinish {}
 @Workflow({
   name: "guarded-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(GuardedStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(GuardedAgent)
-      .toFinish(GuardedFinish),
-  ],
+  flow: [onStart(GuardedStart).toAgent(GuardedAgent).toFinish(GuardedFinish)],
   defaults: DEFAULTS,
 })
 class GuardedWorkflow {}
@@ -132,9 +127,7 @@ class CardFinish {}
 @Workflow({
   name: "card-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(CardStart).returns(WorkflowStartTextDto).toAgent(CardOnlyAgent).toFinish(CardFinish),
-  ],
+  flow: [onStart(CardStart).toAgent(CardOnlyAgent).toFinish(CardFinish)],
   defaults: DEFAULTS,
 })
 class CardWorkflow {}
@@ -156,12 +149,7 @@ class GuardrailFinish {}
 @Workflow({
   name: "guardrail-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(GuardrailStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(GuardrailOnlyAgent)
-      .toFinish(GuardrailFinish),
-  ],
+  flow: [onStart(GuardrailStart).toAgent(GuardrailOnlyAgent).toFinish(GuardrailFinish)],
   defaults: DEFAULTS,
 })
 class GuardrailWorkflow {}

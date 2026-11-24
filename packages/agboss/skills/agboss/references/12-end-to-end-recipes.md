@@ -250,25 +250,20 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
   version: "1.0.0",
   flow: [
     onStart(OfferLetterWorkflowStart)
-      .returns(OfferRequestDto)
       .toAgent(LetterWriterAgent)
-      .returns(OfferLetterDto)
       .toAgent(LetterReviewerAgent),
 
     onAgent(LetterReviewerAgent)
-      .returns(oneOf(LetterChangesDto, LetterApprovedDto))
       .switch(
         caseOf(LetterChangesDto)
           .toAgent(LetterEditorAgent)
           .onError(VisitsLimitExceededError, toFinish(OfferStuckWorkflowFinish)) // no model past a limit
-          .returns(OfferLetterDto)
           .toAgent(LetterReviewerAgent),
         caseOf(LetterApprovedDto)
           .toRouter(OfferSizeRouter)
           .chooseOne(
             route(MailOfferAction)
               .onError(MailerUnavailableError, toFinish(OfferForSignOffWorkflowFinish)) // through ActionFailedError's cause
-              .returns(OfferMailedDto)
               .toFinish(OfferMailedWorkflowFinish),
             route(OfferForSignOffWorkflowFinish),
           ),
@@ -560,15 +555,12 @@ import { SupplierUncheckedWorkflowFinish } from "./supplier-unchecked.workflow-f
   version: "1.0.0",
   flow: [
     onStart(SupplierCheckWorkflowStart)
-      .returns(SupplierDto)
       .toAgent(SupplierCheckerAgent)
       .onError(
         StepFailedError,
         toAction(MarkSupplierUncheckedAction)
-          .returns(SupplierUncheckedDto)
           .toFinish(SupplierUncheckedWorkflowFinish),
       )
-      .returns(SupplierScoreDto)
       .toFinish(SupplierScoredWorkflowFinish),
   ],
 })
@@ -835,21 +827,15 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(SourcingWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(SupplierFinderAgent)
-      .returns(listOf(SupplierDto))
       .toParallelWorkflows(SupplierCheckWorkflow, { maxConcurrency: 3, maxItems: 10 })
       .join()
-      .returns(listOf(oneOf(SupplierScoreDto, SupplierUncheckedDto)))
       .toAgent(SupplierShortlistAgent)
-      .returns(SupplierShortlistDto)
       .toParallelAgents(PriceReviewAgent, RiskReviewAgent, TermsReviewAgent)
       .acceptedBy(anyOf(ReviewRangeArbiter, ReviewGroundedArbiter)) // the model only when the code rejects
       .joinQuorum({ min: 2, max: 3, deadline: minutes(2) })
       .onError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
-      .returns(listOf(PurchaseReviewDto))
       .toAgent(PurchaseAgent) // its tool pauses for the buyer
-      .returns(PurchaseSummaryDto)
       .toFinish(PurchasePlacedWorkflowFinish),
   ],
   maxSteps: 20,
@@ -1182,7 +1168,6 @@ import { HelpdeskWorkflowStart } from "./helpdesk.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(HelpdeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(HelpdeskAgent)
       .toFinish(HelpdeskWorkflowFinish),
   ],
@@ -1831,18 +1816,14 @@ import { LoanWorkflowStart } from "./loan.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(LoanWorkflowStart)
-      .returns(LoanApplicationDto)
       .toAgent(UnderwriterAgent)
-      .returns(LoanDecisionDto)
       .toAction(ReserveFundsAction)
-      .returns(FundsReservationDto)
       .toAction(SendLoanOfferAction)
       .onError(
         StepFailedError, // the offer failed: release the funds — proved by npx agboss check
         toAction(ReleaseFundsAction)
           .toFinish(LoanNotOfferedWorkflowFinish),
       )
-      .returns(LoanOfferSentDto)
       .toFinish(LoanOfferedWorkflowFinish),
   ],
   maxSteps: 2,

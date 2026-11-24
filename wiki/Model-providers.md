@@ -252,7 +252,6 @@ export class ChatWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toFinish(ChatWorkflowFinish),
   ],
 })

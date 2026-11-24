@@ -201,15 +201,12 @@ export class ReviewRouter {}
   providers: [PublishAction],
   flow: [
     onStart(ContextStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(WriterAgent),
     onAgent(WriterAgent)
-      .returns(DraftDto)
       .toRouter(ReviewRouter)
       .chooseOne(
         route(WriterAgent),
         route(PublishAction)
-          .returns(DraftDto)
           .toFinish(PublishedFinish),
       ),
   ],
@@ -232,9 +229,7 @@ export class ContextApplication {}
   defaults: { router: { model: "typesafe/jev-1.13" } },
   flow: [
     onStart(ContextStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(JudgedWriterAgent)
-      .returns(DraftDto)
       .toFinish(PublishedFinish),
   ],
 })
@@ -283,9 +278,7 @@ export class QuickWriterAgent {}
   providers: [LazyAuditService],
   flow: [
     onStart(ContextStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(QuickWriterAgent)
-      .returns(DraftDto)
       .toFinish(PublishedFinish),
   ],
 })
@@ -307,9 +300,7 @@ export class AuditApplication {}
   providers: [EagerAuditService],
   flow: [
     onStart(ContextStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(QuickWriterAgent)
-      .returns(DraftDto)
       .toFinish(PublishedFinish),
   ],
 })

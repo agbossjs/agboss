@@ -66,7 +66,6 @@ export class FamilyReply {}
   version: "1.0.0",
   flow: [
     onStart(FamilyTaskStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(FamilyWriter)
       .toFinish(FamilyReply),
   ],

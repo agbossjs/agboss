@@ -85,7 +85,6 @@ export class DeskRouter {}
   version: "1.0.0",
   flow: [
     onStart(DeskStart)
-      .returns(WorkflowStartTextDto)
       .toRouter(DeskRouter)
       .chooseOne(route(DeskAgent).toFinish(DeskFinish), route(HandOverFinish)),
   ],

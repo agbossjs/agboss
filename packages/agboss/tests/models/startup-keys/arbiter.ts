@@ -59,11 +59,9 @@ export function arbiterWorkflow(model: string): Class {
     version: "1.0.0",
     flow: [
       onStart(AnsStart)
-        .returns(WorkflowStartTextDto)
         .toParallelAgents(AnsAgent, AnsAgent)
         .acceptedBy(AnsArbiter)
         .joinQuorum({ min: 2 })
-        .returns(listOf(AnswerDto))
         .toFinish(AnsFinish),
     ],
   })

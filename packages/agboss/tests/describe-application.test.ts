@@ -51,12 +51,7 @@ class ToldWorkflowFinish {}
   maxSteps: 2,
   defaults: { models: { temperature: 0 } },
   uncompactedTurns: 1,
-  flow: [
-    onStart(TellWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(TellerAgent)
-      .toFinish(ToldWorkflowFinish),
-  ],
+  flow: [onStart(TellWorkflowStart).toAgent(TellerAgent).toFinish(ToldWorkflowFinish)],
 })
 class TellWorkflow {}
 

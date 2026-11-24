@@ -14,10 +14,10 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { fenceSeenOf, ReceiptDto, type FenceSeen } from "./fence.workflow.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /**
  * #471 AC1 — which lease a step fences with: a root and its `ParentInstance` children share the
@@ -137,9 +137,7 @@ export class FarChildWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(NearChildWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ScopeNearChildAction)
-      .returns(ReceiptDto)
       .toFinish(NearChildWorkflowFinish),
   ],
 })
@@ -150,9 +148,7 @@ export class NearChildWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FarChildWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ScopeFarChildAction)
-      .returns(ReceiptDto)
       .toFinish(FarChildWorkflowFinish),
   ],
 })
@@ -183,11 +179,8 @@ export class FarParentWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(NearParentWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ScopeRootAction)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(NearChildWorkflow)
-      .returns(ReceiptDto)
       .toFinish(NearParentWorkflowFinish),
   ],
 })
@@ -198,9 +191,7 @@ export class NearParentWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FarParentWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(FarChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ReceiptDto)
       .toFinish(FarParentWorkflowFinish),
   ],
 })

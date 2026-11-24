@@ -57,12 +57,7 @@ class GuardedTextFinish {}
 @Workflow({
   name: "guarded-text-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(GuardedTextStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(GuardedTextAgent)
-      .toFinish(GuardedTextFinish),
-  ],
+  flow: [onStart(GuardedTextStart).toAgent(GuardedTextAgent).toFinish(GuardedTextFinish)],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
 class GuardedTextWorkflow {}
@@ -119,11 +114,9 @@ class OwnersFinish {
   version: "1.0.0",
   flow: [
     onStart(OwnersStart)
-      .returns(WorkflowStartTextDto)
       .toParallelAgents(OwnerAgent, OwnerAgent)
       .acceptedBy(ChatArbiter)
       .joinQuorum({ min: 2 })
-      .returns(listOf(OwnerDto))
       .toFinish(OwnersFinish),
   ],
 })

@@ -89,9 +89,7 @@ function echoWorkflowOn(
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(EchoStart).returns(WorkflowStartTextDto).toAgent(EchoAgent).toFinish(EchoFinish),
-    ],
+    flow: [onStart(EchoStart).toAgent(EchoAgent).toFinish(EchoFinish)],
   })
   class EchoWorkflow {}
 

@@ -275,11 +275,8 @@ export class FenceFarFinish {}
   version: "1.0.0",
   flow: [
     onStart(FenceChargeStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ReserveOrderAction)
-      .returns(ReservationDto)
       .toAction(ChargeReservationAction)
-      .returns(ReceiptDto)
       .toFinish(FenceChargeFinish),
   ],
 })
@@ -290,11 +287,8 @@ export class FenceChargeWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FencePayStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ReserveOrderAction)
-      .returns(ReservationDto)
       .toAction(PayReservationAction)
-      .returns(ReceiptDto)
       .toFinish(FencePayFinish),
   ],
 })
@@ -305,9 +299,7 @@ export class FencePayWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FenceChildStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChargeTextAction)
-      .returns(ReceiptDto)
       .toFinish(FenceChildFinish),
   ],
 })
@@ -318,9 +310,7 @@ export class FenceChildWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FenceFarStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(FenceChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ReceiptDto)
       .toFinish(FenceFarFinish),
   ],
 })

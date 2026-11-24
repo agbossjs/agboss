@@ -5,9 +5,6 @@ import { Arbiter, OnAnswer } from "../../../src/flow/decorators/arbiter.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
-import { CompanyDto } from "../fixtures/data-dtos.js";
-import { WorkflowStartTextDto } from "../fixtures/dtos.js";
-import { CompanyCheckDto } from "../fixtures/launch-dtos.js";
 import {
   AuditorAgent,
   BoardSearchAgent,
@@ -33,13 +30,8 @@ import {
   FastScreenAgent,
 } from "../fixtures/quorum-agents.js";
 import {
-  CandidateDto,
-  CompanyShortlistDto,
   CultureScoreDto,
   DealCritiqueDto,
-  DealDto,
-  DueDiligenceReportDto,
-  FastScreenDto,
   FitSummaryDto,
   LegalReviewDto,
   SalaryFitDto,
@@ -94,35 +86,27 @@ class SkillsReaderAgent {}
 
 /** The fit launch, its quorum and the values it names. */
 const fitLaunch = () =>
-  onStart(FitReviewWorkflowStart)
-    .returns(CandidateDto)
-    .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent);
-const fitValues = (joined: ReturnType<typeof fitLaunch>, skills: unknown) =>
-  joined.returns(skills).returns(optional(CultureScoreDto)).returns(optional(SalaryFitDto));
-
+  onStart(FitReviewWorkflowStart).toParallelAgents(
+    SkillsScoreAgent,
+    CultureScoreAgent,
+    SalaryFitAgent,
+  );
 const searched = () =>
   onStart(CompanySearchWorkflowStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(BoardSearchAgent)
-    .returns(listOf(CompanyDto))
     .toParallelAgents(CompanyVetAgent, { maxItems: 50 });
 const shortlisted = (joined: ReturnType<typeof searched>) =>
-  joined
-    .returns(listOf(CompanyCheckDto))
-    .toAgent(CompanyShortlistAgent)
-    .returns(CompanyShortlistDto)
-    .toFinish(CompanyShortlistWorkflowFinish);
+  joined.toAgent(CompanyShortlistAgent).toFinish(CompanyShortlistWorkflowFinish);
 
 const dealLaunch = () =>
-  onStart(DealWorkflowStart)
-    .returns(DealDto)
-    .toParallelAgents(LegalAgent, DealCriticAgent, DealCriticAgent, FastScreenAgent);
-const fastGroup = () =>
-  group(FastScreenAgent).returns(FastScreenDto).toFinish(QuickRejectWorkflowFinish);
-const reviewPath = () =>
-  onAgent(FullReviewAgent)
-    .returns(DueDiligenceReportDto)
-    .toFinish(DueDiligenceReportWorkflowFinish);
+  onStart(DealWorkflowStart).toParallelAgents(
+    LegalAgent,
+    DealCriticAgent,
+    DealCriticAgent,
+    FastScreenAgent,
+  );
+const fastGroup = () => group(FastScreenAgent).toFinish(QuickRejectWorkflowFinish);
+const reviewPath = () => onAgent(FullReviewAgent).toFinish(DueDiligenceReportWorkflowFinish);
 
 describe("#279: the issue's quorums pass the analyser", () => {
   it.each([
@@ -135,21 +119,15 @@ describe("#279: the issue's quorums pass the analyser", () => {
   });
 });
 
-describe("#279 AC14: what .returns(…) may promise after .joinQuorum({ min })", () => {
-  it("quorum-return-not-optional on the quorum itself, not later in a consumer", () => {
+describe("#279 AC14: what the counted answers give after .joinQuorum({ min })", () => {
+  it("a consumer of a single answer the quorum may leave out is [input.missing-on-path]", () => {
     const flow = [
-      fitValues(fitLaunch().joinQuorum({ min: 2 }), SkillsScoreDto)
+      fitLaunch()
+        .joinQuorum({ min: 2 })
         .toAgent(SkillsReaderAgent)
-        .returns(FitSummaryDto)
         .toFinish(FitSummaryWorkflowFinish),
     ];
     expect(errorsOf(flow)).toEqual([
-      {
-        code: "flow.quorum-return-not-optional",
-        message:
-          "fit-review-workflow-start → toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ min: 2 }) may leave skills-score-agent out of the quorum — write .returns(optional(SkillsScoreDto)), not .returns(SkillsScoreDto) (or min: 3 to count every agent)",
-      },
-      // the graph carries what the branches give (#1270), so the consumer reads the optional value
       {
         code: "input.missing-on-path",
         message:
@@ -162,11 +140,7 @@ describe("#279 AC14: what .returns(…) may promise after .joinQuorum({ min })",
     const flow = [
       fitLaunch()
         .joinQuorum({ min: 3 })
-        .returns(SkillsScoreDto)
-        .returns(CultureScoreDto)
-        .returns(SalaryFitDto)
         .toAgent(SkillsReaderAgent)
-        .returns(FitSummaryDto)
         .toFinish(FitSummaryWorkflowFinish),
     ];
     expect(codesOf(flow)).toEqual([]);
@@ -176,9 +150,9 @@ describe("#279 AC14: what .returns(…) may promise after .joinQuorum({ min })",
 describe("#279 AC8: only counted answers enter the scope — what a consumer may require", () => {
   it("a required field whose producer may be left out: missing-on-path with the fix", () => {
     const flow = [
-      fitValues(fitLaunch().joinQuorum({ min: 2 }), optional(SkillsScoreDto))
+      fitLaunch()
+        .joinQuorum({ min: 2 })
         .toAgent(SkillsReaderAgent)
-        .returns(FitSummaryDto)
         .toFinish(FitSummaryWorkflowFinish),
     ];
     expect(errorsOf(flow)).toEqual([
@@ -193,13 +167,9 @@ describe("#279 AC8: only counted answers enter the scope — what a consumer may
   it("a counted answer nobody reads is flow.unused-output", () => {
     const flow = [
       onStart(FitReviewWorkflowStart)
-        .returns(CandidateDto)
         .toParallelAgents(ScoreAAgent, ScoreBAgent, SkillsScoreAgent)
         .joinQuorum({ min: 2 })
-        .returns(listOf(ScoreDto))
-        .returns(optional(SkillsScoreDto))
         .toAgent(FitSummaryAgent)
-        .returns(FitSummaryDto)
         .toFinish(FitSummaryWorkflowFinish),
     ];
     expect(codesOf(flow)).toContain("flow.unused-output");
@@ -209,9 +179,9 @@ describe("#279 AC8: only counted answers enter the scope — what a consumer may
 describe("#279: an impossible quorum fails assembly", () => {
   it("min above the agents launched", () => {
     const flow = [
-      fitValues(fitLaunch().joinQuorum({ min: 4 }), optional(SkillsScoreDto))
+      fitLaunch()
+        .joinQuorum({ min: 4 })
         .toAgent(FitSummaryAgent)
-        .returns(FitSummaryDto)
         .toFinish(FitSummaryWorkflowFinish),
     ];
     expect(errorsOf(flow)).toEqual([
@@ -231,10 +201,8 @@ describe("#279: an impossible quorum fails assembly", () => {
   it("a group listing an agent not launched, or more copies than launched", () => {
     const flow = [
       dealLaunch().joinQuorumGroups(
-        group(DealCriticAgent, DealCriticAgent, DealCriticAgent)
-          .returns(listOf(DealCritiqueDto))
-          .toAgent(FullReviewAgent),
-        group(AuditorAgent).returns(FastScreenDto).toFinish(QuickRejectWorkflowFinish),
+        group(DealCriticAgent, DealCriticAgent, DealCriticAgent).toAgent(FullReviewAgent),
+        group(AuditorAgent).toFinish(QuickRejectWorkflowFinish),
         fastGroup(),
       ),
       reviewPath(),
@@ -248,45 +216,20 @@ describe("#279: an impossible quorum fails assembly", () => {
 });
 
 describe("#279 AC7 / AC13: groups continue their own paths, shapes from the launch", () => {
-  it("a repeated class is listOf in a group that counts one copy", () => {
-    const flow = [
-      dealLaunch().joinQuorumGroups(
-        group(LegalAgent, DealCriticAgent)
-          .returns(LegalReviewDto)
-          .returns(DealCritiqueDto)
-          .toAgent(FullReviewAgent),
-        fastGroup(),
-      ),
-      reviewPath(),
-    ];
-    expect(errorsOf(flow).filter((found) => found.code === "flow.returns-mismatch")).toEqual([
-      {
-        code: "flow.returns-mismatch",
-        message:
-          "the counted answers of deal-workflow-start → toParallelAgents(legal-agent, deal-critic-agent, deal-critic-agent, fast-screen-agent) group(legal-agent, deal-critic-agent) give LegalReviewDto, listOf(DealCritiqueDto) — write group(legal-agent, deal-critic-agent).returns(LegalReviewDto).returns(listOf(DealCritiqueDto)), not group(legal-agent, deal-critic-agent).returns(DealCritiqueDto).returns(LegalReviewDto)",
-      },
-    ]);
-  });
-
   it("a group without a continuation leads nowhere", () => {
-    const flow = [dealLaunch().joinQuorumGroups(group(FastScreenAgent).returns(FastScreenDto))];
+    const flow = [dealLaunch().joinQuorumGroups(group(FastScreenAgent))];
     expect(codesOf(flow)).toContain("graph.dead-end");
   });
 
   it("a node reached from two groups is continued once — its own path", () => {
     const toReview = () =>
       group(DealCriticAgent, DealCriticAgent)
-        .returns(listOf(DealCritiqueDto))
         .toAgent(FullReviewAgent)
-        .returns(DueDiligenceReportDto)
         .toFinish(DueDiligenceReportWorkflowFinish);
     const flow = [
       dealLaunch().joinQuorumGroups(
         group(LegalAgent, DealCriticAgent)
-          .returns(LegalReviewDto)
-          .returns(listOf(DealCritiqueDto))
           .toAgent(FullReviewAgent)
-          .returns(DueDiligenceReportDto)
           .toFinish(DueDiligenceReportWorkflowFinish),
         toReview(),
         fastGroup(),
@@ -367,13 +310,10 @@ class UndecoratedArbiter {
 
 const scored = (arbiter: unknown) => [
   onStart(FitReviewWorkflowStart)
-    .returns(CandidateDto)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
     .acceptedBy(arbiter)
     .joinQuorum({ min: 2 })
-    .returns(listOf(ScoreDto))
     .toAgent(FitSummaryAgent)
-    .returns(FitSummaryDto)
     .toFinish(FitSummaryWorkflowFinish),
 ];
 
@@ -423,10 +363,7 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
         .acceptedBy(DueDiligenceArbiter)
         .joinQuorumGroups(
           group(LegalAgent, DealCriticAgent)
-            .returns(LegalReviewDto)
-            .returns(listOf(DealCritiqueDto))
             .toAgent(FullReviewAgent)
-            .returns(DueDiligenceReportDto)
             .toFinish(DueDiligenceReportWorkflowFinish),
           fastGroup(),
         ),

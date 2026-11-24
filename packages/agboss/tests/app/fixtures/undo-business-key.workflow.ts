@@ -101,11 +101,8 @@ export class KeyedUndoWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(KeyedUndoWorkflowStart)
-      .returns(ItemDto)
       .toAction(KeyedBookingAction)
-      .returns(BookingDto)
       .toAction(RefusingCarrierAction)
-      .returns(ItemResultDto)
       .toFinish(KeyedUndoWorkflowFinish),
   ],
 })
@@ -125,9 +122,7 @@ export class KeyedParentWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(KeyedParentWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(KeyedUndoWorkflow)
-      .returns(ItemResultDto)
       .toFinish(KeyedParentWorkflowFinish),
   ],
 })

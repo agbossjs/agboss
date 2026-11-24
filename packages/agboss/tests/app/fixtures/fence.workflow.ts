@@ -405,11 +405,8 @@ export class NotReleasedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(BookedReleaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(BookAction)
-      .returns(BookingDto)
       .toAction(FailingReleaseAction)
-      .returns(ReceiptDto)
       .toFinish(BookedReleaseWorkflowFinish),
   ],
 })
@@ -444,11 +441,9 @@ export class AgentReleaseWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ReleaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ReleaseAction)
       // a catch-all side path: a business error takes it, a fenced write never does
       .onError(Error, toFinish(NotReleasedWorkflowFinish))
-      .returns(ReceiptDto)
       .toFinish(ReleaseWorkflowFinish),
   ],
   providers: [ArtifactLedger],
@@ -461,9 +456,7 @@ export class ReleaseWorkflow {}
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(AgentReleaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ReleaseAgent)
-      .returns(ReceiptDto)
       .toFinish(AgentReleaseWorkflowFinish),
   ],
   providers: [ArtifactLedger],

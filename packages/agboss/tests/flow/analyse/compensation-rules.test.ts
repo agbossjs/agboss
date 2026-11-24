@@ -91,14 +91,12 @@ class CommitOnlyAction extends UndecoratedUndo {}
   version: "1.0.0",
   flow: [
     onStart(TripWorkflowStart)
-      .returns(TripRequestDto)
       .toAction(WrongUndoAction)
       .toAction(WrongCommitAction)
       .toAction(SelfUndoAction)
       .toAction(MainChainAction)
       .toAction(CommitOnlyAction)
       .toAction(BadInputAction)
-      .returns(BookingDto)
       .toFinish(TripNotBookedWorkflowFinish),
   ],
 })

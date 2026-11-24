@@ -66,7 +66,7 @@ function servedWith(
   @Workflow({
     name: "nested-workflow",
     version: "1.0.0",
-    flow: [onStart(NestedStart).returns(input).toFinish(NestedFinish)],
+    flow: [onStart(NestedStart).toFinish(NestedFinish)],
   })
   class NestedWorkflow {}
 

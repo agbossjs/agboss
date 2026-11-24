@@ -21,7 +21,6 @@ import {
   FirstVoterAgent,
   MixedVotedWorkflowFinish,
   SecondVoterAgent,
-  VoteDto,
   VotedDto,
   VotedWorkflowFinish,
 } from "./tree-vote.workflow.js";
@@ -40,10 +39,8 @@ export class StrictVoteWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(StrictVoteWorkflowStart)
-      .returns(TaskDto)
       .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
       .joinQuorum({ min: 2, deadline: seconds(30) })
-      .returns(listOf(VoteDto))
       .toFinish(VotedWorkflowFinish),
   ],
 })
@@ -71,14 +68,11 @@ export class StrictMixedWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(StrictMixedWorkflowStart)
-      .returns(TaskDto)
       .toRouter(StrictTaskKindRouter)
       .chooseOne(
         route(TaskWorkflow)
-          .returns(TaskDoneDto)
           .toFinish(TaskDoneWorkflowFinish),
         route(StrictVoteWorkflow)
-          .returns(VotedDto)
           .toFinish(MixedVotedWorkflowFinish),
       ),
   ],
@@ -110,10 +104,8 @@ export class StrictVotingDoneWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(StrictVotingWorkflowStart)
-      .returns(listOf(TaskDto))
       .toParallelWorkflows(StrictMixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
       .join()
-      .returns(listOf(oneOf(TaskDoneDto, VotedDto)))
       .toFinish(StrictVotingDoneWorkflowFinish),
   ],
   maxConcurrentExecutions: 1,

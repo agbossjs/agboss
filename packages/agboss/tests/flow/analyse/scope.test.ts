@@ -12,15 +12,9 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { Action } from "../../../src/flow/decorators/action.js";
-import {
-  ExpertDraftDto,
-  FastDraftDto,
-  LoyaltyOfferDto,
-  OrderStatusDto,
-} from "../fixtures/data-dtos.js";
+import { ExpertDraftDto, LoyaltyOfferDto, OrderStatusDto } from "../fixtures/data-dtos.js";
 import {
   OfferDraftDto,
-  OfferSentDto,
   ProfileDto,
   ResumeMissingDto,
   ReviewDto,
@@ -35,7 +29,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
-import { onAgent, returnsEach, route, onStart } from "../fixtures/paths.js";
+import { onAgent, route, onStart } from "../fixtures/paths.js";
 import {
   FastAnswerAgent,
   LoyaltyAgent,
@@ -52,13 +46,9 @@ import {
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
-      .returns(OfferDraftDto)
       .toAction(SendKitAction)
-      .returns(OfferSentDto)
       .toFinish(SentKitWorkflowFinish),
   ],
 })
@@ -81,11 +71,8 @@ class DraftsKitAgent {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(DraftsKitAgent)
-      .returns(listOf(OfferDraftDto))
       .toAction(SendKitAction)
-      .returns(OfferSentDto)
       .toFinish(SentKitWorkflowFinish),
   ],
 })
@@ -125,16 +112,14 @@ class StrictRouter {}
   version: "1.0.0",
   flow: [
     onStart(SupportWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(OrderAgent)
-      .returns(OrderStatusDto)
       .toRouter(StrictRouter)
       .chooseOne(
-        route(FastAnswerAgent).returns(FastDraftDto).toAgent(StrictExpertAgent),
-        route(LoyaltyAgent).returns(LoyaltyOfferDto).toAgent(StrictExpertAgent),
+        route(FastAnswerAgent).toAgent(StrictExpertAgent),
+        route(LoyaltyAgent).toAgent(StrictExpertAgent),
         route(StrictExpertAgent),
       ),
-    onAgent(StrictExpertAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
+    onAgent(StrictExpertAgent).toFinish(SupportWorkflowFinish),
   ],
 })
 class WitnessWorkflow {}
@@ -172,12 +157,7 @@ class ContractWorkflowFinish {}
   name: "contract-workflow",
   version: "1.0.0",
   flow: [
-    onStart(ContractWorkflowStart)
-      .returns(ReviewDto)
-      .returns(ReviewDto)
-      .toAgent(ContractSummaryAgent)
-      .returns(ShortlistDto)
-      .toFinish(ContractWorkflowFinish),
+    onStart(ContractWorkflowStart).toAgent(ContractSummaryAgent).toFinish(ContractWorkflowFinish),
   ],
 })
 class ContractWorkflow {}
@@ -218,9 +198,7 @@ class WideWorkflowFinish {
 @Workflow({
   name: "wide-workflow",
   version: "1.0.0",
-  flow: [
-    returnsEach(onStart(WideWorkflowStart), manyDtos.map(optional)).toFinish(WideWorkflowFinish),
-  ],
+  flow: [onStart(WideWorkflowStart).toFinish(WideWorkflowFinish)],
 })
 class WideWorkflow {}
 
@@ -275,9 +253,7 @@ class ScreenedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(ScreenAgent)
-      .returns(listOf(oneOf(ProfileDto, ResumeMissingDto)))
       .toAction(FileProfilesAction)
       .toFinish(ScreenedWorkflowFinish),
   ],
@@ -289,9 +265,7 @@ class ScreenWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart)
-      .returns(ShortlistDto)
       .toAgent(ScreenAgent)
-      .returns(listOf(oneOf(ProfileDto, ResumeMissingDto)))
       .toAction(FileOnlyProfilesAction)
       .toFinish(ScreenedWorkflowFinish),
   ],

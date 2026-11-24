@@ -23,7 +23,6 @@ export class ShortlistAgent {}
   version: "1.0.0",
   flow: [
     onStart(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(ShortlistAgent)
       .toFinish(ChatWorkflowFinish),
   ],

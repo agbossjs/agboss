@@ -37,8 +37,7 @@ describe("#264 S112: ThisWorkflowOutputs", () => {
       "countdown-workflow":
         "{ readonly input: NoInput; readonly output: CountDoneDto | CountStoppedDto }",
       "topic-research-workflow":
-        "{ readonly input: NoInput; readonly output: TopicFailedDto | TopicReportDto; " +
-        "readonly join: readonly (TopicFailedDto | TopicReportDto)[] }",
+        "{ readonly input: NoInput; readonly output: TopicFailedDto | TopicReportDto }",
     });
   });
 
@@ -50,9 +49,6 @@ describe("#264 S112: ThisWorkflowOutputs", () => {
 
     expect(tables.producerOutputs.has("this-workflow")).toBe(false);
     expect(tables.inputs.has("this-workflow")).toBe(false);
-    expect([...tables.joinOutputs.keys()].filter((key) => key.includes("this-workflow"))).toEqual(
-      [],
-    );
     expect([...tables.thisWorkflowOutputs.keys()]).toEqual([
       "topic-research-workflow",
       "countdown-workflow",

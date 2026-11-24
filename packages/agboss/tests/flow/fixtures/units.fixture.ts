@@ -125,11 +125,9 @@ export class QuoteSizeRouter implements RouterHandler<QuoteSizeRouter> {
 
 export const quotePaths = [
   onStart(QuoteWorkflowStart)
-    .returns(QuoteRequestDto)
     .toRouter(QuoteSizeRouter)
     .chooseOne(
       route(PriceQuoteAction)
-        .returns(oneOf(QuoteDto, QuoteRefusedDto))
         .switch(
           caseOf(QuoteDto)
             .toFinish(QuoteWorkflowFinish),

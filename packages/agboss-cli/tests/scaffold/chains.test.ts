@@ -6,8 +6,8 @@ import { markChains, unmarkChains } from "../../src/scaffold/chains.js";
 import { formatFiles } from "../../src/scaffold/format.js";
 
 const root = mkdtempSync(join(tmpdir(), "agboss-chains-"));
-const JOINED = "export const flow = [onStart(A).returns(B).toFinish(C)];\n";
-const SPLIT = "export const flow = [\n  onStart(A)\n    .returns(B)\n    .toFinish(C),\n];\n";
+const JOINED = "export const flow = [onStart(A).toAgent(B).toFinish(C)];\n";
+const SPLIT = "export const flow = [\n  onStart(A)\n    .toAgent(B)\n    .toFinish(C),\n];\n";
 
 const formatted = async (path: string, content: string): Promise<string> => {
   const [file] = await formatFiles(root, [{ path, content }]);

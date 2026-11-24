@@ -44,33 +44,29 @@ import {
 } from "../fixtures/recursion.fixture.js";
 
 /**
- * #264 S112, S114 — `ThisWorkflow` typed per path: a `.returns(…)` after a `ThisWorkflow` launch is
- * claimed in the path's type and `@Workflow({ name, flow })` checks it against
- * `ThisWorkflowOutputs[name]`. The fixtures' recursive workflows give different classes — the
- * research `ResearchReportDto | ResearchFailedDto`, the org charts `TeamChartDto |
- * OrgChartFailedDto` — and each launch form is typed by its own workflow. Each `@ts-expect-error`
- * is a negative test: the wrong class fails on `flow`.
+ * #264 S112, S114 — `ThisWorkflow` typed per path: a `ThisWorkflow` launch is claimed in the path's
+ * type and `@Workflow({ name, flow })` checks its launches against `ThisWorkflowOutputs[name]`.
+ * What a child gives is derived by the analyser (#1270), so the compile-time pins here are the
+ * entry's classes and the claim of a flow without a generated entry.
  */
 
-/** The org chart's per-item launch, joined as `listOf(TJoined)`. */
-const orgChartPath = onStart(OrgChartWorkflowStart)
-  .returns(OrgUnitDto)
-  .toAgent(OrgMapperAgent)
-  .returns(oneOf(TeamChartDto, OrgSplitDto));
+/** The org chart's path to its switch. */
+const orgChartPath = onStart(OrgChartWorkflowStart).toAgent(OrgMapperAgent);
 
 describe("#264 S112: one entry per recursive workflow", () => {
   it("the generated table keys ThisWorkflow by the workflow", () => {
     expectTypeOf<ThisWorkflowOutputs["org-chart-workflow"]["output"]>().toEqualTypeOf<
       TeamChartDto | OrgChartFailedDto
     >();
-    expectTypeOf<ThisWorkflowOutputs["deep-research-workflow"]["join"]>().toEqualTypeOf<
-      readonly (ResearchReportDto | ResearchFailedDto)[]
+    expectTypeOf<ThisWorkflowOutputs["deep-research-workflow"]["output"]>().toEqualTypeOf<
+      ResearchReportDto | ResearchFailedDto
     >();
+    expectTypeOf<ThisWorkflowOutputs["deep-research-workflow"]>().not.toHaveProperty("join");
   });
 });
 
-describe("#264 S112: .toParallelWorkflows(ThisWorkflow, …).join().returns(listOf(…))", () => {
-  it("each workflow's join is a list of its own finishes' classes", () => {
+describe("#264 S112: .toParallelWorkflows(ThisWorkflow, …).join()", () => {
+  it("a per-item launch of ThisWorkflow is joined and continued", () => {
     Workflow({
       name: "org-chart-workflow",
       version: "1.0.0",
@@ -79,12 +75,9 @@ describe("#264 S112: .toParallelWorkflows(ThisWorkflow, …).join().returns(list
           caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
           caseOf(OrgSplitDto)
             .toAction(SplitUnitAction)
-            .returns(listOf(OrgUnitDto))
             .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 2, maxItems: 4 })
             .join()
-            .returns(listOf(oneOf(TeamChartDto, OrgChartFailedDto)))
             .toAgent(ChartMergerAgent)
-            .returns(TeamChartDto)
             .toFinish(TeamChartWorkflowFinish),
         ),
       ],
@@ -95,99 +88,25 @@ describe("#264 S112: .toParallelWorkflows(ThisWorkflow, …).join().returns(list
       version: "1.0.0",
       flow: [
         onStart(DeepResearchWorkflowStart)
-          .returns(ResearchTopicDto)
           .toAgent(TopicResearcherAgent)
-          .returns(oneOf(ResearchReportDto, ResearchTooBroadDto))
           .switch(
             caseOf(ResearchReportDto).toFinish(ResearchReportWorkflowFinish),
             caseOf(ResearchTooBroadDto)
               .toAction(SplitTopicAction)
-              .returns(listOf(ResearchTopicDto))
               .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
               .join()
-              .returns(listOf(oneOf(ResearchReportDto, ResearchFailedDto)))
               .toAgent(ReportMergerAgent)
-              .returns(ResearchReportDto)
               .toFinish(ResearchReportWorkflowFinish),
           ),
       ],
       maxDepth: 4,
     });
   });
-
-  it("the research's classes are not what the org chart's children give", () => {
-    Workflow({
-      name: "org-chart-workflow",
-      version: "1.0.0",
-      // @ts-expect-error — the org chart's children give TeamChartDto | OrgChartFailedDto
-      flow: [
-        orgChartPath.switch(
-          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-          caseOf(OrgSplitDto)
-            .toAction(SplitUnitAction)
-            .returns(listOf(OrgUnitDto))
-            .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 2, maxItems: 4 })
-            .join()
-            .returns(listOf(oneOf(ResearchReportDto, ResearchFailedDto)))
-            .toFinish(TeamChartWorkflowFinish),
-        ),
-      ],
-      maxDepth: 3,
-    });
-  });
-
-  it("a join without one of the classes does not compile", () => {
-    Workflow({
-      name: "org-chart-workflow",
-      version: "1.0.0",
-      // @ts-expect-error — the join gives OrgChartFailedDto too
-      flow: [
-        orgChartPath.switch(
-          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-          caseOf(OrgSplitDto)
-            .toAction(SplitUnitAction)
-            .returns(listOf(OrgUnitDto))
-            .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 2, maxItems: 4 })
-            .join()
-            .returns(listOf(TeamChartDto))
-            .toFinish(TeamChartWorkflowFinish),
-        ),
-      ],
-      maxDepth: 3,
-    });
-  });
-
-  it("a ThisWorkflow launch in an .onError side path is checked too", () => {
-    Workflow({
-      name: "org-chart-workflow",
-      version: "1.0.0",
-      // @ts-expect-error — the side path's child gives TeamChartDto | OrgChartFailedDto
-      flow: [
-        orgChartPath.switch(
-          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-          caseOf(OrgSplitDto)
-            .toAction(SplitUnitAction)
-            .returns(listOf(OrgUnitDto))
-            .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 2, maxItems: 4 })
-            .join()
-            .onError(
-              LimitExceededError,
-              toWorkflow(ThisWorkflow).returns(ResearchReportDto).toFinish(TeamChartWorkflowFinish),
-            )
-            .returns(listOf(oneOf(TeamChartDto, OrgChartFailedDto)))
-            .toFinish(TeamChartWorkflowFinish),
-        ),
-      ],
-      maxDepth: 3,
-    });
-  });
 });
 
 describe("#264 S112: a single child — .toWorkflow, route, onWorkflow(…) and the side-path starter", () => {
-  const drill = onStart(OrgDrillWorkflowStart).returns(OrgUnitDto).toRouter(OrgDepthRouter);
-  const failed = toAction(MarkUnitFailedAction)
-    .returns(OrgChartFailedDto)
-    .toFinish(OrgChartFailedWorkflowFinish);
+  const drill = onStart(OrgDrillWorkflowStart).toRouter(OrgDepthRouter);
+  const failed = toAction(MarkUnitFailedAction).toFinish(OrgChartFailedWorkflowFinish);
 
   it("each form names its own workflow's classes", () => {
     Workflow({
@@ -197,162 +116,41 @@ describe("#264 S112: a single child — .toWorkflow, route, onWorkflow(…) and 
         drill.chooseOne(
           route(ThisWorkflow)
             .onError(StepFailedError, failed)
-            .returns(oneOf(TeamChartDto, OrgChartFailedDto))
             .switch(
               caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
               caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
             ),
-          route(UnitPickerAgent)
-            .returns(oneOf(TeamChartDto, OrgUnitDto))
-            .switch(
-              caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-              caseOf(OrgUnitDto)
-                .toWorkflow(ThisWorkflow)
-                .returns(oneOf(TeamChartDto, OrgChartFailedDto))
-                .switch(
-                  caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-                  caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
-                ),
-            ),
-        ),
-        onWorkflow(ThisWorkflow)
-          .returns(oneOf(OrgChartFailedDto, TeamChartDto))
-          .switch(
+          route(UnitPickerAgent).switch(
             caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-            caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
-          ),
-      ],
-      maxDepth: 3,
-    });
-    Workflow({
-      name: "org-retry-workflow",
-      version: "1.0.0",
-      flow: [
-        onStart(OrgRetryWorkflowStart)
-          .returns(OrgUnitDto)
-          .toAgent(UnitCharterAgent)
-          .onError(
-            StepFailedError,
-            toWorkflow(ThisWorkflow)
-              .returns(oneOf(TeamChartDto, OrgChartFailedDto))
+            caseOf(OrgUnitDto)
+              .toWorkflow(ThisWorkflow)
               .switch(
                 caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
                 caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
               ),
-          )
-          .returns(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
-      ],
-      maxDepth: 2,
-    });
-  });
-
-  it("route(ThisWorkflow) with the research's classes does not compile", () => {
-    Workflow({
-      name: "org-drill-workflow",
-      version: "1.0.0",
-      // @ts-expect-error — route(ThisWorkflow) gives TeamChartDto | OrgChartFailedDto
-      flow: [
-        drill.chooseOne(
-          route(ThisWorkflow)
-            .returns(oneOf(ResearchReportDto, ResearchFailedDto))
-            .switch(
-              caseOf(ResearchReportDto).toFinish(TeamChartWorkflowFinish),
-              caseOf(ResearchFailedDto).toFinish(OrgChartFailedWorkflowFinish),
-            ),
-          route(UnitPickerAgent)
-            .returns(oneOf(TeamChartDto, OrgUnitDto))
-            .switch(
-              caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-              caseOf(OrgUnitDto).toFinish(TeamChartWorkflowFinish),
-            ),
+          ),
+        ),
+        onWorkflow(ThisWorkflow).switch(
+          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
+          caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
         ),
       ],
       maxDepth: 3,
     });
-  });
-
-  it(".toWorkflow(ThisWorkflow) in a case with one class too few does not compile", () => {
-    Workflow({
-      name: "org-drill-workflow",
-      version: "1.0.0",
-      // @ts-expect-error — .toWorkflow(ThisWorkflow) gives OrgChartFailedDto too
-      flow: [
-        drill.chooseOne(
-          route(ThisWorkflow),
-          route(UnitPickerAgent)
-            .returns(oneOf(TeamChartDto, OrgUnitDto))
-            .switch(
-              caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-              caseOf(OrgUnitDto)
-                .toWorkflow(ThisWorkflow)
-                .returns(TeamChartDto)
-                .toFinish(TeamChartWorkflowFinish),
-            ),
-        ),
-      ],
-      maxDepth: 3,
-    });
-  });
-
-  it("workflow(ThisWorkflow)'s own path with the research's classes does not compile", () => {
-    Workflow({
-      name: "org-drill-workflow",
-      version: "1.0.0",
-      // @ts-expect-error — onWorkflow(ThisWorkflow) gives TeamChartDto | OrgChartFailedDto
-      flow: [
-        drill.chooseOne(route(ThisWorkflow), route(UnitPickerAgent)),
-        onWorkflow(ThisWorkflow).returns(ResearchReportDto).toFinish(TeamChartWorkflowFinish),
-      ],
-      maxDepth: 3,
-    });
-  });
-
-  it("a ThisWorkflow launch in an .onError side path is checked too", () => {
     Workflow({
       name: "org-retry-workflow",
       version: "1.0.0",
-      // @ts-expect-error — the side path's child gives TeamChartDto | OrgChartFailedDto
       flow: [
         onStart(OrgRetryWorkflowStart)
-          .returns(OrgUnitDto)
           .toAgent(UnitCharterAgent)
           .onError(
             StepFailedError,
-            toWorkflow(ThisWorkflow)
-              .returns(oneOf(ResearchReportDto, ResearchFailedDto))
-              .switch(
-                caseOf(ResearchReportDto).toFinish(TeamChartWorkflowFinish),
-                caseOf(ResearchFailedDto).toFinish(OrgChartFailedWorkflowFinish),
-              ),
+            toWorkflow(ThisWorkflow).switch(
+              caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
+              caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
+            ),
           )
-          .returns(TeamChartDto)
           .toFinish(TeamChartWorkflowFinish),
-      ],
-      maxDepth: 2,
-    });
-  });
-
-  it("a side path of a ThisWorkflow step is checked with it", () => {
-    Workflow({
-      name: "org-retry-workflow",
-      version: "1.0.0",
-      // @ts-expect-error — the nested child gives TeamChartDto | OrgChartFailedDto
-      flow: [
-        onStart(OrgRetryWorkflowStart)
-          .returns(OrgUnitDto)
-          .toWorkflow(ThisWorkflow)
-          .onError(
-            StepFailedError,
-            toWorkflow(ThisWorkflow)
-              .returns(ResearchFailedDto)
-              .toFinish(OrgChartFailedWorkflowFinish),
-          )
-          .returns(oneOf(TeamChartDto, OrgChartFailedDto))
-          .switch(
-            caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-            caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
-          ),
       ],
       maxDepth: 2,
     });
@@ -364,11 +162,7 @@ describe("#264 S112: a single child — .toWorkflow, route, onWorkflow(…) and 
       version: "1.0.0",
       // @ts-expect-error — no ThisWorkflowOutputs["unchecked-workflow"] before agboss check
       flow: [
-        onStart(OrgRetryWorkflowStart)
-          .returns(OrgUnitDto)
-          .toWorkflow(ThisWorkflow)
-          .returns(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
+        onStart(OrgRetryWorkflowStart).toWorkflow(ThisWorkflow).toFinish(TeamChartWorkflowFinish),
       ],
       maxDepth: 2,
     });
@@ -379,11 +173,7 @@ describe("#264 S112: a single child — .toWorkflow, route, onWorkflow(…) and 
       name: "unchecked-workflow",
       version: "1.0.0",
       flow: [
-        onStart(OrgRetryWorkflowStart)
-          .returns(OrgUnitDto)
-          .toAgent(UnitCharterAgent)
-          .returns(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
+        onStart(OrgRetryWorkflowStart).toAgent(UnitCharterAgent).toFinish(TeamChartWorkflowFinish),
       ],
     });
   });

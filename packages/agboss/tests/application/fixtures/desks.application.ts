@@ -101,12 +101,7 @@ export class OrdersAgent {}
   name: "orders-workflow",
   version: "1.0.0",
   defaults: testDefaults,
-  flow: [
-    onStart(OrdersWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OrdersAgent)
-      .toFinish(OrdersWorkflowFinish),
-  ],
+  flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [DeskDirectoryService, SpendReportService],
 })
 export class OrdersWorkflow {}
@@ -137,12 +132,7 @@ export class RefundsAgent {}
   name: "refunds-workflow",
   version: "2.0.0",
   defaults: testDefaults,
-  flow: [
-    onStart(RefundsWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(RefundsAgent)
-      .toFinish(RefundsWorkflowFinish),
-  ],
+  flow: [onStart(RefundsWorkflowStart).toAgent(RefundsAgent).toFinish(RefundsWorkflowFinish)],
   providers: [DeskDirectoryService],
 })
 export class RefundsWorkflow {}
@@ -162,12 +152,7 @@ export class DesksApplication {}
   name: "orders-copy-workflow",
   version: "1.0.0",
   defaults: testDefaults,
-  flow: [
-    onStart(OrdersWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(RefundsAgent)
-      .toFinish(RefundsWorkflowFinish),
-  ],
+  flow: [onStart(OrdersWorkflowStart).toAgent(RefundsAgent).toFinish(RefundsWorkflowFinish)],
 })
 export class OrdersCopyWorkflow {}
 

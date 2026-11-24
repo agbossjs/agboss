@@ -382,13 +382,9 @@ export class WindowChildWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(WindowChildWorkflowStart)
-      .returns(WindowOrderDto)
       .toAction(WindowAskAction)
-      .returns(WindowOrderDto)
       .toExternalTask(WindowQuestion)
-      .returns(WindowApprovalDto)
       .toAction(WindowApprovedAction)
-      .returns(WindowReceiptDto)
       .toFinish(WindowChildWorkflowFinish),
   ],
 })
@@ -413,11 +409,8 @@ export class WindowParentWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(WindowParentWorkflowStart)
-      .returns(WindowOrderDto)
       .toWorkflow(WindowChildWorkflow)
-      .returns(WindowReceiptDto)
       .toAction(WindowChargeAction)
-      .returns(WindowReceiptDto)
       .toFinish(WindowParentWorkflowFinish),
   ],
 })
@@ -444,19 +437,12 @@ export class WindowTwiceWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(WindowTwiceWorkflowStart)
-      .returns(WindowOrderDto)
       .toAction(WindowAskAction)
-      .returns(WindowOrderDto)
       .toExternalTask(WindowQuestion)
-      .returns(WindowApprovalDto)
       .toAction(WindowAskAgainAction)
-      .returns(WindowOrderDto)
       .toExternalTask(WindowSecondQuestion)
-      .returns(WindowApprovalDto)
       .toAction(WindowApprovedAction)
-      .returns(WindowReceiptDto)
       .toAction(WindowChargeAction)
-      .returns(WindowReceiptDto)
       .toFinish(WindowTwiceWorkflowFinish),
   ],
 })

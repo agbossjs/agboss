@@ -26,9 +26,7 @@ export class PaidNestedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidNestedWorkflowStart)
-      .returns(OrderDto)
       .toWorkflow(PaidActionWorkflow)
-      .returns(OrderNoteDto)
       .toFinish(PaidNestedWorkflowFinish),
   ],
 })
@@ -49,14 +47,14 @@ export class PaidRefundWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidRefundWorkflowStart)
-      .returns(OrderDto)
       .toAction(BookOrderAction)
       .toAction(DeclineOrderAction)
-      .onError(OrderDeclinedError, toAction(RefundOrderAction)
-        .toFinish(RefundedWorkflowFinish))
-      .returns(OrderDto)
+      .onError(
+        OrderDeclinedError,
+        toAction(RefundOrderAction)
+          .toFinish(RefundedWorkflowFinish),
+      )
       .toAction(NoteOrderAction)
-      .returns(OrderNoteDto)
       .toFinish(PaidRefundWorkflowFinish),
   ],
 })

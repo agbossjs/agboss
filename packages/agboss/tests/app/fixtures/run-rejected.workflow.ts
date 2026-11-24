@@ -1,4 +1,3 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { crossFieldRule } from "../../../src/dto/schema.js";
 import {
@@ -59,9 +58,7 @@ export class VoucherClerk {}
   uncompactedTurns: 1,
   flow: [
     onStart(Redeem)
-      .returns(VoucherDto)
       .toAgent(VoucherClerk)
-      .returns(AnswerDto)
       .toFinish(Done),
   ],
 })

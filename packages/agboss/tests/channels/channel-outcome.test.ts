@@ -95,13 +95,7 @@ function applicationWith(name: string, channel: Class): Class {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(RefundWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .toAgent(ClerkAgent)
-        .returns(RefundCardOutputDto)
-        .toFinish(RefundWorkflowFinish),
-    ],
+    flow: [onStart(RefundWorkflowStart).toAgent(ClerkAgent).toFinish(RefundWorkflowFinish)],
     defaults: { router: { model: "typesafe/jev-test" } },
     providers: [RefundDesk],
   })

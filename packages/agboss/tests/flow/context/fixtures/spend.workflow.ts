@@ -136,11 +136,8 @@ export class ShippedFinish {}
 
 const paths = [
   onStart(SpendStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(SearcherAgent)
-    .returns(ResultDto)
     .toAction(ShipAction)
-    .returns(ResultDto)
     .toFinish(ShippedFinish),
 ];
 

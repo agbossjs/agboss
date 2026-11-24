@@ -160,13 +160,7 @@ export class NotifyFinish {}
 @Workflow({
   name: "notify-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(NotifyStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(NotifierAgent)
-      .returns(NoteDto)
-      .toFinish(NotifyFinish),
-  ],
+  flow: [onStart(NotifyStart).toAgent(NotifierAgent).toFinish(NotifyFinish)],
   defaults,
 })
 export class NotifyWorkflow {}
@@ -190,9 +184,7 @@ export class FailingNotifyFinish {}
   version: "1.0.0",
   flow: [
     onStart(FailingNotifyStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(NotifierAgent)
-      .returns(NoteDto)
       .toAction(RefuseAction)
       .toFinish(FailingNotifyFinish),
   ],
@@ -220,11 +212,8 @@ export class HandoverFinish {}
   version: "1.0.0",
   flow: [
     onStart(HandoverStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(IntakeAgent)
-      .returns(IntakeDto)
       .toWorkflow(NotifyWorkflow)
-      .returns(NoteDto)
       .toAgent(ClosingAgent)
       .toFinish(HandoverFinish),
   ],
@@ -260,13 +249,11 @@ export class FailedHandoverRecoveredFinish {}
   version: "1.0.0",
   flow: [
     onStart(FailedHandoverStart)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(FailingNotifyWorkflow)
       .onError(
         ChildExecutionFailedError,
         toAgent(RecoveryAgent).toFinish(FailedHandoverRecoveredFinish),
       )
-      .returns(NoteDto)
       .toFinish(FailedHandoverFinish),
   ],
   defaults,
@@ -300,14 +287,12 @@ export class FailedListRecoveredFinish {}
   version: "1.0.0",
   flow: [
     onStart(FailedListStart)
-      .returns(listOf(WorkflowStartTextDto))
       .toParallelWorkflows(FailingNotifyWorkflow, { maxConcurrency: 1, maxItems: 1 })
       .join()
       .onError(
         ChildExecutionFailedError,
         toAgent(ListRecoveryAgent).toFinish(FailedListRecoveredFinish),
       )
-      .returns(listOf(NoteDto))
       .toAgent(ListSummaryAgent)
       .toFinish(FailedListFinish),
   ],

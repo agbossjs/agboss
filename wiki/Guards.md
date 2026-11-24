@@ -197,7 +197,6 @@ export class NotesAgent {}
   version: "1.0.0",
   flow: [
     onStart(NotesStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(NotesAgent)
       .toFinish(NotesFinish),
   ],

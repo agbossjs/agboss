@@ -58,7 +58,6 @@ export class DeepFifthAction {
   version: "1.0.0",
   flow: [
     onStart(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
       .onError(
         DeliveryError,
@@ -85,7 +84,6 @@ export class DeepFifthAction {
           )
           .toFinish(DraftKitWorkflowFinish),
       )
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })

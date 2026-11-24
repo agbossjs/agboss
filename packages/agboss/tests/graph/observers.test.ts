@@ -58,7 +58,7 @@ import { EmptyEnvironment } from "../../src/index.js";
     tools: { maxToolCalls: 1 },
   },
   uncompactedTurns: 1,
-  flow: [onStart(Start).returns(WorkflowStartTextDto).toAgent(WorkerAgent).toFinish(Finish)],
+  flow: [onStart(Start).toAgent(WorkerAgent).toFinish(Finish)],
 })
 class ObsWf {}
 

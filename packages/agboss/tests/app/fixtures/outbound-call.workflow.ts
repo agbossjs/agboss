@@ -213,11 +213,9 @@ export class NotifiedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(ChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChargeOrderAction)
       // nobody can say what happened to the charge: the order is set aside for an operator
       .onError(OutboundCallUnreconciledError, toFinish(UnreconciledWorkflowFinish))
-      .returns(ChargeReceiptDto)
       .toFinish(ChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],
@@ -229,9 +227,7 @@ export class ChargeWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(ChargeAndNotifyWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChargeAndNotifyAction)
-      .returns(ChargeReceiptDto)
       .toFinish(NotifiedWorkflowFinish),
   ],
   providers: [PaymentGateway],
@@ -257,10 +253,8 @@ export class OutboundCallApplication {}
   version: "1.0.0",
   flow: [
     onStart(ChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAction(ChargeOrderAction)
       .onError(OutboundCallUnreconciledError, toFinish(UnreconciledWorkflowFinish))
-      .returns(ChargeReceiptDto)
       .toFinish(ChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],

@@ -594,9 +594,7 @@ import { InvoiceWorkflowStart } from "./invoice.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(InvoiceWorkflowStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(InvoiceAgent)
-      .returns(InvoiceDraftDto)
       .toFinish(InvoiceWorkflowFinish),
   ],
   maxSteps: 2,

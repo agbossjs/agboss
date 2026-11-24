@@ -80,10 +80,8 @@ export class GateRouter {}
   version: "1.0.0",
   flow: [
     onStart(EditStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(EditorAgent),
     onAgent(EditorAgent)
-      .returns(DraftDto)
       .toRouter(GateRouter)
       .chooseOne(route(EditorAgent), route(DoneFinish)),
   ],
@@ -123,11 +121,9 @@ export class PatientGateRouter {}
   version: "1.0.0",
   flow: [
     onStart(EditStart)
-      .returns(WorkflowStartTextDto)
       .toAgent(PatientEditorAgent),
     onAgent(PatientEditorAgent)
       .onError(VisitsLimitExceededError, toFinish(GaveUpFinish))
-      .returns(DraftDto)
       .toRouter(PatientGateRouter)
       .chooseOne(route(PatientEditorAgent), route(DoneFinish)),
   ],
@@ -145,10 +141,8 @@ export class PatientEditApplication {}
 
 const editPaths = [
   onStart(EditStart)
-    .returns(WorkflowStartTextDto)
     .toAgent(EditorAgent),
   onAgent(EditorAgent)
-    .returns(DraftDto)
     .toRouter(GateRouter)
     .chooseOne(route(EditorAgent), route(DoneFinish)),
 ];

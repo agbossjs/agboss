@@ -122,10 +122,8 @@ export class RefundEscalatedWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(RefundPanelWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 2 })
-      .returns(listOf(RefundScoreDto))
       .toFinish(RefundDecidedWorkflowFinish),
   ],
 })
@@ -143,16 +141,13 @@ export class RefundGroupsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RefundGroupsWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent)
       .joinQuorumGroups(
         groupFrom([PolicyAgent])
           .priority(1)
-          .returns(listOf(RefundScoreDto))
           .toFinish(RefundDecidedWorkflowFinish),
         groupFrom([RiskAgent])
           .priority(2)
-          .returns(listOf(RefundScoreDto))
           .toFinish(RefundEscalatedWorkflowFinish),
       ),
   ],
@@ -182,10 +177,8 @@ export class RefundRecoveryWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RefundRecoveryWorkflowStart)
-      .returns(RefundRequestDto)
       .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
       .joinQuorum({ min: 1, max: 3, deadline: seconds(300) })
-      .returns(listOf(RefundScoreDto))
       .toFinish(RefundDecidedWorkflowFinish),
   ],
 })

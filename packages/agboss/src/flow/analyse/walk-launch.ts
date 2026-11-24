@@ -65,7 +65,7 @@ function branchOf(launcher: FlowNode, node: ComponentName, copies: number): Laun
   };
 }
 
-/** The list a per-item launch runs over: the `.returns(listOf(XDto))` written last. */
+/** The list a per-item launch runs over: the one the step before it gives, last. */
 function itemsOf(writes: readonly ValueWrite[]): ListWrapper | undefined {
   const last = writes[writes.length - 1]?.shape;
   return last !== undefined && typeof last !== "function" && last.kind === Wrapper.List
@@ -84,7 +84,7 @@ export function launchOf(
   if (listed.length === 0) return undefined;
   const copies = new Map<ComponentName, number>();
   for (const name of listed) copies.set(name, (copies.get(name) ?? 0) + 1);
-  const items = step.perItem ? itemsOf(writes) : undefined;
+  const items = step.targets.length === 1 ? itemsOf(writes) : undefined;
   return {
     launcher: launcher.name,
     targetKind: step.targetKind,
@@ -109,13 +109,12 @@ export function itemWrites(launch: FlowLaunch): readonly ValueWrite[] {
  * `.joinQuorum(…)` the answers a quorum may leave out are optional (#279).
  */
 export function joinEdgeOf(launch: FlowLaunch, step: JoinStep, nodeOf: NodeLookup): JoinEdge {
-  const written = step.returns.map((value) => value.shape);
   const { quorum } = step;
   const groups =
     quorum?.kind === QuorumKind.Count
       ? countQuorumGroupsOf(launch, quorum, nodeOf)
       : joinGroupsOf(launch, nodeOf);
-  const joined = { launch, values: valuesOfGroups(groups), written, groups };
+  const joined = { launch, values: valuesOfGroups(groups), groups };
   return quorum?.kind === QuorumKind.Count ? { ...joined, quorum } : joined;
 }
 
@@ -149,7 +148,6 @@ export function walkLaunch(walker: LaunchRecorder, step: LaunchStep, cursor: Cur
       to: branch.node,
       kind: EdgeKind.Launch,
       writes,
-      returned: cursor.returned,
       launch,
     });
   return { ...cursor, launch };

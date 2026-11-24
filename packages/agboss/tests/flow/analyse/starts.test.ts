@@ -44,13 +44,7 @@ class RankedWorkflowFinish {}
 @Workflow({
   name: "list-start-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(DraftsWorkflowStart)
-      .returns(listOf(OfferDraftDto))
-      .toAgent(RankDraftsAgent)
-      .returns(ShortlistDto)
-      .toFinish(RankedWorkflowFinish),
-  ],
+  flow: [onStart(DraftsWorkflowStart).toAgent(RankDraftsAgent).toFinish(RankedWorkflowFinish)],
 })
 class ListStartWorkflow {}
 
@@ -83,14 +77,7 @@ const readerOf = (
   @Workflow({
     name: "map-start-workflow",
     version: "1.0.0",
-    flow: [
-      onStart(RedraftWorkflowStart)
-        .returns(ShortlistDto)
-        .returns(optional(OfferDraftDto))
-        .toAgent(RedraftAgent)
-        .returns(OfferDraftDto)
-        .toFinish(DraftKitWorkflowFinish),
-    ],
+    flow: [onStart(RedraftWorkflowStart).toAgent(RedraftAgent).toFinish(DraftKitWorkflowFinish)],
   })
   class MapStartWorkflow {}
   return MapStartWorkflow;

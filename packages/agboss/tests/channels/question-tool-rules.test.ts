@@ -23,7 +23,6 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { RefundApprovalChannel } from "./approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
 import { onStart } from "../flow/fixtures/paths.js";
 import { ApproverAnswerDto } from "../flow/fixtures/question-tools.fixture.js";
 import { PurchaseQuestionDto } from "../flow/fixtures/questions.fixture.js";
@@ -55,12 +54,7 @@ function buyingApplication(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [
-      onStart(BuyerWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .toAgent(BuyingAgent)
-        .toFinish(BuyerWorkflowFinish),
-    ],
+    flow: [onStart(BuyerWorkflowStart).toAgent(BuyingAgent).toFinish(BuyerWorkflowFinish)],
   })
   class BuyingWorkflow {}
 

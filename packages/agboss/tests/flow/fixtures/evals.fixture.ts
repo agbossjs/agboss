@@ -115,7 +115,6 @@ export class AnswerWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(AskWorkflowStart)
-      .returns(AskDto)
       .toAgent(LookupAgent)
       .toFinish(AnswerWorkflowFinish),
   ],

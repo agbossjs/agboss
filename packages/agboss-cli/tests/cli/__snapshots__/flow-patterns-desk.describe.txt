@@ -54,7 +54,6 @@ memory
 pause     on — tools with channel wait for external signal
 flow
   onStart(DeskWorkflowStart)
-    .returns(DeskQuestionDto)
     .toAgent(DeskAgent)
     .toFinish(DeskAnswerWorkflowFinish)
 inputs

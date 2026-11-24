@@ -4,7 +4,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  oneOf,
   type Produced,
 } from "../../../src/index.js";
 import { caseOf, onStart } from "../../helpers/flow.js";
@@ -41,9 +40,7 @@ export class NoteChildWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(NoteChildWorkflowStart)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
-      .returns(OrderNoteDto)
       .toFinish(NoteChildWorkflowFinish),
   ],
 })
@@ -59,11 +56,8 @@ export class PaidChildWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidChildWorkflowStart)
-      .returns(OrderDto)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toWorkflow(NoteChildWorkflow)
-      .returns(OrderNoteDto)
       .toFinish(PaidChildWorkflowFinish),
   ],
 })
@@ -85,7 +79,8 @@ export class PaidItemsWorkflowStart {}
 export class PaidItemsWorkflowFinish {
   finish(input: { readonly notes: readonly Produced<OrderNoteDto, unknown>[] }): OrderNoteDto {
     return {
-      note: input.notes.map((note) => note.value.note)
+      note: input.notes
+        .map((note) => note.value.note)
         .join("; "),
     };
   }
@@ -97,12 +92,9 @@ export class PaidItemsWorkflowFinish {
   version: "1.0.0",
   flow: [
     onStart(PaidItemsWorkflowStart)
-      .returns(listOf(OrderDto))
       .toAction(OverspendOrdersAction)
-      .returns(listOf(OrderDto))
       .toParallelWorkflows(NoteChildWorkflow, { maxItems: 3 })
       .join()
-      .returns(listOf(OrderNoteDto))
       .toFinish(PaidItemsWorkflowFinish),
   ],
 })
@@ -119,13 +111,10 @@ export class PaidLevelWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidLevelWorkflowStart)
-      .returns(OrderDto)
       .toAction(LevelOrderAction)
-      .returns(oneOf(OrderDto, OrderNoteDto))
       .switch(
         caseOf(OrderDto)
           .toWorkflow(ThisWorkflow)
-          .returns(OrderNoteDto)
           .toFinish(PaidLevelWorkflowFinish),
         caseOf(OrderNoteDto)
           .toFinish(PaidLevelWorkflowFinish),
@@ -146,12 +135,9 @@ export class PaidLaunchWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidLaunchWorkflowStart)
-      .returns(OrderDto)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toParallelActions(NoteOrderAction, MemoOrderAction)
       .join()
-      .returns(OrderNoteDto)
       .toFinish(PaidLaunchWorkflowFinish),
   ],
 })
@@ -168,10 +154,8 @@ export class PaidRaceWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidRaceWorkflowStart)
-      .returns(OrderDto)
       .toParallelActions(ChargeOrderAction, NoteOrderAction)
       .join()
-      .returns(OrderNoteDto)
       .toFinish(PaidRaceWorkflowFinish),
   ],
 })
@@ -188,11 +172,8 @@ export class PaidHoldWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidHoldWorkflowStart)
-      .returns(OrderDto)
       .toAction(HoldOrderAction)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
-      .returns(OrderNoteDto)
       .toFinish(PaidHoldWorkflowFinish),
   ],
 })

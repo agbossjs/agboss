@@ -42,7 +42,7 @@ export interface WriteSite {
   readonly scope: ScopeRecords;
 }
 
-/** A map start's field values by their slot, so `.returns(A, optional(B))` finds each. */
+/** A map start's field values by their slot, so each field is found. */
 function startFieldValue(node: RuntimeNode, write: ValueWrite, given: NodeValue): unknown {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Start) return given.value;

@@ -124,30 +124,22 @@ export class ValidScoreArbiter {}
 export const quorumPaths = [
   // any two of three: the counted answers only, the third cancelled
   onStart(CandidateWorkflowStart)
-    .returns(CandidateDto)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
     .acceptedBy(anyOf(InRangeArbiter, ValidScoreArbiter)) // the model only when the code rejects
     .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-    .returns(listOf(ScoreDto))
     .toAgent(ScoreSummaryAgent)
-    .returns(ScoreReviewDto)
     .toFinish(ScoreReviewWorkflowFinish),
 
   // groups: the first complete one (by priority) continues its own path
   onStart(DealWorkflowStart)
-    .returns(CandidateDto)
     .toParallelAgents(LegalAgent, CriticAgent, CriticAgent, FastScreenAgent)
     .joinQuorumGroups(
       group(LegalAgent, CriticAgent)
-        .priority(1)
-        .returns(LegalReviewDto)
-        .returns(listOf(CritiqueDto)) // critic-agent is launched twice: a list, even of one
+        .priority(1) // critic-agent is launched twice: a list, even of one
         .toAgent(FullReviewAgent)
-        .returns(DealReportDto)
         .toFinish(DealReportWorkflowFinish),
       group(FastScreenAgent)
         .priority(2)
-        .returns(FastScreenDto)
         .toFinish(QuickRejectWorkflowFinish),
       { deadline: minutes(1) },
     ),
@@ -178,16 +170,16 @@ agents' answers.
   copies are needed. It is complete when **all** its places are counted.
 - `.priority(n)` right after `group(…)`: **1 is the highest**; equal numbers (or none) are equal
   groups — the first complete one wins.
-- Every group continues its own path: `group(…).priority(n).returns(…).toAgent / .toAction /
+- Every group continues its own path: `group(…).priority(n).toAgent / .toAction /
   .toRouter / .toWorkflow / .toFinish(…)`; a group without a continuation does not compile (and is
   `[graph.dead-end]` for the untyped builder). A node reached from two groups (or a group and a
   route, or `.onError`) has its own path, by the general rules — `onAgent(FullReviewAgent)…`.
   `.joinQuorumGroups` counts as one nesting level (`[flow.path-too-deep]`).
 
-## What `.returns(…)` may promise
+## What the counted answers give
 
-The counted answers enter the [path scope](Path-scope#quorums) as the values the join's `.returns(…)`
-names; the shape comes from **the launch**, not from the group:
+The counted answers enter the [path scope](Path-scope#quorums) as the values the join gives, derived
+from the branches (#1270); the shape comes from **the launch**, not from the group:
 
 | After | A single agent's value | A repeated class, or several agents with one `output` |
 | --- | --- | --- |
@@ -196,16 +188,12 @@ names; the shape comes from **the launch**, not from the group:
 | `.joinQuorum({ min })`, any other `min` | `optional(XDto)` | `listOf(XDto)` |
 | `group(A, B…)` of `.joinQuorumGroups(…)` | required `XDto` (the group's agents only) | `listOf(XDto)`, even when the group counts one copy |
 
-The typed builder checks it against the generated `JoinOutputs`: a quorum's singles are the launch's
-entry made optional unless `min` is the number of agents (one check, `Min extends Count`), and each
-group has an entry of its own, keyed `<launch> group(<agents as listed>)`. `agboss check` checks it
-again on the quorum itself — a required `XDto` after `.joinQuorum({ min: 2 })` of three agents is
+Nothing is written for them: a step that requires a single answer a quorum may leave out is
 
 ```text
-[flow.quorum-return-not-optional] fit-review-workflow-start → toParallelAgents(skills-score-agent,
-culture-score-agent, salary-fit-agent): .joinQuorum({ min: 2 }) may leave skills-score-agent out of
-the quorum — write .returns(optional(SkillsScoreDto)), not .returns(SkillsScoreDto) (or min: 3 to
-count every agent)
+[input.missing-on-path] skills-reader-agent.skills (SkillsScoreDto) is not produced on the path
+fit-review-workflow-start → skills-reader-agent (skills-score-agent may be left out of the quorum) —
+make it optional(SkillsScoreDto) or listOf(SkillsScoreDto)
 ```
 
 ## Expiry of a branch's pause (#945)
@@ -244,8 +232,7 @@ launch.
 | Code | |
 | --- | --- |
 | `[flow.quorum-impossible]` | `min` above the agents launched (per item: above `maxItems`); a group listing an agent the launch does not run, or more copies than it runs |
-| `[flow.quorum-return-not-optional]` | a required `XDto` after `.joinQuorum({ min })` that may leave its agent out |
-| `[flow.returns-mismatch]` | a quorum's or a group's `.returns(…)` names something else than its counted answers give |
+| `[launch.unjoinable-output]` | a branch's output no join value can carry (a list launched several times, a lone `oneOf`) |
 | `[input.missing-on-path]` | a required field whose producer may be left out — the message names the agent and the fix `optional(…)` / `listOf(…)` |
 | `[arbiter.not-an-arbiter]` | `.acceptedBy(X)` of a class without `@Arbiter` |
 | `[arbiter.unhandled-agent]` | an agent of the launch without a criterion / an `@OnAnswer` method |

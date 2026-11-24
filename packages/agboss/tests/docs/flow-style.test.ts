@@ -1,5 +1,5 @@
 /**
- * #289: one call per line in flow chains. AC1 — a workflow module with `onStart(A).returns(B).toFinish(C)`
+ * #289: one call per line in flow chains. AC1 — a workflow module with `onStart(A).toFinish(C)`
  * on one line fails the repo's ESLint (the `eslint .` of `make check`) with `newline-per-chained-call`;
  * the same chain one call per line passes and `make fmt` (scripts/format-flows.mjs) keeps it.
  * AC2 — a doc's flow snippet with two calls on one line fails `check:docs`, naming the doc, the line
@@ -40,18 +40,16 @@ async function generateTypes(): Promise<void> {
 
 const imports = [
   'import { onStart } from "@agboss/core";',
-  'import { OfferRequestDto } from "../../dto/offer.dto.js";',
   'import { OfferConfirmedWorkflowFinish } from "./offer-confirmed.workflow-finish.js";',
   'import { SendOfferWorkflowStart } from "./send-offer.workflow-start.js";',
   "",
 ].join("\n");
 const JOINED = `${imports}
-export const paths = [onStart(SendOfferWorkflowStart).returns(OfferRequestDto).toFinish(OfferConfirmedWorkflowFinish)];
+export const paths = [onStart(SendOfferWorkflowStart).toFinish(OfferConfirmedWorkflowFinish)];
 `;
 const SPLIT = `${imports}
 export const paths = [
   onStart(SendOfferWorkflowStart)
-    .returns(OfferRequestDto)
     .toFinish(OfferConfirmedWorkflowFinish),
 ];
 `;
@@ -85,7 +83,6 @@ describe("#289 AC1: workflow modules have one call per line", { timeout: 60_000 
     const messages = await lint(JOINED);
 
     expect(messages.filter((m) => m.ruleId === RULE).map((m) => m.message)).toEqual([
-      "Expected line break before `.returns`.",
       "Expected line break before `.toFinish`.",
     ]);
   });

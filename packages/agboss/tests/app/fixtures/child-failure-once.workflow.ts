@@ -40,9 +40,7 @@ export class UndoLocalWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(UndoLocalWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(UndoChildWorkflow)
-      .returns(ItemResultDto)
       .toFinish(UndoLocalWorkflowFinish),
   ],
 })
@@ -74,10 +72,8 @@ export class SidePathFailedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SidePathLocalWorkflowStart)
-      .returns(ItemDto)
       .toWorkflow(YieldCheckWorkflow)
       .onError(ChildExecutionFailedError, toFinish(SidePathFailedWorkflowFinish))
-      .returns(ItemResultDto)
       .toFinish(SidePathCheckedWorkflowFinish),
   ],
 })

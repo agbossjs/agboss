@@ -2,7 +2,6 @@ import {
   Action,
   EmptyEnvironment,
   ExecutionContext,
-  listOf,
   Workflow,
   type Produced,
 } from "../../../../src/index.js";
@@ -66,10 +65,8 @@ export class RecoverableItemAction {
   version: "1.0.0",
   flow: [
     onStart(ItemsWorkflowStart)
-      .returns(listOf(ItemDto))
       .toParallelActions(RecoverableItemAction, { maxItems: 10 })
       .join()
-      .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],
 })

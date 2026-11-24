@@ -1,8 +1,6 @@
 import {
   ChildPlacement,
   EmptyEnvironment,
-  listOf,
-  oneOf,
   ThisWorkflow,
   Workflow,
   WorkflowFinish,
@@ -49,9 +47,7 @@ export class SpendItemWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SpendItemWorkflowStart)
-      .returns(SpendItemDto)
       .toAction(PayItemAction)
-      .returns(SpendNoteDto)
       .toFinish(SpendItemWorkflowFinish),
   ],
 })
@@ -79,12 +75,9 @@ export class SpendRemoteItemWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SpendRemoteItemWorkflowStart)
-      .returns(SpendRemoteItemDto)
       .toAction(PayRemoteItemAction)
-      .returns(SpendItemDto)
       .toAction(HoldItemAction)
       .toWorkflow(SpendItemWorkflow)
-      .returns(SpendNoteDto)
       .toFinish(SpendRemoteItemWorkflowFinish),
   ],
 })
@@ -101,28 +94,20 @@ export class SpendTreeWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(SpendTreeWorkflowStart)
-      .returns(SpendNodeDto)
       .toAction(PayLevelAction)
-      .returns(listOf(SpendItemDto))
       .toParallelWorkflows(SpendItemWorkflow, { maxItems: 4 })
       .join()
-      .returns(listOf(SpendNoteDto))
       .toAction(RemoteItemsAction)
-      .returns(listOf(SpendRemoteItemDto))
       .toParallelWorkflows(SpendRemoteItemWorkflow, {
         maxItems: 4,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(SpendNoteDto))
       .toAction(PayAfterAction)
-      .returns(oneOf(SpendNodeDto, SpendNoteDto))
       .switch(
         caseOf(SpendNodeDto)
           .toWorkflow(ThisWorkflow)
-          .returns(SpendNoteDto)
           .toAction(PayCloseAction)
-          .returns(SpendNoteDto)
           .toFinish(SpendTreeWorkflowFinish),
         caseOf(SpendNoteDto)
           .toFinish(SpendTreeWorkflowFinish),
@@ -151,28 +136,20 @@ export class RemoteSpendTreeWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RemoteSpendTreeWorkflowStart)
-      .returns(SpendNodeDto)
       .toAction(PayLevelAction)
-      .returns(listOf(SpendItemDto))
       .toParallelWorkflows(SpendItemWorkflow, { maxItems: 4 })
       .join()
-      .returns(listOf(SpendNoteDto))
       .toAction(RemoteItemsAction)
-      .returns(listOf(SpendRemoteItemDto))
       .toParallelWorkflows(SpendRemoteItemWorkflow, {
         maxItems: 4,
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .returns(listOf(SpendNoteDto))
       .toAction(PayAfterAction)
-      .returns(oneOf(SpendNodeDto, SpendNoteDto))
       .switch(
         caseOf(SpendNodeDto)
           .toWorkflow(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
-          .returns(SpendNoteDto)
           .toAction(PayCloseAction)
-          .returns(SpendNoteDto)
           .toFinish(RemoteSpendTreeWorkflowFinish),
         caseOf(SpendNoteDto)
           .toFinish(RemoteSpendTreeWorkflowFinish),

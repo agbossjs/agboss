@@ -2,11 +2,8 @@ import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
 import { FlowSyntaxError } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
-import { listOf } from "../../src/flow/dto-wrappers.js";
 import { flowLines } from "../../src/flow/print.js";
 import { workflowOf } from "../../src/components/assemble.js";
-import { CompanyDto } from "./fixtures/data-dtos.js";
-import { WorkflowStartTextDto } from "./fixtures/dtos.js";
 import {
   CompanyFinderAgent,
   CompanyPickerAgent,
@@ -27,11 +24,7 @@ const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
   return declaration.options.flow;
 };
 
-const found = () =>
-  onStart(JobOfferWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(CompanyFinderAgent)
-    .returns(listOf(CompanyDto));
+const found = () => onStart(JobOfferWorkflowStart).toAgent(CompanyFinderAgent);
 
 describe("#263: a child workflow in the AST", () => {
   it("toWorkflow is a transition of kind workflow; onWorkflow(W) the source of its own path", () => {
@@ -52,23 +45,12 @@ describe("#263: a child workflow in the AST", () => {
       kind: StepKind.Launch,
       targetKind: NodeKind.Workflow,
       targets: [CompanyReviewWorkflow],
-      perItem: true,
       maxConcurrency: 3,
       maxItems: 50,
     });
   });
 
-  it("refused: not per item, two children, after a router, a missing join", () => {
-    const picked = onStart(JobOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(CompanyPickerAgent)
-      .returns(CompanyDto);
-    expect(() => picked.toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 })).toThrow(
-      new FlowSyntaxError({
-        message:
-          "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it",
-      }),
-    );
+  it("refused: two children, after a router, a missing join", () => {
     expect(() =>
       found().toParallelWorkflows(CompanyReviewWorkflow, CompanyReviewWorkflow, { maxItems: 5 }),
     ).toThrow(
@@ -85,11 +67,9 @@ describe("#263: a child workflow in the AST", () => {
   });
 
   it("describe / print: the flow in its grammar — toWorkflow, onWorkflow(W), toParallelWorkflows", () => {
-    expect(flowLines(flowOf(CompanyScreeningWorkflow)).slice(0, 6)).toEqual([
+    expect(flowLines(flowOf(CompanyScreeningWorkflow)).slice(0, 4)).toEqual([
       "onStart(CompanyScreeningWorkflowStart)",
-      "  .returns(WorkflowStartTextDto)",
       "  .toAgent(CompanyFinderAgent)",
-      "  .returns(listOf(CompanyDto))",
       "  .toParallelWorkflows(CompanyReviewWorkflow, { maxConcurrency: 3, maxItems: 50 })",
       "  .join()",
     ]);
