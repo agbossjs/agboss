@@ -453,6 +453,8 @@ main path and the side path together. A side path that can catch a limit (`Limit
 `BudgetExceededError`, a parent such as `AGBossError`) still leads only to actions and finishes —
 a question there is `[graph.limit-handler-uses-model]` (a reply interpreter may call a model).
 
+An `@ExternalTask` is also a branch of a parallel launch (#1306): `.inParallel([toExternalTask(Legal), toExternalTask(Security), …])` asks a committee at once, `.forEachItem(toExternalTask(Owner), { maxItems })` one task per item, each its own pause. Follow it with `.arbitratedBy(X)` and `.joinQuorum(…)` so only an approving answer counts (`{ approved: false }` is a valid answer, not a vote); the pauses left open when the quorum is decided are withdrawn. A working-time quorum `deadline` is not available yet. Runnable: `examples/flow-patterns/src/committee/`.
+
 ### An agent asks a question role as a tool (#712)
 
 When the model should decide **whether** and **when** to ask, list the role in the agent's tools —

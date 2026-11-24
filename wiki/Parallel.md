@@ -209,7 +209,31 @@ branches that expired. In a plain `.join()` it follows the `FailurePolicy`: `Ski
 launch with its `PauseExpiredError`; the `.onError(…)` side path reads the answers already settled as
 `optional(…)` inputs (see [Pauses](Pauses#expiry-in-parallel-launches-945)).
 
-A child workflow cannot be a quorum branch: a quorum launches agents only, so the pause that the quorum's deadline binds is always an agent's own (an approval or a question it asks in its tool loop).
+## External tasks in a launch (#1306)
+
+`toExternalTask(Task)` is a branch of `.inParallel([…])` and the step of `.forEachItem(…, { maxItems })`
+like `toAgent`, `toAction` and `toWorkflow` — no `@Agent` wrapped around a person or a service just to
+wait in parallel. Every branch is its own pause on its task's channel (`PendingPause.itemIndex` for the
+item of a `.forEachItem`); `.onError(E, skip())` on the branch drops its failure from the join. A
+quorum (`.joinQuorum(…)`, `.joinQuorumGroups(…)`) counts the answers the arbiter accepts: an
+`@Arbitrate(LegalSignOffExternalTask, …)` method judges the task's output DTO, so `{ approved: false }` is
+a valid answer and no vote. Once the quorum is decided — or it can no longer be reached — the pauses
+still open are withdrawn (`PauseResolution.Withdrawn`), and a late answer to one fails with
+`PauseClosedError`. The accepted answers go on as `listOf(AnswerDto)`, which a node below must read.
+
+```text
+onStart(ContractCommitteeWorkflowStart)
+  .inParallel([toExternalTask(LegalSignOff), toExternalTask(SecuritySignOff), toExternalTask(FinanceDirector)])
+  .arbitratedBy(SignOffArbiter)
+  .joinQuorum({ min: 2, deadline: hours(2) })
+  .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+  .toAction(SignContractAction)
+  .toFinish(ContractSignedWorkflowFinish)
+```
+
+The runnable version is `examples/flow-patterns/src/committee/`. A text `@Agent` branch (no `output`) gives
+its judge the reply as a `WorkflowFinishTextDto`, a `@Workflow` branch the output of its finishes.
+A working-time `deadline` (`workDays(…)` with a `calendar`) is not available on a quorum yet.
 
 ## Arbiters
 
@@ -246,6 +270,7 @@ of a repeated target and every item of a per-item launch.
 | `[arbiter.unknown-target]` | a criterion / method for a target the launch does not run |
 | `[arbiter.duplicate-target]` | two criteria / methods for one target class |
 | `[arbiter.branch-has-no-output]` | a void `@Action` (no `output`) in a launch an arbiter judges |
+| `[arbiter.model-without-arbiter-model]` | a code `@Arbiter` names `model` / `modelProvider` without `ArbiterModel` in `deps` |
 | `[name.not-kebab-case]` | an arbiter's `name` is not kebab-case |
 
 ## Describe

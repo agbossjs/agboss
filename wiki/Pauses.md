@@ -10,6 +10,9 @@ loop: [Pause seam](Pause-seam).
 
 > A runnable example: `examples/flow-patterns/src/approvals/` — two approvals at once, answered in
 > the terminal ([Example](Example#flow-patterns-a-review-loop-and-a-code-router), #346).
+>
+> A committee of `@ExternalTask`s in `.inParallel([…])`, one pause each, counted by an arbiter:
+> `examples/flow-patterns/src/committee/` ([Parallel → External tasks in a launch](Parallel#external-tasks-in-a-launch-1306), #1306).
 
 ## A pause stops only those who cannot go on without it
 

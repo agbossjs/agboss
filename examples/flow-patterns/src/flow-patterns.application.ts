@@ -9,6 +9,10 @@ import {
   TenantDailyBudget,
   TopicResearchExecutionBudget,
 } from "./budgets/application.budgets.js";
+import { FinanceDirectorInboxChannel } from "./committee/channels/finance-director-inbox.channel.js";
+import { LegalInboxChannel } from "./committee/channels/legal-inbox.channel.js";
+import { SecurityInboxChannel } from "./committee/channels/security-inbox.channel.js";
+import { ContractCommitteeWorkflow } from "./committee/workflows/contract-committee/contract-committee.workflow.js";
 import { CreditWorkflow } from "./credit/workflows/credit/credit.workflow.js";
 import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
 import { OrderDeskHealthCheck } from "./desk/health-checks/order-desk.health-check.js";
@@ -43,6 +47,7 @@ import { FlowPatternsDatabaseStorage } from "./storage/flow-patterns.database-st
  * `app.execute(DeskWorkflowStart, …)` the extension points on an offline model (#382–#385),
  * `app.execute(HelplineWorkflowStart, …)` a call to `desk-application` over A2A (#398),
  * `app.execute(IntakeWorkflowStart, …)` a quorum by groups (#279),
+ * `app.execute(ContractCommitteeWorkflowStart, …)` a committee of external tasks in parallel (#1306),
  * `app.execute(InvoiceWorkflowStart, …)` an invoice PDF and its CSV read by a model, `KycWorkflowStart` a redacted
  * ID photo, `AudioNoteWorkflowStart` a voice note (#899) — each
  * workflow by its start. The child `VendorCheckWorkflow` is not listed: a child workflow belongs to the application
@@ -76,6 +81,7 @@ import { FlowPatternsDatabaseStorage } from "./storage/flow-patterns.database-st
     DeskWorkflow,
     HelplineWorkflow,
     IntakeWorkflow,
+    ContractCommitteeWorkflow,
     InvoiceWorkflow,
     KycWorkflow,
     AudioNoteWorkflow,
@@ -90,7 +96,13 @@ import { FlowPatternsDatabaseStorage } from "./storage/flow-patterns.database-st
     DecisionsModelProvider, // Jev and the other decision models
     HarnessModelProvider, // harness/…, offline
   ],
-  channels: [TerminalPurchaseApprovalChannel, RecruiterInboxChannel],
+  channels: [
+    TerminalPurchaseApprovalChannel,
+    RecruiterInboxChannel,
+    LegalInboxChannel,
+    SecurityInboxChannel,
+    FinanceDirectorInboxChannel,
+  ],
   budgets: [
     ApplicationDailyBudget,
     TenantDailyBudget,
