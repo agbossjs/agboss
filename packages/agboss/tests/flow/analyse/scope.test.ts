@@ -333,13 +333,9 @@ describe("#270 AC4: the path scope", () => {
     ]);
   });
 
-  it("#299 AC1 (S53): it never fills a listOf(one class) — no filtered slot", () => {
-    expect(checkWorkflow(FilteredScreenWorkflow).errors).toContainEqual(
-      expect.objectContaining({
-        code: "input.missing-on-path",
-        message:
-          "filtered-screen-workflow: file-only-profiles-action.profiles (listOf(ProfileDto)) is not produced on the path kit-workflow-start → screen-agent → file-only-profiles-action",
-      }),
+  it("#1288b: a polymorphic list also fills a typed slice per class (it replaces the #299 S53 rule)", () => {
+    expect(checkWorkflow(FilteredScreenWorkflow).errors.map((found) => found.code)).not.toContain(
+      "input.missing-on-path",
     );
   });
 

@@ -53,6 +53,11 @@ export interface ValueWrite {
   readonly shape: ValueShape;
   /** Written by `caseOf(XDto)`: the switch read it to choose the branch (#270 AC19). */
   readonly isCase: boolean;
+  /**
+   * A typed slice (#1288b): `listOf(V)` cut from the polymorphic `listOf(A, B, …)` the same step
+   * wrote — the list it is a slice of. A slice and its list are one value to `[flow.unused-output]`.
+   */
+  readonly sliceOf?: ListWrapper;
 }
 
 /** A write of `shape`. */

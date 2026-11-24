@@ -2,6 +2,7 @@ import { NodeKind } from "../ast.js";
 import type { ComponentName } from "../registry.js";
 import type { ResolvedField } from "./fields.js";
 import type { FlowEdge, FlowGraph } from "./flow-graph.js";
+import { twinSlotsOf } from "./slices.js";
 import {
   afterWrites,
   slotOf,
@@ -96,6 +97,16 @@ export function outdate(
   const next = new Map(after);
   const causes = new Map<SlotKey, SlotKey>();
   const queue = [...replaced];
+  // the twins of a written slot (#1288b): the slices of a polymorphic list, the lists a slice is part of
+  for (const slot of written) {
+    for (const twin of twinSlotsOf(slot, next.keys())) {
+      const state = next.get(twin);
+      if (written.has(twin) || state?.status !== SlotStatus.Current) continue;
+      next.set(twin, outdated(state));
+      causes.set(twin, slot);
+      queue.push(twin);
+    }
+  }
   for (let cause = queue.shift(); cause !== undefined; cause = queue.shift()) {
     for (const [slot, state] of next) {
       if (written.has(slot) || state.status !== SlotStatus.Current) continue;

@@ -59,6 +59,16 @@ function startFieldValue(node: RuntimeNode, write: ValueWrite, given: NodeValue)
   return field === undefined ? undefined : values[field[0]];
 }
 
+/** A typed slice (#1288b): the items of one class of a polymorphic list, in their order; `[]` when none. */
+function sliceOf(items: unknown, shape: ValueWrite["shape"]): readonly unknown[] {
+  const dto =
+    typeof shape === "function" || shape.kind !== Wrapper.List ? undefined : shape.variants[0];
+  if (dto === undefined || !Array.isArray(items)) return [];
+  return (items as readonly VariantElement[])
+    .filter((item) => item.variant === dto.name)
+    .map((item) => item.value);
+}
+
 /** The record one write puts into the scope; none for an absent `optional` value. */
 function writeRecord(
   site: WriteSite,
@@ -66,7 +76,10 @@ function writeRecord(
   writes: readonly ValueWrite[],
   given: NodeValue,
 ): ScopeValueRecord | undefined {
-  const value = startFieldValue(site.node, write, given);
+  const value =
+    write.sliceOf === undefined
+      ? startFieldValue(site.node, write, given)
+      : sliceOf(given.value, write.shape);
   const isOptional = typeof write.shape !== "function" && write.shape.kind === Wrapper.Optional;
   if (isOptional && value === undefined) return undefined;
   const slot = slotOfWrite(write);

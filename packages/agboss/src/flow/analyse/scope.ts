@@ -9,7 +9,7 @@ import { dtoLabel, sortedVariants } from "./labels.js";
 /**
  * The abstract path scope (#272 S10, #270 → path scope): one reachable state of an execution's
  * scope, slot by slot. A slot is keyed by shape (S5): `OfferDraftDto`, `list:CompanyScoreDto`,
- * `list:oneOf(ADto,BDto)` (only the whole list, #299 S53); `XDto` and `listOf(XDto)` never share a
+ * `list:oneOf(ADto,BDto)` (the whole list; its typed slices `list:ADto`, `list:BDto` are filled with it, #1288b); `XDto` and `listOf(XDto)` never share a
  * slot, and a write replaces the slot's value. Scopes are never merged slot by slot, so the
  * correlation between fields survives (`{ fast }` or `{ expert }`, never neither).
  */
@@ -85,7 +85,7 @@ const listSlot = (list: ListWrapper): SlotKey =>
 
 /**
  * The one slot a value fills: `XDto` → `XDto`; `listOf(XDto)` → `list:XDto`; `listOf(oneOf(A, B))`
- * → `list:oneOf(ADto,BDto)` — only the polymorphic list, never a filtered one (#299 S53).
+ * → `list:oneOf(ADto,BDto)` — the polymorphic list as a whole; its slices are separate writes (`slices.ts`).
  */
 export function slotOfValue(shape: DtoClass | ListWrapper): SlotKey {
   return typeof shape === "function" ? slotOfDto(shape) : listSlot(shape);

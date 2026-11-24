@@ -1,6 +1,7 @@
 import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
 import { NodeKind } from "../ast.js";
 import { isValueShape, Wrapper, type ValueShape } from "../dto-wrappers.js";
+import { withSlices } from "./slices.js";
 import { isTextAgent, outputOf, valueWrite, type FlowNode, type ValueWrite } from "./flow-graph.js";
 
 /**
@@ -26,5 +27,5 @@ export function derivedWrites(node: FlowNode): readonly ValueWrite[] {
   const output = outputOf(node);
   if (output === undefined) return [];
   if (typeof output !== "function" && output.kind === Wrapper.OneOf) return [];
-  return [valueWrite(output, false)];
+  return withSlices([valueWrite(output, false)]);
 }

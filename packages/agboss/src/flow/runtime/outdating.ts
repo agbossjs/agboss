@@ -1,3 +1,5 @@
+import { twinSlotsOf } from "../analyse/slices.js";
+import type { SlotKey } from "../analyse/scope.js";
 import {
   OutdatedReason,
   type OutdatedValueRecord,
@@ -70,11 +72,19 @@ export function writeAndOutdate(scope: ScopeRecords, written: ScopeRecords): Wri
   const rootOf = new Map<string, ScopeValueRecord>();
   const replaced = new Set<string>();
   for (const trigger of triggers) {
-    const older = scope[trigger.slot];
-    if (older === undefined) continue;
-    replaced.add(older.valueId);
-    for (const valueId of reachedFrom(older, rest))
-      if (!rootOf.has(valueId)) rootOf.set(valueId, trigger);
+    // the value it replaces, and the twins it makes stale: the slices of a polymorphic list, the lists a slice is part of (#1288b)
+    const stale = [
+      scope[trigger.slot],
+      ...twinSlotsOf(
+        trigger.slot as SlotKey,
+        rest.map((record) => record.slot as SlotKey),
+      ).map((slot) => scope[slot]),
+    ].filter((record) => record !== undefined);
+    for (const older of stale) {
+      replaced.add(older.valueId);
+      for (const valueId of reachedFrom(older, rest))
+        if (!rootOf.has(valueId)) rootOf.set(valueId, trigger);
+    }
   }
   const old = Object.values(scope).filter((record) => rootOf.has(record.valueId));
   const outdated = old
