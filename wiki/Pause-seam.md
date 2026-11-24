@@ -67,7 +67,7 @@ class ErrandsApplication {}
 
 const app = await createApp(ErrandsApplication);
 const first = await app.execute(TaskStart, { text: "Email the report to my boss" });
-const [waiting] = first.pending; // { pauseId, answeredBy, agent, channel, ask: { tool, arguments, … } }
+const [waiting] = first.pending; // { pauseId, answerer, step, channel, ask: { tool, arguments, … } }
 if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
   // TerminalUserChannel's pauses are answered by the thread's owner: their id is listed
   const done = await app.resume({ pauseId: waiting.pauseId, decision: { approved: true } });

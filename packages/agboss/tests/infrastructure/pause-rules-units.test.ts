@@ -423,7 +423,6 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
       executionId: "run-1",
       answerer: PauseAnswerer.Channel,
       answeredBy: "manager-1",
-      responder: "manager-1",
       resolution: PauseResolution.Replied,
       role: "refund-approval-channel",
       askedAt: "2026-01-05T09:00:00.000Z",
@@ -514,14 +513,14 @@ describe("#1356: a pause record's own rules", () => {
       );
   });
 
-  it("who may answer is the answerer, else the 0.1.0 spelling of it, else an error", () => {
+  it("who may answer is the answerer — 0.1.0's answeredBy is no alias of it —, else an error (#1307d)", () => {
     expect(pauseAnswererOf({ answerer: PauseAnswerer.Channel })).toBe(PauseAnswerer.Channel);
-    expect(pauseAnswererOf({ answeredBy: PauseAnswerer.ThreadOwner })).toBe(
-      PauseAnswerer.ThreadOwner,
-    );
     expect(
-      pauseAnswererOf({ answerer: PauseAnswerer.ThreadOwner, answeredBy: PauseAnswerer.Channel }),
+      pauseAnswererOf({ answerer: PauseAnswerer.ThreadOwner, answeredBy: "channel" } as never),
     ).toBe(PauseAnswerer.ThreadOwner);
+    expect(() => pauseAnswererOf({ answeredBy: PauseAnswerer.ThreadOwner } as never)).toThrow(
+      TypeError,
+    );
     expect(() => pauseAnswererOf({})).toThrow(TypeError);
     expect(() => pauseAnswererOf({})).toThrow("a pause record names who may answer it");
   });

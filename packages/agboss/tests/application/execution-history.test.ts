@@ -216,7 +216,7 @@ describe("#401 PR 1: a paused tree's history", () => {
         status: ExecutionHistoryStatus.Finished,
         startedAt: TEST_START,
         endedAt: "2026-01-06T10:00:00.000Z",
-        pauses: [{ responder: "manager-17" }],
+        pauses: [{ answeredBy: "manager-17" }],
       });
     },
   );

@@ -337,7 +337,10 @@ export interface App<TApp = unknown> {
    * `NotRunning`. Idempotent; `Cancel > Stop > Pause` (a thread being cancelled or stopped →
    * `ExecutionError.AlreadyTerminal`). A thread the tenant does not have → `UnknownThreadError`.
    */
-  pause(threadId: string, ...options: TenantPointArgs<TApp, PauseExecutionOptions>): Promise<PauseOutput>;
+  pause(
+    threadId: string,
+    ...options: TenantPointArgs<TApp, PauseExecutionOptions>
+  ): Promise<PauseOutput>;
   /**
    * Lifts `app.pause` (#1341c): a tree parked at a step boundary continues from its last checkpoint
    * (`onExecutionResume`, `ResumeReason.Unpaused`), one at a business pause waits for its answer
@@ -475,7 +478,7 @@ export interface PausesQuery {
 }
 
 /** One pause as `app.listPauses` shows it: `pauseId` per the rule of `result.pending`, `pauseKey` always. */
-export interface ListedPause extends Omit<PendingPauseBase, "answeredBy"> {
+export interface ListedPause extends PendingPauseBase {
   readonly kind: PauseKind;
   /** The question, masked by the pause's workflow's observability policies. */
   readonly ask: unknown;

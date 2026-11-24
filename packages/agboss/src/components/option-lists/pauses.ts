@@ -80,7 +80,6 @@ export const CHANNEL_ROLE_KEYS = optionKeys<ChannelRoleOptions>()([
   "name",
   "description",
   "answerer",
-  "answeredBy",
   "replyInterpreter",
   "expiresIn",
   "remindBefore",

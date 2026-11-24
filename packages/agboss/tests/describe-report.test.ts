@@ -175,7 +175,6 @@ describe("#268 AC4: model providers and channels with their implementations", ()
       question: "PayoutRequestDto",
       answer: "ToolCallApprovalDecisionDto",
       answerer: PauseAnswerer.Channel,
-      answeredBy: PauseAnswerer.Channel,
       replyInterpreter: "payout-reply-interpreter",
       implementation: "DeskPayoutApprovalChannel",
       reason: ChannelImplementationReason.Listed,

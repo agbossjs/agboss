@@ -40,7 +40,6 @@ describe("#659 AC2: a question pauses like any pause", () => {
         kind: PauseKind.Question,
         pauseId: expect.any(String),
         answerer: "thread-owner",
-        answeredBy: "thread-owner",
         step: "spending-limit-question",
         channel: "spending-limit-question",
         childExecutionId: undefined,
@@ -149,7 +148,6 @@ describe("#659 AC3: the typed answer reaches later nodes", () => {
         role: "spending-limit-question",
         answerer: "thread-owner",
         answeredBy: "alice",
-        responder: "alice",
         resolution: PauseResolution.Replied,
         decision: { approved: true, limitUsd: 950 },
         step: expect.objectContaining({

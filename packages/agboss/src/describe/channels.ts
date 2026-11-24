@@ -48,8 +48,6 @@ export interface DescribedChannel {
   readonly answer: string;
   /** Who may answer its pauses. */
   readonly answerer: PauseAnswerer;
-  /** @deprecated 0.1.0's name of `answerer`, emitted until 0.2: use `answerer`. */
-  readonly answeredBy: PauseAnswerer;
   /** How long a pause of the role waits (#941), in ms; absent: no deadline of its own. */
   readonly expiresIn?: number;
   /** `true` when `expiresIn` is working time (#944): counted by the role's calendar, not the wall clock. */
@@ -132,7 +130,6 @@ function roleChannel(
         : dtoLabel(options.approves),
     answer: dtoLabel(isQuestionRole(options) ? options.answer : ToolCallApprovalDecisionDto),
     answerer: options.answerer,
-    answeredBy: options.answerer,
     ...timesOf(options),
     ...(options.workingCalendar === undefined
       ? {}
@@ -158,7 +155,6 @@ function concreteChannel(channel: Class, uses: readonly ChannelUse[]): Described
     question: inputsLabel(uses),
     answer: dtoLabel(ToolCallApprovalDecisionDto),
     answerer: PauseAnswerer.ThreadOwner,
-    answeredBy: PauseAnswerer.ThreadOwner,
     implementation: channel.name,
     reason: ChannelImplementationReason.NamedByTool,
     tools: uses.map(toolLabel),

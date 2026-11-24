@@ -180,7 +180,10 @@ export class MailHoldChannel extends HoldQuestion {
 
 **`answeredBy` on a role → `answerer`.** `@ChannelRole({ answeredBy: PauseAnswerer.Channel })` becomes
 `answerer: PauseAnswerer.Channel` (#934): `answerer` is who _may_ answer, `answeredBy` is who _did_. The
-old spelling is accepted, `@deprecated`, until 0.2. One change has no alias and does not fail to compile:
+old spelling is gone (#1307d): a role without `answerer` fails `[channel.role-form]`, and `PendingPause`,
+`PauseRecord`, the described channel and `PauseAnswerRecord` (`responder`) carry no alias either; a stored
+run, pause or answer entry that still has one is refused (`StoredNamesUnreadableError`), never read. One change
+does not fail to compile:
 `PauseAnswerRecord.answeredBy` (`result.record.pauses`) used to hold the kind (`"channel"`,
 `"thread-owner"`) and now holds the person (`"manager-17"`) — an audit filter on the old meaning now
 matches nobody; filter on `answerer`. The list of every renamed field is in the

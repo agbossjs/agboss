@@ -95,7 +95,7 @@ export function readStored<S extends z.ZodType>(
 
 /**
  * A log entry as JSON stored it (#934): `answerer` the kind, `answeredBy` the person. Parsing it IS
- * reading it (`responder`, the person's deprecated alias, is filled from `answeredBy`), and an entry
+ * reading it (0.1.0's `responder`, the person's alias, is refused: never read, never filled), and an entry
  * of any other shape — a kind that is none, a person that is no text — is refused at its field,
  * wherever it is nested (the history record's pauses and children's too).
  */
@@ -107,6 +107,8 @@ export const PauseAnswerRecordSchema = z
     role: z.string(),
     answerer: z.enum(PauseAnswerer),
     answeredBy: optionalText,
+    // 0.1.0's alias of `answeredBy`: refused, never read
+    responder: z.never().optional(),
     resolution: z.enum(PauseResolution),
     askedAt: z.string(),
     resolvedAt: optionalText,
@@ -120,7 +122,6 @@ export const PauseAnswerRecordSchema = z
     resolvedAt: stored.resolvedAt,
     decision: stored.decision,
     answeredBy: stored.answeredBy,
-    responder: stored.answeredBy,
   }));
 
 /** A log entry from the parsed JSON a store kept: read in the 0.1.1 shape, or unreadable (id, field). */

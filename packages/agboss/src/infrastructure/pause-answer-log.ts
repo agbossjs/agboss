@@ -67,7 +67,6 @@ function recordOf(
     role: pause.channel,
     answerer,
     answeredBy,
-    responder: answeredBy,
     resolution,
     askedAt: pause.askedAt,
     resolvedAt: pause.resolvedAt,

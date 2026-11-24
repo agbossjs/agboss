@@ -564,8 +564,6 @@ export interface DescribedBudget {
 // @public
 export interface DescribedChannel {
     readonly answer: string;
-    // @deprecated (undocumented)
-    readonly answeredBy: PauseAnswerer;
     readonly answerer: PauseAnswerer;
     readonly askedBy?: readonly string[];
     readonly className: string;
@@ -1878,7 +1876,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "observers".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "warnings".
 // src/describe/channels.ts - (ae-undocumented) Missing documentation for "isRole".
-// src/describe/channels.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/describe/channels.ts - (ae-undocumented) Missing documentation for "reason".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "exports".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "imports".

@@ -107,10 +107,10 @@ const StoredWaiting = z
     pauseId: text,
     kind: z.enum(PauseKind),
     answerer: z.enum(PauseAnswerer),
-    // 0.1.0's names are refused, never read: `agent` for `step`; `answeredBy` is the answerer's
-    // alias on `WaitingPause`, the same value or none
+    // 0.1.0's names are refused, never read: `agent` for `step`; `answeredBy` was the answerer's
+    // alias on `WaitingPause`
     agent: z.never().optional(),
-    answeredBy: z.enum(PauseAnswerer).optional(),
+    answeredBy: z.never().optional(),
     step: text,
     channel: text,
     childExecutionId: text.optional(),
@@ -128,12 +128,9 @@ const StoredWaiting = z
       });
       return z.NEVER;
     };
-    if (stored.answeredBy !== undefined && stored.answeredBy !== answerer)
-      return refused("answeredBy");
     const base = {
       pauseId: stored.pauseId,
       answerer,
-      answeredBy: answerer,
       step,
       channel: stored.channel,
       childExecutionId: stored.childExecutionId,

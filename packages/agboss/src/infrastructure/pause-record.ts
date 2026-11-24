@@ -221,13 +221,6 @@ export interface PauseRecord extends PauseSite {
   /** Who may answer it (its channel role's `answerer`). */
   readonly answerer: PauseAnswerer;
   /**
-   * @deprecated 0.1.0's name of `answerer`, until 0.2 — and **never filled** from 0.1.1: a record
-   * the core returns has no `answeredBy` (`undefined`), `answeredBy` means the person who answered
-   * everywhere else (one meaning per name, #934), so it is not kept as a second spelling of the
-   * kind. Read `answerer`. A store of yours may still write it: the core reads `answerer ?? answeredBy`.
-   */
-  readonly answeredBy?: PauseAnswerer;
-  /**
    * The question, `sensitive` fields masked: the tool call an approval waits for, or a question
    * role's ask (#659) — told apart by `kind`.
    */
@@ -349,14 +342,13 @@ export const logPauseAnswer = async (
 };
 
 /**
- * Who may answer a pause: its `answerer`, else the `answeredBy` of a record a store of yours wrote
- * the 0.1.0 way (the deprecated alias of `PauseRecord`).
+ * Who may answer a pause: its `answerer`. A record of a store of yours that names none is refused —
+ * 0.1.0's `answeredBy` is not read as an alias of it.
  */
 export function pauseAnswererOf(pause: {
   readonly answerer?: PauseAnswerer | undefined;
-  readonly answeredBy?: PauseAnswerer | undefined;
 }): PauseAnswerer {
-  const answerer = pause.answerer ?? pause.answeredBy;
+  const { answerer } = pause;
   if (answerer === undefined) throw new TypeError("a pause record names who may answer it");
   return answerer;
 }

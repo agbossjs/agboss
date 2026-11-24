@@ -106,7 +106,6 @@ const RECORD: ExecutionRecord = {
       role: "refund-approval-channel",
       answerer: PauseAnswerer.ThreadOwner,
       answeredBy: "owner-1",
-      responder: "owner-1",
       resolution: PauseResolution.Replied,
       askedAt: "2026-01-05T09:00:00.000Z",
       resolvedAt: "2026-01-05T09:00:02.000Z",

@@ -39,7 +39,6 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
     expect(byItem).toEqual(
       ["B", "C"].map((orderId, index) => ({
         answerer: PauseAnswerer.Channel,
-        answeredBy: PauseAnswerer.Channel,
         kind: PauseKind.Approval,
         step: "batch-refund-agent",
         channel: "refund-approval-channel",

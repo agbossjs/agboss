@@ -458,8 +458,8 @@ it calls it like any tool, and:
 `@ChannelRole({ …, answerer })` is required (no default): a forgotten value must not let a customer
 approve their own refund. One meaning per name (#934): **`answerer` is who *may* answer**
 (`PauseAnswerer`), **`answeredBy` is who *did*** — the person, a string, in `app.resume`'s options, on a
-pause's answer and in the audit trail. 0.1.0's `answeredBy: PauseAnswerer` on a role is still accepted,
-`@deprecated`, until 0.2 (both given and different: `[channel.role-form]`).
+pause's answer and in the audit trail. 0.1.0's `answeredBy: PauseAnswerer` on a role is gone (#1307d): a role
+names its `answerer`, or it fails `[channel.role-form]`.
 
 | `answerer`                   | `resume` takes                                    | Its `pauseId`                                       |
 | ---------------------------- | ------------------------------------------------- | --------------------------------------------------- |
@@ -548,7 +548,7 @@ resolved pause of the tree, in the order they were asked:
 | `executionId`            | the execution it waited in: the root's, or a child's (#267 S124)               |
 | `step`                   | the waiting step: agent (its `ComponentRecord`), node, visit, copy, item, tool call, the loop's `toolLoopIteration` and `validationAttempts` (`StepRecord`, #268) |
 | `role`, `answerer`       | the channel asked and who may answer                                           |
-| `answeredBy`             | who answered — the person: the `ownerId` / `answeredBy` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled. `responder` is the same value, `@deprecated` until 0.2 |
+| `answeredBy`             | who answered — the person: the `ownerId` / `answeredBy` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled (0.1.0's `responder` alias is gone, #1307d) |
 | `resolution`             | `PauseResolution`                                                              |
 | `askedAt`, `resolvedAt`  | ISO 8601, the application's `Clock`                                            |
 | `decision`               | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled |

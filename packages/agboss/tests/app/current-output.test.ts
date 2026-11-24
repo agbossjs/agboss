@@ -25,7 +25,6 @@ const listedBefore = (pauseId: string, agent: string): WaitingPause =>
     JSON.stringify({
       pauseId,
       agent,
-      answeredBy: "channel",
       channel: "refund-approval-channel",
       ask: {},
     }),

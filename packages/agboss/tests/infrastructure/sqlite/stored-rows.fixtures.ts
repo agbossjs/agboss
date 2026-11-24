@@ -28,7 +28,7 @@ export const pauseJson = JSON.stringify({
   ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
 });
 
-/** One `PauseAnswerRecord`: `answerer` the kind, `answeredBy` the person (`responder` the same). */
+/** One `PauseAnswerRecord`: `answerer` the kind, `answeredBy` the person. */
 export const answerEntry = (
   executionId: string,
   kind: string,
@@ -40,7 +40,6 @@ export const answerEntry = (
   role: "refund-approval-channel",
   answerer: kind,
   answeredBy: person,
-  responder: person,
   resolution: "replied",
   askedAt: "2026-01-05T09:00:00.000Z",
   resolvedAt: "2026-01-05T09:05:00.000Z",

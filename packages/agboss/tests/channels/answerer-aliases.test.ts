@@ -1,9 +1,9 @@
 /**
- * #934 AC2: an application written for 0.1.0 — `@ChannelRole({ answeredBy })`, a reader of
- * `result.pending[0].answeredBy` — still compiles and runs, with a deprecation hint on each alias.
+ * #1307d: 0.1.0's spellings are gone, with no alias and no reading of them — `@ChannelRole({
+ * answeredBy })` names nobody (`[channel.role-form]`), a pending pause has no `answeredBy` beside its
+ * `answerer`, the described channel has none, a pause record and an answer record have no `responder`,
+ * and a stored run or answer entry that carries one is refused (`StoredNamesUnreadableError`).
  */
-import { readFileSync } from "node:fs";
-import ts from "typescript";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ComponentError } from "../../src/components/metadata.js";
 import { ChannelRole, PauseAnswerer } from "../../src/index.js";
@@ -25,38 +25,30 @@ beforeEach(resetPauses);
 
 const OPTIONS = { name: "desk-role", description: "d", approves: RefundRequestDto };
 
-describe("AC2: a role with answeredBy still assembles, the same pauses", () => {
-  it("answeredBy alone is read as answerer", () => {
-    @ChannelRole({ ...OPTIONS, answeredBy: PauseAnswerer.Channel })
-    class OldRole {}
-    expect(channelRoleOf(OldRole)?.options.answerer).toBe(PauseAnswerer.Channel);
-  });
-
-  it("answerer alone, and both the same, assemble", () => {
+describe("#1307d: @ChannelRole takes answerer only", () => {
+  it("answerer assembles", () => {
     @ChannelRole({ ...OPTIONS, answerer: PauseAnswerer.ThreadOwner })
     class NewRole {}
+    expect(channelRoleOf(NewRole)?.options.answerer).toBe(PauseAnswerer.ThreadOwner);
+  });
+
+  it("answeredBy, alone or beside answerer, is no option: a type error, and no answerer for an untyped caller", () => {
+    const declare = () => {
+      // @ts-expect-error — 0.1.0's spelling is removed
+      @ChannelRole({ ...OPTIONS, answeredBy: PauseAnswerer.Channel })
+      class OldRole {}
+      return OldRole;
+    };
+    expect(declare).toThrow(ComponentError);
+    expect(declare).toThrow(/\[channel\.role-form\].*answerer/);
     @ChannelRole({
       ...OPTIONS,
       answerer: PauseAnswerer.ThreadOwner,
-      answeredBy: PauseAnswerer.ThreadOwner,
+      // @ts-expect-error — an unknown option, ignored beside the answerer
+      answeredBy: PauseAnswerer.Channel,
     })
-    class BothRole {}
-    expect(channelRoleOf(NewRole)?.options.answerer).toBe(PauseAnswerer.ThreadOwner);
-    expect(channelRoleOf(BothRole)?.options.answerer).toBe(PauseAnswerer.ThreadOwner);
-  });
-
-  it("both given, different → [channel.role-form]", () => {
-    const declare = () => {
-      @ChannelRole({
-        ...OPTIONS,
-        answerer: PauseAnswerer.ThreadOwner,
-        answeredBy: PauseAnswerer.Channel,
-      })
-      class Conflict {}
-      return Conflict;
-    };
-    expect(declare).toThrow(ComponentError);
-    expect(declare).toThrow(/\[channel\.role-form\]/);
+    class Beside {}
+    expect(channelRoleOf(Beside)?.options.answerer).toBe(PauseAnswerer.ThreadOwner);
   });
 
   it("neither → [channel.role-form] naming answerer", () => {
@@ -70,8 +62,8 @@ describe("AC2: a role with answeredBy still assembles, the same pauses", () => {
   });
 });
 
-describe("AC2: PendingPause.answeredBy equals answerer", () => {
-  test("a pending pause carries both, the same value", async ({ app, mockLlm }) => {
+describe("#1307d: no pause shape carries a 0.1.0 alias", () => {
+  test("a pending pause has an answerer and no answeredBy", async ({ app, mockLlm }) => {
     mockLlm(DeskClerkAgent).thenReturn(callTool(ConfirmOrderTool, { orderId: "7" }));
     const paused = await execute(
       app,
@@ -81,39 +73,6 @@ describe("AC2: PendingPause.answeredBy equals answerer", () => {
     );
     const [pending] = paused.pending;
     expect(pending?.answerer).toBe(PauseAnswerer.ThreadOwner);
-    const fields: Partial<Record<"answeredBy", unknown>> = pending ?? {};
-    expect(fields.answeredBy).toBe(pending?.answerer);
-  });
-});
-
-/** The deprecated flag of each alias, read from the declarations the package publishes. */
-function deprecatedOf(file: string, owner: string, name: string): boolean {
-  const path = new URL(`../../src/${file}`, import.meta.url).pathname;
-  const source = ts.createSourceFile(
-    path,
-    readFileSync(path, "utf8"),
-    ts.ScriptTarget.ES2023,
-    true,
-  );
-  let found = false;
-  const visit = (node: ts.Node): void => {
-    if (ts.isInterfaceDeclaration(node) && node.name.text === owner)
-      for (const member of node.members)
-        if (member.name?.getText() === name)
-          found = ts.getJSDocTags(member).some((tag) => tag.tagName.text === "deprecated");
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-  return found;
-}
-
-describe("AC2: the aliases carry @deprecated", () => {
-  it.each([
-    ["channels/channel-role.decorator.ts", "ChannelRoleBaseOptions", "answeredBy"],
-    ["pause/types.ts", "PendingPauseBase", "answeredBy"],
-    ["infrastructure/pause-record.ts", "PauseRecord", "answeredBy"],
-    ["flow/runtime/execution-record.ts", "PauseAnswerRecord", "responder"],
-  ])("%s %s.%s", (file, owner, name) => {
-    expect(deprecatedOf(file, owner, name)).toBe(true);
+    expect(Object.keys(pending ?? {})).not.toContain("answeredBy");
   });
 });

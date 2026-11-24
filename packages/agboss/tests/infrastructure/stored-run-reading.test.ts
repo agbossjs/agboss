@@ -93,9 +93,14 @@ describe("a paused run is read whole", () => {
     ["ternId, 0.1.0's name of turnId", { ternId: "turn-1" }, "ternId"],
     ["a pending pause with 0.1.0's agent", pending({ agent: "clerk-agent" }), "pending.0.agent"],
     [
-      "a pending pause whose answeredBy is another kind than its answerer",
+      "a pending pause with 0.1.0's answeredBy beside its answerer, the same kind or another",
+      pending({ answeredBy: "channel" }),
+      "pending.0.answeredBy",
+    ],
+    [
+      "a pending pause with 0.1.0's answeredBy of another kind",
       pending({ answeredBy: "thread-owner" }),
-      "pending.0",
+      "pending.0.answeredBy",
     ],
     ["a run with no tenantId", { tenantId: undefined }, "tenantId"],
     ["a pending pause with no kind", pending({ kind: undefined }), "pending.0.kind"],

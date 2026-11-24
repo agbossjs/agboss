@@ -19,7 +19,6 @@ describe("#659 AC6: describe shows the question steps", () => {
       question: "PurchaseQuestionDto",
       answer: "SpendingLimitAnswerDto",
       answerer: PauseAnswerer.ThreadOwner,
-      answeredBy: PauseAnswerer.ThreadOwner,
       replyInterpreter: "spending-limit-reply-interpreter",
       implementation: "InboxSpendingLimitChannel",
       reason: ChannelImplementationReason.Listed,

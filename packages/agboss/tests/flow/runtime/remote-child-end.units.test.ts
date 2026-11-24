@@ -1,3 +1,4 @@
+import { StoredNamesUnreadableError } from "../../../src/core/stored-json.js";
 /**
  * #1366 (shard once-child) — a child on any instance as its parent's step sees it (`remoteChildEndOf`): the
  * child's row queued once and waited for until it settles, its spend taken into the budgets as in the ledger
@@ -17,7 +18,6 @@ import {
 } from "../../../src/flow/runtime/remote/remote-child.js";
 import { remoteChildSignals } from "../../../src/flow/runtime/remote/remote-child-signals.js";
 import { RecordedError, durableErrorOf } from "../../../src/core/error-record.js";
-import { RemoteChildFailure } from "../../../src/flow/runtime/remote/remote-failure.js";
 import type { QueuedChildExecution } from "../../../src/infrastructure/child-execution-queue.repository.js";
 import { ExecutionRecordStatus } from "../../../src/infrastructure/execution-record.repository.js";
 import { treeKeyOf } from "../../../src/infrastructure/in-memory-database.js";
@@ -34,7 +34,9 @@ vi.mock("@langchain/langgraph", async (importOriginal) => ({
 }));
 
 const NOW = new Date("2026-11-20T10:00:00.000Z");
-const FAILURE = JSON.stringify({
+const FAILURE = JSON.stringify(durableErrorOf(new Error("the desk is closed")));
+/** A row of 0.1.0: names, a code and a message only — no durable record. */
+const LEGACY_FAILURE = JSON.stringify({
   name: "DeskClosedError",
   message: "the desk is closed",
   code: "desk.closed",
@@ -402,10 +404,11 @@ describe("#1366: the wait for a child's row to settle", () => {
 });
 
 describe("#1366: the error of a failed remote child", () => {
-  it("is a RecordedError when its worker kept its durable record, and a RemoteChildFailure for a row of before", async () => {
+  it("is a RecordedError when its worker kept its durable record; a row of 0.1.0 or with no failure is refused (#1307d)", async () => {
     const kept = JSON.stringify(durableErrorOf(new Error("the desk is closed")));
     const recorded = queueOf([rowIn(ExecutionRecordStatus.Failed, kept)]);
-    const legacy = queueOf([rowIn(ExecutionRecordStatus.Failed, FAILURE)]);
+    const legacy = queueOf([rowIn(ExecutionRecordStatus.Failed, LEGACY_FAILURE)]);
+    const none = queueOf([rowIn(ExecutionRecordStatus.Failed)]);
 
     const first = await remoteChildEndOf(
       graphOf({ usage: [] }),
@@ -413,16 +416,12 @@ describe("#1366: the error of a failed remote child", () => {
       siteOf(recorded.queue).site,
       undefined,
     );
-    const second = await remoteChildEndOf(
-      graphOf({ usage: [] }),
-      {},
-      siteOf(legacy.queue).site,
-      undefined,
-    );
 
     expect(first.error).toBeInstanceOf(RecordedError);
-    expect(second.error).toBeInstanceOf(RemoteChildFailure);
-    expect(second.error).toMatchObject({ originalName: "DeskClosedError", code: "desk.closed" });
+    for (const refused of [legacy, none])
+      await expect(
+        remoteChildEndOf(graphOf({ usage: [] }), {}, siteOf(refused.queue).site, undefined),
+      ).rejects.toBeInstanceOf(StoredNamesUnreadableError);
   });
 });
 

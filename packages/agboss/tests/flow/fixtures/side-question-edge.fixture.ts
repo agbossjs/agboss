@@ -138,7 +138,7 @@ export class EdgeTwiceInterpreter implements ReplyInterpreterHandler<EdgeTwiceIn
   description: "Asks the thread's owner",
   ask: PurchaseQuestionDto,
   answer: SpendingLimitAnswerDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
   replyInterpreter: EdgeOnceInterpreter,
   maxVisits: 1,
 })
@@ -149,7 +149,7 @@ export abstract class EdgeOnceQuestion extends ChannelOf<EdgeOnceQuestion> {}
   description: "Asks the thread's owner",
   ask: PurchaseQuestionDto,
   answer: SpendingLimitAnswerDto,
-  answeredBy: PauseAnswerer.ThreadOwner,
+  answerer: PauseAnswerer.ThreadOwner,
   replyInterpreter: EdgeTwiceInterpreter,
   maxVisits: 2,
 })

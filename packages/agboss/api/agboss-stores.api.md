@@ -1741,8 +1741,6 @@ export interface PauseAnswerRecord {
     readonly resolution: PauseResolution;
     // (undocumented)
     readonly resolvedAt: string | undefined;
-    // @deprecated (undocumented)
-    readonly responder: string | undefined;
     readonly role: string;
     readonly step: StepRecord;
 }
@@ -1948,8 +1946,6 @@ export interface PauseRecipients {
 // @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
-    // @deprecated (undocumented)
-    readonly answeredBy?: PauseAnswerer;
     readonly answerer: PauseAnswerer;
     readonly ask: PauseAsk;
     readonly askedAt: string;
@@ -2051,8 +2047,6 @@ export type PendingPause = PendingApproval | PendingQuestion;
 
 // @public
 export interface PendingPauseBase {
-    // @deprecated (undocumented)
-    readonly answeredBy: PauseAnswerer;
     readonly answerer: PauseAnswerer;
     readonly channel: string;
     readonly childExecutionId: string | undefined;
@@ -2872,7 +2866,6 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "lastError".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "spend".
-// src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "responder".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolution".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "slot".
@@ -3078,7 +3071,6 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "stepKey".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "reassignedFrom".
@@ -3121,7 +3113,6 @@ export interface WrittenLedgerMark {
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "executionId".
-// src/pause/types.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/run/compaction.ts - (ae-undocumented) Missing documentation for "toTurn".

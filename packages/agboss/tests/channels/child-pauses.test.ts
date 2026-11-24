@@ -47,7 +47,6 @@ describe("#267 × #263: a single child pauses", () => {
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
         answerer: PauseAnswerer.ThreadOwner,
-        answeredBy: PauseAnswerer.ThreadOwner,
         kind: PauseKind.Approval,
         step: "child-refund-agent",
         channel: "order-confirmation-channel",
@@ -85,7 +84,6 @@ describe("#267 × #263: per-item children pause at once", () => {
     expect(byItem).toEqual(
       ["B", "C"].map((orderId, index) => ({
         answerer: PauseAnswerer.Channel,
-        answeredBy: PauseAnswerer.Channel,
         kind: PauseKind.Approval,
         step: "child-refund-agent",
         channel: "refund-approval-channel",

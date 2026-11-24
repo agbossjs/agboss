@@ -65,8 +65,6 @@ export interface PauseAnswerRecord {
    * its channel decided at once, it was withdrawn or cancelled, or its thread has no owner.
    */
   readonly answeredBy: string | undefined;
-  /** @deprecated 0.1.0's name of `answeredBy`, the same value, until 0.2: use `answeredBy`. */
-  readonly responder: string | undefined;
   readonly resolution: PauseResolution;
   /** When it was asked and resolved (ISO 8601, the application's `Clock`). */
   readonly askedAt: string;

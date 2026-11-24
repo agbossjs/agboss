@@ -99,7 +99,6 @@ export function waitingPauseOf(pause: PauseRecord): WaitingPause {
   const site = {
     pauseId: pause.pauseId,
     answerer: pauseAnswererOf(pause),
-    answeredBy: pauseAnswererOf(pause),
     step: pause.step,
     channel: pause.channel,
     childExecutionId: pause.executionId === pause.rootExecutionId ? undefined : pause.executionId,

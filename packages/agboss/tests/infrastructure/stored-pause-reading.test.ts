@@ -12,7 +12,7 @@ import {
   pauseRecordOfJson,
   StoredNamesUnreadableError,
 } from "../../src/stores/index.js";
-import { answerLogEntry, historyRecord } from "./sqlite/stored-rows.fixtures.js";
+import { answerLogEntry, historyRecord, historyRecordWith } from "./sqlite/stored-rows.fixtures.js";
 
 const PAUSE = {
   pauseId: "p1",
@@ -96,7 +96,6 @@ describe("a store's parsed JSON is read through the core", () => {
     expect(pauseAnswerRecordOfValue(answerLogEntry)).toMatchObject({
       answerer: PauseAnswerer.Channel,
       answeredBy: "manager-17",
-      responder: "manager-17",
     });
     expect(executionHistoryRecordOfJson(historyRecord).children[0]?.pauses[0]).toMatchObject({
       answerer: PauseAnswerer.ThreadOwner,
@@ -134,6 +133,18 @@ describe("0.1.0 is refused, never defaulted", () => {
     ],
   ])("a pause with %s", (_name, change, field) => {
     refused(() => pauseRecordOfJson({ ...PAUSE, ...change }), field);
+  });
+
+  it("a log entry or a kept history record with 0.1.0's responder is refused, the field named (#1307d)", () => {
+    refused(
+      () => pauseAnswerRecordOfValue({ ...answerLogEntry, responder: "manager-17" }),
+      "responder",
+    );
+    const kept = historyRecordWith((tree) => {
+      const [entry] = tree.children[0]?.pauses ?? [];
+      Object.assign(entry ?? {}, { responder: "alice" });
+    });
+    refused(() => executionHistoryRecordOfJson(kept), "responder");
   });
 
   it("a log entry with 0.1.0's answeredBy as the kind and no answerer", () => {

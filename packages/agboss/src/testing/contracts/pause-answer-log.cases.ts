@@ -42,7 +42,6 @@ export const answerOf = (
   role: "refund-approval-channel",
   answerer: PauseAnswerer.Channel,
   answeredBy: responder,
-  responder,
   resolution: PauseResolution.Replied,
   askedAt,
   resolvedAt: "2026-01-05T09:05:00.000Z",

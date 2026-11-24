@@ -1367,8 +1367,6 @@ export function ChannelRole(options: ChannelRoleOptions): <TClass extends Class>
 
 // @public
 export interface ChannelRoleBaseOptions {
-    // @deprecated (undocumented)
-    readonly answeredBy?: PauseAnswerer;
     readonly answerer?: PauseAnswerer;
     // (undocumented)
     readonly description: string;
@@ -1380,9 +1378,9 @@ export interface ChannelRoleBaseOptions {
 }
 
 // @public
-export type ChannelRoleOptions = (ChannelApprovalRoleOptions | ChannelQuestionRoleOptions) & ({
+export type ChannelRoleOptions = (ChannelApprovalRoleOptions | ChannelQuestionRoleOptions) & {
     readonly answerer: PauseAnswerer;
-} | Required<Pick<ChannelRoleBaseOptions, "answeredBy">>);
+};
 
 // @public
 export interface ChannelSelectContext<TTarget> {
@@ -5908,7 +5906,7 @@ export interface LimitExceededErrorOptions {
 }
 
 // @public
-export interface ListedPause extends Omit<PendingPauseBase, "answeredBy"> {
+export interface ListedPause extends PendingPauseBase {
     readonly answeredBy?: string;
     readonly ask: unknown;
     // (undocumented)
@@ -7455,8 +7453,6 @@ export interface PauseAnswerRecord {
     readonly resolution: PauseResolution;
     // (undocumented)
     readonly resolvedAt: string | undefined;
-    // @deprecated (undocumented)
-    readonly responder: string | undefined;
     readonly role: string;
     readonly step: StepRecord;
 }
@@ -7910,8 +7906,6 @@ export interface PauseReassignment {
 // @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
-    // @deprecated (undocumented)
-    readonly answeredBy?: PauseAnswerer;
     readonly answerer: PauseAnswerer;
     readonly ask: PauseAsk;
     readonly askedAt: string;
@@ -8116,8 +8110,6 @@ export type PendingPause = PendingApproval | PendingQuestion;
 
 // @public
 export interface PendingPauseBase {
-    // @deprecated (undocumented)
-    readonly answeredBy: PauseAnswerer;
     readonly answerer: PauseAnswerer;
     readonly channel: string;
     readonly childExecutionId: string | undefined;
@@ -11869,7 +11861,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "decision".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "ChannelOutcome".
 // src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "ask".
 // src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "answer".
 // src/channels/channel-role.decorator.ts - (ae-undocumented) Missing documentation for "maxVisits".
@@ -12780,7 +12771,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "lastError".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "spend".
-// src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "responder".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolution".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/launch/quorum-errors.ts - (ae-undocumented) Missing documentation for "usage".
@@ -13069,7 +13059,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "getTuple".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "latestByStep".
@@ -13353,7 +13342,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "channel".
 // src/pause/notice-events.ts - (ae-undocumented) Missing documentation for "reason".
 // src/pause/pause-listener.ts - (ae-undocumented) Missing documentation for "description".
-// src/pause/types.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pii/actions.ts - (ae-undocumented) Missing documentation for "keepFirst".

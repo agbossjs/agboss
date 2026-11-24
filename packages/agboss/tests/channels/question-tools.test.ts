@@ -55,7 +55,6 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
         kind: PauseKind.Question,
         pauseId: expect.any(String),
         answerer: "thread-owner",
-        answeredBy: "thread-owner",
         step: "buyer-agent",
         channel: "approver-question",
         childExecutionId: undefined,

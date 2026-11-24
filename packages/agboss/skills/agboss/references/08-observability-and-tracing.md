@@ -36,7 +36,7 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 (`OutdatedValueRecord`, each with its `OutdatedReason`), `lastError` (an `ErrorRecord`: `name`,
 `code`, `message`, `lineage`, `cause`), `spend`, `children`, `compensations` and `pauses` — who
 answered each resolved pause of the tree (`PauseAnswerRecord`: `pauseId`, `role`, `answerer`,
-`answeredBy`, `responder` (deprecated alias of `answeredBy`), `resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled`, `askedAt`,
+`answeredBy`, `resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled`, `askedAt`,
 `resolvedAt`, the masked `decision`). The record, events, logs and traces are masked by the
 application's and the workflow's PII policies.
 

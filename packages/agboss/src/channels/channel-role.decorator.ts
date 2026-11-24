@@ -29,10 +29,8 @@ export interface ChannelRoleBaseOptions {
   /** Kebab-case, unique in the application (`refund-approval-channel`). */
   readonly name: string;
   readonly description: string;
-  /** Who may answer its pauses — required (this, or its 0.1.0 spelling `answeredBy`). */
+  /** Who may answer its pauses — required. */
   readonly answerer?: PauseAnswerer;
-  /** @deprecated 0.1.0's spelling of `answerer`, kept until 0.2: use `answerer`. */
-  readonly answeredBy?: PauseAnswerer;
   /** Who turns a free-text reply into the role's typed answer; one interpreter belongs to one role. */
   readonly replyInterpreter?: Class;
   /**
@@ -89,10 +87,10 @@ export interface ChannelQuestionRoleOptions extends ChannelRoleBaseOptions {
 /** The two forms of a role, never both. */
 export type ChannelRoleForm = ChannelApprovalRoleOptions | ChannelQuestionRoleOptions;
 
-/** What `@ChannelRole({ … })` takes: a form, and who may answer as `answerer` (or `answeredBy`). */
-export type ChannelRoleOptions = (ChannelApprovalRoleOptions | ChannelQuestionRoleOptions) &
-  // `answeredBy` is the base's property, `@deprecated` there and here (it is the same declaration)
-  ({ readonly answerer: PauseAnswerer } | Required<Pick<ChannelRoleBaseOptions, "answeredBy">>);
+/** What `@ChannelRole({ … })` takes: a form, and who may answer as `answerer`. */
+export type ChannelRoleOptions = (ChannelApprovalRoleOptions | ChannelQuestionRoleOptions) & {
+  readonly answerer: PauseAnswerer;
+};
 
 /**
  * A tool approval with no `input` of its own (`@ToolApproval({ respondent, … })`, #1307): it approves
@@ -105,7 +103,7 @@ export interface ChannelAnyToolApprovalOptions extends Omit<
   readonly approves?: undefined;
 }
 
-/** A role as it is kept: its options with `answerer` settled, whichever spelling was given. */
+/** A role as it is kept: its options with `answerer` settled. */
 export type StoredChannelRole = (ChannelRoleForm | ChannelAnyToolApprovalOptions) & {
   readonly answerer: PauseAnswerer;
 };
@@ -121,12 +119,10 @@ const PAUSE_ANSWERERS: ReadonlySet<string> = new Set(Object.values(PauseAnswerer
 
 const isAnswerer = (value: unknown): value is PauseAnswerer => PAUSE_ANSWERERS.has(String(value));
 
-const CONFLICT =
-  "gives answerer and answeredBy (its 0.1.0 spelling) different values — keep answerer";
 const MISSING =
   "has no answerer — say who may answer: PauseAnswerer.ThreadOwner or PauseAnswerer.Channel";
 
-/** What a role's options declare: a problem with them, or who may answer (`answerer` or its alias). */
+/** What a role's options declare: a problem with them, or who may answer. */
 type Declared = { readonly problem: string } | { readonly answerer: PauseAnswerer };
 
 function declaredOf(options: ChannelRoleOptions): Declared {
@@ -134,12 +130,8 @@ function declaredOf(options: ChannelRoleOptions): Declared {
   const fields: RoleFields = options;
   const problem = formProblem(fields);
   if (problem !== undefined) return { problem };
-  const { answerer, answeredBy } = fields;
-  if (answerer !== undefined && answeredBy !== undefined && answerer !== answeredBy)
-    return { problem: CONFLICT };
-  const declared = answerer ?? answeredBy;
-  if (!isAnswerer(declared)) return { problem: MISSING };
-  return { answerer: declared };
+  if (!isAnswerer(fields.answerer)) return { problem: MISSING };
+  return { answerer: fields.answerer };
 }
 
 /**

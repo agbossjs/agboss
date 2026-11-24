@@ -496,7 +496,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   only (a thread with no paused run); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
   `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
 - **`PauseAnswerRecord`** (`result.record.pauses`, with `{ includeRecord: true }`) — the permanent history:
-  `pauseId`, `executionId`, `step`, `role`, `answerer`, `answeredBy` (`responder`, deprecated), `resolution`
+  `pauseId`, `executionId`, `step`, `role`, `answerer`, `answeredBy`, `resolution`
   (`PauseResolution.Decided` | `Replied` | `Withdrawn` | `Cancelled`), `askedAt`, `resolvedAt`, the
   masked `decision`. A child's own are in its `ChildExecutionRecord.pauses`.
 - **`onPauseClosed(event)`** (`ChannelPauseClosedEvent`: `pauseId`, `value`, `reason`

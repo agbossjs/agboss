@@ -105,7 +105,6 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           role: "payout-approval-channel",
           answerer: PauseAnswerer.Channel,
           answeredBy: "manager-17",
-          responder: "manager-17",
           resolution: PauseResolution.Replied,
           askedAt: TEST_START,
           resolvedAt: "2026-01-05T09:01:00.000Z",
@@ -163,7 +162,6 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           role: "expense-approval-channel",
           answerer: PauseAnswerer.ThreadOwner,
           answeredBy: "alice",
-          responder: "alice",
           resolution: PauseResolution.Replied,
           decision: { approved: true },
         },
@@ -193,7 +191,6 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           pauseId: undefined,
           role: "transfer-approval-channel",
           answeredBy: undefined,
-          responder: undefined,
           resolution: PauseResolution.Decided,
           resolvedAt: TEST_START,
           decision: { approved: true },
@@ -222,7 +219,6 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           pauseId: seen.confirmations[0]?.pauseId,
           role: "order-confirmation-channel",
           answeredBy: undefined,
-          responder: undefined,
           resolution: PauseResolution.Withdrawn,
           decision: undefined,
         },
@@ -303,7 +299,6 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
       ]);
       expect(done.record?.pauses[0]).toMatchObject({
         answeredBy: "manager-17",
-        responder: "manager-17",
         askedAt: TEST_START,
       });
     },
