@@ -2,7 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import { callerOfSpend } from "../../finops/explicit-caller.js";
 import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
-import { argumentsRefusal, readingAgent, closedResult, type ClosedResult } from "./tool-pii.js";
+import { readingAgent, closedResult, type ClosedResult } from "./tool-pii.js";
 import { runTool } from "./run-tool.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import { reportInvalidInput } from "./retry-event.js";
@@ -13,7 +13,7 @@ import type { PiiTokenMap } from "../../pii/tokens.js";
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
-import { interceptedCall, interceptorsOf, questionResultOf } from "./tool-interception.js";
+import { afterCall, interceptorsOf, questionResultOf } from "./tool-interception.js";
 import { keepStopCause, type ToolCallStop } from "./tool-stops.js";
 import { storedCallOf } from "./stored-call.js";
 import { toolMeshCallOf, type ToolMeshCall } from "./mesh-call.js";
@@ -56,8 +56,11 @@ const stoppedContent = (stop: ToolCallStop): string =>
   `Tool error: the call was stopped by ${stop.interceptor}: ${stop.reason}`;
 
 /**
- * The call in its frame: refused by a block rule in its arguments, else through its tool
- * interceptors (#384) — run, answered by an interceptor or stopped — and its result closed (#120).
+ * The call in its frame, as it was prepared before its approval (#1295c): refused by a block rule
+ * in its arguments, answered or stopped by a tool interceptor's `before` hook — all of them ended
+ * without running the tool —, or run with the arguments that were checked, then through its `after`
+ * hooks (#384) and its result closed (#120). A call whose arguments are no input of the tool goes
+ * the tool's own way: its error is what the model reads.
  */
 async function guardedCall(
   deps: AgentLoopDeps,
@@ -68,36 +71,39 @@ async function guardedCall(
   const progress = task.progress ?? { toolLoopIteration: 0, validationAttempts: 0 };
   const step = callStepOf(toolRecordOf(tool), task.callId, progress, deps.agent.name);
   const set = deps.pii?.withFieldKey(task.piiKey);
-  const refusal = await argumentsRefusal(set, task.args);
-  if (refusal.content !== undefined) {
-    const closed = { content: refusal.content, piiTokens: {}, piiMasked: {} };
-    const refused = refusal.refusal === undefined ? {} : { refusal: refusal.refusal };
-    return { closed: { ...closed, usage: refusal.usage, isTruncated: false, ...refused }, step };
+  const { prepared } = task;
+  const none = { piiTokens: {}, piiMasked: {}, isTruncated: false, usage: [] };
+  if (prepared.kind === "refused") {
+    const refusal = prepared.refusal;
+    return { closed: { ...none, content: prepared.content, refusal }, step };
+  }
+  if (prepared.kind === "stopped") {
+    const content = stoppedContent(prepared.stop);
+    return { closed: { ...none, content }, step, stop: prepared.stop };
   }
   // the tool's own bound, else its workflow's `defaults.tools` (#336)
   const maxResultSize = tool.maxResultSize ?? deps.agent.maxResultSize;
+  if (prepared.kind === "replied") {
+    const reply = { kind: "ok", value: prepared.message } as const;
+    const closed = await closedResult(set, undefined, reply, maxResultSize);
+    return { closed, step, replied: prepared.message };
+  }
   const chain = interceptorsOf(deps, tool);
   const keep = (error: unknown): void => {
     keepStopCause(task.runId, task.callId, error);
   };
-  const call = await interceptedCall(chain, tool, task.args, run, keep, {
-    agent: deps.agent.name,
-    callId: task.callId,
-  });
+  const output = await run(task.args);
+  const scope = { agent: deps.agent.name, callId: task.callId };
+  const call =
+    prepared.kind === "invalid"
+      ? ({ kind: "ran", output } as const)
+      : await afterCall(chain, tool, { input: task.args, output }, keep, scope);
   if (call.kind === "stopped") {
     const content = stoppedContent(call.stop);
-    const none = { piiTokens: {}, piiMasked: {}, isTruncated: false };
-    return { closed: { content, ...none, usage: refusal.usage }, step, stop: call.stop };
-  }
-  if (call.kind === "replied") {
-    const reply = { kind: "ok", value: call.message } as const;
-    const closed = await closedResult(set, undefined, reply, maxResultSize);
-    const usage = [...refusal.usage, ...closed.usage];
-    return { closed: { ...closed, usage }, step, replied: call.message };
+    return { closed: { ...none, content }, step, stop: call.stop };
   }
   const closed = await closedResult(set, tool, call.output, maxResultSize);
-  const usage = [...refusal.usage, ...closed.usage];
-  return { closed: { ...closed, usage }, step, output: call.output };
+  return { closed, step, output: call.output };
 }
 
 /** The record of a guarded call (#395). */
@@ -109,7 +115,7 @@ function recordOf(
   mesh: ToolMeshCall,
 ): ToolCallRecord {
   const { closed, output, step, replied, stop } = guarded;
-  const remote = mesh.remote();
+  const remote = mesh.remote() ?? task.prepared.remote;
   const call = {
     tool,
     step,

@@ -9,11 +9,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { newRunContext } from "../../src/core/run-context.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
+import type { ToolTask } from "../../src/graph/agent-loop/state.js";
 import { makeToolNode } from "../../src/graph/agent-loop/tools-node.js";
 import { runTool } from "../../src/graph/agent-loop/run-tool.js";
 import { inToolCallFrame } from "../../src/flow/context/frame.js";
-import { interceptedCall } from "../../src/graph/agent-loop/tool-interception.js";
-import { argumentsRefusal, closedResult } from "../../src/graph/agent-loop/tool-pii.js";
+import { afterCall } from "../../src/graph/agent-loop/tool-interception.js";
+import { closedResult } from "../../src/graph/agent-loop/tool-pii.js";
 import { callStepOf, endedCallRecordOf } from "../../src/graph/agent-loop/call-records.js";
 import { storedCallOf } from "../../src/graph/agent-loop/stored-call.js";
 import { withFiles } from "../../src/files/tool-files.js";
@@ -24,14 +25,13 @@ import { RunStream } from "../../src/run/stream/run-stream.js";
 
 vi.mock("../../src/graph/agent-loop/run-tool.js", () => ({ runTool: vi.fn() }));
 vi.mock("../../src/graph/agent-loop/tool-pii.js", () => ({
-  argumentsRefusal: vi.fn(() => Promise.resolve({ usage: [] })),
   readingAgent: vi.fn((_deps: unknown, _task: unknown, work: () => unknown) => work()),
   closedResult: vi.fn(() =>
     Promise.resolve({ content: "ok", piiTokens: {}, piiMasked: {}, usage: [], isTruncated: false }),
   ),
 }));
 vi.mock("../../src/graph/agent-loop/tool-interception.js", () => ({
-  interceptedCall: vi.fn(),
+  afterCall: vi.fn(),
   interceptorsOf: vi.fn(() => []),
   questionResultOf: vi.fn((_tool: unknown, _task: unknown, work: () => unknown) => work()),
 }));
@@ -84,7 +84,21 @@ const toolOf = (changes: Record<string, unknown> = {}) => ({
   ...changes,
 });
 
-const taskOf = () => ({ callId: "c1", tool: "lookup-tool", args: { q: 1 }, runId: "run-1" });
+const READY = { kind: "ready", args: { q: 1 }, shown: { q: 1 }, from: "model" } as const;
+
+const taskOf = (changes: Record<string, unknown> = {}): ToolTask =>
+  ({
+    callId: "c1",
+    tool: "lookup-tool",
+    args: { q: 1 },
+    runId: "run-1",
+    prepared: READY,
+    ...changes,
+  }) as ToolTask;
+
+/** A task whose call was prepared to end as `end` says (#1295c). */
+const endedTaskOf = (end: Record<string, unknown>) =>
+  taskOf({ prepared: { args: { q: 1 }, from: "model", ...end } });
 
 const SITE = { agent: "alpha", visit: 2, branch: "run-1" };
 
@@ -101,10 +115,9 @@ function setup(
     budgets: { exhausted: exhausted.signal, tally, remaining: () => 5, deadline: undefined },
     observer: options.observer,
   };
-  vi.mocked(interceptedCall).mockImplementation(async (_chain, _tool, args, run) => ({
-    kind: "ran" as const,
-    output: await run(args),
-  }));
+  vi.mocked(afterCall).mockImplementation((_chain, _tool, call) =>
+    Promise.resolve({ kind: "ran" as const, output: call.output }),
+  );
   vi.mocked(runTool).mockResolvedValue({ kind: "ok", value: { ok: true } } as never);
   const tools = "tool" in options ? options.tool : toolOf();
   const withTool = { ...deps, agent: { ...deps.agent, tools: tools === undefined ? [] : [tools] } };
@@ -228,13 +241,13 @@ describe("#1366: the call's signal", () => {
   it("is released when the call ends, whatever way", async () => {
     const ok = setup();
     const bad = setup();
-    vi.mocked(interceptedCall).mockRejectedValueOnce(new Error("broke"));
+    vi.mocked(afterCall).mockRejectedValueOnce(new Error("broke"));
 
     await bad.node(taskOf() as never, undefined).catch(() => undefined);
     await ok.node(taskOf(), undefined);
 
     // a released timer leaves no pending timeout: the node returned and a second call is as fresh
-    expect(vi.mocked(interceptedCall)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(afterCall)).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -337,13 +350,11 @@ describe("#1366: the spend a call's guardrails carry reaches the loop's usage", 
     listOf<UsageRecord>(usage).map((u) => u.costUsd);
 
   beforeEach(() => {
-    vi.mocked(argumentsRefusal).mockResolvedValue({ usage: [] });
     vi.mocked(closedResult).mockResolvedValue(closedOf([]));
   });
 
-  it("a call that ran: the check of its arguments, then the closing of its result, after what the tool reported", async () => {
+  it("a call that ran: the closing of its result, after what the tool reported (the check of its arguments was made before its approval)", async () => {
     const { node } = setup();
-    vi.mocked(argumentsRefusal).mockResolvedValue({ usage: [record(0.125, "arguments")] });
     vi.mocked(closedResult).mockResolvedValue(closedOf([record(0.0625, "result")]));
     vi.mocked(runTool).mockImplementation((_tool, _args, context) => {
       context.reportCost(0.5);
@@ -352,7 +363,7 @@ describe("#1366: the spend a call's guardrails carry reaches the loop's usage", 
 
     const out = await node(taskOf(), undefined);
 
-    expect(costsOf(out.usage)).toEqual([0.5, 0.125, 0.0625]);
+    expect(costsOf(out.usage)).toEqual([0.5, 0.0625]);
   });
 
   it("the closing of a result alone is the loop's spend", async () => {
@@ -364,51 +375,52 @@ describe("#1366: the spend a call's guardrails carry reaches the loop's usage", 
     expect(costsOf(out.usage)).toEqual([0.0625]);
   });
 
-  it("the check of the arguments alone is the loop's spend of a call that ran", async () => {
+  it("a call refused by its arguments never runs, and the task spends nothing: the check was prepared first", async () => {
     const { node } = setup();
-    vi.mocked(argumentsRefusal).mockResolvedValue({ usage: [record(0.125, "arguments")] });
 
-    const out = await node(taskOf(), undefined);
-
-    expect(costsOf(out.usage)).toEqual([0.125]);
-  });
-
-  it("a call refused by its arguments never runs, and what the check cost is the loop's spend", async () => {
-    const { node } = setup();
-    vi.mocked(argumentsRefusal).mockResolvedValue({
-      content: "Tool error: the call was refused",
-      refusal: new Error("blocked"),
-      usage: [record(0.125, "arguments")],
-    });
-
-    const out = await node(taskOf(), undefined);
+    const out = await node(
+      endedTaskOf({ kind: "refused", content: "Tool error: the call was refused", refusal: {} }),
+      undefined,
+    );
 
     expect(vi.mocked(runTool)).not.toHaveBeenCalled();
-    expect(costsOf(out.usage)).toEqual([0.125]);
+    expect(costsOf(out.usage)).toEqual([]);
   });
 
-  it("a call an interceptor stopped: the check of its arguments is the loop's spend", async () => {
+  it("a call an interceptor stopped before its approval never runs and spends nothing here", async () => {
     const { node } = setup();
-    vi.mocked(argumentsRefusal).mockResolvedValue({ usage: [record(0.125, "arguments")] });
-    vi.mocked(interceptedCall).mockResolvedValue({
+
+    const out = await node(
+      endedTaskOf({
+        kind: "stopped",
+        stop: { kind: "blocked", interceptor: "gate", reason: "no" },
+      }),
+      undefined,
+    );
+
+    expect(vi.mocked(runTool)).not.toHaveBeenCalled();
+    expect(costsOf(out.usage)).toEqual([]);
+  });
+
+  it("a call an interceptor stopped after the tool ran: only the tool's own spend", async () => {
+    const { node } = setup();
+    vi.mocked(afterCall).mockResolvedValue({
       kind: "stopped",
       stop: { interceptor: "gate", reason: "no" },
     } as never);
 
     const out = await node(taskOf(), undefined);
 
-    expect(costsOf(out.usage)).toEqual([0.125]);
+    expect(costsOf(out.usage)).toEqual([]);
   });
 
-  it("a call an interceptor answered: the check of its arguments and the closing of its reply", async () => {
+  it("a call an interceptor answered: the closing of its reply", async () => {
     const { node } = setup();
-    vi.mocked(argumentsRefusal).mockResolvedValue({ usage: [record(0.125, "arguments")] });
     vi.mocked(closedResult).mockResolvedValue(closedOf([record(0.0625, "reply")], "told"));
-    vi.mocked(interceptedCall).mockResolvedValue({ kind: "replied", message: "told" } as never);
 
-    const out = await node(taskOf(), undefined);
+    const out = await node(endedTaskOf({ kind: "replied", message: "told" }), undefined);
 
-    expect(costsOf(out.usage)).toEqual([0.125, 0.0625]);
+    expect(costsOf(out.usage)).toEqual([0.0625]);
   });
 });
 
@@ -431,42 +443,36 @@ describe("#1366: what a guarded call gives, with what its guardrails spent", () 
     };
 
   beforeEach(() => {
-    vi.mocked(argumentsRefusal).mockResolvedValue({ usage: [] });
     vi.mocked(closedResult).mockResolvedValue(closedOf());
     vi.mocked(callStepOf).mockReturnValue({ step: true } as never);
   });
 
-  it("a call refused by its arguments: the refusal's text and error, nothing tokenised or truncated, what the check cost", async () => {
+  it("a call refused by its arguments: the refusal's text and error as prepared, nothing tokenised or truncated, nothing run", async () => {
     const { node } = setup();
-    const error = new Error("blocked");
-    vi.mocked(argumentsRefusal).mockResolvedValue({
-      content: "Tool error: refused",
-      refusal: error,
-      usage: [record(0.125, "arguments")],
-    });
+    const refusal = {
+      name: "PiiRefusedError",
+      code: "pii.refused",
+      lineage: [],
+      message: "blocked",
+    };
 
-    await node(taskOf(), undefined);
+    await node(
+      endedTaskOf({ kind: "refused", content: "Tool error: refused", refusal }),
+      undefined,
+    );
 
     expect(guardedOf().closed).toEqual({
       content: "Tool error: refused",
       piiTokens: {},
       piiMasked: {},
-      usage: [record(0.125, "arguments")],
+      usage: [],
       isTruncated: false,
-      refusal: error,
+      refusal,
     });
     expect(guardedOf().step).toEqual({ step: true });
-    expect(vi.mocked(interceptedCall)).not.toHaveBeenCalled();
+    expect(vi.mocked(runTool)).not.toHaveBeenCalled();
+    expect(vi.mocked(afterCall)).not.toHaveBeenCalled();
     expect(vi.mocked(closedResult)).not.toHaveBeenCalled();
-  });
-
-  it("a refusal that names no error carries none", async () => {
-    const { node } = setup();
-    vi.mocked(argumentsRefusal).mockResolvedValue({ content: "Tool error: refused", usage: [] });
-
-    await node(taskOf(), undefined);
-
-    expect("refusal" in guardedOf().closed).toBe(false);
   });
 
   it("the step of a call is made from the task's progress, else from none made yet", async () => {
@@ -490,40 +496,53 @@ describe("#1366: what a guarded call gives, with what its guardrails spent", () 
     expect(vi.mocked(callStepOf).mock.calls[1]?.[3]).toBe("alpha");
   });
 
-  it("a call an interceptor stopped: the model reads who stopped it and why, nothing of a result is closed, the stop is kept", async () => {
+  it("a call an interceptor stopped before its approval: the model reads who stopped it and why, nothing runs or is closed, the stop is kept", async () => {
     const { node } = setup();
     const stop = { kind: "blocked", interceptor: "gate", reason: "no" };
-    vi.mocked(argumentsRefusal).mockResolvedValue({ usage: [record(0.125, "arguments")] });
-    vi.mocked(interceptedCall).mockImplementation(async (_chain, _tool, _args, _run, keep) => {
-      keep(new Error("the interceptor's own"));
-      return { kind: "stopped" as const, stop } as never;
-    });
 
-    await node(taskOf(), undefined);
+    await node(endedTaskOf({ kind: "stopped", stop }), undefined);
 
     expect(guardedOf().closed).toEqual({
       content: "Tool error: the call was stopped by gate: no",
       piiTokens: {},
       piiMasked: {},
       isTruncated: false,
-      usage: [record(0.125, "arguments")],
+      usage: [],
+    });
+    expect(guardedOf().stop).toBe(stop);
+    expect(vi.mocked(runTool)).not.toHaveBeenCalled();
+    expect(vi.mocked(closedResult)).not.toHaveBeenCalled();
+  });
+
+  it("a call an after hook stopped: the stop is kept and the cause is kept for the step's failure", async () => {
+    const { node } = setup();
+    const stop = { kind: "failed", interceptor: "gate", reason: "no" };
+    vi.mocked(afterCall).mockImplementation((_chain, _tool, _call, keep) => {
+      keep(new Error("the interceptor's own"));
+      return Promise.resolve({ kind: "stopped" as const, stop } as never);
+    });
+
+    await node(taskOf(), undefined);
+
+    expect(guardedOf().closed).toMatchObject({
+      content: "Tool error: the call was stopped by gate: no",
     });
     expect(guardedOf().stop).toBe(stop);
     expect(vi.mocked(closedResult)).not.toHaveBeenCalled();
     expect(keepStopCause).toHaveBeenCalledWith("run-1", "c1", new Error("the interceptor's own"));
   });
 
-  it("a call an interceptor answered: its message is closed as a result of no tool, under the agent's bound", async () => {
+  it("a call an interceptor answered before its approval: its message is closed as a result of no tool, under the agent's bound, and the tool never runs", async () => {
     const { node } = setup();
-    vi.mocked(interceptedCall).mockResolvedValue({ kind: "replied", message: "told" } as never);
     vi.mocked(closedResult).mockResolvedValue(closedOf({ content: "told" }));
 
-    await node(taskOf(), undefined);
+    await node(endedTaskOf({ kind: "replied", message: "told" }), undefined);
 
     expect(vi.mocked(closedResult).mock.calls[0]?.[1]).toBeUndefined();
     expect(vi.mocked(closedResult).mock.calls[0]?.[2]).toEqual({ kind: "ok", value: "told" });
     expect(guardedOf().replied).toBe("told");
     expect(guardedOf().output).toBeUndefined();
+    expect(vi.mocked(runTool)).not.toHaveBeenCalled();
   });
 
   it("a call that ran: its output is closed with its tool, under the tool's bound else the agent's", async () => {
@@ -540,12 +559,13 @@ describe("#1366: what a guarded call gives, with what its guardrails spent", () 
     expect(guardedOf().stop).toBeUndefined();
   });
 
-  it("the interceptors run the tool with the arguments, and an agent's bound is the default of its tools", async () => {
+  it("the tool runs with the arguments as prepared and its after hooks read them, and an agent's bound is the default of its tools", async () => {
     const { node } = setup();
 
-    await node(taskOf(), undefined);
+    await node(taskOf({ args: { q: 2 } }), undefined);
 
-    expect(vi.mocked(interceptedCall).mock.calls[0]?.[2]).toEqual({ q: 1 });
+    expect(vi.mocked(runTool).mock.calls[0]?.[1]).toEqual({ q: 2 });
+    expect(vi.mocked(afterCall).mock.calls[0]?.[2]).toMatchObject({ input: { q: 2 } });
     expect(vi.mocked(closedResult).mock.calls[0]?.[3]).toBeUndefined();
   });
 });
@@ -561,7 +581,6 @@ describe("#1366: what an ended task stores", () => {
   });
 
   beforeEach(() => {
-    vi.mocked(argumentsRefusal).mockResolvedValue({ usage: [] });
     vi.mocked(closedResult).mockResolvedValue(closedOf());
   });
 

@@ -1555,10 +1555,12 @@ export class SeenJobsRepository {
   on an agent or a tool removes an inherited one, `[tool-interceptor.exclude-not-inherited]`,
   `[tool-interceptor.not-an-interceptor]`; `@Workflow({ excludeToolInterceptors })` removes an
   application-level one for the workflow). Runs in the tool call's frame (`step.callId`, its key and
-  signal), after the arguments' PII block rules: `beforeAnyTool({ tool, agent, callId, input })` —
-  arguments revealed, not validated; `ToolCall.typeOf(call)` is the tool class — then the tool's
-  `@BeforeTool` method (the validated input DTO; a call with invalid arguments skips it and goes the
-  tool's own way, a method taking no input runs before the validation), outer interceptor first,
+  signal), after the arguments are checked against the tool's input and the PII block rules (#1295c: a call with invalid
+  arguments, or a blocked value, meets no hook and no approval; the model reads the tool's own error or the refusal),
+  before the tool's approval pause, its `onToolStart` and its stream `ToolCall` event, once — what was decided
+  is kept by call id, so a resume at the approval reuses it and an approver's `overrideArguments` are checked once more:
+  `beforeAnyTool({ tool, agent, callId, input })` — arguments revealed; `ToolCall.typeOf(call)` is the tool class — then the tool's
+  `@BeforeTool` method (the validated input DTO; a method taking no input runs before the validation), outer interceptor first,
   `ToolCallDecision.allow()` / `.allow({ input })` (the arguments the tool gets instead, validated
   against its input DTO again) / `.reply(message)` (the tool is not called, the model reads `message`
   as its result, bounded and masked, the step goes on) / `.block(reason)` (the step fails with

@@ -7,6 +7,7 @@ import { makeCollectNode } from "./collect-node.js";
 import { callsOf, invalidCallsOf, isAnswerCall, type AgentLoopDeps } from "./deps.js";
 import { makeInputNode } from "./input-node.js";
 import { makeModelNode } from "./model-node.js";
+import { makePrepareNode } from "./prepare-node.js";
 import { makeReplyNode } from "./reply-node.js";
 import {
   AgentLoopState,
@@ -42,7 +43,7 @@ export const afterModel =
 const afterAnswer = (state: AgentLoopStateType): string =>
   state.reply === null ? LOOP_NODE.model : LOOP_NODE.judge;
 
-const ACTIONS = [LOOP_NODE.approval, LOOP_NODE.tool, LOOP_NODE.collect];
+const ACTIONS = [LOOP_NODE.prepare, LOOP_NODE.approval, LOOP_NODE.tool, LOOP_NODE.collect];
 
 /**
  * A loop node run in a frame with the loop's progress (#268 S93): the model call it makes (`next`
@@ -58,6 +59,7 @@ function createLoopGraph(deps: AgentLoopDeps, checkpointer: BaseCheckpointSaver 
     .addNode(LOOP_NODE.input, carrying(makeInputNode(deps)))
     .addNode(LOOP_NODE.model, inLoopFrameOf(carrying(makeModelNode(deps)), 1))
     .addNode(LOOP_NODE.boundary, carrying(makeBoundaryNode(deps)))
+    .addNode(LOOP_NODE.prepare, inLoopFrameOf(carrying(makePrepareNode(deps)), 0))
     .addNode(LOOP_NODE.approval, inLoopFrameOf(carrying(makeApprovalNode(deps)), 0))
     .addNode<typeof LOOP_NODE.tool, ToolTask>(LOOP_NODE.tool, makeToolNode(deps))
     .addNode(LOOP_NODE.collect, carrying(makeCollectNode(deps)))
@@ -73,6 +75,7 @@ function createLoopGraph(deps: AgentLoopDeps, checkpointer: BaseCheckpointSaver 
       LOOP_NODE.answer,
     ])
     .addConditionalEdges(LOOP_NODE.boundary, routeToActions(deps), ACTIONS)
+    .addConditionalEdges(LOOP_NODE.prepare, routeToActions(deps), ACTIONS)
     .addConditionalEdges(LOOP_NODE.approval, routeToActions(deps), ACTIONS)
     .addEdge(LOOP_NODE.tool, LOOP_NODE.collect)
     .addEdge(LOOP_NODE.collect, LOOP_NODE.model)
@@ -90,7 +93,7 @@ function createLoopGraph(deps: AgentLoopDeps, checkpointer: BaseCheckpointSaver 
 export type AgentLoopGraph = ReturnType<typeof createLoopGraph>;
 
 /**
- * One agent's own loop as a compiled subgraph: input → model → boundary → (approval ⟲) → tool × N
+ * One agent's own loop as a compiled subgraph: input → model → boundary → prepare → (approval ⟲) → tool × N
  * (`Send`) → collect → model … → reply or answer → judge. Added inside one node of the workflow
  * graph, it checkpoints through the run's checkpointer (a checkpointer given here makes it a graph
  * of its own, as in tests). A node that fails carries the loop's records to where the failure is

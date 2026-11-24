@@ -15,6 +15,8 @@ import type { SensitiveValue } from "../../pii/policy-set.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 import type { LoopProgress } from "../../flow/context/frame.js";
 import type { ToolCallStop } from "./tool-stops.js";
+import type { ErrorRecord } from "../../core/error-record.js";
+import type { ToolCallRemote } from "../../mesh/mesh-call.js";
 import type { MeshLimitBody } from "../../mesh/mesh-wire.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import type {
@@ -63,6 +65,55 @@ export interface StoredToolFiles {
   readonly count: number;
   readonly bytes: number;
 }
+
+/**
+ * What a call became before its approval (#1295c): its arguments checked against the tool's input,
+ * through the PII policies and the tool interceptors' `before` hooks — in that order, once. Kept by
+ * call id, so a pause and a resume at its approval reuse it: nothing is checked, masked or asked of
+ * an interceptor again.
+ */
+export type PreparedCall = PreparedCallEnd & {
+  /** The arguments it was prepared on, as the tool is to get them: a rewrite of a hook included. */
+  readonly args: Readonly<Record<string, unknown>>;
+  /** Whose arguments they are: the model's, or an approver's override (prepared once more, #1295c). */
+  readonly from: PreparedFrom;
+  /** The remote execution an interceptor's hook reported while it ran (#398). */
+  readonly remote?: ToolCallRemote;
+};
+
+export enum PreparedFrom {
+  Model = "model",
+  Approver = "approver",
+}
+
+/** How the preparing of a call ended. */
+export type PreparedCallEnd =
+  | {
+      /** Passed every check: it waits for its approval (when its tool needs one), then it runs. */
+      readonly kind: "ready";
+      /** The arguments as an approver may see them: the PII policies' masks and `sensitive` fields applied. */
+      readonly shown: Readonly<Record<string, unknown>>;
+    }
+  | {
+      /** Its arguments are no input of the tool: never asked about, the tool's own error is the result. */
+      readonly kind: "invalid";
+    }
+  | {
+      /** A PII block rule's kind in its arguments: never asked about, never run. */
+      readonly kind: "refused";
+      readonly content: string;
+      readonly refusal: ErrorRecord;
+    }
+  | {
+      /** An interceptor answered the model (`reply`): never asked about, never run. */
+      readonly kind: "replied";
+      readonly message: string;
+    }
+  | {
+      /** An interceptor stopped it (`block`, or a failure): never asked about, never run. */
+      readonly kind: "stopped";
+      readonly stop: ToolCallStop;
+    };
 
 /** An approver's decision on one call, before it ran. */
 export interface CallDecision {
@@ -135,6 +186,8 @@ export const AgentLoopState = Annotation.Root({
   move: Annotation<AIMessage | null>({ reducer: replace, default: () => null }),
   results: Annotation<Record<string, StoredToolCall>>({ reducer: merge, default: () => ({}) }),
   decisions: Annotation<Record<string, CallDecision>>({ reducer: merge, default: () => ({}) }),
+  /** The calls of the move as they were prepared by call id (#1295c): checked before any approval. */
+  prepared: Annotation<Record<string, PreparedCall>>({ reducer: merge, default: () => ({}) }),
   /** The answers to the visit's question calls by call id (#712): asked before the move's tools run. */
   questionAnswers: Annotation<Record<string, QuestionCallAnswer>>({
     reducer: merge,
@@ -191,6 +244,8 @@ export interface ToolTask {
   readonly tool: string;
   readonly args: Record<string, unknown>;
   readonly runId: string;
+  /** How the call was prepared (#1295c): its checked arguments, or why it does not run. */
+  readonly prepared: PreparedCall;
   /** The execution's key of field tokens (#334); absent (a task of an old checkpoint) or null = the policies'. */
   readonly piiKey?: string | null;
   /**
@@ -234,6 +289,7 @@ export const LOOP_NODE = {
   input: "input",
   model: "model",
   boundary: "boundary",
+  prepare: "prepare",
   approval: "approval",
   tool: "tool",
   collect: "collect",

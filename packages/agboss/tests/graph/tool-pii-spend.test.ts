@@ -6,6 +6,7 @@ import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { closedResult } from "../../src/graph/agent-loop/tool-pii.js";
+import { errorRecordOf } from "../../src/core/error-record.js";
 import { PiiRefusedError } from "../../src/pii/errors.js";
 import { kilobytes } from "../../src/units/index.js";
 
@@ -29,7 +30,11 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
       kilobytes(1),
     );
 
-    expect(closed).toMatchObject({ refusal: cause, usage: spent, isTruncated: false });
+    expect(closed).toMatchObject({
+      refusal: errorRecordOf(cause),
+      usage: spent,
+      isTruncated: false,
+    });
     expect(closed.content).toContain("no cards");
   });
 
@@ -73,6 +78,6 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
     );
 
     expect(closed.usage).toEqual(spent);
-    expect(closed.refusal).toBeInstanceOf(PiiRefusedError);
+    expect(closed.refusal).toMatchObject({ name: "PiiRefusedError" });
   });
 });

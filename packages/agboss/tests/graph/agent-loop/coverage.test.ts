@@ -71,7 +71,16 @@ describe("agent-loop coverage", () => {
       budgets: NO_BUDGET_CHECK,
     };
     const node = makeToolNode(deps);
-    const result = await node({ callId: "c1", tool: "t1", arguments: "{}" }, {});
+    const result = await node(
+      {
+        callId: "c1",
+        tool: "t1",
+        arguments: "{}",
+        args: {},
+        prepared: { kind: "ready", args: {}, shown: {}, from: "model" },
+      },
+      {},
+    );
     expect(result.results.c1.content).toContain("some error");
   });
 
@@ -95,7 +104,16 @@ describe("agent-loop coverage", () => {
       budgets: NO_BUDGET_CHECK,
     };
     const node = makeToolNode(deps);
-    const result = await node({ callId: "c1", tool: "t1", arguments: "{}" }, {});
+    const result = await node(
+      {
+        callId: "c1",
+        tool: "t1",
+        arguments: "{}",
+        args: {},
+        prepared: { kind: "ready", args: {}, shown: {}, from: "model" },
+      },
+      {},
+    );
     expect(result.results.c1.content).toContain("some string error");
   });
 

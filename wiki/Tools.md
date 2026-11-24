@@ -336,9 +336,11 @@ call only — a tool error goes to the model as it is. `call.output` is the tool
 inner interceptor gave); the value returned is validated against the tool's output DTO before the
 next one reads it.
 
-**The order of one call**: the arguments' PII block rules → each before hook — the arguments
-as the tool gets them, PII tokens revealed (`alice@example.com`, never `<email:7f3a91>`), not
-validated yet (`call.input` is `unknown`: narrow it) → the tool → each after hook → the
+**The order of one call**: the arguments checked against the tool's input → the arguments'
+PII block rules → each before hook — the arguments as the tool gets them, PII tokens revealed
+(`alice@example.com`, never `<email:7f3a91>`; `call.input` is `unknown`: narrow it) → the
+approval, when the tool has one (its approver sees the arguments masked, as the hooks left them, and
+nothing above is run again on resume) → the tool → each after hook → the
 `maxResultSize` cut ([Result size](#result-size)) → the PII policies' masking. A `reply`
 message is cut and masked the same way.
 

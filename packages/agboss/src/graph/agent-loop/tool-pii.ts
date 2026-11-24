@@ -4,9 +4,10 @@ import { dtoOf, maskedDtoValue } from "../../dto/redact.js";
 import { tokenFieldMask } from "../../pii/field-masks.js";
 import { PiiRefusedError } from "../../pii/errors.js";
 import type { PiiFinding } from "../../pii/masking.js";
+import { errorRecordOf, type ErrorRecord } from "../../core/error-record.js";
 import type { PiiPolicySet } from "../../pii/policy-set.js";
 import { DetectionMode } from "../../pii/runtime-policy.js";
-import { mappedStringsAsync } from "../../pii/strings.js";
+import { asRecord, mappedStringsAsync } from "../../pii/strings.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import { renderToolResult, type AnyTool, type ToolOutput } from "../../tools/index.js";
 import type { Bytes } from "../../units/index.js";
@@ -28,41 +29,57 @@ import type { ToolTask } from "./state.js";
 export const refusedCall = (refusal: string): string =>
   `Tool error: the call was refused${refusal === "" ? "" : `: ${refusal}`}`;
 
-/** Every string of a value searched; the findings of block rules and the spend. */
-async function blockedIn(
-  set: PiiPolicySet,
-  value: unknown,
+/** What a call's arguments are, searched by the policies (#1295c). */
+export interface ScreenedArguments {
+  /** The arguments with every string masked: what an approver may see. */
+  readonly masked: Record<string, unknown>;
+  /** The findings of block rules. */
+  readonly blocked: readonly PiiFinding[];
+  /** The tokens the masking made. */
+  readonly tokens: PiiTokenMap;
+  readonly usage: readonly UsageRecord[];
+}
+
+/**
+ * Every string of a call's arguments searched, one after the other: the masked copy, the findings
+ * of block rules, the tokens and the spend. No policy: the arguments as they are.
+ */
+export async function screenedArguments(
+  set: PiiPolicySet | undefined,
+  args: Readonly<Record<string, unknown>>,
   known: PiiTokenMap,
-): Promise<{ readonly blocked: readonly PiiFinding[]; readonly usage: readonly UsageRecord[] }> {
+): Promise<ScreenedArguments> {
+  if (set === undefined || set.isEmpty)
+    return { masked: { ...args }, blocked: [], tokens: {}, usage: [] };
   const blocked: PiiFinding[] = [];
   const usage: UsageRecord[] = [];
-  await mappedStringsAsync(value, async (text) => {
-    const search = await set.mask(text, known, DetectionMode.WithModel);
+  let tokens: PiiTokenMap = {};
+  const masked = await mappedStringsAsync(args, async (text) => {
+    const search = await set.mask(text, { ...known, ...tokens }, DetectionMode.WithModel);
     blocked.push(...search.masked.blocked);
     usage.push(...search.usage);
-    return text;
+    tokens = { ...tokens, ...search.masked.tokens };
+    return search.masked.text;
   });
-  return { blocked, usage };
+  return { masked: asRecord(masked), blocked, tokens, usage };
 }
 
 /** What refuses a call before it runs: the text the model reads and the error behind it. */
 export interface ArgumentsRefusal {
-  readonly content?: string;
-  readonly refusal?: Error;
-  readonly usage: readonly UsageRecord[];
+  readonly content: string;
+  readonly refusal: PiiRefusedError;
 }
 
 /** The refusal of a call whose arguments hold a blocked kind; none when it may run. */
-export async function argumentsRefusal(
+export async function argumentsRefusalOf(
   set: PiiPolicySet | undefined,
-  args: Readonly<Record<string, unknown>>,
-): Promise<ArgumentsRefusal> {
-  if (set === undefined || set.isEmpty) return { usage: [] };
-  const { blocked, usage } = await blockedIn(set, args, {});
-  const refused = await set.refusalError(blocked, usage);
+  screened: Pick<ScreenedArguments, "blocked" | "usage">,
+): Promise<ArgumentsRefusal | undefined> {
+  if (set === undefined) return undefined;
+  const refused = await set.refusalError(screened.blocked, screened.usage);
   return refused === undefined
-    ? { usage }
-    : { content: refusedCall(refused.refusal), refusal: refused, usage };
+    ? undefined
+    : { content: refusedCall(refused.refusal), refusal: refused };
 }
 
 /** A tool's result as the loop keeps it, its masked form and the tokens it made. */
@@ -74,7 +91,7 @@ export interface ClosedResult {
   /** Whether the rendered result was cut at its `maxResultSize` (#336). */
   readonly isTruncated: boolean;
   /** The PII refusal of the result (#120), when a block rule's kind was in it. */
-  readonly refusal?: Error;
+  readonly refusal?: ErrorRecord;
 }
 
 /** The rendered result within its bound (#336), cut before any masking reads it. */
@@ -92,6 +109,20 @@ function withFilesShown(
   return { kind: "ok", value: scrubbedFilesOfDto(dto, output.value) };
 }
 
+/** A result a block rule refused: the text the model reads, the spend of the search, the error as data. */
+const refusedResult = (
+  refused: PiiRefusedError,
+  usage: readonly UsageRecord[],
+  isTruncated: boolean,
+): ClosedResult => ({
+  content: refusedCall(refused.refusal),
+  piiTokens: {},
+  piiMasked: {},
+  usage,
+  isTruncated,
+  refusal: errorRecordOf(refused),
+});
+
 /**
  * The tool's output closed for the model (`tool` absent: an interceptor's `reply` text,
  * #384); a failed call is the error text as it is. Over
@@ -107,9 +138,7 @@ export async function closedResult(
   const none = { piiTokens: {}, piiMasked: {}, usage: [] };
   // a block rule in what a model the call made on the agent's behalf would read (#708): refused
   if (output.kind === "error" && output.cause instanceof PiiRefusedError) {
-    const { cause } = output;
-    const content = refusedCall(cause.refusal);
-    return { ...none, content, usage: cause.usage, isTruncated: false, refusal: cause };
+    return refusedResult(output.cause, output.cause.usage, false);
   }
   // a text an interceptor gave the model (#384) has no output DTO: its text through the policies
   const dto = tool === undefined ? undefined : dtoOf(tool.output);
@@ -131,14 +160,7 @@ export async function closedResult(
   if (set.isEmpty) return { ...none, content, piiTokens: fields.tokens, isTruncated };
   const { masked, usage } = await set.mask(kept, fields.tokens, DetectionMode.WithModel);
   const refused = await set.refusalError(masked.blocked, usage);
-  if (refused !== undefined)
-    return {
-      ...none,
-      content: refusedCall(refused.refusal),
-      usage,
-      isTruncated,
-      refusal: refused,
-    };
+  if (refused !== undefined) return refusedResult(refused, usage, isTruncated);
   return {
     content,
     piiTokens: { ...fields.tokens, ...masked.tokens },

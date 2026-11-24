@@ -42,6 +42,7 @@ const stateOf = () =>
     from: { usage: 1 },
     flowPath: ["a"],
     toolLoopIteration: 0,
+    prepared: { c1: { kind: "ready", args: { to: "x" }, shown: { to: "x" }, from: "model" } },
   }) as never;
 
 const call = { callId: "c1", tool: "write-tool", args: { to: "x" } };
@@ -90,6 +91,25 @@ describe("#1366: the spend of an approval", () => {
     expect(agent).toBe("alpha");
     expect(tool).toMatchObject({ name: "write-tool" });
     expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("#1295c: the approver is shown the call's arguments as they were prepared (masked), never the model's own", async () => {
+    const { node, requestApproval } = setup();
+    const masked = {
+      ...(stateOf() as unknown as object),
+      prepared: {
+        c1: { kind: "ready", args: { to: "alice@example.com" }, shown: { to: "<email:7f3a91>" } },
+      },
+    } as never;
+    vi.mocked(awaitingApproval).mockReturnValue([
+      { ...call, args: { to: "alice@example.com" } },
+    ] as never);
+
+    await node(masked, undefined);
+
+    const [ask] = requestApproval.mock.calls[0] ?? [];
+    expect(ask).toMatchObject({ arguments: { to: "<email:7f3a91>" } });
+    expect(JSON.stringify(ask)).not.toContain("alice@example.com");
   });
 
   it("the reason and the arguments the approver gave are kept, and nothing the approver did not give", async () => {

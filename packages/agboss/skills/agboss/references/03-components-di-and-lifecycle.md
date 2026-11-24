@@ -714,8 +714,8 @@ export class AuditToolInterceptor {
   `reason`; `.onError(ToolBlockedError, …)` after the agent takes it).
 - **The after hooks replace the result**, inner interceptor first, the tool's `@AfterTool` method (output, input) before `afterAnyTool`, on a successful call only (a tool error goes
   to the model as it is); each output is validated against the tool's output DTO.
-- **The order**: PII block rules on the arguments → the before hooks (`beforeAnyTool` gets the arguments with PII tokens
-  revealed, not validated yet; `ToolCall.typeOf(call)` is the tool class) → the tool → the after hooks → `maxResultSize` → PII masking. A
+- **The order**: the arguments checked against the tool's input → PII block rules on the arguments → the before hooks (`beforeAnyTool` gets the arguments with PII tokens
+  revealed; `ToolCall.typeOf(call)` is the tool class) → the approval, if the tool has one (the approver sees the arguments masked and as the hooks left them; a call that did not pass never waits for it, and a resume runs nothing above again) → the tool → the after hooks → `maxResultSize` → PII masking. A
   `reply` message is bounded and masked the same way.
 - **In the call's frame**: an injected `ExecutionContext` reads the tool call
   (`step.callId`, `step.idempotencyKey` with the call id, the call's `signal`).

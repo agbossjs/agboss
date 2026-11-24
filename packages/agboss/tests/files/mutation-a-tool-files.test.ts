@@ -11,7 +11,7 @@ import { CostSource } from "../../src/finops/cost-source.js";
 import type { UsageRecord } from "../../src/finops/usage.js";
 import type { AgentLoopDeps, AgentDefinition } from "../../src/graph/agent-loop/deps.js";
 import type { ClosedResult } from "../../src/graph/agent-loop/tool-pii.js";
-import type { ToolTask } from "../../src/graph/agent-loop/state.js";
+import { PreparedFrom, type ToolTask } from "../../src/graph/agent-loop/state.js";
 import type { GuardrailOutcome } from "../../src/core/observability.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
@@ -148,6 +148,7 @@ const taskOf = (over: Partial<ToolTask> = {}): ToolTask => ({
   tool: "scan-tool",
   args: {},
   runId: "r1",
+  prepared: { kind: "ready", args: {}, shown: {}, from: PreparedFrom.Model },
   ...over,
 });
 

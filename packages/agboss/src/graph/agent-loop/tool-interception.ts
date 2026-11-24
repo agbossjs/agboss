@@ -33,7 +33,69 @@ export interface InterceptedCallScope {
   readonly callId: string;
 }
 
-/** The call through its chain; `keep` keeps a failed interceptor's error for the step's failure. */
+/** What the `before` hooks gave: the call's end, or the arguments the tool is to get. */
+export type Before =
+  | { readonly ended: Exclude<InterceptedCall, { readonly kind: "ran" }> }
+  | { readonly ended?: undefined; readonly input: unknown };
+
+/** What the `before` hooks decided: the arguments the tool is to get, or the call's end. */
+export type BeforeCall =
+  | { readonly kind: "proceed"; readonly input: unknown }
+  | Exclude<InterceptedCall, { readonly kind: "ran" }>;
+
+/** The failure of an interceptor as the call's stop; any other error goes on. */
+function stoppedBy(error: unknown, keep: (error: unknown) => void): ToolCallStop {
+  if (!(error instanceof InterceptorFailure)) throw error;
+  keep(error.error);
+  return {
+    kind: ToolCallStopKind.Failed,
+    interceptor: error.interceptor,
+    reason: messageOf(error.error),
+  };
+}
+
+/**
+ * The `before` hooks of a call's chain (#1295c): run once, before the call is asked about, with
+ * what they gave kept by the loop; `keep` keeps a failed interceptor's error for the step's failure.
+ */
+export async function beforeCall(
+  chain: readonly RuntimeToolInterceptor[],
+  tool: AnyTool,
+  input: unknown,
+  keep: (error: unknown) => void,
+  scope: InterceptedCallScope,
+): Promise<BeforeCall> {
+  const [first] = chain;
+  if (first === undefined) return { kind: "proceed", input };
+  try {
+    const decided = await before(chain, { tool, scope, type: first.toolType }, input);
+    return decided.ended ?? { kind: "proceed", input: decided.input };
+  } catch (error) {
+    return { kind: "stopped", stop: stoppedBy(error, keep) };
+  }
+}
+
+/** The `after` hooks of a call's chain on what its tool gave; a tool error goes on as it is. */
+export async function afterCall(
+  chain: readonly RuntimeToolInterceptor[],
+  tool: AnyTool,
+  call: { readonly input: unknown; readonly output: ToolOutput<unknown> },
+  keep: (error: unknown) => void,
+  scope: InterceptedCallScope,
+): Promise<Extract<InterceptedCall, { readonly kind: "ran" | "stopped" }>> {
+  const [first] = chain;
+  const { output } = call;
+  if (first === undefined || output.kind === "error") return { kind: "ran", output };
+  try {
+    const site = { tool, scope, type: first.toolType };
+    const value = await after(chain, site, call.input, output.value);
+    return { kind: "ran", output: { kind: "ok", value } };
+  } catch (error) {
+    return { kind: "stopped", stop: stoppedBy(error, keep) };
+  }
+}
+
+/** The call through its whole chain: `before` hooks, the tool, `after` hooks. */
 export async function interceptedCall(
   chain: readonly RuntimeToolInterceptor[],
   tool: AnyTool,
@@ -42,24 +104,10 @@ export async function interceptedCall(
   keep: (error: unknown) => void,
   scope: InterceptedCallScope,
 ): Promise<InterceptedCall> {
-  const [first] = chain;
-  if (first === undefined) return { kind: "ran", output: await run(input) };
-  const site = { tool, scope, type: first.toolType };
-  try {
-    const decided = await before(chain, site, input);
-    if (decided.ended !== undefined) return decided.ended;
-    const output = await run(decided.input);
-    if (output.kind === "error") return { kind: "ran", output };
-    return {
-      kind: "ran",
-      output: { kind: "ok", value: await after(chain, site, decided.input, output.value) },
-    };
-  } catch (error) {
-    if (!(error instanceof InterceptorFailure)) throw error;
-    keep(error.error);
-    const stop = { kind: ToolCallStopKind.Failed, interceptor: error.interceptor };
-    return { kind: "stopped", stop: { ...stop, reason: messageOf(error.error) } };
-  }
+  const decided = await beforeCall(chain, tool, input, keep, scope);
+  if (decided.kind !== "proceed") return decided;
+  const output = await run(decided.input);
+  return afterCall(chain, tool, { input: decided.input, output }, keep, scope);
 }
 
 /** A call's tool interceptors: a question call (#712) runs no tool, its answer was asked already. */

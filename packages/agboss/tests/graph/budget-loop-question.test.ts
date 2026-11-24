@@ -45,6 +45,7 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
     from: { usage: 1 },
     flowPath: ["a"],
     questionAnswers: {},
+    prepared: { c1: { kind: "ready", args: { q: "?" }, shown: { q: "?" }, from: "model" } },
     ...changes,
   }) as never;
 
@@ -226,72 +227,6 @@ describe("#1366: what the question costs", () => {
       "alpha",
       expect.objectContaining({ name: "ask-tool" }),
     ]);
-  });
-
-  it("arguments that are no valid ask ask nobody: no budget check, no spend", async () => {
-    const made = setup();
-    vi.mocked(awaitingApproval).mockReturnValue([{ ...call, args: {} }] as never);
-    const tool = {
-      name: "ask-tool",
-      channel: "ch",
-      question: {},
-      input: {
-        safeParse: () => ({
-          success: false,
-          error: { issues: [{ path: ["q"], message: "Required" }] },
-        }),
-      },
-    };
-    const deps = {
-      agent: { name: "alpha", tools: [tool] },
-      budgets: made.budgets,
-      approval: { requestAnswer: made.requestAnswer },
-    };
-    const node = makeApprovalNode(deps as never);
-
-    const out = await node(stateOf(), undefined);
-
-    expect(out).toEqual({
-      questionAnswers: { c1: { tool: "ask-tool", problem: "invalid input: q: Required" } },
-    });
-    expect(made.check).not.toHaveBeenCalled();
-    expect(made.requestAnswer).not.toHaveBeenCalled();
-  });
-});
-
-describe("#1366: what is wrong with a question's arguments is said", () => {
-  it("every issue is named by its path and its reason, in the order they were found, and no value", async () => {
-    const made = setup();
-    vi.mocked(awaitingApproval).mockReturnValue([{ ...call, args: { secret: "x" } }] as never);
-    const tool = {
-      name: "ask-tool",
-      channel: "ch",
-      question: {},
-      input: {
-        safeParse: () => ({
-          success: false,
-          error: {
-            issues: [
-              { path: ["q"], message: "Required" },
-              { path: ["to", 0], message: "Expected string" },
-            ],
-          },
-        }),
-      },
-    };
-    const deps = {
-      agent: { name: "alpha", tools: [tool] },
-      budgets: made.budgets,
-      approval: { requestAnswer: made.requestAnswer },
-    };
-
-    const out = await makeApprovalNode(deps as never)(stateOf(), undefined);
-
-    expect(out).toEqual({
-      questionAnswers: {
-        c1: { tool: "ask-tool", problem: "invalid input: q: Required; to[0]: Expected string" },
-      },
-    });
   });
 });
 

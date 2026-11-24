@@ -34,7 +34,11 @@ describe("#120: tokens survive a pause, a resume and a recovery", () => {
     const restarted = await recoverApp();
     const done = await restarted.resume(answerOf(paused, approve));
 
-    expect(paused.pending).toMatchObject([{ ask: { arguments: { to: "dana@acme.com" } } }]);
+    // #1295c: the approver sees the arguments masked, never the real address
+    expect(paused.pending).toMatchObject([
+      { ask: { arguments: { to: expect.stringMatching(/^<email:/) } } },
+    ]);
+    expect(JSON.stringify(paused.pending)).not.toContain("dana@acme.com");
     expect(approvedRecipients).toEqual(["dana@acme.com"]);
     expect(done.output).toEqual({ text: "Sent to dana@acme.com." });
   });

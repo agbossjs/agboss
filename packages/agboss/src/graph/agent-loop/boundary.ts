@@ -17,11 +17,25 @@ import { extractRunContext } from "../../core/run-context.js";
 import {
   LOOP_NODE,
   loopProgressOf,
+  PreparedFrom,
   type AgentLoopStateType,
   type AgentLoopUpdate,
+  type PreparedCall,
   type StoredToolCall,
   type ToolTask,
 } from "./state.js";
+
+/**
+ * Calls of the move not prepared yet (#1295c): no input check, PII search and `before` hooks has
+ * made them ready, refused or ended — or an approver's override came after the ones that did.
+ */
+export const unpreparedCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
+  callsOf(state.move).filter((call) => {
+    if (state.results[call.callId] !== undefined) return false;
+    const prepared = state.prepared[call.callId];
+    const overridden = state.decisions[call.callId]?.overrideArguments !== undefined;
+    return prepared === undefined || (overridden && prepared.from !== PreparedFrom.Approver);
+  });
 
 /**
  * Calls of the move that wait for a decision — their tool needs one and nobody decided yet — or for
@@ -38,7 +52,9 @@ export function awaitingApproval(
     if (
       tool === undefined ||
       approvalChannelOf(tool) === undefined ||
-      state.results[call.callId] !== undefined
+      state.results[call.callId] !== undefined ||
+      // a call that did not pass its checks is never asked about (#1295c)
+      state.prepared[call.callId]?.kind !== "ready"
     )
       return false;
     // a question call (#712) waits for its answer, an approval's for its decision
@@ -54,6 +70,14 @@ export const runnableCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
     (call) =>
       state.results[call.callId] === undefined && state.decisions[call.callId]?.approved !== false,
   );
+
+/** How a call was prepared; every call routed to run was (the prepare node comes first). */
+function preparedOf(state: AgentLoopStateType, call: ToolCallRequest): PreparedCall {
+  const prepared = state.prepared[call.callId];
+  // never run a call nobody checked
+  if (prepared === undefined) throw new TypeError(`tool call ${call.callId} was not prepared`);
+  return prepared;
+}
 
 /** A question call's answer for its task (#712); nothing for any other call. */
 const answerOf = (
@@ -75,6 +99,7 @@ export function routeToActions(
   deps: AgentLoopDeps,
 ): (state: AgentLoopStateType) => string | Send[] {
   return (state) => {
+    if (unpreparedCalls(state).length > 0) return LOOP_NODE.prepare;
     if (awaitingApproval(state, deps).length > 0) return LOOP_NODE.approval;
     const calls = runnableCalls(state);
     if (calls.length === 0) return LOOP_NODE.collect;
@@ -83,7 +108,8 @@ export function routeToActions(
         new Send(LOOP_NODE.tool, {
           callId: call.callId,
           tool: call.tool,
-          args: state.decisions[call.callId]?.overrideArguments ?? call.args,
+          args: preparedOf(state, call).args,
+          prepared: preparedOf(state, call),
           runId: state.runId,
           piiKey: state.piiKey,
           piiValues: state.piiValues,

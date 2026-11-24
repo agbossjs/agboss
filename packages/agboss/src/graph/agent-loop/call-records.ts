@@ -1,5 +1,5 @@
 import { redactedFilesIn } from "../../a2a/files/a2a-file-scrub.js";
-import { errorRecordOf } from "../../core/error-record.js";
+import { errorRecordOf, type ErrorRecord } from "../../core/error-record.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
 import { currentFrame, toolCallFrameOf, type LoopProgress } from "../../flow/context/frame.js";
 import { stepRecordOf } from "../../flow/observers/execution-event.js";
@@ -63,7 +63,7 @@ export interface EndedCall {
   /** The tool's output; `undefined` when a PII rule refused the call before it ran. */
   readonly output?: ToolOutput<unknown>;
   /** The PII refusal of its arguments or its result (#120). */
-  readonly refusal?: Error;
+  readonly refusal?: ErrorRecord;
   /** An interceptor's `reply` message (#384): the tool never ran. */
   readonly replied?: string;
   /** How an interceptor stopped it (#384): the tool never ran. */
@@ -90,7 +90,7 @@ function interceptedOf(
 /** The status, output and error of a call whose arguments passed the tool's input check. */
 function outcomeOf(call: EndedCall): Pick<ToolCallRecord, "status" | "output" | "error"> {
   if (call.refusal !== undefined)
-    return { status: ToolCallStatus.Failed, output: undefined, error: errorRecordOf(call.refusal) };
+    return { status: ToolCallStatus.Failed, output: undefined, error: call.refusal };
   const { output } = call;
   if (output?.kind === "ok") return { status: ToolCallStatus.Succeeded, output: output.value };
   const cause = output?.cause;

@@ -18,14 +18,12 @@ import {
 } from "../../tool-interceptors/decision.js";
 import type { RuntimeToolInterceptor } from "../../tool-interceptors/runtime.js";
 import type { AnyTool } from "../../tools/index.js";
-import type { InterceptedCall, InterceptedCallScope } from "./tool-interception.js";
+import type { Before, InterceptedCallScope } from "./tool-interception.js";
 import { ToolCallStopKind } from "./tool-stops.js";
 
 /**
- * The hooks of one call's interceptor chain (#384, #1295): the `before` hooks in list order, the
- * `after` hooks in reverse, as `interceptedCall` describes.
+ * The hooks of one call's interceptor chain (#384, #1295): `before` in list order, `after` in reverse.
  */
-
 export const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -123,10 +121,6 @@ function endOf(interceptor: RuntimeToolInterceptor, decision: ToolCallDecision<u
   }
   return undefined;
 }
-
-/** What the `before` hooks gave: the call's end, or the arguments the tool is to get. */
-export type Before =
-  { readonly ended: InterceptedCall } | { readonly ended?: undefined; readonly input: unknown };
 
 /** The arguments an `allow({ input })` gives, validated against the tool's input again. */
 function rewritten(

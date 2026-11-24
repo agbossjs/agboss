@@ -33,6 +33,10 @@ describe("#1366: the budget a tool task is handed", () => {
       results: {},
       decisions: {},
       questionAnswers: {},
+      prepared: {
+        c1: { kind: "ready", args: {}, shown: {}, from: "model" },
+        c2: { kind: "ready", args: {}, shown: {}, from: "model" },
+      },
       usage: [before, inLoop],
       from: { usage: 1 },
       flowPath: ["flow", "alpha"],

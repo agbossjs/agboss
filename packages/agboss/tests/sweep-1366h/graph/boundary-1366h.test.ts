@@ -11,6 +11,7 @@ import {
   awaitingApproval,
   makeBoundaryNode,
   routeToActions,
+  unpreparedCalls,
 } from "../../../src/graph/agent-loop/boundary.js";
 
 const call = (id: string, name: string) => ({
@@ -27,6 +28,7 @@ const baseState = {
   results: {} as Record<string, unknown>,
   decisions: {} as Record<string, unknown>,
   questionAnswers: {} as Record<string, unknown>,
+  prepared: {} as Record<string, unknown>,
   usage: [],
   from: { usage: 0 },
   flowPath: ["flow"],
@@ -40,6 +42,12 @@ const baseState = {
   invalidArguments: 0,
 };
 
+/** The calls prepared as ready (#1295c), by id, with the arguments `call` gives. */
+const ready = (...ids: string[]) =>
+  Object.fromEntries(
+    ids.map((id) => [id, { kind: "ready", args: { q: 1 }, shown: { q: 1 }, from: "model" }]),
+  );
+
 const approvalTool = { name: "pay", channel: { name: "ops" } };
 const questionTool = { name: "ask", channel: { name: "ops" }, question: {} };
 const plainTool = { name: "read" };
@@ -52,7 +60,7 @@ const deps = (...tools: object[]) =>
 
 describe("#1366: which calls wait and which run", () => {
   it("a call that waits for a decision: the approval node; with a stored result it waits for nothing and is not run", () => {
-    const waiting = { ...baseState, move: move(call("c1", "pay")) };
+    const waiting = { ...baseState, move: move(call("c1", "pay")), prepared: ready("c1") };
     expect(routeToActions(deps(approvalTool))(waiting as never)).toBe("approval");
 
     const done = { ...waiting, results: { c1: { callId: "c1" } } };
@@ -61,7 +69,7 @@ describe("#1366: which calls wait and which run", () => {
   });
 
   it("a question call waits for its answer, and no longer once answered", () => {
-    const asked = { ...baseState, move: move(call("c1", "ask")) };
+    const asked = { ...baseState, move: move(call("c1", "ask")), prepared: ready("c1") };
     expect(routeToActions(deps(questionTool))(asked as never)).toBe("approval");
     const answered = { ...asked, questionAnswers: { c1: { answer: "yes" } } };
     expect(awaitingApproval(answered as never, deps(questionTool))).toStrictEqual([]);
@@ -72,6 +80,7 @@ describe("#1366: which calls wait and which run", () => {
       ...baseState,
       move: move(call("c1", "read"), call("c2", "read")),
       results: { c1: { callId: "c1" } },
+      prepared: ready("c2"),
     };
     const routed = routeToActions(deps(plainTool))(state as never) as Send[];
     expect(routed.map((send) => (send.args as { callId: string }).callId)).toStrictEqual(["c2"]);
@@ -82,6 +91,10 @@ describe("#1366: which calls wait and which run", () => {
       ...baseState,
       move: move(call("c1", "pay"), call("c2", "pay")),
       decisions: { c1: { approved: false }, c2: { approved: true, overrideArguments: { q: 9 } } },
+      prepared: {
+        ...ready("c1"),
+        c2: { kind: "ready", args: { q: 9 }, shown: { q: 9 }, from: "approver" },
+      },
     };
     const routed = routeToActions(deps(approvalTool))(state as never) as Send[];
     expect(routed).toHaveLength(1);
@@ -93,6 +106,7 @@ describe("#1366: which calls wait and which run", () => {
       ...baseState,
       move: move(call("c1", "ask")),
       questionAnswers: { c1: { answer: "yes" } },
+      prepared: ready("c1"),
     };
     const [good] = routeToActions(deps(questionTool))(answered as never) as Send[];
     expect(good?.args.answer).toBe("yes");
@@ -102,6 +116,72 @@ describe("#1366: which calls wait and which run", () => {
     const [bad] = routeToActions(deps(questionTool))(invalid as never) as Send[];
     expect(bad?.args.invalidAsk).toBe("no good");
     expect("answer" in (bad?.args ?? {})).toBe(false);
+  });
+});
+
+describe("#1295c: a call is prepared before it is asked about or run", () => {
+  it("a call nobody prepared goes to the prepare node first, whatever its tool needs", () => {
+    const state = { ...baseState, move: move(call("c1", "pay"), call("c2", "read")) };
+
+    expect(routeToActions(deps(approvalTool, plainTool))(state as never)).toBe("prepare");
+    expect(unpreparedCalls(state as never).map((c) => c.callId)).toStrictEqual(["c1", "c2"]);
+  });
+
+  it("a call with a stored result is never prepared", () => {
+    const state = {
+      ...baseState,
+      move: move(call("c1", "ghost")),
+      results: { c1: { callId: "c1" } },
+    };
+
+    expect(unpreparedCalls(state as never)).toStrictEqual([]);
+  });
+
+  it("an approver's override is arguments nobody checked: the call goes through the prepare node again, once", () => {
+    const decided = {
+      ...baseState,
+      move: move(call("c1", "pay")),
+      decisions: { c1: { approved: true, overrideArguments: { q: 9 } } },
+      prepared: ready("c1"),
+    };
+    expect(routeToActions(deps(approvalTool))(decided as never)).toBe("prepare");
+
+    const again = {
+      ...decided,
+      prepared: { c1: { kind: "ready", args: { q: 9 }, shown: {}, from: "approver" } },
+    };
+    expect(unpreparedCalls(again as never)).toStrictEqual([]);
+    expect(routeToActions(deps(approvalTool))(again as never)).toBeInstanceOf(Array);
+  });
+
+  it.each([
+    ["invalid", { kind: "invalid" }],
+    ["refused", { kind: "refused", content: "no", refusal: {} }],
+    ["replied", { kind: "replied", message: "m" }],
+    ["stopped", { kind: "stopped", stop: { kind: "blocked", interceptor: "i", reason: "r" } }],
+  ])(
+    "a call prepared as %s never waits for an approval; its task ends it without running",
+    (_n, end) => {
+      const state = {
+        ...baseState,
+        move: move(call("c1", "pay")),
+        prepared: { c1: { args: { q: 1 }, from: "model", ...end } },
+      };
+
+      expect(awaitingApproval(state as never, deps(approvalTool))).toStrictEqual([]);
+      const [send] = routeToActions(deps(approvalTool))(state as never) as Send[];
+      expect(send?.args).toMatchObject({ callId: "c1", prepared: { kind: end.kind } });
+    },
+  );
+
+  it("a call with no preparing is routed to the prepare node, never to run: nothing runs unchecked", () => {
+    const state = {
+      ...baseState,
+      move: move(call("c1", "read")),
+      prepared: ready("c1"),
+    };
+    const routed = routeToActions(deps(plainTool))({ ...state, prepared: {} } as never);
+    expect(routed).toBe("prepare");
   });
 });
 

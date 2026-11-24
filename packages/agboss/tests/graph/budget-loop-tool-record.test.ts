@@ -7,11 +7,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { newRunContext } from "../../src/core/run-context.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
+import type { ToolTask } from "../../src/graph/agent-loop/state.js";
 import { makeToolNode } from "../../src/graph/agent-loop/tools-node.js";
 import { runTool } from "../../src/graph/agent-loop/run-tool.js";
 import { inToolCallFrame } from "../../src/flow/context/frame.js";
-import { interceptedCall } from "../../src/graph/agent-loop/tool-interception.js";
-import { argumentsRefusal, closedResult } from "../../src/graph/agent-loop/tool-pii.js";
+import { afterCall } from "../../src/graph/agent-loop/tool-interception.js";
+import { closedResult } from "../../src/graph/agent-loop/tool-pii.js";
 import { callStepOf, endedCallRecordOf } from "../../src/graph/agent-loop/call-records.js";
 import { storedCallOf } from "../../src/graph/agent-loop/stored-call.js";
 import { withFiles } from "../../src/files/tool-files.js";
@@ -22,14 +23,13 @@ import { inLoopFrame } from "../../src/flow/context/frame.js";
 vi.mock("../../src/graph/agent-loop/mesh-call.js", () => ({ toolMeshCallOf: vi.fn() }));
 vi.mock("../../src/graph/agent-loop/run-tool.js", () => ({ runTool: vi.fn() }));
 vi.mock("../../src/graph/agent-loop/tool-pii.js", () => ({
-  argumentsRefusal: vi.fn(() => Promise.resolve({ usage: [] })),
   readingAgent: vi.fn((_deps: unknown, _task: unknown, work: () => unknown) => work()),
   closedResult: vi.fn(() =>
     Promise.resolve({ content: "ok", piiTokens: {}, piiMasked: {}, usage: [], isTruncated: false }),
   ),
 }));
 vi.mock("../../src/graph/agent-loop/tool-interception.js", () => ({
-  interceptedCall: vi.fn(),
+  afterCall: vi.fn(),
   interceptorsOf: vi.fn(() => []),
   questionResultOf: vi.fn((_tool: unknown, _task: unknown, work: () => unknown) => work()),
 }));
@@ -69,13 +69,19 @@ const TOOL = {
   input: { safeParse: () => ({ success: true }) },
 };
 
-const taskOf = (changes: Record<string, unknown> = {}) => ({
-  callId: "c1",
-  tool: "lookup-tool",
-  args: { q: 1 },
-  runId: "run-1",
-  ...changes,
-});
+const taskOf = (changes: Record<string, unknown> = {}): ToolTask =>
+  ({
+    callId: "c1",
+    tool: "lookup-tool",
+    args: { q: 1 },
+    runId: "run-1",
+    prepared: { kind: "ready", args: { q: 1 }, shown: { q: 1 }, from: "model" },
+    ...changes,
+  }) as ToolTask;
+
+/** A task whose call was prepared to end as `end` says (#1295c). */
+const endedTaskOf = (end: Record<string, unknown>) =>
+  taskOf({ prepared: { args: { q: 1 }, from: "model", ...end } });
 
 function setup(remote?: object) {
   vi.mocked(toolMeshCallOf).mockReturnValue({ services: {}, remote: () => remote } as never);
@@ -85,10 +91,9 @@ function setup(remote?: object) {
     observer: undefined,
   };
   vi.mocked(runTool).mockResolvedValue({ kind: "ok", value: { ok: true } } as never);
-  vi.mocked(interceptedCall).mockImplementation(async (_chain, _tool, args, run) => ({
-    kind: "ran" as const,
-    output: await run(args),
-  }));
+  vi.mocked(afterCall).mockImplementation((_chain, _tool, call) =>
+    Promise.resolve({ kind: "ran" as const, output: call.output }),
+  );
   return makeToolNode(deps as never);
 }
 
@@ -131,13 +136,10 @@ describe("#1366: the record of a tool call", () => {
 
   it("a call whose arguments were refused carries the refusal, and no output", async () => {
     const node = setup();
-    vi.mocked(argumentsRefusal).mockResolvedValue({
-      content: "refused",
-      refusal: { kind: "pii" },
-      usage: [],
-    } as never);
-
-    await node(taskOf(), undefined);
+    await node(
+      endedTaskOf({ kind: "refused", content: "refused", refusal: { kind: "pii" } }),
+      undefined,
+    );
 
     expect(recordedCall()).toStrictEqual({
       tool: TOOL,
@@ -151,9 +153,7 @@ describe("#1366: the record of a tool call", () => {
 
   it("a call an interceptor answered carries the reply, and no output", async () => {
     const node = setup();
-    vi.mocked(interceptedCall).mockResolvedValue({ kind: "replied", message: "cached" } as never);
-
-    await node(taskOf(), undefined);
+    await node(endedTaskOf({ kind: "replied", message: "cached" }), undefined);
 
     expect(recordedCall()).toStrictEqual({
       tool: TOOL,
@@ -167,9 +167,7 @@ describe("#1366: the record of a tool call", () => {
   it("a call an interceptor stopped carries the stop, and its content is said to the model", async () => {
     const node = setup();
     const stop = { kind: "denied", reason: "no" };
-    vi.mocked(interceptedCall).mockResolvedValue({ kind: "stopped", stop } as never);
-
-    await node(taskOf(), undefined);
+    await node(endedTaskOf({ kind: "stopped", stop }), undefined);
 
     expect(recordedCall()).toStrictEqual({
       tool: TOOL,
@@ -178,6 +176,18 @@ describe("#1366: the record of a tool call", () => {
       isResultTruncated: false,
       stop,
     });
+  });
+});
+
+describe("#1295c: the remote execution an interceptor's hook reported", () => {
+  it("is the call's when the tool's own mesh calls reported none", async () => {
+    const node = setup();
+    const remote = { application: "peer", executionId: "e1" };
+    const prepared = { kind: "ready", args: { q: 1 }, shown: {}, from: "model", remote };
+
+    await node(taskOf({ prepared }), undefined);
+
+    expect(recordedCall()).toMatchObject({ remote });
   });
 });
 
