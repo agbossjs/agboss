@@ -115,8 +115,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * and metadata modules the rework chains added, each under the line limits.
  * 1,530 at #1325c: an error reports itself (`error.format()`, `console.log(error)`) — the stack, the
  * span and the report modules, the error options, and the flow's call-site registers: 8 modules of their own.
+ * 1,560 at the 0.1.1 rework integration, round 2 (the root loaded 1,545): the judge, memory, rag-source,
+ * flow and guardrail modules the rework chains added, each under the line limits.
  */
-const MODULE_BUDGET = 1_530;
+const MODULE_BUDGET = 1_560;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

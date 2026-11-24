@@ -306,7 +306,10 @@ describe("#1366: the request the input step builds", () => {
     ]);
     expect(runGuardrails).toHaveBeenCalledWith(
       ["g"],
-      expect.objectContaining({ element: "alpha", side: "input" }),
+      expect.objectContaining({
+        component: expect.objectContaining({ name: "alpha" }),
+        side: "input",
+      }),
       "observer",
     );
   });

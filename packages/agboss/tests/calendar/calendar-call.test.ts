@@ -43,12 +43,13 @@ const siteOf = (
 /** A class with `resolveSchedule`: what it was asked is kept, the schedule is `schedule()`. */
 const resolving = (schedule: () => unknown, timeout?: Milliseconds) => {
   const asked: WorkingCalendarContext[] = [];
-  const handler = {
+  const partial: unknown = {
     resolveSchedule: (request: WorkingCalendarContext) => {
       asked.push(request);
       return schedule();
     },
-  } as unknown as WorkingCalendarHandler;
+  };
+  const handler = partial as WorkingCalendarHandler;
   return { asked, calendar: { name: "resolving-calendar", handler, timeout } };
 };
 

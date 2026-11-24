@@ -6,6 +6,7 @@ import {
   type JoinStep,
   type LaunchStep,
   type LaunchTargetKind,
+  type PathSource,
   type Step,
 } from "./ast.js";
 import { FlowSyntaxError } from "./flow-syntax-error.js";
@@ -137,3 +138,9 @@ export function launchOrderProblem(previous: Step | undefined, next: Step): stri
     return quorumJoinProblem(previous, next.quorum !== undefined);
   return previous?.kind === StepKind.Join ? afterJoinProblem(previous, next) : undefined;
 }
+
+/** Whether a launch right after `last` (or at the start of `source`'s path) follows a router. */
+export const afterRouter = (last: Step | undefined, source: PathSource | undefined): boolean =>
+  last === undefined
+    ? source?.kind === NodeKind.Router
+    : last.kind === StepKind.To && last.targetKind === NodeKind.Router;

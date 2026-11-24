@@ -80,7 +80,7 @@ export class NoDiagnosisGuardrail {}
 ```
 
 A guardrail decided by code (#383) is the same component without a model: set no `prompt`, `threshold` or `model` and give the
-class a `check(content)` (no `implements` needed; `GuardrailContent`: `text`, `files`, `component` — its `ComponentRecord` — and `side`), which returns
+class a `check(content)` (the `GuardrailHandler` shape; no `implements` needed; `GuardrailContent`: `text`, `files`, `component` — its `ComponentRecord` — and `side`), which returns
 `GuardrailVerdict.passed()` or `GuardrailVerdict.blocked(refusal?)` — no `prompt`, `promptUrls`, `model` or
 `threshold` (they do not compile), no model call, cost 0. Its refusal is the one `blocked(refusal)` gives (per call, thread-safe: never stash it on the
 instance), else the decorator's text, else the class's `refusal(content)`; none of the three fails

@@ -35,7 +35,8 @@ class Docs extends RagSource {
 const sourceOf = (retrieval: unknown) => {
   const retrieve = vi.fn((_query: string, _options: unknown) => Promise.resolve(retrieval));
   const source = new Docs();
-  bindRagRuntime(source, { name: "docs-rag", topK: 3, retrieve } as unknown as RagRuntime);
+  const runtime: unknown = { name: "docs-rag", topK: 3, retrieve };
+  bindRagRuntime(source, runtime as RagRuntime);
   return { source, retrieve };
 };
 

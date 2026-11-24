@@ -105,6 +105,7 @@ describe("finops usage", () => {
         pauses: 0,
       },
       byModel: {},
+      byProvider: {},
       trace: [],
     });
   });

@@ -6,7 +6,9 @@ import type { DeclarativeJudgeOptions } from "../../src/components/judge-declara
 
 /** #1290b: the declarative `@Judge` overload and the forms it removed. */
 
-class Empty {}
+class Empty {
+  readonly nothing = true;
+}
 
 class Coded {
   judge(): JudgeVerdict {

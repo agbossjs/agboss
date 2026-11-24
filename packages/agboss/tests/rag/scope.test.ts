@@ -150,8 +150,15 @@ function inFrameOf<T>(tenantId: string, ownerId: string | undefined, work: () =>
   return runInFrame({ ...frame, execution: { ...frame.execution, tenant, ownerId } }, work);
 }
 
-const retrievalOf = (cls: Class<RagSource<never, never>>, reranker?: BoundReranker) =>
-  knowledgeRetrieveOf(ragMeta(cls), new (cls as unknown as new () => object)(), reranker, services);
+const retrievalOf = (cls: Class<RagSource<never, never>>, reranker?: BoundReranker) => {
+  const construct: unknown = cls;
+  return knowledgeRetrieveOf(
+    ragMeta(cls),
+    new (construct as new () => object)(),
+    reranker,
+    services,
+  );
+};
 
 /**
  * What each scope passes to the source (a data-isolation boundary: a call that cannot name its scope

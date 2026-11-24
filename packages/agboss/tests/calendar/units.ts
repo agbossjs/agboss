@@ -4,9 +4,11 @@ import type { Milliseconds, WorkingDuration } from "../../src/units/index.js";
 export const milliseconds = (amount: number): Milliseconds => amount as Milliseconds;
 
 /** `amount` working milliseconds, made without the helpers' own checks (a test may pass what they refuse). */
-export const workMs = (amount: number): WorkingDuration =>
-  Object.freeze({
+export const workMs = (amount: number): WorkingDuration => {
+  const raw: unknown = Object.freeze({
     [Symbol.for("agboss.units.working-duration")]: true as const,
     unit: "ms" as const,
     amount,
-  }) as unknown as WorkingDuration;
+  });
+  return raw as WorkingDuration;
+};

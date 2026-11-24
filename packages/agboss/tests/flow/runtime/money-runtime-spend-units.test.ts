@@ -551,7 +551,7 @@ describe("#1366: what a router's visit spends", () => {
 
     expect(vi.mocked(runGuardrails).mock.calls[0]?.[1]).toMatchObject({
       text: "the input",
-      element: "r",
+      component: expect.objectContaining({ name: "r" }),
     });
     expect(budgets.tally.mock.calls.map((c) => c[0].map((u) => u.caller))).toEqual([
       [],

@@ -292,13 +292,15 @@ describe("#1347c: [prompt.unused-variable]", () => {
 });
 
 describe("#1347c: a model reply interpreter's instructions are in the prompt version", () => {
-  const interpreter = (instructions: string, model?: string) =>
-    ({
+  const interpreter = (instructions: string, model?: string) => {
+    const partial: unknown = {
       channel: "ask-channel",
       name: "ask-interpreter",
       model,
       instructions,
-    }) as unknown as AssembledReplyInterpreter;
+    };
+    return partial as AssembledReplyInterpreter;
+  };
   const versionsOf = async (interpreters?: readonly AssembledReplyInterpreter[]) =>
     executionVersions({ ...(await fakeDeps({})), replyInterpreters: interpreters });
 

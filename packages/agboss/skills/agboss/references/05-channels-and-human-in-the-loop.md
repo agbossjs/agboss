@@ -606,9 +606,9 @@ days: [Weekday.Sunday, …], hours: [{ from: "09:00", to: "18:00" }], breaks?, h
   `break`; `"24:00"` ends the date; no overnight interval — write two); a `@WorkingCalendar({ name:
 "holidays", deps })` class listed in `providers` implements `resolveSchedule({ from, amount, tenantId, target,
 assignees })` (returns a `WorkingWeek.of(…)` or `WorkingWeek.anyOf([…])`, the core does the DST arithmetic) or
-`addWorkingTime(…)` itself, and may read the application's own data; `@WorkingCalendar({ week })` on an empty
-class declares a grid. `workDays(n)` counts working days of the schedule (a date with working time; weekends
-and holidays skipped), not 24 hours; `isHoliday(localDate)` is a holiday rule beside `holidays`. The deadline is computed **once**, when the pause opens
+  `addWorkingTime(…)` itself, and may read the application's own data; `@WorkingCalendar({ week })` on an empty
+  class declares a grid. `workDays(n)` counts working days of the schedule (a date with working time; weekends
+  and holidays skipped), not 24 hours; `isHoliday(localDate)` is a holiday rule beside `holidays`. The deadline is computed **once**, when the pause opens
   (before the channel is asked), into `expiresAt` / `remindAt`; a calendar changed later never moves an open
   pause — extend it. Reminder: both working → `calendar.add(askedAt, expiresIn − remindBefore)`; a working
   `remindBefore` needs a working `expiresIn` (also on `.toExternalTask` / `@Tool` overrides and in `extendPause`,

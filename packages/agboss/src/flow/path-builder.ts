@@ -14,7 +14,7 @@ import {
   type ToStep,
 } from "./ast.js";
 import { oneOfStepOf, onFinishStepOf, routeOf } from "./branch-step.js";
-import { FlowSyntaxError, launchOrderProblem, launchStepOf } from "./launch-step.js";
+import { FlowSyntaxError, afterRouter, launchOrderProblem, launchStepOf } from "./launch-step.js";
 import {
   acceptedByOf,
   acceptingLaunch,
@@ -217,12 +217,9 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   }
 
   private launch(targetKind: LaunchTargetKind, args: readonly unknown[]): PathBuilder<TSource> {
-    const { last } = this;
-    const followsRouter =
-      last === undefined
-        ? this.source?.kind === NodeKind.Router
-        : last.kind === StepKind.To && last.targetKind === NodeKind.Router;
-    return this.then(launchStepOf(targetKind, args, { followsRouter }));
+    return this.then(
+      launchStepOf(targetKind, args, { followsRouter: afterRouter(this.last, this.source) }),
+    );
   }
 
   private subPath(): SubPath {

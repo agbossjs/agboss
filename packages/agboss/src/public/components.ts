@@ -191,18 +191,5 @@ export {
 } from "../channels/channel-role.decorator.js";
 export { TerminalUserChannel } from "../channels/terminal-channel.js";
 export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
-export {
-  EmptyEnvironment,
-  env,
-  secret,
-  Secret,
-  EnvironmentError,
-  EnvironmentErrorCode,
-  type EnvironmentErrorOptions,
-  EnvironmentField,
-  type EnvironmentFieldOptions,
-  type Environment,
-  type EnvironmentFields,
-} from "../environments/index.js";
 // the tools an agent's scripted calls may name (#679), filled by `.agboss/types.d.ts`
 export type { AgentToolNamesOf, ToolNameOf } from "../flow/generated-types.js";

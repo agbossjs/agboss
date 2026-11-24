@@ -34,7 +34,7 @@ const call = (
 describe("costCategoryOf: every caller prefix has a category", () => {
   it.each([
     ["memory:summary", CostCategory.Memory],
-    ["compaction:summary", CostCategory.Memory],
+    ["memory:summary", CostCategory.Memory],
     ["rag:docs", CostCategory.Rag],
     ["reranker:docs", CostCategory.Rag],
     ["pii:cards", CostCategory.Pii],

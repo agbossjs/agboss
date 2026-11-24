@@ -18,6 +18,7 @@ export * from "./public/pause-targets.js";
 export * from "./public/calendar.js";
 export * from "./public/http.js";
 export * from "./public/app.js";
+export * from "./public/environments.js";
 export * from "./public/infrastructure.js";
 // where the application's rows go (#1321)
 export * from "./storage/index.js";

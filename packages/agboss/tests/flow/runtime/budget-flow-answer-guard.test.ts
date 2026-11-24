@@ -294,7 +294,11 @@ describe("#1366: the output guardrails' spend is the answer's", () => {
     expect(out.decisions).toEqual(["d"]);
     expect(runGuardrails).toHaveBeenCalledWith(
       ["g"],
-      expect.objectContaining({ text: "masked", element: "alpha", side: "output" }),
+      expect.objectContaining({
+        text: "masked",
+        component: expect.objectContaining({ name: "alpha" }),
+        side: "output",
+      }),
       "observer",
     );
   });

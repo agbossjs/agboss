@@ -101,7 +101,9 @@ describe("#1303 types", () => {
       prompt: "p",
       model: "m",
       // @ts-expect-error -- memoryStrategy is gone with @agboss/core/memory
-      memoryStrategy: class {},
+      memoryStrategy: class Strategy {
+        readonly kept = true;
+      },
     });
     Workflow({
       name: "old-workflow",

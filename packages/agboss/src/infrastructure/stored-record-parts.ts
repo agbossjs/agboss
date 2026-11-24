@@ -90,7 +90,8 @@ export const StoredCostReport: z.ZodType<CostReport> = z.object({
   byCaller: z.record(text, storedUsd),
   byCategory: z.record(z.enum(CostCategory), storedUsd),
   byModel: z.record(text, storedUsd),
-  byProvider: z.record(text, storedUsd),
+  // a row written before the provider was on the cost (0.1.0) has none
+  byProvider: z.record(text, storedUsd).default({}),
   trace: z.array(StoredCostLine),
 });
 

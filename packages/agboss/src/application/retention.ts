@@ -70,17 +70,16 @@ export interface ApplicationRetention {
 }
 
 /** The defaults of every retention but `executionRecords` (unset = nothing kept). */
-export const DEFAULT_RETENTION: Readonly<
-  Omit<ApplicationRetention, "executionRecords">
-> = Object.freeze({
-  pauseRecords: hours(24),
-  auditLog: hours(24),
-  // a pass retries a lost write at its next read of the counters, seconds later: only a pass
-  // asleep for a day meets the refusal
-  costLedgerEntries: hours(24),
-  a2aTasks: hours(24),
-  a2aMessages: minutes(15),
-});
+export const DEFAULT_RETENTION: Readonly<Omit<ApplicationRetention, "executionRecords">> =
+  Object.freeze({
+    pauseRecords: hours(24),
+    auditLog: hours(24),
+    // a pass retries a lost write at its next read of the counters, seconds later: only a pass
+    // asleep for a day meets the refusal
+    costLedgerEntries: hours(24),
+    a2aTasks: hours(24),
+    a2aMessages: minutes(15),
+  });
 
 /** Every field of `RetentionOptions`: a key outside them is a typo, never a silent default. */
 const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [

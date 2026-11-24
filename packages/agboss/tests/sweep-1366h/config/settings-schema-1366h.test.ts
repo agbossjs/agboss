@@ -140,7 +140,7 @@ describe("config schemas", () => {
       { model: "m" },
       { ...agent, maxToolCalls: -1 },
     );
-    const kb = { name: "docs", mode: "tool", topK: 3, tenancy: "shared" };
+    const kb = { name: "docs", topK: 3, scope: "shared" };
     admits(AgentSettingsSchema, { ...agent, rag: [kb] });
     admits(AgentSettingsSchema, {
       ...agent,
@@ -149,13 +149,9 @@ describe("config schemas", () => {
     refuses(
       AgentSettingsSchema,
       { ...agent, rag: [{ ...kb, topK: 0 }] },
-      { ...agent, rag: [{ mode: "tool" }] },
+      { ...agent, rag: [{ name: "docs" }] },
     );
-    refuses(
-      AgentSettingsSchema,
-      { ...agent, rag: [{ ...kb, mode: "bogus" }] },
-      { ...agent, rag: [{ ...kb, tenancy: "x" }] },
-    );
+    refuses(AgentSettingsSchema, { ...agent, rag: [{ ...kb, scope: "bogus" }] });
     refuses(AgentSettingsSchema, {
       ...agent,
       rag: [{ ...kb, rerank: { reranker: "r", candidates: 0, onFailure: "fallback" } }],

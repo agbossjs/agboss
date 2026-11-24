@@ -195,14 +195,15 @@ describe("#1313b: every provider a component names is subject to the provider ru
 });
 
 describe("#1313b: the provider a component resolved to says what its model is", () => {
-  const gateway = {
+  const partialGateway: unknown = {
     kindOf: (provider?: string) =>
       provider === "decide-models"
         ? ModelKind.Decisions
         : provider === undefined
           ? undefined
           : ModelKind.Chat,
-  } as unknown as FlowRouterFactoryDeps["gateway"];
+  };
+  const gateway = partialGateway as FlowRouterFactoryDeps["gateway"];
   const deps: FlowRouterFactoryDeps = {
     gateway,
     chatDefaults: { temperature: 0 },

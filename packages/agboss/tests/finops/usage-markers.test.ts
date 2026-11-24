@@ -107,7 +107,7 @@ describe("#1356: the cost category of a caller", () => {
     ["judge:fact-check", CostCategory.Review],
     ["tool:search", CostCategory.Tools],
     ["action:refund", CostCategory.Tools],
-    ["compaction:thread", CostCategory.Memory],
+    ["memory:thread", CostCategory.Memory],
     ["rag:rerank", CostCategory.Rag],
     ["files:describe", CostCategory.Files],
     ["guardrail:pii", CostCategory.Guardrails],
