@@ -4,7 +4,7 @@ import {
   DecisionsModelProvider,
   ModelProvider,
   ModelProviderError,
-  ModelPurpose,
+  ModelKind,
 } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
@@ -16,7 +16,7 @@ import {
   TestOpenRouterProvider,
 } from "./providers.fixture.js";
 
-const chat = (model: string) => ({ key: "agents.scout", model, purpose: ModelPurpose.Chat });
+const chat = (model: string) => ({ key: "agents.scout", model, purpose: ModelKind.Chat });
 
 const providerOf = (directory: ModelProviderDirectory, query: ReturnType<typeof chat>) => {
   const resolution = directory.resolve(query);
@@ -36,7 +36,7 @@ describe("AC6: which provider serves a model (serves patterns)", () => {
     expect(providerOf(directory, chat("moonshotai/kimi-k2.6"))).toBe("openrouter-model-provider");
     // OpenRouter serves /.*/ but has no decisions; Jev has no chat models
     expect(
-      providerOf(directory, { ...chat("typesafe/jev-1.13"), purpose: ModelPurpose.Decision }),
+      providerOf(directory, { ...chat("typesafe/jev-1.13"), purpose: ModelKind.Decisions }),
     ).toBe("decisions-model-provider");
   });
 
@@ -66,12 +66,12 @@ describe("AC6: which provider serves a model (serves patterns)", () => {
 
     expect(providerOf(defaults, chat("test/alpha"))).toBe("openrouter-model-provider");
     expect(
-      providerOf(defaults, { ...chat("typesafe/jev-1.13"), purpose: ModelPurpose.Decision }),
+      providerOf(defaults, { ...chat("typesafe/jev-1.13"), purpose: ModelKind.Decisions }),
     ).toBe("decisions-model-provider");
     expect(providerOf(defaults, chat("typesafe/jev-1.13"))).toBe("model.unserved");
     // #226: every decision model, not only Jev, is the Decisions API's — none is a chat model
     for (const model of DECISION_MODELS) {
-      expect(providerOf(defaults, { ...chat(model), purpose: ModelPurpose.Decision })).toBe(
+      expect(providerOf(defaults, { ...chat(model), purpose: ModelKind.Decisions })).toBe(
         "decisions-model-provider",
       );
       expect(providerOf(defaults, chat(model))).toBe("model.unserved");

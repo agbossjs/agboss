@@ -95,6 +95,12 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly workingCalendar?: WorkingCalendarSource;
   /**
+   * The `@ModelProvider` class every model of the application is served from unless its workflow
+   * or its component names another (#1313): `Component.modelProvider ?? Workflow.modelProvider ??
+   * Application.modelProvider`. List it in `providers`.
+   */
+  readonly modelProvider?: Class;
+  /**
    * How long `app.close()` (and SIGTERM / SIGINT) takes at most (#265 S51): the running executions,
    * interrupted `min(seconds(5), 20 %)` of it before its end (#367 S3: the grace for their step
    * bodies), stay `running` for another instance. Default `seconds(25)` — under the 30 s lease. At most 24 hours (`[limits.timeout-invalid]`, #1141): a longer timer would fire at once.

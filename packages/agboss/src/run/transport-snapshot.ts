@@ -11,7 +11,7 @@ import {
 export function transportSnapshot(providers: readonly ModelProviderType[] | undefined): object {
   const transports = (providers ?? []).filter(isTransportClass).map((cls) => {
     const { name, serves } = modelProviderOf(cls);
-    return { name, className: cls.name, serves: serves.map(String) };
+    return { name, className: cls.name, serves: (serves ?? []).map(String) };
   });
   return transports.length === 0 ? {} : { transports };
 }

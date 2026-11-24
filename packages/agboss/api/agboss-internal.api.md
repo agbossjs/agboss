@@ -1241,14 +1241,15 @@ export interface ModelUse {
     readonly key: ModelUseKey;
     // (undocumented)
     readonly model: string;
+    readonly modelProvider?: string | undefined;
     readonly needs?: readonly InputNeed[];
     // (undocumented)
-    readonly purpose: ModelPurpose;
+    readonly purpose: ModelKind;
     readonly settings?: ResolvedModelSettings;
 }
 
 // @public
-export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents): readonly ModelUse[];
+export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents, kinds?: ProviderKinds): readonly ModelUse[];
 
 // @public
 export interface ObservedExecution {

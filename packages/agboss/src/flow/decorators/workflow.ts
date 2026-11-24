@@ -83,6 +83,11 @@ export interface WorkflowOptions<
    */
   readonly maxConcurrentExecutions?: number;
   readonly defaults?: WorkflowDefaults;
+  /**
+   * The `@ModelProvider` class this workflow's models are served from unless the component names
+   * another; left out, its application's (#1313).
+   */
+  readonly modelProvider?: Class;
   /** The workflow's own services for DI: classes, or values bound with `provide(TOKEN, value)`. */
   readonly providers?: readonly Provider[];
   /**

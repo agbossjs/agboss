@@ -95,6 +95,11 @@ export const ModelSettingsSchema = z.object({
   cache: CacheSettingSchema.optional(),
   /** Overrides the provider's price table; the provider's own cost comes first. */
   price: PriceSchema.optional(),
+  /**
+   * The `@ModelProvider` this model is served from, by its `name` (#1313): the component's own, else
+   * its workflow's, else its application's. Absent: the older providers' `serves` patterns decide.
+   */
+  modelProvider: z.string().min(1).optional(),
 });
 
 /** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.ALL`. */
@@ -154,6 +159,7 @@ export const AgentSettingsSchema = ModelSettingsSchema.extend({
 export const JevRouterModelSchema = z.object({
   kind: z.literal("jev"),
   model: z.string().min(1),
+  modelProvider: z.string().min(1).optional(),
 });
 
 /** A chat model asked to reply with JSON. */
@@ -265,6 +271,8 @@ export interface ResolvedModelSettings {
   readonly promptCaching?: PromptCaching | undefined;
   /** The price table entry (the component's, else the provider's); none = the provider reports the cost. */
   readonly price?: Price | undefined;
+  /** The provider's `name` its cascade resolved (#1313); absent = by `serves`. */
+  readonly modelProvider?: string | undefined;
 }
 
 /** Validates at startup and keeps the literal type of the config; checks tool names if given. */

@@ -3,6 +3,9 @@ import { AGBossError } from "../core/errors.js";
 export type ModelProblemCode =
   | "model.unserved"
   | "model.ambiguous-provider"
+  | "model.missing-provider"
+  | "model.incompatible-provider"
+  | "model.missing"
   | "model.unknown-model"
   | "model.unsupported-setting"
   | "model.no-price"

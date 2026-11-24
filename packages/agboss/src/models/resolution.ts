@@ -7,6 +7,7 @@ import { modelGuardrailsOf, type LoadedGuardrail } from "../guardrails/loaded.js
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import {
   circuitBreakerPolicyOf,
+  isDriverOptions,
   isModelProviderClass,
   isTransportClass,
   modelProviderOf,
@@ -19,6 +20,7 @@ import {
   type ModelNamingRouter,
   type ModelUse,
 } from "./uses.js";
+import type { ProviderKinds } from "./use-purpose.js";
 import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "./workflow-models.js";
 
 /**
@@ -35,8 +37,10 @@ export const listedModelProvidersOf = (
 /** The `@ModelProvider` classes listed in an application's providers, else the built-ins. */
 export function modelProvidersOf(
   providers: readonly Provider[] | undefined,
+  referenced: readonly ModelProviderType[] = [],
 ): readonly ModelProviderType[] {
-  const listed = listedModelProvidersOf(providers);
+  // a provider a cascade names is part of the application even when it is not listed (#1313)
+  const listed = [...new Set([...listedModelProvidersOf(providers), ...referenced])];
   return listed.length === 0 ? DEFAULT_MODEL_PROVIDERS : listed;
 }
 
@@ -86,6 +90,21 @@ export interface WorkflowModels {
   /** The application lists its own `FileRedactor` (#899): the built-in's model is no use then. */
   readonly ownFileRedactor?: unknown;
   readonly modelProviders: readonly ModelProviderType[];
+  /**
+   * Before `modelProviders` is known: the `@ModelProvider` classes the cascade names, whose drivers
+   * say what kind of model a use is (#1313).
+   */
+  readonly referencedProviders?: readonly ModelProviderType[];
+}
+
+/** What each driver provider speaks, by the provider's `name`: a use through it is that kind of model. */
+export function providerKindsOf(classes: readonly ModelProviderType[]): ProviderKinds {
+  return new Map(
+    classes.flatMap((cls) => {
+      const options = modelProviderOf(cls);
+      return isDriverOptions(options) ? [[options.name, options.driver.kind] as const] : [];
+    }),
+  );
 }
 
 /**
@@ -93,7 +112,9 @@ export interface WorkflowModels {
  * `check --models` and the providers connected at start (#716) alike.
  */
 export function workflowModelUsesOf(
-  workflow: Omit<WorkflowModels, "modelProviders">,
+  workflow: Omit<WorkflowModels, "modelProviders"> & {
+    readonly modelProviders?: readonly ModelProviderType[];
+  },
 ): readonly ModelUse[] {
   // `satisfies`: a component added to `ModelNamingComponents` and not passed here fails to compile
   const components = {
@@ -105,7 +126,8 @@ export function workflowModelUsesOf(
     builtInFileModels: workflow.ownFileTranscriber === undefined,
     builtInFileRedactor: workflow.ownFileRedactor === undefined,
   } satisfies Record<keyof ModelNamingComponents, unknown>;
-  return modelUsesOf(workflow.config, workflow.routers, components);
+  const kinds = providerKindsOf(workflow.modelProviders ?? workflow.referencedProviders ?? []);
+  return modelUsesOf(workflow.config, workflow.routers, components, kinds);
 }
 
 /** The model guardrails with what each reads of the agents' files (#899 §8). */
@@ -123,21 +145,40 @@ function guardrailUsesOf(
   }));
 }
 
-/** `[model.unserved]` / `[model.ambiguous-provider]` for every model use no single provider serves. */
+type ResolutionRule =
+  | "model.unserved"
+  | "model.ambiguous-provider"
+  | "model.missing-provider"
+  | "model.incompatible-provider";
+
+/** The rule a directory problem is reported as; any other problem of a resolution is an ambiguity. */
+const ruleOf = (code: string): ResolutionRule =>
+  code === "model.unserved" ||
+  code === "model.missing-provider" ||
+  code === "model.incompatible-provider"
+    ? code
+    : "model.ambiguous-provider";
+
+const FIX: Readonly<Record<ResolutionRule, string>> = {
+  "model.unserved": "list a @ModelProvider that serves it in @Application({ providers })",
+  "model.ambiguous-provider": "one model string per provider, each in one serves",
+  "model.missing-provider":
+    "set modelProvider on the component, its @Workflow or its @Application, and list the provider in @Application({ providers })",
+  "model.incompatible-provider":
+    "a chat model needs a provider with a chat driver (OpenAiCompatibleDriver, OpenRouterDriver), a decision model one with DecisionsDriver",
+};
+
+/** `[model.unserved]` / `[model.ambiguous-provider]` / `[model.missing-provider]` / `[model.incompatible-provider]` for every model use no single provider serves. */
 function modelResolutionViolations(workflow: WorkflowModels): RuleViolation[] {
   const directory = directoryOf(workflow.modelProviders);
   return workflowModelUsesOf(workflow).flatMap((use) => {
     const resolution = directory.resolve(use);
     if (resolution.kind === "resolved") return [];
     const { code, supported } = resolution.problem;
-    const fix =
-      code === "model.unserved"
-        ? "list a @ModelProvider that serves it in @Application({ providers })"
-        : "one model string per provider, each in one serves";
     return [
       violation(
-        code === "model.unserved" ? "model.unserved" : "model.ambiguous-provider",
-        `${workflow.config.name} ${use.key} = ${use.model}: ${supported} — ${fix}`,
+        ruleOf(code),
+        `${workflow.config.name} ${use.key} = ${use.model}: ${supported} — ${FIX[ruleOf(code)]}`,
         [workflow.config.name],
       ),
     ];
@@ -162,9 +203,14 @@ export function checkModelsServed(
 export function resolvedModelProvidersOf(
   listed: readonly Provider[] | undefined,
   workflow: Omit<WorkflowModels, "modelProviders">,
+  referenced: readonly ModelProviderType[] = [],
 ): readonly ModelProviderType[] {
-  const modelProviders = modelProvidersOf(listed);
-  const found = modelResolutionViolations({ ...workflow, modelProviders });
+  const modelProviders = modelProvidersOf(listed, referenced);
+  const found = modelResolutionViolations({
+    ...workflow,
+    modelProviders,
+    referencedProviders: referenced,
+  });
   if (found.length > 0) throw new GraphRuleError({ violations: found });
   return modelProviders;
 }

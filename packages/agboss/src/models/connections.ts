@@ -1,7 +1,7 @@
 import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "./calls/provider-calls.js";
-import { providerBaseUrlOf, providerKeyOf } from "./provider-environment.js";
+import { providerBaseUrlOf, providerHeadersOf, providerKeyOf } from "./provider-environment.js";
 import type { ProviderConnection } from "./handler.js";
 import type { KeptModelProviderOptions } from "./model-provider.decorator.js";
 import { resilientFetch, type ProviderFetch, type ResilienceOptions } from "./resilient-fetch.js";
@@ -56,10 +56,12 @@ export function connectionOf(
   options: KeptModelProviderOptions,
   connection: ConnectionOptions,
 ): ProviderConnection {
+  const headers = providerHeadersOf(options, connection);
   return {
     provider: options.name,
     baseUrl: providerBaseUrlOf(options, connection),
     apiKey: providerKeyOf(options, connection, connection.requireKeys),
+    ...(headers === undefined ? {} : { headers }),
     fetch: resilientFetch(
       resilienceOf(options, connection),
       connection.send ?? ((input, init) => fetch(input, init)),
