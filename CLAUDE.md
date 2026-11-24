@@ -2802,6 +2802,22 @@ const readiness: HealthReport = await app.checkReadiness();
   `BudgetExceededError` (`budget`, `scope`, `key`, `maxSpend`, `spent`: `tenant acme spent $40.05
 today; tenant-daily-budget allows $40`).
   **A lost pass's cost is not known (#853):** a model call sent by a pass that dies before its answer (a `kill -9`, a frozen instance) leaves no amount — the recovery or the resume that takes the tree over and runs the step again records one ledger entry per lost pass first: `CostSource.Unknown`, `costUsd` 0, under `unknown:<rootExecutionId>:<step>:<task>:<lease token of the lost pass>` (`UsageRecord.ledgerKey`), so two takers, or a re-run lost in turn, write it once, and a second lost pass gets its own; a budget counts it as nothing. `result.spend.unknownCalls` (and the CLI's total, `… of unknown cost`) counts them next to `totalUsd` / `calls`, which hold only known costs; `agboss.instance.costs.unknown` (`{pass}`, `workflow`) adds them as the pass records them — whether the execution then finishes, fails or is cancelled (#875; a pass lost again before its checkpoint has its taker record them again, counted again) — and a takeover whose read of the lost passes fails (logged `cost.unknown-unrecorded`, none recorded) adds one to `agboss.instance.costs.unknown_unrecorded` (`{read}`, `workflow`). Found from the tree's audit log (a takeover at the head checkpoint from a lease that expired) and the checkpoint (no write there finished the step's task — a pause's, its resume's or an error's does not): nothing is written on a pass that takes no tree over. Limits: Unknown is "maybe nothing" — a taker that died before it ran the step is a lost pass too; only an agent's or a model router's step of the root workflow (a branch too, one cancelled before it runs included) records one — a call inside a child workflow and a lease released by a graceful stop past `shutdownTimeout` are not counted.
+- **Error families (#1325):** `StepError`, `LimitError`, `GuardrailError`, `PiiError`, `PauseError`,
+  `IdempotencyError`, `OutboundCallError`, `FileError`, `ExecutionError`, `ConfigError`, `ValidationError`,
+  `DecisionError` (root), `StoreError` (`/stores`, built by the store packages with `StoreError.of(kind,
+options)`), `A2AError` (`/a2a`), `McpError` (`/mcp`) — each a union type discriminated by `kind` (`LimitErrorKind`)
+  and by the literal `code`, a namespace of variants (`LimitError.Budget`) and a constructor: `err instanceof
+LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(LimitError, …)` takes the
+  family and `.onError(LimitError.Budget, …)` one variant (the nearest class in the error's line wins). A variant
+  is named `Family.Variant`, takes its own facts and `{ message?, cause?, details? }`, and its default sentence
+  holds no fact. A family of a step, a limit, a guardrail or PII carries `usage` and `spend`. `ExecutionError`'s
+  `CancelFenced`, `LeaseLost`, `Fenced` and `ApplicationStopping` are hand-overs: no `.onError` takes them. A
+  class's code is its own `static code` — a project class without one is caught by its name, never by an inherited
+  `agboss`. The old classes (`BudgetExceededError`, `StepFailedError`, …) are still thrown until each family's
+  owning ticket moves its throw sites. **`Result<T, E = AGBossError>`** is a utility: `Result.ok`, `Result.err`,
+  `Result.try(fn)` (sync or async; keeps only an `AGBossError` as `{ ok: false, error }`, any other throw is a bug
+  and goes on), `Result.tryAll(fn)` (keeps anything), `.unwrap()`, `.unwrapOr()`, `.map()`, `.mapErr()`; no `App`
+  method returns one and none has a `try…` twin — every public async method rejects, never throws at the call.
 - **Errors** (root entry) are `AGBossError`s with stable `code`s (`eval.case-invalid` —
   `EvalCaseInvalidError`, #396; `limit` ⊃ `limit.budget`,
   `limit.steps`, `limit.visits`, `limit.mesh-loop` / `limit.hops` (`MeshLoopDetectedError` /
@@ -2838,8 +2854,8 @@ signingKey, peers } })` the envelope is a signed JWS and a peer the caller resol
   is positional). Its instance `code` is its
   class's literal — `static override readonly code = "…" as const;` and `declare readonly code:
 typeof X.code;` — so `switch (error.code)` over a union of errors narrows
-  (`tests/public-api/error-codes.test-d.ts`); the seven parents with subclasses (`PaidStepError`,
-  `StepFailedError`, `AgentFailedError`, `LimitExceededError`, `RouterFailedError`, `DecisionError`,
+  (`tests/public-api/error-codes.test-d.ts`); the six parents with subclasses (`PaidStepError`,
+  `StepFailedError`, `AgentFailedError`, `LimitExceededError`, `RouterFailedError`,
   `ExecutionLeaseLostError`) declare the literal union of their family on the instance — a new
   subclass must be listed there (the compiler says so) — while their `static code` stays `string`. `.onError` matches by class, so a subclass is caught by its parent's
   side path — by the class's code line (its `static code`, else its class name — give a routed class a

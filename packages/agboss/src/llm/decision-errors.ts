@@ -1,30 +1,4 @@
-import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
-
-/** A decision call failed on the framework's side of the Decisions API. */
-export class DecisionError extends AGBossError {
-  static override readonly code: string = "model.decision";
-  declare readonly code:
-    "model.decision" | "model.decision.invalid-request" | "model.decision.invalid-response";
-  override name = "DecisionError";
-
-  constructor(options: MessageErrorOptions) {
-    super(options.message, options);
-  }
-}
-
-/** A decision request the Decisions API would refuse: too many questions, a bad image, no options. */
-export class DecisionRequestError extends DecisionError {
-  static override readonly code = "model.decision.invalid-request" as const;
-  declare readonly code: typeof DecisionRequestError.code;
-  override name = "DecisionRequestError";
-}
-
-/** A Decisions API answer that is unknown or malformed (a missing answer, an option never asked). */
-export class DecisionResponseError extends DecisionError {
-  static override readonly code = "model.decision.invalid-response" as const;
-  declare readonly code: typeof DecisionResponseError.code;
-  override name = "DecisionResponseError";
-}
+import { AGBossError } from "../core/errors.js";
 
 /** What a model can do (#269): chat (`invoke`) or decide (`decide`). */
 export enum ModelKind {

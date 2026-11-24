@@ -2,7 +2,7 @@ import type { ToolDefinition } from "@langchain/core/language_models/base";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ChatDefaults, ResolvedModelSettings, RouterModel } from "../../../config/types.js";
 import { recordUsage, type UsageRecord } from "../../../finops/usage.js";
-import { DecisionResponseError } from "../../../llm/decision-errors.js";
+import { DecisionError } from "../../../core/error-families/config-errors.js";
 import { Decision, type DecisionQuestions } from "../../../llm/decisions.js";
 import type { ChatModelUser, ModelGateway } from "../../../llm/gateway.js";
 import { resolveSettings } from "../../../llm/registry.js";
@@ -91,7 +91,7 @@ function decidedOf(
 
 const failedOf = (error: unknown, usage?: UsageRecord): LaunchDecisionOutcome => {
   const reason = error instanceof Error ? error.message : String(error);
-  const answered = error instanceof DecisionResponseError;
+  const answered = error instanceof DecisionError.InvalidResponse;
   return {
     kind: "failed",
     reason,
@@ -156,13 +156,15 @@ function answersOf(
 ): Record<string, number> {
   const call = reply.tool_calls?.find((candidate) => candidate.name === tool);
   if (call === undefined)
-    throw new DecisionResponseError({ message: `no ${tool} call in the reply` });
+    throw new DecisionError.InvalidResponse({ message: `no ${tool} call in the reply` });
   const args: Readonly<Record<string, unknown>> = call.args;
   return Object.fromEntries(
     request.questions.map(({ target }) => {
       const answer = args[target];
       if (typeof answer !== "boolean")
-        throw new DecisionResponseError({ message: `${tool}: "${target}" is not true or false` });
+        throw new DecisionError.InvalidResponse({
+          message: `${tool}: "${target}" is not true or false`,
+        });
       return [target, answer ? 1 : 0];
     }),
   );

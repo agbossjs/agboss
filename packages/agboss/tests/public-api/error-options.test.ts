@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
+import { isErrorFamily } from "../../src/core/error-families/family.js";
 import { fixtures as agbossFixtures } from "./error-options.fixtures.js";
 import { plainFixtures } from "./error-options.fixtures-plain.js";
 
@@ -48,7 +49,12 @@ const exportedErrors = (): ReadonlyMap<string, ErrorClass> => {
   const found = new Map<string, ErrorClass>();
   for (const entry of Object.values(ENTRIES))
     for (const [name, value] of Object.entries(entry))
-      if (typeof value === "function" && value.prototype instanceof Error)
+      if (
+        typeof value === "function" &&
+        value.prototype instanceof Error &&
+        // a family (`LimitError`) is the base of its variants, which `error-families.test.ts` walks
+        !isErrorFamily(value)
+      )
         found.set(name, value as ErrorClass);
   found.delete("AGBossError");
   return found;

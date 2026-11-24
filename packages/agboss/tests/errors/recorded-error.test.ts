@@ -80,9 +80,9 @@ describe("#598: a failure rebuilt from its durable record routes as the original
     expect(errorRecordOf(rebuilt)).toEqual(withoutDetails(errorRecordOf(original)));
     expect(rebuilt?.name).toBe("CardExpiredError");
     expect(rebuilt?.message).toBe("expired");
-    // a framework error's own `code` is kept; a project's plain Error has none
+    // a framework error's own `code` is kept; a project's plain Error's is `internal` (#1325)
     expect(rebuilt?.code).toBe("card.expired");
-    expect(stored(new PaymentDeclinedError("x"))?.code).toBeUndefined();
+    expect(stored(new PaymentDeclinedError("x"))?.code).toBe("internal");
   });
 
   it("wrapped again on another instance, every side path's class matches it as the original", () => {

@@ -378,6 +378,71 @@ export interface A2ADownloadOptions {
 }
 
 // @public
+export type A2AError = A2AError.CallerRejected | A2AError.Contract | A2AError.Protocol | A2AError.Remote | A2AError.Unavailable | A2AError.Deadline | A2AError.TaskCanceled | A2AError.TaskFailed | A2AError.TaskInterrupted | A2AError.UnexpectedFinish | A2AError.MeshUnsupported | A2AError.OriginRefused;
+
+// @public
+export namespace A2AError {
+    export type CallerRejected = ErrorVariant<A2AErrorKind.CallerRejected, "a2a.caller-rejected">;
+    export type Contract = ErrorVariant<A2AErrorKind.Contract, "a2a.contract">;
+    export type Deadline = ErrorVariant<A2AErrorKind.Deadline, "a2a.deadline"> & {
+        readonly deadlineAt: Date;
+    };
+    export type MeshUnsupported = ErrorVariant<A2AErrorKind.MeshUnsupported, "a2a.mesh-unsupported">;
+    export type OriginRefused = ErrorVariant<A2AErrorKind.OriginRefused, "a2a.origin-refused">;
+    export type Protocol = ErrorVariant<A2AErrorKind.Protocol, "a2a.protocol">;
+    export type Remote = ErrorVariant<A2AErrorKind.Remote, "a2a.remote">;
+    export type TaskCanceled = ErrorVariant<A2AErrorKind.TaskCanceled, "a2a.task-canceled">;
+    export type TaskFailed = ErrorVariant<A2AErrorKind.TaskFailed, "a2a.task-failed">;
+    export type TaskInterrupted = ErrorVariant<A2AErrorKind.TaskInterrupted, "a2a.task-interrupted">;
+    export type Unavailable = ErrorVariant<A2AErrorKind.Unavailable, "a2a.unavailable">;
+    export type UnexpectedFinish = ErrorVariant<A2AErrorKind.UnexpectedFinish, "a2a.unexpected-finish">;
+}
+
+// @public
+export const A2AError: FamilyConstructor<A2AError, {
+    CallerRejected: A2AError.CallerRejected;
+    Contract: A2AError.Contract;
+    Protocol: A2AError.Protocol;
+    Remote: A2AError.Remote;
+    Unavailable: A2AError.Unavailable;
+    Deadline: A2AError.Deadline;
+    TaskCanceled: A2AError.TaskCanceled;
+    TaskFailed: A2AError.TaskFailed;
+    TaskInterrupted: A2AError.TaskInterrupted;
+    UnexpectedFinish: A2AError.UnexpectedFinish;
+    MeshUnsupported: A2AError.MeshUnsupported;
+    OriginRefused: A2AError.OriginRefused;
+}>;
+
+// @public
+export enum A2AErrorKind {
+    // (undocumented)
+    CallerRejected = "caller-rejected",
+    // (undocumented)
+    Contract = "contract",
+    // (undocumented)
+    Deadline = "deadline",
+    // (undocumented)
+    MeshUnsupported = "mesh-unsupported",
+    // (undocumented)
+    OriginRefused = "origin-refused",
+    // (undocumented)
+    Protocol = "protocol",
+    // (undocumented)
+    Remote = "remote",
+    // (undocumented)
+    TaskCanceled = "task-canceled",
+    // (undocumented)
+    TaskFailed = "task-failed",
+    // (undocumented)
+    TaskInterrupted = "task-interrupted",
+    // (undocumented)
+    Unavailable = "unavailable",
+    // (undocumented)
+    UnexpectedFinish = "unexpected-finish"
+}
+
+// @public
 export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: C) => C;
 
 // @public
@@ -1359,6 +1424,18 @@ export class WorkflowFinishFilesDto {
 // src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "filename".
 // src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "filename".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "CallerRejected".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Contract".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Protocol".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Remote".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Unavailable".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Deadline".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskCanceled".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskFailed".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskInterrupted".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "UnexpectedFinish".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "MeshUnsupported".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "OriginRefused".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "messageId".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "finish".

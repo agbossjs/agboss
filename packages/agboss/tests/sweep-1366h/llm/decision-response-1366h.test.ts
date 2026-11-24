@@ -1,12 +1,12 @@
 /**
  * #1366: a Decisions API response is accepted only when every answer has its question's type, a choice among its
- * options, a score within its levels and probabilities within 0..1; a refusal is a DecisionResponseError
+ * options, a score within its levels and probabilities within 0..1; a refusal is a DecisionError.InvalidResponse
  * (`model.decision.invalid-response`) naming the model and the question; the usage keeps the response's model and tokens.
  */
 import { describe, expect, it } from "vitest";
 import { Decision } from "../../../src/llm/decisions.js";
 import { readDecision } from "../../../src/llm/decision-response.js";
-import { DecisionResponseError } from "../../../src/llm/decision-errors.js";
+import { DecisionError } from "../../../src/index.js";
 
 const probs = { a: 0.5, b: 0.5 };
 const choiceQ = Decision.choice("pick", { a: null, b: null });
@@ -79,10 +79,10 @@ describe("#1366: readDecision validation", () => {
 
   it("refuses a response that is not an object with answers, naming the model", () => {
     const e = refusal({ nope: 1 }, { n: noulQ });
-    expect(e).toBeInstanceOf(DecisionResponseError);
+    expect(e).toBeInstanceOf(DecisionError.InvalidResponse);
     expect(e).toMatchObject({ code: "model.decision.invalid-response", details: { model: "m1" } });
     expect(refusal({ answers: {}, usage: { cost: "x" } }, {})).toBeInstanceOf(
-      DecisionResponseError,
+      DecisionError.InvalidResponse,
     );
   });
 
@@ -93,7 +93,7 @@ describe("#1366: readDecision validation", () => {
       [scoreQ, { type: "noul", noul: 0.5 }],
     ] as const) {
       const e = refusal({ answers: { q: a } }, { q });
-      expect(e).toBeInstanceOf(DecisionResponseError);
+      expect(e).toBeInstanceOf(DecisionError.InvalidResponse);
       expect(e).toMatchObject({
         code: "model.decision.invalid-response",
         details: { model: "m1", question: "q" },
@@ -116,7 +116,7 @@ describe("#1366: readDecision validation", () => {
       },
       { q: choiceQ },
     );
-    expect(proto).toBeInstanceOf(DecisionResponseError);
+    expect(proto).toBeInstanceOf(DecisionError.InvalidResponse);
     for (const score of [3, 4]) {
       const s = refusal(
         { answers: { q: { type: "score", score, probabilities: {}, legend: {}, confidence: 1 } } },
@@ -137,7 +137,7 @@ describe("#1366: readDecision validation", () => {
     });
     expect((missing as Error).message).toMatch(/missing/);
     const bad = refusal({ answers: { q: { type: "noul" } } }, { q: noulQ });
-    expect(bad).toBeInstanceOf(DecisionResponseError);
+    expect(bad).toBeInstanceOf(DecisionError.InvalidResponse);
     expect((bad as Error).message).not.toMatch(/missing/);
     expect((bad as Error).message).toMatch(/malformed/);
   });
@@ -156,7 +156,7 @@ describe("#1366: readDecision validation", () => {
       [{ q: scoreQ }, { type: "score", score: 0.5, probabilities: {}, legend: {}, confidence: 1 }],
     ];
     for (const [qs, a] of bads) {
-      expect(refusal({ answers: { q: a } }, qs)).toBeInstanceOf(DecisionResponseError);
+      expect(refusal({ answers: { q: a } }, qs)).toBeInstanceOf(DecisionError.InvalidResponse);
     }
   });
 });

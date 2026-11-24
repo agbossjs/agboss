@@ -2093,6 +2093,103 @@ export interface StoredNamesUnreadableErrorOptions {
 }
 
 // @public
+export type StoreError = StoreError.OutcomeUnknown | StoreError.CallTimeout | StoreError.UnreadableRecord | StoreError.Mismatch | StoreError.LiveLeases | StoreError.SchemaMissing | StoreError.SchemaTooNew | StoreError.MigrationChanged | StoreError.SettingsInvalid | StoreError.DeploymentUnsupported | StoreError.DurabilityInsufficient | StoreError.CollationInvalid | StoreError.LedgerMarkMissing | StoreError.LeaseKeyConflict | StoreError.ObjectStorage | StoreError.LedgerCutoffInvalid | StoreError.LedgerEntryExpired | StoreError.LedgerEntryInvalid;
+
+// @public
+export namespace StoreError {
+    export type CallTimeout = ErrorVariant<StoreErrorKind.CallTimeout, "store.call-timeout">;
+    export type CollationInvalid = ErrorVariant<StoreErrorKind.CollationInvalid, "store.collation-invalid">;
+    export type DeploymentUnsupported = ErrorVariant<StoreErrorKind.DeploymentUnsupported, "store.deployment-unsupported">;
+    export type DurabilityInsufficient = ErrorVariant<StoreErrorKind.DurabilityInsufficient, "store.durability-insufficient">;
+    export type LeaseKeyConflict = ErrorVariant<StoreErrorKind.LeaseKeyConflict, "store.lease-key-conflict">;
+    export type LedgerCutoffInvalid = ErrorVariant<StoreErrorKind.LedgerCutoffInvalid, "store.ledger-cutoff-invalid">;
+    export type LedgerEntryExpired = ErrorVariant<StoreErrorKind.LedgerEntryExpired, "store.ledger-entry-expired">;
+    export type LedgerEntryInvalid = ErrorVariant<StoreErrorKind.LedgerEntryInvalid, "store.ledger-entry-invalid">;
+    export type LedgerMarkMissing = ErrorVariant<StoreErrorKind.LedgerMarkMissing, "store.ledger-mark-missing">;
+    export type LiveLeases = ErrorVariant<StoreErrorKind.LiveLeases, "store.live-leases">;
+    export type MigrationChanged = ErrorVariant<StoreErrorKind.MigrationChanged, "store.migration-changed">;
+    export type Mismatch = ErrorVariant<StoreErrorKind.Mismatch, "store.mismatch">;
+    export type ObjectStorage = ErrorVariant<StoreErrorKind.ObjectStorage, "store.object-storage">;
+    export type OutcomeUnknown = ErrorVariant<StoreErrorKind.OutcomeUnknown, "store.outcome-unknown">;
+    export type SchemaMissing = ErrorVariant<StoreErrorKind.SchemaMissing, "store.schema-missing">;
+    export type SchemaTooNew = ErrorVariant<StoreErrorKind.SchemaTooNew, "store.schema-too-new">;
+    export type SettingsInvalid = ErrorVariant<StoreErrorKind.SettingsInvalid, "store.settings-invalid">;
+    export type UnreadableRecord = ErrorVariant<StoreErrorKind.UnreadableRecord, "store.unreadable-record">;
+}
+
+// @public
+export const StoreError: FamilyConstructor<StoreError, {
+    OutcomeUnknown: StoreError.OutcomeUnknown;
+    CallTimeout: StoreError.CallTimeout;
+    UnreadableRecord: StoreError.UnreadableRecord;
+    Mismatch: StoreError.Mismatch;
+    LiveLeases: StoreError.LiveLeases;
+    SchemaMissing: StoreError.SchemaMissing;
+    SchemaTooNew: StoreError.SchemaTooNew;
+    MigrationChanged: StoreError.MigrationChanged;
+    SettingsInvalid: StoreError.SettingsInvalid;
+    DeploymentUnsupported: StoreError.DeploymentUnsupported;
+    DurabilityInsufficient: StoreError.DurabilityInsufficient;
+    CollationInvalid: StoreError.CollationInvalid;
+    LedgerMarkMissing: StoreError.LedgerMarkMissing;
+    LeaseKeyConflict: StoreError.LeaseKeyConflict;
+    ObjectStorage: StoreError.ObjectStorage;
+    LedgerCutoffInvalid: StoreError.LedgerCutoffInvalid;
+    LedgerEntryExpired: StoreError.LedgerEntryExpired;
+    LedgerEntryInvalid: StoreError.LedgerEntryInvalid;
+}> & StoreErrorStatics;
+
+// @public
+export enum StoreErrorKind {
+    // (undocumented)
+    CallTimeout = "call-timeout",
+    // (undocumented)
+    CollationInvalid = "collation-invalid",
+    // (undocumented)
+    DeploymentUnsupported = "deployment-unsupported",
+    // (undocumented)
+    DurabilityInsufficient = "durability-insufficient",
+    // (undocumented)
+    LeaseKeyConflict = "lease-key-conflict",
+    // (undocumented)
+    LedgerCutoffInvalid = "ledger-cutoff-invalid",
+    // (undocumented)
+    LedgerEntryExpired = "ledger-entry-expired",
+    // (undocumented)
+    LedgerEntryInvalid = "ledger-entry-invalid",
+    // (undocumented)
+    LedgerMarkMissing = "ledger-mark-missing",
+    // (undocumented)
+    LiveLeases = "live-leases",
+    // (undocumented)
+    MigrationChanged = "migration-changed",
+    // (undocumented)
+    Mismatch = "mismatch",
+    // (undocumented)
+    ObjectStorage = "object-storage",
+    // (undocumented)
+    OutcomeUnknown = "outcome-unknown",
+    // (undocumented)
+    SchemaMissing = "schema-missing",
+    // (undocumented)
+    SchemaTooNew = "schema-too-new",
+    // (undocumented)
+    SettingsInvalid = "settings-invalid",
+    // (undocumented)
+    UnreadableRecord = "unreadable-record"
+}
+
+// @public
+export type StoreErrorOfKind<TKind extends StoreErrorKind> = Extract<StoreError, {
+    readonly kind: TKind;
+}>;
+
+// @public
+export interface StoreErrorStatics {
+    of<TKind extends StoreErrorKind>(kind: TKind, options: VariantOptions<StoreErrorOfKind<TKind>>): StoreErrorOfKind<TKind>;
+}
+
+// @public
 export enum StoreOutcomeSource {
     Command = "command",
     Framework = "framework",
@@ -2332,6 +2429,24 @@ export interface WrittenLedgerMark {
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Output".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "OutcomeUnknown".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "CallTimeout".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "UnreadableRecord".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "Mismatch".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LiveLeases".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "SchemaMissing".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "SchemaTooNew".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "MigrationChanged".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "SettingsInvalid".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "DeploymentUnsupported".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "DurabilityInsufficient".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "CollationInvalid".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerMarkMissing".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LeaseKeyConflict".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "ObjectStorage".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerCutoffInvalid".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryExpired".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryInvalid".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "name".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "message".

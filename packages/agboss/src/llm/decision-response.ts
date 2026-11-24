@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CostSource, type UsageRecord } from "../finops/usage.js";
-import { DecisionResponseError } from "./decision-errors.js";
+import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionAnswer, DecisionQuestion, DecisionQuestions } from "./decisions.js";
 
 const Probabilities = z.record(z.string(), z.number().min(0).max(1));
@@ -75,8 +75,8 @@ function answerOf(
   raw: unknown,
   model: string,
 ): DecisionAnswer {
-  const fail = (why: string): DecisionResponseError =>
-    new DecisionResponseError({
+  const fail = (why: string): DecisionError.InvalidResponse =>
+    new DecisionError.InvalidResponse({
       message: `Decisions API (${model}) answer to "${id}": ${why}`,
       details: { model, question: id },
     });
@@ -91,12 +91,12 @@ function answerOf(
 /**
  * The Decisions API's response, validated against the questions asked: every question answered
  * with its own type, a choice among its options, a score within its levels. Anything else is a
- * `DecisionResponseError` (`model.decision.invalid-response`). The cost is `usage.cost`.
+ * `DecisionError.InvalidResponse` (`model.decision.invalid-response`). The cost is `usage.cost`.
  */
 export function readDecision(raw: unknown, asked: DecisionAsked): DecisionOutcome {
   const parsed = ResponseSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new DecisionResponseError({
+    throw new DecisionError.InvalidResponse({
       message: `Decisions API (${asked.model}): malformed response`,
       details: { model: asked.model },
     });

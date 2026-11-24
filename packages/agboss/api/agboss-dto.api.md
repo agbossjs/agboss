@@ -460,6 +460,34 @@ export const Url: FieldFactory<string, object>;
 export const Uuid: FieldFactory<string, object>;
 
 // @public
+export type ValidationError = ValidationError.DtoInvalid | ValidationError.TenantRequired;
+
+// @public
+export namespace ValidationError {
+    export type DtoInvalid = ErrorVariant<ValidationErrorKind.DtoInvalid, "validation.dto-invalid"> & {
+        readonly dto: string;
+        readonly issues: readonly DtoIssue[];
+    };
+    export type TenantRequired = ErrorVariant<ValidationErrorKind.TenantRequired, "validation.tenant-required"> & {
+        readonly operation: string;
+    };
+}
+
+// @public
+export const ValidationError: FamilyConstructor<ValidationError, {
+    DtoInvalid: ValidationError.DtoInvalid;
+    TenantRequired: ValidationError.TenantRequired;
+}>;
+
+// @public
+export enum ValidationErrorKind {
+    // (undocumented)
+    DtoInvalid = "dto-invalid",
+    // (undocumented)
+    TenantRequired = "tenant-required"
+}
+
+// @public
 export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
 
 // @public
@@ -524,6 +552,8 @@ enum Wrapper {
 
 // Warnings were encountered during analysis:
 //
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "DtoInvalid".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "TenantRequired".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Email".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Url".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Uuid".

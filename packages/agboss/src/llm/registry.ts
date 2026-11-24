@@ -5,7 +5,7 @@ import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import { promptCachingOfSetting } from "../models/prompt-caching.js";
 import { reasoningOfThinking } from "../models/reasoning.js";
 import { isDecisionModel } from "../models/decision-models.js";
-import { DecisionError } from "./decision-errors.js";
+import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionOutcome } from "./decision-response.js";
 import type { DecisionRequest } from "./decisions.js";
 import type { ChatModelUser, ModelGateway } from "./gateway.js";
@@ -76,7 +76,7 @@ export function resolveSettings(
 function decisionJudge(judge: string, model: string, gateway: RegistryGateway): JudgeBinding {
   const decide = gateway.decide;
   if (decide === undefined) {
-    throw new DecisionError({
+    throw new DecisionError.InvalidRequest({
       message: `judge "${judge}" is on decision model ${model}, but the app's model gateway has no decide`,
     });
   }

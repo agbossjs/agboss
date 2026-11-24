@@ -102,8 +102,11 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * root is 1,428 then, 1,420 before it): the files' guards — the mask, the answer picks, the decision
  * models' parts, the views and the readers of the files — modules of their own under the line limits;
  * the guarded views of the guardrails and the judges and the answer's guard load on first use.
+ * 1,460 at #1325a (the root was 1,449): the error families — `LimitError`, `StepError`, `Result`, … —
+ * are values of the root by contract, each family a type, a namespace and a constructor in one module
+ * under the line limit: 9 modules (the families of the stores entry load only with it).
  */
-const MODULE_BUDGET = 1_450;
+const MODULE_BUDGET = 1_460;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

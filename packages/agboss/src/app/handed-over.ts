@@ -2,6 +2,7 @@ import { currentFrame, type FrameLease, type FrameSpec } from "../flow/context/f
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
+import { isHandOverError } from "../core/error-families/run-errors.js";
 import {
   ExecutionCancelFencedError,
   ExecutionFencedError,
@@ -18,6 +19,7 @@ import {
 export const isHandedOver = (error: unknown): boolean =>
   error instanceof ExecutionLeaseLostError ||
   error instanceof ApplicationStoppingError ||
+  isHandOverError(error) ||
   fencedErrorOf(error) !== undefined;
 
 /** The two ways work is handed over. */
@@ -64,7 +66,7 @@ export function cancelMet(
 /** The first error of `type` in `error`'s cause chain (an `AggregateError`'s too); cycles are walked once. */
 function errorOfClass<T extends Error>(
   error: unknown,
-  type: new (...args: never[]) => T,
+  type: abstract new (...args: never[]) => T,
 ): T | undefined {
   const seen = new Set<unknown>();
   const pending: unknown[] = [error];

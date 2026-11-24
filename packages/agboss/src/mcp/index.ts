@@ -16,3 +16,4 @@ export { McpService, createMcpService, type McpSession } from "./mcp-service.js"
 export type { McpSessionOptions } from "./mcp-tool-registry.js";
 export { type ArgumentsOf, type ResultOf } from "../components/mcp-client.js";
 export { type McpServerConfig } from "../config/types.js";
+export { McpError, McpErrorKind } from "../core/error-families/remote-errors.js";

@@ -4,7 +4,7 @@
  * routers route on any decision model; the wrong call for a model's kind is a `ModelKindError`.
  */
 import { describe, expect, it } from "vitest";
-import { AgentFailedError, DecisionRequestError, ModelKindError } from "../../src/errors.js";
+import { AgentFailedError, DecisionError, ModelKindError } from "../../src/index.js";
 import { Decision } from "../../src/index.js";
 import { decideWith, replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -177,6 +177,6 @@ describe("Decision builders refuse what the Decisions API would", () => {
     ["a choice of one option", () => Decision.choice("Pick", { only: null })],
     ["a score of one level", () => Decision.score("Rate", ["only"])],
   ])("%s", (_, build) => {
-    expect(build).toThrow(DecisionRequestError);
+    expect(build).toThrow(DecisionError.InvalidRequest);
   });
 });

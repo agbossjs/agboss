@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { DecisionError } from "../llm/decision-errors.js";
+import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionOutcome } from "../llm/decision-response.js";
 import type { GatewayOverProviders } from "../app/models.js";
 import { type DecideSpec, type DecisionSpec, type ModelGateway } from "../llm/gateway.js";
@@ -173,7 +173,9 @@ async function decideOf(
   if (!cassette.records(spec.caller)) return cassette.decide(spec.caller, hash);
   const decide = real().decide;
   if (decide === undefined)
-    throw new DecisionError({ message: `the recording gateway cannot decide (${model})` });
+    throw new DecisionError.InvalidRequest({
+      message: `the recording gateway cannot decide (${model})`,
+    });
   const outcome = await decide(spec);
   cassette.record({ kind: "decide", key: spec.caller, request: hash, outcome });
   return outcome;

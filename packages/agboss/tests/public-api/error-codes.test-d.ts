@@ -69,7 +69,7 @@ describe("#906 AC2: the instance code is the class's literal", () => {
       "execution.lease-lost" | "execution.lease-lost.fenced" | "execution.lease-lost.not-started"
     >();
     expectTypeOf<DecisionError["code"]>().toEqualTypeOf<
-      "model.decision" | "model.decision.invalid-request" | "model.decision.invalid-response"
+      "model.decision.invalid-request" | "model.decision.invalid-response"
     >();
     expectTypeOf<RouterFailedError["code"]>().toEqualTypeOf<
       "step.router" | "step.router.invalid-decision"

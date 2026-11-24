@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { AppDepsOptions } from "../../src/app/app-deps.js";
 import { appWithKeys } from "../models/gateway.js";
 import { Decision } from "../../src/index.js";
-import { DecisionRequestError, DecisionResponseError } from "../../src/errors.js";
+import { DecisionError } from "../../src/index.js";
 import { createModelGateway } from "../../src/llm/gateway.js";
 import { resolutionProblems } from "../../src/models/check.js";
 import { modelUsesOf } from "../../src/models/uses.js";
@@ -171,7 +171,7 @@ describe("the default gateway's decide", () => {
 
     await expect(
       gateway.decide({ caller: "judge:x", model: LUNA, request: { state: "s", questions } }),
-    ).rejects.toBeInstanceOf(DecisionRequestError);
+    ).rejects.toBeInstanceOf(DecisionError.InvalidRequest);
     expect(asked).toEqual([]);
   });
 
@@ -188,7 +188,7 @@ describe("the default gateway's decide", () => {
       },
     });
 
-    await expect(decision).rejects.toBeInstanceOf(DecisionResponseError);
+    await expect(decision).rejects.toBeInstanceOf(DecisionError.InvalidResponse);
     await expect(decision).rejects.toThrow(/"quality": score 3 is past its 3 levels/u);
   });
 });

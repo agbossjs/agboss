@@ -1,4 +1,4 @@
-import { DecisionRequestError } from "./decision-errors.js";
+import { DecisionError } from "../core/error-families/config-errors.js";
 
 /** How closely a decision model looks at an image (`Auto` when omitted, #269). */
 export enum ImageDetail {
@@ -103,7 +103,7 @@ export const Decision = {
     criteria: C,
   ): ChoiceQuestion<keyof C & string> {
     if (Object.keys(criteria).length < 2) {
-      throw new DecisionRequestError({
+      throw new DecisionError.InvalidRequest({
         message: `Decision.choice("${instructions}"): needs at least 2 options`,
       });
     }
@@ -121,7 +121,7 @@ export const Decision = {
 
   score(instructions: string, levels: readonly string[]): ScoreQuestion {
     if (levels.length < 2) {
-      throw new DecisionRequestError({
+      throw new DecisionError.InvalidRequest({
         message: `Decision.score("${instructions}"): needs at least 2 levels`,
       });
     }
@@ -130,7 +130,7 @@ export const Decision = {
 
   image(dataUrl: string, detail?: ImageDetail): DecisionImage {
     if (!IMAGE_DATA_URL.test(dataUrl)) {
-      throw new DecisionRequestError({
+      throw new DecisionError.InvalidRequest({
         message:
           "Decision.image: only data URLs of png, jpeg or webp images (data:image/png;base64,…)",
       });
@@ -146,9 +146,9 @@ export const Decision = {
 export function checkDecisionRequest(request: DecisionRequest): void {
   const count = Object.keys(request.questions).length;
   if (count === 0)
-    throw new DecisionRequestError({ message: "a decision needs at least one question" });
+    throw new DecisionError.InvalidRequest({ message: "a decision needs at least one question" });
   if (count > MAX_DECISION_QUESTIONS) {
-    throw new DecisionRequestError({
+    throw new DecisionError.InvalidRequest({
       message: `${String(count)} questions in one decision: the Decisions API takes at most ${String(MAX_DECISION_QUESTIONS)}`,
       details: { count, max: MAX_DECISION_QUESTIONS },
     });

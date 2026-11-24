@@ -9,6 +9,7 @@ import type { DtoClass } from "../dto/types.js";
 import type { McpExposeOptions } from "./mcp-expose.decorator.js";
 import type { InboundMesh } from "../mesh/inbound-mesh.js";
 import { MESH_ERROR_META_KEY } from "../mesh/mesh-envelope.js";
+import { RecordedError } from "../core/error-record.js";
 import { meshLimitBodyOf } from "../mesh/mesh-wire.js";
 
 /** Helpers for `McpService`: reading `@McpExpose` options, tool schemas, results and the resume tool. */
@@ -85,8 +86,11 @@ export function parseDecision(decision: unknown): unknown {
   }
 }
 
-export const errorMessage = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
+export const errorMessage = (err: unknown): string => {
+  // a recorded error whose original was no framework error says nothing of the original (#1325)
+  if (err instanceof RecordedError && !err.isFramework) return "the call failed";
+  return err instanceof Error ? err.message : String(err);
+};
 
 export const textOf = (value: unknown): string =>
   typeof value === "string" ? value : JSON.stringify(value);

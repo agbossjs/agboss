@@ -1,5 +1,5 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import type { ErrorRecord } from "../../../core/error-record.js";
+import { RecordedError, type ErrorRecord } from "../../../core/error-record.js";
 import { valueWrite, type FlowEdge } from "../../analyse/flow-graph.js";
 import { compensationsOfFailedJoin } from "../../compensation.js";
 import { FailurePolicy } from "../../decorators/router.js";
@@ -16,15 +16,7 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
 import { launchPausesOf } from "./withdrawn-pauses.js";
 
 /** A branch's error read back from its record (another process ran it, before a crash). */
-class RecordedBranchError extends Error {
-  readonly record: ErrorRecord;
-
-  constructor(record: ErrorRecord) {
-    super(record.message);
-    this.name = record.name;
-    this.record = record;
-  }
-}
+class RecordedBranchError extends RecordedError {}
 
 /** A failed branch's error record (a generic one when it has none). */
 export const failureRecordOf = (record: BranchOutcomeRecord): ErrorRecord =>

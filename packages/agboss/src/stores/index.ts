@@ -95,3 +95,9 @@ export {
   stepOf,
   type LatestByStepCheckpointSaver,
 } from "../infrastructure/latest-by-step.js";
+export {
+  StoreError,
+  StoreErrorKind,
+  type StoreErrorOfKind,
+  type StoreErrorStatics,
+} from "../core/error-families/store-errors.js";

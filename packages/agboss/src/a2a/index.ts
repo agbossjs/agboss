@@ -126,3 +126,4 @@ export {
 export { InMemoryA2AFileRepository } from "../infrastructure/in-memory-a2a-file.repository.js";
 export { LocalDiskA2AFileRepository } from "../infrastructure/local-disk-a2a-file.repository.js";
 export { S3A2AFileRepository } from "../infrastructure/s3/s3-a2a-file.repository.js";
+export { A2AError, A2AErrorKind } from "../core/error-families/remote-errors.js";

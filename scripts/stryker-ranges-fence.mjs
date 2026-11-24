@@ -4,7 +4,14 @@
 export function takeoverShard() {
   return {
     configFile: "vitest.mutation-takeover.config.ts",
-    mutate: ["src/app/lease-yields.ts", "src/app/execution-leases.ts", "src/app/handed-over.ts"],
+    mutate: [
+      "src/app/lease-yields.ts",
+      "src/app/execution-leases.ts",
+      "src/app/handed-over.ts",
+      // #1325a: a hand-over is no failure (its kinds, codes and the record guard) and the families' classes
+      "src/core/error-families/run-errors.ts:216-237",
+      "src/core/error-families/family.ts",
+    ],
   };
 }
 

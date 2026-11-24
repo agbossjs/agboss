@@ -28,6 +28,8 @@ export default defineConfig({
       // #1179: the pass of a tree left mid-pass, its waiting check pinned on its own
       "tests/app/stalled-pass-units.test.ts",
       "tests/infrastructure/{orphan-pauses,orphan-wakes,recovery-wake-order}.test.ts",
+      // #1325a: the hand-over kinds and records, the families' classes and how a class is caught
+      "tests/errors/{family-routing,error-families,error-record-families}.test.ts",
     ],
   },
 });

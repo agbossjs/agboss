@@ -26,7 +26,7 @@ export class FencedEffects {
    * its type (`(database: DatabaseSync) => …` on `SqliteFencedEffectRepository`); one that writes
    * none ignores it.
    */
-  runOnce<TResult, TTransaction = unknown>(
+  async runOnce<TResult, TTransaction = unknown>(
     key: EffectKey,
     work: FencedEffectWork<TTransaction, TResult>,
   ): Promise<FencedEffectOutcome<TResult>> {
@@ -44,7 +44,7 @@ markBusinessKeyWriter(FencedEffects);
  * infrastructure — every call is refused, since a fenced effect's store is the application's.
  */
 export const FENCED_EFFECTS_OUTSIDE_APPLICATION = Object.freeze({
-  runOnce: (): Promise<never> =>
+  runOnce: async (): Promise<never> =>
     Promise.reject(
       new TypeError(
         "FencedEffects.runOnce: a fenced effect runs in an application (createApp, testWith, a unit runner) — its store is the application's infrastructure",

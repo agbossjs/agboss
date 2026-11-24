@@ -71,21 +71,22 @@ type InstanceReads = Pick<
 >;
 
 const instanceReadsOf = ({ health, auditLog, outboundCalls }: InstanceSurface): InstanceReads => ({
-  checkLiveness: () => health.checkLiveness(),
-  checkReadiness: () => health.checkReadiness(),
+  // every call that returns a promise is async: a failure rejects, it is never thrown at the call (#1325)
+  checkLiveness: async () => health.checkLiveness(),
+  checkReadiness: async () => health.checkReadiness(),
   // #568, #580: a tenant id and a root execution id are keys' text here too — on UTF-8 stores
   // t\uD800 would read t\uFFFD's rows
   // rows written before #825 read with this version's names
-  auditLogOf: (tree) => treeRead(tree, () => auditLogIn(auditLog, tree)),
+  auditLogOf: async (tree) => treeRead(tree, () => auditLogIn(auditLog, tree)),
   // stored masked by the calling workflow's policies (#505); a business key by its handle (#508)
-  outboundCallsOf: ({ tenantId, rootExecutionId }) =>
+  outboundCallsOf: async ({ tenantId, rootExecutionId }) =>
     treeRead({ tenantId, rootExecutionId }, async () =>
       (await outboundCalls.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId)).map(
         shownCallOf,
       ),
     ),
   // #825: a page at a time, by the store's cursor — never every pending call of a tenant at once
-  pendingOutboundCallsOf: (query) => pendingCallsOf(outboundCalls, query),
+  pendingOutboundCallsOf: async (query) => pendingCallsOf(outboundCalls, query),
 });
 
 export function composeApp(
@@ -123,16 +124,16 @@ export function composeApp(
     // the start a plain text goes to: the first listed workflow's that has one
     textStart: workflows.map((one) => one.app.textStart).find((start) => start !== undefined),
     // a start no workflow has goes to the first, whose check rejects it (`onRunRejected`)
-    execute: (start, input, ...options) =>
+    execute: async (start, input, ...options) =>
       (starts.get(start) ?? first).app.execute(start, input, ...options),
     resume: async (request, options) =>
       (await ofPause(request.pauseId, options?.tenantId)).app.resume(request, options),
     ...pauseCallsOf(ofPause),
     cancel: async (threadId, options) =>
       (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
-    close: (options) => stop.close(options),
+    close: async (options) => stop.close(options),
     ...instanceReadsOf(surface),
-    listPauses: listPausesOf(workflows, ofThread, surface.pausedExecutions),
+    listPauses: async (query) => listPausesOf(workflows, ofThread, surface.pausedExecutions)(query),
     resolve: (token) => first.app.resolve(token),
     hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
   });

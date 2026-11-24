@@ -15,6 +15,29 @@ export type ArgumentsOf<TTool extends ServerTool> = InstanceType<TTool["input"]>
 export function createMcpService(app: App, config: Class): McpService;
 
 // @public
+export type McpError = McpError.Unavailable | McpError.Contract;
+
+// @public
+export namespace McpError {
+    export type Contract = ErrorVariant<McpErrorKind.Contract, "mcp.contract">;
+    export type Unavailable = ErrorVariant<McpErrorKind.Unavailable, "mcp.unavailable">;
+}
+
+// @public
+export const McpError: FamilyConstructor<McpError, {
+    Unavailable: McpError.Unavailable;
+    Contract: McpError.Contract;
+}>;
+
+// @public
+export enum McpErrorKind {
+    // (undocumented)
+    Contract = "contract",
+    // (undocumented)
+    Unavailable = "unavailable"
+}
+
+// @public
 export function McpExpose(options: McpExposeOptions): <C extends Class>(target: C) => C;
 
 // @public (undocumented)
@@ -113,6 +136,8 @@ export type ToolsOf<TServer> = TServer extends {
 // src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "ResultOf".
 // src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "ServerTools".
 // src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "call".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Unavailable".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Contract".
 // src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "McpExposeOptions".
 // src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "name".
 // src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "version".

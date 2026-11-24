@@ -92,3 +92,4 @@ export { type ToolArguments } from "./standard/framework.js";
 export { type DecimalStringLimits, type NumberLimits, type TextLimits } from "./types.js";
 /** @beta Type machinery of the DTO decorators and wrappers: not a contract, names may change. */
 export type * as DtoTypes from "./dto-types.js";
+export { ValidationError, ValidationErrorKind } from "../core/error-families/effect-errors.js";

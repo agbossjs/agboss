@@ -1,3 +1,4 @@
+import { RecordedError } from "../../core/error-record.js";
 import { AGBossError, ExecutionCancelledError } from "../../core/errors.js";
 import { DurableExecutionStatus, type DurableExecutionState } from "../../app/execution-control.js";
 import { A2ATaskState, type A2ATaskStatus } from "../../infrastructure/a2a-task.repository.js";
@@ -95,7 +96,10 @@ export function failedStatusOf(error: Error): A2ATaskStatus {
   if (error instanceof ExecutionCancelledError) return CANCELED;
   if (isMeshLimitError(error))
     return { ...failedOf(error.code), errorDetails: error.details ?? {} };
-  return failedOf(error instanceof AGBossError ? error.code : INTERNAL_FAILURE);
+  // a recorded error whose original was no framework error (a third-party SDK's, a project's) is `internal`
+  const isTrusted =
+    error instanceof AGBossError && (!(error instanceof RecordedError) || error.isFramework);
+  return failedOf(isTrusted ? error.code : INTERNAL_FAILURE);
 }
 
 /**

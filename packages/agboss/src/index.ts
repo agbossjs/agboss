@@ -24,6 +24,26 @@ export type * from "./public/dsl-types.js";
 export type * as FlowTypes from "./public/flow-types.js";
 export * from "./public/files.js";
 export * from "./errors.js";
+// the error families (#1325): each a type, a namespace of variants and a constructor
+export * from "./core/error-families/config-errors.js";
+export * from "./core/error-families/effect-errors.js";
+export * from "./core/error-families/limit-errors.js";
+export * from "./core/error-families/pause-errors.js";
+export { ExecutionError, ExecutionErrorKind } from "./core/error-families/run-errors.js";
+export { FileError, FileErrorKind } from "./core/error-families/remote-errors.js";
+export * from "./core/error-families/step-errors.js";
+export type {
+  ErrorVariant,
+  FamilyConstructor,
+  PaidErrorVariant,
+  PaidFacts,
+  VariantCommon,
+  VariantConstructor,
+  VariantConstructors,
+  VariantFacts,
+  VariantOptions,
+} from "./core/error-families/family.js";
+export { Result, type ResultFactory, type TryOutcome } from "./core/result.js";
 export * from "./infrastructure/store-call-timeout.js";
 export {
   SqliteSchemaTooNewError,

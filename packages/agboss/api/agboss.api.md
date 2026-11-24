@@ -1848,6 +1848,117 @@ interface ComponentSource {
 }
 
 // @public
+export type ConfigError = ConfigError.GraphRules | ConfigError.FlowSyntax | ConfigError.NotAWorkflowStart | ConfigError.WorkingCalendar | ConfigError.Component | ConfigError.Prompt | ConfigError.NoDefaultRouter | ConfigError.Environment | ConfigError.Profile | ConfigError.ModelProvider | ConfigError.ModelSettings | ConfigError.ModelKind | ConfigError.Dto | ConfigError.Unit | ConfigError.PromptCaching | ConfigError.RateLimitPolicy | ConfigError.Reasoning | ConfigError.RetryPolicy | ConfigError.EvalCase | ConfigError.RagIndex | ConfigError.WorkflowLoad | ConfigError.ApplicationLoad | ConfigError.Tool | ConfigError.Option;
+
+// @public
+export namespace ConfigError {
+    export type ApplicationLoad = ErrorVariant<ConfigErrorKind.ApplicationLoad, "config.application-load">;
+    export type Component = ErrorVariant<ConfigErrorKind.Component, "config.component">;
+    export type Dto = ErrorVariant<ConfigErrorKind.Dto, "config.dto">;
+    export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment">;
+    export type EvalCase = ErrorVariant<ConfigErrorKind.EvalCase, "config.eval-case">;
+    export type FlowSyntax = ErrorVariant<ConfigErrorKind.FlowSyntax, "config.flow-syntax">;
+    export type GraphRules = ErrorVariant<ConfigErrorKind.GraphRules, "config.graph-rules">;
+    export type ModelKind = ErrorVariant<ConfigErrorKind.ModelKind, "config.model-kind">;
+    export type ModelProvider = ErrorVariant<ConfigErrorKind.ModelProvider, "config.model-provider">;
+    export type ModelSettings = ErrorVariant<ConfigErrorKind.ModelSettings, "config.model-settings">;
+    export type NoDefaultRouter = ErrorVariant<ConfigErrorKind.NoDefaultRouter, "config.no-default-router">;
+    export type NotAWorkflowStart = ErrorVariant<ConfigErrorKind.NotAWorkflowStart, "config.not-a-workflow-start">;
+    export type Option = ErrorVariant<ConfigErrorKind.Option, "config.option">;
+    export type Profile = ErrorVariant<ConfigErrorKind.Profile, "config.profile">;
+    export type Prompt = ErrorVariant<ConfigErrorKind.Prompt, "config.prompt">;
+    export type PromptCaching = ErrorVariant<ConfigErrorKind.PromptCaching, "config.prompt-caching">;
+    export type RagIndex = ErrorVariant<ConfigErrorKind.RagIndex, "config.rag-index">;
+    export type RateLimitPolicy = ErrorVariant<ConfigErrorKind.RateLimitPolicy, "config.rate-limit-policy">;
+    export type Reasoning = ErrorVariant<ConfigErrorKind.Reasoning, "config.reasoning">;
+    export type RetryPolicy = ErrorVariant<ConfigErrorKind.RetryPolicy, "config.retry-policy">;
+    export type Tool = ErrorVariant<ConfigErrorKind.Tool, "config.tool">;
+    export type Unit = ErrorVariant<ConfigErrorKind.Unit, "config.unit">;
+    export type WorkflowLoad = ErrorVariant<ConfigErrorKind.WorkflowLoad, "config.workflow-load">;
+    export type WorkingCalendar = ErrorVariant<ConfigErrorKind.WorkingCalendar, "config.working-calendar">;
+}
+
+// @public
+export const ConfigError: FamilyConstructor<ConfigError, {
+    GraphRules: ConfigError.GraphRules;
+    FlowSyntax: ConfigError.FlowSyntax;
+    NotAWorkflowStart: ConfigError.NotAWorkflowStart;
+    WorkingCalendar: ConfigError.WorkingCalendar;
+    Component: ConfigError.Component;
+    Prompt: ConfigError.Prompt;
+    NoDefaultRouter: ConfigError.NoDefaultRouter;
+    Environment: ConfigError.Environment;
+    Profile: ConfigError.Profile;
+    ModelProvider: ConfigError.ModelProvider;
+    ModelSettings: ConfigError.ModelSettings;
+    ModelKind: ConfigError.ModelKind;
+    Dto: ConfigError.Dto;
+    Unit: ConfigError.Unit;
+    PromptCaching: ConfigError.PromptCaching;
+    RateLimitPolicy: ConfigError.RateLimitPolicy;
+    Reasoning: ConfigError.Reasoning;
+    RetryPolicy: ConfigError.RetryPolicy;
+    EvalCase: ConfigError.EvalCase;
+    RagIndex: ConfigError.RagIndex;
+    WorkflowLoad: ConfigError.WorkflowLoad;
+    ApplicationLoad: ConfigError.ApplicationLoad;
+    Tool: ConfigError.Tool;
+    Option: ConfigError.Option;
+}>;
+
+// @public
+export enum ConfigErrorKind {
+    // (undocumented)
+    ApplicationLoad = "application-load",
+    // (undocumented)
+    Component = "component",
+    // (undocumented)
+    Dto = "dto",
+    // (undocumented)
+    Environment = "environment",
+    // (undocumented)
+    EvalCase = "eval-case",
+    // (undocumented)
+    FlowSyntax = "flow-syntax",
+    // (undocumented)
+    GraphRules = "graph-rules",
+    // (undocumented)
+    ModelKind = "model-kind",
+    // (undocumented)
+    ModelProvider = "model-provider",
+    // (undocumented)
+    ModelSettings = "model-settings",
+    // (undocumented)
+    NoDefaultRouter = "no-default-router",
+    // (undocumented)
+    NotAWorkflowStart = "not-a-workflow-start",
+    // (undocumented)
+    Option = "option",
+    // (undocumented)
+    Profile = "profile",
+    // (undocumented)
+    Prompt = "prompt",
+    // (undocumented)
+    PromptCaching = "prompt-caching",
+    // (undocumented)
+    RagIndex = "rag-index",
+    // (undocumented)
+    RateLimitPolicy = "rate-limit-policy",
+    // (undocumented)
+    Reasoning = "reasoning",
+    // (undocumented)
+    RetryPolicy = "retry-policy",
+    // (undocumented)
+    Tool = "tool",
+    // (undocumented)
+    Unit = "unit",
+    // (undocumented)
+    WorkflowLoad = "workflow-load",
+    // (undocumented)
+    WorkingCalendar = "working-calendar"
+}
+
+// @public
 export interface ConfigSnapshot {
     // (undocumented)
     readonly firstSeen: string;
@@ -2122,14 +2233,26 @@ export const Decision: {
 export type DecisionAnswer = ChoiceAnswer | NoulAnswer | ScoreAnswer;
 
 // @public
-export class DecisionError extends AGBossError {
-    constructor(options: MessageErrorOptions);
+export type DecisionError = DecisionError.InvalidRequest | DecisionError.InvalidResponse;
+
+// @public
+export namespace DecisionError {
+    export type InvalidRequest = ErrorVariant<DecisionErrorKind.InvalidRequest, "model.decision.invalid-request">;
+    export type InvalidResponse = ErrorVariant<DecisionErrorKind.InvalidResponse, "model.decision.invalid-response">;
+}
+
+// @public
+export const DecisionError: FamilyConstructor<DecisionError, {
+    InvalidRequest: DecisionError.InvalidRequest;
+    InvalidResponse: DecisionError.InvalidResponse;
+}>;
+
+// @public
+export enum DecisionErrorKind {
     // (undocumented)
-    static readonly code: string;
+    InvalidRequest = "invalid-request",
     // (undocumented)
-    readonly code: "model.decision" | "model.decision.invalid-request" | "model.decision.invalid-response";
-    // (undocumented)
-    name: string;
+    InvalidResponse = "invalid-response"
 }
 
 // @public
@@ -2155,26 +2278,6 @@ export interface DecisionRequest<Q extends DecisionQuestions = DecisionQuestions
     readonly questions: Q;
     // (undocumented)
     readonly state: DecisionState;
-}
-
-// @public
-export class DecisionRequestError extends DecisionError {
-    // (undocumented)
-    static readonly code: "model.decision.invalid-request";
-    // (undocumented)
-    readonly code: typeof DecisionRequestError.code;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export class DecisionResponseError extends DecisionError {
-    // (undocumented)
-    static readonly code: "model.decision.invalid-response";
-    // (undocumented)
-    readonly code: typeof DecisionResponseError.code;
-    // (undocumented)
-    name: string;
 }
 
 // @public
@@ -2462,6 +2565,12 @@ export interface ErrorRecord {
 export function errorRecordOf(thrown: unknown): ErrorRecord;
 
 // @public
+export interface ErrorVariant<TKind extends string, TCode extends string = string> extends AGBossError {
+    readonly code: TCode;
+    readonly kind: TKind;
+}
+
+// @public
 export class EvalCaseInvalidError extends AGBossError {
     constructor(options: EvalCaseInvalidErrorOptions);
     // (undocumented)
@@ -2675,10 +2784,120 @@ export interface ExecutionEndEvent extends ExecutionEvent {
 }
 
 // @public
+export type ExecutionError = ExecutionError.CancelFenced | ExecutionError.LeaseLost | ExecutionError.Fenced | ExecutionError.ExternallyPaused | ExecutionError.AlreadyTerminal | ExecutionError.IncompatibleResume | ExecutionError.UnknownThread | ExecutionError.InvalidThreadId | ExecutionError.InvalidMintedId | ExecutionError.ThreadIdsExhausted | ExecutionError.ThreadOwnerMismatch | ExecutionError.DuplicateExecutionId | ExecutionError.ContextUnavailable | ExecutionError.SpendOutsideStep | ExecutionError.ApplicationStopping | ExecutionError.CompensationFailed | ExecutionError.OutputInvalid | ExecutionError.NothingToRecover | ExecutionError.RemoteChildLost;
+
+// @public
+export namespace ExecutionError {
+    export type AlreadyTerminal = ErrorVariant<ExecutionErrorKind.AlreadyTerminal, "execution.already-terminal">;
+    export type ApplicationStopping = ErrorVariant<ExecutionErrorKind.ApplicationStopping, "execution.application-stopping">;
+    export type CancelFenced = ErrorVariant<ExecutionErrorKind.CancelFenced, "execution.cancelled.fenced">;
+    export type CompensationFailed = ErrorVariant<ExecutionErrorKind.CompensationFailed, "execution.compensation-failed">;
+    export type ContextUnavailable = ErrorVariant<ExecutionErrorKind.ContextUnavailable, "execution.context-unavailable">;
+    export type DuplicateExecutionId = ErrorVariant<ExecutionErrorKind.DuplicateExecutionId, "execution.duplicate-execution-id"> & {
+        readonly generator: string;
+    };
+    export type ExternallyPaused = ErrorVariant<ExecutionErrorKind.ExternallyPaused, "execution.externally-paused">;
+    export type Fenced = ErrorVariant<ExecutionErrorKind.Fenced, "execution.lease-lost.fenced"> & {
+        readonly scopeKey: string;
+        readonly token: number;
+        readonly observedToken?: number | undefined;
+        readonly tenantId: string;
+        readonly leaseExecutionId: string;
+    };
+    export type IncompatibleResume = ErrorVariant<ExecutionErrorKind.IncompatibleResume, "execution.incompatible-resume">;
+    export type InvalidMintedId = ErrorVariant<ExecutionErrorKind.InvalidMintedId, "execution.invalid-minted-id"> & {
+        readonly generator: string;
+        readonly method: "newThreadId" | "newExecutionId";
+        readonly rule: KeyTextRule;
+    };
+    export type InvalidThreadId = ErrorVariant<ExecutionErrorKind.InvalidThreadId, "execution.invalid-thread-id"> & {
+        readonly rule: KeyTextRule;
+    };
+    export type LeaseLost = ErrorVariant<ExecutionErrorKind.LeaseLost, "execution.lease-lost"> & {
+        readonly rootExecutionId: string;
+    };
+    export type NothingToRecover = ErrorVariant<ExecutionErrorKind.NothingToRecover, "execution.nothing-to-recover">;
+    export type OutputInvalid = ErrorVariant<ExecutionErrorKind.OutputInvalid, "execution.output-invalid">;
+    export type RemoteChildLost = ErrorVariant<ExecutionErrorKind.RemoteChildLost, "execution.remote-child-lost">;
+    export type SpendOutsideStep = ErrorVariant<ExecutionErrorKind.SpendOutsideStep, "execution.spend-outside-step">;
+    export type ThreadIdsExhausted = ErrorVariant<ExecutionErrorKind.ThreadIdsExhausted, "execution.thread-ids-exhausted"> & {
+        readonly generator: string;
+        readonly tries: number;
+    };
+    export type ThreadOwnerMismatch = ErrorVariant<ExecutionErrorKind.ThreadOwnerMismatch, "execution.thread-owner-mismatch">;
+    export type UnknownThread = ErrorVariant<ExecutionErrorKind.UnknownThread, "execution.unknown-thread">;
+}
+
+// @public
+export const ExecutionError: FamilyConstructor<ExecutionError, {
+    CancelFenced: ExecutionError.CancelFenced;
+    LeaseLost: ExecutionError.LeaseLost;
+    Fenced: ExecutionError.Fenced;
+    ExternallyPaused: ExecutionError.ExternallyPaused;
+    AlreadyTerminal: ExecutionError.AlreadyTerminal;
+    IncompatibleResume: ExecutionError.IncompatibleResume;
+    UnknownThread: ExecutionError.UnknownThread;
+    InvalidThreadId: ExecutionError.InvalidThreadId;
+    InvalidMintedId: ExecutionError.InvalidMintedId;
+    ThreadIdsExhausted: ExecutionError.ThreadIdsExhausted;
+    ThreadOwnerMismatch: ExecutionError.ThreadOwnerMismatch;
+    DuplicateExecutionId: ExecutionError.DuplicateExecutionId;
+    ContextUnavailable: ExecutionError.ContextUnavailable;
+    SpendOutsideStep: ExecutionError.SpendOutsideStep;
+    ApplicationStopping: ExecutionError.ApplicationStopping;
+    CompensationFailed: ExecutionError.CompensationFailed;
+    OutputInvalid: ExecutionError.OutputInvalid;
+    NothingToRecover: ExecutionError.NothingToRecover;
+    RemoteChildLost: ExecutionError.RemoteChildLost;
+}>;
+
+// @public
 export interface ExecutionErrorEvent extends ExecutionEvent {
     readonly compensations: readonly CompensationRecord[];
     // (undocumented)
     readonly error: Error;
+}
+
+// @public
+export enum ExecutionErrorKind {
+    // (undocumented)
+    AlreadyTerminal = "already-terminal",
+    // (undocumented)
+    ApplicationStopping = "application-stopping",
+    // (undocumented)
+    CancelFenced = "cancel-fenced",
+    // (undocumented)
+    CompensationFailed = "compensation-failed",
+    // (undocumented)
+    ContextUnavailable = "context-unavailable",
+    // (undocumented)
+    DuplicateExecutionId = "duplicate-execution-id",
+    // (undocumented)
+    ExternallyPaused = "externally-paused",
+    // (undocumented)
+    Fenced = "fenced",
+    // (undocumented)
+    IncompatibleResume = "incompatible-resume",
+    // (undocumented)
+    InvalidMintedId = "invalid-minted-id",
+    // (undocumented)
+    InvalidThreadId = "invalid-thread-id",
+    // (undocumented)
+    LeaseLost = "lease-lost",
+    // (undocumented)
+    NothingToRecover = "nothing-to-recover",
+    // (undocumented)
+    OutputInvalid = "output-invalid",
+    // (undocumented)
+    RemoteChildLost = "remote-child-lost",
+    // (undocumented)
+    SpendOutsideStep = "spend-outside-step",
+    // (undocumented)
+    ThreadIdsExhausted = "thread-ids-exhausted",
+    // (undocumented)
+    ThreadOwnerMismatch = "thread-owner-mismatch",
+    // (undocumented)
+    UnknownThread = "unknown-thread"
 }
 
 // @public
@@ -3205,6 +3424,11 @@ export enum FailurePolicy {
 }
 
 // @public
+export type FamilyConstructor<TFamily extends AGBossError, TVariants extends Readonly<Record<string, AGBossError>>> = (abstract new (...args: never[]) => TFamily) & VariantConstructors<TVariants> & {
+    readonly code: string;
+};
+
+// @public
 export interface FencedEffectEvent extends NodeEvent {
     readonly holderInstanceId: string;
     // (undocumented)
@@ -3392,6 +3616,38 @@ export interface FileDefaults extends ModelFilesOptions {
     readonly redactionValues?: RedactionValues;
     readonly transcriptionMaxTokens?: number;
     readonly transcriptionModel?: string;
+}
+
+// @public
+export type FileError = FileError.Conflict | FileError.Refused | FileError.Unavailable;
+
+// @public
+export namespace FileError {
+    export type Conflict = ErrorVariant<FileErrorKind.Conflict, "files.conflict">;
+    export type Refused = ErrorVariant<FileErrorKind.Refused, "files.refused"> & {
+        readonly refusal: ModelFileRefusal;
+        readonly sizeBytes: Bytes;
+    };
+    export type Unavailable = ErrorVariant<FileErrorKind.Unavailable, "files.unavailable"> & {
+        readonly reason: ModelFileUnavailableReason;
+    };
+}
+
+// @public
+export const FileError: FamilyConstructor<FileError, {
+    Conflict: FileError.Conflict;
+    Refused: FileError.Refused;
+    Unavailable: FileError.Unavailable;
+}>;
+
+// @public
+export enum FileErrorKind {
+    // (undocumented)
+    Conflict = "conflict",
+    // (undocumented)
+    Refused = "refused",
+    // (undocumented)
+    Unavailable = "unavailable"
 }
 
 // @public
@@ -3875,6 +4131,37 @@ export interface GuardrailDefaults {
 export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 
 // @public
+export type GuardrailError = GuardrailError.Blocked | GuardrailError.Failed;
+
+// @public
+export namespace GuardrailError {
+    export type Blocked = PaidErrorVariant<GuardrailErrorKind.Blocked, "guardrail.blocked"> & {
+        readonly guardrail: string;
+        readonly refusal: string;
+        readonly key: string;
+        readonly probability: number;
+        readonly threshold: number;
+    };
+    export type Failed = PaidErrorVariant<GuardrailErrorKind.Failed, "guardrail.failed"> & {
+        readonly guardrail: string;
+    };
+}
+
+// @public
+export const GuardrailError: FamilyConstructor<GuardrailError, {
+    Blocked: GuardrailError.Blocked;
+    Failed: GuardrailError.Failed;
+}>;
+
+// @public
+export enum GuardrailErrorKind {
+    // (undocumented)
+    Blocked = "blocked",
+    // (undocumented)
+    Failed = "failed"
+}
+
+// @public
 export interface GuardrailHandler {
     readonly check: (text: string) => Promise<GuardrailVerdict> | GuardrailVerdict;
     readonly checkContent?: (content: GuardrailContent) => Promise<GuardrailVerdict> | GuardrailVerdict;
@@ -4101,6 +4388,68 @@ export interface HostContext {
     readonly pid: number;
     readonly platform: string;
     readonly runtimeVersion: string;
+}
+
+// @public
+export type IdempotencyError = IdempotencyError.KeyConflict | IdempotencyError.InvalidKey | IdempotencyError.InvalidName | IdempotencyError.FingerprintRequired | IdempotencyError.FingerprintNotJson | IdempotencyError.SecretKeyMissing | IdempotencyError.ResultTooLarge | IdempotencyError.StoreMismatch | IdempotencyError.OutsideTransaction | IdempotencyError.NestedRunOnce | IdempotencyError.ExternalCallInTransaction;
+
+// @public
+export namespace IdempotencyError {
+    export type ExternalCallInTransaction = ErrorVariant<IdempotencyErrorKind.ExternalCallInTransaction, "idempotency.external-call-in-transaction">;
+    export type FingerprintNotJson = ErrorVariant<IdempotencyErrorKind.FingerprintNotJson, "idempotency.fingerprint-not-json">;
+    export type FingerprintRequired = ErrorVariant<IdempotencyErrorKind.FingerprintRequired, "idempotency.fingerprint-required">;
+    export type InvalidKey = ErrorVariant<IdempotencyErrorKind.InvalidKey, "idempotency.invalid-key">;
+    export type InvalidName = ErrorVariant<IdempotencyErrorKind.InvalidName, "idempotency.invalid-name">;
+    export type KeyConflict = ErrorVariant<IdempotencyErrorKind.KeyConflict, "idempotency.key-conflict">;
+    export type NestedRunOnce = ErrorVariant<IdempotencyErrorKind.NestedRunOnce, "idempotency.nested-run-once">;
+    export type OutsideTransaction = ErrorVariant<IdempotencyErrorKind.OutsideTransaction, "idempotency.outside-transaction">;
+    export type ResultTooLarge = ErrorVariant<IdempotencyErrorKind.ResultTooLarge, "idempotency.result-too-large"> & {
+        readonly size: Bytes;
+        readonly maxResultSize: Bytes;
+    };
+    export type SecretKeyMissing = ErrorVariant<IdempotencyErrorKind.SecretKeyMissing, "idempotency.secret-key-missing">;
+    export type StoreMismatch = ErrorVariant<IdempotencyErrorKind.StoreMismatch, "idempotency.store-mismatch">;
+}
+
+// @public
+export const IdempotencyError: FamilyConstructor<IdempotencyError, {
+    KeyConflict: IdempotencyError.KeyConflict;
+    InvalidKey: IdempotencyError.InvalidKey;
+    InvalidName: IdempotencyError.InvalidName;
+    FingerprintRequired: IdempotencyError.FingerprintRequired;
+    FingerprintNotJson: IdempotencyError.FingerprintNotJson;
+    SecretKeyMissing: IdempotencyError.SecretKeyMissing;
+    ResultTooLarge: IdempotencyError.ResultTooLarge;
+    StoreMismatch: IdempotencyError.StoreMismatch;
+    OutsideTransaction: IdempotencyError.OutsideTransaction;
+    NestedRunOnce: IdempotencyError.NestedRunOnce;
+    ExternalCallInTransaction: IdempotencyError.ExternalCallInTransaction;
+}>;
+
+// @public
+export enum IdempotencyErrorKind {
+    // (undocumented)
+    ExternalCallInTransaction = "external-call-in-transaction",
+    // (undocumented)
+    FingerprintNotJson = "fingerprint-not-json",
+    // (undocumented)
+    FingerprintRequired = "fingerprint-required",
+    // (undocumented)
+    InvalidKey = "invalid-key",
+    // (undocumented)
+    InvalidName = "invalid-name",
+    // (undocumented)
+    KeyConflict = "key-conflict",
+    // (undocumented)
+    NestedRunOnce = "nested-run-once",
+    // (undocumented)
+    OutsideTransaction = "outside-transaction",
+    // (undocumented)
+    ResultTooLarge = "result-too-large",
+    // (undocumented)
+    SecretKeyMissing = "secret-key-missing",
+    // (undocumented)
+    StoreMismatch = "store-mismatch"
 }
 
 // @public
@@ -4825,6 +5174,111 @@ export function ledgerMarkOf(record: object): LedgerMark | undefined;
 export enum LedgerState {
     RecordedElsewhere = "recorded-elsewhere",
     Written = "written"
+}
+
+// @public
+export type LimitError = LimitError.Budget | LimitError.Deadline | LimitError.Items | LimitError.Steps | LimitError.Visits | LimitError.Depth | LimitError.Hops | LimitError.MeshLoop;
+
+// @public
+export namespace LimitError {
+    export type Budget = PaidErrorVariant<LimitErrorKind.Budget, "limit.budget"> & {
+        readonly path: readonly string[];
+        readonly spentUsd: number;
+    } & {
+        readonly budget: Pick<ComponentRecord, "name">;
+        readonly scope: BudgetScope;
+        readonly period?: BudgetPeriod | undefined;
+        readonly key: string;
+        readonly maxSpend: Usd;
+        readonly spent: Usd;
+    };
+    export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & {
+        readonly path: readonly string[];
+        readonly spentUsd: number;
+    } & {
+        readonly deadline: Milliseconds;
+        readonly deadlineAt: Date;
+    };
+    export type Depth = PaidErrorVariant<LimitErrorKind.Depth, "limit.depth"> & {
+        readonly path: readonly string[];
+        readonly spentUsd: number;
+    } & {
+        readonly workflow: string;
+        readonly limit: number;
+        readonly actual: number;
+    };
+    export type Hops = PaidErrorVariant<LimitErrorKind.Hops, "limit.hops"> & {
+        readonly path: readonly string[];
+        readonly spentUsd: number;
+    } & {
+        readonly entry: string;
+        readonly limit: number;
+        readonly actual: number;
+    };
+    export type Items = PaidErrorVariant<LimitErrorKind.Items, "limit.items"> & {
+        readonly path: readonly string[];
+        readonly spentUsd: number;
+    } & {
+        readonly node: string;
+        readonly limit: number;
+        readonly actual: number;
+    };
+    export type MeshLoop = PaidErrorVariant<LimitErrorKind.MeshLoop, "limit.mesh-loop"> & {
+        readonly path: readonly string[];
+        readonly spentUsd: number;
+    } & {
+        readonly entry: string;
+        readonly limit: number;
+        readonly actual: number;
+    };
+    export type Steps = PaidErrorVariant<LimitErrorKind.Steps, "limit.steps"> & {
+        readonly path: readonly string[];
+        readonly spentUsd: number;
+    } & {
+        readonly workflow: string;
+        readonly limit: number;
+        readonly actual: number;
+    };
+    export type Visits = PaidErrorVariant<LimitErrorKind.Visits, "limit.visits"> & {
+        readonly path: readonly string[];
+        readonly spentUsd: number;
+    } & {
+        readonly nodeId: string;
+        readonly limit: number;
+        readonly actual: number;
+    };
+}
+
+// @public
+export const LimitError: FamilyConstructor<LimitError, {
+    Budget: LimitError.Budget;
+    Deadline: LimitError.Deadline;
+    Items: LimitError.Items;
+    Steps: LimitError.Steps;
+    Visits: LimitError.Visits;
+    Depth: LimitError.Depth;
+    Hops: LimitError.Hops;
+    MeshLoop: LimitError.MeshLoop;
+}>;
+
+// @public
+export enum LimitErrorKind {
+    // (undocumented)
+    Budget = "budget",
+    // (undocumented)
+    Deadline = "deadline",
+    // (undocumented)
+    Depth = "depth",
+    // (undocumented)
+    Hops = "hops",
+    // (undocumented)
+    Items = "items",
+    // (undocumented)
+    MeshLoop = "mesh-loop",
+    // (undocumented)
+    Steps = "steps",
+    // (undocumented)
+    Visits = "visits"
 }
 
 // @public
@@ -5912,6 +6366,52 @@ export interface OutboundCallClosedLease {
 }
 
 // @public
+export type OutboundCallError = OutboundCallError.InFlight | OutboundCallError.Superseded | OutboundCallError.Unreconciled | OutboundCallError.ResultNotStored | OutboundCallError.PayloadTooLarge | OutboundCallError.Unmasked | OutboundCallError.InvalidRecovery;
+
+// @public
+export namespace OutboundCallError {
+    export type InFlight = ErrorVariant<OutboundCallErrorKind.InFlight, "outbound-call.in-flight">;
+    export type InvalidRecovery = ErrorVariant<OutboundCallErrorKind.InvalidRecovery, "outbound-call.invalid-recovery">;
+    export type PayloadTooLarge = ErrorVariant<OutboundCallErrorKind.PayloadTooLarge, "outbound-call.payload-too-large"> & {
+        readonly size: Bytes;
+        readonly maxPayloadSize: Bytes;
+    };
+    export type ResultNotStored = ErrorVariant<OutboundCallErrorKind.ResultNotStored, "outbound-call.result-not-stored">;
+    export type Superseded = ErrorVariant<OutboundCallErrorKind.Superseded, "outbound-call.superseded">;
+    export type Unmasked = ErrorVariant<OutboundCallErrorKind.Unmasked, "outbound-call.unmasked">;
+    export type Unreconciled = ErrorVariant<OutboundCallErrorKind.Unreconciled, "outbound-call.unreconciled">;
+}
+
+// @public
+export const OutboundCallError: FamilyConstructor<OutboundCallError, {
+    InFlight: OutboundCallError.InFlight;
+    Superseded: OutboundCallError.Superseded;
+    Unreconciled: OutboundCallError.Unreconciled;
+    ResultNotStored: OutboundCallError.ResultNotStored;
+    PayloadTooLarge: OutboundCallError.PayloadTooLarge;
+    Unmasked: OutboundCallError.Unmasked;
+    InvalidRecovery: OutboundCallError.InvalidRecovery;
+}>;
+
+// @public
+export enum OutboundCallErrorKind {
+    // (undocumented)
+    InFlight = "in-flight",
+    // (undocumented)
+    InvalidRecovery = "invalid-recovery",
+    // (undocumented)
+    PayloadTooLarge = "payload-too-large",
+    // (undocumented)
+    ResultNotStored = "result-not-stored",
+    // (undocumented)
+    Superseded = "superseded",
+    // (undocumented)
+    Unmasked = "unmasked",
+    // (undocumented)
+    Unreconciled = "unreconciled"
+}
+
+// @public
 export interface OutboundCallEvent extends NodeEvent {
     // (undocumented)
     readonly attempt: number;
@@ -6429,6 +6929,21 @@ export interface Outputs {
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
 // @public
+export interface PaidErrorVariant<TKind extends string, TCode extends string = string> extends ErrorVariant<TKind, TCode> {
+    // (undocumented)
+    readonly spend: CostReport;
+    // (undocumented)
+    readonly usage: readonly UsageRecord[];
+}
+
+// @public
+export type PaidFacts<TVariant extends AGBossError> = TVariant extends {
+    readonly usage: readonly UsageRecord[];
+} ? {
+    readonly usage?: readonly UsageRecord[];
+} : unknown;
+
+// @public
 export class PaidStepError extends AGBossError {
     constructor(options: PaidStepErrorOptions);
     // (undocumented)
@@ -6635,6 +7150,83 @@ export abstract class PausedExecutionRepository {
     abstract save(paused: PausedExecution): Promise<void>;
     abstract setAsideNotices(claim: PauseNoticeClaim, at: Date, problem: string): Promise<boolean>;
     abstract setAsideStaleNoticesBefore(writtenBefore: Date, at: Date, problem: string, limit: number): Promise<readonly SetAsideMailbox[]>;
+}
+
+// @public
+export type PauseError = PauseError.NotPaused | PauseError.UnknownPause | PauseError.Closed | PauseError.WrongRespondent | PauseError.PermissionDenied | PauseError.EscalationLimitExceeded | PauseError.IncompatibleTarget | PauseError.UninterpretableReply | PauseError.ChannelInterpreterMissing | PauseError.ExpiryHandlerFailed | PauseError.WorkingCalendar | PauseError.UpdateContended | PauseError.StepKeyMismatch | PauseError.InvalidTimeout;
+
+// @public
+export namespace PauseError {
+    export type ChannelInterpreterMissing = ErrorVariant<PauseErrorKind.ChannelInterpreterMissing, "pause.no-reply-interpreter"> & {
+        readonly channel: string;
+    };
+    export type Closed = ErrorVariant<PauseErrorKind.Closed, "pause.closed"> & {
+        readonly reason: string;
+    };
+    export type EscalationLimitExceeded = ErrorVariant<PauseErrorKind.EscalationLimitExceeded, "pause.escalation-limit-exceeded">;
+    export type ExpiryHandlerFailed = ErrorVariant<PauseErrorKind.ExpiryHandlerFailed, "pause.expiry-handler"> & {
+        readonly channel: string;
+    };
+    export type IncompatibleTarget = ErrorVariant<PauseErrorKind.IncompatibleTarget, "pause.incompatible-target">;
+    export type InvalidTimeout = ErrorVariant<PauseErrorKind.InvalidTimeout, "pause.invalid-timeout">;
+    export type NotPaused = ErrorVariant<PauseErrorKind.NotPaused, "pause.not-paused">;
+    export type PermissionDenied = ErrorVariant<PauseErrorKind.PermissionDenied, "pause.permission-denied">;
+    export type StepKeyMismatch = ErrorVariant<PauseErrorKind.StepKeyMismatch, "pause.step-key-mismatch">;
+    export type UninterpretableReply = ErrorVariant<PauseErrorKind.UninterpretableReply, "pause.uninterpretable-reply">;
+    export type UnknownPause = ErrorVariant<PauseErrorKind.UnknownPause, "pause.unknown">;
+    export type UpdateContended = ErrorVariant<PauseErrorKind.UpdateContended, "pause.extension-contended">;
+    export type WorkingCalendar = ErrorVariant<PauseErrorKind.WorkingCalendar, "pause.working-calendar">;
+    export type WrongRespondent = ErrorVariant<PauseErrorKind.WrongRespondent, "pause.wrong-answerer">;
+}
+
+// @public
+export const PauseError: FamilyConstructor<PauseError, {
+    NotPaused: PauseError.NotPaused;
+    UnknownPause: PauseError.UnknownPause;
+    Closed: PauseError.Closed;
+    WrongRespondent: PauseError.WrongRespondent;
+    PermissionDenied: PauseError.PermissionDenied;
+    EscalationLimitExceeded: PauseError.EscalationLimitExceeded;
+    IncompatibleTarget: PauseError.IncompatibleTarget;
+    UninterpretableReply: PauseError.UninterpretableReply;
+    ChannelInterpreterMissing: PauseError.ChannelInterpreterMissing;
+    ExpiryHandlerFailed: PauseError.ExpiryHandlerFailed;
+    WorkingCalendar: PauseError.WorkingCalendar;
+    UpdateContended: PauseError.UpdateContended;
+    StepKeyMismatch: PauseError.StepKeyMismatch;
+    InvalidTimeout: PauseError.InvalidTimeout;
+}>;
+
+// @public
+export enum PauseErrorKind {
+    // (undocumented)
+    ChannelInterpreterMissing = "channel-interpreter-missing",
+    // (undocumented)
+    Closed = "closed",
+    // (undocumented)
+    EscalationLimitExceeded = "escalation-limit-exceeded",
+    // (undocumented)
+    ExpiryHandlerFailed = "expiry-handler-failed",
+    // (undocumented)
+    IncompatibleTarget = "incompatible-target",
+    // (undocumented)
+    InvalidTimeout = "invalid-timeout",
+    // (undocumented)
+    NotPaused = "not-paused",
+    // (undocumented)
+    PermissionDenied = "permission-denied",
+    // (undocumented)
+    StepKeyMismatch = "step-key-mismatch",
+    // (undocumented)
+    UninterpretableReply = "uninterpretable-reply",
+    // (undocumented)
+    UnknownPause = "unknown-pause",
+    // (undocumented)
+    UpdateContended = "update-contended",
+    // (undocumented)
+    WorkingCalendar = "working-calendar",
+    // (undocumented)
+    WrongRespondent = "wrong-respondent"
 }
 
 // @public
@@ -6999,6 +7591,32 @@ export class PiiDetectionFailedError extends PaidStepError {
     readonly code: typeof PiiDetectionFailedError.code;
     // (undocumented)
     name: string;
+}
+
+// @public
+export type PiiError = PiiError.Refused | PiiError.DetectionFailed;
+
+// @public
+export namespace PiiError {
+    export type DetectionFailed = PaidErrorVariant<PiiErrorKind.DetectionFailed, "pii.detection-failed">;
+    export type Refused = PaidErrorVariant<PiiErrorKind.Refused, "pii.refused"> & {
+        readonly piiKind: string;
+        readonly refusal: string;
+    };
+}
+
+// @public
+export const PiiError: FamilyConstructor<PiiError, {
+    Refused: PiiError.Refused;
+    DetectionFailed: PiiError.DetectionFailed;
+}>;
+
+// @public
+export enum PiiErrorKind {
+    // (undocumented)
+    DetectionFailed = "detection-failed",
+    // (undocumented)
+    Refused = "refused"
 }
 
 // @public
@@ -7668,6 +8286,44 @@ export interface ResolvedModelFiles {
     transcriptionModel: string;
     // (undocumented)
     views: FileView[];
+}
+
+// @public
+export type Result<T, E = AGBossError> = Result.Ok<T> | Result.Err<E>;
+
+// @public
+export namespace Result {
+    export interface Err<E> {
+        // (undocumented)
+        readonly error: E;
+        map(fn: (value: never) => unknown): Err<E>;
+        mapErr<F>(fn: (error: E) => F): Err<F>;
+        // (undocumented)
+        readonly ok: false;
+        unwrap(): never;
+        unwrapOr<U>(fallback: U): U;
+    }
+    export interface Ok<T> {
+        map<U>(fn: (value: T) => U): Ok<U>;
+        mapErr(fn: (error: never) => unknown): Ok<T>;
+        // (undocumented)
+        readonly ok: true;
+        unwrap(): T;
+        unwrapOr(fallback: unknown): T;
+        // (undocumented)
+        readonly value: T;
+    }
+}
+
+// @public
+export const Result: ResultFactory;
+
+// @public
+export interface ResultFactory {
+    err<E>(error: E): Result.Err<E>;
+    ok<T>(value: T): Result.Ok<T>;
+    try<T>(fn: () => T): TryOutcome<T, AGBossError>;
+    tryAll<T>(fn: () => T): TryOutcome<T, unknown>;
 }
 
 // @public
@@ -8529,6 +9185,154 @@ export interface StepDescriptor extends StepRecord {
 }
 
 // @public
+export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionTimeout | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.Guardrail | StepError.ToolBlocked | StepError.ToolTimeout | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
+
+// @public
+export namespace StepError {
+    export type Action = PaidErrorVariant<StepErrorKind.Action, "step.action"> & StepCoordinates & {
+        readonly action: string;
+    };
+    export type ActionTimeout = PaidErrorVariant<StepErrorKind.ActionTimeout, "step.action.timeout"> & StepCoordinates & {
+        readonly action: string;
+        readonly timeout: Milliseconds;
+    };
+    export type Agent = PaidErrorVariant<StepErrorKind.Agent, "step.agent"> & StepCoordinates & {
+        readonly agent: string;
+    };
+    export type AgentAnswerInvalid = PaidErrorVariant<StepErrorKind.AgentAnswerInvalid, "step.agent.invalid-answer"> & StepCoordinates & {
+        readonly agent: string;
+        readonly attempts: number;
+    };
+    export type Arbiter = PaidErrorVariant<StepErrorKind.Arbiter, "step.arbiter"> & StepCoordinates & {
+        readonly arbiter: string;
+    };
+    export type Child = PaidErrorVariant<StepErrorKind.Child, "step.child"> & StepCoordinates & {
+        readonly childExecutionId: string;
+        readonly workflow: WorkflowRecord;
+    };
+    export type ExternalTask = PaidErrorVariant<StepErrorKind.ExternalTask, "step.external-task"> & StepCoordinates & {
+        readonly externalTask: string;
+    };
+    export type FileMaskingFailed = PaidErrorVariant<StepErrorKind.FileMaskingFailed, "step.file-redaction-failed"> & StepCoordinates & {
+        readonly agent: string;
+        readonly reason: string;
+    };
+    export type Guardrail = PaidErrorVariant<StepErrorKind.Guardrail, "step.guardrail"> & StepCoordinates & {
+        readonly guardrail: string;
+    };
+    export type Memory = PaidErrorVariant<StepErrorKind.Memory, "step.memory"> & StepCoordinates & {
+        readonly memory: string;
+    };
+    export type ModelFileLimit = PaidErrorVariant<StepErrorKind.ModelFileLimit, "step.model-file-limit"> & StepCoordinates & {
+        readonly agent: string;
+        readonly limit: ModelFileLimit;
+        readonly actual: number | string;
+        readonly allowed: number | string;
+    };
+    export type PauseExpired = PaidErrorVariant<StepErrorKind.PauseExpired, "step.pause-expired"> & StepCoordinates & {
+        readonly step: string;
+    };
+    export type QualityGate = PaidErrorVariant<StepErrorKind.QualityGate, "step.agent.quality-gate"> & StepCoordinates & {
+        readonly agent: string;
+        readonly rejections: readonly JudgeRejection[];
+        readonly retries: number;
+    };
+    export type QuorumNotReached = PaidErrorVariant<StepErrorKind.QuorumNotReached, "step.quorum"> & StepCoordinates & {
+        readonly launch: string;
+        readonly min?: number | undefined;
+        readonly counted: number;
+        readonly reason: string;
+        readonly expired: readonly string[];
+    };
+    export type RerankFailed = PaidErrorVariant<StepErrorKind.RerankFailed, "step.rerank-failed"> & StepCoordinates & {
+        readonly rag: string;
+        readonly reranker: string;
+    };
+    export type Router = PaidErrorVariant<StepErrorKind.Router, "step.router"> & StepCoordinates & {
+        readonly router: string;
+    };
+    export type RouterDecision = PaidErrorVariant<StepErrorKind.RouterDecision, "step.router.invalid-decision"> & StepCoordinates & {
+        readonly router: string;
+        readonly reason: string;
+    };
+    export type ToolBlocked = PaidErrorVariant<StepErrorKind.ToolBlocked, "step.tool-blocked"> & StepCoordinates & {
+        readonly agent: string;
+        readonly tool: string;
+        readonly interceptor: string;
+        readonly reason: string;
+    };
+    export type ToolTimeout = PaidErrorVariant<StepErrorKind.ToolTimeout, "step.tool-timeout"> & StepCoordinates & {
+        readonly tool: string;
+        readonly timeout: Milliseconds;
+    };
+}
+
+// @public
+export const StepError: FamilyConstructor<StepError, {
+    Agent: StepError.Agent;
+    AgentAnswerInvalid: StepError.AgentAnswerInvalid;
+    QualityGate: StepError.QualityGate;
+    Action: StepError.Action;
+    ActionTimeout: StepError.ActionTimeout;
+    Router: StepError.Router;
+    RouterDecision: StepError.RouterDecision;
+    ExternalTask: StepError.ExternalTask;
+    PauseExpired: StepError.PauseExpired;
+    Arbiter: StepError.Arbiter;
+    QuorumNotReached: StepError.QuorumNotReached;
+    Child: StepError.Child;
+    Guardrail: StepError.Guardrail;
+    ToolBlocked: StepError.ToolBlocked;
+    ToolTimeout: StepError.ToolTimeout;
+    RerankFailed: StepError.RerankFailed;
+    Memory: StepError.Memory;
+    ModelFileLimit: StepError.ModelFileLimit;
+    FileMaskingFailed: StepError.FileMaskingFailed;
+}>;
+
+// @public
+export enum StepErrorKind {
+    // (undocumented)
+    Action = "action",
+    // (undocumented)
+    ActionTimeout = "action-timeout",
+    // (undocumented)
+    Agent = "agent",
+    // (undocumented)
+    AgentAnswerInvalid = "agent-answer-invalid",
+    // (undocumented)
+    Arbiter = "arbiter",
+    // (undocumented)
+    Child = "child",
+    // (undocumented)
+    ExternalTask = "external-task",
+    // (undocumented)
+    FileMaskingFailed = "file-masking-failed",
+    // (undocumented)
+    Guardrail = "guardrail",
+    // (undocumented)
+    Memory = "memory",
+    // (undocumented)
+    ModelFileLimit = "model-file-limit",
+    // (undocumented)
+    PauseExpired = "pause-expired",
+    // (undocumented)
+    QualityGate = "quality-gate",
+    // (undocumented)
+    QuorumNotReached = "quorum-not-reached",
+    // (undocumented)
+    RerankFailed = "rerank-failed",
+    // (undocumented)
+    Router = "router",
+    // (undocumented)
+    RouterDecision = "router-decision",
+    // (undocumented)
+    ToolBlocked = "tool-blocked",
+    // (undocumented)
+    ToolTimeout = "tool-timeout"
+}
+
+// @public
 export class StepFailedError extends PaidStepError {
     constructor(options: StepFailedErrorOptions);
     // (undocumented)
@@ -9329,6 +10133,9 @@ export interface Transitions<THead extends PathHead> {
     toWorkflow<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<TClass>, THead>;
 }
 
+// @public
+export type TryOutcome<T, E> = [T] extends [never] ? Result<never, E> : T extends PromiseLike<infer U> ? Promise<Result<U, E>> : Result<T, E>;
+
 // @public (undocumented)
 export interface Turn {
     // (undocumented)
@@ -9489,6 +10296,34 @@ export interface UsageRecord extends TokenUsage {
 }
 
 // @public
+export type ValidationError = ValidationError.DtoInvalid | ValidationError.TenantRequired;
+
+// @public
+export namespace ValidationError {
+    export type DtoInvalid = ErrorVariant<ValidationErrorKind.DtoInvalid, "validation.dto-invalid"> & {
+        readonly dto: string;
+        readonly issues: readonly DtoIssue[];
+    };
+    export type TenantRequired = ErrorVariant<ValidationErrorKind.TenantRequired, "validation.tenant-required"> & {
+        readonly operation: string;
+    };
+}
+
+// @public
+export const ValidationError: FamilyConstructor<ValidationError, {
+    DtoInvalid: ValidationError.DtoInvalid;
+    TenantRequired: ValidationError.TenantRequired;
+}>;
+
+// @public
+export enum ValidationErrorKind {
+    // (undocumented)
+    DtoInvalid = "dto-invalid",
+    // (undocumented)
+    TenantRequired = "tenant-required"
+}
+
+// @public
 export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
 
 // @public
@@ -9533,10 +10368,34 @@ export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TD
 export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
 
 // @public
+export interface VariantCommon {
+    // (undocumented)
+    readonly cause?: unknown;
+    readonly details?: ErrorDetails;
+    readonly message?: string;
+}
+
+// @public
+export type VariantConstructor<TVariant extends AGBossError> = (Partial<VariantOptions<TVariant>> extends VariantOptions<TVariant> ? new (options?: VariantOptions<TVariant>) => TVariant : new (options: VariantOptions<TVariant>) => TVariant) & {
+    readonly code: string;
+};
+
+// @public
+export type VariantConstructors<TVariants extends Readonly<Record<string, AGBossError>>> = {
+    readonly [TName in keyof TVariants]: VariantConstructor<TVariants[TName]>;
+};
+
+// @public
+export type VariantFacts<TVariant extends AGBossError> = Omit<TVariant, keyof AGBossError | "kind" | "spend" | "usage">;
+
+// @public
 export type VariantOf<TValue> = TValue extends unknown ? {
     readonly variant: DtoClass<TValue>;
     readonly value: TValue;
 } : never;
+
+// @public
+export type VariantOptions<TVariant extends AGBossError> = VariantFacts<TVariant> & PaidFacts<TVariant> & VariantCommon;
 
 // @public
 export interface VersionScore {
@@ -10194,6 +11053,122 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "agents".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "MODEL_MAX".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "ALL".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "GraphRules".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "FlowSyntax".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "NotAWorkflowStart".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "WorkingCalendar".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Component".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Prompt".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "NoDefaultRouter".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Environment".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Profile".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "ModelProvider".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "ModelSettings".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "ModelKind".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Dto".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Unit".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "PromptCaching".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "RateLimitPolicy".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Reasoning".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "RetryPolicy".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "EvalCase".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "RagIndex".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "WorkflowLoad".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "ApplicationLoad".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Tool".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Option".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "InvalidRequest".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "InvalidResponse".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "KeyConflict".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "InvalidKey".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "InvalidName".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "FingerprintRequired".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "FingerprintNotJson".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "SecretKeyMissing".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "ResultTooLarge".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "StoreMismatch".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "OutsideTransaction".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "NestedRunOnce".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "ExternalCallInTransaction".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "InFlight".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "Superseded".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "Unreconciled".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "ResultNotStored".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "PayloadTooLarge".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "Unmasked".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "InvalidRecovery".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "DtoInvalid".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "TenantRequired".
+// src/core/error-families/family.ts - (ae-undocumented) Missing documentation for "usage".
+// src/core/error-families/family.ts - (ae-undocumented) Missing documentation for "spend".
+// src/core/error-families/family.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Budget".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Deadline".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Items".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Steps".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Visits".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Depth".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Hops".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "MeshLoop".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Blocked".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Failed".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Refused".
+// src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "DetectionFailed".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "NotPaused".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "UnknownPause".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "Closed".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "WrongRespondent".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "PermissionDenied".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "EscalationLimitExceeded".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "IncompatibleTarget".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "UninterpretableReply".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "ChannelInterpreterMissing".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "ExpiryHandlerFailed".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "WorkingCalendar".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "UpdateContended".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "StepKeyMismatch".
+// src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "InvalidTimeout".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Conflict".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Refused".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Unavailable".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "CancelFenced".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "LeaseLost".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "Fenced".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "ExternallyPaused".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "AlreadyTerminal".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "IncompatibleResume".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "UnknownThread".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "InvalidThreadId".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "InvalidMintedId".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "ThreadIdsExhausted".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "ThreadOwnerMismatch".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "DuplicateExecutionId".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "ContextUnavailable".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "SpendOutsideStep".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "ApplicationStopping".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "CompensationFailed".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "OutputInvalid".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "NothingToRecover".
+// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "RemoteChildLost".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Agent".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "AgentAnswerInvalid".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "QualityGate".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Action".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ActionTimeout".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Router".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "RouterDecision".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ExternalTask".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "PauseExpired".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Arbiter".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "QuorumNotReached".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Child".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Guardrail".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ToolBlocked".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ToolTimeout".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "RerankFailed".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Memory".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ModelFileLimit".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "FileMaskingFailed".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "name".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "message".
@@ -10323,6 +11298,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onJudgeEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
+// src/core/result.ts - (ae-undocumented) Missing documentation for "ok".
+// src/core/result.ts - (ae-undocumented) Missing documentation for "value".
+// src/core/result.ts - (ae-undocumented) Missing documentation for "ok".
+// src/core/result.ts - (ae-undocumented) Missing documentation for "error".
 // src/dto/errors.ts - (ae-undocumented) Missing documentation for "issues".
 // src/dto/errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/dto/errors.ts - (ae-undocumented) Missing documentation for "code".
@@ -11377,15 +12356,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "Chat".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "Decisions".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "kind".

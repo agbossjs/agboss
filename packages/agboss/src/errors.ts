@@ -139,14 +139,7 @@ export {
   ThreadOwnerError,
   UnknownThreadError,
 } from "./core/errors.js";
-export {
-  DecisionError,
-  DecisionRequestError,
-  DecisionResponseError,
-  ModelKind,
-  ModelKindError,
-  type ModelKindErrorOptions,
-} from "./llm/decision-errors.js";
+export { ModelKind, ModelKindError, type ModelKindErrorOptions } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
 export {
   SyncWorkRequiredError,

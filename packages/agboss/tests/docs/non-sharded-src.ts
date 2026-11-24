@@ -320,6 +320,19 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/components/runtime.ts"],
   ),
   ...reviewed("the application's configuration reading: no money decision", ["src/config/**"]),
+  ...reviewed(
+    "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard of `run-errors.ts`, both in the takeover shard",
+    [
+      "src/core/error-families/config-errors.ts",
+      "src/core/error-families/effect-errors.ts",
+      "src/core/error-families/limit-errors.ts",
+      "src/core/error-families/pause-errors.ts",
+      "src/core/error-families/remote-errors.ts",
+      "src/core/error-families/step-errors.ts",
+      "src/core/error-families/store-errors.ts",
+    ],
+  ),
+  ...reviewed("`Result`: a utility of the caller's, no money decision", ["src/core/result.ts"]),
   ...reviewed("core types, hooks and the observers' manager: no money decision", [
     "src/core/error-record.ts",
     "src/core/hook-result.ts",

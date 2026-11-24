@@ -3,6 +3,7 @@ import { CompensationFailedError } from "../compensation.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { codeOfErrorClass, errorMatchOf, type ErrorRecord } from "../../core/error-record.js";
+import { isHandOverRecord } from "../../core/error-families/run-errors.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import { EdgeKind, type FlowEdge } from "../analyse/flow-graph.js";
@@ -231,7 +232,7 @@ export function errorHandlerOf(
   exits: Pick<NodeExits, "errors">,
   record: ErrorRecord,
 ): FlowEdge | undefined {
-  if (record.code === CompensationFailedError.code) return undefined;
+  if (record.code === CompensationFailedError.code || isHandOverRecord(record)) return undefined;
   let best: { readonly edge: FlowEdge; readonly rank: readonly number[] } | undefined;
   for (const edge of exits.errors) {
     if (edge.error === undefined) continue;
