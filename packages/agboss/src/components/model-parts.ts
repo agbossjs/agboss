@@ -14,6 +14,8 @@ import { modelResolverOf, type ModelResolver } from "../models/model-resolver.js
 import type { WorkflowDefaults, WorkflowOptions } from "../flow/decorators/workflow.js";
 import type { Class, Provider } from "./injection.js";
 import { componentOf } from "./metadata.js";
+import { decisionTargetOfWorkflow } from "./decision-target.js";
+import type { DecisionTargetOf } from "./decision-model.js";
 import { rerankerModelsOf, rerankerPromptsOf } from "./rag-reranker.js";
 import { arbiterPromptsOf } from "../flow/runtime/launch/arbiter-prompts.js";
 import type { PromptLoader } from "./prompt-render.js";
@@ -131,7 +133,7 @@ export const resolverOf = (
 interface WorkflowModelParts {
   readonly owner:
     { readonly providers?: readonly Provider[]; readonly modelProvider?: Class } | undefined;
-  readonly bundle: Pick<WorkflowMeta, "modelCascade">;
+  readonly bundle: Pick<WorkflowMeta, "name" | "modelCascade">;
   readonly agents: readonly AgentMeta[];
   readonly config: WorkflowModels["config"];
   readonly routers: WorkflowModels["routers"];
@@ -146,7 +148,7 @@ interface WorkflowModelParts {
 export const workflowModelPartsOf = (
   parts: WorkflowModelParts,
   users: Omit<ModelUsers, "rerankers"> & { readonly rags: Parameters<typeof rerankerModelsOf>[0] },
-): ReturnType<typeof modelPartsOf> => {
+): ReturnType<typeof modelPartsOf> & { readonly decisionTargetOf: DecisionTargetOf } => {
   const { owner, bundle, agents, config, routers, graph, resolver, modelPrompts } = parts;
   const { rags, ...rest } = users;
   // every model through its cascade; a model that resolves to nothing fails the assembly here
@@ -155,17 +157,20 @@ export const workflowModelPartsOf = (
   const base = modelCascadeOf(bundle, agents);
   // the providers the components named and the cascade's own are all subject to the provider rules
   const cascade = { ...base, components: [...(base.components ?? []), ...resolver.providers()] };
-  return modelPartsOf(
-    owner,
-    { config, routers },
-    graph,
-    {
-      ...rest,
-      rerankers: rerankerModelsOf(rags, bundle.modelCascade ?? {}, modelPrompts.rerankerPrompts),
-      arbiters,
-    },
-    cascade,
-  );
+  return {
+    decisionTargetOf: decisionTargetOfWorkflow(bundle.name, base, config),
+    ...modelPartsOf(
+      owner,
+      { config, routers },
+      graph,
+      {
+        ...rest,
+        rerankers: rerankerModelsOf(rags, bundle.modelCascade ?? {}, modelPrompts.rerankerPrompts),
+        arbiters,
+      },
+      cascade,
+    ),
+  };
 };
 
 /** The config with every model resolved through its cascade (#1313). */

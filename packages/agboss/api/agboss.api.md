@@ -9,7 +9,6 @@ import { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
 import type { IncomingMessage } from 'node:http';
 import { inspect } from 'node:util';
-import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { TracerProvider } from '@opentelemetry/api';
@@ -2432,6 +2431,18 @@ export interface DecisionImage {
     };
     // (undocumented)
     readonly type: "image_url";
+}
+
+// @public
+export abstract class DecisionModel {
+    // (undocumented)
+    abstract decide<const Q extends DecisionQuestions>(request: DecisionRequest<Q>, options?: DecisionModelOptions): Promise<AnswersOf<Q>>;
+}
+
+// @public
+export interface DecisionModelOptions {
+    readonly model?: string;
+    readonly modelProvider?: Class;
 }
 
 // @public (undocumented)
@@ -9006,36 +9017,10 @@ export interface RouteMore<THead extends PathHead, TRemaining> {
 }
 
 // @public
-export interface RouteOption {
-    // (undocumented)
-    readonly description: string;
-    // (undocumented)
-    readonly name: string;
-}
-
-// @public
-export type RouteOutcome = {
-    readonly kind: "decided";
-    readonly decision: RouterDecision;
-    readonly usage?: UsageRecord;
-    readonly spent?: readonly UsageRecord[];
-} | {
-    readonly kind: "failed";
-    readonly reason: string;
-    readonly usage?: UsageRecord;
-    readonly spent?: readonly UsageRecord[];
-    readonly unknownOption?: string;
-    readonly cause?: unknown;
-};
-
-// @public
 export function Router(options: ModelRouterOptions): ModelRouterDecorator;
 
 // @public
 export function Router<const TDeps extends readonly Token[] = []>(options: CodeRouterOptions<TDeps>): CodeRouterDecorator<TDeps>;
-
-// @public
-export const ROUTER_FACTORY: InjectionToken<(name: string) => RouterEngine>;
 
 // @public
 export type RouterAnswerOf<TInstance> = GeneratedEntry<AGBossTypes.RouterAnswers, TInstance>;
@@ -9046,15 +9031,6 @@ export interface RouterDecided {
     readonly reason: string;
     // (undocumented)
     readonly route: string;
-}
-
-// @public (undocumented)
-export interface RouterDecision {
-    readonly confidence?: number;
-    // (undocumented)
-    readonly next: string;
-    // (undocumented)
-    readonly reason: string;
 }
 
 // @public
@@ -9086,23 +9062,6 @@ export interface RouterDefaults {
 
 // @public
 export type RouterEndEvent = EndEvent<RouterDecided>;
-
-// @public
-export interface RouterEngine {
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    readonly route: (request: RouteRequest) => Promise<RouteOutcome>;
-}
-
-// @public
-export interface RouteRequest {
-    // (undocumented)
-    readonly input: MessageContent;
-    readonly instructions?: string;
-    // (undocumented)
-    readonly options: readonly RouteOption[];
-}
 
 // @public
 export class RouterFailedError extends StepFailedError {
@@ -11853,6 +11812,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "send".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onReady".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onBeforeDestroy".
+// src/components/decision-model.ts - (ae-undocumented) Missing documentation for "decide".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "execute".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "ToolOptions".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
@@ -13234,15 +13194,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pii/pii-policy.decorator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/pii/pii-policy.decorator.ts - (ae-undocumented) Missing documentation for "rules".
 // src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "description".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "input".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "options".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "RouterDecision".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "next".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "reason".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
-// src/routers/types.ts - (ae-undocumented) Missing documentation for "route".
 // src/run/compaction.ts - (ae-undocumented) Missing documentation for "toTurn".
 // src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "code".
 // src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "code".

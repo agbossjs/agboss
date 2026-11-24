@@ -2,7 +2,7 @@ import { usd } from "../src/units/index.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { LimitExceededError } from "../src/graph/limits.js";
-import { BudgetScope, ROUTER_FACTORY, Tool, type RouterEngine } from "../src/index.js";
+import { BudgetScope, Decision, DecisionModel, Tool } from "../src/index.js";
 import { Text } from "../src/dto/index.js";
 import { ScriptedChatModel, type Reply } from "./fakes/scripted-model.js";
 import { Clock } from "./fixtures/test-workflow/test.workflow.js";
@@ -37,28 +37,26 @@ const paidDecision = () =>
     usage: { cost: paid.costUsd },
   });
 
-/** A paid tool: one `ROUTER_FACTORY` decision per call — its spend is the tool's (#280). */
+/** A paid tool: one `DecisionModel` decision per call — its spend is the tool's (#280). */
 @Tool({
   name: "paid-search-tool",
   description: "Paid search",
   input: SearchQuery,
   output: SearchResults,
-  deps: [ROUTER_FACTORY],
+  deps: [DecisionModel],
 })
 class PaidSearch {
-  private readonly ranker: RouterEngine;
-
-  constructor(routers: (name: string) => RouterEngine) {
-    this.ranker = routers("ranker");
-  }
+  constructor(private readonly decisions: DecisionModel) {}
 
   async execute(_input: SearchQuery): Promise<SearchResults> {
-    await this.ranker.route({
-      input: "3 results",
-      options: [
-        { name: "relevant", description: "the results answer the query" },
-        { name: "noise", description: "they do not" },
-      ],
+    await this.decisions.decide({
+      state: { text: "3 results" },
+      questions: {
+        route: Decision.choice("is it relevant?", {
+          relevant: "answers the query",
+          noise: "does not",
+        }),
+      },
     });
     return { text: "3 results" };
   }

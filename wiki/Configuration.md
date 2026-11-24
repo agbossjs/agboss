@@ -144,7 +144,7 @@ removed. See [Memory Management](Memory-Management).
 registry knows which it is. A `DecidedBy.Model` router without its own `model` uses it, its own
 `model` wins, `DecidedBy.Code` routers ignore it; a model router with no model anywhere fails
 assembly: `[model.missing-provider] <workflow> routers.main-router: names no model and no modelProvider is set …`
-(the model cascade's rule, as for an agent) — see [Routers](Routers). `ROUTER_FACTORY` routers and eval's judge use it
+(the model cascade's rule, as for an agent) — see [Routers](Routers). `DecisionModel` calls without a model and eval's judge use it
 too.
 
 ## `defaults.guardrail` — the model for guardrails

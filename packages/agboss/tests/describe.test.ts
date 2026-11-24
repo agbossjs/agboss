@@ -27,7 +27,7 @@ describe("describe a workflow", () => {
     const lines = after(describeWorkflow(greetings), "  greeter-agent  ");
 
     expect(
-      lines.some((l) => l.includes("· greet-tool (local) ← Greeter (GREETING, ROUTER_FACTORY)")),
+      lines.some((l) => l.includes("· greet-tool (local) ← Greeter (GREETING, DecisionModel)")),
     ).toBe(true);
     expect(lines.some((l) => l.includes("· read-file-tool (local)"))).toBe(true);
     expect(after(describeWorkflow(test), "  coder-agent  ")).toContain("    tools: none");

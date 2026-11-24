@@ -7,23 +7,22 @@ import {
   Injectable,
   InjectionToken,
   provide,
-  ROUTER_FACTORY,
+  DecisionModel,
   Tool,
 } from "../../../src/index.js";
 import { McpServer, McpServerClient } from "../../../src/mcp/index.js";
 import { Text } from "../../../src/dto/index.js";
-import type { RouterEngine } from "../../../src/routers/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
 import { starOf } from "../../fixtures/test-flow/star.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
 
 export const GREETING = new InjectionToken<string>("GREETING");
 
-@Injectable({ deps: [GREETING, ROUTER_FACTORY] })
+@Injectable({ deps: [GREETING, DecisionModel] })
 export class Greeter {
   constructor(
     readonly greeting: string,
-    readonly router: (name: string) => RouterEngine,
+    readonly decisions: DecisionModel,
   ) {}
   greet(name: string): string {
     return `${this.greeting}, ${name}`;

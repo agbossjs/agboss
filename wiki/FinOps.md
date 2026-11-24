@@ -20,7 +20,7 @@ keeps its `…Usd: number` fields.
 - **Tool costs**: what a tool spends on models through the framework is recorded as the tool's —
   `tool:<name>` — in the same loop as the agent's model calls, so it counts in the budget check
   before the next model call, in the budgets' counters and in a failed agent's spend. A decision a
-  tool's service makes through `ROUTER_FACTORY` during the call (job-scout's fit judge) is accounted
+  tool's service makes through `DecisionModel` during the call (job-scout's fit judge) is accounted
   this way, with the decision's model and exact cost; a knowledge-base search reports its retrieval
   cost under `rag:<name>` (`costSource: CostSource.Tool`).
 - **Services that are not models** (#280 S43): a `@Tool` or an `@Action` takes `SpendRecorder` in
@@ -64,7 +64,7 @@ export class WebSearchTool {
 }
 ```
 
-A decision made through `ROUTER_FACTORY` needs no recording — the framework accounts it:
+A decision made through `DecisionModel` needs no recording — the framework accounts it:
 
 <!-- snippet-context
 import { Text } from "@agboss/core/dto";
@@ -77,30 +77,28 @@ export class Rate {
 -->
 
 ```ts
-import { ROUTER_FACTORY, Tool, type RouterEngine } from "@agboss/core";
+import { Decision, DecisionModel, Tool } from "@agboss/core";
 
 @Tool({
   name: "exchange-rate-tool",
   description: "Today's rate, checked by a cheap decision model",
   input: RateQuery,
   output: Rate,
-  deps: [ROUTER_FACTORY],
+  deps: [DecisionModel],
 })
 export class ExchangeRate {
-  private readonly checker: RouterEngine;
-
-  constructor(routers: (name: string) => RouterEngine) {
-    this.checker = routers("rate-check");
-  }
+  constructor(private readonly decisions: DecisionModel) {}
 
   async execute({ pair }: RateQuery): Promise<Rate> {
-    // the decision's spend is recorded as tool:exchange-rate-tool
-    await this.checker.route({
-      input: `${pair} 3.71`,
-      options: [
-        { name: "plausible", description: "the rate is within a day's range" },
-        { name: "suspicious", description: "it is not" },
-      ],
+    // the decision's spend is recorded as tool:exchange-rate-tool, behind the budget check
+    await this.decisions.decide({
+      state: { text: `${pair} 3.71` },
+      questions: {
+        verdict: Decision.choice("is the rate plausible?", {
+          plausible: "the rate is within a day's range",
+          suspicious: "it is not",
+        }),
+      },
     });
     return { rate: `${pair} 3.71` };
   }

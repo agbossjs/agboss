@@ -71,7 +71,7 @@ describe("public names (#195)", () => {
     const root = surfaces.get(".") ?? new Map<string, string>();
 
     expect(pkg.deprecatedExports).toEqual({});
-    expect(root.get("RouterEngine")).toBe("routers/types.ts#RouterEngine");
+    expect(root.has("RouterEngine")).toBe(false); // internal since #1313
     expect(root.get("Router")).toBe("flow/decorators/router.ts#Router");
   });
 });

@@ -10,6 +10,7 @@ import { JudgeModel } from "../../components/judge-decorators.js";
 import { LiveJudgeModel } from "../../components/judge-call.js";
 import { ArbiterModel } from "../../flow/decorators/arbiter.js";
 import { LiveArbiterModel } from "../../flow/runtime/launch/arbiter-live.js";
+import { DecisionModel } from "../../components/decision-model.js";
 import { ROUTER_FACTORY } from "../../components/runtime.js";
 import { LiveSpendRecorder, SpendRecorder } from "../../components/spend-recorder.js";
 import type { RuntimeContexts } from "../../flow/context/runtime-contexts.js";
@@ -24,6 +25,11 @@ import type { UnitOptions } from "./unit-types.js";
 const noRouterFactory = new UnavailableValue(
   (dependant) =>
     `${dependant} injects ROUTER_FACTORY, which a unit runner does not have — override the class that uses it`,
+);
+
+const noDecisionModel = new UnavailableValue(
+  (dependant) =>
+    `${dependant} injects DecisionModel, which a unit runner does not have — override the class that uses it`,
 );
 
 /** What a runner adds to its container: values in place of classes (mocks), a list of what it created. */
@@ -43,6 +49,7 @@ export function unitContainer(
   const core = new Map<Token, unknown>([
     ...fencedEffects.core,
     [ROUTER_FACTORY, noRouterFactory],
+    [DecisionModel, noDecisionModel],
     ...contextValuesOf(contexts),
     [JudgeModel, new DependantValue((dependant) => new LiveJudgeModel(dependant))],
     [ArbiterModel, new DependantValue((dependant) => new LiveArbiterModel(dependant))],

@@ -12,15 +12,15 @@ import type { RouterEngine } from "../routers/index.js";
 import { z } from "zod";
 import { schemaOf } from "../dto/schema.js";
 import { defineTool, type AnyTool, type Tool } from "../tools/index.js";
+import { DecisionModel } from "./decision-model.js";
+import { liveCoreValuesOf } from "./live-core-values.js";
 import { accountedRouters } from "./accounted-router.js";
 import { ArbiterModel } from "../flow/decorators/arbiter.js";
-import { LiveArbiterModel } from "../flow/runtime/launch/arbiter-live.js";
-import { LiveJudgeModel } from "./judge-call.js";
-import { LiveSpendRecorder, SpendRecorder } from "./spend-recorder.js";
+import { SpendRecorder } from "./spend-recorder.js";
 import { JudgeModel } from "./judge-decorators.js";
 import { contextsOutsideExecution } from "../flow/context/runtime-contexts.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "./context-tokens.js";
-import { createContainer, DependantValue, type Container } from "./container/container.js";
+import { createContainer, type Container } from "./container/container.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
@@ -38,18 +38,13 @@ import { standaloneStorageEntriesOf } from "../storage/standalone-storage.js";
 
 /** Core services a component can depend on. */
 export const ROUTER_FACTORY = new InjectionToken<(name: string) => RouterEngine>("ROUTER_FACTORY");
-/** `deps: [JudgeModel]` in a `@Judge`: the model of the judge that is judging (#280). */
-const liveJudgeModel = new DependantValue((dependant) => new LiveJudgeModel(dependant));
-/** `deps: [ArbiterModel]` in an `@Arbiter`: the model of the arbiter that is judging (#1283). */
-const liveArbiterModel = new DependantValue((dependant) => new LiveArbiterModel(dependant));
-/** `deps: [SpendRecorder]`: what a tool or an action paid a service, into its step's spend (S43). */
-const liveSpendRecorder = new DependantValue((dependant) => new LiveSpendRecorder(dependant));
 export const CORE_TOKENS = [
   ROUTER_FACTORY,
   ...CONTEXT_TOKENS,
   JudgeModel,
   ArbiterModel,
   SpendRecorder,
+  DecisionModel,
   ComponentOptions,
 ];
 
@@ -124,9 +119,7 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
   const core = new Map<Token, unknown>([
     [ROUTER_FACTORY, accountedRouters(services.router)],
     ...contextValuesOf(contexts),
-    [JudgeModel, liveJudgeModel],
-    [ArbiterModel, liveArbiterModel],
-    [SpendRecorder, liveSpendRecorder],
+    ...liveCoreValuesOf(services),
   ]);
   for (const [token, instance] of serverInstances.get(bundle) ?? []) core.set(token, instance);
   // #890: no application's container (`agboss check`, a workflow on its own) has no fenced-effect store

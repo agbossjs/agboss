@@ -197,6 +197,7 @@ export {
 } from "./testing/vcr-check.js";
 export * from "./internal-a2a.js";
 export * from "./internal-run.js";
+export * from "./internal-routers.js";
 // assembly internals (#834): an app's and a workflow's dependencies, the observers' manager
 export * from "./app/app-deps.js";
 export type { GraphDeps } from "./graph/deps.js";

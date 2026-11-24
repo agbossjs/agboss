@@ -75,7 +75,7 @@ describe("#895: the leaked wiring and the inlined pieces are named by no public 
   const gone: Readonly<Record<string, string>> = {
     agboss: `SqlitePauseStore SqlitePauseQueryRepository SqlitePausedRunRepository SqlitePausedRunRows
       SqlitePauseRows SqlitePauseNoticeRows SqlitePauseScans StoredMailbox PlannedNotice ModelGateway
-      ChatModelSpec ChatModelUser DecideSpec DecisionSpec DecisionModel DecisionOutcome
+      ChatModelSpec ChatModelUser DecideSpec DecisionSpec RouterDecisionModel DecisionOutcome
       ReplyInterpreterInput TurnStore ConfigStore MemoryStore PauseAnswerEntry AnswerArgs TurnRecords
       TurnStoreRecordRepository AgentMeta RagBinding AgentToolClass QuestionRoleClass GuardrailFields
       PiiPolicyFields CompactionFields ToolInterceptorFields ChannelMeta ChannelRoleForm AutoDecision

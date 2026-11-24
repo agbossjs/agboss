@@ -186,6 +186,7 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly componentOptions?: ComponentOptions | undefined;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
+    readonly decisionTargetOf?: DecisionTargetOf;
     readonly graph: RuntimeGraph;
     readonly guardrails?: AssembledGuardrails;
     readonly hasFileStore?: boolean;
@@ -1503,6 +1504,58 @@ export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowService
 export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, resume: TreeResume, deps: AgentExecutionDeps<TName>, options?: ContinueOptions): Promise<AgentExecutionOutput>;
 
 // @public
+export interface RouteOption {
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly name: string;
+}
+
+// @public
+export type RouteOutcome = {
+    readonly kind: "decided";
+    readonly decision: RouterDecision;
+    readonly usage?: UsageRecord;
+    readonly spent?: readonly UsageRecord[];
+} | {
+    readonly kind: "failed";
+    readonly reason: string;
+    readonly usage?: UsageRecord;
+    readonly spent?: readonly UsageRecord[];
+    readonly unknownOption?: string;
+    readonly cause?: unknown;
+};
+
+// @public
+export const ROUTER_FACTORY: InjectionToken<(name: string) => RouterEngine>;
+
+// @public (undocumented)
+export interface RouterDecision {
+    readonly confidence?: number;
+    // (undocumented)
+    readonly next: string;
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export interface RouterEngine {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly route: (request: RouteRequest) => Promise<RouteOutcome>;
+}
+
+// @public
+export interface RouteRequest {
+    // (undocumented)
+    readonly input: MessageContent;
+    readonly instructions?: string;
+    // (undocumented)
+    readonly options: readonly RouteOption[];
+}
+
+// @public
 export interface RuleExplanation {
     readonly fix?: string;
     readonly means: string;
@@ -1683,6 +1736,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 export interface WorkflowServices {
     readonly container?: ContainerOptions;
     readonly contexts?: RuntimeContexts;
+    readonly decide?: DecisionService;
     readonly rerankInstructions?: (reranker: string) => string;
     readonly rerankModel?: (reranker: string, model: string, modelProvider?: string) => ModelBinding;
     readonly router: (name: string) => RouterEngine;
@@ -2016,6 +2070,15 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "topK".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "retrieve".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "description".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "input".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "options".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "RouterDecision".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "next".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "reason".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "route".
 // src/run/continue-run.ts - (ae-undocumented) Missing documentation for "ContinueOptions".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "turns".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "AgentExecutionOptions".

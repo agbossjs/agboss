@@ -1,3 +1,4 @@
+import { LiveDecisionModel } from "../../src/components/decision-model.js";
 import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { file } from "../../src/components/file.js";
 
@@ -6,7 +7,7 @@ import {
   Agent,
   Workflow,
   Injectable,
-  ROUTER_FACTORY,
+  DecisionModel,
   provide,
   ComponentError,
   Tool,
@@ -59,7 +60,9 @@ describe("components — assembly", () => {
   });
 
   it("AC1: a tool is testable with plain `new` and fakes — no container", async () => {
-    const tool = toolOf(new GreetTool(new Greeter("Hi", services.router)));
+    const tool = toolOf(
+      new GreetTool(new Greeter("Hi", new LiveDecisionModel("test", services.decide))),
+    );
 
     expect(await tool.invoke({ name: "you" })).toEqual({
       kind: "ok",
@@ -182,7 +185,7 @@ describe("components — errors at assembly", () => {
   it("AC3: instances are created once, dependencies before dependants", () => {
     const container = createContainer({
       modules: [{ owner: "x-workflow", providers: [Greeter, provide(GREETING, "Hey")] }],
-      core: new Map([[ROUTER_FACTORY, services.router]]),
+      core: new Map([[DecisionModel, new LiveDecisionModel("test", services.decide)]]),
     });
     const first = container.get(GreetTool);
 

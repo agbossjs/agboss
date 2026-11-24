@@ -112,10 +112,8 @@ export {
   type ScoreQuestion,
 } from "../llm/decisions.js";
 export type { ModelMessage, ShownContent, ShownModelMessage } from "../models/messages.js";
-export { ROUTER_FACTORY } from "../components/runtime.js";
+export { DecisionModel, type DecisionModelOptions } from "../components/decision-model.js";
 export { SpendRecorder, type ServiceSpend } from "../components/spend-recorder.js";
-/** What `ROUTER_FACTORY` makes: a model-backed router a service asks to route (not `@Router`). */
-export type { RouterEngine } from "../routers/index.js";
 export { ComponentError } from "../components/metadata.js";
 export { nameOf, type ComponentName } from "../components/name-of.js";
 export {

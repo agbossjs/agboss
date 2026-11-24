@@ -1886,7 +1886,7 @@ undos, automatic or a side path's, and the actions of the side path that took a 
 — that read the counters before that spend was in the ledger (one write after it was made, #727): within one tree every call counts the moment it is made,
 and the call that exhausts a budget aborts the in-flight calls of the parallel branches beside it
 (#338). A decision a
-tool's service makes through `ROUTER_FACTORY` is the tool's spend (`tool:<name>`). A paid service
+tool's service makes through `DecisionModel` is the tool's spend (`tool:<name>`). A paid service
 that is **not** a model is recorded with `SpendRecorder` (`deps: [SpendRecorder]`, in a `@Tool` or
 an `@Action`): the record joins the spend of the current tool call or step and counts in the same
 budgets. Called outside a step or a tool call, `record` throws `SpendOutsideStepError`

@@ -32,6 +32,7 @@ import type { ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";
 import type { Class } from "../components/injection.js";
+import { decisionServiceOf } from "../components/decision-target.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -77,6 +78,7 @@ export const servicesFor = (
   container: ContainerOptions,
 ): WorkflowServices => ({
   router: (name) => defaultRouterOf(name, bundle.config, gateway),
+  decide: decisionServiceOf(bundle, gateway),
   contexts,
   container,
   rerankModel: rerankerBindingOf(bundle.config, gateway),

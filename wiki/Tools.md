@@ -68,7 +68,7 @@ exceptions: the model sees `Tool error: …` and can recover.
 the constructor: `deps: [ExecutionContext]` gives `executionId`, `threadId`, `ownerId`, `signal`,
 `workflow` and the call's `step` (`callId`, `idempotencyKey`, …)
 ([Context and Authorization](Context-And-Authorization)). A tool's model spend through
-`ROUTER_FACTORY` is recorded as the tool's; what it pays a service that is not a model it records
+`DecisionModel` is recorded as the tool's; what it pays a service that is not a model it records
 with `deps: [SpendRecorder]` — `this.spendRecorder.record({ service, cost: usd(…) })`, counted in
 the money limits ([FinOps](FinOps)).
 

@@ -27,6 +27,7 @@ const specifierOf = (name: string, subpath: string): string =>
 /**
  * #261 PR 6: the observers and the cancel error are named after executions. The observers' manager
  * (`ObserverManager`, then `ExecutionObserverManager`) is internal since #834: no public name to move to.
+ * The 0.1.0 `Router` type of `/core` (`RouterEngine`) is internal since #1313: it has no public home.
  */
 const EXECUTION_NAMES: Readonly<Record<string, Move>> = {
   WorkflowObserver: { entry: "@agboss/core", name: "ExecutionObserver" },
@@ -36,7 +37,6 @@ const EXECUTION_NAMES: Readonly<Record<string, Move>> = {
 /** One name per meaning (#195): the public names that were renamed or left the root entry. */
 const RENAMED: ImportMoves["names"] = {
   "@agboss/core/core": {
-    Router: { entry: "@agboss/core", name: "RouterEngine" },
     ...EXECUTION_NAMES,
   },
   "@agboss/core": {

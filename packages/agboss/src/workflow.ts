@@ -17,6 +17,7 @@ import type { RouterEngine } from "./routers/index.js";
 import type { RuntimeGraph } from "./flow/runtime/graph-model.js";
 import type { ModelArbiterUse } from "./flow/runtime/launch/runtime-launch.js";
 import type { LoadedRouter } from "./flow/runtime/routers.js";
+import type { DecisionService, DecisionTargetOf } from "./components/decision-model.js";
 import type { ModelProviderType } from "./models/model-provider.decorator.js";
 import type { ContainerOptions } from "./components/container/container.js";
 import type { RuntimeContexts } from "./flow/context/runtime-contexts.js";
@@ -27,6 +28,8 @@ import type { AssembledReplyInterpreter } from "./channels/discovery.js";
 export interface WorkflowServices {
   /** A router on the workflow's default router model (Jev) — cheap decisions inside tools. */
   readonly router: (name: string) => RouterEngine;
+  /** The model behind the injectable `DecisionModel` (#1313): a call resolved through the cascade, the gateway, its cost in the outcome; absent: none. */
+  readonly decide?: DecisionService;
   /**
    * The application's context levels (#261, framework wiring — `RuntimeContexts` is internal,
    * `@agboss/core/internal`): its `ApplicationContext` (with the environment) and
@@ -67,6 +70,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
   /** Every router of the flow with its texts loaded. */
   readonly routers: readonly LoadedRouter[];
+  /** Where a `DecisionModel` call goes: the model and provider its options and the cascade resolve (#1313). */
+  readonly decisionTargetOf?: DecisionTargetOf;
   /** Its model arbiters (#279), by `name` and `model`: model uses like the routers'. */
   readonly arbiters?: readonly ModelArbiterUse[];
   /** The reply interpreters of its tree's channel roles (#267 PR 3). */
