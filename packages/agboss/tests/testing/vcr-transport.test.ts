@@ -35,12 +35,12 @@ afterAll(() => {
   vi.unstubAllEnvs();
 });
 
-const record = testWith(EchoApplication, { vcr: { ...cassette, mode: VcrMode.RECORD } });
-const replay = testWith(EchoApplication, { vcr: { ...cassette, mode: VcrMode.REPLAY } });
+const record = testWith(EchoApplication, { vcr: { ...cassette, mode: VcrMode.Record } });
+const replay = testWith(EchoApplication, { vcr: { ...cassette, mode: VcrMode.Replay } });
 /** The recording with the first agent's prompt changed since: written before its test opens it. */
 const stale = { cassetteName: "echo-stale", dir };
 const staleFile = cassetteFileOf(stale);
-const recordStale = testWith(EchoApplication, { vcr: { ...stale, mode: VcrMode.RECORD_STALE } });
+const recordStale = testWith(EchoApplication, { vcr: { ...stale, mode: VcrMode.RecordStale } });
 
 /** Both workflows once: one call of each agent. */
 async function runBoth(app: TestApp): Promise<unknown[]> {

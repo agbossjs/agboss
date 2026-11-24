@@ -186,7 +186,6 @@ export { mcpServerStub } from "../components/mcp-client.js";
 export { signedMeshEnvelope, type SignedMeshEnvelopeOptions } from "./mesh-envelope.js";
 
 export { VcrMode, type VcrConfig } from "./vcr.js";
-export * from "./vcr-deprecated.js";
 export type * from "./public-types.js";
 /** @beta Type machinery of the scripted turns and the matchers: not a contract, names may change. */
 export type * as TestingTypes from "./testing-types.js";

@@ -1282,7 +1282,7 @@ import { VcrMode, testWith } from "@agboss/core/testing";
 const test = testWith(JobScoutApplication, {
   vcr: {
     cassetteName: "onboarding", // __snapshots__/onboarding.cassette.json
-    mode: process.env.CI ? VcrMode.REPLAY : VcrMode.AUTO, // the default already
+    mode: process.env.CI ? VcrMode.Replay : VcrMode.Auto, // the default already
   },
 });
 
@@ -1304,14 +1304,14 @@ test("the scout answers a first message", async ({ app }) => {
    tool — fails with `CassetteMissingError` (`test.cassette-missing`): re-record it. A replay never
    creates a provider, a transport one included.
 
-Modes: `VcrMode.AUTO` (default outside CI) records a missing cassette and replays an existing one;
-`VcrMode.RECORD` always calls the models and rewrites the file; `VcrMode.REPLAY` (default under `CI`)
-only replays and fails without a cassette; `VcrMode.RECORD_STALE` replays and records anew only the
+Modes: `VcrMode.Auto` (default outside CI) records a missing cassette and replays an existing one;
+`VcrMode.Record` always calls the models and rewrites the file; `VcrMode.Replay` (default under `CI`)
+only replays and fails without a cassette; `VcrMode.RecordStale` replays and records anew only the
 stale components (below). The process variable `AGBOSS_VCR_MODE` — a member's value — overrides
-every test's own `mode` for one run: `AGBOSS_VCR_MODE=RECORD_STALE npm test`.
+every test's own `mode` for one run: `AGBOSS_VCR_MODE=record-stale npm test`.
 
-Under `CI` no test records against real models (#839, fail closed): a mode that would — `RECORD`,
-`RECORD_STALE`, or `AUTO` with no cassette, whether `vcr.mode` or `AGBOSS_VCR_MODE` set it — fails
+Under `CI` no test records against real models (#839, fail closed): a mode that would — `Record`,
+`RecordStale`, or `Auto` with no cassette, whether `vcr.mode` or `AGBOSS_VCR_MODE` set it — fails
 the test app's start with `[vcr.record-in-ci]` (a `TestSetupError` naming where the mode came from,
 `CI` and the remedy), before any model is asked. Record without `CI` and commit the cassette; a CI
 job that records on purpose sets `AGBOSS_VCR_RECORD_IN_CI=1` (or `true` — any other value is no
@@ -1327,7 +1327,7 @@ against the application before it answers a component:
 - the component's prompt or schema changed since it was recorded, or the application no longer has
   it → `StaleCassetteError` (`vcr.stale-cassette`; `file`, `component`, `changes` —
   `CassetteChange.Prompt` / `Schema` / `Removed`), its message naming the fix;
-- the fix is never a hand edit: `AGBOSS_VCR_MODE=RECORD_STALE npm test` re-records the stale
+- the fix is never a hand edit: `AGBOSS_VCR_MODE=record-stale npm test` re-records the stale
   components' calls (a model key needed for those only), keeps every other recording as it is, and
   writes the cassette again — review the new answers in its diff, then run the evals: they are new
   model behaviour;
@@ -1343,7 +1343,7 @@ criteria, a compaction that writes summaries by its prompt and strategy, a model
 by its instructions and answer, a PII policy that detects with a model by the kinds it asks for. A
 component decided by code calls no model and is never in a cassette. A **version 1** cassette (recorded before #395) has no
 hashes: it still replays, without stale detection, and prints a hint once per run (a Node warning,
-`vcr.v1-cassette`) — re-record it once with `AGBOSS_VCR_MODE=RECORD npm test`; `RECORD_STALE`
+`vcr.v1-cassette`) — re-record it once with `AGBOSS_VCR_MODE=record npm test`; `RecordStale`
 re-records a version 1 cassette whole. A recorded reply keeps its unparsable tool calls
 (`invalid_tool_calls`) too.
 

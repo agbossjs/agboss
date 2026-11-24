@@ -65,9 +65,9 @@ lookup-from-history --suite desk-eval-suite --from-execution <id> --dry-run`, #3
 `tests/desk/workflows/desk/desk-cassette.test.ts` replays a run of the desk from a VCR cassette
 (`tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json`) — no script, no key. It was
 recorded offline, through the same transport
-(`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`); after a
+(`AGBOSS_VCR_MODE=record npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`); after a
 change to the desk's prompt or schemas `npm run check` reports `[vcr.stale-cassette]`, and
-`AGBOSS_VCR_MODE=RECORD_STALE npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts` records
+`AGBOSS_VCR_MODE=record-stale npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts` records
 only what changed.
 
 ## A side effect made once: the credit desk's charge (#472, #500, #508)

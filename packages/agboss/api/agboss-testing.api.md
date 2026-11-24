@@ -1310,14 +1310,12 @@ export interface VcrConfig {
 }
 
 // @public
-enum VcrMode {
-    AUTO = "AUTO",
-    RECORD = "RECORD",
-    RECORD_STALE = "RECORD_STALE",
-    REPLAY = "REPLAY"
+export enum VcrMode {
+    Auto = "auto",
+    Record = "record",
+    RecordStale = "record-stale",
+    Replay = "replay"
 }
-export { VcrMode as VCRMode }
-export { VcrMode }
 
 // @public
 export class VirtualClock extends Clock {

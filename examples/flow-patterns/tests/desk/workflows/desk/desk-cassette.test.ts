@@ -7,7 +7,7 @@ import { DeskApplication } from "../../../../src/desk.application.js";
 /**
  * A recorded run (VCR, cassette version 2): the desk's two model calls, recorded once from the
  * offline transport
- * (`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`) and
+ * (`AGBOSS_VCR_MODE=record npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`) and
  * replayed here — no script, no key, no network. Each call keeps its component's prompt and schema
  * hashes, so `agboss check --cassettes` (in `npm run check`) fails once the desk's prompt changes.
  */
@@ -16,7 +16,7 @@ const test = testWith(DeskApplication, {
   vcr: {
     cassetteName: "desk-lookup",
     dir: "tests/desk/workflows/desk/__snapshots__",
-    mode: VcrMode.REPLAY,
+    mode: VcrMode.Replay,
   },
 });
 

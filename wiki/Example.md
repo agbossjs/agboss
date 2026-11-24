@@ -141,9 +141,9 @@ npm test
   (#397 PR 5) writes into the suite.
   `tests/desk/workflows/desk/desk-cassette.test.ts` replays the desk from a [VCR](Testing#vcr--recorded-runs) cassette,
   `tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json`, recorded offline through the same transport
-  (`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`, #439); `npm run check` runs
+  (`AGBOSS_VCR_MODE=record npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`, #439); `npm run check` runs
   `agboss check --cassettes` on the desk, so a changed prompt or schema is `[vcr.stale-cassette]`
-  until `AGBOSS_VCR_MODE=RECORD_STALE` records what changed.
+  until `AGBOSS_VCR_MODE=record-stale` records what changed.
 - **`src/approvals/`** — two approvals at once ([Pauses](Pauses), #267): `offsite-booking-workflow`
   launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role

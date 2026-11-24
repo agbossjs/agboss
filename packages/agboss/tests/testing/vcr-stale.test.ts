@@ -1,7 +1,7 @@
 /**
  * #395 PR 4: cassette v2 — every interaction keeps its component and that component's
  * `promptHash` / `schemaHash`; a replay of a component that changed since is a
- * `StaleCassetteError` (`vcr.stale-cassette`), `VcrMode.RECORD_STALE` (or `AGBOSS_VCR_MODE`)
+ * `StaleCassetteError` (`vcr.stale-cassette`), `VcrMode.RecordStale` (or `AGBOSS_VCR_MODE`)
  * records only the stale components anew, a version 1 cassette still replays with a hint, and
  * `checkCassettes` (`agboss check --cassettes`) gives the same verdict without a test.
  */
@@ -79,10 +79,10 @@ const withChangedAgent = (content: StoredCassette): StoredCassette => ({
 const dir = mkdtempSync(join(tmpdir(), "vcr-stale-"));
 const cassette = { cassetteName: "desk", dir };
 const file = cassetteFileOf(cassette);
-const replay = testWith(DeskApplication, { vcr: { ...cassette, mode: VcrMode.REPLAY } });
+const replay = testWith(DeskApplication, { vcr: { ...cassette, mode: VcrMode.Replay } });
 /** The same recording with the agent changed since: written before each test opens it. */
 const staleCassette = { cassetteName: "desk-stale", dir };
-const replayStale = testWith(DeskApplication, { vcr: { ...staleCassette, mode: VcrMode.REPLAY } });
+const replayStale = testWith(DeskApplication, { vcr: { ...staleCassette, mode: VcrMode.Replay } });
 
 beforeEach(async () => {
   rmSync(join(dir, "nested"), { recursive: true, force: true });
@@ -130,7 +130,7 @@ describe("a replay of a changed component", () => {
       code: "vcr.stale-cassette",
       component: "support-agent",
       changes: [CassetteChange.Prompt],
-      message: expect.stringContaining("AGBOSS_VCR_MODE=RECORD_STALE npm test"),
+      message: expect.stringContaining("AGBOSS_VCR_MODE=record-stale npm test"),
     });
   });
 
@@ -148,7 +148,7 @@ async function hashesOfDesk(): Promise<CassetteHashes> {
   return cassetteHashesOf((await applicationOf(DeskApplication)).workflows);
 }
 
-describe("VcrMode.RECORD_STALE", () => {
+describe("VcrMode.RecordStale", () => {
   it("records the stale component's calls anew and keeps the others as recorded", async () => {
     const changed = withChangedAgent(read(file));
     write(file, changed);
@@ -180,20 +180,20 @@ describe("VcrMode.RECORD_STALE", () => {
   });
 
   it("is chosen by AGBOSS_VCR_MODE, over the test's own mode; a wrong value names the modes", () => {
-    const named = { cassetteName: "x", mode: VcrMode.REPLAY };
+    const named = { cassetteName: "x", mode: VcrMode.Replay };
 
-    expect(vcrModeOf(named, { AGBOSS_VCR_MODE: "RECORD_STALE" })).toBe(VcrMode.RECORD_STALE);
+    expect(vcrModeOf(named, { AGBOSS_VCR_MODE: "record-stale" })).toBe(VcrMode.RecordStale);
     // #839: a recording mode under CI is refused, AGBOSS_VCR_MODE's too, unless opted in
-    expect(() => vcrModeOf(named, { AGBOSS_VCR_MODE: "RECORD", CI: "true" })).toThrow(
-      /^\[vcr\.record-in-ci\] AGBOSS_VCR_MODE=RECORD records against real models/u,
+    expect(() => vcrModeOf(named, { AGBOSS_VCR_MODE: "record", CI: "true" })).toThrow(
+      /^\[vcr\.record-in-ci\] AGBOSS_VCR_MODE=record records against real models/u,
     );
     expect(
-      vcrModeOf(named, { AGBOSS_VCR_MODE: "RECORD", CI: "true", AGBOSS_VCR_RECORD_IN_CI: "1" }),
-    ).toBe(VcrMode.RECORD);
-    expect(vcrModeOf(named, { AGBOSS_VCR_MODE: "" })).toBe(VcrMode.REPLAY);
-    expect(() => vcrModeOf(named, { AGBOSS_VCR_MODE: "record-stale" })).toThrow(TestSetupError);
+      vcrModeOf(named, { AGBOSS_VCR_MODE: "record", CI: "true", AGBOSS_VCR_RECORD_IN_CI: "1" }),
+    ).toBe(VcrMode.Record);
+    expect(vcrModeOf(named, { AGBOSS_VCR_MODE: "" })).toBe(VcrMode.Replay);
+    expect(() => vcrModeOf(named, { AGBOSS_VCR_MODE: "STALE" })).toThrow(TestSetupError);
     expect(() => vcrModeOf(named, { AGBOSS_VCR_MODE: "nope" })).toThrow(
-      "AGBOSS_VCR_MODE=nope is not a VCR mode: one of RECORD, REPLAY, AUTO, RECORD_STALE",
+      "AGBOSS_VCR_MODE=nope is not a VCR mode: one of record, replay, auto, record-stale",
     );
   });
 });
@@ -242,7 +242,7 @@ describe("checkCassettes — agboss check --cassettes", () => {
       { file: cassetteFileOf(staleCassette), component: "support-agent" },
       { file, component: "support-agent", changes: [CassetteChange.Prompt] },
     ]);
-    expect(found.stale[0]?.message).toContain("AGBOSS_VCR_MODE=RECORD_STALE npm test");
+    expect(found.stale[0]?.message).toContain("AGBOSS_VCR_MODE=record-stale npm test");
     expect(found.hints).toEqual([expect.stringContaining(`${old} is a version 1 cassette`)]);
     expect(found.unreadable).toMatchObject([{ file: broken }]);
   });

@@ -111,4 +111,4 @@ export function writeCassette(file: string, interactions: readonly Interaction[]
 
 /** The hint a version 1 cassette prints once: it replays, but a change cannot be seen in it. */
 export const v1HintOf = (file: string): string =>
-  `${file} is a version 1 cassette: it replays, but without stale detection (no prompt or schema hashes) — re-record it once with AGBOSS_VCR_MODE=RECORD npm test`;
+  `${file} is a version 1 cassette: it replays, but without stale detection (no prompt or schema hashes) — re-record it once with AGBOSS_VCR_MODE=record npm test`;

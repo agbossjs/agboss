@@ -1465,7 +1465,7 @@ import { expect } from "vitest";
 import { VcrMode, testWith } from "@agboss/core/testing";
 
 const test = testWith(ScreeningApplication, {
-  vcr: { cassetteName: "screening-hire", mode: process.env.CI ? VcrMode.REPLAY : VcrMode.AUTO },
+  vcr: { cassetteName: "screening-hire", mode: process.env.CI ? VcrMode.Replay : VcrMode.Auto },
 });
 
 test("a strong candidate is hired", async ({ app }) => {
@@ -1474,18 +1474,18 @@ test("a strong candidate is hired", async ({ app }) => {
 });
 ```
 
-`AUTO` records a missing cassette (`__snapshots__/screening-hire.cassette.json`, committed) and
-replays an existing one; `REPLAY` (the default under `CI`) fails a call the cassette does not hold
-with `CassetteMissingError` (`test.cassette-missing`); `RECORD` always calls the models.
+`Auto` records a missing cassette (`__snapshots__/screening-hire.cassette.json`, committed) and
+replays an existing one; `Replay` (the default under `CI`) fails a call the cassette does not hold
+with `CassetteMissingError` (`test.cassette-missing`); `Record` always calls the models.
 `AGBOSS_VCR_MODE` (a `VcrMode` member's value) overrides every test's own mode for one run.
-Under `CI` no test records against real models (#839): a mode that would — `RECORD`,
-`RECORD_STALE`, or `AUTO` with no cassette, set by `vcr.mode` or `AGBOSS_VCR_MODE` — fails the test
+Under `CI` no test records against real models (#839): a mode that would — `Record`,
+`RecordStale`, or `Auto` with no cassette, set by `vcr.mode` or `AGBOSS_VCR_MODE` — fails the test
 app's start with `[vcr.record-in-ci]` (a `TestSetupError` naming where the mode came from, `CI` and
 the remedy), before any model is asked; a CI job that records on purpose sets
 `AGBOSS_VCR_RECORD_IN_CI=1` (or `true`; any other value is no opt-in).
 Recording goes through the application's model providers as `createApp` builds them — a transport
 provider (`complete`, #385) too, created by the test app's container with its hooks (#439) — so an
-offline transport records a cassette with no key: `AGBOSS_VCR_MODE=RECORD npx vitest run
+offline transport records a cassette with no key: `AGBOSS_VCR_MODE=record npx vitest run
 tests/desk-cassette.test.ts` in `examples/flow-patterns`. A replay never creates a provider.
 
 **Stale cassettes.** A cassette (version 2) keeps, with every call, its component and that
@@ -1495,11 +1495,11 @@ component that calls a model (a model judge by the `output` it judges, a guardra
 compaction, a reply interpreter, a PII policy that detects with a model) — or that the application
 no longer has, fails with `StaleCassetteError` (`vcr.stale-cassette`: `file`, `component`, `changes`
 — `CassetteChange.Prompt`, `Schema`, `Removed`), naming the command that fixes it.
-`VcrMode.RECORD_STALE` replays the rest and records only the stale components' calls anew (a model
-key needed for those only): `AGBOSS_VCR_MODE=RECORD_STALE npm test`. `npx agboss check --cassettes`
+`VcrMode.RecordStale` replays the rest and records only the stale components' calls anew (a model
+key needed for those only): `AGBOSS_VCR_MODE=record-stale npm test`. `npx agboss check --cassettes`
 finds the same without running a test (`[vcr.stale-cassette]`, exit 3). A version 1 cassette (no
 hashes) still replays, without stale detection, and prints a hint to re-record it once with
-`AGBOSS_VCR_MODE=RECORD npm test`.
+`AGBOSS_VCR_MODE=record npm test`.
 
 ## The testing loops: the order to work in
 
@@ -1541,7 +1541,7 @@ snapshot among them checks that a changed export got a new version
    third invalid answer.
 5. **A stale cassette** (`StaleCassetteError`, `[vcr.stale-cassette]`: a component's prompt or
    schema hash changed since it was recorded): never edit a cassette by hand — re-record its stale
-   interactions with `AGBOSS_VCR_MODE=RECORD_STALE npm test`, review the new answers in the diff,
+   interactions with `AGBOSS_VCR_MODE=record-stale npm test`, review the new answers in the diff,
    then run the evals (the section below): the re-recorded answers are new model behaviour.
 6. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
    invariants first, then code judges, then model judges — its cascade and the pass@k rule are

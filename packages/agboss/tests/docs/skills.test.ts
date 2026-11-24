@@ -180,7 +180,7 @@ describe("#305: the project skills in check:docs", { timeout: 300_000 }, () => {
   it("#395 S5: both command lines of a stale cassette pass; a wrong mode or variable does not", async () => {
     const passing = await checkSkills({
       "references/99-commands.md":
-        "# Tests\n\ntestTool — `npx agboss check --cassettes`, then `AGBOSS_VCR_MODE=RECORD_STALE npm test`.\n",
+        "# Tests\n\ntestTool — `npx agboss check --cassettes`, then `AGBOSS_VCR_MODE=record-stale npm test`.\n",
     });
     const failing = await checkSkills({
       "references/99-commands.md":
@@ -191,7 +191,7 @@ describe("#305: the project skills in check:docs", { timeout: 300_000 }, () => {
     expect(passing.status).toBe(0);
     expect(failing.status).toBe(1);
     expect(failing.stderr).toContain(
-      "AGBOSS_VCR_MODE=STALE is not one of RECORD, REPLAY, AUTO, RECORD_STALE",
+      "AGBOSS_VCR_MODE=STALE is not one of record, replay, auto, record-stale",
     );
     expect(failing.stderr).toContain("npm test takes only AGBOSS_VCR_MODE (CI is not one)");
     expect(failing.stderr).toContain("`agboss check` has no option --cassette");

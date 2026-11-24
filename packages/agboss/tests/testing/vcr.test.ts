@@ -41,7 +41,7 @@ const file = cassetteFileOf(cassette);
 
 /** A mode a JavaScript caller or a JSON file could give, typed as one. */
 const untypedMode = (value: unknown): VcrMode => value as VcrMode;
-const replay = testWith(DeskApplication, { vcr: { ...cassette, mode: VcrMode.REPLAY } });
+const replay = testWith(DeskApplication, { vcr: { ...cassette, mode: VcrMode.Replay } });
 let recorded: ExecutionOutput;
 
 beforeAll(async () => {
@@ -112,10 +112,10 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
   it("the mode: as given; REPLAY under CI; else AUTO", () => {
     const named = { cassetteName: "x" };
 
-    expect(vcrModeOf(named, { CI: "true" })).toBe(VcrMode.REPLAY);
-    expect(vcrModeOf(named, { CI: "1" })).toBe(VcrMode.REPLAY);
-    expect(vcrModeOf(named, { CI: "false" })).toBe(VcrMode.AUTO);
-    expect(vcrModeOf(named, {})).toBe(VcrMode.AUTO);
+    expect(vcrModeOf(named, { CI: "true" })).toBe(VcrMode.Replay);
+    expect(vcrModeOf(named, { CI: "1" })).toBe(VcrMode.Replay);
+    expect(vcrModeOf(named, { CI: "false" })).toBe(VcrMode.Auto);
+    expect(vcrModeOf(named, {})).toBe(VcrMode.Auto);
   });
 
   describe("#839: under CI no mode records against real models, unless AGBOSS_VCR_RECORD_IN_CI opts in", () => {
@@ -132,41 +132,41 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
         expect(vcrModeOf({ ...missing, mode }, { CI: "false" })).toBe(mode);
       }
       // CI set: the modes that only replay are taken
-      expect(vcrModeOf({ ...cassette, mode: VcrMode.REPLAY }, ci)).toBe(VcrMode.REPLAY);
-      expect(vcrModeOf({ ...missing, mode: VcrMode.REPLAY }, ci)).toBe(VcrMode.REPLAY);
-      expect(vcrModeOf(cassette, ci)).toBe(VcrMode.REPLAY);
-      expect(vcrModeOf({ ...cassette, mode: VcrMode.AUTO }, ci)).toBe(VcrMode.AUTO); // replays
+      expect(vcrModeOf({ ...cassette, mode: VcrMode.Replay }, ci)).toBe(VcrMode.Replay);
+      expect(vcrModeOf({ ...missing, mode: VcrMode.Replay }, ci)).toBe(VcrMode.Replay);
+      expect(vcrModeOf(cassette, ci)).toBe(VcrMode.Replay);
+      expect(vcrModeOf({ ...cassette, mode: VcrMode.Auto }, ci)).toBe(VcrMode.Auto); // replays
       // CI set: every mode that calls real models is refused, naming the variables and the remedy
-      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.RECORD }, ci)).toThrow(refusal);
-      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.RECORD_STALE }, ci)).toThrow(refusal);
-      expect(() => vcrModeOf({ ...missing, mode: VcrMode.AUTO }, ci)).toThrow(refusal);
-      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.RECORD }, ci)).toThrow(
-        /^\[vcr\.record-in-ci\] vcr\.mode RECORD records/u,
+      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.Record }, ci)).toThrow(refusal);
+      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.RecordStale }, ci)).toThrow(refusal);
+      expect(() => vcrModeOf({ ...missing, mode: VcrMode.Auto }, ci)).toThrow(refusal);
+      expect(() => vcrModeOf({ ...cassette, mode: VcrMode.Record }, ci)).toThrow(
+        /^\[vcr\.record-in-ci\] vcr\.mode record records/u,
       );
-      expect(() => vcrModeOf({ ...missing, mode: VcrMode.AUTO }, ci)).toThrow(
-        /^\[vcr\.record-in-ci\] vcr\.mode AUTO with no cassette at .* records/u,
+      expect(() => vcrModeOf({ ...missing, mode: VcrMode.Auto }, ci)).toThrow(
+        /^\[vcr\.record-in-ci\] vcr\.mode auto with no cassette at .* records/u,
       );
-      expect(() => vcrModeOf(cassette, { ...ci, AGBOSS_VCR_MODE: "RECORD" })).toThrow(
-        /^\[vcr\.record-in-ci\] AGBOSS_VCR_MODE=RECORD records/u,
+      expect(() => vcrModeOf(cassette, { ...ci, AGBOSS_VCR_MODE: "record" })).toThrow(
+        /^\[vcr\.record-in-ci\] AGBOSS_VCR_MODE=record records/u,
       );
-      for (const mode of [VcrMode.RECORD, VcrMode.RECORD_STALE, VcrMode.AUTO])
+      for (const mode of [VcrMode.Record, VcrMode.RecordStale, VcrMode.Auto])
         expect(() => vcrModeOf({ ...missing, mode }, ci)).toThrow(TestSetupError);
       // the opt-in: "1" or "true", nothing else
       for (const mode of Object.values(VcrMode))
         expect(vcrModeOf({ ...missing, mode }, optIn)).toBe(mode);
       expect(
         vcrModeOf(
-          { ...cassette, mode: VcrMode.RECORD },
+          { ...cassette, mode: VcrMode.Record },
           { ...ci, AGBOSS_VCR_RECORD_IN_CI: "TRUE" },
         ),
-      ).toBe(VcrMode.RECORD);
+      ).toBe(VcrMode.Record);
       expect(() =>
-        vcrModeOf({ ...cassette, mode: VcrMode.RECORD }, { ...ci, AGBOSS_VCR_RECORD_IN_CI: "yes" }),
+        vcrModeOf({ ...cassette, mode: VcrMode.Record }, { ...ci, AGBOSS_VCR_RECORD_IN_CI: "yes" }),
       ).toThrow(/ \(AGBOSS_VCR_RECORD_IN_CI=yes is no opt-in: 1 or true\)$/u);
       for (const value of ["", "0", "false", "yes", "on"])
         expect(() =>
           vcrModeOf(
-            { ...cassette, mode: VcrMode.RECORD },
+            { ...cassette, mode: VcrMode.Record },
             { ...ci, AGBOSS_VCR_RECORD_IN_CI: value },
           ),
         ).toThrow(refusal);
@@ -176,10 +176,10 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
       vi.stubEnv("CI", "true");
       vi.stubEnv("AGBOSS_VCR_RECORD_IN_CI", "");
       await expect(
-        TestEnvironment.of(DeskApplication, { vcr: { ...missing, mode: VcrMode.RECORD } }),
+        TestEnvironment.of(DeskApplication, { vcr: { ...missing, mode: VcrMode.Record } }),
       ).rejects.toThrow(refusal);
       await expect(
-        TestEnvironment.of(DeskApplication, { vcr: { ...missing, mode: VcrMode.AUTO } }),
+        TestEnvironment.of(DeskApplication, { vcr: { ...missing, mode: VcrMode.Auto } }),
       ).rejects.toThrow(refusal);
       expect(existsSync(cassetteFileOf(missing))).toBe(false);
     });
@@ -188,7 +188,7 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
       vi.stubEnv("CI", "true");
       vi.stubEnv("AGBOSS_VCR_RECORD_IN_CI", "1");
       const environment = await TestEnvironment.of(DeskApplication, {
-        vcr: { ...missing, mode: VcrMode.RECORD },
+        vcr: { ...missing, mode: VcrMode.Record },
       });
       // built: the providers' gateway is made on the first recorded call, none here
       expect(environment).toBeInstanceOf(TestEnvironment);
@@ -197,10 +197,10 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
   });
 
   it("#819 AC1: an unknown vcr.mode is refused, naming the modes — under CI, AGBOSS_VCR_MODE or neither", () => {
-    for (const mode of ["replay", "PLAYBACK", "", 1, null])
+    for (const mode of ["REPLAY", "PLAYBACK", "", 1, null])
       for (const env of [{}, { CI: "true" }, { AGBOSS_VCR_MODE: "REPLAY" }])
         expect(() => vcrModeOf({ cassetteName: "x", mode: untypedMode(mode) }, env)).toThrow(
-          /^\[vcr\.unknown-mode\] vcr\.mode is .*: one of RECORD, REPLAY, AUTO, RECORD_STALE$/u,
+          /^\[vcr\.unknown-mode\] vcr\.mode is .*: one of record, replay, auto, record-stale$/u,
         );
   });
 
@@ -218,13 +218,17 @@ describe("AC1 (#204): VCR — record once, replay in CI without a model", () => 
       expect(vcrModeOf({ cassetteName: "x", mode }, {})).toBe(mode);
   });
 
-  it("#802 AC3: VcrMode is the mode; the deprecated VCRMode is the same enum", () => {
-    const alias = Object.entries(testing).find(([name]) => name === "VCRMode")?.[1];
-    const config: VcrConfig = { cassetteName: "x", mode: VcrMode.REPLAY };
+  it("#1328: VcrMode is PascalCase with kebab-case values, and no VCRMode is exported", () => {
+    const config: VcrConfig = { cassetteName: "x", mode: VcrMode.Replay };
 
-    expect(alias).toBe(VcrMode);
-    expect(vcrModeOf(config, {})).toBe(VcrMode.REPLAY);
-    expect(Object.values(VcrMode)).toEqual(["RECORD", "REPLAY", "AUTO", "RECORD_STALE"]);
+    expect(Object.keys(testing)).not.toContain("VCRMode");
+    expect(vcrModeOf(config, {})).toBe(VcrMode.Replay);
+    expect(Object.entries(VcrMode)).toEqual([
+      ["Record", "record"],
+      ["Replay", "replay"],
+      ["Auto", "auto"],
+      ["RecordStale", "record-stale"],
+    ]);
   });
 });
 
@@ -232,7 +236,7 @@ describe("#226: VCR records and replays a judge's decisions", () => {
   const judged = { cassetteName: "decision-judge", dir };
   const judgedFile = cassetteFileOf(judged);
   const replayJudged = testWith(DecisionDeskApplication, {
-    vcr: { ...judged, mode: VcrMode.REPLAY },
+    vcr: { ...judged, mode: VcrMode.Replay },
   });
   let judgedRun: ExecutionOutput;
 

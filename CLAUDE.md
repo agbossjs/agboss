@@ -2920,12 +2920,12 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   "points to missing source files", a stack trace inside the core names lines of the package). Errors only the real way:
   `failWith`, a rejecting `mockOf`, `mockTool(Tool).thenFail(ToolFailure.Timeout)`, scripts that
   reach a limit (a budget: `mockOf(Budget).maxSpend` + a scripted cost), `app.cancel` / `signal`.
-- A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VcrMode.REPLAY } })`
+- A recorded run instead of scripts: `testWith(App, { vcr: { cassetteName, dir, mode: VcrMode.Replay } })`
   — an unrecorded call throws `CassetteMissingError` (REPLAY by default under `CI`). Recording builds
   the providers' gateway as `createApp` does (#439: `BuildOptions.gatewayOverProviders`, internal — the
   chat extensions loaded, a transport `@ModelProvider` created by the test app's container on its
   first call, its hooks first), so an offline transport records with no key; a replay creates none.
-  Under `CI` a mode that would call real models (`RECORD`, `RECORD_STALE`, `AUTO` with no cassette;
+  Under `CI` a mode that would call real models (`Record`, `RecordStale`, `Auto` with no cassette;
   `vcr.mode` or `AGBOSS_VCR_MODE`) fails the test app's start, `[vcr.record-in-ci]`, unless
   `AGBOSS_VCR_RECORD_IN_CI=1` (#839).
 - Replacing a class in the application (#267 S104): `testWith(App, { services:

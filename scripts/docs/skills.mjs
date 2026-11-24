@@ -12,7 +12,7 @@
 //   4. a skill file names project commands only — `npx agboss …` (its options checked like every
 //      doc's) and `npm test`, never the repo's `npm run …` or `make …`; `npm test` may be prefixed
 //      only by `AGBOSS_VCR_MODE=<mode>`, a value of `VcrMode` (#395 S5:
-//      `AGBOSS_VCR_MODE=RECORD_STALE npm test` beside `npx agboss check --cassettes`).
+//      `AGBOSS_VCR_MODE=record-stale npm test` beside `npx agboss check --cassettes`).
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
