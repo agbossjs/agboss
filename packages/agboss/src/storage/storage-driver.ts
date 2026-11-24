@@ -1,4 +1,5 @@
 import type { Class, Provider } from "../components/injection.js";
+import type { ResolvedSettings } from "./settings.js";
 
 /**
  * A storage driver (#1321): the value `@DatabaseStorage`, `@ClusterStorage` and `@ObjectStorage` take
@@ -49,7 +50,35 @@ export interface StorageDriver<TRole extends StorageRole = StorageRole> {
   readonly coordinationStores?: readonly Class[] | undefined;
   /** A database driver's durable lease store: where a cluster's lease keeps its ids and its marks. */
   readonly leaseStore?: Class | undefined;
+  /**
+   * A database driver's migration (#1321f): what `agboss migrate db` runs on the settings of the
+   * application's driver — resolved after its profile's config is loaded, so a profile's driver is
+   * the one migrated. It refuses with `StoreError.LiveLeases` (`store.live-leases`) while leases are
+   * live unless `allowLiveLeases`. A driver with none (SQLite: its schema is made at open) is
+   * not migrated.
+   */
+  readonly migrate?: StorageMigrate | undefined;
 }
+
+/** What `agboss migrate db` gives a database driver's migration (#1321f). */
+export interface StorageMigrationOptions {
+  /**
+   * Migrate although leases are live (`--allow-live-leases`): only the command line says so — never a
+   * setting of the driver or the environment, which a running application reads.
+   */
+  readonly allowLiveLeases: boolean;
+}
+
+/** What a database driver's migration did: the names of the steps it applied, none when it was current. */
+export interface StorageMigration {
+  readonly applied: readonly string[];
+}
+
+/** A database driver's migration: its settings as resolved, its schema brought to this version. */
+export type StorageMigrate = (
+  settings: ResolvedSettings,
+  options: StorageMigrationOptions,
+) => Promise<StorageMigration>;
 
 /** The driver of `@DatabaseStorage`. */
 export type DatabaseDriver = StorageDriver<StorageRole.Database>;

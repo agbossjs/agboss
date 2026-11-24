@@ -91,10 +91,10 @@ describe("agboss migrate imports (#195)", () => {
     const none = await agboss(["migrate"], project);
 
     expect(unknown).toMatchObject({ code: 2 });
-    expect(unknown.stderr).toContain('unknown migration "everything", expected "imports"');
+    expect(unknown.stderr).toContain('unknown migration "everything", expected "imports" or "db"');
     expect(missing).toMatchObject({ code: 2 });
     expect(missing.stderr).toContain("Not found:");
-    expect(none.stderr).toContain('expected "imports"');
+    expect(none.stderr).toContain('expected "imports" or "db"');
     expect(read("src/a.ts")).toBe(OLD);
   });
 });

@@ -18,6 +18,7 @@ import {
 
 import { CHECK_COMMAND } from "./check-command.js";
 import { EXPLAIN_COMMAND } from "./explain-command.js";
+import { MIGRATE_COMMAND } from "./migrate-command.js";
 
 export { COMMON_OPTIONS, optionsOf, type CommandSpec, type OptionSpec } from "./options.js";
 import { EVAL_CASE_OPTIONS, EVAL_COMMAND } from "./eval-commands.js";
@@ -187,12 +188,7 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       DRY_RUN,
     ],
   },
-  migrate: {
-    summary: "rewrite imports of deprecated entries (@agboss/core/core, …) to @agboss/core's",
-    usage: "agboss migrate imports [<path>…] [--dry-run]",
-    positionals: "imports [<path>…]",
-    options: [DRY_RUN],
-  },
+  migrate: MIGRATE_COMMAND,
   help: {
     summary: "this list, or one command's options",
     usage: "agboss help [<command>] [--json]",

@@ -1,4 +1,5 @@
 import { InjectionToken } from "../components/injection.js";
+import { sec, type Milliseconds } from "../units/index.js";
 
 /**
  * The settings of an application's storage components (#1321), as a connection reads them: the
@@ -52,3 +53,23 @@ export const settingsEntriesOf = (
   [CLUSTER_SETTINGS, storage?.cluster],
   [OBJECT_SETTINGS, storage?.objects],
 ];
+
+/**
+ * How long a database driver's watch of the cluster lives without an answer: the default of
+ * `watchLiveness` (#1321f; it was `DEFAULT_WATCH_LIVENESS_SECONDS`, a raw number of seconds).
+ */
+export const DEFAULT_WATCH_LIVENESS: Milliseconds = sec(10);
+
+/**
+ * The time options of a networked driver (`PostgresDriver`, `MongoDriver`, `RedisDriver`), every one
+ * a `Milliseconds` (#1321f; `env.duration("…")` gives one): replace the raw `watchLivenessSeconds`
+ * and `commandTimeout` numbers. Optional: a driver without them uses its defaults.
+ */
+export interface DriverTimeouts {
+  /** How long a watch (`watchQueued`, a lease watch) may stay silent before it is re-opened; `DEFAULT_WATCH_LIVENESS`. */
+  readonly watchLiveness?: Milliseconds;
+  /** How long one command may run before it is cancelled. */
+  readonly commandTimeout?: Milliseconds;
+  /** How long a transaction may sit idle before the server ends it (PostgreSQL). */
+  readonly idleInTransactionTimeout?: Milliseconds;
+}

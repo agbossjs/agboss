@@ -87,6 +87,21 @@ export {
 } from "../infrastructure/cost-ledger.repository.js";
 // a lease's time left as its store says it (#533)
 export { remainingOf } from "../infrastructure/execution-lease.repository.js";
+
+// the cluster's leases (#1321e, D6): what a cluster driver implements, what a database lease store
+// mirrors them into, and the composition that orders the two writes
+export {
+  CLUSTER_LEASE_EXPIRY,
+  ClusterExecutionLeaseRepository,
+  ClusterLeaseSyncOutcome,
+  MirroredLeaseState,
+  type ClusterLeaseCoordinator,
+  type ClusterLeaseMirror,
+  type ClusterLeaseSync,
+  type MirroredLease,
+} from "../infrastructure/cluster-lease.js";
+export { InMemoryCluster, type ClusterOutage } from "../infrastructure/in-memory-cluster-lease.js";
+export { SqliteClusterMirror } from "../infrastructure/sqlite/sqlite-cluster-mirror.js";
 // a direct A2A message's claim of its id among the A2A task store's messages (#860)
 export {
   DIRECT_MESSAGE_CLAIM,
@@ -142,10 +157,15 @@ export {
   type ObjectDriver,
   type StorageDriver,
   type StorageDriverSpec,
+  type StorageMigrate,
+  type StorageMigration,
+  type StorageMigrationOptions,
 } from "../storage/storage-driver.js";
 export {
   CLUSTER_SETTINGS,
   DATABASE_SETTINGS,
+  DEFAULT_WATCH_LIVENESS,
   OBJECT_SETTINGS,
+  type DriverTimeouts,
   type ResolvedSettings,
 } from "../storage/settings.js";

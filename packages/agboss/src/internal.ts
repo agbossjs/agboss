@@ -180,6 +180,7 @@ export { childSourcesIn, configSnapshot, type ChildSnapshotSources } from "./run
 export { shortVersion, versionOf } from "./turns/index.js";
 export { isMcpFacade } from "./tools/index.js";
 export { applicationOf, type AssembledApplication } from "./application/assemble.js";
+export { migratedDatabaseOf, type DatabaseMigrationRun } from "./storage/storage-migrate.js";
 export { environmentOwnerOf } from "./application/create-app.js";
 export { startsOfApplication, type ApplicationStart } from "./application/application-starts.js";
 export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
