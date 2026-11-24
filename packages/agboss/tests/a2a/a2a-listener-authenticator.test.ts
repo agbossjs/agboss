@@ -161,4 +161,31 @@ describe("#1320: the A2A listener's authenticator", () => {
     const named = { tenantId: "t", ownerId: "dana", caller: {} } as never;
     expect(forNewTask(named).ownerId).toBe("dana");
   });
+
+  it("the task id opens only a task of an a2a-task: owner: not an anonymous: or mcp-session: one", async () => {
+    const asked = { tenantId: "t", ownerId: undefined, caller: {} } as never;
+    const partsOf = (ownerId: string, tenantOfTask = "t") =>
+      ({
+        endpoint: "e",
+        tasks: {
+          findById: ({ tenantId }: { tenantId: string }) =>
+            Promise.resolve(
+              tenantId === tenantOfTask
+                ? { tenantId, taskId: "k1", ownerId, endpoint: "e" }
+                : undefined,
+            ),
+        },
+      }) as never;
+
+    for (const foreign of ["anonymous:x", "mcp-session:x"]) {
+      expect((await forTask(partsOf(foreign), asked, "k1")).ownerId).toBeUndefined();
+      await expect(
+        ownedTask(partsOf(foreign), { tenantId: "t", ownerId: undefined } as never, "k1"),
+      ).rejects.toThrow();
+    }
+    expect((await forTask(partsOf("a2a-task:x"), asked, "k1")).ownerId).toBe("a2a-task:x");
+    // a capability of tenant t does not open under tenant u
+    const other = { tenantId: "u", ownerId: undefined, caller: {} } as never;
+    expect((await forTask(partsOf("a2a-task:x"), other, "k1")).ownerId).toBeUndefined();
+  });
 });

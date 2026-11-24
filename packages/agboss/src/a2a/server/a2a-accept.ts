@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Message } from "@a2a-js/sdk";
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { DurableExecutionStatus } from "../../app/execution-control.js";
@@ -17,6 +18,7 @@ import { checkedCallerKey, requestHashOf, skillOfMessage } from "./a2a-message-i
 import {
   callerOptionsOf,
   endedUnstarted,
+  isTaskOwner,
   logSubjectOf,
   taskKeyOf,
   type A2ARequestCaller,
@@ -167,8 +169,9 @@ interface Unaccepted {
 /** The new task of one minted id, saved with its input files kept first; the save's outcome. */
 async function savedUnder(parts: A2AServerParts, caller: A2ARequestCaller, unaccepted: Unaccepted) {
   const { sent, key, contextId, limit } = unaccepted;
-  // minted through the application's checked generator: a key's text
-  const taskId = parts.ids.newExecutionId();
+  // a task of an `a2a-task:` owner is reached by its id alone: a random UUID (122 bits) whatever the
+  // application's generator does; any other is minted through its checked generator (a key's text)
+  const taskId = isTaskOwner(key.ownerId) ? randomUUID() : parts.ids.newExecutionId();
   // a rejected task runs nothing: its files are neither fetched nor kept
   const start = limit === undefined ? await sent.inputFor(taskId) : undefined;
   await keptFiles(parts, start?.toSave ?? []);

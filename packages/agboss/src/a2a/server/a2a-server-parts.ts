@@ -3,7 +3,6 @@ import type { ServerCallContext } from "@a2a-js/sdk/server";
 import type { ExecutionControl } from "../../app/execution-control.js";
 import type { ExecutionOptions } from "../../app/types.js";
 import { EXECUTION_LEASE } from "../../app/lease-fence.js";
-import { isSyntheticOwner } from "../a2a-caller-gate.js";
 import { keyTextRuleOf } from "../../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../flow/context/tenant-context.js";
 import {
@@ -196,11 +195,18 @@ const ownedBy = (request: A2ARequestCaller, ownerId: string): A2ARequestCaller =
  * and a resent `messageId` of another caller finds nothing of it.
  */
 export const forNewTask = (request: A2ARequestCaller): A2ARequestCaller =>
-  request.ownerId === undefined ? ownedBy(request, `a2a-task:${randomUUID()}`) : request;
+  request.ownerId === undefined ? ownedBy(request, `${TASK_OWNER_PREFIX}${randomUUID()}`) : request;
+
+/** The owners this A2A path makes itself, for a caller that names none: the only ones a task id opens. */
+export const TASK_OWNER_PREFIX = "a2a-task:";
+
+/** Whether `ownerId` is one this path made for a new task — not an `anonymous:` or `mcp-session:` one. */
+export const isTaskOwner = (ownerId: string | undefined): boolean =>
+  ownerId?.startsWith(TASK_OWNER_PREFIX) === true;
 
 /**
  * The caller of an operation on the task `taskId`: one that names no owner holds the task's id as the
- * right to it — when the task was made for such a caller (its owner is one a listener made), the
+ * right to it — when the task was made for such a caller (its owner is an `a2a-task:` one this path made; an `anonymous:` or `mcp-session:` task is never reached by its id here), the
  * caller acts as that owner. Any other task is still "not found".
  */
 export async function forTask(
@@ -210,7 +216,7 @@ export async function forTask(
 ): Promise<A2ARequestCaller> {
   if (request.ownerId !== undefined || keyTextRuleOf(taskId) !== undefined) return request;
   const task = await parts.tasks.findById({ tenantId: request.tenantId, taskId });
-  if (task?.endpoint !== parts.endpoint || !isSyntheticOwner(task.ownerId)) return request;
+  if (task?.endpoint !== parts.endpoint || !isTaskOwner(task.ownerId)) return request;
   return ownedBy(request, task.ownerId ?? "");
 }
 
