@@ -50,13 +50,14 @@ export const EXECUTION_TREE_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_tree_
   tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, tree_key TEXT NOT NULL,
   value TEXT NOT NULL, PRIMARY KEY (tenant_id, root_execution_id, tree_key));`;
 
-/** One counter per budget, scope key and period; the last `maxSpend()` per budget and scope key. */
+/** One counter per budget, scope key and period; the last limits per budget and scope key (`max_spend_usd` or `max_tokens` may be NULL: a token-only or a USD-only budget, #1318). */
 export const COST_LEDGER_SCHEMA = `CREATE TABLE IF NOT EXISTS cost_ledger (
   budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, period TEXT NOT NULL,
-  spent_usd REAL NOT NULL, PRIMARY KEY (budget, scope, scope_key, period));
+  spent_usd REAL NOT NULL, tokens INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (budget, scope, scope_key, period));
 CREATE TABLE IF NOT EXISTS cost_ledger_max_spend (
-  budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, max_spend_usd REAL NOT NULL,
-  PRIMARY KEY (budget, scope, scope_key));
+  budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, max_spend_usd REAL,
+  max_tokens INTEGER, PRIMARY KEY (budget, scope, scope_key));
 CREATE TABLE IF NOT EXISTS cost_ledger_entries (
   ledger_id TEXT NOT NULL PRIMARY KEY, made_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS cost_ledger_entries_made_at ON cost_ledger_entries (made_at);

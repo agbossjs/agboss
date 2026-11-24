@@ -82,6 +82,14 @@ export interface WorkflowOptions<
   readonly maxConcurrentExecutions?: number;
   readonly defaults?: WorkflowDefaults;
   /**
+   * The `@Budget` class that caps this workflow's executions (#1318): an execution-scope budget is its
+   * own (replacing the application's default one), a tenant or application budget counts beside the
+   * application's. One `@Budget` class serves any number of workflows — they share its counter, which
+   * is keyed by the budget's name, never by a workflow's. It need not be listed in
+   * `@Application({ budgets })`.
+   */
+  readonly budget?: Class;
+  /**
    * The `@ModelProvider` class this workflow's models are served from unless the component names
    * another; left out, its application's (#1313).
    */

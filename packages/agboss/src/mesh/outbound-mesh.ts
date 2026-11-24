@@ -34,15 +34,27 @@ export const bodyHashOf = (body: string): string =>
 const TRACE_ID_LENGTH = 32;
 const SPAN_ID_LENGTH = 16;
 
-/** The envelope's claims of what the calling execution has left: budget and time. */
-function claimsOf(frame: Frame, now: Date): Pick<MeshEnvelope, "budget" | "deadline"> {
+/** The budget the calling execution has left: its dollars and its tokens, each only when it has that cap (#1318). */
+function budgetClaimOf(frame: Frame): Pick<MeshEnvelope, "budget"> {
   const call = frame.services.meshCall;
   // a tool call's, else the step's own (#810: an action's remote call passes its budget down too)
   const left = call === undefined ? frame.services.remainingBudget?.() : call.remainingBudget();
+  const leftTokens =
+    call === undefined ? frame.services.remainingTokens?.() : call.remainingTokens?.();
+  if (left === undefined && leftTokens === undefined) return {};
+  const dollars = left === undefined ? {} : { remaining: amountOf(left), currency: "USD" as const };
+  const tokens =
+    leftTokens === undefined ? {} : { remainingTokens: Math.max(0, Math.floor(leftTokens)) };
+  return { budget: { ...dollars, ...tokens } };
+}
+
+/** The envelope's claims of what the calling execution has left: budget and time. */
+function claimsOf(frame: Frame, now: Date): Pick<MeshEnvelope, "budget" | "deadline"> {
+  const call = frame.services.meshCall;
   // Stryker disable next-line StringLiteral: equivalent: `Date.parse` of any text that is no date is NaN, as of the empty one
   const deadlineAt = call?.deadlineAt.getTime() ?? Date.parse(frame.execution.deadline?.at ?? "");
   return {
-    ...(left === undefined ? {} : { budget: { remaining: amountOf(left), currency: "USD" } }),
+    ...budgetClaimOf(frame),
     ...(Number.isNaN(deadlineAt)
       ? {}
       : { deadline: { remaining: isoDurationOf(deadlineAt - now.getTime()) } }),

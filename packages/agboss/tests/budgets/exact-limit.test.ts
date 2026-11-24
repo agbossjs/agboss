@@ -71,13 +71,13 @@ describe("#728 AC1: eight $0.10 calls exhaust $0.80", () => {
       key: "exact-application",
       maxSpend: 0.8,
     };
-    await ledger.saveMaxSpend(
+    await ledger.saveLimit(
       {
         budget: "daily-application-budget",
         scope: BudgetScope.Application,
         key: "exact-application",
       },
-      usd(0.8),
+      { maxSpend: usd(0.8) },
     );
     await ledger.saveAll(
       [counterOf(record, systemClock.now())],

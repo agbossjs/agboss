@@ -15,6 +15,8 @@ import {
   type BudgetAccount,
   type CostCounter,
   type LedgerEntry,
+  type BudgetLimit,
+  type BudgetUsage,
 } from "../../../../src/infrastructure/cost-ledger.repository.js";
 import type { Usd } from "../../../../src/units/index.js";
 import type { ContractCase } from "../../../../src/testing/contracts/define.js";
@@ -113,8 +115,8 @@ class Faulty extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
-    return this.shared.inner.findSpentByCounter(this.faults.foldCounter?.(counter) ?? counter);
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
+    return this.shared.inner.findUsageByCounter(this.faults.foldCounter?.(counter) ?? counter);
   }
 
   /** Refuses (or lets pass) what is no entry; true when the save goes on. */
@@ -176,17 +178,17 @@ class Faulty extends CostLedgerRepository {
     return this.shared.inner.deleteByMadeAtBefore(cutoff);
   }
 
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
     const { faults, shared } = this;
     if (faults.zeroLimitBeforeAnySave === true && !shared.savedLimit)
-      return Promise.resolve(0 as Usd);
-    return shared.inner.findMaxSpendByAccount(faults.foldAccount?.(account) ?? account);
+      return Promise.resolve({ maxSpend: 0 as Usd });
+    return shared.inner.findLimitByAccount(faults.foldAccount?.(account) ?? account);
   }
 
-  async saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
+  async saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
     if (this.faults.firstLimitWins === true && this.shared.savedLimit) return;
     this.shared.savedLimit = true;
-    await this.shared.inner.saveMaxSpend(account, maxSpend);
+    await this.shared.inner.saveLimit(account, limit);
   }
 }
 

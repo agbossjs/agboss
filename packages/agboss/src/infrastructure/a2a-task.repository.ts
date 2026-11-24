@@ -93,6 +93,8 @@ export interface A2ATaskStatus {
    * signs.
    */
   readonly spentUsd?: Usd;
+  /** The tokens its execution used (#1318), kept with `spentUsd`. */
+  readonly spentTokens?: number;
   /** Why it failed or was rejected: a stable code (`limit.hops`, `a2a.start-lost`, …). */
   readonly errorCode?: string;
   /**

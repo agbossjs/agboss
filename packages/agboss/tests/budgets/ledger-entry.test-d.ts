@@ -48,9 +48,9 @@ describe("#817 AC1: saveAll takes ledger entries only", () => {
 });
 
 describe("#817 AC4: Date and Usd at the store boundary", () => {
-  it("findSpentByCounter answers Usd; deleteByMadeAtBefore takes a Date", () => {
-    expectTypeOf<CostLedgerRepository["findSpentByCounter"]>().returns.toEqualTypeOf<
-      Promise<Usd>
+  it("findUsageByCounter answers Usd and tokens; deleteByMadeAtBefore takes a Date", () => {
+    expectTypeOf<CostLedgerRepository["findUsageByCounter"]>().returns.toEqualTypeOf<
+      Promise<{ readonly spent: Usd; readonly tokens: number }>
     >();
     expectTypeOf<CostLedgerRepository["deleteByMadeAtBefore"]>().parameter(0).toEqualTypeOf<Date>();
   });

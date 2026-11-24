@@ -62,12 +62,14 @@ export const completedStatusOf = (
   finish: string,
   output: unknown,
   spentUsd: Usd,
+  spentTokens?: number,
 ): A2ATaskStatus => ({
   state: A2ATaskState.Completed,
   pendingPauses: [],
   finish,
   output,
   spentUsd,
+  ...(spentTokens === undefined ? {} : { spentTokens }),
 });
 
 /**
@@ -117,7 +119,7 @@ export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | u
     case DurableExecutionStatus.Paused:
       return pausedStatusOf(state.pending);
     case DurableExecutionStatus.Finished:
-      return completedStatusOf(state.finish, state.output, state.spentUsd);
+      return completedStatusOf(state.finish, state.output, state.spentUsd, state.spentTokens);
     case DurableExecutionStatus.Cancelled:
       return CANCELED;
     case DurableExecutionStatus.Failed:

@@ -452,6 +452,13 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+Budgets also limit **tokens** (#1318): `@Budget({ maxSpend, maxTokens, description })` declares the caps (constants or
+`defineEnv` values), or `limit()` returns `{ maxSpend?, maxTokens? }`; `[budget.missing-limit]` / `[budget.conflicting-limit]`
+check the one place. Both caps are enforced and fail closed; a `$0` call with tokens (`CostSource.Unpriced`) is ledger spend
+counted by `maxTokens`. `@Workflow({ budget })` attaches a budget (found without listing it); a counter is keyed by the
+budget's name, scope key and period, never by a workflow, so workflows sharing one budget share one cap. The ledger is
+`findUsageByCounter` (`{ spent, tokens }`), `findLimitByAccount` / `saveLimit`; a prune never lowers a counter.
+
 ```ts file=src/desk/desk.application.ts
 // desk.application.ts — the application: its workflows, infrastructure (`providers`; none listed →
 // the built-in in-memory defaults and the built-in OpenRouter + Decisions model providers), budgets,

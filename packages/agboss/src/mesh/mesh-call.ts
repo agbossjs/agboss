@@ -9,6 +9,8 @@ export interface MeshCallServices {
   readonly tool: string;
   /** What the execution may still spend, in USD; `undefined` without budgets. */
   readonly remainingBudget: () => number | undefined;
+  /** The tokens the execution may still use (#1318); `undefined` without a token budget. */
+  readonly remainingTokens?: () => number | undefined;
   /** When the call must end: its tool's `timeout`, or the execution's deadline when sooner. */
   readonly deadlineAt: Date;
   /** Keeps the remote execution of the call, as its trusted peer reported it. */

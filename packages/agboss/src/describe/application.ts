@@ -1,3 +1,4 @@
+import { budgetsOfApplication, executionBudgetFor } from "../budgets/budget-rules.js";
 import { calendarNameOf } from "../calendar/calendar-source.js";
 import { requireApplication } from "../application/application.js";
 import type { AssembledApplication } from "../application/assemble.js";
@@ -30,6 +31,8 @@ export interface DescribedBudget {
   readonly period?: string;
   /** The workflow's name, for its own execution budget; absent for the default one. */
   readonly workflow?: string;
+  /** What the budget is for (`@Budget({ description })`). */
+  readonly description?: string;
 }
 
 /** The execution budget that caps one workflow, and whether it is the workflow's own. */
@@ -77,21 +80,19 @@ const describedBudget = (
   scope: meta.scope,
   ...(meta.period === undefined ? {} : { period: meta.period }),
   ...(meta.workflow === undefined ? {} : { workflow: nameOf(meta.workflow) }),
+  ...(meta.description === undefined ? {} : { description: meta.description }),
 });
 
-/** The workflow's own execution budget, else the default (no `workflow`). */
+/** The workflow's own execution budget (attached or `workflow: X`), else the default (no `workflow`). */
 function executionBudgetOf(
   budgets: readonly BudgetMeta[],
   workflow: Class,
   name: string,
 ): DescribedExecutionBudget {
-  const execution = budgets.filter((budget) => budget.scope === BudgetScope.Execution);
-  const own = execution.find((budget) => budget.workflow === workflow);
-  if (own !== undefined) return { workflow: name, name: own.name, isOwn: true };
-  const fallback = execution.find((budget) => budget.workflow === undefined);
-  return fallback === undefined
+  const found = executionBudgetFor(budgets, workflow);
+  return found === undefined
     ? { workflow: name, isOwn: false }
-    : { workflow: name, name: fallback.name, isOwn: false };
+    : { workflow: name, name: found.meta.name, isOwn: found.isOwn };
 }
 
 /**
@@ -110,7 +111,10 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
     assembled.workflows.map((workflow) => [workflow.graph.type, workflow.config.name]),
   );
   const nameOf = (workflow: Class): string => names.get(workflow) ?? workflow.name;
-  const budgets = assembled.budgets.flatMap((budget) => budgetOf(budget) ?? []);
+  const budgets = budgetsOfApplication({
+    budgets: assembled.budgets,
+    workflows: assembled.workflows.map((workflow) => workflow.graph.type),
+  }).flatMap((budget) => budgetOf(budget) ?? []);
   return {
     name: assembled.name,
     version: assembled.version,

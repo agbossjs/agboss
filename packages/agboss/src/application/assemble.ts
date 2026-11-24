@@ -12,7 +12,7 @@ import { seconds, type Milliseconds } from "../units/index.js";
 import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { requireApplication, type ApplicationOptions } from "./application.js";
-import { applicationRuleViolations } from "./application-rules.js";
+import { applicationRuleViolations, budgetsOfApplication } from "./application-rules.js";
 import { assembledRetentionsOf, retentionOf } from "./retention.js";
 import {
   idempotencyKeyViolations,
@@ -133,7 +133,7 @@ export const applicationModule = (options: ApplicationOptions): ProviderModule =
   declaredIn: "@Application",
   providers: [
     ...containerProvidersOf(options.providers),
-    ...(options.budgets ?? []),
+    ...budgetsOfApplication(options),
     ...(options.observers ?? []),
     ...decoratedHealthChecksOf(options.healthChecks ?? []),
   ],

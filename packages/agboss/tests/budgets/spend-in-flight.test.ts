@@ -106,6 +106,6 @@ describe("#732: a child on any instance right after its parent paid", () => {
       key: executionIdOf(outcome),
       maxSpend: 0,
     };
-    expect(await ledger.findSpentByCounter(counterOf(execution, now))).toBe(120);
+    expect((await ledger.findUsageByCounter(counterOf(execution, now))).spent).toBe(120);
   });
 });

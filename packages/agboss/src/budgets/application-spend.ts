@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { UsageRecord } from "../finops/usage.js";
 import { budgetOf, BudgetScope } from "./budget.js";
-import { isSpendExhausted, ledgerEntryOf } from "./budget-check.js";
+import { exhaustedUnitOf, ledgerEntryOf } from "./budget-check.js";
+import { spendOfUsage } from "./budget-spend.js";
 import {
   counterOf,
   type ApplicationBudgets,
@@ -28,13 +29,15 @@ async function applicationRecords(
       scope: meta.scope,
       key: application.applicationName,
     };
-    const known = await application.ledger.findMaxSpendByAccount(account);
+    const known = await application.ledger.findLimitByAccount(account);
     records.push({
       budget: { name: meta.name },
       scope: meta.scope,
       period: meta.period,
       key: application.applicationName,
-      maxSpend: known ?? Number.POSITIVE_INFINITY,
+      // none known yet: not limited
+      maxSpend: known?.maxSpend,
+      maxTokens: known?.maxTokens,
     });
   }
   return records;
@@ -47,8 +50,8 @@ export async function isApplicationSpendExhausted(
   if (application === undefined) return false;
   const now = application.clock.now();
   for (const record of await applicationRecords(application)) {
-    const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
-    if (isSpendExhausted(spent, record.maxSpend)) return true;
+    const used = await application.ledger.findUsageByCounter(counterOf(record, now));
+    if (exhaustedUnitOf(record, spendOfUsage(used)) !== undefined) return true;
   }
   return false;
 }

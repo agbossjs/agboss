@@ -155,6 +155,8 @@ export type RuleCode =
   | "budget.duplicate-execution-budget"
   | "budget.duplicate-default-execution-budget"
   | "budget.tenant-budget-required"
+  | "budget.missing-limit"
+  | "budget.conflicting-limit"
   | "budget.application-budget-required"
   | "di.infrastructure-in-workflow"
   // environments and defaults (#261 PR 4), reported at the application's assembly

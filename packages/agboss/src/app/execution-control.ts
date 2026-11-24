@@ -67,6 +67,8 @@ export type DurableExecutionState =
        * the records still signs its run report.
        */
       readonly spentUsd: Usd;
+      /** The tokens it used (#1318). */
+      readonly spentTokens?: number;
     }
   | { readonly status: DurableExecutionStatus.Failed; readonly reason: string }
   | { readonly status: DurableExecutionStatus.Cancelled };

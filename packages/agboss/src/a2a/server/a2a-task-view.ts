@@ -170,6 +170,7 @@ export function taskMetadataOf(
     issuer: mesh.application,
     executionId: task.taskId,
     spentUsd: status.spentUsd,
+    ...(status.spentTokens === undefined ? {} : { spentTokens: status.spentTokens }),
     bodyHash: meshBodyHash,
     issuedAt: task.statusAt,
   };

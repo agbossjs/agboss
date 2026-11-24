@@ -106,6 +106,7 @@ async function restStateOf(
           finish: definedOf(output.finish, "a finished output names its finish").name,
           output: output.output,
           spentUsd: finishedSpendOf(record, output.spend.totalUsd),
+          spentTokens: output.spend.totalTokens,
         };
   } catch (error) {
     if (error instanceof NotPausedError) return undefined;

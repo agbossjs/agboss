@@ -276,6 +276,7 @@ export interface A2ADirectMessageReply {
     readonly finish: string;
     // (undocumented)
     readonly output: unknown;
+    readonly spentTokens?: number;
     readonly spentUsd: Usd;
 }
 

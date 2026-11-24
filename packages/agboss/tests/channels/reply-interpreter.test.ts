@@ -160,7 +160,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
       key: "default",
       period: "2026-01-05",
     };
-    const spent = await treasuryLedger().findSpentByCounter(tenantToday);
+    const spent = (await treasuryLedger().findUsageByCounter(tenantToday)).spent;
     expect(spent).toBeCloseTo(done.spend.totalUsd, 9);
     expect(done.spend.totalUsd).toBeCloseTo(0.02, 9);
   });

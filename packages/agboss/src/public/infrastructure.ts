@@ -205,3 +205,7 @@ export {
 } from "../infrastructure/file.repository.js";
 export type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 export type { RetentionOptions } from "../application/retention.js";
+
+// budgets limit dollars and tokens (#1318)
+export { BudgetUnit, type DeclaredLimits } from "../budgets/budget.js";
+export type { BudgetLimit, BudgetUsage } from "../infrastructure/cost-ledger.repository.js";

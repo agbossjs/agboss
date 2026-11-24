@@ -1,6 +1,6 @@
 import { movedRetentionViolations, retentionViolations } from "./retention.js";
 import { budgetOf } from "../budgets/budget.js";
-import { budgetRuleViolations } from "../budgets/budget-rules.js";
+import { budgetRuleViolations, budgetsOfApplication } from "../budgets/budget-rules.js";
 import { createdClassesOf, type Class, type Provider } from "../components/injection.js";
 import { depsOf } from "../components/container/container.js";
 import { moduleOf } from "../components/module.js";
@@ -101,8 +101,11 @@ function workflowListViolations(options: ApplicationOptions): RuleViolation[] {
   );
 }
 
+/** Every budget of an application: the listed ones and the ones its workflows attach (#1318). */
+export { budgetsOfApplication };
+
 function budgetViolations(options: ApplicationOptions): RuleViolation[] {
-  return (options.budgets ?? []).flatMap((cls) => {
+  return budgetsOfApplication(options).flatMap((cls) => {
     const budget = budgetOf(cls);
     if (budget === undefined) {
       return [

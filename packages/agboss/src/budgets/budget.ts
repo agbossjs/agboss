@@ -1,5 +1,7 @@
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
+import type { EnvRef } from "../environments/env-ref.js";
+import type { BudgetLimit } from "../infrastructure/cost-ledger.repository.js";
 import type { Usd } from "../units/index.js";
 
 /**
@@ -26,18 +28,42 @@ export enum BudgetPeriod {
   Month = "month",
 }
 
-/** A budget's amount: read once per execution, at its start, from a trusted source. */
+/** What a budget limits by: dollars or tokens (#1318); the unit of the limit an execution hit. */
+export enum BudgetUnit {
+  Usd = "usd",
+  Tokens = "tokens",
+}
+
+/**
+ * A budget's limits, read once per execution, at its start, from a trusted source (#1318): a
+ * dollar cap, a token cap, or both — the first reached stops the execution. A class with
+ * `maxSpend` / `maxTokens` in `@Budget({ … })` needs no handler; one that reads them from a service
+ * writes `limit()` (and `deps`).
+ */
 export interface BudgetHandler {
-  readonly maxSpend: () => Usd | Promise<Usd>;
+  /** The limits, read at the start of each execution. */
+  readonly limit?: () => BudgetLimit | Promise<BudgetLimit>;
+  /** The dollar cap of a handler written before `limit()`; read once per execution. */
+  readonly maxSpend?: () => Usd | Promise<Usd>;
+}
+
+/** What `@Budget` takes of the limits: declared in the decorator (constants or `defineEnv` values). */
+export interface DeclaredLimits {
+  /** The most the budget lets be spent, in dollars; a `defineEnv` value (`env.usd`) is read at the start. */
+  readonly maxSpend?: Usd | EnvRef<Usd>;
+  /** The most tokens (input plus output) the budget lets be used; `env.integer` is read at the start. */
+  readonly maxTokens?: number | EnvRef<number>;
 }
 
 /**
  * The cost of one execution: its own workflow's (`workflow: X`, at most one per workflow), or the
  * default for every root without its own (no `workflow`). No period.
  */
-export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> {
+export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> extends DeclaredLimits {
   /** Ends with `-budget` (`tenant-daily-budget`). */
   readonly name: string;
+  /** What the budget is for: shown by `agboss describe`. */
+  readonly description?: string;
   readonly deps?: TDeps;
   readonly scope: BudgetScope.Execution;
   readonly workflow?: Class;
@@ -45,9 +71,11 @@ export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> {
 }
 
 /** A tenant's or the application's spend per period; no `workflow`. */
-export interface PeriodBudgetOptions<TDeps extends readonly Token[]> {
+export interface PeriodBudgetOptions<TDeps extends readonly Token[]> extends DeclaredLimits {
   /** Ends with `-budget` (`tenant-daily-budget`). */
   readonly name: string;
+  /** What the budget is for: shown by `agboss describe`. */
+  readonly description?: string;
   readonly deps?: TDeps;
   readonly scope: BudgetScope.Tenant | BudgetScope.Application;
   readonly period: BudgetPeriod;
@@ -61,6 +89,10 @@ export type BudgetOptions<TDeps extends readonly Token[] = readonly Token[]> =
 /** What `@Budget` records about a class. */
 export interface BudgetMeta {
   readonly name: string;
+  readonly description?: string;
+  /** The limits declared in the decorator: absent when the class reads them in `limit()`. */
+  readonly maxSpend?: Usd | EnvRef<Usd>;
+  readonly maxTokens?: number | EnvRef<number>;
   readonly scope: BudgetScope;
   readonly period?: BudgetPeriod;
   readonly workflow?: Class;
@@ -75,13 +107,16 @@ export function Budget<const TDeps extends readonly Token[] = []>(options: Budge
   return <TClass extends new (...args: ResolvedAll<TDeps>) => BudgetHandler>(
     value: TClass,
   ): TClass => {
-    const { name, scope, period, workflow } = options;
+    const { name, scope, period, workflow, description, maxSpend, maxTokens } = options;
     recordComponent(value, {
       kind: "budget",
       meta: {
         name,
         scope,
         deps: options.deps ?? [],
+        ...(description === undefined ? {} : { description }),
+        ...(maxSpend === undefined ? {} : { maxSpend }),
+        ...(maxTokens === undefined ? {} : { maxTokens }),
         ...(period === undefined ? {} : { period }),
         ...(workflow === undefined ? {} : { workflow }),
       },

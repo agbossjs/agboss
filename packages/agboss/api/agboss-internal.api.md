@@ -351,7 +351,7 @@ export function compareProfilesWith<TApplication extends Class>(application: App
 }): Promise<ProfileComparison>;
 
 // @public
-export const completedStatusOf: (finish: string, output: unknown, spentUsd: Usd) => A2ATaskStatus;
+export const completedStatusOf: (finish: string, output: unknown, spentUsd: Usd, spentTokens?: number) => A2ATaskStatus;
 
 // @public
 export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
@@ -530,6 +530,7 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
 
 // @public
 export interface DescribedBudget {
+    readonly description?: string;
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -714,6 +715,7 @@ export type DurableExecutionState = {
     readonly finish: string;
     readonly output: unknown;
     readonly spentUsd: Usd;
+    readonly spentTokens?: number;
 } | {
     readonly status: DurableExecutionStatus.Failed;
     readonly reason: string;

@@ -81,12 +81,14 @@ describe("#1366: the spend of an eval run", () => {
     expect(run?.spentUsd).toBeCloseTo(0.375);
     expect(report.spend.totalUsd).toBeCloseTo(0.375);
     // the judge's call, made outside an execution, is in the application's budget with the turn's
-    const spent = await built.infrastructure.costLedger.findSpentByCounter({
-      budget: "test-application-daily-budget",
-      scope: BudgetScope.Application,
-      key: "eval-desk-application",
-      period: "2026-01-05",
-    });
+    const spent = (
+      await built.infrastructure.costLedger.findUsageByCounter({
+        budget: "test-application-daily-budget",
+        scope: BudgetScope.Application,
+        key: "eval-desk-application",
+        period: "2026-01-05",
+      })
+    ).spent;
     expect(spent).toBeCloseTo(0.375);
   });
 

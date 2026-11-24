@@ -36,21 +36,45 @@ const contract = (price: number, application = "contract-app") =>
 
 describe("#1356: what the calling step is charged for a call", () => {
   it("is the price alone without a report, to the contract's application", () => {
-    expect(chargeOf(undefined, contract(2), 0)).toEqual({ application: "contract-app", cost: 2 });
+    expect(chargeOf(undefined, contract(2), 0)).toEqual({
+      application: "contract-app",
+      cost: 2,
+      tokens: 0,
+    });
   });
 
   it("is the verified spend alone without a contract, to the report's issuer", () => {
-    expect(chargeOf(report("3.5"), undefined, 0)).toEqual({ application: "peer", cost: 3.5 });
+    expect(chargeOf(report("3.5"), undefined, 0)).toEqual({
+      application: "peer",
+      cost: 3.5,
+      tokens: 0,
+    });
   });
 
   it("is the larger of the verified spend and the price, to the report's issuer", () => {
-    expect(chargeOf(report("3"), contract(2), 0)).toEqual({ application: "peer", cost: 3 });
-    expect(chargeOf(report("1"), contract(2), 0)).toEqual({ application: "peer", cost: 2 });
+    expect(chargeOf(report("3"), contract(2), 0)).toEqual({
+      application: "peer",
+      cost: 3,
+      tokens: 0,
+    });
+    expect(chargeOf(report("1"), contract(2), 0)).toEqual({
+      application: "peer",
+      cost: 2,
+      tokens: 0,
+    });
   });
 
   it("is the price alone when the report's total is no amount", () => {
-    expect(chargeOf(report("many"), contract(2), 0)).toEqual({ application: "peer", cost: 2 });
-    expect(chargeOf(report("-1"), contract(2), 0)).toEqual({ application: "peer", cost: 2 });
+    expect(chargeOf(report("many"), contract(2), 0)).toEqual({
+      application: "peer",
+      cost: 2,
+      tokens: 0,
+    });
+    expect(chargeOf(report("-1"), contract(2), 0)).toEqual({
+      application: "peer",
+      cost: 2,
+      tokens: 0,
+    });
   });
 
   it("is nothing when no application can be charged, however much is owed", () => {
@@ -58,15 +82,27 @@ describe("#1356: what the calling step is charged for a call", () => {
     expect(chargeOf(anonymous, undefined, 0)).toBeUndefined();
     const unnamed = { application: undefined, price: usd(2) } as never;
     expect(chargeOf(anonymous, unnamed, 0)).toBeUndefined();
-    expect(chargeOf(anonymous, contract(2), 0)).toEqual({ application: "contract-app", cost: 3 });
+    expect(chargeOf(anonymous, contract(2), 0)).toEqual({
+      application: "contract-app",
+      cost: 3,
+      tokens: 0,
+    });
     expect(chargeOf(undefined, unnamed, 0)).toBeUndefined();
   });
 
   it("is less what the call was charged already, and nothing at or below it", () => {
-    expect(chargeOf(undefined, contract(2), 1)).toEqual({ application: "contract-app", cost: 1 });
+    expect(chargeOf(undefined, contract(2), 1)).toEqual({
+      application: "contract-app",
+      cost: 1,
+      tokens: 0,
+    });
     expect(chargeOf(undefined, contract(2), 2)).toBeUndefined();
     expect(chargeOf(undefined, contract(2), 3)).toBeUndefined();
-    expect(chargeOf(report("5"), contract(2), 2)).toEqual({ application: "peer", cost: 3 });
+    expect(chargeOf(report("5"), contract(2), 2)).toEqual({
+      application: "peer",
+      cost: 3,
+      tokens: 0,
+    });
   });
 
   it("is nothing when there is nothing to charge — no report and no contract, or a report of no spend", () => {
@@ -94,7 +130,11 @@ describe("#1382: a price or a charge that is no amount throws, never counts", ()
   });
 
   it("a price of 0 and a charge of 0 are amounts", () => {
-    expect(chargeOf(report("3"), contract(0), 0)).toEqual({ application: "peer", cost: 3 });
+    expect(chargeOf(report("3"), contract(0), 0)).toEqual({
+      application: "peer",
+      cost: 3,
+      tokens: 0,
+    });
   });
 });
 

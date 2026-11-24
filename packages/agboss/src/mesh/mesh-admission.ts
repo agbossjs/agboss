@@ -63,6 +63,7 @@ export function inboundMeshOfRequest(
 /** A trusted peer's claims, as its execution keeps them. */
 function trustedOf(envelope: MeshEnvelope, peer: string): TrustedMesh {
   const budget = dollarsOf(envelope.budget?.remaining);
+  const budgetTokens = envelope.budget?.remainingTokens;
   const deadline = millisecondsOf(envelope.deadline?.remaining);
   const origin: ExecutionOrigin = {
     ...envelope.origin,
@@ -72,6 +73,7 @@ function trustedOf(envelope: MeshEnvelope, peer: string): TrustedMesh {
   return {
     origin,
     ...(budget === undefined ? {} : { budget }),
+    ...(budgetTokens === undefined ? {} : { budgetTokens }),
     ...(deadline === undefined ? {} : { deadline }),
   };
 }

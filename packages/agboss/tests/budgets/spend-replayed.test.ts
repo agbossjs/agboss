@@ -91,6 +91,6 @@ describe("#727: a step run again after a takeover bills again and counts again",
       },
     ];
     for (const record of records)
-      expect(await ledger.findSpentByCounter(counterOf(record, now))).toBe(120);
+      expect((await ledger.findUsageByCounter(counterOf(record, now))).spent).toBe(120);
   });
 });

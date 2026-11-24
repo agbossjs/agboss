@@ -6,6 +6,8 @@ import {
   CostLedgerRepository,
   type CostCounter,
   type LedgerEntry,
+  type BudgetLimit,
+  type BudgetUsage,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
@@ -47,8 +49,8 @@ export class RecordingCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findSpentByCounter(): Promise<Usd> {
-    return Promise.resolve(usd(0));
+  findUsageByCounter(): Promise<BudgetUsage> {
+    return Promise.resolve({ spent: usd(0), tokens: 0 });
   }
 
   saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]): Promise<void> {
@@ -60,11 +62,11 @@ export class RecordingCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findMaxSpendByAccount(): Promise<Usd | undefined> {
+  findLimitByAccount(): Promise<BudgetLimit | undefined> {
     return Promise.resolve(undefined);
   }
 
-  saveMaxSpend(): Promise<void> {
+  saveLimit(): Promise<void> {
     return Promise.resolve();
   }
 }

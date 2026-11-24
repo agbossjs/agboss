@@ -28,6 +28,7 @@ export function runReportMetaOf(
     issuer: application,
     executionId: result.executionId,
     spentUsd: result.spend.totalUsd,
+    spentTokens: result.spend.totalTokens,
     bodyHash: call.bodyHash,
     issuedAt: clock.now(),
   };

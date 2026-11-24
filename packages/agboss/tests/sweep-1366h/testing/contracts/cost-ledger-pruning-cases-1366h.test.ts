@@ -1,3 +1,4 @@
+import { usd } from "../../../../src/units/index.js";
 /**
  * #1366: the cost ledger contract's pruning cases (`cost-ledger-pruning.cases.ts`, #771, #817, #869)
  * judge a ledger by what it counts and refuses: each passes on the sound in-memory ledger shared by
@@ -14,6 +15,8 @@ import {
   type BudgetAccount,
   type CostCounter,
   type LedgerEntry,
+  type BudgetLimit,
+  type BudgetUsage,
 } from "../../../../src/infrastructure/cost-ledger.repository.js";
 import { BudgetScope } from "../../../../src/budgets/budget.js";
 import type { Usd } from "../../../../src/units/index.js";
@@ -85,10 +88,12 @@ class Faulty extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  async findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  async findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     this.shared.reads += 1;
-    const spent = await this.shared.inner.findSpentByCounter(counter);
-    return this.faults.misread?.(this.shared.reads) === true ? ((spent + 0.5) as Usd) : spent;
+    const spent = await this.shared.inner.findUsageByCounter(counter);
+    return this.faults.misread?.(this.shared.reads) === true
+      ? { ...spent, spent: usd(spent.spent + 0.5) }
+      : spent;
   }
 
   /** What a refused save rejects with here: the refusal as the faults change it. */
@@ -150,12 +155,12 @@ class Faulty extends CostLedgerRepository {
     }
   }
 
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
-    return this.shared.inner.findMaxSpendByAccount(account);
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
+    return this.shared.inner.findLimitByAccount(account);
   }
 
-  saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
-    return this.shared.inner.saveMaxSpend(account, maxSpend);
+  saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
+    return this.shared.inner.saveLimit(account, limit);
   }
 }
 

@@ -62,7 +62,7 @@ async function executionCounter(result: ExecutionOutput): Promise<number> {
     key: result.executionId,
     maxSpend: 0.05,
   };
-  return ledger.findSpentByCounter(counterOf(record, new Date(0)));
+  return ledger.findUsageByCounter(counterOf(record, new Date(0))).then((usage) => usage.spent);
 }
 
 beforeEach(resetParallelBudget);
@@ -272,9 +272,13 @@ describe("the live tally (BudgetMeter)", () => {
       ledgerId: expect.any(String),
     });
     await budgets.settled();
-    expect(await ledger.findSpentByCounter(counterOf(record, systemClock.now()))).toBeCloseTo(0.03);
+    expect(
+      (await ledger.findUsageByCounter(counterOf(record, systemClock.now()))).spent,
+    ).toBeCloseTo(0.03);
     await budgets.record(kept === undefined ? [] : [kept]);
-    expect(await ledger.findSpentByCounter(counterOf(record, systemClock.now()))).toBeCloseTo(0.03);
+    expect(
+      (await ledger.findUsageByCounter(counterOf(record, systemClock.now()))).spent,
+    ).toBeCloseTo(0.03);
     budgets.check(0.03, []);
     budgets.tally([call(0.01)]);
 

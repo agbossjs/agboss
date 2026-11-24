@@ -75,7 +75,12 @@ function optionsOf(
 function replyOf(result: ExecutionOutput): A2ADirectMessageReply {
   // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
   const finish = definedOf(result.finish, "a direct skill cannot pause (assembly)");
-  return { finish: finish.name, output: result.output, spentUsd: result.spend.totalUsd };
+  return {
+    finish: finish.name,
+    output: result.output,
+    spentUsd: result.spend.totalUsd,
+    spentTokens: result.spend.totalTokens,
+  };
 }
 
 /** The attempt's run, to its reply; its row removed and `-32603` when it fails. */

@@ -146,7 +146,7 @@ describe("#1356: the recorder of a pass", () => {
     await record([usageRecord("b", 3), usageRecord("c", 1)]);
 
     expect(spent.map((each) => each.caller)).toEqual(["a", "b", "c"]);
-    expect(await ledger.findSpentByCounter(counterOf(own, clock.now()))).toBe(6);
+    expect((await ledger.findUsageByCounter(counterOf(own, clock.now()))).spent).toBe(6);
   });
 });
 

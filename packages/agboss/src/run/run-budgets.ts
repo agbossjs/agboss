@@ -1,7 +1,6 @@
 import { nodeRecordIn, workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import {
   accountOf,
-  budgetExceededErrorOf,
   budgetKeyOf,
   budgetsOfExecution,
   counterOf,
@@ -12,10 +11,14 @@ import {
   type ExecutionKeys,
 } from "../budgets/execution-budgets.js";
 import type { Class } from "../components/injection.js";
-import { UnitError, usd } from "../units/index.js";
-import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { BudgetScope } from "../budgets/budget.js";
-import { isSpendExhausted } from "../budgets/budget-check.js";
+import {
+  budgetExceededErrorOf,
+  exhaustedUnitOf,
+  limitOf,
+  limitsOf,
+  spendOfUsage,
+} from "../budgets/budget-spend.js";
 import type { ExecutionDeadline } from "../budgets/execution-deadline.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import { runInFrame, type ExecutionFacts, type FrameSpec } from "../flow/context/frame.js";
@@ -113,21 +116,8 @@ export const inStartFrame =
     runInFrame(startFrameOf(deps, start, deps.lease), work);
 
 /**
- * A `maxSpend()` that gave no finite amount of dollars from 0 — `NaN`, a word, an object, a negative
- * number — would never be reached by any spend (every comparison with `NaN` is false): the execution
- * is refused before its first step, whatever the handler's source (a database, a file). The message
- * names the budget, never the value (#1373).
- */
-function checkMaxSpend(budget: string, amount: unknown): void {
-  if (isFiniteNumber(amount) && amount >= 0) return;
-  throw new UnitError({
-    message: `${budget}: maxSpend() must return a finite number of dollars from 0 (usd(...)), it gave ${shownLimit(amount)}`,
-  });
-}
-
-/**
- * Opens the budgets of a new execution: `maxSpend()` of each read once (in `inFrame`, where the
- * execution's `ExecutionContext` can be read) and kept in the ledger as the last known limit, then
+ * Opens the budgets of a new execution: the limits of each read once (in `inFrame`, where the
+ * execution's `ExecutionContext` can be read) and kept in the ledger as the last known limits, then
  * every counter read — one exhausted rejects the execution before its first step.
  */
 async function openBudgets(
@@ -139,28 +129,26 @@ async function openBudgets(
 ): Promise<readonly ExecutionBudgetRecord[]> {
   const records: ExecutionBudgetRecord[] = [];
   for (const { type, meta } of budgetsOfExecution(application.budgets, workflow)) {
-    const handler = application.resolve(type);
-    const maxSpend = await inFrame(() => Promise.resolve(handler.maxSpend()));
-    checkMaxSpend(meta.name, maxSpend);
-    const record: ExecutionBudgetRecord = {
+    const limit = await limitsOf(application.resolve(type), meta, inFrame);
+    records.push({
       budget: { name: meta.name },
       scope: meta.scope,
       ...(meta.period === undefined ? {} : { period: meta.period }),
       key: budgetKeyOf(meta.scope, keys),
-      maxSpend,
-    };
-    records.push(record);
+      ...limit,
+    });
   }
   records.push(...claimed);
   const now = application.clock.now();
   for (const record of records) {
-    const spent = await application.ledger.findSpentByCounter(counterOf(record, now));
-    if (isSpendExhausted(spent, record.maxSpend))
-      throw budgetExceededErrorOf(record, spent, [], 0, []);
+    const used = spendOfUsage(await application.ledger.findUsageByCounter(counterOf(record, now)));
+    const unit = exhaustedUnitOf(record, used);
+    if (unit !== undefined)
+      throw budgetExceededErrorOf(record, used, unit, { path: [], executionSpent: 0, usage: [] });
   }
   // kept only once the execution is admitted: a refused request leaves no trace
   for (const record of records)
-    await application.ledger.saveMaxSpend(accountOf(record), usd(record.maxSpend));
+    await application.ledger.saveLimit(accountOf(record), limitOf(record));
   return records;
 }
 
@@ -177,12 +165,14 @@ function callerBudgetsOf(
   executionId: string,
 ): readonly ExecutionBudgetRecord[] {
   const claimed = contexts.mesh?.trusted?.budget;
-  if (claimed === undefined) return [];
+  const claimedTokens = contexts.mesh?.trusted?.budgetTokens;
+  if (claimed === undefined && claimedTokens === undefined) return [];
   const record = {
     budget: { name: CALLER_BUDGET },
     scope: BudgetScope.Execution,
     key: executionId,
-    maxSpend: claimed,
+    ...(claimed === undefined ? {} : { maxSpend: claimed }),
+    ...(claimedTokens === undefined ? {} : { maxTokens: claimedTokens }),
   };
   return [record];
 }

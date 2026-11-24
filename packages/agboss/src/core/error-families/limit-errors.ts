@@ -1,5 +1,5 @@
 import { defineFamily, type FamilyConstructor, type PaidErrorVariant } from "./family.js";
-import type { BudgetPeriod, BudgetScope } from "../../budgets/budget.js";
+import type { BudgetPeriod, BudgetScope, BudgetUnit } from "../../budgets/budget.js";
 import type { ComponentRecord } from "../../flow/runtime/records.js";
 import type { Milliseconds, Usd } from "../../units/index.js";
 
@@ -37,8 +37,11 @@ export declare namespace LimitError {
     readonly scope: BudgetScope;
     readonly period?: BudgetPeriod | undefined;
     readonly key: string;
-    readonly maxSpend: Usd;
+    readonly unit: BudgetUnit;
+    readonly maxSpend?: Usd | undefined;
     readonly spent: Usd;
+    readonly maxTokens?: number | undefined;
+    readonly usedTokens: number;
   };
   /** The execution ran past its deadline. */
   export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & {

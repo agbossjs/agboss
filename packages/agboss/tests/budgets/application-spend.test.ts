@@ -76,10 +76,12 @@ describe("#633: recordApplicationSpend counts in the application budgets only", 
       recordToolCost("judge", 0.5),
     ]);
 
-    await expect(ledger.findSpentByCounter(DAILY)).resolves.toBe(0.75);
-    await expect(ledger.findSpentByCounter(MONTHLY)).resolves.toBe(0.75);
+    await expect(ledger.findUsageByCounter(DAILY).then((usage) => usage.spent)).resolves.toBe(0.75);
+    await expect(ledger.findUsageByCounter(MONTHLY).then((usage) => usage.spent)).resolves.toBe(
+      0.75,
+    );
     const tenant = counter("test-tenant-daily-budget", BudgetScope.Tenant, "2026-10-20");
-    await expect(ledger.findSpentByCounter(tenant)).resolves.toBe(0);
+    await expect(ledger.findUsageByCounter(tenant).then((usage) => usage.spent)).resolves.toBe(0);
   });
 
   it("no application, no calls or no application budget: nothing is written", async () => {
@@ -107,7 +109,7 @@ describe("#633: isApplicationSpendExhausted holds the spend to the last known li
       readonly name = "not-a-budget";
     };
     const { ledger, application } = applicationOf([NotABudget, TestApplicationDailyBudget]);
-    await ledger.saveMaxSpend(DAILY, usd(1));
+    await ledger.saveLimit(DAILY, { maxSpend: usd(1) });
     await ledger.saveAll([DAILY], [ledgerEntryOf(recordToolCost("judge", 1))]);
 
     await expect(isApplicationSpendExhausted(application)).resolves.toBe(true);
@@ -129,8 +131,8 @@ describe("#633: isApplicationSpendExhausted holds the spend to the last known li
       TestApplicationDailyBudget,
       MonthlyApplicationBudget,
     ]);
-    await ledger.saveMaxSpend(DAILY, usd(10));
-    await ledger.saveMaxSpend(MONTHLY, usd(2));
+    await ledger.saveLimit(DAILY, { maxSpend: usd(10) });
+    await ledger.saveLimit(MONTHLY, { maxSpend: usd(2) });
     await ledger.saveAll([DAILY, MONTHLY], [ledgerEntryOf(recordToolCost("judge", 2))]);
 
     await expect(isApplicationSpendExhausted(application)).resolves.toBe(true);
@@ -138,7 +140,7 @@ describe("#633: isApplicationSpendExhausted holds the spend to the last known li
 
   it("under the limit, or another period's spend: not exhausted", async () => {
     const { ledger, application } = applicationOf([TestApplicationDailyBudget]);
-    await ledger.saveMaxSpend(DAILY, usd(2));
+    await ledger.saveLimit(DAILY, { maxSpend: usd(2) });
     await ledger.saveAll([DAILY], [ledgerEntryOf(recordToolCost("judge", 1.999999))]);
     await ledger.saveAll(
       [{ ...DAILY, period: "2026-10-19" }],
@@ -151,7 +153,7 @@ describe("#633: isApplicationSpendExhausted holds the spend to the last known li
   it("a tenant budget's spend never exhausts the application", async () => {
     const { ledger, application } = applicationOf([TestTenantDailyBudget]);
     const tenant = counter("test-tenant-daily-budget", BudgetScope.Tenant, "2026-10-20");
-    await ledger.saveMaxSpend(tenant, usd(1));
+    await ledger.saveLimit(tenant, { maxSpend: usd(1) });
     await ledger.saveAll([tenant], [ledgerEntryOf(recordToolCost("judge", 5))]);
 
     await expect(isApplicationSpendExhausted(application)).resolves.toBe(false);

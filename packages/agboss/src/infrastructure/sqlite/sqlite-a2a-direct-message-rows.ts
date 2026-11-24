@@ -47,6 +47,7 @@ const Reply = z.strictObject({
   finish: z.string(),
   output: z.unknown(),
   spentUsd: storedUsd,
+  spentTokens: z.number().int().nonnegative().optional(),
 });
 
 /** The reply of a row whose state says it has one, and only then (a corrupt row is refused). */
@@ -65,7 +66,12 @@ function replyOf(
     parsedStoredJson("a2a direct message reply", reply, { messageId: row.message_id }),
   );
   return {
-    reply: { finish: kept.finish, output: kept.output, spentUsd: kept.spentUsd },
+    reply: {
+      finish: kept.finish,
+      output: kept.output,
+      spentUsd: kept.spentUsd,
+      ...(kept.spentTokens === undefined ? {} : { spentTokens: kept.spentTokens }),
+    },
     completedAt: new Date(completedAt),
   };
 }

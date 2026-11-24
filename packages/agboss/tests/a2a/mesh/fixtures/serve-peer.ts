@@ -67,9 +67,12 @@ export const executionSpentOf = (
   app: Pick<App, "resolve">,
   rootExecutionId: string,
 ): Promise<number> =>
-  app.resolve(CostLedgerRepository).findSpentByCounter({
-    budget: "test-execution-budget",
-    scope: BudgetScope.Execution,
-    key: rootExecutionId,
-    period: "",
-  });
+  app
+    .resolve(CostLedgerRepository)
+    .findUsageByCounter({
+      budget: "test-execution-budget",
+      scope: BudgetScope.Execution,
+      key: rootExecutionId,
+      period: "",
+    })
+    .then((usage) => usage.spent);

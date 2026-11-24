@@ -55,7 +55,8 @@ class SeenLedger extends InMemoryCostLedgerRepository {
 const clock = new VirtualClock(NOW);
 const meterOf = (ledger: SeenLedger, counted: readonly UsageRecord[] = []): BudgetMeter =>
   new BudgetMeter([budget], ledger, clock, 0, undefined, counted);
-const spentIn = (ledger: SeenLedger) => ledger.findSpentByCounter(counterOf(budget, NOW));
+const spentIn = (ledger: SeenLedger) =>
+  ledger.findUsageByCounter(counterOf(budget, NOW)).then((usage) => usage.spent);
 
 describe("#817: ledgerMarkOf reads the one state", () => {
   it("a record not in the ledger has none; a written one its id and Date; one recorded elsewhere its state", () => {

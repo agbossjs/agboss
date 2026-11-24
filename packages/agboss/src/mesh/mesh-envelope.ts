@@ -39,8 +39,11 @@ export interface MeshEnvelope {
 
 /** The calling execution's budget left, in its values' units: `{ remaining: "0.42", currency: "USD" }`. */
 export interface MeshBudgetClaim {
-  readonly remaining: string;
-  readonly currency: "USD";
+  /** The dollars left; absent for a caller whose budgets are token-only (never `"Infinity"`). */
+  readonly remaining?: string;
+  readonly currency?: "USD";
+  /** The tokens left (#1318); absent without a token budget. */
+  readonly remainingTokens?: number;
 }
 
 /** The time the caller still waits, as an ISO 8601 duration: `{ remaining: "PT58.2S" }`. */
@@ -114,6 +117,8 @@ export interface MeshRunReport {
 export interface MeshSpendReport {
   readonly total: string;
   readonly currency: "USD";
+  /** The tokens the execution used (#1318): charged to the caller's token budgets even when `total` is `"0"`. */
+  readonly totalTokens?: number;
 }
 
 /** The MCP `_meta` key of a receiver's signed `MeshRunReport`. */

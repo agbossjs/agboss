@@ -53,6 +53,7 @@ export interface A2ADirectMessageReply {
     readonly finish: string;
     // (undocumented)
     readonly output: unknown;
+    readonly spentTokens?: number;
     readonly spentUsd: Usd;
 }
 
@@ -236,6 +237,7 @@ export interface A2ATaskStatus {
     readonly message?: string;
     readonly output?: unknown;
     readonly pendingPauses: readonly A2ATaskPause[];
+    readonly spentTokens?: number;
     readonly spentUsd?: Usd;
     // (undocumented)
     readonly state: A2ATaskState;
@@ -1024,10 +1026,13 @@ export interface BudgetAccount {
 export interface BudgetBreach {
     readonly budget: Pick<ComponentRecord, "name">;
     readonly key: string;
-    readonly maxSpend: Usd;
+    readonly maxSpend?: Usd;
+    readonly maxTokens?: number;
     readonly period?: BudgetPeriod | undefined;
     readonly scope: BudgetScope;
     readonly spent: Usd;
+    readonly unit?: BudgetUnit;
+    readonly usedTokens?: number;
 }
 
 // @public
@@ -1039,12 +1044,15 @@ export class BudgetExceededError extends LimitExceededError {
     // (undocumented)
     readonly code: typeof BudgetExceededError.code;
     readonly key: string;
-    readonly maxSpend: Usd;
+    readonly maxSpend: Usd | undefined;
+    readonly maxTokens: number | undefined;
     // (undocumented)
     name: string;
     readonly period: BudgetPeriod | undefined;
     readonly scope: BudgetScope;
     readonly spent: Usd;
+    readonly unit: BudgetUnit;
+    readonly usedTokens: number;
 }
 
 // @public
@@ -1061,8 +1069,16 @@ export interface BudgetExceededErrorOptions extends BudgetBreach {
 
 // @public
 export interface BudgetHandler {
+    readonly limit?: () => BudgetLimit | Promise<BudgetLimit>;
+    readonly maxSpend?: () => Usd | Promise<Usd>;
+}
+
+// @public
+export interface BudgetLimit {
     // (undocumented)
-    readonly maxSpend: () => Usd | Promise<Usd>;
+    readonly maxSpend?: Usd | undefined;
+    // (undocumented)
+    readonly maxTokens?: number | undefined;
 }
 
 // @public
@@ -1083,6 +1099,21 @@ export enum BudgetScope {
     Application = "application",
     Execution = "execution",
     Tenant = "tenant"
+}
+
+// @public
+export enum BudgetUnit {
+    // (undocumented)
+    Tokens = "tokens",
+    // (undocumented)
+    Usd = "usd"
+}
+
+// @public
+export interface BudgetUsage {
+    // (undocumented)
+    readonly spent: Usd;
+    readonly tokens: number;
 }
 
 // @public
@@ -2266,11 +2297,11 @@ export interface CostLedgerEntryInvalidErrorOptions {
 // @public (undocumented)
 export abstract class CostLedgerRepository {
     abstract deleteByMadeAtBefore(cutoff: Date): Promise<void>;
-    abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
-    abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
+    abstract findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined>;
+    abstract findUsageByCounter(counter: CostCounter): Promise<BudgetUsage>;
     abstract ping(): Promise<void>;
     abstract saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
-    abstract saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
+    abstract saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void>;
 }
 
 // @public
@@ -2524,6 +2555,12 @@ export interface DeclarativeWorkingCalendarOptions extends WorkingCalendarCommon
     readonly deps?: never;
     // (undocumented)
     readonly week: WorkingWeekOptions;
+}
+
+// @public
+export interface DeclaredLimits {
+    readonly maxSpend?: Usd | EnvRef<Usd>;
+    readonly maxTokens?: number | EnvRef<number>;
 }
 
 // @public
@@ -2920,9 +2957,10 @@ export abstract class ExecutionAuditLogRepository {
 }
 
 // @public
-export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> {
+export interface ExecutionBudgetOptions<TDeps extends readonly Token[]> extends DeclaredLimits {
     // (undocumented)
     readonly deps?: TDeps;
+    readonly description?: string;
     readonly name: string;
     // (undocumented)
     readonly period?: never;
@@ -5671,8 +5709,11 @@ export namespace LimitError {
         readonly scope: BudgetScope;
         readonly period?: BudgetPeriod | undefined;
         readonly key: string;
-        readonly maxSpend: Usd;
+        readonly unit: BudgetUnit;
+        readonly maxSpend?: Usd | undefined;
         readonly spent: Usd;
+        readonly maxTokens?: number | undefined;
+        readonly usedTokens: number;
     };
     export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & {
         readonly path: readonly string[];
@@ -5922,9 +5963,9 @@ export type MemoryOptions = DeclarativeMemoryOptions | CodeMemoryOptions;
 // @public
 export interface MeshBudgetClaim {
     // (undocumented)
-    readonly currency: "USD";
-    // (undocumented)
-    readonly remaining: string;
+    readonly currency?: "USD";
+    readonly remaining?: string;
+    readonly remainingTokens?: number;
 }
 
 // @public
@@ -6057,6 +6098,7 @@ export interface MeshSpendReport {
     readonly currency: "USD";
     // (undocumented)
     readonly total: string;
+    readonly totalTokens?: number;
 }
 
 // @public
@@ -7982,9 +8024,10 @@ export interface PendingQuestion extends PendingPauseBase {
 }
 
 // @public
-export interface PeriodBudgetOptions<TDeps extends readonly Token[]> {
+export interface PeriodBudgetOptions<TDeps extends readonly Token[]> extends DeclaredLimits {
     // (undocumented)
     readonly deps?: TDeps;
+    readonly description?: string;
     readonly name: string;
     // (undocumented)
     readonly period: BudgetPeriod;
@@ -8982,7 +9025,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -9097,6 +9140,7 @@ export interface ServiceSpend {
     // (undocumented)
     readonly cost: Usd;
     readonly service: string;
+    readonly tokens?: Partial<TokenUsage>;
 }
 
 // @public (undocumented)
@@ -9187,15 +9231,15 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     // (undocumented)
     deleteByMadeAtBefore(cutoff: Date): Promise<void>;
     // (undocumented)
-    findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
+    findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined>;
     // (undocumented)
-    findSpentByCounter(counter: CostCounter): Promise<Usd>;
+    findUsageByCounter(counter: CostCounter): Promise<BudgetUsage>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
     saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
     // (undocumented)
-    saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
+    saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void>;
 }
 
 // @public
@@ -10992,6 +11036,7 @@ export class WorkflowLoadError extends AGBossError {
 
 // @public
 export interface WorkflowOptions<TName extends string = string, TFlow extends readonly FlowPath[] = readonly FlowPath[]> {
+    readonly budget?: Class;
     // (undocumented)
     readonly defaults?: WorkflowDefaults;
     readonly excludePiiPolicies?: readonly Class[];
@@ -11326,7 +11371,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "Week".
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "Month".
-// src/budgets/budget.ts - (ae-undocumented) Missing documentation for "maxSpend".
+// src/budgets/budget.ts - (ae-undocumented) Missing documentation for "Usd".
+// src/budgets/budget.ts - (ae-undocumented) Missing documentation for "Tokens".
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "deps".
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "scope".
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "workflow".
@@ -12453,6 +12499,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/clock.ts - (ae-undocumented) Missing documentation for "source".
+// src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "spent".
+// src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "maxSpend".
+// src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "maxTokens".
 // src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "executionId".
@@ -12673,11 +12722,11 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "completeByTenantIdAndExecutionId".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "deleteAllByTenantIdAndRootExecutionId".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "findSpentByCounter".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "findUsageByCounter".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "saveAll".
 // src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "deleteByMadeAtBefore".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "findMaxSpendByAccount".
-// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "saveMaxSpend".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "findLimitByAccount".
+// src/infrastructure/sqlite/sqlite-cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "saveLimit".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
@@ -12857,7 +12906,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "Memory".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "executionId".
-// src/mesh/mesh-envelope.ts - (ae-undocumented) Missing documentation for "remaining".
 // src/mesh/mesh-envelope.ts - (ae-undocumented) Missing documentation for "currency".
 // src/mesh/mesh-envelope.ts - (ae-undocumented) Missing documentation for "remaining".
 // src/mesh/mesh-envelope.ts - (ae-undocumented) Missing documentation for "schema".

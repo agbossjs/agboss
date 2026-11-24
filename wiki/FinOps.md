@@ -117,6 +117,19 @@ what it limits, `maxSpend()` how much, its data through the constructor like any
 budget of the application is listed in `@Application({ budgets })`, written in
 `config/budget.config.ts`; `name` ends with `-budget`, the class with `Budget`.
 
+**Tokens and shared budgets (#1318).** A budget limits dollars, tokens or both: `maxSpend` and `maxTokens` in
+`@Budget({ … })` (constants, or `env.usd(…)` / `env.integer(…)` read when the application starts, no class body needed), or a
+`limit()` returning `{ maxSpend?, maxTokens? }` for an amount read from a service, in the start step's frame. Say it in one place:
+`[budget.missing-limit]` is a budget that limits nothing, `[budget.conflicting-limit]` one that declares and also has `limit()`.
+Both caps are enforced and each fails closed — an amount or a count that is no number refuses the execution before its first
+step. A call that cost `$0` but used tokens (an unpriced CLI or local model, `CostSource.Unpriced`) is spend: it is written to the
+ledger, waited for before a checkpoint and counted by `maxTokens`; `BudgetExceededError.unit` says which cap was hit
+(`BudgetUnit.Usd` or `Tokens`) beside `maxSpend?`, `spent`, `maxTokens?`, `usedTokens`. `@Workflow({ budget: ThatBudget })`
+attaches one, found without listing it in `@Application({ budgets })`; a budget's counter is keyed by its name, the scope key and
+the period — never by a workflow — so five workflows that attach one budget share one cap. Pruning ledger entries
+(`deleteByMadeAtBefore`) never lowers a counter, dollars or tokens. A trusted mesh caller's claim carries `remainingTokens`, and a
+signed run report `spend.totalTokens`, charged even when the remote run cost nothing.
+
 ```ts
 // config/budget.config.ts
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
@@ -221,7 +234,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
 | `[budget.execution-budget-required]` | a workflow with no own execution budget and no default — `screening-workflow has no execution budget and there is no default — add one with workflow: ScreeningWorkflow or one without workflow` |
 | `[budget.duplicate-execution-budget]` | two own execution budgets for one workflow |
 | `[budget.duplicate-default-execution-budget]` | two execution budgets without `workflow` |
-| `[budget.tenant-budget-required]` | no `BudgetScope.Tenant` budget (a single-tenant application has its one tenant, `"default"`) |
+| `[budget.tenant-budget-required]` | an application with a `tenantContext` has no `BudgetScope.Tenant` budget (one without it has its one tenant, `"default"`, and needs none) |
+| `[budget.missing-limit]` / `[budget.conflicting-limit]` | a budget limits nothing, or declares `maxSpend` / `maxTokens` and also has `limit()` |
 | `[budget.application-budget-required]` | no `BudgetScope.Application` budget |
 | `[budget.not-a-budget]` | a class in `budgets` without `@Budget` |
 

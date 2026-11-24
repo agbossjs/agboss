@@ -30,7 +30,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       await first.saveAll([tenantDay, applicationMonth], [old, young, atCutoff]);
       await second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
 
-      expect(await first.findSpentByCounter(tenantDay)).toBe(0.875);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(0.875);
       await expect(first.saveAll([tenantDay], [old, call(0.125)])).rejects.toMatchObject(
         expired([old.ledgerId], "2026-10-18T09:00:00.000Z"),
       );
@@ -40,8 +40,8 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       // one made at or after the cutoff is held: saved again, it adds nothing
       await second.saveAll([tenantDay, applicationMonth], [young, atCutoff]);
 
-      expect(await second.findSpentByCounter(tenantDay)).toBe(0.875);
-      expect(await first.findSpentByCounter(applicationMonth)).toBe(0.875);
+      expect((await second.findUsageByCounter(tenantDay)).spent).toBe(0.875);
+      expect((await first.findUsageByCounter(applicationMonth)).spent).toBe(0.875);
     },
   },
   {
@@ -51,7 +51,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       // it landed, the caller heard an error: the retry finds it held
       await first.saveAll([tenantDay], [lost]);
       await first.saveAll([tenantDay], [lost]);
-      expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(0.25);
 
       await second.deleteByMadeAtBefore(new Date("2026-10-18T09:00:00.000Z"));
       const fresh = entry("run-1:pass-b:1", 0.5, "2026-10-18T10:00:00.000Z");
@@ -59,10 +59,10 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
         expired([lost.ledgerId], "2026-10-18T09:00:00.000Z"),
       );
 
-      expect(await second.findSpentByCounter(tenantDay)).toBe(0.25);
+      expect((await second.findUsageByCounter(tenantDay)).spent).toBe(0.25);
       // the fresh one was not kept by the refused save: saved alone, it counts
       await second.saveAll([tenantDay], [fresh]);
-      expect(await first.findSpentByCounter(tenantDay)).toBe(0.75);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(0.75);
     },
   },
   {
@@ -80,7 +80,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       await second.saveAll([tenantDay], [after, after, call(0.125)]);
       await first.saveAll([tenantDay], [after]);
 
-      expect(await second.findSpentByCounter(tenantDay)).toBe(0.625);
+      expect((await second.findUsageByCounter(tenantDay)).spent).toBe(0.625);
     },
   },
   {
@@ -105,14 +105,15 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
 
       // every entry a save resolved counts once; none refused counts
       const counted = 0.125 * resolved.size;
-      for (const counter of counters) expect(await first.findSpentByCounter(counter)).toBe(counted);
+      for (const counter of counters)
+        expect((await first.findUsageByCounter(counter)).spent).toBe(counted);
       // saved again on both, after the prune: refused or held — nothing more
       for (let index = 0; index < 20; index += 1)
         await save(index).catch((error: unknown) => {
           expect(error).toMatchObject({ code: "cost-ledger.entry-expired" });
         });
       for (const counter of counters)
-        expect(await second.findSpentByCounter(counter)).toBe(counted);
+        expect((await second.findUsageByCounter(counter)).spent).toBe(counted);
     },
   },
   {
@@ -128,7 +129,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
         expired([before.ledgerId], "2026-10-18T09:00:00.500Z"),
       );
       await second.saveAll([tenantDay], [atCutoff]);
-      expect(await second.findSpentByCounter(tenantDay)).toBe(0.75);
+      expect((await second.findUsageByCounter(tenantDay)).spent).toBe(0.75);
     },
   },
   {
@@ -149,7 +150,7 @@ const PRUNING_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       await expect(second.saveAll([tenantDay], [old])).rejects.toMatchObject(
         expired([old.ledgerId], "2026-10-18T09:00:00.000Z"),
       );
-      expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(0.25);
     },
   },
 ];

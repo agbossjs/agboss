@@ -18,6 +18,7 @@ import { Text } from "../../../src/dto/index.js";
 import type {
   CostCounter,
   LedgerEntry,
+  BudgetUsage,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
@@ -254,10 +255,10 @@ export class SpendTreeLog {
 /** The ledger, delayed by `spendTree.ledgerLag` turns of the event loop on every read: a networked one. */
 @Injectable()
 export class SpendTreeLedger extends InMemoryCostLedgerRepository {
-  override async findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  override async findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     for (let turn = 0; turn < spendTree.ledgerLag; turn += 1)
       await new Promise((resolve) => setImmediate(resolve));
-    return super.findSpentByCounter(counter);
+    return super.findUsageByCounter(counter);
   }
 
   override async saveAll(

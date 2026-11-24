@@ -192,6 +192,8 @@ export interface FrameServices {
    * code (an action's) claims in its envelope; `undefined` without budgets.
    */
   readonly remainingBudget?: () => number | undefined;
+  /** The tokens the execution may still use (#1318): claimed beside the dollars; `undefined` without a token budget. */
+  readonly remainingTokens?: () => number | undefined;
 }
 
 /** What a frame is opened with. */

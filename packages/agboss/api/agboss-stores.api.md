@@ -47,6 +47,7 @@ export interface A2ADirectMessageReply {
     readonly finish: string;
     // (undocumented)
     readonly output: unknown;
+    readonly spentTokens?: number;
     readonly spentUsd: Usd;
 }
 
@@ -221,6 +222,7 @@ export interface A2ATaskStatus {
     readonly message?: string;
     readonly output?: unknown;
     readonly pendingPauses: readonly A2ATaskPause[];
+    readonly spentTokens?: number;
     readonly spentUsd?: Usd;
     // (undocumented)
     readonly state: A2ATaskState;
@@ -549,11 +551,11 @@ export interface CostCounter extends BudgetAccount {
 // @public (undocumented)
 export abstract class CostLedgerRepository {
     abstract deleteByMadeAtBefore(cutoff: Date): Promise<void>;
-    abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
-    abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
+    abstract findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined>;
+    abstract findUsageByCounter(counter: CostCounter): Promise<BudgetUsage>;
     abstract ping(): Promise<void>;
     abstract saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
-    abstract saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
+    abstract saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void>;
 }
 
 // @public

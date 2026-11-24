@@ -69,7 +69,7 @@ const sweep = (
   );
 
 const spentIn = (ledger: InMemoryCostLedgerRepository, clock: VirtualClock) =>
-  ledger.findSpentByCounter(counterOf(budget, clock.now()));
+  ledger.findUsageByCounter(counterOf(budget, clock.now())).then((usage) => usage.spent);
 
 describe("#771: a lost answer retried around the sweep's prune", () => {
   it("within the retention, the sweep keeps the entry: the retry counts it once", async () => {
@@ -140,6 +140,6 @@ describe("#771: the in-memory ledger's refusal", () => {
     ).rejects.toThrow(
       "the ledger may have pruned the entries a:0, a:1: made before its pruning mark 2026-10-18T09:00:00.000Z and not held, counting them again could count them twice — the save added nothing; keep entries longer with @Application({ retention: { costLedgerEntries } })",
     );
-    expect(await ledger.findSpentByCounter(counter)).toBe(0);
+    expect((await ledger.findUsageByCounter(counter)).spent).toBe(0);
   });
 });

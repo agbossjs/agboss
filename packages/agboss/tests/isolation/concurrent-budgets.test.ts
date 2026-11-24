@@ -36,12 +36,14 @@ describe("#261: concurrent executions of one tenant share its counters, nothing 
       .filter((run): run is PromiseRejectedResult => run.status === "rejected")
       .map((run): unknown => run.reason);
     const today = new Date().toISOString().slice(0, 10);
-    const spent = await infrastructure.costLedger.findSpentByCounter({
-      budget: "capped-tenant-daily-budget",
-      scope: BudgetScope.Tenant,
-      key: "default",
-      period: today,
-    });
+    const spent = (
+      await infrastructure.costLedger.findUsageByCounter({
+        budget: "capped-tenant-daily-budget",
+        scope: BudgetScope.Tenant,
+        key: "default",
+        period: today,
+      })
+    ).spent;
 
     for (const reason of failed) {
       expect(reason).toBeInstanceOf(BudgetExceededError);

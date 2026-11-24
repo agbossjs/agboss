@@ -27,7 +27,7 @@ describe("#261: the SQLite cost ledger on budgets", () => {
 
     const reopened = new SqliteCostLedgerRepository(connectionTo(path));
 
-    expect(await reopened.findSpentByCounter(counter)).toBe(0.5);
+    expect((await reopened.findUsageByCounter(counter)).spent).toBe(0.5);
   });
 });
 
@@ -75,7 +75,7 @@ describe("#771: the SQLite cost ledger and the entries held with no date (never 
     await ledger.deleteByMadeAtBefore(new Date("2030-01-01T00:00:00.000Z"));
     await ledger.saveAll([counter], [entry("pass-a:0", "2026-10-18T08:00:00.000Z")]);
 
-    expect(await ledger.findSpentByCounter(counter)).toBe(0);
+    expect((await ledger.findUsageByCounter(counter)).spent).toBe(0);
     const held = connectionTo(path)
       .database.prepare("SELECT made_at FROM cost_ledger_entries WHERE ledger_id = 'pass-a:0'")
       .get();
@@ -103,7 +103,7 @@ describe("#771: the SQLite cost ledger and the entries held with no date (never 
 
     await ledger.saveAll([counter], [entry("pass-c:0", "2026-10-18T08:00:00.000Z")]);
 
-    expect(await ledger.findSpentByCounter(counter)).toBe(0);
+    expect((await ledger.findUsageByCounter(counter)).spent).toBe(0);
   });
 
   it("keeps each new entry with its date, so the sweep's prune reaches it", async () => {

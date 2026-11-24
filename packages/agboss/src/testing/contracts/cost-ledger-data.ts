@@ -26,6 +26,16 @@ export const entry = (ledgerId: string, costUsd: number, madeAt = MADE_AT): Ledg
 /** A call of its own that cost `costUsd`: an entry under an id no other call has. */
 export const call = (costUsd: number): LedgerEntry => entry(`call:${randomUUID()}`, costUsd);
 
+/**
+ * A call of its own that used `tokens` and cost `costUsd` (0 for an unpriced CLI or local model):
+ * input tokens three to one against output.
+ */
+export const tokenCall = (tokens: number, costUsd = 0): LedgerEntry => ({
+  ...call(costUsd),
+  inputTokens: tokens - Math.floor(tokens / 4),
+  outputTokens: Math.floor(tokens / 4),
+});
+
 export const tenantDay: CostCounter = {
   budget: "tenant-daily-budget",
   scope: BudgetScope.Tenant,

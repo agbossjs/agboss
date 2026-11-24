@@ -40,6 +40,8 @@ export interface A2ADirectMessageReply {
   readonly output: unknown;
   /** What the run spent in all, in USD: what a trusted caller's run report signs. */
   readonly spentUsd: Usd;
+  /** The tokens it used (#1318): what a trusted caller's run report signs beside the dollars. */
+  readonly spentTokens?: number;
 }
 
 /** One attempt at a reply: its root execution's id, when it began and until when it may run. */

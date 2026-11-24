@@ -1,23 +1,29 @@
 import { z } from "zod";
 import { BudgetScope } from "../../budgets/budget.js";
 import { Injectable } from "../../components/decorators.js";
-import { totalCost } from "../../finops/usage.js";
-import { usd, type Usd } from "../../units/index.js";
+import { totalCost, totalTokens } from "../../finops/usage.js";
+import { usd } from "../../units/index.js";
 import {
   CostLedgerRepository,
   expiredEntriesOf,
   invalidLedgerCutoffErrorOf,
   invalidLedgerEntryErrorOf,
   unrecordedEntriesOf,
+  NO_USAGE,
   type BudgetAccount,
+  type BudgetLimit,
+  type BudgetUsage,
   type CostCounter,
   type LedgerEntry,
 } from "../cost-ledger.repository.js";
 import { CostLedgerEntryExpiredError } from "../../finops/ledger-mark.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
-const SpentRow = z.object({ spent_usd: z.number() });
-const MaxSpendRow = z.object({ max_spend_usd: z.number() });
+const UsageRow = z.object({ spent_usd: z.number(), tokens: z.number() });
+const LimitRow = z.object({
+  max_spend_usd: z.number().nullable(),
+  max_tokens: z.number().nullable(),
+});
 const PrunedRow = z.object({ pruned_before: z.number() });
 
 /** The scope as stored: one of `BudgetScope`'s values. */
@@ -50,14 +56,16 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     return this.connection.ping();
   }
 
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     const row = this.connection.database
       .prepare(
-        `SELECT spent_usd FROM cost_ledger
+        `SELECT spent_usd, tokens FROM cost_ledger
          WHERE budget = ? AND scope = ? AND scope_key = ? AND period = ?`,
       )
       .get(counter.budget, scopeOf(counter), counter.key, counter.period);
-    return Promise.resolve(usd(row === undefined ? 0 : SpentRow.parse(row).spent_usd));
+    if (row === undefined) return Promise.resolve(NO_USAGE);
+    const held = UsageRow.parse(row);
+    return Promise.resolve({ spent: usd(held.spent_usd), tokens: held.tokens });
   }
 
   saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void> {
@@ -104,13 +112,14 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
         (id, madeAt) => entry.run(id, madeAt.getTime()).changes === 1,
       );
       const spent = totalCost(added);
+      const tokens = totalTokens(added);
       const statement = this.connection.database.prepare(
-        `INSERT INTO cost_ledger VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO cost_ledger VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT (budget, scope, scope_key, period)
-         DO UPDATE SET spent_usd = spent_usd + excluded.spent_usd`,
+         DO UPDATE SET spent_usd = spent_usd + excluded.spent_usd, tokens = tokens + excluded.tokens`,
       );
       for (const counter of counters)
-        statement.run(counter.budget, scopeOf(counter), counter.key, counter.period, spent);
+        statement.run(counter.budget, scopeOf(counter), counter.key, counter.period, spent, tokens);
     });
     return refused;
   }
@@ -135,22 +144,31 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
     const row = this.connection.database
       .prepare(
-        `SELECT max_spend_usd FROM cost_ledger_max_spend
+        `SELECT max_spend_usd, max_tokens FROM cost_ledger_max_spend
          WHERE budget = ? AND scope = ? AND scope_key = ?`,
       )
       .get(account.budget, scopeOf(account), account.key);
-    return Promise.resolve(
-      row === undefined ? undefined : usd(MaxSpendRow.parse(row).max_spend_usd),
-    );
+    if (row === undefined) return Promise.resolve(undefined);
+    const held = LimitRow.parse(row);
+    return Promise.resolve({
+      ...(held.max_spend_usd === null ? {} : { maxSpend: usd(held.max_spend_usd) }),
+      ...(held.max_tokens === null ? {} : { maxTokens: held.max_tokens }),
+    });
   }
 
-  saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
+  saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
     this.connection.database
-      .prepare("INSERT OR REPLACE INTO cost_ledger_max_spend VALUES (?, ?, ?, ?)")
-      .run(account.budget, scopeOf(account), account.key, maxSpend);
+      .prepare("INSERT OR REPLACE INTO cost_ledger_max_spend VALUES (?, ?, ?, ?, ?)")
+      .run(
+        account.budget,
+        scopeOf(account),
+        account.key,
+        limit.maxSpend ?? null,
+        limit.maxTokens ?? null,
+      );
     return Promise.resolve();
   }
 }

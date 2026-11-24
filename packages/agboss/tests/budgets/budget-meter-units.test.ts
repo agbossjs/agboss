@@ -22,6 +22,7 @@ import {
   InMemoryCostLedgerRepository,
   type CostCounter,
   type LedgerEntry,
+  type BudgetUsage,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { VirtualClock } from "../../src/testing/index.js";
 import { seconds, usd, type Usd } from "../../src/units/index.js";
@@ -51,9 +52,9 @@ class CountedLedger extends InMemoryCostLedgerRepository {
   reads = 0;
   readonly writes: (readonly CostCounter[])[] = [];
 
-  override findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  override findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     this.reads += 1;
-    return super.findSpentByCounter(counter);
+    return super.findUsageByCounter(counter);
   }
 
   override saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]) {

@@ -76,6 +76,7 @@ const Status = z.looseObject({
   errorCode: z.string().optional(),
   errorDetails: z.unknown().optional(),
   spentUsd: storedUsd.optional(),
+  spentTokens: z.number().int().nonnegative().optional(),
   cancelRequestedAt: isoTime().optional(),
 });
 

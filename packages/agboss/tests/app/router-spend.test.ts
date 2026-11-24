@@ -43,7 +43,10 @@ async function spentOn(
     key: executionId,
     maxSpend: 0,
   };
-  return app.resolve(CostLedgerRepository).findSpentByCounter(counterOf(record, now));
+  return app
+    .resolve(CostLedgerRepository)
+    .findUsageByCounter(counterOf(record, now))
+    .then((usage) => usage.spent);
 }
 
 describe("#1090: a model router's spend is tallied at its call", () => {

@@ -314,17 +314,19 @@ describe("#633: a tree with an undo", () => {
     mocks.treeStateOf.mockResolvedValue({ budgets: [budget] });
     const { deps, ledger } = depsOf({ nodes: [undoable], budgets: true });
     const counter = { budget: "tenant-budget", scope: BudgetScope.Tenant, key: "acme" };
-    const before = await ledger.findSpentByCounter({ ...counter, period: "" });
+    const before = (await ledger.findUsageByCounter({ ...counter, period: "" })).spent;
 
     await unwoundTree(deps, STATE, call());
     await unwindAsked().record([USAGE]);
 
     expect(before).toBe(0);
     const periodOf = (await import("../../../src/budgets/budget-period.js")).periodStartOf;
-    const spent = await ledger.findSpentByCounter({
-      ...counter,
-      period: periodOf("day" as never, new VirtualClock().now()),
-    });
+    const spent = (
+      await ledger.findUsageByCounter({
+        ...counter,
+        period: periodOf("day" as never, new VirtualClock().now()),
+      })
+    ).spent;
     expect(spent).toBeCloseTo(0.5);
   });
 });

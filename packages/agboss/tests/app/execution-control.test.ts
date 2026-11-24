@@ -445,6 +445,7 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
       output: { text: "Done." },
       // #844: what the tree spent, as its end said it — read from its records
       spentUsd: resumed.spend.totalUsd,
+      spentTokens: resumed.spend.totalTokens,
     });
   });
 

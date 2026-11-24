@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ledgerMarkOf, writtenLedgerIdOf, writtenLedgerIdsOf } from "../finops/ledger-mark.js";
 import { unrecordedOf } from "../finops/record-stream.js";
-import type { UsageRecord } from "../finops/usage.js";
-import { BudgetExceededError } from "../graph/limits.js";
+import { totalCost, totalTokens, type UsageRecord } from "../finops/usage.js";
 import type {
   BudgetAccount,
   CostCounter,
@@ -15,6 +14,8 @@ import type { CostLedgerRepository } from "../infrastructure/cost-ledger.reposit
 import { budgetOf, BudgetScope, type BudgetHandler, type BudgetMeta } from "./budget.js";
 import type { BudgetPeriod } from "./budget.js";
 import { periodStartOf } from "./budget-period.js";
+import type { Spend } from "./budget-spend.js";
+import { attachedBudgetOf } from "./budget-rules.js";
 import type { ExecutionDeadline } from "./execution-deadline.js";
 
 /** What a check of an execution's budgets needs: no I/O, the counters as last read. */
@@ -47,6 +48,8 @@ export interface BudgetCheck {
    * `budget.remaining` its mesh calls claim); `Infinity` without budgets.
    */
   readonly remaining?: () => number;
+  /** What the execution may still use in tokens — the least any of its budgets has left (#1318); `Infinity` without a token limit. */
+  readonly remainingTokens?: () => number;
   /** The execution's deadline (#398 PR 2), when it has one: what its mesh calls claim of it. */
   readonly deadline?: ExecutionDeadline | undefined;
 }
@@ -71,9 +74,13 @@ export interface ExecutionBudgetRecord {
   readonly period?: BudgetPeriod;
   /** The application's name, the `tenantId`, or the root execution's id. */
   readonly key: string;
-  /** What `maxSpend()` gave at the start of the execution, in USD. */
-  readonly maxSpend: number;
+  /** The dollar cap read at the start of the execution; `undefined`: the budget has no dollar cap. */
+  readonly maxSpend?: number | undefined;
+  /** The token cap read at the start of the execution (#1318); `undefined`: no token cap. */
+  readonly maxTokens?: number | undefined;
 }
+
+export { budgetExceededErrorOf, exhaustedUnitOf, isSpendExhausted } from "./budget-spend.js";
 
 export const accountOf = (record: ExecutionBudgetRecord): BudgetAccount => ({
   budget: record.budget.name,
@@ -87,34 +94,14 @@ export const counterOf = (record: ExecutionBudgetRecord, moment: Date): CostCoun
   period: record.period === undefined ? "" : periodStartOf(record.period, moment),
 });
 
-/** The error of an exhausted budget. */
-export const budgetExceededErrorOf = (
-  record: ExecutionBudgetRecord,
-  spent: number,
-  path: readonly string[],
-  executionSpent: number,
-  usage: readonly UsageRecord[],
-): BudgetExceededError =>
-  new BudgetExceededError({
-    budget: record.budget,
-    scope: record.scope,
-    period: record.period,
-    key: record.key,
-    maxSpend: usd(record.maxSpend),
-    spent: usd(Math.max(0, spent)),
-    path,
-    spentUsd: usd(executionSpent),
-    usage,
-  });
-
 /**
  * The counters as one read saw them, and how much of the execution's own spend that read holds: what
  * this pass had written by then and what it took in as written elsewhere (#685). A read and a write
  * of the meter never overlap, so `recorded` is exactly the part of the pass's spend in `values`.
  */
 export interface CounterSnapshot {
-  readonly values: ReadonlyMap<string, number>;
-  readonly recorded: number;
+  readonly values: ReadonlyMap<string, Spend>;
+  readonly recorded: Spend;
 }
 
 /**
@@ -135,18 +122,6 @@ export const ledgerEntryOf = (
 
 /** A record this pass writes to the ledger; one recorded elsewhere is there already (#333 PR 3). */
 export const isRecordedHere = (record: UsageRecord): boolean => ledgerMarkOf(record) === undefined;
-
-/** Micro-dollars in a dollar: the unit a budget's spend is compared in (#728). */
-const MICRO_USD_PER_USD = 1_000_000;
-
-/**
- * Whether `spent` has reached `maxSpend`, compared in whole micro-dollars (#728): a float sum of
- * costs lands a hair off its decimal value (eight $0.10 make 0.7999999999999999), and a plain
- * `>=` would let one more step through a limit the spend reached exactly. No epsilon: both sides
- * are rounded to the same grid, so a spend a micro-dollar under the limit still passes.
- */
-export const isSpendExhausted = (spent: number, maxSpend: number): boolean =>
-  Math.round(spent * MICRO_USD_PER_USD) >= Math.round(maxSpend * MICRO_USD_PER_USD);
 
 /** A budget class with what `@Budget` says of it. */
 interface ListedBudget {
@@ -181,11 +156,19 @@ export function budgetsOfExecution(
   budgets: readonly Class[],
   workflow: Class,
 ): readonly ListedBudget[] {
+  const attachedClass = attachedBudgetOf(workflow);
+  const attached = attachedClass === undefined ? [] : listed([attachedClass]);
   const all = listed(budgets);
   const execution = all.filter((budget) => budget.meta.scope === BudgetScope.Execution);
-  const own = execution.find((budget) => budget.meta.workflow === workflow);
+  const ownAttached = attached.find((budget) => budget.meta.scope === BudgetScope.Execution);
+  const own = ownAttached ?? execution.find((budget) => budget.meta.workflow === workflow);
   const chosen = own ?? execution.find((budget) => budget.meta.workflow === undefined);
-  return all.filter((budget) => budget.meta.scope !== BudgetScope.Execution || budget === chosen);
+  const kept = all.filter(
+    (budget) => budget.meta.scope !== BudgetScope.Execution || budget === chosen,
+  );
+  // a budget the workflow attaches is found without being listed; one listed counts once
+  const found = attached.filter((budget) => !kept.some((one) => one.type === budget.type));
+  return [...kept, ...found];
 }
 
 /** Whose spend an execution's budget counts. */
@@ -242,13 +225,12 @@ export class LedgerIds {
    * pass has not counted (a takeover's restored writes, an agent loop continued from its
    * checkpoint): in the ledger before this pass's first read, so every read of it holds it.
    */
-  writtenBefore(state: readonly UsageRecord[]): number {
-    let written = 0;
-    for (const record of state) {
+  writtenBefore(state: readonly UsageRecord[]): Spend {
+    const written = state.filter((record) => {
       const ledgerId = writtenLedgerIdOf(record);
-      if (ledgerId !== undefined && !this.#counted.has(ledgerId)) written += record.costUsd;
-    }
-    return written;
+      return ledgerId !== undefined && !this.#counted.has(ledgerId);
+    });
+    return { usd: totalCost(written), tokens: totalTokens(written) };
   }
 
   /**

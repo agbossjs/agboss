@@ -36,7 +36,7 @@ const passOf = (ledger: InMemoryCostLedgerRepository, clock: VirtualClock): Budg
   new BudgetMeter([budget], ledger, clock, 0);
 
 const spentOf = (ledger: InMemoryCostLedgerRepository, clock: VirtualClock) =>
-  ledger.findSpentByCounter(counterOf(budget, clock.now()));
+  ledger.findUsageByCounter(counterOf(budget, clock.now())).then((usage) => usage.spent);
 
 describe("#810: a spend of its own identity counts once across passes", () => {
   it("the price written by pass 1, then by pass 2 with the excess: 1 + 2, never 1 + 1 + 2", async () => {

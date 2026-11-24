@@ -20,6 +20,8 @@ import {
   type BudgetAccount,
   type CostCounter,
   type LedgerEntry,
+  type BudgetLimit,
+  type BudgetUsage,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { CostReport } from "../../../src/finops/usage.js";
 import type { Usd } from "../../../src/units/index.js";
@@ -64,7 +66,7 @@ export function resetLostPass(): void {
 
 /** What the shared ledger holds for `counter`. */
 export const sharedSpentOf = (counter: CostCounter): Promise<Usd> =>
-  shared.findSpentByCounter(counter);
+  shared.findUsageByCounter(counter).then((usage) => usage.spent);
 
 /** One ledger for every instance of a test, keeping what it was handed. */
 @Injectable()
@@ -72,8 +74,8 @@ export class SharedCostLedgerRepository extends CostLedgerRepository {
   ping(): Promise<void> {
     return shared.ping();
   }
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
-    return shared.findSpentByCounter(counter);
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
+    return shared.findUsageByCounter(counter);
   }
   saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void> {
     lostPassSeen.saved.push(...entries);
@@ -82,11 +84,11 @@ export class SharedCostLedgerRepository extends CostLedgerRepository {
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
     return shared.deleteByMadeAtBefore(cutoff);
   }
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
-    return shared.findMaxSpendByAccount(account);
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
+    return shared.findLimitByAccount(account);
   }
-  saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
-    return shared.saveMaxSpend(account, maxSpend);
+  saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
+    return shared.saveLimit(account, limit);
   }
 }
 

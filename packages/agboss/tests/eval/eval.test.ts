@@ -96,7 +96,7 @@ describe("evaluate", () => {
       key: "test-application",
     };
     // the last execution read $0: the day has spent it
-    await ledger.saveMaxSpend(account, usd(0));
+    await ledger.saveLimit(account, { maxSpend: usd(0) });
     const evaluation: EvalDeps = {
       turns: deps.turns,
       budgets: deps.budgets,
