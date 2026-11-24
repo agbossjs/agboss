@@ -171,7 +171,7 @@ describe("#1007 AC4: a sensitive field's token is revealed like any other", () =
     mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
     mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
     mockLlm(DeskAgent).thenAnswer((request) => {
-      const [token] = tokensIn(requestText(request), "author");
+      const [token] = tokensIn(requestText(request), "reporter");
       return replyWith(`Hello ${token ?? "nobody"}`);
     });
     const events: ExecutionStreamEvent[] = [];
@@ -179,7 +179,7 @@ describe("#1007 AC4: a sensitive field's token is revealed like any other", () =
     const done = await execute(
       app,
       DeskStart,
-      { text: "hi", author: "zoe-7" },
+      { text: "hi", author: "ann-1", reporter: "zoe-7" },
       { onStream: (event) => events.push(event) },
     );
 

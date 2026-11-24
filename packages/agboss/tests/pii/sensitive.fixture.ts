@@ -13,7 +13,7 @@ import {
   secret,
   inline,
 } from "../../src/index.js";
-import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -24,6 +24,21 @@ import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 export class ShopExecutionContext extends ExecutionContext {
   @Text({ optional: true, sensitive: PiiAction.tokenize() })
   userId?: string;
+}
+
+/**
+ * What a desk run starts with: the framework's text and `author` (masked one-way, #1301), and a
+ * `reporter` the project marks for a token the model can write back (#1007 AC4).
+ */
+export class DeskMessageDto {
+  @Text({ prompt: "the text the run starts with", minLength: 1 })
+  text!: string;
+
+  @Text({ prompt: "who sent it", optional: true, sensitive: PiiAction.mask() })
+  author?: string;
+
+  @Text({ prompt: "who reported it", optional: true, sensitive: PiiAction.tokenize() })
+  reporter?: string;
 }
 
 @PiiPolicy({
@@ -39,6 +54,7 @@ export class NamesPiiPolicy {}
   name: "desk-agent",
   description: "Answers",
   prompt: inline("Answer."),
+  input: { message: DeskMessageDto },
   model: "test/desk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
   piiPolicies: [NamesPiiPolicy],
@@ -48,7 +64,7 @@ export class DeskAgent {}
 @WorkflowStart({
   name: "desk-workflow-start",
   description: "A message",
-  input: WorkflowStartTextDto,
+  input: DeskMessageDto,
 })
 export class DeskStart {}
 
@@ -62,7 +78,7 @@ export class DeskFinish {}
 @WorkflowFinish({
   name: "hand-over-workflow-finish",
   description: "Handed over as is",
-  output: WorkflowStartTextDto,
+  output: DeskMessageDto,
 })
 export class HandOverFinish {}
 
@@ -72,7 +88,7 @@ export class HandOverFinish {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Pick who answers."),
   model: "typesafe/jev-1.13",
-  input: { message: WorkflowStartTextDto },
+  input: { message: DeskMessageDto },
   maxVisits: 1,
   routes: [
     { prompt: "A question", target: DeskAgent },
