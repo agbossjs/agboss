@@ -5,6 +5,7 @@ import { kilobytes, type Bytes, type Milliseconds } from "../../units/index.js";
 import { FilePayloadSource, fileSourceOf } from "../../dto/standard/file.js";
 import { fileUnavailable, FileUnavailableReason } from "../../files/file-errors.js";
 import type { FileDto } from "../../dto/standard/file.js";
+import type { Clock } from "../../infrastructure/clock.js";
 import type { FileFetchSlots } from "../files/a2a-file-slots.js";
 
 export type { FileDto };
@@ -25,6 +26,8 @@ export interface A2ADownload extends A2ADownloadOptions {
   readonly slots?: FileFetchSlots;
   /** How long a download may take, the wait for a slot included (the `@FilePolicy`'s `fetchTimeout`). */
   readonly timeout?: Milliseconds;
+  /** The clock the timeout runs on (the client's, so a test's moves it). */
+  readonly clock?: Pick<Clock, "sleep">;
 }
 
 const unavailable = (reason: FileUnavailableReason) => fileUnavailable({ reason });
@@ -43,28 +46,39 @@ async function boundedBodyOf(response: Response, max: number): Promise<Uint8Arra
   return Buffer.concat(chunks);
 }
 
-/** The signal a download runs under: the caller's and the policy's timeout. */
-const signalOf = (download: A2ADownload): AbortSignal | undefined => {
-  const signals = [
-    ...(download.signal === undefined ? [] : [download.signal]),
-    ...(download.timeout === undefined ? [] : [AbortSignal.timeout(download.timeout)]),
-  ];
-  // one signal is passed as it is: the fetch is handed the caller's own
-  return signals.length > 1 ? AbortSignal.any(signals) : signals[0];
-};
+/** The signal a download runs under: the caller's, the policy's timeout (on the clock), and `stop`. */
+function signalOf(download: A2ADownload, stop: AbortSignal): AbortSignal | undefined {
+  if (download.timeout === undefined || download.clock === undefined) return download.signal;
+  const timed = new AbortController();
+  void download.clock.sleep(download.timeout, stop).then(
+    () => {
+      if (!stop.aborted)
+        timed.abort(new Error("the download took longer than the policy's fetchTimeout"));
+    },
+    () => undefined,
+  );
+  return download.signal === undefined
+    ? timed.signal
+    : AbortSignal.any([download.signal, timed.signal]);
+}
 
 /** A file by `url`, fetched in the client's pool; any failure but the client's own refusals is `DownloadFailed`. */
-function fetchedOf(url: string, download: A2ADownload, max: number): Promise<Uint8Array> {
-  const signal = signalOf(download);
+async function fetchedOf(url: string, download: A2ADownload, max: number): Promise<Uint8Array> {
+  const stop = new AbortController();
+  const signal = signalOf(download, stop.signal);
   const work = () => fetchedBody(url, download, max, signal);
-  if (download.slots === undefined) return work();
-  // a full pool fails at once, as on every path (#1316): FileError.Unavailable, FetchBusy
-  return download.slots.run(
-    signal ?? new AbortController().signal,
-    work,
-    () => unavailable(FileUnavailableReason.FetchBusy),
-    { tenant: CLIENT_TENANT, owner: undefined },
-  );
+  try {
+    if (download.slots === undefined) return await work();
+    // a full pool fails at once, as on every path (#1316): FileError.Unavailable, FetchBusy
+    return await download.slots.run(
+      signal ?? stop.signal,
+      work,
+      () => unavailable(FileUnavailableReason.FetchBusy),
+      { tenant: CLIENT_TENANT, owner: undefined },
+    );
+  } finally {
+    stop.abort();
+  }
 }
 
 /** The pool's one tenant: a standalone client has no tenant of its own. */

@@ -1,6 +1,5 @@
 import type { AgentCard, Part, Task } from "@a2a-js/sdk";
 import { markBusinessKeyWriter } from "../../components/container/fenced-reach.js";
-import type { Class } from "../../components/injection.js";
 import { validate } from "../../dto/schema.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { lazyLoad, SystemClock, type Clock } from "../../infrastructure/clock.js";
@@ -54,13 +53,12 @@ import { wireErrorOf } from "./a2a-wire-errors.js";
  */
 export class A2AClient<TIn extends object = object, TOut extends object = object> {
   readonly url: string;
-
   /** What it calls and how much a call costs: the class's `@A2AAgent`, or the `contract` option. */
   readonly contract: A2AClientContract | undefined;
 
   readonly #agent: string;
   readonly #cards: CardCache;
-  readonly #filePolicy: Class | undefined;
+  readonly #filePolicy: A2AClientOptions["filePolicy"];
 
   constructor(options: A2AClientOptions = {}) {
     this.url = options.url ?? urlOf(new.target, new.target.name);
@@ -127,20 +125,11 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     return untypedResultOf(await this.#call(partsOf(answer), taskId, call), this.#agent);
   }
 
-  /**
-   * The bytes of a file an answer gave (#859): inline ones as they came, one by `url` downloaded
-   * through the client's own fetch — on its origins only, with its headers — up to `maxSize`
-   * (`kilobytes(10240)` by default), each checked against its `sha256` when it names one.
-   */
   public downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array> {
-    return lazyLoad(import("./a2a-download.js")).then(async (it) => {
-      const bounds = await lazyLoad(import("./a2a-download-bounds.js"));
-      return it.downloadedFile(file, {
-        ...options,
-        ...bounds.boundsOf(this, this.#filePolicy, options?.maxSize),
-        fetcher: this.#cards.fetch,
-      });
-    });
+    const using = [this.#cards.fetch, this.#clock(), this.#filePolicy] as const;
+    return lazyLoad(import("./a2a-download-bounds.js")).then((it) =>
+      it.downloadedBy(this, file, options, using),
+    );
   }
 
   /** The task as the agent has it now. */

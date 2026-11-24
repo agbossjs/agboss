@@ -140,6 +140,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     agentCard(call?: Pick<A2AClientCall, "signal">): Promise<AgentCard>;
     cancel(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
     readonly contract: A2AClientContract | undefined;
+    // (undocumented)
     downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array>;
     execute(input: TIn, call?: A2AClientCall): Promise<TOut>;
     protected getHeaders(): Promise<Record<string, string>>;
@@ -922,6 +923,7 @@ export { TaskState }
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "data".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "peer".
 // src/a2a/client/a2a-client.ts - (ae-undocumented) Missing documentation for "url".
+// src/a2a/client/a2a-client.ts - (ae-undocumented) Missing documentation for "downloadFile".
 // src/a2a/client/a2a-download.ts - (ae-undocumented) Missing documentation for "signal".
 // src/a2a/client/a2a-finish.ts - (ae-undocumented) Missing documentation for "agent".
 // src/a2a/client/a2a-finish.ts - (ae-undocumented) Missing documentation for "taskId".

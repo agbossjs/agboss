@@ -1,3 +1,5 @@
+import type { Clock } from "../../infrastructure/clock.js";
+import { downloadedFile, type A2ADownloadOptions, type FileDto } from "./a2a-download.js";
 import type { Class } from "../../components/injection.js";
 import { fileLimitsOf } from "../../files/file-policy.js";
 import { appFileSlotsOf } from "../files/a2a-file-pool.js";
@@ -28,3 +30,19 @@ export function boundsOf(
 
 const cap = (maxSize: Bytes | undefined): { readonly maxSize?: Bytes } =>
   maxSize === undefined ? {} : { maxSize };
+
+/** `downloadFile`: the file's bytes within the client's bounds (its pool, its policy's size and time). */
+export function downloadedBy(
+  client: object,
+  file: FileDto,
+  options: A2ADownloadOptions | undefined,
+  using: readonly [typeof fetch, Pick<Clock, "sleep">, Class | undefined],
+): Promise<Uint8Array> {
+  const [fetcher, clock, policy] = using;
+  return downloadedFile(file, {
+    ...options,
+    ...boundsOf(client, policy, options?.maxSize),
+    fetcher,
+    clock,
+  });
+}

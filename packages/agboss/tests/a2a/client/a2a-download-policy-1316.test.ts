@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { boundsOf } from "../../../src/a2a/client/a2a-download-bounds.js";
 import { downloadedFile } from "../../../src/a2a/client/a2a-download.js";
+import { SystemClock } from "../../../src/infrastructure/clock.js";
 import { FileUnavailableReason } from "../../../src/files/file-errors.js";
 import { FilePolicy } from "../../../src/files/file-policy.js";
 import { hours, kilobytes, seconds } from "../../../src/units/index.js";
@@ -52,7 +53,13 @@ describe("#1316: downloadFile under a @FilePolicy", () => {
       });
 
     expect(
-      await reasonOf(downloadedFile(urlFile, { fetcher: slow, ...boundsOf({}, Quick, undefined) })),
+      await reasonOf(
+        downloadedFile(urlFile, {
+          fetcher: slow,
+          clock: new SystemClock(),
+          ...boundsOf({}, Quick, undefined),
+        }),
+      ),
     ).toBe(FileUnavailableReason.DownloadFailed);
   });
 

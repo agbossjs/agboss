@@ -196,7 +196,7 @@ describe("#1366: the card and the tasks a client reads", () => {
 
     expect(out).toEqual({
       file,
-      options: { maxSize: kilobytes(5), fetcher: cacheOf().cache.fetch },
+      options: expect.objectContaining({ maxSize: kilobytes(5), fetcher: cacheOf().cache.fetch }),
     });
   });
 });
