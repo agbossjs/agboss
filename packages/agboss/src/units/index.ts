@@ -64,6 +64,36 @@ export const minutes = (amount: number): Milliseconds =>
 export const hours = (amount: number): Milliseconds =>
   (nonNegative(amount, "hours") * 3_600_000) as Milliseconds;
 
+/** A size in bytes: `bytes(512)`. */
+export const bytes = (amount: number): Bytes => nonNegative(amount, "bytes") as Bytes;
+
+/** A size in kilobytes, 1 KB = 1,024 bytes: `kb(64)`. */
+export const kb = (amount: number): Bytes => (nonNegative(amount, "kb") * 1024) as Bytes;
+
+/** A size in megabytes, 1 MB = 1,048,576 bytes: `mb(5)`. */
+export const mb = (amount: number): Bytes => (nonNegative(amount, "mb") * 1024 ** 2) as Bytes;
+
+/** A size in gigabytes, 1 GB = 1,073,741,824 bytes: `gb(1)`. */
+export const gb = (amount: number): Bytes => (nonNegative(amount, "gb") * 1024 ** 3) as Bytes;
+
+/** A size in terabytes, 1 TB = 1,099,511,627,776 bytes: `tb(1)`. */
+export const tb = (amount: number): Bytes => (nonNegative(amount, "tb") * 1024 ** 4) as Bytes;
+
+/** A duration in milliseconds: `ms(250)`. */
+export const ms = (amount: number): Milliseconds => nonNegative(amount, "ms") as Milliseconds;
+
+/** A duration in seconds: `sec(30)`. */
+export const sec = (amount: number): Milliseconds =>
+  (nonNegative(amount, "sec") * 1000) as Milliseconds;
+
+/** A duration in minutes: `min(5)`. */
+export const min = (amount: number): Milliseconds =>
+  (nonNegative(amount, "min") * 60_000) as Milliseconds;
+
+/** A duration in calendar days of 24 hours: `days(7)`. */
+export const days = (amount: number): Milliseconds =>
+  (nonNegative(amount, "days") * 86_400_000) as Milliseconds;
+
 /** The key a working duration keeps its amount under (a shared symbol: every copy of the package agrees). */
 const workingDuration: unique symbol = Symbol.for("agboss.units.working-duration");
 
@@ -92,6 +122,20 @@ export const workingHours = (amount: number): WorkingDuration =>
 /** Working time given in minutes: `remindBefore: workingMinutes(30)`. */
 export const workingMinutes = (amount: number): WorkingDuration =>
   working(amount, "workingMinutes", 60_000);
+
+/** Working time given in minutes: `remindBefore: workMin(30)`. */
+export const workMin = (amount: number): WorkingDuration => working(amount, "workMin", 60_000);
+
+/** Working time given in hours: `expiresIn: workHours(2)`. */
+export const workHours = (amount: number): WorkingDuration =>
+  working(amount, "workHours", 3_600_000);
+
+/**
+ * Working time given in days: `expiresIn: workDays(2)`. Until #1310b gives it calendar semantics a
+ * working day counts as 24 hours of working time.
+ */
+export const workDays = (amount: number): WorkingDuration =>
+  working(amount, "workDays", 86_400_000);
 
 /** Whether a value is working time (`workingHours(…)` / `workingMinutes(…)`). */
 export const isWorkingDuration = (value: unknown): value is WorkingDuration =>

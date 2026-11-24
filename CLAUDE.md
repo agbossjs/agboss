@@ -2350,7 +2350,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   as run-bound (`effectiveBoundOf`, `infrastructure/pause-record.ts`: a tie goes to the run). Notices `extended` /
   `expiring` reach a channel's `onPauseExtended` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
   four hooks has a mailbox) and a listener's optional methods of the same names.
-  **Working time (#944):** `workingHours` / `workingMinutes` (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: ms }`;
+  **Working time (#944):** `workingHours` / `workingMinutes` (concise `workHours` / `workMin` / `workDays` and `bytes` / `kb` / `mb` / `gb` / `tb`, `ms` / `sec` / `min` / `days` since #1314b-add) (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: ms }`;
   `units/working-time.ts`: `amountOf`, `isSameSpan`, `spanText`) are accepted by `expiresIn` / `remindBefore` / `extendPause`. A calendar is a
   `WorkingCalendarHandler` (`calendar/working-calendar.ts`: `@WorkingCalendar`, `WorkingCalendarError`): `WorkingWeek.of` (`calendar/working-week.ts`,
   `time-zones.ts` — `Intl` offsets with `hourCycle: "h23"`; per local date the UTC segments of `hours \ breaks` over the offset windows around it,

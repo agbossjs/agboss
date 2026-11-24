@@ -8,13 +8,28 @@
 export type Bytes = Brand<number, "Bytes">;
 
 // @public
+export const bytes: (amount: number) => Bytes;
+
+// @public
+export const days: (amount: number) => Milliseconds;
+
+// @public
+export const gb: (amount: number) => Bytes;
+
+// @public
 export const hours: (amount: number) => Milliseconds;
 
 // @public
 export const isWorkingDuration: (value: unknown) => value is WorkingDuration;
 
 // @public
+export const kb: (amount: number) => Bytes;
+
+// @public
 export const kilobytes: (amount: number) => Bytes;
+
+// @public
+export const mb: (amount: number) => Bytes;
 
 // @public
 export const megabytes: (amount: number) => Bytes;
@@ -23,7 +38,13 @@ export const megabytes: (amount: number) => Bytes;
 export type Milliseconds = Brand<number, "Milliseconds">;
 
 // @public
+export const min: (amount: number) => Milliseconds;
+
+// @public
 export const minutes: (amount: number) => Milliseconds;
+
+// @public
+export const ms: (amount: number) => Milliseconds;
 
 // @public
 export interface PlainErrorOptions {
@@ -34,7 +55,13 @@ export interface PlainErrorOptions {
 }
 
 // @public
+export const sec: (amount: number) => Milliseconds;
+
+// @public
 export const seconds: (amount: number) => Milliseconds;
+
+// @public
+export const tb: (amount: number) => Bytes;
 
 // @public
 export class UnitError extends RangeError {
@@ -54,6 +81,12 @@ export type Usd = Brand<number, "Usd">;
 export const usd: (amount: number) => Usd;
 
 // @public
+export const workDays: (amount: number) => WorkingDuration;
+
+// @public
+export const workHours: (amount: number) => WorkingDuration;
+
+// @public
 export interface WorkingDuration {
     readonly [workingDuration]: Milliseconds;
 }
@@ -63,6 +96,9 @@ export const workingHours: (amount: number) => WorkingDuration;
 
 // @public
 export const workingMinutes: (amount: number) => WorkingDuration;
+
+// @public
+export const workMin: (amount: number) => WorkingDuration;
 
 // Warnings were encountered during analysis:
 //
