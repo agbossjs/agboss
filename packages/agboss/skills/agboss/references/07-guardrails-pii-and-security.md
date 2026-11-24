@@ -442,10 +442,14 @@ How PII masking works — the **model boundary** (S38):
   `result.record` are always masked by the application's and the workflow's lists.
 - **Detection**: formats are validated (Luhn, IBAN, Israeli ID, SSN rules, …); kinds without a
   format (`PersonName`, `StreetAddress`, `DateOfBirth`, `PassportNumber`, …) need
-  `detectWithModel: "<chat model>"` on the policy (`[pii.kind-needs-model]`); a detection answer that
+  `model: "<chat model>"` on the policy (`[pii.kind-needs-model]`); a detection answer that
   is not the JSON asked for fails closed (`PiiDetectionFailedError`).
-- **The key**: a policy's own `pseudonymKey: secret("…")`, else `@Application({ piiKeyField })`.
-  Neither → a key per root execution and the warning `[application.pii-instance-key]`.
+- **The key**: a policy's own `secret: secret("…")`, else the application's
+  `@DatabaseStorage({ piiSecret: secret("…") })` (no storage has a fixed one).
+  A `tokenize()` rule or a `sensitive: PiiAction.tokenize()` field with neither fails the start,
+  `[pii.secret-required]`. Rotating: the old key as `previousSecret` / `previousPiiSecret`
+  (`secret.optional(…)`): a thread keeps one token per value, old tokens still reveal. The
+  `Logger` a component injects is masked like the framework's log.
 
 Actions: `PiiAction.mask()` → `<israeli-id>`; `mask({ keepLast: 4 })` /
 `mask({ keepDomain: true })` / `mask({ pattern })` → `•••• 4242`;
@@ -494,7 +498,7 @@ uses.
 
 In `testWith(App)` an unscripted model guardrail passes; `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
 blocks, and `rejects.toFailWith(GuardrailBlockedError, { guard: "legal-advice-guardrail" })`
-asserts it. A key field (`piiKeyField`) or a policy's `pseudonymKey` whose variable is unset gets a fixed test key.
+asserts it. A policy's `secret` or the storage's `piiSecret` whose variable is unset gets a fixed test key.
 
 ## Rule codes
 
@@ -512,9 +516,9 @@ asserts it. A key field (`piiKeyField`) or a policy's `pseudonymKey` whose varia
 | `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                                                         |
 | `[pii.duplicate-target]`                                            | one policy names a kind or a group in two rules → one rule per target                                                      |
 | `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `block()` without `refusal(kind)` / a `refusal` nobody uses                                                                |
-| `[pii.kind-needs-model]`                                            | a kind without a format and no `detectWithModel` → add it, or drop the kind                                                |
+| `[pii.kind-needs-model]`                                            | a kind without a format and no `model` → add it, or drop the kind                                                          |
 | `[pii.original-file]` / `[pii.redacted-needs-kinds]`                | `FileView.Original` under a masking policy / `Redacted` under your own detector → see Files above                          |
-| `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ piiKeyField })`                                            |
+| `[pii.secret-required]`                                             | a `tokenize()` rule or field and no key → `@DatabaseStorage({ piiSecret })`                                                |
 
 ## Pitfalls
 

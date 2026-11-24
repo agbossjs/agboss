@@ -30,7 +30,8 @@ import {
 } from "./instance-key.fixture.js";
 
 const AUTHOR = "zoe-7";
-const MESSAGE = { text: "who is this?", author: AUTHOR };
+const MESSAGE = { text: "who is this? zoe-7" };
+const EXECUTION = { execution: { userId: AUTHOR } };
 const APPROVE = { approved: true };
 
 const instanceKeyed = testWith(InstanceKeyApplication, withInstancePiiKeys({ instances: 2 }));
@@ -48,9 +49,9 @@ function pair(apps: readonly TestApp[]): readonly [TestApp, TestApp] {
   return [first, second];
 }
 
-/** The author tokens each request carried. */
+/** The user-id tokens each request carried. */
 const authorTokens = (requests: readonly ModelRequest[]): readonly (readonly string[])[] =>
-  requests.map((request) => tokensIn(requestText(request), "author"));
+  requests.map((request) => tokensIn(requestText(request), "user-id"));
 
 /** The keys the checkpoints held, without repeats. */
 const keysSaved = (): readonly (string | null)[] => [...new Set(savedKeys)];
@@ -66,14 +67,14 @@ describe("#334 AC1, AC3: a key per root execution, on any instance", () => {
       mockLlm(FollowUpAgent).thenReturn(replyWith("followed up"));
       const [first, second] = pair(apps);
 
-      const paused = await execute(first, DeskStart, MESSAGE);
+      const paused = await execute(first, DeskStart, MESSAGE, EXECUTION);
       const resumed = await second.resume(answerOf(paused, APPROVE));
 
       const [asked, answered] = authorTokens(desk.requests);
       expect(resumed.output).toEqual({ text: "followed up" });
       expect(asked).toHaveLength(1);
       expect(answered).toEqual(asked);
-      expect(asked).not.toEqual([tokenOf("author", AUTHOR, TEST_PSEUDONYM_KEY, {})]);
+      expect(asked).not.toEqual([tokenOf("user-id", AUTHOR, TEST_PSEUDONYM_KEY, {})]);
     },
   );
 
@@ -91,7 +92,7 @@ describe("#334 AC1, AC3: a key per root execution, on any instance", () => {
       const held = new Promise<void>((resolve) => {
         levers.holdStarted = resolve;
       });
-      const dying = execute(first, DeskStart, MESSAGE);
+      const dying = execute(first, DeskStart, MESSAGE, EXECUTION);
       dying.catch(() => undefined);
       await held;
 
@@ -121,8 +122,8 @@ describe("#334 AC1, AC3: a key per root execution, on any instance", () => {
       mockLlm(FollowUpAgent).thenReturn(replyWith("one"), replyWith("two"));
       const [first, second] = pair(apps);
 
-      await second.resume(answerOf(await execute(first, DeskStart, MESSAGE), APPROVE));
-      await second.resume(answerOf(await execute(first, DeskStart, MESSAGE), APPROVE));
+      await second.resume(answerOf(await execute(first, DeskStart, MESSAGE, EXECUTION), APPROVE));
+      await second.resume(answerOf(await execute(first, DeskStart, MESSAGE, EXECUTION), APPROVE));
 
       const [one, , two] = authorTokens(desk.requests);
       expect(one).toHaveLength(1);
@@ -146,13 +147,14 @@ describe("#334 AC2: a child workflow makes its tokens with its root's key", () =
       const followUp = mockLlm(FollowUpAgent).thenReturn(replyWith("followed up"));
       const [first, second] = pair(apps);
 
-      const paused = await execute(first, DeskStart, MESSAGE);
+      const paused = await execute(first, DeskStart, MESSAGE, EXECUTION);
       await second.resume(answerOf(paused, APPROVE));
 
       const [asked] = authorTokens(desk.requests);
-      const [child] = authorTokens(followUp.requests);
+      // the child's token is its note's author field: the same value under the root's key, whatever the label
+      const child = followUp.requests.map((request) => tokensIn(requestText(request), "author"));
       expect(asked).toHaveLength(1);
-      expect(child).toEqual(asked);
+      expect(child[0]?.map((token) => token.replace("<author:", "<user-id:"))).toEqual(asked);
     },
   );
 });
@@ -167,9 +169,9 @@ describe("#334: the application's key (here the test's) changes nothing", () => 
       );
       mockLlm(FollowUpAgent).thenReturn(replyWith("followed up"));
 
-      await app.resume(answerOf(await execute(app, DeskStart, MESSAGE), APPROVE));
+      await app.resume(answerOf(await execute(app, DeskStart, MESSAGE, EXECUTION), APPROVE));
 
-      const fixed = [tokenOf("author", AUTHOR, TEST_PSEUDONYM_KEY, {})];
+      const fixed = [tokenOf("user-id", AUTHOR, TEST_PSEUDONYM_KEY, {})];
       expect(authorTokens(desk.requests)).toEqual([fixed, fixed]);
       expect(keysSaved()).toEqual([null]);
     },

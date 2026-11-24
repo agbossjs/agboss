@@ -228,7 +228,7 @@ export class CardPiiPolicy {}
   name: "name-pii-policy",
   description: "Finds people's names with a model",
   rules: [PiiKind.PersonName.mask()],
-  detectWithModel: "moonshotai/kimi-k2.6",
+  model: "moonshotai/kimi-k2.6",
 })
 export class NamePiiPolicy {}
 

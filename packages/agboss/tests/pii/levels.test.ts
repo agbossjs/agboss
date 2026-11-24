@@ -27,7 +27,7 @@ const KEY = secret("PII_UNIT_KEY");
   name: "email-kind-pii-policy",
   description: "Emails by kind",
   rules: [PiiKind.Email.mask()],
-  pseudonymKey: KEY,
+  secret: KEY,
 })
 class EmailKindPiiPolicy {}
 
@@ -35,7 +35,7 @@ class EmailKindPiiPolicy {}
   name: "no-refusal-pii-policy",
   description: "A block rule without a text",
   rules: [PiiKind.Iban.block()],
-  pseudonymKey: KEY,
+  secret: KEY,
 })
 class NoRefusalPiiPolicy {}
 
@@ -43,7 +43,7 @@ class NoRefusalPiiPolicy {}
   name: "unused-refusal-pii-policy",
   description: "A refusal method no rule uses",
   rules: [PiiKind.Iban.block("No IBANs.")],
-  pseudonymKey: KEY,
+  secret: KEY,
 })
 class UnusedRefusalPiiPolicy implements PiiRefusal {
   refusal(): string {
@@ -55,7 +55,7 @@ class UnusedRefusalPiiPolicy implements PiiRefusal {
   name: "names-pii-policy",
   description: "Names without a model",
   rules: [PiiKind.PersonName.mask(), PiiKind.Email.mask(), PiiKind.Email.tokenize()],
-  pseudonymKey: KEY,
+  secret: KEY,
 })
 class NamesPiiPolicy {}
 
@@ -63,7 +63,7 @@ class NamesPiiPolicy {}
   name: "Badly_Named",
   description: "Its name is not kebab-case",
   rules: [PiiKind.Jwt.mask()],
-  pseudonymKey: KEY,
+  secret: KEY,
 })
 class BadlyNamedPolicy {}
 
@@ -173,7 +173,7 @@ describe("#120: a policy's own rules", () => {
     expect(codesOf(UnusedRefusalPiiPolicy)).toEqual(["pii.unused-refusal"]);
   });
 
-  it("[pii.duplicate-target]: one kind named twice, a model-only kind without detectWithModel", () => {
+  it("[pii.duplicate-target]: one kind named twice, a model-only kind without model", () => {
     expect(codesOf(NamesPiiPolicy)).toEqual(["pii.duplicate-target", "pii.kind-needs-model"]);
   });
 

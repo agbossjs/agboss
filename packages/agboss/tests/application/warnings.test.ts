@@ -1,7 +1,6 @@
 /**
  * #261 AC14 — assembly warnings: tenant or application budgets on the built-in in-memory cost ledger,
- * and pauses possible with the built-in in-memory paused executions or checkpoints; #120 S94 — PII
- * tokens on a key of the instance (no `piiKeyField`). In `app.warnings` and the start log; errors
+ * and pauses possible with the built-in in-memory paused executions or checkpoints. In `app.warnings` and the start log; errors
  * under `agboss check --strict` (the CLI's tests); silent in tests (`testWith`).
  */
 import { createAppWith } from "../../src/application/create-app.js";
@@ -34,8 +33,6 @@ const LEDGER =
   "[application.in-memory-cost-ledger] in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart";
 const PAUSES =
   "[application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository) and the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart";
-const PII_KEY =
-  "[application.pii-instance-key] no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField";
 
 const offline = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
@@ -46,11 +43,10 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     const app = await createAppWith(LoggedApplication, offline);
     await app.close();
 
-    // its text start's `sender` is sensitive (a token): the instance key's warning too (#644)
-    expect(app.warnings).toEqual([LEDGER, PAUSES, PII_KEY]);
+    expect(app.warnings).toEqual([LEDGER, PAUSES]);
     expect(
       logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.message),
-    ).toEqual([LEDGER, PAUSES, PII_KEY]);
+    ).toEqual([LEDGER, PAUSES]);
   });
 
   it("no workflow can pause: only the ledger's", async () => {
@@ -61,14 +57,14 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
     ]);
   });
 
-  it("durable stores listed: none of the stores' (the PII key's stays: no piiKeyField)", async () => {
+  it("durable stores listed: none of the stores' warnings", async () => {
     const app = await createAppWith(DurableLoggedApplication, offline);
     await app.close();
 
-    expect(app.warnings).toEqual([PII_KEY]);
+    expect(app.warnings).toEqual([]);
     expect(
       logged.filter((entry) => entry.level === LogLevel.Warn).map((entry) => entry.message),
-    ).toEqual([PII_KEY]);
+    ).toEqual([]);
   });
 
   it("#644: only the pause records listed — the warning names the checkpoints, the one left in memory", async () => {
@@ -120,47 +116,32 @@ describe("#401 PR 1: kept execution history in memory warns", () => {
   });
 });
 
-describe("#120 S94: no application key → a key of the instance, and a warning", () => {
-  it("not set and not needed: the start goes on, the warning in app.warnings and the log", async () => {
+describe("#1301: no PII secret and nothing tokenizes: a key of the instance, no warning", () => {
+  it("the start goes on and says nothing about a key", async () => {
     const app = await createAppWith(NoteLoggedApplication, offline);
     await app.close();
 
-    expect(app.warnings).toContain(PII_KEY);
-    expect(logged.map((entry) => entry.message)).toContain(PII_KEY);
+    expect(app.warnings.some((warning) => warning.includes("pii"))).toBe(false);
+    expect(logged.some((entry) => entry.message.includes("pii-instance-key"))).toBe(false);
   });
 
-  it("#644: nothing makes a PII token — no policy, no sensitive field, no text start — no warning", async () => {
-    const assembled = await applicationOf(OrderApplication);
-
-    expect(applicationWarningsOf(assembled).map((warning) => warning.code)).toEqual([
-      "application.in-memory-cost-ledger",
-    ]);
+  it("no PII warning for an application with PII policies or sensitive fields either (a secret is required only to tokenize)", async () => {
+    for (const application of [QuestionsApplication, ClinicApplication, OrderApplication]) {
+      const assembled = await applicationOf(application);
+      expect(
+        applicationWarningsOf(assembled).filter((warning) =>
+          warning.code.startsWith("application.pii"),
+        ),
+      ).toEqual([]);
+    }
   });
 
-  it("#644: a sensitive field of a path's DTO, or a PII policy, makes tokens: the warning", async () => {
-    const sensitive = await applicationOf(QuestionsApplication); // PurchaseQuestionDto.requester
-    const policies = await applicationOf(ClinicApplication);
-
-    for (const assembled of [sensitive, policies])
-      expect(applicationWarningsOf(assembled).map((warning) => warning.code)).toContain(
-        "application.pii-instance-key",
-      );
-  });
-
-  it("piiKeyField set: no warning", async () => {
+  it("a key named: no warning", async () => {
     const processEnv = { PII_APP_KEY: "k", PII_TEST_PSEUDONYM_KEY: "own" };
     const app = await createAppWith(KeyedApplication, { ...offline, processEnv });
     await app.close();
 
-    expect(app.warnings).not.toContain(PII_KEY);
-  });
-
-  it("agboss check reads it from the declaration — an error under --strict (the CLI's tests)", async () => {
-    const unkeyed = await applicationOf(ClinicApplication);
-
-    expect(applicationWarningsOf(unkeyed).map((warning) => warning.code)).toContain(
-      "application.pii-instance-key",
-    );
+    expect(app.warnings.some((warning) => warning.includes("pii"))).toBe(false);
   });
 });
 
@@ -173,12 +154,12 @@ describe("#261 AC14, #120 S94: silent in tests", () => {
     expect(logged).toEqual([]);
   });
 
-  it("an instance built as testWith builds it (its test key, #334) makes tokens with a fixed key: no PII key warning", async () => {
+  it("an instance built as testWith builds it (its test key, #334) makes tokens with a fixed key", async () => {
     const assembled = await applicationOf(QuestionsApplication);
     const seams = { quiet: true, piiTestKey: TEST_PSEUDONYM_KEY };
     const { app } = await buildApplication(assembled, offline, seams);
     await app.close();
 
-    expect(app.warnings).not.toContain(PII_KEY);
+    expect(app.warnings.some((warning) => warning.includes("pii"))).toBe(false);
   });
 });

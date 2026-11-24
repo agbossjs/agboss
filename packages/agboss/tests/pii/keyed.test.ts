@@ -21,7 +21,8 @@ import { PII_KEY_VARIABLE } from "./pii.fixture.js";
 
 const APP_KEY = "shared-app-key";
 const OWN_KEY = "own-policy-key";
-const MESSAGE = { text: "EMP-0042 at ann@acme.io, +1 555 123 4567", author: "zoe-7" };
+const MESSAGE = { text: "EMP-0042 at ann@acme.io, +1 555 123 4567, from zoe-7" };
+const EXECUTION = { execution: { userId: "zoe-7" } };
 
 beforeAll(() => {
   vi.stubEnv("PII_APP_KEY", APP_KEY);
@@ -34,7 +35,7 @@ afterAll(() => {
 const instances = testWith(KeyedApplication, { instances: 2 });
 const ownKeys = testWith(KeyedApplication, withInstancePiiKeys({ instances: 2 }));
 
-describe("#120: the application's pseudonymKey", () => {
+describe("#120: the application's secret", () => {
   instances(
     "two instances give one value one token — a project's detector, a sensitive field",
     async ({ apps, mockLlm }) => {
@@ -42,12 +43,12 @@ describe("#120: the application's pseudonymKey", () => {
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");
 
-      await execute(first, KeyedStart, MESSAGE);
-      await execute(second, KeyedStart, MESSAGE);
+      await execute(first, KeyedStart, MESSAGE, EXECUTION);
+      await execute(second, KeyedStart, MESSAGE, EXECUTION);
 
       const [one, two] = agent.requests.map(requestText);
       const employee = tokenOf("employee-token", "EMP-0042", APP_KEY, {});
-      const author = tokenOf("author", "zoe-7", APP_KEY, {});
+      const author = tokenOf("user-id", "zoe-7", APP_KEY, {});
       expect(one).toContain(employee);
       expect(two).toContain(employee);
       expect(one).toContain(author);
@@ -63,10 +64,10 @@ describe("#120: the application's pseudonymKey", () => {
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");
 
-      await execute(first, KeyedStart, MESSAGE);
-      await execute(second, KeyedStart, MESSAGE);
+      await execute(first, KeyedStart, MESSAGE, EXECUTION);
+      await execute(second, KeyedStart, MESSAGE, EXECUTION);
 
-      const author = tokenOf("author", "zoe-7", APP_KEY, {});
+      const author = tokenOf("user-id", "zoe-7", APP_KEY, {});
       expect(agent.requests.map((request) => requestText(request).includes(author))).toEqual([
         true,
         true,
@@ -79,7 +80,7 @@ describe("#120: the application's pseudonymKey", () => {
     const [first] = apps;
     if (first === undefined) throw new Error("an instance");
 
-    await execute(first, KeyedStart, MESSAGE);
+    await execute(first, KeyedStart, MESSAGE, EXECUTION);
 
     const sent = requestText(agent.onlyRequest);
     expect(sent).toContain(tokenOf("email", "ann@acme.io", OWN_KEY, {}));
@@ -88,16 +89,20 @@ describe("#120: the application's pseudonymKey", () => {
 });
 
 describe("#120: a missing application key", () => {
-  it("fails the start when a policy needs it, naming the field to set", async () => {
+  it("fails the start with [pii.secret-required] when something tokenizes, naming what does", async () => {
     const failure = await createAppWith(UnkeyedApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     }).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(Error);
-    expect((failure as Error).message).toBe(
-      'unkeyed-application: employee-token-pii-policy, app-key-pii-policy make tokens with the application\'s PII key — set @Application({ piiKeyField: "piiPseudonymKey" }) with piiPseudonymKey: secret("…") in the environment',
-    );
+    expect(failure).toBeInstanceOf(GraphRuleError);
+    expect((failure as GraphRuleError).violations).toEqual([
+      expect.objectContaining({
+        code: "pii.secret-required",
+        message:
+          'unkeyed-application: policy employee-token-pii-policy, policy app-key-pii-policy, field KeyedExecutionContext.userId make tokens with the application\'s PII secret — name it in @DatabaseStorage({ …, piiSecret: secret("AGBOSS_PII_SECRET") }), or give each policy its own secret',
+      }),
+    ]);
   });
 
   it("a key field the contract does not declare fails assembly", async () => {

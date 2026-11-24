@@ -27,8 +27,8 @@ export interface DescribedPiiPolicy {
   /** The class's name (a refusal computed by it is `ClassName.refusal()`). */
   readonly className: string;
   readonly rules: readonly DescribedPiiRule[];
-  /** `detectWithModel` of a declarative policy. */
-  readonly detectWithModel?: string;
+  /** `model` of a declarative policy. */
+  readonly model?: string;
   /** The agents and routers whose models it covers, by name. */
   readonly elements: readonly string[];
   /** Whether it masks the workflow's logs, traces, events and records (an application or workflow policy). */
@@ -69,13 +69,13 @@ export function describedPiiPoliciesOf(bundle: AssembledWorkflow): readonly Desc
     const elements = [...pii.byElement]
       .filter(([, classes]) => classes.includes(cls))
       .map(([element]) => element);
-    const detectWithModel = isCustomPolicy(meta) ? undefined : meta.detectWithModel;
+    const model = isCustomPolicy(meta) ? undefined : meta.model;
     return [
       {
         name: meta.name,
         className: cls.name,
         rules: rulesOf(cls),
-        ...(detectWithModel === undefined ? {} : { detectWithModel }),
+        ...(model === undefined ? {} : { model }),
         elements,
         masksObservability: pii.observability.includes(cls),
       },
@@ -144,8 +144,7 @@ export function piiPolicyLines(bundle: AssembledWorkflow): string[] {
   return [
     "pii policies",
     ...policies.map((policy) => {
-      const model =
-        policy.detectWithModel === undefined ? "" : ` · detectWithModel ${policy.detectWithModel}`;
+      const model = policy.model === undefined ? "" : ` · model ${policy.model}`;
       const logs = policy.masksObservability ? " · masks logs and traces" : "";
       const on = policy.elements.join(", ") || "none";
       return `  ${policy.name} — ${policy.rules.map(ruleText).join(", ")}${model} · on ${on}${logs}`;

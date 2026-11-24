@@ -84,7 +84,7 @@ export function everyKindWorkflows(models: KindModels): {
     name: "names-pii-policy",
     description: "Finds names with a model",
     rules: [PiiKind.PersonName.mask()],
-    detectWithModel: models.pii,
+    model: models.pii,
   })
   class NamesPiiPolicy {}
   @ReplyInterpreter({

@@ -1546,9 +1546,7 @@ details are its trace, a tenant's spend is the cost ledger, a rejected execution
 event. The startup warnings (`app.warnings`) include the **assembly warnings**: tenant or
 application budgets on the built-in in-memory cost ledger (`[application.in-memory-cost-ledger]`:
 each instance counts on its own, the counters reset on restart) and pauses possible with the
-built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`), and PII
-tokens made with a key of each execution because `@Application({ piiKeyField })` is not set
-(`[application.pii-instance-key]`: one value gets another token in each execution) — errors
+built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`) — errors
 under `agboss check --strict`, silent in tests (`testWith` logs no start and no warning; an unlisted
 logger is silent there).
 
@@ -1681,7 +1679,7 @@ logs, traces, observer events and `result.record` stay masked by the application
 workflow's lists. Masking happens only at the model boundary: what a model reads is masked, what
 it gives back is revealed before any DTO is validated, so the scope, the checkpoint, every tool,
 action and finish see real values. `tokenize()` is the reversible one — a tool gets the
-address the model only saw as `<email:7f3a91>` (an HMAC of the value with `pseudonymKey`; the
+address the model only saw as `<email:7f3a91>` (an HMAC of the value with the policy's `secret`, else the storage's `piiSecret`; the
 token map is kept in the execution's checkpoint). A `block` rule fails the execution
 with `PiiRefusedError` (`kind`, `refusal`) when the value comes in or is in an answer, and rejects
 only the call when it is in tool arguments or a tool result.
@@ -1711,8 +1709,9 @@ import { Text } from "@agboss/core/dto";
     PiiKind.PersonName.mask(),
     PiiKind.CardNumber.block(), // the text from refusal(kind)
   ],
-  detectWithModel: "moonshotai/kimi-k2.6",
-  pseudonymKey: secret("PII_PSEUDONYM_KEY"),
+  model: "moonshotai/kimi-k2.6",
+  secret: secret("PII_PSEUDONYM_KEY"),
+  previousSecret: secret.optional("PII_PSEUDONYM_KEY_PREVIOUS"),
 })
 export class CustomerPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
@@ -1751,18 +1750,22 @@ export class TicketDto {
 
 Assembly checks the lists: `[pii.conflicting-rules]` (two policies with different actions for one
 kind, naming both), `[pii.duplicate-target]` (one policy naming a kind or a group in two rules), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
-`[pii.kind-needs-model]` (a name or an address without `detectWithModel`), `[pii.not-a-policy]`.
-Each `pseudonymKey` is read from its process variable when the app starts (a missing one fails the
-start). The application's own key, `@Application({ piiKeyField: "piiPseudonymKey" })`, names a
-`Secret` field of its environment (`piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`, like a model
-provider's `apiKey`): the key of sensitive fields, of project detectors and of every policy without
-its own — so one value is one token on every instance, and logs and traces from several machines
-agree; a policy's own key wins, and a policy that needs the application's when it is not set fails
-the start, naming the field. Not set and not needed, each instance makes a key of its own: the
-start goes on with the warning `[application.pii-instance-key]` (reveal still works — the token map
-is in the checkpoint — only logs and traces of two instances show one value as two tokens). Under
-`testWith` an unset key gets a fixed test key, and `mockLlm(CustomerPiiPolicy)`
-scripts its model detection (`pii:<policy>` in the spend). Wiki → Guards (PII).
+`[pii.kind-needs-model]` (a name or an address without the policy's `model`), `[pii.not-a-policy]`,
+`[pii.secret-required]` (something tokenizes and no key is named: the start fails). A policy's
+`secret` and `previousSecret` are read from their process variables when the app starts (a missing
+`secret`, or a `previousSecret` that is not `secret.optional(...)`, fails the start, naming the
+variable). The application's own key is `@DatabaseStorage({ piiSecret: secret("PII_PSEUDONYM_KEY"),
+previousPiiSecret })`: the key of `tokenize()` fields and of every policy without its own — so one
+value is one token on every instance, and logs and traces from several machines agree. A `tokenize()`
+rule or a `sensitive: PiiAction.tokenize()` field with no key to make its token fails the start with
+`[pii.secret-required]`; no storage, not even the built-in `InMemoryDatabaseStorage`, supplies one (`testWith` has a fixed test key, refused under `NODE_ENV=production`), and
+nothing tokenizes by a key of the instance (the built-in `WorkflowStartTextDto.author` is `mask()`).
+Rotating a key: name the old one as `previousSecret` / `previousPiiSecret`, and a value a thread has
+already tokenized under it keeps its token, so a resumed execution shows the model one token per
+value; the token map is in the checkpoint, so every old token still reveals. The `Logger` a
+component injects is masked as the framework's own log is. Under `testWith` an unset key gets a
+fixed test key, and `mockLlm(CustomerPiiPolicy)` scripts its model detection (`pii:<policy>` in
+the spend). Wiki → Guards (PII).
 
 ## Guardrails
 

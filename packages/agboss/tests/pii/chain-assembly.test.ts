@@ -36,7 +36,7 @@ import { ContactPiiPolicy, GovernmentPiiPolicy } from "./pii.fixture.js";
   name: "email-kind-chain-pii-policy",
   description: "Emails by kind",
   rules: [PiiKind.Email.mask()],
-  pseudonymKey: secret("PII_UNIT_KEY"),
+  secret: secret("PII_UNIT_KEY"),
 })
 class EmailKindPiiPolicy {}
 

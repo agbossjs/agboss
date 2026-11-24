@@ -1,5 +1,6 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { lazyLoad } from "../infrastructure/clock.js";
+import { SILENT_LOG, type FrameworkLog } from "../infrastructure/logger.js";
 import { recordUsage, type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import { contentOf } from "../models/content.js";
@@ -21,6 +22,9 @@ import {
  * where the targets are, and a copy without metadata has those regions — padded — painted black.
  * Anything that goes wrong is `FileRedactionFailedError`: never the unredacted file.
  */
+
+/** The log code of a region the model named with a target it was not asked for (#1301). */
+export const UNKNOWN_TARGET_CODE = "files.redactor-unknown-target";
 
 /** The pixels of the largest image read (a decompression bomb is refused). */
 export const MAX_INPUT_PIXELS = 40e6;
@@ -109,6 +113,7 @@ async function regionsAsked(
   image: Upright,
   options: RedactOptions,
   maxRegions: number,
+  log: FrameworkLog,
 ): Promise<{ readonly regions: readonly Region[]; readonly usage: UsageRecord }> {
   const kinds = options.targets.map((target) => target.id);
   const known = new Set<string>([...kinds, ...(options.values.length > 0 ? ["value"] : [])]);
@@ -132,7 +137,13 @@ async function regionsAsked(
   }
   try {
     return {
-      regions: regionsOf(response.text, known, maxRegions),
+      regions: regionsOf(response.text, known, maxRegions, (count) => {
+        // painted all the same; the model's own words are never in the line
+        log.warn(
+          UNKNOWN_TARGET_CODE,
+          `${agent}: the redaction model named ${String(count)} region(s) with a target it was not asked for — painted all the same`,
+        );
+      }),
       usage: recordUsage("files:redactor", binding.settings, response),
     };
   } catch (error) {
@@ -183,10 +194,18 @@ export async function redacted(
   file: FileContent,
   options: RedactOptions,
   limits: RedactorLimits = DEFAULT_LIMITS,
+  log: FrameworkLog = SILENT_LOG,
 ): Promise<RedactionResult> {
   const sharp = await sharpOf(agent);
   const image = await uprightOf(sharp, file, agent, limits.maxPixels);
-  const { regions, usage } = await regionsAsked(binding, agent, image, options, limits.maxRegions);
+  const { regions, usage } = await regionsAsked(
+    binding,
+    agent,
+    image,
+    options,
+    limits.maxRegions,
+    log,
+  );
   let bytes: Buffer;
   try {
     bytes = await paintedOf(sharp, image, regions, limits.maxPixels);
@@ -197,7 +216,7 @@ export async function redacted(
       cause,
     });
   }
-  // a region's target is one asked for (`regionsOf` refuses any other): a kind's id or "value"
+  // a region's target is one asked for, or `UNKNOWN_TARGET` (painted, not reported): a kind's id or "value"
   const found = [...new Set(regions.map((region) => region.target))].flatMap(
     (target) => PiiKind.fromId(target) ?? [],
   );

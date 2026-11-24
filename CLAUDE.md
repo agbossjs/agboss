@@ -778,7 +778,7 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   budget check, run only while its holder's own fence holds (#605: `assertHeld()` before the undo
   starts, so a holder already past its lease reports no `onCompensationStart`, and #640: again right
   before the undo action, after its awaited `onCompensationStart` / `onActionStart` — whose events are
-  masked first, a model call with `detectWithModel` — with nothing awaited between that check and
+  masked first, a model call with the policy's `model` — with nothing awaited between that check and
   `execute`; a holder past its lease, its tree taken over, undoes nothing: a hand-over; what is left is
   the undo action's own run up to its write, which only a fenced write closes; #662: every action's
   visit — a side path's undo action too, and a forward step — checks the same fence right before its
@@ -1703,8 +1703,7 @@ IdempotencyRunEventOutcome` — `Ran` / `Replayed` / `Joined` / `Refused` —, `
   `tenantId`). Assembly warnings — tenant or application budgets on the built-in in-memory ledger
   (`[application.in-memory-cost-ledger]`), possible pauses on in-memory paused executions or
   checkpoints (`[application.in-memory-pauses]`), children on any instance on the in-memory child
-  queue (`[application.in-memory-child-queue]`), PII tokens on a key of the instance — no
-  `@Application({ piiKeyField })` (`[application.pii-instance-key]`, #120 S94) — are in
+  queue (`[application.in-memory-child-queue]`) — are in
   `app.warnings` and the start log, errors under `agboss check --strict`, silent in tests.
 - **Memory (#1303, #120 PR 3):** a turn of a thread is a finished root execution
   (`start <name>: <input>` / `finish <name>: <output>`). What a workflow, an agent or a model router
@@ -1971,10 +1970,10 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   `retention.a2aTasks` / `a2aMessages` / `a2aFiles`; `A2AStatus`, `A2AEvent`, `A2AExecutionRequest`
   and `A2AExecutionResponse` are gone.
 - **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name?` (kebab-case, default: the class name),
-  `description?`, `rules: [PiiKind.X.mask() | .mask(part) | .tokenize() | .block(refusal?), PiiGroup.Y.…]` (each target once, `[pii.duplicate-target]`), `detectWithModel?`, `pseudonymKey?` — or a
+  `description?`, `rules: [PiiKind.X.mask() | .mask(part) | .tokenize() | .block(refusal?), PiiGroup.Y.…]` (each target once, `[pii.duplicate-target]`), `model?`, `modelProvider?`, `secret?` + `previousSecret?` (#1301) — or a
   project's own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
   (`findMatches(text)` → `PiiMatch { start, end }`). Only the kinds a rule names are found (formats
-  validated: Luhn, IBAN, Israeli ID, SSN rules; names and addresses by `detectWithModel`); a kind
+  validated: Luhn, IBAN, Israeli ID, SSN rules; names and addresses by the policy's `model`); a kind
   rule beats a group rule, the longest span wins. Actions: `mask()` → `<israeli-id>`,
   `mask({ keepLast } | { pattern })` → `•••• 4242`, `tokenize()` → `<email:7f3a91>`
   (HMAC-SHA256, the only reversible one), `block("…")` or `block()`
@@ -1994,16 +1993,23 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   the child's `@Workflow` removes an inherited one at the models only; assembly checks exclusions
   and `[pii.conflicting-rules]` on every static way in, `agboss describe` prints `pii chains`. A `sensitive` action on a
   DTO or a context field (masking actions only) applies to that field.
-  `@Application({ piiKeyField: "piiPseudonymKey" })` names a `Secret` field of the environment:
-  the HMAC key of sensitive fields, project detectors and policies without their own key — one
-  token per value on every instance (a policy's own key wins); a policy that needs it when it is
-  not set fails the start, naming the field (`testWith`: a fixed test key). Not set and not
-  needed → a key of each root execution (#334: made at its start, kept in its checkpoint next to
-  `piiTokens` and handed to its children — a resume, a failover or a recovery on another instance
-  gives one value the same token; another execution gives it another — it roots its tokens only)
-  and the warning
-  `[application.pii-instance-key]` (S94); logs and traces mask with a key of the instance.
-  `piiKeyField` (#825, was `pseudonymKey`) is typed `SecretFieldOf<TEnvironment>` — only a `Secret`
+  `@DatabaseStorage({ piiSecret: secret("…"), previousPiiSecret? })` (#1321) is the application's HMAC
+  key: of `tokenize()` fields, project detectors and policies without their own `secret` — one
+  token per value on every instance (a policy's own `secret` wins; `testWith`: a fixed test key;
+  no storage — `InMemoryDatabaseStorage` too — supplies one; the test key is refused under `NODE_ENV=production`). Anything that tokenizes —
+  a `tokenize()` rule or action without its own `secret`, a `sensitive: PiiAction.tokenize()`
+  field — with no key fails the start, `[pii.secret-required]`, naming the policy or `Dto.field`
+  (the built-in `WorkflowStartTextDto.author` is `mask()`, so a text start needs no key). Nothing
+  tokenizes and no key → a key of the instance masks its logs and traces. **Rotation (#1301):**
+  `previousSecret` of a policy / `previousPiiSecret` of the storage is the key rotated out
+  (`secret.optional(…)` may be unset): a value a thread already holds a token for under it keeps
+  that token, a new value gets one under the new key, and every old token still reveals (the map is
+  in `piiTokens`); `PiiPolicySet.previousFingerprint` / `previousRedactionDigestOf` /
+  `previousMaskCacheKeyOf` are the digests under the old roots, for cache lookups. The `Logger` a
+  component injects is the instance's with every message through the application's PII log mask.
+  An image redactor's region with a target it was not asked for is painted and warned
+  (`files.redactor-unknown-target`), never refused — only a region that cannot be painted refuses.
+  `piiKeyField` (#825, replaced by `piiSecret`) is typed `SecretFieldOf<TEnvironment>` — only a `Secret`
   field of the contract compiles, as `@DatabaseStorage({ idempotencySecret })` does —, and a key field that is also a
   model provider's `apiKey` (the built-ins' `openRouterApiKey` when none is listed), a `Secret` a listed class reads or another key field is
   `[application.pii-key-shared]` / `[application.idempotency-key-shared]`: a provider rotates its key
@@ -2026,7 +2032,8 @@ import { Agent, PiiAction, PiiKind, PiiPolicy, secret } from "@agboss/core";
     PiiKind.Email.tokenize(), // the model sees <email:7f3a91>, a tool the address
     PiiKind.Phone.mask({ keepLast: 2 }),
   ],
-  pseudonymKey: secret("PII_PSEUDONYM_KEY"),
+  secret: secret("PII_PSEUDONYM_KEY"),
+  previousSecret: secret.optional("PII_PSEUDONYM_KEY_PREVIOUS"),
 })
 export class ContactPiiPolicy {}
 

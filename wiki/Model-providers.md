@@ -390,7 +390,7 @@ export class AppChatModels {}
   variable.
 - **The cascade:** `Component.modelProvider ?? Workflow.modelProvider ?? Application.modelProvider` —
   `@Agent`, a model `@Router`, `@Arbiter`, `@InputGuardrail` / `@OutputGuardrail`, `@ReplyInterpreter`
-  and `@PiiPolicy` (its `detectWithModel`), `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
+  and `@PiiPolicy` (its `model`), `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
   of the application even when it is not in `providers`, and the provider rules (`timeout`, prices,
   breaker, mode) check it exactly like a listed one, wherever it is named; `agboss describe` lists it as
   "named by modelProvider".

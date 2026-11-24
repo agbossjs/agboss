@@ -12,7 +12,6 @@ import { ChildExecutionQueueRepository } from "../infrastructure/child-execution
 import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { componentOf } from "../components/metadata.js";
-import { hasSensitiveFields } from "../dto/redact.js";
 import type { DtoClass } from "../dto/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { piiChainTexts } from "../describe/pii-policies.js";
@@ -39,18 +38,8 @@ export interface WarningSources {
   readonly providers: readonly Provider[];
   readonly budgets: readonly Provider[];
   readonly workflows: readonly AssembledWorkflow[];
-  /**
-   * Whether PII tokens are made with a key of the instance (#120 S94): an instance knows it from its
-   * start; `agboss check` from `@Application({ piiKeyField })` not being set.
-   */
-  readonly isPiiKeyOfInstance?: boolean;
   /** `@Application({ retention: { executionRecords } })` (#401): root executions are kept when it is set. */
   readonly executionRecordRetention?: number | undefined;
-  /** The application's own PII policies (#644: a policy makes tokens, so the key matters). */
-  readonly piiPolicies?: readonly Class[];
-  /** Its declared contexts: a `sensitive` field of theirs makes tokens too (#644). */
-  readonly tenantContext?: Class;
-  readonly executionContext?: Class;
   /** The application's name and exposes (#859): where its A2A files ride. */
   readonly name?: string;
   readonly exposes?: readonly Class[];
@@ -93,12 +82,6 @@ const IN_MEMORY_CHILD_QUEUE: AssemblyWarning = {
     "in-memory child queue: children launched with placement: ChildPlacement.AnyInstance run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so any instance claims them",
 };
 
-const PII_INSTANCE_KEY: AssemblyWarning = {
-  code: "application.pii-instance-key",
-  message:
-    "no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField",
-};
-
 /** A listed fencing store that opts out of the atomic lease check (#526): what it gives up, and where to read why (#543). */
 const notAtomic = (store: Class): AssemblyWarning => ({
   code: "application.lease-check-not-atomic",
@@ -106,7 +89,7 @@ const notAtomic = (store: Class): AssemblyWarning => ({
 });
 
 /** The DTOs of a workflow's tools: an agent's `@Tool` input and output. */
-const toolDtosOf = (workflow: AssembledWorkflow): readonly DtoClass[] =>
+export const toolDtosOf = (workflow: AssembledWorkflow): readonly DtoClass[] =>
   [...workflow.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
     if (declaration.kind !== NodeKind.Agent) return [];
@@ -115,25 +98,6 @@ const toolDtosOf = (workflow: AssembledWorkflow): readonly DtoClass[] =>
       return component?.kind === "tool" ? [component.meta.input, component.meta.output] : [];
     });
   });
-
-/**
- * Whether anything of the application makes a PII token (#644): a PII policy (the application's or
- * a workflow's), or a `sensitive` field of a DTO on a path, of a tool or of a context. Without one
- * the key a token would be made with is never used, and the instance-key warning is noise.
- */
-function makesPiiTokens(sources: WarningSources): boolean {
-  const workflows = sources.workflows;
-  if ((sources.piiPolicies?.length ?? 0) > 0) return true;
-  if (workflows.some((workflow) => (workflow.pii?.classes.length ?? 0) > 0)) return true;
-  const contexts = [sources.tenantContext, sources.executionContext].flatMap((cls) =>
-    cls === undefined ? [] : [cls as DtoClass],
-  );
-  const dtos = [
-    ...contexts,
-    ...workflows.flatMap((workflow) => [...workflow.graph.dtos.values(), ...toolDtosOf(workflow)]),
-  ];
-  return dtos.some(hasSensitiveFields);
-}
 
 /** Whether a tenant or an application budget is listed (counted across executions). */
 const hasPeriodBudget = (budgets: readonly Provider[]): boolean =>
@@ -185,7 +149,6 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
       launchesAnywhere(sources.workflows) && inMemory(ChildExecutionQueueRepository),
       IN_MEMORY_CHILD_QUEUE,
     ],
-    [sources.isPiiKeyOfInstance === true && makesPiiTokens(sources), PII_INSTANCE_KEY],
   ];
   return [
     ...found.flatMap(([applies, warning]) => (applies ? [warning] : [])),

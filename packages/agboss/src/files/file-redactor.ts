@@ -1,5 +1,6 @@
 import { Injectable } from "../components/decorators.js";
 import { lazyLoad } from "../infrastructure/clock.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { ModelBinding } from "../llm/registry.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { PiiTarget } from "../pii/kinds.js";
@@ -73,8 +74,9 @@ export class ModelImageRedactor extends FileRedactor {
     agent: string,
     file: FileContent,
     options: RedactOptions,
+    log?: FrameworkLog,
   ): Promise<RedactionResult> {
-    return (await work()).redacted(binding, agent, file, options);
+    return (await work()).redacted(binding, agent, file, options, undefined, log);
   }
 
   override supports(mediaType: string): boolean {

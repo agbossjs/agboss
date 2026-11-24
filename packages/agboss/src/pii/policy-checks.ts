@@ -52,14 +52,14 @@ function refusalViolations(cls: Class, meta: DeclarativePiiPolicyMeta): RuleViol
 }
 
 function modelViolations(cls: Class, meta: DeclarativePiiPolicyMeta): RuleViolation[] {
-  if (meta.detectWithModel !== undefined) return [];
+  if (meta.model !== undefined) return [];
   const kinds = meta.rules.flatMap((rule) =>
     !isPiiGroup(rule.target) && MODEL_ONLY_KINDS.has(rule.target) ? [rule.target] : [],
   );
   return kinds.map((kind) =>
     violation(
       "pii.kind-needs-model",
-      `${meta.name}: ${kind.id} has no format to detect — set detectWithModel to find it in free text`,
+      `${meta.name}: ${kind.id} has no format to detect — set model to find it in free text`,
       [cls.name],
     ),
   );

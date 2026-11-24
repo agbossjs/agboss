@@ -6,4 +6,5 @@ export type PiiRuleCode =
   | "pii.duplicate-target"
   | "pii.missing-refusal"
   | "pii.unused-refusal"
-  | "pii.kind-needs-model";
+  | "pii.kind-needs-model"
+  | "pii.secret-required";

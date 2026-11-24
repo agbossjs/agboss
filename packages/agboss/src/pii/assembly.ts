@@ -35,7 +35,7 @@ export interface AssembledPii {
   readonly chains: readonly PiiChainSets[];
   /** Every policy class of the workflow. */
   readonly classes: readonly Class[];
-  /** The policies with `detectWithModel`. */
+  /** The policies with `model`. */
   readonly detectors: readonly PiiDetectorUse[];
 }
 
@@ -48,9 +48,9 @@ export interface PiiAssembly {
 const detectorsOf = (classes: readonly Class[], resolver?: ModelResolver): PiiDetectorUse[] =>
   classes.flatMap((cls) => {
     const meta = piiPolicyMetaOf(cls);
-    if (meta === undefined || isCustomPolicy(meta) || meta.detectWithModel === undefined) return [];
+    if (meta === undefined || isCustomPolicy(meta) || meta.model === undefined) return [];
     // its model through the cascade: the policy's own provider, its workflow's, its application's (#1313)
-    const own = { model: meta.detectWithModel, provider: meta.modelProvider };
+    const own = { model: meta.model, provider: meta.modelProvider };
     return [{ name: meta.name, ...componentModelOf(resolver, `pii.${meta.name}`, own) }];
   });
 

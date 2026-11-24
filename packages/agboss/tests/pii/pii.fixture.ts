@@ -17,6 +17,9 @@ import {
   type PiiRefusal,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { DatabaseStorage } from "../../src/storage/index.js";
+import { defineStorageDriver, StorageRole } from "../../src/stores/index.js";
+import { hours } from "../../src/units/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -29,7 +32,7 @@ export const PII_KEY_VARIABLE = "PII_TEST_PSEUDONYM_KEY";
   name: "contact-pii-policy",
   description: "Hides contact details from models",
   rules: [PiiKind.Email.tokenize(), PiiKind.Phone.mask({ keepLast: 2 })],
-  pseudonymKey: secret(PII_KEY_VARIABLE),
+  secret: secret(PII_KEY_VARIABLE),
 })
 export class ContactPiiPolicy {}
 
@@ -37,7 +40,7 @@ export class ContactPiiPolicy {}
   name: "card-pii-policy",
   description: "Refuses card numbers",
   rules: [PiiKind.CardNumber.block()],
-  pseudonymKey: secret(PII_KEY_VARIABLE),
+  secret: secret(PII_KEY_VARIABLE),
 })
 export class CardPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
@@ -49,7 +52,7 @@ export class CardPiiPolicy implements PiiRefusal {
   name: "government-pii-policy",
   description: "Hides government ids",
   rules: [PiiGroup.Government.mask()],
-  pseudonymKey: secret(PII_KEY_VARIABLE),
+  secret: secret(PII_KEY_VARIABLE),
 })
 export class GovernmentPiiPolicy {}
 
@@ -189,6 +192,21 @@ export class PiiWorkflow {}
 })
 export class OpenWorkflow {}
 
+/** In-memory stores with the application's PII key in a variable (a test's tokens need a key, #1301). */
+@DatabaseStorage({
+  driver: defineStorageDriver({
+    role: StorageRole.Database,
+    backend: "in-memory",
+    describes: "in memory",
+    settings: { kind: "in-memory" },
+    providers: [],
+  }),
+  auditLogTtl: hours(1),
+  ledgerEntriesTtl: hours(1),
+  piiSecret: secret("PII_APP_KEY"),
+})
+export class PiiAppStorage {}
+
 @Application({
   name: "pii-application",
   version: "1.0.0",
@@ -196,5 +214,6 @@ export class OpenWorkflow {}
   workflows: [PiiWorkflow, OpenWorkflow],
   piiPolicies: [ContactPiiPolicy, GovernmentPiiPolicy],
   budgets: TEST_BUDGETS,
+  storage: PiiAppStorage,
 })
 export class PiiApplication {}

@@ -1091,7 +1091,7 @@ it("looks the order up in the book it is given", async () => {
   `[pii.duplicate-target]`, `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
   `mask(text)` gives what a model would read — tokens made with a fixed test key and kept across
   calls, as an execution's `piiTokens` are; a block rule rejects with `PiiRefusedError` — and
-  `reveal(text)` what its answer becomes; a `detectWithModel` policy answers from `model`
+  `reveal(text)` what its answer becomes; a policy with a `model` answers from `model`
   (`replyWith('{"found":[{"kind":"person-name","text":"Anna Smith"}]}')`).
 
 <!-- snippet-context

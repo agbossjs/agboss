@@ -94,7 +94,7 @@ export function componentsApplication(levels: ComponentLevels): Class {
     name: "lv-pii-policy",
     description: "Finds names with a model",
     rules: [PiiKind.Email.mask()],
-    detectWithModel: "detector/names",
+    model: "detector/names",
     ...own,
   })
   class LvPii {

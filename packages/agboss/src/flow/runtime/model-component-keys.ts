@@ -128,7 +128,7 @@ const interpreterRecordsOf = (
 const piiRecordsOf = (pii: AssembledPii | undefined): ComponentRecord[] =>
   (pii?.classes ?? []).flatMap((cls) => {
     const meta = piiPolicyMetaOf(cls);
-    if (meta === undefined || isCustomPolicy(meta) || meta.detectWithModel === undefined) return [];
+    if (meta === undefined || isCustomPolicy(meta) || meta.model === undefined) return [];
     const targets = meta.rules.map((rule) => rule.target.id);
     return [recordOf(meta.name, ComponentKind.PiiPolicy, versionOf({ targets }), undefined)];
   });

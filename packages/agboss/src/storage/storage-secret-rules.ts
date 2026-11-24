@@ -19,6 +19,7 @@ export function secretViolations(
     ["idempotencySecret", meta.idempotencySecret, undefined, undefined],
     ["previousIdempotencySecret", meta.previousIdempotencySecret, undefined, undefined],
     ["piiSecret", meta.piiSecret, "piiKeyField", fields.piiKeyField],
+    ["previousPiiSecret", meta.previousPiiSecret, undefined, undefined],
   ] as const;
   const conflicts = keys.flatMap(([secret, ref, field, named]) =>
     ref !== undefined && named !== undefined

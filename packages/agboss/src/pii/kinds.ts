@@ -264,7 +264,7 @@ export const kindsOf = (target: PiiTarget): readonly PiiKind[] =>
 
 /**
  * Kinds without a format that can be validated: in free text only a model finds them, so a rule
- * naming one needs the policy's `detectWithModel`.
+ * naming one needs the policy's `model`.
  */
 export const MODEL_ONLY_KINDS: ReadonlySet<PiiKind> = new Set([
   PiiKind.StreetAddress,

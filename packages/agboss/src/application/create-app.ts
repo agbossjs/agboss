@@ -21,13 +21,14 @@ import { productionOptionsOf } from "./app-options.js";
 import type { InstanceSeams } from "./instance-seams.js";
 
 export type { InstanceSeams } from "./instance-seams.js";
-import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
 import { observersOf } from "./observers.js";
 import { attachedBudgetsOf, budgetsOfApplication } from "../budgets/budget-rules.js";
 import type { BudgetListing } from "../app/app-deps.js";
 import { withExecutionControl as byId } from "../app/tree-control.js";
 import type { ApplicationClass } from "./types.js";
-import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
+import type { applicationPiiMaskOf } from "./application-pii.js";
+import { instancePiiOf } from "./instance-pii.js";
 import { applicationIdempotencyKeysOf } from "./idempotency-key.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type * as InstanceSteps from "./instance-steps.js";
@@ -156,12 +157,10 @@ async function builtOn(
   const resolved = resolveInfrastructure(shared, { ...container, onCreate });
   const infrastructure = gatedInfrastructure(resolved, seams.leaseGate);
   const environment = options.environment ?? NO_ENVIRONMENT_VALUES;
-  // a test's instances share a fixed PII key when the application sets none (#120, #334)
-  const fallback = seams.piiTestKey;
-  const piiKey = applicationPiiKeyOf(assembled, { environment, env: processEnv, fallback });
-  const piiParts = { processEnv, fieldKey: piiKey.key, contexts };
-  const mask = applicationPiiMaskOf(assembled, shared, { ...container, onCreate }, piiParts);
-  const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
+  const { piiKey, mask, log } = instancePiiOf(assembled, {
+    ...{ shared, environment, processEnv, seams, contexts, clock, infrastructure },
+    container: { ...container, onCreate },
+  });
   const instance = await instancePartsOf(assembled, clock, log, infrastructure);
   const workflows: BuiltApp[] = [];
   const seen = { assembled, shared, log, seams, mask, created, instance, infrastructure };
@@ -178,7 +177,7 @@ async function builtOn(
     await releaseAll(workflows);
     throw error;
   }
-  const surface = { ...common, log, contexts, quiet, isInstanceKey: piiKey.isInstanceKey };
+  const surface = { ...common, log, contexts, quiet };
   return { ...byId(instanceAppOf(assembled, workflows, surface), workflows), assembled, workflows };
 }
 

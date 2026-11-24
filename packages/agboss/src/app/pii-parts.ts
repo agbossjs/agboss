@@ -47,6 +47,7 @@ export function piiFor(
     processEnv: parts.env,
     contexts: parts.contexts,
     fieldKey: key.key,
+    previousFieldKey: key.previousKey,
     isInstanceKey: key.isInstanceKey,
     detectionOf: (policy, model) => {
       // the model the cascade resolved for the policy (its provider, #1313); else as written

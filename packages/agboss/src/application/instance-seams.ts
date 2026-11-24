@@ -27,6 +27,8 @@ export interface InstanceSeams {
    * #334); absent = a key of the instance, one per root execution — what production does.
    */
   readonly piiTestKey?: string;
+  /** `testWith(…, withInstancePiiKeys)` (#334): tokens on a key of each instance, never a failed start. */
+  readonly piiInstanceKeys?: boolean;
   /** The idempotency keys of a key field with no value (#825, `testWith`); absent = the start fails. */
   readonly idempotencyTestKeys?: FingerprintKeys;
   /** Observers of the instance besides the application's (a test's call recorder, #262). */

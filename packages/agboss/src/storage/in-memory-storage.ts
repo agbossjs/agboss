@@ -5,7 +5,8 @@ import { defineStorageDriver, StorageRole } from "./storage-driver.js";
 /**
  * The built-in database storage (#1321): the stores in memory — what an application with no storage
  * has — lost on restart and not shared by processes. For tests and a first run; its audit log and
- * ledger entries are kept 24 hours.
+ * ledger entries are kept 24 hours. It supplies no PII key: with no `piiSecret`, a
+ * `tokenize()` fails the start, except under `testWith`, which has a fixed test key of its own.
  */
 @DatabaseStorage({
   name: "in-memory-database-storage",

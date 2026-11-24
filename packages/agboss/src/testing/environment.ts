@@ -206,7 +206,9 @@ export class TestEnvironment {
         storeClock: new StoreClock(StoreTimeSource.Test, this.clock),
         idGenerator: this.idGenerator,
         quiet: true,
-        ...(this.#piiTestKey === undefined ? {} : { piiTestKey: this.#piiTestKey }),
+        ...(this.#piiTestKey === undefined
+          ? { piiInstanceKeys: true }
+          : { piiTestKey: this.#piiTestKey }),
         // #825: a key field with no value in the test's environment gets the test's keys
         idempotencyTestKeys: TEST_IDEMPOTENCY_KEYS,
         observers: [this.mocks.actions],

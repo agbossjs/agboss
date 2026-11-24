@@ -1,7 +1,7 @@
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
-import type { Secret } from "../environments/secret.js";
+import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import type { AnyPiiAction, MaskingPiiAction } from "./actions.js";
 import type { PiiKind, PiiTarget } from "./kinds.js";
 
@@ -10,7 +10,7 @@ import type { PiiKind, PiiTarget } from "./kinds.js";
  * to it. Two forms, one decorator:
  * - declarative — `rules: [PiiKind.Email.tokenize(), PiiGroup.Contact.mask(), …]`; only the kinds
  *   the rules name are detected, each target named once (`[pii.duplicate-target]`), a kind rule
- *   beats a group rule, names and addresses in free text are found by `detectWithModel`;
+ *   beats a group rule, names and addresses in free text are found by its `model`;
  * - a project's own detector (S59, S61) — `{ name, action, deps }` + `implements PiiPolicyHandler`:
  *   `findMatches(text)` gives the ranges, the framework applies `action` to each.
  * Listed in `piiPolicies: [...]` of `@Application`, `@Workflow`, `@Agent` and `@Router` (lists add
@@ -76,17 +76,22 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
   readonly description?: string;
   readonly rules: readonly [PiiRule, ...PiiRule[]];
   /** A chat model that finds names, street addresses and the other kinds without a format. */
-  readonly detectWithModel?: string;
+  readonly model?: string;
   /**
-   * The `@ModelProvider` class serving `detectWithModel`; left out: the workflow's, the
+   * The `@ModelProvider` class serving `model`; left out: the workflow's, the
    * application's (#1313).
    */
   readonly modelProvider?: Class;
   /**
-   * The HMAC key of its `tokenize()` rules: `secret("PII_PSEUDONYM_KEY")`, read when the app
-   * starts; absent → the application's (`@Application({ piiKeyField })`).
+   * The HMAC key of its `tokenize()` rules: `secret("PII_POLICY_SECRET")`, read when the app
+   * starts; absent → the application's (`@DatabaseStorage({ piiSecret })`, #1321).
    */
-  readonly pseudonymKey?: Secret;
+  readonly secret?: SecretRef;
+  /**
+   * The key `secret` rotates from: a value already tokenized under it keeps its token in a thread
+   * that holds it, and a token it made still reveals. `secret.optional("…")` may be unset.
+   */
+  readonly previousSecret?: SecretRef | OptionalSecretRef;
   /** Constructor dependencies (a `PiiRefusal` class's services), in order. */
   readonly deps?: D;
   readonly action?: never;

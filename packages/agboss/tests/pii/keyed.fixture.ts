@@ -1,6 +1,7 @@
 /** The application's PII key (#120): one token per value on every instance. */
 import {
   Agent,
+  ExecutionContext,
   PiiAction,
   PiiKind,
   PiiPolicy,
@@ -11,12 +12,18 @@ import {
   type PiiMatch,
   type PiiPolicyHandler,
 } from "../../src/index.js";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { EmployeeDirectory, PII_KEY_VARIABLE } from "./pii.fixture.js";
+
+/** Who the execution talks to: a token field of the context (the built-in author is masked one-way). */
+export class KeyedExecutionContext extends ExecutionContext {
+  @Text({ optional: true, sensitive: PiiAction.tokenize() })
+  userId?: string;
+}
 
 /** Employee ids by token: a project's detector, with the application's key. */
 @PiiPolicy({
@@ -40,7 +47,7 @@ export class EmployeeTokenPiiPolicy implements PiiPolicyHandler {
   name: "own-key-pii-policy",
   description: "Emails, with a key of its own",
   rules: [PiiKind.Email.tokenize()],
-  pseudonymKey: secret(PII_KEY_VARIABLE),
+  secret: secret(PII_KEY_VARIABLE),
 })
 export class OwnKeyPiiPolicy {}
 
@@ -91,6 +98,7 @@ export class KeyedWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [KeyedWorkflow],
+  executionContext: KeyedExecutionContext,
   budgets: TEST_BUDGETS,
 })
 export class UnkeyedApplication {}

@@ -42,9 +42,12 @@ export interface DatabaseStorageOptions {
   readonly previousIdempotencySecret?: SecretRef | OptionalSecretRef;
   /**
    * The application's PII key: tokens of `sensitive` fields and of any policy without its own key
-   * are made with it, so one value is one token on every instance.
+   * are made with it, so one value is one token on every instance. Required as soon as anything
+   * tokenizes (`[pii.secret-required]`); no storage supplies a key (a test's `testWith` has its own).
    */
   readonly piiSecret?: SecretRef;
+  /** The key `piiSecret` rotates from: a token made under it is kept in a thread that holds it. */
+  readonly previousPiiSecret?: SecretRef | OptionalSecretRef;
 }
 
 /** `@ClusterStorage` options. */

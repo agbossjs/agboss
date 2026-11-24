@@ -25,7 +25,11 @@ export function boundaryInputOf(
   const key = state.piiKey;
   if (pii === undefined)
     return { input: inputMessageOf(node.fields, state), pii: { tokens: {}, values: [], key } };
-  const fields = tokenFieldMask(key ?? pii.fieldKey, state.piiTokens);
+  const fields = tokenFieldMask(
+    key ?? pii.fieldKey,
+    state.piiTokens,
+    key === null ? pii.previousFieldKey : undefined,
+  );
   const input = inputMessageOf(node.fields, state, fields.mask);
   const values = pii.contextValuesOf(state.contexts);
   return { input, pii: { tokens: fields.tokens, values, key } };

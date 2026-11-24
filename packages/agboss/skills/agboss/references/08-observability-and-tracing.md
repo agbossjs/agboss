@@ -371,7 +371,7 @@ that `extends Logger` (`write(entry: LogEntry)`; `LogEntry`: `level: LogLevel`, 
 
 - **At start, once**: what started and the worst case of one call of each start — only what the
   decorators say (no `maxSpend()`), then the assembly warnings (`[application.in-memory-cost-ledger]`,
-  `[application.in-memory-pauses]`, `[application.pii-instance-key]`; also in `app.warnings`).
+  `[application.in-memory-pauses]`; also in `app.warnings`).
 - **While running, only problems**: `LogLevel.Warn` — `execution.recovered`, `recovery.incompatible`,
   `observer.failed`, `compensation.step-still-running`, `pause.notice-failed`,
   `pause.notice-recipient-unknown`, `pause.expiry-handler-failed`, `pause.expiry-failed`, `pause.working-calendar-failed`, `pause.reassign-send-failed`, `pause.resend-failed`; `LogLevel.Error` — `pause.notice-dead`, `pause-timers.failed`,

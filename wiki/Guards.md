@@ -60,14 +60,14 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 export class NoLegalAdviceGuardrail {}
 ```
 
-| Option               | What it is                                                                                         |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| `name`, `description` | optional: `name` is kebab-case (`[name.not-kebab-case]`), the class name by default                 |
-| `prompt`, `promptUrls` | the question — yes blocks; inline and / or files next to the class (`[guardrail.no-prompt]` without) |
+| Option                   | What it is                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`, `description`    | optional: `name` is kebab-case (`[name.not-kebab-case]`), the class name by default                                                                                                                                                                                                                                                                     |
+| `prompt`, `promptUrls`   | the question — yes blocks; inline and / or files next to the class (`[guardrail.no-prompt]` without)                                                                                                                                                                                                                                                    |
 | `model`, `modelProvider` | a decision model or a chat model, or a role of its provider (`"fast"`); absent → `defaults.guardrail.model`, else the default model of its provider (`modelProvider` of the guardrail, its workflow, its application) — never `defaults.router.model`; none anywhere is `[model.missing-provider]` (`[model.missing]` when the provider has no default) |
-| `threshold`          | blocks at P(yes) ≥ threshold, above 0 and at most 1 (`[guardrail.threshold-invalid]`)              |
-| `refusal`            | the text sent instead; without it the class `implements GuardrailRefusal` — `refusal(): string \| Promise<string>`, its services and the execution through `deps` |
-| `deps`               | constructor dependencies, compiler-checked, injected by the container                             |
+| `threshold`              | blocks at P(yes) ≥ threshold, above 0 and at most 1 (`[guardrail.threshold-invalid]`)                                                                                                                                                                                                                                                                   |
+| `refusal`                | the text sent instead; without it the class `implements GuardrailRefusal` — `refusal(): string \| Promise<string>`, its services and the execution through `deps`                                                                                                                                                                                       |
+| `deps`                   | constructor dependencies, compiler-checked, injected by the container                                                                                                                                                                                                                                                                                   |
 
 **One refusal.** The decorator's overloads make a class without `refusal` implement
 `GuardrailRefusal` (else it does not compile); at assembly, neither is `[guardrail.missing-refusal]`
@@ -136,11 +136,11 @@ kind (code) and refusal (a model guardrail's entry is unchanged).
 
 ### Where they run
 
-| Guardrail                 | Reads                                                                                         | When                                                       |
-| ------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| input, on an agent        | the visit's input message (with context-mode knowledge and its decided calls), masked by the agent's PII policies | in the loop's input node, before the first model call — a resume never checks again |
-| input, on a model router  | its input message, masked by the router's PII policies                                        | before the router's model decides                          |
-| output, on an agent       | its answer — the text, or the answer's JSON — masked the same way                             | as the answer leaves the loop, before the step's value is written |
+| Guardrail                | Reads                                                                                                             | When                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| input, on an agent       | the visit's input message (with context-mode knowledge and its decided calls), masked by the agent's PII policies | in the loop's input node, before the first model call — a resume never checks again |
+| input, on a model router | its input message, masked by the router's PII policies                                                            | before the router's model decides                                                   |
+| output, on an agent      | its answer — the text, or the answer's JSON — masked the same way                                                 | as the answer leaves the loop, before the step's value is written                   |
 
 A guardrail never reads the raw text: it is behind the model boundary like the model it guards
 ([PII policies](#the-model-boundary-s38) below). Its model gets the guardrail's question and the text
@@ -149,13 +149,13 @@ model as one `Decision.boolean`, a chat model through the answer tool `answer-gu
 Guardrails of one element run in list order; the first that blocks fails the execution with
 `GuardrailBlockedError` (`guardrail.blocked`):
 
-| Field         | What                                                                  |
-| ------------- | --------------------------------------------------------------------- |
-| `guard`       | the guardrail's name                                                  |
+| Field         | What                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `guard`       | the guardrail's name                                                                       |
 | `refusal`     | the text to send instead (the decorator's, or `refusal()`'s, computed in the step's frame) |
-| `key`         | the setting that decided: `guardrails.<name>.threshold`               |
-| `probability` | P(yes) of its model                                                   |
-| `threshold`   | its threshold                                                         |
+| `key`         | the setting that decided: `guardrails.<name>.threshold`                                    |
+| `probability` | P(yes) of its model                                                                        |
+| `threshold`   | its threshold                                                                              |
 
 A model that does not answer (a failed call, an unreadable answer) **fails closed**:
 `GuardFailedError` (`step.guard`, a `StepFailedError`) — nothing passes unchecked. Each check costs
@@ -270,8 +270,8 @@ A `@PiiPolicy` says which personal data the models never see as is, and what hap
 (#120). Two forms, one decorator:
 
 - **declarative** — `@PiiPolicy({ name, description, rules: [Kind.verb() | Group.verb()],
-  detectWithModel?, pseudonymKey? })`, `name?` (kebab-case, the class name by default); without a
-  `pseudonymKey` its tokens use the application's;
+model?, modelProvider?, secret?, previousSecret? })`, `name?` (kebab-case, the class name by
+  default); without a `secret` its tokens use the application's (`@DatabaseStorage({ piiSecret })`);
 - **a project's own detector** (S59, S61) — `@PiiPolicy({ name, action, deps? })` +
   `implements PiiPolicyHandler`: `findMatches(text)` returns `PiiMatch { start, end }` ranges (or a
   promise of them), and the framework applies `action` (a masking one) to each. Its label is its
@@ -301,7 +301,8 @@ import {
     PiiKind.Phone.tokenize(),
     PiiKind.CardNumber.block(), // the text: refusal(kind)
   ],
-  pseudonymKey: secret("PII_PSEUDONYM_KEY"), // optional: absent → the application's key
+  secret: secret("PII_PSEUDONYM_KEY"), // optional: absent → the application's key
+  previousSecret: secret.optional("PII_PSEUDONYM_KEY_PREVIOUS"), // while rotating
 })
 export class ContactPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
@@ -336,45 +337,58 @@ export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
 Only what the rules name is detected. Inside one policy a kind rule beats a group rule;
 overlapping ranges → the longest wins (a tie: the more specific format).
 
-| Group (`PiiGroup`) | Kinds (`PiiKind`)                                                                         |
-| ------------------ | ----------------------------------------------------------------------------------------- |
-| `Contact`          | `Email`, `Phone`, `StreetAddress`\*, `PostalCode`                                        |
-| `Identity`         | `PersonName`\*, `DateOfBirth`\*                                                         |
+| Group (`PiiGroup`) | Kinds (`PiiKind`)                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| `Contact`          | `Email`, `Phone`, `StreetAddress`\*, `PostalCode`                                               |
+| `Identity`         | `PersonName`\*, `DateOfBirth`\*                                                                 |
 | `Government`       | `UsSsn`, `UsItin`, `UkNino`, `IsraeliId`, `PassportNumber`\*, `DriverLicense`\*, `NationalId`\* |
-| `Financial`        | `CardNumber`, `Iban`, `SwiftBic`, `BankAccount`\*, `UsEin`                              |
-| `Network`          | `IpAddress`, `MacAddress`, `GeoCoordinates`                                               |
-| `Credentials`      | `ApiKey`, `Jwt`, `PrivateKey`, `Password`                                                 |
+| `Financial`        | `CardNumber`, `Iban`, `SwiftBic`, `BankAccount`\*, `UsEin`                                      |
+| `Network`          | `IpAddress`, `MacAddress`, `GeoCoordinates`                                                     |
+| `Credentials`      | `ApiKey`, `Jwt`, `PrivateKey`, `Password`                                                       |
 
 Formats are validated — Luhn (cards), IBAN mod 97, the Israeli ID check digit, the SSN issuance
 rules (no 000 / 666 / 9xx area, no 00 group, no 0000 serial), ITIN groups, NINO prefixes, EIN
 prefixes, IPv4 octets, coordinate ranges, SWIFT country codes. The kinds marked \* have no format:
-in free text only `detectWithModel` (a chat model; its calls are `pii:<policy>` in the spend, every
+in free text only the policy's `model` (a chat model; its calls are `pii:<policy>` in the spend, every
 model checked against the providers' `serves`) finds them, and a rule naming one without it is
 `[pii.kind-needs-model]`. A detection answer that is not the JSON asked for fails closed
 (`PiiDetectionFailedError`, `pii.detection-failed`): nothing goes to the model unmasked.
 
 ### Actions
 
-| Action                                             | The model reads           | Reversible |
-| -------------------------------------------------- | ------------------------- | ---------- |
-| `PiiAction.mask()`                      | `<israeli-id>`            | no         |
-| `PiiAction.mask({ keepFirst?, keepLast?, keepDomain? })` | `•••• 4242`, `d•••@acme.com` | no |
-| `PiiAction.mask({ pattern })`               | every match as `••••`     | no         |
-| `PiiAction.tokenize()`                     | `<email:7f3a91>`          | yes        |
-| `PiiAction.block("…")` / `block()` | — refused                 | —          |
+| Action                                                   | The model reads              | Reversible |
+| -------------------------------------------------------- | ---------------------------- | ---------- |
+| `PiiAction.mask()`                                       | `<israeli-id>`               | no         |
+| `PiiAction.mask({ keepFirst?, keepLast?, keepDomain? })` | `•••• 4242`, `d•••@acme.com` | no         |
+| `PiiAction.mask({ pattern })`                            | every match as `••••`        | no         |
+| `PiiAction.tokenize()`                                   | `<email:7f3a91>`             | yes        |
+| `PiiAction.block("…")` / `block()`                       | — refused                    | —          |
 
 `mask(part)` takes either what to keep or what to replace — both does not compile. A token is the
 first hex digits of the HMAC-SHA256 of the normalised value under the pseudonym key derived from
-`pseudonymKey` ([the key hierarchy](#the-pii-key-hierarchy) below), so one value is one token
+the key ([the key hierarchy](#the-pii-key-hierarchy) below), so one value is one token
 everywhere (longer when a prefix is taken in the execution). The key comes from one of two places:
 
-- the policy's own `pseudonymKey`;
-- the application's key, `@Application({ piiKeyField: "piiPseudonymKey" })` — a `Secret` field of
-  the environment ([Environments → The PII key](Environments#the-pii-key)). It is shared by every
-  instance, so tokens match across machines. Sensitive fields and project detectors always use it.
-  Not set and not needed, each root execution makes a key of its own — kept in its checkpoint,
-  handed to its children, the same on whichever instance continues it (#334) — and the application
-  warns `[application.pii-instance-key]` (S94). `block()` without
+- the policy's own `secret` (and `previousSecret`, below);
+- the application's key, `@DatabaseStorage({ piiSecret: secret("PII_PSEUDONYM_KEY"), previousPiiSecret })`
+  ([Environments → The PII key](Environments#the-pii-key)). It is shared by every instance, so
+  tokens match across machines. A `tokenize()` rule or a `sensitive: PiiAction.tokenize()` field with
+  no key to use fails the start: `[pii.secret-required]`, naming the policy or `Dto.field` — a key
+  made up by the instance would give one value another token on each. `InMemoryDatabaseStorage`
+  supplies none; `testWith` has a fixed test key, refused under `NODE_ENV=production`. Nothing tokenizes
+  and no key is named: a key of the instance masks its logs and traces. The built-in
+  `WorkflowStartTextDto.author` is `mask()`, so a text start needs no key.
+
+**Rotating a key.** Name the old one as the policy's `previousSecret` (or the storage's
+`previousPiiSecret`; `secret.optional("…")` may be unset once the rotation is done). A thread that
+holds the token of a value under the old key keeps that token — the model never sees one value as
+two — a value new to the thread is tokenized under the new key, and every token a thread holds still
+reveals: the token → value map is in the checkpoint, no key is needed to read it. A set rotating
+from a previous key also hashes under the old roots (`previousFingerprint`), so a cached
+transcription or redacted copy made before the rotation is still found. A `previousSecret` that is
+not optional and not set fails the start, naming the variable — never its value.
+
+`block()` without
 a text takes `refusal(kind)` of the class (`implements PiiRefusal`, its services through `deps`);
 none → `[pii.missing-refusal]`, a method no rule uses → `[pii.unused-refusal]`. A block rule in an
 incoming message or in an answer fails the execution with `PiiRefusedError` (`pii.refused`,
@@ -388,25 +402,26 @@ is used and never kept anywhere: HKDF-SHA256 of the root, the salt `agboss/pii-k
 purpose's label as `info`, 32 bytes. Each digest is an HMAC-SHA256 under that key — never a plain
 hash, so a digest of a guessable value (a phone number, a name) is no oracle for whoever reads it.
 
-| Purpose | Label (`info`) | Root | What it keys |
-| --- | --- | --- | --- |
-| Pseudonyms | `agboss/pii/pseudonym/v2` | a policy's `pseudonymKey`; else the application's key; else the execution's own (#334) | `tokenize()` and `sensitive` tokens, `<email:7f3a91>` |
-| Policy hash | `agboss/pii/policy-hash/v2` | the application's key (else the instance's) | what a set of policies masks with — its rules, its token key's id, the execution's sensitive values: a cached file transcription's key ([Files for models](Files-for-models)) |
-| File cache | `agboss/files/cache-key/v2` | the application's key (else the instance's) | a cached redacted copy's key: the policies and the exact values the redactor was told |
-| Mask cache | `agboss/pii/mask-cache/v2` | the application's key (else the instance's) | an agent's loop's masked texts (`piiMasked`), by the text |
-| Key id | `agboss/pii/key-id/v2` | the token key | which key a policy set makes tokens with, inside its hash only |
+| Purpose     | Label (`info`)              | Root                                                                                                       | What it keys                                                                                                                                                                  |
+| ----------- | --------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pseudonyms  | `agboss/pii/pseudonym/v2`   | a policy's `secret`; else the application's key (`piiSecret`); else the execution's own (#334, tests only) | `tokenize()` and `sensitive` tokens, `<email:7f3a91>`                                                                                                                         |
+| Policy hash | `agboss/pii/policy-hash/v2` | the application's key (else the instance's)                                                                | what a set of policies masks with — its rules, its token key's id, the execution's sensitive values: a cached file transcription's key ([Files for models](Files-for-models)) |
+| File cache  | `agboss/files/cache-key/v2` | the application's key (else the instance's)                                                                | a cached redacted copy's key: the policies and the exact values the redactor was told                                                                                         |
+| Mask cache  | `agboss/pii/mask-cache/v2`  | the application's key (else the instance's)                                                                | an agent's loop's masked texts (`piiMasked`), by the text                                                                                                                     |
+| Key id      | `agboss/pii/key-id/v2`      | the token key                                                                                              | which key a policy set makes tokens with, inside its hash only                                                                                                                |
 
 Two uses never share a key, so one input gives a different digest in each (a value's token is never
 the key of its cached text). A label is never reused: a new scheme is a new label.
 
-The application's key (`piiKeyField`, `PII_PSEUDONYM_KEY`) is read from the environment and held in
-memory only. Without it the instance makes a key of its own at start (S94), in memory too. The one
-key an execution keeps is its own token key (#334: no `piiKeyField`, kept in its checkpoint so that
+The application's key (`piiSecret`, `PII_PSEUDONYM_KEY`) is read from the process and held in
+memory only. Without it, when nothing tokenizes, the instance makes a key of its own at start, in
+memory too. The one
+key an execution keeps is its own token key (#334: no key named, kept in its checkpoint so that
 another instance gives one value the same token): it roots that execution's pseudonyms and nothing
 else, and their values are in the same checkpoint already (`piiTokens`). Every digest kept beside it —
 `fileTranscripts`, `piiMasked`, the policy hash — is under a key of the application's (or the
 instance's) root, which no store holds: reading a checkpoint gives no way to test a guess against
-them. Without `piiKeyField`, an execution continued on another instance therefore masks its cached
+them. Without a key, an execution continued on another instance therefore masks its cached
 texts and files again instead of reusing them — another reason to set it.
 
 Keyed apart from this hierarchy: a business key's handle (`HMAC(piiKey, "agboss/business-key-handle/v1")`,
@@ -487,15 +502,15 @@ the checkpoint) — branches merge it by key, and it survives a pause, a resume 
 ### Sensitive fields
 
 `sensitive: PiiAction.…` on a DTO field applies one masking action to a field without a format of
-its own (`WorkflowStartTextDto.author` is `tokenize()`); on the identity fields of a
+its own (`WorkflowStartTextDto.author` is `mask()`); on the identity fields of a
 `TenantContext` / `ExecutionContext` subclass the values are masked wherever they appear in what a
 model reads ([Context and authorization](Context-And-Authorization)). A channel shows a token or a
 kind field as `<field-name>`.
 
 ### Testing
 
-Under `testWith` a `pseudonymKey` (a policy's or the application's) whose variable is unset gets a
-fixed test key, and
+Under `testWith` a `secret` (a policy's, or the storage's `piiSecret`) whose variable is unset gets a
+fixed test key (a `previousSecret` another one), and
 `mockLlm(ContactPiiPolicy)` scripts a policy's model detection like any model.
 
 **Standalone executable proof:** [`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

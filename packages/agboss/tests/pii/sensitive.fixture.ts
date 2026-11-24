@@ -29,8 +29,8 @@ export class ShopExecutionContext extends ExecutionContext {
   name: "names-pii-policy",
   description: "Finds names with a model",
   rules: [PiiKind.PersonName.mask()],
-  detectWithModel: "test/pii-detector",
-  pseudonymKey: secret(PII_KEY_VARIABLE),
+  model: "test/pii-detector",
+  secret: secret(PII_KEY_VARIABLE),
 })
 export class NamesPiiPolicy {}
 

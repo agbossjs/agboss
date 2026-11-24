@@ -10,7 +10,7 @@ export class WorkflowStartTextDto {
   @Text({
     prompt: "who or what sent it, if the caller knows",
     optional: true,
-    sensitive: PiiAction.tokenize(),
+    sensitive: PiiAction.mask(),
   })
   author?: string;
 }

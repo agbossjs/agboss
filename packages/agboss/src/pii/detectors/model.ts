@@ -9,7 +9,7 @@ import { PiiKind } from "../kinds.js";
 import type { ModelDetection, ModelFoundRange } from "../runtime-policy.js";
 
 /**
- * A policy's model detection (`detectWithModel`, #120 AC3): names, street addresses and the other
+ * A policy's model detection (`model`, #120 AC3): names, street addresses and the other
  * kinds without a format, found by a chat model in free text. The model names each value as it
  * appears; the ranges are where that text occurs. Its usage is recorded under `pii:<policy>`; an
  * answer that is not the JSON asked for fails closed — nothing goes to the model unmasked. A value

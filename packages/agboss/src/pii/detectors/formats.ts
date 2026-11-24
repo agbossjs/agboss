@@ -15,7 +15,7 @@ import {
 /**
  * The format detectors (#120 AC3): one pattern per kind with a format, the match checked by its
  * validator. A pattern with a `value` group marks only that part (`password: <value>`). Kinds
- * without a format (names, street addresses, …) are found only by a model (`detectWithModel`).
+ * without a format (names, street addresses, …) are found only by a model (`model`).
  */
 export interface FormatDetector {
   readonly kind: PiiKind;

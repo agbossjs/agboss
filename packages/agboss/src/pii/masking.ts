@@ -15,6 +15,8 @@ export interface PiiFinding extends PiiMatch {
   readonly action: AnyPiiAction;
   readonly policy: string;
   readonly key: string;
+  /** The key `key` rotates from (`previousSecret`): a token a thread holds under it is kept. */
+  readonly previousKey?: string;
   /** The more specific detector wins a tie (lower first). */
   readonly rank: number;
 }
@@ -57,7 +59,7 @@ function replacementOf(
 ): { readonly text: string; readonly token?: string } {
   switch (finding.action.kind) {
     case PiiActionKind.Tokenize: {
-      const token = tokenOf(finding.label, value, finding.key, known);
+      const token = tokenOf(finding.label, value, finding.key, known, finding.previousKey);
       return { text: token, token };
     }
     case PiiActionKind.MaskPart:

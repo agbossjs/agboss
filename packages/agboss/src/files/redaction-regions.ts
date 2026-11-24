@@ -19,6 +19,13 @@ const MAX_MIN_PADDING_X = 0.03;
 /** The most regions taken from one answer (#1257): more fails the redaction. */
 export const MAX_REGIONS = 200;
 
+/**
+ * The target of a region the model named with one it was not asked for (#1301): the region is
+ * painted all the same — the model found something there — and the target is this constant, never
+ * the model's own text.
+ */
+export const UNKNOWN_TARGET = "(unknown target)";
+
 /** A region the model named, validated: fractions of the image. */
 export interface Region {
   readonly target: string;
@@ -55,11 +62,14 @@ export class RegionsAnswerError extends Error {
 /**
  * The regions of the model's answer, each held to the rules: any one that breaks them fails the
  * redaction, and so does a list longer than `maxRegions` (#1257: the model is no bound of the work).
+ * A region whose target is none asked for is kept as `UNKNOWN_TARGET` — painted, never refused,
+ * since painting removes the pixels — and `onUnknown` hears how many there were (#1301).
  */
 export function regionsOf(
   text: string,
   known: ReadonlySet<string>,
   maxRegions: number = MAX_REGIONS,
+  onUnknown?: (count: number) => void,
 ): readonly Region[] {
   const answer = jsonOf(text);
   const list = isRecord(answer) ? answer.regions : undefined;
@@ -68,13 +78,14 @@ export function regionsOf(
     throw new RegionsAnswerError(
       `the answer has ${String(list.length)} regions, more than the ${String(maxRegions)} taken`,
     );
-  return list.map((entry: unknown, index): Region => {
+  let unknown = 0;
+  const regions = list.map((entry: unknown, index): Region => {
     const at = `region ${String(index + 1)} of ${String(list.length)}`;
     if (!isRecord(entry)) throw new RegionsAnswerError(`${at} is no object`);
     const { target, x, y, w, h } = entry;
     // the known target that is the answer's, so no text check beside the set's
-    const named = [...known].find((candidate) => candidate === target);
-    if (named === undefined) throw new RegionsAnswerError(`${at} names an unknown target`);
+    const named = [...known].find((candidate) => candidate === target) ?? UNKNOWN_TARGET;
+    if (named === UNKNOWN_TARGET) unknown += 1;
     if (
       !isFraction(x, 0, 0.999999, false) ||
       !isFraction(y, 0, 0.999999, false) ||
@@ -84,6 +95,8 @@ export function regionsOf(
       throw new RegionsAnswerError(`${at} is out of bounds`);
     return { target: named, x: x as number, y: y as number, w: w as number, h: h as number };
   });
+  if (unknown > 0) onUnknown?.(unknown);
+  return regions;
 }
 
 /** The pixel box of a region: padded, clamped to the image. */

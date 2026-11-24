@@ -22,6 +22,7 @@ import {
   OpenStart,
   OpenWorkflow,
   PII_KEY_VARIABLE,
+  PiiAppStorage,
   PiiStart,
   PiiWorkflow,
 } from "./pii.fixture.js";
@@ -101,6 +102,7 @@ class BreakingObserver {
   observers: [BreakingObserver],
   providers: [RecordingLogger],
   budgets: TEST_BUDGETS,
+  storage: PiiAppStorage,
 })
 class TracePoliciesApplication {}
 
@@ -112,6 +114,7 @@ class TracePoliciesApplication {}
   workflows: [OpenWorkflow],
   piiPolicies: [ContactPiiPolicy],
   budgets: TEST_BUDGETS,
+  storage: PiiAppStorage,
 })
 class OtherTracingApplication {}
 
@@ -119,11 +122,12 @@ const OTHER_LANGFUSE = {
   ...LANGFUSE,
   LANGFUSE_PUBLIC_KEY: "pk-lf-other",
   [PII_KEY_VARIABLE]: "test-key",
+  PII_APP_KEY: "app-key",
 };
 
 const appOf = (book: ScriptBook) =>
   createAppWith(TracePoliciesApplication, {
-    processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key" },
+    processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });
 
@@ -243,7 +247,7 @@ const spansOf = (workflow: string): string =>
 
 const chainAppOf = (book: ScriptBook) =>
   createAppWith(ChainApplication, {
-    processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key" },
+    processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });
 

@@ -1,19 +1,18 @@
 import type { Class } from "../components/injection.js";
-import { EnvironmentError, EnvironmentErrorCode } from "../environments/errors.js";
-import { variableOfSecret } from "../environments/secret.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { AssembledPii } from "./assembly.js";
-import { isCustomPolicy, type PiiPolicyMeta } from "./pii-policy.decorator.js";
+import { isCustomPolicy } from "./pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "./policy-checks.js";
-import { PiiPolicySet, type SensitiveValue } from "./policy-set.js";
+import { policyKeysOf } from "./policy-keys.js";
+import { PiiPolicySet, type PreviousPiiKeys, type SensitiveValue } from "./policy-set.js";
 import { runtimePolicyOf, type ModelDetection, type RuntimePiiPolicy } from "./runtime-policy.js";
 import { sensitiveValuesOf } from "./sensitive-values.js";
 import { observabilityMaskOf, type ObservabilityMask } from "./observability-mask.js";
 
 /**
  * A workflow's PII policies at run time (#120): the instances from the container with their keys
- * (each `pseudonymKey` read from its process variable when the app starts — a missing one fails the
+ * (each `secret` and `previousSecret` read from its process variable when the app starts — a missing one fails the
  * start, naming it), the set at each agent's and router's model, and the observability set. As a
  * child (#1150, `inChain`) it adds the policies of the workflows above it: observability masks with
  * the whole chain, the models with the chain less the workflow's and the element's excludes.
@@ -38,6 +37,8 @@ export interface PiiRuntime {
   readonly contextValuesOf: (contexts: ExecutionContextValues) => readonly SensitiveValue[];
   /** The key of the tokens of `sensitive` fields. */
   readonly fieldKey: string;
+  /** The key `fieldKey` rotates from (`previousPiiSecret`): a token made under it is kept. */
+  readonly previousFieldKey?: string | undefined;
   /**
    * Whether `fieldKey` is the instance's own (no `piiKeyField`, S94): each root execution then
    * makes its field tokens with a key of its own, kept in its state (#334).
@@ -59,7 +60,7 @@ export interface PiiRuntime {
 export interface PiiRuntimeParts {
   readonly resolve: (cls: Class) => unknown;
   readonly processEnv: NodeJS.ProcessEnv;
-  /** The model detection of a policy on its `detectWithModel` model. */
+  /** The model detection of a policy on its `model` model. */
   readonly detectionOf: (policy: string, model: string) => ModelDetection;
   readonly contexts: Pick<RuntimeContexts, "tenantContext" | "executionContext">;
   /**
@@ -67,20 +68,10 @@ export interface PiiRuntimeParts {
    * sensitive fields, a project's detectors, a policy without its own key.
    */
   readonly fieldKey: string;
+  /** The key `fieldKey` rotates from (`@DatabaseStorage({ previousPiiSecret })`); none when unset. */
+  readonly previousFieldKey?: string | undefined;
   /** The key is the instance's own (S94); absent = the application's (or a test's). */
   readonly isInstanceKey?: boolean;
-}
-
-function keyOf(meta: PiiPolicyMeta, parts: PiiRuntimeParts): string {
-  if (isCustomPolicy(meta) || meta.pseudonymKey === undefined) return parts.fieldKey;
-  const variable = variableOfSecret(meta.pseudonymKey);
-  const value = parts.processEnv[variable];
-  if (value === undefined || value === "")
-    throw new EnvironmentError({
-      code: EnvironmentErrorCode.MissingVariables,
-      message: `${variable} is not set (${meta.name}.pseudonymKey)`,
-    });
-  return value;
 }
 
 function runtimePoliciesOf(
@@ -91,12 +82,12 @@ function runtimePoliciesOf(
     pii.classes.flatMap((cls) => {
       const meta = piiPolicyMetaOf(cls);
       if (meta === undefined) return [];
-      const model = isCustomPolicy(meta) ? undefined : meta.detectWithModel;
+      const model = isCustomPolicy(meta) ? undefined : meta.model;
       const policy = runtimePolicyOf({
         meta,
         instance: parts.resolve(cls),
-        key: keyOf(meta, parts),
-        ...(model === undefined ? {} : { detectWithModel: parts.detectionOf(meta.name, model) }),
+        ...policyKeysOf(meta, parts),
+        ...(model === undefined ? {} : { detection: parts.detectionOf(meta.name, model) }),
       });
       return [[cls, policy] as const];
     }),
@@ -109,11 +100,26 @@ const elementOfNode = (nodeId: string): string => nodeId.split("#")[0] ?? nodeId
 const namesOf = (classes: readonly Class[]): ReadonlySet<string> =>
   new Set(classes.map((cls) => piiPolicyMetaOf(cls)?.name ?? cls.name));
 
-/** One set of `sets`' policies, each once by name (the first kept), on `fieldKey`. */
-const unionOf = (fieldKey: string, ...lists: (readonly RuntimePiiPolicy[])[]): PiiPolicySet => {
+/** The keys the application's rotates from (`previousPiiSecret`): the same for tokens and every digest. */
+const previousOf = (parts: PiiRuntimeParts): PreviousPiiKeys => ({
+  fieldKey: parts.previousFieldKey,
+  rootKey: parts.previousFieldKey,
+});
+
+/** One set of `sets`' policies, each once by name (the first kept), on the application's key. */
+const unionOf = (
+  parts: PiiRuntimeParts,
+  ...lists: (readonly RuntimePiiPolicy[])[]
+): PiiPolicySet => {
   const byName = new Map<string, RuntimePiiPolicy>();
   for (const policy of lists.flat()) if (!byName.has(policy.name)) byName.set(policy.name, policy);
-  return new PiiPolicySet([...byName.values()], fieldKey);
+  return new PiiPolicySet(
+    [...byName.values()],
+    parts.fieldKey,
+    [],
+    parts.fieldKey,
+    previousOf(parts),
+  );
 };
 
 /** What a runtime is made of: its own sets, and what a chain removes at its models. */
@@ -135,7 +141,6 @@ function elementSetsOf(
   inherited: readonly RuntimePiiPolicy[],
   workflowPolicies: PiiPolicySet,
 ): (element: string) => PiiPolicySet {
-  const key = own.parts.fieldKey;
   const byElement = new Map<string, PiiPolicySet>();
   const setOf = (element: string): PiiPolicySet => {
     const base = own.elementSet(element) ?? own.elementSet(elementOfNode(element));
@@ -144,7 +149,7 @@ function elementSetsOf(
     if (inherited.length === 0) return base;
     const removed = own.excludedAt(elementOfNode(element));
     return unionOf(
-      key,
+      own.parts,
       base.policies,
       inherited.filter((policy) => !removed.has(policy.name)),
     );
@@ -162,20 +167,20 @@ function runtimeOf(
   declared?: PiiRuntime,
 ): PiiRuntime {
   const { parts } = own;
-  const key = parts.fieldKey;
   const removed = own.excludedAt(undefined);
   const atModels = inherited.filter((policy) => !removed.has(policy.name));
   const observed =
-    inherited.length === 0 ? own.observed : unionOf(key, own.observed.policies, inherited);
+    inherited.length === 0 ? own.observed : unionOf(parts, own.observed.policies, inherited);
   const workflowPolicies =
-    inherited.length === 0 ? own.model : unionOf(key, own.model.policies, atModels);
+    inherited.length === 0 ? own.model : unionOf(parts, own.model.policies, atModels);
   const byName = new Map([...own.policies.values()].map((policy) => [policy.name, policy]));
   const runtime: PiiRuntime = {
     policiesOf: elementSetsOf(own, inherited, workflowPolicies),
     observability: observabilityMaskOf(observed, parts.contexts),
     observed,
     workflowPolicies,
-    fieldKey: key,
+    fieldKey: parts.fieldKey,
+    previousFieldKey: parts.previousFieldKey,
     isInstanceKey: parts.isInstanceKey === true,
     contextValuesOf: (contexts) =>
       sensitiveValuesOf([
@@ -198,6 +203,9 @@ function ownPiiOf(pii: AssembledPii, parts: PiiRuntimeParts): OwnPii {
     new PiiPolicySet(
       classes.flatMap((cls) => policies.get(cls) ?? []),
       parts.fieldKey,
+      [],
+      parts.fieldKey,
+      previousOf(parts),
     );
   const sets = new Map([...pii.byElement].map(([name, classes]) => [name, setOf(classes)]));
   const workflowExcluded = namesOf(pii.excludes.workflow);

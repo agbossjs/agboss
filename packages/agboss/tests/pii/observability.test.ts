@@ -27,6 +27,7 @@ import {
   OpenStart,
   OpenWorkflow,
   PII_KEY_VARIABLE,
+  PiiAppStorage,
   PiiStart,
   PiiWorkflow,
   SendEmail,
@@ -63,6 +64,7 @@ class SeeingObserver {
   observers: [SeeingObserver],
   providers: [RecordingLogger],
   budgets: TEST_BUDGETS,
+  storage: PiiAppStorage,
 })
 class SeenApplication {}
 

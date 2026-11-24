@@ -9,7 +9,6 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { BaseMessage } from '@langchain/core/messages';
 import type { Graph } from '@langchain/core/runnables/graph';
-import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
@@ -654,9 +653,9 @@ export function describedPiiPoliciesOf(bundle: AssembledWorkflow): readonly Desc
 // @public
 export interface DescribedPiiPolicy {
     readonly className: string;
-    readonly detectWithModel?: string;
     readonly elements: readonly string[];
     readonly masksObservability: boolean;
+    readonly model?: string;
     // (undocumented)
     readonly name: string;
     // (undocumented)

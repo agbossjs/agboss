@@ -69,7 +69,7 @@ class RudeWords {}
 
 @PiiPolicy({
   rules: [PiiKind.Email.mask()],
-  pseudonymKey: secret("PII_KEY"),
+  secret: secret("PII_KEY"),
 })
 class ContactDetails {}
 

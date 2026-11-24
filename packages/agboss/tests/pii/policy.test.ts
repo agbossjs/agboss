@@ -27,7 +27,7 @@ const masked = async (set: PiiPolicySet, text: string): Promise<string> =>
   name: "email-pii-policy",
   description: "Emails only",
   rules: [PiiKind.Email.mask()],
-  pseudonymKey: KEY,
+  secret: KEY,
 })
 class EmailPiiPolicy {}
 
@@ -35,7 +35,7 @@ class EmailPiiPolicy {}
   name: "contact-group-pii-policy",
   description: "Contact by group, emails by token",
   rules: [PiiGroup.Contact.mask(), PiiKind.Email.tokenize()],
-  pseudonymKey: KEY,
+  secret: KEY,
 })
 class ContactGroupPiiPolicy {}
 
@@ -48,7 +48,7 @@ class ContactGroupPiiPolicy {}
     PiiGroup.Credentials.mask(),
     PiiGroup.Government.mask(),
   ],
-  pseudonymKey: KEY,
+  secret: KEY,
 })
 class FinancialPiiPolicy {}
 

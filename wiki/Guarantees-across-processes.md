@@ -236,7 +236,7 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
     `onActionStart`, with nothing awaited between that check and the action.
 
   Those observers are awaited one after another, and each event is masked first, which is a model
-  call under a `detectWithModel` policy. So a holder can spend longer than its lease there. A
+  call under a policy with a `model`. So a holder can spend longer than its lease there. A
   holder whose tree another instance took over and undid undoes nothing when it goes on, even
   before its expiry timer fires: it hands over at the undo (`HandOverSite.Compensation`).
 

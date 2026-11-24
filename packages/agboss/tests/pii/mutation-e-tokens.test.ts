@@ -86,7 +86,7 @@ describe("the policy set's hash covers each setting", () => {
   const plain = new PiiPolicySet([policyWith({})], "root");
 
   it("a model detection or a file action is another hash", () => {
-    const detecting = new PiiPolicySet([policyWith({ detectWithModel: "m/model" })], "root");
+    const detecting = new PiiPolicySet([policyWith({ model: "m/model" })], "root");
     const files = new PiiPolicySet([policyWith({ files: PiiFileAction.AllowOriginal })], "root");
 
     expect(detecting.fingerprint).not.toBe(plain.fingerprint);

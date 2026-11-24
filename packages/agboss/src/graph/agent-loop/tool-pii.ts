@@ -120,7 +120,7 @@ export async function closedResult(
     );
     return { content: `${kept}${marker}`, ...none, isTruncated };
   }
-  const fields = tokenFieldMask(set.fieldKey, {});
+  const fields = tokenFieldMask(set.fieldKey, {}, set.previous.fieldKey);
   const files = dto === undefined ? output.value : scrubbedFilesOfDto(dto, output.value);
   const value = dto === undefined ? files : maskedDtoValue(dto, files, fields.mask);
   const { kept, marker, isTruncated } = await bounded(

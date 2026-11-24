@@ -9,7 +9,12 @@ import {
   type NamedEnvironment,
 } from "../environments/load.js";
 import type { LoadedEnvironment } from "../environments/resolve.js";
-import { isResolvedSecret, Secret, variableOfSecret } from "../environments/secret.js";
+import {
+  isResolvedSecret,
+  Secret,
+  variableOfSecret,
+  variableOfSecretRef,
+} from "../environments/secret.js";
 import { isModelGuardrail, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { isCustomPolicy } from "../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
@@ -24,7 +29,7 @@ import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gate
  * secret.
  */
 
-import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
+import { TEST_PREVIOUS_PSEUDONYM_KEY, TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
 import {} from "../application/idempotency-key.js";
 import type { TestWithOptions } from "./environment.js";
 
@@ -49,12 +54,11 @@ const policyClassesOf = (assembled: AssembledApplication): readonly Class[] => [
   ...new Set(assembled.workflows.flatMap((workflow) => workflow.pii?.classes ?? [])),
 ];
 
-/** The script key of a `@PiiPolicy` with `detectWithModel` in the application; none for anything else. */
+/** The script key of a `@PiiPolicy` with `model` in the application; none for anything else. */
 export function piiScriptKeyOf(target: Class, assembled: AssembledApplication): string | undefined {
   if (!policyClassesOf(assembled).includes(target)) return undefined;
   const meta = piiPolicyMetaOf(target);
-  if (meta === undefined || isCustomPolicy(meta) || meta.detectWithModel === undefined)
-    return undefined;
+  if (meta === undefined || isCustomPolicy(meta) || meta.model === undefined) return undefined;
   return piiPolicyKeyOf(meta.name);
 }
 
@@ -84,15 +88,21 @@ export function testPseudonymKeys(
   processEnv: NodeJS.ProcessEnv,
   loaded?: LoadedEnvironment,
 ): Record<string, string> {
-  const policies = policyClassesOf(assembled).flatMap((cls) => {
+  const own = policyClassesOf(assembled).flatMap((cls) => {
     const meta = piiPolicyMetaOf(cls);
-    if (meta === undefined || isCustomPolicy(meta) || meta.pseudonymKey === undefined) return [];
-    return [variableOfSecret(meta.pseudonymKey)];
+    if (meta === undefined || isCustomPolicy(meta) || meta.secret === undefined) return [];
+    return [
+      [variableOfSecretRef(meta.secret), TEST_PSEUDONYM_KEY] as const,
+      ...(meta.previousSecret === undefined
+        ? []
+        : [[variableOfSecretRef(meta.previousSecret), TEST_PREVIOUS_PSEUDONYM_KEY] as const]),
+    ];
   });
+  const application = applicationKeyVariablesOf(assembled, loaded).map(
+    (variable) => [variable, TEST_PSEUDONYM_KEY] as const,
+  );
   return Object.fromEntries(
-    [...policies, ...applicationKeyVariablesOf(assembled, loaded)]
-      .filter((variable) => (processEnv[variable] ?? "") === "")
-      .map((variable) => [variable, TEST_PSEUDONYM_KEY]),
+    [...own, ...application].filter(([variable]) => (processEnv[variable] ?? "") === ""),
   );
 }
 

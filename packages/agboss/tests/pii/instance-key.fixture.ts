@@ -1,5 +1,5 @@
 /**
- * #334: an application without `pseudonymKey` — a desk agent whose tools echo the start's author
+ * #334: an application without `secret` — a desk agent whose tools echo the start's author
  * as a `sensitive` field (one approved, one that holds until its execution stops), a child
  * workflow that reads the author again, and a checkpointer that keeps every `piiKey` it saved.
  */
@@ -26,6 +26,12 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../infrastructure/fixtures/recovery.workflow.js";
+
+/** Who the desk talks to: a token field of the execution's context (the built-in author is masked one-way). */
+export class DeskExecutionContext extends ExecutionContext {
+  @Text({ optional: true, sensitive: PiiAction.tokenize() })
+  userId?: string;
+}
 
 /** Every `piiKey` a checkpoint of the test held (reset with `resetSavedKeys`). */
 export const savedKeys: (string | null)[] = [];
@@ -181,12 +187,13 @@ export class DeskFinish {}
 })
 export class InstanceKeyWorkflow {}
 
-/** No `pseudonymKey` and no policy that needs one: field tokens on a key of each execution. */
+/** No `secret` and no policy that needs one: field tokens on a key of each execution. */
 @Application({
   name: "instance-key-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [InstanceKeyWorkflow],
+  executionContext: DeskExecutionContext,
   observers: [RecoveryLog],
   providers: [
     MortalExecutionLeaseRepository,

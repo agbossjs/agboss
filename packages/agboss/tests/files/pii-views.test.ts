@@ -39,7 +39,7 @@ const SSN = "078-05-1120";
   name: "contact-files-pii-policy",
   description: "Token for emails, kind for cards",
   rules: [PiiKind.Email.tokenize(), PiiKind.CardNumber.mask()],
-  pseudonymKey: secret(KEY),
+  secret: secret(KEY),
 })
 class ContactFilesPolicy {}
 
@@ -47,7 +47,7 @@ class ContactFilesPolicy {}
   name: "ssn-files-pii-policy",
   description: "Refuses social security numbers",
   rules: [PiiKind.UsSsn.block()],
-  pseudonymKey: secret(KEY),
+  secret: secret(KEY),
 })
 class SsnFilesPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
@@ -59,7 +59,7 @@ class SsnFilesPolicy implements PiiRefusal {
   name: "open-contact-files-pii-policy",
   description: "Token for emails; the original file may go through",
   rules: [PiiKind.Email.tokenize()],
-  pseudonymKey: secret(KEY),
+  secret: secret(KEY),
   files: PiiFileAction.AllowOriginal,
 })
 class OpenContactFilesPolicy {}
@@ -255,8 +255,8 @@ describe("AC5: the cache never crosses executions or tenants", () => {
   name: "names-files-pii-policy",
   description: "Finds names with a model; the original file may go through",
   rules: [PiiKind.PersonName.mask()],
-  detectWithModel: "local/reader",
-  pseudonymKey: secret(KEY),
+  model: "local/reader",
+  secret: secret(KEY),
   files: PiiFileAction.AllowOriginal,
 })
 class NamesFilesPolicy {}

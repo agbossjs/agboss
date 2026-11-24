@@ -222,7 +222,7 @@ describe("#1301: [pii.duplicate-target] — one rule per kind or group in a poli
   name: "names-pii-policy",
   description: "Names by model",
   rules: [PiiKind.PersonName.mask()],
-  detectWithModel: "acme/detector",
+  model: "acme/detector",
 })
 class NamesPiiPolicy {}
 
@@ -248,7 +248,7 @@ async function maskedBy(content: string, text: string) {
   const meta = piiPolicyMetaOf(NamesPiiPolicy);
   if (meta === undefined) throw new Error("not a policy");
   const set = new PiiPolicySet(
-    [runtimePolicyOf({ meta, instance: {}, key: "k", detectWithModel: detect })],
+    [runtimePolicyOf({ meta, instance: {}, key: "k", detection: detect })],
     "field-key",
   );
   const { masked } = await set.mask(text, {}, DetectionMode.WithModel);

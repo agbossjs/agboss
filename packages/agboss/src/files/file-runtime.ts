@@ -131,7 +131,7 @@ async function redactFile(
   if (instance instanceof ModelImageRedactor) {
     const binding = deps.registry.fileRedactors.get(agent);
     if (binding === undefined) throw new TypeError(`${agent}: no redaction model is bound`);
-    return instance.redactWith(binding, agent, file, options);
+    return instance.redactWith(binding, agent, file, options, deps.log);
   }
   return withReportedCost(await instance.redact(file, options), "files:redactor", "redactor");
 }

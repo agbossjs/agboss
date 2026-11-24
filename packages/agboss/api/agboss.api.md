@@ -2424,6 +2424,7 @@ export interface DatabaseStorageOptions {
     readonly name?: string;
     readonly piiSecret?: SecretRef;
     readonly previousIdempotencySecret?: SecretRef | OptionalSecretRef;
+    readonly previousPiiSecret?: SecretRef | OptionalSecretRef;
 }
 
 // @public
@@ -2584,13 +2585,14 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
     readonly deps?: D;
     // (undocumented)
     readonly description?: string;
-    readonly detectWithModel?: string;
     readonly files?: PiiFileAction;
+    readonly model?: string;
     readonly modelProvider?: Class;
     readonly name?: string;
-    readonly pseudonymKey?: Secret;
+    readonly previousSecret?: SecretRef | OptionalSecretRef;
     // (undocumented)
     readonly rules: readonly [PiiRule, ...PiiRule[]];
+    readonly secret?: SecretRef;
 }
 
 // @public
@@ -8036,7 +8038,7 @@ export interface PiiRule {
 }
 
 // @public
-export type PiiRuleCode = "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.duplicate-target" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model";
+export type PiiRuleCode = "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.duplicate-target" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "pii.secret-required";
 
 // @public
 export type PiiTarget = PiiKind | PiiGroup;

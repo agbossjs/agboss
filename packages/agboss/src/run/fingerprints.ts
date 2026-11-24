@@ -32,7 +32,7 @@ export interface PiiRuleFingerprint {
 export interface PiiPolicyFingerprint {
   readonly name: string;
   readonly rules?: readonly PiiRuleFingerprint[];
-  readonly detectWithModel?: string;
+  readonly model?: string;
   /** What it lets happen to files (#899): only a policy that says. */
   readonly files?: string;
   readonly action?: Readonly<Record<string, unknown>>;
@@ -116,7 +116,7 @@ function piiPolicyFingerprint(meta: PiiPolicyMeta): PiiPolicyFingerprint {
       target: rule.target.id,
       action: actionFingerprint(rule.action),
     })),
-    ...(meta.detectWithModel === undefined ? {} : { detectWithModel: meta.detectWithModel }),
+    ...(meta.model === undefined ? {} : { model: meta.model }),
   };
 }
 

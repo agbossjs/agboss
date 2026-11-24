@@ -221,7 +221,6 @@ export function instanceHealthOf(
 export interface InstanceAppParts extends InstanceParts {
   readonly contexts: RuntimeContexts;
   readonly quiet: boolean | undefined;
-  readonly isInstanceKey: boolean;
   /** The process environment the instance reads its references from (the mesh's keys). */
   readonly processEnv: NodeJS.ProcessEnv;
 }
@@ -234,7 +233,7 @@ export function instanceAppOf(
 ): Pick<BuiltApplication, "app" | "infrastructure" | "closed" | "log"> {
   const { infrastructure, log } = parts;
   const { stop, sweep, timers } = stopOf(assembled, workflows, parts);
-  const warnings = startupWarningsOf(assembled, workflows, parts.isInstanceKey);
+  const warnings = startupWarningsOf(assembled, workflows);
   if (parts.quiet !== true)
     logStart(log, parts.contexts.application, assembled.workflows, warnings);
   const health = instanceHealthOf(assembled, workflows, { stop, sweep, timers, ...parts });
@@ -244,15 +243,12 @@ export function instanceAppOf(
 }
 
 /**
- * The assembly warnings (a PII key of the instance only when it made one, S94 — never under
- * `testWith`, which has a fixed key), then each workflow's own (a config changed without a version
- * bump).
+ * The assembly warnings, then each workflow's own (a config changed without a version bump).
  */
 const startupWarningsOf = (
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
-  isInstanceKey: boolean,
 ): readonly string[] => [
-  ...assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: isInstanceKey }).map(warningText),
+  ...assemblyWarningsOf(assembled).map(warningText),
   ...workflows.flatMap((workflow) => workflow.app.warnings),
 ];
