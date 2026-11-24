@@ -12,6 +12,7 @@ import {
   modelProviderOf,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
+import { fallbackClassesOf } from "./fallback-chain.js";
 import {
   modelUsesOf,
   type ModelNamingComponents,
@@ -52,12 +53,10 @@ export const transportProviderClassesOf = (
 ): readonly ModelProviderType[] =>
   withFallbacks(modelProvidersOf(providers)).filter(isTransportClass);
 
-/** Model provider classes and their breakers' fallbacks, each once. */
+/** Model provider classes and the fallbacks of their chains (`A → B → C`), each once. */
 export function withFallbacks(classes: readonly ModelProviderType[]): readonly ModelProviderType[] {
-  const fallbacks = classes.flatMap(
-    (cls) => modelProviderOf(cls).circuitBreakerPolicy?.fallback ?? [],
-  );
-  return [...new Set([...classes, ...fallbacks.filter(isModelProviderClass)])];
+  const fallbacks = fallbackClassesOf(classes).filter(isModelProviderClass);
+  return [...new Set([...classes, ...fallbacks])];
 }
 
 /** An application's providers without its model providers: what its container creates. */

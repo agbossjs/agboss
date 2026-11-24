@@ -8,6 +8,7 @@
 export {
   ModelProvider,
   ModelProviderError,
+  type ModelFallback,
   type ModelProviderOptions,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
@@ -94,11 +95,15 @@ export {
 } from "./retry-policy.js";
 export { ModelFailure } from "./model-failure.js";
 export {
-  CircuitBreaker,
+  BreakerBackoff,
+  CircuitBreakerPolicy,
+  CircuitBreakerPolicyError,
+  type ExponentialCircuitBreakerOptions,
+  type FixedCircuitBreakerOptions,
+} from "./circuit-breaker-policy.js";
+export {
   ModelCallError,
   type ModelCallErrorOptions,
-  type CircuitBreakerPolicy,
-  type CircuitBreakerStore,
   type ModelCallErrorCode,
 } from "./circuit-breaker.js";
 export {

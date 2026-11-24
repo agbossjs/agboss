@@ -1,4 +1,5 @@
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   ModelProviderMessageRole,
@@ -26,7 +27,11 @@ const USAGE = { inputTokens: 1000, outputTokens: 100 };
     "harness/desk": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
   }),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 export class HarnessModelProvider implements ModelProviderHandler {
   complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {

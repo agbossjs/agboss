@@ -18,7 +18,14 @@ import { CLAUDE_ENTRY, GPT5_ENTRY, KIMI_ENTRY, providerStub } from "./stub.js";
 /** A fresh directory: each provider instance fetches its model list once. */
 const directoryOf = () =>
   ModelProviderDirectory.of([TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider]);
-const models = [KIMI_ENTRY, CLAUDE_ENTRY, GPT5_ENTRY, { id: "local/qwen" }, { id: "local/llama" }];
+const models = [
+  KIMI_ENTRY,
+  CLAUDE_ENTRY,
+  GPT5_ENTRY,
+  { id: "local/qwen" },
+  { id: "local/llama" },
+  { id: "backup/kimi-k2.6" },
+];
 
 const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string> => ({
   name: "check",
@@ -114,6 +121,14 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
         value: "nobody/listed",
         model: "nobody/listed",
         supported: "openrouter-model-provider does not list it",
+      },
+      {
+        // its fallback is checked for the model it would be asked for (#1313)
+        code: "model.unknown-model",
+        key: "agents.ghost",
+        value: "nobody/listed",
+        model: "nobody/listed",
+        supported: "backup-model-provider does not list it",
       },
       {
         code: "model.no-price",

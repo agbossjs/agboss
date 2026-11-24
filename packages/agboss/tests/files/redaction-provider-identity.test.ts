@@ -15,6 +15,7 @@ import {
 } from "../../src/models/index.js";
 import type { ModelProviderType } from "../../src/models/model-provider.decorator.js";
 import { ModelKind } from "../../src/models/model-kind.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 import { seconds } from "../../src/units/index.js";
 import { httpOptionsOf, LocalModelProvider } from "../models/providers.fixture.js";
 
@@ -32,12 +33,12 @@ const optionsOf = (over: {
   serves: [over.serves],
   baseUrl: over.baseUrl,
   ...(over.apiKey === undefined ? { apiKey: undefined } : { apiKey: over.apiKey }),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
-    window: seconds(60),
-    openFor: seconds(30),
-    ...(over.fallback === undefined ? {} : { fallback: over.fallback }),
-  },
+    failureWindow: seconds(60),
+    openDuration: seconds(30),
+  }),
+  ...(over.fallback === undefined ? {} : { fallback: over.fallback }),
 });
 
 @ModelProvider(

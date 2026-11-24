@@ -12,6 +12,7 @@ import {
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { bedrockApplicationOn, workflowsOn } from "../transport/bedrock-apps.fixture.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #1005: HTTP providers whose answers stream — the answers of a real local server. */
 
@@ -39,7 +40,11 @@ const http = {
   cost: ModelCost.fromPrices({
     "backup-stream/model": { inputPerMillion: usd(10), outputPerMillion: usd(20) },
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 })
 export class StreamBackupModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
@@ -55,12 +60,14 @@ export class StreamBackupModelProvider extends OpenAiCompatibleProvider {
   cost: ModelCost.fromPrices({
     "stream/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   }),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 2,
-    window: minutes(1),
-    openFor: minutes(1),
-    fallback: StreamBackupModelProvider,
-    fallbackModels: { "stream/model": "backup-stream/model" },
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
+  fallback: {
+    provider: StreamBackupModelProvider,
+    models: { "stream/model": "backup-stream/model" },
   },
 })
 export class StreamModelProvider extends OpenAiCompatibleProvider {
@@ -76,7 +83,11 @@ export class StreamModelProvider extends OpenAiCompatibleProvider {
   serves: [/^cost-stream\//],
   baseUrl: "http://cost-1005.test/v1",
   cost: ModelCost.fromResponse(),
-  circuitBreakerPolicy: { failureThreshold: 2, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 2,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 })
 export class StreamCostModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
@@ -103,7 +114,11 @@ export const StreamCostApplication = bedrockApplicationOn({
   serves: [/^or-stream\//],
   baseUrl: "http://or-1231.test/v1",
   cost: ModelCost.fromResponse(),
-  circuitBreakerPolicy: { failureThreshold: 2, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 2,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 })
 export class StreamOpenRouterProvider extends OpenRouterProvider {
   override readonly requestFields = {};

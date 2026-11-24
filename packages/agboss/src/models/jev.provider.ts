@@ -11,6 +11,7 @@ import { ModelProvider } from "./model-provider.decorator.js";
 import { PromptCaching } from "./prompt-caching.js";
 import { Reasoning } from "./reasoning.js";
 import { RetryPolicy, TRANSIENT_FAILURES } from "./retry-policy.js";
+import { CircuitBreakerPolicy } from "./circuit-breaker-policy.js";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -67,7 +68,11 @@ export const JEV_MODELS: readonly string[] = ["typesafe/jev-1.13", "typesafe/jev
     jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 export class DecisionsModelProvider implements ModelProviderHandler {
   readonly knownModels: readonly string[] = DECISION_MODELS;

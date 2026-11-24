@@ -167,6 +167,7 @@ set it per your provider plan. A provider's `name` is optional (kebab-case; the 
 ```ts file=src/model-providers/openrouter.model-provider.ts
 // src/model-providers/openrouter.model-provider.ts — job-scout's chat models, with its own request fields
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   OpenRouterProvider,
@@ -204,7 +205,7 @@ import { minutes, seconds } from "@agboss/core/units";
     perMinute: { calls: 120 },
     balancing: QueueBalancingStrategy.TenantRoundRobin,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
 export class OpenRouterModelProvider extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = { provider: { ignore: ["Inceptron"] } };

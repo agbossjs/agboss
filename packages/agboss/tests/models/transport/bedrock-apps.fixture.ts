@@ -27,6 +27,7 @@ import { ChatStart, Reply } from "../../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { BedrockModelProvider, BedrockSdkClient } from "./bedrock-provider.fixture.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #385: workflows and applications on a transport provider — alone, with PII, in a fallback. */
 
@@ -193,7 +194,11 @@ const http = {
   cost: ModelCost.fromPrices({
     "backup/claude": { inputPerMillion: usd(10), outputPerMillion: usd(20) },
   }),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 })
 export class Backup385ModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
@@ -209,13 +214,12 @@ export class Backup385ModelProvider extends OpenAiCompatibleProvider {
   cost: ModelCost.fromPrices({
     "primary/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   }),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
-    window: minutes(1),
-    openFor: minutes(1),
-    fallback: BedrockModelProvider,
-    fallbackModels: { "primary/model": "bedrock/claude" },
-  },
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
+  fallback: { provider: BedrockModelProvider, models: { "primary/model": "bedrock/claude" } },
 })
 export class Primary385ModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
@@ -237,13 +241,12 @@ export const HttpToTransportApplication = bedrockApplicationOn({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
   }),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
-    window: minutes(1),
-    openFor: minutes(1),
-    fallback: Backup385ModelProvider,
-    fallbackModels: { "bedrock/claude": "backup/claude" },
-  },
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
+  fallback: { provider: Backup385ModelProvider, models: { "bedrock/claude": "backup/claude" } },
   deps: [BedrockSdkClient, TenantContext],
 })
 export class FallingBedrockModelProvider extends BedrockModelProvider {}

@@ -36,6 +36,7 @@ import { RagReranker } from "../../src/rag/reranker.decorator.js";
 import { toolInterceptorMetaOf } from "../../src/tool-interceptors/decorator.js";
 import { workingCalendarOf } from "../../src/calendar/working-calendar.js";
 import { minutes, seconds } from "../../src/units/index.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 @HealthCheck({ timeout: seconds(1) })
 class CrmHealthCheck {
@@ -87,7 +88,11 @@ class DocsRanker {}
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 })
 class AwsBedrock {
   complete() {

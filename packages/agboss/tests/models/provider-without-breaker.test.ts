@@ -16,8 +16,13 @@ import type { TransportModelProviderOptions } from "../../src/models/model-provi
 import { minutes, seconds } from "../../src/units/index.js";
 import { bedrockApplicationOn } from "./transport/bedrock-apps.fixture.js";
 import { answer } from "./transport/bedrock-provider.fixture.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
-const BREAKER = { failureThreshold: 1, window: minutes(1), openFor: minutes(1) };
+const BREAKER = CircuitBreakerPolicy.fixed({
+  failureThreshold: 1,
+  failureWindow: minutes(1),
+  openDuration: minutes(1),
+});
 
 const complete: TransportModelProviderOptions = {
   name: "unguarded-model-provider",
@@ -46,7 +51,8 @@ class UnguardedModelProvider implements ModelProviderHandler {
 @ModelProvider({
   ...complete,
   name: "guarded-model-provider",
-  circuitBreakerPolicy: { ...BREAKER, fallback: UnguardedModelProvider },
+  circuitBreakerPolicy: BREAKER,
+  fallback: UnguardedModelProvider,
 })
 class GuardedModelProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {

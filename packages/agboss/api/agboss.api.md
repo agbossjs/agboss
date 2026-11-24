@@ -3844,7 +3844,7 @@ export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly T
 }
 
 // @public
-export type ExtraRuleCode = FileRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+export type ExtraRuleCode = FileRuleCode | ModelProviderRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export interface FailedHealthCheckResult {

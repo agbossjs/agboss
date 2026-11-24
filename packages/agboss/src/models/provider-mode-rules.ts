@@ -2,13 +2,16 @@ import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { Provider } from "../components/injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
+  fallbackOf,
   hasProviderMethod,
   isDriverOptions,
+  isModelProviderClass,
   isTransportClass,
   modelProviderOf,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
 import { modelPricesProblemOf } from "./cost.js";
+import { fallbackCycleOf } from "./fallback-chain.js";
 import { listedModelProvidersOf, withFallbacks } from "./resolution.js";
 
 /**
@@ -132,6 +135,53 @@ export function providerPriceViolations(
 }
 
 /**
+ * `[model-provider.fallback-cycle]` for a provider whose fallback chain returns to a provider it has
+ * passed (`A → B → A`), and `[model.incompatible-fallback-provider]` for a fallback of the other kind:
+ * a chat provider falls back to a chat provider, a decisions provider to a decisions one.
+ */
+export function providerFallbackViolations(
+  scope: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  const classes = withFallbacks(listedModelProvidersOf(providers));
+  return classes.flatMap((cls) => {
+    const options = modelProviderOf(cls);
+    const next = fallbackOf(options)?.provider;
+    if (next === undefined) return [];
+    if (!isModelProviderClass(next)) {
+      const message = `${options.name} (${cls.name}) names a fallback that is no @ModelProvider class`;
+      return [violation("model-provider.fallback-cycle", message, [scope])];
+    }
+    const found = fallbackCycleOf(cls);
+    const cycle =
+      found?.[0] === cls
+        ? [
+            violation(
+              "model-provider.fallback-cycle",
+              `${options.name} (${cls.name}): its fallback chain comes back to ${modelProviderOf(found.at(-1) ?? cls).name}`,
+              [scope],
+            ),
+          ]
+        : [];
+    const backup = modelProviderOf(next);
+    const kind = (candidate: typeof options): string | undefined =>
+      isDriverOptions(candidate) ? candidate.driver.kind : undefined;
+    const [own, other] = [kind(options), kind(backup)];
+    const mismatch =
+      own !== undefined && other !== undefined && own !== other
+        ? [
+            violation(
+              "model.incompatible-fallback-provider",
+              `${options.name} (${cls.name}) is a ${own} provider and falls back to ${backup.name} (${next.name}), a ${other} one`,
+              [scope],
+            ),
+          ]
+        : [];
+    return [...cycle, ...mismatch];
+  });
+}
+
+/**
  * Every provider rule over the providers a place names (#1313): mode, request fields, timeout
  * and price. The application runs it over its listed providers and its own `modelProvider`; a workflow's
  * assembly runs it over every provider its cascade names (the workflow's, its agents', its components'),
@@ -146,5 +196,6 @@ export function providerRuleViolations(
     ...providerFieldsViolations(scope, providers),
     ...providerTimeoutViolations(scope, providers),
     ...providerPriceViolations(scope, providers),
+    ...providerFallbackViolations(scope, providers),
   ];
 }

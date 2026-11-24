@@ -21,6 +21,7 @@ import { directoryOf, withProviderPrices } from "../../src/models/workflow-model
 import { UnitError, minutes, seconds, usd } from "../../src/units/index.js";
 import { bedrockApplicationOn } from "./transport/bedrock-apps.fixture.js";
 import { answer } from "./transport/bedrock-provider.fixture.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 const options = (name: string, cost: ModelCost): TransportModelProviderOptions => ({
   name,
@@ -29,7 +30,11 @@ const options = (name: string, cost: ModelCost): TransportModelProviderOptions =
   timeout: seconds(5),
   cost,
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 });
 
 const literal = (field: string, value: unknown): ModelCost => ({
@@ -74,12 +79,12 @@ class ByResponseProvider implements ModelProviderHandler {
 
 @ModelProvider({
   ...options("guarded-model-provider", ModelCost.fromResponse()),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
-    window: minutes(1),
-    openFor: minutes(1),
-    fallback: NegativeInputProvider,
-  },
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
+  fallback: NegativeInputProvider,
 })
 class GuardedProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {

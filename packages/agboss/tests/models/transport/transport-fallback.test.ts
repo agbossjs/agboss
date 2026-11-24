@@ -31,15 +31,17 @@ const backupAnswer = {
 describe("#385: the breaker's fallback works both ways between HTTP and transport providers", () => {
   it("transport → HTTP: with its breaker open, the call goes out as backup/claude at the backup's prices", async () => {
     const client = new ScriptedBedrockClient([new Error("ThrottlingException")]);
-    const backup = providerStub([backupAnswer]);
+    const backup = providerStub([backupAnswer], [{ id: "backup/claude" }]);
     const app = await transportApp(TransportToHttpApplication, { client, send: backup.fetch });
 
-    await expect(execute(app, ChatStart, { text: "first" })).rejects.toThrow();
+    // the first call fails after its retries: the fallback answers it, the breaker opens
+    await execute(app, ChatStart, { text: "first" });
     const result = await execute(app, ChatStart, { text: "second" });
 
     expect(client.invocations).toHaveLength(1);
     expect(result.output).toEqual({ text: "from backup" });
-    expect(backup.requests.map((request) => request.body?.model)).toEqual(["backup/claude"]);
+    const chats = backup.requests.filter((request) => request.url.endsWith("/chat/completions"));
+    expect(chats.map((request) => request.body?.model)).toEqual(["backup/claude", "backup/claude"]);
     // 1M input × $10 + 0.5M output × $20 = $20
     expect(result.spend.trace).toEqual([
       expect.objectContaining({
@@ -56,11 +58,15 @@ describe("#385: the breaker's fallback works both ways between HTTP and transpor
     const primary = providerStub([{ status: 500 }], [{ id: "primary/model" }]);
     const app = await transportApp(HttpToTransportApplication, { client, send: primary.fetch });
 
-    await expect(execute(app, ChatStart, { text: "first" })).rejects.toThrow();
+    // the first call fails after its retries: the fallback answers it, the breaker opens
+    await execute(app, ChatStart, { text: "first" });
     const result = await execute(app, ChatStart, { text: "second" });
 
     expect(result.output).toEqual({ text: "from bedrock" });
-    expect(client.invocations.map((call) => call.model)).toEqual(["bedrock/claude"]);
+    expect(client.invocations.map((call) => call.model)).toEqual([
+      "bedrock/claude",
+      "bedrock/claude",
+    ]);
     // 1M input × $3 + 0.5M output × $15 = $10.50
     expect(result.spend.trace).toEqual([
       expect.objectContaining({

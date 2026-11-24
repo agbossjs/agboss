@@ -30,6 +30,7 @@ import {
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { onStart } from "./paths.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** A question to the desk (its own DTO: the fixture's module exports every class it uses). */
 export class AskDto {
@@ -67,7 +68,11 @@ export class LookupTool {
   timeout: seconds(5),
   cost: ModelCost.fromPrices({ "cli/desk": { inputPerMillion: usd(1), outputPerMillion: usd(1) } }),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 export class ScriptedModelProvider implements ModelProviderHandler {
   complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {

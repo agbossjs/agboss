@@ -78,6 +78,20 @@ const endedWith = <T>(attempt: Attempt<T>): AttemptOutcome<T> =>
     ? { kind: "failed", error: attempt.error }
     : { kind: "answer", answer: attempt.answer };
 
+/**
+ * What an answer that is no failure tells the breaker: a success — unless it is an error answer
+ * (the provider's fault counts as a failure, a wrong request as nothing) or a stream that tells its
+ * own end.
+ */
+async function tellBreakerOfAnswer<T>(
+  attempt: Extract<Attempt<T>, { readonly kind: "answered" }>,
+  options: ResilienceOptions,
+): Promise<void> {
+  if (attempt.refusal === "provider") await options.breaker?.recordFailure();
+  else if (attempt.refusal === undefined && attempt.settledAtEnd !== true)
+    await options.breaker?.recordSuccess();
+}
+
 /** The end of attempt number `tries`: the breaker told, a 429 slowing the provider down. */
 async function outcomeOf<T>(
   attempt: Attempt<T>,
@@ -88,7 +102,7 @@ async function outcomeOf<T>(
   if (attempt.kind === "threw" && attempt.isRejected === true)
     return { kind: "failed", error: attempt.error };
   if (attempt.kind === "answered" && attempt.failure === undefined) {
-    if (attempt.settledAtEnd !== true) await options.breaker?.recordSuccess();
+    await tellBreakerOfAnswer(attempt, options);
     return { kind: "answer", answer: attempt.answer };
   }
   await slowDownOn429(attempt, tries, options);
@@ -109,7 +123,8 @@ export async function runModelCall<T>(
 ): Promise<T> {
   const clock = options.clock ?? systemClock;
   const limits = { gate: options.gate, timeout: options.timeout, clock };
-  if ((await options.breaker?.isOpen()) === true) throw circuitOpenError(options.provider);
+  // open, or half-open with every probe taken: the call is refused
+  if ((await options.breaker?.admit()) === "refused") throw circuitOpenError(options.provider);
   for (let tries = 1; ; tries++) {
     const attempt = await attemptOnce(carrier, limits, caller);
     const outcome = await outcomeOf(attempt, tries, options, carrier);

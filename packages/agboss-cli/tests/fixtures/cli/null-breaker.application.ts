@@ -1,3 +1,4 @@
+import { CircuitBreakerPolicy } from "@agboss/core/models";
 import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
 import {
   ModelCost,
@@ -27,7 +28,7 @@ const complete: HttpModelProviderOptions = {
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 3, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 3, failureWindow: minutes(1), openDuration: seconds(30) }),
 };
 
 @ModelProvider(Object.assign({}, complete, { circuitBreakerPolicy: null }))

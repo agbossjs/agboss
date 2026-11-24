@@ -33,3 +33,17 @@ export function retryAfterOf(response: Response, now: number): number | undefine
   const date = Date.parse(header);
   return Number.isNaN(date) ? undefined : Math.max(0, date - now);
 }
+
+/** Client-error statuses that say the provider cannot serve: its key, its model or endpoint, its quota. */
+const PROVIDER_REFUSALS: readonly number[] = [401, 402, 403, 404];
+const HTTP_BAD_REQUEST = 400;
+
+/**
+ * What an error status that is no retried failure means: `provider` — the provider is at fault (a
+ * refused key, an unknown model or endpoint, a used-up quota) —, `request` — the request was wrong —,
+ * or `undefined` below 400.
+ */
+export function refusalOfStatus(status: number): "provider" | "request" | undefined {
+  if (status < HTTP_BAD_REQUEST) return undefined;
+  return PROVIDER_REFUSALS.includes(status) ? "provider" : "request";
+}

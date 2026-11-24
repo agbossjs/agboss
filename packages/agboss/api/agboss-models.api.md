@@ -26,6 +26,14 @@ export enum Backoff {
 }
 
 // @public
+export enum BreakerBackoff {
+    // (undocumented)
+    Exponential = "exponential",
+    // (undocumented)
+    Fixed = "fixed"
+}
+
+// @public
 export interface CacheControl {
     // (undocumented)
     readonly ttl?: string;
@@ -77,31 +85,27 @@ export interface ChatRequest {
 }
 
 // @public
-export class CircuitBreaker {
-    constructor(provider: string, policy: CircuitBreakerPolicy, store: CircuitBreakerStore);
-    isOpen(): Promise<boolean>;
-    recordFailure(): Promise<void>;
-    recordSuccess(): Promise<void>;
-}
+export type CircuitBreakerPolicy = ({
+    readonly backoff: BreakerBackoff.Fixed;
+} & FixedCircuitBreakerOptions) | ({
+    readonly backoff: BreakerBackoff.Exponential;
+} & ExponentialCircuitBreakerOptions);
+
+// @public (undocumented)
+export const CircuitBreakerPolicy: {
+    fixed(options: FixedCircuitBreakerOptions): CircuitBreakerPolicy;
+    exponential(options: ExponentialCircuitBreakerOptions): CircuitBreakerPolicy;
+};
 
 // @public
-export interface CircuitBreakerPolicy {
+export class CircuitBreakerPolicyError extends RangeError {
+    constructor(options: PlainErrorOptions);
     // (undocumented)
-    readonly failureThreshold: number;
-    readonly fallback?: abstract new (...args: never[]) => object;
-    readonly fallbackModels?: Readonly<Record<string, string>>;
+    static readonly code: "config.circuit-breaker-policy";
     // (undocumented)
-    readonly openFor: Milliseconds;
+    readonly code: "config.circuit-breaker-policy";
     // (undocumented)
-    readonly window: Milliseconds;
-}
-
-// @public
-export interface CircuitBreakerStore {
-    // (undocumented)
-    readonly clock: Clock;
-    // (undocumented)
-    readonly rateLimits: RateLimitRepository;
+    name: string;
 }
 
 // @public
@@ -184,6 +188,7 @@ export interface DriverModelProviderOptions {
     // (undocumented)
     readonly description?: string;
     readonly driver: ModelDriver;
+    readonly fallback?: ModelFallback;
     readonly model?: string;
     readonly models?: Readonly<Record<string, string>>;
     readonly name?: string;
@@ -203,6 +208,21 @@ export type DriverModelProviderType = abstract new () => ModelProviderHandler;
 export type ErrorDetails = Readonly<Record<string, unknown>>;
 
 // @public
+export interface ExponentialCircuitBreakerOptions {
+    // (undocumented)
+    readonly failureThreshold: number;
+    // (undocumented)
+    readonly failureWindow: Milliseconds;
+    // (undocumented)
+    readonly halfOpenProbes?: number;
+    // (undocumented)
+    readonly initialOpenDuration: Milliseconds;
+    readonly jitter: boolean;
+    // (undocumented)
+    readonly maxOpenDuration: Milliseconds;
+}
+
+// @public
 export interface ExponentialRetryOptions {
     // (undocumented)
     readonly initialDelay: Milliseconds;
@@ -217,6 +237,14 @@ export interface ExponentialRetryOptions {
 // @public
 export enum FinishReason {
     Length = "length"
+}
+
+// @public
+export interface FixedCircuitBreakerOptions {
+    readonly failureThreshold: number;
+    readonly failureWindow: Milliseconds;
+    readonly halfOpenProbes?: number;
+    readonly openDuration: Milliseconds;
 }
 
 // @public
@@ -240,6 +268,7 @@ export interface HttpModelProviderOptions {
     readonly deps?: never;
     // (undocumented)
     readonly description?: string;
+    readonly fallback?: ModelFallback;
     readonly name?: string;
     readonly promptCaching: PromptCaching;
     readonly rateLimitPolicy?: RateLimitPolicy;
@@ -411,6 +440,12 @@ export enum ModelFailure {
     // (undocumented)
     Timeout = "timeout"
 }
+
+// @public
+export type ModelFallback = Class | {
+    readonly provider: Class;
+    readonly models?: Readonly<Record<string, string>>;
+};
 
 // @public (undocumented)
 export interface ModelFilePart {
@@ -1076,6 +1111,7 @@ export interface TransportModelProviderOptions<D extends readonly Token[] = read
     readonly deps?: D;
     // (undocumented)
     readonly description?: string;
+    readonly fallback?: ModelFallback;
     readonly name?: string;
     readonly promptCaching?: PromptCaching;
     readonly rateLimitPolicy?: RateLimitPolicy;
@@ -1174,9 +1210,17 @@ export interface WireTool {
 // src/models/capabilities.ts - (ae-undocumented) Missing documentation for "model".
 // src/models/capabilities.ts - (ae-undocumented) Missing documentation for "reasoning".
 // src/models/capabilities.ts - (ae-undocumented) Missing documentation for "promptCaching".
-// src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "failureThreshold".
-// src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "window".
-// src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "openFor".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "Exponential".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "Fixed".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "failureThreshold".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "failureWindow".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "initialOpenDuration".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "maxOpenDuration".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "halfOpenProbes".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "code".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "name".
+// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "CircuitBreakerPolicy".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "message".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "cause".
@@ -1184,8 +1228,6 @@ export interface WireTool {
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "rateLimits".
-// src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "clock".
 // src/models/content.ts - (ae-undocumented) Missing documentation for "ModelTextPart".
 // src/models/content.ts - (ae-undocumented) Missing documentation for "kind".
 // src/models/content.ts - (ae-undocumented) Missing documentation for "text".

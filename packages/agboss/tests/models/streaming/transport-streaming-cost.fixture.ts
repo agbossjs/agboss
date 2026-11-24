@@ -10,6 +10,7 @@ import {
 import { minutes, seconds } from "../../../src/units/index.js";
 import { bedrockApplicationOn, workflowsOn } from "../transport/bedrock-apps.fixture.js";
 import { StreamSdkClient } from "./transport-streaming.fixture.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #1249: a transport that streams and has no price table: its provider says what each call cost. */
 @ModelProvider({
@@ -19,7 +20,11 @@ import { StreamSdkClient } from "./transport-streaming.fixture.js";
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 2, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 2,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
   deps: [StreamSdkClient],
 })
 export class StreamingCostModelProvider implements ModelProviderHandler {

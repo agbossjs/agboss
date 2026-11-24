@@ -4,8 +4,8 @@ import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "../models/calls/provider-calls.js";
 import {
+  fallbackOf,
   isDriverOptions,
-  isModelProviderClass,
   isTransportClass,
 } from "../models/model-provider.decorator.js";
 import { ConfigurationError } from "../models/problems.js";
@@ -105,11 +105,11 @@ export function providerClients(
   const chatModel = (settings: ResolvedModelSettings): BaseChatModel => {
     const provider = providerFor(settings.model, ModelKind.Chat, settings.modelProvider);
     const primary = chatOf(provider, settings);
-    const fallback = provider.options.circuitBreakerPolicy?.fallback;
-    if (!isModelProviderClass(fallback) || options.calls === undefined) return primary;
+    // no shared calls (a recording): no breaker, but the chain still answers a failed call
+    if (fallbackOf(provider.options) === undefined) return primary;
     return withFallback(primary, {
       provider,
-      fallback: registeredFor(fallback),
+      registeredFor,
       settings,
       calls: options.calls,
       chatOf,

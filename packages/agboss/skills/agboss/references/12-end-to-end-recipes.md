@@ -1395,6 +1395,7 @@ The model providers, one per file — the backup first, since OpenRouter's break
 
 ```ts file=loans/src/model-providers/loans-backup.model-provider.ts
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   OpenAiCompatibleProvider,
@@ -1416,7 +1417,7 @@ import { minutes, seconds, usd } from "@agboss/core/units";
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
 export class LoansBackupModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
@@ -1425,6 +1426,7 @@ export class LoansBackupModelProvider extends OpenAiCompatibleProvider {
 
 ```ts file=loans/src/model-providers/loans-openrouter.model-provider.ts
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelFailure,
   ModelProvider,
@@ -1461,13 +1463,12 @@ import { LoansBackupModelProvider } from "./loans-backup.model-provider.js";
     perMinute: { calls: 300 },
     balancing: QueueBalancingStrategy.TenantWeighted, // enterprise lenders weigh more
   }),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
-    window: minutes(1),
-    openFor: seconds(30),
-    fallback: LoansBackupModelProvider,
-    fallbackModels: { "moonshotai/kimi-k2.6": "inhouse/kimi" },
-  },
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
+  fallback: { provider: LoansBackupModelProvider, models: { "moonshotai/kimi-k2.6": "inhouse/kimi" } },
 })
 export class LoansOpenRouterModelProvider extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {};

@@ -1,6 +1,6 @@
-import type { ResolvedAll, Token } from "../components/injection.js";
+import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import type { Milliseconds } from "../units/index.js";
-import type { CircuitBreakerPolicy } from "./circuit-breaker.js";
+import type { CircuitBreakerPolicy } from "./circuit-breaker-policy.js";
 import type { ModelCost } from "./cost.js";
 import type { ModelProviderHandler } from "./handler.js";
 import { isModelDriver, type ModelDriver } from "./model-driver.js";
@@ -10,6 +10,23 @@ import { Reasoning } from "./reasoning.js";
 import type { RetryPolicy } from "./retry-policy.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { resolvedName } from "../flow/names.js";
+
+/**
+ * Another `@ModelProvider` class that answers when this one cannot — its breaker is open (or
+ * half-open with every probe taken), or a call failed after its retries (a timeout, a 429, a 5xx, a
+ * broken connection, a refused key or an unknown model). Chains: the fallback may have its own. Give
+ * `{ provider, models }` to say which of its models answers for which of this provider's
+ * (`models: { "gpt-4.1": "claude-sonnet-4" }`); without a mapping a role (`default`, `fast`) goes to the
+ * fallback's same role, any other name is sent as it is. Never on a caller's cancel or a request the
+ * provider refused as wrong (a 400, an input it cannot take).
+ */
+export type ModelFallback =
+  | Class
+  | {
+      readonly provider: Class;
+      /** The fallback's model for each model of this provider, by the model's vendor name. */
+      readonly models?: Readonly<Record<string, string>>;
+    };
 
 /** An HTTP provider: an OpenAI-compatible server at `baseUrl`, the key in the environment. */
 export interface HttpModelProviderOptions {
@@ -38,6 +55,8 @@ export interface HttpModelProviderOptions {
   readonly rateLimitPolicy?: RateLimitPolicy;
   /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). Omit: no breaker. */
   readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
+  /** Where calls go when this provider is down: its breaker is open, or a call used up its retries. Omit: they fail. */
+  readonly fallback?: ModelFallback;
   /** The server's base URL (`https://openrouter.ai/api/v1`); `baseUrlField` may override it. */
   readonly baseUrl: string;
   /**
@@ -88,6 +107,8 @@ export interface TransportModelProviderOptions<D extends readonly Token[] = read
   readonly rateLimitPolicy?: RateLimitPolicy;
   /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). Omit: no breaker. */
   readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
+  /** Where calls go when this provider is down: its breaker is open, or a call used up its retries. Omit: they fail. */
+  readonly fallback?: ModelFallback;
   readonly baseUrl?: never;
   readonly baseUrlField?: never;
   readonly apiKey?: never;
@@ -121,6 +142,8 @@ export interface DriverModelProviderOptions {
   readonly rateLimitPolicy?: RateLimitPolicy;
   /** Stops calling a provider that is down for a while (its state in `RateLimitRepository`). Omit: no breaker. */
   readonly circuitBreakerPolicy?: CircuitBreakerPolicy;
+  /** Where calls go when this provider is down: its breaker is open, or a call used up its retries. Omit: they fail. */
+  readonly fallback?: ModelFallback;
   /** The model of a component that names none (and no `models.default`). */
   readonly model?: string;
   /**
@@ -293,3 +316,18 @@ export const servesModel = (options: ModelProviderOptions, model: string): boole
   options.serves.some((pattern) =>
     new RegExp(pattern.source, pattern.flags.replace("g", "")).test(model),
   );
+
+/** A provider's fallback as its class and the models it maps. */
+export interface ResolvedFallback {
+  readonly provider: Class;
+  readonly models: Readonly<Record<string, string>>;
+}
+
+/** The fallback a provider's options name, in the one shape; `undefined` when none. */
+export function fallbackOf(options: ModelProviderOptions): ResolvedFallback | undefined {
+  const { fallback } = options;
+  if (fallback === undefined) return undefined;
+  return typeof fallback === "function"
+    ? { provider: fallback, models: {} }
+    : { provider: fallback.provider, models: fallback.models ?? {} };
+}

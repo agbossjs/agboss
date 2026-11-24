@@ -30,6 +30,7 @@ import { minutes, seconds } from "../../src/units/index.js";
 import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { FetchedDto } from "./reader.factory.js";
 import { providerStub } from "../models/stub.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 const filesOf = (options: Parameters<typeof ModelFiles.of>[0], hasPiiPolicy = false) =>
   resolvedFilesOf({
@@ -153,7 +154,11 @@ describe("AC1: a model that cannot take a file's type stops the start (when the 
     cachedParts: [CachedPart.SystemPrompt],
   }),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 3, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 3,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 class VisionlessBackup extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {};
@@ -170,13 +175,12 @@ class VisionlessBackup extends OpenRouterProvider {
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 3,
-    window: minutes(1),
-    openFor: seconds(30),
-    fallback: VisionlessBackup,
-    fallbackModels: { "primary/vision": "backup/text" },
-  },
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
+  fallback: { provider: VisionlessBackup, models: { "primary/vision": "backup/text" } },
 })
 class PrimaryWithFallback extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {};

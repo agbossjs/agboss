@@ -40,6 +40,7 @@ import {
 } from "../../src/units/timer-limits.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ProbeWorkflow } from "../health/fixtures/health.application.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 const over = (max: Milliseconds): Milliseconds => (max + 1) as Milliseconds;
 
@@ -181,7 +182,11 @@ function providerWith(timeout: Milliseconds): never {
     reasoning: Reasoning.off(),
     promptCaching: PromptCaching.off(),
     retryPolicy: RetryPolicy.none(),
-    circuitBreakerPolicy: { failureThreshold: 50, window: minutes(1), openFor: seconds(30) },
+    circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+      failureThreshold: 50,
+      failureWindow: minutes(1),
+      openDuration: seconds(30),
+    }),
   })
   class WireModelProvider extends OpenAiCompatibleProvider {
     override readonly requestFields: NoRequestFields = {};

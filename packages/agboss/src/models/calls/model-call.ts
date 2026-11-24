@@ -35,6 +35,13 @@ export type Attempt<TAnswer> =
        * is cut after its text is no success, so the headers do not count as one.
        */
       readonly settledAtEnd?: true;
+      /**
+       * An answer with a client-error status that is no retried failure: `provider` — the provider
+       * itself is at fault (its key, its endpoint or model, its quota: a 401, 402, 403, 404) — counts
+       * as a failure of the breaker, `request` — the request was wrong (a 400, a 422) — tells it
+       * nothing. Neither is a success: a breaker never closes on an error answer.
+       */
+      readonly refusal?: "provider" | "request";
     }
   | {
       readonly kind: "threw";

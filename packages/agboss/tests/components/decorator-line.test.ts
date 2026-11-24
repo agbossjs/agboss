@@ -23,6 +23,7 @@ import { Rag, RagScope, RagSource } from "../../src/rag/index.js";
 import { Text } from "../../src/dto/index.js";
 import type { RagRetrieval } from "../../src/rag/types.js";
 import { minutes, seconds } from "../../src/units/index.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 class QueryDto {
   @Text({ prompt: "what to look up" })
@@ -89,7 +90,11 @@ const providerOptions = {
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 } as const;
 
 // @ts-expect-error -- capabilities is asked about any model, not only "narrow/one"

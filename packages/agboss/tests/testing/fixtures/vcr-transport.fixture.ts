@@ -22,6 +22,7 @@ import {
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #439: an application whose only model provider is a transport — what a VCR test records from. */
 
@@ -41,7 +42,11 @@ export class EchoLog {
     "echo/second": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
   }),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
   deps: [EchoLog],
 })
 export class EchoModelProvider implements ModelProviderHandler, OnInit, OnStart {

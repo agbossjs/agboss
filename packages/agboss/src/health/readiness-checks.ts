@@ -1,7 +1,7 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { isInlineFileStore } from "../infrastructure/file.repository.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
-import { circuitOpenKeyOf } from "../models/circuit-breaker.js";
+import { CircuitBreaker, circuitOpenKeyOf } from "../models/circuit-breaker.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { probe, type ProbeOutcome } from "./health-probe.js";
@@ -75,18 +75,30 @@ const storeProbes = (sources: HealthSources): Promise<HealthComponentReport>[] =
     ),
   );
 
-/** A provider's breaker: open (a pause under its key) → `Degraded` until it closes by itself. */
+/**
+ * A provider's breaker, as `RateLimitRepository` keeps it: open or half-open (probing) → `Degraded`
+ * until it closes — never `Unhealthy`: the instance stays in rotation while its fallback serves.
+ */
 const providerProbes = (sources: HealthSources): Promise<HealthComponentReport>[] =>
   sources.modelProviders.map((provider) => {
-    const { name } = modelProviderOf(provider);
+    const { name, circuitBreakerPolicy } = modelProviderOf(provider);
     const component = { name, kind: HealthComponentKind.ModelProvider, timeout: STORE_TIMEOUT };
     return probe(component, sources.infrastructure.clock, async () => {
-      const openUntil = await sources.infrastructure.rateLimits.pausedUntil(circuitOpenKeyOf(name));
-      return openUntil === undefined
+      if (circuitBreakerPolicy === undefined) return HEALTHY;
+      const { rateLimits, clock } = sources.infrastructure;
+      const openUntil = await rateLimits.pausedUntil(circuitOpenKeyOf(name));
+      if (openUntil !== undefined) {
+        return {
+          status: HealthStatus.Degraded,
+          reason: `circuit breaker open until ${openUntil.toISOString()}`,
+        };
+      }
+      const breaker = new CircuitBreaker(name, circuitBreakerPolicy, { rateLimits, clock });
+      return (await breaker.state()) === "closed"
         ? HEALTHY
         : {
             status: HealthStatus.Degraded,
-            reason: `circuit breaker open until ${openUntil.toISOString()}`,
+            reason: "circuit breaker half-open: probing the provider",
           };
     });
   });

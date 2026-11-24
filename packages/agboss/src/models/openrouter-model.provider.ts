@@ -11,6 +11,7 @@ import { OpenRouterProvider, type OpenRouterFields } from "./openrouter.provider
 import { CachedPart, CacheRetention, PromptCaching } from "./prompt-caching.js";
 import { Reasoning } from "./reasoning.js";
 import { RetryPolicy, TRANSIENT_FAILURES } from "./retry-policy.js";
+import { CircuitBreakerPolicy } from "./circuit-breaker-policy.js";
 
 /**
  * The default chat provider of a workflow that registers none: every model but the decision models
@@ -38,7 +39,11 @@ import { RetryPolicy, TRANSIENT_FAILURES } from "./retry-policy.js";
     jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 export class OpenRouterModelProvider extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {};

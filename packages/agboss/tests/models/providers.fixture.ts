@@ -18,8 +18,13 @@ import {
   modelProviderOf,
   type HttpModelProviderOptions,
 } from "../../src/models/model-provider.decorator.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
-const breaker = { failureThreshold: 3, window: minutes(1), openFor: seconds(30) };
+const breaker = CircuitBreakerPolicy.fixed({
+  failureThreshold: 3,
+  failureWindow: minutes(1),
+  openDuration: seconds(30),
+});
 
 /** A backup OpenAI-compatible server: the fallback while OpenRouter's breaker is open. */
 @ModelProvider({
@@ -63,10 +68,10 @@ export class BackupModelProvider extends OpenAiCompatibleProvider {
     jitter: false,
     retryOn: [ModelFailure.Timeout, ModelFailure.RateLimited, ModelFailure.ServerError],
   }),
-  circuitBreakerPolicy: {
-    ...breaker,
-    fallback: BackupModelProvider,
-    fallbackModels: { "moonshotai/kimi-k2.6": "backup/kimi-k2.6" },
+  circuitBreakerPolicy: breaker,
+  fallback: {
+    provider: BackupModelProvider,
+    models: { "moonshotai/kimi-k2.6": "backup/kimi-k2.6" },
   },
 })
 export class TestOpenRouterProvider extends OpenRouterProvider {

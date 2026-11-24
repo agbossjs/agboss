@@ -16,9 +16,14 @@ import { onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 /** One failed call opens a breaker for a minute (names of their own: breaker state is per name). */
-const breaker = { failureThreshold: 1, window: minutes(1), openFor: minutes(1) };
+const breaker = CircuitBreakerPolicy.fixed({
+  failureThreshold: 1,
+  failureWindow: minutes(1),
+  openDuration: minutes(1),
+});
 
 const common = {
   timeout: seconds(5),
@@ -57,11 +62,8 @@ const primary = {
 @ModelProvider({
   ...primary,
   name: "primary-202-model-provider",
-  circuitBreakerPolicy: {
-    ...breaker,
-    fallback: Backup202,
-    fallbackModels: { "primary/model": "backup/model" },
-  },
+  circuitBreakerPolicy: breaker,
+  fallback: { provider: Backup202, models: { "primary/model": "backup/model" } },
 })
 export class Primary202 extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
@@ -71,7 +73,8 @@ export class Primary202 extends OpenAiCompatibleProvider {
 @ModelProvider({
   ...primary,
   name: "unmapped-202-model-provider",
-  circuitBreakerPolicy: { ...breaker, fallback: Backup202 },
+  circuitBreakerPolicy: breaker,
+  fallback: Backup202,
 })
 export class Unmapped202 extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};

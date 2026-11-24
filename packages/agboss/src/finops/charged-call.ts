@@ -71,3 +71,11 @@ export async function chargedCall<T extends { readonly response_metadata?: unkno
     throw error;
   }
 }
+
+/** `chargedCall` for a component whose extra spend is reported to the step it runs in. */
+export const reportedCall = <T extends { readonly response_metadata?: unknown }>(
+  caller: string,
+  settings: ChargedSpec["settings"],
+  sent: unknown,
+  call: (callbacks: Callbacks) => Promise<T>,
+): Promise<T> => chargedCall({ caller, settings, sent, sink: reportToFrame }, call);

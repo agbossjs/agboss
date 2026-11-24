@@ -29,6 +29,7 @@ import {
 import { Workflow } from "../../src/index.js";
 import { testDefaults } from "../helpers.js";
 import { onStart } from "../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 class ShopApplication {
   readonly fixture = true;
@@ -71,7 +72,11 @@ const transport = (name: string): TransportModelProviderOptions => ({
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 });
 
 @ModelProvider(transport("shop-model-provider"))

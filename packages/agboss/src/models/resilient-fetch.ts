@@ -9,6 +9,7 @@ import { releasedAtBodyEnd } from "./calls/response-usage.js";
 import {
   failureOfError,
   failureOfStatus,
+  refusalOfStatus,
   retryAfterOf,
   type ModelFailure,
 } from "./model-failure.js";
@@ -126,6 +127,12 @@ async function refusedBy(
   return { kind: "threw", error: refused, isRejected: true };
 }
 
+/** The attempt, told what an error status that is no retried failure means to the breaker. */
+function withRefusal(attempt: Attempt<Response>, status: number): Attempt<Response> {
+  const refusal = refusalOfStatus(status);
+  return refusal === undefined || attempt.kind !== "answered" ? attempt : { ...attempt, refusal };
+}
+
 /**
  * One HTTP request as the attempts' carrier: its status says the failure, its headers `Retry-After`;
  * a streamed answer (#1005) is read up to its first content — an `{error}` there fails the attempt
@@ -150,7 +157,16 @@ function httpCarrier(
         }
         // a streamed request answered 200 without events (#1049): JSON is told as a stream
         const response = failure === undefined ? await readAsStream(sent, init) : sent;
-        return await outcomeOf(response, failure, init?.signal, clock, breaker, limits, signal);
+        const attempt = await outcomeOf(
+          response,
+          failure,
+          init?.signal,
+          clock,
+          breaker,
+          limits,
+          signal,
+        );
+        return failure === undefined ? withRefusal(attempt, sent.status) : attempt;
       } catch (error) {
         if (init?.signal?.aborted === true) throw error;
         return { kind: "threw", error, failure: failureOfError(error) };

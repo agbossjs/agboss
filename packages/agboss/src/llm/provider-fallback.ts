@@ -2,6 +2,8 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import type { ResolvedModelSettings } from "../config/types.js";
 import type { ProviderCalls } from "../models/calls/provider-calls.js";
 import { FallbackChatModel } from "../models/fallback-chat-model.js";
+import { fallbackHopsOf } from "../models/fallback-chain.js";
+import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
 
 /** A chat model of a provider for settings (its `chat`, else its `complete`). */
@@ -10,32 +12,46 @@ export type ChatOf = (
   settings: ResolvedModelSettings,
 ) => BaseChatModel;
 
-/** What a primary's fallback is made of: both providers, the call's settings, the shared calls. */
+/** What a primary's fallback chain is made of: the provider, the call's settings, the shared calls. */
 export interface FallbackParts {
   readonly provider: RegisteredModelProvider;
-  readonly fallback: RegisteredModelProvider;
+  /** The registered provider of each class of the chain. */
+  readonly registeredFor: (cls: ModelProviderType) => RegisteredModelProvider;
   readonly settings: ResolvedModelSettings;
-  readonly calls: ProviderCalls;
+  readonly calls: ProviderCalls | undefined;
   readonly chatOf: ChatOf;
 }
 
 /**
- * The primary's chat model with its breaker's fallback (#202): the fallback provider's chat model
- * for its mapped model (`fallbackModels`), HTTP or a transport either way round.
+ * The primary's chat model with its provider's fallback chain (#202, #1313): each hop is the next
+ * provider's chat model for its mapped model, re-resolving what the primary's provider defaulted
+ * (reasoning, prompt caching) from the hop's own options, priced by the hop's own prices; its answer
+ * is marked so the call is recorded under that provider, never the primary's.
  */
 export function withFallback(primary: BaseChatModel, parts: FallbackParts): BaseChatModel {
-  const { provider, fallback, settings, calls, chatOf } = parts;
+  const { provider, registeredFor, settings, calls, chatOf } = parts;
   const policy = provider.options.circuitBreakerPolicy;
-  if (policy === undefined) return primary;
-  const model = policy.fallbackModels?.[settings.model] ?? settings.model;
+  const hops = fallbackHopsOf(provider.type, settings.model).map((hop) => {
+    const registered = registeredFor(hop.cls as ModelProviderType);
+    return {
+      chatModel: () =>
+        chatOf(registered, {
+          ...settings,
+          model: hop.model,
+          price: undefined,
+          modelProvider: hop.options.name,
+          unpriced: hop.options.cost === undefined ? true : undefined,
+        }),
+      model: hop.model,
+      cost: hop.options.cost,
+      provider: hop.options.name,
+    };
+  });
   return new FallbackChatModel({
     primary,
-    breaker: calls.breakerOf(provider.options.name, policy),
-    fallback: {
-      chatModel: () => chatOf(fallback, { ...settings, model, price: undefined }),
-      model,
-      cost: fallback.options.cost,
-      provider: fallback.options.name,
-    },
+    ...(calls === undefined || policy === undefined
+      ? {}
+      : { breaker: calls.breakerOf(provider.options.name, policy) }),
+    hops,
   });
 }

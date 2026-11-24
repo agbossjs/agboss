@@ -13,6 +13,7 @@ of the application — a workflow and its components name models only and never 
 
 ```ts file=src/model-providers/openrouter.model-provider.ts
 import {
+  CircuitBreakerPolicy,
   CachedPart, CacheRetention, ModelCost, ModelFailure, ModelProvider, OpenRouterProvider,
   PromptCaching, ProviderSort, QueueBalancingStrategy, RateLimitPolicy, Reasoning, RetryPolicy,
   type OpenRouterFields,
@@ -42,7 +43,7 @@ import { minutes, seconds } from "@agboss/core/units";
     perMinute: { calls: 120, tokens: 400_000 },
     balancing: QueueBalancingStrategy.TenantRoundRobin, // the default
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) }, // fallback?: another provider
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }), // fallback?: another provider
 })
 export class OpenRouterModelProvider extends OpenRouterProvider {
   // OpenRouter's provider routing: skip an upstream, order the rest by price (ProviderSort, #269)
@@ -70,6 +71,7 @@ import { minutes, seconds } from "@agboss/core/units";
 -->
 
 ```ts
+import { CircuitBreakerPolicy } from "@agboss/core/models";
 @ModelProvider({
   name: "pinned-openrouter-model-provider",
   description: "Kimi on Fireworks at bf16, no fallback",
@@ -81,7 +83,7 @@ import { minutes, seconds } from "@agboss/core/units";
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
 export class PinnedOpenRouterModelProvider extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {
@@ -107,6 +109,7 @@ corporate gateway with its own authorisation — `implements ModelProviderHandle
 ```ts file=src/model-providers/bedrock.model-provider.ts
 import { Injectable, TenantContext } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost, ModelFailure, ModelProvider, ModelProviderFailureError, QueueBalancingStrategy,
   RateLimitPolicy, RetryPolicy, TRANSIENT_FAILURES,
   type ModelProviderHandler, type ModelProviderMessage, type ModelProviderRequest,
@@ -153,7 +156,7 @@ export class BedrockSdkClient {
     maxAttempts: 3, initialDelay: seconds(1), maxDelay: seconds(20), jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
   deps: [BedrockSdkClient, TenantContext],              // reasoning / promptCaching unset: off
 })
 export class BedrockModelProvider implements ModelProviderHandler {
@@ -186,7 +189,7 @@ export class BedrockModelProvider implements ModelProviderHandler {
   `deps` injected and checked at assembly with the components' (`Consumer: "TOKEN" is not
   registered …`). An injected `TenantContext` / `ExecutionContext` reads the execution of the call
   (`complete()` runs in the step's frame).
-- **The request** — `ModelProviderRequest`: `model` (with a fallback, its `fallbackModels` entry),
+- **The request** — `ModelProviderRequest`: `model` (when a fallback serves, the model it is mapped to),
   `messages` (`ModelProviderMessage { role: ModelProviderMessageRole.System | User | Assistant | Tool,
   text, toolCalls?, toolCallId? }` — text only, masked by the PII policies), `tools`
   (`ModelProviderToolDefinition { name, description, parameters }` — the agent's own tools and its
@@ -365,6 +368,7 @@ speaks the protocol, the class holds the model names of its own, and a component
 `modelProvider`, never by a model's name.
 
 ```ts
+import { CircuitBreakerPolicy } from "@agboss/core/models";
 @ModelProvider({
   driver: OpenAiCompatibleDriver({
     baseUrl: appEnv.llmBaseUrl, // OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …
@@ -374,7 +378,7 @@ speaks the protocol, the class holds the model names of its own, and a component
   timeout: min(2),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: min(1), openFor: sec(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: min(1), openDuration: sec(30) }),
   models: { default: "gpt-4.1", fast: "gpt-4.1-mini" }, // or model: "gpt-4.1"
 })
 export class AppChatModels {}
@@ -518,18 +522,39 @@ keeping some headroom (about 80 %) for other clients of the same key:
 | a plan with requests and tokens per minute | the plan's concurrency, else RPM ÷ 30 | `{ calls: RPM × 0.8, tokens: TPM × 0.8 }` |
 | a local server (one GPU)                   | its batch size       | —                                        |
 
-### `circuitBreakerPolicy`
+### `circuitBreakerPolicy` and `fallback`
 
-- `{ failureThreshold, window, openFor, fallback?, fallbackModels? }`: that many failed calls
-  within the window open the breaker for `openFor`; while open, calls go to the `fallback` provider's
-  chat model (its own base URL, key and request fields — or its `complete()`, #385: HTTP and transport
-  fall back to each other either way), each model as its `fallbackModels` entry, or fail fast with
-  `ModelCallError` `model.circuit-open`.
-- Its state — the failures in the window, the open breaker — is in the application's
-  `RateLimitRepository` (#265 S52), so a breaker opened on one instance is open on every instance;
-  its time is the application's `Clock` (no longer the system's, #262 S75 d).
+- `CircuitBreakerPolicy.fixed({ failureThreshold, failureWindow, openDuration, halfOpenProbes? })`:
+  that many failed calls within `failureWindow` open the breaker for `openDuration`.
+  `CircuitBreakerPolicy.exponential({ failureThreshold, failureWindow, initialOpenDuration,
+  maxOpenDuration, jitter, halfOpenProbes? })`: each open in a row lasts twice as long as the one
+  before, up to `maxOpenDuration`. While it is open, calls fail fast with `ModelCallError`
+  `model.circuit-open` — or go to the provider's `fallback`.
+- **Half-open**: after an open, `halfOpenProbes` (default 1) calls at a time go through to try the
+  provider. A success closes the breaker; a failure opens it again (longer, with `exponential`). The
+  other calls are refused (or fall back) until the probes report.
+- Its state — the failures in the window, the open pause, the opens in a row, the probe slots — is in
+  the application's `RateLimitRepository` (#265 S52) as windows and pauses, so a breaker opened on
+  one instance is open on every instance; its time is the application's `Clock`.
+- **`fallback`** (on `@ModelProvider`, not in the policy): `fallback: BackupProvider`, or
+  `{ provider: BackupProvider, models: { "primary/model": "backup/model" } }`. It answers when the
+  breaker is open (or half-open with every probe taken) and when a call failed after its retries —
+  a timeout, a 429, a 5xx, a broken connection, a refused key (401, 403), an unknown model or
+  endpoint (404), a used-up quota (402). Never on a caller's cancel, on an input the model cannot
+  take, or on a request the provider refused as wrong (400, 422). It chains: the fallback may name its
+  own (`A → B → C`); the hops are tried in order and the last one's error is the call's when none
+  answers. Each hop is asked for the model its `models` entry names for the primary's, else the
+  same role (`default`, `fast`) of its own `models`, else the same name; it keeps its own reasoning,
+  caching, price and base URL. The call is recorded under the provider that answered (`provider` on
+  the usage and the cost line), at that provider's price — never twice.
+- Checked at start and by `agboss check --models`: every hop serves the model it is asked for, lists
+  it (`model.unknown-model`) and prices it (`model.fallback-no-price`); a cycle is
+  `[model-provider.fallback-cycle]`, a fallback of the other kind (chat ↔ decisions)
+  `[model.incompatible-fallback-provider]`.
+- An open or half-open breaker makes readiness `Degraded`, never `Unhealthy`: the instance stays in
+  rotation while its fallback serves.
 - **Optional** (#1313): a provider without it has no breaker — its calls are never refused for a failing
-  provider. (Before, a missing policy failed assembly with `[model-provider.circuit-breaker-required]`, #521.)
+  provider.
 
 ## Streaming (#1005)
 

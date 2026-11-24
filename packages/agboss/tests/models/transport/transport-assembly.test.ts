@@ -30,6 +30,7 @@ import {
   ScriptedBedrockClient,
 } from "./bedrock-provider.fixture.js";
 import { transportApp } from "./transport-app.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 const transport = {
   description: "A transport",
@@ -37,7 +38,11 @@ const transport = {
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 };
 
 // @ts-expect-error -- a transport (complete) with a base URL: both modes at once

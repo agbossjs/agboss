@@ -250,6 +250,7 @@ export const environment: AppEnvironment = {}; // tests script every model: no k
 ```ts file=src/billing/model-providers/backup.model-provider.ts
 // model-providers/backup.model-provider.ts — an OpenAI-compatible server, priced from a table
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   OpenAiCompatibleProvider,
@@ -273,7 +274,7 @@ import { minutes, seconds, usd } from "@agboss/core/units";
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
 export class BackupModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
@@ -283,6 +284,7 @@ export class BackupModelProvider extends OpenAiCompatibleProvider {
 ```ts file=src/billing/model-providers/openrouter.model-provider.ts
 // model-providers/openrouter.model-provider.ts — every policy of one provider, app-wide
 import {
+  CircuitBreakerPolicy,
   CachedPart,
   CacheRetention,
   ModelCost,
@@ -326,13 +328,12 @@ import { BackupModelProvider } from "./backup.model-provider.js";
     perMinute: { calls: 120, tokens: 400_000 },
     balancing: QueueBalancingStrategy.TenantWeighted, // a tenant gets up to its weight per round
   }),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5, // 5 failed calls within a minute open it for 30 s
-    window: minutes(1),
-    openFor: seconds(30),
-    fallback: BackupModelProvider, // while open, calls go there…
-    fallbackModels: { "moonshotai/kimi-k2.6": "backup/kimi" }, // …each model mapped to one it serves
-  },
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
+  fallback: { provider: BackupModelProvider, models: { "moonshotai/kimi-k2.6": "backup/kimi" } },
 })
 export class AppOpenRouterModelProvider extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {
@@ -408,6 +409,7 @@ export class BedrockSdkClient {
 // model-providers/bedrock.model-provider.ts — a transport: the class makes the call itself
 import { TenantContext } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   QueueBalancingStrategy,
@@ -440,7 +442,7 @@ import { BedrockSdkClient } from "../services/bedrock-sdk-client.service.js";
     jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
   deps: [BedrockSdkClient, TenantContext], // reasoning / promptCaching unset: off
 })
 export class BedrockModelProvider implements ModelProviderHandler {
@@ -498,16 +500,20 @@ BedrockModelProvider (…) · serves /^bedrock\// · transport: BedrockModelProv
 
 ### The three policies
 
-| Policy                 | Its one duty                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retryPolicy`          | retries **this** call — `RetryPolicy.exponential({ … })`, `.fixed({ maxAttempts, delay, retryOn })`, `.none()`; the only place backoff is set. Only the listed `ModelFailure`s are retried (`Timeout`, `RateLimited`, `ServerError`, `NetworkError`); a 4xx is the answer. `Retry-After` is honoured; a wait between attempts holds no slot                                                                                                                                             |
-| `rateLimitPolicy`      | how many calls go out — `RateLimitPolicy.of({ maxConcurrentCalls?, perMinute?: { calls?, tokens? }, balancing? })`, at least one limit. Without it there is no limit. A call without room **waits** (never an error, never a cost): the tenant-fair queue → the 429 pause → the per-minute tokens → a slot → the per-minute calls. A 429 pauses the provider's whole queue for `Retry-After` on every instance and halves that instance's concurrency, which grows back by one a minute |
-| `circuitBreakerPolicy` | `{ failureThreshold, window, openFor, fallback?, fallbackModels? }` (required): that many failed calls within the window open it for `openFor`; while open, calls go to the `fallback` provider with each model mapped by `fallbackModels`, or fail fast with `ModelCallError` `model.circuit-open`. An open breaker makes readiness `Degraded`                                                                                                                                         |
+| Policy                 | Its one duty                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retryPolicy`          | retries **this** call — `RetryPolicy.exponential({ … })`, `.fixed({ maxAttempts, delay, retryOn })`, `.none()`; the only place backoff is set. Only the listed `ModelFailure`s are retried (`Timeout`, `RateLimited`, `ServerError`, `NetworkError`); a 4xx is the answer. `Retry-After` is honoured; a wait between attempts holds no slot                                                                                                                                                                                     |
+| `rateLimitPolicy`      | how many calls go out — `RateLimitPolicy.of({ maxConcurrentCalls?, perMinute?: { calls?, tokens? }, balancing? })`, at least one limit. Without it there is no limit. A call without room **waits** (never an error, never a cost): the tenant-fair queue → the 429 pause → the per-minute tokens → a slot → the per-minute calls. A 429 pauses the provider's whole queue for `Retry-After` on every instance and halves that instance's concurrency, which grows back by one a minute                                         |
+| `circuitBreakerPolicy` | `CircuitBreakerPolicy.fixed({ failureThreshold, failureWindow, openDuration, halfOpenProbes? })` or `.exponential({ …, initialOpenDuration, maxOpenDuration, jitter })` (optional): that many failed calls within `failureWindow` open it; after an open it is half-open (`halfOpenProbes` calls try the provider; a success closes it, a failure opens it again). Open, calls go to the provider's `fallback` or fail fast with `ModelCallError` `model.circuit-open`. An open or half-open breaker makes readiness `Degraded` |
 
-The fallback — HTTP or a transport, either way round — serves its own model strings;
-every model used on the primary must be mapped to one it serves (`model.fallback-unmapped`), priced
-when it prices from a table (`model.fallback-no-price`) — checked at start and by
-`npx agboss check --models`.
+`fallback` is on `@ModelProvider`: a class, or `{ provider, models }`, chaining (`A → B → C`). It
+answers an open or half-open breaker and a call that failed after its retries (timeout, 429, 5xx,
+broken connection, refused key, unknown model, used-up quota) — never a caller's cancel, an input the
+model cannot take, or a request refused as wrong (400, 422). Each hop is asked for the model its
+`models` entry names, else the same role of its own `models`, else the same name; it serves its own
+model strings and prices (`model.fallback-unmapped` when it does not serve it, `model.fallback-no-price`,
+`model.unknown-model`) — checked at start and by `npx agboss check --models`. The call is recorded under
+the provider that answered.
 
 **Fairness between tenants** (`balancing`, `QueueBalancingStrategy`) — who gets a free slot:
 

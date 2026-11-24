@@ -11,8 +11,13 @@ import { minutes, seconds } from "../../src/units/index.js";
 import { ENV, instanceCalls, KEYS } from "./gateway.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
 import { completion, providerStub, type StubReply } from "./stub.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
-const policy = { failureThreshold: 3, window: minutes(1), openFor: seconds(30) };
+const policy = CircuitBreakerPolicy.fixed({
+  failureThreshold: 3,
+  failureWindow: minutes(1),
+  openDuration: seconds(30),
+});
 const AGENT = { kind: "agent", agent: "scout" } as const;
 const KIMI = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 1 };
 

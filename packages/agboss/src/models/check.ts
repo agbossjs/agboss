@@ -2,7 +2,7 @@ import type { Environment } from "../flow/generated-types.js";
 import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 import { connectionOf } from "./connections.js";
 import { priceOf } from "./cost.js";
-import { fallbackProblems } from "./fallback-check.js";
+import { fallbackProblems, fallbackUseResults } from "./fallback-check.js";
 import type { ModelProviderHandler, ProviderConnection } from "./handler.js";
 import { inputProblems } from "./input-check.js";
 import { sharedInputs } from "./capabilities.js";
@@ -10,7 +10,7 @@ import type { ModelInputKind } from "./content.js";
 import { hasProviderMethod } from "./model-provider.decorator.js";
 import type { TransportResolver } from "./transport/transport-resolver.js";
 import type { ModelProblem } from "./problems.js";
-import type { ModelProviderDirectory, RegisteredModelProvider } from "./resolve.js";
+import { type ModelProviderDirectory, type RegisteredModelProvider } from "./resolve.js";
 import type { ProviderFetch } from "./resilient-fetch.js";
 import { settingProblems } from "./setting-problems.js";
 import type { ModelUse } from "./uses.js";
@@ -45,7 +45,7 @@ export function resolutionProblems(
     const resolution = directory.resolve(use);
     return resolution.kind === "problem"
       ? [resolution.problem]
-      : fallbackProblems(use, resolution.provider.options);
+      : fallbackProblems(use, resolution.provider);
   });
 }
 
@@ -150,21 +150,17 @@ async function useResult(use: ModelUse, check: ProviderCheck): Promise<UseResult
 async function fallbackInputs(
   use: ModelUse,
   provider: RegisteredModelProvider,
-  directory: ModelProviderDirectory,
   options: ModelCheckOptions,
   connectionFor: (provider: RegisteredModelProvider) => ProviderConnection,
 ): Promise<UseResult> {
-  const mapped = provider.options.circuitBreakerPolicy?.fallbackModels?.[use.model];
-  if (mapped === undefined) return { problems: [] };
-  const resolution = directory.resolve({ ...use, model: mapped });
-  if (resolution.kind === "problem") return { problems: [] };
-  const handler = handlerOf(resolution.provider, options);
-  const capabilities = await handler?.capabilities?.(mapped, connectionFor(resolution.provider));
-  if (capabilities === undefined) return { problems: [] };
-  return {
-    problems: use.isNeedStrict === true ? inputProblems(use, capabilities, mapped) : [],
-    ...(capabilities.inputs === undefined ? {} : { inputs: capabilities.inputs }),
-  };
+  return fallbackUseResults(use, provider, (hopUse, registered) =>
+    useResult(hopUse, {
+      provider: registered,
+      handler: handlerOf(registered, options),
+      connection: connectionFor(registered),
+      endpoints: false,
+    }),
+  );
 }
 
 /**
@@ -202,7 +198,7 @@ async function checkedUse(
     endpoints: options.endpoints === true,
   };
   const own = await useResult(use, check);
-  const backup = await fallbackInputs(use, resolution.provider, directory, options, connectionFor);
+  const backup = await fallbackInputs(use, resolution.provider, options, connectionFor);
   const inputs = sharedInputs(own.inputs, backup.inputs);
   return {
     problems: [...own.problems, ...backup.problems],

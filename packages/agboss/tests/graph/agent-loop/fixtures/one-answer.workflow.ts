@@ -20,6 +20,7 @@ import {
 import { minutes, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../../../src/models/circuit-breaker-policy.js";
 
 /**
  * #649 — an agent whose only tool is its answer tool, on a real OpenAI-compatible HTTP provider: it
@@ -132,7 +133,11 @@ export class ReadingWorkflow {}
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 50, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 50,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 export class WireModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};

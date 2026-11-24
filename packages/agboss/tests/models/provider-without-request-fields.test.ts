@@ -19,6 +19,7 @@ import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { OpenRouterProvider, type OpenRouterFields } from "../../src/models/openrouter.provider.js";
 import { minutes, seconds } from "../../src/units/index.js";
 import { bedrockApplicationOn } from "./transport/bedrock-apps.fixture.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 const options = {
   description: "An OpenRouter subclass",
@@ -27,7 +28,11 @@ const options = {
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
   reasoning: Reasoning.off(),
 } as const;
 

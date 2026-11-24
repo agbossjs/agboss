@@ -22,7 +22,7 @@ const answered = {
 describe("#202 AC3: the fallback provider has its own model mapping and prices", () => {
   it("AC3: with the primary's breaker open, the call goes out as backup/model and costs backup's prices", async () => {
     const primary = providerStub([{ status: 500 }], [{ id: "primary/model" }]);
-    const backup = providerStub([answered]);
+    const backup = providerStub([answered], [{ id: "backup/model" }]);
     const send: ProviderFetch = (input, init) =>
       String(input instanceof Request ? input.url : input).startsWith("http://backup-202.test")
         ? backup.fetch(input, init)
@@ -32,13 +32,14 @@ describe("#202 AC3: the fallback provider has its own model mapping and prices",
       providerFetch: send,
     });
 
-    await expect(execute(app, ChatStart, { text: "first" })).rejects.toThrow();
+    // the first call fails after its retries: the fallback answers it, the breaker opens
+    await execute(app, ChatStart, { text: "first" });
     const result = await execute(app, ChatStart, { text: "second" });
 
     expect(primary.requests.filter((r) => r.url.endsWith("/chat/completions"))).toHaveLength(1);
     // the start reads the backup's model list for the input kinds it takes (#899 §4): only the chat call matters here
     const chats = backup.requests.filter((r) => r.url.endsWith("/chat/completions"));
-    expect(chats.map((request) => request.body?.model)).toEqual(["backup/model"]);
+    expect(chats.map((request) => request.body?.model)).toEqual(["backup/model", "backup/model"]);
     expect(result.output).toEqual({ text: "from backup" });
     // 1M input × $10 + 0.5M output × $20 = $20 — the primary's table would say $2
     expect(result.spend.trace).toEqual([

@@ -18,13 +18,20 @@ import {
 import { minutes, seconds, usd, days } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** A price table with a negative price: a literal, since `ModelCost.fromPrices` refuses it. */
 const wrongPrices: ModelCost = {
   kind: "from-prices",
-  prices: { "vendor/big": { inputPerMillion: usd(1), outputPerMillion: -1 as ReturnType<typeof usd> } },
+  prices: {
+    "vendor/big": { inputPerMillion: usd(1), outputPerMillion: -1 as ReturnType<typeof usd> },
+  },
 };
-const breaker = { failureThreshold: 3, window: minutes(1), openFor: seconds(30) };
+const breaker = CircuitBreakerPolicy.fixed({
+  failureThreshold: 3,
+  failureWindow: minutes(1),
+  openDuration: seconds(30),
+});
 
 /** A provider that breaks two rules: a price below 0 and a timeout above the maximum. */
 @ModelProvider({
@@ -59,16 +66,32 @@ export class SoundAgent {}
 })
 export class BrokenAgent {}
 
-@WorkflowStart({ name: "sound-workflow-start", description: "A message", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "sound-workflow-start",
+  description: "A message",
+  input: WorkflowStartTextDto,
+})
 export class SoundStart {}
 
-@WorkflowFinish({ name: "sound-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "sound-workflow-finish",
+  description: "The answer",
+  output: WorkflowFinishTextDto,
+})
 export class SoundFinish {}
 
-@WorkflowStart({ name: "broken-workflow-start", description: "A message", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "broken-workflow-start",
+  description: "A message",
+  input: WorkflowStartTextDto,
+})
 export class BrokenStart {}
 
-@WorkflowFinish({ name: "broken-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+@WorkflowFinish({
+  name: "broken-workflow-finish",
+  description: "The answer",
+  output: WorkflowFinishTextDto,
+})
 export class BrokenFinish {}
 
 const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
@@ -77,9 +100,11 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 @Workflow({
   name: "sound-workflow",
   version: "1.0.0",
-  flow: [onStart(SoundStart)
-    .toAgent(SoundAgent)
-    .toFinish(SoundFinish)],
+  flow: [
+    onStart(SoundStart)
+      .toAgent(SoundAgent)
+      .toFinish(SoundFinish),
+  ],
   defaults,
   memory: Window1Memory,
 })
@@ -89,9 +114,11 @@ export class SoundWorkflow {}
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
-  flow: [onStart(BrokenStart)
-    .toAgent(SoundAgent)
-    .toFinish(BrokenFinish)],
+  flow: [
+    onStart(BrokenStart)
+      .toAgent(SoundAgent)
+      .toFinish(BrokenFinish),
+  ],
   defaults,
   memory: Window1Memory,
   modelProvider: BrokenModels,
@@ -101,9 +128,11 @@ export class BrokenWorkflow {}
 @Workflow({
   name: "broken-agent-workflow",
   version: "1.0.0",
-  flow: [onStart(BrokenStart)
-    .toAgent(BrokenAgent)
-    .toFinish(BrokenFinish)],
+  flow: [
+    onStart(BrokenStart)
+      .toAgent(BrokenAgent)
+      .toFinish(BrokenFinish),
+  ],
   defaults,
   memory: Window1Memory,
   modelProvider: SoundModels,
@@ -185,9 +214,11 @@ export class ThirdAgent {}
 @Workflow({
   name: "named-workflow",
   version: "1.0.0",
-  flow: [onStart(SoundStart)
-    .toAgent(ThirdAgent)
-    .toFinish(SoundFinish)],
+  flow: [
+    onStart(SoundStart)
+      .toAgent(ThirdAgent)
+      .toFinish(SoundFinish),
+  ],
   defaults,
   memory: Window1Memory,
   modelProvider: SecondModels,

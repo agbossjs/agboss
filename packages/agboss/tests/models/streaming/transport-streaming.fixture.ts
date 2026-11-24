@@ -12,6 +12,7 @@ import {
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { bedrockApplicationOn, workflowsOn } from "../transport/bedrock-apps.fixture.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #1011: a transport provider that streams its text — a scripted SDK client of streams. */
 
@@ -158,7 +159,11 @@ export const abortedAfter =
     jitter: false,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 2, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 2,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
   deps: [StreamSdkClient],
 })
 export class StreamingModelProvider implements ModelProviderHandler {

@@ -743,6 +743,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("union type of the assembly rule codes", [
     "src/graph/extra-rule-codes.ts",
     "src/graph/rule-codes.ts",
+    "src/models/model-rule-codes.ts",
     "src/pii/pii-rule-codes.ts",
   ]),
   ...reviewed("the guardrails of model text: semantic checks, not payment guarantees", [
@@ -1440,8 +1441,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/models/check.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (breaker failure not counted; breaker threshold >; breaker window not cleared; and 2 more) - not mutated: covered by tests/models/streaming/stall-timeout.test.ts, tests/models/circuit-breaker-count.test.ts, each sabotage of it (5 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
-    ["src/models/circuit-breaker.ts"],
+    "holds spend sites (the models a failed call is retried on; the model each fallback hop is asked for) - not mutated: covered by tests/models/fallback-chain.test.ts, tests/isolation/fallback.test.ts, tests/models/transport/transport-fallback.test.ts; listed for the reviewer (#1313)",
+    ["src/models/fallback-chain.ts"],
+  ),
+  ...reviewed(
+    "holds spend, rate-limit or deadline sites (breaker failure not counted; breaker threshold >; breaker window not cleared; and 2 more) - not mutated: covered by tests/models/circuit-breaker-policy.test.ts, tests/models/streaming/stall-timeout.test.ts, tests/models/circuit-breaker-count.test.ts, each sabotage of it (5 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
+    ["src/models/circuit-breaker.ts", "src/models/circuit-breaker-policy.ts"],
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (fallback priced dropped; fallback usage priced marks) - not mutated: covered by tests/models/streaming/http-streaming-failures.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",

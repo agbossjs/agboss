@@ -1129,6 +1129,7 @@ export class SdkClientService {
 ```ts file=src/model-providers/sdk.model-provider.ts
 import { TenantContext } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   RetryPolicy,
@@ -1146,7 +1147,7 @@ import { SdkClientService } from "../services/sdk-client.service.js";
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
   deps: [SdkClientService, TenantContext],
 })
 export class SdkModelProvider implements ModelProviderHandler {

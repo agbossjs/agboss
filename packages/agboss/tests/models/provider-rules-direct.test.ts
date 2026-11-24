@@ -27,8 +27,13 @@ import {
 import { MAX_TIMEOUT, timerProblemOf } from "../../src/units/timer-limits.js";
 import { minutes, seconds, usd } from "../../src/units/index.js";
 import { answer } from "./transport/bedrock-provider.fixture.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
-const breaker = { failureThreshold: 1, window: minutes(1), openFor: minutes(1) };
+const breaker = CircuitBreakerPolicy.fixed({
+  failureThreshold: 1,
+  failureWindow: minutes(1),
+  openDuration: minutes(1),
+});
 
 const transport = (name: string): TransportModelProviderOptions => ({
   name,
@@ -84,7 +89,8 @@ class Fine extends Handler {}
 
 @ModelProvider({
   ...transport("guarded-model-provider"),
-  circuitBreakerPolicy: { ...breaker, fallback: BothMode },
+  circuitBreakerPolicy: breaker,
+  fallback: BothMode,
 })
 class WithBadFallback extends Handler {}
 
@@ -139,7 +145,8 @@ class Zero extends Handler {}
 
 @ModelProvider({
   ...priced("outer-model-provider", ModelCost.fromResponse()),
-  circuitBreakerPolicy: { ...breaker, fallback: Negative },
+  circuitBreakerPolicy: breaker,
+  fallback: Negative,
 })
 class OuterOfNegative extends Handler {}
 

@@ -25,7 +25,7 @@ const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string
 
 describe("AC6: the check runs at every startup, before any model call", () => {
   it("AC6: a workflow whose settings do not fit fails with a ConfigurationError listing every problem", async () => {
-    const stub = providerStub([], [KIMI_ENTRY]);
+    const stub = providerStub([], [KIMI_ENTRY, { id: "backup/kimi-k2.6" }]);
     const start = createAppDeps(await workflowOf(Priced), {
       processEnv: { TERN_DB: ":memory:" },
       environment: KEYS,
@@ -43,7 +43,10 @@ describe("AC6: the check runs at every startup, before any model call", () => {
     const deps = await createAppDeps(await workflowOf(Priced), {
       processEnv: { TERN_DB: ":memory:" },
       environment: KEYS,
-      providerFetch: providerStub([], [KIMI_ENTRY, { id: "local/llama" }]).fetch,
+      providerFetch: providerStub(
+        [],
+        [KIMI_ENTRY, { id: "local/llama" }, { id: "backup/kimi-k2.6" }],
+      ).fetch,
     });
     await deps.close();
 

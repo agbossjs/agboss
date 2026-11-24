@@ -40,6 +40,7 @@ import { minutes, seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { LocalMirrorModelProvider, LocalModelProvider } from "./providers.fixture.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 /** A transport provider for its own prefix (#385), as flow-patterns' harness is. */
 @ModelProvider({
@@ -49,7 +50,11 @@ import { LocalMirrorModelProvider, LocalModelProvider } from "./providers.fixtur
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 class HarnessModelProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {
@@ -69,7 +74,11 @@ class HarnessModelProvider implements ModelProviderHandler {
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 class WideModelProvider extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {};
@@ -243,7 +252,11 @@ describe("#454 AC2: explicit claims stay exclusive", () => {
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 class MirrorHarnessModelProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {

@@ -12,7 +12,7 @@ export type ExecutionId = string & {
 };
 
 // @public
-export type ExtraRuleCode = FileRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+export type ExtraRuleCode = FileRuleCode | ModelProviderRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds" | "file-policy.invalid" | "file-policy.not-a-file-policy" | "file-policy.ttl-required-on-workflow" | "workflow.file-policy-required" | "a2a.skill-file-policy-exceeds-workflow";
@@ -77,6 +77,9 @@ export interface LimitExceededErrorOptions {
     readonly spentUsd: Usd;
     readonly usage?: readonly UsageRecord[];
 }
+
+// @public
+export type ModelProviderRuleCode = "model-provider.fallback-cycle" | "model.incompatible-fallback-provider";
 
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;

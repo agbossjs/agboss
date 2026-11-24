@@ -1,4 +1,5 @@
 import { ModelCost, ModelProvider, RetryPolicy } from "../../../src/models/index.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import {
   Backup385ModelProvider,
@@ -17,13 +18,12 @@ import { StreamSdkClient, StreamingModelProvider } from "./transport-streaming.f
     "stream-f/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   }),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
-    window: minutes(1),
-    openFor: minutes(1),
-    fallback: Backup385ModelProvider,
-    fallbackModels: { "stream-f/model": "backup/claude" },
-  },
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
+  fallback: { provider: Backup385ModelProvider, models: { "stream-f/model": "backup/claude" } },
   deps: [StreamSdkClient],
 })
 export class StreamingFallbackModelProvider extends StreamingModelProvider {}

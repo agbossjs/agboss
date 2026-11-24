@@ -3046,7 +3046,7 @@ Components):
 - **When + what** for things tied to a moment: `BeforeToolCallJudge`, `AfterToolCallJudge`,
   `BeforeAgentAnswerJudge`.
 - **One limit → flat `max…`** (`maxVisits`); **several related → an object** named by what they
-  are, the scope stated once (`circuitBreakerPolicy: { failureThreshold, window, openFor }`).
+  are, the scope stated once (`circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold, failureWindow, openDuration })`).
 - **Closed sets are enums**, not string unions, in the public API.
 - **One field name per meaning** across variants (`reason` for every verdict).
 - **Full words.** Kept abbreviations: DTO, PII, MCP, RAG, JSON, CSV, CLI, URL, ID, API and the

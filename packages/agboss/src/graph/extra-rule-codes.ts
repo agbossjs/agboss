@@ -1,4 +1,5 @@
 import type { FileRuleCode } from "../files/file-rule-codes.js";
+import type { ModelProviderRuleCode } from "../models/model-rule-codes.js";
 import type { PiiRuleCode } from "../pii/pii-rule-codes.js";
 
 /** Codes of `@Application({ storage })` and its three storage components (#1321). */
@@ -30,4 +31,5 @@ export type PauseTargetRuleCode =
   | "channel-interpreter.no-interpret-method";
 
 /** The rule codes that live beside their feature, not in the one list. */
-export type ExtraRuleCode = FileRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+export type ExtraRuleCode =
+  FileRuleCode | ModelProviderRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;

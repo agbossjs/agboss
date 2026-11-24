@@ -4,7 +4,7 @@ import type { ModelBinding } from "../llm/registry.js";
 import { contentOf, type ModelBlobPart } from "../models/content.js";
 import type { FileContent } from "./file-bytes.js";
 import type { TranscribeOptions, TranscriptionResult } from "./file-transcriber.js";
-import { chargedCall, reportToFrame } from "../finops/charged-call.js";
+import { reportedCall } from "../finops/charged-call.js";
 
 /** What the built-in transcriber's model is told (#899 §6). */
 export const TRANSCRIBER_SYSTEM = [
@@ -40,14 +40,11 @@ export async function transcribed(
     new SystemMessage(TRANSCRIBER_SYSTEM),
     new HumanMessage({ content: contentOf("Transcribe this file.", [partOf(file)]) }),
   ];
-  const spec = {
-    caller: "files:transcriber",
-    settings: binding.settings,
-    sent: messages,
-    sink: reportToFrame,
-  };
-  const response = await chargedCall(spec, (callbacks) =>
-    binding.model.invoke(messages, { signal: options.signal, callbacks }),
+  const response = await reportedCall(
+    "files:transcriber",
+    binding.settings,
+    messages,
+    (callbacks) => binding.model.invoke(messages, { signal: options.signal, callbacks }),
   );
   return {
     text: response.text,

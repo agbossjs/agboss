@@ -157,6 +157,7 @@ const MODELS = [
   "cost-stream/model",
   "primary/model",
   "or-stream/model",
+  "backup/claude",
 ];
 
 /** The running server: its requests, a `send` that sends any URL to it, and `close`. */

@@ -1,6 +1,7 @@
 import type { Clock } from "../../infrastructure/clock.js";
 import type { RateLimitRepository } from "../../infrastructure/rate-limit.repository.js";
-import { CircuitBreaker, type CircuitBreakerPolicy } from "../circuit-breaker.js";
+import { CircuitBreaker } from "../circuit-breaker.js";
+import type { CircuitBreakerPolicy } from "../circuit-breaker-policy.js";
 import type { RateLimitPolicy } from "../policies/rate-limit-policy.js";
 import { ProviderGate } from "./provider-gate.js";
 

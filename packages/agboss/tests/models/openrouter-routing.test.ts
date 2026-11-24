@@ -33,6 +33,7 @@ import type { AgentsConfigOf } from "../../src/config/types.js";
 import { completion, KIMI_ENTRY, providerStub } from "./stub.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ENV, instanceCalls, KEYS } from "./gateway.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 /** An OpenRouter provider pinned to Fireworks at bf16, without fallbacks. */
 @ModelProvider({
@@ -49,7 +50,11 @@ import { ENV, instanceCalls, KEYS } from "./gateway.js";
     cachedParts: [CachedPart.SystemPrompt],
   }),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 3, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 3,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 class PinnedOpenRouterProvider extends OpenRouterProvider {
   override readonly requestFields: OpenRouterFields = {

@@ -17,6 +17,7 @@ import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { ChatStart, Reply } from "../../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /**
  * #266 AC3/AC4: a provider whose plan allows two calls in flight — one limit for the whole
@@ -44,7 +45,11 @@ import { onStart } from "../../helpers/flow.js";
     maxConcurrentCalls: 2,
     balancing: QueueBalancingStrategy.TenantRoundRobin,
   }),
-  circuitBreakerPolicy: { failureThreshold: 100, window: minutes(1), openFor: seconds(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 100,
+    failureWindow: minutes(1),
+    openDuration: seconds(1),
+  }),
 })
 export class LimitedModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
@@ -61,9 +66,11 @@ export class LimitedAgent {}
 @Workflow({
   name: "limited-workflow",
   version: "1.0.0",
-  flow: [onStart(ChatStart)
-    .toAgent(LimitedAgent)
-    .toFinish(Reply)],
+  flow: [
+    onStart(ChatStart)
+      .toAgent(LimitedAgent)
+      .toFinish(Reply),
+  ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     tools: { maxToolCalls: 1 },

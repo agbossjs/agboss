@@ -6,6 +6,7 @@ import {
   type ModelProviderResponse,
 } from "../../../models/index.js";
 import { minutes, seconds } from "../../../units/index.js";
+import { CircuitBreakerPolicy } from "../../../models/circuit-breaker-policy.js";
 
 /**
  * The fault fixture's only model provider (#484): its workflows call no model, so it serves no
@@ -19,7 +20,11 @@ import { minutes, seconds } from "../../../units/index.js";
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(10) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(10),
+  }),
 })
 export class FaultModelProvider {
   complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {

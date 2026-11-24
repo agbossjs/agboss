@@ -14,6 +14,7 @@ import {
   type ModelProviderToolDefinition,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /**
  * #385: a transport provider as the issue's example has it — `complete(request)` over an SDK
@@ -98,7 +99,11 @@ export const answer = (
     jitter: false,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
   deps: [BedrockSdkClient, TenantContext],
 })
 export class BedrockModelProvider implements ModelProviderHandler {

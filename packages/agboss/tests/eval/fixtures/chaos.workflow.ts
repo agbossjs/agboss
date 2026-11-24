@@ -24,6 +24,7 @@ import {
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toAction } from "../../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /**
  * #396 PR 6 — what chaos exercises: a reservation (undone by its release, #340), then an agent on a
@@ -130,7 +131,11 @@ const PROVIDER = {
   }),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  circuitBreakerPolicy: { failureThreshold: 50, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 50,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 } as const;
 
 /** Retries a 429 and a timeout, a moment apart. */

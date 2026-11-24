@@ -26,6 +26,7 @@ import { registeredOf, type RegisteredModelProvider } from "../../src/models/res
 import type { ModelUse, ModelUseKey } from "../../src/models/uses.js";
 import { seconds } from "../../src/units/index.js";
 import { httpOptionsOf, LocalModelProvider } from "../models/providers.fixture.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 const BASE = httpOptionsOf(LocalModelProvider);
 
@@ -42,7 +43,11 @@ const optionsOf = (over: {
   baseUrl: over.baseUrl,
   apiKey: over.apiKey,
   baseUrlField: over.baseUrlField,
-  circuitBreakerPolicy: { failureThreshold: 5, window: seconds(60), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: seconds(60),
+    openDuration: seconds(30),
+  }),
 });
 
 @ModelProvider(

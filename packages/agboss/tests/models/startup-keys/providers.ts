@@ -8,8 +8,13 @@ import {
   type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds } from "../../../src/units/index.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
-const breaker = { failureThreshold: 3, window: minutes(1), openFor: seconds(30) };
+const breaker = CircuitBreakerPolicy.fixed({
+  failureThreshold: 3,
+  failureWindow: minutes(1),
+  openDuration: seconds(30),
+});
 
 /** The provider every model of a startup case that must fail serves: its key is the environment's field `keyedApiKey`. */
 @ModelProvider({
@@ -40,11 +45,8 @@ export class KeyedModelProvider extends OpenAiCompatibleProvider {
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
   retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: {
-    ...breaker,
-    fallback: KeyedModelProvider,
-    fallbackModels: { "local/llama": "keyed/llama" },
-  },
+  circuitBreakerPolicy: breaker,
+  fallback: { provider: KeyedModelProvider, models: { "local/llama": "keyed/llama" } },
 })
 export class FallbackLocalModelProvider extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
