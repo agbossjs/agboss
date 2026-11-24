@@ -81,7 +81,11 @@ function depsOf(
   return { deps: deps as never, beforeModelCall, seen };
 }
 
-const modelOf = (verdict: object) => ({ judge: vi.fn(() => Promise.resolve(verdict)) });
+/** The arbiter's model as the launch holds it: its instructions are the prompt assembly read (#1347). */
+const modelOf = (verdict: object) => ({
+  instructions: "Count it.",
+  judge: vi.fn(() => Promise.resolve(verdict)),
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

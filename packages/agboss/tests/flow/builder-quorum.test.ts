@@ -242,7 +242,11 @@ describe("#279 PR 2: a workflow with a quorum assembles", () => {
     const assembled = await workflowOf(CandidateReviewWorkflow);
 
     expect(assembled.arbiters).toEqual([
-      { name: "valid-score-arbiter", model: "typesafe/jev-1.13" },
+      {
+        name: "valid-score-arbiter",
+        model: "typesafe/jev-1.13",
+        prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+      },
     ]);
   });
 });

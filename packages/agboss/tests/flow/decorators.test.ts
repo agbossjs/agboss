@@ -2,6 +2,7 @@ import { Window5Memory } from "../helpers/window-memory.js";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { NodeKind } from "../../src/flow/ast.js";
+import { inline } from "../../src/index.js";
 import { onStart } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
@@ -40,7 +41,7 @@ describe("v2 decorators record kind, options and the declaring file", () => {
       options: {
         name: "editor-agent",
         description: "Rewrites the draft by the review notes",
-        prompt: "Rewrite the draft.",
+        prompt: inline("Rewrite the draft."),
         model: "moonshotai/kimi-k2.6",
         input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
         output: OfferDraftDto,
