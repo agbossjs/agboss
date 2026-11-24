@@ -69,6 +69,11 @@ export function sqliteStoresShard() {
       "src/infrastructure/sqlite/sqlite-child-queue-rows.ts",
       // #1286b: the targeted claim of an isolated worker's child, once, by its id
       "src/infrastructure/sqlite/sqlite-isolated-claim.ts",
+      // #1321e (D6): the cluster's lease mirrored into the database row first — the token, the hold, the retire-before-expire, the fail-closed order of the two writes
+      "src/infrastructure/sqlite/sqlite-cluster-mirror.ts",
+      "src/infrastructure/in-memory-cluster-mirror.ts",
+      "src/infrastructure/cluster-lease{,-types}.ts",
+      "src/application/id-store-class.ts",
     ],
   };
 }

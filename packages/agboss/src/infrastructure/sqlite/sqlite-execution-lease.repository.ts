@@ -5,7 +5,6 @@ import type { Milliseconds } from "../../units/index.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { StoreClock, lazyLoad } from "../clock.js";
 import {
-  ExecutionLeaseRepository,
   remainingOf,
   takenOverFromOf,
   type ExecutionIdentity,
@@ -16,6 +15,7 @@ import {
   type TreeMarks,
 } from "../execution-lease.repository.js";
 import type { InterruptMode } from "../../app/interrupt-types.js";
+import { SqliteClusterMirror } from "./sqlite-cluster-mirror.js";
 import { pauseMarksOf, pausedOn, unpausedOn } from "./sqlite-pause.js";
 import { marksOf, stopModeOf, stopRequestedOn } from "./sqlite-stop.js";
 import type { NewStatusTransition } from "../../turns/index.js";
@@ -74,15 +74,15 @@ const isRefused = ({ released, expires_at }: z.infer<typeof LeaseRow>, now: numb
  * take, renewal and yield answers the time left. Listed in `@Application({ providers })`.
  */
 @Injectable({ deps: [SqliteConnection, StoreClock, ApplicationContext] })
-export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
+export class SqliteExecutionLeaseRepository extends SqliteClusterMirror {
   static override readonly store: StoreDescriptor = { backend: "sqlite" };
 
   constructor(
-    private readonly connection: SqliteConnection,
+    connection: SqliteConnection,
     private readonly clock: Pick<StoreClock, "now">,
     private readonly applicationContext: ApplicationContext,
   ) {
-    super();
+    super(connection);
   }
 
   ping(): Promise<void> {

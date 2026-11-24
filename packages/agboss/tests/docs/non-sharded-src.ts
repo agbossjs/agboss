@@ -214,6 +214,14 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/infrastructure/checkpoint-threads.ts"],
   ),
   ...reviewed(
+    "the cluster's in-memory double (#1321e): a test double of a Redis-like cluster (liveness by a clock, counters per tree, pushed marks) with an outage switch, used by the core's unit tests and as a store package's first contract run — no store of the application; covered by tests/infrastructure/cluster-lease.test.ts",
+    ["src/infrastructure/in-memory-cluster-lease.ts"],
+  ),
+  ...reviewed(
+    "`agboss migrate db`'s runner (#1321f): hands the resolved settings of the database driver to its own migration and passes its refusal; the migration and its live-lease refusal are the store packages'; covered by tests/storage/storage-migrate.test.ts",
+    ["src/storage/storage-migrate.ts"],
+  ),
+  ...reviewed(
     "the storage settings of a container that is no application's (`agboss check`, a workflow on its own, #1321): reads the one listing application's driver settings from the process variables, leaves a missing variable out; no spend, lease, fence or limit decision of its own — which store holds them is decided in the sharded storage-assembly; covered by tests/storage/storage-application.test.ts",
     ["src/storage/standalone-storage.ts"],
   ),

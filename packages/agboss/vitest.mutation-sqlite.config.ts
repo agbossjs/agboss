@@ -18,6 +18,9 @@ export default defineConfig({
       "tests/infrastructure/sqlite/stored-not-json-sites.test.ts",
       "tests/infrastructure/{fence-fingerprint,store-conformance.sqlite,live-lease-sqlite,repeated-execution-id.sqlite,in-memory-fenced-effect-edges,execution-lease-*-bites}.test.ts",
       "tests/infrastructure/sqlite/{sqlite-fencing-edges,sqlite-fenced-effect,sqlite-run-once-hold,sqlite-finished-leases,sqlite-instances,sqlite-tenants,sqlite-persistence,sqlite-remote-children,subclass,sqlite-schema-version}.test.ts",
+      // #1321e: the cluster lease mirror, on the in-memory pair and on SQLite
+      "tests/infrastructure/cluster-lease.test.ts",
+      "tests/application/cluster-fence-pairing.test.ts",
       "tests/app/{execution-fence-stores,fenced-effect-sqlite,outbound-call-sqlite,held-lease-fence,held-lease-edges,lease-skew,lease-skew-charge}.test.ts",
     ],
   },

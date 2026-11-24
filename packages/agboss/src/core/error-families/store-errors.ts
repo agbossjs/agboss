@@ -26,6 +26,7 @@ export enum StoreErrorKind {
   LedgerCutoffInvalid = "ledger-cutoff-invalid",
   LedgerEntryExpired = "ledger-entry-expired",
   LedgerEntryInvalid = "ledger-entry-invalid",
+  ClusterLeaseBehind = "cluster-lease-behind",
 }
 
 /** A store (a database, a cluster, an object storage) failed or refused. The store packages build these with `StoreError.of(kind, options)`. */
@@ -47,7 +48,8 @@ export type StoreError =
   | StoreError.ObjectStorage
   | StoreError.LedgerCutoffInvalid
   | StoreError.LedgerEntryExpired
-  | StoreError.LedgerEntryInvalid;
+  | StoreError.LedgerEntryInvalid
+  | StoreError.ClusterLeaseBehind;
 
 /** The variants of `StoreError`, each with the facts it carries. */
 export declare namespace StoreError {
@@ -120,6 +122,11 @@ export declare namespace StoreError {
     StoreErrorKind.LedgerEntryInvalid,
     "store.ledger-entry-invalid"
   >;
+  /** The cluster's lease could not be recorded in the database: its token is behind the lease row's, or the row is unreachable (#1321e). */
+  export type ClusterLeaseBehind = ErrorVariant<
+    StoreErrorKind.ClusterLeaseBehind,
+    "store.cluster-lease-behind"
+  >;
 }
 
 /** The variant of `StoreError` of one kind. */
@@ -181,6 +188,7 @@ export const StoreError: FamilyConstructor<
     LedgerCutoffInvalid: StoreError.LedgerCutoffInvalid;
     LedgerEntryExpired: StoreError.LedgerEntryExpired;
     LedgerEntryInvalid: StoreError.LedgerEntryInvalid;
+    ClusterLeaseBehind: StoreError.ClusterLeaseBehind;
   }
 > &
   StoreErrorStatics = withOf(
@@ -207,6 +215,7 @@ export const StoreError: FamilyConstructor<
       LedgerCutoffInvalid: ["the ledger's cutoff is not valid"],
       LedgerEntryExpired: ["the ledger entry is past its retention"],
       LedgerEntryInvalid: ["the ledger entry is not valid"],
+      ClusterLeaseBehind: ["the cluster's lease is behind the database's lease row"],
     },
   }),
 );

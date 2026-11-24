@@ -439,10 +439,97 @@ export interface ChildLaunchRecord {
 export const closedAtOf: (pause: PauseRecord) => string | undefined;
 
 // @public
+export const CLUSTER_LEASE_EXPIRY: Date;
+
+// @public
 export const CLUSTER_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
 
 // @public
 export type ClusterDriver = StorageDriver<StorageRole.Cluster>;
+
+// @public
+export class ClusterExecutionLeaseRepository extends ExecutionLeaseRepository {
+    constructor(cluster: ClusterLeaseCoordinator, database: ExecutionIdStore);
+    // (undocumented)
+    acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    // (undocumented)
+    claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
+    // (undocumented)
+    isCancelRequested(tree: ExecutionTree): Promise<boolean>;
+    // (undocumented)
+    markedOf(tree: ExecutionTree): Promise<TreeMarks>;
+    // (undocumented)
+    pauseOf(tree: ExecutionTree): Promise<PauseMarks>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    reclaim(lease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    // (undocumented)
+    release(lease: ExecutionLease): Promise<void>;
+    // (undocumented)
+    renew(lease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
+    // (undocumented)
+    requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
+    requestPause(tree: ExecutionTree, request: PauseRequest, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
+    requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
+    retire(lease: ExecutionLease): Promise<void>;
+    // (undocumented)
+    stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+    // (undocumented)
+    unpause(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
+    yield(lease: ExecutionLease): Promise<Milliseconds | undefined>;
+}
+
+// @public
+export interface ClusterLeaseCoordinator {
+    acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    ping(): Promise<void>;
+    publishMarks(tree: ExecutionTree, marks: TreeMarks): Promise<void>;
+    raiseEpoch(tree: ExecutionTree, atLeast: number): Promise<void>;
+    reclaim(lease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    release(lease: ExecutionLease): Promise<void>;
+    renew(lease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
+    retire(lease: ExecutionLease): Promise<void>;
+    yield(lease: ExecutionLease): Promise<Milliseconds | undefined>;
+}
+
+// @public
+export interface ClusterLeaseMirror {
+    endClusterLease(lease: ExecutionLease, end: {
+        readonly isRetired: boolean;
+    }): Promise<void>;
+    mirroredLeaseOf(tree: ExecutionTree): Promise<MirroredLease | undefined>;
+    syncClusterLease(lease: ExecutionLease): Promise<ClusterLeaseSync>;
+}
+
+// @public
+export type ClusterLeaseSync = {
+    readonly outcome: ClusterLeaseSyncOutcome.Synced;
+} | {
+    readonly outcome: ClusterLeaseSyncOutcome.Behind;
+    readonly rowToken: number;
+} | {
+    readonly outcome: ClusterLeaseSyncOutcome.Retired;
+};
+
+// @public
+export enum ClusterLeaseSyncOutcome {
+    Behind = "behind",
+    Retired = "retired",
+    Synced = "synced"
+}
+
+// @public
+export interface ClusterOutage {
+    forgetCounters(): void;
+    isDown: boolean;
+}
 
 // @public
 export interface Compacted {
@@ -647,6 +734,9 @@ export const DATABASE_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
 export type DatabaseDriver = StorageDriver<StorageRole.Database>;
 
 // @public
+export const DEFAULT_WATCH_LIVENESS: Milliseconds;
+
+// @public
 export function defineStorageDriver<TRole extends StorageRole>(spec: StorageDriverSpec<TRole>): StorageDriver<TRole>;
 
 // @public
@@ -661,6 +751,13 @@ export interface DriverSettings {
     readonly [option: string]: unknown;
     // (undocumented)
     readonly kind: string;
+}
+
+// @public
+export interface DriverTimeouts {
+    readonly commandTimeout?: Milliseconds;
+    readonly idleInTransactionTimeout?: Milliseconds;
+    readonly watchLiveness?: Milliseconds;
 }
 
 // @public
@@ -1284,6 +1381,17 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
 }
 
 // @public
+export class InMemoryCluster implements ClusterOutage {
+    constructor(now: () => Date);
+    coordinatorOf(instanceId: string): ClusterLeaseCoordinator;
+    // (undocumented)
+    forgetCounters(): void;
+    // (undocumented)
+    isDown: boolean;
+    pushedMarksOf(tree: ExecutionTree): TreeMarks | undefined;
+}
+
+// @public
 export class InvalidA2APageTokenError extends AGBossError {
     constructor(options?: InvalidA2APageTokenErrorOptions);
     // (undocumented)
@@ -1433,6 +1541,23 @@ export abstract class MeshRequestRepository {
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
     abstract saveResponse(key: MeshRequestKey, response: unknown): Promise<void>;
+}
+
+// @public
+export interface MirroredLease {
+    // (undocumented)
+    readonly holderInstanceId: string;
+    // (undocumented)
+    readonly state: MirroredLeaseState;
+    // (undocumented)
+    readonly token: number;
+}
+
+// @public
+export enum MirroredLeaseState {
+    Held = "held",
+    Released = "released",
+    Retired = "retired"
 }
 
 // @public
@@ -2246,6 +2371,21 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
 }
 
 // @public
+export abstract class SqliteClusterMirror extends ExecutionLeaseRepository implements ClusterLeaseMirror {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    protected readonly connection: SqliteConnection;
+    // (undocumented)
+    endClusterLease(lease: ExecutionLease, end: {
+        readonly isRetired: boolean;
+    }): Promise<void>;
+    // (undocumented)
+    mirroredLeaseOf(tree: ExecutionTree): Promise<MirroredLease | undefined>;
+    // (undocumented)
+    syncClusterLease(lease: ExecutionLease): Promise<ClusterLeaseSync>;
+}
+
+// @public
 export class SqliteConnection implements OnDestroy {
     constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
     columnsOf(table: string): readonly string[];
@@ -2341,6 +2481,7 @@ export interface StorageDriver<TRole extends StorageRole = StorageRole> {
     readonly coordinationStores?: readonly Class[] | undefined;
     readonly describes: string;
     readonly leaseStore?: Class | undefined;
+    readonly migrate?: StorageMigrate | undefined;
     readonly providers: readonly Provider[];
     // (undocumented)
     readonly role: TRole;
@@ -2349,6 +2490,20 @@ export interface StorageDriver<TRole extends StorageRole = StorageRole> {
 
 // @public
 export type StorageDriverSpec<TRole extends StorageRole> = Omit<StorageDriver<TRole>, typeof driverBrand>;
+
+// @public
+export type StorageMigrate = (settings: ResolvedSettings, options: StorageMigrationOptions) => Promise<StorageMigration>;
+
+// @public
+export interface StorageMigration {
+    // (undocumented)
+    readonly applied: readonly string[];
+}
+
+// @public
+export interface StorageMigrationOptions {
+    readonly allowLiveLeases: boolean;
+}
 
 // @public
 export enum StorageRole {
@@ -2424,11 +2579,12 @@ export interface StoredNamesUnreadableErrorOptions {
 }
 
 // @public
-export type StoreError = StoreError.OutcomeUnknown | StoreError.CallTimeout | StoreError.UnreadableRecord | StoreError.Mismatch | StoreError.LiveLeases | StoreError.SchemaMissing | StoreError.SchemaTooNew | StoreError.MigrationChanged | StoreError.SettingsInvalid | StoreError.DeploymentUnsupported | StoreError.DurabilityInsufficient | StoreError.CollationInvalid | StoreError.LedgerMarkMissing | StoreError.LeaseKeyConflict | StoreError.ObjectStorage | StoreError.LedgerCutoffInvalid | StoreError.LedgerEntryExpired | StoreError.LedgerEntryInvalid;
+export type StoreError = StoreError.OutcomeUnknown | StoreError.CallTimeout | StoreError.UnreadableRecord | StoreError.Mismatch | StoreError.LiveLeases | StoreError.SchemaMissing | StoreError.SchemaTooNew | StoreError.MigrationChanged | StoreError.SettingsInvalid | StoreError.DeploymentUnsupported | StoreError.DurabilityInsufficient | StoreError.CollationInvalid | StoreError.LedgerMarkMissing | StoreError.LeaseKeyConflict | StoreError.ObjectStorage | StoreError.LedgerCutoffInvalid | StoreError.LedgerEntryExpired | StoreError.LedgerEntryInvalid | StoreError.ClusterLeaseBehind;
 
 // @public
 export namespace StoreError {
     export type CallTimeout = ErrorVariant<StoreErrorKind.CallTimeout, "store.call-timeout">;
+    export type ClusterLeaseBehind = ErrorVariant<StoreErrorKind.ClusterLeaseBehind, "store.cluster-lease-behind">;
     export type CollationInvalid = ErrorVariant<StoreErrorKind.CollationInvalid, "store.collation-invalid">;
     export type DeploymentUnsupported = ErrorVariant<StoreErrorKind.DeploymentUnsupported, "store.deployment-unsupported">;
     export type DurabilityInsufficient = ErrorVariant<StoreErrorKind.DurabilityInsufficient, "store.durability-insufficient">;
@@ -2468,12 +2624,15 @@ export const StoreError: FamilyConstructor<StoreError, {
     LedgerCutoffInvalid: StoreError.LedgerCutoffInvalid;
     LedgerEntryExpired: StoreError.LedgerEntryExpired;
     LedgerEntryInvalid: StoreError.LedgerEntryInvalid;
+    ClusterLeaseBehind: StoreError.ClusterLeaseBehind;
 }> & StoreErrorStatics;
 
 // @public
 export enum StoreErrorKind {
     // (undocumented)
     CallTimeout = "call-timeout",
+    // (undocumented)
+    ClusterLeaseBehind = "cluster-lease-behind",
     // (undocumented)
     CollationInvalid = "collation-invalid",
     // (undocumented)
@@ -2809,6 +2968,7 @@ export interface WrittenLedgerMark {
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerCutoffInvalid".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryExpired".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryInvalid".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "ClusterLeaseBehind".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "name".
@@ -2921,6 +3081,26 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "A2ATaskRepository".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/cluster-lease-types.ts - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/cluster-lease-types.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/cluster-lease-types.ts - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "claimExecutionId".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "retire".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "yield".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "reclaim".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "requestCancel".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "isCancelRequested".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "requestStop".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "stopOf".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "requestPause".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "unpause".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "pauseOf".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "markedOf".
 // src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "executionId".
@@ -3014,6 +3194,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/in-memory-cluster-lease.ts - (ae-undocumented) Missing documentation for "isDown".
+// src/infrastructure/in-memory-cluster-lease.ts - (ae-undocumented) Missing documentation for "forgetCounters".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "peer".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "idempotencyKey".
@@ -3093,6 +3275,10 @@ export interface WrittenLedgerMark {
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/sqlite/sqlite-cluster-mirror.ts - (ae-undocumented) Missing documentation for "connection".
+// src/infrastructure/sqlite/sqlite-cluster-mirror.ts - (ae-undocumented) Missing documentation for "syncClusterLease".
+// src/infrastructure/sqlite/sqlite-cluster-mirror.ts - (ae-undocumented) Missing documentation for "endClusterLease".
+// src/infrastructure/sqlite/sqlite-cluster-mirror.ts - (ae-undocumented) Missing documentation for "mirroredLeaseOf".
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "changes".
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "lastInsertRowid".
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "run".
@@ -3133,6 +3319,7 @@ export interface WrittenLedgerMark {
 // src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "__index".
 // src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "[driverBrand]".
 // src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "role".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "applied".
 // src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "toStatus".

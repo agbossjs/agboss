@@ -39,12 +39,12 @@ describe("#891 AC2: provide(EXECUTION_ID_STORE, <a durable lease store>)", () =>
     expect(found.join("\n")).toContain("[di.ambiguous-implementation]");
   });
 
-  it("AC2: a fenced-effect store of another backend beside the coordination leases is refused", async () => {
+  it("AC2: a fenced-effect store of another backend than the database's lease store is refused (#1321e: it is checked against the id store, not the cluster)", async () => {
     const found = await violationsOf([CoordinationLeases, durableIds, PostgresEffects]);
 
     expect(found).toHaveLength(1);
     expect(found[0]).toContain("[application.store-backend-mismatch] PostgresEffects");
-    expect(found[0]).toContain('CoordinationLeases (backend "redis")');
+    expect(found[0]).toContain('SqliteExecutionLeaseRepository (backend "sqlite")');
   });
 });
 

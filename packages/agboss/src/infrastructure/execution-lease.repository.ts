@@ -6,7 +6,6 @@ import type { ExecutionTree } from "./execution-tree.repository.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { StoreClock } from "./clock.js";
 import {
-  ExecutionLeaseRepository,
   remainingOf,
   takenOverFromOf,
   type ExecutionIdentity,
@@ -17,6 +16,7 @@ import {
   type TreeMarks,
   type StoreDescriptor,
 } from "./execution-lease-contract.js";
+import { InMemoryClusterMirror } from "./in-memory-cluster-mirror.js";
 import { inMemoryPauseOf, pausedInMemory, unpausedInMemory } from "./in-memory-pause-mark.js";
 import {
   inMemoryStopOf,
@@ -58,15 +58,15 @@ const isSameLease = (stored: ExecutionLease, held: ExecutionLease): boolean =>
  * handed out is a row of `executionIds` (#591), kept for the instance's life.
  */
 @Injectable({ deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] })
-export class InMemoryExecutionLeaseRepository extends ExecutionLeaseRepository {
+export class InMemoryExecutionLeaseRepository extends InMemoryClusterMirror {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
 
   constructor(
     private readonly clock: Pick<StoreClock, "now">,
     private readonly applicationContext: ApplicationContext,
-    private readonly database: InMemoryDatabase,
+    database: InMemoryDatabase,
   ) {
-    super();
+    super(database);
   }
 
   ping(): Promise<void> {

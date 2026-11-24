@@ -3314,7 +3314,7 @@ export interface ExecutionIds {
 }
 
 // @public
-export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId" | "requestCancel" | "isCancelRequested" | "requestStop" | "stopOf">;
+export type ExecutionIdStore = Pick<ExecutionLeaseRepository, "claimExecutionId" | "requestCancel" | "isCancelRequested" | "requestStop" | "stopOf" | "requestPause" | "unpause" | "pauseOf" | "markedOf"> & ClusterLeaseMirror;
 
 // @public
 export type ExecutionInputOf<TInstance> = WorkflowStartEntry<TInstance> extends {
@@ -9552,7 +9552,7 @@ export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository
 }
 
 // @public
-export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
+export class SqliteExecutionLeaseRepository extends SqliteClusterMirror {
     constructor(connection: SqliteConnection, clock: Pick<StoreClock, "now">, applicationContext: ApplicationContext);
     // (undocumented)
     acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;

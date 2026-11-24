@@ -8,6 +8,7 @@ import {
   optsOutOfLeaseCheck,
   storeDescriptorOf,
 } from "../infrastructure/execution-lease.repository.js";
+import { idStoreClassOf } from "./id-store-class.js";
 import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
@@ -244,7 +245,7 @@ export function storeBackendViolations(
       "A2A task stores (A2ATaskRepository)",
     ),
   );
-  const leases = leaseStoreOf(providers);
+  const leases = fencedLeaseStoreOf(providers);
   for (const fencing of FENCING_CONTRACTS) {
     const stores = listedOf(classes, fencing.contract);
     const what = `${fencing.kind.slice(fencing.kind.indexOf(" ") + 1)}s (${fencing.contract.name})`;
@@ -255,6 +256,15 @@ export function storeBackendViolations(
   }
   return found;
 }
+
+/**
+ * The lease store the fencing stores check their writes against (#526, #1321e, D6): the durable
+ * lease store bound to `EXECUTION_ID_STORE` — what a `@ClusterStorage` application has: the cluster
+ * decides who holds the lease, but the database's row (the lease mirrored into it first, the marks
+ * and the fence on it) is what a fenced write is checked by — else the listed lease store.
+ */
+export const fencedLeaseStoreOf = (providers: readonly Provider[]): Class | undefined =>
+  idStoreClassOf(providers) ?? leaseStoreOf(providers);
 
 /** The listed classes that are `contract` or extend it. */
 const listedOf = (classes: readonly Class[], contract: Class): readonly Class[] =>

@@ -492,6 +492,11 @@ export function createStartComponents(bundle: AssembledWorkflow, services: Workf
 export function createWorkflowDeps(bundle: AssembledWorkflow, options: BuildOptions, parts: WorkflowDepsParts): Promise<AppDeps>;
 
 // @public
+export interface DatabaseMigrationRun extends StorageMigration {
+    readonly backend: string;
+}
+
+// @public
 export enum DefaultsLevel {
     // (undocumented)
     Application = "application",
@@ -1316,6 +1321,9 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
     // (undocumented)
     readonly message: string;
 }
+
+// @public
+export function migratedDatabaseOf(storage: AssembledStorage | undefined, processEnv: NodeJS.ProcessEnv, options: StorageMigrationOptions): Promise<DatabaseMigrationRun | undefined>;
 
 // @public
 export class ModelProviderDirectory {

@@ -27,6 +27,16 @@ export function checkpointSaverContract(target: ContractTarget<BaseCheckpointSav
 export function childExecutionQueueContract(target: ContractTarget<ChildExecutionQueueRepository>): void;
 
 // @public
+export interface ClusterLeaseSet {
+    readonly cluster: ExecutionLeaseRepository;
+    readonly database: ExecutionIdStore;
+    readonly outage: {
+        cluster(isDown: boolean): void;
+        database(isDown: boolean): void;
+    };
+}
+
+// @public
 export interface ConformanceSabotageOptions {
     readonly fixtures: readonly string[];
     readonly hookTimeout?: number;
@@ -73,6 +83,9 @@ export function executionAuditLogContract(target: ContractTarget<ExecutionAuditL
 
 // @public
 export function executionHistoryContract(target: ContractTarget<ExecutionHistoryRepository>): void;
+
+// @public
+export function executionLeaseClusterContract(target: ContractTarget<ClusterLeaseSet>): void;
 
 // @public
 export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepository>): void;

@@ -26,6 +26,10 @@ export { childExecutionQueueContract } from "./child-execution-queue.contract.js
 export { costLedgerContract } from "./cost-ledger.contract.js";
 export { executionHistoryContract } from "./execution-history.contract.js";
 export { executionLeaseContract } from "./execution-lease.contract.js";
+export {
+  executionLeaseClusterContract,
+  type ClusterLeaseSet,
+} from "./execution-lease-cluster.contract.js";
 export { executionAuditLogContract } from "./execution-audit-log.contract.js";
 export { executionRecordContract } from "./execution-record.contract.js";
 export {
