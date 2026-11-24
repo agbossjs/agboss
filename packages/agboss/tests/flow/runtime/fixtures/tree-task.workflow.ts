@@ -13,7 +13,7 @@ import { seconds } from "../../../../src/units/index.js";
 import { onStart } from "../../../helpers/flow.js";
 
 /**
- * #264 PR 2 — the tree's concurrency cap, `@Workflow({ maxConcurrentExecutions })`. Every task is a
+ * #264 PR 2 — the tree's concurrency cap, `@Workflow({ executionLimits: { maxConcurrency } })`. Every task is a
  * child execution whose one action works for its `seconds` on the application's clock; the log
  * shows what started and ended, in order, and the most tasks at work at once. A task `fail`s after
  * its wait (none for 0 seconds); the first run of a `hold` task waits until its execution stops (a

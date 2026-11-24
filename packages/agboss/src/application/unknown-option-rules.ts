@@ -63,7 +63,7 @@ const hint = (item: UnknownOption): string => {
   const near = closestKey(item.key, item.allowed, 1);
   if (near !== undefined) return ` — did you mean ${shown(near)}?`;
   if (item.belongsIn !== undefined) {
-    return ` — move it into ${item.belongsIn}: { ${shown(item.key)}: … }`;
+    return ` — move it into ${item.belongsIn}: { ${shown(item.renamedTo ?? item.key)}: … }`;
   }
   const close = closestKey(item.key, item.allowed);
   return close === undefined ? "" : ` — did you mean ${shown(close)}?`;

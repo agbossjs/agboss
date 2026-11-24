@@ -356,7 +356,7 @@ import { ClinicWorkflowStart } from "./clinic.workflow-start.js";
           .toFinish(ClinicWorkflowFinish),
       ),
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
   piiPolicies: [PatientIdPiiPolicy], // every agent and router of this workflow
   providers: [RefusalTextService, PatientRegistryService],
 })

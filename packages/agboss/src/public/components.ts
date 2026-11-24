@@ -185,6 +185,7 @@ export type {
   A2AEndpointRuleCode,
   ContextRuleCode,
   DecoratorRuleCode,
+  HistoryTtlRuleCode,
 } from "../graph/extra-rule-codes.js";
 export { TerminalUserChannel } from "../channels/terminal-channel.js";
 export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";

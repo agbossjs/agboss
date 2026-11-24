@@ -125,7 +125,7 @@ export class PaidLevelWorkflowFinish {}
         caseOf(OrderNoteDto).toFinish(PaidLevelWorkflowFinish),
       ),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class PaidLevelWorkflow {}
 

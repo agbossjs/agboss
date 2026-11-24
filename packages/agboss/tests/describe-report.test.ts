@@ -307,7 +307,7 @@ describe("#268 AC5: the worst case of one call of each start, each number with h
       "1 deep-research-workflow + 5 deep-research-workflow (maxItems 5) + 25 deep-research-workflow (maxItems 5 × maxItems 5) + 125 deep-research-workflow (maxItems 5 × maxItems 5 × maxItems 5)",
     );
     expect(rows[1]?.madeUp).toBe(
-      "1 deep-research-workflow + 3 deep-research-workflow (maxConcurrency 3) + 9 deep-research-workflow (maxConcurrency 3 × maxConcurrency 3) + 27 deep-research-workflow (maxConcurrency 3 × maxConcurrency 3 × maxConcurrency 3) — at most 10 at work at once (maxConcurrentExecutions 10)",
+      "1 deep-research-workflow + 3 deep-research-workflow (maxConcurrency 3) + 9 deep-research-workflow (maxConcurrency 3 × maxConcurrency 3) + 27 deep-research-workflow (maxConcurrency 3 × maxConcurrency 3 × maxConcurrency 3) — at most 10 at work at once (maxConcurrency 10)",
     );
     expect(rows[3]?.madeUp).toBe(
       "deep-research-workflow → deep-research-workflow → deep-research-workflow → deep-research-workflow (maxDepth 4)",

@@ -42,7 +42,7 @@ export class ChatWorkflowFinish {}
     guardrail: { model: "typesafe/jev-1.13" }, // guardrails without their own model — never the router's
     tools: { maxToolCalls: 8 },
   },
-  maxSteps: 12, // visits of agents and routers in one run
+  executionLimits: { maxSteps: 12 }, // visits of agents and routers in one run
   guardrails: [PromptInjectionGuardrail], // over the application's (#120)
   memory: ConversationMemory, // its ttl, the recent turns its agents and routers see in full, and what is older (#1303)
   promptVariables: { boards: "acme (Acme)" }, // over the application's `promptVariables`; a component's own win
@@ -154,9 +154,9 @@ router's model, and the framework has no built-in guardrail model. A guardrail's
 guardrail with no model anywhere fails assembly: `[model.missing-provider] support-workflow:
 prompt-injection-guardrail has no model and no modelProvider — set model or defaults.guardrail.model, or modelProvider on it, its @Workflow or its @Application` (#261, #120).
 
-## Limits — `maxSteps`, `maxVisits`, `@Budget`, `maxConcurrentExecutions`, `maxConcurrentSteps`
+## Limits — `maxSteps`, `maxVisits`, `@Budget`, `maxConcurrency`, `maxConcurrentSteps`
 
-`@Workflow({ maxSteps })` — visits of agents and routers in one execution (default (agents +
+`@Workflow({ executionLimits: { maxSteps } })` — visits of agents and routers in one execution (default (agents +
 routers) × 3, checked at assembly: `[limits.max-steps-too-low]`, `[limits.branch-exceeds-max-steps]`,
 `[limits.max-steps-unused]`, the warning `[limits.max-steps-below-worst-case]` — #643, [FinOps](FinOps)); `maxVisits` on a router or an agent — its visits in one execution.
 Money is not a workflow setting (#261): the application's `@Budget`s — an execution budget for every
@@ -164,9 +164,9 @@ workflow (its own `workflow: X`, or the default), tenant and application budgets
 `BudgetPeriod` — listed in `@Application({ budgets })`; `settings()` has no `limits` any more.
 Hitting a limit **fails the execution** — unless an `.onError(…)` takes it — one class per limit,
 all `LimitExceededError`s: `StepsLimitExceededError`, `VisitsLimitExceededError`,
-`BudgetExceededError`, `DepthLimitExceededError` (a recursion past `@Workflow({ maxDepth })`, #264 —
+`BudgetExceededError`, `DepthLimitExceededError` (a recursion past `@Workflow({ executionLimits: { maxDepth } })`, #264 —
 required on a workflow that launches itself); an exhausted budget also rejects an execution before its first step.
-`@Workflow({ maxConcurrentExecutions })` (#264, default 10) is a throttle, not a failure: how many
+`@Workflow({ executionLimits: { maxConcurrency } })` (#264, default 10) is a throttle, not a failure: how many
 executions of a tree — the root and its child workflows — work at once; the rest wait in a queue
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
 `@Application({ executionLimits: { maxConcurrentSteps } })` (#332, unset → no cap; a whole number from 1,
@@ -176,6 +176,12 @@ in its queue, a full instance is `Degraded` in readiness and leaves orphaned exe
 ([Several instances → An instance's cap on steps](Several-instances#an-instances-cap-on-steps-332)).
 `@Application({ executionLimits: { compensationTimeout } })` (#340, default `seconds(15)`) bounds each automatic undo
 action: its clean-up signal aborts after it ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)).
+A profile changes any of a workflow's limits (`workflows.<name>.executionLimits` in a `.config.ts` or
+`.config.yaml`, field by field, also under `"*"`) and how long its history is kept
+(`workflows.<name>.historyTtl`: milliseconds, `"forever"` or `"none"`; `@Workflow({ historyTtl })` is the
+declared one, and `Ttl.None` keeps no record of the workflow's trees). The run, the assembly rules, the worst case and
+`describe` all read the same value, so a `maxSteps` of 5 from a profile stops a run at its 6th step and is the
+bound `agboss check` holds the flow against; the declared `@Workflow` is never changed.
 Details: [FinOps](FinOps).
 
 ## `@McpServer` classes

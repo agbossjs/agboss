@@ -3,16 +3,16 @@
 Read this when you set or change what an application may spend (`@Budget`), which server answers a
 model (`@ModelProvider`), how calls are retried, rate-limited, queued between tenants or cut off by a
 circuit breaker, or what a non-model service costs (`SpendRecorder`). Counts (`maxSteps`,
-`maxVisits`, `maxConcurrentExecutions`) are in reference 02; the stores that share the counters
+`maxVisits`, `maxConcurrency`) are in reference 02; the stores that share the counters
 between instances in reference 09.
 
 ## Three things that are not the same
 
-| Protects              | Set with                                                                      | Hitting it                                                                                |
-| --------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| money                 | `@Budget` components in `@Application({ budgets })`                           | `BudgetExceededError` (`limit.budget`): rejected before the first step, or stopped        |
-| the graph             | `@Workflow({ maxSteps })`, `maxVisits`, `maxDepth`, `maxConcurrentExecutions` | `StepsLimitExceededError`, `VisitsLimitExceededError`, `DepthLimitExceededError`; a queue |
-| a provider's capacity | `@ModelProvider({ rateLimitPolicy, retryPolicy, circuitBreakerPolicy })`      | a call waits in a tenant-fair queue; never an error, never money                          |
+| Protects              | Set with                                                                                  | Hitting it                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| money                 | `@Budget` components in `@Application({ budgets })`                                       | `BudgetExceededError` (`limit.budget`): rejected before the first step, or stopped        |
+| the graph             | `@Workflow({ executionLimits: { maxSteps } })`, `maxVisits`, `maxDepth`, `maxConcurrency` | `StepsLimitExceededError`, `VisitsLimitExceededError`, `DepthLimitExceededError`; a queue |
+| a provider's capacity | `@ModelProvider({ rateLimitPolicy, retryPolicy, circuitBreakerPolicy })`                  | a call waits in a tenant-fair queue; never an error, never money                          |
 
 ## Budgets
 
@@ -615,7 +615,7 @@ import { InvoiceWorkflowStart } from "./invoice.workflow-start.js";
       .toAgent(InvoiceAgent)
       .toFinish(InvoiceWorkflowFinish),
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
 })
 export class InvoiceWorkflow {}
 ```

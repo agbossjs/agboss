@@ -23,7 +23,7 @@ import {
 
 /**
  * #333 PR 3 — the limits of a tree whose children run on any instance: `remote-capped-workflow`
- * launches six children on any instance under `maxConcurrentExecutions: 2` (its tree's slots shared
+ * launches six children on any instance under `executionLimits: { maxConcurrency: 2 }` (its tree's slots shared
  * by the instances); `remote-spend-workflow` launches one child on any instance whose agent spends
  * (its spend written to the tree's counters where it runs, counted once).
  */
@@ -49,7 +49,7 @@ export class RemoteCappedWorkflowStart {}
       .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),
   ],
-  maxConcurrentExecutions: 2,
+  executionLimits: { maxConcurrency: 2 },
 })
 export class RemoteCappedWorkflow {}
 

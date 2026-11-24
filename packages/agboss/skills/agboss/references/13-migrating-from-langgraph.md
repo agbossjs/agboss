@@ -93,7 +93,7 @@ The result — one row per DTO, its producer and its readers — is the plan for
 | `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).chooseOne(route(X)…, …)`                                                           |
 | `addConditionalEdges` with an LLM classifier                   | `@Router({ decidedBy: DecidedBy.Model, prompt, model, routes: [{ prompt, target }] })` — a decision model or a chat model                                                                             |
 | a cycle `critic → editor → critic`                             | the reviewer in its own path `onAgent(Reviewer)…`; `caseOf(ChangesDto)`; `historyOf(DraftDto, { maxPrevious })` to read earlier versions                                                              |
-| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ maxSteps })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                                             |
+| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ executionLimits: { maxSteps } })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                        |
 | `new Send(node, item)` per list item                           | `.toParallelAgents(Agent, { maxConcurrency, maxItems })` after a step whose output is `listOf(ItemDto)` (or `.toParallelWorkflows(Child, …)`) then `.join()` (the join gives `listOf(OutDto)`)        |
 | `Send` to several different nodes, "first N answers win"       | `.toParallelAgents(A, B, C)` + `.join()`, or `.arbitratedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                                              |
 | a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                              |
@@ -757,7 +757,7 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
           ),
       ),
   ],
-  maxSteps: 16,
+  executionLimits: { maxSteps: 16 },
   providers: [OrderBookService, RefundApiService],
 })
 export class SupportWorkflow {}

@@ -17,7 +17,7 @@ const isOldStep = (node: FlowNode | undefined): boolean =>
  */
 export function stepsAboveOldDefaultWarnings(context: AnalysisContext): readonly RuleViolation[] {
   const { graph } = context;
-  if (context.workflow.maxSteps !== undefined) return [];
+  if (context.workflow.executionLimits?.maxSteps !== undefined) return [];
   const old = [...graph.nodes.values()].filter(isOldStep).length * STEPS_PER_WORKING_NODE;
   // no agent or router: 0.1.0's steps were always 0, there is nothing counted differently to tell
   if (old === 0) return [];
@@ -27,7 +27,7 @@ export function stepsAboveOldDefaultWarnings(context: AnalysisContext): readonly
     const message =
       `the worst case from ${start} takes ${String(most)} steps, more than the ${String(old)} that 0.1.0's default ` +
       `maxSteps — (agents + routers) × ${String(STEPS_PER_WORKING_NODE)} — allowed: actions and external tasks ` +
-      `count as steps now, and the default is ${String(maxStepsOf(graph, undefined))}. Set @Workflow({ maxSteps }) to choose the bound`;
+      `count as steps now, and the default is ${String(maxStepsOf(graph, undefined))}. Set @Workflow({ executionLimits: { maxSteps } }) to choose the bound`;
     return [violation("limits.max-steps-above-0.1.0-default", message, [start])];
   });
 }

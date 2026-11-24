@@ -30,6 +30,6 @@ import { ReviewWorkflowStart } from "./review.workflow-start.js";
       .toAction(ReviewReportAction)
       .toFinish(ReviewWorkflowFinish),
   ],
-  maxSteps: 30, // the worst case: the splitter, 20 section reviews and the three critics
+  executionLimits: { maxSteps: 30 }, // the worst case: the splitter, 20 section reviews and the three critics
 })
 export class ReviewWorkflow {}

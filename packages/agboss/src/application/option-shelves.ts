@@ -1,10 +1,14 @@
-import { ComponentOptions } from "../components/component-options.js";
+import { ComponentOptions, type OptionSlots } from "../components/component-options.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { skillMapOf } from "../a2a/a2a-endpoint.decorator.js";
 import type { FoldedConfig } from "../config/fold-config.js";
 import { ProfileError, ProfileErrorReason } from "../config/profile-error.js";
 import { placementOf } from "../config/placement-overlay.js";
+import {
+  executionLimitsOverlayOf,
+  historyTtlOverlayOf,
+} from "../config/workflow-limits-overlay.js";
 import { slotsOf } from "../config/workflow-overlay.js";
 import type { ChildPlacement } from "../flow/child-placement.js";
 import {
@@ -16,6 +20,8 @@ import { declaredFilePolicyOf } from "../files/workflow-file-policy.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
+import type { WorkflowExecutionLimits } from "../flow/decorators/workflow.js";
+import type { Milliseconds, Ttl } from "../units/index.js";
 import type { ApplicationOptions } from "./application.js";
 import { checkAgentUrls, checkChannels, checkListed } from "./option-checks.js";
 
@@ -53,6 +59,25 @@ export function placementOverridesOf(
     if (placement !== undefined) placements.set(cls, placement);
   }
   return placements;
+}
+
+/** What the profiles change of each workflow's `executionLimits` and `historyTtl`, by workflow class; only the workflows they touch. */
+function limitOverridesOf(
+  folded: FoldedConfig,
+  workflows: readonly Class[],
+): Pick<OptionSlots, "executionLimits" | "historyTtl"> {
+  const executionLimits = new Map<Class, WorkflowExecutionLimits>();
+  const historyTtl = new Map<Class, Milliseconds | Ttl>();
+  for (const cls of withChildWorkflows(workflows)) {
+    const declaration = declarationOf(cls);
+    if (declaration?.kind !== NodeKind.Workflow) continue;
+    const { name } = declaration.options;
+    const limits = executionLimitsOverlayOf(folded, name);
+    if (limits !== undefined) executionLimits.set(cls, limits);
+    const ttl = historyTtlOverlayOf(folded, name);
+    if (ttl !== undefined) historyTtl.set(cls, ttl);
+  }
+  return { executionLimits, historyTtl };
 }
 
 /** The `@FilePolicy` each workflow gets from a profile in place of its own, by workflow class. */
@@ -94,7 +119,9 @@ function checkFilePolicies(folded: FoldedConfig, policies: readonly Class[]): vo
     if (meta === undefined)
       throw failure(
         ProfileErrorReason.Unknown,
-        `profile ${profiles}: filePolicies.${name}: no such @FilePolicy in use in the application — it has: ${metas.map((one) => one.name).join(", ") || "none"}`,
+        `profile ${profiles}: filePolicies.${name}: no such @FilePolicy in use in the application — it has: ${
+          metas.map((one) => one.name).join(", ") || "none"
+        }`,
       );
     const [problem] = filePolicyProblemsOf(overlaidFilePolicyMeta(meta, overlay));
     if (problem !== undefined)
@@ -116,6 +143,7 @@ export function optionCarrierOf(
 ): ComponentOptions {
   const filePolicySlots = filePolicySlotsOf(folded, options);
   const placements = placementOverridesOf(folded, options.workflows);
+  const limits = limitOverridesOf(folded, options.workflows);
   const shelves = [
     folded.filePolicies,
     folded.channels,
@@ -126,7 +154,9 @@ export function optionCarrierOf(
   if (
     shelves.every((shelf) => Object.keys(shelf).length === 0) &&
     filePolicySlots.size === 0 &&
-    placements.size === 0
+    placements.size === 0 &&
+    limits.executionLimits?.size === 0 &&
+    limits.historyTtl?.size === 0
   )
     return ComponentOptions.none;
   checkFilePolicies(folded, filePoliciesInUse(options, filePolicySlots));
@@ -141,6 +171,6 @@ export function optionCarrierOf(
       a2aAgents: folded.a2aAgents,
       mcpServers: folded.mcpServers,
     },
-    { filePolicy: filePolicySlots, placement: placements },
+    { filePolicy: filePolicySlots, placement: placements, ...limits },
   );
 }

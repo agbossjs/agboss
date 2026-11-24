@@ -172,26 +172,27 @@ function defaultViolations(graph: FlowGraph): readonly RuleViolation[] {
     if (most === undefined || most <= limit) return [];
     const message =
       `the worst case from ${start} takes ${String(most)} steps, but the default maxSteps ` +
-      `(agents + routers + actions + external tasks) × ${String(STEPS_PER_WORKING_NODE)} is ${String(limit)} — set @Workflow({ maxSteps })`;
+      `(agents + routers + actions + external tasks) × ${String(STEPS_PER_WORKING_NODE)} is ${String(limit)} — set @Workflow({ executionLimits: { maxSteps } })`;
     return [violation("limits.max-steps-too-low", message, [start])];
   });
 }
 
 export function stepsRules(context: AnalysisContext): readonly RuleViolation[] {
-  const { maxSteps, name } = context.workflow;
+  const { name } = context.workflow;
+  const maxSteps = context.workflow.executionLimits?.maxSteps;
   if (maxSteps === undefined) return defaultViolations(context.graph);
   // `NaN`, a word, `null`, a negative or fractional number (#1373): no comparison with it holds, so it bounds nothing —
   // and the run reads it as a bound of 0
   if (!isCountLimit(maxSteps)) {
     const message =
-      `${name} has maxSteps: ${shownLimit(maxSteps)}, not a whole number of steps from 0 — ` +
-      "@Workflow({ maxSteps: 12 }) sets it; leave it out for the default";
+      `${name} has executionLimits.maxSteps: ${shownLimit(maxSteps)}, not a whole number of steps from 0 — ` +
+      "@Workflow({ executionLimits: { maxSteps: 12 } }) sets it; leave it out for the default";
     return [violation("limits.count-invalid", message, [name])];
   }
   const counted = [...context.graph.nodes.values()].some((node) => weightOf(node) > 0);
   if (counted) return boundViolations(context.graph, maxSteps);
   const message =
-    `${name} has maxSteps: ${String(maxSteps)}, but it has no agent, router, action or external task — steps are ` +
+    `${name} has executionLimits.maxSteps: ${String(maxSteps)}, but it has no agent, router, action or external task — steps are ` +
     "always 0; remove maxSteps";
   return [violation("limits.max-steps-unused", message, [])];
 }

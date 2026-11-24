@@ -1303,6 +1303,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/app/outbound-call-parts.ts"],
   ),
   ...reviewed(
+    "which workflows keep their history (#1318): a workflow whose `historyTtl` under the profiles is `Ttl.None` gets no history store, so no record of its trees is saved; a retention choice that decides no spend, lease, fence or cancel (the sweep that removes the kept rows is sharded with the retention); covered by tests/config/workflow-limits-shelf.test.ts",
+    ["src/app/history-sources.ts"],
+  ),
+  ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 140 mutants, 131 killed in the final run; the 37 that had lived in the first run each got a test (30), an equivalence reason (4) or was classed message text (3); covered by tests/sweep-1366h/app/pause-extension-1366h.test.ts, tests/app/pause-working-time.test.ts, tests/app/pause-extension.test.ts, tests/app/pause-reminders.sqlite.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/app/pause-extension.ts"],
   ),

@@ -128,7 +128,7 @@ export class LoopWorkflowFinish {}
   name: "loop-workflow",
   version: "1.0.0",
   memory: Window5Memory,
-  maxSteps: 30,
+  executionLimits: { maxSteps: 30 },
   flow: [
     onStart(LoopWorkflowStart).toAgent(LoopResearcherAgent).toAgent(LoopWriterAgent),
     onAgent(LoopWriterAgent)
@@ -241,7 +241,7 @@ export class JobsRouter {}
   name: "jobs-workflow",
   version: "1.0.0",
   memory: Window5Memory,
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(JobsWorkflowStart).toAgent(ProfileAgent),
     onAgent(ProfileAgent)

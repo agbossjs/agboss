@@ -22,6 +22,8 @@ export interface OptionKeys {
   readonly nested: ReadonlyMap<string, OptionKeys>;
   /** `key → bag`: a key that is a member of a nested bag of this decorator (`maxToolCalls → executionLimits`). */
   readonly moved: ReadonlyMap<string, string>;
+  /** `key → [bag, name]`: a removed key whose value is a member of a nested bag under another name (`maxConcurrentExecutions → executionLimits.maxConcurrency`). */
+  readonly renamed: ReadonlyMap<string, readonly [bag: string, name: string]>;
 }
 
 /**
@@ -33,6 +35,7 @@ export const optionKeys =
   <const K extends readonly KeysOfUnion<T>[]>(
     keys: K & EqualsKeys<T, K>,
     nested?: Readonly<Partial<Record<KeysOfUnion<T>, OptionKeys>>>,
+    renamed: Readonly<Record<string, readonly [bag: KeysOfUnion<T>, name: string]>> = {},
   ): OptionKeys => {
     const bags = new Map(Object.entries<OptionKeys | undefined>(nested ?? {}));
     const moved = new Map<string, string>();
@@ -47,6 +50,7 @@ export const optionKeys =
         [...bags].flatMap(([bag, allowed]) => (allowed === undefined ? [] : [[bag, allowed]])),
       ),
       moved,
+      renamed: new Map(Object.entries(renamed)),
     };
   };
 
@@ -60,6 +64,8 @@ export interface UnknownOption {
   readonly allowed: readonly string[];
   /** A top-level key that belongs in a nested bag of this decorator. */
   readonly belongsIn?: string;
+  /** The name it has in that bag, when it is not the same (`maxConcurrency`). */
+  readonly renamedTo?: string;
 }
 
 /** What a decorator recorded of the options a class was declared with. */
@@ -76,6 +82,14 @@ const recorded = new WeakMap<object, readonly RecordedOptions[]>();
 const isBag = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** Where a top-level key that this decorator no longer takes went: into which bag, and under which name if it changed. */
+function movedTo(allow: OptionKeys, key: string): Pick<UnknownOption, "belongsIn" | "renamedTo"> {
+  const renamed = allow.renamed.get(key);
+  if (renamed !== undefined) return { belongsIn: renamed[0], renamedTo: renamed[1] };
+  const bag = allow.moved.get(key);
+  return bag === undefined ? {} : { belongsIn: bag };
+}
+
 function unknownIn(
   options: Readonly<Record<string, unknown>>,
   allow: OptionKeys,
@@ -90,13 +104,12 @@ function unknownIn(
     if (nested !== undefined && isBag(value))
       found.push(...unknownIn(value, nested, `${prefix}${key}`));
     if (allow.keys.has(key)) continue;
-    const belongsIn = bag === undefined ? allow.moved.get(key) : undefined;
     found.push({
       path: `${prefix}${key}`,
       key,
       ...(bag === undefined ? {} : { bag }),
       allowed: [...allow.keys],
-      ...(belongsIn === undefined ? {} : { belongsIn }),
+      ...(bag === undefined ? movedTo(allow, key) : {}),
     });
   }
   return found;

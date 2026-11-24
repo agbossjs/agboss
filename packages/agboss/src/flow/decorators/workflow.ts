@@ -7,7 +7,7 @@ import type { Class, Provider, ServiceEntry } from "../../components/injection.j
 import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
 import type { FileDefaults } from "../../files/model-files.js";
 import type { Reasoning } from "../../models/reasoning.js";
-import type { Bytes } from "../../units/index.js";
+import type { Bytes, Milliseconds, Ttl } from "../../units/index.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import type { ChildPlacement } from "../child-placement.js";
 import { declarationOf, declared, recordDeclaration } from "./declaration.js";
@@ -48,11 +48,6 @@ export interface ToolDefaults {
   readonly maxResultSize?: Bytes;
 }
 
-/** Flow checks: a path nesting more levels warns `[flow.path-too-deep]` (default 4). */
-export interface FlowDefaults {
-  readonly maxPathDepth?: number;
-}
-
 /**
  * Defaults of every component of a workflow — set on `@Application` (all workflows) and on
  * `@Workflow` (its own), merged field by field; the most specific level that sets a field wins.
@@ -64,7 +59,6 @@ export interface WorkflowDefaults {
   readonly router?: RouterDefaults;
   readonly guardrail?: GuardrailDefaults;
   readonly tools?: ToolDefaults;
-  readonly flow?: FlowDefaults;
 }
 
 /** What `@Application({ defaults: { workflows } })` sets for the child workflows that set nothing (#1286). */
@@ -82,6 +76,26 @@ export interface ApplicationDefaults extends WorkflowDefaults {
 }
 
 /**
+ * What one execution of a workflow, and the tree it heads, may do (`@Workflow({ executionLimits })`,
+ * #1318). Each cap is a whole number; a profile may change any of them (`workflows.<name>.executionLimits`,
+ * field by field).
+ */
+export interface WorkflowExecutionLimits {
+  /** Steps (agent, router, action and external-task visits) per execution; default (agents + routers + actions + external tasks) × 3 (#261, #1278). */
+  readonly maxSteps?: number;
+  /** Nesting of the workflow launching itself (#263, #264, #1287): required of a recursive workflow. */
+  readonly maxDepth?: number;
+  /** How many levels a path may nest before `[flow.path-too-deep]` warns (default 4, #272). */
+  readonly maxPathDepth?: number;
+  /**
+   * How many executions of the tree — the root and all its descendants — work on a step at once
+   * (#264); default 10. The rest wait in a queue (a throttle, never an error); one waiting at a
+   * join or paused holds no slot. A child's own smaller value limits its subtree.
+   */
+  readonly maxConcurrency?: number;
+}
+
+/**
  * `@Workflow` — the graph as paths (`flow`), the workflow's count limits and its module: services,
  * MCP servers, channels, PII policies, guardrails and memory; observers are the application's (`@Application({
  * observers })`, #261).
@@ -95,16 +109,14 @@ export interface WorkflowOptions<
   readonly version: string;
   /** The paths; a workflow launches itself with `toWorkflow(() => ItsOwnClass)` (#1287). */
   readonly flow: TFlow;
-  /** Steps (agent, router, action and external-task visits) per execution; default (agents + routers + actions + external tasks) × 3 (#261, #1278). */
-  readonly maxSteps?: number;
-  /** Nesting of child workflows (#263, #264). */
-  readonly maxDepth?: number;
   /**
-   * How many executions of the tree — the root and all its descendants — work on a step at once
-   * (#264); default 10. The rest wait in a queue (a throttle, never an error); one waiting at a
-   * join or paused holds no slot. A child's own smaller value limits its subtree.
+   * How long the history of this workflow's finished executions is kept (#1318): a duration,
+   * `Ttl.Forever` (never swept) or `Ttl.None` (no history is kept at all). A profile may change it
+   * (`workflows.<name>.historyTtl`); every reader asks the assembly's `ComponentOptions`.
    */
-  readonly maxConcurrentExecutions?: number;
+  readonly historyTtl?: Milliseconds | Ttl;
+  /** The caps of one execution of this workflow and of its tree (#261, #263, #264, #1278, #1318). */
+  readonly executionLimits?: WorkflowExecutionLimits;
   readonly defaults?: WorkflowDefaults;
   /**
    * Where this workflow runs when another launches it as a child (#1286): `CurrentProcess` (the
@@ -195,23 +207,28 @@ export function Workflow<const TName extends string, const TFlow extends readonl
   };
 }
 
-/**
- * `@Workflow({ maxConcurrentExecutions })` (#264): how many executions of a tree work at once — the
- * root's value caps the whole tree, a child's own smaller value its subtree. Read from the
- * declaration by the rules, `describe` and the runtime alike.
- */
+/** `executionLimits.maxConcurrency` of a workflow that sets none (#264). */
+export const DEFAULT_MAX_CONCURRENCY = 10;
 
-/** `maxConcurrentExecutions` of a workflow that sets none. */
-export const DEFAULT_MAX_CONCURRENT_EXECUTIONS = 10;
+/** The limits of a workflow by its class: as declared, or as a profile leaves them. */
+export type ExecutionLimitsOf = (workflow: Class) => WorkflowExecutionLimits;
 
-/** `@Workflow({ maxConcurrentExecutions })` as the workflow declares it; `undefined` when unset. */
-export function declaredMaxConcurrentExecutionsOf(workflow: Class): number | undefined {
+const NO_LIMITS: WorkflowExecutionLimits = Object.freeze({});
+
+/** `@Workflow({ executionLimits })` as the workflow declares it; empty for a class that is no workflow. */
+export const declaredExecutionLimitsOf: ExecutionLimitsOf = (workflow) => {
   const declaration = declarationOf(workflow);
   return declaration?.kind === NodeKind.Workflow
-    ? declaration.options.maxConcurrentExecutions
-    : undefined;
+    ? (declaration.options.executionLimits ?? NO_LIMITS)
+    : NO_LIMITS;
+};
+
+/** `@Workflow({ historyTtl })` as the workflow declares it; `undefined` when unset. */
+export function declaredHistoryTtlOf(workflow: Class): Milliseconds | Ttl | undefined {
+  const declaration = declarationOf(workflow);
+  return declaration?.kind === NodeKind.Workflow ? declaration.options.historyTtl : undefined;
 }
 
-/** A workflow's cap: its own, else the default 10. */
-export const maxConcurrentExecutionsOf = (workflow: Class): number =>
-  declaredMaxConcurrentExecutionsOf(workflow) ?? DEFAULT_MAX_CONCURRENT_EXECUTIONS;
+/** A tree's concurrency cap under `limits`: the workflow's own, else the default 10. */
+export const maxConcurrencyUnder = (limits: ExecutionLimitsOf, workflow: Class): number =>
+  limits(workflow).maxConcurrency ?? DEFAULT_MAX_CONCURRENCY;

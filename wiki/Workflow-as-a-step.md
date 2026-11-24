@@ -11,7 +11,7 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 > time: a subgraph node of the parent, their own executions, `ChildExecutionFailedError`, nested
 > records (`result.children`), `toHaveChildExecutions` / `toHaveHandledError`, and a child as an
 > error handler (`toWorkflow(W)` side paths). Recursion — `() => Self`, `maxDepth`, the soft stop
-> — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrentExecutions` is #264 PR 2
+> — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrency` is #264 PR 2
 > ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)). A child on any instance —
 > `placement: ChildPlacement.AnyWorker` — is #333 PR 2 ([below](#on-any-instance-333-pr-2)).
 > Runnable examples: `examples/flow-patterns/src/vendor/`, `examples/flow-patterns/src/topic/`.
@@ -133,7 +133,7 @@ export class LinkContractWorkflow {}
           .toFinish(VendorRejectedWorkflowFinish),
       ),
   ],
-  maxSteps: 10,
+  executionLimits: { maxSteps: 10 },
 })
 export class VendorCheckWorkflow {}
 
@@ -539,7 +539,7 @@ export const anyInstancePaths = [
 - **A cancel or the tree's end** stops a child running on another instance at its next look (every
   10 s); the tree's queue rows are removed when its root ends.
 - **Tree-wide limits hold where it runs (#333 PR 3)**: its depth (`maxDepth`), the root's budgets
-  and the tree's `maxConcurrentExecutions` ([FinOps](FinOps#concurrency-of-a-tree-264)) are checked
+  and the tree's `maxConcurrency` ([FinOps](FinOps#concurrency-of-a-tree-264)) are checked
   on the worker — the tree's slots are held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>`
   and `:subtree:<executionId>`), and each spend is written to the root's counters in
   `CostLedgerRepository` the moment it is made (#727: its siblings and its parent see it at their
@@ -653,12 +653,12 @@ export class TopicFailedWorkflowFinish {}
     onAction(MarkTopicFailedAction) // two ways in: its own path
       .toFinish(TopicFailedWorkflowFinish),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class TopicResearchWorkflow {}
 ```
 
-**The depth.** `@Workflow({ maxDepth })` is required on a workflow that can launch itself
+**The depth.** `@Workflow({ executionLimits: { maxDepth } })` is required on a workflow that can launch itself
 (`[graph.recursion-without-depth]`, a whole number from 1). `executionContext.depth` is 1 at the
 root, 2 for its children and so on — the same in every child record (`result.children[…].depth`) and
 in each child's trace metadata — so `maxDepth: 3` allows levels 1–3 and the last level is
@@ -700,7 +700,7 @@ as the node of its own name, which `getGraphAsync({ xray: true })` marks `recurs
 metadata ([CLI → Watch mode and Studio](CLI#watch-mode-and-studio-268)).
 
 **The tree's cap.** `maxDepth` bounds how deep the tree goes, the launches' `maxConcurrency` how
-wide one launch goes, and the root's `@Workflow({ maxConcurrentExecutions: 6 })` (default 10) how many
+wide one launch goes, and the root's `@Workflow({ executionLimits: { maxConcurrency: 6 } })` (default 10) how many
 of the tree's executions work at once — the stricter wins. A level whose children run holds no slot,
 so a cap of 1 still finishes; the queue serves a level closing its branch first, then the deepest
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).

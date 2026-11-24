@@ -50,7 +50,7 @@ export class VoucherClerk {}
 @Workflow({
   name: "vouchers-workflow",
   version: "1.0.0",
-  maxSteps: 12,
+  executionLimits: { maxSteps: 12 },
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 3 },

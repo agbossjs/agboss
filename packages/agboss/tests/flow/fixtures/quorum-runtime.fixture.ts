@@ -158,7 +158,7 @@ export class ArbitratedPanelWorkflow {}
 @Workflow({
   name: "each-item-panel-workflow",
   version: "1.0.0",
-  maxSteps: 10,
+  executionLimits: { maxSteps: 10 },
   flow: [
     onStart(PanelItemsWorkflowStart)
       .forEachItem(toAgent(SkillsPanelAgent), { takeFirst: 5 })
@@ -173,7 +173,7 @@ export class EachItemPanelWorkflow {}
 @Workflow({
   name: "item-panel-workflow",
   version: "1.0.0",
-  maxSteps: 10,
+  executionLimits: { maxSteps: 10 },
   flow: [
     onStart(PanelItemsWorkflowStart)
       .toParallelAgents(SkillsPanelAgent, { maxItems: 5 })

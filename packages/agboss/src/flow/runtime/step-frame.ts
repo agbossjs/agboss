@@ -2,10 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { extractRunContext } from "../../core/run-context.js";
 import { NodeKind } from "../ast.js";
-import {
-  declaredMaxConcurrentExecutionsOf,
-  maxConcurrentExecutionsOf,
-} from "../decorators/workflow.js";
+import { maxConcurrencyUnder, type ExecutionLimitsOf } from "../decorators/workflow.js";
 import type { SlotClaim, SubtreeCap, TreeSlotRegistry } from "./launch/launch-registry.js";
 import type { QueueWatch, SlotHold } from "./launch/slot-queue.js";
 import type { WorkflowDescriptor } from "../context/execution-context.js";
@@ -145,12 +142,16 @@ const takesSlot = (node: RuntimeNode): boolean =>
   node.kind === NodeKind.Agent || node.kind === NodeKind.Router || node.kind === NodeKind.Action;
 
 /** The subtrees below the root whose own cap is smaller than every cap around them. */
-function subtreesOf(line: readonly ExecutionFacts[], treeCap: number): readonly SubtreeCap[] {
+function subtreesOf(
+  line: readonly ExecutionFacts[],
+  treeCap: number,
+  limitsOf: ExecutionLimitsOf,
+): readonly SubtreeCap[] {
   const subtrees: SubtreeCap[] = [];
   let enclosing = treeCap;
   // Stryker disable next-line MethodExpression: the root's own cap is the tree's (`enclosing`), never below it: it is passed over whether or not it is sliced off
   for (const member of line.slice(1)) {
-    const own = declaredMaxConcurrentExecutionsOf(member.workflow.type);
+    const own = limitsOf(member.workflow.type).maxConcurrency;
     if (own === undefined || own >= enclosing) continue;
     subtrees.push({ executionId: member.executionId, maxConcurrentExecutions: own });
     enclosing = own;
@@ -183,15 +184,15 @@ interface TreeClaim {
 }
 
 /** The step's claim and the tree it is on. */
-function claimAt(site: TreeSlotSite): TreeClaim {
+function claimAt(site: TreeSlotSite, limitsOf: ExecutionLimitsOf): TreeClaim {
   const line = executionsFromRootOf(site.execution);
   const root = line[0] ?? site.execution;
-  const cap = maxConcurrentExecutionsOf(root.workflow.type);
+  const cap = maxConcurrencyUnder(limitsOf, root.workflow.type);
   const claim: SlotClaim = {
     executionId: site.execution.executionId,
     depth: line.length,
     closesBranch: closesBranch(site.graph, site.state),
-    subtrees: subtreesOf(line, cap),
+    subtrees: subtreesOf(line, cap, limitsOf),
   };
   return { root, cap, claim };
 }
@@ -205,7 +206,7 @@ const cancelledWaiting = (what: string): ExecutionCancelledError =>
  * instance's (#332), with the same claim; a quorum's deadline excludes both waits (#279).
  */
 async function takeSlots(site: TreeSlotSite, slots: TreeSlotRegistry): Promise<SlotHold> {
-  const { root, cap, claim } = claimAt(site);
+  const { root, cap, claim } = claimAt(site, slots.limitsOf);
   const { clock } = extractRunContext(site.config, site.state.runId);
   const { signal } = site.execution;
   const tree = await slots.slotsOf(root, cap, clock).take(claim, signal, site.watch);

@@ -34,7 +34,7 @@ export class MetricsBatchWorkflowStart {}
 @Workflow({
   name: "metrics-batch-workflow",
   version: "1.0.0",
-  maxConcurrentExecutions: 30,
+  executionLimits: { maxConcurrency: 30 },
   flow: [
     onStart(MetricsBatchWorkflowStart)
       .toParallelWorkflows(RemoteItemWorkflow, {

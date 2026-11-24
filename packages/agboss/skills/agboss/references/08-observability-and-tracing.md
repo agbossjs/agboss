@@ -136,7 +136,7 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
       .toAction(OpenTicketAction)
       .toFinish(DeskWorkflowFinish),
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
 })
 export class DeskWorkflow {}
 ```

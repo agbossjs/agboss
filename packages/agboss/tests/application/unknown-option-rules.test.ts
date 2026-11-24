@@ -60,7 +60,15 @@ describe("optionKeys", () => {
   it("lists the keys of a decorator once: the application's and the workflow's", () => {
     expect(APPLICATION_KEYS.keys.has("executionLimits")).toBe(true);
     expect(APPLICATION_KEYS.moved.get("shutdownTimeout")).toBe("executionLimits");
-    expect(WORKFLOW_KEYS.keys.has("maxSteps")).toBe(true);
+    // the workflow's count limits are in the group: the flat 0.1.0 keys are gone, and say where they went
+    for (const key of ["maxSteps", "maxDepth", "maxConcurrentExecutions"])
+      expect(WORKFLOW_KEYS.keys.has(key)).toBe(false);
+    expect(WORKFLOW_KEYS.moved.get("maxSteps")).toBe("executionLimits");
+    expect(WORKFLOW_KEYS.moved.get("maxDepth")).toBe("executionLimits");
+    expect(WORKFLOW_KEYS.renamed.get("maxConcurrentExecutions")).toEqual([
+      "executionLimits",
+      "maxConcurrency",
+    ]);
   });
 });
 
@@ -143,7 +151,10 @@ describe("[decorator.unknown-option]: flow decorators", () => {
         name: "u-flow-workflow",
         version: "1.0.0",
         flow: [onStart(Start).toFinish(Finish)],
-        maxStep: 3,
+        maxSteps: 3,
+        maxDepth: 2,
+        maxConcurrentExecutions: 4,
+        executionLimits: { maxStep: 3 },
         defaults: { models: { modle: "fast" }, tool: {} },
       }),
     )
@@ -151,7 +162,18 @@ describe("[decorator.unknown-option]: flow decorators", () => {
 
     const found = messagesOf(Flow, Start, Finish);
 
-    expect(found).toContain("Flow: maxStep is not an option of @Workflow — did you mean maxSteps?");
+    expect(found).toContain(
+      "Flow: maxSteps is not an option of @Workflow — move it into executionLimits: { maxSteps: … }",
+    );
+    expect(found).toContain(
+      "Flow: maxDepth is not an option of @Workflow — move it into executionLimits: { maxDepth: … }",
+    );
+    expect(found).toContain(
+      "Flow: maxConcurrentExecutions is not an option of @Workflow — move it into executionLimits: { maxConcurrency: … }",
+    );
+    expect(found).toContain(
+      "Flow: maxStep is not an option of @Workflow (in executionLimits) — did you mean maxSteps?",
+    );
     expect(found).toContain(
       "Flow: modle is not an option of @Workflow (in defaults.models) — did you mean model?",
     );

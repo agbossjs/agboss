@@ -398,21 +398,21 @@ describe("#273 AC6, S50: a router's launch follows its routes' policies", () => 
 
 describe("#273: steps and the worst case count the launch", () => {
   it("maxSteps counts the copies that always run", () => {
-    expect(codesOf(flowOf(ResearchWorkflow), { maxSteps: 4 })).toContain(
+    expect(codesOf(flowOf(ResearchWorkflow), { executionLimits: { maxSteps: 4 } })).toContain(
       "limits.max-steps-too-low",
     );
-    expect(codesOf(flowOf(ResearchWorkflow), { maxSteps: 5 })).toEqual([]);
+    expect(codesOf(flowOf(ResearchWorkflow), { executionLimits: { maxSteps: 5 } })).toEqual([]);
   });
 
   it("OnDemand and Skip branches and per-item runs count 0 for the fewest steps", () => {
-    expect(codesOf(flowOf(HelpDeskWorkflow), { maxSteps: 3 })).toEqual([]);
-    expect(codesOf(flowOf(ScreeningWorkflow), { maxSteps: 2 })).toEqual([]);
+    expect(codesOf(flowOf(HelpDeskWorkflow), { executionLimits: { maxSteps: 3 } })).toEqual([]);
+    expect(codesOf(flowOf(ScreeningWorkflow), { executionLimits: { maxSteps: 2 } })).toEqual([]);
   });
 
   it("the worst case of one call: a per-item launch at maxItems, capped by maxSteps", () => {
     const [wide] =
-      checkWorkflow(workflowWith(flowOf(ScreeningWorkflow), { maxSteps: 100 })).analysis
-        ?.worstCases ?? [];
+      checkWorkflow(workflowWith(flowOf(ScreeningWorkflow), { executionLimits: { maxSteps: 100 } }))
+        .analysis?.worstCases ?? [];
     expect(wide).toMatchObject({
       start: "screening-workflow-start",
       executions: 1,

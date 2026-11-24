@@ -50,6 +50,9 @@ export type ContextRuleCode = "context.reserved-field";
 /** A decorator was given an option it does not take (#1313, #1318, #1324). */
 export type DecoratorRuleCode = "decorator.unknown-option";
 
+/** `@Workflow({ historyTtl })` is no duration above 0, `Ttl.Forever` or `Ttl.None` (#1318). */
+export type HistoryTtlRuleCode = "limits.history-ttl-invalid";
+
 /** The rule codes that live beside their feature, not in the one list. */
 export type ExtraRuleCode =
   | A2AEndpointRuleCode
@@ -57,6 +60,7 @@ export type ExtraRuleCode =
   | DecoratorRuleCode
   | EvalRuleCode
   | FileRuleCode
+  | HistoryTtlRuleCode
   | ModelProviderRuleCode
   | ParallelLaunchRuleCode
   | PauseTargetRuleCode

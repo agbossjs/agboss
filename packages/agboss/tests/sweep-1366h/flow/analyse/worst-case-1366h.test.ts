@@ -345,20 +345,25 @@ const throughBoth = (self: () => abstract new () => unknown, other: abstract new
 
 describe("#1366: a workflow that launches itself inside a loop of workflows", () => {
   it("counts each workflow once along a chain of launches, the other one not again below the recursion", () => {
-    @Workflow({ name: "pong-case-workflow", version: "1.0.0", flow: [], maxDepth: 4 })
+    @Workflow({
+      name: "pong-case-workflow",
+      version: "1.0.0",
+      flow: [],
+      executionLimits: { maxDepth: 4 },
+    })
     class PongCase {}
     @Workflow({
       name: "ping-case-workflow",
       version: "1.0.0",
       flow: throughBoth(() => PingCase, PongCase),
-      maxDepth: 4,
+      executionLimits: { maxDepth: 4 },
     })
     class PingCase {}
     Workflow({
       name: "pong-case-workflow",
       version: "1.0.0",
       flow: throughBoth(() => PongCase, PingCase),
-      maxDepth: 4,
+      executionLimits: { maxDepth: 4 },
     })(PongCase);
 
     const worst = checkWorkflow(PingCase).analysis?.worstCases ?? [];

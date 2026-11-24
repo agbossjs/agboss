@@ -64,7 +64,7 @@ export class RecoverableItemAction {
 @Workflow({
   name: "launch-recovery-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(ItemsWorkflowStart)
       .toParallelActions(RecoverableItemAction, { maxItems: 10 })

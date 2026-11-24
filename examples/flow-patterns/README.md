@@ -169,7 +169,7 @@ npx agboss run --start topic-research-workflow-start \
 
 Look at the trace of `topic-research-workflow`: children nested at most three levels deep
 (`depth` 1–3); on level 3 `researcher-agent` only reports (never a `TopicTooBroadDto`); at no moment
-more than 4 executions of the tree working at once (`maxConcurrentExecutions: 4` — compare the
+more than 4 executions of the tree working at once (`maxConcurrency: 4` — compare the
 start and end times of the working steps). Not OK: a fourth level, or a fifth execution working
 beside four others.
 

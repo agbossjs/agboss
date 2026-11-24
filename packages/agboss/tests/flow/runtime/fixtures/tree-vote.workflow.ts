@@ -206,6 +206,6 @@ export class VotingDoneWorkflowFinish {}
       .toAction(VotingDoneAction)
       .toFinish(VotingDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class VotingWorkflow {}

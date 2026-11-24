@@ -127,16 +127,16 @@ function depthText(worst: WorstCase, maxDepth: number | undefined): string {
 
 /** What the root workflow's limits add to the report. */
 export interface WorstCaseLimits {
-  /** `@Workflow({ maxConcurrentExecutions })` of the root: how many of the tree work at once (#264). */
-  readonly maxConcurrentExecutions: number;
-  /** `@Workflow({ maxDepth })` of a recursive root. */
+  /** `@Workflow({ executionLimits: { maxConcurrency } })` of the root: how many of the tree work at once (#264). */
+  readonly maxConcurrency: number;
+  /** `@Workflow({ executionLimits: { maxDepth } })` of a recursive root. */
   readonly maxDepth?: number;
 }
 
-/** `— at most 4 at work at once (maxConcurrentExecutions 4)` when the tree's cap is lower. */
+/** `— at most 4 at work at once (maxConcurrency 4)` when the tree's cap is lower. */
 const atWorkText = (worst: WorstCase, limits: WorstCaseLimits): string =>
-  worst.children.length > 0 && limits.maxConcurrentExecutions < worst.concurrentExecutions
-    ? ` — at most ${String(limits.maxConcurrentExecutions)} at work at once (maxConcurrentExecutions ${String(limits.maxConcurrentExecutions)})`
+  worst.children.length > 0 && limits.maxConcurrency < worst.concurrentExecutions
+    ? ` — at most ${String(limits.maxConcurrency)} at work at once (maxConcurrency ${String(limits.maxConcurrency)})`
     : "";
 
 /** The four rows of one start's worst case. */

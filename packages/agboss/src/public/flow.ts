@@ -132,7 +132,6 @@ export { WorkflowStart, type WorkflowStartOptions } from "../flow/decorators/wor
 export { WorkflowFinish, type WorkflowFinishOptions } from "../flow/decorators/workflow-finish.js";
 export {
   Workflow,
-  type FlowDefaults,
   type GuardrailDefaults,
   type ModelDefaults,
   type RouterDefaults,
@@ -140,6 +139,7 @@ export {
   type ApplicationDefaults,
   type ChildWorkflowDefaults,
   type WorkflowDefaults,
+  type WorkflowExecutionLimits,
   type WorkflowOptions,
 } from "../flow/decorators/workflow.js";
 export type { InputFieldShape, InputFields } from "../flow/decorators/declaration.js";

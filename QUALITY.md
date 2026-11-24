@@ -92,7 +92,7 @@ holds from its type**, not guess it from the name.
   (`GraphRuleError` with stable codes). A new rule gets a code and a test.
 - **Config-driven.** Agents, models, reasoning and caching live in the workflow's components
   (`@Agent`, `@Router`, `@Workflow`), assembled into the config and validated at startup; steps
-  live in `@Workflow({ maxSteps })` and money in the application's `@Budget`s, not in config.
+  live in `@Workflow({ executionLimits: { maxSteps } })` and money in the application's `@Budget`s, not in config.
   Every chat model inherits `defaults.chat`; each router names its own `model` or takes
   `defaults.router.model`; guardrails take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
@@ -145,7 +145,7 @@ holds from its type**, not guess it from the name.
   no `createAgent`, no middlewares; side-effecting tools pass
   `executionContext.step.idempotencyKey` (`deps: [ExecutionContext]`) to the external service.
 - **Bound every loop**: a node's `maxVisits` (required on a node on a cycle —
-  `graph.cycle-without-max-visits`), the run's steps limit (`@Workflow({ maxSteps })` — visits of
+  `graph.cycle-without-max-visits`), the run's steps limit (`@Workflow({ executionLimits: { maxSteps } })` — visits of
   agents and routers, default (agents + routers) × 3), and LangGraph `recursionLimit` only as a
   safety net far above the steps.
 
@@ -164,7 +164,7 @@ period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | P
   `app.execute`, a workflow's own (`workflow: X`) or the default; `BudgetScope.Tenant` /
   `Application` — per `BudgetPeriod.Day | Week | Month` (UTC). Assembly requires an execution budget
   for every workflow (own or the default), a tenant and an application budget, and no duplicates
-  (`[budget.*-required]`, `[budget.duplicate-…]`). Steps are `@Workflow({ maxSteps })`, visits each
+  (`[budget.*-required]`, `[budget.duplicate-…]`). Steps are `@Workflow({ executionLimits: { maxSteps } })`, visits each
   node's `maxVisits` — counts, never money.
   - `maxSpend()` is read **once per execution**, at its start (in its frame: an injected
     `ExecutionContext` reads it), and kept in its state for the whole execution — a resume and a

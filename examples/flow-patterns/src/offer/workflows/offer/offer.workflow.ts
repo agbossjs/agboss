@@ -47,7 +47,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
           .toFinish(OfferSentWorkflowFinish),
       ),
   ],
-  maxSteps: 12,
+  executionLimits: { maxSteps: 12 },
   providers: [RecruiterInbox, OfferMailer],
 })
 export class OfferWorkflow {}

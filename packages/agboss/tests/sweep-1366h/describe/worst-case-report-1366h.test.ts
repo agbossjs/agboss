@@ -39,7 +39,7 @@ const childOf = (
   ...more,
 });
 
-const NO_CAP: WorstCaseLimits = { maxConcurrentExecutions: 1000 };
+const NO_CAP: WorstCaseLimits = { maxConcurrency: 1000 };
 
 const rowOf = (worst: WorstCase, measure: WorstCaseMeasure, limits = NO_CAP) =>
   worstCaseRowsOf(worst, limits).find((row) => row.measure === measure);
@@ -134,9 +134,9 @@ describe("#1366: the nesting depth row", () => {
     });
     const worst = worstOf("root", { depth: 2, children: [childOf(again)] });
 
-    expect(
-      rowOf(worst, WorstCaseMeasure.Depth, { maxConcurrentExecutions: 9, maxDepth: 3 })?.madeUp,
-    ).toBe("root → loop → loop (maxDepth 3)");
+    expect(rowOf(worst, WorstCaseMeasure.Depth, { maxConcurrency: 9, maxDepth: 3 })?.madeUp).toBe(
+      "root → loop → loop (maxDepth 3)",
+    );
   });
 
   it("says nothing of maxDepth without one, or when no level of the chain is the workflow again", () => {
@@ -151,9 +151,9 @@ describe("#1366: the nesting depth row", () => {
     });
 
     expect(rowOf(recursive, WorstCaseMeasure.Depth)?.madeUp).toBe("root → loop → loop");
-    expect(
-      rowOf(plain, WorstCaseMeasure.Depth, { maxConcurrentExecutions: 9, maxDepth: 3 })?.madeUp,
-    ).toBe("root → kid");
+    expect(rowOf(plain, WorstCaseMeasure.Depth, { maxConcurrency: 9, maxDepth: 3 })?.madeUp).toBe(
+      "root → kid",
+    );
   });
 });
 
@@ -183,12 +183,12 @@ describe("#1366: the cap of the tree's executions at work", () => {
       concurrentExecutions: concurrent,
       children: [childOf(worstOf("kid"), { count: 4, atOnce: 4 })],
     });
-  const atWork = (worst: WorstCase, maxConcurrentExecutions: number) =>
-    rowOf(worst, WorstCaseMeasure.ConcurrentExecutions, { maxConcurrentExecutions })?.madeUp;
+  const atWork = (worst: WorstCase, maxConcurrency: number) =>
+    rowOf(worst, WorstCaseMeasure.ConcurrentExecutions, { maxConcurrency })?.madeUp;
 
   it("adds the cap when it is lower than the tree's executions at once", () => {
     expect(atWork(tree(5), 4)).toBe(
-      "1 root + 4 kid — at most 4 at work at once (maxConcurrentExecutions 4)",
+      "1 root + 4 kid — at most 4 at work at once (maxConcurrency 4)",
     );
   });
 

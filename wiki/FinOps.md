@@ -503,21 +503,21 @@ Counts protect the graph, not money ([Workflow](Workflow)):
 
 | Limit | Error | Meaning |
 | --- | --- | --- |
-| `@Workflow({ maxSteps })` | `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`: `support-workflow took 41 steps; its maxSteps is 40`) | agent, router, action and external-task visits per execution (default (agents + routers + actions + external tasks) × 3) |
+| `@Workflow({ executionLimits: { maxSteps } })` | `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`: `support-workflow took 41 steps; its maxSteps is 40`) | agent, router, action and external-task visits per execution (default (agents + routers + actions + external tasks) × 3) |
 | `maxVisits` on `@Router` / `@Agent` | `VisitsLimitExceededError` (`component`, `nodeId`, `maxVisits`, `visits`) | visits of one node per execution |
-| `@Workflow({ maxDepth })` (#264) | `DepthLimitExceededError` (`workflow`, `maxDepth`, `depth`: `topic-research-workflow went 5 levels deep; its maxDepth is 4`), in the `cause` of `ChildExecutionFailedError` | the levels a recursive workflow's executions run at, the root at 1 — a launch by code past it does not start ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)) |
+| `@Workflow({ executionLimits: { maxDepth } })` (#264) | `DepthLimitExceededError` (`workflow`, `maxDepth`, `depth`: `topic-research-workflow went 5 levels deep; its maxDepth is 4`), in the `cause` of `ChildExecutionFailedError` | the levels a recursive workflow's executions run at, the root at 1 — a launch by code past it does not start ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)) |
 
 One class per limit, all subclasses of `LimitExceededError` (`.onError(LimitExceededError, …)` takes
 any; codes `limit.steps`, `limit.visits`, `limit.budget`, `limit.depth`). A recursive tree's
 executions each count their own `maxSteps`; its money is the root's budgets, every level included. `maxSteps` is checked at assembly:
 `[limits.max-steps-too-low]` — no finish fits in a hand-set `maxSteps`, or the default cannot hold the
-worst case of a per-item launch (`maxItems` runs: set `@Workflow({ maxSteps })`, the default never
+worst case of a per-item launch (`maxItems` runs: set `@Workflow({ executionLimits: { maxSteps } })`, the default never
 grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`, and the warning
 `[limits.max-steps-above-0.1.0-default]` (#1278; an error under `--strict`): a flow with no `maxSteps` whose worst case takes
 more steps than 0.1.0's default — (agents + routers) × 3 — allowed: actions and external tasks count
 as steps now (an action that undoes an entry or reacts to a limit on a side path does not), the
 default grew with them, and a loop through actions is bounded by `maxSteps`, not only by
-`maxVisits`; set `@Workflow({ maxSteps })` to choose the bound. The warning
+`maxVisits`; set `@Workflow({ executionLimits: { maxSteps } })` to choose the bound. The warning
 `[limits.max-steps-below-worst-case]` (#643; an error under `--strict`): a hand-set `maxSteps` below
 the worst case of a flow whose every loop `maxVisits` bounds — each loop counted at its nodes'
 `maxVisits`, its other nodes between two of their visits — would end a run with
@@ -531,7 +531,7 @@ the app: a spending limit on the OpenRouter key itself.
 ## Concurrency of a tree (#264)
 
 A tree of executions — a root and the child workflows it launches, a recursion of unknown depth
-([Workflow as a step](Workflow-as-a-step)) — shares one cap: `@Workflow({ maxConcurrentExecutions: 6 })`
+([Workflow as a step](Workflow-as-a-step)) — shares one cap: `@Workflow({ executionLimits: { maxConcurrency: 6 } })`
 of the root, default 10, a whole number from 1 (`[limits.max-concurrent-executions-invalid]`). It is
 how many executions of the tree work on a step at once — a throttle, never an error:
 
@@ -542,7 +542,7 @@ how many executions of the tree work on a step at once — a throttle, never an 
 | a step without a free slot | waits in the tree's queue |
 | the queue's order | a parent whose children have all finished (its step right after its child, or its children's join: it closes a branch), then the deepest execution; every `seconds(10)` of waiting counts as one level deeper, read from the application's `Clock` |
 | a launch's `maxConcurrency` | holds too: the stricter of the launch's width and the tree's cap wins |
-| a child's own `maxConcurrentExecutions` | a smaller one limits its subtree inside the tree's; a larger one is never reached — `[limits.child-concurrency-above-parent]`, a warning (an error under `--strict`) |
+| a child's own `maxConcurrency` | a smaller one limits its subtree inside the tree's; a larger one is never reached — `[limits.child-concurrency-above-parent]`, a warning (an error under `--strict`) |
 | a quorum's `deadline` | the time its branches wait for a slot does not count ([Parallel → The deadline](Parallel#the-deadline)) |
 | a `FailFast` failure, a cancel | the waiting steps of the aborted launch leave the queue unstarted |
 | a pause, a crash | for a local tree, the slots live in the process that holds the tree's lease ([Several instances](Several-instances)), never in a store; when the tree can launch a child on any instance (`ChildPlacement.AnyWorker`, #333 PR 3), its slots are leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and `:subtree:<executionId>`, renewed while held, so a crashed instance's slot expires by itself); the next pass rebuilds the queue from the unfinished tasks |
@@ -551,7 +551,7 @@ What it is not: a slot is an execution, not model load — one execution may fan
 model calls (provider throughput is `rateLimitPolicy`, below); the cap is per tree, not per
 application; the queue order is per instance (across instances, whoever acquires the lease first
 gets the slot). `agboss describe` prints it for a workflow that
-launches children: `maxConcurrentExecutions 6 (set) · executions of the tree at work at once`
+launches children: `maxConcurrency 6 (set) · executions of the tree at work at once`
 (`10 (default)` when unset).
 
 ## Capacity is not money: rate limits

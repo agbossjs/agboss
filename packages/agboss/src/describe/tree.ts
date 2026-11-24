@@ -11,6 +11,7 @@ import {
 import { startLabel } from "../flow/analyse/rules/children.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
+import type { ExecutionLimitsOf } from "../flow/decorators/workflow.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
 /**
@@ -72,6 +73,8 @@ const startsOf = (workflow: Class): readonly string[] =>
 /** Where the tree finds each workflow's assembled graph. */
 interface TreeSource {
   readonly graphOf: (workflow: Class) => FlowGraph | undefined;
+  /** A workflow's `executionLimits` as the application's profiles leave them. */
+  readonly limitsOf: ExecutionLimitsOf;
 }
 
 function nodeOf(
@@ -86,7 +89,7 @@ function nodeOf(
     if (node.kind !== NodeKind.Workflow || graph === undefined) return [];
     const launch = launchOf(graph.edges.filter((edge) => edge.to === node.name));
     if (node.recursionOf !== undefined) {
-      const maxDepth = options?.maxDepth;
+      const { maxDepth } = source.limitsOf(workflow);
       return [
         {
           launch,
@@ -132,6 +135,7 @@ export function describedTreeOf(assembled: AssembledApplication): DescribedTree 
   );
   const source: TreeSource = {
     graphOf: (workflow) => byClass.get(workflow)?.graph.analysis.graph,
+    limitsOf: assembled.componentOptions.executionLimitsOf,
   };
   const listed = requireApplication(assembled.application, "agboss describe").options.workflows;
   return { workflows: listed.map((workflow) => nodeOf(workflow, source, [])) };

@@ -3,6 +3,12 @@ import { cascadeDefaults } from "../../config/defaults.js";
 import { GraphRuleError, violation, type RuleViolation } from "../../graph/rule-error.js";
 import { NodeKind } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
+import {
+  declaredExecutionLimitsOf,
+  type WorkflowDefaults,
+  type WorkflowExecutionLimits,
+  type WorkflowOptions,
+} from "../decorators/workflow.js";
 import type { ComponentName } from "../registry.js";
 import { childEntriesOf, chooseStarts, type ChildChoice } from "./children.js";
 import { runDataflow, statesOf, type Dataflow } from "./dataflow.js";
@@ -32,6 +38,7 @@ import { dtoOneOfRules } from "./rules/dto-one-of.js";
 import { modelRules } from "./rules/models.js";
 import { nameRules } from "./rules/names.js";
 import { countLimitRules, optionsRules } from "./rules/options.js";
+import { historyTtlRules } from "./rules/history-ttl.js";
 import { outdatedRules } from "./rules/outdated.js";
 import { placementRules } from "./rules/placement.js";
 import { quorumRules } from "./rules/quorum.js";
@@ -86,6 +93,7 @@ const RULES: readonly FlowRule[] = [
   placementRules,
   cycleRules,
   countLimitRules,
+  historyTtlRules,
   switchRules,
   oneOfRules,
   textAgentRules,
@@ -135,6 +143,17 @@ const warningsOf = (context: AnalysisContext): readonly RuleViolation[] => [
   ...remindBeforeWarnings(context),
 ];
 
+/** The workflow's options as the rules read them: its defaults cascaded, its limits as the profiles leave them. */
+const optionsFor = (
+  declared: WorkflowOptions,
+  defaults: WorkflowDefaults | undefined,
+  executionLimits: WorkflowExecutionLimits,
+): WorkflowOptions => ({
+  ...declared,
+  ...(defaults === undefined ? {} : { defaults }),
+  executionLimits,
+});
+
 /** Checks a workflow without throwing. */
 export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): FlowCheck {
   const declaration = declarationOf(workflow);
@@ -148,8 +167,10 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
   const dataflow = runDataflow(walked.graph, fields);
   const children = chooseStarts(entries, dataflow);
   const defaults = cascadeDefaults(options.applicationDefaults, declaration.options.defaults);
+  const limitsOf = options.limits ?? declaredExecutionLimitsOf;
+  const executionLimits = limitsOf(workflow);
   const context: AnalysisContext = {
-    workflow: defaults === undefined ? declaration.options : { ...declaration.options, defaults },
+    workflow: optionsFor(declaration.options, defaults, executionLimits),
     walked,
     graph: walked.graph,
     fields,
@@ -158,7 +179,7 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     options,
   };
   const named = naming(declaration.options.name);
-  const recursion = recursionOf(walked.graph, declaration.options.maxDepth);
+  const recursion = recursionOf(walked.graph, executionLimits.maxDepth);
   const errors = [
     ...walked.violations,
     ...unknownOptionViolations(graphClassesOf(workflow, walked.graph)),
@@ -174,7 +195,7 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
     dataflow,
     warnings,
     children,
-    worstCases: worstCasesOf(walked.graph, declaration.options, workflow),
+    worstCases: worstCasesOf(walked.graph, executionLimits, workflow, limitsOf),
     ...(recursion === undefined ? {} : { recursion }),
   };
   return options.strict === true

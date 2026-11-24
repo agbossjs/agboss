@@ -497,7 +497,7 @@ export class ItemReviewedWorkflowFinish {}
 @Workflow({
   name: "item-review-workflow",
   version: "1.0.0",
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
   flow: [
     onStart(ItemReviewWorkflowStart).toAgent(ItemReviewerAgent),
     onAgent(ItemReviewerAgent).switch(
@@ -559,7 +559,7 @@ export class ReviewsSummaryWorkflowFinish {}
 @Workflow({
   name: "review-items-workflow",
   version: "1.0.0",
-  maxSteps: 4,
+  executionLimits: { maxSteps: 4 },
   flow: [
     onStart(ReviewItemsWorkflowStart)
       .toParallelWorkflows(ItemReviewWorkflow, { maxConcurrency: 2, maxItems: 10 })

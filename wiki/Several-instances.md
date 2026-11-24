@@ -1800,7 +1800,7 @@ export class DeskApplication {}
 
 - A whole number from 1 (`[limits.max-concurrent-steps-invalid]` at assembly: 0, -1 and 2.5 fail);
   **unset → no cap** — nothing changes for an application that does not set it.
-- A step takes its tree's slot ([`maxConcurrentExecutions`](FinOps#concurrency-of-a-tree-264)), then
+- A step takes its tree's slot ([`maxConcurrency`](FinOps#concurrency-of-a-tree-264)), then
   one of the instance's, with the same claim; both are released when the step ends, fails or
   pauses. A start, a finish, a join and a child workflow's node take none.
 - A step without a free slot **waits** — never an error — in the same order as the tree's queue: a
@@ -1879,7 +1879,7 @@ List `SqliteChildExecutionQueueRepository` (table `child_execution_queue`) or yo
 ChildExecutionQueueRepository`; on the built-in in-memory queue only the instances of one process
 (a test's) share it — `[application.in-memory-child-queue]`. The queue, the checkpointer, the
 ledger, the leases, the paused executions and `RateLimitRepository` must be shared for a child to
-run elsewhere. For a tree that can launch on any instance (#333 PR 3, S8), `maxConcurrentExecutions`
+run elsewhere. For a tree that can launch on any instance (#333 PR 3, S8), `maxConcurrency`
 is held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and
 `:subtree:<executionId>`, renewed while held, polled on the `Clock`), depth and the root's budgets
 are checked where the child runs, and each spend reaches the root's counters the moment it is made

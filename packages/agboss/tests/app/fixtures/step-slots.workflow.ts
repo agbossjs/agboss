@@ -33,7 +33,7 @@ export class ItemsWorkflowStart {}
   name: "items-workflow",
   version: "1.0.0",
   // 20 branch actions are 20 steps (#1278): more than the default allows
-  maxSteps: 30,
+  executionLimits: { maxSteps: 30 },
   flow: [
     onStart(ItemsWorkflowStart)
       .toParallelActions(WorkAction, { maxConcurrency: 20, maxItems: 20 })

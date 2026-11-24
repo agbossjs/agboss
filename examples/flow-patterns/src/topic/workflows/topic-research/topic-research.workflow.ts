@@ -12,8 +12,8 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
 /**
  * Recursion (#264): a topic too broad for one report is split, and each subtopic is researched by
  * this workflow itself — `() => TopicResearchWorkflow`, one child execution per item — its results merged. At most
- * three levels (`maxDepth`): on the third the researcher can only report (the soft stop). At most
- * four executions of the tree work at once (`maxConcurrentExecutions`); the rest wait their turn.
+ * three levels (`executionLimits.maxDepth`): on the third the researcher can only report (the soft stop). At most
+ * four executions of the tree work at once (`executionLimits.maxConcurrency`); the rest wait their turn.
  */
 @Workflow({
   name: "topic-research-workflow",
@@ -38,7 +38,6 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
     onAction(MarkTopicFailedAction)
       .toFinish(TopicFailedWorkflowFinish),
   ],
-  maxDepth: 3,
-  maxConcurrentExecutions: 4,
+  executionLimits: { maxDepth: 3, maxConcurrency: 4 },
 })
 export class TopicResearchWorkflow {}

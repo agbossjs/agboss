@@ -251,7 +251,7 @@ export class OnceLevelWorkflowFinish {}
         caseOf(ItemResultDto).toFinish(OnceLevelWorkflowFinish),
       ),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class OnceLevelWorkflow {}
 

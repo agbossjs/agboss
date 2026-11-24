@@ -91,14 +91,19 @@ const loop = [
 @Workflow({ name: "spin-default-workflow", version: "1.0.0", flow: loop })
 class SpinDefaultWorkflow {}
 
-@Workflow({ name: "spin-short-workflow", version: "1.0.0", maxSteps: 5, flow: loop })
+@Workflow({
+  name: "spin-short-workflow",
+  version: "1.0.0",
+  executionLimits: { maxSteps: 5 },
+  flow: loop,
+})
 class SpinShortWorkflow {}
 
 /** The router takes the steps limit into an action: it runs past the limit it reacts to. */
 @Workflow({
   name: "spin-recovering-workflow",
   version: "1.0.0",
-  maxSteps: 5,
+  executionLimits: { maxSteps: 5 },
   flow: [
     onStart(SpinStart).toAction(SpinAction),
     onAction(SpinAction)

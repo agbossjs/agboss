@@ -177,8 +177,7 @@ export class TopicFailedWorkflowFinish {}
       ),
     onAction(MarkTopicFailedAction).toFinish(TopicFailedWorkflowFinish),
   ],
-  maxDepth: 3,
-  maxSteps: 4,
+  executionLimits: { maxSteps: 4, maxDepth: 3 },
 })
 export class TopicResearchWorkflow {}
 
@@ -267,7 +266,7 @@ const countdownPath = (from: typeof CountdownWorkflowStart, self: () => Class) =
   name: "countdown-workflow",
   version: "1.0.0",
   flow: [countdownPath(CountdownWorkflowStart, () => CountdownWorkflow)],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class CountdownWorkflow {}
 
@@ -279,7 +278,7 @@ export class ShallowWorkflowStart {}
   name: "shallow-workflow",
   version: "1.0.0",
   flow: [countdownPath(ShallowWorkflowStart, () => ShallowWorkflow)],
-  maxDepth: 1,
+  executionLimits: { maxDepth: 1 },
 })
 export class ShallowWorkflow {}
 
@@ -344,7 +343,7 @@ export class SumAction {
       .toAction(SumAction)
       .toFinish(CountDoneWorkflowFinish),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class SplitWorkflow {}
 
@@ -400,7 +399,7 @@ export class ChainDoneWorkflowFinish {}
         route(LinkAgent).toFinish(ChainDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class ChainWorkflow {}
 
@@ -433,7 +432,7 @@ export class DeeperRouter {
         route(LinkAgent).toFinish(ChainDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class CodeChainWorkflow {}
 

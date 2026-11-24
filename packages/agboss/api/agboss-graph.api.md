@@ -42,6 +42,9 @@ export interface GraphRuleErrorOptions {
 }
 
 // @public
+export type HistoryTtlRuleCode = "limits.history-ttl-invalid";
+
+// @public
 export class LimitExceededError extends AGBossError {
     constructor(options: LimitExceededErrorOptions);
     // (undocumented)

@@ -1,7 +1,7 @@
 /**
  * #1373 — the sibling numeric limits of `maxVisits` refuse a value that is no number as well, each at its own
  * place, and name no text: a launch's `maxItems` and `maxConcurrency`, a quorum's `min`, `max` and `deadline`, a
- * workflow's `maxConcurrentExecutions` and `maxDepth`, an application's `maxConcurrentSteps` and
+ * workflow's `executionLimits.maxConcurrency` and `maxDepth`, an application's `maxConcurrentSteps` and
  * its timers. Found already refusing them (no change); this pins it, so that a value which is not a number can
  * never turn a limit off.
  */
@@ -91,17 +91,17 @@ describe("#1373: a workflow's concurrency and depth caps that are no counts fail
   const codesOf = (options: Partial<WorkflowOptions>): readonly string[] =>
     checkWorkflow(workflowWith(options)).errors.map((found) => found.code);
 
-  it.each(NOT_COUNTS)("%s as maxConcurrentExecutions", (_kind, value) => {
-    expect(codesOf({ maxConcurrentExecutions: value as never })).toContain(
+  it.each(NOT_COUNTS)("%s as maxConcurrency", (_kind, value) => {
+    expect(codesOf({ executionLimits: { maxConcurrency: value as never } })).toContain(
       "limits.max-concurrent-executions-invalid",
     );
   });
 
   it("0 is refused as well, and a whole number from 1 is not", () => {
-    expect(codesOf({ maxConcurrentExecutions: 0 })).toContain(
+    expect(codesOf({ executionLimits: { maxConcurrency: 0 } })).toContain(
       "limits.max-concurrent-executions-invalid",
     );
-    expect(codesOf({ maxConcurrentExecutions: 4 })).not.toContain(
+    expect(codesOf({ executionLimits: { maxConcurrency: 4 } })).not.toContain(
       "limits.max-concurrent-executions-invalid",
     );
   });

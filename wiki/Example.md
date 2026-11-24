@@ -168,7 +168,7 @@ while the rows and the keys are the application's `@DatabaseStorage` (`src/stora
 only when its application is given a `tracerProvider` (`LangfuseTracer` from `@agboss/langfuse`;
 `scripts/langfuse.sh up` writes the Langfuse keys to the repo's `.env`). The example's `README.md` walks through the manual checks it serves — #263 M1 (the
 vendor screening's children in Langfuse), #264 M1 (the topic research, `maxDepth: 3`,
-`maxConcurrentExecutions: 4`) and #267 M1 (two approvals at once):
+`maxConcurrency: 4`) and #267 M1 (two approvals at once):
 
 ```bash
 cd examples/flow-patterns

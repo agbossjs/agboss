@@ -299,7 +299,7 @@ export class ContractRejectedWorkflowFinish {}
 @Workflow({
   name: "contract-committee-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(ContractCommitteeWorkflowStart)
       .toAction(DraftContractAction)
@@ -338,7 +338,7 @@ export class LoadBudgetOwnersAction {
 @Workflow({
   name: "budget-approval-workflow",
   version: "1.0.0",
-  maxSteps: 30,
+  executionLimits: { maxSteps: 30 },
   flow: [
     onStart(BudgetApprovalWorkflowStart)
       .toAction(LoadBudgetOwnersAction)
@@ -357,7 +357,7 @@ export class BudgetApprovalWorkflow {}
 @Workflow({
   name: "contract-groups-workflow",
   version: "1.0.0",
-  maxSteps: 30,
+  executionLimits: { maxSteps: 30 },
   flow: [
     onStart(ContractGroupsWorkflowStart)
       .toAction(DraftContractAction)
@@ -455,7 +455,7 @@ export class CommitteeNotesWorkflowFinish {}
 @Workflow({
   name: "committee-notes-workflow",
   version: "1.0.0",
-  maxSteps: 30,
+  executionLimits: { maxSteps: 30 },
   flow: [
     onStart(CommitteeNotesWorkflowStart)
       .toAction(DraftContractAction)

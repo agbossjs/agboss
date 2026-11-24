@@ -29,6 +29,7 @@ import type { StepSlots } from "../app/step-slots.js";
 import type { StepEntries } from "../flow/runtime/step-entries.js";
 import type { CompensationParts } from "../flow/runtime/compensation/registry.js";
 import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
+import type { ExecutionLimitsOf } from "../flow/decorators/workflow.js";
 
 /** What the workflow's graph is built from: its analysed paths, its agents and their parts. */
 export interface GraphDeps<TName extends string> {
@@ -69,8 +70,13 @@ export interface GraphDeps<TName extends string> {
   readonly memories?: AssembledMemories;
   /** The workflow's graph: its paths, analysed (`@Workflow({ flow })`). */
   readonly graph: RuntimeGraph;
-  /** Steps per execution (`@Workflow({ maxSteps })`, default (agents + routers + actions + external tasks) × 3). */
+  /** Steps per execution (`@Workflow({ executionLimits: { maxSteps } })`, default (agents + routers + actions + external tasks) × 3). */
   readonly maxSteps: number;
+  /**
+   * Each workflow's `executionLimits` as the profiles the application was assembled under leave them
+   * (#1318c): the tree's concurrency cap is read here, never from a decorator; absent = as declared.
+   */
+  readonly executionLimitsOf?: ExecutionLimitsOf | undefined;
   /** Every router of the graph with its texts loaded (part of the run's versions). */
   readonly routers: readonly LoadedRouter[];
   /** The decision engine of a router: its own model (Jev or a chat model). */

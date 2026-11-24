@@ -1,0 +1,7 @@
+workflows:
+  "*":
+    executionLimits:
+      maxPathDepth: 6
+  limits-spin-workflow:
+    executionLimits:
+      maxSteps: 7

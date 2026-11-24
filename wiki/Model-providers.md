@@ -456,7 +456,7 @@ Three policies of a provider, each with one duty — all app-wide, since the pro
 | `rateLimitPolicy`      | how many calls go to the provider, and how **everyone** slows down after a 429                |
 | `circuitBreakerPolicy` | stops calling a provider that is down for a while (unchanged by #266, its state moved)        |
 
-Next to them, `@Workflow({ maxConcurrentExecutions })` (#264) governs an execution tree's
+Next to them, `@Workflow({ executionLimits: { maxConcurrency } })` (#264) governs an execution tree's
 structure and cost; `rateLimitPolicy` governs the provider API's capacity.
 
 ### `retryPolicy`

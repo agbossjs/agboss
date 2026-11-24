@@ -37,7 +37,7 @@ function recursive(flowOf: Flow | ((self: () => Class) => Flow), maxDepth?: numb
   @Workflow(
     maxDepth === undefined
       ? { name, version: "1.0.0", flow }
-      : { name, version: "1.0.0", flow, maxDepth },
+      : { name, version: "1.0.0", flow, executionLimits: { maxDepth } },
   )
   class SelfCaseWorkflow {}
   return SelfCaseWorkflow;

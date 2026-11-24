@@ -34,7 +34,9 @@ const kebab = z.string().regex(KEBAB, "lowercase letters, digits and dashes");
  */
 export const PromptOverrideSchema = z.union([
   z.string().min(1),
-  z.strictObject({ inline: z.string().min(1) }),
+  z.strictObject({
+    inline: z.string().min(1),
+  }),
 ]);
 
 /** A model and the `name` of its provider: what a profile changes of one component's model. */
@@ -44,7 +46,9 @@ export const ComponentModelOverlaySchema = z.strictObject({
 });
 
 /** The model of a built-in file component: a model name, no provider (the gateway finds the one that serves it). */
-export const FileModelOverlaySchema = z.strictObject({ model: z.string().min(1) });
+export const FileModelOverlaySchema = z.strictObject({
+  model: z.string().min(1),
+});
 
 /** A `defineEnv` value (`appEnv.dailyBudgetUsd`): a `.config.ts` holds one, a YAML file cannot. */
 const envValue = z.custom<unknown>(isVariableReference, "a number or a defineEnv value");
@@ -181,6 +185,20 @@ export const WorkflowOverlaySchema = z.strictObject({
   version: z.string().min(1).optional(),
   /** Where the workflow runs when another launches it as a child. */
   placement: z.enum(ChildPlacement).optional(),
+  /** How long the history of the workflow's finished executions is kept: milliseconds, `"forever"` or `"none"`. */
+  historyTtl: z
+    .union([z.number().positive(), z.literal(Ttl.Forever), z.literal(Ttl.None)])
+    .optional(),
+  /** The workflow's count limits: each a whole number. */
+  executionLimits: z
+    .strictObject({
+      maxSteps: z.number().int().nonnegative().optional(),
+      maxDepth: z.number().int().positive().optional(),
+      maxPathDepth: z.number().int().nonnegative().optional(),
+      maxConcurrency: z.number().int().positive().optional(),
+    })
+    .refine((one) => Object.keys(one).length > 0, { message: "give at least one limit" })
+    .optional(),
   /** A `@Memory`'s compaction settings by its name: its model, turns between compactions, queue. */
   memories: z.record(z.string(), deepPartial(CompactionSettingsSchema)).optional(),
   agents: z.record(z.string(), deepPartial(AgentSettingsSchema)).optional(),

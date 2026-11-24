@@ -124,7 +124,9 @@ describe("#1373: maxVisits that is no whole number from 0 fails assembly", () =>
   });
 
   it("the analysis reads the value as the run does: a bound of 0 in the worst case", () => {
-    const check = checkWorkflow(loopOf({ maxVisits: Number.NaN }, { maxSteps: 10 }));
+    const check = checkWorkflow(
+      loopOf({ maxVisits: Number.NaN }, { executionLimits: { maxSteps: 10 } }),
+    );
 
     expect(check.errors.map((found) => found.code)).toEqual(["limits.count-invalid"]);
     expect(check.warnings.map((found) => found.code)).not.toContain(
@@ -200,12 +202,14 @@ describe("#1373: maxSteps that is no whole number from 0 fails assembly, its val
   it.each(BAD)(
     "%s: [limits.count-invalid] alone — no other steps rule reads it",
     (_kind, value, shown) => {
-      const check = checkWorkflow(loopOf({ maxVisits: 2 }, { maxSteps: value as never }));
+      const check = checkWorkflow(
+        loopOf({ maxVisits: 2 }, { executionLimits: { maxSteps: value as never } }),
+      );
 
       expect(check.errors.map((found) => found.code)).toEqual(["limits.count-invalid"]);
       expect(check.errors[0]?.message).toMatch(
         new RegExp(
-          `^limit-\\d+-loop-workflow has maxSteps: ${shown}, not a whole number of steps from 0`,
+          `^limit-\\d+-loop-workflow has executionLimits.maxSteps: ${shown}, not a whole number of steps from 0`,
         ),
       );
       expect(check.errors[0]?.message).not.toContain("five");
@@ -217,8 +221,8 @@ describe("#1373: maxSteps that is no whole number from 0 fails assembly, its val
   );
 
   it("a whole number that holds the flow passes, one that is too low is still [limits.max-steps-too-low]", () => {
-    expect(codesOf(loopOf({ maxVisits: 2 }, { maxSteps: 50 }))).toEqual([]);
-    expect(codesOf(loopOf({ maxVisits: 2 }, { maxSteps: 0 }))).toEqual([
+    expect(codesOf(loopOf({ maxVisits: 2 }, { executionLimits: { maxSteps: 50 } }))).toEqual([]);
+    expect(codesOf(loopOf({ maxVisits: 2 }, { executionLimits: { maxSteps: 0 } }))).toEqual([
       "limits.max-steps-too-low",
     ]);
   });
@@ -277,7 +281,7 @@ describe("#1373: a router and a question step have a maxVisits that is a whole n
 
 describe("#1373: the application refuses the loop of the issue before any model is called", () => {
   it('maxVisits "five" on both loop nodes: a GraphRuleError with [limits.count-invalid], no value quoted', async () => {
-    const workflow = loopOf({ maxVisits: "five" }, { maxSteps: 500 });
+    const workflow = loopOf({ maxVisits: "five" }, { executionLimits: { maxSteps: 500 } });
 
     @Application({
       name: "limit-issue-application",

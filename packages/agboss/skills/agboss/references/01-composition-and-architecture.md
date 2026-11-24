@@ -258,7 +258,7 @@ import { TooManyJobsWorkflowFinish } from "./too-many-jobs.workflow-finish.js";
           .toFinish(NoMatchWorkflowFinish),
       ),
   ],
-  maxSteps: 3,
+  executionLimits: { maxSteps: 3 },
   providers: [ShortlistStoreService],
 })
 export class ShortlistWorkflow {}

@@ -49,7 +49,7 @@ class ToldWorkflowFinish {}
 @Workflow({
   name: "tell-workflow",
   version: "1.0.0",
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
   defaults: { models: { temperature: 0 } },
   memory: Window1Memory,
   flow: [onStart(TellWorkflowStart).toAgent(TellerAgent).toFinish(ToldWorkflowFinish)],

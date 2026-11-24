@@ -28,7 +28,7 @@ import {
 } from "../fixtures/launch.fixture.js";
 import { ScreeningApplication } from "./fixtures/launch.applications.js";
 
-/** `ScreeningApplication` has `maxSteps: 9`: the screening agent, one audit per company, then the ranker. */
+/** `ScreeningApplication` has `executionLimits: { maxSteps: 9 }`: the screening agent, one audit per company, then the ranker. */
 const screening = testWith(ScreeningApplication, { concurrency: TestConcurrency.Real });
 
 const companies = (count: number) =>

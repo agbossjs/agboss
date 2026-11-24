@@ -269,7 +269,7 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
           ),
       ),
   ],
-  maxSteps: 8,
+  executionLimits: { maxSteps: 8 },
   providers: [OfferMailerService],
 })
 export class OfferLetterWorkflow {}
@@ -816,7 +816,7 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
       .toAgent(PurchaseAgent) // its tool pauses for the buyer
       .toFinish(PurchasePlacedWorkflowFinish),
   ],
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
 })
 export class SourcingWorkflow {}
 ```
@@ -1148,7 +1148,7 @@ import { HelpdeskWorkflowStart } from "./helpdesk.workflow-start.js";
       .toFinish(HelpdeskWorkflowFinish),
   ],
   providers: [BillingDeskA2AAgent],
-  maxSteps: 1,
+  executionLimits: { maxSteps: 1 },
 })
 export class HelpdeskWorkflow {}
 ```
@@ -1801,7 +1801,7 @@ import { LoanWorkflowStart } from "./loan.workflow-start.js";
       )
       .toFinish(LoanOfferedWorkflowFinish),
   ],
-  maxSteps: 8,
+  executionLimits: { maxSteps: 8 },
   providers: [CreditBureauService, FundsLedgerService],
 })
 export class LoanWorkflow {}

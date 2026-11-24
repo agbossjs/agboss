@@ -171,6 +171,7 @@ export const flowFor = (
   AgentExecutionDeps<string>,
   | "graph"
   | "maxSteps"
+  | "executionLimitsOf"
   | "routers"
   | "routerFor"
   | "launchDecisionFor"
@@ -187,6 +188,9 @@ export const flowFor = (
   return {
     graph: bundle.graph,
     maxSteps: bundle.maxSteps,
+    ...(bundle.componentOptions === undefined
+      ? {}
+      : { executionLimitsOf: bundle.componentOptions.executionLimitsOf }),
     routers: bundle.routers,
     routerFor: flowRouterFactory(routerDeps),
     launchDecisionFor: flowLaunchDeciderFactory(routerDeps),

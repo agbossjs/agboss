@@ -59,7 +59,7 @@ export class RemoteCountdownWorkflowStart {}
         caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class RemoteCountdownWorkflow {}
 
@@ -97,7 +97,7 @@ export class RemoteDeeperRouter {
         route(LinkAgent).toFinish(ChainDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class RemoteChainWorkflow {}
 

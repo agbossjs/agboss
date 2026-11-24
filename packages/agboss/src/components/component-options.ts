@@ -10,6 +10,13 @@ import type {
   McpServerOverlay,
 } from "../config/overlay-types.js";
 import type { ChildPlacement } from "../flow/child-placement.js";
+import {
+  declaredExecutionLimitsOf,
+  declaredHistoryTtlOf,
+  type ExecutionLimitsOf,
+  type WorkflowExecutionLimits,
+} from "../flow/decorators/workflow.js";
+import type { Milliseconds, Ttl } from "../units/index.js";
 import type { Class } from "./injection.js";
 import { componentOf, type ComponentMeta } from "./metadata.js";
 
@@ -44,6 +51,10 @@ export interface OptionSlots {
   readonly filePolicy?: ReadonlyMap<Class, Class> | undefined;
   /** Where each child workflow runs under the profiles, by workflow class: over its declaration and the default. */
   readonly placement?: ReadonlyMap<Class, ChildPlacement> | undefined;
+  /** What a profile changes of each workflow's `executionLimits`, field by field, by workflow class. */
+  readonly executionLimits?: ReadonlyMap<Class, WorkflowExecutionLimits> | undefined;
+  /** How long a profile keeps each workflow's history, over its `@Workflow({ historyTtl })`, by workflow class. */
+  readonly historyTtl?: ReadonlyMap<Class, Milliseconds | Ttl> | undefined;
 }
 
 const NO_PLACEMENTS: ReadonlyMap<Class, ChildPlacement> = new Map();
@@ -63,6 +74,22 @@ export class ComponentOptions {
   /** Where each child workflow runs under the profiles (`workflows.<name>.placement`); none for a profile that sets none. */
   get placements(): ReadonlyMap<Class, ChildPlacement> {
     return this.#slots.placement ?? NO_PLACEMENTS;
+  }
+
+  /**
+   * A workflow's `executionLimits` as the profiles leave them: each limit its profile sets over the
+   * one its `@Workflow({ executionLimits })` declares. The run, the assembly rules, the worst case
+   * and `describe` all read the limits here, so a limit is the same on every path.
+   */
+  readonly executionLimitsOf: ExecutionLimitsOf = (workflow) => {
+    const declared = declaredExecutionLimitsOf(workflow);
+    const overlay = this.#slots.executionLimits?.get(workflow);
+    return overlay === undefined ? declared : { ...declared, ...overlay };
+  };
+
+  /** How long a workflow's history is kept: its profile's `historyTtl` over its `@Workflow({ historyTtl })`. */
+  historyTtlOf(workflow: Class): Milliseconds | Ttl | undefined {
+    return this.#slots.historyTtl?.get(workflow) ?? declaredHistoryTtlOf(workflow);
   }
 
   /** The `@FilePolicy` of a workflow: its profile's slot over its `@Workflow({ filePolicy })`. */

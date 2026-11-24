@@ -6,6 +6,7 @@ import type { StepEntries } from "../step-entries.js";
 import type { Class } from "../../../components/injection.js";
 import { treeLaunchesQueued, type Placements } from "../../analyse/child-placements.js";
 import type { ChildPlacement } from "../../child-placement.js";
+import { declaredExecutionLimitsOf, type ExecutionLimitsOf } from "../../decorators/workflow.js";
 import { SharedTreeSlots, type SharedSlotParts } from "./shared-tree-slots.js";
 import {
   holdOnce,
@@ -114,7 +115,7 @@ export class LaunchRegistry {
 }
 
 /**
- * The tree's concurrency cap (#264 S27): `@Workflow({ maxConcurrentExecutions })` of the root — how
+ * The tree's concurrency cap (#264 S27): `@Workflow({ executionLimits: { maxConcurrency } })` of the root — how
  * many executions of one tree (the root and all its descendants) work at once. A priority semaphore
  * per tree, in-process: only the tree's lease holder moves it (Q58) and its children are subgraphs
  * of its checkpoint (#263 S24), so its slots never leave this process — no storage contract.
@@ -125,7 +126,7 @@ export class LaunchRegistry {
  * cannot deadlock. A step without a free slot waits in the queue (a throttle, never an error) in
  * this order: a parent whose children have all finished (it closes a branch), then the deepest
  * execution; every `AGING_STEP` of waiting counts as one level deeper, read from the application's
- * `Clock` when a slot frees. A child workflow's own, smaller `maxConcurrentExecutions` caps its
+ * `Clock` when a slot frees. A child workflow's own, smaller `maxConcurrency` caps its
  * subtree inside the tree's. A waiter whose signal aborts (a cancel, a `FailFast` launch) leaves the
  * queue (`slot-queue.ts`, shared with the instance's `StepSlots`, #332). After a pause or a crash the next pass makes the tree's slots anew: the unfinished tasks
  * claim them again (a resume elsewhere starts with no slot held).
@@ -243,6 +244,8 @@ export class TreeSlotRegistry {
       /** What the selected profiles give child workflows (#1318c): their placement over the declared one. */
       readonly placements?: Placements | undefined;
     },
+    /** Each workflow's `executionLimits` as the selected profiles leave them (#1318c); as declared when absent. */
+    readonly limitsOf: ExecutionLimitsOf = declaredExecutionLimitsOf,
   ) {}
 
   /** The tree's slots, made on its first claim with the root's cap. */

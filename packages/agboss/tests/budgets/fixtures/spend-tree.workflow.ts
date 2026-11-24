@@ -107,7 +107,7 @@ export class SpendTreeWorkflowFinish {}
         caseOf(SpendNoteDto).toFinish(SpendTreeWorkflowFinish),
       ),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class SpendTreeWorkflow {}
 
@@ -148,7 +148,7 @@ export class RemoteSpendTreeWorkflowFinish {}
         caseOf(SpendNoteDto).toFinish(RemoteSpendTreeWorkflowFinish),
       ),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class RemoteSpendTreeWorkflow {}
 

@@ -15,6 +15,8 @@ export default defineConfig({
       "tests/application/*.test.ts",
       "tests/flow/limit-values.test.ts",
       "tests/flow/analyse/*.test.ts",
+      // the limits a profile leaves read by the rules: the overlay's carrier, field by field
+      "tests/config/workflow-limits-shelf.test.ts",
       "tests/units/timer-caps.test.ts",
       "tests/channels/{channel-rules-direct,pause-target-rules,working-time-rules-direct,question-*,expiry-rules,remind-before-rules,roles,discovery}.test.ts",
       "tests/calendar/working-calendar-rules.test.ts",

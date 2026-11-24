@@ -230,7 +230,7 @@ export class MainRouter {}
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
-  maxSteps: 12,
+  executionLimits: { maxSteps: 12 },
   flow: [
     onStart(ChatStart)
       .toRouter(MainRouter)

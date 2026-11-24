@@ -51,7 +51,7 @@ export class BatchDoneWorkflowFinish {}
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 2,
+  executionLimits: { maxConcurrency: 2 },
 })
 export class BatchWorkflow {}
 
@@ -94,6 +94,6 @@ export class SingleFileWorkflowStart {}
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class SingleFileWorkflow {}

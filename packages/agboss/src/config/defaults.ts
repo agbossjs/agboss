@@ -59,7 +59,6 @@ export function cascadeDefaults(
     router: merged(application.router, workflow.router),
     guardrail: merged(application.guardrail, workflow.guardrail),
     tools: merged(application.tools, workflow.tools),
-    flow: merged(application.flow, workflow.flow),
   });
 }
 

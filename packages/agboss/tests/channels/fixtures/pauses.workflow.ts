@@ -515,7 +515,7 @@ export class BatchWorkflowFinish {}
 @Workflow({
   name: "batch-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(BatchWorkflowStart)
       .toParallelAgents(BatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })

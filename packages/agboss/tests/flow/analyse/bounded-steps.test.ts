@@ -68,7 +68,7 @@ function reviewWith(maxSteps: number, handled?: abstract new (...args: never[]) 
   @Workflow({
     name: "review-steps-workflow",
     version: "1.0.0",
-    maxSteps,
+    executionLimits: { maxSteps },
     flow: reviewPaths(handled),
   })
   class ReviewStepsWorkflow {}
@@ -76,7 +76,12 @@ function reviewWith(maxSteps: number, handled?: abstract new (...args: never[]) 
 }
 
 function offerWith(maxSteps: number) {
-  @Workflow({ name: "offer-steps-workflow", version: "1.0.0", maxSteps, flow: offerPaths })
+  @Workflow({
+    name: "offer-steps-workflow",
+    version: "1.0.0",
+    executionLimits: { maxSteps },
+    flow: offerPaths,
+  })
   class OfferStepsWorkflow {}
   return OfferStepsWorkflow;
 }

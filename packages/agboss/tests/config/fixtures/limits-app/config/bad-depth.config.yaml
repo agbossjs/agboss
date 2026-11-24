@@ -1,0 +1,4 @@
+workflows:
+  countdown-workflow:
+    executionLimits:
+      maxDepth: 0

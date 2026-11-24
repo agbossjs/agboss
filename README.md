@@ -470,7 +470,7 @@ with `ChildExecutionFailedError`, and `result.children` holds the nested records
 A workflow may **launch itself** (#264, #1287): a thunk of its own class stands for it in
 `.toWorkflow(() => Self)`, `route(() => Self)` or `.toParallelWorkflows(() => Self, { maxItems
 })` — a topic too broad for one report researched subtopic by subtopic by the same workflow. A
-recursive workflow sets `@Workflow({ maxDepth: 3 })` (`[graph.recursion-without-depth]`); the root is
+recursive workflow sets `@Workflow({ executionLimits: { maxDepth: 3 } })` (`[graph.recursion-without-depth]`); the root is
 at depth 1 (`executionContext.depth`, and each child record's `depth`), so the last level is
 `depth === maxDepth`. There the framework stops it, never the prompt: an agent's `oneOf` variant
 whose `caseOf(…)` launches the workflow itself leaves its response schema, a model router does not see such
@@ -484,14 +484,14 @@ last level: researcher-agent → TopicReportDto only`. A launch of itself is typ
 `typeof Self` carries the generated brand, so one project holds recursive workflows with different
 finishes.
 
-The whole tree shares one **concurrency cap** (#264): `@Workflow({ maxConcurrentExecutions: 6 })` of
+The whole tree shares one **concurrency cap** (#264): `@Workflow({ executionLimits: { maxConcurrency: 6 } })` of
 the root (default 10) — how many executions of the tree, the root and all its descendants, work on a
 step at once. A step without a free slot waits in a queue — a throttle, never an error; an execution
 waiting at a join, for its child or paused holds no slot (an execution's parallel branches share its
 one). The queue serves a parent whose children have all finished first, then the deepest execution,
 every 10 s of waiting counting as one level deeper (the application's `Clock`). A launch's
 `maxConcurrency` and the cap both hold — the stricter wins; a child workflow's own smaller
-`maxConcurrentExecutions` limits its subtree (a larger one is `[limits.child-concurrency-above-parent]`,
+`maxConcurrency` limits its subtree (a larger one is `[limits.child-concurrency-above-parent]`,
 a warning). Time in the queue does not count toward a quorum's `deadline`. The slots are in-process
 under the tree's lease: after a pause or a crash the next pass rebuilds the queue from the unfinished
 tasks, and a `FailFast` failure empties it. A slot is an execution, not model load — provider
@@ -1937,7 +1937,7 @@ A budget is unit-tested without the container —
 `new TenantDailyBudget(testExecutionContext({ tenantContext: ShopTenantContext, tenant: { dailyBudgetUsd: 40 } }).tenant).maxSpend()`
 is `usd(40)` — and an application test reaches an exhausted one the real way:
 `mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
-(`replyWith(…, { cost: usd(0.02) })`). Steps are not money: `@Workflow({ maxSteps })` (default
+(`replyWith(…, { cost: usd(0.02) })`). Steps are not money: `@Workflow({ executionLimits: { maxSteps } })` (default
 (agents + routers) × 3; `StepsLimitExceededError`), checked at assembly too —
 `[limits.max-steps-too-low]` when no finish fits in a hand-set `maxSteps`, or when the default
 cannot hold the worst case of a per-item launch (`maxItems` runs: set `maxSteps`),

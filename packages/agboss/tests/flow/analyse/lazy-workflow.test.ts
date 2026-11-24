@@ -95,7 +95,12 @@ describe("#1287: a workflow that launches itself with a thunk", () => {
         .toWorkflow(() => CountdownWorkflow)
         .toFinish(CountDoneWorkflowFinish),
     ];
-    Workflow({ name: "lazy-self-workflow", version: "1.0.0", flow, maxDepth: 2 })(Never);
+    Workflow({
+      name: "lazy-self-workflow",
+      version: "1.0.0",
+      flow,
+      executionLimits: { maxDepth: 2 },
+    })(Never);
 
     expect(childClassesOf(flow)).toEqual([CountdownWorkflow]);
     expect(childClassesOf(flow, CountdownWorkflow)).toEqual([]);

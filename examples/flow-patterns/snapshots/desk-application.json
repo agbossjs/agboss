@@ -338,8 +338,8 @@
               "children": []
             }
           ],
-          "maxConcurrentExecutions": 10,
-          "isMaxConcurrentExecutionsSet": false
+          "maxConcurrency": 10,
+          "isMaxConcurrencySet": false
         },
         "steps": {
           "least": 1,

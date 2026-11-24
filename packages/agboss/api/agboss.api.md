@@ -3856,7 +3856,7 @@ export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly T
 }
 
 // @public
-type ExtraRuleCode = A2AEndpointRuleCode | ContextRuleCode | DecoratorRuleCode | EvalRuleCode | FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+type ExtraRuleCode = A2AEndpointRuleCode | ContextRuleCode | DecoratorRuleCode | EvalRuleCode | FileRuleCode | HistoryTtlRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export interface FailedHealthCheckResult {
@@ -4255,12 +4255,6 @@ export interface FixedArbitratedQuorums<THead extends PathHead> {
     joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
     // (undocumented)
     joinQuorumGroups(options?: QuorumGroupsOptions): GroupsJoining<THead>;
-}
-
-// @public
-export interface FlowDefaults {
-    // (undocumented)
-    readonly maxPathDepth?: number;
 }
 
 // @public
@@ -4773,6 +4767,9 @@ export function historyOf<const TDto extends DtoClass>(dto: TDto, options?: Hist
 export interface HistoryOptions {
     readonly maxPrevious?: number;
 }
+
+// @public
+export type HistoryTtlRuleCode = "limits.history-ttl-invalid";
 
 // @public
 export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
@@ -11407,8 +11404,6 @@ export interface WorkflowConfig extends Omit<WorkflowOverlay, "routers"> {
 export interface WorkflowDefaults {
     readonly files?: FileDefaults;
     // (undocumented)
-    readonly flow?: FlowDefaults;
-    // (undocumented)
     readonly guardrail?: GuardrailDefaults;
     // (undocumented)
     readonly models?: ModelDefaults;
@@ -11428,6 +11423,14 @@ export interface WorkflowDefinition {
 export interface WorkflowDescriptor extends WorkflowRecord {
     // (undocumented)
     readonly type: WorkflowClass;
+}
+
+// @public
+export interface WorkflowExecutionLimits {
+    readonly maxConcurrency?: number;
+    readonly maxDepth?: number;
+    readonly maxPathDepth?: number;
+    readonly maxSteps?: number;
 }
 
 // @public (undocumented)
@@ -11482,12 +11485,11 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly defaults?: WorkflowDefaults;
     readonly excludePiiPolicies?: readonly Class[];
     readonly excludeToolInterceptors?: readonly Class[];
+    readonly executionLimits?: WorkflowExecutionLimits;
     readonly filePolicy?: Class;
     readonly flow: TFlow;
     readonly guardrails?: readonly Class[];
-    readonly maxConcurrentExecutions?: number;
-    readonly maxDepth?: number;
-    readonly maxSteps?: number;
+    readonly historyTtl?: Milliseconds | Ttl;
     readonly memory?: Class;
     readonly modelProvider?: Class;
     readonly name: TName;
@@ -11504,6 +11506,8 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
 // @public
 export interface WorkflowOverlay {
     readonly agents?: Readonly<Record<string, OverlayPartial<AgentSettings>>>;
+    readonly executionLimits?: WorkflowExecutionLimits;
+    readonly historyTtl?: Milliseconds | Ttl;
     readonly memories?: Readonly<Record<string, OverlayPartial<CompactionSettings>>>;
     readonly placement?: ChildPlacement;
     readonly prompts?: Readonly<Record<string, PromptOverride>>;
@@ -12609,12 +12613,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "model".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "ToolDefaults".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "maxToolCalls".
-// src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "maxPathDepth".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "models".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "router".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "guardrail".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "tools".
-// src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "flow".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "workflows".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "version".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "defaults".

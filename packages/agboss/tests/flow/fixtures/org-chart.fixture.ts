@@ -138,7 +138,7 @@ export class OrgChartFailedWorkflowFinish {}
           .toFinish(TeamChartWorkflowFinish),
       ),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class OrgChartWorkflow {}
 
@@ -196,7 +196,7 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
         caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
       ),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class OrgDrillWorkflow {}
 
@@ -232,6 +232,6 @@ export class UnitCharterAgent {}
       )
       .toFinish(TeamChartWorkflowFinish),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class OrgRetryWorkflow {}

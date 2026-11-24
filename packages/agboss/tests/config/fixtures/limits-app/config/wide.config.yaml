@@ -1,0 +1,6 @@
+workflows:
+  limits-spin-workflow:
+    executionLimits:
+      maxSteps: 8
+  limits-kept-workflow:
+    historyTtl: forever

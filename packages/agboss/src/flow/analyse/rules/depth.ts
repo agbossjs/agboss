@@ -7,11 +7,11 @@ import type { AnalysisContext } from "./context.js";
 /**
  * `[flow.path-too-deep]` (#272 AC10): nesting is counted inside each path, reset at every path start;
  * each `switch` case, `chooseOne` route and `onError` side path is one level. More levels than
- * `defaults.flow.maxPathDepth` (4) is a warning — an error under `--strict`. One per path, at its
+ * `executionLimits.maxPathDepth` (4) is a warning — an error under `--strict`. One per path, at its
  * deepest node (the deepest, then the first by name: the same whatever the order of branches).
  */
 
-/** The default of `defaults.flow.maxPathDepth`. */
+/** The default of `executionLimits.maxPathDepth`. */
 export const DEFAULT_MAX_PATH_DEPTH = 4;
 
 const deeper = (first: Placement, second: Placement): Placement =>
@@ -20,7 +20,7 @@ const deeper = (first: Placement, second: Placement): Placement =>
     : first;
 
 export function depthRules(context: AnalysisContext): readonly RuleViolation[] {
-  const limit = context.workflow.defaults?.flow?.maxPathDepth ?? DEFAULT_MAX_PATH_DEPTH;
+  const limit = context.workflow.executionLimits?.maxPathDepth ?? DEFAULT_MAX_PATH_DEPTH;
   const deepest = new Map<PathSource, Placement>();
   for (const placement of context.walked.placements) {
     const found = deepest.get(placement.path);

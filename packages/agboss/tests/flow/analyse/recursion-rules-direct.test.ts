@@ -25,7 +25,7 @@ type Flow = WorkflowOptions["flow"];
 const shown = (found: readonly { code: string; message: string; nodes: readonly string[] }[]) =>
   found.map(({ code, message, nodes }) => ({ code, message, nodes }));
 
-const contextOf = (workflow: object): AnalysisContext => ({ workflow }) as never;
+const contextOf = (workflow: object): AnalysisContext => ({ workflow, options: {} }) as never;
 
 const launching = (other: abstract new () => unknown): Flow => [
   onStart(CountdownWorkflowStart).toWorkflow(other).toFinish(CountDoneWorkflowFinish),
@@ -52,12 +52,12 @@ describe("#1366: the depth of a recursive workflow", () => {
 
   it("names a missing maxDepth and one that is no whole number of levels from 1", () => {
     const tail =
-      " — a recursive workflow bounds its levels: @Workflow({ maxDepth: 4 }) allows executions at depth 1 (the root) to 4";
+      " — a recursive workflow bounds its levels: @Workflow({ executionLimits: { maxDepth: 4 } }) allows executions at depth 1 (the root) to 4";
 
     expect(rules(undefined)).toEqual([
       {
         code: "graph.recursion-without-depth",
-        message: `it launches itself but sets no maxDepth${tail}`,
+        message: `it launches itself but sets no executionLimits.maxDepth${tail}`,
         nodes: ["deep-workflow"],
       },
     ]);
@@ -65,7 +65,7 @@ describe("#1366: the depth of a recursive workflow", () => {
       expect(rules(value)).toEqual([
         {
           code: "graph.recursion-without-depth",
-          message: `its maxDepth is ${String(value)}, not a whole number of levels from 1${tail}`,
+          message: `its executionLimits.maxDepth is ${String(value)}, not a whole number of levels from 1${tail}`,
           nodes: ["deep-workflow"],
         },
       ]);
@@ -206,18 +206,22 @@ describe("#1366: the tree's concurrency cap", () => {
     for (const value of [0, 2.5, -1]) {
       expect(
         shown(
-          concurrencyErrors(contextOf({ name: "cap-workflow", maxConcurrentExecutions: value })),
+          concurrencyErrors(
+            contextOf({ name: "cap-workflow", executionLimits: { maxConcurrency: value } }),
+          ),
         ),
       ).toEqual([
         {
           code: "limits.max-concurrent-executions-invalid",
-          message: `its maxConcurrentExecutions is ${String(value)}, not a whole number of executions from 1 — @Workflow({ maxConcurrentExecutions: 6 }) lets six executions of the tree work at once`,
+          message: `its executionLimits.maxConcurrency is ${String(value)}, not a whole number of executions from 1 — @Workflow({ executionLimits: { maxConcurrency: 6 } }) lets six executions of the tree work at once`,
           nodes: ["cap-workflow"],
         },
       ]);
     }
     expect(
-      concurrencyErrors(contextOf({ name: "cap-workflow", maxConcurrentExecutions: 1 })),
+      concurrencyErrors(
+        contextOf({ name: "cap-workflow", executionLimits: { maxConcurrency: 1 } }),
+      ),
     ).toEqual([]);
     expect(concurrencyErrors(contextOf({ name: "cap-workflow" }))).toEqual([]);
   });
@@ -227,7 +231,7 @@ describe("#1366: the tree's concurrency cap", () => {
       name: "capped-child-workflow",
       version: "1.0.0",
       flow: [],
-      ...(childCap === undefined ? {} : { maxConcurrentExecutions: childCap }),
+      ...(childCap === undefined ? {} : { executionLimits: { maxConcurrency: childCap } }),
     })
     class ChildWorkflow {
       readonly fixture = true;
@@ -236,7 +240,7 @@ describe("#1366: the tree's concurrency cap", () => {
       name: "capped-parent-workflow",
       version: "1.0.0",
       flow: launching(ChildWorkflow),
-      ...(cap === undefined ? {} : { maxConcurrentExecutions: cap }),
+      ...(cap === undefined ? {} : { executionLimits: { maxConcurrency: cap } }),
     })
     class ParentWorkflow {
       readonly fixture = true;
@@ -249,7 +253,7 @@ describe("#1366: the tree's concurrency cap", () => {
       {
         code: "limits.child-concurrency-above-parent",
         message:
-          "capped-child-workflow sets maxConcurrentExecutions 8, above its parent's 4 — a child's cap limits its subtree inside its parent's tree, so it never goes above 4; lower it, or raise the parent's",
+          "capped-child-workflow sets executionLimits.maxConcurrency 8, above its parent's 4 — a child's cap limits its subtree inside its parent's tree, so it never goes above 4; lower it, or raise the parent's",
         nodes: ["capped-parent-workflow"],
       },
     ]);

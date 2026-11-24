@@ -344,7 +344,7 @@ dispatched, from the application's `Clock`, and kept in the launch's ticket (the
 branch's payload). A `Clock` sleep ends the quorum at that moment: `min` reached → go on (groups: the
 highest-priority complete group), else `QuorumNotReachedError` ("the deadline passed"). A pause
 counts as elapsed time. The time its branches wait in the tree's queue (#264
-`maxConcurrentExecutions`) does not: the deadline moves by it, in the process that runs the launch
+`maxConcurrency`) does not: the deadline moves by it, in the process that runs the launch
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)); a model call's wait for a
 provider's rate limit (#266) is not excluded. A `QuorumNotReachedError` past the moved deadline says so: `the deadline passed
 (2026-01-05T09:01:10.000Z: the ticket's deadline plus 40 s in the tree's queue)`. The time in the queue

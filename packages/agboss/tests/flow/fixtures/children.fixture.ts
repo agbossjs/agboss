@@ -140,7 +140,7 @@ export class CompanyReviewFailedWorkflowFinish {}
     // two ways in (two onError side paths) → its own path: the soft failure of a per-item child
     onAction(MarkReviewFailedAction).toFinish(CompanyReviewFailedWorkflowFinish),
   ],
-  maxSteps: 10,
+  executionLimits: { maxSteps: 10 },
 })
 export class CompanyReviewWorkflow {}
 

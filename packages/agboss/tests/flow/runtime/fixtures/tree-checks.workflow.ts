@@ -65,6 +65,6 @@ export class ChecksWorkflowStart {}
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class ChecksWorkflow {}

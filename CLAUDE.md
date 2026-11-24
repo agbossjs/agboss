@@ -53,7 +53,7 @@ balancing })` — one limit for every execution, tenant and instance (`RateLimit
     `@Router`, `@Agent`) and its application (`@Application`, its `@Budget`s) — reference: Architecture below (compiled by `make check`), then Wiki →
     Workflow, Routers, Components, Configuration (compiled by CI, see Quality gates).
 - Observability: vendor-neutral OpenTelemetry tracing — `createApp(App, { tracerProvider })`, an OpenTelemetry provider or a `TracingAdapter` such as `LangfuseTracer` from `@agboss/langfuse` (#1324f); PII-masked before a span is set. FinOps: built-in cost
-  accounting; `@Workflow({ maxSteps })` and each node's `maxVisits` count steps, money is the
+  accounting; `@Workflow({ executionLimits: { maxSteps } })` and each node's `maxVisits` count steps, money is the
   application's `@Budget`s — per execution, per tenant and for the whole application per
   `BudgetPeriod` (UTC); an exhausted one rejects an execution before its first step or stops it
   with `BudgetExceededError`, unless an `.onError(…)` takes it (`QUALITY.md` → FinOps).
@@ -172,7 +172,7 @@ channel (a role's question → answer, who answers, its reply interpreter and it
 the budgets by scope and the execution budget of each workflow, then every workflow: its guardrails
 and PII policies with their refusals (the text, or `ClassName.refusal()`), flow, each node's inputs
 with their producers, its limits (`maxSteps`, `maxVisits`, `maxDepth`,
-`maxConcurrentExecutions`), `model → provider`, and each agent's memory, compaction and `uncompactedTurns`
+`maxConcurrency`), `model → provider`, and each agent's memory, compaction and `uncompactedTurns`
 with where they came from (`(own)`, `(<workflow>)`, `(<application>)`, `(built-in)`). `agboss check` prints its report from the
 decorators only (no `maxSpend()`): per start the worst case of one call — executions, at the same
 time, steps of the tree, nesting depth — each with how it is made up; with `--env
@@ -415,7 +415,7 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
       ),
   ],
   defaults: { tools: { maxToolCalls: 4 } }, // over the application's
-  maxSteps: 4,
+  executionLimits: { maxSteps: 4 },
   providers: [OrderBook],
 })
 export class DeskWorkflow {}
@@ -680,7 +680,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   the builder keeps the thunk unread (`withTarget`) and every reader of a step's `target` sees the
   class. `@Workflow` returns `void`, so a class's type never depends on its own decorator. It is the
   workflow's own compiled graph, run from the registry — never its own subgraph (Studio: the node
-  of its own name, marked `recursive: maxDepth N` in its `getGraphAsync` metadata). `@Workflow({ maxDepth })` is required (`[graph.recursion-without-depth]`);
+  of its own name, marked `recursive: maxDepth N` in its `getGraphAsync` metadata). `@Workflow({ executionLimits: { maxDepth } })` is required (`[graph.recursion-without-depth]`);
   `executionContext.depth` is 1 at the root, each child record has its `depth`, the last level is
   `depth === maxDepth` — no model sees the depth, a domain level is an `input` field (`TopicDto.level`).
   The **soft stop** on the last level: of a branch (`.switch` / `.chooseOne`) the options whose path
@@ -698,7 +698,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `.agboss/types.d.ts`, its `Inputs[name]` is the union of its starts' inputs (a path that cannot fill it
   is a compile error), what a child gives is derived by the analyser; no claim travels in the path's
   type, no `ThisWorkflowOutputs` table.
-- **The tree's concurrency cap (#264 PR 2, S27):** `@Workflow({ maxConcurrentExecutions })` of the
+- **The tree's concurrency cap (#264 PR 2, S27):** `@Workflow({ executionLimits: { maxConcurrency } })` of the
   root (default 10, a whole number from 1 — `[limits.max-concurrent-executions-invalid]`) — how many
   executions of the tree work at once. An execution holds a slot while one of its working steps
   (agent, router, action — a branch too; starts and finishes take none) runs; its parallel branches
@@ -713,7 +713,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `:subtree:<executionId>`, renewed while held, polled on the `Clock`) when the tree can launch on
   any instance (#333 PR 3, S8): a resume or a recovery rebuilds the queue from the
   unfinished tasks; a waiter whose signal aborts (`FailFast`, a cancel) leaves it. `agboss describe`
-  prints `maxConcurrentExecutions 6 (set)` for a workflow that launches children.
+  prints `maxConcurrency 6 (set)` for a workflow that launches children.
 - **The instance's cap on steps (#332):** `@Application({ executionLimits: { maxConcurrentSteps } })` (a whole number from
   1, `[limits.max-concurrent-steps-invalid]`; unset → no cap) — how many agent, router and action
   steps (branches too) one application instance runs at once, over every tree and tenant. A step
@@ -978,7 +978,7 @@ export class SupportWorkflowFinish {}
 })
 export class SupportRouter {}
 // @snippet
-@Workflow({ name: "launch-workflow", version: "1.0.0", flow: launchPaths, maxSteps: 60 })
+@Workflow({ name: "launch-workflow", version: "1.0.0", flow: launchPaths, executionLimits: { maxSteps: 60 } })
 export class LaunchWorkflow {}
 -->
 
@@ -2745,7 +2745,7 @@ const readiness: HealthReport = await app.checkReadiness();
   current tool call's or step's spend (`tool:<name>` / `action:<name>`), counted in the
   execution's budgets; outside a frame `[spend.outside-step]`. In a tool call `executionContext.signal` is the
   call's: the execution's signal and the tool's `timeout` timer (S45).
-- **Limits:** `@Workflow({ maxSteps })` — visits of agents, routers, actions and external tasks in one
+- **Limits:** `@Workflow({ executionLimits: { maxSteps } })` — visits of agents, routers, actions and external tasks in one
   execution (#1278; default: (agents + routers + actions + external tasks) × 3; a side-path action
   that reacts to a limit or undoes an open entry is no step), checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a
   hand-set `maxSteps`, or the default cannot hold the worst case of a per-item launch — set

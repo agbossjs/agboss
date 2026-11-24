@@ -85,7 +85,7 @@ export class DiggerAgent {}
         caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class DigWorkflow {}
 
@@ -143,7 +143,7 @@ export class HoldDepthAction {
         caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class HoldDepthWorkflow {}
 

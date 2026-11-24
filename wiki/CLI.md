@@ -511,7 +511,7 @@ key, no network and no project code run (no `maxSpend()`):
   `ClassName.refusal()` when the class computes it), the paths as written, each node's inputs with
   their producers (`prepare-offer-action ← draft: editor-agent | draft-agent (latest), …`), each
   the start each edge into a child enters through, its limits —
-  `maxSteps` (set or default), each node's `maxVisits`, `maxDepth`, `maxConcurrentExecutions` and
+  `maxSteps` (set or default), each node's `maxVisits`, `maxDepth`, `maxConcurrency` and
   the worst case of each start ([below](#the-check-report-268)) — `model → provider`, its agents,
   tools, dependencies, knowledge bases and settings; each agent's compaction and `uncompactedTurns`
   with where they came from (`(own)`, the workflow's or the application's name, `(built-in)`,
@@ -564,7 +564,7 @@ $ agboss describe --json | jq '.result.workflows[0] | { configHash, node: .nodes
 rule as the [start log](App#at-start-the-log-the-warnings-describe): only what the decorators say. Each number says how it is made up:
 `maxItems` and `maxConcurrency` of the launches on the way (multiplied out level by level), each
 workflow's `maxSteps` or its longest path, `maxDepth` of a workflow launching itself, and the tree's
-`maxConcurrentExecutions` when it is lower than the executions alive at once:
+`maxConcurrency` when it is lower than the executions alive at once:
 
 ```
 flow-patterns-application 1.0.0, environment prod

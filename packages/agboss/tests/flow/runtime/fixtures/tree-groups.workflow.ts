@@ -72,7 +72,7 @@ export class NarrowGroupWorkflowStart {}
   name: "narrow-group-workflow",
   version: "1.0.0",
   flow: [groupPath(NarrowGroupWorkflowStart)],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class NarrowGroupWorkflow {}
 
@@ -116,7 +116,7 @@ export class GroupsDoneWorkflowFinish {}
       .toAction(GroupsDoneAction)
       .toFinish(GroupsDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class GroupsWorkflow {}
 
@@ -138,6 +138,6 @@ export class NarrowGroupsWorkflowStart {}
       .toAction(GroupsDoneAction)
       .toFinish(GroupsDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 4,
+  executionLimits: { maxConcurrency: 4 },
 })
 export class NarrowGroupsWorkflow {}

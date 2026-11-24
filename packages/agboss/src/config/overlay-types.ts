@@ -3,6 +3,7 @@ import type { EnvOverrides } from "../environments/define-env.js";
 import type { EnvContract } from "../environments/env-ref.js";
 import type { Class } from "../components/injection.js";
 import type { ChildPlacement } from "../flow/child-placement.js";
+import type { WorkflowExecutionLimits } from "../flow/decorators/workflow.js";
 import type { EnvRef } from "../environments/env-ref.js";
 import type { Milliseconds, Ttl, Usd } from "../units/index.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
@@ -107,6 +108,16 @@ export interface WorkflowOverlay {
   readonly version?: string;
   /** Where this workflow runs when another launches it as a child, over its `@Workflow({ placement })` and the application's default. */
   readonly placement?: ChildPlacement;
+  /**
+   * How long the history of this workflow's finished executions is kept, over its `@Workflow({ historyTtl })`:
+   * milliseconds, `Ttl.Forever` or `Ttl.None`.
+   */
+  readonly historyTtl?: Milliseconds | Ttl;
+  /**
+   * The workflow's `executionLimits` under this profile, field by field over its `@Workflow({ executionLimits })`
+   * (and over an earlier profile's). The run, the assembly rules, the worst case and `describe` read the same values.
+   */
+  readonly executionLimits?: WorkflowExecutionLimits;
   /** A `@Memory`'s compaction settings by its name. */
   readonly memories?: Readonly<Record<string, OverlayPartial<CompactionSettings>>>;
   /** An agent's settings by its name: model, temperature, thinking, limits. */

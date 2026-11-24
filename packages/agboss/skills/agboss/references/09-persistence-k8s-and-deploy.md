@@ -126,7 +126,7 @@ const sameVersionOnly = (resume: IncompatibleResume): ResumeDecision =>
       .toAgent(ClaimAssessorAgent)
       .toFinish(ClaimWorkflowFinish),
   ],
-  maxSteps: 1,
+  executionLimits: { maxSteps: 1 },
 })
 export class ClaimWorkflow implements WorkflowDefinition {
   settings(): WorkflowSettings {

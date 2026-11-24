@@ -21,7 +21,7 @@ const supportWith = (maxSteps?: number): abstract new () => unknown => {
     name: "support-steps-workflow",
     version: "1.0.0",
     flow: supportPaths,
-    ...(maxSteps === undefined ? {} : { maxSteps }),
+    ...(maxSteps === undefined ? {} : { executionLimits: { maxSteps } }),
   })
   class SupportStepsWorkflow {}
   return SupportStepsWorkflow;
@@ -31,7 +31,7 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
   @Workflow({
     name: "send-offer-workflow",
     version: "1.0.0",
-    maxSteps,
+    executionLimits: { maxSteps },
     flow: [onStart(SecondKitWorkflowStart).toAction(SendKitAction).toFinish(SentKitWorkflowFinish)],
   })
   class SendOfferWorkflow {}
@@ -41,7 +41,7 @@ const actionsOnlyWith = (maxSteps: number): abstract new () => unknown => {
 @Workflow({
   name: "steps-handler-workflow",
   version: "1.0.0",
-  maxSteps: 1,
+  executionLimits: { maxSteps: 1 },
   flow: [
     onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)
@@ -99,7 +99,7 @@ describe("#261 AC17: maxSteps bounds", () => {
     @Workflow({
       name: "empty-steps-workflow",
       version: "1.0.0",
-      maxSteps: 4,
+      executionLimits: { maxSteps: 4 },
       flow: [onStart(SecondKitWorkflowStart).toFinish(DraftKitWorkflowFinish)],
     })
     class EmptyStepsWorkflow {}
@@ -108,7 +108,7 @@ describe("#261 AC17: maxSteps bounds", () => {
       {
         code: "limits.max-steps-unused",
         message:
-          "empty-steps-workflow has maxSteps: 4, but it has no agent, router, action or external task — steps are always 0; remove maxSteps",
+          "empty-steps-workflow has executionLimits.maxSteps: 4, but it has no agent, router, action or external task — steps are always 0; remove maxSteps",
       },
     ]);
   });
@@ -142,7 +142,7 @@ const reactingWith = (maxSteps?: number): abstract new () => unknown => {
   @Workflow({
     name: "reacting-workflow",
     version: "1.0.0",
-    ...(maxSteps === undefined ? {} : { maxSteps }),
+    ...(maxSteps === undefined ? {} : { executionLimits: { maxSteps } }),
     flow: [
       onStart(SecondKitWorkflowStart)
         .toAgent(EditKitAgent)
@@ -172,7 +172,7 @@ describe("#1278b: [limits.max-steps-above-0.1.0-default]", () => {
 
   it("a flow that relies on the default and takes more steps than 0.1.0's default allowed warns", () => {
     expect(warningsOf(reactingWith())).toEqual([
-      "reacting-workflow: the worst case from second-kit-workflow-start takes 4 steps, more than the 3 that 0.1.0's default maxSteps — (agents + routers) × 3 — allowed: actions and external tasks count as steps now, and the default is 12. Set @Workflow({ maxSteps }) to choose the bound",
+      "reacting-workflow: the worst case from second-kit-workflow-start takes 4 steps, more than the 3 that 0.1.0's default maxSteps — (agents + routers) × 3 — allowed: actions and external tasks count as steps now, and the default is 12. Set @Workflow({ executionLimits: { maxSteps } }) to choose the bound",
     ]);
   });
 

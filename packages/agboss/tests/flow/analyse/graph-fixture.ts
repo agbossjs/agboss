@@ -75,6 +75,9 @@ export const graphOf = (
 /** The context the step rules read: the workflow's name and `maxSteps`, and the graph. */
 export const contextOf = (graph: FlowGraph, maxSteps?: unknown): AnalysisContext =>
   ({
-    workflow: { name: "flow-workflow", ...(maxSteps === undefined ? {} : { maxSteps }) },
+    workflow: {
+      name: "flow-workflow",
+      ...(maxSteps === undefined ? {} : { executionLimits: { maxSteps } }),
+    },
     graph,
   }) as never;

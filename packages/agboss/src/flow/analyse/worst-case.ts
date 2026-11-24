@@ -4,6 +4,8 @@ import { maxStepsOf } from "./steps.js";
 import type { ComponentName } from "../registry.js";
 import type { Class } from "../../components/injection.js";
 import { declarationOf } from "../decorators/declaration.js";
+import { declaredExecutionLimitsOf, type ExecutionLimitsOf } from "../decorators/workflow.js";
+import type { WorkflowExecutionLimits } from "../decorators/workflow.js";
 import {
   EdgeKind,
   reachableFrom,
@@ -99,13 +101,12 @@ interface Place {
   readonly above: readonly Class[];
   readonly self: Class;
   readonly depth: number;
+  /** The limits of each workflow as the profiles leave them: a child's are read here, not from its decorator. */
+  readonly limitsOf: ExecutionLimitsOf;
 }
 
-/** The count limits of a workflow (`@Workflow({ maxSteps, maxDepth })`). */
-export interface Limits {
-  readonly maxSteps?: number;
-  readonly maxDepth?: number;
-}
+/** The count limits of a workflow (`@Workflow({ executionLimits: { maxSteps, maxDepth } })`). */
+export type Limits = Pick<WorkflowExecutionLimits, "maxSteps" | "maxDepth">;
 
 const NO_CHILDREN: ChildrenCase = {
   executions: 0,
@@ -141,8 +142,8 @@ function childCaseOf(workflow: Class, at: Place): WorstCase | undefined {
   const declaration = declarationOf(workflow);
   if (declaration?.kind !== NodeKind.Workflow || at.above.includes(workflow)) return undefined;
   const { graph } = walkFlow(declaration.options.flow, workflow);
-  const below = { above: [...at.above, workflow], self: workflow, depth: at.depth + 1 };
-  const cases = worstCasesBelow(graph, declaration.options, below);
+  const below = { ...at, above: [...at.above, workflow], self: workflow, depth: at.depth + 1 };
+  const cases = worstCasesBelow(graph, at.limitsOf(workflow), below);
   return cases.reduce<WorstCase | undefined>(
     (worst, next) => (worst === undefined || next.executions > worst.executions ? next : worst),
     undefined,
@@ -237,8 +238,13 @@ function worstCasesBelow(graph: FlowGraph, limits: Limits, at: Place): readonly 
 }
 
 /** The worst case of one call of each start of a workflow (`self`, at the root: depth 1). */
-export function worstCasesOf(graph: FlowGraph, limits: Limits, self: Class): readonly WorstCase[] {
-  return worstCasesBelow(graph, limits, { above: [], self, depth: 1 });
+export function worstCasesOf(
+  graph: FlowGraph,
+  limits: Limits,
+  self: Class,
+  limitsOf: ExecutionLimitsOf = declaredExecutionLimitsOf,
+): readonly WorstCase[] {
+  return worstCasesBelow(graph, limits, { above: [], self, depth: 1, limitsOf });
 }
 
 /** The start log's line (#261): `Worst case of one x-workflow-start call: 1 workflow execution, …`. */

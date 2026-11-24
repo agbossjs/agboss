@@ -40,7 +40,7 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
     onAction(ChargeCardAction)
       .toFinish(CreditWorkflowFinish),
   ],
-  maxSteps: 8,
+  executionLimits: { maxSteps: 8 },
   providers: [CreditService],
 })
 export class CreditWorkflow {}

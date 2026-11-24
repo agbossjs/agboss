@@ -635,9 +635,9 @@ export interface DescribedLaunch {
 // @public
 export interface DescribedLimits {
     // (undocumented)
-    readonly isMaxConcurrentExecutionsSet: boolean;
+    readonly isMaxConcurrencySet: boolean;
     readonly isMaxStepsSet: boolean;
-    readonly maxConcurrentExecutions: number;
+    readonly maxConcurrency: number;
     readonly maxDepth?: number;
     // (undocumented)
     readonly maxSteps: number;
@@ -1217,6 +1217,7 @@ export interface GraphDeps<TName extends string> {
     };
     readonly contexts?: RuntimeContexts;
     readonly executionIds?: ExecutionIds | undefined;
+    readonly executionLimitsOf?: ExecutionLimitsOf | undefined;
     readonly fingerprintKeys?: FingerprintKeys | undefined;
     readonly graph: RuntimeGraph;
     readonly guardrails?: GuardrailRuntime;
@@ -1746,7 +1747,7 @@ export interface WorstCaseChild {
 
 // @public
 export interface WorstCaseLimits {
-    readonly maxConcurrentExecutions: number;
+    readonly maxConcurrency: number;
     readonly maxDepth?: number;
 }
 
@@ -1891,7 +1892,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "worstCases".
-// src/describe/limits.ts - (ae-undocumented) Missing documentation for "isMaxConcurrentExecutionsSet".
+// src/describe/limits.ts - (ae-undocumented) Missing documentation for "isMaxConcurrencySet".
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "describedLimitsOf".
 // src/describe/model-providers.ts - (ae-undocumented) Missing documentation for "name".
 // src/describe/model-providers.ts - (ae-undocumented) Missing documentation for "className".

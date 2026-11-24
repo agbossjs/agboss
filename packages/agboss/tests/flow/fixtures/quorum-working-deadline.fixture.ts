@@ -155,7 +155,7 @@ const parties = [toExternalTask(AuditorExternalTask), toExternalTask(CounselExte
 @Workflow({
   name: "audit-hours-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditHoursWorkflowStart)
       .toAction(DraftContractAction)
@@ -173,7 +173,7 @@ export class AuditHoursWorkflow {}
 @Workflow({
   name: "audit-days-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditDaysWorkflowStart)
       .toAction(DraftContractAction)
@@ -191,7 +191,7 @@ export class AuditDaysWorkflow {}
 @Workflow({
   name: "audit-groups-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditGroupsWorkflowStart)
       .toAction(DraftContractAction)
@@ -212,7 +212,7 @@ export class AuditGroupsWorkflow {}
 @Workflow({
   name: "audit-broken-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditBrokenWorkflowStart)
       .toAction(DraftContractAction)
@@ -230,7 +230,7 @@ export class AuditBrokenWorkflow {}
 @Workflow({
   name: "audit-unhandled-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AuditUnhandledWorkflowStart)
       .toAction(DraftContractAction)

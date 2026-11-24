@@ -297,7 +297,7 @@ export class FailedListRecoveredFinish {}
       .toFinish(FailedListFinish),
   ],
   defaults,
-  maxSteps: 4,
+  executionLimits: { maxSteps: 4 },
 })
 export class FailedListWorkflow {}
 

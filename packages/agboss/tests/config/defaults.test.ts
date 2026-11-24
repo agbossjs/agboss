@@ -273,7 +273,6 @@ describe("#261 AC12: cascade", () => {
       name: "ask-workflow",
     });
     expect(uncompactedTurnsSourceOf({ workflow: { name: "bare-workflow" } })).toBeUndefined();
-    expect(defaultSourceOf(levels, "flow", "maxPathDepth")).toBeUndefined();
   });
 
   it("agboss describe shows each router's model and where it came from", async () => {

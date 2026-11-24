@@ -50,6 +50,7 @@ export type { ModelProviderRuleCode } from "../models/model-rule-codes.js";
 export type {
   A2AEndpointRuleCode,
   ContextRuleCode,
+  HistoryTtlRuleCode,
   ParallelLaunchRuleCode,
   StorageRuleCode,
 } from "./extra-rule-codes.js";

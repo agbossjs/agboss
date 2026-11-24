@@ -149,8 +149,8 @@ const editPaths = [
   onAgent(EditorAgent).toRouter(GateRouter).chooseOne(route(EditorAgent), route(DoneFinish)),
 ];
 
-/** The loop with 3 steps per execution (`@Workflow({ maxSteps })`). */
-@Workflow({ name: "short-edit-workflow", version: "1.0.0", maxSteps: 3, flow: editPaths })
+/** The loop with 3 steps per execution (`@Workflow({ executionLimits: { maxSteps } })`). */
+@Workflow({ name: "short-edit-workflow", version: "1.0.0", executionLimits: { maxSteps: 3 }, flow: editPaths })
 export class ShortEditWorkflow {}
 
 @Application({

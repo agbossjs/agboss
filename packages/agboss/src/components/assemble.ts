@@ -106,9 +106,13 @@ function toolClassesOf(
   return { ...tools, questions };
 }
 
-/** Steps per execution: `maxSteps`, else (agents + routers) × 3. */
-const maxStepsOf = (workflow: Class, graph: RuntimeGraph): number =>
-  stepsLimitOf(graph.analysis.graph, workflowDeclarationOf(workflow).options.maxSteps);
+/** Steps per execution: `executionLimits.maxSteps` as the profiles leave it, else (agents + routers + actions + external tasks) × 3. */
+const maxStepsOf = (
+  workflow: Class,
+  graph: RuntimeGraph,
+  owner: WorkflowOwner | undefined,
+): number =>
+  stepsLimitOf(graph.analysis.graph, optionsOf(owner?.patch).executionLimitsOf(workflow).maxSteps);
 
 /**
  * The workflow's module with its defaults merged over its application's (#261 cascade) — its
@@ -143,6 +147,7 @@ function analysedModule(
     bundle: withApplicationDefaults(moduleOf(workflow), workflow, owner),
     analysis: analyseWorkflow(workflow, {
       ...(applicationDefaults === undefined ? {} : { applicationDefaults }),
+      limits: optionsOf(owner?.patch).executionLimitsOf,
     }),
   };
 }
@@ -194,7 +199,7 @@ export async function workflowOf(
   return {
     config,
     graph,
-    maxSteps: maxStepsOf(workflow, graph),
+    maxSteps: maxStepsOf(workflow, graph, owner),
     ...containerPartsOf(bundle),
     ...policies.assembled,
     ...channelPartsOf(bundle, tools, owner?.workingCalendar, modules),

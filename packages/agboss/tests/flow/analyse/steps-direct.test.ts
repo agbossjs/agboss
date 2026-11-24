@@ -180,7 +180,7 @@ describe("#1366: maxSteps that is not a count, or unused", () => {
       expect(found(chain, value)).toEqual([
         {
           code: "limits.count-invalid",
-          message: `${FLOW} has maxSteps: ${shown}, not a whole number of steps from 0 — @Workflow({ maxSteps: 12 }) sets it; leave it out for the default`,
+          message: `${FLOW} has executionLimits.maxSteps: ${shown}, not a whole number of steps from 0 — @Workflow({ executionLimits: { maxSteps: 12 } }) sets it; leave it out for the default`,
           nodes: [FLOW],
         },
       ]);
@@ -193,7 +193,7 @@ describe("#1366: maxSteps that is not a count, or unused", () => {
     expect(found(none, 5)).toEqual([
       {
         code: "limits.max-steps-unused",
-        message: `${FLOW} has maxSteps: 5, but it has no agent, router, action or external task — steps are always 0; remove maxSteps`,
+        message: `${FLOW} has executionLimits.maxSteps: 5, but it has no agent, router, action or external task — steps are always 0; remove maxSteps`,
         nodes: [],
       },
     ]);
@@ -217,7 +217,7 @@ describe("#1366: the default maxSteps against the worst case", () => {
       {
         code: "limits.max-steps-too-low",
         message:
-          "the worst case from S takes 11 steps, but the default maxSteps (agents + routers + actions + external tasks) × 3 is 6 — set @Workflow({ maxSteps })",
+          "the worst case from S takes 11 steps, but the default maxSteps (agents + routers + actions + external tasks) × 3 is 6 — set @Workflow({ executionLimits: { maxSteps } })",
         nodes: ["S"],
       },
     ]);

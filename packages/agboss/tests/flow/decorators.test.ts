@@ -116,23 +116,18 @@ describe("@Workflow records the flow as plain paths", () => {
       name: "limited-workflow",
       version: "2.0.0",
       flow: [onStart(OrderWorkflowStart)],
-      maxSteps: 12,
-      maxDepth: 2,
-      maxConcurrentExecutions: 4,
+      executionLimits: { maxSteps: 12, maxDepth: 2, maxConcurrency: 4 },
       defaults: {
         models: { temperature: 0, reasoning: Reasoning.off() },
         router: { model: "typesafe/jev-1.13" },
-        flow: { maxPathDepth: 4 },
       },
       memory: Window5Memory,
     })
     class LimitedWorkflow {}
 
     expect(declarationOf(LimitedWorkflow)?.options).toMatchObject({
-      maxSteps: 12,
-      maxDepth: 2,
-      maxConcurrentExecutions: 4,
-      defaults: { router: { model: "typesafe/jev-1.13" }, flow: { maxPathDepth: 4 } },
+      executionLimits: { maxSteps: 12, maxDepth: 2, maxConcurrency: 4 },
+      defaults: { router: { model: "typesafe/jev-1.13" } },
     });
   });
 });

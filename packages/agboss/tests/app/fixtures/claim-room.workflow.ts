@@ -147,7 +147,7 @@ export class ClaimRoomBatchWorkflowFinish {}
 @Workflow({
   name: "claim-room-batch-workflow",
   version: "1.0.0",
-  maxConcurrentExecutions: 30,
+  executionLimits: { maxConcurrency: 30 },
   flow: [
     onStart(ClaimRoomBatchWorkflowStart)
       .toParallelWorkflows(ClaimRoomItemWorkflow, {

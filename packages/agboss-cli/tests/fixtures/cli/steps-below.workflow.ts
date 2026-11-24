@@ -20,7 +20,7 @@ export { OfferDraftDto };
 @Workflow({
   name: "steps-below-workflow",
   version: "1.0.0",
-  maxSteps: 4,
+  executionLimits: { maxSteps: 4 },
   flow: [
     onStart(SecondKitWorkflowStart)
       .toRouter(KitRouter),

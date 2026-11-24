@@ -40,7 +40,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `.joinQuorumGroups({ deadline })` + `.onGroup([A, B], { priority: 1 }, subPath)`            | the first complete group (by priority) continues its own path                                                                                                                                                                                     | `[flow.quorum-impossible]`                                                                                   |
 | `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                     | a child workflow: one, chosen by a router, or one per item                                                                                                                                                                                        | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
 | `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` — `05-channels-and-human-in-the-loop.md`                                                                                                                | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
-| `() => Self` + `@Workflow({ maxDepth })`                                                    | the workflow launches itself                                                                                                                                                                                                                      | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
+| `() => Self` + `@Workflow({ executionLimits: { maxDepth } })`                               | the workflow launches itself                                                                                                                                                                                                                      | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
 | `@Action({ compensateWith, committedBy })`                                                  | the action's undo and its commit point; side paths must run the undo                                                                                                                                                                              | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
 The wrappers (`agboss`, also re-exported by `@agboss/core/dto`): `listOf(XDto)`, `oneOf(A, B)`,
@@ -185,7 +185,7 @@ import { TicketWorkflowStart } from "./ticket.workflow-start.js";
       .toAction(FileTicketAction) // reads ticket (from the start) and triage (from the agent)
       .toFinish(TicketFiledWorkflowFinish), // a finish is a pure boundary port: it hands back its output class
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
 })
 export class TicketWorkflow {}
 ```
@@ -434,7 +434,7 @@ import { OrderHeldWorkflowFinish } from "./order-held.workflow-finish.js";
     onAction(ChargeOrderAction)
       .toFinish(OrderChargedWorkflowFinish),
   ],
-  maxSteps: 6,
+  executionLimits: { maxSteps: 6 },
 })
 export class CreditWorkflow {}
 ```
@@ -660,7 +660,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
           .toFinish(OfferSentWorkflowFinish),
       ),
   ],
-  maxSteps: 12,
+  executionLimits: { maxSteps: 12 },
 })
 export class OfferWorkflow {}
 ```
@@ -968,7 +968,7 @@ import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js
       .join() // actions without output: nothing to give
       .toFinish(ArticlePublishedWorkflowFinish), // reads the WorkflowStartTextDto from the path
   ],
-  maxSteps: 30, // the worst case: the splitter, 20 section reviews and three critics
+  executionLimits: { maxSteps: 30 }, // the worst case: the splitter, 20 section reviews and three critics
 })
 export class ArticleReviewWorkflow {}
 ```
@@ -2075,7 +2075,7 @@ placement } } })`; `OtherWorker` excludes the launching instance) queues it for 
 ## 7. Recursion: `() => Self`
 
 A workflow launches itself with a thunk of its own class (the class does not exist yet when its
-decorator's arguments are evaluated; the thunk is read at assembly). `@Workflow({ maxDepth })` is required; on the last level
+decorator's arguments are evaluated; the thunk is read at assembly). `@Workflow({ executionLimits: { maxDepth } })` is required; on the last level
 (`depth === maxDepth`) the options of a branch that would recurse are not offered — so every such
 branch keeps one that does not recurse.
 
@@ -2241,8 +2241,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
     onAction(MarkTopicFailedAction)
       .toFinish(TopicFailedWorkflowFinish),
   ],
-  maxDepth: 3, // executions at depth 1 (the root) to 3
-  maxConcurrentExecutions: 4, // executions of the whole tree at work at once
+  executionLimits: { maxDepth: 3, maxConcurrency: 4 }, // executions at depth 1 (the root) to 3 // executions of the whole tree at work at once
 })
 export class TopicResearchWorkflow {}
 ```
@@ -2254,7 +2253,7 @@ export class TopicResearchWorkflow {}
   `ChildExecutionFailedError` caused by `DepthLimitExceededError` — take it with
   `.onError(LimitExceededError, …)` (actions and finishes only) right after the launch, or
   `.onError(…)` after a per-item join.
-- `@Workflow({ maxConcurrentExecutions })` (default 10, a whole number from 1,
+- `@Workflow({ executionLimits: { maxConcurrency } })` (default 10, a whole number from 1,
   `[limits.max-concurrent-executions-invalid]`) is how many executions of the tree work at once; a
   child's own larger cap is never reached (`[limits.child-concurrency-above-parent]`, a warning).
 - Each level has its own `maxSteps`; the root's budgets pay for the whole tree.
@@ -2760,7 +2759,7 @@ leads only to actions and finishes (`[graph.limit-handler-uses-model]`): nothing
 
 ## 10. Limits the flow is checked against
 
-- `@Workflow({ maxSteps })` — agent, router, action and external-task visits per execution, default (agents + routers + actions + external tasks) × 3.
+- `@Workflow({ executionLimits: { maxSteps } })` — agent, router, action and external-task visits per execution, default (agents + routers + actions + external tasks) × 3.
   `[limits.max-steps-too-low]`: no finish fits in a hand-set `maxSteps`, or the default cannot hold a
   per-item launch's worst case; `[limits.branch-exceeds-max-steps]`: every path through a node is
   longer; `[limits.max-steps-unused]`: a workflow without agents or routers sets it.

@@ -161,7 +161,7 @@ export class ItemClerkAgent {}
 @Workflow({
   name: "clerk-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(ItemsWorkflowStart)
       .toParallelAgents(ItemClerkAgent, { maxConcurrency: 2, maxItems: 10 })

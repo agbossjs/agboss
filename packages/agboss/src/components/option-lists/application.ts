@@ -7,12 +7,12 @@ import type { FileDefaults } from "../../files/model-files.js";
 import type {
   ApplicationDefaults,
   ChildWorkflowDefaults,
-  FlowDefaults,
   GuardrailDefaults,
   ModelDefaults,
   RouterDefaults,
   ToolDefaults,
   WorkflowDefaults,
+  WorkflowExecutionLimits,
   WorkflowOptions,
 } from "../../flow/decorators/workflow.js";
 import { optionKeys } from "../option-keys.js";
@@ -30,8 +30,6 @@ const ROUTER_DEFAULTS = optionKeys<RouterDefaults>()(["model"]);
 const GUARDRAIL_DEFAULTS = optionKeys<GuardrailDefaults>()(["model"]);
 
 const TOOL_DEFAULTS = optionKeys<ToolDefaults>()(["maxToolCalls", "maxResultSize"]);
-
-const FLOW_DEFAULTS = optionKeys<FlowDefaults>()(["maxPathDepth"]);
 
 const FILE_DEFAULTS = optionKeys<FileDefaults>()([
   "sources",
@@ -51,26 +49,24 @@ const FILE_DEFAULTS = optionKeys<FileDefaults>()([
 const CHILD_DEFAULTS = optionKeys<ChildWorkflowDefaults>()(["placement"]);
 
 const WORKFLOW_DEFAULTS = optionKeys<WorkflowDefaults>()(
-  ["files", "models", "router", "guardrail", "tools", "flow"],
+  ["files", "models", "router", "guardrail", "tools"],
   {
     files: FILE_DEFAULTS,
     models: MODEL_DEFAULTS,
     router: ROUTER_DEFAULTS,
     guardrail: GUARDRAIL_DEFAULTS,
     tools: TOOL_DEFAULTS,
-    flow: FLOW_DEFAULTS,
   },
 );
 
 const APPLICATION_DEFAULTS = optionKeys<ApplicationDefaults>()(
-  ["files", "models", "router", "guardrail", "tools", "flow", "workflows"],
+  ["files", "models", "router", "guardrail", "tools", "workflows"],
   {
     files: FILE_DEFAULTS,
     models: MODEL_DEFAULTS,
     router: ROUTER_DEFAULTS,
     guardrail: GUARDRAIL_DEFAULTS,
     tools: TOOL_DEFAULTS,
-    flow: FLOW_DEFAULTS,
     workflows: CHILD_DEFAULTS,
   },
 );
@@ -122,9 +118,8 @@ export const WORKFLOW_KEYS = optionKeys<WorkflowOptions>()(
     "name",
     "version",
     "flow",
-    "maxSteps",
-    "maxDepth",
-    "maxConcurrentExecutions",
+    "historyTtl",
+    "executionLimits",
     "defaults",
     "placement",
     "budget",
@@ -140,5 +135,15 @@ export const WORKFLOW_KEYS = optionKeys<WorkflowOptions>()(
     "filePolicy",
     "promptVariables",
   ],
-  { defaults: WORKFLOW_DEFAULTS },
+  {
+    defaults: WORKFLOW_DEFAULTS,
+    executionLimits: optionKeys<WorkflowExecutionLimits>()([
+      "maxSteps",
+      "maxDepth",
+      "maxPathDepth",
+      "maxConcurrency",
+    ]),
+  },
+  // 0.1.0's name of the tree's cap: the same limit, in the group, under the name it has there
+  { maxConcurrentExecutions: ["executionLimits", "maxConcurrency"] },
 );

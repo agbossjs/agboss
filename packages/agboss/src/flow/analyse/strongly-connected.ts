@@ -216,7 +216,7 @@ const takesStepsLimit = (graph: FlowGraph): boolean =>
 
 /** `[limits.max-steps-below-worst-case]` for each start whose bounded worst case `maxSteps` cuts. */
 export function worstCaseStepsWarnings(context: AnalysisContext): readonly RuleViolation[] {
-  const { maxSteps } = context.workflow;
+  const maxSteps = context.workflow.executionLimits?.maxSteps;
   const { graph } = context;
   // a `maxSteps` that is no count is refused by `stepsRules`
   if (!isCountLimit(maxSteps) || takesStepsLimit(graph)) return [];

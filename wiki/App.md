@@ -249,7 +249,7 @@ providers)` / `(built-in default: none listed)`, the `Logger`, the `Clock` and t
 providers, the channels, the budgets by scope with their periods, the execution budget that caps
 each workflow (its own or the default — when it is the root of `app.execute`; nested, it spends from
 its root's), the observers and the assembly warnings; then each workflow with its count limits
-(`maxSteps` set or default, each node's `maxVisits`, `maxDepth`, `maxConcurrentExecutions`, the
+(`maxSteps` set or default, each node's `maxVisits`, `maxDepth`, `maxConcurrency`, the
 worst case of each start with how each number is made up — the [check report](CLI#the-check-report-268)).
 `--json` gives the same as `application` and each workflow's `limits`.
 

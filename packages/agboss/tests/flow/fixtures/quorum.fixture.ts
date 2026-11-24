@@ -148,7 +148,7 @@ export class ConvincingReasonArbiter {}
 @Workflow({
   name: "company-search-workflow",
   version: "1.0.0",
-  maxSteps: 60, // a launch of up to 50 items
+  executionLimits: { maxSteps: 60 }, // a launch of up to 50 items
   flow: [
     onStart(CompanySearchWorkflowStart)
       .toAgent(BoardSearchAgent)

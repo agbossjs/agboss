@@ -1,6 +1,7 @@
 import type { MeterProvider, TracerProvider } from "@opentelemetry/api";
 import { withChainedChildren } from "./pii-chain.js";
 import { type AssembledWorkflow } from "../workflow.js";
+import { historySourcesOf } from "./history-sources.js";
 import { redactorValuesViolations } from "../files/redactor-rules.js";
 import { throwIfViolated } from "../graph/rule-error.js";
 import type { StepSlots } from "./step-slots.js";
@@ -282,7 +283,7 @@ export async function createWorkflowDeps(
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...treeDepsOf(parts.infrastructure, withChainedChildren(parts, pii)), // #1150
-    ...historyKeeperOf(parts, { clock, contexts, pii, answers: turns }),
+    ...historyKeeperOf(historySourcesOf(parts, bundle), { clock, contexts, pii, answers: turns }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   const snapshot = configKeeperOf(deps);

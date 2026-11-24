@@ -83,7 +83,7 @@ export function costLedger(): SeenCostLedgerRepository {
 @Workflow({
   name: "priced-batch-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
   flow: [
     onStart(BatchWorkflowStart)
       .toParallelAgents(PricedRefundAgent, { maxConcurrency: 3, maxItems: 5 })

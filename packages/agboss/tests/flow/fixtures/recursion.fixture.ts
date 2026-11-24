@@ -128,7 +128,7 @@ export class ResearchFailedWorkflowFinish {}
       ),
     onAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
   ],
-  maxDepth: 4,
+  executionLimits: { maxDepth: 4 },
 })
 export class DeepResearchWorkflow {}
 
@@ -183,6 +183,6 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
           .toFinish(ResearchReportWorkflowFinish),
       ),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class OutlineWorkflow {}

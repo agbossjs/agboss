@@ -51,7 +51,7 @@ describe("#1366: limit lines", () => {
 
   it("the worst-case limits carry a depth only when there is one", () => {
     expect(worstCaseLimitsOf(describedLimitsOf(plain))).toStrictEqual({
-      maxConcurrentExecutions: describedLimitsOf(plain).maxConcurrentExecutions,
+      maxConcurrency: describedLimitsOf(plain).maxConcurrency,
     });
     expect(worstCaseLimitsOf(describedLimitsOf(recursive)).maxDepth).toBe(4);
   });
