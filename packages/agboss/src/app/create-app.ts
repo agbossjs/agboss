@@ -40,7 +40,8 @@ import { orphanEndsOf, type OrphanEnds } from "./orphan-tree.js";
 import { expireRootOf, type ExpireRoot } from "./expire-root.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
-import { lazyReplyAnswering, resumeOf } from "./resume.js";
+import { resumeOf } from "./resume.js";
+import { answerPartsOf } from "./answer-parts.js";
 import { extendPauseOf } from "./pause-extension.js";
 import { reassignPauseOf, replacementSendsOf, resendOf } from "./pause-reassignment.js";
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
@@ -128,7 +129,7 @@ export async function buildApp(
   const questions = treeQuestionAnswersOf(deps);
   const tools = treeToolsOf(deps);
   const answers = { pauses, paused, owned, tools, questions, current, policy, ...marks };
-  const replies = { replies: lazyReplyAnswering(deps), clock, answers: log };
+  const replies = answerPartsOf(deps, clock, log);
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.turns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
   const newThread = newThreadOf(deps, owned);

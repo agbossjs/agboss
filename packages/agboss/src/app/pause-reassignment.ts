@@ -107,10 +107,12 @@ function channelOf(deps: AppDeps, pause: PauseRecord): PauseChannel | undefined 
  * timeout) with `assignee` and `replaces`, then marks it sent; a channel that decides at once answers it.
  */
 export async function sendReplacement(parts: ResendParts, pause: PauseRecord): Promise<void> {
-  const { deps, pauses, clock } = parts;
+  const { deps, clock } = parts;
   const channel = channelOf(deps, pause);
   if (channel === undefined)
     throw new TypeError(`no channel ${pause.channel}: a reassigned pause cannot be asked`);
+  // an owner's pause with no channel: nobody is asked, the replacement just waits (#1307c)
+  if (channel.sender === undefined) return markedSent(parts, pause);
   const own = ownDepsOf(deps, pause.workflow);
   const timeout = isApprovalPause(pause) ? own.tools(pause.ask.tool).timeout : DEFAULT_TOOL_TIMEOUT;
   const tree = await pauseTreeOf(deps, pause, await treeStateOf(deps, pause.rootExecutionId));
@@ -125,6 +127,12 @@ export async function sendReplacement(parts: ResendParts, pause: PauseRecord): P
     );
   if (outcome.kind === ChannelOutcomeKind.Decided)
     return answeredAtOnce(parts, pause, channel.name, outcome.decision);
+  await markedSent(parts, pause);
+}
+
+/** The replacement recorded as sent: asked of its channel, or of nobody (an owner's pause with no channel). */
+async function markedSent(parts: ResendParts, pause: PauseRecord): Promise<void> {
+  const { deps, pauses } = parts;
   await pauses.markSentByTenantIdAndPauseId(
     pause.tenantId,
     pause.pauseId,

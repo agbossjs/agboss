@@ -217,7 +217,7 @@ export async function workflowOf(
     maxSteps: maxStepsOf(workflow, graph),
     ...containerPartsOf(bundle),
     ...policies.assembled,
-    ...channelPartsOf(bundle, tools, owner?.workingCalendar),
+    ...channelPartsOf(bundle, tools, owner?.workingCalendar, modules),
     ...workflowModelPartsOf(
       { owner, bundle, agents, config, routers, graph, resolver },
       { ...policies.models, replyInterpreters, rags },

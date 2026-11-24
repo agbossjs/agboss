@@ -178,7 +178,11 @@ function hookOf(
   const sender = own.channelOf?.(name);
   if (sender === undefined) throw new UnknownReceiverError(`no channel ${name}`);
   const timeout = isApprovalPause(pause) ? own.tools(pause.ask.tool).timeout : DEFAULT_TOOL_TIMEOUT;
-  return { hook: channelHook(sender.sender, kind), timeout };
+  // an owner's pause with no channel has no sender: nobody to tell (#1307c)
+  return {
+    hook: sender.sender === undefined ? undefined : channelHook(sender.sender, kind),
+    timeout,
+  };
 }
 
 /** Tells `recipient` the notice of `pause`; resolves when it was told or need not be, else rejects. */

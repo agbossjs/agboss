@@ -105,6 +105,26 @@ describe("#1307a: a target has a channel", () => {
     ]);
   });
 
+  it("an owner's target needs no channel (#1307c): it asks nobody", () => {
+    const target = task("owner-external-task");
+    expect(found([useOf(target, true)], [])).toEqual([]);
+  });
+
+  it("an owner's target with two channels and no selector is still ambiguous", () => {
+    const target = task("owner-external-task");
+    const providers = [channelOf(target, "one-channel"), channelOf(target, "two-channel")];
+    expect(found([useOf(target, true)], providers).map(({ code }) => code)).toEqual([
+      "channel.ambiguous-for-target",
+    ]);
+  });
+
+  it("a delegate's target with no channel stays refused (#1307c)", () => {
+    const target = approval("delegate-tool-approval");
+    expect(found([useOf(target)], []).map(({ code }) => code)).toEqual([
+      "channel.missing-for-target",
+    ]);
+  });
+
   it("[channel.ambiguous-for-target]: two channels and no selector", () => {
     const target = approval("legal-tool-approval");
     const one = channelOf(target, "one-channel");
@@ -138,8 +158,8 @@ describe("#1307a: a target has a channel", () => {
     ]);
   });
 
-  it("an external task is checked like an approval", () => {
-    const target = task("limit-external-task");
+  it("a delegate's external task is checked like an approval", () => {
+    const target = task("limit-external-task", { respondent: PauseRespondent.Delegate });
     expect(found([useOf(target, true)], []).map((one) => one.code)).toEqual([
       "channel.missing-for-target",
     ]);
@@ -348,7 +368,23 @@ describe("#1310c: the rules of @ChannelListener and @ChannelInterpreter", () => 
 });
 
 describe("#1307a: a permission hook nothing calls fails assembly (fail closed)", () => {
-  it.each(["permitAnswer", "permitTimeoutChange", "permitReassign"])(
+  it("permitAnswer is called by app.resume (#1307c): a target defining it is clean", () => {
+    class Gated {
+      permitAnswer() {
+        return false;
+      }
+    }
+    ToolApproval({
+      name: "gated-tool-approval",
+      description: "d",
+      input: InputDto,
+      respondent: PauseRespondent.Delegate,
+      timeout: hours(1),
+    })(Gated);
+    expect(found([useOf(Gated)], [channelOf(Gated, "gated-channel")])).toEqual([]);
+  });
+
+  it.each(["permitTimeoutChange", "permitReassign"])(
     "[pause.permit-hook-not-enforced]: %s on a target is refused until the runtime enforces it",
     (hook) => {
       class Gated {

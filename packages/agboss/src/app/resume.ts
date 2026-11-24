@@ -29,6 +29,8 @@ import { noticesWritten, recipientsIn, type PauseNotices } from "../pause/index.
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import { pauseClosed } from "./pause-closed.js";
 import { answeredByOf, pauseOf } from "./pause-answerer.js";
+import { assertAnswerPermitted } from "./answer-permit.js";
+import type { PermitAnswer } from "../channels/pause-contexts.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
 /**
@@ -96,6 +98,8 @@ export interface AnswerParts extends AnsweredRootParts {
   readonly answers: PauseAnswerLog;
   /** Who hears of the answer (#940): its notices are written with it. */
   readonly notices?: PauseNotices | undefined;
+  /** The pause's target's `permitAnswer` (#1307c); `undefined`: it has none. */
+  readonly permits?: ((pause: PauseRecord) => PermitAnswer | undefined) | undefined;
 }
 
 /** A recorded answer: the pause now `Resolved`, and its tree's run as it rests (if it rests). */
@@ -193,6 +197,10 @@ export async function recordedAnswer(
   if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   const { read, run } = await decisionOf(parts, pause, answerGivenBy(request));
+  // a person's answer is permitted by its target before anything is marked or recorded (#1307c); a
+  // channel's own decision is the application's and is not asked of the hook
+  if (source === PauseResolution.Replied)
+    await assertAnswerPermitted(parts, pause, answeredBy, read.decision);
   const answer = answerOf(read, answeredBy, source);
   // the tree has work again before its answer is recorded (#850, paused-runs.ts)
   const isMarked = await markAnswered(parts, pause, run);

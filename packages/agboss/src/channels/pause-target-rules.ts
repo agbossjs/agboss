@@ -11,6 +11,7 @@ import {
   channelTargetOf,
   listedClassesOf,
   pauseTargetOf,
+  PauseRespondent,
   type PauseTargetDeclaration,
 } from "./pause-targets.js";
 
@@ -20,8 +21,7 @@ import {
  * (`[channel.ambiguous-for-target]`); a `@Channel({ target })` names a target and a `ttl` longer than
  * the execution lease; an `escalatesTo` target is of the same kind and DTOs
  * (`[pause.incompatible-escalation-target]`); a `@ChannelSelector` names a target and has
- * `selectChannel`. For now every target needs a channel, an owner's too: opening an owner's pause
- * with none is #1307c's.
+ * `selectChannel`. A target answered by `PauseRespondent.Delegate` needs a channel; an owner's needs none (#1307c).
  */
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
@@ -39,6 +39,8 @@ function bindingViolations(
         Object.prototype.isPrototypeOf.call(target.prototype, cls.prototype),
     );
     const selectors = listed.filter((cls) => channelSelectorOf(cls)?.target === target);
+    // an owner's pause needs no channel (#1307c): it asks nobody and waits for the owner's resume
+    if (channels.length === 0 && options.respondent === PauseRespondent.Owner) return [];
     if (channels.length === 0) {
       return [
         violation(
@@ -164,15 +166,14 @@ function nameViolations(uses: readonly ChannelUse[]): RuleViolation[] {
 }
 
 /** The permission hooks no runtime path calls yet, and who wires each (see `permitHookViolations`). */
-const UNENFORCED_PERMIT_HOOKS = ["permitAnswer", "permitTimeoutChange", "permitReassign"] as const;
+const UNENFORCED_PERMIT_HOOKS = ["permitTimeoutChange", "permitReassign"] as const;
 
 /**
- * `[pause.permit-hook-not-enforced]`: fail closed. `permitAnswer`, `permitTimeoutChange` and
- * `permitReassign` are declared on a target, but no resume, timeout change or reassignment calls
- * them yet — a `permitAnswer` that returns `false` would refuse nothing. Until each is wired, a
- * target that defines one fails assembly. REMOVE per hook, each by the ticket that wires the call
- * with deny-on-false and deny-on-throw: #1307c removes `permitAnswer` (the 3-stage resume),
- * #1307d removes `permitTimeoutChange` and `permitReassign` (setPauseTimeout, reassignPause).
+ * `[pause.permit-hook-not-enforced]`: fail closed. `permitTimeoutChange` and `permitReassign` are
+ * declared on a target, but no timeout change or reassignment calls them yet — one that returns
+ * `false` would refuse nothing. Until each is wired, a target that defines one fails assembly.
+ * #1307d removes both (setPauseTimeout, reassignPause) when it wires the call with deny-on-false and
+ * deny-on-throw. `permitAnswer` is wired (#1307c): `app.resume` calls it before an answer is recorded.
  */
 function permitHookViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   return targetsOf(uses).flatMap(([target, { options }]) =>

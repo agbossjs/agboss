@@ -3,11 +3,14 @@ import { implementationsOf } from "../channels/channel-rules.js";
 import { pauseCalendarOf } from "../calendar/calendar-source.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
+import type { PermitAnswer } from "../channels/pause-contexts.js";
+import { pauseTargetOf, PauseRespondent } from "../channels/pause-targets.js";
 import { channelRoleOf, PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { Class } from "./injection.js";
 import { componentOf } from "./metadata.js";
 import { containerFor } from "./runtime.js";
+import type { Container } from "./container/container.js";
 import type { ToolClasses } from "./assemble-checks.js";
 import type { WorkflowMeta } from "./meta-types.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
@@ -67,11 +70,34 @@ const calendarClassOf = (source: WorkingCalendarSource | undefined): readonly Cl
 const answererOf = (cls: Class): PauseAnswerer =>
   channelRoleOf(cls)?.options.answerer ?? PauseAnswerer.ThreadOwner;
 
+/**
+ * The target's `permitAnswer` bound to a target instance (#1307c): the target class created by the
+ * container's tokens, its `deps` — at app start, so a missing dependency fails there. `undefined`
+ * for a class that is no target or has no `permitAnswer`.
+ */
+function permitAnswerOf(cls: Class, container: Container): PermitAnswer | undefined {
+  const declaration = pauseTargetOf(cls);
+  const hook: unknown = Reflect.get(cls.prototype as object, "permitAnswer");
+  if (declaration === undefined || typeof hook !== "function") return undefined;
+  const args = (declaration.options.deps ?? []).map((dep) => container.get(dep));
+  const holder: unknown = new (cls as unknown as new (...a: unknown[]) => unknown)(...args);
+  return async (ctx) => (await Reflect.apply(hook, holder, [ctx])) as unknown;
+}
+
+/**
+ * An owner's target no `@Channel` serves (#1307c): its pauses ask nobody and wait for the owner's
+ * `app.resume`, so it has no sender.
+ */
+const isChannelless = (cls: Class, modules: readonly ProviderModule[]): boolean =>
+  pauseTargetOf(cls)?.options.respondent === PauseRespondent.Owner &&
+  implementationsOf(cls, modules).length === 0;
+
 /** The workflow's channels by name (a role's name for a role), created by its container. */
 export function channelPartsOf(
   bundle: WorkflowMeta,
   tools: ToolClasses,
   defaultCalendar?: WorkingCalendarSource,
+  modules: readonly ProviderModule[] = [],
 ): Required<Pick<AssembledWorkflow, "channels">> {
   const channels = channelClassesOf(tools);
   return {
@@ -81,13 +107,23 @@ export function channelPartsOf(
           const name = channelNameOf(cls);
           // the container gives a role's implementation (by inheritance): a channel, checked at assembly
           const container = containerFor(bundle, services);
-          const sender = container.get(cls) as ChannelSender;
+          const sender = isChannelless(cls, modules)
+            ? undefined
+            : (container.get(cls) as ChannelSender);
+          const permitAnswer = permitAnswerOf(cls, container);
           const { expiresIn, remindBefore, workingCalendar } = channelRoleOf(cls)?.options ?? {};
           // a role's own calendar, else the application's: created by the application's container (#944)
           const calendar = pauseCalendarOf(workingCalendar ?? defaultCalendar, (one) =>
             container.get(one),
           );
-          const channel = { name, sender, answerer: answererOf(cls), expiresIn, remindBefore };
+          const channel = {
+            name,
+            sender,
+            answerer: answererOf(cls),
+            expiresIn,
+            remindBefore,
+            permitAnswer,
+          };
           return [name, { ...channel, calendar }];
         }),
       ),

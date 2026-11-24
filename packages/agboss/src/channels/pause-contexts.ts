@@ -108,3 +108,15 @@ export interface ChannelSelectContext<TTarget> {
   readonly toolCall?: PauseToolCallSummary;
   readonly trail: readonly PauseTrailEntry[];
 }
+
+/** What the resume hands `permitAnswer`: its context, the typed `input` and `output` as the record keeps them. */
+export type AnswerPermitCall = Omit<AnswerPermissionContext<never>, "input" | "output"> & {
+  readonly input: unknown;
+  readonly output: unknown;
+};
+
+/**
+ * A target's `permitAnswer`, as the resume calls it (#1307c): `true` lets the answer be recorded;
+ * `false`, a throw and any other value refuse it.
+ */
+export type PermitAnswer = (ctx: AnswerPermitCall) => Promise<unknown>;

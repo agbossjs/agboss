@@ -1,7 +1,6 @@
 import { interrupt } from "@langchain/langgraph";
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
-import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import type { ChannelSender, ChannelSenderSend } from "../../channels/channel-sender.js";
+import type { ChannelSenderSend } from "../../channels/channel-sender.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { Clock } from "../../infrastructure/clock.js";
@@ -18,6 +17,7 @@ import {
 import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 import { newRecordOf, type RemindAt } from "./pause-record-made.js";
+import type { PauseChannel } from "./pause-channel.js";
 import { PauseExpirySignal } from "./pause-expiry-failure.js";
 import { askOfPause, assertSameQuestion, livePauseAfter } from "./pause-chain.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../../pause/index.js";
@@ -28,7 +28,6 @@ import {
   workingReminderAt,
   workingTimeAfter,
   type CalendarSite,
-  type PauseCalendar,
 } from "../../calendar/calendar-call.js";
 import type { FrameworkLog } from "../../infrastructure/logger.js";
 
@@ -42,19 +41,6 @@ import type { FrameworkLog } from "../../infrastructure/logger.js";
  * `Taken` / `PauseResolution.Decided` (no pause; kept for the audit trail, #267 S107). The interrupt's value is the pause's id: a resume maps LangGraph's interrupt ids to the
  * pauses it answered (`resume-map.ts`).
  */
-
-/** A channel as a pause asks it: its sender and who may answer its pauses. */
-export interface PauseChannel {
-  readonly name: string;
-  readonly sender: ChannelSender;
-  readonly answerer: PauseAnswerer;
-  /** How long its pauses wait for an answer (#941): its role's `expiresIn`; none → no deadline of its own. */
-  readonly expiresIn?: Milliseconds | WorkingDuration | undefined;
-  /** How long before its deadline its pauses are reminded (#942): its role's `remindBefore`; none → no reminder. */
-  readonly remindBefore?: Milliseconds | WorkingDuration | undefined;
-  /** The calendar that counts its working time (#944): its role's, else the application's; none → no working time. */
-  readonly calendar?: PauseCalendar | undefined;
-}
 
 /**
  * What a step asks: whose tool call — or which question role's step (#659) — and the question
@@ -119,8 +105,11 @@ export async function sentBy(
   ask: ChannelSenderSend & { readonly value: PauseAsk },
   signal: AbortSignal | undefined,
 ): Promise<unknown> {
+  const { sender } = channel;
+  if (sender === undefined)
+    throw new TypeError(`channel ${channel.name} has no sender: nobody is asked`);
   try {
-    return await channel.sender.send(ask);
+    return await sender.send(ask);
   } catch (error) {
     if (signal?.aborted === true) throw error;
     throw new ChannelSendError(channel.name, error);
@@ -130,6 +119,7 @@ export async function sentBy(
 /** Who answered a thread owner's pause on an unowned thread (or a loop run on its own). */
 export const THREAD_OWNER = "the thread's owner";
 
+export type { PauseChannel } from "./pause-channel.js";
 export { branchKeyOf, type BranchKeySite } from "./pause-record-made.js";
 
 /** The channel's outcome: the decision it gave now, or `undefined` when the step waits for a reply. */
@@ -138,6 +128,8 @@ async function sendOnce(
   pause: PauseRecord,
   signal: AbortSignal | undefined,
 ): Promise<{ decision: unknown } | undefined> {
+  // an owner's pause with no channel asks nobody: it waits for the owner's resume (#1307c)
+  if (channel.sender === undefined) return undefined;
   const outcome = await sentBy(channel, askOfPause(pause), signal);
   if (!isChannelOutcome(outcome)) {
     throw new TypeError(
