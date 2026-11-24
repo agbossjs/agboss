@@ -4,6 +4,7 @@ import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/ind
 import { argumentsRefusal, readingAgent, closedResult, type ClosedResult } from "./tool-pii.js";
 import { runTool } from "./run-tool.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
+import { reportInvalidInput } from "./retry-event.js";
 import { callStepOf, endedCallRecordOf, type CallTimes } from "./call-records.js";
 import { withFiles } from "../../files/tool-files.js";
 import type { GuardrailDecisionRecord } from "../../flow/runtime/step-records.js";
@@ -162,10 +163,8 @@ function runTask(
     const reportUsage = (spent: UsageRecord): void => {
       keep({ ...spent, caller });
     };
-    const event = { toolName: task.tool, agentName: deps.agent.name };
-    await reportNodeEvent((b) =>
-      deps.observer?.onToolStart({ ...b, ...event, arguments: task.args }),
-    );
+    const event = { tool: task.tool, agent: deps.agent.name };
+    await reportNodeEvent((b) => deps.observer?.onToolStart({ ...b, ...event, input: task.args }));
     // the loop calls the tool itself, so no LangChain tool callback fires: stream it (#848)
     agentStreamOf(config)?.toolCall(task.tool, task.turn ?? 1);
     const startedAt = runCtx.clock.now();
@@ -183,6 +182,7 @@ function runTask(
     const { closed } = ended;
     const record = recordOf(tool, task, ended, { startedAt, endedAt: runCtx.clock.now() }, mesh);
     await reportToolEnd(deps, event, closed);
+    await reportInvalidInput(deps, tool, task);
     return endedTaskOf(tool, task, ended, { record, usage });
   };
 }
@@ -190,14 +190,14 @@ function runTask(
 /** `onToolEnd` of a call that ended: what the model reads of it. */
 const reportToolEnd = (
   deps: AgentLoopDeps,
-  event: { readonly toolName: string; readonly agentName: string },
+  event: { readonly tool: string; readonly agent: string },
   closed: ClosedResult,
 ): Promise<void> =>
   reportNodeEvent((base) =>
     deps.observer?.onToolEnd({
       ...base,
       ...event,
-      update: closed.content,
+      output: closed.content,
       isResultTruncated: closed.isTruncated,
     }),
   );

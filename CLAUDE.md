@@ -1617,10 +1617,12 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   (`pause.no-reply-interpreter`); `[reply-interpreter.not-an-interpreter]`,
   `[reply-interpreter.no-interpret-method]` at assembly.
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
-  and never in `@Workflow`: typed hooks (`implements OnToolEnd, …`), one instance each, called for
-  every execution of the application (filter by `event.workflow.name === nameOf(W)` — `nameOf(C)`
-  is the `name` of any decorated class); an observer with no or a
-  misspelled hook fails assembly (`[observer.no-hooks]`, `[observer.unknown-hook]`), one that throws
+  and never in `@Workflow`: an `@Observer({ name?, workflows?, agents?, deps? })` class with a
+  method per hook (`onToolEnd(event: ToolEndEvent)`, no `implements`), one instance each, called for
+  every execution of the application within its `workflows` / `agents` filter (`nameOf(C)` is the
+  `name` of any decorated class); a listed class without `@Observer`, with no hook or a misspelled
+  one, or with a repeated name fails assembly (`[observer.not-an-observer]`, `[observer.no-hooks]`,
+  `[observer.unknown-hook]`, `[observer.duplicate-name]`), one that throws
   is a warning in the log (`observer.failed`). One event object per hook, plain data, never the
   internal state: every execution event (`ExecutionEvent`) has `executionId`, `parentExecutionId`,
   `rootExecutionId`, `threadId`, `tenantId`, `workflow` (`WorkflowRecord`: `name`, `version`,

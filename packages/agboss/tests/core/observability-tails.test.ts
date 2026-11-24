@@ -2,23 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   Agent,
   InputGuardrail,
-  Injectable,
+  Observer,
   OutputGuardrail,
   Tool,
   Workflow,
   Action,
-  type OnActionEnd,
-  type OnActionStart,
-  type OnAgentEnd,
-  type OnAgentStart,
-  type OnChannelEnd,
-  type OnChannelStart,
-  type OnGuardrailEnd,
-  type OnGuardrailStart,
-  type OnToolEnd,
-  type OnToolStart,
-  type OnExecutionEnd,
-  type OnExecutionStart,
   type ActionEndEvent,
   type ActionStartEvent,
   type AgentEndEvent,
@@ -50,22 +38,8 @@ class ToolInput {
 
 const hookEvents: string[] = [];
 
-@Injectable()
-class TailsObserver
-  implements
-    OnExecutionStart,
-    OnExecutionEnd,
-    OnAgentStart,
-    OnAgentEnd,
-    OnActionStart,
-    OnActionEnd,
-    OnToolStart,
-    OnToolEnd,
-    OnGuardrailStart,
-    OnGuardrailEnd,
-    OnChannelStart,
-    OnChannelEnd
-{
+@Observer()
+class TailsObserver {
   async onExecutionStart() {
     hookEvents.push("WorkflowStart");
   }
@@ -81,10 +55,10 @@ class TailsObserver
   }
 
   async onToolStart(ctx: ToolStartEvent) {
-    hookEvents.push(`ToolStart:${ctx.toolName}`);
+    hookEvents.push(`ToolStart:${ctx.tool}`);
   }
   async onToolEnd(ctx: ToolEndEvent) {
-    hookEvents.push(`ToolEnd:${ctx.toolName}`);
+    hookEvents.push(`ToolEnd:${ctx.tool}`);
   }
 
   async onActionStart(ctx: ActionStartEvent) {

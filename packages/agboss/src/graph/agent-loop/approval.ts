@@ -163,7 +163,7 @@ async function seamAnswer(
           question,
         );
   await reportNodeEvent((base) =>
-    observer?.onChannelEnd({ ...base, name: ask.channel, update: answer.decision }),
+    observer?.onChannelEnd({ ...base, name: ask.channel, output: answer.decision }),
   );
   return answer;
 }

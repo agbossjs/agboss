@@ -682,7 +682,7 @@ describe("#1366: what a router's visit spends", () => {
     expect(onRouterEnd).toHaveBeenCalledWith({
       base: true,
       name: "r",
-      update: { route: "yes", reason: "because" },
+      output: { route: "yes", reason: "because" },
     });
   });
 
@@ -700,7 +700,7 @@ describe("#1366: what a router's visit spends", () => {
     expect(onRouterEnd).toHaveBeenCalledWith({
       base: true,
       name: "r",
-      update: { route: "a, b", reason: "both" },
+      output: { route: "a, b", reason: "both" },
     });
   });
 });

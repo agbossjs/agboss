@@ -57,6 +57,7 @@ function eventOf({ deps, row, run }: ClaimedChild): ExecutionEvent {
 const childEndEventOf = (child: FinishedChild): ExecutionEndEvent => ({
   ...eventOf(child),
   finish: nodeRecordIn(child.deps, child.last.finish),
+  output: child.last.output,
   spend: buildCostReport(child.last.usage.slice(child.run.initial.child.inheritedUsage)),
 });
 

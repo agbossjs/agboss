@@ -96,7 +96,7 @@ function setup(
     records.map((r) => ({ ...r, tallied: true })),
   );
   const deps = {
-    agent: { name: "alpha", tools: [], maxResultSize: undefined },
+    agent: { name: "alpha", tools: [], maxResultSize: undefined, limits: { modelCalls: 12 } },
     budgets: { exhausted: exhausted.signal, tally, remaining: () => 5, deadline: undefined },
     observer: options.observer,
   };
@@ -269,9 +269,9 @@ describe("#1366: what the call tells", () => {
 
     expect(onToolStart).toHaveBeenCalledWith({
       base: true,
-      toolName: "lookup-tool",
-      agentName: "alpha",
-      arguments: { q: 1 },
+      tool: "lookup-tool",
+      agent: "alpha",
+      input: { q: 1 },
     });
   });
 

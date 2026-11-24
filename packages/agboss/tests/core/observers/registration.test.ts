@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
 import {
-  Injectable,
+  Observer,
   InjectionToken,
   provide,
   type AgentEndEvent,
@@ -8,13 +8,6 @@ import {
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionStartEvent,
-  type OnAgentEnd,
-  type OnAgentStart,
-  type OnExecutionError,
-  type OnToolEnd,
-  type OnToolStart,
-  type OnExecutionEnd,
-  type OnExecutionStart,
   type ToolEndEvent,
   type ToolStartEvent,
 } from "../../../src/index.js";
@@ -41,17 +34,8 @@ beforeEach(() => {
 });
 
 /** One observer for every start and end hook of the run, keeping the typed payloads. */
-@Injectable()
-class RunRecorder
-  implements
-    OnExecutionStart,
-    OnExecutionEnd,
-    OnAgentStart,
-    OnAgentEnd,
-    OnToolStart,
-    OnToolEnd,
-    OnExecutionError
-{
+@Observer()
+class RunRecorder {
   onExecutionStart(event: ExecutionStartEvent): void {
     events.push(`execution-start:${event.executionId}`);
   }
@@ -67,11 +51,11 @@ class RunRecorder
     events.push(`agent-end:${event.name}`);
   }
   onToolStart(event: ToolStartEvent): void {
-    events.push(`tool-start:${event.toolName}`);
+    events.push(`tool-start:${event.tool}`);
     toolEvents.push(event);
   }
   onToolEnd(event: ToolEndEvent): void {
-    events.push(`tool-end:${event.toolName}:${event.update}`);
+    events.push(`tool-end:${event.tool}:${event.output}`);
     toolEvents.push(event);
   }
   onExecutionError(event: ExecutionErrorEvent): void {
@@ -97,7 +81,7 @@ describe("a registered observer", () => {
         "agent-end:worker-agent",
         "execution-end",
       ]);
-      expect(toolEvents[0]).toMatchObject({ agentName: "worker-agent", arguments: { text: "hi" } });
+      expect(toolEvents[0]).toMatchObject({ agent: "worker-agent", input: { text: "hi" } });
       expect(agentStarts[0]).toMatchObject({ name: "worker-agent" });
       expect(results).toEqual([
         expect.objectContaining({
@@ -126,8 +110,8 @@ describe("a registered observer", () => {
 const CLOCK = new InjectionToken<() => string>("CLOCK");
 
 /** An observer with a dependency, resolved by the container. */
-@Injectable({ deps: [CLOCK] })
-class StampedObserver implements OnAgentStart {
+@Observer({ deps: [CLOCK] })
+class StampedObserver {
   constructor(private readonly now: () => string) {}
   onAgentStart(event: AgentStartEvent): void {
     events.push(`${this.now()} ${event.name}`);
@@ -135,8 +119,8 @@ class StampedObserver implements OnAgentStart {
 }
 
 /** An observer whose hook throws: reported, skipped, the run goes on. */
-@Injectable()
-class BrokenObserver implements OnAgentStart {
+@Observer()
+class BrokenObserver {
   onAgentStart(): void {
     throw new Error("observer bug");
   }

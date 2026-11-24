@@ -10,10 +10,9 @@ import {
   ApplicationContext,
   EmptyEnvironment,
   Injectable,
+  Observer,
   type ActionStartEvent,
   type CompensationStartEvent,
-  type OnActionStart,
-  type OnCompensationStart,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
@@ -72,8 +71,8 @@ function heldAt(at: UndoHold, instanceId: string): Promise<void> | undefined {
 const UNDO_ACTION = "cancel-booking-action";
 
 /** Keeps every undo's start; holds the armed one. */
-@Injectable({ deps: [ApplicationContext] })
-export class UndoStartGate implements OnCompensationStart, OnActionStart {
+@Observer({ deps: [ApplicationContext] })
+export class UndoStartGate {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onCompensationStart(_event: CompensationStartEvent): Promise<void> | undefined {

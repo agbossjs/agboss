@@ -2,7 +2,7 @@ import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
-  Injectable,
+  Observer,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -12,9 +12,6 @@ import {
   type ExecutionEvent,
   type ExecutionPauseEvent,
   type ExecutionRejectedEvent,
-  type OnExecutionError,
-  type OnExecutionPause,
-  type OnExecutionRejected,
 } from "../../../src/index.js";
 import type { IncompatibleResume } from "../../../src/run/resume-guard.js";
 import { onStart } from "../../helpers/flow.js";
@@ -46,8 +43,8 @@ const idsOf = (event: ExecutionEvent): { readonly runId: string; readonly thread
   threadId: event.threadId,
 });
 
-@Injectable()
-export class MailLog implements OnExecutionPause, OnExecutionError, OnExecutionRejected {
+@Observer()
+export class MailLog {
   onExecutionPause(event: ExecutionPauseEvent): void {
     observed.push({ hook: "pause", state: idsOf(event) });
   }

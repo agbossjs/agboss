@@ -3,12 +3,10 @@ import {
   Clock,
   StoreClock,
   Injectable,
+  Observer,
   type ExecutionLease,
   type ExecutionLeaseTakeoverEvent,
-  type OnExecutionLeaseTakeover,
   type FencedEffectEvent,
-  type OnFencedEffect,
-  type OnStepHandedOver,
   type StepHandedOverEvent,
   InMemoryFencedEffectRepository,
 } from "../../../src/index.js";
@@ -62,10 +60,8 @@ export function resetAuditLog(): void {
 }
 
 /** Keeps every takeover and hand-over event. */
-@Injectable()
-export class AuditLogObserver
-  implements OnExecutionLeaseTakeover, OnStepHandedOver, OnFencedEffect
-{
+@Observer()
+export class AuditLogObserver {
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): void {
     leaseSeen.takeovers.push(event);
   }
@@ -78,10 +74,8 @@ export class AuditLogObserver
 }
 
 /** Throws at every audit event: a broken observer. */
-@Injectable()
-export class ThrowingLeaseObserver
-  implements OnExecutionLeaseTakeover, OnStepHandedOver, OnFencedEffect
-{
+@Observer()
+export class ThrowingLeaseObserver {
   onExecutionLeaseTakeover(): void {
     throw new Error("the lease observer is broken");
   }

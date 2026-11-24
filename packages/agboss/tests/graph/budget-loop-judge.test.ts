@@ -299,22 +299,22 @@ describe("#1366: the spend of the files the judges read, and of a judge that bro
     const onJudgeStart = vi.fn();
     const onJudgeEnd = vi.fn();
     const { node } = setup([judgeOf("j1", { passed: false, reason: "too long" })], {
-      observer: { onJudgeStart, onJudgeEnd },
+      observer: { onJudgeStart, onJudgeEnd, onAgentRetry: vi.fn() },
     });
 
     await node(stateOf(), undefined);
 
     expect(onJudgeStart).toHaveBeenCalledWith({
       base: true,
-      name: "j1",
-      agentName: "alpha",
+      judge: "j1",
+      agent: "alpha",
       input: "the reply",
     });
     expect(onJudgeEnd).toHaveBeenCalledWith({
       base: true,
-      name: "j1",
-      agentName: "alpha",
-      update: { passed: false, reason: "too long" },
+      judge: "j1",
+      agent: "alpha",
+      output: { passed: false, reason: "too long" },
     });
   });
 

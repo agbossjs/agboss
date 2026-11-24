@@ -11,14 +11,13 @@ import {
   ExecutionCancelledError,
   WorkflowStart,
   type LaunchItemsTruncatedEvent,
-  type OnLaunchItemsTruncated,
   type Produced,
 } from "../../../../src/index.js";
-import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { onAction, onStart, toFinish, toAction } from "../../../helpers/flow.js";
+import { Observer } from "../../../../src/index.js";
 
 /**
  * #273 PR 2 — per-item actions whose timing the test sets: each item waits `delay` ms (or until
@@ -175,8 +174,8 @@ export class ItemsFailedAction {
 })
 export class ItemsFailedWorkflowFinish {}
 
-@Injectable()
-export class FanOutLog implements OnLaunchItemsTruncated {
+@Observer()
+export class FanOutLog {
   onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): void {
     fanOut.truncated.push(event);
   }

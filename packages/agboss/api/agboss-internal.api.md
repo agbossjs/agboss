@@ -238,6 +238,9 @@ export enum AttemptDivergenceReason {
 }
 
 // @public
+export type AuditLogHooks = Pick<ExecutionObserver, "onExecutionLeaseTakeover" | "onStepHandedOver" | "onFencedEffect" | "onOutboundCall">;
+
+// @public
 export interface BlastRadiusEntry {
     // (undocumented)
     readonly application: string;
@@ -876,6 +879,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onAgentEnd(event: AgentEndEvent): Promise<void>;
     // (undocumented)
+    onAgentRetry(event: AgentRetryEvent): Promise<void>;
+    // (undocumented)
     onAgentStart(event: AgentStartEvent): Promise<void>;
     // (undocumented)
     onChannelEnd(event: ChannelEndEvent): Promise<void>;
@@ -1159,6 +1164,9 @@ export interface HistoryExportQuery {
 export function historyRecordsOf(history: ExecutionHistoryRepository, query: HistoryExportQuery): AsyncGenerator<ExecutionHistoryRecord>;
 
 // @public
+export type HookResult = Promise<void> | void;
+
+// @public
 export function inputLines(analysis: FlowAnalysis): readonly string[];
 
 // @public
@@ -1278,8 +1286,17 @@ export interface ObservedTurn {
     readonly start: string;
 }
 
+// @public (undocumented)
+export const OBSERVER_HOOKS: readonly ObserverHook[];
+
+// @public
+export type ObserverClass = Class<ExecutionObserver>;
+
 // @public
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
+
+// @public
+export type ObserverHook = keyof ExecutionObserver;
 
 // @public
 export interface OpenedExecutionHistory {
@@ -1663,6 +1680,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "unknownCosts".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionPause".
@@ -1672,6 +1690,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionRejected".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentRetry".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onRouterStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onRouterEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onToolStart".

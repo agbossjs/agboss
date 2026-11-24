@@ -14,7 +14,7 @@ import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import type { ObserverClass } from "../core/observer-hooks.js";
+import type { ExecutionObserver } from "../core/observer-hooks.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
 import type { RetentionOptions } from "./retention.js";
@@ -73,14 +73,13 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   /** Every `@Budget` of the application (`config/budget.config.ts`). */
   readonly budgets?: readonly Class[];
   /**
-   * The observers (`implements OnExecutionEnd, OnToolEnd, …`, `@Injectable`), the only place they
-   * are registered: one instance each, called for every execution of the application — child
-   * executions included (filter by `event.workflow.name`). None listed → no observer is called.
+   * The `@Observer` classes, the only place observers are registered: one instance each, called
+   * for every execution of the application — child executions included — within the
+   * `workflows` / `agents` its decorator names. None listed → no observer is called.
    */
-  readonly observers?: readonly ObserverClass[];
+  readonly observers?: readonly Class<ExecutionObserver>[];
   /**
-   * The project's readiness checks (#300): `@HealthCheck` classes (`implements HealthCheckHandler`),
-   * the only place they are listed — created by the container, run by `app.checkReadiness()` each
+   * The project's readiness checks (#300): `@HealthCheck` classes, the only place they are listed — created by the container, run by `app.checkReadiness()` each
    * under its own `timeout`, besides the framework's own (the stores, the model providers' circuit
    * breakers, the recovery loop).
    */

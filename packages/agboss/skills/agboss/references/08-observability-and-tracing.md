@@ -163,7 +163,7 @@ export class MetricsService {
 ```ts file=src/desk/observers/execution-metrics.observer.ts
 // one instance, every execution of the application
 import {
-  Injectable,
+  Observer,
   ResumeReason,
   nameOf,
   type ExecutionEndEvent,
@@ -171,19 +171,12 @@ import {
   type ExecutionRejectedEvent,
   type ExecutionResumeEvent,
   type ModelEndEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionRejected,
-  type OnExecutionResume,
-  type OnModelEnd,
 } from "@agboss/core";
 import { DeskAgent } from "../agents/desk/desk.agent.js";
 import { MetricsService } from "../services/metrics.service.js";
 
-@Injectable({ deps: [MetricsService] })
-export class ExecutionMetricsObserver
-  implements OnExecutionEnd, OnExecutionError, OnExecutionRejected, OnExecutionResume, OnModelEnd
-{
+@Observer({ deps: [MetricsService] })
+export class ExecutionMetricsObserver {
   constructor(private readonly metricsService: MetricsService) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {
@@ -220,15 +213,13 @@ export class ExecutionMetricsObserver
 // the automatic undo, around the undo action's own events
 import {
   CompensationStatus,
-  Injectable,
+  Observer,
   type CompensationEndEvent,
   type CompensationStartEvent,
-  type OnCompensationEnd,
-  type OnCompensationStart,
 } from "@agboss/core";
 
-@Injectable()
-export class CompensationAuditObserver implements OnCompensationStart, OnCompensationEnd {
+@Observer()
+export class CompensationAuditObserver {
   onCompensationStart(event: CompensationStartEvent): void {
     // event.step is the undo action's step (its key: the undone step's key + ":compensation")
     console.info(`undoing ${event.compensated.component.name} (${event.reason})`, event.step.idempotencyKey);
@@ -324,35 +315,38 @@ export class DeskApplication {}
 ## Observers
 
 - **Registered, not discovered**: only classes in `@Application({ observers })` are called — never in
-  `@Workflow`. One instance each (created by the container, `@Injectable` with `deps`), called for
-  every execution of the application, child executions included.
-- **One interface per hook**, each with a typed, plain-data event (no class, no internal state):
+  `@Workflow`. Each is an `@Observer({ name?, workflows?, agents?, deps? })` class, one instance each (created by the
+  container), called for every execution of the application, child executions included — within its
+  `workflows` / `agents` filter, so a hook needs no `if (event.workflow.name !== …) return`.
+- **One method per hook** (no `implements`; `ExecutionObserver` is the type of all of them, each optional), each with a typed, plain-data event (no class, no internal state):
 
-| Hooks                                                                                                                              | Event                                                                                                    |
-| ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `OnExecutionStart`                                                                                                                 | once per execution — a resume does not start it again                                                    |
-| `OnExecutionPause` / `OnExecutionResume`                                                                                           | `pending` / `reason: ResumeReason.Answered \| Recovered \| Expired`, `decision`, `answeredBy`            |
-| `OnExecutionEnd`                                                                                                                   | once, at a finish: `finish`, `spend`                                                                     |
-| `OnExecutionError`                                                                                                                 | a failure (a cancelled paused one: `ExecutionCancelledError`): `error`, `compensations`                  |
-| `OnExecutionRejected`                                                                                                              | refused before an execution: `operation: ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` |
-| `OnAgentStart` / `OnAgentEnd`, `OnRouterStart` / `OnRouterEnd`, `OnActionStart` / `OnActionEnd`                                    | a node's visit                                                                                           |
-| `OnToolStart` / `OnToolEnd`                                                                                                        | `toolName`, `agentName`, `arguments` / `update`, `isResultTruncated`                                     |
-| `OnModelStart` / `OnModelEnd`                                                                                                      | an agent's model call: `model`, `callerName`, `usage`, `calculatedCost`                                  |
-| `OnRagStart` / `OnRagEnd`, `OnGuardrailStart` / `OnGuardrailEnd`, `OnChannelStart` / `OnChannelEnd`, `OnJudgeStart` / `OnJudgeEnd` | as named                                                                                                 |
-| `OnValuesOutdated`                                                                                                                 | one per outdating cascade: `trigger`, `outdated` (no DTO values)                                         |
-| `OnLaunchItemsTruncated`                                                                                                           | a per-item launch dropped items: `launch`, `items`, `maxItems`                                           |
-| `OnQuorumDecided`                                                                                                                  | once per quorum: `launch`, `isReached`, `branches`, `group`                                              |
-| `OnCompensationStart` / `OnCompensationEnd`                                                                                        | an automatic undo: `compensated`, `reason` / `status`, `error`                                           |
+| Hooks                                                                                                                              | Event                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onExecutionStart`                                                                                                                 | once per execution — a resume does not start it again                                                                                                                      |
+| `onExecutionPause` / `onExecutionResume`                                                                                           | `pending` / `reason: ResumeReason.Answered \| Recovered \| Expired`, `decision`, `answeredBy`                                                                              |
+| `onExecutionEnd`                                                                                                                   | once, at a finish: `finish`, `output`, `spend`                                                                                                                             |
+| `onExecutionError`                                                                                                                 | a failure (a cancelled paused one: `ExecutionCancelledError`): `error`, `compensations`                                                                                    |
+| `onExecutionRejected`                                                                                                              | refused before an execution: `operation: ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message`                                                                   |
+| `onAgentRetry`                                                                                                                     | an agent corrects itself (`AgentRetryEvent`): `agent`, `reason: AgentRetryReason.InvalidAnswer \| InvalidToolInput \| JudgeRejected`, `attempt`, `maxAttempts`, `feedback` |
+| `onAgentStart` / `onAgentEnd`, `onRouterStart` / `onRouterEnd`, `onActionStart` / `onActionEnd`                                    | a node's visit                                                                                                                                                             |
+| `onToolStart` / `onToolEnd`                                                                                                        | `tool`, `agent?`, `input` / `output`, `isResultTruncated`                                                                                                                  |
+| `onModelStart` / `onModelEnd`                                                                                                      | an agent's model call: `model`, `callerName`, `usage`, `calculatedCost`                                                                                                    |
+| `onRagStart` / `onRagEnd`, `onGuardrailStart` / `onGuardrailEnd`, `onChannelStart` / `onChannelEnd`, `onJudgeStart` / `onJudgeEnd` | as named                                                                                                                                                                   |
+| `onValuesOutdated`                                                                                                                 | one per outdating cascade: `trigger`, `outdated` (no DTO values)                                                                                                           |
+| `onLaunchItemsTruncated`                                                                                                           | a per-item launch dropped items: `launch`, `items`, `maxItems`                                                                                                             |
+| `onQuorumDecided`                                                                                                                  | once per quorum: `launch`, `isReached`, `branches`, `group`                                                                                                                |
+| `onCompensationStart` / `onCompensationEnd`                                                                                        | an automatic undo: `compensated`, `reason` / `status`, `error`                                                                                                             |
 
 - **Every event** (`ExecutionEvent`) has `executionId`, `parentExecutionId` (a child's parent),
   `rootExecutionId`, `threadId`, `tenantId` and `workflow` (`WorkflowRecord`: `name`, `version`,
   `startedVersion`, `configHash`). A **node event** (`NodeEvent`) adds `step` (`StepRecord`:
   `component`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`, `idempotencyKey`, `callId`,
   `toolLoopIteration`, `validationAttempts`, `compensates`).
-- **Filter by name** with `nameOf(Class)`: `event.workflow.name === nameOf(DeskWorkflow)`,
-  `event.step.component.name === nameOf(DeskAgent)`.
-- An observer with no hook or a misspelled one fails assembly (`[observer.no-hooks]`,
-  `[observer.unknown-hook]` — the names are `OBSERVER_HOOKS`); one that throws is a warning in the log
+- **Filter** in the decorator: `@Observer({ workflows: [DeskWorkflow], agents: [DeskAgent] })`; app-level
+  events (no workflow or agent) reach only observers without that filter. By name: `nameOf(Class)`.
+- An observer without `@Observer`, with no hook or a misspelled one, or with a repeated name fails
+  assembly (`[observer.not-an-observer]`, `[observer.no-hooks]`, `[observer.unknown-hook]`,
+  `[observer.duplicate-name]`); one that throws is a warning in the log
   (`observer.failed`) and never fails the execution.
 - Not model calls of an agent (no `onModelStart` / `onModelEnd`): a model arbiter's, a reply
   interpreter's, a guardrail's, a compaction's — their cost is in `spend` under `arbiter:<name>`,

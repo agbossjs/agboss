@@ -160,8 +160,8 @@ export function routerRunner(
     if (node.exits.launches.size > 0) {
       const decider = deps.launchDecisionFor?.(router);
       const launch = await modelRouterLaunch({ node, router, step, input, decider, ...{ config } });
-      const update = { route: launch.launch.join(", "), reason: launch.reason };
-      await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
+      const output = { route: launch.launch.join(", "), reason: launch.reason };
+      await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, output }));
       const usage = [...masked.usage, ...guarded, ...counted(launch.usage)];
       return { launch: launch.launch, read, usage, piiTokens, guardrailDecisions };
     }
@@ -174,8 +174,8 @@ export function routerRunner(
       throw routerFailureOf(step, failed, [...masked.usage, ...guarded]);
     }
     const { next, reason } = outcome.decision;
-    const update = { route: next, reason };
-    await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
+    const output = { route: next, reason };
+    await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, output }));
     const usage = [...masked.usage, ...guarded, ...counted(spendOf(outcome.usage))];
     return { route: next, read, usage, piiTokens, guardrailDecisions };
   };

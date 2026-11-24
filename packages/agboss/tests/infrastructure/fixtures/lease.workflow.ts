@@ -5,15 +5,13 @@ import {
   ExecutionContext,
   ExecutionRecordStatus,
   ExecutionTreeRepository,
-  Injectable,
+  Injectable, Observer,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ExecutionErrorEvent,
   type ExecutionTreeValue,
-  type OnExecutionError,
-  type OnExecutionResume,
   type PausedExecution,
   type ExecutionResumeEvent,
 } from "../../../src/index.js";
@@ -194,8 +192,8 @@ export class Recall {
 export class Clerk {}
 
 /** The errors and resumes the observers saw. */
-@Injectable()
-export class LeaseLog implements OnExecutionError, OnExecutionResume {
+@Observer()
+export class LeaseLog {
   onExecutionError(event: ExecutionErrorEvent): void {
     seen.errors.push(event.error);
   }

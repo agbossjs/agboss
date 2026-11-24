@@ -14,11 +14,10 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../src/dto/index.js
 import {
   Agent,
   EmptyEnvironment,
-  Injectable,
+  Observer,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type OnExecutionEnd,
 } from "../src/index.js";
 import { ImplementationReason } from "../src/application/implementations.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
@@ -87,8 +86,8 @@ class TellExecutionBudget implements BudgetHandler {
   }
 }
 
-@Injectable()
-class TellAuditObserver implements OnExecutionEnd {
+@Observer()
+class TellAuditObserver {
   onExecutionEnd(): void {
     // audited
   }

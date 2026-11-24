@@ -117,6 +117,7 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
   ),
   ChannelInterpreter: statefulClass("@ChannelInterpreter()", "interpret(): void"),
   ChannelListener: statefulClass("@ChannelListener()", "onPauseOpened(): void"),
+  Observer: statefulClass('@Observer({ name: "desk-observer" })', "onExecutionEnd(): void"),
   PauseListener: statefulClass(
     '@PauseListener({ name: "back-office-pause-listener" })',
     "async onPauseClosed(): Promise<void>",

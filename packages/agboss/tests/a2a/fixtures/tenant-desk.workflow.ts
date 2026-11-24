@@ -12,13 +12,12 @@ import {
 } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
-import type { OnExecutionRejected, OnExecutionStart } from "../../../src/core/observer-hooks.js";
 import type {
   ExecutionRejectedEvent,
   ExecutionStartEvent,
 } from "../../../src/core/observability.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { EmptyEnvironment, Workflow, WorkflowStart } from "../../../src/index.js";
+import { Observer, EmptyEnvironment, Workflow, WorkflowStart } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { Desk, DeskAnswer } from "./remote.workflow.js";
@@ -106,8 +105,8 @@ export function resetTenantDeskSeen(): void {
   tenantDeskSeen.rejections.length = 0;
 }
 
-@Injectable()
-export class TenantDeskObserver implements OnExecutionStart, OnExecutionRejected {
+@Observer()
+export class TenantDeskObserver {
   onExecutionStart(event: ExecutionStartEvent): void {
     tenantDeskSeen.starts.push(event);
   }

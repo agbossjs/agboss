@@ -3,14 +3,13 @@ import {
   ChildPlacement,
   EmptyEnvironment,
   ExecutionContext,
-  Injectable,
+  Observer,
   SpendRecorder,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   listOf,
   type ExecutionStartEvent,
-  type OnExecutionStart,
   type Produced,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -96,8 +95,8 @@ export class HeldSiblingLedger extends InMemoryCostLedgerRepository {
 }
 
 /** The grandchild's start: `b`'s queueing waits here until `a` has paid. */
-@Injectable()
-export class GrandStartObserver implements OnExecutionStart {
+@Observer()
+export class GrandStartObserver {
   async onExecutionStart(event: ExecutionStartEvent): Promise<void> {
     if (event.workflow.name !== "grand-pay-workflow") return;
     gates.queued();

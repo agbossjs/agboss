@@ -184,3 +184,6 @@ export * from "./core/observer-manager.js";
 // #895: the assembly a unit test reads; `testWith` and `testTool` are the testing API
 export { workflowOf } from "./testing/workflow-of.js";
 export { toolOf } from "./components/runtime.js";
+export { OBSERVER_HOOKS, type ObserverClass, type ObserverHook } from "./core/observer-hooks.js";
+export type { HookResult } from "./core/hook-result.js";
+export type { AuditLogHooks } from "./flow/observers/audit-log.js";

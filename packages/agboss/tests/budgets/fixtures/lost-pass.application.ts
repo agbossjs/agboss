@@ -4,15 +4,13 @@ import {
   Agent,
   ExecutionContext,
   Injectable,
+  Observer,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type Produced,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnModelStart,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -93,8 +91,8 @@ export class SharedCostLedgerRepository extends CostLedgerRepository {
 }
 
 /** Keeps each root's spend report at its end, counts its failures, and counts the model calls that started. */
-@Injectable()
-export class SpendLog implements OnExecutionEnd, OnExecutionError, OnModelStart {
+@Observer()
+export class SpendLog {
   onModelStart(): void {
     lostPassSeen.modelCalls += 1;
   }

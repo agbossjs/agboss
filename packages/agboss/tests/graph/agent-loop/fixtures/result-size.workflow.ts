@@ -1,6 +1,6 @@
 import {
   Agent,
-  Injectable,
+  Injectable, Observer,
   RagMode,
   Tool,
   Workflow,
@@ -8,7 +8,6 @@ import {
   WorkflowStart,
 } from "../../../../src/index.js";
 import { Rag } from "../../../../src/components/decorators.js";
-import type { OnToolEnd } from "../../../../src/core/observer-hooks.js";
 import type { ToolEndEvent } from "../../../../src/core/observability.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -121,8 +120,8 @@ export class RecordingPiiPolicy implements PiiPolicyHandler {
   }
 }
 
-@Injectable()
-export class ToolEndLog implements OnToolEnd {
+@Observer()
+export class ToolEndLog {
   onToolEnd(event: ToolEndEvent): void {
     toolEnds.push(event);
   }

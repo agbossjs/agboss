@@ -141,7 +141,7 @@ async function runChild(
     finish: recordOfNode(ended.records, last.finish),
   };
   // the child's event, masked by its own chain like its steps' (#1150)
-  await child.deps.observer?.onExecutionEnd({ ...event, spend: record.spend });
+  await child.deps.observer?.onExecutionEnd({ ...event, output: last.output, spend: record.spend });
   return { state: last, usage };
 }
 
