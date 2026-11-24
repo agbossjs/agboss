@@ -6410,7 +6410,7 @@ export interface NewThread {
 export type NewTurn = Omit<Turn, "id" | "createdAt">;
 
 // @public
-type NextHead<THead extends PathHead, TInstance> = THead extends SideHead<infer TClaims> ? [TClaims] extends [never] ? SideHead<ClaimsOf<TInstance>> : THead : THead;
+type NextHead<THead extends PathHead, TInstance> = THead extends SideHead<infer TClaims, infer TStart> ? [TClaims] extends [never] ? SideHead<ClaimsOf<TInstance>, TStart> : THead : THead;
 
 // @public
 export interface NodeEvent extends ExecutionEvent {
@@ -8613,6 +8613,11 @@ export type Route<TInstance> = GeneratedEntry<AGBossTypes.Routes, TInstance>;
 export function route<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, RouteTargetKind, RouteTargetLabel>, ...options: RouteOptions<ClassOf<TRef>>): RouteContinuation<InstanceType<ClassOf<TRef>>>;
 
 // @public
+export type RouteCheck<TPath, TRemaining> = [StartOfPath<TPath>] extends [never] ? unknown : [StartOfPath<TPath>] extends [TRemaining] ? unknown : {
+    readonly __error: "a route is named once, and only a target of @Router({ routes }) is a route";
+};
+
+// @public
 export type RouteContinuation<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish] ? BuiltPath<RouteHead> : AfterStep<TInstance, RouteHead>;
 
 // @public (undocumented)
@@ -8625,6 +8630,12 @@ export interface RouteHead {
 interface RouteMethod {
     // (undocumented)
     route(input: never): unknown;
+}
+
+// @public
+export interface RouteMore<THead extends PathHead, TRemaining> {
+    // (undocumented)
+    onRoute<const TPath extends SidePath>(path: TPath & RouteCheck<TPath, TRemaining>): RouteStep<THead, Exclude<TRemaining, StartOfPath<TPath>>>;
 }
 
 // @public
@@ -8773,11 +8784,11 @@ export type RouterRoute = ChosenRouterRoute | AlwaysRouterRoute;
 export type RouterStartEvent = StartEvent<string>;
 
 // @public
-export interface RouterStep<THead extends PathHead, TInstance = unknown> extends RouterLaunches<THead> {
+export interface RouterStep<THead extends PathHead, TInstance = unknown, TRemaining = RoutesOf<TInstance>> extends RouterLaunches<THead>, RouteMore<THead, TRemaining> {
     // (undocumented)
     chooseOne(...routes: readonly [RoutePath, ...RoutePath[]]): BuiltPath<THead>;
     // (undocumented)
-    onError(error: ErrorClass, path: SidePath): BuiltPath<THead> & RouterStep<THead, TInstance>;
+    onError(error: ErrorClass, path: SidePath): BuiltPath<THead> & RouterStep<THead, TInstance, TRemaining>;
 }
 
 // @public
@@ -8786,6 +8797,14 @@ export interface RouterVisit {
     readonly nodeId: string;
     readonly visitNumber: number;
 }
+
+// @public
+export type RoutesOf<TInstance> = [Route<TInstance>] extends [Class] ? Route<TInstance> : never;
+
+// @public
+export type RouteStep<THead extends PathHead, TRemaining> = [TRemaining] extends [never] ? BuiltPath<THead> & RouteMore<THead, TRemaining> : RouteMore<THead, TRemaining> & {
+    readonly __error: "a route of the router has no .onRoute(…)";
+};
 
 // @public (undocumented)
 type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Finish | NodeKind.Workflow;
@@ -8913,11 +8932,12 @@ export interface ServiceSpend {
 }
 
 // @public
-export interface SideHead<TClaims = unknown> {
+export interface SideHead<TClaims = unknown, TStart = unknown> {
     // (undocumented)
     readonly claims?: TClaims;
     // (undocumented)
     readonly side: true;
+    readonly start?: TStart;
 }
 
 // @public
@@ -9360,6 +9380,11 @@ export interface StartEvent<I> extends NodeEvent {
 type StartExecutionOf<TInstance> = WorkflowStartEntry<TInstance> extends {
     readonly execution: infer TExecution;
 } ? TExecution : never;
+
+// @public
+export type StartOfPath<TPath> = TPath extends {
+    readonly [pathHead]?: SideHead<unknown, infer TStart>;
+} ? TStart : never;
 
 // @public (undocumented)
 interface StartSource {
@@ -10075,16 +10100,16 @@ export interface TimeWindow {
 }
 
 // @public
-export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>>>;
+export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>>>;
+export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>>>;
+export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead<ClaimsOf<InstanceType<TClass>>>>;
+export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
 export type Token = Class | InjectionToken<unknown> | EnvContract;
@@ -10340,7 +10365,7 @@ export interface ToolTimeoutErrorOptions {
 }
 
 // @public
-export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>>>;
+export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
 export interface ToStep {
@@ -10360,7 +10385,7 @@ export function totalCost(records: readonly {
 }[]): Usd;
 
 // @public
-export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>>>;
+export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>>;
 
 // @public
 export type Tracked<TValue extends object, TComponent extends Class = Class> = TValue & {
@@ -12030,6 +12055,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "acceptedBy".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "joinQuorum".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "joinQuorumGroups".
+// src/flow/route-types.ts - (ae-undocumented) Missing documentation for "onRoute".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "usage".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".

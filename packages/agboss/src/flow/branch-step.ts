@@ -1,6 +1,13 @@
 import type { Class } from "../components/injection.js";
 import { declarationOf } from "./decorators/declaration.js";
-import { NodeKind, StepKind, type OneOfStep, type OnFinishStep, type SubPath } from "./ast.js";
+import {
+  NodeKind,
+  StepKind,
+  type ChooseOneRoute,
+  type OneOfStep,
+  type OnFinishStep,
+  type SubPath,
+} from "./ast.js";
 import { FlowSyntaxError } from "./launch-step.js";
 
 /**
@@ -30,4 +37,25 @@ export function onFinishStepOf(finish: unknown, path: unknown, side: SideOf): On
     finish: finish as Class,
     path: side(path, ".onFinish(F, …)"),
   };
+}
+
+/**
+ * One `.onRoute(…)` branch: its starter (`toAgent(A)`) is the route's target, the steps after it the
+ * route's path (#1278). A child workflow's thunk stays unread until the path is analysed (#1287).
+ */
+export function routeOf(path: unknown, side: SideOf): ChooseOneRoute {
+  const [first, ...rest] = side(path, ".onRoute(…)").steps;
+  if (first?.kind !== StepKind.To)
+    throw syntaxError(
+      ".onRoute(…) starts with toAgent(…), toAction(…), toRouter(…), toWorkflow(…) or toFinish(…)",
+    );
+  if (first.expiresIn !== undefined)
+    throw syntaxError(".onRoute(toExternalTask(Q, { expiresIn })) is no route: set it on the role");
+  const route = {
+    path: Object.freeze({ steps: Object.freeze(rest) }),
+    ...(first.placement && { placement: first.placement }),
+  };
+  return Object.freeze(
+    Object.defineProperty(route, "target", { enumerable: true, get: () => first.target }),
+  ) as ChooseOneRoute;
 }

@@ -12,6 +12,7 @@ import type {
 import type { ChildStepOptions, QuestionStepOptions } from "./child-placement.js";
 import type { Launches, RouterLaunches } from "./launch-types.js";
 import type { ClaimsOf, OneOfCheck, WithFinishes } from "./one-of-types.js";
+import type { RouteMore, RoutesOf } from "./route-types.js";
 import type { ClassOf, TargetRef } from "./target-ref.js";
 
 /**
@@ -35,12 +36,15 @@ export interface CaseHead<TValue> {
   readonly case: TValue;
 }
 /**
- * A side path (`.onError`, `.toOneOf`, `.onFinish`): `TClaims` are the DTOs its entry consumer reads
- * — `never` while no step that reads anything was entered (#1275c), `unknown` for any side path.
+ * A side path (`.onError`, `.toOneOf`, `.onFinish`, `.onRoute`): `TClaims` are the DTOs its entry consumer
+ * reads — `never` while no step that reads anything was entered (#1275c), `unknown` for any side path;
+ * `TStart` is the class it starts with (#1278).
  */
-export interface SideHead<TClaims = unknown> {
+export interface SideHead<TClaims = unknown, TStart = unknown> {
   readonly side: true;
   readonly claims?: TClaims;
+  /** The class the side path starts with (`toAgent(A)…` → `typeof A`): what `.onRoute(…)` subtracts. */
+  readonly start?: TStart;
 }
 /** A `group(…)` of `.joinQuorumGroups(…)` (#279): the path of the group's own steps. */
 export interface GroupHead {
@@ -143,15 +147,22 @@ export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
 
 /** The head after entering `TInstance`: a side path still without claims takes this step's. */
 export type NextHead<THead extends PathHead, TInstance> =
-  THead extends SideHead<infer TClaims>
+  THead extends SideHead<infer TClaims, infer TStart>
     ? [TClaims] extends [never]
-      ? SideHead<ClaimsOf<TInstance>>
+      ? SideHead<ClaimsOf<TInstance>, TStart>
       : THead
     : THead;
 
 /** The claims of a side path built by the starters (`toAction(X)…`). */
 export type ClaimsOfPath<TPath> = TPath extends { readonly [pathHead]?: SideHead<infer TClaims> }
   ? TClaims
+  : never;
+
+/** The class a side path starts with (`toAgent(A)…` → `typeof A`); `never` for any other path. */
+export type StartOfPath<TPath> = TPath extends {
+  readonly [pathHead]?: SideHead<unknown, infer TStart>;
+}
+  ? TStart
   : never;
 
 /** After a step (a transition or a path source): what its kind and output allow. */
@@ -256,12 +267,20 @@ export interface ErrorHandling<TInstance, THead extends PathHead> {
   onError(error: ErrorClass, path: SidePath): AfterStep<TInstance, THead>;
 }
 
-/** After a router: its `.onError(…)`, then its choice — `.chooseOne(…)` or a launch (#273). */
+/**
+ * After a router: its `.onError(…)`, then its choice — `.onRoute(subPath)` once per route (#1278),
+ * `.chooseOne(…)` or a launch (#273). `TRemaining` are the routes not yet named.
+ */
 export interface RouterStep<
   THead extends PathHead,
   TInstance = unknown,
-> extends RouterLaunches<THead> {
-  onError(error: ErrorClass, path: SidePath): BuiltPath<THead> & RouterStep<THead, TInstance>;
+  TRemaining = RoutesOf<TInstance>,
+>
+  extends RouterLaunches<THead>, RouteMore<THead, TRemaining> {
+  onError(
+    error: ErrorClass,
+    path: SidePath,
+  ): BuiltPath<THead> & RouterStep<THead, TInstance, TRemaining>;
   chooseOne(...routes: readonly [RoutePath, ...RoutePath[]]): BuiltPath<THead>;
 }
 

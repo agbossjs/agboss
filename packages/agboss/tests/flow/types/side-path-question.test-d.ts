@@ -13,7 +13,10 @@ class NotAQuestionAgent {}
 describe("#933 AC1: toQuestion types", () => {
   it("toExternalTask(Role) is an AfterStep of the role on a side path", () => {
     expectTypeOf(toExternalTask(SpendingLimitQuestion)).toEqualTypeOf<
-      AfterStep<SpendingLimitQuestion, SideHead<ClaimsOf<SpendingLimitQuestion>>>
+      AfterStep<
+        SpendingLimitQuestion,
+        SideHead<ClaimsOf<SpendingLimitQuestion>, typeof SpendingLimitQuestion>
+      >
     >();
   });
 

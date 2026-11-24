@@ -64,7 +64,9 @@ import {
 import { Reasoning, ReasoningEffort } from "../../src/models/reasoning.js";
 import {
   ChatWorkflowFinish,
+  IntakeWorkflowStart,
   MainRouter,
+  NoReplyWorkflowFinish,
   ProfilerAgent,
   ScoutAgent,
 } from "./fixtures/chat.fixture.js";
@@ -288,6 +290,56 @@ describe("AC6: a router continues with chooseOne(route(…)…)", () => {
     // @ts-expect-error — chooseOne takes route(…) paths, not caseOf(…)
     onRouter(MainRouter).chooseOne(caseOf(ProfileDto).toRouter(MainRouter));
     expectTypeOf(onRouter(MainRouter)).toHaveProperty("chooseOne");
+  });
+});
+
+describe("1278a: .onRoute(subPath) names each route of the router once", () => {
+  const path = (flow: FlowPath): FlowPath => flow;
+  const desk = () => onRouter(MainRouter);
+
+  it("the chain is a path only when every route of @Router({ routes }) is named", () => {
+    path(
+      desk()
+        .onRoute(toAgent(ProfilerAgent))
+        .onRoute(toAgent(ScoutAgent).toFinish(ChatWorkflowFinish))
+        .onRoute(toFinish(NoReplyWorkflowFinish)),
+    );
+    path(
+      desk()
+        .onRoute(toFinish(NoReplyWorkflowFinish))
+        .onRoute(toAgent(ScoutAgent))
+        .onRoute(toAgent(ProfilerAgent)),
+    );
+    path(
+      // @ts-expect-error — NoReplyWorkflowFinish has no .onRoute
+      desk().onRoute(toAgent(ProfilerAgent)).onRoute(toAgent(ScoutAgent)),
+    );
+  });
+
+  it("a route is named once, and only a target of the router is a route", () => {
+    desk()
+      .onRoute(toAgent(ProfilerAgent))
+      // @ts-expect-error — ProfilerAgent is named once
+      .onRoute(toAgent(ProfilerAgent));
+    // @ts-expect-error — DraftAgent is no route of MainRouter
+    desk().onRoute(toAgent(DraftAgent));
+  });
+
+  it("a router's .onError comes before its routes, a sub-path chain is a nested route set", () => {
+    path(
+      desk()
+        .onError(Error, toFinish(NoReplyWorkflowFinish))
+        .onRoute(toAgent(ProfilerAgent))
+        .onRoute(toAgent(ScoutAgent))
+        .onRoute(toFinish(NoReplyWorkflowFinish)),
+    );
+    onStart(IntakeWorkflowStart)
+      .toRouter(MainRouter)
+      .onRoute(toAgent(ProfilerAgent))
+      .onRoute(toAgent(ScoutAgent))
+      .onRoute(toFinish(NoReplyWorkflowFinish));
+    // @ts-expect-error — only a router has routes
+    onAgent(EditorAgent).onRoute(toAgent(ProfilerAgent));
   });
 });
 

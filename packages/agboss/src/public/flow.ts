@@ -48,9 +48,11 @@ export type {
   SideHead,
   SidePath,
   SourceHead,
+  StartOfPath,
   Switching,
   Transitions,
 } from "../flow/builder-types.js";
+export type { RouteCheck, RouteMore, RoutesOf, RouteStep } from "../flow/route-types.js";
 export type {
   AgentsLaunched,
   JoinErrorHandling,

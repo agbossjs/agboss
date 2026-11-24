@@ -3,7 +3,6 @@ import {
   NodeKind,
   StepKind,
   type ChooseOneRoute,
-  type ComponentSource,
   type ErrorClass,
   type JoinStep,
   type LaunchTargetKind,
@@ -14,7 +13,7 @@ import {
   type SwitchCase,
   type ToStep,
 } from "./ast.js";
-import { oneOfStepOf, onFinishStepOf } from "./branch-step.js";
+import { oneOfStepOf, onFinishStepOf, routeOf } from "./branch-step.js";
 import { FlowSyntaxError, launchOrderProblem, launchStepOf } from "./launch-step.js";
 import {
   acceptedByOf,
@@ -36,6 +35,7 @@ import { carryStepSpan, recordStepSpan } from "./step-spans.js";
  */
 
 export { FlowSyntaxError } from "./launch-step.js";
+export { fromComponent, groupFrom } from "./path-sources.js";
 
 const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ message });
 
@@ -134,6 +134,20 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   chooseOne(...routes: readonly PathBuilder[]): PathBuilder<TSource> {
     return this.then({ kind: StepKind.ChooseOne, routes: routes.map((path) => path.asRoute()) });
+  }
+
+  /**
+   * `.onRoute(toAgent(A)…)` (#1278): one route of the router before it — the starter names the
+   * target, the rest of the chain is what follows it. Consecutive calls are one choice.
+   */
+  onRoute(path: unknown): PathBuilder<TSource> {
+    const route = routeOf(path, (side, call) => PathBuilder.sideOf(side, call));
+    const { last } = this;
+    if (last?.kind !== StepKind.ChooseOne)
+      return this.then({ kind: StepKind.ChooseOne, routes: Object.freeze([route]) });
+    return this.withLast(
+      Object.freeze({ ...last, routes: Object.freeze([...last.routes, route]) }),
+    );
   }
 
   /**
@@ -250,22 +264,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 export const fromSource = (source: PathSource): PathBuilder<PathSource> =>
   new PathBuilder({ kind: "source" }, Object.freeze(source), []);
 
-export const fromComponent = (
-  kind: ComponentSource["kind"],
-  node: TargetRef,
-): PathBuilder<PathSource> =>
-  // a child workflow may be named by a thunk (#1287), read when the path is analysed
-  fromSource(
-    kind === NodeKind.Workflow ? withTarget("node", node, { kind }) : { kind, node: node as Class },
-  );
-
 /** A sub-path's builder. */
 export const subPathFrom = (start: PathStart): PathBuilder<undefined> =>
   new PathBuilder(start, undefined, []);
-
-/** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279): one or more agent classes, repeats counted. */
-export function groupFrom(agents: readonly unknown[]): PathBuilder<undefined> {
-  if (agents.length === 0 || agents.some((agent) => typeof agent !== "function"))
-    throw syntaxError("group(…) takes one or more agent classes of the launch");
-  return subPathFrom({ kind: "group", agents: Object.freeze([...(agents as readonly Class[])]) });
-}

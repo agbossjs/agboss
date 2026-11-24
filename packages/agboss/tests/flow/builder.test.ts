@@ -10,7 +10,9 @@ import {
   toAgent,
   toFinish,
   toRouter,
+  toWorkflow,
 } from "../../src/flow/builder.js";
+import type { PathBuilder } from "../../src/flow/path-builder.js";
 import { listOf, oneOf, optional, type ReturnedShape } from "../../src/flow/dto-wrappers.js";
 import {
   articlePaths,
@@ -24,6 +26,7 @@ import {
 import {
   AskResumeWorkflowFinish,
   chatPaths,
+  ChatWorkflow,
   ChatWorkflowFinish,
   IntakeWorkflowStart,
   MainRouter,
@@ -167,6 +170,47 @@ describe("AC3 / AC5 / AC6: router own path, chooseOne and switch (#272 example 1
       },
     ]);
     expect(chatPaths[0].source.node).toBe(IntakeWorkflowStart);
+  });
+});
+
+describe("1278a: .onRoute(subPath) builds the routes of .chooseOne(route(…)…)", () => {
+  const [, mainRouterPath] = chatPaths;
+  const entry = (): PathBuilder => builder.onRouter(MainRouter) as never;
+
+  it("one .onRoute per route is one choice, equal to the chooseOne it replaces", () => {
+    const built = builder
+      .onRouter(MainRouter)
+      .onRoute(
+        toAgent(ProfilerAgent).switch(
+          caseOf(ProfileDto).toRouter(MainRouter),
+          caseOf(ResumeMissingDto).toFinish(AskResumeWorkflowFinish),
+        ),
+      )
+      .onRoute(toAgent(ScoutAgent).toFinish(ChatWorkflowFinish))
+      .onRoute(toFinish(NoReplyWorkflowFinish));
+    expect(built).toMatchObject({ source: mainRouterPath.source });
+    expect(built.steps).toEqual(mainRouterPath.steps);
+  });
+
+  it("a thunk target is read when the route's target is, never while the path is built", () => {
+    let reads = 0;
+    const side = toWorkflow(() => {
+      reads += 1;
+      return ChatWorkflow;
+    });
+    const built = entry().onRoute(side);
+    const [step] = built.steps;
+    expect(reads).toBe(0);
+    expect(step?.kind === StepKind.ChooseOne && step.routes[0]?.target).toBe(ChatWorkflow);
+    expect(reads).toBe(1);
+  });
+
+  it.each<[string, () => unknown]>([
+    ["a case path", () => entry().onRoute(caseOf(ProfileDto).toRouter(MainRouter))],
+    ["a value that is no path", () => entry().onRoute({})],
+    ["a group path", () => entry().onRoute(builder.group(ScoutAgent))],
+  ])("%s is a syntax error", (_label, call) => {
+    expect(call).toThrow(FlowSyntaxError);
   });
 });
 
