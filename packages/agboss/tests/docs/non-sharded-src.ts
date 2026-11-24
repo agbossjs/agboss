@@ -12,6 +12,10 @@ const reviewed = (reason: string, names: readonly string[]): [string, string][] 
 
 export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntries([
   ...reviewed(
+    "a compaction's observer events (#1303): the execution part of the event read in the execution's frame and the cost read from the finished compaction, reported to an observer that never reaches the run; no spend, lease or cancel decision of its own; covered by tests/memory/compaction.test.ts",
+    ["src/run/compaction-events.ts"],
+  ),
+  ...reviewed(
     "the storage components' declarations and wiring (#1321): decorators, driver descriptors, settings and field readers, the in-memory database and the barrel — which store holds the leases, the idempotency keys and the retention is decided in the sharded storage-assembly, storage-rules, storage-secret-rules and ttl-problem (assembly-rules); covered by tests/storage/storage-application.test.ts and tests/storage/storage.test-d.ts",
     [
       "src/storage/drivers.ts",

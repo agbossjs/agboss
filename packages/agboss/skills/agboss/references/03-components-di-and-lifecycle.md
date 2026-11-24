@@ -590,7 +590,7 @@ Injected like any dependency, read only while a step runs (outside → `Executio
   `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
 
 <!-- snippet-context
-import { Judge, JudgeVerdict, isVariant, oneOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { Judge, JudgeModel, JudgeVerdict, isVariant, oneOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
 class OfferDto {
   @Integer({ prompt: "the salary offered" })
