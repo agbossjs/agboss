@@ -133,7 +133,7 @@ export function undoShard() {
   return {
     configFile: "vitest.mutation-undo.config.ts",
     mutate: [
-      "src/flow/runtime/compensation/{undo,held-undo,registry,unwinding-marks,visit-entries,checkpoint-entries}.ts",
+      "src/flow/runtime/compensation/{undo,held-undo,registry,durable-order,unwinding-marks,visit-entries,checkpoint-entries}.ts",
     ],
   };
 }

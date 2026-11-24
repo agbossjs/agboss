@@ -81,7 +81,8 @@ function opened(site: VisitCompensationSite, facts: VisitFacts): CompensationEnt
   if (undoable === undefined) return undefined;
   const { action: declaration, compensator } = undoable;
   const floor = Math.max(0, ...site.entries.map((entry) => entry.sequence));
-  const sequence = site.parts?.registry.nextSequence(facts.tree, floor) ?? floor + 1;
+  const sequence =
+    site.sequence ?? site.parts?.registry.nextSequence(facts.tree, floor) ?? floor + 1;
   const committer = actionDeclarationOf(declaration.options.committedBy)?.options.name;
   return {
     key: facts.step.idempotencyKey,

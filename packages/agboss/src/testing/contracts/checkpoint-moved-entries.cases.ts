@@ -85,4 +85,26 @@ export const MOVED_ENTRIES_CASES: readonly ContractCase<BaseCheckpointSaver>[] =
       expect(read?.pendingWrites).toEqual([["task-take", "compensations", [taken]]]);
     },
   },
+  {
+    name: "the undo order of a tree (#1281): every entry keeps the sequence it was written with, on both instances",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      // the parent's entries at 1 and 3, the child's moved one at 2: one counter across the tree
+      const own = (key: string, sequence: number) => ({
+        ...moved,
+        key,
+        executionId: PARENT,
+        sequence,
+        heldBy: undefined,
+      });
+      const entries = [own("parent-a", 1), { ...taken, sequence: 2 }, own("parent-d", 3)];
+      await put(first, PARENT, "checkpoint-1", { compensations: entries });
+
+      const read = await second.getTuple(at(PARENT));
+      const kept = read?.checkpoint.channel_values.compensations;
+      expect(kept).toEqual(entries);
+      expect(
+        Array.isArray(kept) ? kept.map((entry) => (entry as { sequence: number }).sequence) : [],
+      ).toEqual([1, 2, 3]);
+    },
+  },
 ];

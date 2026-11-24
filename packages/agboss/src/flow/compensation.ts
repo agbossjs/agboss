@@ -192,6 +192,8 @@ export interface VisitCompensationSite {
   /** What the visit threw, when its `.onError` took it. */
   readonly failure?: unknown;
   readonly parts?: CompensationParts | undefined;
+  /** The place in the tree's durable order the visit's new entry takes (#1281), claimed before the visit writes. */
+  readonly sequence?: number | undefined;
   /** A branch of a launch (#273): its launch, and its own value (written by the join only). */
   readonly branch?: {
     readonly launchId: string;
@@ -207,7 +209,11 @@ export async function compensationsOfVisit(
 ): Promise<{ readonly compensations?: CompensationEntry[] }> {
   if (!touchesCompensations(site.node, site.entries)) return {};
   const { entriesOfVisit } = await lazyLoad(import("./runtime/compensation/visit-entries.js"));
-  const written = entriesOfVisit(site);
+  const { claimedSequence, opensEntry } = await lazyLoad(
+    import("./runtime/compensation/durable-order.js"),
+  );
+  const sequence = opensEntry(site) ? await claimedSequence(site) : undefined;
+  const written = entriesOfVisit(sequence === undefined ? site : { ...site, sequence });
   return written.length === 0 ? {} : { compensations: [...written] };
 }
 
