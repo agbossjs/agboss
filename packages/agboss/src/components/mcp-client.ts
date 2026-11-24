@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { DtoClass } from "../dto/types.js";
 import {
   ToolTimeoutError,
@@ -9,6 +8,7 @@ import {
 import { McpError } from "../core/error-families/remote-errors.js";
 import { AGBossError } from "../core/errors.js";
 import { currentFrame } from "../flow/context/frame.js";
+import { callIdOf } from "./mcp-call-identity.js";
 import { serviceUsageOf } from "./spend-recorder.js";
 import { systemClock, timeoutOn } from "../infrastructure/clock.js";
 import { checkedTimer, MAX_TIMEOUT } from "../units/timer-limits.js";
@@ -75,6 +75,13 @@ const chargeServiceOf = (server: string): string => `mcp:${server}`;
 /** A call's key: 1–40 letters, digits, ".", "_" or "-", a letter or digit first. */
 const CALL_KEY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/u;
 
+/** The call's key, refused when it breaks the charset; `undefined` for a call without one. */
+function checkedKey(options: McpCallOptions | undefined): string | undefined {
+  const key = options?.key;
+  if (key !== undefined && !CALL_KEY.test(key)) throw new McpError.Contract();
+  return key;
+}
+
 /** Lets at most `limit` calls through at once; the rest wait their turn, in order. */
 class CallGate {
   readonly #waiting: (() => void)[] = [];
@@ -96,23 +103,6 @@ class CallGate {
       else next();
     };
   }
-}
-
-/**
- * The identity of one call (`_meta.callId` of an AGBoss server): made of the step's idempotency
- * key, the server, the tool and the call's `key` — so several calls of one step never collide, and a
- * step that runs again makes the same ones. `undefined` outside a step.
- */
-export function callIdOf(
-  server: string,
-  tool: string,
-  key: string | undefined,
-): string | undefined {
-  const frame = currentFrame();
-  if (frame === undefined || frame.isClosed()) return undefined;
-  return createHash("sha256")
-    .update([frame.step.idempotencyKey, server, tool, key ?? ""].join("\u0000"))
-    .digest("hex");
 }
 
 /** The signal a call runs under — its own, else the step's — and the timer of its `timeout`. */
@@ -186,11 +176,12 @@ export abstract class McpServerClient<TTools extends ServerTools> {
       unknown,
       McpCallOptions | undefined,
     ];
-    const key = options?.key;
-    if (key !== undefined && !CALL_KEY.test(key)) throw new McpError.Contract();
+    const key = checkedKey(options);
+    // made before the wait for a slot: the position of a keyless call is the order it was asked in
+    const callId = callIdOf(this.#wiring?.name ?? this.constructor.name, name, key, args);
     const release = await this.#gate?.enter();
     try {
-      return (await this.#called(name, tool, args, options)) as ResultOf<TTools[K]>;
+      return (await this.#called(name, tool, args, options, callId)) as ResultOf<TTools[K]>;
     } finally {
       release?.();
     }
@@ -207,11 +198,11 @@ export abstract class McpServerClient<TTools extends ServerTools> {
     tool: ServerToolCallable,
     args: unknown,
     options: McpCallOptions | undefined,
+    callId: string | undefined,
   ): Promise<unknown> {
     const server = this.#wiring?.name ?? this.constructor.name;
     const bound = boundOf(`${server}.${name}`, options);
     try {
-      const callId = callIdOf(server, name, options?.key);
       const result = await withCallIdentity({ callId }, () =>
         tool.invoke(args ?? {}, { signal: bound.signal, reportCost: noCost }),
       );

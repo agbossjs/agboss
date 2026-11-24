@@ -4,11 +4,8 @@
  * connected tool.
  */
 import { describe, expect, it } from "vitest";
-import {
-  McpServerClient,
-  callIdOf,
-  type ServerToolCallable,
-} from "../../src/components/mcp-client.js";
+import { McpServerClient, type ServerToolCallable } from "../../src/components/mcp-client.js";
+import { callIdOf } from "../../src/components/mcp-call-identity.js";
 import { McpError } from "../../src/core/error-families/remote-errors.js";
 import { AGBossError } from "../../src/core/errors.js";
 import { Text } from "../../src/dto/index.js";
@@ -228,7 +225,7 @@ describe("#1319a: a call's identity and price", () => {
       work,
     );
 
-  it("callId is made of the step, the server, the tool and the key: distinct per call, the same on a replay", async () => {
+  it("callId is made of the step, the server, the tool and the key: distinct per call (a keyless one by its position too)", async () => {
     const ids = await inStep(() =>
       Promise.resolve([
         callIdOf("kb", "ping", undefined),
@@ -240,7 +237,7 @@ describe("#1319a: a call's identity and price", () => {
     );
 
     expect(new Set(ids.slice(0, 4)).size).toBe(4);
-    expect(ids[4]).toBe(ids[0]);
+    expect(ids[4]).not.toBe(ids[0]); // a second keyless call is at another position of the step
     expect(callIdOf("kb", "ping", undefined)).toBeUndefined(); // outside a step
   });
 
@@ -276,5 +273,77 @@ describe("#1319a: a call's identity and price", () => {
   it("refuses a price that is no amount when it is attached, never after a call ran", () => {
     for (const price of [-1, Number.NaN, Number.POSITIVE_INFINITY])
       expect(() => connected(ok({}), { name: "kb", costPerCall: price as never })).toThrow();
+  });
+});
+
+describe("#1319a: keyless calls of one tool in one step never share an identity", () => {
+  const reportedIn = async (
+    work: (server: KbServer) => Promise<unknown>,
+    sent: unknown[],
+  ): Promise<UsageRecord[]> => {
+    const reported: UsageRecord[] = [];
+    const server = connected(
+      {
+        invoke: (raw) => {
+          sent.push(raw);
+          return Promise.resolve({ kind: "ok", value: { text: "x" } });
+        },
+      },
+      { name: "kb", costPerCall: usd(0.25) },
+    );
+    await runInFrame(
+      { ...testFrame(), services: { reportUsage: (usage: UsageRecord) => reported.push(usage) } },
+      () => work(server),
+    );
+    return reported;
+  };
+  const idsOf = (reported: UsageRecord[]): (string | undefined)[] =>
+    reported.map((usage) => (usage as { ledgerKey?: { id: string } }).ledgerKey?.id);
+
+  it("two keyless calls with different arguments each run and each charge under its own ledger key", async () => {
+    const sent: unknown[] = [];
+    const reported = await reportedIn(async (server) => {
+      await server.call("search", { q: "a" });
+      await server.call("search", { q: "b" });
+    }, sent);
+
+    expect(sent).toEqual([{ q: "a" }, { q: "b" }]);
+    expect(reported).toHaveLength(2);
+    expect(new Set(idsOf(reported)).size).toBe(2);
+  });
+
+  it("the same step run again makes the same identities in the same order, so a resume replays the right call", async () => {
+    const run = (): Promise<UsageRecord[]> =>
+      reportedIn(async (server) => {
+        await server.call("search", { q: "a" });
+        await server.call("search", { q: "b" });
+        await server.call("search", { q: "a" });
+      }, []);
+
+    const first = idsOf(await run());
+    const second = idsOf(await run());
+
+    expect(second).toEqual(first);
+    expect(new Set(first).size).toBe(3); // the same arguments at another position is another call
+  });
+
+  it("the same position with other arguments is another call, never a replay", async () => {
+    const one = idsOf(await reportedIn((server) => server.call("search", { q: "a" }), []));
+    const other = idsOf(await reportedIn((server) => server.call("search", { q: "b" }), []));
+
+    expect(other).not.toEqual(one);
+  });
+
+  it("an explicit key still dedupes: the same identity wherever the call stands", async () => {
+    const ids = idsOf(
+      await reportedIn(async (server) => {
+        await server.call("search", { q: "a" });
+        await server.call("search", { q: "a" }, { key: "fixed" });
+        await server.call("search", { q: "a" }, { key: "fixed" });
+      }, []),
+    );
+
+    expect(ids[1]).toBe(ids[2]);
+    expect(ids[0]).not.toBe(ids[1]);
   });
 });

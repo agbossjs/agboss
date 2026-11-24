@@ -43,7 +43,7 @@ export type Registration =
   | { readonly kind: "class"; readonly cls: Class };
 
 /** Whether `cls` is `contract`, extends it, names it in `injectAs` (#1324), or is a `@Channel` serving it as its `target`. */
-const implementsContract = (cls: Class, contract: Class): boolean =>
+export const implementsContract = (cls: Class, contract: Class): boolean =>
   cls === contract ||
   Object.prototype.isPrototypeOf.call(contract.prototype, cls.prototype) ||
   injectAsOf(cls).includes(contract) ||

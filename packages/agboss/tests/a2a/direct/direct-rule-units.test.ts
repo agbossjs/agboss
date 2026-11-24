@@ -35,6 +35,9 @@ import {
   LateEffectAction,
   PlainAgent,
   PlainTool,
+  PortAction,
+  PortMcpServer,
+  UnboundPortAction,
   SecondLedgerAgent,
   TokenAction,
 } from "../fixtures/direct-rule-units.fixture.js";
@@ -78,17 +81,22 @@ function exposeOf(exports: readonly Class[], skills: Record<string, object> = {}
   return Made;
 }
 
-const violationsOf = (workflows: readonly Class[], exposes: readonly Class[]) =>
+const violationsOf = (
+  workflows: readonly Class[],
+  exposes: readonly Class[],
+  more: Partial<ApplicationOptions> = {},
+) =>
   messageSkillViolations({
     name: "unit-rule-application",
     workflows,
     exposes,
+    ...more,
   } as ApplicationOptions);
 
 /** The problems of a skill running `nodes`: each `[code] text`, the skill's prefix cut. */
-function problemsOf(nodes: readonly Class[]): string[] {
+function problemsOf(nodes: readonly Class[], more: Partial<ApplicationOptions> = {}): string[] {
   const { start: exported, workflow } = skillOf(nodes);
-  return violationsOf([workflow], [exposeOf([exported])]).map(
+  return violationsOf([workflow], [exposeOf([exported])], more).map(
     (found) =>
       `[${found.code}] ${found.message.replace(/^.* must be stateless, but /, "").replace(/ — answer with a task.*$/, "")}`,
   );
@@ -106,6 +114,15 @@ describe("#860: a direct-reply skill's problems, each with its code and text", (
     expect(problemsOf([LateEffectAction, CallingAction, TokenAction, PlainAgent])).toEqual([
       "[a2a.message-skill-effect] Made injects OutboundCalls, which changes things outside the run",
       "[a2a.message-skill-effect] Made injects RuleA2AAgent, which changes things outside the run",
+    ]);
+  });
+
+  it("a port bound by injectAs to an MCP server is that effect; a port bound to nothing is refused", () => {
+    expect(problemsOf([PortAction], { services: [PortMcpServer] })).toEqual([
+      "[a2a.message-skill-effect] Made injects PortMcpServer, which changes things outside the run",
+    ]);
+    expect(problemsOf([UnboundPortAction])).toEqual([
+      "[a2a.message-skill-effect] Made injects UnboundPort, which changes things outside the run",
     ]);
   });
 

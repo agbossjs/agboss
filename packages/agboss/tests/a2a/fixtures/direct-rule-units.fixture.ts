@@ -3,6 +3,9 @@
 // that reach an effect after a harmless one, an A2A client, an injection token, a cycle of deps; an
 // action committed with no undo; two agents sharing a tool that writes.
 import { A2AAgent, A2AClient } from "../../../src/a2a/index.js";
+import { McpServer } from "../../../src/components/decorators.js";
+import { McpServerClient } from "../../../src/components/mcp-client.js";
+import { McpTransport } from "../../../src/config/mcp-server-config.js";
 import { OutboundCalls } from "../../../src/app/outbound-calls.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Injectable, Tool } from "../../../src/components/decorators.js";
@@ -119,3 +122,32 @@ export class CommittedAction {
     return Promise.resolve();
   }
 }
+
+/** An abstract port, bound to an MCP server with `injectAs`. */
+export abstract class RemoteSearchPort {
+  abstract search(): void;
+}
+
+@McpServer({
+  name: "port-mcp-server",
+  transport: McpTransport.Stdio,
+  command: "unused",
+  tools: {},
+  injectAs: RemoteSearchPort,
+})
+export class PortMcpServer
+  extends McpServerClient<Record<string, never>>
+  implements RemoteSearchPort
+{
+  search(): void {
+    return undefined;
+  }
+}
+
+/** An abstract port nothing in the application is bound to. */
+export abstract class UnboundPort {
+  abstract read(): void;
+}
+
+export const PortAction = action("port-action", [RemoteSearchPort]);
+export const UnboundPortAction = action("unbound-port-action", [UnboundPort]);
