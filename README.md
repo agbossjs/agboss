@@ -1638,31 +1638,32 @@ cause chain, it is a hand-over: no `.onError`, no undo, the record stays `runnin
 rejects with it — and it is kept (#501): a `HandedOver` row of the audit log
 (`app.auditLogOf`) and an `onStepHandedOver` (`reason`, `site`, the step, `token`,
 `observedToken`), so a zombie refused at a write is told apart from one that never wrote again,
-from the public API alone; a fenced effect's call (#500) is a `FencedEffect` row and an
-`onFencedEffect` too (`Ran`, `Replayed`, `Joined`, `Refused`). Key the mark by `fence.scopeKey`, never by a shared business row: parallel
+from the public API alone; an idempotent write's call (#500) is an `IdempotencyRun` row and an
+`onIdempotencyRun` too (`Ran`, `Replayed`, `Joined`, `Refused`). Key the mark by `fence.scopeKey`, never by a shared business row: parallel
 `ChildPlacement.AnyInstance` children each hold a lease (and a token) of their own. Exactly-once
 holds only when the external system checks both atomically. A test freezes a writer with
 `testWith(App, { instances: 2 })` and `leases.freeze(apps[0])` on the `VirtualClock`; a unit runner's
 step has a held lease (`fence: { token, isLost, renewNowFails }`).
 
-**The fenced effect** (#500) does all of that in one call, for rows in the store's own database —
-no fencing or idempotency table of the application's: the application's `FencedEffects` (#890, a
-core service a component injects, over the listed `FencedEffectRepository`) `runOnce(effectKeyOf(
-executionContext, name), work)` checks, in one transaction, the step's lease (not its epoch,
+**The idempotent write** (#500) does all of that in one call, for rows in the store's own database —
+no fencing or idempotency table of the application's: the application's `Idempotency` (#890, #1317, a
+core service a component injects, over the listed `FencedEffectRepository`) `runOnce({ name, ttl,
+execute })` checks, in one transaction, the step's lease (not its epoch,
 released or expired → `ExecutionFencedError`), the scope's high-water mark (a lower token refused
 before any key is read, so a zombie never gets the new holder's result), then the step's key —
-written before, the stored result comes back (`FencedEffectStatus.Replayed`) and `work` does not run;
-else `work` writes its rows and its result is stored with them (`Ran`). A concurrent call on one key
-of one instance gets the first's result (`Joined`); a throwing `work` rolls everything back. The
+written before, the stored result comes back (`IdempotencyRunStatus.Replayed`) and `execute` does not run;
+else `execute` writes its rows and its result is stored with them (`Ran`). A concurrent call on one key
+of one instance gets the first's result (`Joined`); a throwing `execute` rolls everything back. The
 built-in store is in memory; `SqliteFencedEffectRepository` (listed with
 `SqliteExecutionLeaseRepository`: the stores declare one backend in `static store`, else
-`[application.store-backend-mismatch]`, #526) gives `work` the
+`[application.store-backend-mismatch]`, #526) gives `execute` the
 connection's `DatabaseSync` (the component names its type) and runs it synchronously — a returned
 promise rolls back with `SyncWorkRequiredError`:
 
 <!-- snippet-context
 import type { DatabaseSync } from "node:sqlite";
-import { Action, ExecutionContext, FencedEffects, effectKeyOf } from "@agboss/core";
+import { Action, Idempotency } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 import { Text } from "@agboss/core/dto";
 export class OrderDto {
   @Text() orderId!: string;
@@ -1678,33 +1679,34 @@ export class ChargeReceiptDto {
   description: "Charges the order once per step",
   input: { order: OrderDto },
   output: ChargeReceiptDto,
-  deps: [ExecutionContext, FencedEffects], // the store is the application's: SQLite's here
+  deps: [Idempotency], // the store is the application's: SQLite's here
 })
 export class ChargeOrderAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: FencedEffects,
+    private readonly idempotency: Idempotency,
   ) {}
 
   async execute(input: { order: { value: OrderDto } }): Promise<ChargeReceiptDto> {
     const { orderId } = input.order.value;
-    const key = effectKeyOf(this.executionContext, "charge");
-    const { result } = await this.fencedEffects.runOnce(key, (database: DatabaseSync) => {
-      // synchronous: the row and the receipt commit together, with the fencing checks
-      const { lastInsertRowid } = database
-        .prepare("INSERT INTO charges (order_id) VALUES (?)")
-        .run(orderId);
-      return { chargeId: `charge-${String(lastInsertRowid)}` };
+    const { result } = await this.idempotency.runOnce({
+      name: "charge",
+      ttl: hours(24),
+      execute: (database: DatabaseSync) => {
+        // synchronous: the row and the receipt commit together, with the fencing checks
+        const { lastInsertRowid } = database
+          .prepare("INSERT INTO charges (order_id) VALUES (?)")
+          .run(orderId);
+        return { chargeId: `charge-${String(lastInsertRowid)}` };
+      },
     });
     return result;
   }
 }
 ```
 
-`@Application({ fencedEffects: { maxResultSize, retention } })` bounds a stored result (default
-`kilobytes(64)`, else `FencedEffectResultTooLargeError`) and keeps results and marks `hours(24)`
-(the recovery sweep removes them on the `Clock`; above the lease's 30 s,
-`[application.fenced-effects-invalid]`). A store outside the core runs `fencedEffectContract` of
+The call's `maxResultSize` bounds a stored result (default
+`kilobytes(64)`, else `IdempotencyError.ResultTooLarge`) and its required `ttl` keeps the result and
+its mark (the recovery sweep removes them on the `Clock`; above the lease's 30 s, or `Ttl.Forever`). A store outside the core runs `fencedEffectContract` of
 `@agboss/core/testing/contracts`; flow-patterns' credit desk charges this way (its README).
 
 An execution's record is `ExecutionRecordStatus.Running` while its tree moves. **Recovery** (#265):

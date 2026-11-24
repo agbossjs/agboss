@@ -75,12 +75,12 @@ only what changed.
 AGBoss runs a step **at least once**: when an instance dies after a step did its work but before the
 step's checkpoint is saved, another instance continues the execution from the last checkpoint and
 runs that step again — with the same `executionContext.step.idempotencyKey`
-(`<executionId>:charge-card-action:1`) under the next lease token. The charge is a **fenced effect**
-(#500): `ChargeCardAction` calls the application's `FencedEffects.runOnce(effectKeyOf(
-executionContext, "charge", { businessKey, fingerprint: { customerId, total } }), (database) => …)` with
-the business key `credit:<applicationId>` — keyed by the credit application (#508), not the step, so a second execution for the
+(`<executionId>:charge-card-action:1`) under the next lease token. The charge is an **idempotent write**
+(#500): `ChargeCardAction` calls the application's `Idempotency.runOnce({ name: "charge", key,
+fingerprint: { customerId, total }, ttl, execute: (database) => … })` with
+the key `credit:<applicationId>` — keyed by the credit application (#508), not the step, so a second execution for the
 same application, on another thread, gets the first receipt too, and the same application with another
-total is `BusinessKeyConflictError`, nothing charged —, and the write — `PaymentLedgerRepository.recordCharge`,
+total is `IdempotencyError.KeyConflict`, nothing charged —, and the write — `PaymentLedgerRepository.recordCharge`,
 one synchronous `INSERT` into `payment_charges` on the `DatabaseSync` it is given — runs in one
 `BEGIN IMMEDIATE` transaction of the application's SQLite file with the checks:
 
@@ -120,7 +120,6 @@ Add the model key and the PII key to the same `.env` (repo root):
 ```bash
 OPENROUTER_API_KEY=sk-or-...
 PII_PSEUDONYM_KEY=any-long-random-text # the application's PII key: required by `dev`
-IDEMPOTENCY_KEY=another-long-random-text # its idempotency key (#825): business-key fingerprints, required by `dev`
 # OPENROUTER_BASE_URL=...             # optional: a proxy or a local OpenAI-compatible server
 ```
 

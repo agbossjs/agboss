@@ -264,7 +264,6 @@ export class OnceLevelWorkflow {}
   name: "undo-once-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [
     OnceRootWorkflow,
     OnceJoinWorkflow,

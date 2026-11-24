@@ -3,7 +3,7 @@ import {
   ExecutionContext,
   Injectable,
   SqliteExecutionLeaseRepository,
-  FencedEffects,
+  Idempotency,
   StoreClock,
   type ExecutionEndEvent,
   type ExecutionLease,
@@ -111,16 +111,16 @@ const abortOf = (signal: AbortSignal): Promise<void> =>
 
 /** The real charge; its first one holds its step after the charge until the instance lost the lease. */
 @Injectable({
-  deps: [ExecutionContext, FencedEffects, PaymentLedgerRepository, ApplicationContext],
+  deps: [Idempotency, ExecutionContext, PaymentLedgerRepository, ApplicationContext],
 })
 export class CrashAfterChargeAction extends ChargeCardAction {
   constructor(
+    idempotency: Idempotency,
     private readonly context: ExecutionContext,
-    fencedEffects: FencedEffects,
     private readonly ledger: PaymentLedgerRepository,
     private readonly applicationContext: ApplicationContext,
   ) {
-    super(context, fencedEffects, ledger);
+    super(idempotency, ledger);
   }
 
   override async execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {

@@ -1,21 +1,21 @@
 /**
  * #505 — a new attempt is a compare-and-set: two callers that read one intent move it once, and only
  * the winner sends. The loser reads the intent again and follows the protocol — the winner's
- * result replayed, its pending attempt in flight (`OutboundCallInFlightError`), nothing sent — at
+ * result replayed, its pending attempt in flight (`OutboundCallError.InFlight`), nothing sent — at
  * most three reads. The rival is a real second caller interleaved at the store: between this
  * call's read and its move, it moves the same intent through the same store.
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ExecutionLeaseRepository,
   Injectable,
   InMemoryOutboundCallRepository,
-  OutboundCallInFlightError,
   OutboundCallRepository,
   OutboundCallStatus,
-  type EffectKey,
   type OutboundCallRecord,
 } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
@@ -90,7 +90,7 @@ describe("#505: a new attempt is a compare-and-set", () => {
     const run = await failedOnce();
     Object.assign(rival, { move: RivalMove.Resends, reads: 1 });
 
-    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     expect(gateway.calls).toHaveLength(1); // the first attempt only: the rival's send is its own
     expect(rival.moves).toBe(1);
   });
@@ -110,7 +110,7 @@ describe("#505: a new attempt is a compare-and-set", () => {
     const run = await failedOnce();
     Object.assign(rival, { move: RivalMove.KeepsFailing, reads: 10 });
 
-    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     expect(rival.moves).toBe(3);
     expect(gateway.calls).toHaveLength(1);
   });
@@ -124,7 +124,7 @@ describe("#505: a new attempt is a compare-and-set", () => {
     await expect(first).rejects.toThrow();
     Object.assign(rival, { move: RivalMove.Resends, reads: 1 });
 
-    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     expect(gateway.lookups).toHaveLength(1);
     expect(gateway.calls).toHaveLength(1);
   });

@@ -3,8 +3,9 @@
  * published contract: the high-water mark refuses a lower token even when the lease's epoch matches
  * it (a wiped lease store), a lease taken over while an asynchronous write ran refuses its commit,
  * the sweep removes the marks too, a key made by hand is checked, and the store refuses to run
- * beside another lease store (`FencedEffectStoreMismatchError`).
+ * beside another lease store (`IdempotencyError.StoreMismatch`).
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import { ExecutionFencedError } from "../../src/app/lease-lost.js";
@@ -14,14 +15,9 @@ import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
 } from "../../src/infrastructure/execution-lease.repository.js";
-import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
-import { FencedEffectStatus } from "../../src/infrastructure/fenced-effect.repository.js";
-import { InvalidFencedEffectNameError } from "../../src/infrastructure/fenced-effect-key.js";
+import { IdempotencyRunStatus } from "../../src/infrastructure/fenced-effect.repository.js";
 import { InMemoryDatabase, treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
-import {
-  FencedEffectStoreMismatchError,
-  InMemoryFencedEffectRepository,
-} from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
+import { InMemoryFencedEffectRepository } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, seconds, type Milliseconds } from "../../src/units/index.js";
@@ -38,13 +34,7 @@ function storesOn(database = new InMemoryDatabase(), clock = new VirtualClock())
     environment: NO_ENVIRONMENT_VALUES,
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
-  const settings = new FencedEffectSettings();
-  const effects = new InMemoryFencedEffectRepository(
-    storeClockOf(clock),
-    database,
-    settings,
-    leases,
-  );
+  const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
   return { clock, database, leases, effects };
 }
 
@@ -151,23 +141,22 @@ describe("#500: the in-memory fenced-effect store", () => {
     ]);
 
     expect(outcomes.map((outcome) => outcome.status)).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Ran,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Ran,
     ]);
   });
 
-  it("refuses to run beside another lease store: FencedEffectStoreMismatchError names both", async () => {
+  it("refuses to run beside another lease store: IdempotencyError.StoreMismatch names both", async () => {
     const { clock, database, leases } = storesOn();
     const effects = new InMemoryFencedEffectRepository(
       storeClockOf(clock),
       database,
-      new FencedEffectSettings(),
       new ElsewhereExecutionLeaseRepository(),
     );
 
     const refused = effects.runOnce(keyOf(await held(leases)), receipt("a"));
 
-    await expect(refused).rejects.toBeInstanceOf(FencedEffectStoreMismatchError);
+    await expect(refused).rejects.toBeInstanceOf(IdempotencyError.StoreMismatch);
     await expect(refused).rejects.toMatchObject({
       fencedEffectRepository: "InMemoryFencedEffectRepository",
       leaseRepository: "ElsewhereExecutionLeaseRepository",
@@ -177,7 +166,7 @@ describe("#500: the in-memory fenced-effect store", () => {
 });
 
 describe("#500: a fenced-effect key made by hand is checked", () => {
-  it("#526 AC7: an empty name is InvalidFencedEffectNameError, as every invalid name, before anything runs", async () => {
+  it("#526 AC7: an empty name is IdempotencyError.InvalidName, as every invalid name, before anything runs", async () => {
     const { leases, effects } = storesOn();
     let runs = 0;
 
@@ -189,7 +178,7 @@ describe("#500: a fenced-effect key made by hand is checked", () => {
       },
     );
 
-    await expect(call).rejects.toBeInstanceOf(InvalidFencedEffectNameError);
+    await expect(call).rejects.toBeInstanceOf(IdempotencyError.InvalidName);
     expect(runs).toBe(0);
   });
 
@@ -212,7 +201,7 @@ describe("#500: a fenced-effect key made by hand is checked", () => {
       );
 
       await expect(call).rejects.toThrow(message);
-      await expect(call).rejects.toBeInstanceOf(TypeError);
+      await expect(call).rejects.toBeInstanceOf(IdempotencyError.InvalidKey);
       expect(runs).toBe(0);
     });
   }

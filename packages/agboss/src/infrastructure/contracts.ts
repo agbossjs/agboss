@@ -42,8 +42,7 @@ import {
 import { OutboundCallRepository } from "./outbound-call.repository.js";
 import { InMemoryOutboundCallRepository } from "./outbound-call.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
-import { FencedEffects } from "../app/fenced-effects.js";
-import { OutboundCalls } from "../app/outbound-calls.js";
+import { Idempotency } from "../app/idempotency.js";
 import { FileRedactor, ModelImageRedactor } from "../files/file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "../files/file-transcriber.js";
 import { Files } from "../a2a/files/files.service.js";
@@ -93,15 +92,13 @@ export const TEST_INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<C
 ]);
 
 /**
- * The framework's services a component injects without listing them (#505: `OutboundCalls`; #890:
- * `FencedEffects`), created by the application's container over its infrastructure — never
+ * The framework's services a component injects without listing them (#505, #890, #1317: `Idempotency`), created by the application's container over its infrastructure — never
  * infrastructure itself.
  */
 const CORE_SERVICES: readonly (readonly [Class, Class])[] = [
-  [OutboundCalls, OutboundCalls],
+  [Idempotency, Idempotency],
   // #859: what a step reads and keeps its A2A task's files with
   [Files, Files],
-  [FencedEffects, FencedEffects],
 ];
 
 /** What an application's container creates when nothing listed provides it. */

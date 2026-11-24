@@ -75,7 +75,6 @@ export class RoutedChargeWorkflow {}
   name: "router-spend-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [RoutedChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, RouterExecutionBudget],

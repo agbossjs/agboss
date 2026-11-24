@@ -1,10 +1,13 @@
 import { Part, type Task } from "@a2a-js/sdk";
 import { createHash } from "node:crypto";
-import { NotSentTrust } from "../../app/outbound-call-contract.js";
-import { OutboundCallReconciliation, type OutboundCallLookup } from "../../app/outbound-calls.js";
-import type { OutboundCallNotSent } from "../../app/outbound-call-types.js";
+import type { OutboundCallLookup } from "../../app/outbound-call-types.js";
+import {
+  OutboundRecovery,
+  Reconciliation,
+  type OutboundRecovery as Recovery,
+} from "../../app/outbound-recovery.js";
 import { stableJson } from "../../turns/index.js";
-import { A2APeerKind, type A2ARemotePeer } from "./a2a-card.js";
+import { A2APeerKind } from "./a2a-card.js";
 import type { AcceptCall, AcceptResult } from "./a2a-message.js";
 import { safeTaskIdOf } from "./a2a-task-errors.js";
 import { A2AClientOperation } from "./a2a-client-errors.js";
@@ -16,11 +19,11 @@ import { parsedStoredJson } from "../../infrastructure/stored-step.js";
  * How a pending accept is reconciled (#809, design §4.3.1), by the peer's trust as it was when the
  * call was recorded:
  *
- * - **AGBoss peer** (its card declares `idempotencyRetention`): `notSent()` under
- *   `NotSentTrust.KeyReplay` bounded by that retention — the same deterministic `messageId` is sent
+ * - **AGBoss peer** (its card declares `idempotencyRetention`): `notExecuted()` under
+ *   `OutboundRecovery.lookupWithin` bounded by that retention — the same deterministic `messageId` is sent
  *   again and the agent's dedupe returns the same task; past it nothing is sent.
  * - **Foreign peer:** a reply to a known task is completed only when the task's history holds the
- *   reply's `messageId`; anything else is unknown — `OutboundCallUnreconciledError`, nothing resent.
+ *   reply's `messageId`; anything else is unknown — `OutboundCallError.Unreconciled`, nothing resent.
  * - **The peer's trust changed** since the intent was recorded (its card): unknown.
  */
 
@@ -39,11 +42,20 @@ export interface AcceptRequest {
 /** How much of a foreign task's history a reply's reconcile reads for its `messageId`. */
 export const RECONCILE_HISTORY = 100;
 
-/** How far `reconcile`'s `notSent()` is trusted: an AGBoss peer's declared dedupe window. */
-export function notSentOf(peer: A2ARemotePeer): OutboundCallNotSent {
+/**
+ * How an accept of unknown outcome is recovered: an AGBoss peer's declared dedupe window bounds its
+ * resend (`lookupWithin`); a foreign peer's lookup never says `notExecuted()` (`permanentLookup`).
+ */
+export function recoveryOf(
+  call: AcceptCall,
+  messageIdFor: (key: string) => string,
+): Recovery<AcceptResult> {
+  const reconcile = (lookup: OutboundCallLookup) =>
+    reconciliationOf(call, lookup, messageIdFor(lookup.idempotencyKey));
+  const { peer } = call;
   return peer.kind === A2APeerKind.AGBoss
-    ? { trust: NotSentTrust.KeyReplay, keyRetention: peer.idempotencyRetention }
-    : { trust: NotSentTrust.Lookup }; // a foreign peer's reconcile never says notSent()
+    ? OutboundRecovery.lookupWithin(peer.idempotencyRetention, reconcile)
+    : OutboundRecovery.permanentLookup(reconcile);
 }
 
 /** What the intent stores of a call's request: the parts as their wire JSON, the peer's trust. */
@@ -101,17 +113,17 @@ export async function reconciliationOf(
   call: AcceptCall,
   lookup: Pick<OutboundCallLookup, "storedRequest">,
   messageId: string,
-): Promise<OutboundCallReconciliation<AcceptResult>> {
+): Promise<Reconciliation<AcceptResult>> {
   const stored = storedIdentityOf(lookup.storedRequest);
   const isSameCall = stableJson(stored) === stableJson(identityOf(acceptRequestOf(call)));
-  if (!isSameCall) return OutboundCallReconciliation.unknown({ reason: UNKNOWN_PEER });
+  if (!isSameCall) return Reconciliation.unknown(UNKNOWN_PEER);
   // the agent deduplicates the messageId: sending it again returns the same task
-  if (call.peer.kind === A2APeerKind.AGBoss) return OutboundCallReconciliation.notSent();
+  if (call.peer.kind === A2APeerKind.AGBoss) return Reconciliation.notExecuted();
   if (call.taskId === undefined) {
-    return OutboundCallReconciliation.unknown({ reason: UNKNOWN_FOREIGN });
+    return Reconciliation.unknown(UNKNOWN_FOREIGN);
   }
   const options = call.signal === undefined ? {} : { signal: call.signal };
-  // a failed read throws (codes only): OutboundCalls keeps it as the unreconciled call's cause
+  // a failed read throws (codes only): Idempotency keeps it as the unreconciled call's cause
   let read: Task;
   try {
     read = await call.client.getTask(
@@ -124,11 +136,11 @@ export async function reconciliationOf(
   const task = checkedTask({ agent: call.agent, taskId: call.taskId }, read);
   const isArrived = task.history.some((message) => message.messageId === messageId);
   return isArrived
-    ? OutboundCallReconciliation.completed<AcceptResult>({
+    ? Reconciliation.completed<AcceptResult>({
         kind: "task",
         mesh: false, // a foreign peer: no mesh rode
         taskId: call.taskId,
         contextId: call.contextId ?? safeTaskIdOf(task.contextId) ?? "",
       })
-    : OutboundCallReconciliation.unknown({ reason: UNKNOWN_REPLY });
+    : Reconciliation.unknown(UNKNOWN_REPLY);
 }

@@ -3,7 +3,7 @@ import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Action,
   ExecutionContext,
-  FencedEffects,
+  Idempotency,
   SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
@@ -14,9 +14,9 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
   type Produced,
 } from "../../../../src/index.js";
+import { hours } from "../../../../src/units/index.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
@@ -66,27 +66,31 @@ export function chargesIn(database: DatabaseSync): readonly string[] {
   input: { message: WorkflowStartTextDto },
   output: ChargeReceiptDto,
   // #890 AC2: the service, never the store — its transaction is the listed SQLite store's
-  deps: [ExecutionContext, FencedEffects],
+  deps: [ExecutionContext, Idempotency],
 })
 export class SqliteChargeOrderAction {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: FencedEffects,
+    private readonly idempotency: Idempotency,
   ) {}
 
   async execute(input: {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargeReceiptDto> {
-    const key = effectKeyOf(this.executionContext, "charge");
+    const { token } = this.executionContext.fence;
     await gate("before");
     const order = input.message.value.text;
-    const outcome = await this.fencedEffects
-      .runOnce(key, (database: DatabaseSync) => insertCharge(database, order, key.token))
+    const outcome = await this.idempotency
+      .runOnce({
+        name: "charge",
+        ttl: hours(24),
+        execute: (database: DatabaseSync) => insertCharge(database, order, token),
+      })
       .catch((error: unknown) => {
-        book.runs.push({ token: key.token, status: "refused" });
+        book.runs.push({ token, status: "refused" });
         throw error;
       });
-    book.runs.push({ token: key.token, status: outcome.status });
+    book.runs.push({ token, status: outcome.status });
     await gate("after");
     return outcome.result;
   }
@@ -121,7 +125,6 @@ export class SqliteChargeWorkflow {}
   name: "sqlite-fenced-effect-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
   providers: [
@@ -143,7 +146,6 @@ export class SqliteFencedEffectApplication {}
   name: "unlisted-fenced-effect-store-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [DoubleChargeWorkflow],
   budgets: TEST_BUDGETS,
   providers: [SqliteExecutionLeaseRepository, SqliteConnection],

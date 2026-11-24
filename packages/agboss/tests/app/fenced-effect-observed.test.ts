@@ -6,16 +6,15 @@
  */
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
-import type { FencedEffectReport } from "../../src/app/audit-log.js";
+import type { IdempotencyRunReport } from "../../src/app/audit-log.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
 import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
-import { FencedEffectEventOutcome } from "../../src/infrastructure/execution-audit-log.repository.js";
+import { IdempotencyRunEventOutcome } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
-import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import {
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type EffectKey,
 } from "../../src/infrastructure/fenced-effect.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
@@ -35,13 +34,8 @@ function effectsInFrame() {
     ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
-  const effects = new InMemoryFencedEffectRepository(
-    storeClockOf(clock),
-    database,
-    new FencedEffectSettings(),
-    leases,
-  );
-  const reports: FencedEffectReport[] = [];
+  const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
+  const reports: IdempotencyRunReport[] = [];
   const lease: FrameLease = {
     tenantId: "default",
     leaseExecutionId: "execution-1",
@@ -52,7 +46,7 @@ function effectsInFrame() {
     assertHeld: () => undefined,
     renewNow: () => Promise.resolve(),
     enterStep: () => Promise.resolve(() => undefined),
-    recordFencedEffect: (report) => {
+    recordIdempotencyRun: (report) => {
       reports.push(report);
     },
   };
@@ -88,7 +82,7 @@ describe("#533: a fenced effect's call, told to its lease", () => {
 
     await runInFrame(recording, () => effects.runOnce(key, () => ({ receipt: "r" })));
 
-    expect(reports.map((report) => report.outcome)).toEqual([FencedEffectEventOutcome.Ran]);
+    expect(reports.map((report) => report.outcome)).toEqual([IdempotencyRunEventOutcome.Ran]);
     expect(reports[0]?.writtenToken).toBe(1);
     expect(Object.keys(reports[0] ?? {})).not.toContain("replayedFrom");
   });
@@ -103,10 +97,10 @@ describe("#533: a fenced effect's call, told to its lease", () => {
       effects.runOnce(again, () => ({ receipt: "again" })),
     );
 
-    expect(replay.status).toBe(FencedEffectStatus.Replayed);
+    expect(replay.status).toBe(IdempotencyRunStatus.Replayed);
     expect(reports).toMatchObject([
       {
-        outcome: FencedEffectEventOutcome.Replayed,
+        outcome: IdempotencyRunEventOutcome.Replayed,
         replayedFrom: { executionId: "execution-1", nodeId: "charge-action", visitNumber: 1 },
       },
     ]);
@@ -135,7 +129,7 @@ describe("#533: a fenced effect's call, told to its lease", () => {
       effects.runOnce(key, () => ({ receipt: "r" })),
     );
 
-    expect(outcome.status).toBe(FencedEffectStatus.Ran);
+    expect(outcome.status).toBe(IdempotencyRunStatus.Ran);
     expect(reports).toEqual([]);
   });
 });
@@ -162,7 +156,7 @@ describe("#909: a write of a tree that was cancelled", () => {
     expect(ran).toBe(false);
     expect(reports).toHaveLength(1);
     expect(reports[0]).toMatchObject({
-      outcome: FencedEffectEventOutcome.Cancelled,
+      outcome: IdempotencyRunEventOutcome.Cancelled,
       name: key.name,
     });
     expect(Object.keys(reports[0] ?? {})).not.toContain("observedToken");

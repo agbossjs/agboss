@@ -2,11 +2,11 @@ import {
   Action,
   ApplicationContext,
   ExecutionContext,
-  FencedEffectRepository,
-  effectKeyOf,
+  Idempotency,
   type Produced,
 } from "../../../index.js";
 import { FAULT_BUSINESS_ROWS, type FaultBusinessRows } from "../fault-stores.js";
+import { hours } from "../../../units/index.js";
 import { FaultChargeDto, FaultReservationDto, FaultOrderDto } from "./order.dto.js";
 import { FaultPodLink, FaultStepPoint } from "./pod-link.js";
 
@@ -105,19 +105,13 @@ const chargeIdOf = (result: unknown, receipt: { readonly chargeId: string }): st
   description: "Charges the order: one business row, in the fenced effect's transaction",
   input: { reservation: FaultReservationDto },
   output: FaultChargeDto,
-  deps: [
-    ApplicationContext,
-    ExecutionContext,
-    FencedEffectRepository,
-    FAULT_BUSINESS_ROWS,
-    FaultPodLink,
-  ],
+  deps: [ApplicationContext, ExecutionContext, Idempotency, FAULT_BUSINESS_ROWS, FaultPodLink],
 })
 export class FaultChargeAction {
   constructor(
     private readonly applicationContext: ApplicationContext,
     private readonly executionContext: ExecutionContext,
-    private readonly fencedEffectRepository: FencedEffectRepository<unknown>,
+    private readonly idempotency: Idempotency,
     private readonly faultBusinessRows: FaultBusinessRows,
     private readonly faultPodLink: FaultPodLink,
   ) {}
@@ -130,12 +124,15 @@ export class FaultChargeAction {
     const where = { ...whereOf(this.applicationContext, this.executionContext), orderId };
     await this.faultPodLink.atStep(FaultStepPoint.ChargeBefore, where, signal);
     if (decline) throw new FaultChargeDeclinedError(`the card of ${orderId} was declined`);
-    const key = effectKeyOf(this.executionContext, "charge");
     const row = `charge:${this.executionContext.executionId}`;
-    const receipt = { chargeId: `${row}@${String(key.token)}` };
-    const outcome = await this.fencedEffectRepository.runOnce(key, (transaction) => {
-      const inserted = this.faultBusinessRows.insert(transaction, row);
-      return inserted === undefined ? receipt : inserted.then(() => receipt);
+    const receipt = { chargeId: `${row}@${String(this.executionContext.fence.token)}` };
+    const outcome = await this.idempotency.runOnce({
+      name: "charge",
+      ttl: hours(24),
+      execute: (transaction) => {
+        const inserted = this.faultBusinessRows.insert(transaction, row);
+        return inserted === undefined ? receipt : inserted.then(() => receipt);
+      },
     });
     this.faultPodLink.emit("charged", { ...where, status: outcome.status });
     await this.faultPodLink.atStep(FaultStepPoint.ChargeAfter, where, signal);

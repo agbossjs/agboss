@@ -5,7 +5,7 @@
  * `runOnce`), and the proxy is never stacked.
  */
 import { describe, expect, it } from "vitest";
-import { FencedEffectRepository, FencedEffectStatus } from "../../src/index.js";
+import { FencedEffectRepository, IdempotencyRunStatus } from "../../src/index.js";
 import { boundedStoreOf, MAINTENANCE_METHODS, targetOf } from "../../src/app/store-call-bound.js";
 import { LONG_CALL_BOUND, RENEW_BOUND, STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import { StoreBounds } from "../../src/app/store-bounds.js";
@@ -135,8 +135,8 @@ describe("#928 AC1 guard: the store behind the proxy is the same store", () => {
 
     expect(result.output).toEqual({ chargeId: "order-8" });
     expect(book.runs.map((run) => run.status)).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Joined,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Joined,
     ]);
   });
 

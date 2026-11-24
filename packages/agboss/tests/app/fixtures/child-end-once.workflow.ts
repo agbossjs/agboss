@@ -1,7 +1,8 @@
 import {
   ApplicationContext,
   EmptyEnvironment,
-  Injectable, Observer,
+  Injectable,
+  Observer,
   LeaseTakeoverReason,
   Workflow,
   WorkflowFinish,

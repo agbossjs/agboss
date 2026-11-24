@@ -16,7 +16,7 @@ extends, every type their members name, the rows at a store's boundary an applic
 `OutboundCallLeaseState`, `OutboundCallStep`, `OutboundCallStatusQuery`,
 `InMemoryFencedEffectTransaction`) and the core's store helpers below — none of which the root
 entry `@agboss/core` has: an application lists your store in `@Application({ providers })` and
-injects the core's services (`FencedEffects`, `OutboundCalls`), never your class. Its records are
+injects the core's service `Idempotency`, never your class. Its records are
 the core's own types (`Turn`, `NewTurn`, `TurnOutcome`, `Summary`, …): sign your methods with them,
 never with local aliases, or your API report shows them as forgotten exports. Durations and amounts
 come from `@agboss/core/units`.
@@ -46,14 +46,14 @@ it give two charges. The contract suites race exactly those gaps, so a store wit
 | | `requestCancel` (#909, #1117) | write the tree's cancel mark **on the tree's own lease row** — the row of `(tenantId, rootExecutionId)`, never a child's lease; before the tree's first `acquire` a seed row (token 0, released, never held, so that acquire is token 1 and no takeover) — durably and once (a repeat keeps the first); it changes no lease, and **every later write of the row keeps it** (`acquire` is an upsert of the lease columns, never a replace of the row) | a cancel is acknowledged and a fencing store does not see it, or an `acquire` drops it: a holder charges after `app.cancel` resolved (a coordination store that keeps no fencing stores, as Redis, writes no mark itself: since #1152 and #1198 its `requestCancel` delegates to the durable lease store under `EXECUTION_ID_STORE`, which keeps the mark on its lease row) |
 | | `isCancelRequested` (#1152) | read the tree's cancel mark from **the same row** `requestCancel` writes — `true` once any instance's `requestCancel` of the tree resolved, `false` for a tree never cancelled, another tenant's tree or a tree with no row; permanent like the mark, changes no lease. The recovery sweep reads it to end a resting tree whose cancel died before its record moved | a cancel that died after its request leaves its tree resting for good (a coordination store that writes no mark, as Redis, answers from the durable lease store under `EXECUTION_ID_STORE`, never from its own keys, and its constructor refuses a store that lacks `claimExecutionId`, `requestCancel` or `isCancelRequested`) |
 | | the mark's life (#1117) | **permanent**: no retention pass, release, retire, take or takeover lifts it — kept as the lease rows and the execution ids are (one per cancelled tree) | a sweep that lifts it — by age, or once the root's lease is retired — lets a child of the tree still live, or one taken later, charge after the cancel |
-| | `claimExecutionId` (#591) | insert the execution id if **no** execution ever had it — by the id alone, whatever the tenant (a unique key); never delete it | two instances minting one id both run, or a new tree takes a finished one's id: **one lease, one token, one step key space** for two trees — a fenced effect replays the other's result |
+| | `claimExecutionId` (#591) | insert the execution id if **no** execution ever had it — by the id alone, whatever the tenant (a unique key); never delete it | two instances minting one id both run, or a new tree takes a finished one's id: **one lease, one token, one step key space** for two trees — an idempotent write replays the other's result |
 | | `renew`, `release`, `yield`, `reclaim`, `retire` | match the holder **and** the epoch, then write; `renew`, `yield` and `reclaim` only while the lease is live, `expires_at > now` (#534) | a zombie renews or releases the new holder's lease: the new owner loses it mid-step; a holder renews a lease the rest of the system already gave up |
 | `FencedEffectRepository` | `runOnce` | the lease check (held, at the key's token, not expired), the scope's high-water mark (raised to the token, a lower token refused), the key's stored result (replayed when there), the business rows, the result — **one transaction** | a zombie's write lands after a takeover, or two calls each find no result: a **double charge** |
 | | the cancel check (#909) | in the **same transaction**, after the lease and the mark and — for `runOnce` — after the key's lookup (a stored result replays): if the key's tree has a cancel mark — the mark on the lease row of `cancelTreeOf(key)` (`rootExecutionId`, else the key's lease), so a child's key reads its root's row — and the key is not an undo's (`isCompensation`) throw `ExecutionCancelFencedError.of(key)` before the work runs; read it so that a cancel racing the open transaction lands after it or the write is refused — on PostgreSQL a share lock on that lease row, which the cancel's write waits for; on MongoDB a read takes no lock, so the check is a write to that lease document; a child's check that may find no root row yet first inserts a seed row without a mark (token 0, released), so there is always a row to lock or to conflict on | a write after the cancel answered lands: a charge for a cancelled tree |
 | `OutboundCallRepository` | every fenced method | the same lease and mark check, in the same step as the read or the write of the intent | a zombie records or completes an intent the new holder is about to send: **two sends** |
 | | `saveIfAbsent`, `markPending` (#909) | after the fence, the same cancel check: a new intent or attempt of a cancelled tree is refused, nothing recorded or claimed; `markCompleted`, `markFailed` and `findByKey` are not refused (they record what happened) | an intent recorded or an attempt sent for a cancelled tree |
 | | `markPending`, `markCompleted`, `markFailed` | a compare-and-set on the state the caller read (status, attempt, attempt owner), one row changed | two instances both resend: **a double charge** |
-| | `leaseStateOf` | read the other execution's lease and, if it expired at the token, close it (released, `superseded`) | the holder renews in the gap and keeps sending, while this caller reconciles and resends: **two senders** |
+| | `leaseStateOf` | read the other execution's lease and, if it expired at the token, close it (released, `superseded`) | the holder renews in the gap and keeps sending, while this caller recovers and resends: **two senders** |
 | `ChildExecutionQueueRepository` | `claim…` | pick the next queued row and mark it claimed | two workers run one child: **two owners** |
 | | `countByStatus` (#485) | count `Queued` and `Running` rows and the oldest `queuedAt` still queued, over every tenant — one read (not atomic with a claim: a scrape sees a moment) | the autoscaler sees work that is not there, or none that is ([Metrics](Metrics)) |
 | `ExecutionRecordRepository` | `complete`, status moves | a compare-and-set from the expected status | a lost update; two outcomes for one run |
@@ -131,21 +131,20 @@ export class PostgresFencedEffectRepository extends FencedEffectRepository<PoolC
   on PostgreSQL beside Redis leases is refused.
 - **An unlisted default fencing store** (the in-memory one beside listed SQLite leases) is not an
   assembly error, so an application that never uses fenced effects need not list one. Its first
-  call fails with `FencedEffectStoreMismatchError`.
+  call fails with `IdempotencyError.StoreMismatch`.
 
 ### The connection is not listed
 
 A store's connection (`PostgresConnection`, `SqliteConnection`, your pool class) is created by the
 application's container the first time a store needs it, once per instance. It need not be in
-`providers`, not even when `OutboundCalls`, or a component that injects the store's own class,
+`providers`, not even when `Idempotency`, or a component that injects the store's own class,
 reaches it through a workflow: the workflow's graph check treats an unlisted class under an
 infrastructure implementation as its own registration (#526). A dependency of your store that is an
 `InjectionToken` (a value) must still be provided.
 
 ## The key's rules: use the core's helpers
 
-A fenced effect's or an outbound call's key comes from `effectKeyOf(executionContext, name,
-{ businessKey, fingerprint })` — an `EffectKey`, marked by a private member (#825): neither a
+An idempotent write's or an outbound call's key is made by the core's `Idempotency` from the step it is called in (a component never makes one; `effectKeyOf(executionContext, name, { businessKey, fingerprint })` is exported by `@agboss/core/stores` for store authors only) — an `EffectKey`, marked by a private member (#825): neither a
 literal nor a spread copy compiles as one, and a key the framework did not make is refused at run
 time. Your store's own tests make one with `effectKeyForTesting(fields, changes?)` of
 `@agboss/core/testing/contracts` — `effectKeyForTesting(key, { token: 2 })`, never a spread. A store keeps a few rules about it,
@@ -153,12 +152,12 @@ and `@agboss/core/stores` exports each one (#526 AC5, #890). Don't copy them:
 
 | Helper | Use |
 | --- | --- |
-| `assertEffectName(key.name)` | at the entry of every fenced method, before any statement: `InvalidFencedEffectNameError` for a key built by hand with a name that is not 1–100 of `[A-Za-z0-9._-]` |
-| `assertBusinessKey(key)` | beside it (#538): `InvalidBusinessKeyError`, naming the rule, for a key built by hand whose business key is not a key's text (`keyTextRuleOf`) |
-| `fingerprintErrorOf(key)` | beside them for a fenced effect (#825): `FingerprintRequiredError` for a business key with neither a `fingerprint` nor `FingerprintPolicy.None` (the base class's `runOnce` checks it before `runInTransaction`) |
+| `assertEffectName(key.name)` | at the entry of every fenced method, before any statement: `IdempotencyError.InvalidName` for a key built by hand with a name that is not 1–100 of `[A-Za-z0-9._-]` |
+| `assertBusinessKey(key)` | beside it (#538): `IdempotencyError.InvalidKey`, naming the rule, for a key built by hand whose business key is not a key's text (`keyTextRuleOf`) |
+| `fingerprintErrorOf(key)` | beside them for an idempotent write (#825): `IdempotencyError.FingerprintRequired` for a business key with neither a `fingerprint` nor `withoutFingerprint: true` (the base class's `runOnce` checks it before `runInTransaction`) |
 | `effectKeyIdentityOf(key)` | where the key's row is: the scope, the step's idempotency key and the name, or, with a business key, the tenant, the name and the business key — one text, a key-value store's row key |
 | `storedKeyFactsOf(key)` | what the row keeps of the key: its fingerprint and its step |
-| `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `BusinessKeyConflictError` (never a replay) — during a rotation the previous idempotency key's (`key.previousFingerprint`, #825) is the same one, so store `key.fingerprint` only; a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
+| `replayedFromOf(key, stored)` | on a row found for the key: another fingerprint under a business key is `IdempotencyError.KeyConflict` (never a replay) — during a rotation the previous idempotency secret's (`key.previousFingerprint`, #825) is the same one, so store `key.fingerprint` only; a row another step wrote is named as `replayedFrom`. It takes a row's `null`s and checks a stored step: a row is never trusted |
 | `pendingOutboundCallOf(key, intent, recordedAt)` | the record `saveIfAbsent` writes: the intent, `Pending` under the key's lease and token, its business identity |
 
 ## Recipes: SQL
@@ -393,7 +392,7 @@ lease (a step's call, a pass's end, a child's run up to its completion) by the t
 trusts the lease; any other call by 15 s; a retention delete (`delete…Before`) and every call of an
 `FileRepository` by 5 minutes. A call that does not answer is of unknown outcome: it may have
 taken effect. Under a lease the holder hands the tree over and does not release the lease; the next
-holder replays the fenced effect's row, reconciles the pending intent or resumes from the latest
+holder replays the write's row, recovers the pending intent or resumes from the latest
 checkpoint. Anywhere else the caller gets `StoreCallTimeoutError`. So:
 
 - **Time out first.** Give your driver a command timeout below 15 s (the packages use 10 s; a lease's `renew` is bounded at 5 s, so answer it faster than that or the framework's bound ends it first) and throw
@@ -578,8 +577,8 @@ storeConformance({
 
 `storeConformance` also registers `interleavings (<name>)` for a set with a lease store. It is a
 deterministic scheduler over the set's fencing stores. Simulated instances take, renew, yield,
-reclaim, release and finish a tree's lease, ask `leaseStateOf`, write the step's fenced effect and
-move an outbound call through its protocol (read the intent, record it, reconcile, claim the next
+reclaim, release and finish a tree's lease, ask `leaseStateOf`, write the step's idempotent write and
+move an outbound call through its protocol (read the intent, record it, recover it, claim the next
 attempt, send, end it). The scheduler picks whose operation runs next and sends it only once the
 store has answered the one before, so the order it chose is the order the store sees. That holds
 for any store, a networked one included, with no free race.

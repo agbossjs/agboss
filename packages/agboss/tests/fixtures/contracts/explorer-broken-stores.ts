@@ -9,7 +9,6 @@ import {
   type ExecutionLease,
 } from "../../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import {
   InMemoryOutboundCallRepository,
   type OutboundCallClaim,
@@ -156,7 +155,6 @@ export const BROKEN_EFFECT_TARGETS: Readonly<
     const effects = new InMemoryFencedEffectRepository(
       storeClockOf(seam.clock),
       seam.database,
-      new FencedEffectSettings(),
       stores.leases,
     );
     return { ...stores, effects };

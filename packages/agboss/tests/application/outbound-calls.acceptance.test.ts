@@ -3,9 +3,9 @@
  * is recorded and sent, one byte more is neither; the size is UTF-8 bytes, not characters; the
  * error names the call and the sizes, never the request.
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { OutboundCallPayloadTooLargeError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { kilobytes, minutes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -15,6 +15,7 @@ import {
   ChargeWorkflow,
   ChargeWorkflowStart,
   resetRuns,
+  runs,
 } from "../app/fixtures/outbound-call.workflow.js";
 import { gateway, resetGateway } from "../app/fixtures/payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
@@ -22,6 +23,7 @@ import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environmen
 beforeEach(() => {
   resetGateway();
   resetRuns();
+  runs.callOptions = { maxPayloadSize: kilobytes(1) };
   resetRecovery();
 });
 
@@ -29,11 +31,9 @@ beforeEach(() => {
   name: "edge-outbound-call-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
-  outboundCalls: { maxPayloadSize: kilobytes(1) },
   retention: { outboundCalls: minutes(1) },
 })
 class EdgeOutboundCallApplication {}
@@ -52,7 +52,7 @@ describe("#505 acceptance: a request at maxPayloadSize", () => {
     expect(gateway.calls).toHaveLength(1);
   });
 
-  test("1025 bytes is OutboundCallPayloadTooLargeError, nothing sent, the request not in the error", async ({
+  test("1025 bytes is OutboundCallError.PayloadTooLarge, nothing sent, the request not in the error", async ({
     app,
   }) => {
     const orderId = "o".repeat(1025 - FRAME);
@@ -62,7 +62,7 @@ describe("#505 acceptance: a request at maxPayloadSize", () => {
     );
 
     expect(error).toMatchObject({
-      cause: expect.any(OutboundCallPayloadTooLargeError) as unknown,
+      cause: expect.any(OutboundCallError.PayloadTooLarge) as unknown,
     });
     expect(error).toMatchObject({ cause: { part: "request", size: 1025, maxPayloadSize: 1024 } });
     expect(JSON.stringify(error) + String(error)).not.toContain(orderId.slice(0, 64));
@@ -75,7 +75,7 @@ describe("#505 acceptance: a request at maxPayloadSize", () => {
     const orderId = "é".repeat(Math.ceil((1025 - FRAME) / 2));
 
     await expect(execute(app, ChargeWorkflowStart, { text: orderId })).rejects.toMatchObject({
-      cause: expect.any(OutboundCallPayloadTooLargeError) as unknown,
+      cause: expect.any(OutboundCallError.PayloadTooLarge) as unknown,
     });
     expect(gateway.calls).toEqual([]);
   });

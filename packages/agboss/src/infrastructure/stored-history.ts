@@ -6,7 +6,7 @@ import {
 } from "./execution-history.repository.js";
 import {
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -89,9 +89,9 @@ const StoredAuditEvent: z.ZodType<ExecutionAuditEventRecord> = z.discriminatedUn
   }),
   z.object({
     ...eventBase,
-    kind: z.literal(ExecutionAuditEventKind.FencedEffect),
+    kind: z.literal(ExecutionAuditEventKind.IdempotencyRun),
     name: text,
-    outcome: z.enum(FencedEffectEventOutcome),
+    outcome: z.enum(IdempotencyRunEventOutcome),
     step: auditStep,
     writtenToken: count.optional(),
     replayedFrom: origin.optional(),

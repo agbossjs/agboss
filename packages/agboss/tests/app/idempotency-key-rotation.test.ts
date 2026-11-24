@@ -2,22 +2,18 @@
  * #825 AC7 — the idempotency key rotated under live business keys, on one SQLite file: an intent
  * recorded before the rotation and retried during it (the previous key named) is recognised — a
  * completed one replays, a pending one is reconciled, a fenced effect replays: no
- * `BusinessKeyConflictError`, nothing sent or booked twice. Once the previous key is removed,
+ * `IdempotencyError.KeyConflict`, nothing sent or booked twice. Once the previous key is removed,
  * what was stored under it fails closed: a conflict, nothing sent, nothing run. New rows are stored
  * under the current key only, so they replay after the previous one is gone.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { createAppWith } from "../../src/application/create-app.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  FencedEffectStatus,
-  BusinessKeyConflictError,
-  OutboundCallSendStatus,
-  type App,
-} from "../../src/index.js";
+import { IdempotencyRunStatus, OutboundCallSendStatus, type App } from "../../src/index.js";
 import { execute } from "./../helpers/flow.js";
 import { gateway, resetGateway } from "./fixtures/payment-gateway.js";
 import {
@@ -116,14 +112,14 @@ describe("#825 AC7: an outbound call recorded before the rotation", { timeout: 6
     expect(gateway.lookups).toHaveLength(1);
   });
 
-  it("after the previous key is removed: fails closed — BusinessKeyConflictError, nothing sent", async () => {
+  it("after the previous key is removed: fails closed — IdempotencyError.KeyConflict, nothing sent", async () => {
     const first = await instanceOf(RotationBeforeApplication);
     await execute(first, ChargeOrderStart, ORDER);
     await closed(first);
 
     await expect(
       execute(await instanceOf(RotationAfterApplication), ChargeOrderStart, ORDER),
-    ).rejects.toFailWith(BusinessKeyConflictError, { effect: "charge" });
+    ).rejects.toFailWith(IdempotencyError.KeyConflict, { effect: "charge" });
     expect(gateway.calls).toHaveLength(1);
   });
 
@@ -137,7 +133,7 @@ describe("#825 AC7: an outbound call recorded before the rotation", { timeout: 6
         ...ORDER,
         amountUsd: 12,
       }),
-    ).rejects.toFailWith(BusinessKeyConflictError, { effect: "charge" });
+    ).rejects.toFailWith(IdempotencyError.KeyConflict, { effect: "charge" });
     expect(gateway.calls).toHaveLength(1);
   });
 
@@ -165,8 +161,8 @@ describe("#825 AC7: a fenced effect stored before the rotation", { timeout: 60_0
 
     const after = execute(await instanceOf(RotationAfterApplication), BookOrderStart, ORDER);
 
-    await expect(after).rejects.toFailWith(BusinessKeyConflictError, { effect: "book" });
-    expect(rotation.effects).toEqual([FencedEffectStatus.Ran, FencedEffectStatus.Replayed]);
+    await expect(after).rejects.toFailWith(IdempotencyError.KeyConflict, { effect: "book" });
+    expect(rotation.effects).toEqual([IdempotencyRunStatus.Ran, IdempotencyRunStatus.Replayed]);
     expect(bookingsOn(file)).toBe(1);
   });
 });

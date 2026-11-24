@@ -7,12 +7,8 @@ import {
   InMemoryExecutionLeaseRepository,
   storeDescriptorOf,
 } from "../../infrastructure/execution-lease.repository.js";
-import { FencedEffects } from "../../app/fenced-effects.js";
-import { OutboundCalls } from "../../app/outbound-calls.js";
-import {
-  FencedEffectSettings,
-  OutboundCallSettings,
-} from "../../infrastructure/fenced-effect-settings.js";
+import { Idempotency } from "../../app/idempotency.js";
+import { OutboundCallSettings } from "../../infrastructure/fenced-effect-settings.js";
 import { FencedEffectRepository } from "../../infrastructure/fenced-effect.repository.js";
 import { InMemoryFencedEffectRepository } from "../../infrastructure/in-memory-fenced-effect.repository.js";
 import { IN_MEMORY_DATABASE } from "../../infrastructure/in-memory-database.js";
@@ -35,7 +31,6 @@ import type { TestFenceOptions } from "../fence.js";
 export class UnitFencedEffects {
   readonly core: readonly (readonly [Token, unknown])[] = [
     [IN_MEMORY_DATABASE, new InMemoryDatabase()],
-    [FencedEffectSettings, new FencedEffectSettings()],
     // a unit runner lists no PII policies: its frames carry no mask to require (#795: said, not defaulted)
     [OutboundCallSettings, new OutboundCallSettings({ requiresMask: false })],
   ];
@@ -44,11 +39,10 @@ export class UnitFencedEffects {
     [FencedEffectRepository, InMemoryFencedEffectRepository],
     // a component that injects the in-memory store by its own class gets the runner's
     [InMemoryFencedEffectRepository, InMemoryFencedEffectRepository],
-    [FencedEffects, FencedEffects],
     [ExecutionLeaseRepository, InMemoryExecutionLeaseRepository],
     [OutboundCallRepository, InMemoryOutboundCallRepository],
     [InMemoryOutboundCallRepository, InMemoryOutboundCallRepository],
-    [OutboundCalls, OutboundCalls],
+    [Idempotency, Idempotency],
     // what `OutboundCalls` logs: nothing, unless the runner lists a logger
     [Logger, SilentLogger],
   ]);

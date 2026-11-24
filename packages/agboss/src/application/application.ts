@@ -1,9 +1,5 @@
 import type { Secret } from "../environments/secret.js";
 import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
-import type {
-  FencedEffectOptions,
-  OutboundCallOptions,
-} from "../infrastructure/fenced-effect-settings.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, Provider, ServiceEntry } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
@@ -152,24 +148,11 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   readonly compensationTimeout?: Milliseconds;
   /**
    * How long each kind of row the application keeps stays (#834): pause records, execution
-   * records, the audit log, cost ledger entries, fenced effects, outbound calls, mesh answers and
+   * records, the audit log, cost ledger entries, idempotent effects, outbound calls, mesh answers and
    * A2A tasks — the one place a retention is set, `[application.retention-invalid]`. See
    * `RetentionOptions`.
    */
   readonly retention?: RetentionOptions;
-  /**
-   * The fenced effects of the application's steps (#500, `FencedEffectRepository`): the largest
-   * result stored (`maxResultSize`, default `kilobytes(64)`, `[application.fenced-effects-invalid]`);
-   * how long results and marks are kept is `retention.fencedEffects`.
-   */
-  readonly fencedEffects?: FencedEffectOptions;
-  /**
-   * The calls that leave the system (#505, `OutboundCalls`): the largest request and result
-   * (default `kilobytes(64)`) and the bound of an attempt in flight —
-   * `[application.outbound-calls-invalid]`; how long an ended intent is kept is
-   * `retention.outboundCalls`.
-   */
-  readonly outboundCalls?: OutboundCallOptions;
   /**
    * The environment contract, required — a class with declared fields only
    * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the
@@ -221,23 +204,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * would change every token.
    */
   readonly piiKeyField?: SecretFieldOf<TEnvironment>;
-  /**
-   * The application's idempotency key (#825): names a `Secret` field of the environment used only
-   * for business-key fingerprints — `HMAC(HMAC(key, "agboss/fingerprint/v1"), canonical JSON)` of what
-   * a fenced effect or a call under a business key does — the same on every instance, never
-   * guessable from a stored row. Required as soon as the application can make a business key (a
-   * component reaches `OutboundCalls` or a fenced-effect store through its `deps`:
-   * `[application.idempotency-key-required]`); never the PII key or a provider's
-   * (`[application.idempotency-key-shared]`). `testWith` gives it a test key when its variable is not set.
-   */
-  readonly idempotencyKeyField?: SecretFieldOf<TEnvironment>;
-  /**
-   * The idempotency key the application rotates from (#825): while named, a fingerprint is compared
-   * under both keys — a call recorded before the rotation and retried after it is recognised, never
-   * a conflict — and stored under `idempotencyKeyField`'s. Remove it once no intent recorded under
-   * it can be retried: what is left of it is then a conflict (fail closed), never a second call.
-   */
-  readonly previousIdempotencyKeyField?: SecretFieldOf<TEnvironment>;
   /**
    * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
    * — the most specific level that sets a field wins (component over workflow over application).

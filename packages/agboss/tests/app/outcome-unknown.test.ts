@@ -11,7 +11,7 @@ import {
   ExecutionAuditEventKind,
   ExecutionFencedError,
   ExecutionLeaseLostError,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   StoreCallTimeoutError,
   StoreOutcomeSource,
   StoreOutcomeUnknownError,
@@ -173,7 +173,7 @@ describe("#1017 AC1: a charge committed and its answer reset (in memory)", () =>
       const [end] = await ends(1);
       expect(end?.output).toEqual({ chargeId: "charge-order-17-1" });
       expect(book.charges).toHaveLength(1);
-      expect(book.runs.map((run) => run.status)).toContain(FencedEffectStatus.Replayed);
+      expect(book.runs.map((run) => run.status)).toContain(IdempotencyRunStatus.Replayed);
     },
   );
 });

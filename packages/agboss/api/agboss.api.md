@@ -752,20 +752,16 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly environment: Class<TEnvironment>;
     readonly executionContext?: ExecutionContextClass;
     readonly exposes?: readonly Class[];
-    readonly fencedEffects?: FencedEffectOptions;
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
-    readonly idempotencyKeyField?: SecretFieldOf<TEnvironment>;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops?: number;
     readonly mesh?: MeshOptions;
     readonly modelProvider?: Class;
     readonly name: string;
     readonly observers?: readonly Class<ExecutionObserver>[];
-    readonly outboundCalls?: OutboundCallOptions;
     readonly piiKeyField?: SecretFieldOf<TEnvironment>;
     readonly piiPolicies?: readonly Class[];
-    readonly previousIdempotencyKeyField?: SecretFieldOf<TEnvironment>;
     readonly providers?: readonly Provider[];
     readonly retention?: RetentionOptions;
     readonly services?: readonly ServiceEntry[];
@@ -1120,34 +1116,6 @@ export interface BudgetUsage {
 export type BuiltPath<THead extends PathHead> = (THead extends SourceHead ? FlowPath : SubPath) & {
     readonly [pathHead]?: THead;
 };
-
-// @public
-export class BusinessKeyConflictError extends AGBossError {
-    constructor(options: BusinessKeyConflictErrorOptions);
-    readonly businessKeyHash?: string;
-    // (undocumented)
-    static readonly code: "fenced-effect.business-key-conflict";
-    // (undocumented)
-    readonly code: typeof BusinessKeyConflictError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface BusinessKeyConflictErrorOptions {
-    // (undocumented)
-    readonly businessKeyHash?: string | undefined;
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly effect: string;
-}
-
-// @public
-export interface BusinessKeyOptions {
-    readonly businessKey: string;
-}
 
 // @public
 type CacheSetting = boolean | {
@@ -2006,11 +1974,11 @@ export enum CompensationStatus {
 }
 
 // @public
-export interface CompletedReconciliation<TResult> {
+export interface CompletedReconciliation<out TResult> {
     readonly [reconciliationBrand]: true;
     readonly result: TResult;
     // (undocumented)
-    readonly verdict: OutboundCallVerdict.Completed;
+    readonly verdict: ReconciliationVerdict.Completed;
 }
 
 // @public
@@ -2648,47 +2616,6 @@ export interface DynamicWorkingCalendarOptions<TDeps extends readonly Token[] = 
 }
 
 // @public
-export type EffectKey = EffectKeyFields & EffectKeyMark;
-
-// @public
-export interface EffectKeyFields {
-    readonly businessKey?: string;
-    readonly businessKeyHash?: string;
-    readonly fingerprint?: string;
-    readonly fingerprintPolicy?: FingerprintPolicy;
-    readonly idempotencyKey: string;
-    readonly isCompensation?: true;
-    readonly leaseExecutionId: string;
-    readonly name: string;
-    readonly origin?: FencedEffectOrigin;
-    readonly previousFingerprint?: string;
-    readonly rootExecutionId?: string;
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    readonly token: number;
-}
-
-// @public
-export class EffectKeyMark {
-}
-
-// @public
-export function effectKeyOf(executionContext: ExecutionContext, name: string): EffectKey;
-
-// @public (undocumented)
-export function effectKeyOf<TFingerprint>(executionContext: ExecutionContext, name: string, options: FingerprintedKeyOptions<TFingerprint> | UnfingerprintedKeyOptions): EffectKey;
-
-// @public (undocumented)
-export function effectKeyOf(executionContext: ExecutionContext, name: string, options: OutboundCallKeyOptions): OutboundCallKey;
-
-// @public (undocumented)
-export function effectKeyOf<TFingerprint>(executionContext: ExecutionContext, name: string, options?: EffectKeyOptions<TFingerprint>): EffectKey | OutboundCallKey;
-
-// @public
-export type EffectKeyOptions<TFingerprint = unknown> = FingerprintedKeyOptions<TFingerprint> | UnfingerprintedKeyOptions | OutboundCallKeyOptions;
-
-// @public
 export class EmptyEnvironment {
 }
 
@@ -2948,14 +2875,14 @@ export interface ExecutionAuditEventBase {
 
 // @public
 export enum ExecutionAuditEventKind {
-    FencedEffect = "fenced-effect",
     HandedOver = "handed-over",
+    IdempotencyRun = "idempotency-run",
     OutboundCall = "outbound-call",
     Takeover = "takeover"
 }
 
 // @public
-export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
+export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | IdempotencyRunRecord | OutboundCallEventRecord;
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
@@ -3238,19 +3165,6 @@ export interface ExecutionEvent {
 }
 
 // @public
-export interface ExecutionFence {
-    assertHeld(): void;
-    fencedError(observedToken?: number): ExecutionFencedError;
-    readonly leaseExecutionId: string;
-    renewNow(): Promise<void>;
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    readonly token: number;
-    readonly trustedUntil: Date;
-}
-
-// @public
 export class ExecutionFencedError extends ExecutionLeaseLostError {
     constructor(options: ExecutionFencedErrorOptions);
     // (undocumented)
@@ -3451,11 +3365,11 @@ export interface ExecutionObserver {
     onExecutionRejected?(event: ExecutionRejectedEvent): void | Promise<void>;
     onExecutionResume?(event: ExecutionResumeEvent): void | Promise<void>;
     onExecutionStart?(event: ExecutionStartEvent): void | Promise<void>;
-    onFencedEffect?(event: FencedEffectEvent): void | Promise<void>;
     // (undocumented)
     onGuardrailEnd?(event: GuardrailEndEvent): void | Promise<void>;
     // (undocumented)
     onGuardrailStart?(event: GuardrailStartEvent): void | Promise<void>;
+    onIdempotencyRun?(event: IdempotencyRunEvent): void | Promise<void>;
     // (undocumented)
     onJudgeEnd?(event: JudgeEndEvent): void | Promise<void>;
     // (undocumented)
@@ -3828,35 +3742,6 @@ export type FamilyConstructor<TFamily extends AGBossError, TVariants extends Rea
 };
 
 // @public
-export interface FencedEffectEvent extends NodeEvent {
-    readonly holderInstanceId: string;
-    // (undocumented)
-    readonly name: string;
-    readonly observedToken?: number;
-    // (undocumented)
-    readonly outcome: FencedEffectEventOutcome;
-    readonly replayedFrom?: FencedEffectOrigin;
-    // (undocumented)
-    readonly scopeKey: string;
-    readonly token: number;
-    readonly writtenToken?: number;
-}
-
-// @public
-export enum FencedEffectEventOutcome {
-    Cancelled = "cancelled",
-    Joined = "joined",
-    Ran = "ran",
-    Refused = "refused",
-    Replayed = "replayed"
-}
-
-// @public
-export interface FencedEffectOptions {
-    readonly maxResultSize?: Bytes;
-}
-
-// @public
 export interface FencedEffectOrigin {
     // (undocumented)
     readonly executionId: string;
@@ -3867,120 +3752,13 @@ export interface FencedEffectOrigin {
 }
 
 // @public
-export interface FencedEffectOutcome<TResult> {
-    readonly replayedFrom?: FencedEffectOrigin;
-    // (undocumented)
-    readonly result: TResult;
-    // (undocumented)
-    readonly status: FencedEffectStatus;
-    readonly token: number;
-}
-
-// @public
-export interface FencedEffectRecord extends ExecutionAuditEventBase {
-    // (undocumented)
-    readonly kind: ExecutionAuditEventKind.FencedEffect;
-    readonly name: string;
-    readonly observedToken?: number;
-    // (undocumented)
-    readonly outcome: FencedEffectEventOutcome;
-    readonly replayedFrom?: FencedEffectOrigin;
-    // (undocumented)
-    readonly step: AuditEventStep;
-    readonly writtenToken?: number;
-}
-
-// @public
 export abstract class FencedEffectRepository<TTransaction> {
-    constructor(
-    settings: FencedEffectSettings);
     abstract deleteByStoredAtBefore(cutoff: Date): Promise<void>;
     abstract ping(): Promise<void>;
-    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
-    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
-    protected readonly settings: FencedEffectSettings;
+    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     static readonly store: StoreDescriptor;
     protected storedResultOf(key: EffectKey, result: unknown): string;
-}
-
-// @public
-export class FencedEffectResultTooLargeError extends AGBossError {
-    constructor(options: FencedEffectResultTooLargeErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.result-too-large";
-    // (undocumented)
-    readonly code: typeof FencedEffectResultTooLargeError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    readonly maxResultSize: number;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly size: number;
-}
-
-// @public
-export interface FencedEffectResultTooLargeErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly effect: string;
-    // (undocumented)
-    readonly maxResultSize: number;
-    // (undocumented)
-    readonly size: number;
-}
-
-// @public
-export class FencedEffects {
-    constructor(repository: FencedEffectRepository<unknown>);
-    runOnce<TResult, TTransaction = unknown>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
-}
-
-// @public
-export class FencedEffectSettings {
-    constructor(options?: FencedEffectSettingsOptions);
-    readonly maxResultSize: Bytes;
-    readonly retention: Milliseconds;
-}
-
-// @public
-export interface FencedEffectSettingsOptions extends FencedEffectOptions {
-    readonly retention?: Milliseconds;
-}
-
-// @public
-export enum FencedEffectStatus {
-    Joined = "joined",
-    Ran = "ran",
-    Replayed = "replayed"
-}
-
-// @public
-export class FencedEffectStoreMismatchError extends AGBossError {
-    constructor(options: FencedEffectStoreMismatchErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.store-mismatch";
-    // (undocumented)
-    readonly code: typeof FencedEffectStoreMismatchError.code;
-    readonly expectedLeaseRepository: string;
-    // (undocumented)
-    readonly fencedEffectRepository: string;
-    // (undocumented)
-    readonly leaseRepository: string;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface FencedEffectStoreMismatchErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly expectedLeaseRepository: string;
-    // (undocumented)
-    readonly fencedEffectRepository: string;
-    // (undocumented)
-    readonly leaseRepository: string;
 }
 
 // @public
@@ -4205,82 +3983,6 @@ export enum FileView {
     Original = "original",
     Redacted = "redacted",
     Transcription = "transcription"
-}
-
-// @public
-export interface FingerprintedKeyOptions<TFingerprint> extends BusinessKeyOptions {
-    // (undocumented)
-    readonly fingerprint: JsonValue<TFingerprint>;
-    // (undocumented)
-    readonly fingerprintPolicy?: never;
-}
-
-// @public
-export interface FingerprintKeys {
-    readonly current: string;
-    readonly previous?: string | undefined;
-}
-
-// @public
-export class FingerprintNotJsonError extends AGBossError {
-    constructor(options: FingerprintNotJsonErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.fingerprint-not-json";
-    // (undocumented)
-    readonly code: typeof FingerprintNotJsonError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    name: string;
-    readonly path: string;
-    readonly reason: string;
-}
-
-// @public
-export interface FingerprintNotJsonErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    readonly path: string;
-    // (undocumented)
-    readonly reason: string;
-}
-
-// @public
-export enum FingerprintPolicy {
-    None = "none"
-}
-
-// @public
-export enum FingerprintProblem {
-    Contradictory = "contradictory",
-    Missing = "missing"
-}
-
-// @public
-export class FingerprintRequiredError extends AGBossError {
-    constructor(options: FingerprintRequiredErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.fingerprint-required";
-    // (undocumented)
-    readonly code: typeof FingerprintRequiredError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly reason: FingerprintProblem;
-}
-
-// @public
-export interface FingerprintRequiredErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly effect: string;
-    // (undocumented)
-    readonly reason: FingerprintProblem;
 }
 
 // @public
@@ -4927,24 +4629,52 @@ Extract<TDeps[number], typeof JudgeModel>
 };
 
 // @public
+export class Idempotency {
+    runOnce<TResult, TFingerprint = never, TTransaction = unknown>(options: IdempotencyRunOptions<TResult, TFingerprint, TTransaction>): Promise<IdempotencyRunOutcome<TResult>>;
+    sendOnce<TRequest, TResult>(options: IdempotencySendOptions<TRequest, TResult>): Promise<OutboundCallOutcome<TResult>>;
+}
+
+// @public
 export type IdempotencyError = IdempotencyError.KeyConflict | IdempotencyError.InvalidKey | IdempotencyError.InvalidName | IdempotencyError.FingerprintRequired | IdempotencyError.FingerprintNotJson | IdempotencyError.SecretKeyMissing | IdempotencyError.ResultTooLarge | IdempotencyError.StoreMismatch | IdempotencyError.OutsideTransaction | IdempotencyError.NestedRunOnce | IdempotencyError.ExternalCallInTransaction;
 
 // @public
 export namespace IdempotencyError {
     export type ExternalCallInTransaction = ErrorVariant<IdempotencyErrorKind.ExternalCallInTransaction, "idempotency.external-call-in-transaction">;
-    export type FingerprintNotJson = ErrorVariant<IdempotencyErrorKind.FingerprintNotJson, "idempotency.fingerprint-not-json">;
-    export type FingerprintRequired = ErrorVariant<IdempotencyErrorKind.FingerprintRequired, "idempotency.fingerprint-required">;
-    export type InvalidKey = ErrorVariant<IdempotencyErrorKind.InvalidKey, "idempotency.invalid-key">;
-    export type InvalidName = ErrorVariant<IdempotencyErrorKind.InvalidName, "idempotency.invalid-name">;
-    export type KeyConflict = ErrorVariant<IdempotencyErrorKind.KeyConflict, "idempotency.key-conflict">;
+    export type FingerprintNotJson = ErrorVariant<IdempotencyErrorKind.FingerprintNotJson, "idempotency.fingerprint-not-json"> & {
+        readonly effect: string;
+        readonly path: string;
+        readonly reason: string;
+    };
+    export type FingerprintRequired = ErrorVariant<IdempotencyErrorKind.FingerprintRequired, "idempotency.fingerprint-required"> & {
+        readonly effect: string;
+        readonly reason: "missing" | "contradictory";
+    };
+    export type InvalidKey = ErrorVariant<IdempotencyErrorKind.InvalidKey, "idempotency.invalid-key"> & {
+        readonly effect?: string | undefined;
+        readonly rule?: KeyTextRule | undefined;
+    };
+    export type InvalidName = ErrorVariant<IdempotencyErrorKind.InvalidName, "idempotency.invalid-name"> & {
+        readonly length: number;
+    };
+    export type KeyConflict = ErrorVariant<IdempotencyErrorKind.KeyConflict, "idempotency.key-conflict"> & {
+        readonly effect: string;
+        readonly businessKeyHash?: string | undefined;
+    };
     export type NestedRunOnce = ErrorVariant<IdempotencyErrorKind.NestedRunOnce, "idempotency.nested-run-once">;
     export type OutsideTransaction = ErrorVariant<IdempotencyErrorKind.OutsideTransaction, "idempotency.outside-transaction">;
     export type ResultTooLarge = ErrorVariant<IdempotencyErrorKind.ResultTooLarge, "idempotency.result-too-large"> & {
+        readonly effect: string;
         readonly size: Bytes;
         readonly maxResultSize: Bytes;
     };
-    export type SecretKeyMissing = ErrorVariant<IdempotencyErrorKind.SecretKeyMissing, "idempotency.secret-key-missing">;
-    export type StoreMismatch = ErrorVariant<IdempotencyErrorKind.StoreMismatch, "idempotency.store-mismatch">;
+    export type SecretKeyMissing = ErrorVariant<IdempotencyErrorKind.SecretKeyMissing, "idempotency.secret-key-missing"> & {
+        readonly effect: string;
+    };
+    export type StoreMismatch = ErrorVariant<IdempotencyErrorKind.StoreMismatch, "idempotency.store-mismatch"> & {
+        readonly fencedEffectRepository: string;
+        readonly leaseRepository: string;
+        readonly expectedLeaseRepository: string;
+    };
 }
 
 // @public
@@ -4989,24 +4719,97 @@ export enum IdempotencyErrorKind {
 }
 
 // @public
-export class IdempotencyKeyMissingError extends AGBossError {
-    constructor(options: IdempotencyKeyMissingErrorOptions);
+export type IdempotencyKeyChoice<TFingerprint> = {
+    readonly key: string;
+    readonly fingerprint: JsonValue<TFingerprint>;
+    readonly withoutFingerprint?: never;
+} | {
+    readonly key: string;
+    readonly withoutFingerprint: true;
+    readonly fingerprint?: never;
+} | {
+    readonly key?: undefined;
+    readonly fingerprint?: never;
+    readonly withoutFingerprint?: never;
+};
+
+// @public
+export interface IdempotencyRunEvent extends NodeEvent {
+    readonly holderInstanceId: string;
     // (undocumented)
-    static readonly code: "fenced-effect.idempotency-key-missing";
+    readonly name: string;
+    readonly observedToken?: number;
     // (undocumented)
-    readonly code: typeof IdempotencyKeyMissingError.code;
+    readonly outcome: IdempotencyRunEventOutcome;
+    readonly replayedFrom?: FencedEffectOrigin;
     // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    name: string;
+    readonly scopeKey: string;
+    readonly token: number;
+    readonly writtenToken?: number;
 }
 
 // @public
-export interface IdempotencyKeyMissingErrorOptions {
+export enum IdempotencyRunEventOutcome {
+    Cancelled = "cancelled",
+    Joined = "joined",
+    Ran = "ran",
+    Refused = "refused",
+    Replayed = "replayed"
+}
+
+// @public
+export type IdempotencyRunOptions<TResult, TFingerprint = never, TTransaction = unknown> = IdempotencyKeyChoice<TFingerprint> & {
+    readonly name: string;
+    readonly ttl: Milliseconds | Ttl.Forever;
+    readonly timeout?: Milliseconds;
+    readonly maxResultSize?: Bytes;
+    readonly execute: (transaction: TTransaction) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
+};
+
+// @public
+export interface IdempotencyRunOutcome<TResult> {
+    readonly replayedFrom?: FencedEffectOrigin;
     // (undocumented)
-    readonly cause?: unknown;
+    readonly result: TResult;
     // (undocumented)
-    readonly effect: string;
+    readonly status: IdempotencyRunStatus;
+    readonly token: number;
+}
+
+// @public
+export interface IdempotencyRunRecord extends ExecutionAuditEventBase {
+    // (undocumented)
+    readonly kind: ExecutionAuditEventKind.IdempotencyRun;
+    readonly name: string;
+    readonly observedToken?: number;
+    // (undocumented)
+    readonly outcome: IdempotencyRunEventOutcome;
+    readonly replayedFrom?: FencedEffectOrigin;
+    // (undocumented)
+    readonly step: AuditEventStep;
+    readonly writtenToken?: number;
+}
+
+// @public
+export enum IdempotencyRunStatus {
+    Joined = "joined",
+    Ran = "ran",
+    Replayed = "replayed"
+}
+
+// @public
+export interface IdempotencySendOptions<TRequest, TResult> {
+    readonly isDefiniteFailure?: (error: unknown) => boolean;
+    readonly key?: string;
+    readonly maxPayloadSize?: Bytes;
+    readonly name: string;
+    readonly operation?: string;
+    readonly recovery: OutboundRecovery<NoInfer<TResult>>;
+    readonly request: TRequest & JsonValue<TRequest>;
+    readonly send: (call: OutboundCall<TRequest>) => Promise<TResult & JsonValue<TResult>> | (TResult & JsonValue<TResult>);
+    readonly target: string;
+    readonly timeout: Milliseconds;
+    readonly ttl: Milliseconds | Ttl.Forever;
 }
 
 // @public
@@ -5166,7 +4969,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
+    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     // (undocumented)
     static readonly store: StoreDescriptor;
 }
@@ -5240,49 +5043,6 @@ export interface InvalidA2APageTokenErrorOptions {
 }
 
 // @public
-export class InvalidBusinessKeyError extends AGBossError {
-    constructor(options: InvalidBusinessKeyErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.invalid-business-key";
-    // (undocumented)
-    readonly code: typeof InvalidBusinessKeyError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly rule: KeyTextRule;
-}
-
-// @public
-export interface InvalidBusinessKeyErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly effect: string;
-    // (undocumented)
-    readonly rule: KeyTextRule;
-}
-
-// @public
-export class InvalidFencedEffectNameError extends AGBossError {
-    constructor(options: InvalidFencedEffectNameErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.invalid-name";
-    // (undocumented)
-    readonly code: typeof InvalidFencedEffectNameError.code;
-    readonly length: number;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface InvalidFencedEffectNameErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly length: number;
-}
-
-// @public
 export class InvalidMintedIdError extends AGBossError {
     constructor(options: InvalidMintedIdErrorOptions);
     // (undocumented)
@@ -5306,31 +5066,6 @@ export interface InvalidMintedIdErrorOptions {
     readonly method: "newThreadId" | "newExecutionId";
     // (undocumented)
     readonly rule: KeyTextRule;
-}
-
-// @public
-export class InvalidNotSentTrustError extends AGBossError {
-    constructor(options: InvalidNotSentTrustErrorOptions);
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    static readonly code: "outbound-call.invalid-not-sent-trust";
-    // (undocumented)
-    readonly code: typeof InvalidNotSentTrustError.code;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly problem: string;
-}
-
-// @public
-export interface InvalidNotSentTrustErrorOptions {
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly problem: string;
 }
 
 // @public
@@ -5923,6 +5658,17 @@ export enum LogLevel {
     Error = "error",
     Info = "info",
     Warn = "warn"
+}
+
+// @public
+export interface LookupRecovery<out TResult> {
+    // (undocumented)
+    readonly [recoveryBrand]: true;
+    readonly keyTtl: Milliseconds | undefined;
+    // (undocumented)
+    readonly kind: "permanent-lookup" | "lookup-within";
+    // (undocumented)
+    readonly reconcile: (call: OutboundCallLookup) => Reconciliation<TResult> | Promise<Reconciliation<TResult>>;
 }
 
 // @public
@@ -6542,6 +6288,14 @@ export class NotAWorkflowStartError extends AGBossError {
 }
 
 // @public
+export interface NotExecutedReconciliation {
+    // (undocumented)
+    readonly [reconciliationBrand]: true;
+    // (undocumented)
+    readonly verdict: ReconciliationVerdict.NotExecuted;
+}
+
+// @public
 export class NotPausedError extends AGBossError {
     constructor(options: MessageErrorOptions);
     // (undocumented)
@@ -6550,33 +6304,6 @@ export class NotPausedError extends AGBossError {
     readonly code: typeof NotPausedError.code;
     // (undocumented)
     name: string;
-}
-
-// @public
-export interface NotSentByKeyReplay {
-    readonly keyRetention: Milliseconds;
-    // (undocumented)
-    readonly trust: NotSentTrust.KeyReplay;
-}
-
-// @public
-export interface NotSentByLookup {
-    readonly keyRetention?: never;
-    // (undocumented)
-    readonly trust: NotSentTrust.Lookup;
-}
-
-// @public
-export interface NotSentReconciliation {
-    readonly [reconciliationBrand]: true;
-    // (undocumented)
-    readonly verdict: OutboundCallVerdict.NotSent;
-}
-
-// @public
-export enum NotSentTrust {
-    KeyReplay = "key-replay",
-    Lookup = "lookup"
 }
 
 // @public
@@ -6765,16 +6492,49 @@ export type OutboundCallError = OutboundCallError.InFlight | OutboundCallError.S
 
 // @public
 export namespace OutboundCallError {
-    export type InFlight = ErrorVariant<OutboundCallErrorKind.InFlight, "outbound-call.in-flight">;
-    export type InvalidRecovery = ErrorVariant<OutboundCallErrorKind.InvalidRecovery, "outbound-call.invalid-recovery">;
+    export type InFlight = ErrorVariant<OutboundCallErrorKind.InFlight, "outbound-call.in-flight"> & {
+        readonly call: string;
+        readonly target: string;
+        readonly operation: string;
+    };
+    export type InvalidRecovery = ErrorVariant<OutboundCallErrorKind.InvalidRecovery, "outbound-call.invalid-recovery"> & {
+        readonly call: string;
+        readonly problem: string;
+    };
     export type PayloadTooLarge = ErrorVariant<OutboundCallErrorKind.PayloadTooLarge, "outbound-call.payload-too-large"> & {
+        readonly call: string;
+        readonly part: "request" | "result";
         readonly size: Bytes;
         readonly maxPayloadSize: Bytes;
     };
-    export type ResultNotStored = ErrorVariant<OutboundCallErrorKind.ResultNotStored, "outbound-call.result-not-stored">;
-    export type Superseded = ErrorVariant<OutboundCallErrorKind.Superseded, "outbound-call.superseded">;
-    export type Unmasked = ErrorVariant<OutboundCallErrorKind.Unmasked, "outbound-call.unmasked">;
-    export type Unreconciled = ErrorVariant<OutboundCallErrorKind.Unreconciled, "outbound-call.unreconciled">;
+    export type ResultNotStored = ErrorVariant<OutboundCallErrorKind.ResultNotStored, "outbound-call.result-not-stored"> & {
+        readonly call: string;
+        readonly target: string;
+        readonly operation: string;
+    } & {
+        readonly reason: "outbound-call.payload-too-large" | "outbound-call.unmasked" | "outbound-call.result-unstorable";
+    };
+    export type Superseded = ErrorVariant<OutboundCallErrorKind.Superseded, "outbound-call.superseded"> & {
+        readonly call: string;
+        readonly target: string;
+        readonly operation: string;
+    } & {
+        readonly idempotencyKey: string;
+        readonly attempt: number;
+        readonly supersededBy: number | undefined;
+    };
+    export type Unmasked = ErrorVariant<OutboundCallErrorKind.Unmasked, "outbound-call.unmasked"> & {
+        readonly call: string;
+    };
+    export type Unreconciled = ErrorVariant<OutboundCallErrorKind.Unreconciled, "outbound-call.unreconciled"> & {
+        readonly call: string;
+        readonly target: string;
+        readonly operation: string;
+    } & {
+        readonly idempotencyKey: string;
+        readonly reason: "reconcile.unknown" | "reconcile.threw" | "reconcile.no-verdict" | "key-retention.passed";
+        readonly detail: string;
+    };
 }
 
 // @public
@@ -6876,35 +6636,6 @@ export interface OutboundCallFailure {
 }
 
 // @public
-export class OutboundCallInFlightError extends StepFailedError {
-    constructor(options: OutboundCallInFlightErrorOptions);
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    static readonly code: "outbound-call.in-flight";
-    // (undocumented)
-    readonly code: typeof OutboundCallInFlightError.code;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly operation: string;
-    // (undocumented)
-    readonly target: string;
-}
-
-// @public
-export interface OutboundCallInFlightErrorOptions {
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly operation: string;
-    // (undocumented)
-    readonly target: string;
-}
-
-// @public
 export interface OutboundCallIntent {
     readonly attempt: number;
     readonly attemptOwner: string;
@@ -6920,21 +6651,6 @@ export interface OutboundCallIntent {
 }
 
 // @public
-export type OutboundCallKey = EffectKeyFields & OutboundCallKeyMark;
-
-// @public
-export class OutboundCallKeyMark {
-}
-
-// @public
-export interface OutboundCallKeyOptions extends BusinessKeyOptions {
-    // (undocumented)
-    readonly fingerprint?: never;
-    // (undocumented)
-    readonly fingerprintPolicy?: never;
-}
-
-// @public
 export interface OutboundCallLookup {
     readonly attempt: number;
     readonly attemptStartedAt: Date | undefined;
@@ -6946,15 +6662,6 @@ export interface OutboundCallLookup {
     readonly storedRequest: string;
     // (undocumented)
     readonly target: string;
-}
-
-// @public
-export type OutboundCallNotSent = NotSentByLookup | NotSentByKeyReplay;
-
-// @public
-export interface OutboundCallOptions {
-    readonly attemptTimeout?: Milliseconds;
-    readonly maxPayloadSize?: Bytes;
 }
 
 // @public
@@ -6978,55 +6685,7 @@ export interface OutboundCallPage {
 }
 
 // @public
-export enum OutboundCallPart {
-    // (undocumented)
-    Request = "request",
-    // (undocumented)
-    Result = "result"
-}
-
-// @public
-export class OutboundCallPayloadTooLargeError extends AGBossError {
-    constructor(options: OutboundCallPayloadTooLargeErrorOptions);
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    static readonly code: "outbound-call.payload-too-large";
-    // (undocumented)
-    readonly code: typeof OutboundCallPayloadTooLargeError.code;
-    // (undocumented)
-    readonly maxPayloadSize: number;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly part: OutboundCallPart;
-    // (undocumented)
-    readonly size: number;
-}
-
-// @public
-export interface OutboundCallPayloadTooLargeErrorOptions {
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly maxPayloadSize: number;
-    // (undocumented)
-    readonly part: OutboundCallPart;
-    // (undocumented)
-    readonly size: number;
-}
-
-// @public
-export type OutboundCallReconciliation<TResult> = CompletedReconciliation<TResult> | NotSentReconciliation | UnknownReconciliation;
-
-// @public
-export const OutboundCallReconciliation: Readonly<{
-    completed<TResult>(result: TResult & JsonValue<TResult>): CompletedReconciliation<TResult>;
-    notSent(): NotSentReconciliation;
-    unknown(options: OutboundCallUnknownOptions): UnknownReconciliation;
-}>;
+export type OutboundCallPart = "request" | "result";
 
 // @public
 export interface OutboundCallRecord extends OutboundCallIntent {
@@ -7065,71 +6724,11 @@ export abstract class OutboundCallRepository {
 }
 
 // @public
-export class OutboundCallResultNotStoredError extends StepFailedError {
-    constructor(options: OutboundCallResultNotStoredErrorOptions);
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    static readonly code: "outbound-call.result-not-stored";
-    // (undocumented)
-    readonly code: typeof OutboundCallResultNotStoredError.code;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly operation: string;
-    // (undocumented)
-    readonly reason: OutboundCallResultNotStoredReason;
-    // (undocumented)
-    readonly target: string;
-}
-
-// @public
-export interface OutboundCallResultNotStoredErrorOptions extends OutboundCallInFlightErrorOptions {
-    // (undocumented)
-    readonly reason: OutboundCallResultNotStoredReason;
-}
-
-// @public
-export type OutboundCallResultNotStoredReason = typeof OutboundCallPayloadTooLargeError.code | typeof OutboundCallUnmaskedError.code | "outbound-call.result-unstorable";
-
-// @public
-export class OutboundCalls {
-    constructor(repository: OutboundCallRepository, settings: OutboundCallSettings, logger: Logger, clock: Clock);
-    send<TRequest, TResult>(key: EffectKey | OutboundCallKey, options: OutboundCallSendOptions<TRequest, TResult>): Promise<OutboundCallOutcome<TResult>>;
-}
-
-// @public
-export interface OutboundCallSendOptions<TRequest, TResult> {
-    readonly isDefiniteFailure?: (error: unknown) => boolean;
-    readonly notSent: OutboundCallNotSent;
-    readonly operation: string;
-    readonly reconcile: (lookup: OutboundCallLookup) => Promise<OutboundCallReconciliation<TResult>> | OutboundCallReconciliation<TResult>;
-    readonly request: TRequest & JsonValue<TRequest>;
-    readonly send: (call: OutboundCall<TRequest>) => Promise<TResult & JsonValue<TResult>> | (TResult & JsonValue<TResult>);
-    readonly target: string;
-}
-
-// @public
 export enum OutboundCallSendStatus {
     Joined = "joined",
     Reconciled = "reconciled",
     Replayed = "replayed",
     Sent = "sent"
-}
-
-// @public
-export class OutboundCallSettings {
-    constructor(options?: OutboundCallSettingsOptions);
-    readonly attemptTimeout: Milliseconds;
-    readonly maxPayloadSize: Bytes;
-    readonly requiresMask: boolean;
-    readonly retention: Milliseconds;
-}
-
-// @public
-export interface OutboundCallSettingsOptions extends OutboundCallOptions {
-    readonly requiresMask: boolean;
-    readonly retention?: Milliseconds;
 }
 
 // @public
@@ -7148,114 +6747,14 @@ export interface OutboundCallStep {
 }
 
 // @public
-export class OutboundCallSupersededError extends StepFailedError {
-    constructor(options: OutboundCallSupersededErrorOptions);
-    readonly attempt: number;
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    static readonly code: "outbound-call.superseded";
-    // (undocumented)
-    readonly code: typeof OutboundCallSupersededError.code;
-    readonly idempotencyKey: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly operation: string;
-    readonly supersededBy: number | undefined;
-    // (undocumented)
-    readonly target: string;
-}
+export type OutboundRecovery<TResult = never> = ReplayRecovery | LookupRecovery<TResult>;
 
 // @public
-export interface OutboundCallSupersededErrorOptions {
-    readonly attempt: number;
-    // (undocumented)
-    readonly call: string;
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly idempotencyKey: string;
-    // (undocumented)
-    readonly operation: string;
-    readonly supersededBy: number | undefined;
-    // (undocumented)
-    readonly target: string;
-}
-
-// @public
-export interface OutboundCallUnknownOptions {
-    // (undocumented)
-    readonly reason: string;
-}
-
-// @public
-export class OutboundCallUnmaskedError extends AGBossError {
-    constructor(options: OutboundCallUnmaskedErrorOptions);
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    static readonly code: "outbound-call.unmasked";
-    // (undocumented)
-    readonly code: typeof OutboundCallUnmaskedError.code;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface OutboundCallUnmaskedErrorOptions {
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    readonly cause?: unknown;
-}
-
-// @public
-export class OutboundCallUnreconciledError extends StepFailedError {
-    constructor(options: OutboundCallUnreconciledErrorOptions);
-    // (undocumented)
-    readonly call: string;
-    // (undocumented)
-    static readonly code: "outbound-call.unreconciled";
-    // (undocumented)
-    readonly code: typeof OutboundCallUnreconciledError.code;
-    readonly detail: string;
-    // (undocumented)
-    readonly idempotencyKey: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly operation: string;
-    // (undocumented)
-    readonly reason: OutboundCallUnreconciledReason;
-    // (undocumented)
-    readonly target: string;
-}
-
-// @public
-export interface OutboundCallUnreconciledErrorOptions {
-    // (undocumented)
-    readonly call: string;
-    readonly cause?: unknown;
-    readonly detail: string;
-    // (undocumented)
-    readonly idempotencyKey: string;
-    // (undocumented)
-    readonly operation: string;
-    // (undocumented)
-    readonly reason: OutboundCallUnreconciledReason;
-    // (undocumented)
-    readonly target: string;
-}
-
-// @public
-export type OutboundCallUnreconciledReason = "reconcile.unknown" | "reconcile.threw" | "reconcile.no-verdict" | "key-retention.passed";
-
-// @public
-export enum OutboundCallVerdict {
-    Completed = "completed",
-    NotSent = "not-sent",
-    Unknown = "unknown"
-}
+export const OutboundRecovery: Readonly<{
+    replayWithin(keyTtl: Milliseconds): ReplayRecovery;
+    permanentLookup<TResult>(reconcile: LookupRecovery<TResult>["reconcile"]): LookupRecovery<TResult>;
+    lookupWithin<TResult>(keyTtl: Milliseconds, reconcile: LookupRecovery<TResult>["reconcile"]): LookupRecovery<TResult>;
+}>;
 
 // @public
 export interface OutdatedMark {
@@ -8640,6 +8139,23 @@ export interface ReassignPermissionContext<TTarget> {
 }
 
 // @public
+export type Reconciliation<TResult = never> = CompletedReconciliation<TResult> | NotExecutedReconciliation | UnknownReconciliation;
+
+// @public
+export const Reconciliation: Readonly<{
+    completed<TResult>(result: TResult & JsonValue<TResult>): CompletedReconciliation<TResult>;
+    notExecuted(): NotExecutedReconciliation;
+    unknown(reason: string): UnknownReconciliation;
+}>;
+
+// @public
+export enum ReconciliationVerdict {
+    Completed = "completed",
+    NotExecuted = "not-executed",
+    Unknown = "unknown"
+}
+
+// @public
 export interface RecordedElsewhereLedgerMark {
     // (undocumented)
     readonly state: LedgerState.RecordedElsewhere;
@@ -8677,6 +8193,16 @@ export interface RejectedHttpAuthResult {
     // (undocumented)
     readonly kind: HttpAuthKind.Unauthenticated | HttpAuthKind.Forbidden;
     readonly reason: string;
+}
+
+// @public
+export interface ReplayRecovery {
+    // (undocumented)
+    readonly [recoveryBrand]: true;
+    // (undocumented)
+    readonly keyTtl: Milliseconds;
+    // (undocumented)
+    readonly kind: "replay-within";
 }
 
 // @public
@@ -9040,7 +8566,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -9411,13 +8937,13 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
 
 // @public
 export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
-    constructor(connection: SqliteConnection, clock: Pick<StoreClock, "now">, settings: FencedEffectSettings);
+    constructor(connection: SqliteConnection, clock: Pick<StoreClock, "now">);
     // (undocumented)
     deleteByStoredAtBefore(cutoff: Date): Promise<void>;
     // (undocumented)
     ping(): Promise<void>;
     // (undocumented)
-    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<DatabaseSync, TResult>): Promise<FencedEffectOutcome<TResult>>;
+    protected runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<DatabaseSync, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     // (undocumented)
     static readonly store: StoreDescriptor;
 }
@@ -10715,14 +10241,6 @@ export interface UnderstoodReply<TDecision> {
 }
 
 // @public
-export interface UnfingerprintedKeyOptions extends BusinessKeyOptions {
-    // (undocumented)
-    readonly fingerprint?: never;
-    // (undocumented)
-    readonly fingerprintPolicy: FingerprintPolicy.None;
-}
-
-// @public
 export class UninterpretableReplyError extends AGBossError {
     constructor(options: UninterpretableReplyErrorOptions);
     // (undocumented)
@@ -10760,10 +10278,11 @@ export class UnknownPauseError extends AGBossError {
 
 // @public
 export interface UnknownReconciliation {
+    // (undocumented)
     readonly [reconciliationBrand]: true;
     readonly reason: string;
     // (undocumented)
-    readonly verdict: OutboundCallVerdict.Unknown;
+    readonly verdict: ReconciliationVerdict.Unknown;
 }
 
 // @public (undocumented)
@@ -11254,89 +10773,25 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "token".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "effect".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "problem".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "cause".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "problem".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-contract.ts - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-reconciliation.ts - (ae-undocumented) Missing documentation for "verdict".
-// src/app/outbound-call-reconciliation.ts - (ae-undocumented) Missing documentation for "verdict".
-// src/app/outbound-call-reconciliation.ts - (ae-undocumented) Missing documentation for "verdict".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "operation".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "trust".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "trust".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "status".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "result".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "attempt".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "part".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "size".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "maxPayloadSize".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "cause".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "cause".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "cause".
-// src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "idempotencyKey".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "reason".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "Request".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "Result".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "part".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "size".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "maxPayloadSize".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "call".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "target".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "operation".
-// src/app/outbound-calls.ts - (ae-undocumented) Missing documentation for "reason".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "verdict".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "[reconciliationBrand]".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "verdict".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "[reconciliationBrand]".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "verdict".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "[recoveryBrand]".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "kind".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "keyTtl".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "[recoveryBrand]".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "kind".
+// src/app/outbound-recovery.ts - (ae-undocumented) Missing documentation for "reconcile".
 // src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "cause".
 // src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "code".
 // src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "code".
@@ -11674,13 +11129,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "OutsideTransaction".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "NestedRunOnce".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "ExternalCallInTransaction".
-// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "InFlight".
-// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "Superseded".
-// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "Unreconciled".
-// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "ResultNotStored".
-// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "PayloadTooLarge".
-// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "Unmasked".
-// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "InvalidRecovery".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "DtoInvalid".
 // src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "TenantRequired".
 // src/core/error-families/family.ts - (ae-undocumented) Missing documentation for "usage".
@@ -11698,6 +11146,13 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Failed".
 // src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Refused".
 // src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "DetectionFailed".
+// src/core/error-families/outbound-call-errors.ts - (ae-undocumented) Missing documentation for "InFlight".
+// src/core/error-families/outbound-call-errors.ts - (ae-undocumented) Missing documentation for "Superseded".
+// src/core/error-families/outbound-call-errors.ts - (ae-undocumented) Missing documentation for "Unreconciled".
+// src/core/error-families/outbound-call-errors.ts - (ae-undocumented) Missing documentation for "ResultNotStored".
+// src/core/error-families/outbound-call-errors.ts - (ae-undocumented) Missing documentation for "PayloadTooLarge".
+// src/core/error-families/outbound-call-errors.ts - (ae-undocumented) Missing documentation for "Unmasked".
+// src/core/error-families/outbound-call-errors.ts - (ae-undocumented) Missing documentation for "InvalidRecovery".
 // src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "NotPaused".
 // src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "UnknownPause".
 // src/core/error-families/pause-errors.ts - (ae-undocumented) Missing documentation for "Closed".
@@ -12109,7 +11564,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "component".
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "workflow".
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "step".
-// src/flow/context/execution-fence.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/decorators/action.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/action.ts - (ae-undocumented) Missing documentation for "input".
 // src/flow/decorators/action.ts - (ae-undocumented) Missing documentation for "execute".
@@ -12522,7 +11976,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "maxSpend".
 // src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "maxTokens".
 // src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "CostLedgerRepository".
-// src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "executionId".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "nodeId".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "visitNumber".
@@ -12582,68 +12035,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "rule".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "rule".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "businessKeyHash".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "path".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "effect".
 // src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/fenced-effect-errors.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprintPolicy".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprintPolicy".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprintPolicy".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
-// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
-// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "maxResultSize".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "size".
-// src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "result".
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
@@ -12679,14 +12076,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "runInTransaction".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "deleteByStoredAtBefore".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "leaseRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "fencedEffectRepository".
-// src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "leaseRepository".
 // src/infrastructure/logger.ts - (ae-undocumented) Missing documentation for "level".
 // src/infrastructure/logger.ts - (ae-undocumented) Missing documentation for "write".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "tenantId".

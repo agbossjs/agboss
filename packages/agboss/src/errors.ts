@@ -145,28 +145,6 @@ export {
   type SyncWorkRequiredErrorOptions,
 } from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 export {
-  InvalidNotSentTrustError,
-  OutboundCallSupersededError,
-  type InvalidNotSentTrustErrorOptions,
-} from "./app/outbound-call-contract.js";
-export type {
-  OutboundCallSupersededErrorOptions,
-  OutboundCallUnmaskedErrorOptions,
-} from "./app/outbound-call-types.js";
-export {
-  OutboundCallInFlightError,
-  OutboundCallPayloadTooLargeError,
-  OutboundCallResultNotStoredError,
-  OutboundCallUnmaskedError,
-  OutboundCallUnreconciledError,
-  type OutboundCallInFlightErrorOptions,
-  type OutboundCallPayloadTooLargeErrorOptions,
-  type OutboundCallResultNotStoredErrorOptions,
-  type OutboundCallResultNotStoredReason,
-  type OutboundCallUnreconciledErrorOptions,
-  type OutboundCallUnreconciledReason,
-} from "./app/outbound-calls.js";
-export {
   CostLedgerCutoffInvalidError,
   type CostLedgerCutoffInvalidErrorOptions,
   CostLedgerEntryExpiredError,
@@ -174,21 +152,6 @@ export {
   type CostLedgerEntryExpiredErrorOptions,
   type CostLedgerEntryInvalidErrorOptions,
 } from "./finops/ledger-mark.js";
-export {
-  FencedEffectResultTooLargeError,
-  BusinessKeyConflictError,
-  InvalidBusinessKeyError,
-  InvalidFencedEffectNameError,
-  type InvalidFencedEffectNameErrorOptions,
-  type FencedEffectResultTooLargeErrorOptions,
-  type BusinessKeyConflictErrorOptions,
-  type FingerprintNotJsonErrorOptions,
-  type InvalidBusinessKeyErrorOptions,
-} from "./infrastructure/fenced-effect.repository.js";
-export {
-  FencedEffectStoreMismatchError,
-  type FencedEffectStoreMismatchErrorOptions,
-} from "./infrastructure/in-memory-fenced-effect.repository.js";
 export { cancelFencedErrorOf } from "./app/handed-over.js";
 export {
   ExecutionCancelFencedError,

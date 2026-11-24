@@ -168,7 +168,7 @@ failed or cancelled, of any tenant — fails the new one with `DuplicateExecutio
 (`run.duplicate-execution-id`; `generator`, never the id): a root before its budgets, its thread or
 its lease, a child or a level before it starts. Without it, a sequential generator restarted on a
 kept database gave a new tree an old tree's lease, fencing token, audit log and step keys
-(`<executionId>:<nodeId>:<visit>`), and a fenced effect or an outbound call replayed the other tree's
+(`<executionId>:<nodeId>:<visit>`), and an idempotent write or an outbound call replayed the other tree's
 result. Of two instances minting one id at once, one runs. A resume or a recovery keeps its id and is
 not a create; a create that fails after its id was kept leaves the id taken and nothing else.
 The ids of before an upgrade are kept too (#638): a SQLite file of an older version fills

@@ -1,18 +1,18 @@
+import { storeMismatch } from "./idempotency-errors.js";
+import { IdempotencyError } from "../core/error-families/effect-errors.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 import { ExecutionFencedError } from "../app/lease-lost.js";
 import { Injectable } from "../components/decorators.js";
-import { AGBossError } from "../core/errors.js";
 import { StoreClock, type Clock } from "./clock.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
 } from "./execution-lease.repository.js";
-import { FencedEffectSettings } from "./fenced-effect-settings.js";
 import {
   FencedEffectRepository,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type EffectKey,
-  type FencedEffectOutcome,
+  type IdempotencyRunOutcome,
   type FencedEffectWork,
 } from "./fenced-effect.repository.js";
 import {
@@ -60,7 +60,7 @@ export class InMemoryFencedEffectTransaction {
  * asynchronous `work` ran refuses its write.
  */
 @Injectable({
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };
@@ -71,10 +71,9 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
   constructor(
     private readonly clock: Pick<StoreClock, "now">,
     private readonly database: InMemoryDatabase,
-    settings: FencedEffectSettings,
     private readonly leases: ExecutionLeaseRepository,
   ) {
-    super(settings);
+    super();
   }
 
   ping(): Promise<void> {
@@ -84,7 +83,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
   protected runInTransaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     const mismatch = inMemoryLeaseMismatch(this, this.leases);
     if (mismatch !== undefined) return Promise.reject(mismatch);
     // a business key is one row for every scope of the tenant: its transactions in turn too (#508)
@@ -100,7 +99,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
   async #transaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     checkInMemoryFence(this.database, this.clock, key);
     const stored = this.database.fencedEffectResults.get(effectKeyIdentityOf(key));
     if (stored !== undefined) {
@@ -108,7 +107,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
       raiseInMemoryMark(this.database, this.clock, key);
       const result = JSON.parse(stored.result) as TResult;
       return {
-        status: FencedEffectStatus.Replayed,
+        status: IdempotencyRunStatus.Replayed,
         result,
         token: stored.token,
         ...(replayedFrom === undefined ? {} : { replayedFrom }),
@@ -134,7 +133,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     this.database.fencedEffectResults.set(effectKeyIdentityOf(key), row);
     applyWrites(transaction);
     return {
-      status: FencedEffectStatus.Ran,
+      status: IdempotencyRunStatus.Ran,
       result: JSON.parse(text) as TResult,
       token: key.token,
     };
@@ -213,47 +212,12 @@ export function raiseInMemoryMark(
 export function inMemoryLeaseMismatch(
   store: object,
   leases: ExecutionLeaseRepository,
-): FencedEffectStoreMismatchError | undefined {
+): IdempotencyError.StoreMismatch | undefined {
   return leases instanceof InMemoryExecutionLeaseRepository
     ? undefined
-    : new FencedEffectStoreMismatchError({
+    : storeMismatch({
         fencedEffectRepository: store.constructor.name,
         leaseRepository: leases.constructor.name,
         expectedLeaseRepository: InMemoryExecutionLeaseRepository.name,
       });
-}
-
-/** Which stores do not match: the fenced-effect store and the lease store the application uses. */
-export interface FencedEffectStoreMismatchErrorOptions {
-  readonly fencedEffectRepository: string;
-  readonly leaseRepository: string;
-  /** The lease store the fenced-effect store reads its leases from. */
-  readonly expectedLeaseRepository: string;
-  readonly cause?: unknown;
-}
-
-/**
- * The fenced-effect store reads the leases of another store than the application's (#500): the
- * built-in in-memory one used beside a listed `SqliteExecutionLeaseRepository`, say. It would
- * refuse every write, so the first call fails with this instead — list the fenced-effect store of
- * the lease store's database (`SqliteFencedEffectRepository` beside `SqliteExecutionLeaseRepository`).
- */
-export class FencedEffectStoreMismatchError extends AGBossError {
-  static override readonly code = "fenced-effect.store-mismatch" as const;
-  declare readonly code: typeof FencedEffectStoreMismatchError.code;
-  override name = "FencedEffectStoreMismatchError";
-  readonly fencedEffectRepository: string;
-  readonly leaseRepository: string;
-  /** The lease store the fenced-effect store reads its leases from. */
-  readonly expectedLeaseRepository: string;
-
-  constructor(options: FencedEffectStoreMismatchErrorOptions) {
-    super(
-      `${options.fencedEffectRepository} checks the leases of ${options.expectedLeaseRepository}, but the application's leases are in ${options.leaseRepository}: list the fenced-effect store of that lease store's database in @Application({ providers })`,
-      { cause: options.cause },
-    );
-    this.fencedEffectRepository = options.fencedEffectRepository;
-    this.leaseRepository = options.leaseRepository;
-    this.expectedLeaseRepository = options.expectedLeaseRepository;
-  }
 }

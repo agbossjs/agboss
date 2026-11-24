@@ -186,11 +186,11 @@ export interface ExecutionObserver {
     onExecutionRejected?(event: ExecutionRejectedEvent): void | Promise<void>;
     onExecutionResume?(event: ExecutionResumeEvent): void | Promise<void>;
     onExecutionStart?(event: ExecutionStartEvent): void | Promise<void>;
-    onFencedEffect?(event: FencedEffectEvent): void | Promise<void>;
     // (undocumented)
     onGuardrailEnd?(event: GuardrailEndEvent): void | Promise<void>;
     // (undocumented)
     onGuardrailStart?(event: GuardrailStartEvent): void | Promise<void>;
+    onIdempotencyRun?(event: IdempotencyRunEvent): void | Promise<void>;
     // (undocumented)
     onJudgeEnd?(event: JudgeEndEvent): void | Promise<void>;
     // (undocumented)

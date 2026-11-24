@@ -1,5 +1,5 @@
 import type { App } from "../../app/types.js";
-import { OutboundCalls } from "../../app/outbound-calls.js";
+import { Idempotency } from "../../app/idempotency.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { Clock } from "../../infrastructure/clock.js";
 import { Files } from "../files/files.service.js";
@@ -14,8 +14,8 @@ import type { A2AMeshSeam } from "./a2a-mesh-seam.js";
  * frame — remembered here per `ApplicationContext`, as the mesh settings are.
  */
 export interface A2AClientServices {
-  /** The application's `OutboundCalls`, resolved on the first call that needs it. */
-  readonly outboundCalls: () => OutboundCalls;
+  /** The application's `Idempotency`, resolved on the first call that needs it. */
+  readonly outboundCalls: () => Idempotency;
   readonly clock: Clock;
   /** The application's `Files` (#859): a stored file an input forwards is read through it. */
   readonly files?: () => Files;
@@ -37,10 +37,10 @@ export function rememberA2AClientServices(
 export const a2aClientServicesOf = (context: ApplicationContext): A2AClientServices | undefined =>
   byContext.get(context);
 
-/** Remembers what an application instance's A2A calls use: its `OutboundCalls` (on first use), its `Clock`. */
+/** Remembers what an application instance's A2A calls use: its `Idempotency` (on first use), its `Clock`. */
 export function rememberA2AClientServicesOf(app: Pick<App, "resolve">): void {
   rememberA2AClientServices(app.resolve(ApplicationContext), {
-    outboundCalls: () => app.resolve(OutboundCalls),
+    outboundCalls: () => app.resolve(Idempotency),
     clock: app.resolve(Clock),
     files: () => app.resolve(Files),
   });

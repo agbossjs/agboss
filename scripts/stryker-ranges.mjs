@@ -58,7 +58,7 @@ export function fencedReachShard() {
   return {
     configFile: "vitest.mutation-fenced-reach.config.ts",
     mutate: [
-      "src/app/fenced-effects.ts",
+      "src/app/idempotency.ts",
       "src/flow/context/execution-fence.ts",
       "src/components/container/fenced-reach.ts",
     ],

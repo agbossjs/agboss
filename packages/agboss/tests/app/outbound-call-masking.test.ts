@@ -6,13 +6,9 @@
  * nothing sent. An operator reads a stored result masked too (the store keeps it as given, for the
  * replay).
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  OutboundCallRepository,
-  OutboundCallUnmaskedError,
-  Workflow,
-  WorkflowStart,
-} from "../../src/index.js";
+import { OutboundCallRepository, Workflow, WorkflowStart } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -91,7 +87,7 @@ describe("#505: no mask where policies exist — fail closed", () => {
 
     const refused = run({ message: { value: { text: "order-1" } } });
 
-    await expect(refused).rejects.toBeInstanceOf(OutboundCallUnmaskedError);
+    await expect(refused).rejects.toBeInstanceOf(OutboundCallError.Unmasked);
     await expect(refused).rejects.toMatchObject({ code: "outbound-call.unmasked", call: "charge" });
     expect(unmasked.pendingAfter).toEqual([0]);
     expect(gateway.calls).toEqual([]);
@@ -102,7 +98,6 @@ describe("#505: no mask where policies exist — fail closed", () => {
       name: "no-pii-application",
       version: "1.0.0",
       environment: IdempotencyKeyEnvironment,
-      idempotencyKeyField: "idempotencyKey",
       workflows: [ChargeWorkflow],
       budgets: TEST_BUDGETS,
     })
@@ -149,7 +144,6 @@ class MaskedChargeWorkflow {}
   name: "workflow-policy-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [MaskedChargeWorkflow],
   budgets: TEST_BUDGETS,
 })

@@ -3,45 +3,45 @@
  * and details; the options' facts (both, or a policy that is not one, refused); the decision checked
  * where the stores run it; a fingerprint's own error passing as it is; the previous key's match.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import { runInFrame } from "../../src/flow/context/frame.js";
-import {
-  FingerprintNotJsonError,
-  FingerprintPolicy,
-  FingerprintRequiredError,
-  IdempotencyKeyMissingError,
-} from "../../src/index.js";
 import {
   assertFingerprintDecided,
   fingerprintFactsOf,
   fingerprintsOf,
-  FingerprintProblem,
   isKeyFingerprint,
 } from "../../src/infrastructure/fenced-effect-fingerprint.js";
+import {
+  FingerprintProblem,
+  fingerprintNotJson,
+  fingerprintRequired,
+  secretKeyMissing,
+} from "../../src/infrastructure/idempotency-errors.js";
 import { testFrame } from "../helpers/frame.js";
 
 const TAIL =
-  "— effectKeyOf(executionContext, name, { businessKey, fingerprint: { …what the work does } }): nothing ran";
+  "— idempotency.runOnce({ name, key, fingerprint: { …what the work does }, … }): nothing ran";
 
 describe("#825: the fingerprint's errors", () => {
-  it("FingerprintRequiredError, missing: its name, code, text and details", () => {
-    const error = new FingerprintRequiredError({
+  it("IdempotencyError.FingerprintRequired, missing: its name, code, text and details", () => {
+    const error = fingerprintRequired({
       effect: "charge",
       reason: FingerprintProblem.Missing,
     });
 
     expect(error).toMatchObject({
-      name: "FingerprintRequiredError",
-      code: "fenced-effect.fingerprint-required",
+      name: "IdempotencyError.FingerprintRequired",
+      code: "idempotency.fingerprint-required",
       effect: "charge",
       reason: "missing",
       details: { effect: "charge", reason: "missing" },
-      message: `the fenced effect "charge" under a business key names neither a fingerprint nor fingerprintPolicy: FingerprintPolicy.None ${TAIL}`,
+      message: `the effect "charge" under a key names neither a fingerprint nor withoutFingerprint: true ${TAIL}`,
     });
   });
 
-  it("FingerprintRequiredError, contradictory: its own text", () => {
-    const error = new FingerprintRequiredError({
+  it("IdempotencyError.FingerprintRequired, contradictory: its own text", () => {
+    const error = fingerprintRequired({
       effect: "refund",
       reason: FingerprintProblem.Contradictory,
     });
@@ -49,24 +49,22 @@ describe("#825: the fingerprint's errors", () => {
     expect(error).toMatchObject({
       reason: "contradictory",
       details: { effect: "refund", reason: "contradictory" },
-      message: `the fenced effect "refund" under a business key names a fingerprint and a fingerprintPolicy, or a policy that is not FingerprintPolicy.None ${TAIL}`,
+      message: `the effect "refund" under a key names a fingerprint and withoutFingerprint: true, or a withoutFingerprint that is not true ${TAIL}`,
     });
   });
 
-  it("IdempotencyKeyMissingError and FingerprintNotJsonError: names, codes, texts, details", () => {
-    expect(new IdempotencyKeyMissingError({ effect: "charge" })).toMatchObject({
-      name: "IdempotencyKeyMissingError",
-      code: "fenced-effect.idempotency-key-missing",
+  it("IdempotencyError.SecretKeyMissing and IdempotencyError.FingerprintNotJson: names, codes, texts, details", () => {
+    expect(secretKeyMissing({ effect: "charge" })).toMatchObject({
+      name: "IdempotencyError.SecretKeyMissing",
+      code: "idempotency.secret-key-missing",
       effect: "charge",
       details: { effect: "charge" },
       message:
-        '"charge" is under a business key, whose fingerprint is keyed by the application\'s idempotency key — none here: name a Secret field in @Application({ idempotencyKeyField }) and make the key in a step',
+        '"charge" is under a key, whose fingerprint is keyed by the application\'s idempotency secret — none here: name idempotencySecret in @DatabaseStorage and make the key in a step',
     });
-    expect(
-      new FingerprintNotJsonError({ effect: "charge", path: "$.at", reason: "a Date" }),
-    ).toMatchObject({
-      name: "FingerprintNotJsonError",
-      code: "fenced-effect.fingerprint-not-json",
+    expect(fingerprintNotJson({ effect: "charge", path: "$.at", reason: "a Date" })).toMatchObject({
+      name: "IdempotencyError.FingerprintNotJson",
+      code: "idempotency.fingerprint-not-json",
       effect: "charge",
       path: "$.at",
       details: { effect: "charge", path: "$.at" },
@@ -81,20 +79,23 @@ describe("#825: what a business key's options say", () => {
     fingerprintFactsOf("charge", { businessKey: "order:42", ...options });
 
   it("the policy None alone; nothing (a call's key)", () => {
-    expect(facts({ fingerprintPolicy: FingerprintPolicy.None })()).toStrictEqual({
-      fingerprintPolicy: FingerprintPolicy.None,
+    expect(facts({ withoutFingerprint: true })()).toStrictEqual({
+      withoutFingerprint: true,
     });
     expect(facts({})()).toStrictEqual({});
   });
 
   it("both, or a policy that is not one — with a fingerprint or without: Contradictory", () => {
     for (const options of [
-      { fingerprint: { amount: 1 }, fingerprintPolicy: FingerprintPolicy.None },
-      { fingerprintPolicy: "none-ish" },
-      { fingerprint: { amount: 1 }, fingerprintPolicy: "none-ish" },
+      { fingerprint: { amount: 1 }, withoutFingerprint: true },
+      { withoutFingerprint: "none-ish" },
+      { fingerprint: { amount: 1 }, withoutFingerprint: "none-ish" },
     ])
       expect(facts(options)).toThrow(
-        expect.objectContaining({ name: "FingerprintRequiredError", reason: "contradictory" }),
+        expect.objectContaining({
+          name: "IdempotencyError.FingerprintRequired",
+          reason: "contradictory",
+        }),
       );
   });
 
@@ -103,7 +104,7 @@ describe("#825: what a business key's options say", () => {
 
     expect(() => {
       assertFingerprintDecided(key);
-    }).toThrow(FingerprintRequiredError);
+    }).toThrow(IdempotencyError.FingerprintRequired);
     expect(() => {
       assertFingerprintDecided({ ...key, fingerprint: "f" });
     }).not.toThrow();
@@ -145,18 +146,18 @@ describe("#825: a fingerprint's own failure, and the previous key's match", () =
   });
 });
 
-describe("#906 AC4: FingerprintRequiredError({ effect, reason, cause })", () => {
+describe("#906 AC4: IdempotencyError.FingerprintRequired({ effect, reason, cause })", () => {
   it("AC4: the option key is the field — `effect` — and no `name` option shadows Error.name", () => {
     const cause = new Error("the store's check");
 
-    const error = new FingerprintRequiredError({
+    const error = fingerprintRequired({
       effect: "refund",
       reason: FingerprintProblem.Missing,
       cause,
     });
 
     expect(error).toMatchObject({ effect: "refund", reason: "missing", cause });
-    expect(error.name).toBe("FingerprintRequiredError");
+    expect(error.name).toBe("IdempotencyError.FingerprintRequired");
     expect(error.details).toEqual({ effect: "refund", reason: "missing" });
   });
 
@@ -166,7 +167,7 @@ describe("#906 AC4: FingerprintRequiredError({ effect, reason, cause })", () => 
         fingerprintFactsOf("refund", {
           businessKey: "order:42",
           fingerprint: { amount: 1 },
-          fingerprintPolicy: FingerprintPolicy.None,
+          withoutFingerprint: true,
         } as never);
       } catch (error) {
         return error;

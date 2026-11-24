@@ -1,4 +1,4 @@
-import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { SilentLogger } from "../../src/infrastructure/logger.js";
 /**
  * #533 item 3 — the protocol of a call that leaves the system (#505), move by move, in a step's
@@ -15,24 +15,28 @@ import { applicationContextOf } from "../../src/flow/context/application-context
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
   ExecutionContextUnavailableError,
+  Idempotency,
+  InMemoryFencedEffectRepository,
   InMemoryOutboundCallRepository,
-  NotSentTrust,
   OutboundCallEventOutcome,
-  OutboundCallInFlightError,
   OutboundCallSendStatus,
-  OutboundCallReconciliation,
-  OutboundCallSettings,
   OutboundCallStatus,
-  OutboundCalls,
-  type EffectKey,
+  OutboundRecovery,
+  Reconciliation,
+  type IdempotencySendOptions,
   type OutboundCallRecord,
 } from "../../src/index.js";
+import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { ExecutionCancelFencedError, type OutboundCallIntent } from "../../src/stores/index.js";
-import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
+import {
+  InMemoryExecutionLeaseRepository,
+  type ExecutionLease,
+} from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { hours } from "../../src/units/index.js";
+import { hours, seconds } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
 import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
 import { storeClockOf } from "../helpers/store-clock.js";
@@ -62,7 +66,7 @@ class ScriptedOutboundCallRepository extends InMemoryOutboundCallRepository {
 
 const TEST_KEYS = { current: TEST_IDEMPOTENCY_KEY };
 
-/** The stores of one instance, a step's frame under a lease that keeps what it is told. */
+/** The stores of one instance, and a step's frame under a lease that keeps what it is told. */
 function callsInFrame() {
   const clock = new VirtualClock();
   const database = new InMemoryDatabase();
@@ -72,50 +76,76 @@ function callsInFrame() {
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const store = new ScriptedOutboundCallRepository(storeClockOf(clock), database, leases);
+  const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
   const reports: OutboundCallReport[] = [];
-  const lease: FrameLease = {
-    tenantId: "default",
-    leaseExecutionId: "execution-1",
-    scopeKey: "default:execution-1",
-    token: 1,
-    trustedUntil: Number.POSITIVE_INFINITY,
-    isYielded: false,
-    assertHeld: () => undefined,
-    renewNow: () => Promise.resolve(),
-    enterStep: () => Promise.resolve(() => undefined),
-    recordOutboundCall: (report) => {
-      reports.push(report);
-    },
-  };
+  const idempotency = new Idempotency(
+    effects,
+    store,
+    new OutboundCallSettings({ requiresMask: false }),
+    new SilentLogger(),
+    clock,
+  );
   const base = testFrame();
-  const frameUnder = (frameLease: FrameLease | undefined): FrameSpec => ({
-    ...base,
-    // an application's frame carries its idempotency keys (#825): a business key's fingerprint
-    execution: { ...base.execution, lease: frameLease, fingerprintKeys: TEST_KEYS },
-  });
-  const origin = {
-    executionId: base.execution.executionId,
-    nodeId: base.step.nodeId,
-    visitNumber: base.step.visitNumber,
+  /** The step's frame under `taken` (none: a frame with no lease), `extra` over the lease (a hook of the holder). */
+  const frameUnder = (
+    taken: ExecutionLease | undefined,
+    extra: Partial<FrameLease> = {},
+    step: Partial<typeof base.step> & { readonly executionId?: string } = {},
+  ): FrameSpec => {
+    const { executionId = taken?.rootExecutionId ?? base.execution.executionId, ...stepFields } =
+      step;
+    const lease: FrameLease | undefined =
+      taken === undefined
+        ? undefined
+        : {
+            tenantId: taken.tenantId,
+            leaseExecutionId: taken.rootExecutionId,
+            scopeKey: keyOf(taken).scopeKey,
+            token: taken.token,
+            trustedUntil: Number.POSITIVE_INFINITY,
+            isYielded: false,
+            assertHeld: () => undefined,
+            renewNow: () => Promise.resolve(),
+            enterStep: () => Promise.resolve(() => undefined),
+            recordOutboundCall: (report) => {
+              reports.push(report);
+            },
+            ...extra,
+          };
+    return {
+      ...base,
+      // an application's frame carries its idempotency keys (#825): a business key's fingerprint
+      execution: { ...base.execution, executionId, lease, fingerprintKeys: TEST_KEYS },
+      step: { ...base.step, ...stepFields },
+    };
   };
-  const keyIn = async (executionId: string): Promise<EffectKey> => {
+  const take = async (executionId: string): Promise<ExecutionLease> => {
     const taken = await leases.acquire("default", executionId, hours(1));
     if (taken === undefined) throw new Error("the lease is held");
-    return effectKeyForTesting(keyOf(taken), { origin });
+    return taken;
   };
-  return {
-    calls: new OutboundCalls(
-      store,
-      new OutboundCallSettings({ requiresMask: false }),
-      new SilentLogger(),
-      clock,
-    ),
-    ...{ leases, reports, keyIn },
-    recording: frameUnder(lease),
-    unleased: frameUnder(undefined),
-    /** The frame of a lease that is the recording one with `extra` (a hook of the holder). */
-    recordingWith: (extra: Partial<FrameLease>) => frameUnder({ ...lease, ...extra }),
-  };
+  /** The frame of the step of `executionId`'s lease, taken now. */
+  const frameIn = async (
+    executionId: string,
+    extra: Partial<FrameLease> = {},
+    step: Parameters<typeof frameUnder>[2] = {},
+  ) => frameUnder(await take(executionId), extra, step);
+  /** `sendOnce` of the charge in `frame`, under `key` when one is given. */
+  const send = <TRequest, TResult>(
+    frame: FrameSpec,
+    options: Omit<IdempotencySendOptions<TRequest, TResult>, "name" | "key" | "timeout" | "ttl">,
+    key?: string,
+  ) =>
+    runInFrame(frame, () =>
+      idempotency.sendOnce({
+        name: "charge",
+        ...(key === undefined ? {} : { key }),
+        timeout: seconds(15),
+        ttl: hours(48),
+        ...options,
+      }),
+    );
+  return { idempotency, send, leases, reports, frameIn, frameUnder, take };
 }
 
 /**
@@ -135,8 +165,9 @@ function provider() {
       state.failNext = false;
       throw new Error(state.timesOut ? "gateway timeout" : "declined");
     },
-    notSent: { trust: NotSentTrust.Lookup } as const,
-    reconcile: () => OutboundCallReconciliation.notSent(),
+    recovery: OutboundRecovery.permanentLookup<{ chargeId: string }>(() =>
+      Reconciliation.notExecuted(),
+    ),
     isDefiniteFailure: (error: unknown) => error instanceof Error && error.message === "declined",
   };
   return { sent, state, options };
@@ -148,12 +179,12 @@ const movesOf = (reports: readonly OutboundCallReport[]) =>
 
 describe("#533: the moves of a call, told to its lease", () => {
   it("a provider error: Recorded (pending, 1), then Failed (failed, 1)", async () => {
-    const { calls, reports, keyIn, recording } = callsInFrame();
+    const { send, reports, frameIn } = callsInFrame();
     const { state, options } = provider();
-    const key = await keyIn("execution-1");
+    const frame = await frameIn("execution-1");
     state.failNext = true;
 
-    await expect(runInFrame(recording, () => calls.send(key, options))).rejects.toThrow("declined");
+    await expect(send(frame, options)).rejects.toThrow("declined");
 
     expect(movesOf(reports)).toEqual([
       [OutboundCallEventOutcome.Recorded, OutboundCallStatus.Pending, 1],
@@ -162,14 +193,14 @@ describe("#533: the moves of a call, told to its lease", () => {
   });
 
   it("a failed intent is sent again at the next attempt with no NotSent move", async () => {
-    const { calls, reports, keyIn, recording } = callsInFrame();
+    const { send, reports, frameIn } = callsInFrame();
     const { sent, state, options } = provider();
-    const key = await keyIn("execution-1");
+    const frame = await frameIn("execution-1");
     state.failNext = true;
-    await runInFrame(recording, () => calls.send(key, options)).catch(() => undefined);
+    await send(frame, options).catch(() => undefined);
     reports.length = 0;
 
-    const again = await runInFrame(recording, () => calls.send(key, options));
+    const again = await send(frame, options);
 
     expect(again).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect(movesOf(reports)).toEqual([
@@ -179,16 +210,14 @@ describe("#533: the moves of a call, told to its lease", () => {
   });
 
   it("#657: an error of unknown outcome: Recorded, then Ambiguous (pending, 1) — the next call reconciles, NotSent then Sent", async () => {
-    const { calls, reports, keyIn, recording } = callsInFrame();
+    const { send, reports, frameIn } = callsInFrame();
     const { sent, state, options } = provider();
-    const key = await keyIn("execution-1");
+    const frame = await frameIn("execution-1");
     state.failNext = true;
     state.timesOut = true;
 
-    await expect(runInFrame(recording, () => calls.send(key, options))).rejects.toThrow(
-      "gateway timeout",
-    );
-    const again = await runInFrame(recording, () => calls.send(key, options));
+    await expect(send(frame, options)).rejects.toThrow("gateway timeout");
+    const again = await send(frame, options);
 
     expect(again).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect(movesOf(reports)).toEqual([
@@ -201,14 +230,14 @@ describe("#533: the moves of a call, told to its lease", () => {
   });
 
   it("an intent another call recorded at the same moment: in flight, naming the call, nothing sent", async () => {
-    const { calls, keyIn, recording } = callsInFrame();
+    const { send, frameIn } = callsInFrame();
     const { sent, options } = provider();
-    const key = await keyIn("execution-1");
+    const frame = await frameIn("execution-1");
     storeScript.isRecordedElsewhere = true;
 
-    const refused = runInFrame(recording, () => calls.send(key, options));
+    const refused = send(frame, options);
 
-    await expect(refused).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(refused).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     await expect(refused).rejects.toMatchObject({
       call: "charge",
       target: "payments",
@@ -218,13 +247,13 @@ describe("#533: the moves of a call, told to its lease", () => {
   });
 
   it("a completed intent whose result the store does not give back is replayed as null", async () => {
-    const { calls, keyIn, recording } = callsInFrame();
+    const { send, frameIn } = callsInFrame();
     const { options } = provider();
-    const key = await keyIn("execution-1");
-    await runInFrame(recording, () => calls.send(key, options));
+    const frame = await frameIn("execution-1");
+    await send(frame, options);
     storeScript.isResultDropped = true;
 
-    const replay = await runInFrame(recording, () => calls.send(key, options));
+    const replay = await send(frame, options);
 
     expect(replay).toMatchObject({ status: OutboundCallSendStatus.Replayed, result: null });
   });
@@ -232,13 +261,13 @@ describe("#533: the moves of a call, told to its lease", () => {
 
 describe("#533: which replay names the step that made the call", () => {
   it("a step's own replay names none: neither the outcome nor the told move has replayedFrom", async () => {
-    const { calls, reports, keyIn, recording } = callsInFrame();
+    const { send, reports, frameIn } = callsInFrame();
     const { options } = provider();
-    const key = await keyIn("execution-1");
-    await runInFrame(recording, () => calls.send(key, options));
+    const frame = await frameIn("execution-1");
+    await send(frame, options);
     reports.length = 0;
 
-    const replay = await runInFrame(recording, () => calls.send(key, options));
+    const replay = await send(frame, options);
 
     expect(replay.status).toBe(OutboundCallSendStatus.Replayed);
     expect(Object.keys(replay)).not.toContain("replayedFrom");
@@ -246,49 +275,55 @@ describe("#533: which replay names the step that made the call", () => {
   });
 
   it("a business key's replay from another step names the step that made it, in the outcome and the move", async () => {
-    const { calls, reports, keyIn, recording } = callsInFrame();
+    const { send, reports, frameIn } = callsInFrame();
     const { options } = provider();
-    const made = effectKeyForTesting(await keyIn("execution-1"), { businessKey: "order:42" });
-    await runInFrame(recording, () => calls.send(made, options));
+    const first = await frameIn("execution-1");
+    const made = {
+      executionId: first.execution.executionId,
+      nodeId: first.step.nodeId,
+      visitNumber: first.step.visitNumber,
+    };
+    await send(first, options, "order:42");
     reports.length = 0;
     const elsewhere = { executionId: "execution-2", nodeId: "charge-action", visitNumber: 1 };
-    const again = effectKeyForTesting(await keyIn("execution-2"), {
-      businessKey: "order:42",
-      origin: elsewhere,
-    });
+    const again = await frameIn("execution-2", {}, elsewhere);
 
-    const replay = await runInFrame(recording, () => calls.send(again, options));
+    const replay = await send(again, options, "order:42");
 
     expect(replay).toMatchObject({
       status: OutboundCallSendStatus.Replayed,
-      replayedFrom: made.origin,
+      replayedFrom: made,
     });
     expect(reports).toMatchObject([
-      { outcome: OutboundCallEventOutcome.Replayed, replayedFrom: made.origin },
+      { outcome: OutboundCallEventOutcome.Replayed, replayedFrom: made },
     ]);
   });
 });
 
 describe("#533: where a call is sent from", () => {
-  it("a frame with no lease of its own: the stores' fence alone guards it, and it is sent", async () => {
-    const { calls, keyIn, unleased } = callsInFrame();
-    const { sent, options } = provider();
-    const key = await keyIn("execution-1");
-
-    const outcome = await runInFrame(unleased, () => calls.send(key, options));
-
-    expect(outcome.status).toBe(OutboundCallSendStatus.Sent);
-    expect(sent).toEqual([1]);
-  });
-
-  it("outside any frame: ExecutionContextUnavailableError naming OutboundCalls.send", async () => {
-    const { calls, keyIn } = callsInFrame();
+  it("a frame with no lease of its own: no fence to write under — ExecutionContextUnavailableError, nothing sent", async () => {
+    const { send, frameUnder } = callsInFrame();
     const { sent, options } = provider();
 
-    const refused = calls.send(await keyIn("execution-1"), options);
+    const refused = send(frameUnder(undefined), options);
 
     await expect(refused).rejects.toBeInstanceOf(ExecutionContextUnavailableError);
-    await expect(refused).rejects.toThrow(/^OutboundCalls read send outside an execution\./u);
+    expect(sent).toEqual([]);
+  });
+
+  it("outside any frame: ExecutionContextUnavailableError naming Idempotency", async () => {
+    const { idempotency } = callsInFrame();
+    const { sent, options } = provider();
+
+    const refused = idempotency.sendOnce({
+      name: "charge",
+      timeout: seconds(15),
+      ttl: hours(48),
+      ...options,
+    });
+
+    await expect(refused).rejects.toBeInstanceOf(ExecutionContextUnavailableError);
+    await expect(refused).rejects.toThrow(/^Idempotency read /u);
     expect(sent).toEqual([]);
   });
 });
@@ -298,16 +333,13 @@ describe("#909: a call whose tree was cancelled", () => {
     leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
 
   it("is refused before an intent: told Cancelled (pending, 0), the holder stops the tree, nothing sent", async () => {
-    const { calls, leases, reports, keyIn, recordingWith } = callsInFrame();
+    const { send, leases, reports, frameIn } = callsInFrame();
     const { sent, options } = provider();
-    const key = await keyIn("execution-1");
-    await cancelled(leases);
     const found: unknown[] = [];
+    const frame = await frameIn("execution-1", { cancelFound: (error) => found.push(error) });
+    await cancelled(leases);
 
-    const refusal = await runInFrame(
-      recordingWith({ cancelFound: (error) => found.push(error) }),
-      () => calls.send(key, options),
-    ).catch((error: unknown) => error);
+    const refusal = await send(frame, options).catch((error: unknown) => error);
 
     expect(refusal).toBeInstanceOf(ExecutionCancelFencedError);
     expect(found).toEqual([refusal]);
@@ -317,34 +349,26 @@ describe("#909: a call whose tree was cancelled", () => {
     expect(sent).toEqual([]);
   });
 
-  it("a lease with no way to stop the tree, and a frame with no lease: the refusal is the call's error", async () => {
-    const { calls, leases, reports, keyIn, recording, unleased } = callsInFrame();
+  it("a lease with no way to stop the tree: the refusal is the call's error", async () => {
+    const { send, leases, reports, frameIn } = callsInFrame();
     const { options } = provider();
-    const key = await keyIn("execution-1");
+    const frame = await frameIn("execution-1");
     await cancelled(leases);
 
-    for (const frame of [recording, unleased]) {
-      await expect(runInFrame(frame, () => calls.send(key, options))).rejects.toBeInstanceOf(
-        ExecutionCancelFencedError,
-      );
-    }
+    await expect(send(frame, options)).rejects.toBeInstanceOf(ExecutionCancelFencedError);
     expect(movesOf(reports)).toEqual([
       [OutboundCallEventOutcome.Cancelled, OutboundCallStatus.Pending, 0],
     ]);
   });
 
   it("another error is no cancel: not told Cancelled, the holder is not asked to stop", async () => {
-    const { calls, reports, keyIn, recordingWith } = callsInFrame();
+    const { send, reports, frameIn } = callsInFrame();
     const { state, options } = provider();
-    const key = await keyIn("execution-1");
-    state.failNext = true;
     const found: unknown[] = [];
+    const frame = await frameIn("execution-1", { cancelFound: (error) => found.push(error) });
+    state.failNext = true;
 
-    await expect(
-      runInFrame(recordingWith({ cancelFound: (error) => found.push(error) }), () =>
-        calls.send(key, options),
-      ),
-    ).rejects.toThrow("declined");
+    await expect(send(frame, options)).rejects.toThrow("declined");
 
     expect(found).toEqual([]);
     expect(reports.map((report) => report.outcome)).not.toContain(

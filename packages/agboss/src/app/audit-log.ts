@@ -1,14 +1,14 @@
 import type { NodeEvent } from "../flow/observers/execution-event.js";
 import type {
   ExecutionLeaseTakeoverEvent,
-  FencedEffectEvent,
+  IdempotencyRunEvent,
   StepHandedOverEvent,
 } from "../flow/observers/audit-log.js";
 import {
   ExecutionAuditEventKind,
   HandOverReason,
-  type FencedEffectEventOutcome,
-  type FencedEffectRecord,
+  type IdempotencyRunEventOutcome,
+  type IdempotencyRunRecord,
   type ExecutionAuditEventRecord,
   type HandOverSite,
   type LeaseTakeoverRecord,
@@ -167,12 +167,12 @@ export async function recordHandOver(
 }
 
 /** What a fenced effect's wrapper saw of one call: the step's event, the call, how it went. */
-export interface FencedEffectReport {
+export interface IdempotencyRunReport {
   readonly event: NodeEvent;
   readonly name: string;
   readonly scopeKey: string;
   readonly token: number;
-  readonly outcome: FencedEffectEventOutcome;
+  readonly outcome: IdempotencyRunEventOutcome;
   readonly writtenToken?: number | undefined;
   readonly replayedFrom?: FencedEffectOrigin | undefined;
   readonly observedToken?: number | undefined;
@@ -180,9 +180,9 @@ export interface FencedEffectReport {
 
 /** The event of a fenced effect's call: the step's own event, the call, the instance. */
 export const fencedEffectEventOf = (
-  report: FencedEffectReport,
+  report: IdempotencyRunReport,
   holderInstanceId: string,
-): FencedEffectEvent => {
+): IdempotencyRunEvent => {
   const { event, writtenToken, observedToken, ...call } = report;
   return {
     ...event,
@@ -194,9 +194,9 @@ export const fencedEffectEventOf = (
 };
 
 /** The row of a fenced effect's call: never its result. */
-const fencedEffectRowOf = (event: FencedEffectEvent, at: Date): FencedEffectRecord =>
+const fencedEffectRowOf = (event: IdempotencyRunEvent, at: Date): IdempotencyRunRecord =>
   definedOf({
-    kind: ExecutionAuditEventKind.FencedEffect,
+    kind: ExecutionAuditEventKind.IdempotencyRun,
     occurredAt: at.toISOString(),
     tenantId: event.tenantId,
     rootExecutionId: event.rootExecutionId,
@@ -216,18 +216,18 @@ const fencedEffectRowOf = (event: FencedEffectEvent, at: Date): FencedEffectReco
     observedToken: event.observedToken,
   });
 
-/** A fenced effect's call: its row first, then `onFencedEffect`; never throws. */
-export async function recordFencedEffect(
+/** A fenced effect's call: its row first, then `onIdempotencyRun`; never throws. */
+export async function recordIdempotencyRun(
   events: AuditLogWriter,
-  report: FencedEffectReport,
+  report: IdempotencyRunReport,
   holderInstanceId: string,
 ): Promise<void> {
   const event = fencedEffectEventOf(report, holderInstanceId);
   try {
     // the mask keeps an event's shape: every string masked
-    const shown = (await events.mask(event)) as FencedEffectEvent;
+    const shown = (await events.mask(event)) as IdempotencyRunEvent;
     await saved(events, fencedEffectRowOf(shown, events.clock.now()));
-    await events.observer.onFencedEffect(shown);
+    await events.observer.onIdempotencyRun(shown);
   } catch (error) {
     const text = `the fenced effect "${report.name}" of execution ${event.executionId} could not be recorded: ${String(error)}`;
     events.log.warn("audit-log.failed", text, {

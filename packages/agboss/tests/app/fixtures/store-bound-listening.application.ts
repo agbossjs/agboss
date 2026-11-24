@@ -5,12 +5,11 @@ import {
 } from "../../../src/index.js";
 import type {
   EffectKey,
-  FencedEffectOutcome,
+  IdempotencyRunOutcome,
   FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
 import type { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
 import { StoreClock } from "../../../src/infrastructure/clock.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { currentFrame } from "../../../src/flow/context/frame.js";
 import { Application } from "../../../src/application/application.js";
@@ -32,13 +31,13 @@ export const listening = { hangs: false, asked: 0 };
  * driver that honours an `AbortSignal` does: the lease's expiry frees it without any bound.
  */
 @Injectable({
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
 export class ListeningFencedEffects extends InMemoryFencedEffectRepository {
   override runOnce<TResult>(
     key: EffectKey,
     work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     listening.asked += 1;
     const signal = currentFrame()?.execution.lease?.signal;
     if (!listening.hangs || signal === undefined) return super.runOnce(key, work);
@@ -56,7 +55,6 @@ export class ListeningFencedEffects extends InMemoryFencedEffectRepository {
   name: "store-bound-listening-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

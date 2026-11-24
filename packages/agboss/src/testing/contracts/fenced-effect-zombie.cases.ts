@@ -1,8 +1,8 @@
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { InvalidFencedEffectNameError } from "../../infrastructure/fenced-effect-key.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
   keyOf,
@@ -30,7 +30,7 @@ type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
 const BAD_NAMES = ["charge:twice", "", "x".repeat(101), ".charge"];
 
 const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
-  name: "#508, #526 AC7: a key built by hand with an invalid name (a ':', empty, above 100, a '.' first) is refused — InvalidFencedEffectNameError, the write not run, nothing written, before the fence",
+  name: "#508, #526 AC7: a key built by hand with an invalid name (a ':', empty, above 100, a '.' first) is refused — IdempotencyError.InvalidName, the write not run, nothing written, before the fence",
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
     const count: WriteCount = { runs: 0 };
@@ -40,13 +40,13 @@ const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
       for (const key of [valid, stale])
         expect(
           await rejectionOf(first.effects.runOnce(key, writing(first.rows, name, count))),
-        ).toBeInstanceOf(InvalidFencedEffectNameError);
+        ).toBeInstanceOf(IdempotencyError.InvalidName);
     }
 
     expect(count.runs).toBe(0);
     expect(await second.rows.committed()).toEqual([]);
     const ran = await second.effects.runOnce(keyOf(lease), writing(second.rows, "r1", count));
-    expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: lease.token });
+    expect(ran).toMatchObject({ status: IdempotencyRunStatus.Ran, token: lease.token });
   },
 });
 
@@ -86,13 +86,13 @@ const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
         expect(old.rejected).toBeInstanceOf(ExecutionFencedError);
         expect(rows).toEqual([`holder-${String(round)}`]);
         expect(holder).toMatchObject({
-          status: FencedEffectStatus.Ran,
+          status: IdempotencyRunStatus.Ran,
           token: lease.token + 1,
         });
       } else {
         expect(rows).toEqual([`zombie-${String(round)}`]);
         expect(holder).toMatchObject({
-          status: FencedEffectStatus.Replayed,
+          status: IdempotencyRunStatus.Replayed,
           token: lease.token,
         });
       }

@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import {
@@ -46,7 +46,7 @@ const childRefusedByRoot = <TTransaction>(): Case<TTransaction> => ({
       rootExecutionId: "root-1",
       leaseExecutionId: "child-1",
     });
-    expect(ofAnotherRoot.status).toBe(FencedEffectStatus.Ran);
+    expect(ofAnotherRoot.status).toBe(IdempotencyRunStatus.Ran);
     expect(await second.rows.committed()).toEqual(["other-root"]);
   },
 });
@@ -109,7 +109,7 @@ const businessResultOfAnotherTree = <TTransaction>(): Case<TTransaction> => ({
     );
 
     expect(replayed).toMatchObject({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "stored" },
     });
     expect(count.runs).toBe(1);

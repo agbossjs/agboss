@@ -289,7 +289,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
   takeover makes its spend again — its model calls are billed again, its services paid again — and
   that counts again, under the later pass's ids: the budget errs high, never low. What the lost
   pass sent is not known — see [A lost pass: Unknown cost](#a-lost-pass-unknown-cost-853). A service you pay
-  through a deduplicated call (`OutboundCalls` replaying an earlier answer) should record its cost
+  through a deduplicated call (`Idempotency.sendOnce` replaying an earlier answer) should record its cost
   with `SpendRecorder` only when the call was sent. Before every step that can spend or reach out
   the counters are read again — the tenant's other executions count, on any instance, through the
   ledger — and every budget (and the execution's deadline) is checked; before every model call of

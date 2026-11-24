@@ -1,7 +1,7 @@
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
@@ -30,7 +30,7 @@ const unseenKeyRuns = <TTransaction>(): Case<TTransaction> => ({
     const outcome = await first.effects.runOnce(key, writing(first.rows, "r1", count));
 
     expect(outcome).toEqual({
-      status: FencedEffectStatus.Ran,
+      status: IdempotencyRunStatus.Ran,
       result: { receipt: "r1" },
       token: 1,
     });
@@ -49,7 +49,7 @@ const sameKeyReplays = <TTransaction>(): Case<TTransaction> => ({
     const again = await second.effects.runOnce(key, writing(second.rows, "r2", count));
 
     expect(again).toEqual({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "r1" },
       token: 1,
     });
@@ -71,7 +71,7 @@ const newerLeaseReplays = <TTransaction>(): Case<TTransaction> => ({
 
     expect(taken.token).toBe(2);
     expect(replay).toEqual({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "r1" },
       token: 1,
     });
@@ -121,7 +121,7 @@ const zombieFirstRefused = <TTransaction>(): Case<TTransaction> => ({
     );
 
     expect(refused).toMatchObject({ token: 1, observedToken: 2 });
-    expect(written).toMatchObject({ status: FencedEffectStatus.Ran, token: 2 });
+    expect(written).toMatchObject({ status: IdempotencyRunStatus.Ran, token: 2 });
     expect(await first.rows.committed()).toEqual(["holder"]);
   },
 });

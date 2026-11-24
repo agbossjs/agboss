@@ -31,7 +31,6 @@ import { directMessageOf } from "../../../src/infrastructure/sqlite/sqlite-a2a-d
 import { messageOf, taskOf } from "../../../src/infrastructure/sqlite/sqlite-a2a-task-rows.js";
 import { toMailbox } from "../../../src/infrastructure/sqlite/sqlite-pause-notice-schema.js";
 import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-step.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { businessKeyOf, keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
@@ -220,11 +219,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
       environmentName: "test",
       environment: NO_ENVIRONMENT_VALUES,
     });
-    const effects = new SqliteFencedEffectRepository(
-      connection,
-      storeClockOf(clock),
-      new FencedEffectSettings(),
-    );
+    const effects = new SqliteFencedEffectRepository(connection, storeClockOf(clock));
     const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
     const lease = await leases.acquire("default", "execution-1", hours(1));
     if (lease === undefined) throw new Error("the lease is held");

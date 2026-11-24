@@ -530,7 +530,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   `beforeAnyTool` / `@BeforeTool` on the call as it runs (after the approval, with any correction —
   `ToolCallDecision.block(reason)` fails the step with `ToolBlockedError`), or a check in the
   tool's or action's own code (`min` / `max` on the input DTO's field for a plain bound). The
-  payment guarantees — fenced effects, outbound calls, one charge per business key — hold whatever
+  payment guarantees — `Idempotency.runOnce` and `sendOnce`, one charge per business key — hold whatever
   the interpreter reads.
 - **Free text** that cannot be read throws `UninterpretableReplyError` (`pause.uninterpretable-reply`,
   `reason`) and the pause stays `Pending`; a role without `replyInterpreter` →

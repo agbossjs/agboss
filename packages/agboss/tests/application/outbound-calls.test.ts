@@ -1,30 +1,19 @@
 /**
- * #505 — `@Application({ outboundCalls })`: the largest request and result and the retention of
- * ended intents, checked at assembly (`[application.outbound-calls-invalid]`), read by
- * `OutboundCalls` (a request above `maxPayloadSize` is neither recorded nor sent; a result above it
- * leaves the intent pending, so the next attempt reconciles) and by the recovery sweep, which
- * removes ended intents past the retention on the `Clock` — never a pending one.
+ * #505 — the retention of ended intents (`@Application({ retention: { outboundCalls } })`, checked at
+ * assembly) and the largest request and result of a call (`maxPayloadSize` of `sendOnce`: a request
+ * above it is neither recorded nor sent; a result above it leaves the intent marked as not stored),
+ * and the recovery sweep, which removes ended intents past the retention on the `Clock` — never a
+ * pending one. A call's `timeout` is refused when it is not a positive duration.
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import type { RetentionOptions } from "../../src/application/retention.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import {
-  OutboundCallPayloadTooLargeError,
-  OutboundCallRepository,
-  OutboundCallSettings,
-  OutboundCallStatus,
-  type OutboundCallOptions,
-} from "../../src/index.js";
+import { OutboundCallRepository, OutboundCallStatus } from "../../src/index.js";
+import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import { testWith } from "../../src/testing/index.js";
-import {
-  hours,
-  kilobytes,
-  minutes,
-  seconds,
-  type Bytes,
-  type Milliseconds,
-} from "../../src/units/index.js";
+import { hours, kilobytes, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { RecoveryLog, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -34,6 +23,7 @@ import {
   ChargeWorkflowStart,
   OutboundCallApplication,
   resetRuns,
+  runs,
 } from "../app/fixtures/outbound-call.workflow.js";
 import { gateway, resetGateway } from "../app/fixtures/payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
@@ -47,73 +37,39 @@ beforeEach(() => {
 
 const TREE = { tenantId: "default", rootExecutionId: "execution-1" };
 
-const assembledWith = (outboundCalls: OutboundCallOptions, retention?: RetentionOptions) => {
+const assembledWith = (retention?: RetentionOptions) => {
   @Application({
     name: "settings-application",
     version: "1.0.0",
     environment: IdempotencyKeyEnvironment,
-    idempotencyKeyField: "idempotencyKey",
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
-    outboundCalls,
     ...(retention === undefined ? {} : { retention }),
   })
   class SettingsApplication {}
   return applicationOf(SettingsApplication);
 };
 
-describe("#505: @Application({ outboundCalls }) at assembly", () => {
-  it("defaults to 64 KB and a week", async () => {
-    const assembled = await assembledWith({});
+describe("#505: the outbound calls' settings at assembly", () => {
+  it("defaults to a week of retention", async () => {
+    const assembled = await assembledWith();
 
     expect(assembled.outboundCalls).toEqual(new OutboundCallSettings({ requiresMask: false }));
-    expect(assembled.outboundCalls).toMatchObject({
-      maxPayloadSize: 65_536,
-      retention: hours(168),
-      attemptTimeout: minutes(2),
-    });
+    expect(assembled.outboundCalls).toMatchObject({ retention: hours(168) });
   });
 
-  it.each([0, -1, Number.NaN])(
-    "#508 re-review HIGH1: an attemptTimeout of %s ms fails assembly",
-    async (timeout) => {
-      await expect(assembledWith({ attemptTimeout: timeout as Milliseconds })).rejects.toThrow(
-        `[application.outbound-calls-invalid] its outboundCalls.attemptTimeout is ${String(timeout)} ms, not a positive duration`,
-      );
-    },
-  );
-
-  it("#508 re-review HIGH1: takes the attemptTimeout it sets", async () => {
-    const assembled = await assembledWith({ attemptTimeout: seconds(45) });
-
-    expect(assembled.outboundCalls.attemptTimeout).toBe(seconds(45));
-  });
-
-  it.each([0, -1])("a maxPayloadSize of %s bytes fails assembly", async (size) => {
-    await expect(assembledWith({ maxPayloadSize: size as Bytes })).rejects.toThrow(
-      `[application.outbound-calls-invalid] its outboundCalls.maxPayloadSize is ${String(size)} bytes, not a positive size`,
-    );
-  });
-
-  it("#834: a retention.outboundCalls not above the lease's 30 s fails assembly, with the size's problem too", async () => {
-    const assembly = assembledWith(
-      { maxPayloadSize: kilobytes(0) },
-      { outboundCalls: seconds(30) },
-    );
+  it("#834: a retention.outboundCalls not above the lease's 30 s fails assembly", async () => {
+    const assembly = assembledWith({ outboundCalls: seconds(30) });
 
     await expect(assembly).rejects.toThrow(
       "[application.retention-invalid] its retention.outboundCalls is 30000 ms, not above the lease's 30000 ms",
     );
-    await expect(assembly).rejects.toThrow(/maxPayloadSize is 0 bytes/);
   });
 
   it("takes what it sets", async () => {
-    const assembled = await assembledWith(
-      { maxPayloadSize: kilobytes(1) },
-      { outboundCalls: seconds(31) },
-    );
+    const assembled = await assembledWith({ outboundCalls: seconds(31) });
 
-    expect(assembled.outboundCalls).toMatchObject({ maxPayloadSize: 1024, retention: seconds(31) });
+    expect(assembled.outboundCalls).toMatchObject({ retention: seconds(31) });
   });
 });
 
@@ -121,12 +77,10 @@ describe("#505: @Application({ outboundCalls }) at assembly", () => {
   name: "small-outbound-call-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
   providers: [RecordingLogger],
-  outboundCalls: { maxPayloadSize: kilobytes(1) },
   retention: { outboundCalls: minutes(1) },
 })
 class SmallOutboundCallApplication {}
@@ -134,12 +88,13 @@ class SmallOutboundCallApplication {}
 const small = testWith(SmallOutboundCallApplication);
 const test = testWith(OutboundCallApplication);
 
-describe("#505: OutboundCalls and the sweep read the settings", () => {
+describe("#505: sendOnce's maxPayloadSize and the sweep read the settings", () => {
   small("a request above maxPayloadSize: nothing recorded, nothing sent", async ({ app }) => {
+    runs.callOptions = { maxPayloadSize: kilobytes(1) };
     const call = execute(app, ChargeWorkflowStart, { text: "x".repeat(2000) });
 
     await expect(call).rejects.toMatchObject({
-      cause: expect.any(OutboundCallPayloadTooLargeError) as unknown,
+      cause: expect.any(OutboundCallError.PayloadTooLarge) as unknown,
     });
     await expect(call).rejects.toMatchObject({ cause: { part: "request", maxPayloadSize: 1024 } });
     expect(await app.outboundCallsOf(TREE)).toEqual([]);
@@ -150,6 +105,7 @@ describe("#505: OutboundCalls and the sweep read the settings", () => {
     "#508: a result above maxPayloadSize: the call happened — Completed with a marker in place of the result, the step gets the answer, never sent again",
     async ({ app }) => {
       gateway.padding = 2000;
+      runs.callOptions = { maxPayloadSize: kilobytes(1) };
 
       const result = await execute(app, ChargeWorkflowStart, { text: "order-1" });
 
@@ -217,4 +173,23 @@ describe("#505: a provider that answers with an error", () => {
       }),
     ]);
   });
+});
+
+describe("#508 re-review HIGH1: the call's timeout", () => {
+  for (const timeout of [0, -1, Number.NaN]) {
+    test(`a timeout of ${String(timeout)} ms is refused: ConfigError.Option, nothing recorded, nothing sent`, async ({
+      app,
+    }) => {
+      runs.callOptions = { timeout: timeout as Milliseconds };
+
+      const failure = await execute(app, ChargeWorkflowStart, { text: "order-1" }).catch(
+        (thrown: unknown) => thrown,
+      );
+
+      expect(JSON.stringify(failure, Object.getOwnPropertyNames(failure))).toContain(
+        "not a positive duration",
+      );
+      expect(gateway.calls).toEqual([]);
+    });
+  }
 });

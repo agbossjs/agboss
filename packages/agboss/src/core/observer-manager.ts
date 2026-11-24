@@ -9,7 +9,7 @@ import type {
 } from "../flow/observers/compensation-events.js";
 import type {
   ExecutionLeaseTakeoverEvent,
-  FencedEffectEvent,
+  IdempotencyRunEvent,
   OutboundCallEvent,
   StepHandedOverEvent,
 } from "../flow/observers/audit-log.js";
@@ -222,8 +222,8 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   onStepHandedOver(event: StepHandedOverEvent): Promise<void> {
     return this.each("onStepHandedOver", event, (o, e) => o.onStepHandedOver?.(e));
   }
-  onFencedEffect(event: FencedEffectEvent): Promise<void> {
-    return this.each("onFencedEffect", event, (o, e) => o.onFencedEffect?.(e));
+  onIdempotencyRun(event: IdempotencyRunEvent): Promise<void> {
+    return this.each("onIdempotencyRun", event, (o, e) => o.onIdempotencyRun?.(e));
   }
   onOutboundCall(event: OutboundCallEvent): Promise<void> {
     return this.each("onOutboundCall", event, (o, e) => o.onOutboundCall?.(e));

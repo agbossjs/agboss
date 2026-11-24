@@ -20,8 +20,8 @@ assumptions it rests on and the checker that proves it are on [Guarantees](Guara
     A store with no network (SQLite) gets a store outage of the same two kinds instead.
 - **The fixture application.** One order is three steps:
   - reserve, which has an undo (`compensateWith`);
-  - charge, a fenced effect that writes one business row in the effect's transaction;
-  - pay, a call to the test's payment gateway (`OutboundCalls`) under the order's business key.
+  - charge, an idempotent write that writes one business row in the effect's transaction;
+  - pay, a call to the test's payment gateway (`Idempotency.sendOnce`) under the order's business key.
 
   A batch runs one order per child on any instance (`ChildPlacement.AnyInstance`).
 - **No sleep decides an order.** Each step of a scenario waits for an event of a pod: a held
@@ -128,7 +128,7 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 13 | A pod whose clock is ten leases ahead of the others (#533) | It never takes the lease a live pod holds and renews; that pod finishes its own tree, one charge — the stores decide expiry by the database's time | `s13-clock-ahead` (`s13-clock-skew.test.ts`) |
 | 13 | A pod whose clock is ten leases behind, the holder frozen (#533) | It takes the tree over on time, from the holder's last checkpoint | `s13-clock-behind` (`s13-clock-skew.test.ts`) |
 | 14 | The gateway charges and its answer is lost (a 502, an error of unknown outcome, #657); the pod killed in the failed tree's undo; the gateway forgets the key; the order paid again | The intent stays pending, not `Failed`; the next pod finishes the undo (`Unwinding`), the second tree reconciles the first charge by the order's reference (`Reconciled`): one request, one payment | `s14-ambiguous-answer-reconciled` (`s14-s15-key-expiry.test.ts`) |
-| 15 | A gateway with no lookup whose key the call declares kept for less than a takeover takes (#658); the pod killed with its answer in flight; the gateway forgets the key | The next pod's `reconcile` is told the key's age (`lookup.keyAge`, `attemptStartedAt`, the store's clock) and replays (`notSent()`); the framework refuses the resend past the `KeyReplay`'s `keyRetention` (`OutboundCallUnreconciledError`), the tree fails for an operator: one request, one payment | `s15-key-expired-not-resent` |
+| 15 | A gateway with no lookup whose key the call declares kept for less than a takeover takes (#658); the pod killed with its answer in flight; the gateway forgets the key | The next pod's recovery is told the key's age (`lookup.keyAge`, `attemptStartedAt`, the store's clock) and replays (`Reconciliation.notExecuted()`); the framework refuses the resend past the window of `OutboundRecovery.replayWithin` (`OutboundCallError.Unreconciled`), the tree fails for an operator: one request, one payment | `s15-key-expired-not-resent` |
 | 16 | The pod that hosts a batch hears no answer to two of its claims of a child: the store claimed the child for it, `Running`, and the answer was lost (#720; on PostgreSQL a claim statement that marked several rows and returned one) | The parent's watch has the pod reclaim the child; the lease it keeps for its own next claim goes back when that claim is lost too, and the next reclaim and claim run the child: once, and the batch ends. Before #720 the kept lease was renewed for ever with nothing running, and the batch never ended (with the fix reverted, 16 fails on `trees-finish`) | `s16-claim-answer-lost` |
 | 17, 17b bounded | An A2A start frozen before its claim, or with its claim applied and unanswered, and its pod thawed after another pod's read fenced the id (#1059) | 17: the id is fenced `FAILED a2a.start-lost`, the thawed pod's claim is given up and its late claim refused: no start, no step. 17b: the other pod's fence loses to the applied claim and writes the cancel request; the start is given up at its bound and never reaches its lease take. A cancel-blind start is shielded by the bound (pinned as passing); with the bound off both 17 and 17b keep the id again and fail | `s17-a2a-accept-crash-bounded`, `s17b-a2a-id-kept-crash-bounded` (`sabotage-bounded.test.ts`) |
 | 17c | An A2A start's claim applied and never answered, the pod not frozen (#1059) | The start is given up at 15 s and settles the task itself, `FAILED store.call-timeout` (its outcome is unknown; an honest answer now beats a read repair later); no step; every read and a resend of the message say the same | `s17c-a2a-claim-never-answers` |
@@ -140,7 +140,7 @@ Each scenario is a test of `faultSuite`. In the core it is `packages/agboss/test
 | 22a | A store that never answers the charge's fenced write: held at `fencedEffect.write`, never released (#928) | The pod's call ends at its trust's end, it hands the tree over without releasing (`execution.lease-abandoned`) and charges nothing more; the other pod takes the tree over after the lease expires in the store and charges once; the held write, let go at the end, is fenced | `s22a-charge-never-answers` (`s22-store-never-answers.test.ts`) |
 | 22b | The same, after the commit: the write was applied and its answer never came (#928) | The other pod's `runOnce` finds the key and replays the stored result: `work` is not called, one charge | `s22b-charge-committed-never-answered` |
 | 22c | The payment's `markCompleted` never answered, before and after the commit (#928) | One gateway charge; the pod logs `outbound-call.answer-unrecorded`; the other pod finds the intent `Pending` and reconciles it to the completed call, or replays it; nothing is sent again | `s22c-payment-answer-never-recorded` (+ the after-commit twin) |
-| 22d | The payment's `saveIfAbsent` never answered, before and after the commit (#928) | Nothing was sent by that attempt; the other pod records and sends once, or finds the intent, reconciles it to `notSent` and sends once | `s22d-intent-never-answered` (+ the after-commit twin) |
+| 22d | The payment's `saveIfAbsent` never answered, before and after the commit (#928) | Nothing was sent by that attempt; the other pod records and sends once, or finds the intent, finds it `notExecuted` and sends once | `s22d-intent-never-answered` (+ the after-commit twin) |
 | 22e | A definite failure whose `markFailed` never answers (#928) | The row stays `Pending`; the other pod reconciles it before anything is resent: at most one charge | `s22e-failure-never-recorded` |
 | 22f | A child's claim never answered (#928) | The claim ends at 15 s, the lost-claim path of 16 reclaims the child, it runs once and the batch ends | `s22f-child-claim-never-answered` |
 | 22g | The database frozen under the pod while the charge's transaction is open (#928) | The pod's call ends within its bound and hands over; the other pod charges once, or replays | `s22g-database-frozen-mid-charge` |
@@ -182,8 +182,8 @@ These permanent negative tests prove it (`tests/faults/sabotage.test.ts`):
 - A payment integration that takes **every gateway error for a definite failure** (as before
   #657): 14 fails on `effects-once` — the lost answer's intent is `Failed`, the second tree resends
   it after the gateway forgot the key: two requests, two payments.
-- A replay-only payment whose `notSent()` is **trusted as a lookup** (#658, #795:
-  `NotSentTrust.Lookup`, no retention; `s15-sabotage-replay-trusted-as-lookup`): 15 fails on `effects-once` —
+- A replay-only payment whose `notExecuted()` is **trusted as a lookup** (#658, #795:
+  `OutboundRecovery.permanentLookup`, no window; `s15-sabotage-replay-trusted-as-lookup`): 15 fails on `effects-once` —
   the next pod's replay of the expired key is a new charge. Both run on the real store set
   (`FAULT_SABOTAGE_SCENARIOS`, `@agboss/core/testing/faults`): `faultSuite` runs them after its
   scenarios on every set (#831), each case passing only when the run breaks `effects-once` —
@@ -211,20 +211,20 @@ such a store, so run both.
 The suite proves the framework's side under the faults above. These parts are yours (for payments,
 scenario by scenario: [Payment scenarios](Payment-scenarios)):
 
-- **The other system's idempotency.** A call through `OutboundCalls` is recorded before it is sent.
+- **The other system's idempotency.** A call through `Idempotency.sendOnce` is recorded before it is sent.
   It is never resent while its outcome is unknown — a crash before the answer, an SDK error that
-  is not a definite failure: it is reconciled instead (scenarios 9, 10 and 14), and a replay past
-  a `KeyReplay`'s declared `keyRetention` is never sent (scenario 15). That needs a gateway that:
+  is not a definite failure: it is recovered instead (scenarios 9, 10 and 14), and a replay past
+  its `replayWithin` or `lookupWithin` window is never sent (scenario 15). That needs a gateway that:
   - deduplicates on `call.idempotencyKey` (G1);
   - can be asked by that key (G2);
   - keeps the key longer than your longest outage (G3).
 
-  See [Payment gateways](Payment-gateways). A send that hangs past `attemptTimeout` plus a lease
-  can meet a reconcile and a resend; then only G1 prevents a second charge.
+  See [Payment gateways](Payment-gateways). A send that hangs past its `timeout` plus a lease
+  can meet a recovery and a resend; then only G1 prevents a second charge.
 - **Side effects outside the fence.** A plain HTTP call, a mail or a write to another database in
-  a step that does not go through a fenced effect or `OutboundCalls` happens **at least once**. A
+  a step that does not go through `Idempotency` happens **at least once**. A
   step runs again after a crash before its checkpoint (scenario 3). Make it idempotent at the other
-  end, or put it behind a fenced effect.
+  end, or put it behind `Idempotency`.
 - **Crash recovery is not saga compensation.** A crash, a stop, a lost lease or a refused write is
   a **hand-over**: the next holder continues the tree from its last checkpoint, and nothing is
   undone (scenarios 1–11). An undo runs only on a real failure: an uncaught error, a cancel, a failed
@@ -249,7 +249,7 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
 
   What is left is the undo action itself, from its start to its own write. A holder frozen inside
   it, past its lease, goes on writing. An undo whose external system checks the fence closes that
-  window: a fenced effect, `OutboundCalls`, or a write that checks `executionContext.fence`. The
+  window: `Idempotency`, or a write that checks `executionContext.fence`. The
   undo's key is `<step key>:compensation`. This is narrower than before #640, when the window also
   held the awaited observers. It is still not the same as `send`'s: `send` calls the other system
   right after its check, while an undo action is your code and may await anything before it writes.
@@ -262,8 +262,8 @@ scenario by scenario: [Payment scenarios](Payment-scenarios)):
   root's (failed, cancelled, out of budget), a child's on either placement, and a recursion level's.
   What is left is one window: a holder that stops after its undo action and before the mark. The
   next holder runs the undo action again, **under the same key**. So an undo is at least once, as
-  any step is, and exactly once when its effect is fenced by that key (a fenced effect, or
-  `OutboundCalls`). A refund behind `OutboundCalls` is paid once whatever instance stops where.
+  any step is, and exactly once when its effect is fenced by that key (`Idempotency.runOnce` or
+  `sendOnce`). A refund behind `Idempotency.sendOnce` is paid once whatever instance stops where.
   The core proves every path, frozen at four points (in the undo action before and after its
   effect, before and once its mark is written), with one and two takeovers and the frozen holder
   thawed right after the takeover or after the tree ended

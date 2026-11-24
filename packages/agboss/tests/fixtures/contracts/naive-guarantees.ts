@@ -30,7 +30,7 @@ import {
 } from "../../../src/infrastructure/mesh-request.repository.js";
 import { InMemoryRateLimitRepository } from "../../../src/infrastructure/rate-limit.repository.js";
 import { usd, type Milliseconds, type Usd } from "../../../src/units/index.js";
-import type { EffectKeyFields } from "../../../src/index.js";
+import type { EffectKeyFields } from "../../../src/stores/index.js";
 import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 
 /** A key as a naive store rewrites it before passing it on. */

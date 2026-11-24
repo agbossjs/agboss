@@ -8,7 +8,7 @@ import type {
 } from "../flow/observers/compensation-events.js";
 import type {
   ExecutionLeaseTakeoverEvent,
-  FencedEffectEvent,
+  IdempotencyRunEvent,
   OutboundCallEvent,
   StepHandedOverEvent,
 } from "../flow/observers/audit-log.js";
@@ -114,7 +114,7 @@ export interface ExecutionObserver {
    * A step's fenced effect was called (#501): ran, replayed, joined or refused. Called once per
    * call of `runOnce`, after its outcome is known; a throw never reaches the effect or its step.
    */
-  onFencedEffect?(event: FencedEffectEvent): void | Promise<void>;
+  onIdempotencyRun?(event: IdempotencyRunEvent): void | Promise<void>;
   /**
    * A step's call that leaves the system moved (#505). Called once per move of the call, in the
    * order of the moves; a throw never reaches the call or its step.
@@ -164,7 +164,7 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onAgentRetry: true,
   onExecutionLeaseTakeover: true,
   onStepHandedOver: true,
-  onFencedEffect: true,
+  onIdempotencyRun: true,
   onOutboundCall: true,
 };
 

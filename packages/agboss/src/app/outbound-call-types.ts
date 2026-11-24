@@ -1,26 +1,21 @@
 import type { FencedEffectOrigin, JsonValue } from "../infrastructure/fenced-effect.repository.js";
-import type { Milliseconds } from "../units/index.js";
+import type { OutboundCallError } from "../core/error-families/effect-errors.js";
+import type { Bytes, Milliseconds, Ttl } from "../units/index.js";
 import type { NotSentTrust } from "./outbound-call-contract.js";
-import type {
-  OutboundCallSendStatus,
-  OutboundCallPart,
-  OutboundCallPayloadTooLargeError,
-  OutboundCallReconciliation,
-  OutboundCallUnmaskedError,
-} from "./outbound-calls.js";
+import type { OutboundRecovery, Reconciliation } from "./outbound-recovery.js";
 
 /**
  * The shapes of a call that leaves the system (#505), as types only — the root import loads no
- * module for them; `outbound-calls.ts` re-exports them.
+ * module for them; `idempotency.ts` re-exports them.
  */
 
-/** What `send` and `reconcile` get: the call as it goes out. */
+/** What `send` gets: the call as it goes out. */
 export interface OutboundCall<TRequest> {
   /** Send it with the call — the same on every attempt, every replay and every holder. */
   readonly idempotencyKey: string;
   /** The request as given (never the masked text the store keeps). */
   readonly request: TRequest;
-  /** This attempt, from 1: 2 after `notSent()` or a failed answer. */
+  /** This attempt, from 1: 2 after a `notExecuted()` or a failed answer. */
   readonly attempt: number;
   readonly target: string;
   readonly operation: string;
@@ -29,7 +24,7 @@ export interface OutboundCall<TRequest> {
 }
 
 /**
- * What `reconcile` gets (#505): the call's key and the request as it was stored — masked by the
+ * What a lookup gets (#505): the call's key and the request as it was stored — masked by the
  * PII policies, so look the call up in the other system by `idempotencyKey`, which is not personal
  * data; the real request is the step's own input, when it needs it.
  */
@@ -59,70 +54,93 @@ export interface OutboundCallLookup {
   readonly signal: AbortSignal;
 }
 
-/** How a call that leaves the system is made: what, where, and the two hooks. */
-export interface OutboundCallSendOptions<TRequest, TResult> {
-  /** What the call goes to, for operators: `"payments"`. */
+/** How a call that leaves the system is made: `Idempotency.sendOnce`'s options (#1317). */
+export interface IdempotencySendOptions<TRequest, TResult> {
+  /** The effect's name (1–100 of `[A-Za-z0-9._-]`): part of the key sent to the other system. */
+  readonly name: string;
+  /**
+   * A business identity (`"order:42"`): the call is then one per tenant, name and key — deduplicated
+   * across tool calls, visits, executions and threads — instead of one per step.
+   */
+  readonly key?: string;
+  /** What the call goes to, for operators: `"stripe"`. */
   readonly target: string;
-  /** What it does there: `"charge"`. */
-  readonly operation: string;
+  /** What it does there: `"payment_intents.create"`; the call's `name` when left out. */
+  readonly operation?: string;
   /** Plain JSON: `send` gets it as it is; it is stored masked by the PII policies. */
   readonly request: TRequest & JsonValue<TRequest>;
+  /**
+   * The bound of one attempt, from its start (required: Stripe and SEPA have other SLAs): its signal
+   * (`call.signal`) aborts at it and at the step's cancel; until then its holder releases its lease
+   * only once the attempt settled. At most 24 hours.
+   */
+  readonly timeout: Milliseconds;
+  /** How long the call's rows are kept: above the lease's 30 s and, with a recovery window, at least it. */
+  readonly ttl: Milliseconds | Ttl.Forever;
   /** Sends the call (with `call.idempotencyKey`); its answer is the result, plain JSON. */
   readonly send: (
     call: OutboundCall<TRequest>,
   ) => Promise<TResult & JsonValue<TResult>> | (TResult & JsonValue<TResult>);
+  /** What to do with an intent left pending — the process died before the answer, or `send` threw an error of unknown outcome. */
+  readonly recovery: OutboundRecovery<NoInfer<TResult>>;
   /**
-   * Asked only for an intent left pending — the process died, or lost its lease, before the
-   * answer, or `send` threw an error of unknown outcome: what happened, from the other system,
-   * looked up by `lookup.idempotencyKey` or a reference that does not expire.
-   */
-  readonly reconcile: (
-    lookup: OutboundCallLookup,
-  ) => Promise<OutboundCallReconciliation<TResult>> | OutboundCallReconciliation<TResult>;
-  /**
-   * Whether an error `send` threw proves the other system did **not** carry the call out (#657) —
-   * a validation error, a decline it answered: the intent is `Failed`, and the next call sends it
-   * again under the same key. Anything else is of unknown outcome — no predicate, an answer other
-   * than `true`, a predicate that throws: a 5xx, a reset connection, the SDK's own timeout may
-   * come after the other system acted. The intent then stays `Pending`, and the next call asks
-   * `reconcile` before anything is sent again, as after a crash.
+   * Whether an error `send` threw proves the other system did **not** carry the call out (#657) — a
+   * validation error, a decline it answered: the intent is `Failed`, and the next call sends it
+   * again under the same key. Anything else is of unknown outcome and goes to `recovery`.
    */
   readonly isDefiniteFailure?: (error: unknown) => boolean;
-  /**
-   * How far a `notSent()` of `reconcile` is trusted (#795) — required, so the author says it:
-   * `{ trust: NotSentTrust.Lookup }` when `reconcile` reads a record the other system keeps for
-   * good (its books, a list of refunds), `{ trust: NotSentTrust.KeyReplay, keyRetention }` when it
-   * relies on the other system replaying the key (a gateway whose only lookup is the replay, or
-   * whose search lags). Anything else is refused before anything is recorded or sent
-   * (`InvalidNotSentTrustError`).
-   */
+  /** The largest request and the largest result, each in UTF-8 bytes of its JSON (default `kilobytes(64)`). */
+  readonly maxPayloadSize?: Bytes;
+}
+
+/**
+ * What the protocol runs a call with, once its options are checked: the recovery as a lookup and
+ * the trust it gives the lookup's `notExecuted()`.
+ */
+export interface OutboundCallRun<TRequest, TResult> {
+  readonly name: string;
+  readonly target: string;
+  readonly operation: string;
+  readonly request: TRequest & JsonValue<TRequest>;
+  readonly timeout: Milliseconds;
+  readonly maxPayloadSize: Bytes;
+  readonly send: IdempotencySendOptions<TRequest, TResult>["send"];
+  readonly isDefiniteFailure: ((error: unknown) => boolean) | undefined;
+  readonly reconcile: (
+    lookup: OutboundCallLookup,
+  ) => Promise<Reconciliation<TResult>> | Reconciliation<TResult>;
   readonly notSent: OutboundCallNotSent;
 }
 
 /**
- * How far a `notSent()` is trusted (#795): the lookup's word at any age, or the key's replay only
- * while the other system still keeps the key.
+ * How far a `notExecuted()` is trusted: the lookup's word at any age, or the key's replay only while
+ * the other system still keeps the key.
  */
 export type OutboundCallNotSent = NotSentByLookup | NotSentByKeyReplay;
 
-/** `reconcile` reads a record that does not expire: its `notSent()` is trusted at any age. */
+/** The lookup reads a record that does not expire: its `notExecuted()` is trusted at any age. */
 export interface NotSentByLookup {
   readonly trust: NotSentTrust.Lookup;
-  /** A lookup has no retention: the record it reads does not expire. */
   readonly keyRetention?: never;
 }
 
-/** `reconcile`'s `notSent()` relies on the other system replaying the key. */
+/** The recovery relies on the other system replaying the key. */
 export interface NotSentByKeyReplay {
   readonly trust: NotSentTrust.KeyReplay;
-  /**
-   * How long the other system keeps an idempotency key, at least (#658: its documented minimum —
-   * Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`): a `notSent()` is sent again
-   * only while `lookup.keyAge` plus `outboundCalls.attemptTimeout` (how long the resend may take to
-   * arrive) is below it; else nothing is sent — `OutboundCallUnreconciledError`, the intent pending
-   * for an operator. A positive, finite duration.
-   */
+  /** How long the other system keeps an idempotency key, at least: a resend is made only while the key's age plus the call's `timeout` is below it. */
   readonly keyRetention: Milliseconds;
+}
+
+/** How a call got its result. */
+export enum OutboundCallSendStatus {
+  /** Sent now, and answered. */
+  Sent = "sent",
+  /** Completed before (a step run again): the result as it was stored — masked by the PII policies — nothing sent. */
+  Replayed = "replayed",
+  /** Left pending: the lookup found that it happened — its result, nothing sent. */
+  Reconciled = "reconciled",
+  /** The same call was being sent by this instance (two tool calls, two branches): its outcome, shared. */
+  Joined = "joined",
 }
 
 /** What `send` gives: how, the result, the attempt it came from and the key it went with. */
@@ -135,80 +153,8 @@ export interface OutboundCallOutcome<TResult> {
   readonly replayedFrom?: FencedEffectOrigin;
 }
 
-/** Why the other system cannot say what happened. */
-export interface OutboundCallUnknownOptions {
-  readonly reason: string;
-}
+/** Why a pending call could not be reconciled (a closed set of codes). */
+export type OutboundCallUnreconciledReason = OutboundCallError.Unreconciled["reason"];
 
-/**
- * Why a pending call could not be reconciled (#890: a closed set of codes): `reconcile` said
- * `unknown({ reason })`, threw, or gave no verdict; or it said `notSent()` for a key past its
- * `KeyReplay`'s `keyRetention` (#658) — a resend could be a new call.
- */
-export type OutboundCallUnreconciledReason =
-  "reconcile.unknown" | "reconcile.threw" | "reconcile.no-verdict" | "key-retention.passed";
-
-/** What an unreconciled call knows: the call, its key's handle, why — never its request. */
-export interface OutboundCallUnreconciledErrorOptions {
-  readonly call: string;
-  readonly target: string;
-  readonly operation: string;
-  readonly idempotencyKey: string;
-  readonly reason: OutboundCallUnreconciledReason;
-  /** What was said, masked: `unknown`'s own reason, the thrown error's message, the key's age. */
-  readonly detail: string;
-  /** What `reconcile` threw, when it threw. */
-  readonly cause?: unknown;
-}
-
-/** What a payload too large to store knows: the call, its part, its size and the limit (bytes). */
-export interface OutboundCallPayloadTooLargeErrorOptions {
-  readonly call: string;
-  readonly part: OutboundCallPart;
-  readonly size: number;
-  readonly maxPayloadSize: number;
-  readonly cause?: unknown;
-}
-
-/** What a superseded attempt knows (#795): the call, its key's handle and both attempts. */
-export interface OutboundCallSupersededErrorOptions {
-  readonly call: string;
-  readonly target: string;
-  readonly operation: string;
-  readonly idempotencyKey: string;
-  /** The attempt that was answered too late. */
-  readonly attempt: number;
-  /** The newer attempt that took the intent over; `undefined` when the intent could not be read. */
-  readonly supersededBy: number | undefined;
-  /** What the late attempt itself answered when that was an error (a definite failure). */
-  readonly cause?: unknown;
-}
-
-/** What a refused unmasked call knows (#906): the call. */
-export interface OutboundCallUnmaskedErrorOptions {
-  readonly call: string;
-  readonly cause?: unknown;
-}
-
-/** What an in-flight call knows: the call, never its request or its business key. */
-export interface OutboundCallInFlightErrorOptions {
-  readonly call: string;
-  readonly target: string;
-  readonly operation: string;
-  readonly cause?: unknown;
-}
-
-/**
- * Why a completed call's result was not stored (#890: a closed set of codes): above
- * `maxPayloadSize`, refused for want of a mask, or any other failure to store it (its JSON, the
- * mask itself) — the instance's log names that one's own code.
- */
-export type OutboundCallResultNotStoredReason =
-  | typeof OutboundCallPayloadTooLargeError.code
-  | typeof OutboundCallUnmaskedError.code
-  | "outbound-call.result-unstorable";
-
-/** What a completed call without a stored result knows: the call, and why it was not stored. */
-export interface OutboundCallResultNotStoredErrorOptions extends OutboundCallInFlightErrorOptions {
-  readonly reason: OutboundCallResultNotStoredReason;
-}
+/** Why a completed call's result was not stored (a closed set of codes). */
+export type OutboundCallResultNotStoredReason = OutboundCallError.ResultNotStored["reason"];

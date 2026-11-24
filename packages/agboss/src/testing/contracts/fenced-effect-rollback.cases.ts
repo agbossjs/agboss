@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import {
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type FencedEffectWork,
 } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
@@ -37,7 +37,7 @@ const throwingWriteRollsBack = <TTransaction>(): Case<TTransaction> => ({
     expect(failed).toBe(declined);
     expect(after).toEqual([]);
     expect(retried).toMatchObject({
-      status: FencedEffectStatus.Ran,
+      status: IdempotencyRunStatus.Ran,
       result: { receipt: "r2" },
     });
   },
@@ -99,8 +99,8 @@ const twoInstancesOneKey = <TTransaction>(): Case<TTransaction> => ({
     ]);
 
     expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Replayed,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Replayed,
     ]);
     expect(new Set(outcomes.map((outcome) => outcome.result.receipt)).size).toBe(1);
     expect(count.runs).toBe(1);
@@ -119,8 +119,8 @@ const oneInstanceJoins = <TTransaction>(): Case<TTransaction> => ({
     ]);
 
     expect(outcomes).toEqual([
-      { status: FencedEffectStatus.Ran, result: { receipt: "r1" }, token: 1 },
-      { status: FencedEffectStatus.Joined, result: { receipt: "r1" }, token: 1 },
+      { status: IdempotencyRunStatus.Ran, result: { receipt: "r1" }, token: 1 },
+      { status: IdempotencyRunStatus.Joined, result: { receipt: "r1" }, token: 1 },
     ]);
     expect(count.runs).toBe(1);
   },

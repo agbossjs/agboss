@@ -2,8 +2,7 @@
 // `[a2a.message-skill-*]`), and an application that exposes one start of them as `A2AReply.Message`
 // on given stores.
 import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
-import { OutboundCalls } from "../../../src/app/outbound-calls.js";
-import { FencedEffects } from "../../../src/app/fenced-effects.js";
+import { Idempotency } from "../../../src/app/idempotency.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable, Tool } from "../../../src/components/decorators.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
@@ -74,12 +73,12 @@ export class BusyAgent {}
 
 @Action({
   name: "charge-action",
-  description: "Charges through OutboundCalls",
+  description: "Charges through Idempotency.sendOnce",
   input: { message: WorkflowStartTextDto },
-  deps: [OutboundCalls],
+  deps: [Idempotency],
 })
 export class ChargeAction {
-  constructor(readonly calls: OutboundCalls) {}
+  constructor(readonly calls: Idempotency) {}
 
   execute(_input: Message): Promise<void> {
     return Promise.resolve();
@@ -88,12 +87,12 @@ export class ChargeAction {
 
 @Action({
   name: "pay-action",
-  description: "Pays once, through FencedEffects",
+  description: "Pays once, through Idempotency.runOnce",
   input: { message: WorkflowStartTextDto },
-  deps: [FencedEffects],
+  deps: [Idempotency],
 })
 export class PayAction {
-  constructor(readonly effects: FencedEffects) {}
+  constructor(readonly effects: Idempotency) {}
 
   execute(_input: Message): Promise<void> {
     return Promise.resolve();

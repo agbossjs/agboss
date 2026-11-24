@@ -1,32 +1,31 @@
 /**
  * #658 — `reconcile` is told when the pending attempt started (`lookup.attemptStartedAt`, the
  * store's clock) and how old the call's key is (`lookup.keyAge`, from its first attempt), and a call
- * that trusts its `notSent()` only as the key's replay (#795: `NotSentTrust.KeyReplay` with the
- * other system's `keyRetention`) never sends it again once the key, plus `attemptTimeout`, is past
- * it: `OutboundCallUnreconciledError`, nothing sent, the intent pending. On `FakePaymentGateway`
+ * that trusts its `notExecuted()` only as the key's replay (#795, #1317: `OutboundRecovery.lookupWithin`
+ * with the other system's key window) never sends it again once the key, plus the call's `timeout`,
+ * is past it: `OutboundCallError.Unreconciled`, nothing sent, the intent pending. On `FakePaymentGateway`
  * with no lookup — a replay of the key its only way to learn an outcome — the clock past the
  * retention: one charge (AC1); the replay trusted as a lookup, two (the bite).
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   InMemoryOutboundCallRepository,
-  InvalidNotSentTrustError,
-  NotSentTrust,
   OutboundCallEventOutcome,
   OutboundCallSendStatus,
-  OutboundCallReconciliation,
   OutboundCallStatus,
-  OutboundCallUnreconciledError,
-  type EffectKey,
+  OutboundRecovery,
+  Reconciliation,
   type OutboundCallLookup,
   type OutboundCallRecord,
 } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { ClockSkew, SkewedClock } from "../../src/testing/clock-skew.js";
 import {
   FakeGatewayFault,
   FakePaymentGateway,
 } from "../../src/testing/gateway/fake-payment-gateway.js";
-import { hours, minutes, type Milliseconds } from "../../src/units/index.js";
+import { hours, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
 import {
   gatewayCharge,
   outboundFrame,
@@ -42,15 +41,21 @@ const replayOnly = (frame: OutboundFrame) =>
     capabilities: { keyRetention: hours(24), lookupByKey: false },
   });
 
-/** A `notSent()` trusted as the key's replay only, within `keyRetention` (#795). */
-const keyReplay = (keyRetention: Milliseconds) =>
-  ({ trust: NotSentTrust.KeyReplay, keyRetention }) as const;
-
-/** A reconcile of a replay-only gateway: always "send it again under the key", each lookup kept. */
+/** A lookup of a replay-only gateway: always "send it again under the key", each lookup kept. */
 const replaying = (lookups: OutboundCallLookup[]) => (lookup: OutboundCallLookup) => {
   lookups.push(lookup);
-  return OutboundCallReconciliation.notSent();
+  return Reconciliation.notExecuted();
 };
+
+/** A `notExecuted()` trusted as the key's replay only, within `keyRetention` (#795), `lookup` deciding. */
+const keyReplay = (
+  keyRetention: Milliseconds,
+  lookup: (lookup: OutboundCallLookup) => Reconciliation | Promise<Reconciliation> = replaying([]),
+) => OutboundRecovery.lookupWithin(keyRetention, lookup);
+
+/** A lookup of a record that does not expire. */
+const permanent = (lookup: (lookup: OutboundCallLookup) => Reconciliation) =>
+  OutboundRecovery.permanentLookup(lookup);
 
 /** A charge left pending at the store's `now`: its answer dropped after the gateway charged. */
 async function leftPending(frame: OutboundFrame, gateway: FakePaymentGateway): Promise<EffectKey> {
@@ -69,7 +74,7 @@ describe("#658 AC1: the lookup says when the attempt started and how old the key
     const key = await leftPending(frame, gateway);
     await frame.clock.advance(minutes(10));
     gateway.injectFault(FakeGatewayFault.AnswerThenDrop);
-    const options = gatewayCharge(gateway, { reconcile: replaying(lookups) });
+    const options = gatewayCharge(gateway, { recovery: permanent(replaying(lookups)) });
     await rejectionOf(frame.send(key, options));
     const second = frame.clock.now();
     await frame.clock.advance(minutes(5));
@@ -94,15 +99,15 @@ describe("#658 AC1: the lookup says when the attempt started and how old the key
     const key = await leftPending(frame, gateway);
     await frame.clock.advance(minutes(3));
 
-    await frame.send(key, gatewayCharge(gateway, { reconcile: replaying(lookups) }));
+    await frame.send(key, gatewayCharge(gateway, { recovery: permanent(replaying(lookups)) }));
 
     expect([lookups[0]?.attemptStartedAt, lookups[0]?.keyAge]).toEqual([started, minutes(3)]);
   });
 });
 
-describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retention is refused, nothing sent", () => {
+describe("#658: a lookupWithin's window — a notSent() past the key's retention is refused, nothing sent", () => {
   const RETENTION = hours(24);
-  const MARGIN = minutes(2); // outboundCalls.attemptTimeout: how long a resend may take to arrive
+  const MARGIN = seconds(15); // the call's timeout: how long a resend may take to arrive
 
   /** The verdict on a key `age` old (`null`: trusted as a lookup): a resend, or the refusal. */
   async function resendAt(age: Milliseconds, keyRetention: Milliseconds | null = RETENTION) {
@@ -111,27 +116,26 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
     const key = await leftPending(frame, gateway);
     await frame.clock.advance(age);
     const options = gatewayCharge(gateway, {
-      reconcile: replaying([]),
-      ...(keyRetention === null ? {} : { notSent: keyReplay(keyRetention) }),
+      recovery: keyRetention === null ? permanent(replaying([])) : keyReplay(keyRetention),
     });
     const outcome = await frame.send(key, options).catch((error: unknown) => error);
     return { frame, gateway, key, outcome };
   }
 
-  it("1 ms inside: age + attemptTimeout below the retention — sent again, the gateway replays it (one payment)", async () => {
+  it("1 ms inside: age + timeout below the retention — sent again, the gateway replays it (one payment)", async () => {
     const { outcome, gateway } = await resendAt((RETENTION - MARGIN - 1) as Milliseconds);
 
     expect(outcome).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
     expect(gateway.payments).toHaveLength(1);
   });
 
-  it("at the edge: age + attemptTimeout equal to the retention — refused, the intent pending at attempt 1, told Unknown", async () => {
+  it("at the edge: age + timeout equal to the retention — refused, the intent pending at attempt 1, told Unknown", async () => {
     const { outcome, gateway, frame, key } = await resendAt((RETENTION - MARGIN) as Milliseconds);
 
-    expect(outcome).toBeInstanceOf(OutboundCallUnreconciledError);
-    expect((outcome as OutboundCallUnreconciledError).reason).toBe("key-retention.passed");
-    expect((outcome as OutboundCallUnreconciledError).detail).toMatch(
-      /notSent\(\), but the key was first sent 86280000 ms ago; gateway keeps keys for 86400000 ms \(keyRetention\), and a resend may take 120000 ms to arrive \(attemptTimeout\)/u,
+    expect(outcome).toBeInstanceOf(OutboundCallError.Unreconciled);
+    expect((outcome as OutboundCallError.Unreconciled).reason).toBe("key-retention.passed");
+    expect((outcome as OutboundCallError.Unreconciled).detail).toMatch(
+      /notSent\(\), but the key was first sent 86385000 ms ago; gateway keeps keys for 86400000 ms \(the recovery window\), and a resend may take 15000 ms to arrive \(the call's timeout\)/u,
     );
     expect(gateway.payments).toHaveLength(1);
     expect(await frame.store.findByKey(lookupKeyOf(key))).toMatchObject({
@@ -145,7 +149,7 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
     const declared = await resendAt(hours(25));
     const undeclared = await resendAt(hours(25), null);
 
-    expect(declared.outcome).toBeInstanceOf(OutboundCallUnreconciledError);
+    expect(declared.outcome).toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(declared.gateway.payments).toHaveLength(1);
     expect(undeclared.outcome).toMatchObject({ status: OutboundCallSendStatus.Sent });
     expect(undeclared.gateway.payments).toHaveLength(2);
@@ -159,7 +163,7 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
     async (_, keyRetention) => {
       const { outcome, gateway } = await resendAt(minutes(1), keyRetention as Milliseconds);
 
-      expect(outcome).toBeInstanceOf(InvalidNotSentTrustError);
+      expect(outcome).toBeInstanceOf(OutboundCallError.InvalidRecovery);
       expect(gateway.payments).toHaveLength(1);
     },
   );
@@ -171,14 +175,14 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
     await frame.clock.advance(hours(23));
     const slow = async () => {
       await frame.clock.advance(hours(1));
-      return OutboundCallReconciliation.notSent();
+      return Reconciliation.notExecuted();
     };
 
     const outcome = await rejectionOf(
-      frame.send(key, gatewayCharge(gateway, { reconcile: slow, notSent: keyReplay(RETENTION) })),
+      frame.send(key, gatewayCharge(gateway, { recovery: keyReplay(RETENTION, slow) })),
     );
 
-    expect(outcome).toBeInstanceOf(OutboundCallUnreconciledError);
+    expect(outcome).toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(gateway.payments).toHaveLength(1);
   });
 
@@ -189,10 +193,12 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
     await frame.clock.advance(hours(25));
     const reconcile = (lookup: OutboundCallLookup) =>
       lookup.keyAge !== undefined && lookup.keyAge < RETENTION
-        ? OutboundCallReconciliation.notSent()
-        : OutboundCallReconciliation.unknown({ reason: "the key may have expired" });
+        ? Reconciliation.notExecuted()
+        : Reconciliation.unknown("the key may have expired");
 
-    const outcome = await rejectionOf(frame.send(key, gatewayCharge(gateway, { reconcile })));
+    const outcome = await rejectionOf(
+      frame.send(key, gatewayCharge(gateway, { recovery: permanent(reconcile) })),
+    );
 
     expect(outcome).toMatchObject({
       reason: "reconcile.unknown",
@@ -208,7 +214,7 @@ describe("#658: a KeyReplay's keyRetention — a notSent() past the key's retent
     gateway.injectFault(FakeGatewayFault.FailBeforeProcessing);
     const options = gatewayCharge(gateway, {
       isDefiniteFailure: () => true,
-      notSent: keyReplay(RETENTION),
+      recovery: keyReplay(RETENTION),
     });
     await rejectionOf(frame.send(key, options));
     await frame.clock.advance(hours(48));
@@ -246,7 +252,7 @@ class UndatedReadOutboundCallRepository extends InMemoryOutboundCallRepository {
 }
 
 describe("#658: an intent whose times were not recorded", () => {
-  it("a read that says not when it read: the attempt's start told, its key's age unknown — refused for a KeyReplay", async () => {
+  it("a read that says not when it read: the attempt's start told, its key's age unknown — refused for a lookupWithin", async () => {
     const frame = outboundFrame({ store: UndatedReadOutboundCallRepository });
     const gateway = replayOnly(frame);
     const lookups: OutboundCallLookup[] = [];
@@ -256,33 +262,33 @@ describe("#658: an intent whose times were not recorded", () => {
     const refused = await rejectionOf(
       frame.send(
         key,
-        gatewayCharge(gateway, { reconcile: replaying(lookups), notSent: keyReplay(hours(24)) }),
+        gatewayCharge(gateway, { recovery: keyReplay(hours(24), replaying(lookups)) }),
       ),
     );
 
     expect([lookups[0]?.attemptStartedAt, lookups[0]?.keyAge]).toEqual([started, undefined]);
-    expect(refused).toBeInstanceOf(OutboundCallUnreconciledError);
+    expect(refused).toBeInstanceOf(OutboundCallError.Unreconciled);
   });
 
-  it("the lookup has neither; a KeyReplay's resend is refused (the age unknown), a Lookup's sent", async () => {
+  it("the lookup has neither; a lookupWithin's resend is refused (the age unknown), a permanentLookup's sent", async () => {
     const frame = outboundFrame({ store: TimelessOutboundCallRepository });
     const gateway = replayOnly(frame);
     const lookups: OutboundCallLookup[] = [];
     const key = await leftPending(frame, gateway);
-    const declared = gatewayCharge(gateway, {
-      reconcile: replaying(lookups),
-      notSent: keyReplay(hours(24)),
-    });
+    const declared = gatewayCharge(gateway, { recovery: keyReplay(hours(24), replaying(lookups)) });
 
     const refused = await rejectionOf(frame.send(key, declared));
-    const sent = await frame.send(key, gatewayCharge(gateway, { reconcile: replaying(lookups) }));
+    const sent = await frame.send(
+      key,
+      gatewayCharge(gateway, { recovery: permanent(replaying(lookups)) }),
+    );
 
     expect(lookups.map((lookup) => [lookup.attemptStartedAt, lookup.keyAge])).toEqual([
       [undefined, undefined],
       [undefined, undefined],
     ]);
-    expect((refused as OutboundCallUnreconciledError).reason).toBe("key-retention.passed");
-    expect((refused as OutboundCallUnreconciledError).detail).toMatch(
+    expect((refused as OutboundCallError.Unreconciled).reason).toBe("key-retention.passed");
+    expect((refused as OutboundCallError.Unreconciled).detail).toMatch(
       /when the key was first sent is not recorded/u,
     );
     expect(sent.status).toBe(OutboundCallSendStatus.Sent);

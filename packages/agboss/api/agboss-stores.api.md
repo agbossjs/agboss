@@ -351,6 +351,11 @@ export enum BudgetScope {
 }
 
 // @public
+export interface BusinessKeyOptions {
+    readonly businessKey: string;
+}
+
+// @public
 export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | undefined;
 
 // @public
@@ -640,10 +645,10 @@ export interface EffectKeyFields {
     readonly businessKey?: string;
     readonly businessKeyHash?: string;
     readonly fingerprint?: string;
-    readonly fingerprintPolicy?: FingerprintPolicy;
     readonly idempotencyKey: string;
     readonly isCompensation?: true;
     readonly leaseExecutionId: string;
+    readonly maxResultSize?: Bytes;
     readonly name: string;
     readonly origin?: FencedEffectOrigin;
     readonly previousFingerprint?: string;
@@ -652,6 +657,7 @@ export interface EffectKeyFields {
     // (undocumented)
     readonly tenantId: string;
     readonly token: number;
+    readonly withoutFingerprint?: true;
 }
 
 // @public
@@ -660,6 +666,21 @@ export const effectKeyIdentityOf: (key: EffectKey) => string;
 // @public
 export class EffectKeyMark {
 }
+
+// @public
+export function effectKeyOf(executionContext: ExecutionContext, name: string): EffectKey;
+
+// @public (undocumented)
+export function effectKeyOf<TFingerprint>(executionContext: ExecutionContext, name: string, options: FingerprintedKeyOptions<TFingerprint> | UnfingerprintedKeyOptions): EffectKey;
+
+// @public (undocumented)
+export function effectKeyOf(executionContext: ExecutionContext, name: string, options: OutboundCallKeyOptions): OutboundCallKey;
+
+// @public (undocumented)
+export function effectKeyOf<TFingerprint>(executionContext: ExecutionContext, name: string, options?: EffectKeyOptions<TFingerprint>): EffectKey | OutboundCallKey;
+
+// @public
+export type EffectKeyOptions<TFingerprint = unknown> = FingerprintedKeyOptions<TFingerprint> | UnfingerprintedKeyOptions | OutboundCallKeyOptions;
 
 // @public
 export interface EndedChildRecord {
@@ -720,14 +741,14 @@ export interface ExecutionAuditEventBase {
 
 // @public
 export enum ExecutionAuditEventKind {
-    FencedEffect = "fenced-effect",
     HandedOver = "handed-over",
+    IdempotencyRun = "idempotency-run",
     OutboundCall = "outbound-call",
     Takeover = "takeover"
 }
 
 // @public
-export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
+export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | IdempotencyRunRecord | OutboundCallEventRecord;
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
@@ -784,6 +805,19 @@ export interface ExecutionData {
     readonly scope: ScopeRecords;
     readonly steps?: readonly ExecutionStepRecord[];
     readonly toolCalls?: readonly ToolCallRecord[];
+}
+
+// @public
+export interface ExecutionFence {
+    assertHeld(): void;
+    fencedError(observedToken?: number): ExecutionFencedError;
+    readonly leaseExecutionId: string;
+    renewNow(): Promise<void>;
+    readonly scopeKey: string;
+    // (undocumented)
+    readonly tenantId: string;
+    readonly token: number;
+    readonly trustedUntil: Date;
 }
 
 // @public
@@ -1024,20 +1058,6 @@ export enum ExpiryProblem {
 }
 
 // @public
-export enum FencedEffectEventOutcome {
-    Cancelled = "cancelled",
-    Joined = "joined",
-    Ran = "ran",
-    Refused = "refused",
-    Replayed = "replayed"
-}
-
-// @public
-export interface FencedEffectOptions {
-    readonly maxResultSize?: Bytes;
-}
-
-// @public
 export interface FencedEffectOrigin {
     // (undocumented)
     readonly executionId: string;
@@ -1048,100 +1068,39 @@ export interface FencedEffectOrigin {
 }
 
 // @public
-export interface FencedEffectOutcome<TResult> {
-    readonly replayedFrom?: FencedEffectOrigin;
-    // (undocumented)
-    readonly result: TResult;
-    // (undocumented)
-    readonly status: FencedEffectStatus;
-    readonly token: number;
-}
-
-// @public
-export interface FencedEffectRecord extends ExecutionAuditEventBase {
-    // (undocumented)
-    readonly kind: ExecutionAuditEventKind.FencedEffect;
-    readonly name: string;
-    readonly observedToken?: number;
-    // (undocumented)
-    readonly outcome: FencedEffectEventOutcome;
-    readonly replayedFrom?: FencedEffectOrigin;
-    // (undocumented)
-    readonly step: AuditEventStep;
-    readonly writtenToken?: number;
-}
-
-// @public
 export abstract class FencedEffectRepository<TTransaction> {
-    constructor(
-    settings: FencedEffectSettings);
     abstract deleteByStoredAtBefore(cutoff: Date): Promise<void>;
     abstract ping(): Promise<void>;
-    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
-    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
-    protected readonly settings: FencedEffectSettings;
+    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     static readonly store: StoreDescriptor;
     protected storedResultOf(key: EffectKey, result: unknown): string;
-}
-
-// @public
-export class FencedEffectSettings {
-    constructor(options?: FencedEffectSettingsOptions);
-    readonly maxResultSize: Bytes;
-    readonly retention: Milliseconds;
-}
-
-// @public
-export interface FencedEffectSettingsOptions extends FencedEffectOptions {
-    readonly retention?: Milliseconds;
-}
-
-// @public
-export enum FencedEffectStatus {
-    Joined = "joined",
-    Ran = "ran",
-    Replayed = "replayed"
 }
 
 // @public
 export type FencedEffectWork<TTransaction, TResult> = (transaction: TTransaction) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
 
 // @public
-export function fingerprintErrorOf(key: Pick<EffectKeyFields, "name" | "businessKey" | "fingerprint" | "fingerprintPolicy">): FingerprintRequiredError | undefined;
+export interface FingerprintedKeyOptions<TFingerprint> extends BusinessKeyOptions {
+    // (undocumented)
+    readonly fingerprint: JsonValue<TFingerprint>;
+    // (undocumented)
+    readonly withoutFingerprint?: never;
+}
 
 // @public
-export enum FingerprintPolicy {
-    None = "none"
+export function fingerprintErrorOf(key: Pick<EffectKeyFields, "name" | "businessKey" | "fingerprint" | "withoutFingerprint">): IdempotencyError.FingerprintRequired | undefined;
+
+// @public
+export interface FingerprintKeys {
+    readonly current: string;
+    readonly previous?: string | undefined;
 }
 
 // @public
 export enum FingerprintProblem {
     Contradictory = "contradictory",
     Missing = "missing"
-}
-
-// @public
-export class FingerprintRequiredError extends AGBossError {
-    constructor(options: FingerprintRequiredErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.fingerprint-required";
-    // (undocumented)
-    readonly code: typeof FingerprintRequiredError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly reason: FingerprintProblem;
-}
-
-// @public
-export interface FingerprintRequiredErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly effect: string;
-    // (undocumented)
-    readonly reason: FingerprintProblem;
 }
 
 // @public
@@ -1189,6 +1148,46 @@ export enum HandOverSite {
 
 // @public
 export const hasLatestByStep: (saver: BaseCheckpointSaver) => saver is LatestByStepCheckpointSaver;
+
+// @public
+export enum IdempotencyRunEventOutcome {
+    Cancelled = "cancelled",
+    Joined = "joined",
+    Ran = "ran",
+    Refused = "refused",
+    Replayed = "replayed"
+}
+
+// @public
+export interface IdempotencyRunOutcome<TResult> {
+    readonly replayedFrom?: FencedEffectOrigin;
+    // (undocumented)
+    readonly result: TResult;
+    // (undocumented)
+    readonly status: IdempotencyRunStatus;
+    readonly token: number;
+}
+
+// @public
+export interface IdempotencyRunRecord extends ExecutionAuditEventBase {
+    // (undocumented)
+    readonly kind: ExecutionAuditEventKind.IdempotencyRun;
+    readonly name: string;
+    readonly observedToken?: number;
+    // (undocumented)
+    readonly outcome: IdempotencyRunEventOutcome;
+    readonly replayedFrom?: FencedEffectOrigin;
+    // (undocumented)
+    readonly step: AuditEventStep;
+    readonly writtenToken?: number;
+}
+
+// @public
+export enum IdempotencyRunStatus {
+    Joined = "joined",
+    Ran = "ran",
+    Replayed = "replayed"
+}
 
 // @public
 export const idGeneratorNameOf: (idGenerator: object) => string;
@@ -1449,6 +1448,21 @@ export interface OutboundCallIntent {
     readonly step: OutboundCallStep;
     readonly target: string;
     readonly workflow: string;
+}
+
+// @public
+export type OutboundCallKey = EffectKeyFields & OutboundCallKeyMark;
+
+// @public
+export class OutboundCallKeyMark {
+}
+
+// @public
+export interface OutboundCallKeyOptions extends BusinessKeyOptions {
+    // (undocumented)
+    readonly fingerprint?: never;
+    // (undocumented)
+    readonly withoutFingerprint?: never;
 }
 
 // @public
@@ -2469,6 +2483,14 @@ export interface TurnStep {
 }
 
 // @public
+export interface UnfingerprintedKeyOptions extends BusinessKeyOptions {
+    // (undocumented)
+    readonly fingerprint?: never;
+    // (undocumented)
+    readonly withoutFingerprint: true;
+}
+
+// @public
 export const unrecordedEntriesOf: (entries: readonly LedgerEntry[], isNew: (ledgerId: string, madeAt: Date) => boolean) => readonly LedgerEntry[];
 
 // @public
@@ -2609,6 +2631,7 @@ export interface WrittenLedgerMark {
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "name".
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "version".
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "component".
+// src/flow/context/execution-fence.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "path".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "scope".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "outdatedValues".
@@ -2727,13 +2750,15 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "meanScore".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "configSnapshots".
 // src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "withoutFingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "withoutFingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "withoutFingerprint".
+// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
+// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
+// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
 // src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "origin".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "status".

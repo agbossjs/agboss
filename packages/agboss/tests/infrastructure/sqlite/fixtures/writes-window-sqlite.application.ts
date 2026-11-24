@@ -55,7 +55,6 @@ const HeldSqliteLeases = withHoldPoints(SqliteExecutionLeaseRepository);
   name: "writes-window-sqlite-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
   providers: [

@@ -10,13 +10,12 @@ import {
   SqliteFencedEffectRepository,
   ApplicationContext,
   type ExecutionLease,
-  type EffectKey,
-  type FencedEffectOutcome,
+  type IdempotencyRunOutcome,
   type FencedEffectWork,
 } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { type OutboundCallIntent } from "../../src/stores/index.js";
-import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import type { Milliseconds } from "../../src/units/index.js";
 
 /**
@@ -45,20 +44,19 @@ function currentEpochOf(database: DatabaseSync, key: EffectKey): number {
   return row === undefined ? key.token : Number(row.lease_epoch);
 }
 
-@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock] })
 export class UnfencedSqliteFencedEffectRepository extends SqliteFencedEffectRepository {
   constructor(
     private readonly sqliteConnection: SqliteConnection,
     clock: StoreClock,
-    settings: FencedEffectSettings,
   ) {
-    super(sqliteConnection, clock, settings);
+    super(sqliteConnection, clock);
   }
 
   protected override runInTransaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<DatabaseSync, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     const token = currentEpochOf(this.sqliteConnection.database, key);
     return super.runInTransaction(effectKeyForTesting(key, { token }), work);
   }
@@ -73,12 +71,12 @@ export const FORGED_TOKEN_OFFSET = 1_000_000;
  * history records of the write —, and its transaction lets the forged token through at the
  * lease's current epoch, as `UnfencedSqliteFencedEffectRepository` lets a stale one.
  */
-@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock] })
 export class ForgedTokenSqliteFencedEffectRepository extends UnfencedSqliteFencedEffectRepository {
   override runOnce<TResult>(
     key: EffectKey,
     work: FencedEffectWork<DatabaseSync, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     return super.runOnce(
       effectKeyForTesting(key, { token: key.token + FORGED_TOKEN_OFFSET }),
       work,
@@ -123,7 +121,7 @@ export class UnfencedSqliteOutboundCallRepository extends SqliteOutboundCallRepo
 }
 
 /** #584: a fenced-effect store that declares the opt-out — atomic underneath, honest in its claim. */
-@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock] })
 export class OptedOutSqliteFencedEffectRepository extends SqliteFencedEffectRepository {
   static override readonly store: StoreDescriptor = {
     ...SqliteFencedEffectRepository.store,

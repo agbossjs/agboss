@@ -65,8 +65,9 @@ const classes = exportedErrors();
 describe("#906 AC1: every exported error takes one options bag with a cause", () => {
   it("AC1: the walk covers every entry of package.json#exports and finds the errors, each with a fixture", () => {
     expect(Object.keys(ENTRIES).length).toBe(Object.keys(exportMap).length);
-    // the acceptance's enumeration found 120 in core's built entries, `AGBossError` among them
-    expect(classes.size).toBeGreaterThanOrEqual(119);
+    // the acceptance's enumeration found 120 in core's built entries, `AGBossError` among them; 112
+    // after #1317a, which moved the fenced-effect and outbound-call errors into their families
+    expect(classes.size).toBeGreaterThanOrEqual(112);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)

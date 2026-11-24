@@ -15,7 +15,7 @@ import {
 import { FileUnavailableReason } from "../../../../src/files/file-errors.js";
 import type { FileDto } from "../../../../src/dto/standard/file.js";
 import { Files } from "../../../../src/a2a/files/files.service.js";
-import { OutboundCalls } from "../../../../src/app/outbound-calls.js";
+import { Idempotency } from "../../../../src/app/idempotency.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto } from "../../../../src/dto/index.js";
 import { ApplicationContext } from "../../../../src/flow/context/application-context.js";
 import { Clock } from "../../../../src/infrastructure/clock.js";
@@ -103,7 +103,7 @@ describe("#1366: what an application remembers for its executions' A2A calls", (
   it("per application context: its clock, its outbound calls and files resolved on use, none for another", () => {
     const context = {} as ApplicationContext;
     const clock = new VirtualClock();
-    const outbound = {} as OutboundCalls;
+    const outbound = {} as Idempotency;
     const filesService = {} as Files;
     const resolved: unknown[] = [];
     const app = {
@@ -111,7 +111,7 @@ describe("#1366: what an application remembers for its executions' A2A calls", (
         resolved.push(token);
         if (token === ApplicationContext) return context;
         if (token === Clock) return clock;
-        if (token === OutboundCalls) return outbound;
+        if (token === Idempotency) return outbound;
         if (token === Files) return filesService;
         throw new Error("unexpected token");
       },
@@ -121,7 +121,7 @@ describe("#1366: what an application remembers for its executions' A2A calls", (
     const services = a2aClientServicesOf(context);
 
     expect(services?.clock).toBe(clock);
-    expect(resolved).not.toContain(OutboundCalls);
+    expect(resolved).not.toContain(Idempotency);
     expect(resolved).not.toContain(Files);
     expect(services?.outboundCalls()).toBe(outbound);
     expect(services?.files?.()).toBe(filesService);

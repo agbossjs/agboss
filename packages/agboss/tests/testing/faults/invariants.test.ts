@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ExecutionHistoryRecord } from "../../../src/infrastructure/execution-history.repository.js";
 import {
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   OutboundCallEventOutcome,
   type ExecutionAuditEventRecord,
 } from "../../../src/infrastructure/execution-audit-log.repository.js";
@@ -137,10 +137,10 @@ function healthy(): { run: FaultRun; history: OperationHistory } {
   });
   const auditLog: ExecutionAuditEventRecord[] = [
     {
-      kind: ExecutionAuditEventKind.FencedEffect,
+      kind: ExecutionAuditEventKind.IdempotencyRun,
       executionId: "root-1",
       name: "charge",
-      outcome: FencedEffectEventOutcome.Ran,
+      outcome: IdempotencyRunEventOutcome.Ran,
     } as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord,
     {
       kind: ExecutionAuditEventKind.OutboundCall,
@@ -342,11 +342,11 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
     });
     const effect = (name: string, writtenToken: number) =>
       ({
-        kind: ExecutionAuditEventKind.FencedEffect,
+        kind: ExecutionAuditEventKind.IdempotencyRun,
         executionId: "root-1",
         scopeKey: "root-1",
         name,
-        outcome: FencedEffectEventOutcome.Replayed,
+        outcome: IdempotencyRunEventOutcome.Replayed,
         step: { nodeId: "n", visitNumber: 1, idempotencyKey: `root-1:${name}` },
         writtenToken,
       }) as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord;
@@ -410,11 +410,11 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       output: { status: "replayed", token: 2 },
     });
     const row = {
-      kind: ExecutionAuditEventKind.FencedEffect,
+      kind: ExecutionAuditEventKind.IdempotencyRun,
       executionId: "root-1",
       scopeKey: "root-1",
       name: "refund",
-      outcome: FencedEffectEventOutcome.Replayed,
+      outcome: IdempotencyRunEventOutcome.Replayed,
       step: { nodeId: "n", visitNumber: 1, idempotencyKey: "root-1:refund" },
       writtenToken: 2,
     } as Partial<ExecutionAuditEventRecord> as ExecutionAuditEventRecord;
@@ -546,7 +546,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       input: refund,
     });
     const row = {
-      kind: ExecutionAuditEventKind.FencedEffect,
+      kind: ExecutionAuditEventKind.IdempotencyRun,
       scopeKey: "root-1",
       name: "refund",
       step: { nodeId: "n", visitNumber: 1, idempotencyKey: "root-1:refund" },

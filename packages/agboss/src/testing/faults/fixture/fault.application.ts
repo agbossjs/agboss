@@ -120,8 +120,6 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
     name: "fault-application",
     version: "1.0.0",
     environment: faultEnvironmentOf(stores.environment.contract),
-    // #825: the fenced charge and the payment are under business keys: one key for every pod
-    idempotencyKeyField: FAULT_IDEMPOTENCY_KEY_FIELD,
     workflows: [
       FaultOrderWorkflow,
       FaultBatchWorkflow,
@@ -152,11 +150,10 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
   })(faultApplicationClass());
 }
 
-/** The field of the fixture's idempotency key (#825), beside the store set's own fields. */
-export const FAULT_IDEMPOTENCY_KEY_FIELD = "faultIdempotencyKey";
-
-/** The variable every pod reads its idempotency key from — the same in every pod of a run. */
-export const FAULT_IDEMPOTENCY_KEY_VARIABLE = "AGBOSS_FAULT_IDEMPOTENCY_KEY";
+/** The idempotency key every pod of a run fingerprints with (#825): the same in each. */
+export const FAULT_IDEMPOTENCY_KEYS = Object.freeze({
+  current: "agboss-fault-suite-idempotency-key",
+});
 
 const environments = new WeakMap<Class, Class>();
 

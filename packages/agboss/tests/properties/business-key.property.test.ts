@@ -4,9 +4,10 @@
  * one), a key's identity and the key sent with a call are one-to-one with their parts, and the
  * fenced effect under a business key gives, for any sequence of calls of two executions: `Ran` the
  * first time, `Replayed` with the first result and the step that made it for the same fingerprint,
- * `BusinessKeyConflictError` for another, and `Joined` for a call of the same instance in flight.
+ * `IdempotencyError.KeyConflict` for another, and `Joined` for a call of the same instance in flight.
  * Seeds are logged (FC_SEED replays a run).
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
@@ -16,11 +17,10 @@ import { keyTextRuleOf } from "../../src/core/errors.js";
 import {
   effectKeyIdentityOf,
   fingerprintsUnder,
-  BusinessKeyConflictError,
 } from "../../src/infrastructure/fenced-effect-key.js";
 import {
-  FencedEffectStatus,
-  type FencedEffectOutcome,
+  IdempotencyRunStatus,
+  type IdempotencyRunOutcome,
   type EffectKey,
 } from "../../src/infrastructure/fenced-effect.repository.js";
 import { stableJson } from "../../src/turns/versions.js";
@@ -169,7 +169,7 @@ async function outcomesOf(
       origin: { executionId: tree, nodeId: "charge-action", visitNumber: 1 },
     });
     expected.push(expectedOf(call, first));
-    const write = (): Promise<FencedEffectOutcome<{ request: string }>> =>
+    const write = (): Promise<IdempotencyRunOutcome<{ request: string }>> =>
       stores.effects.runOnce(key, (transaction) => {
         void stores.rows.insert(transaction, `${tree}:${call.request}`);
         return { request: call.request };
@@ -184,14 +184,16 @@ async function outcomesOf(
 /** A settled call as the model names it. */
 function outcomeText(
   result: PromiseSettledResult<{
-    status: FencedEffectStatus;
+    status: IdempotencyRunStatus;
     replayedFrom?: { executionId: string };
   }>,
 ): string {
   if (result.status === "rejected")
-    return result.reason instanceof BusinessKeyConflictError ? "conflict" : String(result.reason);
+    return result.reason instanceof IdempotencyError.KeyConflict
+      ? "conflict"
+      : String(result.reason);
   const { status, replayedFrom } = result.value;
-  if (status === FencedEffectStatus.Replayed)
+  if (status === IdempotencyRunStatus.Replayed)
     return replayedFrom === undefined ? "replayed" : `replayed@${replayedFrom.executionId}`;
   return status;
 }

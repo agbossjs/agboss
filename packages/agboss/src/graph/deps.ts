@@ -58,7 +58,7 @@ export interface GraphDeps<TName extends string> {
   readonly pii?: PiiRuntime;
   /**
    * The application's idempotency keys (#825): what its steps' business-key fingerprints are keyed
-   * by; absent = none named (a business key's fingerprint is then `IdempotencyKeyMissingError`).
+   * by; absent = none named (a business key's fingerprint is then `IdempotencyError.SecretKeyMissing`).
    */
   readonly fingerprintKeys?: FingerprintKeys | undefined;
   /** The guardrails of each agent and model router (#120); absent = none. */

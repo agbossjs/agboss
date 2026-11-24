@@ -1,4 +1,4 @@
-import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { SilentLogger } from "../../src/infrastructure/logger.js";
 /**
  * #505 — the protocol of a call that leaves the system, edge by edge, in a unit runner: the action
@@ -11,27 +11,24 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   Action,
-  ExecutionContext,
   ExecutionContextUnavailableError,
   ExecutionFencedError,
   ExecutionLeaseLostError,
+  Idempotency,
+  InMemoryFencedEffectRepository,
   InMemoryOutboundCallRepository,
-  NotSentTrust,
   OutboundCallSendStatus,
-  OutboundCallReconciliation,
-  OutboundCallSettings,
   OutboundCallStatus,
-  OutboundCallUnreconciledError,
-  OutboundCallVerdict,
-  OutboundCalls,
-  effectKeyOf,
+  OutboundRecovery,
+  Reconciliation,
 } from "../../src/index.js";
+import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { testAction, VirtualClock } from "../../src/testing/index.js";
-import { seconds } from "../../src/units/index.js";
+import { hours, seconds } from "../../src/units/index.js";
 import { ChargeOrderAction, resetRuns, runs } from "./fixtures/outbound-call.workflow.js";
 import {
   gateway,
@@ -41,7 +38,7 @@ import {
   PaymentGateway,
   resetGateway,
 } from "./fixtures/payment-gateway.js";
-import { isReconciliation } from "../../src/app/outbound-call-reconciliation.js";
+import { isReconciliation, ReconciliationVerdict } from "../../src/app/outbound-recovery.js";
 import { storeClockOf } from "../helpers/store-clock.js";
 
 beforeEach(() => {
@@ -53,16 +50,6 @@ afterEach(letChargesGo);
 
 const order = { message: { value: { text: "order-1" } } } as never;
 const KEY = "test-execution:charge-order-action:1:charge";
-
-/** A key of a lease scope, made by hand outside any step. */
-const KEY_PARTS = effectKeyForTesting({
-  scopeKey: "default:execution-1",
-  tenantId: "default",
-  leaseExecutionId: "execution-1",
-  token: 1,
-  idempotencyKey: "execution-1:charge-action:1",
-  name: "charge",
-});
 
 /** A runner whose first run's call is left pending: frozen at the provider, its timeout fired. */
 async function leftPending(side: "before" | "after") {
@@ -126,14 +113,14 @@ describe("#505: an intent left pending, reconciled", () => {
     expect(gateway.calls).toHaveLength(1);
   });
 
-  it("unknown: OutboundCallUnreconciledError naming the call, nothing sent, still pending", async () => {
+  it("unknown: OutboundCallError.Unreconciled naming the call, nothing sent, still pending", async () => {
     const run = await leftPending("after");
     gateway.lookup = LookupMode.Unknown;
 
     const failure = await run(order).catch((error: unknown) => error);
     const again = await run(order).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(OutboundCallUnreconciledError);
+    expect(failure).toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(failure).toMatchObject({
       code: "outbound-call.unreconciled",
       call: "charge",
@@ -142,12 +129,11 @@ describe("#505: an intent left pending, reconciled", () => {
       idempotencyKey: KEY,
       reason: "reconcile.unknown",
       detail: "the bank has not settled it",
-      nodeId: "charge-order-action",
     });
     expect(String(failure)).toMatch(
       /left pending and could not be reconciled \(reconcile\.unknown\): the bank has not settled it/,
     );
-    expect(again).toBeInstanceOf(OutboundCallUnreconciledError);
+    expect(again).toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(gateway.lookups).toHaveLength(2);
     expect(gateway.calls).toHaveLength(1);
   });
@@ -158,10 +144,10 @@ describe("#505: an intent left pending, reconciled", () => {
 
     const failure = await run(order).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(OutboundCallUnreconciledError);
+    expect(failure).toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(failure).toMatchObject({
       reason: "reconcile.threw",
-      detail: "reconcile threw: the provider's lookup is down",
+      detail: "the lookup threw: the provider's lookup is down",
       cause: { message: "the provider's lookup is down" },
     });
   });
@@ -172,7 +158,7 @@ describe("#505: an intent left pending, reconciled", () => {
 
     await expect(run(order)).rejects.toMatchObject({
       reason: "reconcile.no-verdict",
-      detail: "reconcile gave no OutboundCallReconciliation verdict",
+      detail: "the lookup gave no Reconciliation verdict",
     });
     expect(gateway.calls).toHaveLength(1);
   });
@@ -199,29 +185,31 @@ describe("#505: the lease before the network", () => {
   name: "twice-at-once-action",
   description: "Sends one call from two places of one step at once",
   input: { message: WorkflowStartTextDto },
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 class TwiceAtOnceAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
   async execute(): Promise<void> {
-    const key = effectKeyOf(this.executionContext, "charge");
     const options = {
+      name: "charge",
+      timeout: seconds(15),
+      ttl: hours(48),
       target: "payments",
       operation: "charge",
       request: { orderId: "order-2", amountUsd: 10 },
       send: (call: Parameters<PaymentGateway["charge"]>[0]) => this.paymentGateway.charge(call),
-      notSent: { trust: NotSentTrust.Lookup } as const,
-      reconcile: (lookup: Parameters<PaymentGateway["reconcile"]>[0]) =>
-        this.paymentGateway.reconcile(lookup),
+      recovery: OutboundRecovery.permanentLookup(
+        (lookup: Parameters<PaymentGateway["reconcile"]>[0]) =>
+          this.paymentGateway.reconcile(lookup),
+      ),
     };
     const outcomes = await Promise.allSettled([
-      this.outboundCalls.send(key, options),
-      this.outboundCalls.send(key, options),
+      this.idempotency.sendOnce(options),
+      this.idempotency.sendOnce(options),
     ]);
     for (const outcome of outcomes) {
       if (outcome.status === "rejected") throw outcome.reason;
@@ -259,20 +247,24 @@ describe("#505: what the protocol refuses", () => {
     });
     const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
     const store = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
-    const outboundCalls = new OutboundCalls(
+    const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
+    const idempotency = new Idempotency(
+      effects,
       store,
       new OutboundCallSettings({ requiresMask: false }),
       new SilentLogger(),
       clock,
     );
 
-    const refused = outboundCalls.send(KEY_PARTS, {
+    const refused = idempotency.sendOnce({
+      name: "charge",
       target: "payments",
       operation: "charge",
       request: {},
+      timeout: seconds(15),
+      ttl: hours(48),
       send: () => ({}),
-      notSent: { trust: NotSentTrust.Lookup } as const,
-      reconcile: () => OutboundCallReconciliation.notSent(),
+      recovery: OutboundRecovery.permanentLookup<object>(() => Reconciliation.notExecuted()),
     });
 
     await expect(refused).rejects.toBeInstanceOf(ExecutionContextUnavailableError);
@@ -288,17 +280,14 @@ describe("#505: what the protocol refuses", () => {
   });
 
   it("a verdict is built only by its factories", () => {
-    const completed = OutboundCallReconciliation.completed({ chargeId: "ch-1" });
-    const shape = { verdict: OutboundCallVerdict.Completed, result: { chargeId: "ch-1" } };
+    const completed = Reconciliation.completed({ chargeId: "ch-1" });
+    const shape = { verdict: ReconciliationVerdict.Completed, result: { chargeId: "ch-1" } };
     // @ts-expect-error — a plain object is not a verdict: it is nominal
-    const plain: OutboundCallReconciliation<{ chargeId: string }> = shape;
+    const plain: Reconciliation<{ chargeId: string }> = shape;
 
     expect(completed).toEqual({ verdict: "completed", result: { chargeId: "ch-1" } });
-    expect(OutboundCallReconciliation.notSent()).toMatchObject({ verdict: "not-sent" });
-    expect(OutboundCallReconciliation.unknown({ reason: "why" })).toMatchObject({
-      verdict: "unknown",
-      reason: "why",
-    });
+    expect(Reconciliation.notExecuted()).toMatchObject({ verdict: "not-executed" });
+    expect(Reconciliation.unknown("why")).toMatchObject({ verdict: "unknown", reason: "why" });
     expect(Object.isFrozen(completed)).toBe(true);
     expect(isReconciliation(plain)).toBe(false);
     expect(isReconciliation(completed)).toBe(true);

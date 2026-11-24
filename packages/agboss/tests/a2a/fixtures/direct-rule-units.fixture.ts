@@ -6,7 +6,7 @@ import { A2AAgent, A2AClient } from "../../../src/a2a/index.js";
 import { McpServer } from "../../../src/components/decorators.js";
 import { McpServerClient } from "../../../src/components/mcp-client.js";
 import { McpTransport } from "../../../src/config/mcp-server-config.js";
-import { OutboundCalls } from "../../../src/app/outbound-calls.js";
+import { Idempotency } from "../../../src/app/idempotency.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Injectable, Tool } from "../../../src/components/decorators.js";
 import { InjectionToken, type Class } from "../../../src/components/injection.js";
@@ -96,7 +96,7 @@ const action = (name: string, deps: readonly unknown[]) => {
 };
 
 /** Harmless first, the effect second. */
-export const LateEffectAction = action("late-effect-action", [HarmlessService, OutboundCalls]);
+export const LateEffectAction = action("late-effect-action", [HarmlessService, Idempotency]);
 export const CallingAction = action("calling-action", [RuleA2AAgent]);
 export const TokenAction = action("token-action", [REGION, LoopService]);
 

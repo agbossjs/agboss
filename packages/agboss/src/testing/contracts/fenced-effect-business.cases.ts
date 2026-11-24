@@ -1,7 +1,7 @@
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { BusinessKeyConflictError } from "../../infrastructure/fenced-effect-key.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
@@ -36,7 +36,7 @@ const twoScopesOnce = <TTransaction>(): Case<TTransaction> => ({
     );
 
     expect(again).toEqual({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "r1" },
       token: 1,
       replayedFrom: { executionId: "execution-1", nodeId: "charge-action", visitNumber: 1 },
@@ -56,7 +56,7 @@ const sameStepNoOrigin = <TTransaction>(): Case<TTransaction> => ({
     const again = await first.effects.runOnce(key, writing(first.rows, "r2", count));
 
     expect(again).toEqual({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "r1" },
       token: 1,
     });
@@ -64,7 +64,7 @@ const sameStepNoOrigin = <TTransaction>(): Case<TTransaction> => ({
 });
 
 const conflictRefused = <TTransaction>(): Case<TTransaction> => ({
-  name: "#508 AC3: another fingerprint under one business key is BusinessKeyConflictError: nothing runs, nothing is written",
+  name: "#508 AC3: another fingerprint under one business key is IdempotencyError.KeyConflict: nothing runs, nothing is written",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
     await first.effects.runOnce(
@@ -79,7 +79,7 @@ const conflictRefused = <TTransaction>(): Case<TTransaction> => ({
       ),
     );
 
-    expect(refused).toBeInstanceOf(BusinessKeyConflictError);
+    expect(refused).toBeInstanceOf(IdempotencyError.KeyConflict);
     expect(JSON.stringify(refused)).not.toContain("order:42");
     // a key made outside an execution has no handle: the error shows none, never a plain hash
     expect(refused).not.toHaveProperty("businessKeyHash");
@@ -107,8 +107,8 @@ const noFingerprintIsOne = <TTransaction>(): Case<TTransaction> => ({
       second.effects.runOnce(businessKeyOf(other), writing(second.rows, "r3", count)),
     );
 
-    expect(replay.status).toBe(FencedEffectStatus.Replayed);
-    expect(refused).toBeInstanceOf(BusinessKeyConflictError);
+    expect(replay.status).toBe(IdempotencyRunStatus.Replayed);
+    expect(refused).toBeInstanceOf(IdempotencyError.KeyConflict);
     expect(count.runs).toBe(1);
   },
 });
@@ -148,8 +148,8 @@ const racingOnce = <TTransaction>(): Case<TTransaction> => ({
     ]);
 
     expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Replayed,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Replayed,
     ]);
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toHaveLength(1);
@@ -172,11 +172,11 @@ const concurrentConflict = <TTransaction>(): Case<TTransaction> => ({
 
     expect(outcomes[0]).toMatchObject({
       status: "fulfilled",
-      value: { status: FencedEffectStatus.Ran },
+      value: { status: IdempotencyRunStatus.Ran },
     });
     expect(outcomes[1]).toMatchObject({
       status: "rejected",
-      reason: expect.any(BusinessKeyConflictError) as unknown,
+      reason: expect.any(IdempotencyError.KeyConflict) as unknown,
     });
     expect(count.runs).toBe(1);
   },
@@ -194,7 +194,7 @@ const stepKeysApart = <TTransaction>(): Case<TTransaction> => ({
       writing(first.rows, "business", count),
     );
 
-    expect(business.status).toBe(FencedEffectStatus.Ran);
+    expect(business.status).toBe(IdempotencyRunStatus.Ran);
     expect(count.runs).toBe(2);
   },
 });

@@ -3,9 +3,9 @@
  * that differ only by case (two orders) or by Unicode form (#538: the NFD one refused), a key with a lone surrogate (no string a store or the
  * provider's idempotency key can hold), and a key that only looks like another.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { KeyTextRule } from "../../src/errors.js";
-import { InvalidBusinessKeyError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
 import { execute } from "../helpers/flow.js";
@@ -30,7 +30,7 @@ beforeEach(() => {
 const ID_AT_LIMIT = "9".repeat(200 - "order:".length);
 
 describe("#508 acceptance: the business key's boundaries", () => {
-  test("a key of exactly 200 characters is charged; 201 is InvalidBusinessKeyError, nothing charged", async ({
+  test("a key of exactly 200 characters is charged; 201 is IdempotencyError.InvalidKey, nothing charged", async ({
     app,
   }) => {
     const charged = await execute(app, ChargeOrderStart, { orderId: ID_AT_LIMIT, amountUsd: 10 });
@@ -40,7 +40,10 @@ describe("#508 acceptance: the business key's boundaries", () => {
     }).catch((thrown: unknown) => thrown);
 
     expect(charged.output).toMatchObject({ chargeId: expect.any(String) });
-    await expect(Promise.reject(refused as Error)).rejects.toFailWith(InvalidBusinessKeyError, {});
+    await expect(Promise.reject(refused as Error)).rejects.toFailWith(
+      IdempotencyError.InvalidKey,
+      {},
+    );
     expect(ledger.charges).toHaveLength(1);
   });
 
@@ -60,9 +63,12 @@ describe("#508 acceptance: the business key's boundaries", () => {
       amountUsd: 10,
     }).catch((error: unknown) => error);
 
-    await expect(Promise.reject(decomposed as Error)).rejects.toFailWith(InvalidBusinessKeyError, {
-      rule: KeyTextRule.NotNfc,
-    });
+    await expect(Promise.reject(decomposed as Error)).rejects.toFailWith(
+      IdempotencyError.InvalidKey,
+      {
+        rule: KeyTextRule.NotNfc,
+      },
+    );
     expect(ledger.charges).toHaveLength(1);
   });
 

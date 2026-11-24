@@ -16,7 +16,9 @@ import { Text } from "../../src/dto/index.js";
 import { countQuorumOf } from "../../src/flow/quorum-step.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SystemClock } from "../../src/infrastructure/clock.js";
-import { outboundCallsViolations } from "../../src/infrastructure/fenced-effect-settings.js";
+import { Idempotency } from "../../src/app/idempotency.js";
+import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
+import { hours } from "../../src/units/index.js";
 import { meshContextValuesOf } from "../../src/mesh/mesh-context-values.js";
 import { EmptyEnvironment, HealthCheck, HealthCheckResult, Tool } from "../../src/index.js";
 import {
@@ -112,12 +114,30 @@ describe("#1141: @Application timers", () => {
     });
   }
 
-  it("outboundCalls.attemptTimeout: cap + 1 refused naming the field, the cap accepted", () => {
-    const refused = outboundCallsViolations("app", { attemptTimeout: over(MAX_TIMEOUT) });
-    expect(refused).toHaveLength(1);
-    expect(refused[0]?.code).toBe("application.outbound-calls-invalid");
-    expect(refused[0]?.message).toContain("attemptTimeout is 86400001 ms");
-    expect(outboundCallsViolations("app", { attemptTimeout: MAX_TIMEOUT })).toEqual([]);
+  it("Idempotency timeout: cap + 1 refused naming the field, the cap not refused as a timer", async () => {
+    const idempotency = new Idempotency(
+      {} as never,
+      {} as never,
+      new OutboundCallSettings({ requiresMask: false }),
+      {} as never,
+      {} as never,
+    );
+    const execute = () => "done";
+    const refused = idempotency.runOnce({
+      name: "charge",
+      ttl: hours(24),
+      timeout: over(MAX_TIMEOUT),
+      execute,
+    });
+    await expect(refused).rejects.toThrow(/timeout is 86400001 ms/u);
+    // the cap is a timer's: what refuses it now is the lease bound, not the timer cap
+    const atCap = idempotency.runOnce({
+      name: "charge",
+      ttl: hours(24),
+      timeout: MAX_TIMEOUT,
+      execute,
+    });
+    await expect(atCap).rejects.toThrow(/not below the lease/u);
   });
 });
 

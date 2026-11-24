@@ -2,16 +2,14 @@ import { effectKeyForTesting } from "../../../../src/testing/contracts/effect-ke
 import {
   Action,
   ExecutionContext,
-  FingerprintPolicy,
   InMemoryFencedEffectRepository,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
-  type EffectKey,
-  type FencedEffectStatus,
+  type IdempotencyRunStatus,
   type Produced,
 } from "../../../../src/index.js";
+import { effectKeyOf, type EffectKey } from "../../../../src/stores/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -21,12 +19,12 @@ import { OrderDto, ReceiptDto } from "./rotation.application.js";
 /**
  * #825 AC1 — two fenced effects under one business key (`order:<id>`, effect `book`) that do other
  * work: a charge and a refund. Each fingerprints what it does, so the second is a conflict, never a
- * replay of the first; `FingerprintPolicy.None` replays by choice; a key without either — a
+ * replay of the first; `withoutFingerprint: true` replays by choice; a key without either — a
  * JavaScript caller, a cast — is refused before anything runs.
  */
 
 export const books = {
-  statuses: [] as FencedEffectStatus[],
+  statuses: [] as IdempotencyRunStatus[],
   /** What the writes did, in the order they ran (a replay runs none). */
   ran: [] as string[],
 };
@@ -114,7 +112,7 @@ export class BookEventAction {
   execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
     const key = effectKeyOf(this.executionContext, "book", {
       businessKey: `event:${input.order.value.orderId}`,
-      fingerprintPolicy: FingerprintPolicy.None,
+      withoutFingerprint: true,
     });
     return booked(this.fencedEffects, key, `event-${String(input.order.value.amountUsd)}`);
   }
@@ -200,7 +198,6 @@ export const BOOKINGS = Object.fromEntries(
   name: "fingerprint-application",
   version: "1.0.0",
   environment: RotationEnvironment,
-  idempotencyKeyField: "idempotencyKeyV1",
   workflows: Object.values(BOOKINGS).map((booking) => booking.workflow),
   providers: [InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,

@@ -4,12 +4,14 @@
  * `KEY_TEXT_PRECEDENCE`. Every set of two or more breaches, each written after the one it outranks,
  * and a property over random sets, orders and fillers against an oracle of its own.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { DtoValidationError } from "../../src/dto/errors.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import { Action, ExecutionContext, effectKeyOf, InvalidBusinessKeyError } from "../../src/index.js";
+import { Action, ExecutionContext } from "../../src/index.js";
+import { effectKeyOf } from "../../src/stores/index.js";
 import { testAction, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { seededProperties } from "../helpers/property-seed.js";
@@ -193,7 +195,7 @@ describe("#547 acceptance: every entry point names the same rule for a text brea
         execute(app, ChatStart, { text: "hi" }, { tenant: { tenantId: text } }),
       );
 
-      expect(businessKey).toBeInstanceOf(InvalidBusinessKeyError);
+      expect(businessKey).toBeInstanceOf(IdempotencyError.InvalidKey);
       expect(businessKey).toMatchObject({ rule: expected });
       for (const thread of [executed, cancelled]) {
         expect(thread).toBeInstanceOf(InvalidThreadIdError);

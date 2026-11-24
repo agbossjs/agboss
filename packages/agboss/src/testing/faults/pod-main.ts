@@ -21,12 +21,7 @@ import {
   storeTimeOf,
   type FaultStoreSet,
 } from "./fault-stores.js";
-import {
-  FAULT_IDEMPOTENCY_KEY_FIELD,
-  FAULT_IDEMPOTENCY_KEY_VARIABLE,
-  faultApplicationOf,
-} from "./fixture/fault.application.js";
-import { secret } from "../../environments/secret.js";
+import { FAULT_IDEMPOTENCY_KEYS, faultApplicationOf } from "./fixture/fault.application.js";
 import { connectPodLink, deliverGatewayReply, sendToTest } from "./fixture/pod-link.js";
 import { heldStoreState, reportHeldOperations } from "./held-stores.js";
 import { processHoldPoints } from "./hold-points.js";
@@ -108,20 +103,20 @@ const assembled = await applicationOf(application);
 const loaded = {
   name: "fault",
   contract: stores.environment.contract.name,
-  // #825: the fixture's idempotency key beside the set's values — one key for every pod of a run
-  values: {
-    ...stores.environment.values,
-    [FAULT_IDEMPOTENCY_KEY_FIELD]: secret(FAULT_IDEMPOTENCY_KEY_VARIABLE),
-  },
+  values: stores.environment.values,
 };
-process.env[FAULT_IDEMPOTENCY_KEY_VARIABLE] ??= "agboss-fault-suite-idempotency-key";
 const instanceId = `${name}-${String(process.pid)}`;
 heldStoreState.instanceId = instanceId;
 const built = await buildApplication(
   assembled,
   { environmentName: "fault", environment: resolveEnvironment(loaded, process.env) },
   // the stores decide by the run's time, never by the pod's skewed clock: a database's (#533)
-  { instanceId, storeClock: new StoreClock(StoreTimeSource.Database, hostClockOfPod()) },
+  {
+    instanceId,
+    storeClock: new StoreClock(StoreTimeSource.Database, hostClockOfPod()),
+    // #825: the fixture's idempotency key — one for every pod of a run
+    idempotencyTestKeys: FAULT_IDEMPOTENCY_KEYS,
+  },
 );
 closeOnStopSignals(built);
 process.on("SIGTERM", () => {

@@ -1,6 +1,5 @@
 import type { ApplicationOptions } from "../application/application.js";
-import { OutboundCalls } from "../app/outbound-calls.js";
-import { FencedEffects } from "../app/fenced-effects.js";
+import { Idempotency } from "../app/idempotency.js";
 import { implementsContract } from "../components/container/registrations.js";
 import { CONTEXT_TOKENS } from "../components/context-tokens.js";
 import { createdClassesOf, type Class, type Token } from "../components/injection.js";
@@ -13,11 +12,7 @@ import { CONTAINER_DEFAULTS } from "../infrastructure/contracts.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
 
 /** The tokens whose use changes things outside the run: a fenced effect, a call that leaves. */
-const EFFECT_TOKENS: ReadonlySet<Token> = new Set<Token>([
-  FencedEffects,
-  FencedEffectRepository,
-  OutboundCalls,
-]);
+const EFFECT_TOKENS: ReadonlySet<Token> = new Set<Token>([Idempotency, FencedEffectRepository]);
 
 /** The declared `deps` of a token, any kind (a node's options, a component's meta); none for others. */
 function depsOf(token: Token): readonly Token[] {

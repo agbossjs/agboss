@@ -31,10 +31,7 @@ import {
 } from "../calendar/calendar-source.js";
 import { meshRuleViolations } from "../mesh/mesh-rules.js";
 import { contractRuleViolations } from "../a2a/a2a-rules.js";
-import {
-  fencedEffectsViolations,
-  outboundCallsViolations,
-} from "../infrastructure/fenced-effect-settings.js";
+import {} from "../infrastructure/fenced-effect-settings.js";
 import { providersOf } from "./listed-providers.js";
 import { storeBackendViolations } from "./implementations.js";
 import { storeDescriptorViolations } from "./store-descriptor-rule.js";
@@ -206,8 +203,6 @@ export function applicationRuleViolations(
     ...workingCalendarNameViolations(options.name, listedClassesOf(options)),
     ...storageViolations(options.name, options),
     ...limitViolations(options),
-    ...fencedEffectsViolations(options.name, options.fencedEffects),
-    ...outboundCallsViolations(options.name, options.outboundCalls),
     ...retentionViolations(options.name, (options as Partial<ApplicationOptions>).retention),
     ...movedRetentionViolations(options.name, options),
     // one transactional backend (#526): each fencing store with its lease store, one of each (#539)

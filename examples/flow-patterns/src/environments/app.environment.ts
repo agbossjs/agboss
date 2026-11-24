@@ -20,10 +20,4 @@ export class AppEnvironment {
    * instance. `test` leaves it out — tests make tokens with a fixed key.
    */
   piiPseudonymKey?: Secret;
-  /**
-   * The application's idempotency key (`@Application({ idempotencyKeyField })`, #825): what the
-   * credit desk's business-key fingerprints are keyed by — a secret of its own, never the PII key.
-   * `test` and `instances` leave it out — `testWith` gives it a test key.
-   */
-  idempotencyKey?: Secret;
 }

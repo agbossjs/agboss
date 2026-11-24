@@ -235,8 +235,7 @@
           "openRouterApiKey": "<missing OPENROUTER_API_KEY>",
           "openRouterBaseUrl": "<unset OPENROUTER_BASE_URL, optional>",
           "sqlitePath": "\".agboss/flow-patterns.sqlite\"",
-          "piiPseudonymKey": "<missing PII_PSEUDONYM_KEY>",
-          "idempotencyKey": "<missing IDEMPOTENCY_KEY>"
+          "piiPseudonymKey": "<missing PII_PSEUDONYM_KEY>"
         }
       }
     },

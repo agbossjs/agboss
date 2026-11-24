@@ -9,7 +9,6 @@ import type {
   FencedEffectWork,
 } from "../../infrastructure/fenced-effect.repository.js";
 import { hours, type Milliseconds } from "../../units/index.js";
-import { FingerprintPolicy } from "../../infrastructure/fenced-effect-key.js";
 import { effectKeyForTesting } from "./effect-key.js";
 
 /**
@@ -99,7 +98,7 @@ export const businessKeyOf = (
 ): EffectKey =>
   effectKeyForTesting(keyOf(lease, "charge", step), {
     businessKey: "order:42",
-    ...(fingerprint === null ? { fingerprintPolicy: FingerprintPolicy.None } : { fingerprint }),
+    ...(fingerprint === null ? { withoutFingerprint: true as const } : { fingerprint }),
     origin: { executionId: lease.rootExecutionId, nodeId: "charge-action", visitNumber: 1 },
   });
 

@@ -315,7 +315,7 @@ export class QuotesA2AExpose {}
   follow-up naming the skill with a `taskId`, is `-32001`.
 - **Stateless, checked at assembly** on every node of the skill's workflow (fail closed: a node
   another start reaches counts): no pause (a question step, a question role, a tool with a
-  channel — `[a2a.message-skill-pause]`), no fenced effect, `OutboundCalls` or `@A2AAgent` in any
+  channel — `[a2a.message-skill-pause]`), no `Idempotency` or `@A2AAgent` in any
   `deps` a node or a tool reaches (`[a2a.message-skill-effect]`), only `@Tool({ readOnly: true })`
   tools (`[a2a.message-skill-tool]`), no `compensateWith` / `committedBy`
   (`[a2a.message-skill-compensation]`), no child workflow or recursion
@@ -349,7 +349,7 @@ export class QuotesA2AExpose {}
   output it can read is `A2ARemoteCallError` `no-task`. For a skill whose card says `reply:
   "message"`, an ambiguous send is resent with its `messageId` only within the card's
   `messageIdempotencyRetention` (15 min when it declares none) — never the tasks' 24 h; past it the
-  call fails closed, `OutboundCallUnreconciledError`.
+  call fails closed, `OutboundCallError.Unreconciled`.
 
 ## 4. The client side — A2A v1.0 (#809)
 
@@ -383,15 +383,15 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
   = { skill }`; `send(message)` takes a text, `{ data }` or the parts; `reply(taskId, answer)`
   continues a task that waits for input; `getTask(taskId)`, `cancel(taskId)`, `agentCard()`.
 - **The accept** is one `SendMessage` with `returnImmediately`, through
-  [Outbound calls](Several-instances) inside an execution (`a2a.<agent>[.reply][.<call.key>]`): its
+  [`Idempotency.sendOnce`](Several-instances) inside an execution (`a2a.<agent>[.reply][.<call.key>]`): its
   `messageId` is derived from the step's key, the same on every attempt. A send of unknown outcome
-  (no answer, a 5xx, `-32603`) is reconciled, never resent blindly:
+  (no answer, a 5xx, `-32603`) is recovered, never resent blindly:
 
   | Peer | What a send of unknown outcome becomes |
   | --- | --- |
-  | AGBoss (its card's mesh extension declares `params.idempotencyRetention`) | sent again with the same `messageId` — the agent returns the same task — within that retention (`NotSentTrust.KeyReplay`); past it `OutboundCallUnreconciledError` |
+  | AGBoss (its card's mesh extension declares `params.idempotencyRetention`) | sent again with the same `messageId` — the agent returns the same task — within that retention (`OutboundRecovery.replayWithin`); past it `OutboundCallError.Unreconciled` |
   | foreign, a reply to a known task | `GetTask`: the task no longer waits for input → the reply arrived; else unknown |
-  | foreign, a new message | `OutboundCallUnreconciledError` (`foreign A2A peer`): nothing is sent again |
+  | foreign, a new message | `OutboundCallError.Unreconciled` (`foreign A2A peer`): nothing is sent again |
 
   The peer's trust is recorded with the intent: a card that changed since (a foreign peer now
   declaring a retention) is unknown, never a resend. A foreign peer's reply counts as arrived only

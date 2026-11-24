@@ -5,7 +5,6 @@ import { ExecutionFencedError } from "../../app/lease-lost.js";
 import { Injectable } from "../../components/decorators.js";
 import { StoreClock } from "../clock.js";
 import { parsedStoredJson } from "../stored-step.js";
-import { FencedEffectSettings } from "../fenced-effect-settings.js";
 import {
   assertBusinessKey,
   assertEffectName,
@@ -15,9 +14,9 @@ import {
 } from "../fenced-effect-key.js";
 import {
   FencedEffectRepository,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type EffectKey,
-  type FencedEffectOutcome,
+  type IdempotencyRunOutcome,
   type FencedEffectWork,
 } from "../fenced-effect.repository.js";
 import { SyncWorkRequiredError } from "../fenced-effect-errors.js";
@@ -92,16 +91,15 @@ const isThenable = (value: unknown): value is PromiseLike<unknown> =>
  * `SyncWorkRequiredError`. Listed in `@Application({ providers })` with
  * `SqliteExecutionLeaseRepository`; needs `sqlitePath`.
  */
-@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock] })
 export class SqliteFencedEffectRepository extends FencedEffectRepository<DatabaseSync> {
   static override readonly store: StoreDescriptor = { backend: "sqlite" };
 
   constructor(
     private readonly connection: SqliteConnection,
     private readonly clock: Pick<StoreClock, "now">,
-    settings: FencedEffectSettings,
   ) {
-    super(settings);
+    super();
   }
 
   ping(): Promise<void> {
@@ -111,7 +109,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
   protected runInTransaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<DatabaseSync, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     return new Promise((resolve) => {
       resolve(this.connection.transaction(() => this.#transaction(key, work)));
     });
@@ -133,7 +131,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
   #transaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<DatabaseSync, TResult>,
-  ): FencedEffectOutcome<TResult> {
+  ): IdempotencyRunOutcome<TResult> {
     const { database } = this.connection;
     const now = this.clock.now().getTime();
     checkSqliteFence(this.connection.database, key, now);
@@ -148,7 +146,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
         parsedStoredJson("fenced effect facts", facts, ids) as StoredKeyFacts,
       );
       return {
-        status: FencedEffectStatus.Replayed,
+        status: IdempotencyRunStatus.Replayed,
         result: parsedStoredJson("fenced effect result", result, ids) as TResult,
         token,
         ...(replayedFrom === undefined ? {} : { replayedFrom }),
@@ -165,7 +163,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     const text = this.storedResultOf(key, result);
     insertRowOf(database, key, now, text);
     return {
-      status: FencedEffectStatus.Ran,
+      status: IdempotencyRunStatus.Ran,
       result: JSON.parse(text) as TResult,
       token: key.token,
     };

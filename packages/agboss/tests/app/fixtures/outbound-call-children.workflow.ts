@@ -5,24 +5,25 @@ import {
   Action,
   ChildPlacement,
   ExecutionContext,
-  NotSentTrust,
-  OutboundCallReconciliation,
+  FencedEffectRepository,
+  Idempotency,
   OutboundCallRepository,
-  OutboundCallSettings,
   OutboundCallStatus,
-  OutboundCalls,
+  OutboundRecovery,
+  Reconciliation,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
   type Produced,
 } from "../../../src/index.js";
+import { OutboundCallSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
+import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { EmailPiiPolicy } from "./outbound-call.workflow.js";
-import { PaymentGateway } from "./payment-gateway.js";
+import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
@@ -45,12 +46,11 @@ export const unmasked = { pendingAfter: [] as number[] };
   description: "Charges the order from inside a child workflow",
   input: { message: WorkflowStartTextDto },
   output: ChargedDto,
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 export class ChildChargeAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
@@ -58,52 +58,58 @@ export class ChildChargeAction {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargedDto> {
     const [orderId = "", email = ""] = input.message.value.text.split(" ");
-    const key = effectKeyOf(this.executionContext, "charge");
-    const outcome = await this.outboundCalls.send(key, {
+    const outcome = await this.idempotency.sendOnce({
+      name: "charge",
       target: "payments",
       operation: "charge",
       request: { orderId, amountUsd: 10, email },
       send: (call) => this.paymentGateway.charge(call),
-      notSent: { trust: NotSentTrust.Lookup },
-      reconcile: (call) => this.paymentGateway.reconcile(call),
+      timeout: seconds(15),
+      ttl: hours(48),
+      recovery: OutboundRecovery.permanentLookup((call) => this.paymentGateway.reconcile(call)),
     });
     return { chargeId: outcome.result.chargeId };
   }
 }
 
 /**
- * Sends through an `OutboundCalls` whose settings require a mask, in a unit runner's frame — which
+ * Sends through an `Idempotency` whose settings require a mask, in a unit runner's frame — which
  * has none: the call must be refused before anything is stored.
  */
 @Action({
   name: "unmasked-charge-action",
   description: "Sends a call where the frame has no mask but the application requires one",
   input: { message: WorkflowStartTextDto },
-  deps: [ExecutionContext, OutboundCallRepository, PaymentGateway],
+  deps: [ExecutionContext, FencedEffectRepository, OutboundCallRepository, PaymentGateway],
 })
 export class UnmaskedChargeAction {
   constructor(
     private readonly executionContext: ExecutionContext,
+    private readonly effects: FencedEffectRepository<unknown>,
     private readonly repository: OutboundCallRepository,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
   async execute(): Promise<void> {
-    const masked = new OutboundCalls(
+    const masked = new Idempotency(
+      this.effects,
       this.repository,
       new OutboundCallSettings({ requiresMask: true }),
       new SilentLogger(),
       new SystemClock(),
     );
-    const key = effectKeyOf(this.executionContext, "charge");
     try {
-      await masked.send(key, {
+      await masked.sendOnce({
+        name: "charge",
         target: "payments",
         operation: "charge",
         request: { orderId: "order-1", amountUsd: 10, email: "alice@example.com" },
         send: (call) => this.paymentGateway.charge(call),
-        notSent: { trust: NotSentTrust.Lookup },
-        reconcile: () => OutboundCallReconciliation.notSent(),
+        timeout: seconds(15),
+        ttl: hours(48),
+        recovery: OutboundRecovery.permanentLookup<ChargeReceipt>(() =>
+          Reconciliation.notExecuted(),
+        ),
       });
     } finally {
       const tenantId = this.executionContext.tenant.tenantId;
@@ -195,7 +201,6 @@ export class FarChargeWorkflow {}
   name: "outbound-call-children-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [NearChargeWorkflow, FarChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

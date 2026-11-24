@@ -22,7 +22,6 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
   name: "store-bound-sqlite-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
   providers: [

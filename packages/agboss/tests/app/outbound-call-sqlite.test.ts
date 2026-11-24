@@ -5,6 +5,7 @@
  * (`[application.store-backend-mismatch]` otherwise, #526); the unlisted in-memory default beside them
  * fails at its first call.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -13,7 +14,6 @@ import {
   ActionFailedError,
   ExecutionAuditEventKind,
   ExecutionLeaseLostError,
-  FencedEffectStoreMismatchError,
   InMemoryOutboundCallRepository,
   OutboundCallEventOutcome,
   OutboundCallSendStatus,
@@ -101,7 +101,6 @@ const assembledWith = (providers: readonly Provider[]) => {
     name: "outbound-stores-application",
     version: "1.0.0",
     environment: SqliteTestEnvironment,
-    idempotencyKeyField: "idempotencyKey",
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [SqliteConnection, ...providers],
@@ -137,7 +136,7 @@ describe("#505, #526: [application.store-backend-mismatch] for the outbound-call
 
 describe("#505: the unlisted default beside SQLite leases", () => {
   testWith(UnlistedOutboundCallStoreApplication)(
-    "is not an assembly error; the first call fails with FencedEffectStoreMismatchError, nothing sent",
+    "is not an assembly error; the first call fails with IdempotencyError.StoreMismatch, nothing sent",
     async ({ app }) => {
       const error = await execute(app, ChargeWorkflowStart, { text: "order-1" }).catch(
         (thrown: unknown) => thrown,
@@ -146,12 +145,12 @@ describe("#505: the unlisted default beside SQLite leases", () => {
       expect(error).toBeInstanceOf(ActionFailedError);
       expect(error).toMatchObject({
         cause: {
-          code: "fenced-effect.store-mismatch",
+          code: "idempotency.store-mismatch",
           fencedEffectRepository: "InMemoryOutboundCallRepository",
           leaseRepository: "SqliteExecutionLeaseRepository",
         },
       });
-      expect((error as ActionFailedError).cause).toBeInstanceOf(FencedEffectStoreMismatchError);
+      expect((error as ActionFailedError).cause).toBeInstanceOf(IdempotencyError.StoreMismatch);
       expect(gateway.calls).toEqual([]);
     },
   );

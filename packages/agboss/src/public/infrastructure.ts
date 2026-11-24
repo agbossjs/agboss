@@ -6,13 +6,13 @@
 export {
   ExecutionAuditEventKind,
   ExecutionAuditLogRepository,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
   type ExecutionAuditEventBase,
   type ExecutionAuditEventRecord,
-  type FencedEffectRecord,
+  type IdempotencyRunRecord,
   OutboundCallEventOutcome,
   type OutboundCallEventRecord,
   type OutboundCallClosedLease,
@@ -51,46 +51,20 @@ export { SqliteChildExecutionQueueRepository } from "../infrastructure/sqlite/sq
 export type { SecretFieldOf } from "../application/application.js";
 // what a store class declares (#526, #825): its backend and how it checks the lease
 export type { StoreDescriptor } from "../infrastructure/execution-lease.repository.js";
-export type { EffectKeyMark, OutboundCallKeyMark } from "../infrastructure/effect-key.js";
-// the fenced effect (#500): the service an app injects (#890), the contract, its key and outcome,
-// the in-memory store, its settings
-export { FencedEffects } from "../app/fenced-effects.js";
+// the idempotent effect (#500, #1317): the service an app injects, the store's contract, its outcome
+// and the in-memory store (the key and its helpers are in `@agboss/core/stores`)
+export { Idempotency } from "../app/idempotency.js";
+export type { IdempotencyKeyChoice, IdempotencyRunOptions } from "../app/idempotency-types.js";
 export {
-  effectKeyOf,
   FencedEffectRepository,
-  FencedEffectStatus,
-  FingerprintNotJsonError,
-  FingerprintPolicy,
-  FingerprintRequiredError,
-  IdempotencyKeyMissingError,
-  type IdempotencyKeyMissingErrorOptions,
-  type BusinessKeyOptions,
-  type EffectKey,
-  type EffectKeyFields,
-  type EffectKeyOptions,
-  type FingerprintKeys,
-  type FingerprintedKeyOptions,
-  type OutboundCallKey,
-  type OutboundCallKeyOptions,
-  type UnfingerprintedKeyOptions,
+  IdempotencyRunStatus,
   type FencedEffectOrigin,
-  type FencedEffectOutcome,
+  type IdempotencyRunOutcome,
   type FencedEffectWork,
   type JsonPrimitive,
   type JsonValue,
 } from "../infrastructure/fenced-effect.repository.js";
-// what a business key's missing fingerprint decision is (#825); the store helpers of a key (#526
-// AC5) are in `@agboss/core/stores` (#890)
-export {
-  FingerprintProblem,
-  type FingerprintRequiredErrorOptions,
-} from "../infrastructure/fenced-effect-key.js";
 export { InMemoryFencedEffectRepository } from "../infrastructure/in-memory-fenced-effect.repository.js";
-export {
-  FencedEffectSettings,
-  type FencedEffectOptions,
-  type FencedEffectSettingsOptions,
-} from "../infrastructure/fenced-effect-settings.js";
 // every type an infrastructure contract's members name (#511 AC4, tests/public-api/contract-types):
 // a store outside the core implements the contract with these, never derives them from the class
 export type {
@@ -145,32 +119,24 @@ export {
   type OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 export { InMemoryOutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
-export { NotSentTrust } from "../app/outbound-call-contract.js";
-export type {
-  NotSentByKeyReplay,
-  NotSentByLookup,
-  OutboundCallNotSent,
-} from "../app/outbound-call-types.js";
 export {
   OutboundCallSendStatus,
-  OutboundCallPart,
-  OutboundCallReconciliation,
-  OutboundCalls,
-  OutboundCallVerdict,
-  type CompletedReconciliation,
-  type NotSentReconciliation,
-  type UnknownReconciliation,
   type OutboundCall,
   type OutboundCallLookup,
-  type OutboundCallSendOptions,
+  type IdempotencySendOptions,
   type OutboundCallOutcome,
-  type OutboundCallUnknownOptions,
-} from "../app/outbound-calls.js";
+} from "../app/idempotency.js";
+export type { OutboundCallPart } from "../app/outbound-call-errors.js";
 export {
-  OutboundCallSettings,
-  type OutboundCallOptions,
-  type OutboundCallSettingsOptions,
-} from "../infrastructure/fenced-effect-settings.js";
+  OutboundRecovery,
+  Reconciliation,
+  ReconciliationVerdict,
+  type CompletedReconciliation,
+  type LookupRecovery,
+  type NotExecutedReconciliation,
+  type ReplayRecovery,
+  type UnknownReconciliation,
+} from "../app/outbound-recovery.js";
 // #807: the A2A tasks an application serves (infrastructure, listed in `@Application({ providers })`)
 export {
   A2ATaskRepository,

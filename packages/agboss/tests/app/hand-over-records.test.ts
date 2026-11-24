@@ -10,9 +10,9 @@ import { recordedHandOver } from "../../src/app/handed-over.js";
 import {
   fencedEffectEventOf,
   handOverEventOf,
-  recordFencedEffect,
+  recordIdempotencyRun,
   recordHandOver,
-  type FencedEffectReport,
+  type IdempotencyRunReport,
   type HandOverReport,
 } from "../../src/app/audit-log.js";
 import { ExecutionFencedError, ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
@@ -24,7 +24,7 @@ import type { StepHandedOverEvent } from "../../src/flow/observers/audit-log.js"
 import type { ExecutionLease } from "../../src/infrastructure/execution-lease.repository.js";
 import {
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   HandOverReason,
   HandOverSite,
   InMemoryExecutionAuditLogRepository,
@@ -298,12 +298,12 @@ describe("#501: a held lease's hand-overs", () => {
 });
 
 /** A refused call of the effect `charge` at the test frame's step. */
-const refusedCharge = (): FencedEffectReport => ({
+const refusedCharge = (): IdempotencyRunReport => ({
   event: nodeEventOf(testFrame()),
   name: "charge",
   scopeKey: "default:execution-1",
   token: 1,
-  outcome: FencedEffectEventOutcome.Refused,
+  outcome: IdempotencyRunEventOutcome.Refused,
   observedToken: 2,
 });
 
@@ -312,7 +312,7 @@ describe("#501: a fenced effect's call in the audit log", () => {
     const event = fencedEffectEventOf(
       {
         ...refusedCharge(),
-        outcome: FencedEffectEventOutcome.Ran,
+        outcome: IdempotencyRunEventOutcome.Ran,
         observedToken: undefined,
         writtenToken: 1,
       },
@@ -335,7 +335,7 @@ describe("#501: a fenced effect's call in the audit log", () => {
     });
 
     await expect(
-      recordFencedEffect(events, refusedCharge(), "instance-1"),
+      recordIdempotencyRun(events, refusedCharge(), "instance-1"),
     ).resolves.toBeUndefined();
 
     expect(rows).toEqual([]);
@@ -348,13 +348,13 @@ describe("#501: a fenced effect's call in the audit log", () => {
     reports.held(LEASE);
 
     reports.stepCall(events, (recording, log, holder) =>
-      recording.recordFencedEffect(log, refusedCharge(), holder),
+      recording.recordIdempotencyRun(log, refusedCharge(), holder),
     );
     reports.handOver(events, reportOf(lost()), "default:execution-1");
     await reports.settled();
 
     expect(rows.map((row) => row.kind)).toEqual([
-      ExecutionAuditEventKind.FencedEffect,
+      ExecutionAuditEventKind.IdempotencyRun,
       ExecutionAuditEventKind.HandedOver,
     ]);
   });
@@ -367,10 +367,10 @@ describe("#501: a fenced effect's call in the audit log", () => {
 
     const charged = refusedCharge();
     unheld.stepCall(events, (recording, log, holder) =>
-      recording.recordFencedEffect(log, charged, holder),
+      recording.recordIdempotencyRun(log, charged, holder),
     );
     unlogged.stepCall(undefined, (recording, log, holder) =>
-      recording.recordFencedEffect(log, charged, holder),
+      recording.recordIdempotencyRun(log, charged, holder),
     );
     await Promise.all([unheld.settled(), unlogged.settled()]);
 

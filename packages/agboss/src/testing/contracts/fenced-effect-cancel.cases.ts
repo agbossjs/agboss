@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import {
@@ -76,11 +76,11 @@ const storedBeforeReplays = <TTransaction>(): Case<TTransaction> => ({
     );
 
     expect(byStep).toMatchObject({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "step" },
     });
     expect(byBusinessKey).toMatchObject({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "business" },
     });
     expect(another).toBeInstanceOf(ExecutionCancelFencedError);
@@ -104,8 +104,8 @@ const undoPasses = <TTransaction>(): Case<TTransaction> => ({
     const ran = await first.effects.runOnce(undo, writing(first.rows, "refund", count));
     const again = await first.effects.runOnce(undo, writing(first.rows, "refund-2", count));
 
-    expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: lease.token });
-    expect(again).toMatchObject({ status: FencedEffectStatus.Replayed });
+    expect(ran).toMatchObject({ status: IdempotencyRunStatus.Ran, token: lease.token });
+    expect(again).toMatchObject({ status: IdempotencyRunStatus.Replayed });
     expect(await second.rows.committed()).toEqual(["refund"]);
   },
 });
@@ -123,8 +123,8 @@ const otherTreesUntouched = <TTransaction>(): Case<TTransaction> => ({
     const own = await first.effects.runOnce(keyOf(mine), writing(first.rows, "mine", count));
     const theirs = await first.effects.runOnce(keyOf(acme), writing(first.rows, "acme", count));
 
-    expect(own.status).toBe(FencedEffectStatus.Ran);
-    expect(theirs.status).toBe(FencedEffectStatus.Ran);
+    expect(own.status).toBe(IdempotencyRunStatus.Ran);
+    expect(theirs.status).toBe(IdempotencyRunStatus.Ran);
     expect(count.runs).toBe(2);
   },
 });

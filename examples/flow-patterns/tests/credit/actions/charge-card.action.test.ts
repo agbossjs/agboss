@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ExecutionFencedError,
   FencedEffectRepository,
-  BusinessKeyConflictError,
+  IdempotencyError,
   SqliteFencedEffectRepository,
 } from "@agboss/core";
 import { override, testAction } from "@agboss/core/testing";
@@ -19,7 +19,7 @@ import { OrderIntakeAgent } from "../../../src/credit/agents/order-intake/order-
 const order = (customerId: string, total: number, applicationId = `app-${customerId}`) => ({
   order: { producer: OrderIntakeAgent, value: { applicationId, customerId, total } },
 });
-// the action injects FencedEffects: the store is the one the application lists, SQLite's
+// the action injects Idempotency: the store is the one the application lists, SQLite's
 const onFile = {
   environment: { sqlitePath: ":memory:" },
   overrides: [override(FencedEffectRepository, SqliteFencedEffectRepository)],
@@ -48,12 +48,12 @@ describe("#500, #508: one charge per credit application", () => {
     expect(other.output).toEqual({ chargeId: "charge-c-2-2" });
   });
 
-  it("#508 AC3: the same application with another total is BusinessKeyConflictError, nothing charged", async () => {
+  it("#508 AC3: the same application with another total is IdempotencyError, nothing charged", async () => {
     const runCharge = runner();
     await runCharge(order("c-1", 50, "app-7"));
 
     await expect(runCharge(order("c-1", 70, "app-7"))).rejects.toBeInstanceOf(
-      BusinessKeyConflictError,
+      IdempotencyError.KeyConflict,
     );
     const again = await runCharge(order("c-3", 20));
     expect(again.output).toEqual({ chargeId: "charge-c-3-2" });

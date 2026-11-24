@@ -22,8 +22,8 @@ export enum ExecutionAuditEventKind {
   Takeover = "takeover",
   /** A step stopped without failing: its lease was lost or fenced, or the app stopped (`onStepHandedOver`). */
   HandedOver = "handed-over",
-  /** A step's fenced effect (#500) ran, was replayed, joined or was refused (`onFencedEffect`). */
-  FencedEffect = "fenced-effect",
+  /** A step's fenced effect (#500) ran, was replayed, joined or was refused (`onIdempotencyRun`). */
+  IdempotencyRun = "idempotency-run",
   /** A step's call that leaves the system (#505) moved: recorded, sent, reconciled… (`onOutboundCall`). */
   OutboundCall = "outbound-call",
 }
@@ -80,12 +80,12 @@ export enum OutboundCallLeaseState {
 }
 
 /** How one call of a fenced effect (#500) went, as the audit log keeps it. */
-export enum FencedEffectEventOutcome {
-  /** The write ran now (`FencedEffectStatus.Ran`). */
+export enum IdempotencyRunEventOutcome {
+  /** The write ran now (`IdempotencyRunStatus.Ran`). */
   Ran = "ran",
-  /** The stored result came back, the write did not run again (`FencedEffectStatus.Replayed`). */
+  /** The stored result came back, the write did not run again (`IdempotencyRunStatus.Replayed`). */
   Replayed = "replayed",
-  /** The call joined one in flight on the same key (`FencedEffectStatus.Joined`). */
+  /** The call joined one in flight on the same key (`IdempotencyRunStatus.Joined`). */
   Joined = "joined",
   /** The lease or the scope's mark refused the call (`ExecutionFencedError`): nothing written. */
   Refused = "refused",
@@ -183,12 +183,12 @@ export interface StepHandedOverRecord extends ExecutionAuditEventBase {
   readonly observedToken?: number;
 }
 
-/** One call of a step's fenced effect (`ExecutionAuditEventKind.FencedEffect`), never its result. */
-export interface FencedEffectRecord extends ExecutionAuditEventBase {
-  readonly kind: ExecutionAuditEventKind.FencedEffect;
+/** One call of a step's fenced effect (`ExecutionAuditEventKind.IdempotencyRun`), never its result. */
+export interface IdempotencyRunRecord extends ExecutionAuditEventBase {
+  readonly kind: ExecutionAuditEventKind.IdempotencyRun;
   /** The effect's name (`effectKeyOf(executionContext, name)`). */
   readonly name: string;
-  readonly outcome: FencedEffectEventOutcome;
+  readonly outcome: IdempotencyRunEventOutcome;
   readonly step: AuditEventStep;
   /** The token the stored result was first written under (a replay on a newer lease: the older). */
   readonly writtenToken?: number;
@@ -236,7 +236,7 @@ export interface OutboundCallClosedLease {
 
 /** One row of the audit log. */
 export type ExecutionAuditEventRecord =
-  LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
+  LeaseTakeoverRecord | StepHandedOverRecord | IdempotencyRunRecord | OutboundCallEventRecord;
 
 /** The outcomes a row written before #825 names by their old values. */
 const RENAMED_OUTCOMES: Readonly<Record<string, OutboundCallEventOutcome>> = {

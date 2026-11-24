@@ -246,12 +246,8 @@ export async function applicationOf(
     ...assembledRetentionsOf(retention),
     ...storageFieldsOf(options.storage),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
-    fencedEffects: new FencedEffectSettings({
-      ...options.fencedEffects,
-      retention: retention.fencedEffects,
-    }),
+    fencedEffects: new FencedEffectSettings({ retention: retention.fencedEffects }),
     outboundCalls: new OutboundCallSettings({
-      ...options.outboundCalls,
       retention: retention.outboundCalls,
       requiresMask: hasPiiPolicies(options, assembled),
     }),

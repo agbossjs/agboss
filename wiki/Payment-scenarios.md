@@ -22,9 +22,9 @@ The mechanisms, by their short names:
 
 | Name | What it is | Where |
 | --- | --- | --- |
-| **Fenced effect** | A write to the store's own database, once per key, refused for a superseded lease in the same transaction | [Several instances](Several-instances#the-fenced-effect-500) |
-| **Business key** | A fenced effect or outbound call keyed by what it is about (`order:42`), not by the step | [Several instances](Several-instances#business-idempotency-keys-508) |
-| **Outbound call** | An intent recorded before a call to another system, settled after it, reconciled when left pending | [Several instances](Several-instances#calls-that-leave-the-system-505) |
+| **Idempotent write** | `Idempotency.runOnce`: a write to the store's own database, once per key, refused for a superseded lease in the same transaction | [Several instances](Several-instances#the-fenced-effect-500) |
+| **Business key** | A `runOnce` or `sendOnce` keyed by what it is about (`order:42`), not by the step | [Several instances](Several-instances#business-idempotency-keys-508) |
+| **Outbound call** | An intent recorded before a call to another system, settled after it (`Idempotency.sendOnce`), recovered when left pending | [Several instances](Several-instances#calls-that-leave-the-system-505) |
 | **Lease and fence** | One owner per execution tree; a holder past its lease writes and sends nothing | [Several instances](Several-instances#the-execution-lease) |
 | **Undo once** | An automatic undo is marked done and never runs again | [Guarantees across processes](Guarantees-across-processes#what-is-left-to-the-application-and-to-downstream-systems) |
 | **Pause answered once** | A pause goes from pending to resolved once; a second answer is refused | [Pauses](Pauses#concurrent-answers) |
@@ -34,7 +34,7 @@ The mechanisms, by their short names:
 | ID | Scenario | AGBoss mechanism | Left to |
 | --- | --- | --- | --- |
 | [PS1](#ps1-a-retry-after-a-timeout) | A retry after a timeout | Outbound call | Gateway: G1–G3 |
-| [PS2](#ps2-a-crash-after-the-charge-before-the-checkpoint) | A crash after the charge, before the checkpoint | Fenced effect, outbound call | Application: calls outside them |
+| [PS2](#ps2-a-crash-after-the-charge-before-the-checkpoint) | A crash after the charge, before the checkpoint | Idempotent write, outbound call | Application: calls outside them |
 | [PS3](#ps3-a-zombie-after-a-takeover) | A zombie after a takeover | Lease and fence | Gateway: G1, for a request already on the wire |
 | [PS4](#ps4-the-zombie-reaches-the-write-first) | The zombie reaches the write first | Lease and fence | — |
 | [PS5](#ps5-a-crash-after-the-send-before-the-answer) | A crash after the send, before the answer | Outbound call | Gateway: G2 |
@@ -46,10 +46,10 @@ The mechanisms, by their short names:
 | [PS11](#ps11-a-pause-answered-twice) | A pause answered twice | Pause answered once | Application: one pause per payment |
 | [PS12](#ps12-a-rolling-deploy-or-a-graceful-stop-mid-payment) | A rolling deploy or a graceful stop mid-payment | Lease and fence, recovery | Application: stable keys across versions |
 | [PS13](#ps13-clock-skew-and-lease-expiry) | Clock skew and lease expiry | Lease and fence | Platform: A3–A5 |
-| [PS14](#ps14-the-database-lost-mid-commit) | The database lost mid-commit | Fenced effect, outbound call | — |
+| [PS14](#ps14-the-database-lost-mid-commit) | The database lost mid-commit | Idempotent write, outbound call | — |
 | [PS15](#ps15-a-webhook-delivered-twice) | A webhook delivered twice | Business key, pause answered once | Application: signature check |
 | [PS16](#ps16-webhooks-out-of-order) | Webhooks out of order | — | Application |
-| [PS17](#ps17-the-idempotency-key-expires-before-a-retry) | The idempotency key expires before a retry | Outbound call: unknown errors reconciled, the key's age and retention | Gateway: G3; application: the classification, `keyRetention`, the order row |
+| [PS17](#ps17-the-idempotency-key-expires-before-a-retry) | The idempotency key expires before a retry | Outbound call: unknown errors recovered, the key's age and window | Gateway: G3; application: the classification, the recovery window, the order row |
 | [PS18](#ps18-a-partial-capture) | A partial capture | Business key | Gateway: over-capture |
 | [PS19](#ps19-a-refund-retried) | A refund retried | Business key, outbound call | Application: one key for every refund path |
 | [PS20](#ps20-a-void-and-a-capture-race-on-one-authorization) | A void and a capture race | Business key | Gateway: its state machine |
@@ -66,12 +66,12 @@ The gateway charged, but the answer was lost.
 - **Wrong:** the step retries with a new idempotency key, or with none: two charges.
 - **AGBoss:** the charge is an outbound call. There are two cases:
   - **The step's signal aborts the wait** (its timeout, a lost lease, a cancel). The intent stays
-    pending, and the next attempt calls `reconcile`, which looks the payment up (G2) before
+    pending, and the next attempt runs the call's `recovery`, which looks the payment up (G2) before
     anything is sent again.
   - **The SDK throws** (#657). Unless the call's `isDefiniteFailure(error)` returns `true` — the
     gateway answered that it did not charge (a decline, a validation error) —, the error is of
     unknown outcome: a 5xx after the gateway charged, a reset connection, the SDK's own timeout.
-    The intent stays pending, exactly as after a crash, and the next attempt calls `reconcile`
+    The intent stays pending, exactly as after a crash, and the next attempt runs the `recovery`
     before anything is sent again. Only a definite failure is recorded `Failed` and sent again
     under the same `call.idempotencyKey`, with no lookup: it moved no money.
 - **Guarantee:** P3. Assumptions: A6, A7 (the gateway's G1–G3) and A15 (only a definite failure is
@@ -94,7 +94,7 @@ The step's effect is done, but its checkpoint was not written, so the step runs 
 - **AGBoss:** a fenced effect finds its key and returns the stored result (`Replayed`). An outbound
   call finds its intent `Completed` and returns the stored receipt. Nothing is sent again.
 - **Guarantee:** P2, P3. Assumptions: A1, A2, A11.
-- **Boundary:** a side effect outside a fenced effect or an outbound call happens **at least once**.
+- **Boundary:** a side effect outside an idempotent write or an outbound call happens **at least once**.
 - **Proof:** `s03-crash-after-charge`, `s03b-crash-after-payment`. Full example: `ps2`.
 
 ### PS3. A zombie after a takeover
@@ -134,14 +134,14 @@ The pod dies after the request left and before the answer came back. Nobody know
 customer was charged.
 
 - **Wrong:** the recovered step sends again.
-- **AGBoss:** the intent is still pending, so the next holder calls `reconcile(lookup)` with the
+- **AGBoss:** the intent is still pending, so the next holder runs the call's lookup (`OutboundRecovery.permanentLookup` or `lookupWithin`) with the
   call's key. The answer is one of:
-  - `completed(result)`: the payment exists, nothing is sent (`Reconciled`);
-  - `notSent()`: it never arrived, so it is sent once more under the same key;
-  - `unknown({ reason })`: `OutboundCallUnreconciledError`, nothing sent, the intent left for an
+  - `Reconciliation.completed(result)`: the payment exists, nothing is sent (`Reconciled`);
+  - `Reconciliation.notExecuted()`: it never arrived, so it is sent once more under the same key;
+  - `Reconciliation.unknown(reason)`: `OutboundCallError.Unreconciled`, nothing sent, the intent left for an
     operator (`app.pendingOutboundCallsOf`).
 - **Guarantee:** P3. Assumption: A7 (G2, or G6).
-- **Boundary:** without a lookup (G2), `reconcile` can only say `unknown`, and a person decides.
+- **Boundary:** without a lookup (G2), a recovery can only say `unknown`, and a person decides.
 - **Proof:** `s09-crash-after-send`, `s10-one-order-two-executions`. Full example: `ps5`.
 
 ### PS6. Support levels: full, no lookup, no keys
@@ -152,13 +152,13 @@ three stub gateways:
 | Level | The stub offers | PS1 timeout | PS5 crash before the answer | A late replay |
 | --- | --- | --- | --- | --- |
 | **Full** | keys (G1), lookup (G2), retention (G3), first response (G4), conflict (G5), status (G6) | one charge (`Reconciled`, the SDK's error or the aborted wait alike, #657) | one charge (`Reconciled`) | one charge: by the lookup, whatever the key's age |
-| **No lookup** | keys, no lookup | one charge: `unknown`, a person decides — or `notSent()` replaying the key while it lives, refused after its `KeyReplay` `keyRetention` (#658, #795) | `unknown`: a person decides, or `notSent()` relying on G1 inside `keyRetention` | no new charge: past `keyRetention` the replay is refused, a person decides |
-| **No keys** | neither | one charge, `unknown` only (#657): a `notSent()` would charge **twice** | `unknown` only | one charge, `unknown` only (#657) |
+| **No lookup** | keys, no lookup | one charge: `unknown`, a person decides — or `OutboundRecovery.replayWithin(window)` replaying the key while it lives, refused after its window (#658, #795) | `unknown`: a person decides, or `replayWithin` relying on G1 inside its window | no new charge: past the window the replay is refused, a person decides |
+| **No keys** | neither | one charge, `unknown` only (#657): a replay (`notExecuted()`) would charge **twice** | `unknown` only | one charge, `unknown` only (#657) |
 
 - **Wrong:** a gateway without keys turns a timeout's retry into two charges, one without a
   lookup turns a crash before the answer into a guess. Without keys, two requests that meet at
   the gateway charge twice whatever AGBoss does (PS23).
-- **AGBoss:** the same intent, claim and `reconcile` on every level; what it can tell depends on
+- **AGBoss:** the same intent, claim and recovery on every level; what it can tell depends on
   what the gateway offers (the table).
 - **Guarantee:** P3, through A7.
 - **Boundary:** a gateway without keys or without a lookup is **not supported**
@@ -179,7 +179,7 @@ version.
   - Recovery continues a tree only on a version whose config hash matches, unless the workflow's
     `onIncompatibleResume` says `"resume"`.
   - A changed request shape under the same business key is a different fingerprint:
-    `BusinessKeyConflictError`, refused, never charged.
+    `IdempotencyError.KeyConflict`, refused, never charged.
 - **Guarantee:** P1, P3. Assumptions: A1, A6.
 - **Boundary:** while intents are in flight, keep three things the same across versions: the
   business key's text, the effect's name and the request the fingerprint is made of. Set
@@ -210,10 +210,10 @@ The connection drops while a write commits. The pod does not know whether it com
 
 - **Wrong:** "the write failed, so charge again".
 - **AGBoss:**
-  - A fenced effect commits or rolls back as one transaction. Run again, it finds its key
+  - `Idempotency.runOnce` commits or rolls back as one transaction. Run again, it finds its key
     (`Replayed`) or runs once.
   - When an outbound call's completion may not have committed, its intent may still be pending,
-    and the next attempt reconciles it.
+    and the next attempt recovers it.
   - A pod that cannot renew its lease stops and writes nothing.
 - **Guarantee:** P1–P3. Assumptions: A1, A2.
 - **Boundary:** none on AGBoss's side.
@@ -226,13 +226,12 @@ The connection drops while a write commits. The pod does not know whether it com
 One agent loop calls the charge tool twice, or two visits of the agent each call it. These are two
 tool calls with two step keys.
 
-- **Wrong:** the charge keyed by its step (`effectKeyOf(executionContext, "charge")`): two
+- **Wrong:** the charge keyed by its step (`runOnce({ name: "charge", ttl, execute })`, no `key`): two
   charges.
-- **AGBoss:** a business key, `effectKeyOf(executionContext, "charge", { businessKey:
-  \`order:${orderId}\` })`. The second call gets the first's receipt (`Replayed`; `Joined` while the
+- **AGBoss:** a business key, `runOnce({ name: "charge", key: \`order:${orderId}\`, fingerprint, ttl, execute })`. The second call gets the first's receipt (`Replayed`; `Joined` while the
   first is still sending on this instance). A call for the same order with another amount is
-  `BusinessKeyConflictError`, and nothing is sent.
-- **Guarantee:** P2, P3. Assumption: A8 (one idempotency key on every instance, #825).
+  `IdempotencyError.KeyConflict`, and nothing is sent.
+- **Guarantee:** P2, P3. Assumption: A8 (one idempotency secret on every instance, #825).
 - **Boundary:** make the business key from the order the execution works on, never from text the
   model wrote. An approval (a pause) or a tool interceptor can stop a charge the model should not
   make; the key only makes it once.
@@ -246,11 +245,11 @@ A double click, an HTTP request retried by a proxy, two threads of one customer.
 - **Wrong:** a step-keyed charge in each execution: two charges.
 - **AGBoss:** the same business key in both. The second finds the first's intent:
   - completed: the first's receipt (`Replayed`, with `replayedFrom` naming who made it);
-  - pending under a lease still live on another pod: `OutboundCallInFlightError`, nothing sent;
-  - pending under a lease that ended: it reconciles, and only the winner of the compare-and-set
+  - pending under a lease still live on another pod: `OutboundCallError.InFlight`, nothing sent;
+  - pending under a lease that ended: it recovers, and only the winner of the compare-and-set
     sends.
 - **Guarantee:** P2, P3. Assumptions: A1, A8.
-- **Boundary:** route `OutboundCallInFlightError` to an answer like "payment in progress". Never
+- **Boundary:** route `OutboundCallError.InFlight` to an answer like "payment in progress". Never
   route it to a new charge.
 - **Proof:** `s10-one-order-two-executions`. Full example: `ps8`.
 
@@ -264,13 +263,13 @@ balance.
 - **AGBoss:**
   - The same charge made by two branches: one business key, so one charge.
   - Two distinct charges against one balance: the business row's own constraint, checked inside
-    the fenced effect's transaction (A11), refuses the one that would exceed it.
+    the idempotent write's transaction (A11), refuses the one that would exceed it.
   - Each branch's fence is its own (`fence.scopeKey`); key no fencing mark by a shared business
     row.
 - **Guarantee:** P2. Assumption: A11.
 - **Boundary:** the aggregate's invariant (a balance, a limit) is the application's: "a shared
   aggregate needs its own locking" (Several instances → Fencing external writes).
-- **Proof:** none in the core for the aggregate's invariant; the fenced effect's contract cases.
+- **Proof:** none in the core for the aggregate's invariant; the idempotent write's contract cases.
   Full example: `ps9`.
 
 ### PS10. A saga: a charge and its refund, each replayed or interrupted
@@ -314,7 +313,7 @@ The card is declined. The customer tries another card for the same order.
 - **Wrong:** a new business key for every try: a try that timed out and was in fact charged is
   charged again by the next try.
 - **AGBoss:** the same business key with another request is another fingerprint:
-  `BusinessKeyConflictError`, refused, nothing sent.
+  `IdempotencyError.KeyConflict`, refused, nothing sent.
 - **Guarantee:** P2.
 - **Boundary:** the application numbers payment attempts on its order row (`order:42:attempt:2`).
   It moves to the next attempt only once the previous one is **known** to be declined, never after
@@ -359,43 +358,41 @@ weekend, an operator's retry, a customer paying again the next day.
 
 - **Wrong:** rely on the gateway's key alone: past its retention, a repeat is a new charge.
 - **AGBoss:**
-  - A `Completed` intent replays the stored receipt for `retention.outboundCalls` (default
-    `hours(168)`), and nothing reaches the gateway.
-  - A `Pending` intent is never removed, and is reconciled by lookup.
+  - A `Completed` intent replays the stored receipt for the call's `ttl`, and nothing reaches the gateway.
+  - A `Pending` intent is never removed, and is recovered by lookup.
   - **An error of unknown outcome is never resent blindly** (#657): a 5xx, a reset connection, the
     SDK's timeout leave the intent `Pending`, so a retry days later — after the gateway forgot the
-    key — asks `reconcile` first (PS1). Only a definite failure (`isDefiniteFailure`) is `Failed`
+    key — runs its `recovery` first (PS1). Only a definite failure (`isDefiniteFailure`) is `Failed`
     and sent again under the same key, at any age: it moved no money.
-  - **A replay past the key's retention is never sent by itself** (#658): `reconcile` is told when
+  - **A replay past the key's retention is never sent by itself** (#658): the lookup is told when
     the pending attempt started (`lookup.attemptStartedAt`) and how old the key is
     (`lookup.keyAge`, from the first attempt), on the store's clock — the database's own on
-    PostgreSQL, the same on every pod and after a takeover. A call that declares its `notSent()` a
-    replay of the key — `notSent: { trust: NotSentTrust.KeyReplay, keyRetention }`, the gateway's
-    retention (Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`) — sends a
-    `notSent()` again only while `keyAge + attemptTimeout` is below it; past it, or with the age
-    unknown, nothing is sent: `OutboundCallUnreconciledError`, the intent pending for an operator.
+    PostgreSQL, the same on every pod and after a takeover. A call that declares the key's replay — `recovery: OutboundRecovery.replayWithin(window)` or `lookupWithin(window, …)`, the gateway's
+    retention (Stripe `hours(24)`, Checkout.com `hours(72)`, Adyen `hours(168)`) — sends
+    again only while `keyAge + timeout` is below the window; past it, or with the age
+    unknown, nothing is sent: `OutboundCallError.Unreconciled`, the intent pending for an operator.
 - **Guarantee:** P3. Assumptions: A7 (G3), A12 (retention), A15 (honest classification) and A16
-  (`keyRetention` at most the gateway's documented minimum, declared with `NotSentTrust.KeyReplay`
-  wherever `notSent()` relies on a replay — every call says its trust, #795).
+  (the window at most the gateway's documented minimum, declared with `replayWithin` or `lookupWithin`
+  wherever a resend relies on a replay — every call says its recovery, #795).
 - **Boundary:**
   - Past both the gateway's retention and AGBoss's, a repeat is a new charge, unless the
     application's order row refuses it: keep a unique "paid" record per order, written in the
-    fenced effect's transaction.
-  - Reconcile by the merchant reference, which does not expire, not only by the key. A lookup that
-    proves the payment never arrived may answer `notSent()` at any age (`NotSentTrust.Lookup`); one
-    that only replays the key declares `NotSentTrust.KeyReplay` with its `keyRetention`. After the refusal, a person decides (the gateway's dashboard,
+    `runOnce` transaction.
+  - Look up by the merchant reference, which does not expire, not only by the key. A lookup that
+    proves the payment never arrived may answer `notExecuted()` at any age (`OutboundRecovery.permanentLookup`); one
+    that only replays the key declares `OutboundRecovery.replayWithin(window)`. After the refusal, a person decides (the gateway's dashboard,
     its reports, a webhook stored by your code).
-  - A `keyRetention` longer than the gateway's real one, or a replay-only gateway's `notSent()`
-    trusted as a `Lookup`, brings the second charge back (A16).
+  - A window longer than the gateway's real one, or a replay-only gateway's `notExecuted()`
+    trusted as a `permanentLookup`, brings the second charge back (A16).
 - **Proof:** `s15-key-expired-not-resent` — a pod killed with its answer in flight on a gateway with
   no lookup, the key expired before the takeover: the next pod is told the key's age and sends
   nothing; its sabotage (`s15-sabotage-replay-trusted-as-lookup`, the replay trusted as a lookup) pays twice, on SQLite and PostgreSQL;
   `s14-ambiguous-answer-reconciled` (PS1); `tests/app/outbound-call-key-age.test.ts` (the edge:
-  `keyAge + attemptTimeout` one millisecond below the retention resends, equal refuses; an instance
+  `keyAge + timeout` one millisecond below the window resends, equal refuses; an instance
   two days ahead reads the same age); the times on every store, `outboundCallContract` → times, and
   on PostgreSQL's database time, agbossjs/postgres `tests/stores/outbound-call-times.test.ts`.
   `paymentGatewayChecklist` probes G3. Full example: `ps17` — (c) the late retry after a `502`
-  and (d) the replay-only gateway's recovery past `keyRetention` asserted exactly once, as `ps6 …
+  and (d) the replay-only gateway's recovery past the recovery window asserted exactly once, as `ps6 …
   late` on every level; on the gateways' SDKs, `12-payment-gateways` → Checkout.com `ps17c` and
   Adyen `ps17d`.
 
@@ -432,7 +429,7 @@ The customer cancels (void) while fulfilment captures the same authorization.
   voided is never refunded.
 - **AGBoss:** one business key for the authorization's outcome, `disposition:<authorization>`, with
   the action in the request. The second action is another fingerprint:
-  `BusinessKeyConflictError`, and its execution takes the other route (a refund after a
+  `IdempotencyError.KeyConflict`, and its execution takes the other route (a refund after a
   capture).
 - **Guarantee:** P2, P3.
 - **Boundary:** without such a key, the gateway's own state machine decides (a void after a capture
@@ -461,7 +458,7 @@ The gateway receives a second request with the same key while the first is still
 - **Wrong:** two senders of one attempt, each sure the other is gone: a gateway that does not
   hold the second request until the first ends can charge twice.
 - **AGBoss:** sends one attempt per claim (a compare-and-set). Two requests under one key at once
-  happen only in A6's window (a send hung past `attemptTimeout` plus the lease) or from another
+  happen only in A6's window (a send hung past its `timeout` plus the lease) or from another
   system.
 - **Guarantee:** P3. Assumption: A6.
 - **Boundary:** the gateway's own answer to a concurrent duplicate (some document a `409`, see
@@ -478,14 +475,14 @@ keeps a regression test in the core.
 | # | Race | Fixed by |
 | --- | --- | --- |
 | R15 | Two executions with one business key both read a `Failed` (or dead-lease `Pending`) intent and both send a new attempt | A compare-and-set on status, attempt and attempt owner, in one fenced transaction |
-| R16 | A concurrent call with the same business key and another amount joins the one in flight and gets its receipt | Joining only on an equal fingerprint; otherwise `BusinessKeyConflictError` |
+| R16 | A concurrent call with the same business key and another amount joins the one in flight and gets its receipt | Joining only on an equal fingerprint; otherwise `IdempotencyError.KeyConflict` |
 | R17 | Personal data and business keys in stored intents, results, failure texts and errors | Masking at write with the calling frame's policies (fails closed); business keys named by an HMAC handle |
 | R18 | The lease released on a cancel while a step body that ignores its signal is still sending | A holder releases its lease only once the attempts under it settled |
 | R19 | An expired lease renewed back to life after another pod acted on "expired" | Renewals check expiry; `leaseStateOf` closes an expired lease in the same atomic step |
-| R20 | A lost completion (a superseded attempt) silently reported as sent | `OutboundCallSupersededError` failing the step (#795) and `outbound-call.superseded` on the log |
+| R20 | A lost completion (a superseded attempt) silently reported as sent | `OutboundCallError.Superseded` failing the step (#795) and `outbound-call.superseded` on the log |
 | R21 | A gateway key built from unescaped parts: two calls share one key | The tenant and business key URI-encoded in `call.idempotencyKey` |
-| R22 | A send that never returns holds the lease and the shutdown forever | Bounded by `attemptTimeout` and the stop; then renewals stop and a takeover decides |
-| R23 | A same-holder reclaim bumps the token, so an attempt still sending looks dead | A holder never yields its lease while an attempt under it sends (up to the `attemptTimeout` bound), so no reclaim moves the token under a live send |
-| R24 | A replayed call whose result could not be stored returns a marker as the gateway's result | `OutboundCallResultNotStoredError`, nothing sent, the marker never returned |
-| R25 | An SDK error of unknown outcome (a 5xx after the charge, a reset, a client timeout) recorded `Failed` and resent with the same key: a second charge once the gateway forgot the key (#657) | Only `isDefiniteFailure(error) === true` is `Failed`; anything else stays `Pending` and is reconciled first |
-| R26 | `reconcile` not told how old the key is: on a replay-only gateway a `notSent()` after the key expired is a second charge (#658) | `lookup.attemptStartedAt` / `keyAge` on the store's clock; a `KeyReplay`'s `notSent()` past its `keyRetention` is refused, nothing sent; every call declares its trust (#795) |
+| R22 | A send that never returns holds the lease and the shutdown forever | Bounded by the call's `timeout` and the stop; then renewals stop and a takeover decides |
+| R23 | A same-holder reclaim bumps the token, so an attempt still sending looks dead | A holder never yields its lease while an attempt under it sends (up to the call's `timeout` bound), so no reclaim moves the token under a live send |
+| R24 | A replayed call whose result could not be stored returns a marker as the gateway's result | `OutboundCallError.ResultNotStored`, nothing sent, the marker never returned |
+| R25 | An SDK error of unknown outcome (a 5xx after the charge, a reset, a client timeout) recorded `Failed` and resent with the same key: a second charge once the gateway forgot the key (#657) | Only `isDefiniteFailure(error) === true` is `Failed`; anything else stays `Pending` and is recovered first |
+| R26 | A recovery not told how old the key is: on a replay-only gateway a resend after the key expired is a second charge (#658) | `lookup.attemptStartedAt` / `keyAge` on the store's clock; a replay's resend past its window is refused, nothing sent; every call declares its recovery (#795) |

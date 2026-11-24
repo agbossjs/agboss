@@ -1,9 +1,10 @@
 /**
- * #809 — the A2A v1.0 client inside an execution: the accept round trip through `OutboundCalls`
+ * #809 — the A2A v1.0 client inside an execution: the accept round trip through `Idempotency.sendOnce`
  * (an ambiguous send resent with the same messageId to an AGBoss peer, never to a foreign one), the
  * mesh envelope on the message (the call chain refused at a loop and past the hop limit, the budget
  * passed down), the deadline's cancel and the local price.
  */
+import { OutboundCallError } from "../../../src/core/error-families/effect-errors.js";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   A2ACallDeadlineError,
@@ -12,7 +13,6 @@ import {
   A2AMesh,
   A2AMeshUnsupportedError,
 } from "../../../src/a2a/index.js";
-import { OutboundCallUnreconciledError } from "../../../src/app/outbound-calls.js";
 import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import type { App } from "../../../src/app/types.js";
 import { hours, seconds, usd } from "../../../src/units/index.js";
@@ -36,7 +36,7 @@ const caller = async (spec: Parameters<typeof callerOf>[0]) => {
 const AGBOSS = { idempotencyRetention: hours(24) };
 const PEER = { application: "peer-application", skill: "ask-workflow-start" };
 
-describe("#809: the accept round trip through OutboundCalls", () => {
+describe("#809: the accept round trip through Idempotency.sendOnce", () => {
   it("an ambiguous send to an AGBoss peer is resent with the same messageId: one task", async () => {
     const agent = new SdkAgent({
       script: scripts.completeWith({ data: { text: "paid" } }),
@@ -54,7 +54,7 @@ describe("#809: the accept round trip through OutboundCalls", () => {
     expect(replies).toEqual([{ text: "paid" }]);
   });
 
-  it("an ambiguous send to a foreign peer is never resent: OutboundCallUnreconciledError", async () => {
+  it("an ambiguous send to a foreign peer is never resent: OutboundCallError.Unreconciled", async () => {
     const agent = new SdkAgent({ script: scripts.completeWith({ data: { text: "paid" } }) });
     agent.loseSendAnswers = 1;
     const { ask, errors } = await caller({ agent });
@@ -62,9 +62,9 @@ describe("#809: the accept round trip through OutboundCalls", () => {
     await ask("is invoice 7 paid?").catch(() => undefined);
 
     expect(agent.count("SendMessage")).toBe(1); // nothing sent again
-    expect(errors[0]).toBeInstanceOf(OutboundCallUnreconciledError);
-    expect((errors[0] as OutboundCallUnreconciledError).reason).toBe("reconcile.unknown");
-    expect((errors[0] as OutboundCallUnreconciledError).detail).toMatch(/foreign A2A peer/);
+    expect(errors[0]).toBeInstanceOf(OutboundCallError.Unreconciled);
+    expect((errors[0] as OutboundCallError.Unreconciled).reason).toBe("reconcile.unknown");
+    expect((errors[0] as OutboundCallError.Unreconciled).detail).toMatch(/foreign A2A peer/);
   });
 
   it("the messageId is the call's: the same on every attempt, another for another step", async () => {

@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { EXPIRY_EDGE_OFFSET, EXPIRY_EDGES, ExpiryEdge } from "./execution-lease-expiry.cases.js";
@@ -33,7 +33,7 @@ const writeAt = <TTransaction>(
       const outcome = first.effects.runOnce(keyOf(lease), writing(first.rows, "r1", count));
 
       if (isRun) {
-        expect(await outcome).toMatchObject({ status: FencedEffectStatus.Ran, token: 1 });
+        expect(await outcome).toMatchObject({ status: IdempotencyRunStatus.Ran, token: 1 });
         expect(await second.rows.committed()).toEqual(["r1"]);
         return;
       }
@@ -44,7 +44,7 @@ const writeAt = <TTransaction>(
       expect(await second.rows.committed()).toEqual([]);
       const next = await leaseOf(second, "execution-1", seconds(30));
       const ran = await second.effects.runOnce(keyOf(next), writing(second.rows, "r2", count));
-      expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: 2 });
+      expect(ran).toMatchObject({ status: IdempotencyRunStatus.Ran, token: 2 });
     },
   };
 };
@@ -75,7 +75,7 @@ const replayAt = <TTransaction>(
 
       if (isReplayed)
         expect(await again).toMatchObject({
-          status: FencedEffectStatus.Replayed,
+          status: IdempotencyRunStatus.Replayed,
           result: { receipt: "r1" },
         });
       else expect(await rejectionOf(again)).toBeInstanceOf(ExecutionFencedError);

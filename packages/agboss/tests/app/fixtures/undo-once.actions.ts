@@ -7,7 +7,6 @@ import {
   Injectable,
   Observer,
   SpendRecorder,
-  effectKeyOf,
   oneOf,
   variant,
   type ExecutionEndEvent,
@@ -15,6 +14,7 @@ import {
   type ExecutionLeaseTakeoverEvent,
   type Produced,
 } from "../../../src/index.js";
+import { effectKeyOf } from "../../../src/stores/index.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import type {
   ExecutionTree,

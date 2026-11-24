@@ -1,7 +1,7 @@
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
 import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { InvalidFencedEffectNameError } from "../../infrastructure/fenced-effect-key.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { hours, seconds } from "../../units/index.js";
@@ -161,7 +161,7 @@ const retentionKeepsPending: OutboundCallCase = {
 };
 
 const badNameRefused: OutboundCallCase = {
-  name: "#508: a key built by hand with an invalid name (a ':', empty, above 100) is refused at every method — InvalidFencedEffectNameError, nothing written",
+  name: "#508: a key built by hand with an invalid name (a ':', empty, above 100) is refused at every method — IdempotencyError.InvalidName, nothing written",
   run: async ({ first }) => {
     const lease = await leaseOf(first);
     for (const name of ["charge:twice", "", "x".repeat(101)]) {
@@ -172,7 +172,7 @@ const badNameRefused: OutboundCallCase = {
         ...FENCED_CALLS.slice(2).map(([, call]) => call(first, key)),
       ];
       for (const call of calls)
-        expect(await rejectionOf(call)).toBeInstanceOf(InvalidFencedEffectNameError);
+        expect(await rejectionOf(call)).toBeInstanceOf(IdempotencyError.InvalidName);
     }
     expect(await first.calls.findAllByTenantIdAndRootExecutionId("default", "execution-1")).toEqual(
       [],

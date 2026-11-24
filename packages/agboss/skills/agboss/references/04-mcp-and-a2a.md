@@ -399,11 +399,11 @@ export class SupportApplication {}
   `agentCard()`. A call that gives nothing usable (a COMPLETED task without output) is
   `A2ARemoteCallError` (was `A2ARemoteError`). Without both DTOs (or `new A2AClient({ url, contract: { skill, input, output } })`,
   `A2AClientContract`) `execute` throws `[a2a.no-contract]`.
-- The accept round trip runs through `OutboundCalls` inside an execution: `SendMessage` with
+- The accept round trip runs through `Idempotency.sendOnce` inside an execution: `SendMessage` with
   `returnImmediately`, a messageId derived from the step's key. A send of unknown outcome (no answer, a
   5xx) is resent with the same messageId only to an **AGBoss peer** (its card's mesh extension declares
-  `idempotencyRetention`, `NotSentTrust.KeyReplay`); to a **foreign peer** it is never resent:
-  `OutboundCallUnreconciledError`. Two calls of one step with other messages need `call.key`
+  `idempotencyRetention`, `OutboundRecovery.replayWithin`); to a **foreign peer** it is never resent:
+  `OutboundCallError.Unreconciled`. Two calls of one step with other messages need `call.key`
   (`[a2a.repeated-call]`; 1–40 of `[A-Za-z0-9._-]`). The peer's trust is recorded with the call (a
   card that changed since is never resent to); a foreign reply counts as arrived only when the
   task's history holds its messageId; a step of no composed application (a unit runner's) is
@@ -575,7 +575,7 @@ export class LookupA2AExpose {}
 ```
 
 - The workflow must be stateless, checked at assembly on every node: no pause (`[a2a.message-skill-pause]`),
-  no fenced effect, `OutboundCalls` or `@A2AAgent` among its `deps` at any depth (`-effect`), only
+  no `Idempotency` or `@A2AAgent` among its `deps` at any depth (`-effect`), only
   `@Tool({ readOnly: true })` tools (`-tool`), no compensation (`-compensation`), no child workflow
   (`-child`); a `reply` set for a start the expose does not export, or a `defaultSkill` that is no
   export, is `[a2a.unknown-skill-option]`.
@@ -903,7 +903,7 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 | `A2AProtocolError … declares A2A 0.3`                          | the agent speaks A2A v0.3 only: 0.1.1 calls v1.0 agents                                              |
 | `A2AOriginError` (`a2a.origin-refused`)                        | the card names an interface on another origin: list it in `allowedOrigins` if it is the agent's      |
 | `A2AMeshUnsupportedError`                                      | the AGBoss target does not declare the mesh: `mesh: A2AMesh.IfSupported`, or fix its card            |
-| `OutboundCallUnreconciledError` (`foreign A2A peer`)           | a send to a foreign agent got no answer: check the agent, then decide (`app.pendingOutboundCallsOf`) |
+| `OutboundCallError.Unreconciled` (`foreign A2A peer`)          | a send to a foreign agent got no answer: check the agent, then decide (`app.pendingOutboundCallsOf`) |
 | `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                                          |
 | `[a2a.no-contract]`                                            | `execute` on a client without `@A2AAgent({ input, output })`: declare them, or use `send`            |
 | `[application.expose-unlisted]`                                | list the `@A2AExpose` in `@Application({ exposes })`                                                 |

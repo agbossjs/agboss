@@ -1,6 +1,8 @@
 import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
 import type { Bytes } from "../../units/index.js";
 import type { DtoIssue } from "../../dto/errors.js";
+import type { KeyTextRule } from "../errors.js";
+export { OutboundCallError, OutboundCallErrorKind } from "./outbound-call-errors.js";
 
 /** The kinds of `IdempotencyError`: `switch (error.kind)` is exhaustive. */
 export enum IdempotencyErrorKind {
@@ -37,39 +39,73 @@ export declare namespace IdempotencyError {
   export type KeyConflict = ErrorVariant<
     IdempotencyErrorKind.KeyConflict,
     "idempotency.key-conflict"
-  >;
+  > & {
+    /** The effect's or the call's name. */
+    readonly effect: string;
+    /** The business key's handle, when one could be made: never the key. */
+    readonly businessKeyHash?: string | undefined;
+  };
   /** The business key is not a key. */
-  export type InvalidKey = ErrorVariant<IdempotencyErrorKind.InvalidKey, "idempotency.invalid-key">;
+  export type InvalidKey = ErrorVariant<
+    IdempotencyErrorKind.InvalidKey,
+    "idempotency.invalid-key"
+  > & {
+    /** The effect's or the call's name, when the key was one of an effect. */
+    readonly effect?: string | undefined;
+    /** The rule of a key's text it breaks, when it is one: never the key. */
+    readonly rule?: KeyTextRule | undefined;
+  };
   /** The effect's name is not valid. */
   export type InvalidName = ErrorVariant<
     IdempotencyErrorKind.InvalidName,
     "idempotency.invalid-name"
-  >;
+  > & {
+    /** How many characters the name has: never the name. */
+    readonly length: number;
+  };
   /** The effect needs a fingerprint. */
   export type FingerprintRequired = ErrorVariant<
     IdempotencyErrorKind.FingerprintRequired,
     "idempotency.fingerprint-required"
-  >;
+  > & {
+    readonly effect: string;
+    /** `"missing"`: neither a fingerprint nor `withoutFingerprint`; `"contradictory"`: both. */
+    readonly reason: "missing" | "contradictory";
+  };
   /** The fingerprint is not JSON. */
   export type FingerprintNotJson = ErrorVariant<
     IdempotencyErrorKind.FingerprintNotJson,
     "idempotency.fingerprint-not-json"
-  >;
+  > & {
+    readonly effect: string;
+    /** Where in the fingerprint (`$.order.placedAt`). */
+    readonly path: string;
+    /** What is there instead of plain JSON (`a Date`), never its value. */
+    readonly reason: string;
+  };
   /** The idempotency secret is missing. */
   export type SecretKeyMissing = ErrorVariant<
     IdempotencyErrorKind.SecretKeyMissing,
     "idempotency.secret-key-missing"
-  >;
+  > & {
+    /** The effect (or call) whose fingerprint needed the key. */
+    readonly effect: string;
+  };
   /** The effect's result is over the size a store keeps. */
   export type ResultTooLarge = ErrorVariant<
     IdempotencyErrorKind.ResultTooLarge,
     "idempotency.result-too-large"
-  > & { readonly size: Bytes; readonly maxResultSize: Bytes };
+  > & { readonly effect: string; readonly size: Bytes; readonly maxResultSize: Bytes };
   /** The effect's store is not the one the execution runs on. */
   export type StoreMismatch = ErrorVariant<
     IdempotencyErrorKind.StoreMismatch,
     "idempotency.store-mismatch"
-  >;
+  > & {
+    readonly fencedEffectRepository: string;
+    readonly leaseRepository: string;
+    /** The lease store the effect's store reads its leases from. */
+    readonly expectedLeaseRepository: string;
+  };
   /** The effect needs a transaction and has none. */
   export type OutsideTransaction = ErrorVariant<
     IdempotencyErrorKind.OutsideTransaction,
@@ -119,87 +155,6 @@ export const IdempotencyError: FamilyConstructor<
     OutsideTransaction: ["the effect needs a transaction and has none"],
     NestedRunOnce: ["runOnce was called inside a runOnce"],
     ExternalCallInTransaction: ["an external call was made inside a transaction"],
-  },
-});
-
-/** The kinds of `OutboundCallError`: `switch (error.kind)` is exhaustive. */
-export enum OutboundCallErrorKind {
-  InFlight = "in-flight",
-  Superseded = "superseded",
-  Unreconciled = "unreconciled",
-  ResultNotStored = "result-not-stored",
-  PayloadTooLarge = "payload-too-large",
-  Unmasked = "unmasked",
-  InvalidRecovery = "invalid-recovery",
-}
-
-/** An outbound call to an external system was refused, is in flight, or cannot be settled. */
-export type OutboundCallError =
-  | OutboundCallError.InFlight
-  | OutboundCallError.Superseded
-  | OutboundCallError.Unreconciled
-  | OutboundCallError.ResultNotStored
-  | OutboundCallError.PayloadTooLarge
-  | OutboundCallError.Unmasked
-  | OutboundCallError.InvalidRecovery;
-
-/** The variants of `OutboundCallError`, each with the facts it carries. */
-export declare namespace OutboundCallError {
-  /** The call is in flight on another pass. */
-  export type InFlight = ErrorVariant<OutboundCallErrorKind.InFlight, "outbound-call.in-flight">;
-  /** The call was superseded by a newer pass. */
-  export type Superseded = ErrorVariant<
-    OutboundCallErrorKind.Superseded,
-    "outbound-call.superseded"
-  >;
-  /** The call's outcome is not known and has to be reconciled. */
-  export type Unreconciled = ErrorVariant<
-    OutboundCallErrorKind.Unreconciled,
-    "outbound-call.unreconciled"
-  >;
-  /** The call's result was not stored. */
-  export type ResultNotStored = ErrorVariant<
-    OutboundCallErrorKind.ResultNotStored,
-    "outbound-call.result-not-stored"
-  >;
-  /** The call's payload is over the size a store keeps. */
-  export type PayloadTooLarge = ErrorVariant<
-    OutboundCallErrorKind.PayloadTooLarge,
-    "outbound-call.payload-too-large"
-  > & { readonly size: Bytes; readonly maxPayloadSize: Bytes };
-  /** The call's payload was not masked. */
-  export type Unmasked = ErrorVariant<OutboundCallErrorKind.Unmasked, "outbound-call.unmasked">;
-  /** The call's recovery answer is not valid. */
-  export type InvalidRecovery = ErrorVariant<
-    OutboundCallErrorKind.InvalidRecovery,
-    "outbound-call.invalid-recovery"
-  >;
-}
-
-/** `OutboundCallError`: the family's constructor and its variants'. */
-export const OutboundCallError: FamilyConstructor<
-  OutboundCallError,
-  {
-    InFlight: OutboundCallError.InFlight;
-    Superseded: OutboundCallError.Superseded;
-    Unreconciled: OutboundCallError.Unreconciled;
-    ResultNotStored: OutboundCallError.ResultNotStored;
-    PayloadTooLarge: OutboundCallError.PayloadTooLarge;
-    Unmasked: OutboundCallError.Unmasked;
-    InvalidRecovery: OutboundCallError.InvalidRecovery;
-  }
-> = defineFamily({
-  name: "OutboundCallError",
-  code: "outbound-call",
-  kinds: OutboundCallErrorKind,
-  variants: {
-    InFlight: ["the call is in flight on another pass"],
-    Superseded: ["the call was superseded by a newer pass"],
-    Unreconciled: ["the call's outcome is not known and has to be reconciled"],
-    ResultNotStored: ["the call's result was not stored"],
-    PayloadTooLarge: ["the call's payload is over the size a store keeps"],
-    Unmasked: ["the call's payload was not masked"],
-    InvalidRecovery: ["the call's recovery answer is not valid"],
   },
 });
 

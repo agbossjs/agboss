@@ -17,12 +17,11 @@ describe("#834 AC1: one retention group", () => {
     expectTypeOf<ApplicationOptions>().not.toHaveProperty("auditLogRetention");
     expectTypeOf<ApplicationOptions>().not.toHaveProperty("ledgerEntryRetention");
     expectTypeOf<ApplicationOptions>().not.toHaveProperty("a2a");
-    expectTypeOf<NonNullable<ApplicationOptions["fencedEffects"]>>().not.toHaveProperty(
-      "retention",
-    );
-    expectTypeOf<NonNullable<ApplicationOptions["outboundCalls"]>>().not.toHaveProperty(
-      "retention",
-    );
+    // #1317: the settings of fenced effects and outbound calls are options of each call now
+    expectTypeOf<ApplicationOptions>().not.toHaveProperty("fencedEffects");
+    expectTypeOf<ApplicationOptions>().not.toHaveProperty("outboundCalls");
+    expectTypeOf<ApplicationOptions>().not.toHaveProperty("idempotencyKeyField");
+    expectTypeOf<ApplicationOptions>().not.toHaveProperty("previousIdempotencyKeyField");
     expectTypeOf<NonNullable<ApplicationOptions["mesh"]>>().not.toHaveProperty(
       "idempotencyRetention",
     );

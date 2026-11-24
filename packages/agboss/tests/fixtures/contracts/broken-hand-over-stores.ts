@@ -13,12 +13,11 @@ import {
   replayedFromOf,
   storedKeyFactsOf,
 } from "../../../src/infrastructure/fenced-effect-key.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import {
   FencedEffectRepository,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type EffectKey,
-  type FencedEffectOutcome,
+  type IdempotencyRunOutcome,
   type FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
 import {
@@ -56,7 +55,7 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
     private readonly seam: InstanceSeam,
     private readonly results: Map<string, Stored>,
   ) {
-    super(new FencedEffectSettings());
+    super();
   }
 
   ping(): Promise<void> {
@@ -72,7 +71,7 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
   protected runInTransaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<DeferredTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     const lock = key.businessKey === undefined ? key.scopeKey : effectKeyIdentityOf(key);
     const tails = queues.get(this.results) ?? new Map<string, Promise<unknown>>();
     queues.set(this.results, tails);
@@ -87,7 +86,7 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
   async #transaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<DeferredTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     // the lease checked once, before the work — a read that locks nothing
     checkInMemoryFence(this.seam.database, this.seam.storeClock, key);
     raiseInMemoryMark(this.seam.database, this.seam.storeClock, key);
@@ -96,7 +95,7 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
     if (found !== undefined) {
       const replayedFrom = replayedFromOf(key, found);
       return {
-        status: FencedEffectStatus.Replayed,
+        status: IdempotencyRunStatus.Replayed,
         result: JSON.parse(found.result) as TResult,
         token: found.token,
         ...(replayedFrom === undefined ? {} : { replayedFrom }),
@@ -111,7 +110,7 @@ export class UnlockedCheckEffects extends FencedEffectRepository<DeferredTransac
     this.results.set(row, { token: key.token, storedAt, result: text, ...storedKeyFactsOf(key) });
     for (const write of transaction.writes) write();
     return {
-      status: FencedEffectStatus.Ran,
+      status: IdempotencyRunStatus.Ran,
       result: JSON.parse(text) as TResult,
       token: key.token,
     };

@@ -9,8 +9,7 @@ import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { ExecutionFencedError } from "../../../src/app/lease-lost.js";
-import { FencedEffectStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
+import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import {
@@ -34,11 +33,7 @@ function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
     environmentName: "test",
     environment: NO_ENVIRONMENT_VALUES,
   });
-  const effects = new SqliteFencedEffectRepository(
-    connection,
-    storeClockOf(clock),
-    new FencedEffectSettings(),
-  );
+  const effects = new SqliteFencedEffectRepository(connection, storeClockOf(clock));
   const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
   return { clock, connection, effects, leases };
 }
@@ -150,11 +145,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
 
   it("creates the leases' table it reads: alone on a file it refuses, nothing to read yet", async () => {
     const connection = connectionTo(temporarySqlitePath());
-    const effects = new SqliteFencedEffectRepository(
-      connection,
-      storeClockOf(new VirtualClock()),
-      new FencedEffectSettings(),
-    );
+    const effects = new SqliteFencedEffectRepository(connection, storeClockOf(new VirtualClock()));
     const key = effectKeyForTesting(
       keyOf({
         tenantId: "default",
@@ -180,7 +171,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
     const replayed = await stores.effects.runOnce(keyOf(lease, "text"), () => "other");
     const nothing = await stores.effects.runOnce(keyOf(lease, "none"), () => null);
 
-    expect(ran).toEqual({ status: FencedEffectStatus.Ran, result: "receipt-1", token: 1 });
+    expect(ran).toEqual({ status: IdempotencyRunStatus.Ran, result: "receipt-1", token: 1 });
     expect(replayed.result).toBe("receipt-1");
     expect(nothing.result).toBeNull();
   });

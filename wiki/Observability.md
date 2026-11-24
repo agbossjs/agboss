@@ -101,7 +101,7 @@ filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 | `onCompensationStart` / `onCompensationEnd` | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo)) |
 | `onExecutionLeaseTakeover`                | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501)) |
 | `onStepHandedOver`                        | `StepHandedOverEvent` (step, reason, site, scope key, holder, token, observedToken — [below](#hand-overs-501)) |
-| `onFencedEffect`                          | `FencedEffectEvent` (step, name, scope key, token, outcome, writtenToken, observedToken — [below](#fenced-effects-501)) |
+| `onIdempotencyRun`                        | `IdempotencyRunEvent` (step, name, scope key, token, outcome, writtenToken, observedToken — [below](#idempotent-writes-501)) |
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
@@ -355,12 +355,12 @@ export class ZombieWriteAlert {
 }
 ```
 
-## Fenced effects (#501)
+## Idempotent writes (#501)
 
-Each call of a step's fenced effect (`FencedEffectRepository.runOnce`, #500 —
-[Several instances](Several-instances#the-fenced-effect-500)) is told by `onFencedEffect`:
-`FencedEffectEvent` is a node event — the step that called it — with the effect's `name`, the
-call's `scopeKey` and `token`, `outcome` (`FencedEffectEventOutcome.Ran`, `Replayed` — the stored
+Each call of a step's `Idempotency.runOnce` (#500 —
+[Several instances](Several-instances#the-fenced-effect-500)) is told by `onIdempotencyRun`:
+`IdempotencyRunEvent` is a node event — the step that called it — with the effect's `name`, the
+call's `scopeKey` and `token`, `outcome` (`IdempotencyRunEventOutcome.Ran`, `Replayed` — the stored
 result came back, nothing written again —, `Joined`, `Refused` — the lease or the scope's mark
 refused it), `writtenToken` (the token the result was first written under) and `observedToken`
 (the newer token behind a refusal), and `holderInstanceId`. Never the result. A write that fails
@@ -369,16 +369,16 @@ first, in the lease's order: a refused call before the hand-over it causes.
 
 ## Outbound calls (#505)
 
-Each move of a step's call that leaves the system (`OutboundCalls.send` —
+Each move of a step's call that leaves the system (`Idempotency.sendOnce` —
 [Several instances](Several-instances#calls-that-leave-the-system-505)) is told by `onOutboundCall`:
 `OutboundCallEvent` is a node event — the step that made the call — with the call's `name`,
 `target` and `operation`, the intent's `status` (`OutboundCallStatus`) and `attempt` after the
 move, `outcome` (`OutboundCallEventOutcome.Recorded` — the intent written, nothing sent yet —,
-`Sent`, `Replayed`, `Reconciled`, `NotSent` — `reconcile` found it never arrived, it goes out again
-—, `Unknown` — the step fails with `OutboundCallUnreconciledError` (also a `notSent()` refused past
-a `KeyReplay`'s `keyRetention`, #658) —, `Failed` — a definite failure (`isDefiniteFailure`, #657) —,
+`Sent`, `Replayed`, `Reconciled`, `NotSent` — the recovery found it never arrived (`Reconciliation.notExecuted()`), it goes out again
+—, `Unknown` — the step fails with `OutboundCallError.Unreconciled` (also a resend refused past
+the recovery's window, #658) —, `Failed` — a definite failure (`isDefiniteFailure`, #657) —,
 `Ambiguous` — `send` threw an error of unknown outcome: the intent stays pending, the next call
-reconciles it (#657) —, `Joined` — the same
+recovers it (#657) —, `Joined` — the same
 call of this instance was made meanwhile, its outcome shared), the lease's
 `scopeKey` and `token`, and `holderInstanceId`. Never the request or the result. Its
 `OutboundCall` row of the audit log is written first; an observer that throws is a warning.

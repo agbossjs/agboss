@@ -10,7 +10,7 @@ import {
   ExecutionFencedError,
   ExecutionLeaseLostError,
   FencedEffectRepository,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
 import { override, testAction, testWith } from "../../src/testing/index.js";
@@ -84,8 +84,8 @@ describe(
         expect(end?.output).toEqual({ chargeId: "charge-order-7-1" });
         expect(charges()).toEqual(["charge-order-7-1"]);
         expect(book.runs).toEqual([
-          { token: 1, status: FencedEffectStatus.Ran },
-          { token: 2, status: FencedEffectStatus.Replayed },
+          { token: 1, status: IdempotencyRunStatus.Ran },
+          { token: 2, status: IdempotencyRunStatus.Replayed },
         ]);
 
         letAllGo();
@@ -150,8 +150,8 @@ describe("#500: a unit runner's SQLite fenced effect", () => {
     expect(first.output).toEqual({ chargeId: "charge-order-1-1" });
     expect(second.output).toEqual(first.output);
     expect(book.runs.map((each) => each.status)).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Replayed,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Replayed,
     ]);
   });
 

@@ -212,7 +212,7 @@ function pairViolations(
  * stores, two listed stores of a fencing contract, and each listed fencing store — unless it opts
  * out with `LeaseCheck.WithoutDoubleChargeProtection` (the start warns) — beside the application's
  * lease store (listed, else the in-memory default). An unlisted default fencing store is checked at
- * its first call (`FencedEffectStoreMismatchError`).
+ * its first call (`IdempotencyError.StoreMismatch`).
  */
 export function storeBackendViolations(
   application: string,

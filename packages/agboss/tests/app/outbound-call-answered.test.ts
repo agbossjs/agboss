@@ -8,15 +8,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   Action,
-  ExecutionContext,
   ExecutionLeaseLostError,
+  Idempotency,
   InMemoryOutboundCallRepository,
   Injectable,
-  NotSentTrust,
   OutboundCallRepository,
-  OutboundCalls,
-  effectKeyOf,
+  OutboundRecovery,
 } from "../../src/index.js";
+import { hours, seconds } from "../../src/units/index.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { StoreClock } from "../../src/infrastructure/clock.js";
@@ -56,31 +55,33 @@ class DownOnFailedStore extends InMemoryOutboundCallRepository {
   name: "declined-twice-action",
   description: "Sends one call from two places of one step at once; the provider declines",
   input: { message: WorkflowStartTextDto },
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 class DeclinedTwiceAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
   async execute(_input: object): Promise<void> {
-    const key = effectKeyOf(this.executionContext, "charge");
     const options = {
+      name: "charge",
+      timeout: seconds(15),
+      ttl: hours(48),
       target: "payments",
       operation: "charge",
       request: { orderId: "order-2", amountUsd: 10 },
       send: (call: Parameters<PaymentGateway["charge"]>[0]) => this.paymentGateway.charge(call),
-      notSent: { trust: NotSentTrust.Lookup } as const,
-      reconcile: (lookup: Parameters<PaymentGateway["reconcile"]>[0]) =>
-        this.paymentGateway.reconcile(lookup),
+      recovery: OutboundRecovery.permanentLookup(
+        (lookup: Parameters<PaymentGateway["reconcile"]>[0]) =>
+          this.paymentGateway.reconcile(lookup),
+      ),
       isDefiniteFailure: isDeclined,
     };
     settled.push(
       ...(await Promise.allSettled([
-        this.outboundCalls.send(key, options),
-        this.outboundCalls.send(key, options),
+        this.idempotency.sendOnce(options),
+        this.idempotency.sendOnce(options),
       ])),
     );
     await Promise.resolve();
@@ -93,19 +94,20 @@ const lost = new ExecutionLeaseLostError({ rootExecutionId: "execution-1" });
   name: "handed-over-twice-action",
   description: "Two calls of one key at once; the first one's send is handed over",
   input: { message: WorkflowStartTextDto },
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 class HandedOverTwiceAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
   async execute(_input: object): Promise<void> {
-    const key = effectKeyOf(this.executionContext, "charge");
     let sends = 0;
     const options = {
+      name: "charge",
+      timeout: seconds(15),
+      ttl: hours(48),
       target: "payments",
       operation: "charge",
       request: { orderId: "order-3", amountUsd: 10 },
@@ -113,14 +115,15 @@ class HandedOverTwiceAction {
         sends += 1;
         return sends === 1 ? Promise.reject(lost) : this.paymentGateway.charge(call);
       },
-      notSent: { trust: NotSentTrust.Lookup } as const,
-      reconcile: (lookup: Parameters<PaymentGateway["reconcile"]>[0]) =>
-        this.paymentGateway.reconcile(lookup),
+      recovery: OutboundRecovery.permanentLookup(
+        (lookup: Parameters<PaymentGateway["reconcile"]>[0]) =>
+          this.paymentGateway.reconcile(lookup),
+      ),
     };
     settled.push(
       ...(await Promise.allSettled([
-        this.outboundCalls.send(key, options),
-        this.outboundCalls.send(key, options),
+        this.idempotency.sendOnce(options),
+        this.idempotency.sendOnce(options),
       ])),
     );
   }

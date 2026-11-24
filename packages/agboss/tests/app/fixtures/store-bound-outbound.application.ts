@@ -16,7 +16,6 @@ export const HeldOutboundCalls = withHoldPoints(InMemoryOutboundCallRepository);
   name: "store-bound-outbound-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

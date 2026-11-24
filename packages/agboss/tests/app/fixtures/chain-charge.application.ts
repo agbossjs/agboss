@@ -102,7 +102,6 @@ export class ChainFarChargeWorkflow {}
   name: "chain-charge-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChainNearChargeWorkflow, ChainFarChargeWorkflow],
   budgets: TEST_BUDGETS,
   piiPolicies: [EmailPiiPolicy],

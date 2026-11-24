@@ -47,7 +47,6 @@ export const DURABLE_IDS = provide(EXECUTION_ID_STORE, SqliteExecutionLeaseRepos
   name: "execution-id-store-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ReleaseWorkflow],
   budgets: TEST_BUDGETS,
   providers: [CoordinationLeases, DURABLE_IDS],

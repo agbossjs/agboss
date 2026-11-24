@@ -84,13 +84,11 @@ export type RuleCode =
   // a timer-backed duration above its documented maximum (#1141): it would fire at once
   | "limits.timeout-invalid"
   // the fenced effects' settings (#500), and their store beside its lease store
-  | "application.fenced-effects-invalid"
   | "application.store-backend-mismatch"
   | "application.store-backend-undeclared"
   // a listed store's static store that is no StoreDescriptor (#825)
   | "application.store-descriptor-invalid"
   | "application.idempotency-key-required"
-  | "application.idempotency-key-shared"
   | "application.pii-key-shared"
   // an application serving A2A keeps its tasks where its instances share them (#824)
   | "a2a.expose-description-required"
@@ -109,7 +107,6 @@ export type RuleCode =
   | "a2a.unknown-finish"
   // an @A2AAgent price that is no finite number of dollars from 0 (#1382)
   | "a2a.price-invalid"
-  | "application.outbound-calls-invalid"
   // every retention of @Application({ retention }) (#834)
   | "application.retention-invalid"
   | "mesh.signing-key-missing"

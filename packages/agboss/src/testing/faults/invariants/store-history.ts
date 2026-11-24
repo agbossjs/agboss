@@ -1,5 +1,5 @@
 import type { HistoryOperation, OperationHistory } from "../operation-history.js";
-import { FencedEffectStatus } from "../../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../../infrastructure/fenced-effect.repository.js";
 import { StoreHoldPoint } from "../store-points.js";
 
 /**
@@ -141,7 +141,7 @@ export function acceptedWritesOf(history: OperationHistory): readonly AcceptedWr
       completedAt: complete.at,
       isReplay:
         invoke.operation === StoreHoldPoint.FencedEffectWrite &&
-        (complete.output as { status?: unknown } | null)?.status === FencedEffectStatus.Replayed,
+        (complete.output as { status?: unknown } | null)?.status === IdempotencyRunStatus.Replayed,
     }));
 }
 

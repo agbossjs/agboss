@@ -6,18 +6,19 @@ import {
   BudgetScope,
   ExecutionContext,
   FencedEffectRepository,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   InMemoryFencedEffectRepository,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
   type BudgetHandler,
   type Produced,
 } from "../../../src/index.js";
+import { effectKeyOf } from "../../../src/stores/index.js";
+import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 import { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
 import { Application } from "../../../src/application/application.js";
-import { usd, type Usd } from "../../../src/units/index.js";
+import { usd, type Bytes, type Usd } from "../../../src/units/index.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
@@ -41,7 +42,7 @@ export interface ChargeRow {
 export const book = {
   charges: [] as ChargeRow[],
   /** Each run of the action: the token it ran under and how its effect went (`refused`). */
-  runs: [] as { readonly token: number; readonly status: FencedEffectStatus | "refused" }[],
+  runs: [] as { readonly token: number; readonly status: IdempotencyRunStatus | "refused" }[],
   /** What a budget's `maxSpend()` got from `effectKeyOf` (no lease is held there). */
   budgetKey: [] as unknown[],
 };
@@ -54,10 +55,11 @@ export const gates = {
 };
 
 /** How many characters pad the next receipts (a result above `maxResultSize`). */
-export const charging = { padding: 0 };
+export const charging = { padding: 0, maxResultSize: undefined as Bytes | undefined };
 
 export function resetFencedEffect(): void {
   charging.padding = 0;
+  charging.maxResultSize = undefined;
   book.charges.length = 0;
   book.runs.length = 0;
   book.budgetKey.length = 0;
@@ -117,7 +119,12 @@ export class ChargeOrderAction {
   async execute(input: {
     readonly message: Produced<WorkflowStartTextDto, unknown>;
   }): Promise<ChargeReceiptDto> {
-    const key = effectKeyOf(this.executionContext, "charge");
+    const made = effectKeyOf(this.executionContext, "charge");
+    // the largest result is the key's own (#1317): the lever of a test that pads the receipts
+    const key =
+      charging.maxResultSize === undefined
+        ? made
+        : effectKeyForTesting(made, { maxResultSize: charging.maxResultSize });
     await gate("before");
     const order = input.message.value.text;
     const outcome = await this.fencedEffects
@@ -252,7 +259,6 @@ export class DoubleChargeWorkflow {}
   name: "fenced-effect-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

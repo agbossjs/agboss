@@ -5,7 +5,7 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   ExecutionFencedError,
-  Injectable, Observer,
+  Injectable,
   Tool,
   ToolCallDecision,
   ToolInterceptor,
@@ -13,9 +13,10 @@ import {
   type ToolEndEvent,
   WorkflowFinish,
   WorkflowStart,
-  type ExecutionFence,
   type Produced,
+  Observer,
 } from "../../../src/index.js";
+import { type ExecutionFence } from "../../../src/stores/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";

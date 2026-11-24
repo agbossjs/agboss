@@ -239,7 +239,7 @@ export enum AttemptDivergenceReason {
 }
 
 // @public
-export type AuditLogHooks = Pick<ExecutionObserver, "onExecutionLeaseTakeover" | "onStepHandedOver" | "onFencedEffect" | "onOutboundCall">;
+export type AuditLogHooks = Pick<ExecutionObserver, "onExecutionLeaseTakeover" | "onStepHandedOver" | "onIdempotencyRun" | "onOutboundCall">;
 
 // @public
 export interface BlastRadiusEntry {
@@ -932,11 +932,11 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): Promise<void>;
     // (undocumented)
-    onFencedEffect(event: FencedEffectEvent): Promise<void>;
-    // (undocumented)
     onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
     // (undocumented)
     onGuardrailStart(event: GuardrailStartEvent): Promise<void>;
+    // (undocumented)
+    onIdempotencyRun(event: IdempotencyRunEvent): Promise<void>;
     // (undocumented)
     onJudgeEnd(event: JudgeEndEvent): Promise<void>;
     // (undocumented)
@@ -1743,7 +1743,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompensationEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onStepHandedOver".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onFencedEffect".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onIdempotencyRun".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onOutboundCall".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "scope".

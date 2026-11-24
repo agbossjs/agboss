@@ -1,16 +1,14 @@
 import {
   Action,
-  ExecutionContext,
-  FencedEffectRepository,
-  NotSentTrust,
-  OutboundCallReconciliation,
-  OutboundCalls,
+  Idempotency,
+  OutboundRecovery,
+  Reconciliation,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
   type Produced,
 } from "../../../src/index.js";
+import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -32,36 +30,37 @@ export const keyedUndoSeen = { booked: [] as string[], sent: [] as string[] };
   name: "keyed-refund-action",
   description: "Refunds the booking under its business key: booked once, sent once",
   input: { booking: BookingDto },
-  deps: [ExecutionContext, FencedEffectRepository, OutboundCalls],
+  deps: [Idempotency],
 })
 export class KeyedRefundAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffectRepository: FencedEffectRepository<unknown>,
-    private readonly outboundCalls: OutboundCalls,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
   async execute(input: { readonly booking: Produced<BookingDto, unknown> }): Promise<void> {
     const { bookingId } = input.booking.value;
     const businessKey = `refund:${bookingId}`;
-    const booked = effectKeyOf(this.executionContext, "book-refund", {
-      businessKey,
+    await this.idempotency.runOnce({
+      name: "book-refund",
+      key: businessKey,
       fingerprint: { bookingId },
+      ttl: hours(24),
+      execute: () => {
+        keyedUndoSeen.booked.push(bookingId);
+        return { bookingId };
+      },
     });
-    await this.fencedEffectRepository.runOnce(booked, () => {
-      keyedUndoSeen.booked.push(bookingId);
-      return { bookingId };
-    });
-    await this.outboundCalls.send(effectKeyOf(this.executionContext, "refund", { businessKey }), {
+    await this.idempotency.sendOnce({
+      name: "refund",
+      key: businessKey,
       target: "payments",
       operation: "refund",
       request: { bookingId },
+      timeout: seconds(15),
+      ttl: hours(48),
       send: () => {
         keyedUndoSeen.sent.push(bookingId);
         return { refundId: `refund-${bookingId}` };
       },
-      notSent: { trust: NotSentTrust.Lookup },
-      reconcile: () => OutboundCallReconciliation.notSent(),
+      recovery: OutboundRecovery.permanentLookup<never>(() => Reconciliation.notExecuted()),
     });
   }
 }
@@ -132,7 +131,6 @@ export class KeyedParentWorkflow {}
   name: "keyed-undo-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [KeyedUndoWorkflow, KeyedParentWorkflow],
   budgets: TEST_BUDGETS,
 })

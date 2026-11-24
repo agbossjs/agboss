@@ -13,7 +13,7 @@ import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
  * A skill that answers with a direct message (#860, `A2AReply.Message`) is stateless, checked at
  * assembly on its workflow's every node (fail closed: a node another start reaches counts too),
  * each problem once: no pause — a question step, a question role or a channel tool —
- * (`[a2a.message-skill-pause]`); no fenced effect (`FencedEffects`, `FencedEffectRepository`), outbound call or A2A call in any `deps` a node or a
+ * (`[a2a.message-skill-pause]`); no idempotent effect (`Idempotency`, `FencedEffectRepository`), outbound call or A2A call in any `deps` a node or a
  * tool reaches (`[a2a.message-skill-effect]`); only `@Tool({ readOnly: true })` tools
  * (`[a2a.message-skill-tool]`), none reaching an MCP server (`[a2a.message-skill-effect]`); no `compensateWith` / `committedBy` (`[a2a.message-skill-compensation]`);
  * no child workflow, no recursion (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's

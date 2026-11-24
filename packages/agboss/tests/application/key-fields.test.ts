@@ -1,12 +1,12 @@
 /**
- * #825 AC6, AC7 — the application's key fields. `piiKeyField`, `idempotencyKeyField` and
- * `previousIdempotencyKeyField` name `Secret` fields of the environment contract (a typo or a text
- * field does not compile; a field the contract lacks is `[environment.missing-field]` for a
- * JavaScript caller); none is another key — a model provider's `apiKey` (the built-ins'
- * `openRouterApiKey` when none is listed), the mesh's signing key, a `Secret` a listed class reads,
- * the other key fields (`[application.pii-key-shared]`, `[application.idempotency-key-shared]`); an
- * application whose components can write under a business key names an idempotency key
- * (`[application.idempotency-key-required]`).
+ * #825 AC6, AC7, #1317 — the application's key fields and the storage's idempotency key.
+ * `piiKeyField` names a `Secret` field of the environment contract (a typo or a text field does not
+ * compile; a field the contract lacks is `[environment.missing-field]` for a JavaScript caller); it
+ * is no other key — a model provider's `apiKey` (the built-ins' `openRouterApiKey` when none is
+ * listed), the mesh's signing key, a `Secret` a listed class reads (`[application.pii-key-shared]`).
+ * The idempotency key is the database storage's `idempotencySecret` (`[storage.secret-shared]` when
+ * it shares a variable): an application with a database storage whose components can write under
+ * a business key names it (`[application.idempotency-key-required]`).
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -14,7 +14,7 @@ import { Application } from "../../src/application/application.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { RotationEnvironment } from "../app/fixtures/rotation/environments/app.environment.js";
+import type { Secret } from "../../src/index.js";
 import {
   BookOrderWorkflow,
   ChargeOrderWorkflow,
@@ -23,17 +23,18 @@ import {
   Injectable,
   InjectionToken,
   provide,
-  OutboundCalls,
-  SqliteExecutionLeaseRepository,
-  SqliteFencedEffectRepository,
+  DatabaseStorage,
+  Idempotency,
   OutboundCallRepository,
-  SqliteOutboundCallRepository,
+  SqliteDriver,
+  secret,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
 } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
+import { hours } from "../../src/units/index.js";
 import type { ApplicationOptions } from "../../src/application/application.js";
 
 /** A workflow none of whose components can write under a business key. */
@@ -56,20 +57,39 @@ class PlainFinish {}
 })
 class PlainWorkflow {}
 
+/** The contract of these applications: Secret fields, and one text field. */
+class KeysEnvironment {
+  openRouterApiKey?: Secret;
+  piiKeyOne?: Secret;
+  meshSigningKey?: Secret;
+  label?: string;
+}
+
+/** A database storage on a temporary SQLite file; `keyed` names its idempotency secret. */
+const storageOf = (name: string, keyed: boolean) => {
+  @DatabaseStorage({
+    name,
+    driver: SqliteDriver.inMemory(),
+    auditLogTtl: hours(24),
+    ledgerEntriesTtl: hours(24),
+    ...(keyed ? { idempotencySecret: secret("KEYS_TEST_IDEMPOTENCY") } : {}),
+  })
+  class KeysStorage {}
+  return KeysStorage;
+};
+
+const KEYED = storageOf("keyed-keys-storage", true);
+const UNKEYED = storageOf("unkeyed-keys-storage", false);
+
 /** `[code] message` of each rule an application of `options` breaks; `[]` when it assembles. */
 async function violationsOf(options: Partial<ApplicationOptions>): Promise<readonly string[]> {
   @Application({
     name: "keys-application",
     version: "1.0.0",
-    environment: RotationEnvironment,
+    environment: KeysEnvironment,
     workflows: [BookOrderWorkflow],
-    providers: [
-      SqliteExecutionLeaseRepository,
-      SqliteFencedEffectRepository,
-      SqliteOutboundCallRepository,
-    ],
+    storage: KEYED,
     budgets: TEST_BUDGETS,
-    idempotencyKeyField: "idempotencyKeyV1",
     ...options,
   })
   class KeysApplication {}
@@ -86,20 +106,18 @@ const codesOf = async (options: Partial<ApplicationOptions>): Promise<readonly s
   (await violationsOf(options)).map((line) => /^\[([^\]]+)\]/u.exec(line)?.[1] ?? line);
 
 describe("#825 AC7: an idempotency key where business keys can be made", () => {
-  it("a component that reaches a fenced-effect store, no idempotencyKeyField: refused, naming both", async () => {
-    expect(await violationsOf({ idempotencyKeyField: undefined })).toEqual([
+  it("a component that reaches Idempotency, a database storage with no idempotencySecret: refused, naming both", async () => {
+    expect(await violationsOf({ storage: UNKEYED })).toEqual([
       expect.stringMatching(
-        /^\[application\.idempotency-key-required\] BookOrderAction reaches SqliteFencedEffectRepository, so it can write under a business key/u,
+        /^\[application\.idempotency-key-required\] BookOrderAction reaches Idempotency, so it can write under a business key/u,
       ),
     ]);
   });
 
-  it("one that reaches OutboundCalls too", async () => {
-    expect(
-      await violationsOf({ idempotencyKeyField: undefined, workflows: [ChargeOrderWorkflow] }),
-    ).toEqual([
+  it("one that sends a call through it too", async () => {
+    expect(await violationsOf({ storage: UNKEYED, workflows: [ChargeOrderWorkflow] })).toEqual([
       expect.stringMatching(
-        /^\[application\.idempotency-key-required\] ChargeOrderAction reaches OutboundCalls/u,
+        /^\[application\.idempotency-key-required\] ChargeOrderAction reaches Idempotency/u,
       ),
     ]);
   });
@@ -111,32 +129,46 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
       environment: EmptyEnvironment,
       workflows: [PlainWorkflow],
       budgets: TEST_BUDGETS,
+      storage: UNKEYED,
     })
     class PlainApplication {}
 
     await expect(applicationOf(PlainApplication)).resolves.toBeDefined();
   });
 
-  it("a service the application lists that reaches OutboundCalls — a component injects it by an abstract token — needs one too", async () => {
-    @Injectable({ deps: [OutboundCalls] })
+  it("no storage declared (the in-memory defaults): none is required — a test's keys are given", async () => {
+    @Application({
+      name: "in-memory-application",
+      version: "1.0.0",
+      environment: KeysEnvironment,
+      workflows: [BookOrderWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class InMemoryApplication {}
+
+    await expect(applicationOf(InMemoryApplication)).resolves.toBeDefined();
+  });
+
+  it("a service the application lists that reaches Idempotency — a component injects it by an abstract token — needs one too", async () => {
+    @Injectable({ deps: [Idempotency] })
     class ChargingService {
-      constructor(readonly outboundCalls: OutboundCalls) {}
+      constructor(readonly idempotency: Idempotency) {}
     }
 
     expect(
       await violationsOf({
-        idempotencyKeyField: undefined,
+        storage: UNKEYED,
         workflows: [PlainWorkflow],
         providers: [ChargingService],
       }),
     ).toContainEqual(
       expect.stringMatching(
-        /^\[application\.idempotency-key-required\] ChargingService reaches OutboundCalls/u,
+        /^\[application\.idempotency-key-required\] ChargingService reaches Idempotency/u,
       ),
     );
   });
 
-  it("a service that reaches the outbound-call store itself, past OutboundCalls, needs one too", async () => {
+  it("a service that reaches the outbound-call store itself, past Idempotency, needs one too", async () => {
     @Injectable({ deps: [OutboundCallRepository] })
     class CallRowsService {
       constructor(readonly calls: OutboundCallRepository) {}
@@ -144,7 +176,7 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
 
     expect(
       await violationsOf({
-        idempotencyKeyField: undefined,
+        storage: UNKEYED,
         workflows: [PlainWorkflow],
         providers: [CallRowsService],
       }),
@@ -155,12 +187,12 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
     );
   });
 
-  it("an abstract dependency given a listed class that reaches OutboundCalls: refused at assembly", async () => {
+  it("an abstract dependency given a listed class that reaches Idempotency: refused at assembly", async () => {
     @Injectable()
     class PaymentGateway {}
-    @Injectable({ deps: [OutboundCalls] })
+    @Injectable({ deps: [Idempotency] })
     class StripeGateway extends PaymentGateway {
-      constructor(readonly outboundCalls: OutboundCalls) {
+      constructor(readonly idempotency: Idempotency) {
         super();
       }
     }
@@ -171,34 +203,34 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
 
     expect(
       await violationsOf({
-        idempotencyKeyField: undefined,
+        storage: UNKEYED,
         workflows: [PlainWorkflow],
         providers: [CheckoutService, StripeGateway],
       }),
     ).toContainEqual(
       expect.stringMatching(
-        /^\[application\.idempotency-key-required\] CheckoutService reaches OutboundCalls/u,
+        /^\[application\.idempotency-key-required\] CheckoutService reaches Idempotency/u,
       ),
     );
   });
 
   it("an InjectionToken whose value is a writer: refused at assembly", async () => {
-    const CALLS = new InjectionToken<OutboundCalls>("CALLS");
-    const calls: OutboundCalls = Object.create(OutboundCalls.prototype);
-    @Injectable({ deps: [CALLS] })
+    const WRITER = new InjectionToken<Idempotency>("WRITER");
+    const writer: Idempotency = Object.create(Idempotency.prototype);
+    @Injectable({ deps: [WRITER] })
     class ByTokenService {
-      constructor(readonly calls: OutboundCalls) {}
+      constructor(readonly writer: Idempotency) {}
     }
 
     expect(
       await violationsOf({
-        idempotencyKeyField: undefined,
+        storage: UNKEYED,
         workflows: [PlainWorkflow],
-        providers: [ByTokenService, provide(CALLS, calls)],
+        providers: [ByTokenService, provide(WRITER, writer)],
       }),
     ).toContainEqual(
       expect.stringMatching(
-        /^\[application\.idempotency-key-required\] ByTokenService reaches OutboundCalls/u,
+        /^\[application\.idempotency-key-required\] ByTokenService reaches Idempotency/u,
       ),
     );
   });
@@ -217,50 +249,39 @@ describe("#825 AC6, AC7: no key is another key", () => {
       '[application.pii-key-shared] @Application piiKeyField "openRouterApiKey" is also the built-in OpenRouter providers\' apiKey',
     ],
     [
-      "the PII key is the idempotency key",
-      { piiKeyField: "idempotencyKeyV1" },
-      '[application.pii-key-shared] @Application piiKeyField "idempotencyKeyV1" is also the idempotencyKeyField',
-    ],
-    [
-      "the PII key is the previous idempotency key",
-      { piiKeyField: "idempotencyKeyV2", previousIdempotencyKeyField: "idempotencyKeyV2" },
-      '[application.pii-key-shared] @Application piiKeyField "idempotencyKeyV2" is also the previousIdempotencyKeyField',
-    ],
-    [
-      "the idempotency key is a provider's",
-      { idempotencyKeyField: "openRouterApiKey" },
-      '[application.idempotency-key-shared] @Application idempotencyKeyField "openRouterApiKey" is also the built-in OpenRouter providers\' apiKey',
-    ],
-    [
-      "the previous key is the current one",
-      { previousIdempotencyKeyField: "idempotencyKeyV1" },
-      '[application.idempotency-key-shared] @Application previousIdempotencyKeyField "idempotencyKeyV1" is also the idempotencyKeyField',
-    ],
-    [
-      "the idempotency key is the mesh's signing key",
-      { mesh: { signingKey: "idempotencyKeyV1" } },
-      '[application.idempotency-key-shared] @Application idempotencyKeyField "idempotencyKeyV1" is also the mesh\'s signingKey',
+      "the PII key is the mesh's signing key",
+      { piiKeyField: "meshSigningKey", mesh: { signingKey: "meshSigningKey" } },
+      '[application.pii-key-shared] @Application piiKeyField "meshSigningKey" is also the mesh\'s signingKey',
     ],
   ] as const)("%s", async (_what, options, expected) => {
     const found = await violationsOf(options);
     expect(found).toContainEqual(expect.stringContaining(expected));
   });
 
+  it("the storage's previous key on the variable of its current one: [storage.secret-shared]", async () => {
+    @DatabaseStorage({
+      driver: SqliteDriver.inMemory(),
+      auditLogTtl: hours(24),
+      ledgerEntriesTtl: hours(24),
+      idempotencySecret: secret("KEYS_TEST_IDEMPOTENCY"),
+      previousIdempotencySecret: secret("KEYS_TEST_IDEMPOTENCY"),
+    })
+    class SharedKeysStorage {}
+
+    expect(await codesOf({ storage: SharedKeysStorage })).toEqual(["storage.secret-shared"]);
+  });
+
   it("keys of their own: none of the rules", async () => {
-    expect(
-      await codesOf({ piiKeyField: "idempotencyKeyV2", idempotencyKeyField: "idempotencyKeyV1" }),
-    ).toEqual([]);
+    expect(await codesOf({ piiKeyField: "piiKeyOne" })).toEqual([]);
   });
 
   it("a field the contract lacks (a JavaScript caller): [environment.missing-field], naming the option", async () => {
     expect(
       await violationsOf({
-        idempotencyKeyField: "idempotencyKey",
         piiKeyField: "piiKey",
       }),
     ).toEqual([
-      "[environment.missing-field] @Application piiKeyField needs piiKey: Secret in RotationEnvironment",
-      "[environment.missing-field] @Application idempotencyKeyField needs idempotencyKey: Secret in RotationEnvironment",
+      "[environment.missing-field] @Application piiKeyField needs piiKey: Secret in KeysEnvironment",
     ]);
   });
 });
@@ -271,13 +292,10 @@ describe("#825 AC6: only a Secret field of the contract compiles", () => {
       @Application({
         name: "typed-application",
         version: "1.0.0",
-        environment: RotationEnvironment,
+        environment: KeysEnvironment,
         workflows: [],
-        // @ts-expect-error — sqlitePath is a text field, not a Secret
-        piiKeyField: "sqlitePath",
-        // @ts-expect-error — a typo of a Secret field
-        idempotencyKeyField: "idempotencyKeyV3",
-        previousIdempotencyKeyField: "idempotencyKeyV2",
+        // @ts-expect-error — label is a text field, not a Secret
+        piiKeyField: "label",
       })
       class TypedApplication {}
       return TypedApplication;

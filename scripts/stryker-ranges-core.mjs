@@ -31,7 +31,7 @@ export function fencingEffectsShard() {
       // #825: a store's static store, read as declared
       "src/infrastructure/store-descriptor.ts",
       // #657, #658 (ambiguity): an error of unknown outcome, the key's age and its retention
-      "src/app/outbound-call-{protocol,ambiguity}.ts",
+      "src/app/outbound-call-{protocol,ambiguity,attempt}.ts",
     ],
   };
 }
@@ -70,14 +70,17 @@ export function keysAndCallsShard() {
       // key's errors moved out of fenced-effect-key.ts
       "src/infrastructure/fenced-effect-fingerprint.ts",
       "src/infrastructure/fenced-effect-errors.ts",
+      "src/infrastructure/idempotency-errors.ts",
       "src/infrastructure/issued-keys.ts",
       // the key text rules every id passes, and the error classes around them
       "src/core/errors.ts",
-      "src/app/outbound-calls.ts",
-      // #795: how far a notSent() is trusted, and the superseded attempt's error
+      "src/app/idempotency.ts",
+      "src/app/idempotency-work.ts",
+      // #795: how far a resend is trusted, and the call's errors
       "src/app/outbound-call-contract.ts",
-      // #825: the reconciliation's verdicts, moved out of outbound-calls.ts
-      "src/app/outbound-call-reconciliation.ts",
+      "src/app/outbound-call-errors.ts",
+      // #1317: the recovery and the lookup's verdicts
+      "src/app/outbound-recovery.ts",
       "src/app/outbound-call-join.ts",
       "src/app/outbound-call-business.ts",
       "src/app/outbound-call-endings.ts",

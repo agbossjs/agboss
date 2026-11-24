@@ -1,10 +1,14 @@
 /**
  * #508 — the concurrency review of the outbound-call protocol, one scenario per finding: a lease
- * stays open while an attempt under it is in flight; a lost completion is `OutboundCallSupersededError`, never a
+ * stays open while an attempt under it is in flight; a lost completion is `OutboundCallError.Superseded`, never a
  * silent `Sent`; a live owner is never reconciled, whatever the key; a joined call never takes on
  * the first call's own hand-over or cancel; an answered call always ends `Completed`; what a
  * business key derives is keyed; the key sent out is unambiguous.
  */
+import {
+  IdempotencyError,
+  OutboundCallError,
+} from "../../src/core/error-families/effect-errors.js";
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -12,21 +16,17 @@ import {
   Action,
   ExecutionContext,
   ExecutionLeaseRepository,
-  effectKeyOf,
-  InvalidFencedEffectNameError,
   Injectable,
   InMemoryOutboundCallRepository,
-  OutboundCallInFlightError,
   OutboundCallSendStatus,
   OutboundCallRepository,
   OutboundCallStatus,
-  OutboundCallSupersededError,
-  type EffectKey,
   type OutboundCallRecord,
 } from "../../src/index.js";
+import { effectKeyOf, type EffectKey } from "../../src/stores/index.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
 import { maskedTextOf } from "../../src/app/outbound-call-parts.js";
-import { REDACTED } from "../../src/app/outbound-calls.js";
+import { REDACTED } from "../../src/app/outbound-call-errors.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { FINGERPRINT_LABEL } from "../../src/infrastructure/fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
@@ -85,7 +85,7 @@ describe("#508 review 1a: a lease stays open while an attempt under it is in fli
       await settle();
 
       await expect(execute(b, SendChargeStart, charge)).rejects.toFailWith(
-        OutboundCallInFlightError,
+        OutboundCallError.InFlight,
         { call: "charge" },
       );
       letLedgerGo();
@@ -114,7 +114,7 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
   }
 }
 
-describe("#508 review 2, #795: a lost completion is OutboundCallSupersededError, never a silent Sent", () => {
+describe("#508 review 2, #795: a lost completion is OutboundCallError.Superseded, never a silent Sent", () => {
   it("a newer attempt took the intent over while this one was in flight: the step fails naming both attempts, the newer attempt's intent kept", async () => {
     const run = testAction(ChargeOrderAction, {
       overrides: [override(OutboundCallRepository, SupersedingOutboundCallRepository)],
@@ -122,7 +122,7 @@ describe("#508 review 2, #795: a lost completion is OutboundCallSupersededError,
 
     const failed = await run(order).catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(OutboundCallSupersededError);
+    expect(failed).toBeInstanceOf(OutboundCallError.Superseded);
     expect(failed).toMatchObject({
       code: "outbound-call.superseded",
       call: "charge",
@@ -147,7 +147,7 @@ describe("#508 review 3: a live owner is never reconciled, whatever the key", ()
     await run.clock.advance(seconds(1));
     await expect(first).rejects.toThrow();
 
-    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     expect(gateway.calls).toHaveLength(1);
     expect(gateway.lookups).toEqual([]);
   });
@@ -165,7 +165,7 @@ describe("#508 review 4: a joined call never takes on the first call's own error
     await settle(); // the second joins the first
     await app.cancel("thread-first", { tenantId: "default" });
 
-    await expect(second).rejects.toFailWith(OutboundCallInFlightError, { call: "charge" });
+    await expect(second).rejects.toFailWith(OutboundCallError.InFlight, { call: "charge" });
     await settle();
     const third = await execute(app, SendChargeStart, charge);
 
@@ -245,9 +245,9 @@ describe("#508 review 7: the key sent out is unambiguous", () => {
     expect(gateway.calls[0]?.idempotencyKey).toBe("default:order%3A4%3A2:charge");
   });
 
-  it("a name with a ':' — which would make two keys one string — is InvalidFencedEffectNameError", async () => {
+  it("a name with a ':' — which would make two keys one string — is IdempotencyError.InvalidName", async () => {
     const run = testAction(BadlyNamedAction);
 
-    await expect(run(order)).rejects.toFailWith(InvalidFencedEffectNameError, {});
+    await expect(run(order)).rejects.toFailWith(IdempotencyError.InvalidName, {});
   });
 });

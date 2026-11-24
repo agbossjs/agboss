@@ -11,7 +11,6 @@
  */
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import type { ExecutionLease } from "../../../src/infrastructure/execution-lease.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import {
   InMemoryFencedEffectRepository,
   type InMemoryFencedEffectTransaction,
@@ -51,12 +50,7 @@ const liftingStores = (isLifted: Lifted) => ({
   effects: ((seam: InstanceSeam) => {
     const built = inMemoryFencedEffects(false)(seam);
     const leases = leasesOf(seam);
-    const effects = new InMemoryFencedEffectRepository(
-      seam.storeClock,
-      seam.database,
-      new FencedEffectSettings(),
-      leases,
-    );
+    const effects = new InMemoryFencedEffectRepository(seam.storeClock, seam.database, leases);
     const swept = effects.deleteByStoredAtBefore.bind(effects);
     effects.deleteByStoredAtBefore = async (cutoff) => {
       await swept(cutoff);
@@ -117,12 +111,7 @@ export const markDroppedByAcquire = {
   effects: ((seam: InstanceSeam) => {
     const built = inMemoryFencedEffects(false)(seam);
     const leases = new MarkDroppingLeases(seam);
-    const effects = new InMemoryFencedEffectRepository(
-      seam.storeClock,
-      seam.database,
-      new FencedEffectSettings(),
-      leases,
-    );
+    const effects = new InMemoryFencedEffectRepository(seam.storeClock, seam.database, leases);
     return { ...built, effects, leases };
   }) satisfies StoreFactory<FencedEffectTarget<InMemoryFencedEffectTransaction>>,
   calls: ((seam: InstanceSeam) => {

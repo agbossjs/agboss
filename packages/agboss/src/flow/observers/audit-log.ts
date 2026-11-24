@@ -1,7 +1,7 @@
 import type { FencedEffectOrigin } from "../../infrastructure/fenced-effect.repository.js";
 import type { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type {
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   OutboundCallEventOutcome,
   OutboundCallClosedLease,
   HandOverReason,
@@ -60,17 +60,17 @@ export interface StepHandedOverEvent extends NodeEvent {
 }
 
 /**
- * One call of a step's fenced effect (#500, #501 `onFencedEffect`): it ran, its stored result was
+ * One call of a step's fenced effect (#500, #501 `onIdempotencyRun`): it ran, its stored result was
  * replayed, it joined a call in flight, or the lease refused it — the step's `step`, the effect's
  * `name`, the lease scope and the call's `token`, never the result. Its `FencedEffect` row of the
  * audit log is written first.
  */
-export interface FencedEffectEvent extends NodeEvent {
+export interface IdempotencyRunEvent extends NodeEvent {
   readonly name: string;
   readonly scopeKey: string;
   /** The token the call ran under (`effectKeyOf(…).token`). */
   readonly token: number;
-  readonly outcome: FencedEffectEventOutcome;
+  readonly outcome: IdempotencyRunEventOutcome;
   /** The token the stored result was first written under, when there is a result. */
   readonly writtenToken?: number;
   /** A business key's replay of what another step or execution wrote (#508): that step. */
@@ -117,5 +117,5 @@ export interface OutboundCallEvent extends NodeEvent {
 /** The hooks of the audit log (#501, #505): what happened to a tree's leases and its steps' calls. */
 export type AuditLogHooks = Pick<
   ExecutionObserver,
-  "onExecutionLeaseTakeover" | "onStepHandedOver" | "onFencedEffect" | "onOutboundCall"
+  "onExecutionLeaseTakeover" | "onStepHandedOver" | "onIdempotencyRun" | "onOutboundCall"
 >;

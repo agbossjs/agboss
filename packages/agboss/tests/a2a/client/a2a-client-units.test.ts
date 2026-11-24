@@ -24,7 +24,7 @@ import { callNameOf, isAmbiguous } from "../../../src/a2a/client/a2a-accept.js";
 import { messageIdOf, type AcceptCall } from "../../../src/a2a/client/a2a-message.js";
 import {
   acceptRequestOf,
-  notSentOf,
+  recoveryOf,
   reconciliationOf,
 } from "../../../src/a2a/client/a2a-reconcile.js";
 import { A2APeerKind, type A2ARemotePeer } from "../../../src/a2a/client/a2a-card.js";
@@ -68,8 +68,7 @@ import {
   rpcCodeOf,
   wireErrorOf,
 } from "../../../src/a2a/client/a2a-wire-errors.js";
-import { NotSentTrust } from "../../../src/app/outbound-call-contract.js";
-import { OutboundCallVerdict } from "../../../src/app/outbound-calls.js";
+import { ReconciliationVerdict } from "../../../src/app/outbound-recovery.js";
 import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import { hours } from "../../../src/units/index.js";
 
@@ -228,7 +227,7 @@ describe("which failed sends did nothing", () => {
         new A2ACallerRejectedError({ httpStatus: 401, wireCode: "a2a.caller-x", reason: "x" }),
       ),
     ).toBe(false);
-    expect(isAmbiguous(new Error("an OutboundCalls refusal"))).toBe(false);
+    expect(isAmbiguous(new Error("an Idempotency refusal"))).toBe(false);
   });
 });
 
@@ -703,12 +702,18 @@ describe("reconciling a pending accept, by peer", () => {
     })),
   });
 
-  it("an AGBoss peer's notSent is trusted within its retention (KeyReplay)", async () => {
-    expect(notSentOf(agboss)).toEqual({ trust: NotSentTrust.KeyReplay, keyRetention: hours(24) });
-    expect(notSentOf(foreign)).toEqual({ trust: NotSentTrust.Lookup });
+  it("an AGBoss peer's notExecuted is trusted within its retention (lookupWithin)", async () => {
+    expect(recoveryOf(callOf(agboss, undefined), (key) => key)).toMatchObject({
+      kind: "lookup-within",
+      keyTtl: hours(24),
+    });
+    expect(recoveryOf(callOf(foreign, undefined), (key) => key)).toMatchObject({
+      kind: "permanent-lookup",
+      keyTtl: undefined,
+    });
     expect(
       (await reconciliationOf(callOf(agboss, undefined), storedFor(agboss), "m-1")).verdict,
-    ).toBe(OutboundCallVerdict.NotSent);
+    ).toBe(ReconciliationVerdict.NotExecuted);
   });
 
   it("a peer whose trust changed since the call was recorded is unknown: never resent", async () => {
@@ -750,7 +755,7 @@ describe("reconciling a pending accept, by peer", () => {
       "m-1",
     );
 
-    expect(sameParts.verdict).toBe(OutboundCallVerdict.NotSent); // the parts are masked as stored
+    expect(sameParts.verdict).toBe(ReconciliationVerdict.NotExecuted); // the parts are masked as stored
     for (const verdict of [
       changed,
       longer,
@@ -761,7 +766,7 @@ describe("reconciling a pending accept, by peer", () => {
       otherTask,
       otherAgent,
     ]) {
-      expect(verdict.verdict).toBe(OutboundCallVerdict.Unknown);
+      expect(verdict.verdict).toBe(ReconciliationVerdict.Unknown);
       expect(fieldOf(verdict, "reason")).toMatch(/agent changed since the call was recorded/u);
     }
     await expect(
@@ -771,7 +776,7 @@ describe("reconciling a pending accept, by peer", () => {
 
   it("a foreign peer's new message is unknown: never sent again", async () => {
     const verdict = await reconciliationOf(callOf(foreign, undefined), storedFor(foreign), "m-1");
-    expect(verdict.verdict).toBe(OutboundCallVerdict.Unknown);
+    expect(verdict.verdict).toBe(ReconciliationVerdict.Unknown);
     expect(fieldOf(verdict, "reason")).toMatch(
       /^foreign A2A peer: it declares no messageId deduplication/u,
     );
@@ -797,7 +802,7 @@ describe("reconciling a pending accept, by peer", () => {
       "m-1",
     );
 
-    expect(arrived.verdict).toBe(OutboundCallVerdict.Completed);
+    expect(arrived.verdict).toBe(ReconciliationVerdict.Completed);
     expect(fieldOf(arrived, "result")).toEqual({
       kind: "task",
       mesh: false,
@@ -805,7 +810,7 @@ describe("reconciling a pending accept, by peer", () => {
       contextId: "c-1",
     });
     expect(asked[0]).toStrictEqual([{ tenant: "", id: "t-1", historyLength: 100 }, {}]);
-    expect(missing.verdict).toBe(OutboundCallVerdict.Unknown);
+    expect(missing.verdict).toBe(ReconciliationVerdict.Unknown);
     expect(fieldOf(missing, "reason")).toMatch(
       /^foreign A2A peer: the task's history does not show the reply/u,
     );
@@ -835,7 +840,7 @@ describe("reconciling a pending accept, by peer", () => {
     expect(fieldOf(unsafe, "result")).toMatchObject({ contextId: "" });
   });
 
-  it("a failed read is thrown — OutboundCalls keeps it as the cause", async () => {
+  it("a failed read is thrown — Idempotency keeps it as the cause", async () => {
     const down = new Error("down");
     await expect(
       reconciliationOf(

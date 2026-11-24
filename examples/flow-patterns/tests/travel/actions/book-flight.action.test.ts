@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { Injectable, OutboundCallUnreconciledError } from "@agboss/core";
+import { Injectable, OutboundCallError } from "@agboss/core";
 import { override, testAction } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 import { BookFlightAction } from "../../../src/travel/actions/book-flight.action.js";
@@ -111,11 +111,11 @@ describe("#505: the booking left pending, one test per verdict", () => {
     expect(new Set(airline.calls).size).toBe(1);
   });
 
-  it("the airline cannot say yet: OutboundCallUnreconciledError, nothing booked again", async () => {
+  it("the airline cannot say yet: OutboundCallError.Unreconciled, nothing booked again", async () => {
     const run = await leftPending("after");
     airline.lookup = { state: FlightBookingState.Processing };
 
-    await expect(run(REQUEST)).rejects.toBeInstanceOf(OutboundCallUnreconciledError);
+    await expect(run(REQUEST)).rejects.toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(airline.calls).toHaveLength(1);
   });
 });

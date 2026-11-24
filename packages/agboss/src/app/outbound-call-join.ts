@@ -1,13 +1,11 @@
-import {
-  BusinessKeyConflictError,
-  effectKeyIdentityOf,
-} from "../infrastructure/fenced-effect-key.js";
+import { effectKeyIdentityOf } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
 import { isHandedOver } from "./handed-over.js";
 import { outcomeOf, told, type CallRun, type LiveCall } from "./outbound-call-parts.js";
-import { OutboundCallSendStatus, type OutboundCallOutcome } from "./outbound-calls.js";
+import { businessKeyConflict } from "../infrastructure/idempotency-errors.js";
+import { OutboundCallSendStatus, type OutboundCallOutcome } from "./outbound-call-types.js";
 
 /**
  * The calls this instance is making now (#505, #508): a second call of one key — two tool calls,
@@ -32,7 +30,7 @@ async function joinedTo<TRequest, TResult>(
   const { key } = run;
   // a step's key has no fingerprint, the call it joins neither: only a business key can differ
   if (joined.fingerprint !== key.fingerprint)
-    throw new BusinessKeyConflictError({ effect: key.name, businessKeyHash: key.businessKeyHash });
+    throw businessKeyConflict({ effect: key.name, businessKeyHash: key.businessKeyHash });
   const first = await sharedOf(run, joined);
   if (first === undefined) return joinedOrMade(run, make);
   told(run, OutboundCallEventOutcome.Joined, [OutboundCallStatus.Completed, first.attempt]);
@@ -109,10 +107,17 @@ export async function owning<TRequest, TResult, TValue>(
   owners.add(owner);
   try {
     const attempt = work();
-    // its lease stays open until it settled (#508): no other instance takes it for gone
-    run.frame.execution.lease?.keepWhile?.(attempt, run.parts.settings.attemptTimeout);
+    // its lease stays open until it settled (#508): no other instance takes it for gone — a send
+    // that passed its `timeout` is still out (#1317): its late answer is awaited too, up to the same
+    // bound, past which the holder stops renewing without releasing and the lease expires by itself
+    const tracked = attempt.then(
+      () => run.answer.lateTail,
+      () => run.answer.lateTail,
+    );
+    run.frame.execution.lease?.keepWhile?.(tracked, run.options.timeout);
     return await attempt;
   } finally {
-    owners.delete(owner);
+    // a timed-out attempt keeps its owner live until its late answer settles (`lateAnswerOf`)
+    if (run.answer.isLate !== true) owners.delete(owner);
   }
 }

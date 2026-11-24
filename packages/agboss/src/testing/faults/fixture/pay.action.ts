@@ -2,15 +2,13 @@ import {
   Action,
   ApplicationContext,
   ExecutionContext,
-  NotSentTrust,
-  OutboundCallReconciliation,
-  OutboundCalls,
-  effectKeyOf,
+  Idempotency,
+  OutboundRecovery,
+  Reconciliation,
   type OutboundCallLookup,
-  type OutboundCallSendOptions,
   type Produced,
 } from "../../../index.js";
-import { seconds } from "../../../units/index.js";
+import { hours, type Milliseconds, seconds } from "../../../units/index.js";
 import { FaultPayment, REFUSED_ANSWER } from "../pod-protocol.js";
 import { whereOf } from "./order.actions.js";
 import { FaultChargeDto, FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
@@ -18,7 +16,7 @@ import { FaultPodLink, FaultStepPoint } from "./pod-link.js";
 import { isUnknownOutcome } from "./unknown-outcome.js";
 
 /**
- * The fault fixture's payment (#484): a call that leaves the system (`OutboundCalls`) to the
+ * The fault fixture's payment (#484): a call that leaves the system (`Idempotency.sendOnce`) to the
  * test's payment gateway, under the order's business key (`order:<id>`, #508) — one payment per
  * order, whatever tree pays it. The gateway lives in the test's process: a pod killed after its
  * request reached it and before its answer came back left a pending intent that the next caller
@@ -33,10 +31,10 @@ interface PaymentReceipt {
 }
 
 /** What the gateway's lookup found, as a reconciliation. */
-const reconciliationOf = (found: unknown): OutboundCallReconciliation<PaymentReceipt> =>
+const reconciliationOf = (found: unknown): Reconciliation<PaymentReceipt> =>
   typeof found === "object" && found !== null && "paymentId" in found
-    ? OutboundCallReconciliation.completed({ paymentId: String(found.paymentId) })
-    : OutboundCallReconciliation.notSent();
+    ? Reconciliation.completed({ paymentId: String(found.paymentId) })
+    : Reconciliation.notExecuted();
 
 /** The amount every fixture order pays. */
 export const FAULT_ORDER_AMOUNT = 10;
@@ -47,24 +45,27 @@ export const FAULT_ORDER_AMOUNT = 10;
  */
 export const FAULT_REPLAY_KEY_RETENTION = seconds(1);
 
-/** What a payment declares beside its send and reconcile, by how it talks to the gateway. */
-const declaredOf = (
-  payment: FaultPayment,
-): Pick<OutboundCallSendOptions<unknown, unknown>, "isDefiniteFailure" | "notSent"> => {
-  if (payment === FaultPayment.ReplayOnly)
-    return {
-      notSent: { trust: NotSentTrust.KeyReplay, keyRetention: FAULT_REPLAY_KEY_RETENTION },
-    };
-  // the sabotage (#795): a key's replay trusted as if it were a lookup that does not expire
-  const lookup = {
-    notSent: { trust: NotSentTrust.Lookup },
+/** The attempt bound of a payment: below the replay-only key retention, so a crash can be reconciled inside it. */
+const FAULT_PAYMENT_TIMEOUT = 500 as Milliseconds;
+
+/** What a payment declares beside its send, by how it talks to the gateway: how definite a failure is. */
+const isDefiniteOf =
+  (payment: FaultPayment) =>
+  (error: unknown): boolean =>
     // #928 s21e: a refusal is the one error the fixture takes for definite (its text, as the pod hears it)
-    isDefiniteFailure: (error: unknown) => String(error).includes(REFUSED_ANSWER),
-  } as const;
-  if (payment === FaultPayment.EveryErrorDefinite)
-    return { ...lookup, isDefiniteFailure: () => true };
-  return lookup;
-};
+    payment === FaultPayment.EveryErrorDefinite || String(error).includes(REFUSED_ANSWER);
+
+/**
+ * A replay-only gateway: its key replayed inside the retention it declares; the sabotage (#795)
+ * trusts that replay as if it were a lookup that does not expire.
+ */
+const recoveryOf = (
+  payment: FaultPayment,
+  reconcile: (lookup: OutboundCallLookup) => Promise<Reconciliation<PaymentReceipt>>,
+) =>
+  payment === FaultPayment.ReplayOnly
+    ? OutboundRecovery.lookupWithin(FAULT_REPLAY_KEY_RETENTION, reconcile)
+    : OutboundRecovery.permanentLookup(reconcile);
 
 const isReplayOnly = (payment: FaultPayment): boolean =>
   payment === FaultPayment.ReplayOnly || payment === FaultPayment.ReplayOnlyTrustedAsLookup;
@@ -97,13 +98,13 @@ async function sentAgain(
   description: "Pays the order at the gateway, once per order",
   input: { charge: FaultChargeDto, order: FaultOrderDto },
   output: FaultPaymentDto,
-  deps: [ApplicationContext, ExecutionContext, OutboundCalls, FaultPodLink],
+  deps: [ApplicationContext, ExecutionContext, Idempotency, FaultPodLink],
 })
 export class FaultPayAction {
   constructor(
     private readonly applicationContext: ApplicationContext,
     private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly faultPodLink: FaultPodLink,
   ) {}
 
@@ -116,9 +117,6 @@ export class FaultPayAction {
     const { signal } = this.executionContext;
     const where = { ...whereOf(this.applicationContext, this.executionContext), orderId };
     await this.faultPodLink.atStep(FaultStepPoint.PayBefore, where, signal);
-    const key = effectKeyOf(this.executionContext, "pay", {
-      businessKey: `order:${orderId}`,
-    });
     const link = this.faultPodLink;
     const gatewayCall = (op: "charge" | "lookup", idempotencyKey: string) =>
       link.gateway({ op, idempotencyKey, orderId, amount: FAULT_ORDER_AMOUNT }, signal);
@@ -128,23 +126,29 @@ export class FaultPayAction {
       // no lookup at the gateway: send it again under the key, which replays the first answer
       const { attempt, attemptStartedAt, keyAge } = lookup;
       link.emit("reconciling", { ...where, attempt, keyAge, attemptStartedAt });
-      return OutboundCallReconciliation.notSent();
+      return Reconciliation.notExecuted();
     };
-    const outcome = await this.outboundCalls
-      .send<{ orderId: string }, PaymentReceipt>(key, {
+    const outcome = await this.idempotency
+      .sendOnce<{ orderId: string }, PaymentReceipt>({
+        name: "pay",
+        key: `order:${orderId}`,
         target: "fault-gateway",
         operation: "charge",
         request: { orderId },
+        timeout: FAULT_PAYMENT_TIMEOUT,
+        ttl: hours(24),
         send: async (call) => {
           const answer = await gatewayCall("charge", call.idempotencyKey);
           return { paymentId: (answer as PaymentReceipt).paymentId };
         },
-        reconcile,
-        ...declaredOf(payment),
+        recovery: recoveryOf(payment, reconcile),
+        ...(payment === FaultPayment.ReplayOnly
+          ? {}
+          : { isDefiniteFailure: isDefiniteOf(payment) }),
       })
       .catch(async (error: unknown) => {
         if (payment === FaultPayment.UnknownAsNotSent && isUnknownOutcome(error))
-          return sentAgain(link, key.idempotencyKey, orderId);
+          return sentAgain(link, this.executionContext.step.idempotencyKey, orderId);
         link.emit("pay-failed", { ...where, error: error instanceof Error ? error.name : "" });
         throw error;
       });

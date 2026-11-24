@@ -5,27 +5,25 @@
  * AttemptSuperseded attempt is logged on the instance's log; a joined call is told apart by `instanceof`
  * alone.
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LeaseAttempts } from "../../src/app/lease-yields.js";
-import { DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT } from "../../src/infrastructure/fenced-effect-settings.js";
 import {
   ExecutionCancelledError,
   ExecutionAuditEventKind,
   LeaseTakeoverReason,
   OutboundCallEventOutcome,
-  OutboundCallInFlightError,
   ExecutionHistoryRepository,
   ExecutionLeaseRepository,
   Injectable,
   InMemoryFencedEffectRepository,
   InMemoryOutboundCallRepository,
-  type EffectKey,
   Logger,
   OutboundCallRepository,
   OutboundCallSendStatus,
-  OutboundCallResultNotStoredError,
   OutboundCallStatus,
 } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { maskedTextOf } from "../../src/app/outbound-call-parts.js";
 import { superseded } from "../../src/app/outbound-call-endings.js";
 import { joinedOrMade } from "../../src/app/outbound-call-join.js";
@@ -34,7 +32,7 @@ import { stateOf } from "../../src/app/outbound-call-business.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { ChargeOrderAction } from "./fixtures/outbound-call.workflow.js";
-import { REDACTED } from "../../src/app/outbound-calls.js";
+import { REDACTED } from "../../src/app/outbound-call-errors.js";
 import {
   override,
   testAction,
@@ -101,7 +99,6 @@ function settledFlag(promise: Promise<unknown>): () => boolean {
   name: "kept-business-key-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],
   providers: [...MODEL_PROVIDERS, InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,
@@ -133,8 +130,11 @@ async function hungAndCancelled(
   return { execution };
 }
 
-/** When the attempt sent at `sentAt` stops being waited for: its start + `attemptTimeout`. */
-const deadlineOf = (sentAt: number): number => sentAt + DEFAULT_OUTBOUND_CALL_ATTEMPT_TIMEOUT;
+/** The `timeout` the fixtures' calls are sent with. */
+const ATTEMPT_TIMEOUT = minutes(2);
+
+/** When the attempt sent at `sentAt` stops being waited for: its start + the call's `timeout`. */
+const deadlineOf = (sentAt: number): number => sentAt + ATTEMPT_TIMEOUT;
 
 /**
  * Moves `clock` to the hung attempt's `deadline`, then runs the turns until `execution` settled —
@@ -189,7 +189,7 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
     expect(isClosed()).toBe(true);
   });
 
-  test("cancel with a hung send: the cancel returns at once, and the execution settles exactly at the attempt's start + attemptTimeout — never hung", async ({
+  test("cancel with a hung send: the cancel returns at once, and the execution settles exactly at the attempt's start + timeout — never hung", async ({
     app,
     clock,
   }) => {
@@ -215,8 +215,10 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
       const deadline = deadlineOf(clock.now().getTime());
       const { execution } = await hungAndCancelled(a, "thread-a");
       await givenUpAt(clock, deadline, execution);
+      // the call's own timeout failed the step, but its send may still be out (#1317): the lease is
+      // not released under it — the other instance finds the call in flight, never resends it
       const atDeadline = execute(b, SendChargeStart, charge);
-      await expect(atDeadline).rejects.toFailWith(OutboundCallInFlightError, { call: "charge" });
+      await expect(atDeadline).rejects.toFailWith(OutboundCallError.InFlight, { call: "charge" });
 
       // renewed until the deadline, the lease expires within its 30 s after it
       await advancedTo(clock, deadline + seconds(31));
@@ -276,7 +278,7 @@ describe("#508 re-review HIGH1: a send that never returns bounds every wait on i
 });
 
 describe("#508 re-review HIGH2: a result not stored is never replayed as one", () => {
-  test("a result above maxPayloadSize: the first call gets its answer and a warning is logged; the next under the key fails with OutboundCallResultNotStoredError, nothing sent again", async ({
+  test("a result above maxPayloadSize: the first call gets its answer and a warning is logged; the next under the key fails with OutboundCallError.ResultNotStored, nothing sent again", async ({
     app,
   }) => {
     gateway.padding = kilobytes(65);
@@ -285,7 +287,7 @@ describe("#508 re-review HIGH2: a result not stored is never replayed as one", (
 
     const again = execute(app, SendChargeStart, charge);
 
-    await expect(again).rejects.toFailWith(OutboundCallResultNotStoredError, {
+    await expect(again).rejects.toFailWith(OutboundCallError.ResultNotStored, {
       call: "charge",
       reason: "outbound-call.payload-too-large",
     });
@@ -305,7 +307,7 @@ describe("#508 re-review HIGH2: a result not stored is never replayed as one", (
     const { log, entries } = recordingLog();
     const run = {
       frame: { execution: { executionId: "execution-1", observability: undefined } },
-      parts: { settings: { requiresMask: true }, log },
+      parts: { requiresMask: true, log },
       key: { name: "charge", tenantId: "default" },
       options: { target: "payments", operation: "charge" },
     } as never;
@@ -387,7 +389,7 @@ describe("#508 re-review LOW/MEDIUM6: a AttemptSuperseded attempt is logged on t
       ],
     });
 
-    // #795: the step fails with OutboundCallSupersededError — and the log says it all the same
+    // #795: the step fails with OutboundCallError.Superseded — and the log says it all the same
     await expect(run({ message: { value: { text: "order-1" } } } as never)).rejects.toThrow(
       /attempt 1 was answered after attempt 2/u,
     );

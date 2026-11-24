@@ -6,7 +6,6 @@ import type {
   ChildExecutionQueueCounts,
   ChildExecutionQueueRepository,
   Clock,
-  ExecutionFence,
   ExecutionLease,
   ExecutionLeaseRepository,
   PreviousLeaseHolder,
@@ -14,6 +13,7 @@ import type {
   StoreTime,
   StoreTimeSource,
 } from "../../src/index.js";
+import type { ExecutionFence } from "../../src/stores/index.js";
 import type { Milliseconds } from "../../src/units/index.js";
 
 /**

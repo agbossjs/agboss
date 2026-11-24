@@ -44,7 +44,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3) and a **PostgreS
 | `MeshRequestRepository`     | `SqliteMeshRequestRepository`     | `mesh_requests`                   |
 | `ExecutionHistoryRepository` | `SqliteExecutionHistoryRepository` | `execution_history` ([Execution history](Execution-history)) |
 | `ChildExecutionQueueRepository` | `SqliteChildExecutionQueueRepository` | `child_execution_queue` ([below](#children-on-any-instance-333)) |
-| `OutboundCallRepository` | `SqliteOutboundCallRepository` | `outbound_calls`, and the fenced effect's marks ([below](#calls-that-leave-the-system-505)) |
+| `OutboundCallRepository` | `SqliteOutboundCallRepository` | `outbound_calls`, and the idempotent write's marks ([below](#calls-that-leave-the-system-505)) |
 
 Every row carries the tenant (#261): the threads and the records `tenant_id`, `paused_executions`
 is keyed by `(tenant_id, thread_id)`, a checkpoint and its writes are tagged with the run's tenant,
@@ -474,45 +474,45 @@ The check above is the same in every application that writes business rows: a ma
 idempotency key, and their order — **a stale token is refused before the key is read**, so a zombie
 never receives the new holder's result. For rows in the store's own database the framework makes it
 one call, and the application defines no fencing or idempotency table. A component injects the
-application's **`FencedEffects`** (#890: a core service, `deps: [ExecutionContext, FencedEffects]`,
+application's **`Idempotency`** (#890, #1317: a core service, `deps: [Idempotency]`,
 over the listed store — never a store's class, so moving from SQLite to PostgreSQL changes
-`@Application({ providers })` only) and calls `runOnce(key, work)`; the work names the listed
-store's transaction type:
+`@Application({ providers })` only) and calls `runOnce({ name, ttl, execute })`; the execution is read from the step the call is
+made in, and `execute` names the listed store's transaction type:
 
 ```ts no-check: a fragment of a step; the full action is in README → Several instances
-const key = effectKeyOf(this.executionContext, "charge");
-const { status, result } = await this.fencedEffects.runOnce(
-  key,
-  (database: DatabaseSync) => this.paymentLedger.recordCharge(database, order), // synchronous on SQLite
-);
+const { status, result } = await this.idempotency.runOnce({
+  name: "charge",
+  ttl: hours(24),
+  execute: (database: DatabaseSync) => this.paymentLedger.recordCharge(database, order), // synchronous on SQLite
+});
 ```
 
 `FencedEffectRepository<TTransaction>` is infrastructure, like the lease store: the built-in
 `InMemoryFencedEffectRepository` (`InMemoryFencedEffectTransaction.onCommit(write)`, from
 `@agboss/core/stores`), or
-`SqliteFencedEffectRepository` (the `work` gets the connection's `DatabaseSync`), listed in
+`SqliteFencedEffectRepository` (`execute` gets the connection's `DatabaseSync`), listed in
 `@Application({ providers })`. In **one transaction**, in this order:
 
 | Step | What happens |
 | --- | --- |
 | 1. the lease | The lease row of `(tenantId, leaseExecutionId)` in the **same database**: its `token` is not `key.token`, it was released, or it expired → `ExecutionFencedError({ scopeKey, token, observedToken: <its epoch> })`, nothing written. This refuses a zombie even when it reaches the write before the new holder. |
 | 2. the mark | `token < highest` for `scopeKey` → `ExecutionFencedError(observedToken: highest)`, before any key lookup; else `highest = max(highest, token)`. |
-| 3. the key | `(scopeKey, idempotencyKey, name)` found → `FencedEffectStatus.Replayed`, its stored result and the token it was written under; `work` is not called. |
-| 4. the write | `work(transaction)`, its result stored as JSON with its token and the `Clock`'s time → `Ran`. |
+| 3. the key | `(scopeKey, idempotencyKey, name)` found → `IdempotencyRunStatus.Replayed`, its stored result and the token it was written under; `execute` is not called. |
+| 4. the write | `execute(transaction)`, its result stored as JSON with its token and the `Clock`'s time → `Ran`. |
 
-- **A throwing `work`** rolls back everything — its rows, the mark, the key — and its error is
+- **A throwing `execute`** rolls back everything — its rows, the mark, the key — and its error is
   rethrown as it is; the next call runs it again.
-- **`work` may run more than once within one call** (#730): a store may abort an attempt and run
+- **`execute` may run more than once within one call** (#730): a store may abort an attempt and run
   it again — MongoDB's driver does on a `TransientTransactionError` (a write conflict, a step-down),
   for up to 120 s ([MongoDB](MongoDB)). Only the last attempt's writes through the transaction are
-  kept, so `work` writes **only** through `transaction` and does nothing else: no call to another
-  system (that is [`OutboundCalls`](#calls-that-leave-the-system-505)), nothing sent, logged or
+  kept, so `execute` writes **only** through `transaction` and does nothing else: no call to another
+  system (that is [`Idempotency.sendOnce`](#calls-that-leave-the-system-505)), nothing sent, logged or
   counted outside it. On SQLite, in memory and on PostgreSQL it runs once per call.
-- **A long `work` can cost the tree its lease** (#1334). A fenced write holds its tree's lease rows
+- **A long `execute` can cost the tree its lease** (#1334). A fenced write holds its tree's lease rows
   locked for its whole transaction, and the root's lease renewal waits for them. Each background
   renewal is bounded at 5 s as an ordinary error, never a hand-over, and the holder survives two
   failed ticks in a row ([a store call that never answers](#a-store-call-that-never-answers-928)); a
-  `work`, the root's or any child's, that blocks the renewals for about three ticks (7.5 s each:
+  `execute`, the root's or any child's, that blocks the renewals for about three ticks (7.5 s each:
   roughly 20 s or more) costs the tree its lease: the holder stops at its fence and the tree is
   recovered after the lease lapses. Safety holds, every fence stands; the cost is liveness. Only
   `fence.renewNow()` and the root's own leased writes that wait on the row hand over, at
@@ -522,21 +522,22 @@ const { status, result } = await this.fencedEffects.runOnce(
 - **Concurrent calls** on one full key of one store instance share the first's outcome (`Joined`,
   its result or its error) — a map of the calls in flight, never component state. Across instances
   the transaction serializes them (`BEGIN IMMEDIATE` on SQLite), so the second gets `Replayed`.
-- **SQLite runs `work` synchronously**: a returned promise rolls back with
+- **SQLite runs `execute` synchronously**: a returned promise rolls back with
   `SyncWorkRequiredError` (`fenced-effect.sync-work-required`) — do the step's I/O before the call or
-  after it. The in-memory store takes an asynchronous `work` (one transaction per scope at a time)
+  after it. The in-memory store takes an asynchronous `execute` (one transaction per scope at a time)
   and checks the lease and the mark again before it commits.
-- **The key** is `effectKeyOf(executionContext, name)` — the fence's `scopeKey`, `tenantId`,
-  `leaseExecutionId`, `token` and the step's `idempotencyKey`; several effects of one step differ by
-  `name`. Where no lease is held it throws `ExecutionContextUnavailableError`, as `fence` does.
+- **The key** is made from the step the call is made in — the fence's `scopeKey`, `tenantId`,
+  `leaseExecutionId`, `token` and the step's `idempotencyKey` —, never by the component; several effects of one step differ by
+  `name` (1–100 of `[A-Za-z0-9._-]`, else `IdempotencyError.InvalidName`). Where no lease is held the call is refused, as `fence` is.
 - **The result** is `JsonValue<T>` (an interface or a DTO class is fine; a function, `undefined`
-  or a `Date` does not compile), at most `@Application({ fencedEffects: { maxResultSize } })`
-  (default `kilobytes(64)`) — else `FencedEffectResultTooLargeError`
-  (`fenced-effect.result-too-large`), rolled back, an ordinary failure that `.onError` takes. Store a
+  or a `Date` does not compile), at most the call's `maxResultSize`
+  (default `kilobytes(64)`) — else `IdempotencyError.ResultTooLarge`
+  (`idempotency.result-too-large`), rolled back, an ordinary failure that `.onError` takes. Store a
   receipt, not a document.
-- **Retention:** results and marks are removed by the recovery sweep once older than
-  `retention.fencedEffects` (default `hours(24)`; above the lease's 30 s, else
-  `[application.fenced-effects-invalid]`) — never when a tree ends, so a late zombie is still refused.
+- **Retention and bounds:** `ttl` is required (`hours(24)`, or `Ttl.Forever`; above the lease's 30 s, else the call
+  rejects with `ConfigError.Option`): results and marks are removed by the recovery sweep once older than it — never
+  when a tree ends, so a late zombie is still refused. `timeout` (default `seconds(15)`, below the lease's 30 s) bounds
+  `execute`: a stalled one is rolled back before its lease can expire. A bad option rejects, it never throws synchronously.
 - **One transactional backend (#526):** the store checks the lease in its own transaction, so it
   and the application's lease store are on one backend — each declares it in `static store:
   StoreDescriptor = { backend, leaseCheck? }` (#825; `"in-memory"`, `"sqlite"`; `"postgres"`, or `"postgres:billing"` for a second database of one
@@ -551,63 +552,67 @@ const { status, result } = await this.fencedEffects.runOnce(
   ([Your own store](Your-own-store#an-opted-out-store-and-storeconformance-543), #543); the start warns `[application.lease-check-not-atomic]` (an error under
   `agboss check --strict`). Rate limits, the child queue and the [audit log](#the-audit-log-501) are
   on any backend: a Redis layout keeps its leases, rate limits and queue in Redis, and a fenced
-  effect there only on Redis too. Nothing listed → the in-memory store, which needs the in-memory
-  leases: beside a SQLite lease store it fails at its first call (`FencedEffectStoreMismatchError`),
+  write there only on Redis too. Nothing listed → the in-memory store, which needs the in-memory
+  leases: beside a SQLite lease store it fails at its first call (`IdempotencyError.StoreMismatch`),
   not at assembly — an application that never uses an effect is not refused. A unit runner holds its
   lease in the lease store of the store's backend: its own, a listed one, or the core's SQLite one.
-- **The connection is not listed (#526):** a component that injects `FencedEffects` or
-  `OutboundCalls` reaches `SqliteConnection` (`PostgresConnection`) through the store — the
+- **The connection is not listed (#526):** a component that injects `Idempotency` reaches `SqliteConnection` (`PostgresConnection`) through the store — the
   workflow's graph check takes an unlisted class under an infrastructure implementation as its own
   registration, as the container creates it, once for the instance.
-- **Typed transaction:** inject `FencedEffects` (`deps: [ExecutionContext, FencedEffects]`) — never
-  the listed store's own class — and name the transaction in the work's parameter
-  (`(database: DatabaseSync) => …`, `runOnce<TResult, TTransaction>`): the store is infrastructure,
-  `FencedEffects` hands the work the listed store's transaction; a work that writes no rows of its
+- **Typed transaction:** inject `Idempotency` (`deps: [Idempotency]`) — never
+  the listed store's own class — and name the transaction in `execute`'s parameter
+  (`(database: DatabaseSync) => …`, `runOnce<TResult, TFingerprint, TTransaction>`): the store is infrastructure,
+  `Idempotency` hands `execute` the listed store's transaction; an `execute` that writes no rows of its
   own ignores it.
 - **What it does not do:** exactly-once for systems outside that database (HTTP APIs, email,
   webhooks) or across databases; a fenced or lease-lost step is the same hand-over as above. Stored
   results are not logged; what reaches a record or a trace is the step's output, masked as always.
 
 A store of another database (PostgreSQL, #482) extends the contract, declares its backend in `static store`,
-implements `runInTransaction` (the four steps), `deleteByStoredAtBefore` and `ping`, reads
-`FencedEffectSettings` from the container, keeps the key's rules with the core's own helpers of `@agboss/core/stores`
+implements `runInTransaction` (the four steps), `deleteByStoredAtBefore` and `ping`, keeps the key's rules (the call's largest result is `key.maxResultSize`) with the core's own helpers of `@agboss/core/stores`
 (#526, #890: `assertEffectName`, `assertBusinessKey` and `fingerprintErrorOf` at its entry — the base class's `runOnce` checks them first —, `replayedFromOf` on a stored row, `storedKeyFactsOf`,
 `effectKeyIdentityOf`, `pendingOutboundCallOf`), and proves itself with `fencedEffectContract` of `@agboss/core/testing/contracts` — the
 cases the in-memory and SQLite stores run ([ADR-0026](ADR-0026-Fenced-effects-check-the-lease-in-the-same-transaction)).
 
 ## Calls that leave the system (#505)
 
-A fenced effect covers rows of the store's own database. A call to **another system** — a payment
+`runOnce` covers rows of the store's own database. A call to **another system** — a payment
 API, an e-mail, a webhook — cannot share that transaction: a step that sent a charge and died before
-the answer leaves nobody knowing whether the charge happened. `OutboundCalls` records an **intent**
+the answer leaves nobody knowing whether the charge happened. `Idempotency.sendOnce` records an **intent**
 before the call and settles it after, so a step run again never sends blindly:
 
 ```ts no-check: a fragment of an action; the whole one is tests/app/fixtures/outbound-call.workflow.ts
-const outcome = await this.outboundCalls.send(effectKeyOf(this.executionContext, "charge"), {
+const outcome = await this.idempotency.sendOnce({
+  name: "charge",
   target: "payments", // what it goes to, for operators
-  operation: "charge",
+  operation: "charge", // `name` when left out
   request: { orderId: order.id, amountUsd: order.amountUsd }, // JSON; send gets it as it is
-  send: (call) => this.paymentClient.charge(call.request, { idempotencyKey: call.idempotencyKey }),
-  // #657: only an error that proves nothing was charged is a failure; any other one is reconciled
+  timeout: seconds(15), // required: the bound of one attempt; call.signal aborts at it
+  ttl: hours(48), // required: how long the call's rows are kept
+  send: (call) =>
+    this.paymentClient.charge(call.request, {
+      idempotencyKey: call.idempotencyKey,
+      signal: call.signal,
+    }),
+  // #657: only an error that proves nothing was charged is a failure; any other one is recovered
   isDefiniteFailure: (error) => error instanceof PaymentDeclinedError,
-  reconcile: async (lookup) => {
+  // #795, required: the lookup reads the provider's own payments, so its notExecuted() holds at any age
+  recovery: OutboundRecovery.permanentLookup(async (lookup) => {
     // asked only for an intent left pending: look the call up by its key, never by the request
     const found = await this.paymentClient.findByIdempotencyKey(lookup.idempotencyKey);
-    if (found === undefined) return OutboundCallReconciliation.notSent();
+    if (found === undefined) return Reconciliation.notExecuted();
     return found.status === "settled"
-      ? OutboundCallReconciliation.completed(found.receipt)
-      : OutboundCallReconciliation.unknown({ reason: `charge ${found.status}` });
-  },
-  // #795, required: the lookup reads the provider's own payments, so its notSent() holds at any age
-  notSent: { trust: NotSentTrust.Lookup },
+      ? Reconciliation.completed(found.receipt)
+      : Reconciliation.unknown(`charge ${found.status}`);
+  }),
 });
 // outcome.status: OutboundCallSendStatus.Sent | Replayed | Reconciled | Joined
 ```
 
-`OutboundCalls` is a core service (`deps: [ExecutionContext, OutboundCalls]`, nothing to list); the
+`Idempotency` is a core service (`deps: [Idempotency]`, nothing to list); the
 intents live in `OutboundCallRepository`, infrastructure like the lease store — the built-in
 `InMemoryOutboundCallRepository`, or a store of the application's database listed in
-`@Application({ providers })`. One key is one intent (`effectKeyOf(executionContext, name)`);
+`@Application({ providers })`. One key is one intent (the step's key and the call's `name`, or its business `key`);
 the key sent with the call is the step's `idempotencyKey` and the name (`call.idempotencyKey`), the
 same on every attempt, replay and holder.
 
@@ -616,54 +621,54 @@ same on every attempt, replay and holder.
 | none | recorded `Pending` (fenced), the lease renewed (`fence.renewNow()`), then `send(call)` under the step's signal; its answer marks it `Completed` (fenced) — `Sent` |
 | `Completed` | its stored result, nothing sent — `Replayed` |
 | (this instance is making the same call now) | its outcome shared, nothing sent — `Joined` |
-| `Pending` | `reconcile(lookup)`: `completed(result)` → `Completed`, `Reconciled`, nothing sent; `notSent()` → sent once more, the same key, attempt + 1 — a `NotSentTrust.Lookup`'s at any age, a `NotSentTrust.KeyReplay`'s only inside its `keyRetention` (#658, #795); `unknown({ reason })` → `OutboundCallUnreconciledError` |
+| `Pending` | the `recovery`: `Reconciliation.completed(result)` → `Completed`, `Reconciled`, nothing sent; `Reconciliation.notExecuted()` → sent once more, the same key, attempt + 1 — a `permanentLookup`'s at any age, a `lookupWithin`'s and a `replayWithin`'s only inside their window (#658, #795); `Reconciliation.unknown(reason)` → `OutboundCallError.Unreconciled` |
 | `Failed` | the other system definitely did not carry it out (`isDefiniteFailure`, #657): sent again with the same key, attempt + 1 |
 
-- **Fenced like a fenced effect:** every read and write of an intent checks the key's lease and the
+- **Fenced like an idempotent write:** every read and write of an intent checks the key's lease and the
   scope's high-water mark first, in one transaction — a zombie can neither record an intent nor send
   (`ExecutionFencedError`, a hand-over). A completion refused after the send (the lease was lost
-  meanwhile) is a hand-over too: the new holder finds the intent pending and reconciles it.
+  meanwhile) is a hand-over too: the new holder finds the intent pending and recovers it.
 - **One sender per attempt:** every attempt has an **owner** — `attemptOwner`, a random id the
   caller mints when it claims the attempt (records the intent, or moves it on). A new attempt
-  (after `notSent()` or a failure) is a compare-and-set — `markPending(key, expected, claim)` moves
+  (after `notExecuted()` or a failure) is a compare-and-set — `markPending(key, expected, claim)` moves
   the intent only while its status, attempt and attempt owner are as the caller read them, in the
   fenced transaction with the caller's lease check. A caller that loses it sends nothing and reads
   the intent again: completed → the winner's result (`Replayed`), pending → the winner is sending
-  (`OutboundCallInFlightError`, `outbound-call.in-flight`, a `StepFailedError`), at most three
+  (`OutboundCallError.InFlight`, `outbound-call.in-flight`), at most three
   reads, then in flight. An attempt ends only for its owner: `markCompleted` / `markFailed` take the
   attempt owner and change nothing once a newer attempt owns the intent. The owner is live in this
   instance from before the intent is recorded or claimed, and nothing is sent once the step aborted
   (checked after the lease's renewal). A call this instance is making now — two tool calls or two branches with
-  one key — is **joined**, never reconciled or resent: the second gets the first's outcome
+  one key — is **joined**, never recovered or resent: the second gets the first's outcome
   (`OutboundCallSendStatus.Joined`) or its error. Two instances recording one key at the same
   moment: the second is in flight, nothing sent.
-- **Unknown is an error, never a guess:** `OutboundCallUnreconciledError` (`outbound-call.unreconciled`,
-  a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`, `reason` — a code, #890:
+- **Unknown is an error, never a guess:** `OutboundCallError.Unreconciled` (`outbound-call.unreconciled`,
+  `call`, `target`, `operation`, `idempotencyKey`, `reason` — a code, #890:
   `reconcile.unknown`, `reconcile.threw`, `reconcile.no-verdict`, `key-retention.passed` — and
-  `detail`, what was said, masked) — also when `reconcile` throws (its error the `cause`) or gives
+  `detail`, what was said, masked) — also when the lookup throws (its error the `cause`) or gives
   no verdict. Nothing is sent; the intent stays `Pending` for an operator or a retry policy;
-  `.onError(OutboundCallUnreconciledError, …)` takes it — agboss-examples' `11-safe-payments` ends
+  `.onError(OutboundCallError.Unreconciled, …)` takes it — agboss-examples' `11-safe-payments` ends
   its capture workflow at an operator's finish that way (`tests/operator-path.test.ts`).
 - **A send that fails, for certain or not (#657).** An error `send` throws is a failure only when
   the call says so: `isDefiniteFailure(error)` returns `true` — the other system answered that it
   did not carry the call out (a validation error, a decline). Then the intent is `Failed` with the
   error's name, code and message, and the next call sends it again under the same key, with no
-  `reconcile`. **Any other error is of unknown outcome** — no predicate, an answer other than
+  recovery. **Any other error is of unknown outcome** — no predicate, an answer other than
   `true`, a predicate that throws (a warning `outbound-call.classifier-threw`): a 5xx after the
   other system acted, a reset connection, the SDK's own timeout. The intent stays `Pending` (told
   `Ambiguous`, a warning `outbound-call.outcome-unknown` naming the error's code, never its text),
-  and the next call asks `reconcile` before anything is sent again, exactly as after a crash.
+  and the next call runs the `recovery` before anything is sent again, exactly as after a crash.
   The error is rethrown either way; a call this instance joined meanwhile gets the same error. A
   send aborted by the step's signal (a lost lease, a cancel, a timeout) records nothing too. Under a
   business key, the pending intent of an execution that still holds its lease is in flight for
-  another one (`OutboundCallInFlightError`, nothing sent) until that lease ends.
+  another one (`OutboundCallError.InFlight`, nothing sent) until that lease ends.
 
   | Error | `isDefiniteFailure` | The intent | The next call |
   | --- | --- | --- | --- |
   | a decline, a validation error the other system answered | `true` | `Failed` | sends it again, the same key |
-  | a 5xx, a reset connection, an SDK timeout, anything not classified | not `true` (the default) | `Pending` | `reconcile`, then only on `notSent()` |
-  | the step's signal aborted it | not asked | `Pending` | `reconcile` |
-- **The key's age (#658).** `reconcile` is told when the pending attempt started
+  | a 5xx, a reset connection, an SDK timeout, anything not classified | not `true` (the default) | `Pending` | the `recovery`, then only on `notExecuted()` |
+  | the step's signal aborted it | not asked | `Pending` | the `recovery` |
+- **The key's age (#658).** The lookup is told when the pending attempt started
   (`lookup.attemptStartedAt`, a `Date`) and how old its key is (`lookup.keyAge`, ms from the start
   of the call's first attempt — before the key could reach the other system — to now). Both are
   the **store's** time: the record's `attemptStartedAt` and `firstAttemptStartedAt`, written by
@@ -673,62 +678,66 @@ same on every attempt, replay and holder.
   age adds what passed since the read on the instance's monotonic clock, from before the read, so it
   is never less than the other system's age of the key (up to the store's millisecond and the drift
   bound A4). An intent recorded before 0.1.1 has neither: both `undefined`.
-- **How far `notSent()` is trusted — `notSent`, required (#658, #795).** Every `send` says it; a
-  forgotten line is a compile error, never a resend of an expired key:
-  - `notSent: { trust: NotSentTrust.Lookup }` — `reconcile` reads a record the other system keeps
-    for good (its payments, a list of refunds, a search that does not lag), so its `notSent()` proves
+- **How far a resend is trusted — `recovery`, required (#658, #795).** Every `sendOnce` says it; a
+  forgotten line is a compile error, never a resend of an expired key. A `recovery` is built only by
+  `OutboundRecovery` (a look-alike object is refused), a lookup's answer only by `Reconciliation`:
+  - `OutboundRecovery.permanentLookup(lookup => …)` — the lookup reads a record the other system keeps
+    for good (its payments, a list of refunds, a search that does not lag), so its `Reconciliation.notExecuted()` proves
     the call never arrived: sent again at any age.
-  - `notSent: { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }` — its `notSent()` relies on
-    the other system **replaying the key**: a gateway with no lookup (Adyen), a search that lags
+  - `OutboundRecovery.lookupWithin(hours(24), lookup => …)` — the lookup decides, but its `notExecuted()`
+    is trusted only while the other system keeps the key (the window).
+  - `OutboundRecovery.replayWithin(hours(24))` — nothing is looked up: a resend relies on the
+    other system **replaying the key**: a gateway with no lookup (Adyen), a search that lags
     (Stripe; named only to identify their APIs, not affiliated with or endorsed by them:
-    [the notice](Payments#the-notice)). `keyRetention` is how long that system keeps a key, its
-    documented minimum. A `notSent()` is then sent again only while `keyAge +
-    outboundCalls.attemptTimeout` (how long the resend may take to arrive, A6) is below it, measured
-    again after `reconcile` answers; past it, or with the age unknown, nothing is sent:
-    `OutboundCallUnreconciledError` naming the age and the retention, the intent `Pending` for an
+    [the notice](Payments#the-notice)). The window is how long that system keeps a key, its
+    documented minimum. The call is then sent again only while `keyAge + timeout` (how long the resend may take to
+    arrive, A6) is below it, measured
+    again after a lookup answers; past it, or with the age unknown, nothing is sent:
+    `OutboundCallError.Unreconciled` naming the age and the window, the intent `Pending` for an
     operator (`app.pendingOutboundCallsOf`). The framework never resends such a call by itself.
 
-  No `notSent` (a JavaScript caller), an unknown `trust`, a `KeyReplay` without a positive, finite
-  `keyRetention` or a `Lookup` with one: `InvalidNotSentTrustError`
-  (`outbound-call.invalid-not-sent-trust`) before anything is recorded or sent. A `Failed` intent is
+  An unusable `recovery` (not built by `OutboundRecovery`), a window not above the call's `timeout`, or a `ttl`
+  below the window: `OutboundCallError.InvalidRecovery`
+  (`outbound-call.invalid-recovery`) — the call rejects before anything is recorded or sent; so does a bad
+  `ttl` or `timeout` (`ConfigError.Option`). A `Failed` intent is
   sent again at any age (it moved no money).
 - **Masked when written.** Everything an intent stores — its request, its result, its failure's text
   — is masked by the **calling frame's** mask (the application's and that workflow's PII policies,
   also in a `ChildPlacement.AnyInstance` child) before it is written, so every read shows what is
   stored as it is: `app.outboundCallsOf`, `app.pendingOutboundCallsOf`, a kept record, an export.
   `send` and the step get the real values in memory; a **replay** gives the result as stored —
-  masked — so a result should carry receipts and ids, not personal data. `reconcile` gets the
+  masked — so a result should carry receipts and ids, not personal data. A lookup gets the
   **stored, masked** request (`lookup.storedRequest`) and the key: look the call up by
   `lookup.idempotencyKey`, which is not personal data. A step with no mask while the application
-  lists PII policies is refused before anything is stored (`OutboundCallUnmaskedError`,
+  lists PII policies is refused before anything is stored (`OutboundCallError.Unmasked`,
   `outbound-call.unmasked`); a failure's text is stored `[redacted]` there.
-- **Limits:** `@Application({ outboundCalls: { maxPayloadSize }, retention: { outboundCalls } })` — a stored request or
-  result above `maxPayloadSize` (default `kilobytes(64)`) is `OutboundCallPayloadTooLargeError`
+- **Limits:** the call's `maxPayloadSize` (default `kilobytes(64)`), `timeout` (required, at most 24 hours: one attempt, from its start) and `ttl` (required) — a stored request or
+  result above `maxPayloadSize` is `OutboundCallError.PayloadTooLarge`
   (`outbound-call.payload-too-large`): a request is neither recorded nor sent; a result leaves the
-  intent pending, so the next attempt reconciles it. `Completed` and `Failed` intents are removed by
-  the recovery sweep once they ended longer ago than `retention` (default `hours(168)`, above the
-  lease, else `[application.outbound-calls-invalid]`); a `Pending` one never is.
+  intent pending, so the next attempt recovers it. `Completed` and `Failed` intents are removed by
+  the recovery sweep once they ended longer ago than their `ttl` (above the
+  lease's 30 s); a `Pending` one never is.
 - **For operators:** `app.outboundCallsOf({ tenantId, rootExecutionId })` (every call of a tree, in
-  the order recorded) and `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` (what waits for reconciliation, a page at a time — #825: `{ calls, next? }`, default 100, at most 1000; a call pending for the whole read listed exactly once) —
+  the order recorded) and `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` (what waits for recovery, a page at a time — #825: `{ calls, next? }`, default 100, at most 1000; a call pending for the whole read listed exactly once) —
   `OutboundCallRecord`: the step, the workflow, `target`, `operation`, `idempotencyKey`, `status`,
   `attempt`, `request`, `result?`, `failure?`, `token`, `recordedAt`, `endedAt?`,
   `attemptStartedAt?`, `firstAttemptStartedAt?` (#658, the store's time).
 - **What exactly-once means here:** the framework never sends twice without a definite failure
-  (`isDefiniteFailure`) or a `notSent()` from `reconcile` — a `Lookup`'s, or a `KeyReplay`'s inside
-  its `keyRetention`;
+  (`isDefiniteFailure`) or a `Reconciliation.notExecuted()` — a `permanentLookup`'s, or a `lookupWithin`'s and a `replayWithin`'s inside
+  their window;
   whether the other system charged twice depends on those answers being true — idempotency keys and
   a lookup that does not lag or expire.
 - **Testing:** `testWith` runs the in-memory store; a crash before the answer is a `send` that waits
   on a gate, `leases.freeze(apps[0])` and `clock.advance` past the lease, then the other instance's
-  recovery (`instances: 2`). Unit runners (`testAction`, `testTool`) run `OutboundCalls` on the
+  recovery (`instances: 2`). Unit runners (`testAction`, `testTool`) run `Idempotency` on the
   runner's held lease; a second run of one runner is the same step run again.
 
 - **On SQLite:** `SqliteOutboundCallRepository`, listed with `SqliteExecutionLeaseRepository` — its
   intents in `outbound_calls` of the application's file, every fenced method one `BEGIN IMMEDIATE`
-  transaction with the lease check and the scope's mark (the fenced effect's `fenced_effect_marks`:
+  transaction with the lease check and the scope's mark (the idempotent write's `fenced_effect_marks`:
   one mark per scope for both). Beside a lease store of another backend it fails assembly with
   `[application.store-backend-mismatch]`, as `SqliteFencedEffectRepository` does (#526); the
-  in-memory default beside SQLite leases fails its first call (`FencedEffectStoreMismatchError`).
+  in-memory default beside SQLite leases fails its first call (`IdempotencyError.StoreMismatch`).
   `SqliteConnection` need not be listed for it (#526).
 - **Told:** every move of a call is an `OutboundCall` row of the [audit log](#the-audit-log-501) and
   an [`onOutboundCall`](Observability#outbound-calls-505), and a kept execution carries its tree's
@@ -750,20 +759,19 @@ renewal and the check never both win —;
 
 ## Business idempotency keys (#508)
 
-A fenced effect or a call that leaves the system is keyed by its step: a second step that charges the
+A `runOnce` or a `sendOnce` is keyed by its step by default: a second step that charges the
 same order — the model calling the charge tool twice, a second request on another thread — is a
 charge of its own. A **business key** keys it by what it is about instead:
 
 <!-- snippet-context
 import {
   Action,
-  ExecutionContext,
-  NotSentTrust,
-  OutboundCalls,
-  OutboundCallReconciliation,
-  effectKeyOf,
+  Idempotency,
+  OutboundRecovery,
+  Reconciliation,
 } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
+import { hours, seconds } from "@agboss/core/units";
 declare const paymentClient: {
   charge(request: { orderId: string; amountUsd: number }, idempotencyKey: string): Promise<{ chargeId: string }>;
 };
@@ -781,24 +789,24 @@ export class ChargeDto {
   description: "Charges an order once, whoever asks",
   input: { order: ChargeDto },
   output: ChargeDto,
-  deps: [ExecutionContext, OutboundCalls],
+  deps: [Idempotency],
 })
 export class ChargeOrderAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
   async execute(input: { readonly order: { readonly value: ChargeDto } }): Promise<ChargeDto> {
     const { orderId, amountUsd } = input.order.value;
-    const key = effectKeyOf(this.executionContext, "charge", { businessKey: `order:${orderId}` });
-    await this.outboundCalls.send(key, {
+    await this.idempotency.sendOnce({
+      name: "charge",
+      key: `order:${orderId}`,
       target: "payments",
       operation: "charge",
       request: { orderId, amountUsd }, // its fingerprint: another amount under order:42 is a conflict
+      timeout: seconds(15),
+      ttl: hours(48),
       send: (call) => paymentClient.charge(call.request, call.idempotencyKey),
-      reconcile: () => OutboundCallReconciliation.unknown({ reason: "no lookup" }),
-      notSent: { trust: NotSentTrust.Lookup }, // never asked: reconcile says unknown
+      // never asked for a call that is not pending: with no lookup, a person decides
+      recovery: OutboundRecovery.permanentLookup(() => Reconciliation.unknown("no lookup")),
     });
     return { orderId, amountUsd };
   }
@@ -808,14 +816,14 @@ export class ChargeOrderAction {
 - **One row per tenant, name and business key**, whatever step, execution or thread writes it.
   Fencing is unchanged: the caller's own lease and scope mark are checked first, so a zombie is
   refused before any lookup — even where the business key already has a result.
-- **The key:** `effectKeyOf(executionContext, name, { businessKey, fingerprint })` — #825: a fenced
-  effect says what it does, `fingerprint` or `fingerprintPolicy: FingerprintPolicy.None` (on purpose:
-  work the business key fixes by itself, an event applied by its id); `{ businessKey }` alone is an
-  `OutboundCallKey`, which only `OutboundCalls.send` takes, its request the fingerprint. A fenced
-  effect under one does not compile, and a JavaScript caller's or a cast's key is refused before any
-  transaction, `FingerprintRequiredError` (`fenced-effect.fingerprint-required`): before #825 two
+- **The key:** `runOnce({ name, key, fingerprint, ttl, execute })` or `sendOnce({ name, key, … })` — #825: a keyed
+  `runOnce` says what it does, `fingerprint` or `withoutFingerprint: true` (on purpose:
+  work the business key fixes by itself, an event applied by its id); a `sendOnce` under a `key` needs
+  neither, its request is the fingerprint. A keyed `runOnce`
+  with neither does not compile, and a JavaScript caller's or a cast's call is refused before any
+  transaction, `IdempotencyError.FingerprintRequired` (`idempotency.fingerprint-required`): before #825 two
   effects with one business key and other work — a charge and a refund of `order:42` — replayed
-  each other silently. The key is marked: `effectKeyOf` is an application's only maker of one — a literal or a spread copy does not compile, and a key the framework did not make is refused at run time. A
+  each other silently. Without a `key` the effect is one per step and `name`. The key is made by the framework from the step; a store's key is marked, so a literal or a spread copy does not compile and one the framework did not make is refused at run time. A
   business key — and a thread id, and the tenant id beside both (#552) — is a **key's text** (#538,
   `KeyTextRule`), because two texts that look the same must never be two keys, and so two charges:
   - 1–200 UTF-16 code units (`length`);
@@ -859,10 +867,10 @@ export class ChargeOrderAction {
   Any other character is a key as it is — CJK, Cyrillic, Hebrew, Arabic, emoji, astral planes —
   stored and compared byte for byte: no case folding, no NFKC, so `Order:42`, `order 42` and
   `order:４２` are three keys. `keyTextRuleOf(text)` says which rule a text breaks;
-  a refusal is `InvalidBusinessKeyError` (`fenced-effect.invalid-business-key`) or
+  a refusal is `IdempotencyError.InvalidKey` (`idempotency.invalid-key`) or
   `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
   never the key, which is not echoed in `onExecutionRejected` either. Checked by
-  `effectKeyOf`, `OutboundCalls.send` and every store's entry, for a key built by hand
+  `runOnce`, `sendOnce` and every store's entry, for a key built by hand
   (`assertBusinessKey`, for a store of your own), before anything runs; a thread id at
   `app.execute` and `app.cancel`. A tenant id is held to the same rules at `app.execute`
   (`tenant: { tenantId }`), `app.resume` and `app.cancel` (#552: `dto.invalid` naming `tenantId` and
@@ -882,29 +890,29 @@ export class ChargeOrderAction {
   a value that is not a text is `length`. Before, on SQLite and PostgreSQL an execute under
   `bob\uD800` created a thread stored as `bob\uFFFD`'s and then refused its own caller. A lone
   surrogate never reaches a step at all: the start's input is JSON, which refuses it. It is never sent to a model. The
-  name is 1–100 of `[A-Za-z0-9._-]` (`InvalidFencedEffectNameError`, `fenced-effect.invalid-name`):
+  name is 1–100 of `[A-Za-z0-9._-]` (`IdempotencyError.InvalidName`, `idempotency.invalid-name`):
   it is part of the keys that go out.
 - **The same fingerprint replays**, the first result back (`Replayed`), and names who made it:
   `outcome.replayedFrom` (`FencedEffectOrigin`: `executionId`, `nodeId`, `visitNumber`), also on
-  the `onFencedEffect` / `onOutboundCall` events and their audit-log rows. The fingerprint is an
-  HMAC-SHA256 of the canonical JSON — the `fingerprint` given, else `OutboundCalls` takes the
-  request's — under `HMAC(idempotencyKey, "agboss/fingerprint/v1")`: the **application's idempotency
-  key** (#825), `@Application({ idempotencyKeyField })`, a `Secret` field used for nothing else — so
+  the `onIdempotencyRun` / `onOutboundCall` events and their audit-log rows. The fingerprint is an
+  HMAC-SHA256 of the canonical JSON — the `fingerprint` given, else `sendOnce` takes the
+  request's — under `HMAC(idempotencySecret, "agboss/fingerprint/v1")`: the **application's idempotency
+  secret** (#825), `@DatabaseStorage({ idempotencySecret })`, a `Secret` used for nothing else — so
   it is the same in every execution and on every instance and gives no guessable request away, and
   rotating the PII key or a provider's key changes no fingerprint. It is required once a component
-  reaches `OutboundCalls` or a fenced-effect store (`[application.idempotency-key-required]`), never
+  reaches `Idempotency` or a fenced-effect store (`[application.idempotency-key-required]`), never
   another key (`[application.idempotency-key-shared]`), and a key made without it is
-  `IdempotencyKeyMissingError` — never an unkeyed SHA-256. The handle below is keyed by the PII
+  `IdempotencyError.SecretKeyMissing` — never an unkeyed SHA-256. The handle below is keyed by the PII
   key — stable across executions with `piiKeyField`; with per-execution keys (#334) within one tree
   only. The fingerprint stays in the store's row: no read, kept record, export, event or audit-log
-  row shows it. **Rotating the idempotency key** (#825): name the new field `idempotencyKeyField` and
-  the old one `previousIdempotencyKeyField` — a fingerprint is then compared under both
+  row shows it. **Rotating the idempotency secret** (#825): name the new one `idempotencySecret` and
+  the old one `previousIdempotencySecret` — a fingerprint is then compared under both
   (`EffectKey.previousFingerprint`, never stored) and stored under the new one, so an intent
-  recorded before the rotation and retried during it replays or is reconciled: no
-  `BusinessKeyConflictError`, no second call. Remove the previous field once nothing recorded
+  recorded before the rotation and retried during it replays or is recovered: no
+  `IdempotencyError.KeyConflict`, no second call. Remove the previous secret once nothing recorded
   under it can be retried; what is left of it then fails closed — a conflict, nothing sent — never a
   second charge (`tests/app/idempotency-key-rotation.test.ts`).
-- **Another fingerprint is refused:** `BusinessKeyConflictError` (`fenced-effect.business-key-conflict`:
+- **Another fingerprint is refused:** `IdempotencyError.KeyConflict` (`idempotency.key-conflict`:
   `effect`, `businessKeyHash?`), nothing run or sent. The handle is 12 hex characters of
   `HMAC(subkey, "business-key\0" + key)`, under a subkey derived from the execution's PII key — its
   own (#334), else the application's `piiKeyField` — as `HMAC(piiKey, "agboss/business-key-handle/v1")`.
@@ -915,7 +923,7 @@ export class ChargeOrderAction {
   call of this instance under another fingerprint is refused the same way, never joined.
 - **Any text is a fingerprint, the empty one too** (#574): a key with `fingerprint: ""` and one
   with none are two requests, refused against each other whether the first is stored or still in
-  flight on this instance. `effectKeyOf` never makes `""` (none, or 64 hex digits); a key
+  flight on this instance. The framework never makes `""` (none, or 64 hex digits); a key
   built by hand may. A store of your own keeps `""` as `""` — a column that turns it into `NULL`
   replays it as none, which `fencedEffectContract`'s case "an empty fingerprint is not none" fails.
 - **A call in flight** belongs to its attempt's owner (`attemptOwner`). One this instance is sending
@@ -923,17 +931,16 @@ export class ChargeOrderAction {
   own error, and on anything else of the first call's — its hand-over, its cancel — makes its own
   call under its own frame — whatever the first call threw, an object or not. Under a business key,
   one written under a lease still **live** on another instance (`leaseStateOf` →
-  `OutboundCallLeaseState.Live`: held at its token, not expired) is `OutboundCallInFlightError`,
+  `OutboundCallLeaseState.Live`: held at its token, not expired) is `OutboundCallError.InFlight`,
   nothing sent; `Ended` — released, or its token moved on — means its owner is gone. A holder
   releases its lease only once the attempts under it settled (renewed meanwhile) and never yields it
   under one, so a cancelled step whose client ignores its signal keeps its call in flight while it
-  sends. The wait is bounded by `@Application({ outboundCalls: { attemptTimeout } })` (default
-  `minutes(2)`), counted from the attempt's start, and by the instance's stop (`app.close()`'s
+  sends. The wait is bounded by the call's `timeout` (required, at most 24 hours), counted from the attempt's start, and by the instance's stop (`app.close()`'s
   timeout): past it the holder stops renewing without releasing, so the call stays in flight for
-  `attemptTimeout` plus up to the lease's 30 s; a hung attempt no longer holds a yield back either,
+  `timeout` plus up to the lease's 30 s; a hung attempt no longer holds a yield back either,
   and a reclaim moves its token on. `leaseStateOf` then closes the expired lease in the same atomic
   step (`LeaseClosed`: released at the token it was held at), so its holder can neither renew it nor
-  write under it again, and the call is reconciled here; the close is an `OutboundCall` row of the
+  write under it again, and the call is recovered here; the close is an `OutboundCall` row of the
   caller's audit log, `LeaseClosed` with `closedLease` (the tree, the execution, the token), and a
   warning `outbound-call.lease-closed` (#825: rows written before, `lease-superseded` with
   `supersededLease`, are read under these names). The tree itself is then taken over as after any
@@ -941,32 +948,32 @@ export class ChargeOrderAction {
   is marked closed by a check, not by its holder: renewals, yields, reclaims and writes at that
   token all refused). An answer that comes back after that is
   fenced, not stored, and logged as an error, `outbound-call.answered-after-hand-over`. **A send
-  still hung past this bound can coincide with a reconcile and a resend; the provider must
+  still hung past this bound can coincide with a recovery and a resend; the provider must
   deduplicate on `call.idempotencyKey` (G1).** A tree that never yields keeps its lease — and the
   call in flight — until it ends or loses the lease. Once the
-  owner is gone the next caller reconciles, and only the winner of the compare-and-set sends.
+  owner is gone the next caller recovers, and only the winner of the compare-and-set sends.
 - **A lost completion is never silent:** an attempt answered after a newer one took the intent over
   — both reached the other system; an answer or a definite failure (its `cause`) alike, and a call
-  of this instance joined to it shares the error — fails the step with `OutboundCallSupersededError` (#795,
-  `outbound-call.superseded`, a `StepFailedError`: `call`, `target`, `operation`, `idempotencyKey`,
+  of this instance joined to it shares the error — fails the step with `OutboundCallError.Superseded` (#795,
+  `outbound-call.superseded`: `call`, `target`, `operation`, `idempotencyKey`,
   `attempt`, `supersededBy`), never a normal outcome; its answer is not stored. The audit log's row
   (`AttemptSuperseded`, `supersededBy` naming the newer attempt) and an error `outbound-call.superseded` on
   the instance's log are written first, audit log or none (a unit runner); when the intent can no
   longer be read the newer attempt is "unknown" (`supersededBy: undefined`), never guessed. A step
-  that must go on says so: `.onError(OutboundCallSupersededError, …)` — check the other system first.
+  that must go on says so: `.onError(OutboundCallError.Superseded, …)` — check the other system first.
 - **An answered call ends `Completed`:** a result that cannot be stored (above the limit, refused by
   the mask) is stored as a marker, `{"agboss:result-not-stored": "<code>"}`, with a warning
   `outbound-call.result-not-stored`, never `Failed` (which would send it again); the step gets the
-  answer. A later call under the key fails with `OutboundCallResultNotStoredError`
-  (`outbound-call.result-not-stored`, `reason`: the code, a `StepFailedError`) — nothing sent, and
-  never the marker as a result: read the result from the other system. A failure or `reconcile`
+  answer. A later call under the key fails with `OutboundCallError.ResultNotStored`
+  (`outbound-call.result-not-stored`, `reason`: the code) — nothing sent, and
+  never the marker as a result: read the result from the other system. A failure or lookup
   reason the mask cannot mask is `[redacted]`, with a warning `outbound-call.text-redacted`.
-- **The key that goes out:** `call.idempotencyKey` is `<tenant>:<businessKey>:<name>`, the tenant and
+- **The key that goes out:** `call.idempotencyKey` is `<tenant>:<key>:<name>`, the tenant and
   the business key `encodeURIComponent`-encoded, the same from every step and execution — give it to
   the other system as its idempotency key. Everything else names it by its handle only,
-  `business-key:<handle>:<name>`: `OutboundCallUnreconciledError.idempotencyKey`,
+  `business-key:<handle>:<name>`: `OutboundCallError.Unreconciled.idempotencyKey`,
   `OutboundCallOutcome.idempotencyKey` (what a tool might hand a model), `app.outboundCallsOf`,
-  `app.pendingOutboundCallsOf`, a kept record and its export — none shows `businessKey`.
+  `app.pendingOutboundCallsOf`, a kept record and its export — none shows the key.
 - **Stores:** the in-memory default; SQLite keeps business results in
   `fenced_effect_business_results` and business intents in `outbound_calls` under a unique index on
   `(tenant_id, name, business_key)`. `fencedEffectContract` and `outboundCallContract` carry the
@@ -1204,15 +1211,15 @@ before the moving call rejects. So the public log alone tells two zombies apart:
 
 | What the old holder did | Rows of its tree |
 | ----------------------- | ---------------- |
-| woke, reached its fenced effect and was refused | `takeover` (the new holder), `fenced-effect` `ran` (the new holder's write), `fenced-effect` `refused` (`token` 1, `observedToken` 2), `handed-over` (`reason: fenced`) |
+| woke, reached its idempotent write and was refused | `takeover` (the new holder), `idempotency-run` `ran` (the new holder's write), `idempotency-run` `refused` (`token` 1, `observedToken` 2), `handed-over` (`reason: fenced`) |
 | woke, reached a write of its own fencing and was refused | `takeover`, then `handed-over` (`reason: fenced`, `site`, `token` 1, `observedToken` 2) |
-| froze or died before it reached a step again | `takeover` (and the new holder's `fenced-effect` `ran`) only |
-| wrote, then crashed before its checkpoint | its `fenced-effect` `ran`, the `takeover`, then the new holder's `fenced-effect` `replayed` (`writtenToken` 1): no second write |
+| froze or died before it reached a step again | `takeover` (and the new holder's `idempotency-run` `ran`) only |
+| wrote, then crashed before its checkpoint | its `idempotency-run` `ran`, the `takeover`, then the new holder's `fenced-effect` `replayed` (`writtenToken` 1): no second write |
 
 <!-- snippet-context
 import {
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   HandOverReason,
   type App,
 } from "@agboss/core";
@@ -1227,8 +1234,8 @@ const refused = rows.some(
 );
 const replayed = rows.some(
   (row) =>
-    row.kind === ExecutionAuditEventKind.FencedEffect &&
-    row.outcome === FencedEffectEventOutcome.Replayed,
+    row.kind === ExecutionAuditEventKind.IdempotencyRun &&
+    row.outcome === IdempotencyRunEventOutcome.Replayed,
 );
 ```
 
@@ -1294,7 +1301,7 @@ cancels a tree — a local `app.cancel`, a remote one, a paused tree's, an A2A `
 writes the tree's cancel mark with `ExecutionLeaseRepository.requestCancel(tree)`: durable on the
 lease store's database, keyed by the tree's root, idempotent, changing no lease. From then on every
 fencing store of that database refuses, in the transaction that checks the lease, a **new**
-fenced effect (`runOnce`), outbound call intent (`saveIfAbsent`) or attempt (`markPending`) of the
+idempotent write (`runOnce`), outbound call intent (`saveIfAbsent`) or attempt (`markPending`) of the
 tree with `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`):
 nothing is written or sent, so a holder that has not read the request yet — up to a renewal, 7.5 s —
 cannot charge. What stays: a result stored **before** replays; the tree's own **undo** (the key of a
@@ -1302,7 +1309,7 @@ step that compensates another, `isCompensation`) is never refused, so the unwind
 child's key is fenced by its **root's** cancel; the end of an attempt claimed before the cancel
 (`markCompleted`, `markFailed`) and every read are accepted. A stale token is still
 `ExecutionFencedError` — a hand-over first. The step that met the refusal stops the tree as
-cancelled **at once** (not at the next renewal): it is told (`onFencedEffect` / `onOutboundCall`
+cancelled **at once** (not at the next renewal): it is told (`onIdempotencyRun` / `onOutboundCall`
 with outcome `cancelled`, and the audit log), the holder aborts its own pass, the open undos run
 under its lease and the moving call rejects with `ExecutionCancelledError`. The guarantee is P7 on
 [Guarantees](Guarantees): once `app.cancel` has resolved no effect runs for the tree but its undo's;
@@ -1725,7 +1732,7 @@ clock.advance(seconds(31))` twice lets `apps[1]`'s sweep take the tree over unde
 the woken step's token-1 write is refused and its call rejects with `ExecutionFencedError`. A frozen
 instance is resumed at the end of its test.
 
-The fenced effect is tested the same way (#500): a step frozen **before** its
+The idempotent write is tested the same way (#500): a step frozen **before** its
 `runOnce` is refused once `apps[1]` took the tree over — whether `apps[1]` wrote first or
 is frozen before its own effect; a step frozen **after** it (a crash before the checkpoint) lets
 `apps[1]` replay the stored result, the write made once. Unit runners give the store their held

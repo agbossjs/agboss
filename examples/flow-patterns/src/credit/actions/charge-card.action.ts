@@ -1,14 +1,13 @@
 import type { DatabaseSync } from "node:sqlite";
 import {
   Action,
-  ExecutionContext,
-  effectKeyOf,
-  FencedEffects,
+  Idempotency,
   optional,
   type ActionHandler,
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 import { ChargeResultDto } from "../dto/charge-result.dto.js";
 import { CreditApprovalDto } from "../dto/credit-approval.dto.js";
 import { CreditOrderDto } from "../dto/credit-order.dto.js";
@@ -21,9 +20,9 @@ import { PaymentLedgerRepository } from "../repositories/payment-ledger.reposito
  * lease. It is keyed by the credit application (#508, `credit:<applicationId>`), not the step: a
  * step run again (a crash before its checkpoint) and a second execution for the same application
  * (another request, another thread) get the first receipt; the same application with another
- * customer or total is refused (`BusinessKeyConflictError`) and charges nothing; an instance
- * that lost the lease is refused (`ExecutionFencedError`, a hand-over) and writes nothing. It
- * injects the application's `FencedEffects` (#890), never the store: the store is the one the
+ * customer or total is refused (`IdempotencyError.KeyConflict`) and charges nothing; an instance
+ * that lost the lease is refused (`ExecutionError.Fenced`, a hand-over) and writes nothing. It
+ * injects the application's `Idempotency` (#890, #1317), never the store: the store is the one the
  * application lists (`SqliteFencedEffectRepository`), whose transaction is a `DatabaseSync`.
  */
 @Action({
@@ -34,24 +33,24 @@ import { PaymentLedgerRepository } from "../repositories/payment-ledger.reposito
     approval: optional(CreditApprovalDto), // present after ApprovalAgent
   },
   output: ChargeResultDto,
-  deps: [ExecutionContext, FencedEffects, PaymentLedgerRepository],
+  deps: [Idempotency, PaymentLedgerRepository],
 })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: FencedEffects,
+    private readonly idempotency: Idempotency,
     private readonly paymentLedgerRepository: PaymentLedgerRepository,
   ) {}
 
   async execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
     const { applicationId, customerId, total } = input.order.value;
-    const key = effectKeyOf(this.executionContext, "charge", {
-      businessKey: `credit:${applicationId}`,
+    const { result } = await this.idempotency.runOnce({
+      name: "charge",
+      key: `credit:${applicationId}`,
       fingerprint: { customerId, total },
+      ttl: hours(24),
+      execute: (database: DatabaseSync) =>
+        this.paymentLedgerRepository.recordCharge(database, { customerId, total }),
     });
-    const { result } = await this.fencedEffects.runOnce(key, (database: DatabaseSync) =>
-      this.paymentLedgerRepository.recordCharge(database, { customerId, total }),
-    );
     return { chargeId: result.chargeId };
   }
 }

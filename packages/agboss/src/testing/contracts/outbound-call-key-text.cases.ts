@@ -1,6 +1,6 @@
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
-import { InvalidBusinessKeyError } from "../../infrastructure/fenced-effect-key.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type { ContractGroup } from "./define.js";
@@ -59,7 +59,7 @@ const roundTrip: OutboundCallCase = {
 };
 
 const refusedByHand: OutboundCallCase = {
-  name: "#538: a key built by hand whose business key breaks a rule is InvalidBusinessKeyError naming the rule at every method — findByKey, saveIfAbsent, markPending, markCompleted, markFailed —, never the key; nothing recorded",
+  name: "#538: a key built by hand whose business key breaks a rule is IdempotencyError.InvalidKey naming the rule at every method — findByKey, saveIfAbsent, markPending, markCompleted, markFailed —, never the key; nothing recorded",
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
 
@@ -68,11 +68,13 @@ const refusedByHand: OutboundCallCase = {
         const refused = await rejectionOf(
           call(first, effectKeyForTesting(keyOf(lease), { businessKey, fingerprint: "f" })),
         );
-        expect({ method, rule, isRefused: refused instanceof InvalidBusinessKeyError }).toEqual({
-          method,
-          rule,
-          isRefused: true,
-        });
+        expect({ method, rule, isRefused: refused instanceof IdempotencyError.InvalidKey }).toEqual(
+          {
+            method,
+            rule,
+            isRefused: true,
+          },
+        );
         expect(refused).toMatchObject({ rule });
         expect((refused as Error).message).not.toContain(businessKey);
       }

@@ -346,29 +346,28 @@ Autoscaling.
   `renewNow()`, `fencedError(observedToken)`. Exactly-once only when the external system checks the
   token and the idempotency key atomically. A reply interpreter, a budget's `maxSpend()`, an eval
   judge and an ancestor's `parent.fence` have none (`ExecutionContextUnavailableError`).
-- **The fenced effect (#500).** For rows in the store's own database, one call does the fencing and
-  the deduplication: inject `FencedEffects` (#890, never a store's class) and call
-  `runOnce(effectKeyOf(executionContext, "charge"), (database: DatabaseSync) => …)` — on the listed
-  `SqliteFencedEffectRepository` (listed with `SqliteExecutionLeaseRepository`; the work is
+- **The idempotent write (#500).** For rows in the store's own database, one call does the fencing and
+  the deduplication: inject `Idempotency` (#890, never a store's class) and call
+  `runOnce({ name: "charge", ttl: hours(24), execute: (database: DatabaseSync) => … })` — on the listed
+  `SqliteFencedEffectRepository` (listed with `SqliteExecutionLeaseRepository`; `execute` is
   synchronous) or the built-in in-memory store — the lease, the scope's mark and the step's key
   checked in the write's transaction; a replay gets the stored result, a zombie `ExecutionFencedError`.
   No fencing or idempotency table of your own.
-- **Calls that leave the system (#505).** `outboundCalls.send(effectKeyOf(executionContext,
-"charge"), { target, operation, request, send, reconcile, notSent })` records the intent first
-  and reconciles one left pending; `notSent` is required (#795): `{ trust: NotSentTrust.Lookup }`
-  when `reconcile` reads the other system's own records, `{ trust: NotSentTrust.KeyReplay,
-keyRetention: hours(24) }` when its `notSent()` relies on the key's replay. An attempt answered
-  after a newer one took it over fails the step with `OutboundCallSupersededError`.
+- **Calls that leave the system (#505).** `idempotency.sendOnce({ name: "charge", target, request,
+timeout, ttl, send, recovery })` records the intent first
+  and recovers one left pending; `recovery` is required (#795): `OutboundRecovery.permanentLookup(lookup =>
+Reconciliation…)` when the lookup reads the other system's own records, `OutboundRecovery.lookupWithin(hours(24), …)` or
+  `OutboundRecovery.replayWithin(hours(24))` when a resend relies on the key's replay (`timeout` below the window, `ttl` at least it). An attempt answered
+  after a newer one took it over fails the step with `OutboundCallError.Superseded`.
   `app.pendingOutboundCallsOf({ tenantId, limit?, after? })` pages what waits for an operator
   (`{ calls, next? }`, #825).
-- **Business keys (#508, #825).** `effectKeyOf(executionContext, "charge", { businessKey:
-"order:42", fingerprint: { amountUsd } })` — one effect per tenant, name and business key, another
-  fingerprint a conflict; a fenced effect needs `fingerprint` or `fingerprintPolicy:
-FingerprintPolicy.None` (a compile error without), `{ businessKey }` alone is a call's key (its
-  request the fingerprint). The fingerprint is keyed by `@Application({ idempotencyKeyField })` — a
+- **Business keys (#508, #825).** `runOnce({ name: "charge", key: "order:42", fingerprint: { amountUsd }, ttl, execute })` — one effect per tenant, name and business key, another
+  fingerprint a conflict; a keyed `runOnce` needs `fingerprint` or `withoutFingerprint: true`
+  (a compile error without), a keyed `sendOnce` needs neither (its
+  request the fingerprint). The fingerprint is keyed by `@DatabaseStorage({ idempotencySecret })` — a
   `Secret` of its own, required where business keys can be made; rotate it with
-  `previousIdempotencyKeyField` (compared under both, stored under the current one) and drop the
-  previous field once nothing recorded under it can be retried.
+  `previousIdempotencySecret` (compared under both, stored under the current one) and drop the
+  previous secret once nothing recorded under it can be retried.
 - **Any instance answers.** A pause made on one instance is resumed on another; `app.cancel` reaches
   the tree on whichever instance moves it.
 - **The cap on steps.** `@Application({ maxConcurrentSteps })` (a whole number from 1,

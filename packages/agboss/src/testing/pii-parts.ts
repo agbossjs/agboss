@@ -25,10 +25,7 @@ import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gate
  */
 
 import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
-import {
-  TEST_IDEMPOTENCY_KEY,
-  TEST_PREVIOUS_IDEMPOTENCY_KEY,
-} from "../application/idempotency-key.js";
+import {} from "../application/idempotency-key.js";
 import type { TestWithOptions } from "./environment.js";
 
 /** The options of tests whose instances make PII tokens on keys of their own (#334). */
@@ -79,26 +76,6 @@ const applicationKeyVariablesOf = (
 ): readonly string[] => keyVariablesOf(assembled.piiKeyField, loaded);
 
 /**
- * The idempotency key variables the test process does not set (#825), with the test keys: the
- * current field's `TEST_IDEMPOTENCY_KEY`, the previous one's another — as #778 gives the PII key.
- */
-function testIdempotencyKeys(
-  assembled: AssembledApplication,
-  processEnv: NodeJS.ProcessEnv,
-  loaded: LoadedEnvironment | undefined,
-): Record<string, string> {
-  const keyed = [
-    ...keyVariablesOf(assembled.idempotencyKeyField, loaded).map(
-      (v) => [v, TEST_IDEMPOTENCY_KEY] as const,
-    ),
-    ...keyVariablesOf(assembled.previousIdempotencyKeyField, loaded).map(
-      (v) => [v, TEST_PREVIOUS_IDEMPOTENCY_KEY] as const,
-    ),
-  ];
-  return Object.fromEntries(keyed.filter(([variable]) => (processEnv[variable] ?? "") === ""));
-}
-
-/**
  * The process variables of the PII keys the test process does not set, with the test key: the
  * policies' own and the application's `piiKeyField`'s (#778) — a test that sets one keeps it.
  */
@@ -140,7 +117,6 @@ export async function testKeyedEnvironmentOf(
   const keyed = {
     ...processEnv,
     ...testPseudonymKeys(assembled, processEnv, loaded),
-    ...testIdempotencyKeys(assembled, processEnv, loaded),
   };
   return { named: namedEnvironmentOf(loaded, keyed), processEnv: keyed };
 }

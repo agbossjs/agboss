@@ -14,12 +14,11 @@ import {
   ExecutionContext,
   ExecutionFencedError,
   ExecutionLeaseRepository,
-  FencedEffectSettings,
-  FencedEffectStatus,
-  effectKeyOf,
+  IdempotencyRunStatus,
   InMemoryFencedEffectRepository,
   Injectable,
 } from "../../../src/index.js";
+import { effectKeyOf } from "../../../src/stores/index.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { testAction } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
@@ -43,8 +42,8 @@ describe("#500: a unit runner's fenced effect", () => {
     expect(first.output).toEqual({ chargeId: "charge-order-1-1" });
     expect(second.output).toEqual(first.output);
     expect(book.runs.map((each) => each.status)).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Replayed,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Replayed,
     ]);
     expect(book.charges).toHaveLength(1);
   });
@@ -76,7 +75,7 @@ describe("#500: a unit runner's fenced effect", () => {
 
 /** A project's store that declares no backend: the runner has no lease store to hold its lease in. */
 @Injectable({
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
 class UnleasedFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: undefined };
@@ -84,7 +83,7 @@ class UnleasedFencedEffectRepository extends InMemoryFencedEffectRepository {
 
 /** A project's store on a backend the runner has no lease store of, and the test lists none. */
 @Injectable({
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
 class MisdeclaredFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "postgres" };
@@ -92,7 +91,7 @@ class MisdeclaredFencedEffectRepository extends InMemoryFencedEffectRepository {
 
 /** A project's own store on the in-memory backend: the runner finds its lease store by it (#825). */
 @Injectable({
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
 class OwnInMemoryFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "in-memory" };

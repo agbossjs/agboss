@@ -1,6 +1,6 @@
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { expect } from "vitest";
-import { BusinessKeyConflictError } from "../../infrastructure/fenced-effect-key.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
   businessKeyOf,
@@ -30,7 +30,7 @@ const storedApart = <TTransaction>(
   written: Fingerprint,
   asked: Fingerprint,
 ): Case<TTransaction> => ({
-  name: `#574: under one business key a call with ${nameOf(asked)} after one with ${nameOf(written)} is BusinessKeyConflictError: nothing runs`,
+  name: `#574: under one business key a call with ${nameOf(asked)} after one with ${nameOf(written)} is IdempotencyError.KeyConflict: nothing runs`,
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
     await first.effects.runOnce(
@@ -45,7 +45,7 @@ const storedApart = <TTransaction>(
       ),
     );
 
-    expect(refused).toBeInstanceOf(BusinessKeyConflictError);
+    expect(refused).toBeInstanceOf(IdempotencyError.KeyConflict);
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toEqual(["r1"]);
   },
@@ -66,7 +66,7 @@ const emptyReplaysEmpty = <TTransaction>(): Case<TTransaction> => ({
     );
 
     expect(again).toEqual({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "r1" },
       token: 1,
       replayedFrom: { executionId: "execution-1", nodeId: "charge-action", visitNumber: 1 },
@@ -91,11 +91,11 @@ const inFlightApart = <TTransaction>(
 
     expect(outcomes[0]).toMatchObject({
       status: "fulfilled",
-      value: { status: FencedEffectStatus.Ran },
+      value: { status: IdempotencyRunStatus.Ran },
     });
     expect(outcomes[1]).toMatchObject({
       status: "rejected",
-      reason: expect.any(BusinessKeyConflictError) as unknown,
+      reason: expect.any(IdempotencyError.KeyConflict) as unknown,
     });
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toEqual(["r1"]);
@@ -118,8 +118,10 @@ const racingApart = <TTransaction>(): Case<TTransaction> => ({
 
     const ran = outcomes.filter((outcome) => outcome.status === "fulfilled");
     const refused = outcomes.filter((outcome) => outcome.status === "rejected");
-    expect(ran).toMatchObject([{ value: { status: FencedEffectStatus.Ran } }]);
-    expect(refused).toMatchObject([{ reason: expect.any(BusinessKeyConflictError) as unknown }]);
+    expect(ran).toMatchObject([{ value: { status: IdempotencyRunStatus.Ran } }]);
+    expect(refused).toMatchObject([
+      { reason: expect.any(IdempotencyError.KeyConflict) as unknown },
+    ]);
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toHaveLength(1);
   },

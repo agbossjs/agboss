@@ -12,11 +12,9 @@ import type { AssembledKeyFields } from "./assembled-keys.js";
 
 /** Each key field the application names, with what a message calls it. */
 const keyFieldsNamed = (keys: AssembledKeyFields): readonly (readonly [string, string])[] =>
-  [
-    ["piiKeyField", keys.piiKeyField],
-    ["idempotencyKeyField", keys.idempotencyKeyField],
-    ["previousIdempotencyKeyField", keys.previousIdempotencyKeyField],
-  ].flatMap(([option, field]) => (field === undefined ? [] : [[field, option ?? ""] as const]));
+  [["piiKeyField", keys.piiKeyField]].flatMap(([option, field]) =>
+    field === undefined ? [] : [[field, option ?? ""] as const],
+  );
 
 /** The variable a field's `Secret` reads; none for a field that holds no `Secret`. */
 function variableOf(environment: Environment, field: string): string | undefined {

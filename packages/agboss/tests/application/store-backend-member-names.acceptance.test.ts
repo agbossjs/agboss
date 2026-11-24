@@ -16,7 +16,6 @@ import {
   ApplicationContext,
   Clock,
   ExecutionLeaseRepository,
-  FencedEffectSettings,
   InMemoryFencedEffectRepository,
   InMemoryOutboundCallRepository,
   Injectable,
@@ -33,7 +32,7 @@ const MEMBER_NAMES = Object.getOwnPropertyNames(Object.prototype);
 /** A fenced-effect store declaring `backend`. */
 function effectsOn(backend: string): Class {
   @Injectable({
-    deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+    deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
   })
   class MemberEffects extends InMemoryFencedEffectRepository {
     static override readonly store: StoreDescriptor = { backend: backend };

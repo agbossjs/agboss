@@ -13,5 +13,4 @@ export const environment: AppEnvironment = {
   openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL"), // unset → the providers' baseUrl
   sqlitePath: env("AGBOSS_SQLITE_PATH", { default: ".agboss/flow-patterns.sqlite" }),
   piiPseudonymKey: secret("PII_PSEUDONYM_KEY"),
-  idempotencyKey: secret("IDEMPOTENCY_KEY"),
 };

@@ -109,19 +109,19 @@ describe("#889 AC3: the observer's hooks are exported", () => {
     >();
     expectTypeOf<Required<ExecutionObserver>>().toHaveProperty("onExecutionLeaseTakeover");
     expectTypeOf<Required<ExecutionObserver>>().toHaveProperty("onStepHandedOver");
-    expectTypeOf<Required<ExecutionObserver>>().toHaveProperty("onFencedEffect");
+    expectTypeOf<Required<ExecutionObserver>>().toHaveProperty("onIdempotencyRun");
 
     const done = (): void => undefined;
     const observer: ExecutionObserver = {
       onExecutionLeaseTakeover: done,
       onStepHandedOver: done,
-      onFencedEffect: done,
+      onIdempotencyRun: done,
       onOutboundCall: done,
     };
     expect(Object.keys(observer)).toEqual([
       "onExecutionLeaseTakeover",
       "onStepHandedOver",
-      "onFencedEffect",
+      "onIdempotencyRun",
       "onOutboundCall",
     ]);
   });

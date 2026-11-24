@@ -6,7 +6,7 @@
  * `onExecutionError`; the zombie's call rejects with the fenced error itself.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionFencedError, FencedEffectStatus } from "../../src/index.js";
+import { ExecutionFencedError, IdempotencyRunStatus } from "../../src/index.js";
 import { testWith, type TestLeases, type VirtualClock } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
@@ -77,7 +77,7 @@ describe("#500 AC2: a zombie's effect is refused", () => {
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(book.charges).toEqual([{ order: "order-7", token: 2, chargeId: "charge-order-7-2" }]);
       expect(book.runs).toEqual([
-        { token: 2, status: FencedEffectStatus.Ran },
+        { token: 2, status: IdempotencyRunStatus.Ran },
         { token: 1, status: "refused" },
       ]);
       expect(recovery.ends).toHaveLength(1);
@@ -106,7 +106,7 @@ describe("#500 AC2: a zombie's effect is refused", () => {
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(book.runs).toEqual([
         { token: 1, status: "refused" },
-        { token: 2, status: FencedEffectStatus.Ran },
+        { token: 2, status: IdempotencyRunStatus.Ran },
       ]);
       expect(end?.output).toEqual({ chargeId: "charge-order-7-2" });
       expect(book.charges).toHaveLength(1);

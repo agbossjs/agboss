@@ -1,6 +1,7 @@
 import {
   Agent,
-  Injectable, Observer,
+  Injectable,
+  Observer,
   RagMode,
   Tool,
   Workflow,

@@ -496,7 +496,7 @@ uses.
 
 In `testWith(App)` an unscripted model guardrail passes; `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
 blocks, and `rejects.toFailWith(GuardrailBlockedError, { guard: "legal-advice-guardrail" })`
-asserts it. A key field (`piiKeyField`, `idempotencyKeyField`) or a policy's `pseudonymKey` whose variable is unset gets a fixed test key.
+asserts it. A key field (`piiKeyField`) or a policy's `pseudonymKey` whose variable is unset gets a fixed test key.
 
 ## Rule codes
 

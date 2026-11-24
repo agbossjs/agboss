@@ -12,11 +12,10 @@
  */
 import { effectKeyIdentityOf } from "../../../src/infrastructure/fenced-effect-key.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import {
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type EffectKey,
-  type FencedEffectOutcome,
+  type IdempotencyRunOutcome,
   type FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
 import {
@@ -81,7 +80,6 @@ export const withoutCancelFence = {
       effects: new InMemoryFencedEffectRepository(
         seam.storeClock,
         withoutCancels(seam.database),
-        new FencedEffectSettings(),
         leases,
       ),
       leases,
@@ -113,7 +111,7 @@ export class CancelReadBeforeEffects extends CheckThenWriteEffects {
   protected override async runInTransaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<BufferedTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     this.check(key);
     const found = this.results.get(effectKeyIdentityOf(key));
     if (found !== undefined) return this.replayOf(key, found);
@@ -123,7 +121,7 @@ export class CancelReadBeforeEffects extends CheckThenWriteEffects {
     this.check(key);
     const outcome = this.stored<TResult>(key, result);
     for (const write of transaction.writes) write();
-    return { ...outcome, status: FencedEffectStatus.Ran };
+    return { ...outcome, status: IdempotencyRunStatus.Ran };
   }
 }
 

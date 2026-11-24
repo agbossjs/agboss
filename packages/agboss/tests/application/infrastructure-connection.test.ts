@@ -195,7 +195,6 @@ const applicationReading = (dependency: object, providers: readonly object[]) =>
     name: "reading-application",
     version: "1.0.0",
     environment: SqliteTestEnvironment,
-    idempotencyKeyField: "idempotencyKey",
     workflows: [workflowReading(dependency) as typeof ConnectionlessEffectApplication],
     budgets: TEST_BUDGETS,
     providers: providers as readonly (typeof OrderLedger)[],

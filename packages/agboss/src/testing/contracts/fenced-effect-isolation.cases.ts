@@ -1,8 +1,6 @@
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { expect } from "vitest";
-import {
-  FencedEffectResultTooLargeError,
-  FencedEffectStatus,
-} from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { minutes, seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
@@ -38,9 +36,9 @@ const namesApart = <TTransaction>(): Case<TTransaction> => ({
     ]);
 
     expect(outcomes.map((outcome) => outcome.status)).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Ran,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Ran,
     ]);
     expect([...(await first.rows.committed())].sort()).toEqual(["a", "b", "c"]);
   },
@@ -58,7 +56,7 @@ const scopesApart = <TTransaction>(): Case<TTransaction> => ({
 
     const outcome = await first.effects.runOnce(keyOf(other), writing(first.rows, "b", count));
 
-    expect(outcome).toMatchObject({ status: FencedEffectStatus.Ran, token: 1 });
+    expect(outcome).toMatchObject({ status: IdempotencyRunStatus.Ran, token: 1 });
   },
 });
 
@@ -74,7 +72,7 @@ const oversizedRefused = <TTransaction>(): Case<TTransaction> => ({
       }),
     );
 
-    expect(refused).toBeInstanceOf(FencedEffectResultTooLargeError);
+    expect(refused).toBeInstanceOf(IdempotencyError.ResultTooLarge);
     expect(refused).toMatchObject({
       effect: "charge",
       size: 64 * 1024 + 1,
@@ -98,10 +96,10 @@ const deletionFollowsClock = <TTransaction>(): Case<TTransaction> => ({
     await second.effects.deleteByStoredAtBefore(new Date("2026-01-05T09:05:00.000Z"));
 
     expect((await first.effects.runOnce(early, writing(first.rows, "e2", count))).status).toBe(
-      FencedEffectStatus.Ran,
+      IdempotencyRunStatus.Ran,
     );
     expect((await first.effects.runOnce(late, writing(first.rows, "l2", count))).status).toBe(
-      FencedEffectStatus.Replayed,
+      IdempotencyRunStatus.Replayed,
     );
   },
 });

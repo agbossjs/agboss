@@ -1,9 +1,5 @@
 import { issuedKey } from "../infrastructure/issued-keys.js";
-import {
-  fingerprintsOf,
-  BusinessKeyConflictError,
-  isKeyFingerprint,
-} from "../infrastructure/fenced-effect-key.js";
+import { fingerprintsOf, isKeyFingerprint } from "../infrastructure/fenced-effect-key.js";
 import { OutboundCallLeaseState } from "../infrastructure/execution-audit-log.repository.js";
 import type {
   EffectKey,
@@ -17,7 +13,8 @@ import {
   type OutboundCallState,
 } from "../infrastructure/outbound-call.repository.js";
 import type { CallRun } from "./outbound-call-parts.js";
-import { OutboundCallInFlightError } from "./outbound-calls.js";
+import { businessKeyConflict } from "../infrastructure/idempotency-errors.js";
+import { inFlightError } from "./outbound-call-errors.js";
 
 /**
  * A call that leaves the system under a business key (#508): one call per tenant, name and business
@@ -28,8 +25,8 @@ import { OutboundCallInFlightError } from "./outbound-calls.js";
 
 /**
  * The key with its fingerprint (#825): the request's — under the application's idempotency key, and
- * its previous one during a rotation — when a business key names none (`OutboundCalls.send` refuses
- * `FingerprintPolicy.None` before: a call's request is always its fingerprint).
+ * its previous one during a rotation — when a business key names none (`Idempotency.sendOnce` refuses
+ * `withoutFingerprint` before: a call's request is always its fingerprint).
  */
 export function keyedByRequest(key: EffectKey | OutboundCallKey, request: unknown): EffectKey {
   if (key.businessKey === undefined || key.fingerprint !== undefined) return key as EffectKey;
@@ -50,8 +47,8 @@ export const callKeyOf = (key: EffectKey): string =>
 
 /**
  * Checks a found intent (#505, #508): under a business key another fingerprint is
- * `BusinessKeyConflictError`; for any key, a pending attempt whose owner lives is
- * `OutboundCallInFlightError` — never reconciled or resent. Its owner is its `attemptOwner`: alive
+ * `IdempotencyError.KeyConflict`; for any key, a pending attempt whose owner lives is
+ * `OutboundCallError.InFlight` — never reconciled or resent. Its owner is its `attemptOwner`: alive
  * when this instance is sending under it now, whatever the key; under a business key also while
  * the lease that wrote it is live on another instance (released only once its attempts settled,
  * never yielded under one); one expired is closed by the check (`leaseStateOf`: `LeaseClosed`, what
@@ -66,9 +63,9 @@ export async function checkedCall<TRequest, TResult>(
   const { key, options } = run;
   // #825: the current idempotency key's fingerprint, or the previous one's during a rotation
   if (key.businessKey !== undefined && !isKeyFingerprint(key, found.fingerprint))
-    throw new BusinessKeyConflictError({ effect: key.name, businessKeyHash: key.businessKeyHash });
+    throw businessKeyConflict({ effect: key.name, businessKeyHash: key.businessKeyHash });
   if (found.status !== OutboundCallStatus.Pending) return undefined;
-  const inFlight = new OutboundCallInFlightError({ ...options, call: key.name });
+  const inFlight = inFlightError({ ...options, call: key.name });
   if (run.parts.owners.has(found.attemptOwner)) throw inFlight;
   if (key.businessKey === undefined) return undefined;
   // the caller holds this lease's current token: an older one of it is ended whatever its token

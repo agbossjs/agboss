@@ -18,7 +18,7 @@ import {
   unreconciledOf,
 } from "../../src/app/outbound-call-endings.js";
 import { joinedOrMade } from "../../src/app/outbound-call-join.js";
-import { OutboundCallSendStatus } from "../../src/app/outbound-calls.js";
+import { OutboundCallSendStatus } from "../../src/app/idempotency.js";
 import { ExecutionFencedError } from "../../src/app/lease-lost.js";
 import {
   OutboundCallEventOutcome,

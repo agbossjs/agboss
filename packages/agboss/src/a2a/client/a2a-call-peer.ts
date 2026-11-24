@@ -10,7 +10,7 @@ import { A2APeerKind, cardExtensionsOf, type A2ARemotePeer } from "./a2a-card.js
  * only as long as it keeps the reply — its mesh extension's `messageIdempotencyRetention`, else
  * the 15 minutes AGBoss keeps one by default — never the task skills' `idempotencyRetention`. So an
  * ambiguous send to it is resent with the same id within that retention only, and past it fails
- * closed (`OutboundCallUnreconciledError`). A task skill, a foreign agent: the card's peer as it is.
+ * closed (`OutboundCallError.Unreconciled`). A task skill, a foreign agent: the card's peer as it is.
  */
 
 /** What AGBoss keeps a direct reply for when its card does not say (`retention.a2aMessages`). */

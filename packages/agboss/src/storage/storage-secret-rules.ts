@@ -5,8 +5,6 @@ import type { AssembledStorage } from "./storage-assembly.js";
 /** What the rules read of an application's key fields. */
 export interface KeyFields {
   readonly piiKeyField?: unknown;
-  readonly idempotencyKeyField?: unknown;
-  readonly previousIdempotencyKeyField?: unknown;
 }
 
 /** The storage's secrets are each its own variable, and none is also named as a key field. */
@@ -18,18 +16,8 @@ export function secretViolations(
   const meta = storage.database?.meta;
   if (meta === undefined) return [];
   const keys = [
-    [
-      "idempotencySecret",
-      meta.idempotencySecret,
-      "idempotencyKeyField",
-      fields.idempotencyKeyField,
-    ],
-    [
-      "previousIdempotencySecret",
-      meta.previousIdempotencySecret,
-      "previousIdempotencyKeyField",
-      fields.previousIdempotencyKeyField,
-    ],
+    ["idempotencySecret", meta.idempotencySecret, undefined, undefined],
+    ["previousIdempotencySecret", meta.previousIdempotencySecret, undefined, undefined],
     ["piiSecret", meta.piiSecret, "piiKeyField", fields.piiKeyField],
   ] as const;
   const conflicts = keys.flatMap(([secret, ref, field, named]) =>

@@ -1,12 +1,12 @@
 /**
- * #1325a: every public method of `App`, `A2AClient`, `McpServerClient` and `FencedEffects` that returns a
+ * #1325a: every public method of `App`, `A2AClient`, `McpServerClient` and `Idempotency` that returns a
  * promise is `async`: a bad call rejects, it is never thrown at the call — what `Result.try(() => call)` and
  * a `.catch` both need. Each method is called with an argument no method takes.
  */
 import { describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
 import { A2AClient } from "../../src/a2a/index.js";
-import { FencedEffects } from "../../src/app/fenced-effects.js";
+import { Idempotency } from "../../src/app/idempotency.js";
 import { McpServerClient } from "../../src/components/mcp-client.js";
 import { AGBossError, Result } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
@@ -69,14 +69,14 @@ describe("#1325a: a public async method rejects, it never throws at the call", (
     );
   });
 
-  test("A2AClient, FencedEffects and McpServerClient", async () => {
+  test("A2AClient, Idempotency and McpServerClient", async () => {
     const client = new A2AClient({
       url: "http://127.0.0.1:1",
       fetcher: () => {
         throw new TypeError("no fetch");
       },
     });
-    const effects = new FencedEffects(NOTHING);
+    const idempotency = new Idempotency(NOTHING, NOTHING, NOTHING, {} as never, {} as never);
     class Server extends McpServerClient<never> {
       readonly label = "server";
     }
@@ -84,7 +84,8 @@ describe("#1325a: a public async method rejects, it never throws at the call", (
     await rejectsNotThrows(() => client.agentCard());
     await rejectsNotThrows(() => client.send(NOTHING));
     await rejectsNotThrows(() => client.execute(NOTHING));
-    await rejectsNotThrows(() => effects.runOnce(NOTHING, NOTHING));
+    await rejectsNotThrows(() => idempotency.runOnce(NOTHING));
+    await rejectsNotThrows(() => idempotency.sendOnce(NOTHING));
     await rejectsNotThrows(() => new Server().call(NOTHING, NOTHING));
   });
 });

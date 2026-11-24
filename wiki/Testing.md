@@ -1196,7 +1196,7 @@ confirmed until `clock` (a `VirtualClock` unless given) plus 30 s; `fence: { tok
 leaseExecutionId, trustedUntil, isLost, renewNowFails }` sets each part — `isLost` makes
 `assertHeld()` and `renewNow()` refuse with `ExecutionLeaseLostError`, `renewNowFails` (`true`
 or an error) only `renewNow()` (a store error right before a webhook). Every unit runner takes the
-same `fence` option, its `trustedUntil` on `run.clock`. A component's fenced effect (#500) runs on the runner's held
+same `fence` option, its `trustedUntil` on `run.clock`. A component's `Idempotency.runOnce` (#500) runs on the runner's held
 lease: the in-memory store by default, and every fenced-effect store the runner creates — the SQLite
 one too, on `environment: { sqlitePath: ":memory:" }` — gets the lease written into the lease store
 it reads, at `fence.token` (`isLost` → released, so the effect is refused; past `trustedUntil` →

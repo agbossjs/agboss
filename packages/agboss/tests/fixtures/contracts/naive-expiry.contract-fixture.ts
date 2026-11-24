@@ -1,7 +1,6 @@
 // #534 acceptance: the lease's boundary cases against naive stores (naive-expiry.ts).
 import { StoreClock, StoreTimeSource } from "../../../src/infrastructure/clock.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
 import {
@@ -45,12 +44,7 @@ const effectsLagging = (lag: Milliseconds) =>
   inMemoryTarget((seam) => {
     const honest = inMemoryFencedEffects(false)(seam);
     const late = new StoreClock(StoreTimeSource.Test, new LaggingClock(seam.clock, lag));
-    const effects = new InMemoryFencedEffectRepository(
-      late,
-      seam.database,
-      new FencedEffectSettings(),
-      honest.leases,
-    );
+    const effects = new InMemoryFencedEffectRepository(late, seam.database, honest.leases);
     return { ...honest, effects };
   });
 

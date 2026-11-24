@@ -16,7 +16,6 @@ import { HeldLeases, ScopedAudit, ScopedCheckpoints } from "./lease-scope-bound.
   name: "lease-scope-audit-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

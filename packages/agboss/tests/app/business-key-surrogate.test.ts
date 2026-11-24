@@ -5,9 +5,11 @@
  * built from it (`encodeURIComponent` throws). It is refused like any other invalid business key,
  * before anything runs — never a `URIError` from the send, never another order's row.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import { Action, ExecutionContext, effectKeyOf, InvalidBusinessKeyError } from "../../src/index.js";
+import { Action, ExecutionContext } from "../../src/index.js";
+import { effectKeyOf } from "../../src/stores/index.js";
 import { isThreadId } from "../../src/run/thread.js";
 import { testAction } from "../../src/testing/index.js";
 
@@ -37,14 +39,14 @@ describe("a business key with a lone surrogate", () => {
     expect(isThreadId("order:\u{1F9FE}42")).toBe(true);
   });
 
-  it("effectKeyOf refuses it with InvalidBusinessKeyError, the key not in the message", async () => {
+  it("effectKeyOf refuses it with IdempotencyError.InvalidKey, the key not in the message", async () => {
     const run = testAction(CutKeyAction);
 
     const error: unknown = await run({ message: { value: { text: "x" } } }).catch(
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(InvalidBusinessKeyError);
+    expect(error).toBeInstanceOf(IdempotencyError.InvalidKey);
     expect((error as Error).message).not.toContain("order:");
   });
 });

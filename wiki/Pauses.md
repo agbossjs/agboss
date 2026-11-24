@@ -368,8 +368,8 @@ export class PayoutLimitToolInterceptor {
 // @Tool({ …, toolInterceptors: [PayoutLimitToolInterceptor] }) on the payout tool
 ```
 
-The payment guarantees do not depend on the interpreter: a fenced effect still runs once per step,
-an outbound call is still sent once per key and reconciled, one business key is still charged once
+The payment guarantees do not depend on the interpreter: an idempotent write still runs once per step,
+an outbound call is still sent once per key and recovered, one business key is still charged once
 ([Payments](Payments), [Guarantees](Guarantees)) — whatever the interpreter read.
 
 ## A question the workflow asks: `.toExternalTask(Role)` (#659)

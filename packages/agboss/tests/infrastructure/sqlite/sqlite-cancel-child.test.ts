@@ -10,8 +10,7 @@ import { describe, expect, it } from "vitest";
 import { ExecutionCancelFencedError } from "../../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
-import { FencedEffectStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
+import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
@@ -35,7 +34,7 @@ function instanceOn(path: string, instanceId: string) {
   return {
     connection,
     leases: new SqliteExecutionLeaseRepository(connection, clock, context),
-    effects: new SqliteFencedEffectRepository(connection, clock, new FencedEffectSettings()),
+    effects: new SqliteFencedEffectRepository(connection, clock),
   };
 }
 
@@ -83,7 +82,7 @@ describe("agbossjs/agboss#1302: a child's open fenced write blocks its root's ca
         return { receipt: "r1" };
       });
 
-      expect(written.status).toBe(FencedEffectStatus.Ran);
+      expect(written.status).toBe(IdempotencyRunStatus.Ran);
       expect(await inside?.cancel).toBeInstanceOf(Error);
       expect(await inside?.isMarked).toBe(false);
       expect(await two.leases.isCancelRequested(TREE)).toBe(false);

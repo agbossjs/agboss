@@ -48,7 +48,6 @@ export class CallerClockOutboundCallRepository extends SqliteOutboundCallReposit
 const charge = {
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,

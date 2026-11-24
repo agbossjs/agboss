@@ -16,7 +16,7 @@ import type { MeshCallServices } from "../../mesh/mesh-call.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 import type { ExecutionDeadline } from "../../budgets/execution-deadline.js";
 import type {
-  FencedEffectReport,
+  IdempotencyRunReport,
   HandOverReport,
   OutboundCallReport,
 } from "../../app/audit-log.js";
@@ -104,8 +104,8 @@ export interface FrameLease {
    * recorded before the lease is released; absent where no audit log is kept (a unit runner).
    */
   recordHandOver?(report: HandOverReport): void;
-  /** A step under it called a fenced effect (#501): its row and `onFencedEffect`, in order. */
-  recordFencedEffect?(report: FencedEffectReport): void;
+  /** A step under it called a fenced effect (#501): its row and `onIdempotencyRun`, in order. */
+  recordIdempotencyRun?(report: IdempotencyRunReport): void;
   /** A step under it moved a call that leaves the system (#505): its row and `onOutboundCall`. */
   recordOutboundCall?(report: OutboundCallReport): void;
   /**

@@ -2,7 +2,6 @@ import {
   Application,
   EmptyEnvironment,
   ExecutionLeaseRepository,
-  FencedEffectSettings,
   InMemoryFencedEffectRepository,
   Injectable,
   LeaseCheck,
@@ -15,7 +14,7 @@ import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/te
 
 /** A fenced-effect store on no declared backend that opts out of the atomic lease check. */
 @Injectable({
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
 export class OptedOutEffects extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = {

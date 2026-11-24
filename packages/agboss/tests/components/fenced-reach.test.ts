@@ -1,10 +1,10 @@
 /**
  * #1356 — which components reach a writer under business keys (#825): the classes a token is given by the
  * application's providers, the walk through a component's `deps`, what a workflow's assembly remembers of it,
- * and `FencedEffects`, a writer a component reaches by injecting it.
+ * and `Idempotency`, a writer a component reaches by injecting it.
  */
 import { describe, expect, it, vi } from "vitest";
-import { FencedEffects } from "../../src/app/fenced-effects.js";
+import { Idempotency } from "../../src/app/idempotency.js";
 import {
   businessKeyWriterPartOf,
   businessKeyWriterUseOf,
@@ -198,12 +198,12 @@ describe("#1356: the component that reaches a writer", () => {
     expect(readDeps.mock.calls.map(([cls]) => cls)).toEqual([Reaching, Plain]);
   });
 
-  it("`FencedEffects` is a writer: a component that injects it reaches one", () => {
-    const deps = depsOf(new Map<Class, readonly Token[]>([[Reaching, [FencedEffects]]]));
+  it("`Idempotency` is a writer: a component that injects it reaches one", () => {
+    const deps = depsOf(new Map<Class, readonly Token[]>([[Reaching, [Idempotency]]]));
 
     expect(businessKeyWriterUseOf([Reaching], deps)).toEqual({
       component: Reaching,
-      writer: FencedEffects,
+      writer: Idempotency,
     });
   });
 });

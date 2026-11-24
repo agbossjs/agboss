@@ -24,6 +24,27 @@ export { SchemaSetup } from "./schema-setup.js";
 // the one paging shape of every listing (#1324e)
 export type { Page, PageQuery } from "../app/page.js";
 
+// the key of one protected write and the fence of the lease it runs under (#1317): made by
+// `Idempotency` for an application, by `effectKeyOf` in a store's own tests and tools
+export {
+  effectKeyOf,
+  FingerprintProblem,
+  type BusinessKeyOptions,
+  type EffectKeyOptions,
+  type FingerprintedKeyOptions,
+  type FingerprintKeys,
+  type OutboundCallKeyOptions,
+  type UnfingerprintedKeyOptions,
+} from "../infrastructure/fenced-effect-key.js";
+export type {
+  EffectKey,
+  EffectKeyFields,
+  EffectKeyMark,
+  OutboundCallKey,
+  OutboundCallKeyMark,
+} from "../infrastructure/effect-key.js";
+export type { ExecutionFence } from "../flow/context/execution-fence.js";
+
 // the rows at an outbound-call store's boundary (#505): an intent, its claim, its lease
 export { OutboundCallLeaseState } from "../infrastructure/execution-audit-log.repository.js";
 export type {

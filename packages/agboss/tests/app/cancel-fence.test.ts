@@ -68,7 +68,7 @@ async function chargingAt(
 }
 
 describe("#909 AC1/AC3: a live holder between the cancel request and its next renewal", () => {
-  test("a remote cancel: its next charge is refused, nothing charged, the tree ends cancelled, the reservation undone once, onFencedEffect Cancelled", async ({
+  test("a remote cancel: its next charge is refused, nothing charged, the tree ends cancelled, the reservation undone once, onIdempotencyRun Cancelled", async ({
     apps,
   }) => {
     const [first, second] = await pair(apps);

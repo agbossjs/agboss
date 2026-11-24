@@ -5,9 +5,7 @@
 import * as a2a from "../../src/a2a/index.js";
 import * as root from "../../src/index.js";
 import * as models from "../../src/models/index.js";
-import { OutboundCallPart } from "../../src/app/outbound-calls.js";
 import { TokenLimit } from "../../src/config/types.js";
-import { FingerprintProblem } from "../../src/infrastructure/fenced-effect-fingerprint.js";
 import { ModelKind } from "../../src/llm/decision-errors.js";
 import { seconds } from "../../src/units/index.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
@@ -15,7 +13,6 @@ import { StoredNamesUnreadableError } from "../../src/infrastructure/stored-step
 import { fx } from "./error-options.fx.js";
 import { flowFixtures } from "./error-options.fixtures-flow.js";
 
-const call = { call: "charge", target: "payments", operation: "charge" };
 const task = { agent: "refund-agent", taskId: "t-1", contextId: "c-1" };
 const message = "it went wrong";
 
@@ -29,19 +26,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     rule: root.KeyTextRule.Length,
   }),
   fx(root.ThreadIdsExhaustedError, { generator: "G", tries: 100 }),
-  fx(root.BusinessKeyConflictError, { effect: "charge", businessKeyHash: "h-1" }),
-  fx(root.FingerprintNotJsonError, { effect: "charge", path: "$.at", reason: "a Date" }),
-  fx(root.FingerprintRequiredError, { effect: "charge", reason: FingerprintProblem.Missing }),
-  fx(root.IdempotencyKeyMissingError, { effect: "charge" }),
   fx(StoredNamesUnreadableError, { record: "pause", ids: "pauseId p1", fields: "answerer" }),
-  fx(root.InvalidBusinessKeyError, { effect: "charge", rule: root.KeyTextRule.Length }),
-  fx(root.InvalidFencedEffectNameError, { length: 120 }),
-  fx(root.FencedEffectResultTooLargeError, { effect: "charge", size: 10, maxResultSize: 5 }),
-  fx(root.FencedEffectStoreMismatchError, {
-    fencedEffectRepository: "A",
-    leaseRepository: "B",
-    expectedLeaseRepository: "C",
-  }),
   fx(root.SyncWorkRequiredError, { effect: "charge" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
   fx(root.SqliteSchemaTooNewError, { applied: 2, expected: 1 }),
@@ -70,28 +55,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     leaseExecutionId: "child-1",
     token: 2,
     effect: "charge",
-  }),
-  fx(root.InvalidNotSentTrustError, { call: "charge", problem: "notSent is undefined" }),
-  fx(root.OutboundCallInFlightError, call),
-  fx(root.OutboundCallPayloadTooLargeError, {
-    call: "charge",
-    part: OutboundCallPart.Request,
-    size: 10,
-    maxPayloadSize: 5,
-  }),
-  fx(root.OutboundCallResultNotStoredError, { ...call, reason: "outbound-call.unmasked" }),
-  fx(root.OutboundCallSupersededError, {
-    ...call,
-    idempotencyKey: "k-1",
-    attempt: 1,
-    supersededBy: 2,
-  }),
-  fx(root.OutboundCallUnmaskedError, { call: "charge" }),
-  fx(root.OutboundCallUnreconciledError, {
-    ...call,
-    idempotencyKey: "k-1",
-    reason: "reconcile.threw",
-    detail: "reconcile threw",
   }),
   fx(root.CostLedgerCutoffInvalidError, { reason: "not a Date" }),
   fx(root.CostLedgerEntryExpiredError, { ledgerIds: ["l-1"], prunedBefore: new Date(0) }),

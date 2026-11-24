@@ -296,7 +296,7 @@ export class ClaimsWorkflow {} // a @Workflow of its own
     executionRecords: hours(24 * 30), // each root execution's history (unset: nothing kept)
     auditLog: hours(24), // the audit log (default hours(24))
     costLedgerEntries: hours(24), // the cost ledger's entries (default hours(24))
-    fencedEffects: hours(24), // fenced effects' results and marks (default hours(24))
+    fencedEffects: hours(24), // idempotent writes' results and marks (default hours(24))
     outboundCalls: hours(168), // ended outbound calls (default hours(168))
     meshAnswers: minutes(30), // trusted mesh requests' answers (default minutes(30))
     a2aTasks: hours(24), // finished A2A tasks (default hours(24))
@@ -311,10 +311,10 @@ Each is a positive, finite duration; `fencedEffects`, `outboundCalls` and `costL
 above the lease's 30 s (a mark, an intent or an entry removed sooner would let a zombie's late or
 retried write through); none is above a century; a key it does not know is a typo, never a
 default, and a retention set where it was before 0.1.1 (`executionRecordRetention`,
-`fencedEffects.retention`, `mesh.idempotencyRetention`, …) is refused naming its new place — all
+`mesh.idempotencyRetention`, …) is refused naming its new place — all
 `[application.retention-invalid]`, every problem at once, before anything starts. Sizes and timeouts
-stay with their feature: `fencedEffects: { maxResultSize }`, `outboundCalls: { maxPayloadSize,
-attemptTimeout }`.
+stay with the call that makes them: `maxResultSize`, `maxPayloadSize` and `timeout` are options of
+`Idempotency.runOnce` and `sendOnce`, each call's `ttl` is required.
 
 ## Timeouts and deadlines — the largest value of each (#1141)
 
@@ -326,7 +326,7 @@ maximum, naming the field, and accepted at it:
 | Setting                                                             | Largest    | Refused as                                                                    |
 | ------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- |
 | `@Application({ shutdownTimeout })`, `compensationTimeout`          | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |
-| `@Application({ outboundCalls: { attemptTimeout } })`               | 24 hours   | `[application.outbound-calls-invalid]` at assembly                            |
+| `Idempotency.sendOnce({ timeout })`                                 | 24 hours   | the call rejects with `ConfigError.Option`, nothing recorded or sent          |
 | `app.close({ timeout })`                                            | 24 hours   | the `close` promise rejects with `UnitError` (`config.unit`), nothing stopped |
 | `@Tool` / `defineTool` `timeout`                       | 24 hours   | `[limits.timeout-invalid]` at assembly; `UnitError` from `defineTool`         |
 | `@HealthCheck({ timeout })`                                         | 24 hours   | `[limits.timeout-invalid]` at assembly                                        |

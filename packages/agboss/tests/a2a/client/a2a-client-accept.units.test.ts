@@ -1,7 +1,7 @@
 /**
  * #809 — the accept round trip piece by piece (the `a2a-client` mutation shard): the message and
  * request it sends, what it stores of the answer, its resends of unknown outcome by peer, and how it
- * drives `OutboundCalls` (a fake here: the protocol itself has its own suites).
+ * drives `Idempotency.sendOnce` (a fake here: the protocol itself has its own suites).
  */
 import { Message, Role, TaskState, type SendMessageRequest, type Task } from "@a2a-js/sdk";
 import type { RequestOptions } from "@a2a-js/sdk/client";
@@ -41,16 +41,14 @@ import {
 } from "../../../src/a2a/client/a2a-client-errors.js";
 import { A2ANetworkError } from "../../../src/a2a/client/a2a-transport.js";
 import { isDefiniteSendFailure } from "../../../src/a2a/client/a2a-wire-errors.js";
-import { NotSentTrust } from "../../../src/app/outbound-call-contract.js";
 import {
   OutboundCallSendStatus,
+  type IdempotencySendOptions,
   type OutboundCall,
   type OutboundCallOutcome,
-  type OutboundCallSendOptions,
-} from "../../../src/app/outbound-calls.js";
-import type { EffectKey } from "../../../src/infrastructure/fenced-effect.repository.js";
+} from "../../../src/app/outbound-call-types.js";
+import type { LookupRecovery } from "../../../src/app/outbound-recovery.js";
 import { hours, type Milliseconds } from "../../../src/units/index.js";
-import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 
 const SKILLS = "https://agboss.dev/a2a/skills/v1";
 const MESH = "https://agboss.dev/a2a/mesh/v1";
@@ -447,11 +445,10 @@ describe("outside an execution: sent directly", () => {
   });
 });
 
-/** A fake `OutboundCalls`: each `send` gives the next scripted outcome, or runs the call's `send`. */
+/** A fake `Idempotency.sendOnce`: each `send` gives the next scripted outcome, or runs the call's `send`. */
 function outboundCallsScripted(...steps: ("send" | OutboundCallSendStatus | Error)[]) {
   const seen: {
-    readonly key: EffectKey;
-    readonly options: OutboundCallSendOptions<AcceptRequest, AcceptResult>;
+    readonly options: IdempotencySendOptions<AcceptRequest, AcceptResult>;
   }[] = [];
   const replayed: AcceptResult = {
     kind: "task",
@@ -460,16 +457,16 @@ function outboundCallsScripted(...steps: ("send" | OutboundCallSendStatus | Erro
     mesh: true,
   };
   const outboundCalls: AcceptRuntime["outboundCalls"] = {
-    send: async (key, options) => {
-      seen.push({ key, options });
+    sendOnce: async (options) => {
+      seen.push({ options });
       const step = steps.shift() ?? "send";
       if (step instanceof Error) throw step;
       const call: OutboundCall<AcceptRequest> = {
-        idempotencyKey: `key-${key.name}`,
+        idempotencyKey: `key-${options.name}`,
         request: options.request,
         attempt: 1,
         target: options.target,
-        operation: options.operation,
+        operation: options.operation ?? options.name,
         signal: new AbortController().signal,
       };
       const result = step === "send" ? await options.send(call) : replayed;
@@ -478,7 +475,7 @@ function outboundCallsScripted(...steps: ("send" | OutboundCallSendStatus | Erro
         status,
         result,
         attempt: 1,
-        idempotencyKey: `key-${key.name}`,
+        idempotencyKey: `key-${options.name}`,
       };
       return outcome;
     },
@@ -491,20 +488,11 @@ const runtimeOf = (
   frame: object = {},
 ): AcceptRuntime => ({
   outboundCalls,
-  keyOf: (name): EffectKey =>
-    effectKeyForTesting({
-      scopeKey: "acme:root-1",
-      tenantId: "acme",
-      leaseExecutionId: "root-1",
-      token: 1,
-      idempotencyKey: "root-1:step:1",
-      name,
-    }),
   tenantId: "acme",
   frame,
 });
 
-describe("inside an execution: through OutboundCalls", () => {
+describe("inside an execution: through Idempotency.sendOnce", () => {
   it("one call named by the client, its request, its hooks and its trust", async () => {
     const { outboundCalls, seen } = outboundCallsScripted("send");
     const { client, sent } = clientAnswering(taskOf());
@@ -514,12 +502,12 @@ describe("inside an execution: through OutboundCalls", () => {
       runtimeOf(outboundCalls),
     );
 
-    expect(seen[0]?.key.name).toBe("a2a.desk-a2a-agent");
+    expect(seen[0]?.options.name).toBe("a2a.desk-a2a-agent");
     expect(seen[0]?.options).toMatchObject({
       target: "desk-a2a-agent",
       operation: "SendMessage",
       request: acceptRequestOf(callOf({ peer: AGBOSS })),
-      notSent: { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) },
+      recovery: { kind: "lookup-within", keyTtl: hours(24) },
     });
     expect(seen[0]?.options.isDefiniteFailure).toBe(isDefiniteSendFailure);
     expect(sent[0]?.params.message?.messageId).toBe(messageIdOf("acme", "key-a2a.desk-a2a-agent"));
@@ -542,9 +530,9 @@ describe("inside an execution: through OutboundCalls", () => {
 
     expect(seen[0]?.options).toMatchObject({
       operation: "SendMessage (reply)",
-      notSent: { trust: NotSentTrust.Lookup },
+      recovery: { kind: "permanent-lookup", keyTtl: undefined },
     });
-    expect(seen[0]?.key.name).toBe("a2a.desk-a2a-agent.reply");
+    expect(seen[0]?.options.name).toBe("a2a.desk-a2a-agent.reply");
     const lookup = {
       idempotencyKey: "key-pending",
       storedRequest: JSON.stringify(acceptRequestOf(call)),
@@ -555,7 +543,11 @@ describe("inside an execution: through OutboundCalls", () => {
       operation: "SendMessage (reply)",
       signal: new AbortController().signal,
     };
-    await expect(Promise.resolve(seen[0]?.options.reconcile(lookup))).resolves.toMatchObject({
+    await expect(
+      Promise.resolve(
+        (seen[0]?.options.recovery as LookupRecovery<AcceptResult>).reconcile(lookup),
+      ),
+    ).resolves.toMatchObject({
       verdict: "completed",
     });
   });
@@ -579,7 +571,7 @@ describe("inside an execution: through OutboundCalls", () => {
   it("an ambiguous send is asked again: twice more for an AGBoss peer, once for a foreign one", async () => {
     const agboss = outboundCallsScripted(network(), network(), network(), "send");
     const foreign = outboundCallsScripted(network(), network(), "send");
-    const definite = outboundCallsScripted(new Error("OutboundCallUnreconciledError"), "send");
+    const definite = outboundCallsScripted(new Error("OutboundCallError.Unreconciled"), "send");
 
     await expect(
       acceptedThrough(callOf({ peer: AGBOSS }), runtimeOf(agboss.outboundCalls)),
@@ -588,10 +580,12 @@ describe("inside an execution: through OutboundCalls", () => {
       acceptedThrough(callOf(), runtimeOf(foreign.outboundCalls)),
     ).rejects.toBeInstanceOf(A2AProtocolError);
     await expect(acceptedThrough(callOf(), runtimeOf(definite.outboundCalls))).rejects.toThrow(
-      "OutboundCallUnreconciledError",
+      "OutboundCallError.Unreconciled",
     );
     expect([agboss.seen.length, foreign.seen.length, definite.seen.length]).toEqual([3, 2, 1]);
-    expect(agboss.seen.map(({ key }) => key.name)).toEqual(Array(3).fill("a2a.desk-a2a-agent"));
+    expect(agboss.seen.map(({ options }) => options.name)).toEqual(
+      Array(3).fill("a2a.desk-a2a-agent"),
+    );
   });
 
   it("a step's second call with another message needs its own key; the same one again is a retry", async () => {
@@ -661,7 +655,7 @@ describe("accept: which way a message goes", () => {
 
     const run = testTool(UnitAskTool)({ text: "hi" });
 
-    // a step of no application has no OutboundCalls to record into: refused, never sent unrecorded
+    // a step of no application has no Idempotency to record into: refused, never sent unrecorded
     await expect(run).rejects.toThrow(/\[a2a\.outside-application\] unit-a2a-agent/u);
     expect(agent.count("SendMessage")).toBe(0);
   });

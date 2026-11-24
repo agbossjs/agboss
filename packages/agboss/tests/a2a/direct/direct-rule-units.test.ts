@@ -112,7 +112,7 @@ describe("#860: a direct-reply skill's problems, each with its code and text", (
 
   it("an effect behind a harmless service, and an A2A client, are effects; a token and a cycle of deps are none", () => {
     expect(problemsOf([LateEffectAction, CallingAction, TokenAction, PlainAgent])).toEqual([
-      "[a2a.message-skill-effect] Made injects OutboundCalls, which changes things outside the run",
+      "[a2a.message-skill-effect] Made injects Idempotency, which changes things outside the run",
       "[a2a.message-skill-effect] Made injects RuleA2AAgent, which changes things outside the run",
     ]);
   });

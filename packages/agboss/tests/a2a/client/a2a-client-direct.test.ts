@@ -2,8 +2,8 @@
  * #860 AC2: the client of a direct-reply skill — a `Message` answer needs no task to wait for (no
  * `GetTask`, no subscription), its output read from the message's parts; an AGBoss skill whose card
  * says `reply: "message"` is trusted for a resend of its messageId only within the card's
- * `messageIdempotencyRetention` (default 15 min), never the tasks' 24 h — the `keyRetention`
- * `OutboundCalls` fails closed past (`OutboundCallUnreconciledError`, #795); against AGBoss itself
+ * `messageIdempotencyRetention` (default 15 min), never the tasks' 24 h — the recovery window
+ * `Idempotency.sendOnce` fails closed past (`OutboundCallError.Unreconciled`, #795); against AGBoss itself
  * the typed and untyped calls get the reply.
  */
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,8 +11,8 @@ import type { AgentCard } from "@a2a-js/sdk";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
 import { A2APeerKind, peerOf, type A2ARemotePeer } from "../../../src/a2a/client/a2a-card.js";
 import { callPeerOf, DEFAULT_MESSAGE_RETENTION } from "../../../src/a2a/client/a2a-call-peer.js";
-import { notSentOf } from "../../../src/a2a/client/a2a-reconcile.js";
-import { NotSentTrust } from "../../../src/app/outbound-call-contract.js";
+import type { AcceptCall } from "../../../src/a2a/client/a2a-message.js";
+import { recoveryOf } from "../../../src/a2a/client/a2a-reconcile.js";
 import type { App } from "../../../src/app/types.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
@@ -61,12 +61,15 @@ describe("#860 AC2: the retention a call to a direct-reply skill relies on", () 
     expect(retentionOf(declared, "another-skill")).toBe(hours(24));
   });
 
-  it("AC2: OutboundCalls is told the message retention: KeyReplay within it, nothing resent past it", () => {
+  it("AC2: Idempotency.sendOnce is told the message retention: the recovery window is it, nothing resent past it", () => {
     const card = cardOf(agboss({ message: minutes(15), skills: MESSAGE_SKILL }));
 
-    const notSent = notSentOf(callPeerOf(card, peerOf(card), "ask-workflow-start"));
+    const peer = callPeerOf(card, peerOf(card), "ask-workflow-start");
 
-    expect(notSent).toEqual({ trust: NotSentTrust.KeyReplay, keyRetention: minutes(15) });
+    expect(recoveryOf({ peer } as AcceptCall, (key) => key)).toMatchObject({
+      kind: "lookup-within",
+      keyTtl: minutes(15),
+    });
   });
 
   it("AC2: a foreign peer stays foreign, whatever its skills say", () => {

@@ -18,11 +18,6 @@ export function issuedKey<TKey extends object>(key: TKey): TKey {
 /** Whether `key` is one the framework made (never a copy of one; a primitive never is). */
 export const isIssuedKey = (key: unknown): boolean => issued.has(key as object);
 
-/** A key made by hand that is not one of a lease scope. */
-export class InvalidFencedEffectKeyError extends TypeError {
-  override name = "InvalidFencedEffectKeyError";
-}
-
 /** Why a key made by hand is refused (#825). */
 export const UNISSUED_KEY =
   "not a fenced effect key: make it with effectKeyOf(executionContext, name, …) — a copy or an object built by hand is no key (effectKeyForTesting in a store's tests)";

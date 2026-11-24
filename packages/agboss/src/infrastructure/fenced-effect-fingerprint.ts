@@ -1,8 +1,13 @@
-import { AGBossError } from "../core/errors.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { keyedDigestOf } from "../pii/tokens.js";
 import { NonJsonValueError, stableJson } from "../turns/index.js";
-import { FingerprintNotJsonError } from "./fenced-effect-errors.js";
+import {
+  fingerprintNotJson,
+  fingerprintRequired,
+  FingerprintProblem,
+  secretKeyMissing,
+} from "./idempotency-errors.js";
+import type { IdempotencyError } from "../core/error-families/effect-errors.js";
 import type { EffectKeyFields } from "./effect-key.js";
 import type { JsonValue } from "./fenced-effect.repository.js";
 
@@ -12,16 +17,6 @@ import type { JsonValue } from "./fenced-effect.repository.js";
  * opt-out `FingerprintPolicy.None`, or neither for a call that leaves the system. Never an unkeyed
  * digest; a fenced effect under a business key that says neither is refused.
  */
-/** How a business key goes without a fingerprint (#825). */
-export enum FingerprintPolicy {
-  /**
-   * No fingerprint, on purpose: every call under the business key replays the first, whatever its
-   * work — for work the business key fixes by itself (an event applied once by its id), never as a
-   * shortcut for one whose parameters can differ.
-   */
-  None = "none",
-}
-
 /** A business identity for a fenced effect's or a call's key (#508). */
 export interface BusinessKeyOptions {
   /**
@@ -34,16 +29,16 @@ export interface BusinessKeyOptions {
 /**
  * A business key with what the effect does (#508, #825): plain JSON, digested under the
  * application's idempotency key — another value under the same business key is
- * `BusinessKeyConflictError`, never a replay.
+ * `IdempotencyError.KeyConflict`, never a replay.
  */
 export interface FingerprintedKeyOptions<TFingerprint> extends BusinessKeyOptions {
   readonly fingerprint: JsonValue<TFingerprint>;
-  readonly fingerprintPolicy?: never;
+  readonly withoutFingerprint?: never;
 }
 
-/** A business key without a fingerprint, on purpose (#825): `FingerprintPolicy.None`. */
+/** A business key without a fingerprint, on purpose (#825): `withoutFingerprint: true`. */
 export interface UnfingerprintedKeyOptions extends BusinessKeyOptions {
-  readonly fingerprintPolicy: FingerprintPolicy.None;
+  readonly withoutFingerprint: true;
   readonly fingerprint?: never;
 }
 
@@ -53,7 +48,7 @@ export interface UnfingerprintedKeyOptions extends BusinessKeyOptions {
  */
 export interface OutboundCallKeyOptions extends BusinessKeyOptions {
   readonly fingerprint?: never;
-  readonly fingerprintPolicy?: never;
+  readonly withoutFingerprint?: never;
 }
 
 /** A business identity for a key (#508, #825): with a fingerprint, without one on purpose, or a call's. */
@@ -86,18 +81,18 @@ const digestUnder = (key: string, text: string): string =>
  * application's idempotency key — the same in every execution and on every instance, so a business
  * key's calls compare across them, and no guessable request can be found from a stored one — and,
  * during a rotation, the same under the previous key (`previousFingerprint`, matched, never stored).
- * No key in the step (no `idempotencyKeyField`, or outside a step) → `IdempotencyKeyMissingError`:
+ * No key in the step (no `idempotencyKeyField`, or outside a step) → `IdempotencyError.SecretKeyMissing`:
  * never an unkeyed digest.
  */
 export function fingerprintsOf(value: unknown, name: string): KeyFingerprints {
   const keys = currentFrame()?.execution.fingerprintKeys;
-  if (keys === undefined) throw new IdempotencyKeyMissingError({ effect: name });
+  if (keys === undefined) throw secretKeyMissing({ effect: name });
   try {
     return fingerprintsUnder(keys, value);
   } catch (error) {
     // #825: named by its effect — a DTO instance or a Date is no fingerprint
     if (error instanceof NonJsonValueError)
-      throw new FingerprintNotJsonError({ effect: name, path: error.path, reason: error.reason });
+      throw fingerprintNotJson({ effect: name, path: error.path, reason: error.reason });
     throw error;
   }
 }
@@ -126,114 +121,44 @@ export function isKeyFingerprint(
 }
 
 /**
- * What a business key's options say it does (#825), read once: its fingerprints, the policy
- * `None`, or nothing (a call's key). Both — or a policy that is not one — is `FingerprintRequiredError`.
+ * What a business key's options say it does (#825), read once: its fingerprints, `withoutFingerprint:
+ * true`, or nothing (a call's key). Both — or a `withoutFingerprint` that is not `true` — is
+ * `IdempotencyError.FingerprintRequired`.
  */
 export function fingerprintFactsOf(
   name: string,
   options: EffectKeyOptions,
-): Pick<EffectKeyFields, "fingerprint" | "previousFingerprint" | "fingerprintPolicy"> {
-  const { fingerprint, fingerprintPolicy } = options as {
+): Pick<EffectKeyFields, "fingerprint" | "previousFingerprint" | "withoutFingerprint"> {
+  const { fingerprint, withoutFingerprint } = options as {
     readonly fingerprint?: unknown;
-    readonly fingerprintPolicy?: unknown;
+    readonly withoutFingerprint?: unknown;
   };
-  if (fingerprintPolicy === undefined)
+  if (withoutFingerprint === undefined)
     return fingerprint === undefined ? {} : fingerprintsOf(fingerprint, name);
-  if (fingerprintPolicy !== FingerprintPolicy.None || fingerprint !== undefined)
-    throw new FingerprintRequiredError({ effect: name, reason: FingerprintProblem.Contradictory });
-  return { fingerprintPolicy: FingerprintPolicy.None };
-}
-
-/** Why a key cannot be a fenced effect's (#825). */
-export enum FingerprintProblem {
-  /** A business key with neither a fingerprint nor `FingerprintPolicy.None`. */
-  Missing = "missing",
-  /** Both, or a policy that is not `FingerprintPolicy.None`. */
-  Contradictory = "contradictory",
-}
-
-/** What a fingerprint refusal knows: the effect and why — never the key. */
-export interface FingerprintRequiredErrorOptions {
-  /** The effect's or the call's name (#906: its key is the field's, as on the other fenced-effect errors). */
-  readonly effect: string;
-  readonly reason: FingerprintProblem;
-  readonly cause?: unknown;
+  if (withoutFingerprint !== true || fingerprint !== undefined)
+    throw fingerprintRequired({ effect: name, reason: FingerprintProblem.Contradictory });
+  return { withoutFingerprint: true };
 }
 
 /**
- * A fenced effect under a business key that does not say what it does (#825): no `fingerprint` and
- * no `fingerprintPolicy: FingerprintPolicy.None` — two calls with other work would replay each
- * other — or both at once. Nothing ran; a compile error for TypeScript, this for a JavaScript
- * caller or a key built by hand.
- */
-export class FingerprintRequiredError extends AGBossError {
-  static override readonly code = "fenced-effect.fingerprint-required" as const;
-  declare readonly code: typeof FingerprintRequiredError.code;
-  override name = "FingerprintRequiredError";
-  readonly effect: string;
-  readonly reason: FingerprintProblem;
-
-  constructor(options: FingerprintRequiredErrorOptions) {
-    const why =
-      options.reason === FingerprintProblem.Missing
-        ? "names neither a fingerprint nor fingerprintPolicy: FingerprintPolicy.None"
-        : "names a fingerprint and a fingerprintPolicy, or a policy that is not FingerprintPolicy.None";
-    super(
-      `the fenced effect "${options.effect}" under a business key ${why} — effectKeyOf(executionContext, name, { businessKey, fingerprint: { …what the work does } }): nothing ran`,
-      { cause: options.cause, details: { effect: options.effect, reason: options.reason } },
-    );
-    this.effect = options.effect;
-    this.reason = options.reason;
-  }
-}
-
-/**
- * The `FingerprintRequiredError` of a key a fenced effect is given (#825), `undefined` when it has a
- * fingerprint, says `FingerprintPolicy.None`, or has no business key. Checked at the store's entry,
- * before any transaction (exported for stores outside the core: as the core's stores check it).
+ * The `IdempotencyError.FingerprintRequired` of a key an effect is given (#825), `undefined` when it
+ * has a fingerprint, says `withoutFingerprint: true`, or has no business key. Checked at the store's
+ * entry, before any transaction (exported for stores outside the core: as the core's stores check it).
  */
 export function fingerprintErrorOf(
-  key: Pick<EffectKeyFields, "name" | "businessKey" | "fingerprint" | "fingerprintPolicy">,
-): FingerprintRequiredError | undefined {
+  key: Pick<EffectKeyFields, "name" | "businessKey" | "fingerprint" | "withoutFingerprint">,
+): IdempotencyError.FingerprintRequired | undefined {
   if (key.businessKey === undefined) return undefined;
   const { name, fingerprint } = key;
   // as a JavaScript caller or a cast may hand it over: any value
-  const fingerprintPolicy: unknown = key.fingerprintPolicy;
-  if (fingerprintPolicy === undefined)
+  const withoutFingerprint: unknown = key.withoutFingerprint;
+  if (withoutFingerprint === undefined)
     return fingerprint === undefined
-      ? new FingerprintRequiredError({ effect: name, reason: FingerprintProblem.Missing })
+      ? fingerprintRequired({ effect: name, reason: FingerprintProblem.Missing })
       : undefined;
-  return fingerprintPolicy === FingerprintPolicy.None && fingerprint === undefined
+  return withoutFingerprint === true && fingerprint === undefined
     ? undefined
-    : new FingerprintRequiredError({ effect: name, reason: FingerprintProblem.Contradictory });
-}
-
-/** What a missing idempotency key knows: the effect (or call) whose fingerprint needed it. */
-export interface IdempotencyKeyMissingErrorOptions {
-  readonly effect: string;
-  readonly cause?: unknown;
-}
-
-/**
- * A business key's fingerprint made with no idempotency key (#825): the application names no
- * `idempotencyKeyField` (`[application.idempotency-key-required]` at assembly when its components
- * reach `OutboundCalls` or a fenced-effect store), or the key is made outside a step. Never an
- * unkeyed digest: a stored fingerprint of a low-entropy request would give the request away.
- */
-export class IdempotencyKeyMissingError extends AGBossError {
-  static override readonly code = "fenced-effect.idempotency-key-missing" as const;
-  declare readonly code: typeof IdempotencyKeyMissingError.code;
-  override name = "IdempotencyKeyMissingError";
-  readonly effect: string;
-
-  constructor(options: IdempotencyKeyMissingErrorOptions) {
-    const { effect, cause } = options;
-    super(
-      `"${effect}" is under a business key, whose fingerprint is keyed by the application's idempotency key — none here: name a Secret field in @Application({ idempotencyKeyField }) and make the key in a step`,
-      { cause, details: { effect } },
-    );
-    this.effect = effect;
-  }
+    : fingerprintRequired({ effect: name, reason: FingerprintProblem.Contradictory });
 }
 
 /** Throws `fingerprintErrorOf(key)` (#825): a business key without its fingerprint decision. */

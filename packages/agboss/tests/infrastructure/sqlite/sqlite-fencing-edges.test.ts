@@ -11,8 +11,7 @@ import { describe, expect, it } from "vitest";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { ExecutionFencedError } from "../../../src/app/lease-lost.js";
-import { FencedEffectStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
+import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import {
   isSqliteImplementation,
   oneRowChanged,
@@ -42,11 +41,7 @@ function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
     connection,
     leases: new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application),
     events: new SqliteExecutionAuditLogRepository(connection),
-    effects: new SqliteFencedEffectRepository(
-      connection,
-      storeClockOf(clock),
-      new FencedEffectSettings(),
-    ),
+    effects: new SqliteFencedEffectRepository(connection, storeClockOf(clock)),
     calls: new SqliteOutboundCallRepository(connection, storeClockOf(clock)),
   };
 }
@@ -73,21 +68,11 @@ const TABLES: readonly (readonly [string, (connection: SqliteConnection) => unkn
   ["execution_lease_events", (connection) => new SqliteExecutionAuditLogRepository(connection)],
   [
     "execution_leases",
-    (connection) =>
-      new SqliteFencedEffectRepository(
-        connection,
-        storeClockOf(new VirtualClock()),
-        new FencedEffectSettings(),
-      ),
+    (connection) => new SqliteFencedEffectRepository(connection, storeClockOf(new VirtualClock())),
   ],
   [
     "fenced_effects",
-    (connection) =>
-      new SqliteFencedEffectRepository(
-        connection,
-        storeClockOf(new VirtualClock()),
-        new FencedEffectSettings(),
-      ),
+    (connection) => new SqliteFencedEffectRepository(connection, storeClockOf(new VirtualClock())),
   ],
   [
     "execution_leases",
@@ -189,9 +174,9 @@ describe("#626: a pending intent, a thenable that is none, a replay, the async-w
     const ran = await stores.effects.runOnce(key, () => ({ then: "later" }));
     const replayed = await stores.effects.runOnce(key, () => ({ then: "never" }));
 
-    expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, result: { then: "later" } });
+    expect(ran).toMatchObject({ status: IdempotencyRunStatus.Ran, result: { then: "later" } });
     expect(replayed).toMatchObject({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { then: "later" },
     });
   });
@@ -203,7 +188,7 @@ describe("#626: a pending intent, a thenable that is none, a replay, the async-w
 
     const replayed = await stores.effects.runOnce(key, () => "r2");
 
-    expect(replayed.status).toBe(FencedEffectStatus.Replayed);
+    expect(replayed.status).toBe(IdempotencyRunStatus.Replayed);
     expect(Object.keys(replayed)).not.toContain("replayedFrom");
   });
 

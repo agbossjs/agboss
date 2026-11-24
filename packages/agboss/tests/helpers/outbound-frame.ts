@@ -1,21 +1,21 @@
+import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import type { OutboundCallReport } from "../../src/app/audit-log.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
+  Idempotency,
+  InMemoryFencedEffectRepository,
   InMemoryOutboundCallRepository,
-  NotSentTrust,
-  OutboundCallReconciliation,
-  OutboundCallSettings,
-  OutboundCalls,
+  OutboundRecovery,
+  Reconciliation,
   type Clock,
-  type EffectKey,
-  type OutboundCallKey,
   type OutboundCallLookup,
-  type OutboundCallSendOptions,
+  type IdempotencySendOptions,
   type OutboundCallOutcome,
 } from "../../src/index.js";
+import { type EffectKey, type OutboundCallKey } from "../../src/stores/index.js";
 import {
   InMemoryExecutionLeaseRepository,
   type ExecutionLease,
@@ -24,14 +24,14 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import type { FakePaymentGateway } from "../../src/testing/gateway/fake-payment-gateway.js";
-import { hours } from "../../src/units/index.js";
+import { hours, seconds } from "../../src/units/index.js";
 import { testFrame } from "./frame.js";
 import { Logger, type LogEntry } from "../../src/infrastructure/logger.js";
 import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
 import { storeClockOf } from "./store-clock.js";
 
 /**
- * #657, #658 — `OutboundCalls` in a step's frame made by hand over the in-memory stores, on a test's
+ * #657, #658 — `Idempotency.sendOnce` in a step's frame made by hand over the in-memory stores, on a test's
  * `VirtualClock` (the stores' time; an instance's own clock may be skewed from it): leases taken and
  * released by hand, so one call can be left by an execution that ended and taken up by another.
  */
@@ -55,13 +55,23 @@ export interface OutboundFrameOptions {
   readonly store?: typeof InMemoryOutboundCallRepository;
 }
 
+/**
+ * What a test says of a call: `sendOnce`'s options without what the key says (`name`, `key`) —
+ * `timeout` and `ttl` default to 15 s and 48 hours.
+ */
+export type OutboundSendCase<TRequest, TResult> = Omit<
+  IdempotencySendOptions<TRequest, TResult>,
+  "name" | "key" | "timeout" | "ttl"
+> &
+  Partial<Pick<IdempotencySendOptions<TRequest, TResult>, "timeout" | "ttl">>;
+
 /** A taken lease and the key of a call under it. */
 export interface KeyedLease {
   readonly lease: ExecutionLease;
   readonly key: EffectKey;
 }
 
-/** One instance's stores and `OutboundCalls`, with what its frame was told and its log. */
+/** One instance's stores and `Idempotency`, with what its frame was told and its log. */
 export interface OutboundFrame {
   /** The stores' time, and the instance's unless `instanceClock` skews it. */
   readonly clock: VirtualClock;
@@ -70,13 +80,21 @@ export interface OutboundFrame {
   readonly reports: OutboundCallReport[];
   readonly logger: { readonly entries: LogEntry[] };
   readonly keyIn: (executionId: string, businessKey?: string) => Promise<KeyedLease>;
+  /** The effects store beside it. */
+  readonly effects: InMemoryFencedEffectRepository;
+  /** The instance's service, and a second instance over the same stores (a takeover's). */
+  readonly idempotency: Idempotency;
+  readonly otherInstance: () => Idempotency;
+  /** `work` in the frame of the step `key` was made under. */
+  readonly inFrame: <TValue>(key: EffectKey, work: () => Promise<TValue>) => Promise<TValue>;
+  /** `sendOnce` of the execution `key` was made under, in a frame of its lease. */
   readonly send: <TRequest, TResult>(
     key: EffectKey,
-    callOptions: OutboundCallSendOptions<TRequest, TResult>,
+    callOptions: OutboundSendCase<TRequest, TResult>,
   ) => Promise<OutboundCallOutcome<TResult>>;
 }
 
-/** The stores of one instance, its `OutboundCalls`, and a step's frame that keeps what it is told. */
+/** The stores of one instance, its `Idempotency`, and a step's frame that keeps what it is told. */
 export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame {
   const clock = new VirtualClock();
   const database = new InMemoryDatabase();
@@ -88,41 +106,65 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   const Store = options.store ?? InMemoryOutboundCallRepository;
   const store = new Store(storeClockOf(clock), database, leases);
   const reports: OutboundCallReport[] = [];
-  const lease: FrameLease = {
-    tenantId: "default",
-    leaseExecutionId: "execution-1",
-    scopeKey: "default:execution-1",
-    token: 1,
-    trustedUntil: Number.POSITIVE_INFINITY,
-    isYielded: false,
-    assertHeld: () => undefined,
-    renewNow: () => Promise.resolve(),
-    enterStep: () => Promise.resolve(() => undefined),
-    recordOutboundCall: (report) => {
-      reports.push(report);
-    },
-  };
   const base = testFrame();
-  // an application's frame carries its idempotency keys (#825): a business key's fingerprint
-  const fingerprintKeys = { current: TEST_IDEMPOTENCY_KEY };
-  const frame: FrameSpec = { ...base, execution: { ...base.execution, lease, fingerprintKeys } };
-  const origin = { executionId: base.execution.executionId, nodeId: "pay-action", visitNumber: 1 };
   const logger = new KeptLogger();
   const settings = options.settings ?? new OutboundCallSettings({ requiresMask: false });
   const instanceClock = options.instanceClock?.(clock) ?? clock;
-  const calls = new OutboundCalls(store, settings, logger, instanceClock);
+  const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
+  const idempotency = new Idempotency(effects, store, settings, logger, instanceClock);
+  const origin = { executionId: base.execution.executionId, nodeId: "pay-action", visitNumber: 1 };
+  /** The frame of the step `key` was made under: the lease it names, its step. */
+  const frameOf = (key: EffectKey): FrameSpec => {
+    const lease: FrameLease = {
+      tenantId: key.tenantId,
+      leaseExecutionId: key.leaseExecutionId,
+      scopeKey: key.scopeKey,
+      token: key.token,
+      trustedUntil: Number.POSITIVE_INFINITY,
+      isYielded: false,
+      assertHeld: () => undefined,
+      renewNow: () => Promise.resolve(),
+      enterStep: () => Promise.resolve(() => undefined),
+      recordOutboundCall: (report) => {
+        reports.push(report);
+      },
+    };
+    // an application's frame carries its idempotency keys (#825): a business key's fingerprint
+    const fingerprintKeys = { current: TEST_IDEMPOTENCY_KEY };
+    return {
+      ...base,
+      execution: { ...base.execution, lease, fingerprintKeys },
+      step: { ...base.step, idempotencyKey: key.idempotencyKey },
+    };
+  };
   /** The lease of `executionId` taken, and the call's key under it — `order:42` by default. */
   const keyIn = async (executionId: string, businessKey = "order:42"): Promise<KeyedLease> => {
     const taken = await leases.acquire("default", executionId, LONG_LEASE);
     if (taken === undefined) throw new Error(`the lease of ${executionId} is held`);
     return { lease: taken, key: effectKeyForTesting(keyOf(taken), { origin, businessKey }) };
   };
-  /** `calls.send` in the step's frame. */
+  /** `idempotency.sendOnce` in the frame of `key`'s step. */
   const send = <TRequest, TResult>(
     key: EffectKey,
-    callOptions: OutboundCallSendOptions<TRequest, TResult>,
-  ): Promise<OutboundCallOutcome<TResult>> => runInFrame(frame, () => calls.send(key, callOptions));
-  return { clock, store, leases, reports, logger, keyIn, send };
+    callOptions: OutboundSendCase<TRequest, TResult>,
+  ): Promise<OutboundCallOutcome<TResult>> =>
+    runInFrame(frameOf(key), () =>
+      idempotency.sendOnce({
+        timeout: seconds(15),
+        ttl: hours(48),
+        ...callOptions,
+        name: key.name,
+        ...(key.businessKey === undefined ? {} : { key: key.businessKey }),
+      }),
+    );
+  const otherInstance = (): Idempotency =>
+    new Idempotency(effects, store, settings, new KeptLogger(), instanceClock);
+  const inFrame = <TValue>(key: EffectKey, work: () => Promise<TValue>): Promise<TValue> =>
+    runInFrame(frameOf(key), work);
+  return {
+    ...{ clock, store, leases, reports, logger, keyIn, send, effects },
+    ...{ idempotency, otherInstance, inFrame },
+  };
 }
 
 /** `promise`'s rejection; the test fails when it resolves. */
@@ -146,25 +188,25 @@ export interface GatewayPaymentReceipt {
 }
 
 /**
- * A reconcile by a reference that does not expire: the gateway's own record of every payment it
+ * A lookup by a reference that does not expire: the gateway's own record of every payment it
  * made (its books), not its key store — as a lookup by the merchant reference is.
  */
 export const byReference =
   (gateway: FakePaymentGateway) =>
-  (lookup: OutboundCallLookup): OutboundCallReconciliation<GatewayPaymentReceipt> => {
+  (lookup: OutboundCallLookup): Reconciliation<GatewayPaymentReceipt> => {
     const found = gateway.payments.find(
       (payment) => payment.idempotencyKey === lookup.idempotencyKey,
     );
     return found === undefined
-      ? OutboundCallReconciliation.notSent()
-      : OutboundCallReconciliation.completed({ paymentId: found.paymentId });
+      ? Reconciliation.notExecuted()
+      : Reconciliation.completed({ paymentId: found.paymentId });
   };
 
 /** A charge of 10 at `gateway`, reconciled by reference, with `extra` options over it. */
 export const gatewayCharge = (
   gateway: FakePaymentGateway,
-  extra: Partial<OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymentReceipt>> = {},
-): OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymentReceipt> => ({
+  extra: Partial<OutboundSendCase<GatewayChargeRequest, GatewayPaymentReceipt>> = {},
+): OutboundSendCase<GatewayChargeRequest, GatewayPaymentReceipt> => ({
   target: "gateway",
   operation: "charge",
   request: { amount: 10 },
@@ -172,8 +214,7 @@ export const gatewayCharge = (
     const receipt = await gateway.charge({ amount: 10, idempotencyKey: call.idempotencyKey });
     return { paymentId: receipt.paymentId };
   },
-  notSent: { trust: NotSentTrust.Lookup },
-  reconcile: byReference(gateway),
+  recovery: OutboundRecovery.permanentLookup(byReference(gateway)),
   ...extra,
 });
 

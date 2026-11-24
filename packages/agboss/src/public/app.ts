@@ -150,7 +150,6 @@ export {
   type WorkflowDescriptor,
   type WorkflowRecord,
 } from "../flow/context/execution-context.js";
-export type { ExecutionFence } from "../flow/context/execution-fence.js";
 export { ApplicationContext, type HostContext } from "../flow/context/application-context.js";
 export { TenantContext } from "../flow/context/tenant-context.js";
 export type {

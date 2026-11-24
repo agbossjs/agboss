@@ -3,7 +3,7 @@ import {
   StoreOutcomeSource,
   StoreOutcomeUnknownError,
 } from "../../infrastructure/store-call-timeout.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
   failing,
@@ -47,7 +47,7 @@ const unknownErrorPassesThrough = <TTransaction>(): Case<TTransaction> => ({
 
     expect(failed).toBe(ambiguous);
     expect(after).toEqual([]);
-    expect(retried).toMatchObject({ status: FencedEffectStatus.Ran, result: { receipt: "r2" } });
+    expect(retried).toMatchObject({ status: IdempotencyRunStatus.Ran, result: { receipt: "r2" } });
   },
 });
 

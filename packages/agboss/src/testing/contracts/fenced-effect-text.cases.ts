@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import {
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type FencedEffectWork,
 } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractGroup } from "./define.js";
@@ -44,8 +44,12 @@ export const textCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTra
         const ran = await first.effects.runOnce(key, writingNul(first.rows));
         const replayed = await second.effects.runOnce(key, writingNul(second.rows));
 
-        expect(ran).toEqual({ status: FencedEffectStatus.Ran, result: RESULT, token: 1 });
-        expect(replayed).toEqual({ status: FencedEffectStatus.Replayed, result: RESULT, token: 1 });
+        expect(ran).toEqual({ status: IdempotencyRunStatus.Ran, result: RESULT, token: 1 });
+        expect(replayed).toEqual({
+          status: IdempotencyRunStatus.Replayed,
+          result: RESULT,
+          token: 1,
+        });
       },
     },
   ],
