@@ -7,13 +7,8 @@ import type { AgentsConfigOf } from "../config/types.js";
 import type { VirtualClock } from "./clock.js";
 import type { TestEnvironment } from "./environment.js";
 import { TestFailure } from "./errors.js";
-import {
-  type ActionSlice,
-  type AgentSlice,
-  type RouterSlice,
-  type ToolClassOf,
-  type ToolSlice,
-} from "./slices.js";
+import type { ToolClassOf } from "./slices.js";
+import type { ToolOutput } from "../tools/index.js";
 import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
 import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
 import { lazyLoad } from "../infrastructure/clock.js";
@@ -67,10 +62,17 @@ export interface TestApp extends Pick<
    * The app must be built (`await app.ready()` or an execute).
    */
   get<TToken extends Token>(token: TToken): Resolved<TToken>;
-  action(action: Class): ActionSlice;
-  agent(agent: Class): AgentSlice;
-  router(router: Class): RouterSlice;
-  tool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>): ToolSlice<TInput, TOutput>;
+  /** One action of the app on its own, as its step runs it: its input in, its output out (#1328). */
+  runAction(action: Class, input: unknown): Promise<unknown>;
+  /** One agent of the app on its own: an input message in, its reply out — its text, or its answer's JSON. */
+  runAgent(agent: Class, input: string): Promise<string>;
+  /** One router of the app on its own: an input message in, the component it chooses out. */
+  runRouter(router: Class, input: string): Promise<Class>;
+  /** One tool of the app, as the agents get it (validation, timeout, errors as results). */
+  runTool<TInput, TOutput>(
+    tool: ToolClassOf<TInput, TOutput>,
+    input: TInput,
+  ): Promise<ToolOutput<TOutput>>;
 }
 
 /**

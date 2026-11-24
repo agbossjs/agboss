@@ -186,7 +186,7 @@ describe("#261 AC8: tests default to the test environment", () => {
   );
 
   asDev("{ env } names another one", async ({ app }) => {
-    expect(await app.tool(ApiSettings).invoke({ what: "all" })).toMatchObject({
+    expect(await app.runTool(ApiSettings, { what: "all" })).toMatchObject({
       value: { apiUrl: "https://api.dev.example.com", currency: "USD" },
     });
   });

@@ -70,35 +70,27 @@ export function workflowWithTool(built: BuiltApplication, tool: Class): BuiltApp
   );
 }
 
-/** The slices of single components (`app.agent(X)`, `app.router(R)`, `app.tool(T)`). */
+/** One component on its own (`app.runAgent(X, …)`, `app.runRouter(R, …)`, `app.runTool(T, …)`). */
 export const slicesOf = (
   environment: TestEnvironment,
   built: () => Promise<BuiltApplication>,
-): Pick<TestApp, "action" | "agent" | "router" | "tool"> => ({
-  action: (action) => ({
-    run: (input) =>
-      checked(environment, async () =>
-        actionSlice(workflowWith(await built(), action), action).run(input),
-      ),
-  }),
-  agent: (agent) => ({
-    replyWith: (task) =>
-      checked(environment, async () =>
-        agentSlice(workflowWith(await built(), agent), agent).replyWith(task),
-      ),
-  }),
-  router: (router) => ({
-    routeTo: (input) =>
-      checked(environment, async () =>
-        routerSlice(workflowWith(await built(), router), router).routeTo(input),
-      ),
-  }),
-  tool: (tool) => ({
-    invoke: (input) =>
-      checked(environment, async () =>
-        toolSlice(workflowWithTool(await built(), tool), tool).invoke(input),
-      ),
-  }),
+): Pick<TestApp, "runAction" | "runAgent" | "runRouter" | "runTool"> => ({
+  runAction: (action, input) =>
+    checked(environment, async () =>
+      actionSlice(workflowWith(await built(), action), action).run(input),
+    ),
+  runAgent: (agent, task) =>
+    checked(environment, async () =>
+      agentSlice(workflowWith(await built(), agent), agent).replyWith(task),
+    ),
+  runRouter: (router, input) =>
+    checked(environment, async () =>
+      routerSlice(workflowWith(await built(), router), router).routeTo(input),
+    ),
+  runTool: (tool, input) =>
+    checked(environment, async () =>
+      toolSlice(workflowWithTool(await built(), tool), tool).invoke(input),
+    ),
 });
 
 /**

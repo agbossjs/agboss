@@ -1,3 +1,4 @@
+import type { Class } from "../components/injection.js";
 import type { ProfileSelection } from "../config/profile-names.js";
 
 /** How an application is assembled: the profiles layered on it (`src/config/<name>.config.ts|yaml`). */
@@ -15,4 +16,16 @@ export interface ApplicationAssembly {
    * `Idempotency` with no secret is refused (`[application.idempotency-key-required]`).
    */
   readonly withoutIdempotencyKeys?: true | undefined;
+  /**
+   * What replaces the application's own `modelProvider` and `channels`, over its profiles (a test's:
+   * `testWith(App, { modelProvider, channels })`): replaced as a profile's `modelProvider` and
+   * `channels` replace them, never merged.
+   */
+  readonly replacements?: AssemblyReplacements | undefined;
+}
+
+/** The application's options a test replaces. */
+export interface AssemblyReplacements {
+  readonly modelProvider?: Class | undefined;
+  readonly channels?: readonly Class[] | undefined;
 }

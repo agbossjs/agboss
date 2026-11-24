@@ -6,7 +6,7 @@ import { idempotencyKeyOf } from "./idempotency.js";
 import type { InboundMesh } from "../../mesh/inbound-mesh.js";
 import { bareRecordOf, ComponentKind } from "../runtime/records.js";
 
-/** A tool called on its own, not by an agent: over MCP, or `app.tool(T).invoke(…)` in a test. */
+/** A tool called on its own, not by an agent: over MCP, or `app.runTool(T, …)` in a test. */
 export interface StandaloneCall {
   readonly workflow: Omit<WorkflowDescriptor, "startedVersion">;
   /** The tool's class and its `name` (the step's node id). */

@@ -9,6 +9,8 @@ import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { CLOSE_TIMEOUT, closedWithin } from "./bounded-close.js";
 import { VirtualClock } from "./clock.js";
+import { startOf } from "./start-at.js";
+import { assemblyOf, tracingOf, type TestWithSeams } from "./test-with-seams.js";
 import { SkewedClock } from "./clock-skew.js";
 import { onlyWorkflows } from "./only-workflows.js";
 import { branchSchedulerOf } from "./branch-scheduler.js";
@@ -29,14 +31,14 @@ import { vcrGatewayOverProviders, type VcrConfig } from "./vcr.js";
 import { testKeyedEnvironmentOf, testPiiKeyOf, type TestKeyedEnvironment } from "./pii-parts.js";
 import { bindingsOf } from "./services.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
-import { TEST_DEFAULT_PROFILE, type ProfileSelection } from "../config/profile-names.js";
+import type { ProfileSelection } from "../config/profile-names.js";
 import { TEST_IDEMPOTENCY_KEYS } from "../application/idempotency-key.js";
 
 /**
  * What `testWith` takes besides the application. `env` names the environment (default `test`: a
  * test never falls back to dev's values, and fails without `test.environment.ts`).
  */
-export interface TestWithOptions extends EnvironmentSelection {
+export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
   /** Components kept real: MCP server classes connect through their configured transports. */
   readonly real?: readonly Class[];
   /** Hosts a test may reach (`localhost` covers every loopback address); everything else is blocked. */
@@ -108,7 +110,7 @@ function realServers(servers: ReadonlyMap<Class, string>, real: readonly Class[]
  */
 export class TestEnvironment {
   readonly book = new ScriptBook();
-  readonly clock = new VirtualClock();
+  readonly clock: VirtualClock;
   /** The test's ids (#313): `thread-1`, `execution-1`, … unless the application lists its own. */
   readonly idGenerator = new SequentialIdGenerator();
   readonly mcp = new McpStubs(this.book);
@@ -138,6 +140,7 @@ export class TestEnvironment {
     options: TestWithOptions,
     { named: environment, processEnv }: TestKeyedEnvironment,
   ) {
+    this.clock = new VirtualClock(startOf(options.startAt));
     const { workflows } = assembled;
     this.#nodes = workflows.flatMap((workflow) => [...workflow.graph.nodes.values()]);
     this.#used = usedComponentsOf(assembled);
@@ -168,6 +171,7 @@ export class TestEnvironment {
             ),
           }
         : { gateway: createScriptedGateway(this.book, this.clock) }),
+      ...tracingOf(options),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
       container: { ...this.mocks.container, replacements: bindings.replacements },
       ...branchSchedulerOf(options.concurrency, this.book),
@@ -180,15 +184,7 @@ export class TestEnvironment {
    * it runs — but a PII key's, which gets the test key (#778).
    */
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
-    const assembled = await applicationOf(
-      application,
-      {
-        profile: options.profile,
-        defaultProfile: TEST_DEFAULT_PROFILE,
-        withoutIdempotencyKeys: true,
-      },
-      "testWith",
-    );
+    const assembled = await applicationOf(application, assemblyOf(options), "testWith");
     const restricted =
       options.only === undefined ? assembled : onlyWorkflows(assembled, options.only);
     const environment = await testKeyedEnvironmentOf(restricted, options, testEnv());

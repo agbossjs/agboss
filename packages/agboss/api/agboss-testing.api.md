@@ -16,6 +16,7 @@ import { Mocked } from 'vitest';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { TestAPI } from 'vitest';
 import type { ToolDefinition } from '@langchain/core/language_models/base';
+import type { TracerProvider } from '@opentelemetry/api';
 
 // @public
 export type A2AServerFixture = (options: Omit<A2AHttpListenerOptions, "publicUrl"> & {
@@ -1005,18 +1006,14 @@ export interface TestAgentOptions extends Omit<TestModuleOptions, "components"> 
 // @public
 export interface TestApp extends Pick<AnyTenantApp, "execute" | "resume" | "extendPause" | "reassignPause" | "close" | "cancel" | "getStatusHistory" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "listPauses" | "resolve"> {
     // (undocumented)
-    action(action: Class): ActionSlice;
-    // (undocumented)
-    agent(agent: Class): AgentSlice;
-    // (undocumented)
     readonly clock: VirtualClock;
     get<TToken extends Token>(token: TToken): Resolved<TToken>;
     ready(): Promise<void>;
-    // (undocumented)
-    router(router: Class): RouterSlice;
+    runAction(action: Class, input: unknown): Promise<unknown>;
+    runAgent(agent: Class, input: string): Promise<string>;
+    runRouter(router: Class, input: string): Promise<Class>;
+    runTool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>, input: TInput): Promise<ToolOutput<TOutput>>;
     readonly settings: Readonly<Record<string, AgentsConfigOf<string>>>;
-    // (undocumented)
-    tool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>): ToolSlice<TInput, TOutput>;
 }
 
 // @public
@@ -1208,7 +1205,7 @@ export function testUnit<TTarget extends Class | readonly Class[], TExecution ex
 export function testWith<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: TestWithOptions): TestAPI<WorkflowFixtures>;
 
 // @public
-export interface TestWithOptions extends EnvironmentSelection {
+export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
     readonly allowNetwork?: readonly string[];
     readonly concurrency?: TestConcurrency;
     readonly instances?: number | readonly TestInstanceOptions[];
@@ -1303,6 +1300,7 @@ export interface ToolRunner<TInput, TOutput> extends UnitClock {
 // @public
 export interface ToolScript {
     thenFail(...failures: readonly ToolFailure[]): ToolScript;
+    thenReturn(...outputs: readonly unknown[]): ToolScript;
 }
 
 // @public
@@ -1605,10 +1603,6 @@ export interface WorkflowMatchers<R = unknown> {
 // src/testing/test-agent.ts - (ae-undocumented) Missing documentation for "__call".
 // src/testing/test-agent.ts - (ae-undocumented) Missing documentation for "run".
 // src/testing/test-app.ts - (ae-undocumented) Missing documentation for "clock".
-// src/testing/test-app.ts - (ae-undocumented) Missing documentation for "action".
-// src/testing/test-app.ts - (ae-undocumented) Missing documentation for "agent".
-// src/testing/test-app.ts - (ae-undocumented) Missing documentation for "router".
-// src/testing/test-app.ts - (ae-undocumented) Missing documentation for "tool".
 // src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockTool".
 // src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockAction".
 // src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockService".

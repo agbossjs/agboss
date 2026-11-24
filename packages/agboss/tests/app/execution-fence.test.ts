@@ -298,7 +298,7 @@ describe("#471 AC1: a fence read where its step is gone", () => {
   });
 
   test("a tool called on its own (a test slice) has no fence", async ({ app }) => {
-    const output = await app.tool(StageTool).invoke({ artifact: "v1" });
+    const output = await app.runTool(StageTool, { artifact: "v1" });
 
     expect(output).toMatchObject({ kind: "error" });
     expect(JSON.stringify(output)).toMatch(/context|lease/);

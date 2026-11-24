@@ -27,7 +27,7 @@ import {
 } from "../models/model-provider.decorator.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import type { ApplicationAssembly } from "./assembly-options.js";
+import type { ApplicationAssembly, AssemblyReplacements } from "./assembly-options.js";
 import {
   declaredOptionsOf,
   type ApplicationDeclaration,
@@ -44,17 +44,25 @@ import { withIsolatedStorage } from "./isolated-storage.js";
 async function effectiveOptionsOf(
   declaration: Pick<ApplicationDeclaration, "options" | "written">,
   folded: FoldedConfig,
+  replacements: AssemblyReplacements = {},
 ): Promise<ApplicationOptions> {
+  const own = Object.fromEntries(
+    Object.entries(replacements).filter(([, value]) => value !== undefined),
+  );
   // a profile that replaces `storage` is the application's own choice: no temporary file then
   const written =
     folded.replacements.storage === undefined
       ? await withIsolatedStorage(declaration.written)
       : declaration.written;
-  if (written === declaration.written && Object.keys(folded.replacements).length === 0)
+  if (
+    written === declaration.written &&
+    Object.keys(folded.replacements).length === 0 &&
+    Object.keys(own).length === 0
+  )
     return declaration.options;
   // the replaced lists go through the same step as the declared ones: a replaced `storage` replaces
   // its stores in `providers`, a replaced `channels` its channels
-  return declaredOptionsOf({ ...written, ...folded.replacements });
+  return declaredOptionsOf({ ...written, ...folded.replacements, ...own });
 }
 
 /** A YAML limit is a number: the branded dollars a budget takes. */
@@ -179,7 +187,7 @@ export async function appliedProfilesOf(
     defaultProfile: assembly.defaultProfile ?? APP_DEFAULT_PROFILE,
   });
   const use = new OverlayUse();
-  const options = await effectiveOptionsOf(declaration, folded);
+  const options = await effectiveOptionsOf(declaration, folded, assembly.replacements);
   const budgetOverlays = budgetOverlaysOf(folded, options);
   return {
     folded,

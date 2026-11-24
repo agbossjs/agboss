@@ -115,7 +115,7 @@ describe("AC12: everything external is replaced; a live call fails the test befo
     async ({ app }) => {
       await writeFile(join(NOTES_DIR, "real-note.md"), "from disk");
 
-      const read = await app.tool(ReadNote).invoke({ title: "real-note" });
+      const read = await app.runTool(ReadNote, { title: "real-note" });
 
       expect(read).toEqual({ kind: "ok", value: { text: "from disk" } });
     },

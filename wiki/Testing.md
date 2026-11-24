@@ -574,7 +574,12 @@ const test = testWith(RefundApplication, {
 call (`Produced` records, as it read them), and the call matchers below check what it — or an error
 handler on a side path — received and returned. `mockTool(T).thenFail(ToolFailure.Timeout)` makes
 the tool's next call fail as a real timeout would (the agent's model reads `timed out after 30000
-ms`); the calls after the scripted failures run the tool. Both before the first `app.execute`.
+ms`), and `mockTool(T).thenReturn(output, …)` makes it return the output without running `execute`
+(#1328); the calls after the scripted ones run the tool. Both before the first `app.execute`. One
+component on its own: `app.runAgent(A, message)`, `app.runAction(A, input)`, `app.runRouter(R, message)`,
+`app.runTool(T, input)`. `testWith(App, { startAt, modelProvider, channels, tracerProvider })` starts
+the clock at `startAt`, replaces the application's `modelProvider` and `channels`, and hands its spans
+to a `tracerProvider` of the test's own.
 
 <!-- snippet-context
 import { expect } from "vitest";
@@ -603,12 +608,12 @@ expect(mockLlm(Scout)).toHaveBeenCalledTimes(3);
 
 One component of the real app on its own:
 
-- `app.tool(X).invoke(input)` — the tool with its real (or mocked) dependencies → `ToolResult`; it
+- `app.runTool(X, input)` — the tool with its real (or mocked) dependencies → `ToolResult`; it
   runs in an execution of its own, so an injected `ExecutionContext` reads (`step.callId`
   `"tool-slice"`);
-- `app.router(X).routeTo(text)` → the node it chooses;
-- `app.agent(X).replyWith(task)` → its answer (its model, prompt and tools; no flow, no approval pause);
-- `app.action(X).run(input)` → what its `execute` gives, in a step's frame of an execution of its own.
+- `app.runRouter(X, text)` → the node it chooses;
+- `app.runAgent(X, task)` → its answer (its model, prompt and tools; no flow, no approval pause);
+- `app.runAction(X, input)` → what its `execute` gives, in a step's frame of an execution of its own.
 
 ### `testModule` and `testAgent` — a slice of an application (#1328)
 

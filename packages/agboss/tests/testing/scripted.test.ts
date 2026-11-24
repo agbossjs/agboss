@@ -187,7 +187,7 @@ describe("#148 AC4: recoverApp() closes the current app and returns a new one ov
   }) => {
     mockLlm(MainRouter).thenReturn(routeTo(Writer, { cost: usd(0.001) }), routeTo(Writer));
     mockLlm(Writer).thenReturn(replyWith("one"), replyWith("two"));
-    await app.tool(OrderStatus).invoke({ orderId: "1" });
+    await app.runTool(OrderStatus, { orderId: "1" });
     const first = await execute(app, ChatStart, { text: "1" });
     lifecycle.length = 0;
 
@@ -205,7 +205,7 @@ describe("#148 AC4: recoverApp() closes the current app and returns a new one ov
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toFailWith(TestFailure, {
       code: "test.app-closed",
     });
-    await expect(app.tool(OrderStatus).invoke({ orderId: "1" })).rejects.toThrow(
+    await expect(app.runTool(OrderStatus, { orderId: "1" })).rejects.toThrow(
       /test.app-closed: this app is closed/,
     );
   });
