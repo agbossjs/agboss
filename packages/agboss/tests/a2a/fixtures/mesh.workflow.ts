@@ -18,7 +18,6 @@ import {
   type ExecutionEvent,
   type MeshOptions,
   type OnExecutionStart,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -104,10 +103,10 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     output: PeerReply,
     deps: [PeerA2AAgent],
   })
-  class CallPeer implements ToolHandler<PeerQuestion, PeerReply> {
+  class CallPeer {
     constructor(private readonly peerA2AAgent: PeerA2AAgent) {}
 
-    run({ question }: PeerQuestion): Promise<PeerReply> {
+    execute({ question }: PeerQuestion): Promise<PeerReply> {
       return this.peerA2AAgent.execute({ text: question });
     }
   }

@@ -10,7 +10,6 @@ import {
   WorkflowSettings,
   type WorkflowDefinition,
   Tool,
-  type ToolHandler,
 } from "../../src/index.js";
 import { createMcpService, McpExpose, type McpSessionOptions } from "../../src/mcp/index.js";
 import { Text } from "../../src/dto/index.js";
@@ -63,10 +62,10 @@ class CallEcho {
   output: CallEcho,
   deps: [ExecutionContext],
 })
-class EchoCall implements ToolHandler<OrderQuery, CallEcho> {
+class EchoCall {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(): Promise<CallEcho> {
+  execute(): Promise<CallEcho> {
     return Promise.resolve({ callId: String(this.executionContext.step.callId) });
   }
 }
@@ -78,8 +77,8 @@ class Code {
 
 /** Breaks its own output DTO: the adapter must reject the result. */
 @Tool({ name: "broken-tool", description: "Wrong output", input: OrderQuery, output: Code })
-class Broken implements ToolHandler<OrderQuery, Code> {
-  run(): Promise<Code> {
+class Broken {
+  execute(): Promise<Code> {
     return Promise.resolve({ code: "x" });
   }
 }

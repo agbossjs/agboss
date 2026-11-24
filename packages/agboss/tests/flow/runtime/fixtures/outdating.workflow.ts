@@ -10,7 +10,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type OnValuesOutdated,
-  type ToolHandler,
   type ValuesOutdatedEvent,
 } from "../../../../src/index.js";
 import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
@@ -64,8 +63,8 @@ export class EditorQuestion {
   input: EditorQuestion,
   output: EditorQuestion,
 })
-export class AskEditorTool implements ToolHandler<EditorQuestion, EditorQuestion> {
-  run(input: EditorQuestion): Promise<EditorQuestion> {
+export class AskEditorTool {
+  execute(input: EditorQuestion): Promise<EditorQuestion> {
     return Promise.resolve(input);
   }
 }

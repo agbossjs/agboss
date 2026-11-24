@@ -12,7 +12,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../src/index.js";
 import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import { Application } from "../../src/application/application.js";
@@ -48,8 +47,8 @@ export class ScanResultDto {
   input: ScanQueryDto,
   output: ScanResultDto,
 })
-export class ScanTool implements ToolHandler<ScanQueryDto, ScanResultDto> {
-  run(): Promise<ScanResultDto> {
+export class ScanTool {
+  execute(): Promise<ScanResultDto> {
     return Promise.resolve({ file: SCAN });
   }
 }

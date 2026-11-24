@@ -3,7 +3,7 @@
  * does not exist and a bare number is not a duration (compile-time, checked by `tsc`).
  */
 import { describe, expect, it } from "vitest";
-import { Tool, type ToolHandler } from "../../src/index.js";
+import { Tool } from "../../src/index.js";
 import { McpTool } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
 import { testTool } from "../../src/testing/index.js";
@@ -15,8 +15,8 @@ class Query {
 }
 
 @Tool({ name: "quick-tool", description: "d", input: Query, output: Query, timeout: seconds(5) })
-class QuickTool implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+class QuickTool {
+  execute(input: Query): Promise<Query> {
     return Promise.resolve(input);
   }
 }

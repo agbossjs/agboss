@@ -19,7 +19,6 @@ import {
   type OnExecutionEnd,
   type OnExecutionStart,
   type Produced,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -158,8 +157,8 @@ export class ItemConfirmDto {
   input: ItemConfirmDto,
   output: ItemConfirmDto,
 })
-export class ConfirmItemTool implements ToolHandler<ItemConfirmDto, ItemConfirmDto> {
-  run(input: ItemConfirmDto): Promise<ItemConfirmDto> {
+export class ConfirmItemTool {
+  execute(input: ItemConfirmDto): Promise<ItemConfirmDto> {
     return Promise.resolve(input);
   }
 }

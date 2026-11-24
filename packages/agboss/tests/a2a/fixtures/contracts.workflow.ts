@@ -17,7 +17,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { McpExpose } from "../../../src/mcp/index.js";
 import { usd } from "../../../src/units/index.js";
@@ -68,10 +67,10 @@ export class OracleA2AAgent extends A2AClient {}
   output: InvoiceAnswerDto,
   deps: [BillingDeskA2AAgent],
 })
-export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAnswerDto> {
+export class AskBillingTool {
   constructor(private readonly billingDeskA2AAgent: BillingDeskA2AAgent) {}
 
-  run(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
+  execute(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
     return this.billingDeskA2AAgent.execute(question);
   }
 }
@@ -105,10 +104,10 @@ export class KbServer extends McpServerClient<typeof kbTools> {}
   output: SearchHitDto,
   deps: [KbServer],
 })
-export class SearchKbTool implements ToolHandler<SearchQueryDto, SearchHitDto> {
+export class SearchKbTool {
   constructor(private readonly kbServer: KbServer) {}
 
-  run(query: SearchQueryDto): Promise<SearchHitDto> {
+  execute(query: SearchQueryDto): Promise<SearchHitDto> {
     return this.kbServer.call("search", query);
   }
 }

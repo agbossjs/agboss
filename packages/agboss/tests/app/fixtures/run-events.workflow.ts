@@ -33,7 +33,6 @@ import {
   type OnExecutionStart,
   type OnModelStart,
   type OnToolStart,
-  type ToolHandler,
   type ToolStartEvent,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -85,8 +84,8 @@ export class Query {
 
 /** A read tool. */
 @Tool({ name: "lookup-tool", description: "Looks jobs up", input: Query, output: Query })
-export class Lookup implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Lookup {
+  execute(input: Query): Promise<Query> {
     return Promise.resolve(input);
   }
 }
@@ -99,8 +98,8 @@ export class Lookup implements ToolHandler<Query, Query> {
   input: Query,
   output: Query,
 })
-export class Apply implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Apply {
+  execute(input: Query): Promise<Query> {
     return Promise.resolve(input);
   }
 }

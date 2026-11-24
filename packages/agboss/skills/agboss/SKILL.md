@@ -69,8 +69,8 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `@Integer`, `@Bool`, `@Enum`, `@List`, `@Nested`, …) from `@agboss/core/dto`; a value is
    `{ orderId: "7" }`, never `new OrderDto()`. No zod, no JSON Schema by hand.
 5. **Decorator = metadata, constructor = dependencies, methods = a contract.** `deps: [A, B]` lists
-   the constructor's parameters in order (the compiler checks it); `implements ToolHandler<In, Out>`,
-   `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`, … The container creates
+   the constructor's parameters in order (the compiler checks it); a tool is an `execute` method (the `ToolHandler<In, Out>` shape), no `implements`; `ActionHandler<Self>`,
+   `RouterHandler<Self>`, `JudgeHandler<TReply>`, … The container creates
    every component — project code never calls `new` on one.
 6. **Components keep no state.** Another instance may continue an execution after a pause: read the
    execution from an injected `ExecutionContext`, time from `Clock`, ids from `IdGenerator`; data
@@ -209,7 +209,7 @@ export class OrderBookService {
 
 ```ts file=src/tools/order-status.tool.ts
 // the shape of every component: decorator, deps, a typed contract
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 
 @Tool({
@@ -220,13 +220,13 @@ import { seconds } from "@agboss/core/units";
   timeout: seconds(10),
   deps: [ExecutionContext, OrderBookService],
 })
-export class OrderStatusTool implements ToolHandler<OrderQueryDto, OrderStatusDto> {
+export class OrderStatusTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly orderBookService: OrderBookService,
   ) {}
 
-  async run({ orderId }: OrderQueryDto): Promise<OrderStatusDto> {
+  async execute({ orderId }: OrderQueryDto): Promise<OrderStatusDto> {
     const key: string = this.executionContext.step.idempotencyKey; // one key per call, stable on retry
     return { status: await this.orderBookService.statusOf(orderId, key) };
   }

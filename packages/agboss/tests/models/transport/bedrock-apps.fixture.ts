@@ -8,7 +8,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
@@ -98,8 +97,8 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
     input: LookupRequest,
     output: LookupFound,
   })
-  class LookupTool implements ToolHandler<LookupRequest, LookupFound> {
-    run({ query }: LookupRequest): Promise<LookupFound> {
+  class LookupTool {
+    execute({ query }: LookupRequest): Promise<LookupFound> {
       return Promise.resolve({ found: `found ${query}` });
     }
   }

@@ -5,7 +5,7 @@
 import { A2AAgent, A2AClient } from "../../../src/a2a/index.js";
 import { OutboundCalls } from "../../../src/app/outbound-calls.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
-import { Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Injectable, Tool } from "../../../src/components/decorators.js";
 import { InjectionToken, type Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -27,8 +27,8 @@ interface Message {
   output: WorkflowFinishTextDto,
   readOnly: true,
 })
-export class ApprovedReadTool implements ToolHandler<WorkflowStartTextDto, WorkflowFinishTextDto> {
-  run(): Promise<WorkflowFinishTextDto> {
+export class ApprovedReadTool {
+  execute(): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "read" });
   }
 }

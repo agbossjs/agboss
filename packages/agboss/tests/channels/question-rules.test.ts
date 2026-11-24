@@ -12,7 +12,7 @@ import {
   PauseAnswerer,
   ReplyInterpreter,
 } from "../../src/channels/channel-role.decorator.js";
-import { Channel, Tool, type ToolHandler } from "../../src/components/decorators.js";
+import { Channel, Tool } from "../../src/components/decorators.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { DecidedBy } from "../../src/flow/decorators/router.js";
@@ -124,8 +124,8 @@ describe("#659 AC1: a question role's name and implementation", () => {
       output: PurchasePlacedDto,
       channel: SpendingLimitQuestion,
     })
-    class LimitTool implements ToolHandler<PurchaseQuestionDto, PurchasePlacedDto> {
-      run(): Promise<PurchasePlacedDto> {
+    class LimitTool {
+      execute(): Promise<PurchasePlacedDto> {
         return Promise.resolve({ status: "ok" });
       }
     }

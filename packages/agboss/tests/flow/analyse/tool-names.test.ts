@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { Rag } from "../../../src/components/decorators.js";
-import { Agent, RagMode, Tool, type ToolHandler } from "../../../src/index.js";
+import { Agent, RagMode, Tool } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
@@ -20,8 +20,8 @@ class Topic {
 }
 
 @Tool({ name: "order_status", description: "The status", input: Topic, output: Topic })
-class OrderStatus implements ToolHandler<Topic, Topic> {
-  run(input: Topic): Promise<Topic> {
+class OrderStatus {
+  execute(input: Topic): Promise<Topic> {
     return Promise.resolve(input);
   }
 }
@@ -30,8 +30,8 @@ class OrderStatus implements ToolHandler<Topic, Topic> {
 const LONG = `${"a".repeat(55)}-long-tool`;
 
 @Tool({ name: LONG, description: "Too long", input: Topic, output: Topic })
-class LongTool implements ToolHandler<Topic, Topic> {
-  run(input: Topic): Promise<Topic> {
+class LongTool {
+  execute(input: Topic): Promise<Topic> {
     return Promise.resolve(input);
   }
 }

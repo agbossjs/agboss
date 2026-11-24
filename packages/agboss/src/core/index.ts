@@ -19,8 +19,6 @@ export {
   /** @deprecated Import from "@agboss/core" (#195). */
   type AnswersOf,
   /** @deprecated Import from "@agboss/core" (#195). */
-  BindTool,
-  /** @deprecated Import from "@agboss/core" (#195). */
   Channel,
   /** @deprecated Import from "@agboss/core" (#195). */
   type ChannelEndEvent,

@@ -1,7 +1,7 @@
 # Tools
 
 A tool is a `@Tool` class in its workflow's `tools/` folder — see [Components](Components) for the
-pattern (constructor dependencies, `ToolHandler`, tests with `new`).
+pattern (constructor dependencies, an `execute` method, tests with `new`).
 
 <!-- snippet-context
 import { InjectionToken } from "@agboss/core";
@@ -10,7 +10,7 @@ const ISSUES_API = new InjectionToken<IssuesApi>("ISSUES_API");
 -->
 
 ```ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { List, Text } from "@agboss/core/dto";
 import { seconds } from "@agboss/core/units";
 
@@ -37,13 +37,13 @@ export class IssueList {
   timeout: seconds(10), // with units — there is no timeoutMs
   deps: [ExecutionContext, ISSUES_API],
 })
-export class SearchIssues implements ToolHandler<IssueQuery, IssueList> {
+export class SearchIssues {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly issuesApi: IssuesApi,
   ) {}
 
-  run({ query }: IssueQuery): Promise<IssueList> {
+  execute({ query }: IssueQuery): Promise<IssueList> {
     return this.issuesApi.search(query, this.executionContext.signal);
   }
 }
@@ -56,15 +56,15 @@ JSON Schema, with each field's `prompt` as its description.
 
 | Step of `tool.invoke(raw)`                         | On failure                                                    |
 | ---------------------------------------------------- | ----------------------------------------------------------------- |
-| input validated against the input DTO             | `error: invalid input: <path>: <issue>` (`jobs[2].url`) — `run` is not called |
+| input validated against the input DTO             | `error: invalid input: <path>: <issue>` (`jobs[2].url`) — `execute` is not called |
 | run is not started if the run is already cancelled | `error: <abort reason>`                                       |
-| `run` under its `timeout` and the run's `AbortSignal` | `error: timed out after 10 s` / `error: <message>`          |
+| `execute` under its `timeout` and the run's `AbortSignal` | `error: timed out after 10 s` / `error: <message>`          |
 | output validated against the output DTO           | `error: invalid output: …` — a contract bug of the tool       |
 
 Results are values — `ToolResult = { kind: "ok", value } | { kind: "error", message }` — never
 exceptions: the model sees `Tool error: …` and can recover.
 
-`run` gets only its input (#280 — there is no `ToolContext`). The execution it runs in comes through
+`execute` gets only its input (#280 — there is no `ToolContext`). The execution it runs in comes through
 the constructor: `deps: [ExecutionContext]` gives `executionId`, `threadId`, `ownerId`, `signal`,
 `workflow` and the call's `step` (`callId`, `idempotencyKey`, …)
 ([Context and Authorization](Context-And-Authorization)). A tool's model spend through
@@ -118,7 +118,7 @@ export class PageContent {
 
 ```ts
 // tools/fetch-page.tool.ts — a tool whose pages may be long sets its own
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { kilobytes, seconds } from "@agboss/core/units";
 
 @Tool({
@@ -130,10 +130,10 @@ import { kilobytes, seconds } from "@agboss/core/units";
   maxResultSize: kilobytes(256),
   deps: [PageReader],
 })
-export class FetchPageTool implements ToolHandler<PageQuery, PageContent> {
+export class FetchPageTool {
   constructor(private readonly pageReader: PageReader) {}
 
-  async run({ url }: PageQuery): Promise<PageContent> {
+  async execute({ url }: PageQuery): Promise<PageContent> {
     return { text: await this.pageReader.textOf(url) };
   }
 }
@@ -167,7 +167,7 @@ registry: an agent's `tools: [SearchIssues]` **is** the registration.
 ## MCP
 
 A server declares the tools it offers that the workflow uses (`@McpServer({ tools })`, `extends McpServerClient`);
-an `@McpTool` is a tool with that server injected, calling it in `run` — see
+an `@McpTool` is a tool with that server injected, calling it in `execute` — see
 [Components → MCP](Components#mcp). Env variable NAMES only in the config, never secrets.
 A server tool that answers with plain text declares `output: PlainTextDto` (`@agboss/core/dto`, the one
 field `text`) — the server's text arrives as `{ text }`; `agboss g mcp` writes that by default.
@@ -176,7 +176,7 @@ field `text`) — the server's text arrives as `{ text }`; `agboss g mcp` writes
 
 <!-- snippet-context
 import { Agent } from "@agboss/core";
-declare class GreenhouseJobs { run(input: object): Promise<object> }
+declare class GreenhouseJobs { execute(input: object): Promise<object> }
 -->
 
 ```ts
@@ -337,7 +337,7 @@ a workflow without one keeps its hash.
 `testToolInterceptor` ([Testing](Testing)):
 
 <!-- snippet-context
-import { Tool, ToolCallDecision, type ToolHandler } from "@agboss/core";
+import { Tool, ToolCallDecision } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 import { testToolInterceptor } from "@agboss/core/testing";
 import { JobScoutTenantContext, TenantScopeToolInterceptor } from "./src/scout/tenant-scope.tool-interceptor.js";
@@ -351,8 +351,8 @@ export class CityJobs {
   listing!: string;
 }
 @Tool({ name: "city-jobs-tool", description: "Jobs in a city", input: CityQuery, output: CityJobs })
-export class CityJobsTool implements ToolHandler<CityQuery, CityJobs> {
-  run({ city }: CityQuery): Promise<CityJobs> {
+export class CityJobsTool {
+  execute({ city }: CityQuery): Promise<CityJobs> {
     return Promise.resolve({ listing: `Engineer in ${city}` });
   }
 }
@@ -466,8 +466,7 @@ import {
   PauseAnswerer,
   Tool,
   type ChannelAsk,
-  type ToolHandler,
-} from "@agboss/core";
+  } from "@agboss/core";
 
 // channels/refund-approval.channel.ts — the role: what it approves, who answers
 @ChannelRole({
@@ -508,8 +507,8 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
   output: RefundCardOutputDto,
   channel: RefundApprovalChannel,
 })
-export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCardOutputDto> {
-  run({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
+export class RefundCardTool {
+  execute({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
     return Promise.resolve({ status: `refunded ${orderId}` });
   }
 }
@@ -565,7 +564,7 @@ call, as the agent loop runs it: the input and output validated against the DTOs
 ([Testing → Unit runners](Testing#unit-runners--one-component-on-its-own)):
 
 <!-- snippet-context
-import { ExecutionContext, Injectable, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Injectable, Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 @Injectable()
 export class IssuesApi {
@@ -576,9 +575,9 @@ export class IssuesApi {
 class IssueQuery { @Text() query!: string; }
 class IssueCount { @Text() summary!: string; }
 @Tool({ name: "count-issues-tool", description: "Counts issues", input: IssueQuery, output: IssueCount, deps: [ExecutionContext, IssuesApi] })
-class CountIssues implements ToolHandler<IssueQuery, IssueCount> {
+class CountIssues {
   constructor(private readonly executionContext: ExecutionContext, private readonly issuesApi: IssuesApi) {}
-  async run({ query }: IssueQuery): Promise<IssueCount> {
+  async execute({ query }: IssueQuery): Promise<IssueCount> {
     this.executionContext.signal.throwIfAborted();
     return { summary: `${String((await this.issuesApi.search(query)).length)} issues` };
   }

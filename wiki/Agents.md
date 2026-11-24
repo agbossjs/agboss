@@ -163,12 +163,12 @@ DTO), or a function of the request with `.thenAnswer(...)` ([Testing](Testing)):
 
 <!--
 ```ts file=support.workflow.ts
-import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ToolHandler } from "@agboss/core";
+import { Agent, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class RefundRequest { @Integer({ prompt: "the amount, USD" }) amount!: number; }
 class RefundDone { @Text() status!: string; }
 @Tool({ name: "refund-tool", description: "Refunds an amount", input: RefundRequest, output: RefundDone })
-export class RefundTool implements ToolHandler<RefundRequest, RefundDone> { run(): Promise<RefundDone> { return Promise.resolve({ status: "refunded" }); } }
+export class RefundTool { execute(): Promise<RefundDone> { return Promise.resolve({ status: "refunded" }); } }
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })

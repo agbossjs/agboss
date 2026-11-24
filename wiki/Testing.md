@@ -61,7 +61,7 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, type ToolHandler, TerminalUserChannel, route, Router, onStart, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, TerminalUserChannel, route, Router, onStart, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
 import { List, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient, McpTool } from "@agboss/core/mcp";
 const model = "moonshotai/kimi-k2.6";
@@ -83,9 +83,9 @@ export class SavedJobs { @List(Text) added!: string[]; }
   output: SavedJobs,
   deps: [ShortlistServer],
 })
-export class SaveShortlist implements ToolHandler<ChosenJobs, SavedJobs> {
+export class SaveShortlist {
   constructor(private readonly server: ShortlistServer) {}
-  async run({ jobs }: ChosenJobs): Promise<SavedJobs> {
+  async execute({ jobs }: ChosenJobs): Promise<SavedJobs> {
     await this.server.call("write_file", {
       path: "shortlist.md",
       content: jobs
@@ -100,14 +100,14 @@ export class OrderBook { statusOf(orderId: string): Promise<string> { return Pro
 export class OrderQuery { @Text() orderId!: string; }
 export class OrderInfo { @Text() status!: string; }
 @Tool({ name: "order-status-tool", description: "An order's status", input: OrderQuery, output: OrderInfo, deps: [OrderBook] })
-export class OrderStatus implements ToolHandler<OrderQuery, OrderInfo> {
+export class OrderStatus {
   constructor(private readonly book: OrderBook) {}
-  async run({ orderId }: OrderQuery): Promise<OrderInfo> { return { status: await this.book.statusOf(orderId) }; }
+  async execute({ orderId }: OrderQuery): Promise<OrderInfo> { return { status: await this.book.statusOf(orderId) }; }
 }
 export class JobQuery { @Text() query!: string; }
 export class JobList { @List(Text) jobs!: string[]; }
 @Tool({ name: "greenhouse-jobs-tool", description: "Finds jobs", input: JobQuery, output: JobList })
-export class GreenhouseJobs implements ToolHandler<JobQuery, JobList> { run(): Promise<JobList> { return Promise.resolve({ jobs: [] }); } }
+export class GreenhouseJobs { execute(): Promise<JobList> { return Promise.resolve({ jobs: [] }); } }
 @Agent({ name: "scout-agent", description: "Finds jobs", prompt: "Find jobs.", model, tools: [GreenhouseJobs, OrderStatus] }) export class Scout {}
 @Agent({ name: "shortlist-agent", description: "Saves jobs", prompt: "Save jobs.", model, tools: [SaveShortlist] }) export class Shortlist {}
 @Agent({ name: "writer-agent", description: "Writes", prompt: "Write.", model }) export class Writer {}
@@ -641,7 +641,7 @@ ones, `toolCallsOf` for the rest. A child's calls are asserted through `result.c
 
 <!-- snippet-context
 import type { ExecutionOutput } from "@agboss/core";
-import { ToolCallStatus, Tool, toolCallsOf, type ToolHandler } from "@agboss/core";
+import { ToolCallStatus, Tool, toolCallsOf } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 import { expect } from "vitest";
 import "@agboss/core/testing/setup";
@@ -652,14 +652,14 @@ export class OrderInfo {
   @Text() status!: string;
 }
 @Tool({ name: "get-order-tool", description: "An order", input: OrderQuery, output: OrderInfo })
-export class GetOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
-  run({ orderId }: OrderQuery): Promise<OrderInfo> {
+export class GetOrderTool {
+  execute({ orderId }: OrderQuery): Promise<OrderInfo> {
     return Promise.resolve({ status: `order ${orderId} shipped` });
   }
 }
 @Tool({ name: "delete-order-tool", description: "Deletes", input: OrderQuery, output: OrderInfo })
-export class DeleteOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
-  run(): Promise<OrderInfo> {
+export class DeleteOrderTool {
+  execute(): Promise<OrderInfo> {
     return Promise.resolve({ status: "deleted" });
   }
 }
@@ -977,7 +977,7 @@ What decorator mistakes look like in the compiler's output:
 | ------ | ------------------------------------------------------------------- | -------------------------------------------------------------- |
 | TS1238 | Unable to resolve signature of class decorator …                  | `@Tool({ deps })` does not fit the constructor (order, type, count) |
 | TS1240 | Unable to resolve signature of property decorator …               | a DTO field decorator on a field of another type (`@Text()` on a number) |
-| TS1270 | Decorator function return type '…' is not assignable to type '…' | the class does not implement what its decorator requires (`ToolHandler`, `WorkflowDefinition`) |
+| TS1270 | Decorator function return type '…' is not assignable to type '…' | the class does not implement what its decorator requires (`ActionHandler`, `WorkflowDefinition`) |
 
 Examples in the framework: `tests/components/compile-time.test.ts`, `tests/dto/types.test.ts`,
 `tests/testing/types.test.ts`.
@@ -1040,7 +1040,7 @@ it("looks the order up in the book it is given", async () => {
 });
 ```
 
-- **`testTool`** runs `run` as an agent's tool call runs it: the input validated against its input
+- **`testTool`** runs `execute` as an agent's tool call runs it: the input validated against its input
   DTO (`DtoValidationError`), the call's `step.callId`, its timeout (`ToolTimeoutError` — move
   `runStatus.clock` past it), the output validated; `SpendRecorder` records as `tool:<name>`.
 - **`testAction`** takes what `execute` takes — `{ order: { producer: OrderIntakeAgent, value: { … } } }`

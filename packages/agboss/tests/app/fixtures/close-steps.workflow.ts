@@ -14,7 +14,6 @@ import {
   type ExecutionLease,
   type OnDestroy,
   type Produced,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
@@ -125,13 +124,13 @@ export class Query {
   timeout: seconds(600),
   deps: [ExecutionContext, Teardown],
 })
-export class SlowTool implements ToolHandler<Query, Query> {
+export class SlowTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     readonly teardown: Teardown,
   ) {}
 
-  async run(input: Query): Promise<Query> {
+  async execute(input: Query): Promise<Query> {
     await slowBody("tool", this.executionContext.signal);
     return input;
   }

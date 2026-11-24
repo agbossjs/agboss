@@ -8,7 +8,6 @@ import {
   provide,
   ROUTER_FACTORY,
   Tool,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { McpServer, McpServerClient, McpTool } from "../../../src/mcp/index.js";
 import { Text } from "../../../src/dto/index.js";
@@ -47,9 +46,9 @@ export class Greeting {
   output: Greeting,
   deps: [Greeter],
 })
-export class GreetTool implements ToolHandler<Person, Greeting> {
+export class GreetTool {
   constructor(private readonly greeter: Greeter) {}
-  run(input: Person): Promise<Greeting> {
+  execute(input: Person): Promise<Greeting> {
     return Promise.resolve({ text: this.greeter.greet(input.name) });
   }
 }
@@ -82,10 +81,10 @@ export class FilesServer extends McpServerClient<typeof filesTools> {}
   output: FileContent,
   deps: [FilesServer],
 })
-export class ReadFile implements ToolHandler<FileRead, FileContent> {
+export class ReadFile {
   constructor(private readonly files: FilesServer) {}
 
-  run(file: FileRead): Promise<FileContent> {
+  execute(file: FileRead): Promise<FileContent> {
     return this.files.call("read", file);
   }
 }

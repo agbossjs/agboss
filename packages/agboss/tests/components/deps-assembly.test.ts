@@ -15,15 +15,7 @@ import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "../../src/pii/index.js";
 import { Judge, JudgeVerdict, type JudgeHandler } from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
-import {
-  Action,
-  Agent,
-  InjectionToken,
-  provide,
-  RagMode,
-  Tool,
-  type ToolHandler,
-} from "../../src/index.js";
+import { Action, Agent, InjectionToken, provide, RagMode, Tool } from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { Text } from "../../src/dto/index.js";
@@ -92,8 +84,8 @@ class Approved {
   output: Approved,
   channel: NeedsChannel,
 })
-class ApprovedTool implements ToolHandler<Approved, Approved> {
-  run(input: Approved): Promise<Approved> {
+class ApprovedTool {
+  execute(input: Approved): Promise<Approved> {
     return Promise.resolve(input);
   }
 }
@@ -153,8 +145,8 @@ class Manuals {
 }
 
 @Tool({ name: "search-manuals-tool", description: "Shadows", input: Topic, output: Topic })
-class ShadowSearch implements ToolHandler<Topic, Topic> {
-  run(input: Topic): Promise<Topic> {
+class ShadowSearch {
+  execute(input: Topic): Promise<Topic> {
     return Promise.resolve(input);
   }
 }

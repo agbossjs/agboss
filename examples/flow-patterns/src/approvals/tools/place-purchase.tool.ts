@@ -1,4 +1,4 @@
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { PurchaseApprovalChannel } from "../channels/purchase-approval.channel.js";
 import { PurchaseOrder, PurchasePlaced } from "../dto/place-purchase.dto.js";
 
@@ -15,10 +15,10 @@ import { PurchaseOrder, PurchasePlaced } from "../dto/place-purchase.dto.js";
   channel: PurchaseApprovalChannel,
   deps: [ExecutionContext],
 })
-export class PlacePurchaseTool implements ToolHandler<PurchaseOrder, PurchasePlaced> {
+export class PlacePurchaseTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run({ item }: PurchaseOrder): Promise<PurchasePlaced> {
+  execute({ item }: PurchaseOrder): Promise<PurchasePlaced> {
     return Promise.resolve({ item, reference: this.executionContext.step.idempotencyKey });
   }
 }

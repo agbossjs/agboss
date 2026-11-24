@@ -144,7 +144,7 @@ describe("components — errors at assembly", () => {
   it("AC3: a non-component in tools fails", async () => {
     /** Shaped like a tool (the compiler accepts it), but not decorated: the assembly rejects it. */
     class Plain {
-      run(): Promise<object> {
+      execute(): Promise<object> {
         return Promise.resolve({});
       }
     }

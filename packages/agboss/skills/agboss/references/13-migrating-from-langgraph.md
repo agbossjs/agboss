@@ -431,23 +431,26 @@ export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
 ```
 
 ```ts file=src/support/tools/order-lookup.tool.ts
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { OrderFactsDto } from "../dto/order-facts.dto.js";
 import { OrderLookupDto } from "../dto/order-lookup.dto.js";
 import { OrderBookService } from "../services/order-book.service.js";
 
 @Tool({ name: "order-lookup-tool", description: "What is known about an order", input: OrderLookupDto, output: OrderFactsDto, deps: [OrderBookService] })
-export class OrderLookupTool implements ToolHandler<OrderLookupDto, OrderFactsDto> {
+export class OrderLookupTool {
   constructor(private readonly orderBookService: OrderBookService) {}
 
-  async run({ orderId }: OrderLookupDto): Promise<OrderFactsDto> {
+  async execute({ orderId }: OrderLookupDto): Promise<OrderFactsDto> {
     return { facts: await this.orderBookService.factsOf(orderId) };
   }
 }
 ```
 
+A tool is a class with `execute(input)` — the `ToolHandler<In, Out>` shape, returning its output DTO or a
+promise of it; it needs no `implements`, the decorator checks the method against its DTOs.
+
 ```ts file=src/support/tools/issue-signed-off-refund.tool.ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { RefundSignOffChannel } from "../channels/refund-sign-off.channel-role.js";
 import { RefundIssuedDto } from "../dto/refund-issued.dto.js";
 import { RefundOrderDto } from "../dto/refund-order.dto.js";
@@ -461,13 +464,13 @@ import { RefundApiService } from "../services/refund-api.service.js";
   channel: RefundSignOffChannel, // the role, never its implementation
   deps: [RefundApiService, ExecutionContext],
 })
-export class IssueSignedOffRefundTool implements ToolHandler<RefundOrderDto, RefundIssuedDto> {
+export class IssueSignedOffRefundTool {
   constructor(
     private readonly refundApiService: RefundApiService,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async run({ orderId, amountCents }: RefundOrderDto): Promise<RefundIssuedDto> {
+  async execute({ orderId, amountCents }: RefundOrderDto): Promise<RefundIssuedDto> {
     const key: string = this.executionContext.step.idempotencyKey;
     return { refundId: await this.refundApiService.issue(orderId, amountCents, key) };
   }

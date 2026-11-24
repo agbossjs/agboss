@@ -8,15 +8,16 @@ import { recordComponent } from "./metadata.js";
 import { declareEnvironmentFields, type EnvironmentFields } from "../environments/contract.js";
 
 /**
- * The contract of a tool (`@Tool`, `@McpTool`): `implements ToolHandler<OrderQuery, OrderStatus>` — its
- * input and output DTOs (classes from `@agboss/core/dto`). `run` gets only its input; the execution it
- * runs in comes through `deps: [ExecutionContext]` (#280).
+ * The shape of a tool (`@Tool`, `@McpTool`): `execute(input)` returns its output DTO, or a promise
+ * of it. `@Tool({ input, output })` checks the method against its DTOs, so a tool class needs no
+ * `implements`. `execute` gets only its input; the execution it runs in comes through
+ * `deps: [ExecutionContext]` (#280).
  */
 export interface ToolHandler<TInput, TOutput> {
-  run: (input: TInput) => Promise<TOutput>;
+  execute: (input: TInput) => TOutput | Promise<TOutput>;
 }
 
-/** `@Tool` / `@McpTool` classes, the ones implementing `ToolHandler`. */
+/** `@Tool` / `@McpTool` classes: the ones with a `ToolHandler`-shaped `execute`. */
 export type ToolHandlerClass = Class<ToolHandler<never, unknown>>;
 
 /**
@@ -76,7 +77,7 @@ export interface ToolOptions<
   readonly deps?: D;
 }
 
-/** A tool: one class implementing `ToolHandler`, dependencies through the constructor. */
+/** A tool: one class with an `execute` method, dependencies through the constructor. */
 export function Tool<
   In extends DtoClass,
   Out extends DtoClass,
@@ -133,8 +134,8 @@ export function McpServer<const TTools extends ServerTools>(
 }
 
 /**
- * A tool backed by an MCP server: like `@Tool` (implements `ToolHandler`, dependencies through the
- * constructor) with its server's client among `deps`; `run` calls the server's tools through it.
+ * A tool backed by an MCP server: like `@Tool` (an `execute` method, dependencies through the
+ * constructor) with its server's client among `deps`; `execute` calls the server's tools through it.
  */
 export function McpTool<
   In extends DtoClass,
@@ -216,9 +217,3 @@ export {
   type GuardrailRefusal,
   type GuardrailTextOptions,
 } from "./policy-decorators.js";
-export {
-  BindTool,
-  getBoundTools,
-  type BindToolOptions,
-  type BoundToolConfig,
-} from "./bind-tool.js";

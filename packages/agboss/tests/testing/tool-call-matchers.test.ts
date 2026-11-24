@@ -5,7 +5,7 @@
  * `toHaveScriptedToolCalls`.
  */
 import { describe, expect, it } from "vitest";
-import { Tool, type ToolHandler } from "../../src/index.js";
+import { Tool } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -26,8 +26,8 @@ class RefundDone {
 
 /** A tool no agent of the application has: never in a trajectory. */
 @Tool({ name: "refund-order-tool", description: "Refunds", input: RefundQuery, output: RefundDone })
-class RefundOrderTool implements ToolHandler<RefundQuery, RefundDone> {
-  run(): Promise<RefundDone> {
+class RefundOrderTool {
+  execute(): Promise<RefundDone> {
     return Promise.resolve({ status: "refunded" });
   }
 }

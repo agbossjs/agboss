@@ -3,7 +3,7 @@
  * line compiles would itself fail the build — so every line below must stay an error.
  */
 import { describe, expect, it } from "vitest";
-import { Agent, InjectionToken, Tool, type ToolHandler } from "../../src/index.js";
+import { Agent, InjectionToken, Tool } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { testConfig } from "../helpers.js";
 import type { FilesServer } from "./fixture/components.js";
@@ -25,44 +25,44 @@ const In = Query;
 const Out = Answer;
 
 @Tool({ name: "ok-tool", description: "d", input: In, output: Out, deps: [Judge, SEARCH] })
-class Ok implements ToolHandler<Query, Answer> {
+class Ok {
   constructor(
     readonly judge: Judge,
     readonly search: { boards: string[] },
   ) {}
-  run(): Promise<Answer> {
+  execute(): Promise<Answer> {
     return Promise.resolve({ text: "" });
   }
 }
 
 // @ts-expect-error — deps in the wrong order
 @Tool({ name: "swapped-tool", description: "d", input: In, output: Out, deps: [SEARCH, Judge] })
-class Swapped implements ToolHandler<Query, Answer> {
+class Swapped {
   constructor(
     readonly judge: Judge,
     readonly search: { boards: string[] },
   ) {}
-  run(): Promise<Answer> {
+  execute(): Promise<Answer> {
     return Promise.resolve({ text: "" });
   }
 }
 
 // @ts-expect-error — a dependency missing from deps
 @Tool({ name: "missing-tool", description: "d", input: In, output: Out, deps: [Judge] })
-class Missing implements ToolHandler<Query, Answer> {
+class Missing {
   constructor(
     readonly judge: Judge,
     readonly search: { boards: string[] },
   ) {}
-  run(): Promise<Answer> {
+  execute(): Promise<Answer> {
     return Promise.resolve({ text: "" });
   }
 }
 
-// @ts-expect-error — run returns what the output DTO does not allow
+// @ts-expect-error — execute returns what the output DTO does not allow
 @Tool({ name: "wrong-output-tool", description: "d", input: In, output: Out })
 class WrongOutput {
-  run(): Promise<number> {
+  execute(): Promise<number> {
     return Promise.resolve(1);
   }
 }

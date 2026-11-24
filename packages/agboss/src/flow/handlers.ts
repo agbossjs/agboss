@@ -32,8 +32,3 @@ export interface FinishHandler<TSelf> {
 export interface RouterHandler<TSelf> {
   readonly route: (input: InputOf<TSelf>) => RouterAnswerOf<TSelf> | Promise<RouterAnswerOf<TSelf>>;
 }
-
-/** A tool: its input is the plain DTO of the model's call, not `Produced` (#270, Q53). */
-export interface ToolHandler<TSelf> {
-  readonly run: (input: InputOf<TSelf>) => Promise<OutputOf<TSelf>>;
-}

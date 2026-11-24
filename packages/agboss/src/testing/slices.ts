@@ -33,9 +33,9 @@ export interface AgentSlice {
   replyWith(input: string): Promise<string>;
 }
 
-/** A tool class, typed by its `run`. */
+/** A tool class, typed by its `execute`. */
 export type ToolClassOf<TInput, TOutput> = Class<{
-  run(input: TInput): Promise<TOutput>;
+  execute(input: TInput): TOutput | Promise<TOutput>;
 }>;
 
 export function toolSlice<TInput, TOutput>(
@@ -56,7 +56,7 @@ export function toolSlice<TInput, TOutput>(
     tenant: defaultTenantOf(built.deps.contexts ?? contextsOutsideExecution(built.deps.config)),
   };
   return {
-    // the tool validates its result against the output DTO that `run` returns
+    // the tool validates its result against the output DTO that `execute` returns
     // one call is an execution of its own — what its injected `ExecutionContext` reads (#280)
     invoke: (input) =>
       runInFrame(

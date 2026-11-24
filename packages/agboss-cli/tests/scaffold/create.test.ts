@@ -110,17 +110,15 @@ describe("#268 AC8: agboss create", () => {
     expect(content(".gitattributes")).toContain(".agents/skills/agboss/** text eol=lf");
   });
 
-  it("the code conventions (#280): explicit return types, implements …Handler, fields named after their type, the contexts through deps", () => {
+  it("the code conventions (#280): explicit return types, fields named after their type, the contexts through deps", () => {
     const tool = content("src/tools/search-orders.tool.ts");
     expect(tool).toContain('name: "search-orders-tool",');
-    expect(tool).toContain("implements ToolHandler<SearchOrdersQueryDto, SearchOrdersResultDto>");
+    expect(tool).not.toContain("implements ToolHandler");
     expect(tool).toContain("deps: [ExecutionContext, ApiService],");
     expect(tool).toContain("private readonly executionContext: ExecutionContext,");
     expect(tool).toContain("private readonly apiService: ApiService,");
     expect(tool).toContain('import { ApiService } from "../services/api.service.js";');
-    expect(tool).toContain(
-      "run({ query }: SearchOrdersQueryDto): Promise<SearchOrdersResultDto> {",
-    );
+    expect(tool).toContain("execute({ query }: SearchOrdersQueryDto): SearchOrdersResultDto {");
     const service = content("src/services/api.service.ts");
     expect(service).toContain("@Injectable({ deps: [ApplicationContext] })");
     expect(service).toContain(

@@ -12,7 +12,6 @@ import {
   WorkflowStart,
   type ChannelAsk,
   type Produced,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -56,8 +55,8 @@ export class GuestInboxChannel extends GuestApprovalChannel {
   output: UndoRequestDto,
   channel: GuestApprovalChannel,
 })
-export class AskGuestTool implements ToolHandler<UndoRequestDto, UndoRequestDto> {
-  run(request: UndoRequestDto): Promise<UndoRequestDto> {
+export class AskGuestTool {
+  execute(request: UndoRequestDto): Promise<UndoRequestDto> {
     return Promise.resolve(request);
   }
 }

@@ -18,7 +18,6 @@ import {
   toolCallsOf,
   type JudgeHandler,
   type JudgeInput,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Integer, Enum, Text } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "./dtos.js";
@@ -110,8 +109,8 @@ export class RefundLedger {
   input: OrderQueryDto,
   output: OrderInfoDto,
 })
-export class GetOrderTool implements ToolHandler<OrderQueryDto, OrderInfoDto> {
-  run({ orderId }: OrderQueryDto): Promise<OrderInfoDto> {
+export class GetOrderTool {
+  execute({ orderId }: OrderQueryDto): Promise<OrderInfoDto> {
     return Promise.resolve({ status: `order ${orderId} arrived broken` });
   }
 }
@@ -123,10 +122,10 @@ export class GetOrderTool implements ToolHandler<OrderQueryDto, OrderInfoDto> {
   output: RefundDoneDto,
   deps: [RefundLedger],
 })
-export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
+export class RefundTool {
   constructor(private readonly refundLedger: RefundLedger) {}
 
-  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+  execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     this.refundLedger.record(orderId);
     return Promise.resolve({ status: `refunded ${orderId}` });
   }
@@ -138,8 +137,8 @@ export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> 
   input: OrderQueryDto,
   output: OrderInfoDto,
 })
-export class DeleteOrderTool implements ToolHandler<OrderQueryDto, OrderInfoDto> {
-  run({ orderId }: OrderQueryDto): Promise<OrderInfoDto> {
+export class DeleteOrderTool {
+  execute({ orderId }: OrderQueryDto): Promise<OrderInfoDto> {
     return Promise.resolve({ status: `deleted ${orderId}` });
   }
 }

@@ -69,7 +69,7 @@ function toolMetaOf(exp: Class): ToolMeta | undefined {
 }
 
 const isToolHandler = (value: unknown): value is ToolHandler<unknown, unknown> =>
-  isRecord(value) && typeof value.run === "function";
+  isRecord(value) && typeof value.execute === "function";
 
 interface ExportedTool {
   readonly app: App;

@@ -17,7 +17,6 @@ import {
   type OnExecutionRejected,
 } from "../../../src/index.js";
 import type { IncompatibleResume } from "../../../src/run/resume-guard.js";
-import type { ToolHandler } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -79,8 +78,8 @@ export class Sent {
   input: Email,
   output: Sent,
 })
-export class SendEmail implements ToolHandler<Email, Sent> {
-  run({ to }: Email): Promise<Sent> {
+export class SendEmail {
+  execute({ to }: Email): Promise<Sent> {
     sent.push(to);
     return Promise.resolve({ status: `sent to ${to}` });
   }

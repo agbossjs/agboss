@@ -1,5 +1,5 @@
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
-import { Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Injectable, Tool } from "../../../src/components/decorators.js";
 import { List, Nested, Text } from "../../../src/dto/index.js";
 import { PiiAction } from "../../../src/pii/actions.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
@@ -111,13 +111,13 @@ export class BedsDto {
   output: BedsDto,
   deps: [ClinicExecutionContext, UnitDirectoryService],
 })
-export class FreeBedsTool implements ToolHandler<BedQueryDto, BedsDto> {
+export class FreeBedsTool {
   constructor(
     private readonly clinicExecutionContext: ClinicExecutionContext,
     private readonly unitDirectoryService: UnitDirectoryService,
   ) {}
 
-  run(input: BedQueryDto): Promise<BedsDto> {
+  execute(input: BedQueryDto): Promise<BedsDto> {
     const { tenant, clinician, unitId } = this.clinicExecutionContext;
     clinicSeen.readings.push({
       tenantId: tenant.tenantId,
@@ -140,10 +140,10 @@ export class FreeBedsTool implements ToolHandler<BedQueryDto, BedsDto> {
   output: BedsDto,
   deps: [ClinicExecutionContext],
 })
-export class BookBedTool implements ToolHandler<BedQueryDto, BedsDto> {
+export class BookBedTool {
   constructor(private readonly clinicExecutionContext: ClinicExecutionContext) {}
 
-  run(input: BedQueryDto): Promise<BedsDto> {
+  execute(input: BedQueryDto): Promise<BedsDto> {
     const { tenant, clinician } = this.clinicExecutionContext;
     clinicSeen.readings.push({
       tenantId: tenant.tenantId,

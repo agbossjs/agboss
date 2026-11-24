@@ -1,13 +1,7 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { LimitExceededError } from "../src/graph/limits.js";
-import {
-  BudgetScope,
-  ROUTER_FACTORY,
-  Tool,
-  type RouterEngine,
-  type ToolHandler,
-} from "../src/index.js";
+import { BudgetScope, ROUTER_FACTORY, Tool, type RouterEngine } from "../src/index.js";
 import { Text } from "../src/dto/index.js";
 import { ScriptedChatModel, type Reply } from "./fakes/scripted-model.js";
 import { Clock } from "./fixtures/test-workflow/test.workflow.js";
@@ -50,14 +44,14 @@ const paidDecision = () =>
   output: SearchResults,
   deps: [ROUTER_FACTORY],
 })
-class PaidSearch implements ToolHandler<SearchQuery, SearchResults> {
+class PaidSearch {
   private readonly ranker: RouterEngine;
 
   constructor(routers: (name: string) => RouterEngine) {
     this.ranker = routers("ranker");
   }
 
-  async run(_input: SearchQuery): Promise<SearchResults> {
+  async execute(_input: SearchQuery): Promise<SearchResults> {
     await this.ranker.route({
       input: "3 results",
       options: [

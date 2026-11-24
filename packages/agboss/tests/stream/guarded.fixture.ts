@@ -17,7 +17,6 @@ import {
   WorkflowStart,
   type GuardrailHandler,
   type PiiRefusal,
-  type ToolHandler,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -55,8 +54,8 @@ export class EchoQuery {
 }
 
 @Tool({ name: "echo-tool", description: "Echoes", input: EchoQuery, output: EchoQuery })
-export class EchoTool implements ToolHandler<EchoQuery, EchoQuery> {
-  run(input: EchoQuery): Promise<EchoQuery> {
+export class EchoTool {
+  execute(input: EchoQuery): Promise<EchoQuery> {
     return Promise.resolve(input);
   }
 }

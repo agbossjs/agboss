@@ -7,7 +7,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import type { App } from "../../../../src/app/types.js";
@@ -93,10 +92,10 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
     output: ReplyDto,
     deps: [PeerA2AAgent],
   })
-  class Ask implements ToolHandler<AskDto, ReplyDto> {
+  class Ask {
     constructor(private readonly peer: PeerA2AAgent) {}
 
-    async run({ question }: AskDto): Promise<ReplyDto> {
+    async execute({ question }: AskDto): Promise<ReplyDto> {
       const calls = spec.callsPerRun ?? 1;
       let reply: ReplyDto = { text: "" };
       for (let index = 0; index < calls; index += 1) {

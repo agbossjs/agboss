@@ -280,7 +280,7 @@ export class OrderBook {
 
 ```ts file=src/desk/tools/order-status.tool.ts
 // tools/order-status.tool.ts — `deps` lists the constructor's dependencies, in order (compiler-checked)
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { OrderBook } from "../services/order-book.service.js";
 import { OrderInfo, OrderQuery } from "./order-status.dto.js";
 
@@ -291,13 +291,13 @@ import { OrderInfo, OrderQuery } from "./order-status.dto.js";
   output: OrderInfo,
   deps: [ExecutionContext, OrderBook],
 })
-export class OrderStatus implements ToolHandler<OrderQuery, OrderInfo> {
+export class OrderStatus {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly orderBook: OrderBook,
   ) {}
 
-  async run({ orderId }: OrderQuery): Promise<OrderInfo> {
+  async execute({ orderId }: OrderQuery): Promise<OrderInfo> {
     this.executionContext.signal.throwIfAborted(); // the execution: executionId, threadId, step, …
     return { status: await this.orderBook.statusOf(orderId) };
   }
@@ -1227,7 +1227,7 @@ export const quorumPaths = [
   `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, `*.reranker.ts`,
   `*.helper.ts`, `*.eval-suite.ts`, `*.a2a-agent.ts`, `*.a2a-expose.ts`.
 - **Decorator = metadata, constructor = dependencies, methods = a contract:** `implements` for your
-  own (`ToolHandler<In, Out>`, `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
+  own (`ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`,
   `RagConnector`), `extends` +
   `override` for a standard implementation (`McpServerClient`, `SqliteFtsConnector`). The check is
   on the decorator line, `implements` is documentation (#120 PR 4): every contract is a

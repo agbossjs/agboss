@@ -10,7 +10,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../src/index.js";
 import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import type { A2AFileOptions } from "../../src/a2a/files/a2a-file-options.js";
@@ -60,8 +59,8 @@ export const FETCHABLE = new Map<string, A2AFileDto>();
   input: FetchQueryDto,
   output: FetchedDto,
 })
-export class FetchTool implements ToolHandler<FetchQueryDto, FetchedDto> {
-  run({ name }: FetchQueryDto): Promise<FetchedDto> {
+export class FetchTool {
+  execute({ name }: FetchQueryDto): Promise<FetchedDto> {
     const file = FETCHABLE.get(name);
     return file === undefined
       ? Promise.reject(new Error("no such file"))

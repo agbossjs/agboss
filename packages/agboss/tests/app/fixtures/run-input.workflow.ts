@@ -18,7 +18,6 @@ import {
   type OnExecutionStart,
   type OnModelStart,
   type OnToolStart,
-  type ToolHandler,
   type ToolStartEvent,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -64,10 +63,10 @@ export class Query {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Lookup implements ToolHandler<Query, Query> {
+export class Lookup {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     seen.tools.push(this.executionContext.executionId);
     return Promise.resolve(input);
   }
@@ -82,10 +81,10 @@ export class Lookup implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Apply implements ToolHandler<Query, Query> {
+export class Apply {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     seen.tools.push(this.executionContext.executionId);
     return Promise.resolve(input);
   }

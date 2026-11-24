@@ -1461,7 +1461,7 @@ export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
 
 // @public
 export function toolOf<TInput, TOutput>(instance: {
-    run: (input: TInput) => Promise<TOutput>;
+    execute: (input: TInput) => TOutput | Promise<TOutput>;
 }): Tool<string, TInput, TOutput>;
 
 // @public

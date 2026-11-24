@@ -35,18 +35,18 @@ export const CORE_TOKENS = [ROUTER_FACTORY, ...CONTEXT_TOKENS, JudgeModel, Spend
 
 /**
  * A tool component instance as the core's tool (validation, timeout, errors to the model), typed
- * from its `run` — e.g. in tests: `toolOf(new GreenhouseJobs(fakeJudge, search, fakeFetch))`, then
+ * from its `execute` — e.g. in tests: `toolOf(new GreenhouseJobs(fakeJudge, search, fakeFetch))`, then
  * `.invoke(input)`.
  */
 export function toolOf<TInput, TOutput>(instance: {
-  run: (input: TInput) => Promise<TOutput>;
+  execute: (input: TInput) => TOutput | Promise<TOutput>;
 }): Tool<string, TInput, TOutput> {
   const cls = instance.constructor as Class;
   const { meta } =
     componentOf(cls)?.kind === "mcp-tool"
       ? requireComponent(cls, "mcp-tool", "toolOf")
       : requireComponent(cls, "tool", "toolOf");
-  // The decorator's DTOs are erased in metadata; `run` is what they validate for.
+  // The decorator's DTOs are erased in metadata; `execute` is what they validate for.
   return adapt(instance, meta) as unknown as Tool<string, TInput, TOutput>;
 }
 
@@ -68,7 +68,10 @@ export const adapt = (handler: ToolHandler<any, any>, meta: ToolMeta): AnyTool =
     ...(meta.timeout === undefined ? {} : { timeout: meta.timeout }),
     ...(meta.expiresIn === undefined ? {} : { expiresIn: meta.expiresIn }),
     ...(meta.maxResultSize === undefined ? {} : { maxResultSize: meta.maxResultSize }),
-    run: (input) => handler.run(input),
+    run: async (input): Promise<unknown> => {
+      const output: unknown = await handler.execute(input);
+      return output;
+    },
   });
 
 /** Each workflow's MCP server instances (with their connected tools): injected like any dependency. */

@@ -1,4 +1,4 @@
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { {{pascal}}QueryDto } from "../dto/{{kebab}}-query.dto.js";
 import { {{pascal}}ResultDto } from "../dto/{{kebab}}-result.dto.js";
 {{serviceImport}}
@@ -10,10 +10,10 @@ import { {{pascal}}ResultDto } from "../dto/{{kebab}}-result.dto.js";
   input: {{pascal}}QueryDto,
   output: {{pascal}}ResultDto,
 {{deps}}})
-export class {{pascal}}Tool implements ToolHandler<{{pascal}}QueryDto, {{pascal}}ResultDto> {
-{{constructor}}  run({ query }: {{pascal}}QueryDto): Promise<{{pascal}}ResultDto> {
+export class {{pascal}}Tool {
+{{constructor}}  execute({ query }: {{pascal}}QueryDto): {{pascal}}ResultDto {
     // TODO: the real work — dependencies come through the constructor (and `deps`)
     this.executionContext.signal.throwIfAborted(); // the execution: its signal, step.idempotencyKey, …
-    return Promise.resolve({ result: `TODO: {{kebab}}-tool is not implemented yet (query: ${query}{{serviceUse}})` });
+    return { result: `TODO: {{kebab}}-tool is not implemented yet (query: ${query}{{serviceUse}})` };
   }
 }

@@ -9,7 +9,6 @@ import {
   type OnInit,
   type OnStart,
   type OnStop,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -90,10 +89,10 @@ export class JobQueryDto {
   output: JobQueryDto,
   deps: [JobIndexService],
 })
-export class SearchJobsTool implements ToolHandler<JobQueryDto, JobQueryDto> {
+export class SearchJobsTool {
   constructor(readonly jobIndexService: JobIndexService) {}
 
-  async run(input: JobQueryDto): Promise<JobQueryDto> {
+  async execute(input: JobQueryDto): Promise<JobQueryDto> {
     events.push("search started");
     await gate.arrive();
     events.push("search finished");
@@ -160,10 +159,10 @@ export class BrokenPoolProvider implements OnInit {
   output: JobQueryDto,
   deps: [BrokenPoolProvider],
 })
-export class BrokenSearchJobsTool implements ToolHandler<JobQueryDto, JobQueryDto> {
+export class BrokenSearchJobsTool {
   constructor(readonly brokenPoolProvider: BrokenPoolProvider) {}
 
-  run(input: JobQueryDto): Promise<JobQueryDto> {
+  execute(input: JobQueryDto): Promise<JobQueryDto> {
     return Promise.resolve(input);
   }
 }

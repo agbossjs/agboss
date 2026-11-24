@@ -14,7 +14,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -72,8 +71,8 @@ const lookedUp = (input: LookupDto): LookedUpDto => ({ status: "found", author: 
   input: LookupDto,
   output: LookedUpDto,
 })
-export class LookupTool implements ToolHandler<LookupDto, LookedUpDto> {
-  run(input: LookupDto): Promise<LookedUpDto> {
+export class LookupTool {
+  execute(input: LookupDto): Promise<LookedUpDto> {
     return Promise.resolve(lookedUp(input));
   }
 }
@@ -86,10 +85,10 @@ export class LookupTool implements ToolHandler<LookupDto, LookedUpDto> {
   output: LookedUpDto,
   deps: [ExecutionContext],
 })
-export class SlowLookupTool implements ToolHandler<LookupDto, LookedUpDto> {
+export class SlowLookupTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: LookupDto): Promise<LookedUpDto> {
+  execute(input: LookupDto): Promise<LookedUpDto> {
     const { signal } = this.executionContext;
     if (levers.holdStarted === undefined) return Promise.resolve(lookedUp(input));
     const started = levers.holdStarted;

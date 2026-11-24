@@ -301,7 +301,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/components/assemble-parts.ts",
     "src/components/assemble-tools.ts",
     "src/components/assemble.ts",
-    "src/components/bind-tool.ts",
     "src/components/call-site.ts",
     "src/components/channel-parts.ts",
     "src/components/component-decorators.ts",

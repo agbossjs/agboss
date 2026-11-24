@@ -129,7 +129,7 @@ export class HiringStoreService {
 ```
 
 ```ts file=src/screening/tools/candidate-archive.tool.ts
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { ArchiveEntryDto } from "../dto/archive-entry.dto.js";
 import { ArchiveQueryDto } from "../dto/archive-query.dto.js";
 import { CandidateArchiveService } from "../services/candidate-archive.service.js";
@@ -141,10 +141,10 @@ import { CandidateArchiveService } from "../services/candidate-archive.service.j
   output: ArchiveEntryDto,
   deps: [CandidateArchiveService],
 })
-export class CandidateArchiveTool implements ToolHandler<ArchiveQueryDto, ArchiveEntryDto> {
+export class CandidateArchiveTool {
   constructor(private readonly candidateArchiveService: CandidateArchiveService) {}
 
-  async run({ name }: ArchiveQueryDto): Promise<ArchiveEntryDto> {
+  async execute({ name }: ArchiveQueryDto): Promise<ArchiveEntryDto> {
     return { applications: await this.candidateArchiveService.applicationsOf(name) };
   }
 }
@@ -1351,7 +1351,7 @@ to a tool: `beforeToolCall(Tool, input)` gives the decision (compare it with `to
 output DTO. A method the class does not have is a `TestSetupError`.
 
 <!-- snippet-context
-import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext, type ToolHandler } from "@agboss/core";
+import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext } from "@agboss/core";
 import { List, Text } from "@agboss/core/dto";
 import { testToolInterceptor } from "@agboss/core/testing";
 import { expect, it } from "vitest";
@@ -1368,8 +1368,8 @@ export class CityJobs {
   listing!: string;
 }
 @Tool({ name: "city-jobs-tool", description: "Jobs in a city", input: CityQuery, output: CityJobs })
-export class CityJobsTool implements ToolHandler<CityQuery, CityJobs> {
-  run({ city }: CityQuery): Promise<CityJobs> {
+export class CityJobsTool {
+  execute({ city }: CityQuery): Promise<CityJobs> {
     return Promise.resolve({ listing: `Engineer in ${city}` });
   }
 }

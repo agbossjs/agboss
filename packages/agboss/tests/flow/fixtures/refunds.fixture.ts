@@ -1,4 +1,4 @@
-import { Channel, Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
@@ -91,10 +91,10 @@ export class RuleRefundApprovalChannel extends RefundApprovalChannel {
   channel: RefundApprovalChannel,
   deps: [RefundDesk],
 })
-export class RefundCardTool implements ToolHandler<RefundCardInputDto, RefundCardOutputDto> {
+export class RefundCardTool {
   constructor(private readonly refundDesk: RefundDesk) {}
 
-  run({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
+  execute({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
     this.refundDesk.refunded.push(orderId);
     return Promise.resolve({ status: `refunded ${orderId}` });
   }

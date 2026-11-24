@@ -125,7 +125,7 @@ class GlobalObserver
   output: ToolInput,
 })
 class ObsTool {
-  async run(input: ToolInput) {
+  async execute(input: ToolInput) {
     return { text: "done" };
   }
 }

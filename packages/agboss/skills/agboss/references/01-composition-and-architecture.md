@@ -400,7 +400,7 @@ forces `if (x.found)` checks in every reader, and makes outdating (reference 02)
   webp data URLs only.
 
 <!-- snippet-context
-import { Injectable, Tool, type ToolHandler } from "@agboss/core";
+import { Injectable, Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 @Injectable()
 class DocumentStoreService {
@@ -429,13 +429,13 @@ import { kilobytes, seconds } from "@agboss/core/units";
   maxResultSize: kilobytes(64),
   deps: [ExecutionContext, DocumentStoreService],
 })
-export class ReadDocumentTool implements ToolHandler<AttachmentDto, DocumentTextDto> {
+export class ReadDocumentTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly documentStoreService: DocumentStoreService,
   ) {}
 
-  async run({ url }: AttachmentDto): Promise<DocumentTextDto> {
+  async execute({ url }: AttachmentDto): Promise<DocumentTextDto> {
     const text: string = await this.documentStoreService.textOf(
       url ?? "",
       this.executionContext.signal, // the call's: aborted at the timeout or on cancel

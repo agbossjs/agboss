@@ -18,8 +18,8 @@ import type { ToolTask } from "./state.js";
 
 /**
  * PII in the tool task (#120 AC9): the arguments the model gave were revealed when its move was
- * read, so the tool gets real values; a block rule's kind in them rejects the call before `run`.
- * Just after `run` the result is closed: its `sensitive` fields through their actions, its text
+ * read, so the tool gets real values; a block rule's kind in them rejects the call before `execute`.
+ * Just after `execute` the result is closed: its `sensitive` fields through their actions, its text
  * through the policies — a block rule's kind in it rejects the call; the masked form is kept for
  * the model (the loop's `piiMasked`), the checkpoint keeps the result as it was.
  */

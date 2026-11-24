@@ -6,7 +6,6 @@
 export {
   Injectable,
   Tool,
-  BindTool,
   Channel,
   GuardrailSide,
   InputGuardrail,

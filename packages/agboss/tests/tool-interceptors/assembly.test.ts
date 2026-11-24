@@ -12,7 +12,6 @@ import {
   ToolCallDecision,
   ToolInterceptor,
   Workflow,
-  type ToolHandler,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -143,8 +142,8 @@ class NotAnInterceptor {
   output: JobList,
   excludeToolInterceptors: [StampToolInterceptor],
 })
-class ExcludingTool implements ToolHandler<JobQuery, JobList> {
-  run(): Promise<JobList> {
+class ExcludingTool {
+  execute(): Promise<JobList> {
     return Promise.resolve({ listing: "" });
   }
 }

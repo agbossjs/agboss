@@ -21,7 +21,7 @@ import {
   type JudgeHandler,
   type JudgeInput,
 } from "../../../src/components/judge-decorators.js";
-import { Injectable, InjectionToken, Tool, type ToolHandler } from "../../../src/index.js";
+import { Injectable, InjectionToken, Tool } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
 import { RagTenancy } from "../../../src/rag/types.js";
@@ -54,9 +54,9 @@ export class Revealed {
   output: Revealed,
   deps: [Vault],
 })
-export class RevealTool implements ToolHandler<Query, Revealed> {
+export class RevealTool {
   constructor(private readonly vault: Vault) {}
-  run(): Promise<Revealed> {
+  execute(): Promise<Revealed> {
     return Promise.resolve({ text: this.vault.secret });
   }
 }

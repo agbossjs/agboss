@@ -15,7 +15,6 @@ import {
   type JudgeHandler,
   type JudgeInput,
   type ToolCallRecord,
-  type ToolHandler,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -54,8 +53,8 @@ export class OrderFound {
   input: OrderLookup,
   output: OrderFound,
 })
-export class LookupOrderTool implements ToolHandler<OrderLookup, OrderFound> {
-  run({ orderId }: OrderLookup): Promise<OrderFound> {
+export class LookupOrderTool {
+  execute({ orderId }: OrderLookup): Promise<OrderFound> {
     if (orderId === "lost") return Promise.reject(new Error("no such order"));
     return Promise.resolve({ status: `order ${orderId} shipped` });
   }

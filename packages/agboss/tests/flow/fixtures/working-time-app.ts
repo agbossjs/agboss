@@ -3,7 +3,7 @@ import { ChannelOf } from "../../../src/channels/channel-handler.js";
 import { PauseExpiration, type FailExpiration } from "../../../src/channels/pause-expiration.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
-import { Channel, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Channel, Tool } from "../../../src/components/decorators.js";
 import type { Class } from "../../../src/components/injection.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -173,8 +173,8 @@ export function workingToolApp(
     input: AgentRefundDto,
     output: AgentRefundDoneDto,
   })
-  class SomeTool implements ToolHandler<AgentRefundDto, AgentRefundDoneDto> {
-    run(): Promise<AgentRefundDoneDto> {
+  class SomeTool {
+    execute(): Promise<AgentRefundDoneDto> {
       return Promise.resolve({ text: "done" });
     }
   }

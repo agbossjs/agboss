@@ -882,18 +882,6 @@ export interface BeforeToolCall {
     beforeToolCall(call: ToolCallContext): Promise<ToolCallDecision> | ToolCallDecision;
 }
 
-// @public (undocumented)
-export function BindTool(tool: Class, options?: BindToolOptions): MethodDecorator;
-
-// @public (undocumented)
-export function BindTool(toolName: string, options?: BindToolOptions): MethodDecorator;
-
-// @public (undocumented)
-export interface BindToolOptions {
-    // (undocumented)
-    agent?: Class | string;
-}
-
 // @public
 export interface BlockAction {
     // (undocumented)
@@ -10046,7 +10034,7 @@ export interface ToolEndEvent extends NodeEvent {
 // @public
 export interface ToolHandler<TInput, TOutput> {
     // (undocumented)
-    run: (input: TInput) => Promise<TOutput>;
+    execute: (input: TInput) => TOutput | Promise<TOutput>;
 }
 
 // @public
@@ -11002,11 +10990,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/components/bind-tool.ts - (ae-undocumented) Missing documentation for "BindToolOptions".
-// src/components/bind-tool.ts - (ae-undocumented) Missing documentation for "agent".
-// src/components/bind-tool.ts - (ae-undocumented) Missing documentation for "BindTool".
-// src/components/bind-tool.ts - (ae-undocumented) Missing documentation for "BindTool".
-// src/components/decorators.ts - (ae-undocumented) Missing documentation for "run".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "execute".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "ToolOptions".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".

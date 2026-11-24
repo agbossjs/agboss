@@ -5,7 +5,7 @@ import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
 import { OutboundCalls } from "../../../src/app/outbound-calls.js";
 import { FencedEffects } from "../../../src/app/fenced-effects.js";
 import { Application } from "../../../src/application/application.js";
-import { Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Injectable, Tool } from "../../../src/components/decorators.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -55,10 +55,10 @@ export class LedgerService {
   readOnly: true,
   deps: [LedgerService],
 })
-export class LedgerReadTool implements ToolHandler<WorkflowStartTextDto, WorkflowFinishTextDto> {
+export class LedgerReadTool {
   constructor(readonly ledger: LedgerService) {}
 
-  run(): Promise<WorkflowFinishTextDto> {
+  execute(): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "done" });
   }
 }

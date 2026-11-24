@@ -6,7 +6,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -28,13 +27,13 @@ export const approvedRecipients: string[] = [];
   channel: ChatAppChannel,
   deps: [Outbox, ExecutionContext],
 })
-export class SendApprovedEmail implements ToolHandler<EmailSend, EmailSent> {
+export class SendApprovedEmail {
   constructor(
     private readonly outbox: Outbox,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run({ to }: EmailSend): Promise<EmailSent> {
+  execute({ to }: EmailSend): Promise<EmailSent> {
     this.executionContext.signal.throwIfAborted();
     this.outbox.sent.push(to);
     approvedRecipients.push(to);

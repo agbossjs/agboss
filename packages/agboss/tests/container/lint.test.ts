@@ -26,7 +26,7 @@ export class Jobs {
   constructor() {
 ${constructorBody}
   }
-  async run(input: Query): Promise<Query> {
+  async execute(input: Query): Promise<Query> {
 ${body}
     return Promise.resolve(input);
   }

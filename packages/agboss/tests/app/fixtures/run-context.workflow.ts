@@ -9,7 +9,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../../src/index.js";
-import type { StepDescriptor, ToolHandler } from "../../../src/index.js";
+import type { StepDescriptor } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -68,10 +68,10 @@ export class Query {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Probe implements ToolHandler<Query, Query> {
+export class Probe {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     seen.probes.push(snapshotOf(this.executionContext));
     return Promise.resolve(input);
   }
@@ -86,10 +86,10 @@ export class Probe implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Charge implements ToolHandler<Query, Query> {
+export class Charge {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     seen.charges.push(snapshotOf(this.executionContext));
     return Promise.resolve(input);
   }
@@ -103,10 +103,10 @@ export class Charge implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Wait implements ToolHandler<Query, Query> {
+export class Wait {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     const { signal, threadId } = this.executionContext;
     seen.blocked.push(signal);
     blocking.started?.(threadId);
@@ -120,8 +120,8 @@ export class Wait implements ToolHandler<Query, Query> {
 
 /** A slow read: the other branch answers meanwhile. */
 @Tool({ name: "slow-tool", description: "Looks something up slowly", input: Query, output: Query })
-export class Slow implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Slow {
+  execute(input: Query): Promise<Query> {
     return new Promise((resolve) =>
       setTimeout(() => {
         resolve(input);

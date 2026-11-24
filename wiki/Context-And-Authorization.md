@@ -218,7 +218,7 @@ export class RoleService {
 ```
 
 ```ts file=secure-data.tool.ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 import { RoleService } from "./roles.service.js";
 
@@ -236,13 +236,13 @@ export class SecureData {
   output: SecureData,
   deps: [ExecutionContext, RoleService],
 })
-export class SecureDataTool implements ToolHandler<SecureQuery, SecureData> {
+export class SecureDataTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly roleService: RoleService,
   ) {}
 
-  async run({ query }: SecureQuery): Promise<SecureData> {
+  async execute({ query }: SecureQuery): Promise<SecureData> {
     if (!(await this.roleService.isAdmin(this.executionContext.ownerId))) {
       return { text: "Access denied." };
     }

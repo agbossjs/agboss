@@ -10,7 +10,7 @@ import { createAppWith } from "../../src/application/create-app.js";
 import { ChannelOf } from "../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
-import { Channel, Tool, type ToolHandler } from "../../src/components/decorators.js";
+import { Channel, Tool } from "../../src/components/decorators.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -269,8 +269,8 @@ describe("#941 AC1: a tool's expiresIn", () => {
       ...(channel === undefined ? {} : { channel }),
       expiresIn,
     })
-    class SomeTool implements ToolHandler<PurchaseQuestionDto, PurchasePlacedDto> {
-      run(): Promise<PurchasePlacedDto> {
+    class SomeTool {
+      execute(): Promise<PurchasePlacedDto> {
         return Promise.resolve({ status: "ok" });
       }
     }

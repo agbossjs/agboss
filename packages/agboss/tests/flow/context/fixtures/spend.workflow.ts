@@ -8,7 +8,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { seconds, usd, type Usd } from "../../../../src/units/index.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -56,10 +55,10 @@ export class ResultDto {
   output: SearchDto,
   deps: [SpendRecorder],
 })
-export class SerpSearchTool implements ToolHandler<SearchDto, SearchDto> {
+export class SerpSearchTool {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  run(input: SearchDto): Promise<SearchDto> {
+  execute(input: SearchDto): Promise<SearchDto> {
     this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) });
     return Promise.resolve(input);
   }
@@ -74,10 +73,10 @@ export class SerpSearchTool implements ToolHandler<SearchDto, SearchDto> {
   timeout: seconds(0.05),
   deps: [ExecutionContext],
 })
-export class SlowFetchTool implements ToolHandler<SearchDto, SearchDto> {
+export class SlowFetchTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: SearchDto): Promise<SearchDto> {
+  execute(input: SearchDto): Promise<SearchDto> {
     const { signal } = this.executionContext;
     return new Promise((resolve, reject) => {
       signal.addEventListener("abort", () => {

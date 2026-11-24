@@ -17,7 +17,6 @@ import {
   WorkflowStart,
   type ExecutionFence,
   type Produced,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
@@ -265,13 +264,13 @@ export class StageQuery {
   output: StageQuery,
   deps: [ExecutionContext, ArtifactLedger],
 })
-export class StageTool implements ToolHandler<StageQuery, StageQuery> {
+export class StageTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly artifactLedger: ArtifactLedger,
   ) {}
 
-  async run(input: StageQuery): Promise<StageQuery> {
+  async execute(input: StageQuery): Promise<StageQuery> {
     return { artifact: await release(this.executionContext, this.artifactLedger, input.artifact) };
   }
 }
@@ -285,13 +284,13 @@ export class StageTool implements ToolHandler<StageQuery, StageQuery> {
   output: StageQuery,
   deps: [ExecutionContext, ArtifactLedger],
 })
-export class ApprovedStageTool implements ToolHandler<StageQuery, StageQuery> {
+export class ApprovedStageTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly artifactLedger: ArtifactLedger,
   ) {}
 
-  async run(input: StageQuery): Promise<StageQuery> {
+  async execute(input: StageQuery): Promise<StageQuery> {
     return { artifact: await release(this.executionContext, this.artifactLedger, input.artifact) };
   }
 }

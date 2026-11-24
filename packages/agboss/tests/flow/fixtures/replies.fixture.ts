@@ -1,4 +1,4 @@
-import { Channel, Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
 import {
   ToolCallDecision,
   ToolInterceptor,
@@ -288,8 +288,8 @@ export class PayoutLimitToolInterceptor implements BeforeToolCall {
   channel: PayoutApprovalChannel,
   toolInterceptors: [PayoutLimitToolInterceptor],
 })
-export class PayOutTool implements ToolHandler<PayoutRequestDto, ReplyDeskDoneDto> {
-  run(input: PayoutRequestDto): Promise<ReplyDeskDoneDto> {
+export class PayOutTool {
+  execute(input: PayoutRequestDto): Promise<ReplyDeskDoneDto> {
     replyDesk.payouts.push(input);
     return Promise.resolve({ status: `paid ${input.payee} ${String(input.amountCents)}` });
   }
@@ -302,8 +302,8 @@ export class PayOutTool implements ToolHandler<PayoutRequestDto, ReplyDeskDoneDt
   output: ReplyDeskDoneDto,
   channel: ExpenseApprovalChannel,
 })
-export class BookExpenseTool implements ToolHandler<ExpenseRequestDto, ReplyDeskDoneDto> {
-  run({ purpose }: ExpenseRequestDto): Promise<ReplyDeskDoneDto> {
+export class BookExpenseTool {
+  execute({ purpose }: ExpenseRequestDto): Promise<ReplyDeskDoneDto> {
     replyDesk.expenses.push(purpose);
     return Promise.resolve({ status: `booked ${purpose}` });
   }
@@ -316,8 +316,8 @@ export class BookExpenseTool implements ToolHandler<ExpenseRequestDto, ReplyDesk
   output: ReplyDeskDoneDto,
   channel: DepositApprovalChannel,
 })
-export class ReturnDepositTool implements ToolHandler<DepositReturnDto, ReplyDeskDoneDto> {
-  run({ leaseId }: DepositReturnDto): Promise<ReplyDeskDoneDto> {
+export class ReturnDepositTool {
+  execute({ leaseId }: DepositReturnDto): Promise<ReplyDeskDoneDto> {
     replyDesk.deposits.push(leaseId);
     return Promise.resolve({ status: `returned the deposit of ${leaseId}` });
   }
@@ -330,8 +330,8 @@ export class ReturnDepositTool implements ToolHandler<DepositReturnDto, ReplyDes
   output: ReplyDeskDoneDto,
   channel: TransferApprovalChannel,
 })
-export class TransferTool implements ToolHandler<TransferRequestDto, ReplyDeskDoneDto> {
-  run({ account }: TransferRequestDto): Promise<ReplyDeskDoneDto> {
+export class TransferTool {
+  execute({ account }: TransferRequestDto): Promise<ReplyDeskDoneDto> {
     return Promise.resolve({ status: `transferred to ${account}` });
   }
 }

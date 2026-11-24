@@ -1,4 +1,4 @@
-import { Channel, Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import {
@@ -142,10 +142,10 @@ export class DownApproverChannel extends ApproverQuestion {
   output: OrderPlacedDto,
   deps: [BuyerDesk],
 })
-export class OrderTool implements ToolHandler<OrderRequestDto, OrderPlacedDto> {
+export class OrderTool {
   constructor(private readonly buyerDesk: BuyerDesk) {}
 
-  run(request: OrderRequestDto): Promise<OrderPlacedDto> {
+  execute(request: OrderRequestDto): Promise<OrderPlacedDto> {
     this.buyerDesk.ordered.push(request);
     return Promise.resolve({ status: `ordered ${request.item} up to ${String(request.limitUsd)}` });
   }

@@ -1378,7 +1378,7 @@ export class SubtopicClaimDto {
 -->
 
 ```ts
-import { ExecutionTreeRepository, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionTreeRepository, Tool } from "@agboss/core";
 
 @Tool({
   name: "claim-subtopic-tool",
@@ -1387,10 +1387,10 @@ import { ExecutionTreeRepository, Tool, type ToolHandler } from "@agboss/core";
   output: SubtopicClaimDto,
   deps: [ExecutionTreeRepository],
 })
-export class ClaimSubtopicTool implements ToolHandler<SubtopicDto, SubtopicClaimDto> {
+export class ClaimSubtopicTool {
   constructor(private readonly executionTreeRepository: ExecutionTreeRepository) {}
 
-  async run(input: SubtopicDto): Promise<SubtopicClaimDto> {
+  async execute(input: SubtopicDto): Promise<SubtopicClaimDto> {
     const claimed: boolean = await this.executionTreeRepository.saveIfAbsent(
       `subtopic:${input.subtopicId}`, // by identifier, never by normalized text
       true,

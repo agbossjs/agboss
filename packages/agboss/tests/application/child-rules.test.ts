@@ -11,7 +11,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type ToolHandler,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -223,9 +222,9 @@ describe("#263: an unlisted child goes through the application's rules", () => {
       output: LookupDto,
       deps: [UnprovidedLookupService],
     })
-    class LookupTool implements ToolHandler<LookupDto, LookupDto> {
+    class LookupTool {
       constructor(readonly service: UnprovidedLookupService) {}
-      run(input: LookupDto): Promise<LookupDto> {
+      execute(input: LookupDto): Promise<LookupDto> {
         return Promise.resolve(input);
       }
     }

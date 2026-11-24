@@ -15,7 +15,6 @@ import {
   type OnExecutionError,
   type OnExecutionResume,
   type PausedExecution,
-  type ToolHandler,
   type ExecutionResumeEvent,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -94,8 +93,8 @@ export class Query {
   input: Query,
   output: Query,
 })
-export class Charge implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Charge {
+  execute(input: Query): Promise<Query> {
     seen.charges.push(input.text);
     return Promise.resolve(input);
   }
@@ -109,10 +108,10 @@ export class Charge implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Hold implements ToolHandler<Query, Query> {
+export class Hold {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     const { signal } = this.executionContext;
     seen.holds.push(signal);
     if (seen.holds.length > 1) return Promise.resolve(input);
@@ -133,10 +132,10 @@ export class Hold implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionTreeRepository],
 })
-export class Claim implements ToolHandler<Query, Query> {
+export class Claim {
   constructor(private readonly executionTreeRepository: ExecutionTreeRepository) {}
 
-  async run(input: Query): Promise<Query> {
+  async execute(input: Query): Promise<Query> {
     seen.trees.push(this.executionTreeRepository);
     seen.claims.push(await this.executionTreeRepository.saveIfAbsent(`claim:${input.text}`, true));
     return input;
@@ -151,10 +150,10 @@ export class Claim implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionTreeRepository],
 })
-export class Recall implements ToolHandler<Query, Query> {
+export class Recall {
   constructor(private readonly executionTreeRepository: ExecutionTreeRepository) {}
 
-  async run(input: Query): Promise<Query> {
+  async execute(input: Query): Promise<Query> {
     seen.recalls.push(await this.executionTreeRepository.findById(`claim:${input.text}`));
     return input;
   }

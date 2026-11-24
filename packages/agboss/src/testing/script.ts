@@ -58,14 +58,14 @@ export function replyWith(
   return { kind: "answer", dto: textOrDto, value: detailsOrValue, details: answerDetails };
 }
 
-/** A tool class, typed by the input its `run` takes. */
+/** A tool class, typed by the input its `execute` takes. */
 export type ToolClass<TInput extends object> = Class<{
-  run(input: TInput): Promise<unknown>;
+  execute(input: TInput): unknown;
 }>;
 
-/** The input a tool's `run` takes: what `callTool(Tool, args)` checks `args` by. */
+/** The input a tool's `execute` takes: what `callTool(Tool, args)` checks `args` by. */
 export type CalledToolArguments<TInstance> = TInstance extends {
-  run(input: infer TInput extends object): Promise<unknown>;
+  execute(input: infer TInput extends object): unknown;
 }
   ? TInput
   : never;

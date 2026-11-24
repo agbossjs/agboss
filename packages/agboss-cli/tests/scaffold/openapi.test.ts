@@ -132,18 +132,16 @@ describe("agboss generate openapi", () => {
     expect(file("tools/get-pet.tool.ts")).toContain('name: "get-pet-tool",');
     // typed DTOs, no `any`; path parameters filled in
     expect(file("tools/get-pet.tool.ts")).toContain(
-      "implements ToolHandler<GetPetInput, GetPetOutput>",
+      "async execute(input: GetPetInput): Promise<GetPetOutput> {",
     );
     expect(file("tools/delete-pet.tool.ts")).toContain(
-      "implements ToolHandler<DeletePetInput, PlainTextDto>",
+      "async execute(input: DeletePetInput): Promise<PlainTextDto> {",
     );
-    expect(file("tools/list-pets.tool.ts")).toContain(
-      "implements ToolHandler<NoInputDto, ListPetsOutput>",
-    );
+    expect(file("tools/list-pets.tool.ts")).toContain("async execute(): Promise<ListPetsOutput> {");
     expect(file("tools/get-pet.tool.ts")).toContain(
       "path: `/pets/${encodeURIComponent(String(input.id))}`",
     );
-    expect(file("tools/get-pet.tool.ts")).not.toMatch(/ToolHandler<[^>]*\bany\b/);
+    expect(file("tools/get-pet.tool.ts")).not.toContain("implements ToolHandler");
   }, 300_000);
 
   it("--operations picks operations; a missing --url, an unknown operation and Swagger 2 are errors", async () => {

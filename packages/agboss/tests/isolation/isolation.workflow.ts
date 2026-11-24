@@ -7,7 +7,6 @@ import {
   type WorkflowDefinition,
   PiiAction,
   Tool,
-  type ToolHandler,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
@@ -49,13 +48,13 @@ class PayDone {
   channel: ChatAppChannel,
   deps: [PaymentLog, ExecutionContext],
 })
-export class Pay implements ToolHandler<PayRequest, PayDone> {
+export class Pay {
   constructor(
     private readonly log: PaymentLog,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run({ orderId, cardNumber }: PayRequest): Promise<PayDone> {
+  execute({ orderId, cardNumber }: PayRequest): Promise<PayDone> {
     this.log.owners.push(this.executionContext.ownerId);
     this.log.cards.push(cardNumber);
     return Promise.resolve({ status: `paid ${orderId}` });

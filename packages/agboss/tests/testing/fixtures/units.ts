@@ -23,7 +23,6 @@ import {
   type JudgeInput,
   type PiiMatch,
   type PiiPolicyHandler,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Rag } from "../../../src/components/decorators.js";
 import { Enum, PlainTextDto, Text } from "../../../src/dto/index.js";
@@ -86,14 +85,14 @@ export class JobList {
   timeout: seconds(5),
   deps: [ExecutionContext, SpendRecorder, JobBoardService],
 })
-export class SearchJobsTool implements ToolHandler<JobSearch, JobList> {
+export class SearchJobsTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
     private readonly jobBoardService: JobBoardService,
   ) {}
 
-  async run({ query }: JobSearch): Promise<JobList> {
+  async execute({ query }: JobSearch): Promise<JobList> {
     const jobs = await this.jobBoardService.search(query);
     this.spendRecorder.record({ service: "job-board", cost: usd(0.002) });
     const { step } = this.executionContext;
@@ -108,8 +107,8 @@ export class SearchJobsTool implements ToolHandler<JobSearch, JobList> {
   input: JobSearch,
   output: JobList,
 })
-export class BrokenJobsTool implements ToolHandler<JobSearch, JobList> {
-  run(): Promise<JobList> {
+export class BrokenJobsTool {
+  execute(): Promise<JobList> {
     return Promise.resolve({ jobs: "x" } as JobList);
   }
 }
@@ -287,13 +286,13 @@ export class PlanReport {
   output: PlanReport,
   deps: [ShopTenantContext, ShopExecutionContext],
 })
-export class PlanReportTool implements ToolHandler<JobSearch, PlanReport> {
+export class PlanReportTool {
   constructor(
     private readonly shopTenantContext: ShopTenantContext,
     private readonly shopExecutionContext: ShopExecutionContext,
   ) {}
 
-  run(): Promise<PlanReport> {
+  execute(): Promise<PlanReport> {
     const { tenantId, plan } = this.shopTenantContext;
     const { userId } = this.shopExecutionContext;
     return Promise.resolve({ summary: `${userId}@${tenantId}: ${plan}` });

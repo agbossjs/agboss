@@ -6,7 +6,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { Rag } from "../../../../src/components/decorators.js";
 import type { OnToolEnd } from "../../../../src/core/observer-hooks.js";
@@ -57,10 +56,10 @@ export class PageContent {
   maxResultSize: kilobytes(256),
   deps: [PageReader],
 })
-export class FetchPageTool implements ToolHandler<PageQuery, PageContent> {
+export class FetchPageTool {
   constructor(private readonly pageReader: PageReader) {}
 
-  async run({ url }: PageQuery): Promise<PageContent> {
+  async execute({ url }: PageQuery): Promise<PageContent> {
     return { text: await this.pageReader.textOf(url) };
   }
 }
@@ -73,10 +72,10 @@ export class FetchPageTool implements ToolHandler<PageQuery, PageContent> {
   output: PageContent,
   deps: [PageReader],
 })
-export class ReadNotesTool implements ToolHandler<PageQuery, PageContent> {
+export class ReadNotesTool {
   constructor(private readonly pageReader: PageReader) {}
 
-  async run({ url }: PageQuery): Promise<PageContent> {
+  async execute({ url }: PageQuery): Promise<PageContent> {
     return { text: await this.pageReader.textOf(url) };
   }
 }
@@ -89,10 +88,10 @@ export class ReadNotesTool implements ToolHandler<PageQuery, PageContent> {
   output: PageContent,
   deps: [PageReader],
 })
-export class BrokenPageTool implements ToolHandler<PageQuery, PageContent> {
+export class BrokenPageTool {
   constructor(private readonly pageReader: PageReader) {}
 
-  async run({ url }: PageQuery): Promise<PageContent> {
+  async execute({ url }: PageQuery): Promise<PageContent> {
     throw new Error(await this.pageReader.textOf(url));
   }
 }
@@ -214,8 +213,8 @@ export class BoundedPageApplication {}
   output: PageContent,
   maxResultSize: kilobytes(0),
 })
-export class ZeroBoundTool implements ToolHandler<PageQuery, PageContent> {
-  run({ url }: PageQuery): Promise<PageContent> {
+export class ZeroBoundTool {
+  execute({ url }: PageQuery): Promise<PageContent> {
     return Promise.resolve({ text: url });
   }
 }

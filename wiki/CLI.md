@@ -89,7 +89,7 @@ src/services/api.service.ts
 ```
 
 Generated code follows the [conventions](Components#conventions): explicit return types,
-`implements …Handler` (`ToolHandler<In, Out>`, `BudgetHandler`), `@Injectable`s named by their role
+`implements …Handler` (`BudgetHandler`; a tool needs none), `@Injectable`s named by their role
 (`ApiService`, the OpenAPI client `PetsApiService`) and fields named after their type
 (`private readonly apiService: ApiService`), the execution through the constructor
 (`deps: [ExecutionContext]`, `private readonly executionContext: ExecutionContext`) and code outside

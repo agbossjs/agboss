@@ -14,7 +14,6 @@ import {
   WorkflowStart,
   type OnQuorumDecided,
   type QuorumDecidedEvent,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import {
@@ -100,13 +99,13 @@ export class WaitDto {
   output: WaitDto,
   deps: [Clock, ExecutionContext],
 })
-export class WaitTool implements ToolHandler<WaitDto, WaitDto> {
+export class WaitTool {
   constructor(
     private readonly clock: Clock,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async run(input: WaitDto): Promise<WaitDto> {
+  async execute(input: WaitDto): Promise<WaitDto> {
     panel.waiting += 1;
     for (const wake of panel.woken.splice(0)) wake();
     await this.clock.sleep(seconds(input.seconds), this.executionContext.signal);
@@ -123,8 +122,8 @@ export class WaitTool implements ToolHandler<WaitDto, WaitDto> {
   input: ScoreDto,
   output: ScoreDto,
 })
-export class ConfirmScoreTool implements ToolHandler<ScoreDto, ScoreDto> {
-  run(input: ScoreDto): Promise<ScoreDto> {
+export class ConfirmScoreTool {
+  execute(input: ScoreDto): Promise<ScoreDto> {
     return Promise.resolve(input);
   }
 }

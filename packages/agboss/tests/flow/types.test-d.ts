@@ -524,8 +524,8 @@ describe("#280 AC6, AC9: the execution context through the constructor, no ctx a
     expectTypeOf(WrongAuditAction).toBeConstructibleWith("x");
   });
 
-  it("no ctx anywhere: a tool's run and a judge's judge take only their input", () => {
-    expectTypeOf<Parameters<ToolHandler<NoteQueryDto, NoteQueryDto>["run"]>>().toEqualTypeOf<
+  it("no ctx anywhere: a tool's execute and a judge's judge take only their input", () => {
+    expectTypeOf<Parameters<ToolHandler<NoteQueryDto, NoteQueryDto>["execute"]>>().toEqualTypeOf<
       [NoteQueryDto]
     >();
     expectTypeOf<Parameters<JudgeHandler<NoteQueryDto>["judge"]>>().toEqualTypeOf<

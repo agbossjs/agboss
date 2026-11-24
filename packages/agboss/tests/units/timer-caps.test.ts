@@ -24,7 +24,6 @@ import {
   HealthCheckResult,
   Tool,
   type HealthCheckHandler,
-  type ToolHandler,
 } from "../../src/index.js";
 import {
   ModelCost,
@@ -240,8 +239,8 @@ describe("#1141: a tool's timeout", () => {
   it("@Tool / @McpTool: [limits.timeout-invalid] at assembly", () => {
     const toolWith = (timeout: Milliseconds): never => {
       @Tool({ name: "slow-tool", description: "d", input: Query, output: Query, timeout })
-      class SlowTool implements ToolHandler<Query, Query> {
-        run(): Promise<Query> {
+      class SlowTool {
+        execute(): Promise<Query> {
           return Promise.resolve(new Query());
         }
       }

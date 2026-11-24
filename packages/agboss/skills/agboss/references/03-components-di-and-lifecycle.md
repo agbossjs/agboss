@@ -12,7 +12,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@Workflow` (`workflows/<workflow-name>/<workflow-name>.workflow.ts`)                           | —                                                             | `name` (`-workflow`), `version`, `flow`, `providers` (services), `defaults`, `maxSteps`, `maxDepth`, `maxConcurrentExecutions`, `mcp`, `guardrails`, `toolInterceptors`, `piiPolicies`, `uncompactedTurns`, `compaction`, `promptVariables`                                                                                                                                                                                       |
 | `@WorkflowStart` / `@WorkflowFinish` (`workflows/<workflow-name>/*.workflow-{start,finish}.ts`) | a finish may have `finish(input)` (`FinishHandler<Self>`)     | `name`, `description`, `input` (start) / `output` (finish), `deps`                                                                                                                                                                                                                                                                                                                                                                |
 | `@Agent` (`agents/<name>/<name>.agent.ts` + `<name>.prompt.md`)                                 | none: the framework runs its loop                             | `model`, `prompt` / `promptUrls` (+ `promptVariables`), `input`, `output`, `tools`, `maxToolCalls`, `maxVisits`, `maxTokens`, `reasoning`, `temperature`, `cache`, `rag`, `judges` + `maxRetries`, `uncompactedTurns`, `compaction`, `memoryStrategy`, `guardrails`, `toolInterceptors`, `piiPolicies`                                                                                                                            |
-| `@Tool` (`tools/<name>.tool.ts`, DTOs in `dto/<name>.dto.ts`)                                   | `ToolHandler<In, Out>`: `run(input)`                          | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `toolInterceptors`, `deps`                                                                                                                                                                                                                                                                                                     |
+| `@Tool` (`tools/<name>.tool.ts`, DTOs in `dto/<name>.dto.ts`)                                   | `execute(input)`: the output, or a promise of it              | `input`, `output`, `timeout: seconds(…)` (default 30 s), `maxResultSize: kilobytes(…)`, `channel`, `toolInterceptors`, `deps`                                                                                                                                                                                                                                                                                                     |
 | `@Action` (`actions/<name>.action.ts`)                                                          | `ActionHandler<Self>`: `execute(input)`                       | `input` (fields from the scope), `output`, `compensateWith`, `committedBy`, `deps`                                                                                                                                                                                                                                                                                                                                                |
 | `@Router` (`routers/<name>/<name>.router.ts` (+ `<name>.prompt.md`))                            | code: `RouterHandler<Self>`: `route(input)`                   | `decidedBy`, `input`, `routes`, `maxVisits`; model: `model`, `prompt`; code: `deps`                                                                                                                                                                                                                                                                                                                                               |
 | `@Arbiter` (`arbiters/<name>/<name>.arbiter.ts` (+ `<name>.prompt.md`))                         | code: one `@OnAnswer(Agent)` method per agent of the launch   | `decidedBy`; model: `model`, `prompt`, `criteria`; code: `deps`                                                                                                                                                                                                                                                                                                                                                                   |
@@ -138,7 +138,7 @@ export class CrmClientService implements OnStart, OnDestroy {
 
 ```ts file=src/desk/tools/customer-lookup.tool.ts
 // tools/customer-lookup.tool.ts — the execution and the spend come through the constructor
-import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, SpendRecorder, Tool } from "@agboss/core";
 import { kilobytes, seconds, usd } from "@agboss/core/units";
 import { CustomerQueryDto } from "../dto/customer-query.dto.js";
 import { CustomerDto } from "../dto/customer.dto.js";
@@ -153,14 +153,14 @@ import { CrmClientService } from "../services/crm-client.service.js";
   maxResultSize: kilobytes(16),
   deps: [ExecutionContext, SpendRecorder, CrmClientService],
 })
-export class CustomerLookupTool implements ToolHandler<CustomerQueryDto, CustomerDto> {
+export class CustomerLookupTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
     private readonly crmClientService: CrmClientService,
   ) {}
 
-  async run({ email }: CustomerQueryDto): Promise<CustomerDto> {
+  async execute({ email }: CustomerQueryDto): Promise<CustomerDto> {
     const customer = await this.crmClientService.lookUp(email, this.executionContext.signal);
     this.spendRecorder.record({ service: "crm-api", cost: usd(0.001) }); // counted in the budgets
     return customer;
@@ -1011,7 +1011,7 @@ export class SeatWorkflow {}
 
 - `new SomeService()` / `new SomeTool()` anywhere in project code — list classes, inject them.
 - `process.env.X` in a component — read `applicationContext.environment.x` (typed, per environment).
-- A `ctx` parameter on `run` / `execute` — there is none; inject `ExecutionContext`.
+- A `ctx` parameter on `execute` — there is none; inject `ExecutionContext`.
 - `Date.now()` / `setTimeout` — inject `Clock` (`clock.now()`, `clock.sleep(seconds(1), signal)`).
 - Ignoring `executionContext.signal` in a slow call: pass it to `fetch` and SDK clients so a cancel,
   a timeout or a lost lease stops the call.

@@ -15,7 +15,6 @@ import {
   type PiiMatch,
   type PiiPolicyHandler,
   type PiiRefusal,
-  type ToolHandler,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -106,13 +105,13 @@ export class EmailSent {
   output: EmailSent,
   deps: [Outbox, ExecutionContext],
 })
-export class SendEmail implements ToolHandler<EmailSend, EmailSent> {
+export class SendEmail {
   constructor(
     private readonly outbox: Outbox,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run({ to, body }: EmailSend): Promise<EmailSent> {
+  execute({ to, body }: EmailSend): Promise<EmailSent> {
     this.executionContext.signal.throwIfAborted();
     this.outbox.sent.push(to);
     const status = `sent to ${to}: ${body}${this.outbox.note}`;

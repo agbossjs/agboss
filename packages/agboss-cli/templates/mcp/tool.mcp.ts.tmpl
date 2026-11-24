@@ -1,4 +1,3 @@
-import type { ToolHandler } from "@agboss/core";
 import { McpTool } from "@agboss/core/mcp";
 {{dtoImports}}
 import { {{serverPascal}}Server } from "./{{serverKebab}}.mcp-server.js";
@@ -12,10 +11,10 @@ import { {{serverPascal}}Server } from "./{{serverKebab}}.mcp-server.js";
   output: {{output}},
   deps: [{{serverPascal}}Server],
 })
-export class {{pascal}}Tool implements ToolHandler<{{input}}, {{output}}> {
+export class {{pascal}}Tool {
   constructor(private readonly {{serverCamel}}Server: {{serverPascal}}Server) {}
 
-  run(input: {{input}}): Promise<{{output}}> {
+  execute(input: {{input}}): Promise<{{output}}> {
     return this.{{serverCamel}}Server.call("{{serverTool}}", input);
   }
 }

@@ -6,7 +6,6 @@ import {
   Tool,
   Workflow,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { onStart } from "../../../helpers/flow.js";
 import { BatchDoneWorkflowFinish } from "./tree-batch.workflow.js";
@@ -26,8 +25,8 @@ export class TaskConfirmationDto {
   input: TaskConfirmationDto,
   output: TaskConfirmationDto,
 })
-export class ConfirmTaskTool implements ToolHandler<TaskConfirmationDto, TaskConfirmationDto> {
-  run(input: TaskConfirmationDto): Promise<TaskConfirmationDto> {
+export class ConfirmTaskTool {
+  execute(input: TaskConfirmationDto): Promise<TaskConfirmationDto> {
     return Promise.resolve(input);
   }
 }

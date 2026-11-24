@@ -9,7 +9,6 @@ import {
   type OnStop,
   TokenLimit,
   Tool,
-  type ToolHandler,
   DecidedBy,
   Router,
   WorkflowFinish,
@@ -68,10 +67,10 @@ export class OrderInfo {
   output: OrderInfo,
   deps: [OrderBook],
 })
-export class OrderStatus implements ToolHandler<OrderQuery, OrderInfo> {
+export class OrderStatus {
   constructor(private readonly book: OrderBook) {}
 
-  async run({ orderId }: OrderQuery): Promise<OrderInfo> {
+  async execute({ orderId }: OrderQuery): Promise<OrderInfo> {
     return { status: await this.book.statusOf(orderId) };
   }
 }
@@ -144,10 +143,10 @@ const notePath = (title: string): string => join(NOTES_DIR, `${title}.md`);
   output: NoteRef,
   deps: [NotesServer],
 })
-export class SaveNote implements ToolHandler<Note, NoteRef> {
+export class SaveNote {
   constructor(private readonly server: NotesServer) {}
 
-  async run({ title, text }: Note): Promise<NoteRef> {
+  async execute({ title, text }: Note): Promise<NoteRef> {
     await this.server.call("write_file", { path: notePath(title), content: text });
     return { title };
   }
@@ -161,10 +160,10 @@ export class SaveNote implements ToolHandler<Note, NoteRef> {
   output: NoteText,
   deps: [NotesServer],
 })
-export class ReadNote implements ToolHandler<NoteRef, NoteText> {
+export class ReadNote {
   constructor(private readonly server: NotesServer) {}
 
-  async run({ title }: NoteRef): Promise<NoteText> {
+  async execute({ title }: NoteRef): Promise<NoteText> {
     return { text: (await this.server.call("read_text_file", { path: notePath(title) })).content };
   }
 }

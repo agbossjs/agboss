@@ -199,7 +199,7 @@ Both new forms side by side — a decision model for a deposit return, and an ow
 code:
 
 <!-- snippet-context
-import { Agent, Channel, ChannelOf, ChannelOutcome, ChannelRole, DecidedBy, Injectable, PauseAnswerer, ReplyInterpretation, ReplyInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler, type ToolHandler } from "@agboss/core";
+import { Agent, Channel, ChannelOf, ChannelOutcome, ChannelRole, DecidedBy, Injectable, PauseAnswerer, ReplyInterpretation, ReplyInterpreter, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ChannelAsk, type InputOf, type OutputOf, type ReplyInterpreterHandler } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 
 export class DepositReturnDto {
@@ -283,8 +283,8 @@ export class ButtonExpenseApprovalChannel extends ExpenseApprovalChannel {
   output: DeskDoneDto,
   channel: DepositApprovalChannel,
 })
-export class ReturnDepositTool implements ToolHandler<DepositReturnDto, DeskDoneDto> {
-  run({ leaseId }: DepositReturnDto): Promise<DeskDoneDto> {
+export class ReturnDepositTool {
+  execute({ leaseId }: DepositReturnDto): Promise<DeskDoneDto> {
     return Promise.resolve({ status: `returned the deposit of ${leaseId}` });
   }
 }
@@ -296,8 +296,8 @@ export class ReturnDepositTool implements ToolHandler<DepositReturnDto, DeskDone
   output: DeskDoneDto,
   channel: ExpenseApprovalChannel,
 })
-export class BookExpenseTool implements ToolHandler<ExpenseDto, DeskDoneDto> {
-  run({ purpose }: ExpenseDto): Promise<DeskDoneDto> {
+export class BookExpenseTool {
+  execute({ purpose }: ExpenseDto): Promise<DeskDoneDto> {
     return Promise.resolve({ status: `booked ${purpose}` });
   }
 }
@@ -618,11 +618,11 @@ export class RefundRequest {
   @Text() orderId!: string;
 }
 // @snippet
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ToolHandler } from "@agboss/core";
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Tool({ name: "refund-tool", description: "Refunds an order", input: RefundRequest, output: RefundRequest, channel: RefundApprovalChannel })
-export class RefundTool implements ToolHandler<RefundRequest, RefundRequest> {
-  run(input: RefundRequest): Promise<RefundRequest> {
+export class RefundTool {
+  execute(input: RefundRequest): Promise<RefundRequest> {
     return Promise.resolve(input);
   }
 }

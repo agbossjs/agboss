@@ -5,7 +5,6 @@ import {
   ApplicationContext,
   TokenLimit,
   Tool,
-  type ToolHandler,
   WorkflowFinish,
   WorkflowStart,
 } from "../../../../src/index.js";
@@ -42,10 +41,10 @@ export class SettingsInfo {
   output: SettingsInfo,
   deps: [ApiClient],
 })
-export class ApiSettings implements ToolHandler<SettingsQuery, SettingsInfo> {
+export class ApiSettings {
   constructor(private readonly client: ApiClient) {}
 
-  run(): Promise<SettingsInfo> {
+  execute(): Promise<SettingsInfo> {
     const { apiUrl, currency } = this.client.environment;
     return Promise.resolve({ apiUrl, currency });
   }

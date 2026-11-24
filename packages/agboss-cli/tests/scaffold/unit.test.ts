@@ -190,15 +190,13 @@ describe("#280 AC11: generated code follows the conventions", () => {
   it("conventions: a tool takes the execution context through its constructor, typed and named", () => {
     const [tool] = toolFiles("src/desk/tools", namesOf("search orders"));
 
-    expect(tool?.content).toContain(
-      "implements ToolHandler<SearchOrdersQueryDto, SearchOrdersResultDto>",
-    );
+    expect(tool?.content).not.toContain("implements ToolHandler");
     expect(tool?.content).toContain("deps: [ExecutionContext],");
     expect(tool?.content).toContain(
       "constructor(private readonly executionContext: ExecutionContext) {}",
     );
     expect(tool?.content).toContain(
-      "run({ query }: SearchOrdersQueryDto): Promise<SearchOrdersResultDto> {",
+      "execute({ query }: SearchOrdersQueryDto): SearchOrdersResultDto {",
     );
     expect(tool?.content).not.toMatch(/\bctx\b/u);
     // #268 AC9: its name is kebab-case and ends with -tool

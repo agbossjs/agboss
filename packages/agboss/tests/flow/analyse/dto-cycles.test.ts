@@ -13,7 +13,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Reasoning } from "../../../src/models/index.js";
@@ -158,8 +157,8 @@ describe("#1080: a tool's DTOs", () => {
 
   const toolOf = (input: DtoClass, output: DtoClass) => {
     @Tool({ name: "cyc-tool", description: "d", input, output })
-    class CycTool implements ToolHandler<never, never> {
-      run(): Promise<never> {
+    class CycTool {
+      execute(): Promise<never> {
         return Promise.reject(new Error("unused"));
       }
     }

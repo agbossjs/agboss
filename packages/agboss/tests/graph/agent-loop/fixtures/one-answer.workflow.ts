@@ -6,7 +6,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import {
@@ -44,8 +43,8 @@ export class ClauseQueryDto {
   input: ClauseQueryDto,
   output: LegalReviewDto,
 })
-export class ClauseTextTool implements ToolHandler<ClauseQueryDto, LegalReviewDto> {
-  run({ number }: ClauseQueryDto): Promise<LegalReviewDto> {
+export class ClauseTextTool {
+  execute({ number }: ClauseQueryDto): Promise<LegalReviewDto> {
     return Promise.resolve({ clause: `clause ${number}` });
   }
 }

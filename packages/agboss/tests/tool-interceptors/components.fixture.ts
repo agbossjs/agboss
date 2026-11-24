@@ -13,7 +13,6 @@ import {
   type BeforeToolCall,
   type ToolCallContext,
   type ToolCallResultContext,
-  type ToolHandler,
 } from "../../src/index.js";
 import { List, Text } from "../../src/dto/index.js";
 import { McpServer, McpServerClient, McpTool } from "../../src/mcp/index.js";
@@ -195,8 +194,8 @@ export class MoodyToolInterceptor implements BeforeToolCall, AfterToolCall {
   output: JobList,
   toolInterceptors: [StampToolInterceptor],
 })
-export class JobSearchTool implements ToolHandler<JobQuery, JobList> {
-  run({ city }: JobQuery): Promise<JobList> {
+export class JobSearchTool {
+  execute({ city }: JobQuery): Promise<JobList> {
     toolRuns.push(`job-search-tool:${city}`);
     return Promise.resolve({ listing: `Engineer in ${city}, write to hr@acme.com` });
   }
@@ -210,16 +209,16 @@ export class JobSearchTool implements ToolHandler<JobQuery, JobList> {
   toolInterceptors: [CompanyBlockToolInterceptor],
   excludeToolInterceptors: [AuditToolInterceptor],
 })
-export class CompanyTool implements ToolHandler<CompanyQuery, CompanyInfo> {
-  run({ company }: CompanyQuery): Promise<CompanyInfo> {
+export class CompanyTool {
+  execute({ company }: CompanyQuery): Promise<CompanyInfo> {
     toolRuns.push(`company-tool:${company}`);
     return Promise.resolve({ summary: `${company} builds things` });
   }
 }
 
 @Tool({ name: "ping-tool", description: "Answers pong", input: PingQuery, output: PingReply })
-export class PingTool implements ToolHandler<PingQuery, PingReply> {
-  run({ mode }: PingQuery): Promise<PingReply> {
+export class PingTool {
+  execute({ mode }: PingQuery): Promise<PingReply> {
     toolRuns.push(`ping-tool:${mode}`);
     return Promise.resolve({ text: "pong" });
   }
@@ -246,10 +245,10 @@ export class JobBoardServer extends McpServerClient<typeof boardTools> {}
   toolInterceptors: [CompanyBlockToolInterceptor],
   deps: [JobBoardServer],
 })
-export class BoardLookupTool implements ToolHandler<CompanyQuery, CompanyInfo> {
+export class BoardLookupTool {
   constructor(private readonly server: JobBoardServer) {}
 
-  run(query: CompanyQuery): Promise<CompanyInfo> {
+  execute(query: CompanyQuery): Promise<CompanyInfo> {
     return this.server.call("lookup", query);
   }
 }

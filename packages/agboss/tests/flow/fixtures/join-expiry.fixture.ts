@@ -25,7 +25,6 @@ import {
   type PauseListenerHandler,
   type PauseListenerJoinFailedEvent,
   type PauseListenerOpenedEvent,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -142,8 +141,8 @@ export class JoinFailedPauseListener implements PauseListenerHandler {
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
 })
-export class ApproveTool implements ToolHandler<ApprovalRequestDto, ApprovalRequestDto> {
-  run(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
+export class ApproveTool {
+  execute(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
     return Promise.resolve(input);
   }
 }
@@ -156,8 +155,8 @@ export class ApproveTool implements ToolHandler<ApprovalRequestDto, ApprovalRequ
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
 })
-export class ApproveInThirtyTool implements ToolHandler<ApprovalRequestDto, ApprovalRequestDto> {
-  run(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
+export class ApproveInThirtyTool {
+  execute(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
     return Promise.resolve(input);
   }
 }

@@ -14,7 +14,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
-  type ToolHandler,
 } from "../../../../../agboss/src/index.js";
 import {
   Text,
@@ -72,8 +71,8 @@ export class PauseSilentRefundChannel extends PauseRefundApproval {
   output: RefundDone,
   channel: PauseRefundApproval,
 })
-export class PauseRefund implements ToolHandler<RefundRequest, RefundDone> {
-  run({ orderId }: RefundRequest): Promise<RefundDone> {
+export class PauseRefund {
+  execute({ orderId }: RefundRequest): Promise<RefundDone> {
     return Promise.resolve({ status: `refunded ${orderId}` });
   }
 }

@@ -6,7 +6,7 @@ import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
 import { WorkflowFinishFileDto } from "../../../src/a2a/files/a2a-file.dto.js";
 import { A2AFiles } from "../../../src/a2a/files/a2a-files.service.js";
 import { Application } from "../../../src/application/application.js";
-import { Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Tool } from "../../../src/components/decorators.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -37,8 +37,8 @@ export class PriceDto {
   output: PriceDto,
   readOnly: true,
 })
-export class PriceLookupTool implements ToolHandler<SkuDto, PriceDto> {
-  run(input: SkuDto): Promise<PriceDto> {
+export class PriceLookupTool {
+  execute(input: SkuDto): Promise<PriceDto> {
     return Promise.resolve({ price: `${input.sku}: 12.50 EUR` });
   }
 }

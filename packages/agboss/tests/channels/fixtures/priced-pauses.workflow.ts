@@ -5,7 +5,6 @@ import {
   SpendRecorder,
   Tool,
   Workflow,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd } from "../../../src/units/index.js";
@@ -41,10 +40,10 @@ export const LOOKUP_COST = 0.01;
   output: RefundRequestDto,
   deps: [SpendRecorder],
 })
-export class PriceOrderTool implements ToolHandler<RefundRequestDto, RefundRequestDto> {
+export class PriceOrderTool {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  run(input: RefundRequestDto): Promise<RefundRequestDto> {
+  execute(input: RefundRequestDto): Promise<RefundRequestDto> {
     this.spendRecorder.record({ service: "order-api", cost: usd(LOOKUP_COST) });
     return Promise.resolve(input);
   }

@@ -17,7 +17,6 @@ import {
   type OnExecutionError,
   type OnExecutionEnd,
   type OnExecutionResume,
-  type ToolHandler,
   type ExecutionResumeEvent,
 } from "../../../src/index.js";
 import { ApplicationContext, Clock } from "../../../src/index.js";
@@ -114,8 +113,8 @@ export class Query {
 
 /** A step: counted, so a test sees whether it ran again. */
 @Tool({ name: "step-tool", description: "Takes a step", input: Query, output: Query })
-export class Step implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Step {
+  execute(input: Query): Promise<Query> {
     seen.steps.push(input.text);
     return Promise.resolve(input);
   }
@@ -129,10 +128,10 @@ export class Step implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Hold implements ToolHandler<Query, Query> {
+export class Hold {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     const { signal, step } = this.executionContext;
     seen.holds.push(signal);
     seen.holdKeys.push(step.idempotencyKey);
@@ -157,8 +156,8 @@ export class Hold implements ToolHandler<Query, Query> {
   input: Query,
   output: Query,
 })
-export class Charge implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Charge {
+  execute(input: Query): Promise<Query> {
     seen.charges.push(input.text);
     return Promise.resolve(input);
   }

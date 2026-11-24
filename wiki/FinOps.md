@@ -44,7 +44,7 @@ export class WebResultsDto {
 -->
 
 ```ts
-import { SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { SpendRecorder, Tool } from "@agboss/core";
 import { usd } from "@agboss/core/units";
 
 @Tool({
@@ -54,10 +54,10 @@ import { usd } from "@agboss/core/units";
   output: WebResultsDto,
   deps: [SpendRecorder],
 })
-export class WebSearchTool implements ToolHandler<WebQueryDto, WebResultsDto> {
+export class WebSearchTool {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  run({ query }: WebQueryDto): Promise<WebResultsDto> {
+  execute({ query }: WebQueryDto): Promise<WebResultsDto> {
     this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) }); // tool:web-search-tool
     return Promise.resolve({ text: `results for ${query}` });
   }
@@ -77,7 +77,7 @@ export class Rate {
 -->
 
 ```ts
-import { ROUTER_FACTORY, Tool, type RouterEngine, type ToolHandler } from "@agboss/core";
+import { ROUTER_FACTORY, Tool, type RouterEngine } from "@agboss/core";
 
 @Tool({
   name: "exchange-rate-tool",
@@ -86,14 +86,14 @@ import { ROUTER_FACTORY, Tool, type RouterEngine, type ToolHandler } from "@agbo
   output: Rate,
   deps: [ROUTER_FACTORY],
 })
-export class ExchangeRate implements ToolHandler<RateQuery, Rate> {
+export class ExchangeRate {
   private readonly checker: RouterEngine;
 
   constructor(routers: (name: string) => RouterEngine) {
     this.checker = routers("rate-check");
   }
 
-  async run({ pair }: RateQuery): Promise<Rate> {
+  async execute({ pair }: RateQuery): Promise<Rate> {
     // the decision's spend is recorded as tool:exchange-rate-tool
     await this.checker.route({
       input: `${pair} 3.71`,

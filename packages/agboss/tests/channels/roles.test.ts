@@ -13,7 +13,7 @@ import {
 } from "../../src/channels/channel-role.decorator.js";
 import { NodeKind } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
-import { Tool, type ToolHandler } from "../../src/components/decorators.js";
+import { Tool } from "../../src/components/decorators.js";
 import { ComponentError } from "../../src/components/metadata.js";
 import { Text } from "../../src/dto/index.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
@@ -54,8 +54,8 @@ class ClarificationAnswerDto {
   output: RefundCardOutputDto,
   channel: RefundApprovalChannel,
 })
-class ChargeTool implements ToolHandler<ChargeInputDto, RefundCardOutputDto> {
-  run(): Promise<RefundCardOutputDto> {
+class ChargeTool {
+  execute(): Promise<RefundCardOutputDto> {
     return Promise.resolve({ status: "charged" });
   }
 }

@@ -68,7 +68,7 @@ export class IssuesServer extends McpServerClient<typeof tools> {}
 
 ```ts file=src/support/mcp/search-issues.mcp.ts
 // mcp/search-issues.mcp.ts — the tool the model sees; it calls the server tool, typed by `tools`
-import { ExecutionContext, type ToolHandler } from "@agboss/core";
+import { ExecutionContext } from "@agboss/core";
 import { McpTool } from "@agboss/core/mcp";
 import { kilobytes, seconds } from "@agboss/core/units";
 import { IssueHitsDto } from "../dto/issue-hits.dto.js";
@@ -85,13 +85,13 @@ import { IssuesServer } from "./issues.server.js";
   maxResultSize: kilobytes(32),
   deps: [IssuesServer, ExecutionContext],
 })
-export class SearchIssuesTool implements ToolHandler<IssueSearchDto, IssueHitsDto> {
+export class SearchIssuesTool {
   constructor(
     private readonly issuesServer: IssuesServer,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run({ query }: IssueSearchDto): Promise<IssueHitsDto> {
+  execute({ query }: IssueSearchDto): Promise<IssueHitsDto> {
     // name and arguments checked by the compiler; the signal aborts it on timeout or cancel
     return this.issuesServer.call("search_issues", { query }, this.executionContext.signal);
   }
@@ -164,7 +164,7 @@ export class OrderDeskA2AAgent extends A2AClient<OrderQuestionDto, OrderDeskRepl
 
 ```ts file=src/support/tools/ask-order-desk.tool.ts
 // tools/ask-order-desk.tool.ts — an agent delegates to the remote workflow through a tool
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { OrderDeskReplyDto } from "../dto/order-desk-reply.dto.js";
 import { OrderQuestionDto } from "../dto/order-question.dto.js";
@@ -178,13 +178,13 @@ import { OrderDeskA2AAgent } from "../a2a/order-desk.a2a-agent.js";
   timeout: seconds(60), // also the envelope's remaining time
   deps: [OrderDeskA2AAgent, ExecutionContext],
 })
-export class AskOrderDeskTool implements ToolHandler<OrderQuestionDto, OrderDeskReplyDto> {
+export class AskOrderDeskTool {
   constructor(
     private readonly orderDeskA2AAgent: OrderDeskA2AAgent,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run(question: OrderQuestionDto): Promise<OrderDeskReplyDto> {
+  execute(question: OrderQuestionDto): Promise<OrderDeskReplyDto> {
     // typed by the contract: the input and the output validated, the price recorded
     return this.orderDeskA2AAgent.execute(question, { signal: this.executionContext.signal });
   }

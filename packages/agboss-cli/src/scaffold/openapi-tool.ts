@@ -113,7 +113,7 @@ export function toolSource(op: OperationModel, api: ApiNames): string {
     ].join("\n"),
     api: api.className,
     apiField: api.field,
-    header: classHeader(`${op.names.pascal}Tool`, input, output),
+    header: classHeader(`${op.names.pascal}Tool`),
     parameters: op.input === undefined ? "" : `input: ${input}`,
     output,
     pathExpression: pathExpression(op),

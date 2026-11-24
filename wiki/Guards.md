@@ -472,7 +472,7 @@ request, every call (a text is searched once per agent visit; its masked form is
 loop's `piiMasked`). Out of it: the move's text and every tool-call and answer-tool argument are
 revealed right after parsing, **before** any DTO is validated — a tool gets `alice@example.com`,
 an `@Email` field validates the address; a token no map knows is an invalid answer (the model reads
-why, S9 retries). In the tool task a block rule in the arguments rejects the call before `run`, and
+why, S9 retries). In the tool task a block rule in the arguments rejects the call before `execute`, and
 the result is closed right after (its `sensitive` fields through their actions, then its text). The
 scope, `outdatedValues`, the checkpoint and every step's code (actions, finishes, code routers,
 arbiters, channels) hold real values; encrypting a store is that store's concern. A router's model

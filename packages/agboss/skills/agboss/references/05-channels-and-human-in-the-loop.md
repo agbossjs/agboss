@@ -142,7 +142,7 @@ export class SlackRefundApprovalChannel extends RefundApprovalChannel {
 
 ```ts file=src/refunds/tools/refund.tool.ts
 // tools/refund.tool.ts — names the role; runs only once a call is approved
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { RefundApprovalChannel } from "../channels/refund-approval.channel-role.js";
 import { RefundDoneDto } from "../dto/refund-done.dto.js";
 import { RefundRequestDto } from "../dto/refund-request.dto.js";
@@ -155,10 +155,10 @@ import { RefundRequestDto } from "../dto/refund-request.dto.js";
   channel: RefundApprovalChannel, // the role, never the implementation
   deps: [ExecutionContext],
 })
-export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
+export class RefundTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+  execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     return Promise.resolve({ refundId: `${orderId}:${this.executionContext.step.idempotencyKey}` });
   }
 }

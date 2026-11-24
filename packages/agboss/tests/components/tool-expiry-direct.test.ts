@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { toolExpiryViolations } from "../../src/components/tool-expiry-rules.js";
 import { Text } from "../../src/dto/index.js";
-import { Injectable, Tool, type ToolHandler } from "../../src/index.js";
+import { Injectable, Tool } from "../../src/index.js";
 import { McpServer, McpServerClient, McpTool } from "../../src/mcp/index.js";
 import { hours, seconds, type Milliseconds } from "../../src/units/index.js";
 import { MAX_TIMEOUT, timerProblemOf } from "../../src/units/timer-limits.js";
@@ -20,8 +20,8 @@ class Query {
 const over = (MAX_TIMEOUT + 1) as Milliseconds;
 const io = { description: "d", input: Query, output: Query };
 
-class Run implements ToolHandler<Query, Query> {
-  run(): Promise<Query> {
+class Run {
+  execute(): Promise<Query> {
     return Promise.resolve(new Query());
   }
 }

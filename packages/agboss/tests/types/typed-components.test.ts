@@ -1,13 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  Agent,
-  InputGuardrail,
-  Injectable,
-  Judge,
-  JudgeVerdict,
-  Tool,
-  type ToolHandler,
-} from "../../src/index.js";
+import { Agent, InputGuardrail, Injectable, Judge, JudgeVerdict, Tool } from "../../src/index.js";
 import type { JudgeInput } from "../../src/index.js";
 import {
   Integer,
@@ -37,8 +29,8 @@ class Query {
 }
 
 @Tool({ name: "search-tool", description: "Searches", input: Query, output: Query })
-class Search implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+class Search {
+  execute(input: Query): Promise<Query> {
     return Promise.resolve(input);
   }
 }

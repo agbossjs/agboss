@@ -41,7 +41,7 @@ import {
 } from "../../../src/a2a/client/a2a-wire-errors.js";
 import { A2ACallerRejectedError } from "../../../src/a2a/a2a-caller.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { Tool, type ToolHandler } from "../../../src/index.js";
+import { Tool } from "../../../src/index.js";
 import { testTool } from "../../../src/testing/index.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { callerOf } from "./fixtures/caller.js";
@@ -401,8 +401,8 @@ describe("the mesh refused where it cannot ride", () => {
       input: WorkflowStartTextDto,
       output: AskDto,
     })
-    class SignTool implements ToolHandler<WorkflowStartTextDto, AskDto> {
-      run(): Promise<AskDto> {
+    class SignTool {
+      execute(): Promise<AskDto> {
         const activation = AGBOSS_MESH.activate(card, peerOf(card), {
           agent: "a",
           application: "peer-application",

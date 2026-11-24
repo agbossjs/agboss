@@ -9,7 +9,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -51,13 +50,13 @@ export class HoldNoteDto {
   output: HoldNoteDto,
   deps: [ApplicationContext, ExecutionContext],
 })
-export class LoopHoldTool implements ToolHandler<HoldNoteDto, HoldNoteDto> {
+export class LoopHoldTool {
   constructor(
     private readonly applicationContext: ApplicationContext,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async run(input: HoldNoteDto): Promise<HoldNoteDto> {
+  async execute(input: HoldNoteDto): Promise<HoldNoteDto> {
     loopTakeover.holds.push(this.applicationContext.instanceId);
     if (loopTakeover.holds.length === 1) {
       const { signal } = this.executionContext;

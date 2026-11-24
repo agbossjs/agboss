@@ -122,7 +122,7 @@ export type CallAssertion<TReceived, TSelf> = Omit<Assertion<TReceived>, keyof C
 
 // @public
 type CalledToolArguments<TInstance> = TInstance extends {
-    run(input: infer TInput extends object): Promise<unknown>;
+    execute(input: infer TInput extends object): unknown;
 } ? TInput : never;
 
 // @public
@@ -1150,12 +1150,12 @@ export interface ToolCallTurn<TName extends string = string> {
 
 // @public
 export type ToolClass<TInput extends object> = Class<{
-    run(input: TInput): Promise<unknown>;
+    execute(input: TInput): unknown;
 }>;
 
 // @public
 export type ToolClassOf<TInput, TOutput> = Class<{
-    run(input: TInput): Promise<TOutput>;
+    execute(input: TInput): TOutput | Promise<TOutput>;
 }>;
 
 // @public
@@ -1165,13 +1165,13 @@ export enum ToolFailure {
 
 // @public
 export type ToolInputOf<TTool> = TTool extends {
-    run(input: infer TInput): Promise<unknown>;
+    execute(input: infer TInput): unknown;
 } ? TInput : never;
 
 // @public
 export interface ToolInstance {
     // (undocumented)
-    run(input: never): Promise<unknown>;
+    execute(input: never): unknown;
 }
 
 // @public
@@ -1194,8 +1194,8 @@ export type ToolOutput<TOutput> = {
 
 // @public
 export type ToolOutputOf<TTool> = TTool extends {
-    run(input: never): Promise<infer TOutput>;
-} ? TOutput : never;
+    execute(input: never): infer TReturn;
+} ? Awaited<TReturn> : never;
 
 // @public
 export interface ToolRunner<TInput, TOutput> extends UnitClock {
@@ -1545,7 +1545,7 @@ export interface WorkflowMatchers<R = unknown> {
 // src/testing/units/test-router.ts - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/test-tool-interceptor.ts - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/testing/units/test-tool-interceptor.ts - (ae-undocumented) Missing documentation for "afterToolCall".
-// src/testing/units/test-tool.ts - (ae-undocumented) Missing documentation for "run".
+// src/testing/units/test-tool.ts - (ae-undocumented) Missing documentation for "execute".
 // src/testing/units/test-tool.ts - (ae-undocumented) Missing documentation for "__call".
 // src/testing/units/unit-types.ts - (ae-undocumented) Missing documentation for "output".
 

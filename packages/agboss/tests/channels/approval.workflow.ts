@@ -15,7 +15,6 @@ import {
   WorkflowStart,
   type WorkflowDefinition,
   Tool,
-  type ToolHandler,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
@@ -97,10 +96,10 @@ export class DeskRefundApprovalChannel extends RefundApprovalChannel {
   channel: RefundApprovalChannel,
   deps: [ApprovalDesk],
 })
-export class Refund implements ToolHandler<RefundRequest, RefundDone> {
+export class Refund {
   constructor(private readonly desk: ApprovalDesk) {}
 
-  run({ orderId }: RefundRequest): Promise<RefundDone> {
+  execute({ orderId }: RefundRequest): Promise<RefundDone> {
     this.desk.refunded.push(orderId);
     return Promise.resolve({ status: `refunded ${orderId}` });
   }

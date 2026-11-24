@@ -136,7 +136,7 @@ class SafeOutputGuardrail {}
   output: ToolInput,
 })
 class SafeTool {
-  async run() {
+  async execute() {
     return { text: "done" };
   }
 }

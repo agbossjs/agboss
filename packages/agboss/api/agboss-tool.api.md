@@ -12,7 +12,7 @@ export function Tool<In extends DtoClass, Out extends DtoClass, const D extends 
 // @public
 export interface ToolHandler<TInput, TOutput> {
     // (undocumented)
-    run: (input: TInput) => Promise<TOutput>;
+    execute: (input: TInput) => TOutput | Promise<TOutput>;
 }
 
 // @public (undocumented)
@@ -42,7 +42,7 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 
 // Warnings were encountered during analysis:
 //
-// src/components/decorators.ts - (ae-undocumented) Missing documentation for "run".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "execute".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "ToolOptions".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".

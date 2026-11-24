@@ -16,7 +16,6 @@ import {
   ToolCallStatus,
   type JudgeHandler,
   type JudgeInput,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import {
@@ -54,8 +53,8 @@ export class OrderStatusDto {
   input: OrderLookupDto,
   output: OrderStatusDto,
 })
-export class LookupTool implements ToolHandler<OrderLookupDto, OrderStatusDto> {
-  run({ orderId }: OrderLookupDto): Promise<OrderStatusDto> {
+export class LookupTool {
+  execute({ orderId }: OrderLookupDto): Promise<OrderStatusDto> {
     return Promise.resolve({ status: `order ${orderId} shipped` });
   }
 }

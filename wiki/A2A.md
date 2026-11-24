@@ -714,7 +714,7 @@ can compare applications without running them.
 **The caller** — an `@A2AAgent` names what it calls, sends, gets back and costs:
 
 <!-- snippet-context
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class InvoiceQuestionDto {
   @Text({ prompt: "the question about an invoice" })
@@ -748,10 +748,10 @@ export class BillingDeskA2AAgent extends A2AClient<InvoiceQuestionDto, InvoiceAn
   output: InvoiceAnswerDto,
   deps: [BillingDeskA2AAgent],
 })
-export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAnswerDto> {
+export class AskBillingTool {
   constructor(private readonly billingDeskA2AAgent: BillingDeskA2AAgent) {}
 
-  run(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
+  execute(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
     return this.billingDeskA2AAgent.execute(question); // typed by the contract
   }
 }

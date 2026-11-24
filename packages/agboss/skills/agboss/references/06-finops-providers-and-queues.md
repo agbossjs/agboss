@@ -166,7 +166,7 @@ export class TaxRate {
 ```
 
 ```ts file=src/billing/tools/tax-rate.tool.ts
-import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, SpendRecorder, Tool } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
 import { TaxQuery } from "../dto/tax-query.dto.js";
 import { TaxRate } from "../dto/tax-rate.dto.js";
@@ -179,13 +179,13 @@ import { TaxRate } from "../dto/tax-rate.dto.js";
   timeout: seconds(5),
   deps: [ExecutionContext, SpendRecorder],
 })
-export class TaxRateTool implements ToolHandler<TaxQuery, TaxRate> {
+export class TaxRateTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  run({ country }: TaxQuery): Promise<TaxRate> {
+  execute({ country }: TaxQuery): Promise<TaxRate> {
     this.executionContext.signal.throwIfAborted();
     this.spendRecorder.record({ service: "tax-api", cost: usd(0.001) }); // counted in every budget
     return Promise.resolve({ rate: country === "IL" ? 0.18 : 0.2 });

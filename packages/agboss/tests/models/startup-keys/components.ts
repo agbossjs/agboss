@@ -18,7 +18,6 @@ import {
   WorkflowStart,
   type Class,
   type JudgeHandler,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { Channel } from "../../../src/components/decorators.js";
@@ -108,8 +107,8 @@ export function everyKindWorkflows(models: KindModels): {
     output: AnswerDto,
     channel: ApprovalChannel,
   })
-  class FileNoteTool implements ToolHandler<NoteDto, AnswerDto> {
-    run(): Promise<AnswerDto> {
+  class FileNoteTool {
+    execute(): Promise<AnswerDto> {
       return Promise.resolve({ answer: "filed" });
     }
   }

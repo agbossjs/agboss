@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ChannelOutcome, ChannelOutcomeKind } from "../../src/channels/channel-outcome.js";
 import { AutoApproveChannel, AutoRejectChannel } from "../../src/channels/test-channels.js";
-import { Channel, Tool, type ToolHandler } from "../../src/components/decorators.js";
+import { Channel, Tool } from "../../src/components/decorators.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -75,9 +75,9 @@ function applicationWith(name: string, channel: Class): Class {
     channel,
     deps: [RefundDesk],
   })
-  class ChannelRefundTool implements ToolHandler<RefundCardInputDto, RefundCardOutputDto> {
+  class ChannelRefundTool {
     constructor(private readonly refundDesk: RefundDesk) {}
-    run({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
+    execute({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
       this.refundDesk.refunded.push(orderId);
       return Promise.resolve({ status: `refunded ${orderId}` });
     }

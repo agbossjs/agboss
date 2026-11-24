@@ -1,4 +1,4 @@
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { OrderLookupDto, OrderStatusDto } from "../dto/order-lookup.dto.js";
 import { OrderDeskService } from "../services/order-desk.service.js";
 
@@ -10,10 +10,10 @@ import { OrderDeskService } from "../services/order-desk.service.js";
   output: OrderStatusDto,
   deps: [OrderDeskService],
 })
-export class OrderStatusTool implements ToolHandler<OrderLookupDto, OrderStatusDto> {
+export class OrderStatusTool {
   constructor(private readonly orderDeskService: OrderDeskService) {}
 
-  async run({ orderId }: OrderLookupDto): Promise<OrderStatusDto> {
+  async execute({ orderId }: OrderLookupDto): Promise<OrderStatusDto> {
     return { status: await this.orderDeskService.statusOf(orderId) };
   }
 }

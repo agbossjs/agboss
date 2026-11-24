@@ -51,15 +51,15 @@ Why two packages?
 - **`@agboss/cli` (`devDependencies`)** — the static graph compiler (`agboss check`), code generator (`agboss generate`), dev watcher (`agboss dev`), LangGraph Studio bridge (`agboss studio`), and local visual UI servers (`agboss eval ui`, `agboss hub ui`) that stay out of production container images.
 
 <!-- snippet-context
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class JobQuery {
   @Text({ prompt: "what to look for" })
   query!: string;
 }
 @Tool({ name: "greenhouse-jobs-tool", description: "Finds jobs", input: JobQuery, output: JobQuery })
-export class GreenhouseJobs implements ToolHandler<JobQuery, JobQuery> {
-  run(input: JobQuery): Promise<JobQuery> {
+export class GreenhouseJobs {
+  execute(input: JobQuery): Promise<JobQuery> {
     return Promise.resolve(input);
   }
 }
@@ -1091,7 +1091,7 @@ export class JobBoardService {
 @Injectable()
 export class FakeJobBoardService extends JobBoardService {}
 declare class SearchJobsTool {
-  run(input: { readonly query: string }): Promise<{ readonly jobs: string }>;
+  execute(input: { readonly query: string }): Promise<{ readonly jobs: string }>;
 }
 declare class GroundedJudge implements JudgeHandler<PlainTextDto> {
   judge(input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict>;
@@ -1158,7 +1158,7 @@ through `{{input.…}}` in its instructions (`[prompt.input-in-instructions]`); 
 input and no metadata.
 
 <!-- snippet-context
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class OrderQuery {
   @Text({ prompt: "the order id" })
@@ -1171,14 +1171,14 @@ export class OrderQuery {
   output: OrderQuery,
   deps: [ExecutionContext],
 })
-export class PayOrder implements ToolHandler<OrderQuery, OrderQuery> {
+export class PayOrder {
   constructor(private readonly executionContext: ExecutionContext) {}
 // @snippet
 }
 -->
 
 ```ts
-run(query: OrderQuery): Promise<OrderQuery> {
+execute(query: OrderQuery): Promise<OrderQuery> {
   const { executionContext } = this;
   executionContext.executionId; // unique per execution, the same after a resume (= ExecutionOutput.executionId)
   executionContext.threadId; // the conversation (ExecutionOutput.threadId)
@@ -1998,7 +1998,7 @@ export class SearchResultsDto {
 -->
 
 ```ts
-import { SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { SpendRecorder, Tool } from "@agboss/core";
 import { usd } from "@agboss/core/units";
 
 @Tool({
@@ -2008,10 +2008,10 @@ import { usd } from "@agboss/core/units";
   output: SearchResultsDto,
   deps: [SpendRecorder],
 })
-export class WebSearchTool implements ToolHandler<SearchQueryDto, SearchResultsDto> {
+export class WebSearchTool {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  run({ query }: SearchQueryDto): Promise<SearchResultsDto> {
+  execute({ query }: SearchQueryDto): Promise<SearchResultsDto> {
     this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) }); // → tool:web-search-tool
     return Promise.resolve({ text: `results for ${query}` });
   }

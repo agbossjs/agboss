@@ -739,7 +739,6 @@ export class ReviewGroundedArbiter {}
 
 ```ts file=sourcing/src/tools/place-purchase.tool.ts
 import { ExecutionContext, Tool } from "@agboss/core";
-import type { ToolHandler } from "@agboss/core";
 import { PurchaseApprovalChannel } from "../channels/purchase-approval.channel-role.js";
 import { PurchaseOrderDto } from "../dto/purchase-order.dto.js";
 import { PurchasePlacedDto } from "../dto/purchase-placed.dto.js";
@@ -752,10 +751,10 @@ import { PurchasePlacedDto } from "../dto/purchase-placed.dto.js";
   channel: PurchaseApprovalChannel, // the role, never the implementation
   deps: [ExecutionContext],
 })
-export class PlacePurchaseTool implements ToolHandler<PurchaseOrderDto, PurchasePlacedDto> {
+export class PlacePurchaseTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run({ supplier }: PurchaseOrderDto): Promise<PurchasePlacedDto> {
+  execute({ supplier }: PurchaseOrderDto): Promise<PurchasePlacedDto> {
     return Promise.resolve({ orderId: `${supplier}:${this.executionContext.step.idempotencyKey}` });
   }
 }
@@ -1015,7 +1014,7 @@ export class KbServer extends McpServerClient<typeof tools> {}
 ```
 
 ```ts file=helpdesk/src/mcp/search-kb.mcp.ts
-import { ExecutionContext, type ToolHandler } from "@agboss/core";
+import { ExecutionContext } from "@agboss/core";
 import { McpTool } from "@agboss/core/mcp";
 import { kilobytes, seconds } from "@agboss/core/units";
 import { KbArticleDto } from "../dto/kb-article.dto.js";
@@ -1032,13 +1031,13 @@ import { KbServer } from "./kb.server.js";
   maxResultSize: kilobytes(16),
   deps: [KbServer, ExecutionContext],
 })
-export class SearchKbTool implements ToolHandler<KbSearchDto, KbArticleDto> {
+export class SearchKbTool {
   constructor(
     private readonly kbServer: KbServer,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run({ query }: KbSearchDto): Promise<KbArticleDto> {
+  execute({ query }: KbSearchDto): Promise<KbArticleDto> {
     return this.kbServer.call("search_articles", { query }, this.executionContext.signal);
   }
 }
@@ -1093,7 +1092,7 @@ export class BillingDeskA2AAgent extends A2AClient<BillingQuestionDto, BillingAn
 ```
 
 ```ts file=helpdesk/src/tools/ask-billing.tool.ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { BillingDeskA2AAgent } from "../a2a/billing-desk.a2a-agent.js";
 import { BillingAnswerDto } from "../dto/billing-answer.dto.js";
@@ -1107,13 +1106,13 @@ import { BillingQuestionDto } from "../dto/billing-question.dto.js";
   timeout: seconds(60),
   deps: [BillingDeskA2AAgent, ExecutionContext],
 })
-export class AskBillingTool implements ToolHandler<BillingQuestionDto, BillingAnswerDto> {
+export class AskBillingTool {
   constructor(
     private readonly billingDeskA2AAgent: BillingDeskA2AAgent,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run(question: BillingQuestionDto): Promise<BillingAnswerDto> {
+  execute(question: BillingQuestionDto): Promise<BillingAnswerDto> {
     // typed by the contract; its price recorded in this call's spend
     return this.billingDeskA2AAgent.execute(question, { signal: this.executionContext.signal });
   }
@@ -1634,7 +1633,6 @@ export class LoanWorkflowStart {}
 
 ```ts file=loans/src/tools/credit-score.tool.ts
 import { ExecutionContext, SpendRecorder, Tool } from "@agboss/core";
-import type { ToolHandler } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
 import { CreditScoreQuery } from "../dto/credit-score-query.dto.js";
 import { CreditScore } from "../dto/credit-score.dto.js";
@@ -1648,14 +1646,14 @@ import { CreditBureauService } from "../services/credit-bureau.service.js";
   timeout: seconds(5),
   deps: [CreditBureauService, ExecutionContext, SpendRecorder],
 })
-export class CreditScoreTool implements ToolHandler<CreditScoreQuery, CreditScore> {
+export class CreditScoreTool {
   constructor(
     private readonly creditBureauService: CreditBureauService,
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async run({ applicantId }: CreditScoreQuery): Promise<CreditScore> {
+  async execute({ applicantId }: CreditScoreQuery): Promise<CreditScore> {
     // the model passed <israeli-id:…>; the tool gets the real id, revealed before validation
     const score: number = await this.creditBureauService.scoreOf(applicantId, this.executionContext.signal);
     this.spendRecorder.record({ service: "credit-bureau", cost: usd(0.01) });

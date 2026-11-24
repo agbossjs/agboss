@@ -3,7 +3,6 @@ import {
   Workflow,
   TokenLimit,
   Tool,
-  type ToolHandler,
   WorkflowFinish,
   WorkflowStart,
   Budget,
@@ -42,8 +41,8 @@ export class PurchaseDto {
   output: Receipt,
   channel: TerminalUserChannel,
 })
-export class Pay implements ToolHandler<Payment, Receipt> {
-  run({ item }: Payment): Promise<Receipt> {
+export class Pay {
+  execute({ item }: Payment): Promise<Receipt> {
     return Promise.resolve({ id: `receipt-${item}` });
   }
 }

@@ -10,7 +10,6 @@ import {
   type ChannelAsk,
   listOf,
   type Produced,
-  type ToolHandler,
 } from "../../../src/index.js";
 import {
   PauseExpiration,
@@ -108,8 +107,8 @@ export class RefundApprovalChannel
   input: AgentRefundDto,
   output: AgentRefundDoneDto,
 })
-export class ExpiringRefundTool implements ToolHandler<AgentRefundDto, AgentRefundDoneDto> {
-  run({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
+export class ExpiringRefundTool {
+  execute({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
     agentExpiry.refunds.push(orderId);
     return Promise.resolve({ text: `refunded ${orderId}` });
   }
@@ -123,8 +122,8 @@ export class ExpiringRefundTool implements ToolHandler<AgentRefundDto, AgentRefu
   input: AgentRefundDto,
   output: AgentRefundDoneDto,
 })
-export class UrgentRefundTool implements ToolHandler<AgentRefundDto, AgentRefundDoneDto> {
-  run({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
+export class UrgentRefundTool {
+  execute({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
     agentExpiry.refunds.push(orderId);
     return Promise.resolve({ text: `refunded ${orderId}` });
   }
@@ -138,8 +137,8 @@ export class UrgentRefundTool implements ToolHandler<AgentRefundDto, AgentRefund
   input: AgentRefundDto,
   output: AgentRefundDoneDto,
 })
-export class QuickRefundTool implements ToolHandler<AgentRefundDto, AgentRefundDoneDto> {
-  run({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
+export class QuickRefundTool {
+  execute({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
     agentExpiry.refunds.push(orderId);
     return Promise.resolve({ text: `refunded ${orderId}` });
   }
@@ -286,8 +285,8 @@ export class GateDto {
   input: GateDto,
   output: GateDto,
 })
-export class GateTool implements ToolHandler<GateDto, GateDto> {
-  async run(input: GateDto): Promise<GateDto> {
+export class GateTool {
+  async execute(input: GateDto): Promise<GateDto> {
     await agentExpiry.gate;
     return input;
   }

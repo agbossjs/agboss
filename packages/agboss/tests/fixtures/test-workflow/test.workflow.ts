@@ -5,7 +5,6 @@ import {
   Router,
   Tool,
   Workflow,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
 import { IsoDateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -37,9 +36,9 @@ class ClockTime {
   input: ClockQuery,
   output: ClockTime,
 })
-export class Clock implements ToolHandler<ClockQuery, ClockTime> {
+export class Clock {
   constructor(private readonly now: () => Date = () => new Date("2026-09-25T10:00:00Z")) {}
-  run({ timeZone }: ClockQuery): Promise<ClockTime> {
+  execute({ timeZone }: ClockQuery): Promise<ClockTime> {
     // an unknown time zone throws — the model sees it as a tool error
     new Intl.DateTimeFormat("en-GB", { timeZone })
       .format(this.now());

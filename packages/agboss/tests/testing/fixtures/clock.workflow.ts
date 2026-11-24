@@ -11,7 +11,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type OnStart,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -105,10 +104,10 @@ export class Query {
   output: Query,
   deps: [StampService],
 })
-export class Stamp implements ToolHandler<Query, Query> {
+export class Stamp {
   constructor(private readonly stampService: StampService) {}
 
-  run(): Promise<Query> {
+  execute(): Promise<Query> {
     const text = this.stampService.stamp();
     seen.stamps.push(text);
     return Promise.resolve({ text });
@@ -124,10 +123,10 @@ export class Stamp implements ToolHandler<Query, Query> {
   timeout: seconds(5),
   deps: [ExecutionContext],
 })
-export class SlowLookup implements ToolHandler<Query, Query> {
+export class SlowLookup {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(): Promise<Query> {
+  execute(): Promise<Query> {
     const { signal } = this.executionContext;
     seen.lookups.push(signal);
     hooks.lookupStarted?.();

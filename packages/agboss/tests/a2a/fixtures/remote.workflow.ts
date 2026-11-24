@@ -10,7 +10,6 @@ import {
   WorkflowStart,
   type WorkflowDefinition,
   Tool,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { ScriptBook } from "../../../src/testing/script-book.js";
@@ -41,10 +40,10 @@ export const slowLookups = { started: (): void => undefined };
   output: LookupResult,
   deps: [ExecutionContext],
 })
-export class SlowLookup implements ToolHandler<LookupQuery, LookupResult> {
+export class SlowLookup {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(_input: LookupQuery): Promise<LookupResult> {
+  execute(_input: LookupQuery): Promise<LookupResult> {
     slowLookups.started();
     const { signal } = this.executionContext;
     return new Promise((_resolve, reject) => {
@@ -62,8 +61,8 @@ export class SlowLookup implements ToolHandler<LookupQuery, LookupResult> {
   input: LookupQuery,
   output: LookupResult,
 })
-export class QuickLookup implements ToolHandler<LookupQuery, LookupResult> {
-  run({ orderId }: LookupQuery): Promise<LookupResult> {
+export class QuickLookup {
+  execute({ orderId }: LookupQuery): Promise<LookupResult> {
     return Promise.resolve({ status: `order ${orderId} shipped` });
   }
 }

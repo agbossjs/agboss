@@ -48,7 +48,7 @@ export class AuditService {
 })
 export class EchoTool {
   constructor(private readonly audit: AuditService) {}
-  run(input: EchoInput): Promise<EchoInput> {
+  execute(input: EchoInput): Promise<EchoInput> {
     this.audit.record(input.text);
     return Promise.resolve({ text: `echo ${input.text}` });
   }

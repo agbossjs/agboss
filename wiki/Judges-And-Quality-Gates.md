@@ -333,7 +333,7 @@ fail an answer that no successful lookup backs, without a model call; `toolCalls
 toolCalls)` types one tool's calls by its input and output once narrowed by `status`.
 
 <!-- snippet-context
-import { Judge, JudgeVerdict, Tool, ToolCallStatus, toolCallsOf, type JudgeHandler, type JudgeInput, type ToolHandler } from "@agboss/core";
+import { Judge, JudgeVerdict, Tool, ToolCallStatus, toolCallsOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { PlainTextDto, Text } from "@agboss/core/dto";
 export class OrderQuery {
   @Text() orderId!: string;
@@ -342,8 +342,8 @@ export class OrderInfo {
   @Text() status!: string;
 }
 @Tool({ name: "get-order-tool", description: "An order", input: OrderQuery, output: OrderInfo })
-export class GetOrderTool implements ToolHandler<OrderQuery, OrderInfo> {
-  run({ orderId }: OrderQuery): Promise<OrderInfo> {
+export class GetOrderTool {
+  execute({ orderId }: OrderQuery): Promise<OrderInfo> {
     return Promise.resolve({ status: `order ${orderId} shipped` });
   }
 }

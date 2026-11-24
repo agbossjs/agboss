@@ -195,7 +195,7 @@ tool may also name a concrete `@Channel` as is (`TerminalUserChannel`; `AutoAppr
 `AutoRejectChannel`, which decide at once, for tests and scripts).
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ToolHandler } from "@agboss/core";
+import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeleteUserInputDto, SlackClient, SlackUserDeletionApprovalChannel, UserDeletionApprovalChannel } from "./channels.js";
 export class UserDeletedDto {
@@ -233,8 +233,8 @@ export class AdminApplication {}
   output: UserDeletedDto,
   channel: UserDeletionApprovalChannel, // calls wait for an approval through the role
 })
-export class DeleteUserTool implements ToolHandler<DeleteUserInputDto, UserDeletedDto> {
-  run({ userId }: DeleteUserInputDto): Promise<UserDeletedDto> {
+export class DeleteUserTool {
+  execute({ userId }: DeleteUserInputDto): Promise<UserDeletedDto> {
     return Promise.resolve({ userId }); // runs only once the call is approved
   }
 }

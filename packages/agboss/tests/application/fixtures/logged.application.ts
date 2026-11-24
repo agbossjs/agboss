@@ -14,7 +14,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -77,8 +76,8 @@ export class NoteDto {
   input: NoteDto,
   output: NoteDto,
 })
-export class SendNote implements ToolHandler<NoteDto, NoteDto> {
-  run(input: NoteDto): Promise<NoteDto> {
+export class SendNote {
+  execute(input: NoteDto): Promise<NoteDto> {
     return Promise.resolve(input);
   }
 }

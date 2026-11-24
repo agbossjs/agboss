@@ -26,13 +26,16 @@ const FAILURES: Readonly<Record<ToolFailure, (timeout: Milliseconds) => Error>> 
 
 /** A tool instance: what the agent's loop calls. */
 interface ToolInstance {
-  run(input: unknown): Promise<unknown>;
+  execute(input: unknown): unknown;
 }
 
 const isToolInstance = (value: unknown): value is ToolInstance =>
-  typeof value === "object" && value !== null && "run" in value && typeof value.run === "function";
+  typeof value === "object" &&
+  value !== null &&
+  "execute" in value &&
+  typeof value.execute === "function";
 
-/** One tool class's scripted failures; the real `run` for every call after them. */
+/** One tool class's scripted failures; the real `execute` for every call after them. */
 class ToolFailures implements ToolScript, ScriptedExpectation {
   readonly #failures: ToolFailure[] = [];
   #position = 0;
@@ -64,7 +67,7 @@ class ToolFailures implements ToolScript, ScriptedExpectation {
 
 /**
  * The tool scripts of one test. The container still creates every tool (its dependencies real or
- * mocked); a scripted one's `run` fails first, then runs as written.
+ * mocked); a scripted one's `execute` fails first, then runs as written.
  */
 export class ToolScripts {
   readonly #scripts = new Map<Class, ToolFailures>();
@@ -81,16 +84,16 @@ export class ToolScripts {
     return created;
   }
 
-  /** Wraps a created tool's `run` when its class is scripted (the container's `onCreate`). */
+  /** Wraps a created tool's `execute` when its class is scripted (the container's `onCreate`). */
   patch(instance: unknown): void {
     if (!isToolInstance(instance)) return;
     const script = [...this.#scripts.values()].find((item) => instance instanceof item.tool);
     if (script === undefined) return;
-    const run = instance.run.bind(instance);
-    const failing = (input: unknown): Promise<unknown> => {
+    const execute = instance.execute.bind(instance);
+    const failing = (input: unknown): unknown => {
       const failure = script.take();
-      return failure === undefined ? run(input) : Promise.reject(failure);
+      return failure === undefined ? execute(input) : Promise.reject(failure);
     };
-    Object.defineProperty(instance, "run", { value: failing });
+    Object.defineProperty(instance, "execute", { value: failing });
   }
 }

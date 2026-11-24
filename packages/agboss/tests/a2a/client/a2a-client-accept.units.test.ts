@@ -7,7 +7,7 @@ import { Message, Role, TaskState, type SendMessageRequest, type Task } from "@a
 import type { RequestOptions } from "@a2a-js/sdk/client";
 import { describe, expect, it } from "vitest";
 import { A2AAgent, A2AClient } from "../../../src/a2a/index.js";
-import { Tool, type ToolHandler } from "../../../src/index.js";
+import { Tool } from "../../../src/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testTool } from "../../../src/testing/index.js";
 import { AGENT_URL, scripts, SdkAgent } from "./support/sdk-agent.js";
@@ -651,10 +651,10 @@ describe("accept: which way a message goes", () => {
       output: PlainReplyDto,
       deps: [UnitA2AAgent],
     })
-    class UnitAskTool implements ToolHandler<WorkflowStartTextDto, PlainReplyDto> {
+    class UnitAskTool {
       constructor(private readonly peer: UnitA2AAgent) {}
 
-      run(input: WorkflowStartTextDto): Promise<PlainReplyDto> {
+      execute(input: WorkflowStartTextDto): Promise<PlainReplyDto> {
         return this.peer.execute(input);
       }
     }

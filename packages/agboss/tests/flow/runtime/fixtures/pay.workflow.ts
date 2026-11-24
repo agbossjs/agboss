@@ -8,7 +8,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
@@ -74,8 +73,8 @@ export class RefundQuery {
   input: RefundQuery,
   output: RefundQuery,
 })
-export class RefundTool implements ToolHandler<RefundQuery, RefundQuery> {
-  run(input: RefundQuery): Promise<RefundQuery> {
+export class RefundTool {
+  execute(input: RefundQuery): Promise<RefundQuery> {
     return Promise.resolve(input);
   }
 }

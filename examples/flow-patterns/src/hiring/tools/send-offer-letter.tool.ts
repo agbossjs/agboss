@@ -1,4 +1,4 @@
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { RecruiterApprovalChannel } from "../channels/recruiter-approval.channel.js";
 import { LetterDelivered, LetterDelivery } from "../dto/send-offer-letter.dto.js";
 
@@ -11,10 +11,10 @@ import { LetterDelivered, LetterDelivery } from "../dto/send-offer-letter.dto.js
   channel: RecruiterApprovalChannel,
   deps: [ExecutionContext],
 })
-export class SendOfferLetterTool implements ToolHandler<LetterDelivery, LetterDelivered> {
+export class SendOfferLetterTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(): Promise<LetterDelivered> {
+  execute(): Promise<LetterDelivered> {
     return Promise.resolve({ messageId: this.executionContext.step.idempotencyKey });
   }
 }

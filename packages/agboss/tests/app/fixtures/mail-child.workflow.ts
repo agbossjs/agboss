@@ -8,7 +8,6 @@ import {
   WorkflowFinish,
   WorkflowSettings,
   WorkflowStart,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -44,10 +43,10 @@ export class HoldQuery {
   output: HoldQuery,
   deps: [ExecutionContext],
 })
-export class MailHold implements ToolHandler<HoldQuery, HoldQuery> {
+export class MailHold {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: HoldQuery): Promise<HoldQuery> {
+  execute(input: HoldQuery): Promise<HoldQuery> {
     const { signal } = this.executionContext;
     holds.push(signal);
     if (holds.length > 1) return Promise.resolve(input);

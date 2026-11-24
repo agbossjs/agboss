@@ -15,7 +15,6 @@ import {
   WorkflowStart,
   type BudgetHandler,
   type Produced,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -91,8 +90,8 @@ export class TaskDto {
   input: HoldDto,
   output: HoldDto,
 })
-export class HoldForWaiterTool implements ToolHandler<HoldDto, HoldDto> {
-  async run(input: HoldDto): Promise<HoldDto> {
+export class HoldForWaiterTool {
+  async execute(input: HoldDto): Promise<HoldDto> {
     await isWaiterRunning;
     parallelBudgetLog.events.push("spender goes on");
     return input;
@@ -107,13 +106,13 @@ export class HoldForWaiterTool implements ToolHandler<HoldDto, HoldDto> {
   output: HoldDto,
   deps: [ExecutionContext, SpendRecorder],
 })
-export class WaitForAbortTool implements ToolHandler<HoldDto, HoldDto> {
+export class WaitForAbortTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  run(): Promise<HoldDto> {
+  execute(): Promise<HoldDto> {
     const { signal } = this.executionContext;
     this.spendRecorder.record({ service: "slow-api", cost: usd(0.03) });
     parallelBudgetLog.events.push("waiter waits");

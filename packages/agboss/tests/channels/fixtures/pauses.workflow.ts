@@ -30,7 +30,6 @@ import {
   type OnExecutionPause,
   type OnExecutionResume,
   type Produced,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { minutes } from "../../../src/units/index.js";
@@ -296,8 +295,8 @@ export class CustomerOrderConfirmationChannel extends OrderConfirmationChannel {
   input: RefundRequestDto,
   output: RefundDoneDto,
 })
-export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
-  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+export class RefundTool {
+  execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     seen.refunds.push(orderId);
     return Promise.resolve({ orderId });
   }
@@ -312,8 +311,8 @@ export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> 
   output: RefundDoneDto,
   timeout: minutes(5),
 })
-export class SlowRefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
-  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+export class SlowRefundTool {
+  execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     seen.refunds.push(orderId);
     return Promise.resolve({ orderId });
   }
@@ -326,8 +325,8 @@ export class SlowRefundTool implements ToolHandler<RefundRequestDto, RefundDoneD
   input: OrderConfirmationDto,
   output: OrderConfirmationDto,
 })
-export class ConfirmOrderTool implements ToolHandler<OrderConfirmationDto, OrderConfirmationDto> {
-  run(input: OrderConfirmationDto): Promise<OrderConfirmationDto> {
+export class ConfirmOrderTool {
+  execute(input: OrderConfirmationDto): Promise<OrderConfirmationDto> {
     seen.confirmed.push(input.orderId);
     return Promise.resolve(input);
   }
@@ -341,8 +340,8 @@ export class ConfirmOrderTool implements ToolHandler<OrderConfirmationDto, Order
   input: RefundRequestDto,
   output: RefundDoneDto,
 })
-export class AutoRefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
-  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+export class AutoRefundTool {
+  execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     seen.refunds.push(orderId);
     return Promise.resolve({ orderId });
   }

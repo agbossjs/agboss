@@ -51,7 +51,7 @@ export class NarrowDocsRag {
 // @ts-expect-error -- run gets the tool's whole input DTO, not a narrower one
 @Tool({ name: "narrow-lookup-tool", description: "Looks up", input: QueryDto, output: QueryDto })
 export class NarrowLookupTool {
-  run(input: NarrowQuery): Promise<QueryDto> {
+  execute(input: NarrowQuery): Promise<QueryDto> {
     return Promise.resolve(input);
   }
 }

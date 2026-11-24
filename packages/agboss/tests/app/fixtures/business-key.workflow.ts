@@ -20,7 +20,6 @@ import {
   type FencedEffectStatus,
   type OutboundCallSendStatus,
   type Produced,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -102,13 +101,13 @@ async function chargedOnce(
   output: ChargeResultDto,
   deps: [ExecutionContext, InMemoryFencedEffectRepository],
 })
-export class ChargeOrderTool implements ToolHandler<ChargeRequestDto, ChargeResultDto> {
+export class ChargeOrderTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly fencedEffects: InMemoryFencedEffectRepository,
   ) {}
 
-  run(request: ChargeRequestDto): Promise<ChargeResultDto> {
+  execute(request: ChargeRequestDto): Promise<ChargeResultDto> {
     return chargedOnce(this.executionContext, this.fencedEffects, request);
   }
 }
@@ -182,14 +181,14 @@ async function sentOnce(site: OutboundSite, request: ChargeRequestDto): Promise<
   output: ChargeResultDto,
   deps: [ExecutionContext, OutboundCalls, PaymentGateway],
 })
-export class SendChargeTool implements ToolHandler<ChargeRequestDto, ChargeResultDto> {
+export class SendChargeTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly outboundCalls: OutboundCalls,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
-  run(request: ChargeRequestDto): Promise<ChargeResultDto> {
+  execute(request: ChargeRequestDto): Promise<ChargeResultDto> {
     const { executionContext, outboundCalls, paymentGateway } = this;
     return sentOnce({ executionContext, outboundCalls, paymentGateway }, request);
   }

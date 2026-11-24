@@ -6,7 +6,7 @@ import { ChannelOf } from "../../src/channels/channel-handler.js";
 import { implementationsOf, channelRuleViolations } from "../../src/channels/channel-rules.js";
 import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { channelNameOf, channelUsesOf } from "../../src/channels/discovery.js";
-import { Injectable, Tool, type ToolHandler } from "../../src/components/decorators.js";
+import { Injectable, Tool } from "../../src/components/decorators.js";
 import { Integer } from "../../src/dto/index.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -206,8 +206,8 @@ abstract class LimitReplyChannel extends ChannelOf<LimitReplyChannel> {}
   output: RefundCardOutputDto,
   channel: RefundReplyChannel,
 })
-class ReplyRefundTool implements ToolHandler<RefundCardInputDto, RefundCardOutputDto> {
-  run(): Promise<RefundCardOutputDto> {
+class ReplyRefundTool {
+  execute(): Promise<RefundCardOutputDto> {
     return Promise.resolve({ status: "refunded" });
   }
 }
@@ -219,8 +219,8 @@ class ReplyRefundTool implements ToolHandler<RefundCardInputDto, RefundCardOutpu
   output: RefundCardOutputDto,
   channel: LimitReplyChannel,
 })
-class RaiseLimitTool implements ToolHandler<LimitInputDto, RefundCardOutputDto> {
-  run(): Promise<RefundCardOutputDto> {
+class RaiseLimitTool {
+  execute(): Promise<RefundCardOutputDto> {
     return Promise.resolve({ status: "raised" });
   }
 }

@@ -43,12 +43,6 @@ export type AnswersOf<Q extends DecisionQuestions> = {
 // @public
 export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall;
 
-// @public (undocumented)
-export function BindTool(tool: Class, options?: BindToolOptions): MethodDecorator;
-
-// @public (undocumented)
-export function BindTool(toolName: string, options?: BindToolOptions): MethodDecorator;
-
 // @public
 export function Channel<const D extends readonly Token[] = []>(options: ChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
     send(ask: never): Promise<unknown>;
@@ -652,8 +646,6 @@ export class WorkflowSettings {
 // Warnings were encountered during analysis:
 //
 // src/channels/channel-handler.ts - (ae-undocumented) Missing documentation for "send".
-// src/components/bind-tool.ts - (ae-undocumented) Missing documentation for "BindTool".
-// src/components/bind-tool.ts - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "description".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "provide".

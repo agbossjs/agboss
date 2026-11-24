@@ -16,7 +16,6 @@ import {
   type JudgeHandler,
   type JudgeInput,
   type StepDescriptor,
-  type ToolHandler,
   type WorkflowDescriptor,
 } from "../../../../src/index.js";
 import { onAgent, route, onStart } from "../../../helpers/flow.js";
@@ -70,10 +69,10 @@ export class DraftDto {
   output: NoteDto,
   deps: [ExecutionContext],
 })
-export class NoteTool implements ToolHandler<NoteDto, NoteDto> {
+export class NoteTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: NoteDto): Promise<NoteDto> {
+  execute(input: NoteDto): Promise<NoteDto> {
     seen.toolSteps.push(this.executionContext.step);
     // a forgotten promise: it reads the context once the call has ended
     seen.strays.push(

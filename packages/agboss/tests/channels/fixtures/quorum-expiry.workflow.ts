@@ -24,7 +24,6 @@ import {
   type OnQuorumDecided,
   type Produced,
   type QuorumDecidedEvent,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { groupFrom } from "../../../src/flow/path-builder.js";
@@ -194,8 +193,8 @@ export class ShortDeskRefundApprovalChannel extends ShortRefundApprovalChannel {
   input: RefundRequestDto,
   output: RefundDoneDto,
 })
-export class ShortRefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
-  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+export class ShortRefundTool {
+  execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     return Promise.resolve({ orderId });
   }
 }

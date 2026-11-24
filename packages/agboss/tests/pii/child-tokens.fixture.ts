@@ -14,7 +14,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type ToolHandler,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -55,10 +54,10 @@ export class NotifyDone {
   output: NotifyDone,
   deps: [ExecutionContext],
 })
-export class NotifyTool implements ToolHandler<NotifyRequest, NotifyDone> {
+export class NotifyTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run({ to }: NotifyRequest): Promise<NotifyDone> {
+  execute({ to }: NotifyRequest): Promise<NotifyDone> {
     this.executionContext.signal.throwIfAborted();
     return Promise.resolve({ status: `notified ${to}` });
   }

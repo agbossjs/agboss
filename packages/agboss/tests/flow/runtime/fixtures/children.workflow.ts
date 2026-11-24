@@ -23,7 +23,6 @@ import {
   type OnExecutionError,
   type OnExecutionStart,
   type Produced,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
@@ -434,8 +433,8 @@ export class ItemConfirmationDto {
   input: ItemConfirmationDto,
   output: ItemConfirmationDto,
 })
-export class ConfirmReviewTool implements ToolHandler<ItemConfirmationDto, ItemConfirmationDto> {
-  run(input: ItemConfirmationDto): Promise<ItemConfirmationDto> {
+export class ConfirmReviewTool {
+  execute(input: ItemConfirmationDto): Promise<ItemConfirmationDto> {
     return Promise.resolve(input);
   }
 }

@@ -16,7 +16,7 @@ terminal; `AutoApproveChannel` / `AutoRejectChannel` decide at once, for tests a
 ([Tools → Approval channels](Tools#approval-channels)):
 
 <!-- snippet-context
-import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, type ToolHandler } from "@agboss/core";
+import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { Email, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class EmailDraft { @Email() to!: string; @Text() body!: string; }
 class EmailSent { @Text() id!: string; }
@@ -34,8 +34,8 @@ export class Done {}
   output: EmailSent,
   channel: TerminalUserChannel, // the call waits for a decision
 })
-export class SendEmail implements ToolHandler<EmailDraft, EmailSent> {
-  run(draft: EmailDraft): Promise<EmailSent> {
+export class SendEmail {
+  execute(draft: EmailDraft): Promise<EmailSent> {
     return Promise.resolve({ id: `sent to ${draft.to}` });
   }
 }

@@ -12,7 +12,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
-  type ToolHandler,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -131,8 +130,8 @@ export class ItemConfirmation {
   input: ItemConfirmation,
   output: ItemConfirmation,
 })
-export class ConfirmItemTool implements ToolHandler<ItemConfirmation, ItemConfirmation> {
-  run(input: ItemConfirmation): Promise<ItemConfirmation> {
+export class ConfirmItemTool {
+  execute(input: ItemConfirmation): Promise<ItemConfirmation> {
     return Promise.resolve(input);
   }
 }
