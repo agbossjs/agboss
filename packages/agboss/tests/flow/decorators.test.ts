@@ -2,7 +2,6 @@ import { Window5Memory } from "../helpers/window-memory.js";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { NodeKind } from "../../src/flow/ast.js";
-import { inline } from "../../src/index.js";
 import { onStart } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
 import { Agent } from "../../src/flow/decorators/agent.js";

@@ -12,7 +12,6 @@ import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-l
 import { VirtualClock } from "../../../src/testing/index.js";
 import { ApplicationStoppingError, ExecutionCancelledError } from "../../../src/core/errors.js";
 import { errorRecordOf, RecordedError } from "../../../src/core/error-record.js";
-import { NO_PROVIDER } from "../../../src/finops/no-provider.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { NodeKind } from "../../../src/flow/ast.js";
 import {
@@ -506,7 +505,6 @@ describe("#1356: the ledger ids of lost passes", () => {
         provider: "(none)",
         costUsd: usd(0),
         costSource: CostSource.Unknown,
-        provider: NO_PROVIDER,
         ledgerKey: { id: "unknown:root:clerk:task-1:1", madeAt: now },
       },
       {
@@ -516,7 +514,6 @@ describe("#1356: the ledger ids of lost passes", () => {
         provider: "(none)",
         costUsd: usd(0),
         costSource: CostSource.Unknown,
-        provider: NO_PROVIDER,
         ledgerKey: { id: "unknown:root:clerk:task-1:4", madeAt: now },
       },
     ]);
