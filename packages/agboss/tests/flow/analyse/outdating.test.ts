@@ -84,8 +84,8 @@ class EditorRouter {}
       route(StoryReviewerAgent)
         .returns(oneOf(ApprovalDto, DraftChangesDto))
         .switch(
-          caseOf(ApprovalDto, { about: DraftDto }).toRouter(EditorRouter),
-          caseOf(DraftChangesDto, { about: DraftDto }).toRouter(EditorRouter),
+          caseOf(ApprovalDto).toRouter(EditorRouter),
+          caseOf(DraftChangesDto).toRouter(EditorRouter),
         ),
       route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
     ),
@@ -247,7 +247,7 @@ describe("#271 AC5: [input.missing-on-path] counts current values; the hub graph
         "story-workflow-start → editor-router → story-reviewer-agent",
     );
     expect(outdated.find((text) => text.includes("publisher-agent.approval"))).toMatch(
-      /publisher-agent\.approval \(ApprovalDto\) is outdated on the path .*story-reviewer-agent → editor-router → story-writer-agent → editor-router → publisher-agent \(about DraftDto, replaced by story-writer-agent\)/,
+      /publisher-agent\.approval \(ApprovalDto\) is outdated on the path .*story-reviewer-agent → editor-router → story-writer-agent → editor-router → publisher-agent \(built from DraftDto, replaced by story-writer-agent\)/,
     );
     expect(checkWorkflow(StoryWorkflow)).toMatchObject({ errors: [] });
   });
@@ -369,8 +369,8 @@ const gateWorkflow = (name: string, publisher: object): object => {
         route(StoryReviewerAgent)
           .returns(oneOf(ApprovalDto, DraftChangesDto))
           .switch(
-            caseOf(DraftChangesDto, { about: DraftDto }).toAgent(GateWriterAgent),
-            caseOf(ApprovalDto, { about: DraftDto }).toRouter(gate as never),
+            caseOf(DraftChangesDto).toAgent(GateWriterAgent),
+            caseOf(ApprovalDto).toRouter(gate as never),
           ),
         route(publisher as never)
           .returns(ArticleDto)
@@ -384,7 +384,7 @@ const gateWorkflow = (name: string, publisher: object): object => {
 
 describe("#271 AC2: a field outdated on one path only fails, required or optional", () => {
   const stale =
-    /approval \(.*ApprovalDto\)+ is outdated on the path story-workflow-start → gate-writer-agent → \S+ → story-reviewer-agent → \S+ → story-reviewer-agent → gate-writer-agent → \S+ → \S+-publisher-agent \(about DraftDto, replaced by gate-writer-agent\)/;
+    /approval \(.*ApprovalDto\)+ is outdated on the path story-workflow-start → gate-writer-agent → \S+ → story-reviewer-agent → \S+ → story-reviewer-agent → gate-writer-agent → \S+ → \S+-publisher-agent \(built from DraftDto, replaced by gate-writer-agent\)/;
 
   it("outdated on one path only: an optional field is not a way for a stale value to slip in", () => {
     const workflow = gateWorkflow("loose-gate", LoosePublisherAgent);
@@ -528,7 +528,6 @@ describe("#271 AC13: every assembly error at once, with those of #270 and #272",
       expect.arrayContaining([
         "flow.returns-mismatch", // #272: the profile editor gives CandidateProfileDto
         "input.missing-on-path", // #270: no profile on the path
-        "io.ambiguous-cycle", // #271: the reviewer does not say what its answers are about
       ]),
     );
   });
@@ -616,8 +615,8 @@ class ReplanRouter {}
       .toAgent(InnerReviewerAgent)
       .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
-        caseOf(DraftChangesDto, { about: DraftDto }).toAgent(NotesDraftAgent),
-        caseOf(ApprovalDto, { about: DraftDto })
+        caseOf(DraftChangesDto).toAgent(NotesDraftAgent),
+        caseOf(ApprovalDto)
           .toRouter(ReplanRouter)
           .chooseOne(
             route(OuterPlannerAgent),
@@ -641,11 +640,8 @@ class OneWriterWorkflow {}
     onAgent(InnerReviewerAgent)
       .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
-        caseOf(DraftChangesDto, { about: DraftDto })
-          .toAgent(RewriteAgent)
-          .returns(DraftDto)
-          .toAgent(InnerReviewerAgent),
-        caseOf(ApprovalDto, { about: DraftDto })
+        caseOf(DraftChangesDto).toAgent(RewriteAgent).returns(DraftDto).toAgent(InnerReviewerAgent),
+        caseOf(ApprovalDto)
           .toRouter(ReplanRouter)
           .chooseOne(
             route(OuterPlannerAgent),
@@ -660,7 +656,7 @@ describe("#271 edge: nested cycles need more than two passes", () => {
   it("nested cycles: after the inner loop the notes are outdated, so one writer cannot read them on a re-plan", () => {
     expect(messagesOf(OneWriterWorkflow, "input.outdated-on-path")).toEqual([
       expect.stringMatching(
-        /notes-draft-agent\.changes \(optional\(DraftChangesDto\)\) is outdated on the path .* → replan-router → outer-planner-agent → notes-draft-agent \(about DraftDto, replaced by notes-draft-agent\)/,
+        /notes-draft-agent\.changes \(optional\(DraftChangesDto\)\) is outdated on the path .* → replan-router → outer-planner-agent → notes-draft-agent \(built from DraftDto, replaced by notes-draft-agent\)/,
       ),
     ]);
   });

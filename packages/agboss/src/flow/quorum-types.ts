@@ -6,7 +6,6 @@ import type {
   GroupHead,
   GroupOfPath,
   PathHead,
-  ReturnsOptions,
   SidePath,
   Transitions,
 } from "./builder-types.js";
@@ -73,7 +72,6 @@ export type QuorumOutput<TOutput, TWhole extends boolean> = TWhole extends true
 export interface QuorumValues<TKey extends string> extends ValuesSource {
   readonly label: "the quorum (a single answer is optional(…) unless min is every agent)";
   readonly entry: `JoinOutputs["${TKey}"]`;
-  readonly takesAbout: true;
   readonly canLaunch: false;
 }
 
@@ -105,7 +103,6 @@ export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
 export interface GroupValues<TNames extends string, TGiven extends readonly unknown[]> {
   returns<const TShape extends ValueShape>(
     value: TShape,
-    ...options: [options?: ReturnsOptions]
   ): GroupValues<TNames, [...TGiven, ValueOf<TShape>]> &
     Transitions<GroupHead<TNames, [...TGiven, ValueOf<TShape>]>>;
 }

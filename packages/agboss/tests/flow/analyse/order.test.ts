@@ -76,7 +76,7 @@ class ReorderedSupportWorkflow {}
           .toAction(SendOfferAction)
           .returns(OfferSentDto)
           .toFinish(OfferSentWorkflowFinish),
-        caseOf(ChangesRequestedDto, { about: OfferDraftDto })
+        caseOf(ChangesRequestedDto)
           .toAgent(EditorAgent)
           .onError(
             VisitsLimitExceededError,

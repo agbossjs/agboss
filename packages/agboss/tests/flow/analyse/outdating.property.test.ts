@@ -12,7 +12,6 @@ import {
   type FlowGraph,
   type FlowNode,
 } from "../../../src/flow/analyse/flow-graph.js";
-import { aboutRules } from "../../../src/flow/analyse/rules/about.js";
 import type { AnalysisContext } from "../../../src/flow/analyse/rules/context.js";
 import { dataInputRules } from "../../../src/flow/analyse/rules/data-inputs.js";
 import { outdatedRules } from "../../../src/flow/analyse/rules/outdated.js";
@@ -42,7 +41,7 @@ import { Run } from "../../helpers/outdating-reference.js";
  * state a run reaches is one of the analyser's reachable abstract scopes (the engine is sound);
  * a run that reads an outdated value or misses a required one is reported by the rules; on a graph
  * the rules accept, no consumer receives a value built from a non-latest source, and no required
- * field is empty; an answer never outdates what it is about through the about edge.
+ * field is empty.
  */
 
 const POOL: readonly DtoClass[] = [ArticleRequestDto, ResearchDto, DraftDto, PlanDto, CritiqueDto];
@@ -52,7 +51,6 @@ interface AgentSpec {
   readonly inputs: readonly number[];
   readonly optionals: readonly boolean[];
   readonly output: number;
-  readonly about: number | undefined;
   readonly readsEverything: boolean;
   readonly next: readonly number[];
 }
@@ -68,7 +66,6 @@ const agentArbitrary = (count: number): fc.Arbitrary<AgentSpec> =>
     inputs: fc.subarray([0, 1, 2, 3, 4], { maxLength: 3 }),
     optionals: fc.array(fc.boolean(), { minLength: 3, maxLength: 3 }),
     output: fc.integer({ min: 1, max: 4 }),
-    about: fc.option(fc.integer({ min: 0, max: 4 }), { nil: undefined, freq: 2 }),
     readsEverything: fc.integer({ min: 0, max: 5 }).map((roll) => roll === 0),
     next: fc.uniqueArray(fc.integer({ min: 0, max: count }), { minLength: 1, maxLength: 2 }),
   });
@@ -134,12 +131,7 @@ function graphOf(spec: GraphSpec): FlowGraph {
         from: target(index),
         to: target(next),
         kind: EdgeKind.Next,
-        // `{ about }` is the flow's: on the write of the agent's value (#299 S54)
-        writes: [
-          agent.about === undefined
-            ? { shape: dtoAt(agent.output), isCase: false }
-            : { shape: dtoAt(agent.output), about: [dtoAt(agent.about)], isCase: false },
-        ],
+        writes: [{ shape: dtoAt(agent.output), isCase: false }],
       })),
     ),
   ];
@@ -198,11 +190,7 @@ function analyse(graph: FlowGraph): Analysed {
     children: [],
     options: {},
   };
-  const violations = [
-    ...dataInputRules(context),
-    ...outdatedRules(context),
-    ...aboutRules(context),
-  ];
+  const violations = [...dataInputRules(context), ...outdatedRules(context)];
   return { graph, fields, dataflow, violations };
 }
 
@@ -211,7 +199,6 @@ interface RunFindings {
   readonly unsound: string[];
   readonly unreported: string[];
   readonly stale: string[];
-  readonly aboutBroken: readonly string[];
 }
 
 /** What a node reads: its fields, or every current value for an agent without `input` (rule 8). */
@@ -259,7 +246,7 @@ function visit(run: Run, analysed: Analysed, node: FlowNode, findings: RunFindin
 }
 
 function simulate(analysed: Analysed, choices: readonly number[]): RunFindings {
-  const findings: RunFindings = { unsound: [], unreported: [], stale: [], aboutBroken: [] };
+  const findings: RunFindings = { unsound: [], unreported: [], stale: [] };
   const run = new Run();
   let at = analysed.graph.nodes.get(named(START));
   for (let step = 0; at !== undefined && step <= choices.length; step += 1) {
@@ -270,12 +257,10 @@ function simulate(analysed: Analysed, choices: readonly number[]): RunFindings {
     const slots = edge.writes.flatMap((write) =>
       typeof write.shape === "function" ? [slotOfDto(write.shape)] : [],
     );
-    const [target] = edge.writes.flatMap((write) => write.about ?? []);
-    const about = target === undefined ? undefined : slotOfDto(target);
-    run.write(edge.from, slots, readsOf(run, analysed, at), about);
+    run.write(edge.from, slots, readsOf(run, analysed, at));
     at = analysed.graph.nodes.get(edge.to);
   }
-  return { ...findings, aboutBroken: run.aboutBroken };
+  return findings;
 }
 
 describe("#271 regression: random graphs and random runs against a value-level model", () => {
@@ -288,14 +273,10 @@ describe("#271 regression: random graphs and random runs against a value-level m
           const analysed = analyse(graphOf(spec));
           const findings = simulate(analysed, choices);
           const isAccepted = analysed.violations.every(
-            (found) =>
-              !["input.missing-on-path", "input.outdated-on-path", "io.ambiguous-cycle"].includes(
-                found.code,
-              ),
+            (found) => !["input.missing-on-path", "input.outdated-on-path"].includes(found.code),
           );
           expect(findings.unsound).toEqual([]);
           expect(findings.unreported).toEqual([]);
-          expect(findings.aboutBroken).toEqual([]);
           expect(isAccepted ? findings.stale : []).toEqual([]);
         },
       ),

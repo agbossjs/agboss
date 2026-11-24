@@ -43,19 +43,6 @@ function reachedFrom(root: ScopeValueRecord, rest: readonly ScopeValueRecord[]):
   return reached;
 }
 
-/** Why a value reached by a cascade was outdated: through what it is about, or what it read. */
-function reasonOf(
-  record: ScopeValueRecord,
-  outdated: ReadonlyMap<string, ScopeValueRecord>,
-): OutdatedReason {
-  const about = record.about ?? [];
-  const isAbout = record.builtFrom.some((source) => {
-    const cause = outdated.get(source);
-    return cause !== undefined && about.includes(cause.slot);
-  });
-  return isAbout ? OutdatedReason.AboutReplaced : OutdatedReason.BuiltFromReplaced;
-}
-
 const byValueId = (first: ScopeValueRecord, second: ScopeValueRecord): number =>
   first.valueId.localeCompare(second.valueId);
 
@@ -90,12 +77,11 @@ export function writeAndOutdate(scope: ScopeRecords, written: ScopeRecords): Wri
       if (!rootOf.has(valueId)) rootOf.set(valueId, trigger);
   }
   const old = Object.values(scope).filter((record) => rootOf.has(record.valueId));
-  const outdatedById = new Map(old.map((record) => [record.valueId, record] as const));
   const outdated = old
     .map((record): OutdatedValueRecord => {
       const reason = replaced.has(record.valueId)
         ? OutdatedReason.Replaced
-        : reasonOf(record, outdatedById);
+        : OutdatedReason.BuiltFromReplaced;
       const root = rootOf.get(record.valueId)?.valueId ?? "";
       return { ...record, outdated: { byValueId: root, reason } };
     })

@@ -38,7 +38,7 @@ export function visitWrite(
   provenance: RuntimeProvenance,
 ): VisitWrite {
   if (exit === undefined) return NOTHING;
-  const read = { producer: node.id, read: outcome.read, writes: exit.writes };
+  const read = { producer: node.id, read: outcome.read };
   const site = {
     node,
     visitNumber: (state.visits[node.id] ?? 0) + 1,

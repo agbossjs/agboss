@@ -11,7 +11,6 @@ import type { FlowGraph } from "./flow-graph.js";
 import { classLabel } from "./labels.js";
 import { projectInput, type InputShape } from "./projection.js";
 import { recursionOf, type Recursion } from "./recursion.js";
-import { aboutRules } from "./rules/about.js";
 import { branchOutdatingRules } from "./rules/branch-outdating.js";
 import { childFailureWarnings } from "./rules/child-failure.js";
 import { childPlacementRules } from "./rules/child-placement.js";
@@ -95,7 +94,6 @@ const RULES: readonly FlowRule[] = [
   dataInputRules,
   dataOutputRules,
   outdatedRules,
-  aboutRules,
   stepsRules,
   launchRules,
   quorumRules,

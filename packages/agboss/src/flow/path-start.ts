@@ -7,6 +7,6 @@ import type { GroupStart } from "./quorum-step.js";
 export type PathStart =
   | { readonly kind: "source" }
   | { readonly kind: "route"; readonly target: Class; readonly placement?: ChildPlacement }
-  | { readonly kind: "case"; readonly dto: DtoClass; readonly about?: readonly DtoClass[] }
+  | { readonly kind: "case"; readonly dto: DtoClass }
   | { readonly kind: "side" }
   | GroupStart;

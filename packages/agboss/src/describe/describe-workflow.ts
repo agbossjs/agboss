@@ -7,7 +7,7 @@ import { flowLines } from "../flow/print.js";
 import { isDecisionModel } from "../graph/router-model.js";
 import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
-import { aboutLines, childLines, inputLines } from "./inputs.js";
+import { childLines, inputLines } from "./inputs.js";
 import { recursionLines } from "./recursion.js";
 import { compensationLines } from "./compensation.js";
 import {
@@ -76,19 +76,13 @@ function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
   return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}${expiryLabel(tool)}`;
 }
 
-/** Each value written with `{ about }` (#271, #299), when the workflow has one. */
-function aboutSection(bundle: AssembledWorkflow): string[] {
-  const lines = aboutLines(bundle.graph.analysis);
-  return lines.length === 0 ? [] : ["about", ...lines.map((line) => `  ${line}`)];
-}
-
 /** The start each edge into a child workflow enters through (#263), when the workflow has one. */
 function childSection(bundle: AssembledWorkflow): string[] {
   const lines = childLines(bundle.graph.analysis);
   return lines.length === 0 ? [] : ["children", ...lines.map((line) => `  ${line}`)];
 }
 
-/** The paths as written, each node's inputs with their producers, each `about`, each router's model. */
+/** The paths as written, each node's inputs with their producers, each router's model. */
 function flowSection(bundle: AssembledWorkflow): string[] {
   return [
     "flow",
@@ -97,7 +91,6 @@ function flowSection(bundle: AssembledWorkflow): string[] {
     ...inputLines(bundle.graph.analysis).map((line) => `  ${line}`),
     ...childSection(bundle),
     ...recursionLines(bundle.graph.analysis),
-    ...aboutSection(bundle),
     "routers",
     ...routerLines(bundle),
     ...compensationLines(bundle),

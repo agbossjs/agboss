@@ -16,7 +16,7 @@ import type {
   NameOf,
   ThisWorkflowOutputs,
 } from "./generated-types.js";
-import type { AfterReturns, ReturnsArguments, Same, ValuesSource } from "./returns-types.js";
+import type { AfterReturns, Same, ValuesSource } from "./returns-types.js";
 import type { ThisWorkflow } from "./this-workflow.js";
 
 /**
@@ -66,7 +66,6 @@ export interface ThisWorkflowJoinClaim<TValue> {
 export interface ThisWorkflowStepValues extends ValuesSource {
   readonly label: ThisWorkflowName;
   readonly entry: 'ThisWorkflowOutputs["<workflow>"]["output"]';
-  readonly takesAbout: true;
   readonly canLaunch: true;
 }
 
@@ -74,7 +73,6 @@ export interface ThisWorkflowStepValues extends ValuesSource {
 export interface ThisWorkflowJoinValues extends ValuesSource {
   readonly label: "the join";
   readonly entry: 'ThisWorkflowOutputs["<workflow>"]["join"]';
-  readonly takesAbout: true;
   readonly canLaunch: false;
 }
 
@@ -82,7 +80,6 @@ export interface ThisWorkflowJoinValues extends ValuesSource {
 export interface ThisWorkflowReturning<THead extends PathHead> {
   returns<const TShape extends ReturnedShape>(
     value: TShape,
-    ...options: ReturnsArguments<TShape, ThisWorkflowStepValues>
   ): AfterReturns<
     ThisWorkflowStepValues,
     never,
@@ -100,7 +97,6 @@ export interface ThisWorkflowJoined<THead extends PathHead> {
   ): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;
   returns<const TShape extends ReturnedShape>(
     value: TShape,
-    ...options: ReturnsArguments<TShape, ThisWorkflowJoinValues>
   ): AfterReturns<
     ThisWorkflowJoinValues,
     never,

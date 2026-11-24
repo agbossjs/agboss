@@ -68,6 +68,6 @@ export const groupKeyOf = (launch: FlowLaunch, agents: readonly ComponentName[])
 /** The values of a `.returns(…)` chain a join (or a quorum group) writes. */
 export function joinValuesOf(returns: readonly ReturnedValue[]): readonly ValueWrite[] {
   return returns.flatMap((value) =>
-    isValueShape(value.shape) ? [valueWrite(value.shape, value.about, false)] : [],
+    isValueShape(value.shape) ? [valueWrite(value.shape, false)] : [],
   );
 }

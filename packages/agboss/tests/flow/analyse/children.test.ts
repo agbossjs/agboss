@@ -421,21 +421,6 @@ describe("#263 AC3 / AC17: the child's output — one case per finish output cla
     expect(codesOf([switched([grade, unread, failed])])).toEqual([]);
   });
 
-  it("caseOf with { about } on a child's result (#299: tags are gone, about stays)", () => {
-    const [, rejected, failed] = reviewCases();
-    const about = caseOf(CompanyGradeDto, { about: CompanyDto })
-      .toAgent(JobOfferAgent)
-      .returns(JobOfferDto)
-      .toFinish(JobOfferWorkflowFinish);
-    const { analysis, errors } = checked([switched([about, rejected, failed])]);
-    expect(errors).toEqual([]);
-    const write = analysis?.graph.edges
-      .filter((edge) => edge.from === "company-review-workflow")
-      .flatMap((edge) => edge.writes)
-      .find((value) => value.shape === CompanyGradeDto);
-    expect(write?.about).toEqual([CompanyDto]);
-  });
-
   it("the join of a per-item child gives the list of its finishes' classes", () => {
     const joined = found()
       .toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 })

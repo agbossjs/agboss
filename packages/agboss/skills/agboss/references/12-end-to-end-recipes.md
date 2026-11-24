@@ -8,7 +8,7 @@ read the reference each part points to.
 
 | Recipe                                                | Shows                                                                                                                                             |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. An offer review loop                               | `oneOf` + `switch`, `about`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                       |
+| 1. An offer review loop                               | `oneOf` + `switch`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                                |
 | 2. Sourcing: children per item, a quorum, an approval | `.toParallelWorkflows`, a soft child failure, `.acceptedBy(anyOf(…))`, `.joinQuorum`, a channel role, `app.resume`                                |
 | 3. A help desk on MCP and A2A, streamed               | `@McpServer` / `@McpTool`, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                            |
 | 4. A production multi-tenant application              | tenant context, budgets, model providers with a fallback and `TenantWeighted`, PII, a guardrail, SQLite, health, undo, unit and integration tests |
@@ -258,7 +258,7 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
     onAgent(LetterReviewerAgent)
       .returns(oneOf(LetterChangesDto, LetterApprovedDto))
       .switch(
-        caseOf(LetterChangesDto, { about: OfferLetterDto })
+        caseOf(LetterChangesDto)
           .toAgent(LetterEditorAgent)
           .onError(VisitsLimitExceededError, toFinish(OfferStuckWorkflowFinish)) // no model past a limit
           .returns(OfferLetterDto)

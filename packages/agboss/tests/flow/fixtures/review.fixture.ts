@@ -16,8 +16,8 @@ import { TEST_BUDGETS } from "./budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
 /**
- * #271 — the review loop (`caseOf(…, { about: DraftDto })` after the reviewer, #299) and a polish
- * loop (an action's `.returns(listOf(CritiqueDto), { about: DraftDto })`).
+ * #271 — the review loop (`caseOf(…)` after the reviewer, #299) and a polish
+ * loop (an action's `.returns(listOf(CritiqueDto))`).
  */
 
 @WorkflowStart({
@@ -99,9 +99,9 @@ export const storyPaths = [
     .toAgent(StoryReviewerAgent)
     .returns(oneOf(ApprovalDto, DraftChangesDto))
     .switch(
-      caseOf(DraftChangesDto, { about: DraftDto })
+      caseOf(DraftChangesDto)
         .toAgent(StoryWriterAgent),
-      caseOf(ApprovalDto, { about: DraftDto })
+      caseOf(ApprovalDto)
         .toAgent(PublisherAgent)
         .returns(ArticleDto)
         .toFinish(StoryWorkflowFinish),
@@ -186,7 +186,7 @@ export class CritiqueRouter {}
     onAgent(PolishAgent)
       .returns(DraftDto)
       .toAction(CritiqueAction)
-      .returns(listOf(CritiqueDto), { about: DraftDto })
+      .returns(listOf(CritiqueDto))
       .toRouter(CritiqueRouter)
       .chooseOne(route(PolishAgent), route(PolishedWorkflowFinish)),
   ],

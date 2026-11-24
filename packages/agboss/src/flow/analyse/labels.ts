@@ -65,13 +65,5 @@ const SOURCE_CALLS: Readonly<Record<NodeKind, string>> = {
 export const sourceCallOf = (kind: NodeKind): string => SOURCE_CALLS[kind];
 
 /** A path as a message names it: `onStart(OfferWorkflowStart)`, `onAgent(ReviewerAgent)`. */
-/** `{ about: PlanDto }`, `{ about: [PlanDto, BudgetDto] }` — as the flow writes it (#299). */
-export function aboutLabel(about: readonly DtoClass[]): string {
-  const [one] = about;
-  const targets =
-    about.length === 1 && one !== undefined ? dtoLabel(one) : `[${about.map(dtoLabel).join(", ")}]`;
-  return `{ about: ${targets} }`;
-}
-
 export const pathLabel = (source: PathSource): string =>
   `${sourceCallOf(source.kind)}(${classLabel(source.node)})`;

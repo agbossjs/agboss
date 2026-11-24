@@ -8,12 +8,11 @@ import {
   type Quorum,
 } from "../ast.js";
 import type { ComponentDeclaration } from "../decorators/declaration.js";
-import type { DtoClass } from "../../dto/types.js";
 import type { ListWrapper, OutputShape, ReturnedShape, ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { JoinGroup } from "./join-groups.js";
 import { childWorkflowOf } from "./child-workflow.js";
-import { dtoLabel, shapeLabel } from "./labels.js";
+import { shapeLabel } from "./labels.js";
 
 /**
  * The graph of a v2 workflow as the analyser sees it (#272 PR 2): one node per component `name`
@@ -53,18 +52,12 @@ export enum EdgeKind {
  */
 export interface ValueWrite {
   readonly shape: ValueShape;
-  /** `{ about }` of its `.returns` or `caseOf` (#299 S54): what the value is about. */
-  readonly about?: readonly DtoClass[];
   /** Written by `caseOf(XDto)`: the switch read it to choose the branch (#270 AC19). */
   readonly isCase: boolean;
 }
 
-/** A write of `shape`, with its `{ about }` when it has one. */
-export const valueWrite = (
-  shape: ValueShape,
-  about: readonly DtoClass[] | undefined,
-  isCase: boolean,
-): ValueWrite => (about === undefined ? { shape, isCase } : { shape, about, isCase });
+/** A write of `shape`. */
+export const valueWrite = (shape: ValueShape, isCase: boolean): ValueWrite => ({ shape, isCase });
 
 /** One target of a launch (#273): its node, how many copies, and whether it may be missing. */
 export interface LaunchBranch {
@@ -192,10 +185,7 @@ export const writesLeaving = (
 
 /** A canonical, comparable key of an edge. */
 export function edgeKey(edge: FlowEdge): string {
-  const writes = edge.writes.map(
-    (write) =>
-      `${shapeLabel(write.shape)}@${(write.about ?? []).map(dtoLabel).join("+")}:${String(write.isCase)}`,
-  );
+  const writes = edge.writes.map((write) => `${shapeLabel(write.shape)}:${String(write.isCase)}`);
   const joined = (edge.join?.written ?? []).map(shapeLabel).join(",");
   return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(","), joined].join(
     "|",

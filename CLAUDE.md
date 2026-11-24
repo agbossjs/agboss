@@ -172,7 +172,7 @@ recursive, maxDepth 3`) —, each contract's implementation and why, the model p
 channel (a role's question → answer, who answers, its reply interpreter and its implementation),
 the budgets by scope and the execution budget of each workflow, then every workflow: its guardrails
 and PII policies with their refusals (the text, or `ClassName.refusal()`), flow, each node's inputs
-with their producers, each `about`, its limits (`maxSteps`, `maxVisits`, `maxDepth`,
+with their producers, its limits (`maxSteps`, `maxVisits`, `maxDepth`,
 `maxConcurrentExecutions`), `model → provider`, and each agent's compaction and `uncompactedTurns`
 with where they came from (`(own)`, `(<workflow>)`, `(<application>)`, `(built-in)`). `agboss check` prints its report from the
 decorators only (no `maxSpend()`): per start the worst case of one call — executions, at the same
@@ -811,9 +811,7 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   via other DTOs (`[dto.cyclic]`, naming the component and `A → B → A`; #1080); a path ends in a finish; a router's `chooseOne` lists exactly its
   routes (`[router.routes-mismatch]`); a node on a cycle has `maxVisits`. No field reads an outdated
   value — one built from an older version of what was renewed since (`[input.outdated-on-path]`,
-  #271); in a cycle of classes built from each other the flow says what one value is about —
-  `.returns(CritiqueDto, { about: DraftDto })`, or on a case `caseOf(ChangesRequestedDto, { about:
-OfferDraftDto })` (`[io.ambiguous-cycle]`, #299); a node reads the earlier versions of a value as
+  #271; a loop of classes built from each other needs nothing written: a new value outdates what was built from the old one); a node reads the earlier versions of a value as
   `historyOf(OfferDraftDto, { maxPrevious: 2 })` — `{ current, previous }` (no tags). At run time the scope holds
   current values only: a write moves the older value and everything built from it to
   `outdatedValues` (`result.record`, `outdated: { byValueId, reason: OutdatedReason… }`), one
@@ -882,7 +880,7 @@ export const offerPaths = [
   onAgent(ReviewerAgent)
     .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
-      caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
+      caseOf(ChangesRequestedDto) // the changes are about this draft
         .toAgent(EditorAgent)
         .onError(
           VisitsLimitExceededError, // the editor's maxVisits spent: tell the recruiter, finish

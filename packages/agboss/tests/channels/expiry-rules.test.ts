@@ -104,9 +104,7 @@ function askingApplication(
     .returns(PurchaseQuestionDto)
     .toExternalTask(role, main);
   const placed = (path: typeof asked) =>
-    path
-      .returns(SpendingLimitAnswerDto, { about: PurchaseQuestionDto })
-      .toAction(PlacePurchaseAction);
+    path.returns(SpendingLimitAnswerDto).toAction(PlacePurchaseAction);
   const flow =
     options.length < 2
       ? [placed(asked).returns(PurchasePlacedDto).toFinish(PurchaseWorkflowFinish)]

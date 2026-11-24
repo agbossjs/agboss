@@ -1,10 +1,8 @@
 import type { Class } from "../../../src/components/injection.js";
 import type { DtoClass } from "../../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
-import type { ReturnsOptions } from "../../../src/flow/builder-types.js";
 import type { ValueShape } from "../../../src/flow/dto-wrappers.js";
 import {
-  aboutTargets,
   fromComponent,
   fromSource,
   groupFrom,
@@ -38,10 +36,7 @@ export const onExternalTask = (source: Class): PathBuilder<PathSource> =>
 
 export const route = (target: Class): PathBuilder => subPathFrom({ kind: "route", target });
 
-export const caseOf = (dto: DtoClass, options?: ReturnsOptions): PathBuilder => {
-  const about = aboutTargets(options);
-  return subPathFrom(about === undefined ? { kind: "case", dto } : { kind: "case", dto, about });
-};
+export const caseOf = (dto: DtoClass): PathBuilder => subPathFrom({ kind: "case", dto });
 
 /** `.returns(A).returns(B)…` — a start's several values, one `.returns` each (#299 S54). */
 export const returnsEach = <TBuilder extends PathBuilder>(

@@ -14,7 +14,6 @@ import type {
   CasePath,
   KindCheck,
   KindLabel,
-  ReturnsOptions,
   RouteContinuation,
   RouteTargetKind,
   RouteOptions,
@@ -25,7 +24,6 @@ import type {
 } from "./builder-types.js";
 import type { LaunchCheck, TargetNames } from "./launch-types.js";
 import {
-  aboutTargets,
   fromComponent,
   fromSource,
   groupFrom,
@@ -109,16 +107,13 @@ export function route(target: Class, options?: unknown): PathBuilder<undefined> 
 }
 
 /**
- * One case of `.switch(…)`: the class of the `oneOf` result, put on the path like `.returns`;
- * `caseOf(ChangesRequestedDto, { about: OfferDraftDto })` says what this variant is about (#299).
+ * One case of `.switch(…)`: the class of the `oneOf` result, put on the path like `.returns`.
  */
 export function caseOf<const TDto extends DtoClass>(
   dto: TDto,
-  options?: ReturnsOptions,
 ): AfterValue<InstanceType<TDto>, CaseHead<InstanceType<TDto>>>;
-export function caseOf(dto: DtoClass, options?: ReturnsOptions): CasePath {
-  const about = aboutTargets(options);
-  return subPathFrom(about === undefined ? { kind: "case", dto } : { kind: "case", dto, about });
+export function caseOf(dto: DtoClass): CasePath {
+  return subPathFrom({ kind: "case", dto });
 }
 
 /** A side path of `.onError(E, …)`. */

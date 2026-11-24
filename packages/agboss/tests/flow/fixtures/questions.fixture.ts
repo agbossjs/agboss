@@ -266,7 +266,7 @@ export class OwnerPurchaseWorkflowFinish {}
       .returns(PurchaseQuestionDto)
       .toExternalTask(BudgetOwnerQuestion),
     onExternalTask(BudgetOwnerQuestion)
-      .returns(SpendingLimitAnswerDto, { about: PurchaseQuestionDto })
+      .returns(SpendingLimitAnswerDto)
       .toAction(CheckLimitAction)
       .returns(oneOf(PurchasePlacedDto, PurchaseQuestionDto))
       .switch(

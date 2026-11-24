@@ -96,7 +96,7 @@ export class Unused {}
     onAgent(Coder)
       .returns(CodeDto)
       .toAgent(Reviewer)
-      .returns(ReviewDto, { about: CodeDto }) // the review is about this code (#271)
+      .returns(ReviewDto) // the review is about this code (#271)
       .toRouter(ReviewGate)
       .chooseOne(route(Coder), route(PullRequest)),
   ],

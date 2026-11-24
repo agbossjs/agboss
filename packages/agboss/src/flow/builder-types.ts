@@ -9,7 +9,6 @@ import type {
   NoOutput,
   ProducerOutputOf,
 } from "./generated-types.js";
-import type { DtoClass } from "../dto/types.js";
 import type { ChildStepOptions, QuestionStepOptions } from "./child-placement.js";
 import type { Launches, RouterLaunches } from "./launch-types.js";
 import type { Returning, StepValues, ValuesLeft } from "./returns-types.js";
@@ -88,15 +87,6 @@ export type ClaimsOf<TPath> = TPath extends { readonly [pathHead]?: infer THead 
     ? TClaims
     : never
   : never;
-
-/**
- * `.returns(CritiqueDto, { about: PlanDto })`, `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`
- * (#299, S54): what the value is about — a new value of one of these classes outdates it, and it
- * never outdates them (#271).
- */
-export interface ReturnsOptions {
-  readonly about?: DtoClass | readonly [DtoClass, ...DtoClass[]];
-}
 
 /** How a message names each kind. */
 export interface KindLabels {

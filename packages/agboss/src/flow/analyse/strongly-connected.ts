@@ -10,9 +10,8 @@ import { mostRunning } from "./steps.js";
 
 /**
  * Tarjan's strongly connected components of a directed graph, given by its vertices and each
- * vertex's successors. The flow's cycles (`[graph.cycle-without-max-visits]`) and the cycles of
- * classes built from each other (`[io.ambiguous-cycle]`, #271) are both read from it. Each component
- * is sorted; the components come in Tarjan's order. Below it, the longest walk over the flow's
+ * vertex's successors. The flow's cycles (`[graph.cycle-without-max-visits]`) are read from it.
+ * Each component is sorted; the components come in Tarjan's order. Below it, the longest walk over the flow's
  * components that `maxVisits` bounds (#643, `[limits.max-steps-below-worst-case]`).
  */
 export function stronglyConnected<TVertex extends string>(

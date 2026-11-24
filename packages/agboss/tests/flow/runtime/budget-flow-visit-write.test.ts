@@ -84,7 +84,7 @@ describe("#1366: the values a visit writes", () => {
     const out = writeBy({ writes }, { visits: { clerk: 2 }, scope });
 
     expect(builtFromOf).toHaveBeenCalledWith(
-      { producer: "clerk", read: ["v1"], writes },
+      { producer: "clerk", read: ["v1"] },
       scope,
       provenance,
     );

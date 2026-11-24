@@ -70,7 +70,7 @@ npm test
   reviewer is reached from the draft and from the editor, so
   `onAgent(ReviewerAgent).returns(oneOf(ChangesRequestedDto, DraftApprovedDto)).switch(…)` is a path
   of its own, and the change requests are about the draft:
-  `caseOf(ChangesRequestedDto, { about: OfferDraftDto })`. The editor has `maxVisits: 2`; the refused third visit is taken by
+  `caseOf(ChangesRequestedDto)`. The editor has `maxVisits: 2`; the refused third visit is taken by
   `.onError(VisitsLimitExceededError, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))`.
   The reviewer reads `historyOf(OfferDraftDto, { maxPrevious: 1 })` — `{ current, previous }`, the draft and
   the one before it. Moving the `switch(…)` inline after `.toAgent(ReviewerAgent)` makes `agboss check` fail with

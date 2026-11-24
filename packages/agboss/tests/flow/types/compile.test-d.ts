@@ -98,18 +98,16 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     onStart(CompanyCheckWorkflowStart).returns(CompanyDto, optional(SearchRequestDto));
     // @ts-expect-error — no string tags (#299 S56): { as } is gone
     onAgent(DraftAgent).returns(OfferDraftDto, { as: "before" });
-    // @ts-expect-error — { about } names DTO classes
-    onAgent(DraftAgent).returns(OfferDraftDto, { about: "ShortlistDto" });
-    // @ts-expect-error — a start's input is no answer about anything: no { about } after a start
-    onStart(CompanyBatchWorkflowStart).returns(listOf(CompanyDto), { about: ShortlistDto });
+    // @ts-expect-error — { about } is gone (#1277)
     onAgent(DraftAgent).returns(OfferDraftDto, { about: ShortlistDto });
-    onAgent(DraftAgent).returns(OfferDraftDto, { about: [ShortlistDto, ProfileDto] });
+    // @ts-expect-error — { about } is gone from caseOf too (#1277)
+    caseOf(ChangesRequestedDto, { about: OfferDraftDto });
+    onStart(CompanyBatchWorkflowStart).returns(listOf(CompanyDto));
+    onAgent(DraftAgent).returns(OfferDraftDto);
   });
 
-  it("AC3: { about } goes on the case of a oneOf, never on .returns(oneOf(…))", () => {
+  it("AC3: a oneOf output is .returns(oneOf(…)), then .switch(…)", () => {
     const reviewed = onAgent(ReviewerAgent);
-    // @ts-expect-error — the variants mean different things: write caseOf(X, { about })
-    reviewed.returns(oneOf(ChangesRequestedDto, DraftApprovedDto), { about: OfferDraftDto });
     // @ts-expect-error — a oneOf output is .returns(oneOf(…)), then .switch(…)
     reviewed.switch(
       caseOf(ChangesRequestedDto).toAgent(EditorAgent),
@@ -120,7 +118,7 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     reviewed
       .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
-        caseOf(ChangesRequestedDto, { about: OfferDraftDto }).toAgent(EditorAgent),
+        caseOf(ChangesRequestedDto).toAgent(EditorAgent),
         caseOf(DraftApprovedDto).toAction(SendOfferAction),
       );
   });

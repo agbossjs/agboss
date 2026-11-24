@@ -752,7 +752,7 @@ describe("#273: parallel launches and their joins", () => {
       .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
       .join();
     joined.returns(ResearchDto).returns(listOf(CritiqueDto)).toAgent(ArticleWriterAgent);
-    joined.returns(listOf(CritiqueDto), { about: PlanDto }).returns(ResearchDto);
+    joined.returns(listOf(CritiqueDto)).returns(ResearchDto);
     // @ts-expect-error — two critic-agent copies give a list, not one CritiqueDto
     joined.returns(CritiqueDto);
     // @ts-expect-error — every value is named before the next step

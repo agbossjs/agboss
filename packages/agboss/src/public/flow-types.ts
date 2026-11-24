@@ -78,7 +78,6 @@ export {
   type Member,
   type Members,
   type NotGiven,
-  type ReturnsArguments,
   type ReturnsCheck,
   type Same,
   type ValuesLeft,

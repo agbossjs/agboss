@@ -1499,7 +1499,6 @@ export interface OutdatedMark {
 
 // @public
 export enum OutdatedReason {
-    AboutReplaced = "about-replaced",
     BuiltFromReplaced = "built-from-replaced",
     Replaced = "replaced"
 }
@@ -1972,7 +1971,6 @@ export type ScopeRecords = Readonly<Record<string, ScopeValueRecord>>;
 
 // @public
 export interface ScopeValueRecord {
-    readonly about?: readonly string[];
     readonly builtFrom: readonly string[];
     readonly elementProducers?: readonly string[];
     readonly producer: string;

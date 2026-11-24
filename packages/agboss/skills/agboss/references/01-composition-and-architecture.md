@@ -387,7 +387,7 @@ export class ScreeningResultDto {
 ```
 
 A God DTO hides the branches from the flow (no `switch`, no `[flow.switch-not-exhaustive]`),
-forces `if (x.found)` checks in every reader, and makes `about` / outdating (reference 02) useless.
+forces `if (x.found)` checks in every reader, and makes outdating (reference 02) useless.
 
 ## Files, images and large blobs
 

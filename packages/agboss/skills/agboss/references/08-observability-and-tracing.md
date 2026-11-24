@@ -32,7 +32,7 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 | `record`                              | with `{ record: true }`: the `ExecutionRecord` below                                                                                |
 
 `ExecutionRecord` — `path`, `scope` (every current value of the path scope: `ScopeValueRecord` with
-`valueId`, `slot`, `producer`, `builtFrom`, `about`, the value), `outdatedValues`
+`valueId`, `slot`, `producer`, `builtFrom`, the value), `outdatedValues`
 (`OutdatedValueRecord`, each with its `OutdatedReason`), `lastError` (an `ErrorRecord`: `name`,
 `code`, `message`, `lineage`, `cause`), `spend`, `children`, `compensations` and `pauses` — who
 answered each resolved pause of the tree (`PauseAnswerRecord`: `pauseId`, `role`, `answerer`,

@@ -6,7 +6,7 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 /**
  * Reviews the draft: requests changes or approves it. Reached from the draft and from the editor,
  * so its path is its own (`onAgent(ReviewerAgent).returns(oneOf(…)).switch(…)`); the flow says its
- * change requests are about the draft (`caseOf(ChangesRequestedDto, { about: OfferDraftDto })`) — a
+ * change requests are about the draft (`caseOf(ChangesRequestedDto)`) — a
  * rewrite outdates the old request. It reads the draft with its last earlier version
  * (`historyOf(OfferDraftDto, { maxPrevious: 1 })` — `{ current, previous }`), to judge what changed.
  */

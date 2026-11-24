@@ -120,7 +120,7 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
           value: { changes: "shorter" },
           outdated: {
             byValueId: "loop-writer-agent:2/DraftDto",
-            reason: OutdatedReason.AboutReplaced,
+            reason: OutdatedReason.BuiltFromReplaced,
           },
         }),
       ]);

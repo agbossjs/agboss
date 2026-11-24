@@ -130,7 +130,7 @@ export const offerPaths = [
   onAgent(ReviewerAgent)
     .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
-      caseOf(ChangesRequestedDto, { about: OfferDraftDto })
+      caseOf(ChangesRequestedDto)
         .toAgent(EditorAgent)
         .onError(
           VisitsLimitExceededError,

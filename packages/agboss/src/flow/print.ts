@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { aboutLabel, shapeLabel, sourceCallOf, toCallOf } from "./analyse/labels.js";
+import { shapeLabel, sourceCallOf, toCallOf } from "./analyse/labels.js";
 import { spanText } from "../units/working-time.js";
 import {
   StepKind,
@@ -37,12 +37,7 @@ export const byClassName: ComponentLabel = (component) => component.name || "(an
 export const byComponentName: ComponentLabel = (component) =>
   declarationOf(component)?.options.name ?? byClassName(component);
 
-/** `XDto`, `XDto, { about: PlanDto }` — a `.returns(…)` or a `caseOf(…)`'s arguments. */
-const valueText = (value: Pick<ReturnedValue, "about"> & { readonly label: string }): string =>
-  value.about === undefined ? value.label : `${value.label}, ${aboutLabel(value.about)}`;
-
-const returnsLine = (value: ReturnedValue): string =>
-  `.returns(${valueText({ ...value, label: shapeLabel(value.shape) })})`;
+const returnsLine = (value: ReturnedValue): string => `.returns(${shapeLabel(value.shape)})`;
 
 /** The enum member's name of a placement: `AnyInstance`. */
 const placementName = (placement: ChildPlacement): string =>
@@ -170,7 +165,7 @@ class Printer {
       case StepKind.Switch:
         this.line(depth, ".switch(");
         step.cases.forEach((branch, index) => {
-          const head = `caseOf(${valueText({ ...branch, label: branch.dto.name })})`;
+          const head = `caseOf(${branch.dto.name})`;
           this.branch(head, branch.path.steps, depth + 1, index === step.cases.length - 1);
         });
         this.line(depth, ")");

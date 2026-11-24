@@ -42,36 +42,10 @@ const research1 = record("researcher-agent:1/ResearchDto", [critique1.valueId]);
 const plan1 = record("planner-agent:1/PlanDto", [research1.valueId]);
 
 describe("#271 S11: what a value is built from at run time", () => {
-  it("a write's own { about } target, even when its step does not read the target (S40 b)", () => {
-    const graph = runtimeGraphOf(analyseWorkflow(PolishWorkflow), [], PolishWorkflow);
-    const node = graph.nodes.get("critique-action");
-    const exit = node?.exits.next;
-    if (node === undefined || exit === undefined) throw new Error("no critique-action exit");
-    const draft = record("polish-agent:1/DraftDto");
-    const site = { node, visitNumber: 1, builtFrom: [], scope: scopeOf(draft) };
-
-    const written = recordsOfWrites(site, exit.writes, { value: [{ remark: "r" }] });
-
-    expect(written["list:CritiqueDto"]).toEqual(
-      expect.objectContaining({ builtFrom: [draft.valueId], about: ["DraftDto"] }),
-    );
-  });
-
-  it("never an answer about the value it writes (the about direction, rule 5)", () => {
-    const site = {
-      producer: "writer-agent",
-      read: [critique1.valueId],
-      writes: [{ shape: DraftDto, isCase: false }],
-    };
-
-    expect(builtFromOf(site, scopeOf(draft1, critique1), provenance)).toEqual([]);
-  });
-
   it("every current value for an agent without input (rule 8)", () => {
     const site = {
       producer: "notes-agent",
       read: [],
-      writes: [{ shape: CritiqueDto, isCase: false }],
     };
 
     expect(builtFromOf(site, scopeOf(draft1, research1), provenance)).toEqual([
@@ -117,7 +91,7 @@ describe("#271 S11: the cascade of a write", () => {
     expect(outcome.cascades[0]?.trigger).toEqual(draft2);
     expect(outcome.outdated.map((value) => [value.valueId, value.outdated])).toEqual([
       [draft1.valueId, { byValueId: draft2.valueId, reason: OutdatedReason.Replaced }],
-      [critique1.valueId, { byValueId: draft2.valueId, reason: OutdatedReason.AboutReplaced }],
+      [critique1.valueId, { byValueId: draft2.valueId, reason: OutdatedReason.BuiltFromReplaced }],
       [research1.valueId, { byValueId: draft2.valueId, reason: OutdatedReason.BuiltFromReplaced }],
     ]);
   });

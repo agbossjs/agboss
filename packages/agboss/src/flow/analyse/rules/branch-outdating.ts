@@ -7,7 +7,6 @@ import { shapeLabel } from "../labels.js";
 import { branchReads } from "../launches.js";
 import { stepAlong } from "../outdating.js";
 import {
-  aboutOfWrite,
   slotOf,
   slotOfWrite,
   SlotStatus,
@@ -64,7 +63,6 @@ function siblingViolations(
       .flatMap((outdated) => {
         const seeds = outdated.producers.flatMap((branch) => [
           ...branchReads(atLaunch, join.launch, branch, provenance),
-          ...aboutOfWrite(outdated.write),
         ]);
         const slot = slotOfWrite(renewing.write);
         const isRenewal = slotOf(atLaunch, slot).status === SlotStatus.Current;

@@ -24,10 +24,9 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `onAgent(X)` / `onRouter(R)` / `onAction(A)` / `onWorkflow(W)`                              | the own path of a node reached from two or more places, written once                                                                                       | `[flow.shared-node-inline]`, `[flow.single-entry-own-path]`                                                  |
 | `.returns(XDto)`                                                                            | what the step before put on the path (its scope); after `onStart(S)` its input                                                                             | `[flow.returns-mismatch]`, `[flow.unused-output]`                                                            |
 | `.returns(A).returns(optional(B))`                                                          | several values of one step (a start's map of fields, a join), any order                                                                                    | `[flow.returns-mismatch]`                                                                                    |
-| `.returns(XDto, { about: YDto })`                                                           | in a cycle: what the value is an answer about                                                                                                              | `[io.ambiguous-cycle]`, `[io.ambiguous-about]`, `[io.about-on-start]`                                        |
 | `.toAgent(X)` `.toAction(A)` `.toRouter(R)` `.toWorkflow(W)` `.toFinish(F)`                 | the next step, by its kind (another kind does not compile)                                                                                                 | `[graph.wrong-kind]`, `[graph.dead-end]`, `[graph.next-after-workflow-finish]`                               |
 | `.toRouter(R).chooseOne(route(X)…, …)`                                                      | the router's choice: exactly one `route(…)` per `@Router` route, each continued to its end                                                                 | `[router.routes-mismatch]`, `[router.duplicate-route]`, `[graph.choose-from-non-router]`                     |
-| `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                      | a branch per variant of a `oneOf` output; `caseOf(A, { about: T })` in a cycle                                                                             | `[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`                                                 |
+| `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                      | a branch per variant of a `oneOf` output                                                                                                                   | `[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`                                                 |
 | `.onError(E, side path)`                                                                    | right after the step that throws (before its `.returns`): what happens when it throws `E`                                                                  | `[flow.duplicate-error-handler]`, `[graph.limit-handler-uses-model]`, `[flow.uncompensated-action]`          |
 | side-path starters `toAction` `toAgent` `toRouter` `toExternalTask` `toWorkflow` `toFinish` | the first step of a side path (functions, not methods)                                                                                                     | as for the steps                                                                                             |
 | `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)`                  | a launch: each listed target runs once, a repeat is a copy                                                                                                 | `[launch.join-required]`, `[launch.branch-continued]`                                                        |
@@ -451,11 +450,11 @@ export class CreditWorkflow {}
   is never empty (`[router.empty-input]`); `spawn` / `failure` on its routes are for launches only
   (`[router.policy-with-choose-one]`).
 
-## 3. A branch by result, a loop, `about`, `historyOf`
+## 3. A branch by result, a loop, `historyOf`
 
 An agent with `output: oneOf(A, B)` says which outcome it is; `.returns(oneOf(A, B)).switch(…)` has
-one `caseOf(…)` per variant. In a loop whose classes are built from each other the flow says what a
-value is **about**, and `historyOf(XDto, { maxPrevious })` reads the earlier versions. Every node on a
+one `caseOf(…)` per variant. In a loop a new value outdates what was built from the old one, and
+`historyOf(XDto, { maxPrevious })` reads the earlier versions. Every node on a
 cycle needs `maxVisits` (`[graph.cycle-without-max-visits]`).
 
 ```ts file=src/offer/dto/candidate-shortlist.dto.ts
@@ -652,7 +651,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
     onAgent(OfferReviewerAgent)
       .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
-        caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
+        caseOf(ChangesRequestedDto) // the changes are about this draft
           .toAgent(OfferEditorAgent)
           .onError(
             VisitsLimitExceededError, // the editor's maxVisits spent: a person takes over
@@ -676,15 +675,10 @@ export class OfferWorkflow {}
   returns a new `OfferDraftDto`, the old draft and the `ChangesRequestedDto` about it are gone from the
   scope. A field that would read an outdated value on some path fails assembly with
   `[input.outdated-on-path]`.
-- **`about`.** The reviewer reads the draft and the editor reads the changes: each is built from the
-  other, so the analyser cannot tell the direction — `[io.ambiguous-cycle]` until one value says what
-  it is about (`caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, or
-  `.returns(CritiqueDto, { about: DraftDto })` on a single class). A start's input is about nothing
-  (`[io.about-on-start]`); `about` on a value a node reads twice is `[io.ambiguous-about]`.
 - **`historyOf(XDto, { maxPrevious })`** is `{ current, previous }`, `previous` oldest first, at most
   `maxPrevious` (a positive integer, `[input.history-max-previous]`); it needs a current `XDto` on every path in.
 - `caseOf(…)` of a class the step does not give is `[flow.switch-unknown-case]`, a missing variant
-  `[flow.switch-not-exhaustive]`; `{ about }` goes on the case, never on `.returns(oneOf(…))`.
+  `[flow.switch-not-exhaustive]`.
 
 ## 4. Parallel launches and joins
 

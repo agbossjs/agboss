@@ -119,32 +119,22 @@ describe("describe a workflow", () => {
     ]);
   });
 
-  it("#271 M2, #299: each value written { about }, in the flow too, and each field's producers", () => {
+  it("#271 M2, #1277: each field's producers, the flow as written; no about section", () => {
     const lines = describeWorkflow(story);
-    const section = (name: string, next: string): string[] =>
-      lines.slice(lines.indexOf(name), lines.indexOf(next));
 
-    expect(section("about", "routers")).toEqual([
-      "about",
-      "  story-reviewer-agent → ApprovalDto { about: DraftDto }",
-      "  story-reviewer-agent → DraftChangesDto { about: DraftDto }",
-    ]);
+    expect(lines).not.toContain("about");
     expect(lines).toEqual(
       expect.arrayContaining([
         "    .returns(oneOf(ApprovalDto, DraftChangesDto))",
-        "      caseOf(DraftChangesDto, { about: DraftDto })",
+        "      caseOf(DraftChangesDto)",
       ]),
     );
     expect(lines).toContain(
       "  publisher-agent ← draft: story-writer-agent, approval: story-reviewer-agent",
     );
     expect(describeWorkflow(polish)).toEqual(
-      expect.arrayContaining([
-        "  critique-action → listOf(CritiqueDto) { about: DraftDto }",
-        "    .returns(listOf(CritiqueDto), { about: DraftDto })",
-      ]),
+      expect.arrayContaining(["    .returns(listOf(CritiqueDto))"]),
     );
-    expect(describeWorkflow(test)).not.toContain("about");
   });
 
   it("#299 S56: a historyOf field says so, with its maxPrevious", () => {

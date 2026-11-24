@@ -188,7 +188,7 @@ export const sharedEdgeFlow = (
     .returns(PurchaseQuestionDto)
     .toExternalTask(role),
   onExternalTask(role)
-    .returns(SpendingLimitAnswerDto, { about: PurchaseQuestionDto })
+    .returns(SpendingLimitAnswerDto)
     .toAction(FailFirstPlaceAction)
     .onError(StepFailedError, toExternalTask(role))
     .returns(PurchasePlacedDto)

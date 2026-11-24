@@ -140,7 +140,6 @@ const scopeShape = {
   variant: text.optional(),
   value: z.unknown(),
   builtFrom: z.array(text),
-  about: z.array(text).optional(),
 };
 
 /** A value of the execution's scope. */

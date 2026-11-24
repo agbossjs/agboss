@@ -63,7 +63,7 @@ describe("#271 AC11: outdating across a pause", () => {
         ],
         [
           "loop-reviewer-agent:1/DraftChangesDto",
-          { byValueId: "loop-writer-agent:2/DraftDto", reason: OutdatedReason.AboutReplaced },
+          { byValueId: "loop-writer-agent:2/DraftDto", reason: OutdatedReason.BuiltFromReplaced },
         ],
         [
           "loop-writer-agent:2/DraftDto",
@@ -71,7 +71,7 @@ describe("#271 AC11: outdating across a pause", () => {
         ],
         [
           "loop-reviewer-agent:2/DraftChangesDto",
-          { byValueId: "loop-writer-agent:3/DraftDto", reason: OutdatedReason.AboutReplaced },
+          { byValueId: "loop-writer-agent:3/DraftDto", reason: OutdatedReason.BuiltFromReplaced },
         ],
       ]);
       const changes = done.record?.outdatedValues.find(

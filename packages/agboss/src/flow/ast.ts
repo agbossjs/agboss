@@ -64,11 +64,6 @@ export interface ComponentSource {
  */
 export interface ReturnedValue {
   readonly shape: ReturnedShape;
-  /**
-   * `{ about: PlanDto }` — what the value is about (#271): a new value of one of these classes
-   * outdates it, and it never outdates them. Never on a `oneOf(…)`: its cases say it.
-   */
-  readonly about?: readonly DtoClass[];
 }
 
 export interface ReturnsStep {
@@ -90,11 +85,9 @@ export interface ToStep {
   readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 
-/** One `caseOf(XDto, { about })…` of a `.switch(…)`. */
+/** One `caseOf(XDto)…` of a `.switch(…)`. */
 export interface SwitchCase {
   readonly dto: DtoClass;
-  /** `caseOf(ChangesRequestedDto, { about: OfferDraftDto })` — what this variant is about (#299). */
-  readonly about?: readonly DtoClass[];
   readonly path: SubPath;
 }
 

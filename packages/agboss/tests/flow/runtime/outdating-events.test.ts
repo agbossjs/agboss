@@ -65,7 +65,7 @@ describe("#271 AC10: onValuesOutdated", () => {
         valueId: "loop-reviewer-agent:2/DraftChangesDto",
         slot: "DraftChangesDto",
         producer: "loop-reviewer-agent",
-        reason: OutdatedReason.AboutReplaced,
+        reason: OutdatedReason.BuiltFromReplaced,
       },
     ]);
     expect(outdatingEvents.flatMap((event) => event.outdated)).toHaveLength(
@@ -155,10 +155,7 @@ const value = (valueId: string, builtFrom: readonly string[] = []): ScopeValueRe
 describe("#271 rule 11: the trace entry of a cascade", () => {
   it("one 'values outdated' entry per cascade, with a sentence per value and no values", async () => {
     const draft1 = value("writer-agent:1/DraftDto");
-    const changes1 = {
-      ...value("critic-agent:1/DraftChangesDto", [draft1.valueId]),
-      about: ["DraftDto"],
-    };
+    const changes1 = value("critic-agent:1/DraftChangesDto", [draft1.valueId]);
     const draft2 = value("writer-agent:2/DraftDto");
     const scope = { DraftDto: draft1, DraftChangesDto: changes1 };
     const outcome = writeAndOutdate(scope, { DraftDto: draft2 });
@@ -208,7 +205,7 @@ describe("#271 rule 11: the trace entry of a cascade", () => {
     expect(trace.runs[0]?.input).toMatchObject({
       reasons: [
         "DraftDto#1 outdated: replaced by DraftDto#2 from writer-agent",
-        "DraftChangesDto#1 outdated: about DraftDto#1, replaced by DraftDto#2 from writer-agent",
+        "DraftChangesDto#1 outdated: built from DraftDto#1, replaced by DraftDto#2 from writer-agent",
       ],
     });
     expect(JSON.stringify(trace.runs)).not.toContain("secret");

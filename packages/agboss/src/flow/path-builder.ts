@@ -37,7 +37,6 @@ import type { PathStart } from "./path-start.js";
 export { FlowSyntaxError } from "./launch-step.js";
 
 const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ message });
-export { aboutTargets } from "./returns-step.js";
 
 export type { PathStart } from "./path-start.js";
 
@@ -82,8 +81,8 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.then({ ...step, ...extra });
   }
 
-  returns(shape: unknown, options?: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
-    const value = returnedValue(shape, options, rest.length);
+  returns(shape: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
+    const value = returnedValue(shape, rest.length);
     const { last } = this;
     if (last?.kind === StepKind.Join && last.quorum?.kind === QuorumKind.Groups)
       throw syntaxError(
@@ -218,9 +217,8 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   private asCase(): SwitchCase {
     if (this.start.kind !== "case") throw syntaxError(".switch(…) takes caseOf(…) paths");
-    const { dto, about } = this.start;
-    const path = this.subPath();
-    return Object.freeze(about === undefined ? { dto, path } : { dto, about, path });
+    const { dto } = this.start;
+    return Object.freeze({ dto, path: this.subPath() });
   }
 
   private asRoute(): ChooseOneRoute {

@@ -65,7 +65,7 @@ async function settledValues(
 ): Promise<ExecutionStateUpdate> {
   const groups = handler.settled ?? [];
   const values = groups.flatMap((group) =>
-    group.shape === undefined ? [] : [valueWrite(group.shape, undefined, false)],
+    group.shape === undefined ? [] : [valueWrite(group.shape, false)],
   );
   const gone = new Set(failed.undone);
   const finished = finishedOf(failed.records).filter((record) => {

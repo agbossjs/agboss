@@ -1074,7 +1074,7 @@ export interface CaseHead<TValue, TClaims = never> {
 }
 
 // @public
-export function caseOf<const TDto extends DtoClass>(dto: TDto, options?: ReturnsOptions): AfterValue<InstanceType<TDto>, CaseHead<InstanceType<TDto>>>;
+export function caseOf<const TDto extends DtoClass>(dto: TDto): AfterValue<InstanceType<TDto>, CaseHead<InstanceType<TDto>>>;
 
 // @public
 export type CasePath = BuiltPath<CaseHead<unknown, unknown>>;
@@ -3950,7 +3950,6 @@ declare namespace FlowTypes {
         Member,
         Members,
         NotGiven,
-        ReturnsArguments,
         ReturnsCheck,
         Same,
         ValuesLeft,
@@ -4073,7 +4072,7 @@ export interface GroupStart<TNames extends string> extends GroupValues<TNames, [
 // @public
 export interface GroupValues<TNames extends string, TGiven extends readonly unknown[]> {
     // (undocumented)
-    returns<const TShape extends ValueShape>(value: TShape, ...options: [options?: ReturnsOptions]): GroupValues<TNames, [...TGiven, ValueOf<TShape>]> & Transitions<GroupHead<TNames, [...TGiven, ValueOf<TShape>]>>;
+    returns<const TShape extends ValueShape>(value: TShape): GroupValues<TNames, [...TGiven, ValueOf<TShape>]> & Transitions<GroupHead<TNames, [...TGiven, ValueOf<TShape>]>>;
 }
 
 // @public (undocumented)
@@ -4963,8 +4962,6 @@ export interface JoinValues<TKey extends string> extends ValuesSource {
     readonly entry: `JoinOutputs["${TKey}"]`;
     // (undocumented)
     readonly label: "the join";
-    // (undocumented)
-    readonly takesAbout: true;
 }
 
 // @public
@@ -6989,7 +6986,6 @@ export interface OutdatedMark {
 
 // @public
 export enum OutdatedReason {
-    AboutReplaced = "about-replaced",
     BuiltFromReplaced = "built-from-replaced",
     Replaced = "replaced"
 }
@@ -8225,8 +8221,6 @@ interface QuorumValues<TKey extends string> extends ValuesSource {
     readonly entry: `JoinOutputs["${TKey}"]`;
     // (undocumented)
     readonly label: "the quorum (a single answer is optional(…) unless min is every agent)";
-    // (undocumented)
-    readonly takesAbout: true;
 }
 
 // @public
@@ -8499,7 +8493,6 @@ export type ReturnedShape = ValueShape | OneOfWrapper;
 
 // @public
 export interface ReturnedValue {
-    readonly about?: readonly DtoClass[];
     // (undocumented)
     readonly shape: ReturnedShape;
 }
@@ -8507,25 +8500,16 @@ export interface ReturnedValue {
 // @public
 export interface Returning<TSource extends ValuesSource, TLeft, THead extends PathHead, TGiven extends readonly unknown[] = []> {
     // (undocumented)
-    returns<const TShape extends ReturnedShape>(value: TShape & ReturnsCheck<ValueOf<TShape>, TLeft, TSource>, ...options: ReturnsArguments<TShape, TSource>): AfterReturns<TSource, Without<TLeft, ValueOf<TShape>>, [
+    returns<const TShape extends ReturnedShape>(value: TShape & ReturnsCheck<ValueOf<TShape>, TLeft, TSource>): AfterReturns<TSource, Without<TLeft, ValueOf<TShape>>, [
     ...TGiven,
     ValueOf<TShape>
     ], TShape, THead>;
 }
 
 // @public
-type ReturnsArguments<TShape, TSource extends ValuesSource> = TSource["takesAbout"] extends false ? [] : TShape extends OneOfWrapper ? [] : [options?: ReturnsOptions];
-
-// @public
 type ReturnsCheck<TValue, TLeft, TSource extends ValuesSource> = [TLeft] extends [
 GeneratedTypeError
 ] ? TLeft : true extends IsIn<Member<TValue>, TLeft> ? unknown : NotGiven<TSource>;
-
-// @public
-export interface ReturnsOptions {
-    // (undocumented)
-    readonly about?: DtoClass | readonly [DtoClass, ...DtoClass[]];
-}
 
 // @public (undocumented)
 export interface ReturnsStep {
@@ -8737,7 +8721,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "io.ambiguous-cycle" | "io.ambiguous-about" | "io.about-on-start" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | FileRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | FileRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -8757,7 +8741,6 @@ export type ScopeRecords = Readonly<Record<string, ScopeValueRecord>>;
 
 // @public
 export interface ScopeValueRecord {
-    readonly about?: readonly string[];
     readonly builtFrom: readonly string[];
     readonly elementProducers?: readonly string[];
     readonly producer: string;
@@ -9591,8 +9574,6 @@ export interface StepValues<TInstance> extends ValuesSource {
     readonly entry: `ProducerOutputs["${NameOf<TInstance>}"]`;
     // (undocumented)
     readonly label: NameOf<TInstance>;
-    // (undocumented)
-    readonly takesAbout: [KindOf<TInstance>] extends [NodeKind.Start] ? false : true;
 }
 
 // @public
@@ -9740,7 +9721,6 @@ export interface SummaryQueueCompactionOptions {
 
 // @public
 export interface SwitchCase {
-    readonly about?: readonly DtoClass[];
     // (undocumented)
     readonly dto: DtoClass;
     // (undocumented)
@@ -9886,7 +9866,7 @@ interface ThisWorkflowJoined<THead extends PathHead> {
     // (undocumented)
     onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;
     // (undocumented)
-    returns<const TShape extends ReturnedShape>(value: TShape, ...options: ReturnsArguments<TShape, ThisWorkflowJoinValues>): AfterReturns<ThisWorkflowJoinValues, never, [
+    returns<const TShape extends ReturnedShape>(value: TShape): AfterReturns<ThisWorkflowJoinValues, never, [
     ValueOf<TShape>
     ], TShape, WithClaims<THead, ThisWorkflowJoinClaim<ValueOf<TShape>>>>;
 }
@@ -9899,8 +9879,6 @@ interface ThisWorkflowJoinValues extends ValuesSource {
     readonly entry: 'ThisWorkflowOutputs["<workflow>"]["join"]';
     // (undocumented)
     readonly label: "the join";
-    // (undocumented)
-    readonly takesAbout: true;
 }
 
 // @public
@@ -9921,7 +9899,7 @@ export interface ThisWorkflowOutputs {
 // @public
 interface ThisWorkflowReturning<THead extends PathHead> {
     // (undocumented)
-    returns<const TShape extends ReturnedShape>(value: TShape, ...options: ReturnsArguments<TShape, ThisWorkflowStepValues>): AfterReturns<ThisWorkflowStepValues, never, [
+    returns<const TShape extends ReturnedShape>(value: TShape): AfterReturns<ThisWorkflowStepValues, never, [
     ValueOf<TShape>
     ], TShape, WithClaims<THead, ThisWorkflowStepClaim<ValueOf<TShape>>>>;
 }
@@ -9940,8 +9918,6 @@ interface ThisWorkflowStepValues extends ValuesSource {
     readonly entry: 'ThisWorkflowOutputs["<workflow>"]["output"]';
     // (undocumented)
     readonly label: ThisWorkflowName;
-    // (undocumented)
-    readonly takesAbout: true;
 }
 
 // @public
@@ -10499,7 +10475,6 @@ export interface ValuesSource {
     readonly canLaunch: boolean;
     readonly entry: string;
     readonly label: string;
-    readonly takesAbout: boolean;
 }
 
 // @public
@@ -11680,7 +11655,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "given".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "PathHead".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "about".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""workflow-start"".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""workflow-finish"".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "agent".
@@ -11870,7 +11844,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "deadline".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "label".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "QuorumContinuation".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "returns".
@@ -11884,11 +11857,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "IsIn".
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "label".
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "label".
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "NotGiven".
 // src/flow/returns-types.ts - (ae-undocumented) Missing documentation for "__error".
@@ -12010,11 +11981,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "join".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "label".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "label".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "entry".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "returns".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "onError".

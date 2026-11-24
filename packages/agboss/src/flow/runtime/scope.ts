@@ -5,7 +5,6 @@ import { NodeKind } from "../ast.js";
 import { isFieldMap } from "../decorators/declaration.js";
 import { Wrapper, withVariant, type HistoryOf, type ProducedValue } from "../dto-wrappers.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
-import { writtenProvenanceOf } from "./provenance.js";
 import {
   valueIdOf,
   type OutdatedValueRecord,
@@ -39,7 +38,7 @@ export interface WriteSite {
   readonly node: RuntimeNode;
   readonly visitNumber: number;
   readonly builtFrom: readonly string[];
-  /** The scope before the write: a write's `{ about }` targets are read from it (#271 S40 b). */
+  /** The scope before the write. */
   readonly scope: ScopeRecords;
 }
 
@@ -66,7 +65,6 @@ function writeRecord(
   const isOptional = typeof write.shape !== "function" && write.shape.kind === Wrapper.Optional;
   if (isOptional && value === undefined) return undefined;
   const slot = slotOfWrite(write);
-  const { builtFrom, about } = writtenProvenanceOf(site.builtFrom, write, site.scope, writes);
   const variant = typeof write.shape === "function" ? given.variant : undefined;
   return {
     valueId: valueIdOf(site.node.id, site.visitNumber, slot),
@@ -74,8 +72,7 @@ function writeRecord(
     producer: site.node.id,
     ...(variant === undefined ? {} : { variant }),
     value,
-    builtFrom,
-    ...(about.length === 0 ? {} : { about }),
+    builtFrom: site.builtFrom,
   };
 }
 

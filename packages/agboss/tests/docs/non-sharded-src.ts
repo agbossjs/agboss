@@ -432,10 +432,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 199 mutants, 179 killed in the final run; the 52 that had lived in the first run each got a test (37), an equivalence reason (15) or was classed message text (0); covered by tests/sweep-1366h/flow/analyse/about-1366h.test.ts, tests/sweep-1366h/flow/analyse/about-more-1366h.test.ts, tests/flow/analyse/about.test.ts, tests/flow/analyse/outdating.test.ts; survivors listed in the #1366 round-8 notes",
-    ["src/flow/analyse/rules/about.ts"],
-  ),
-  ...reviewed(
     "the static analysis of a flow's source at build time: its rules on a limit, a price or a deadline are sharded (assembly-rules), the rest checks names, types and shapes",
     [
       "src/flow/analyse/rules/arbiters.ts",
@@ -690,7 +686,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/a2a/server/a2a-file-admission.ts"],
   ),
   ...reviewed(
-    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 221 mutants, 209 killed in the final run; the 32 that had lived in the first run each got a test (22), an equivalence reason (6) or was classed message text (4); covered by tests/sweep-1366h/flow/analyse/data-inputs-1366h.test.ts, tests/flow/analyse/scope.test.ts, tests/flow/analyse/about.test.ts, tests/flow/analyse/quorum.test.ts; survivors listed in the #1366 round-8 notes",
+    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 221 mutants, 209 killed in the final run; the 32 that had lived in the first run each got a test (22), an equivalence reason (6) or was classed message text (4); covered by tests/sweep-1366h/flow/analyse/data-inputs-1366h.test.ts, tests/flow/analyse/scope.test.ts, tests/flow/analyse/quorum.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/analyse/rules/data-inputs.ts"],
   ),
   ...reviewed("the exports", ["src/index.ts"]),

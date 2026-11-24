@@ -85,10 +85,7 @@ function callUntyped(target: object, method: string, args: readonly unknown[]): 
   return result;
 }
 
-const returns = (shape: ReturnedShape, about?: readonly DtoClass[]): Step =>
-  about === undefined
-    ? { kind: StepKind.Returns, value: { shape } }
-    : { kind: StepKind.Returns, value: { shape, about } };
+const returns = (shape: ReturnedShape): Step => ({ kind: StepKind.Returns, value: { shape } });
 
 const to = (target: abstract new () => unknown, targetKind: NodeKind): Step => ({
   kind: StepKind.To,
@@ -193,7 +190,6 @@ describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
       cases: [
         {
           dto: ChangesRequestedDto,
-          about: [OfferDraftDto],
           path: {
             steps: [
               to(EditorAgent, NodeKind.Agent),
@@ -333,22 +329,10 @@ describe("AC7: a side path may start with any transition", () => {
   });
 });
 
-describe("#299 S54: one value per .returns, { about } in the flow", () => {
-  it("records { about } on returns — one class or a list of them — and on caseOf", () => {
-    const critiqued = onStart(OfferWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftAgent)
-      .returns(OfferDraftDto, { about: ShortlistDto });
-    const both = callUntyped(builder.onAgent(DraftAgent), "returns", [
-      OfferDraftDto,
-      { about: [ShortlistDto, ReviewDto] },
-    ]);
-    const aboutCase = caseOf(ChangesRequestedDto, { about: OfferDraftDto }).toAgent(EditorAgent);
+describe("#299 S54: one value per .returns, none beside it", () => {
+  it("records a caseOf with its class only — { about } is gone (#1277)", () => {
+    const aboutCase = caseOf(ChangesRequestedDto).toAgent(EditorAgent);
 
-    expect(critiqued.steps.at(-1)).toEqual(returns(OfferDraftDto, [ShortlistDto]));
-    expect(Reflect.get(both as object, "steps")).toEqual([
-      returns(OfferDraftDto, [ShortlistDto, ReviewDto]),
-    ]);
     expect(
       callUntyped(builder.onAgent(ReviewerAgent), "switch", [aboutCase, caseOf(DraftApprovedDto)]),
     ).toEqual(
@@ -357,11 +341,7 @@ describe("#299 S54: one value per .returns, { about } in the flow", () => {
           {
             kind: StepKind.Switch,
             cases: [
-              {
-                dto: ChangesRequestedDto,
-                about: [OfferDraftDto],
-                path: { steps: [to(EditorAgent, NodeKind.Agent)] },
-              },
+              { dto: ChangesRequestedDto, path: { steps: [to(EditorAgent, NodeKind.Agent)] } },
               { dto: DraftApprovedDto, path: { steps: [] } },
             ],
           },
@@ -391,20 +371,8 @@ describe("#299 S54: one value per .returns, { about } in the flow", () => {
       () => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto, {}, ShortlistDto]),
     ],
     [
-      "{ about } on a oneOf",
-      () =>
-        callUntyped(builder.onAgent(ReviewerAgent), "returns", [
-          oneOf(ChangesRequestedDto, DraftApprovedDto),
-          { about: OfferDraftDto },
-        ]),
-    ],
-    [
-      "an empty { about }",
+      "an { about } beside the value (gone, #1277)",
       () => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto, { about: [] }]),
-    ],
-    [
-      "{ about } that is not a class",
-      () => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto, { about: "X" }]),
     ],
   ])("refuses %s from untyped code", (_name, misuse) => {
     expect(misuse).toThrow(FlowSyntaxError);

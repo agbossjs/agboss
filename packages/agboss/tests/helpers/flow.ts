@@ -3,9 +3,7 @@ import type { Class } from "../../src/components/injection.js";
 import type { DtoClass } from "../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../src/flow/ast.js";
 import { placementOptionOf } from "../../src/flow/child-placement.js";
-import type { ReturnsOptions } from "../../src/flow/builder-types.js";
 import {
-  aboutTargets,
   fromComponent,
   fromSource,
   subPathFrom,
@@ -39,10 +37,7 @@ export const route = (target: Class, options?: unknown): PathBuilder<undefined> 
   return subPathFrom({ kind: "route", target, ...(placement && { placement }) });
 };
 
-export const caseOf = (dto: DtoClass, options?: ReturnsOptions): PathBuilder<undefined> => {
-  const about = aboutTargets(options);
-  return subPathFrom(about === undefined ? { kind: "case", dto } : { kind: "case", dto, about });
-};
+export const caseOf = (dto: DtoClass): PathBuilder<undefined> => subPathFrom({ kind: "case", dto });
 
 const side = (): PathBuilder<undefined> => subPathFrom({ kind: "side" });
 

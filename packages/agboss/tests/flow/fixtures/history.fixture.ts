@@ -110,7 +110,7 @@ export const historyPaths = [
   onAction(ReviewDraftAction)
     .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
-      caseOf(ChangesRequestedDto, { about: OfferDraftDto })
+      caseOf(ChangesRequestedDto)
         .toAgent(DraftEditorAgent)
         .returns(OfferDraftDto)
         .toAction(ReviewDraftAction),

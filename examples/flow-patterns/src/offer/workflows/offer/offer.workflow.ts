@@ -41,7 +41,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
     onAgent(ReviewerAgent)
       .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
       .switch(
-        caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
+        caseOf(ChangesRequestedDto) // the changes are about this draft
           .toAgent(EditorAgent)
           .onError(
             VisitsLimitExceededError, // the editor's maxVisits spent: tell the recruiter, finish

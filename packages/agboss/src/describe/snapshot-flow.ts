@@ -17,14 +17,13 @@ import { arbiterPromptHashOf } from "../flow/runtime/model-component-keys.js";
 /**
  * The flow of a workflow as data (#268 S92 / S93, `agboss describe --json`): every edge as the
  * analyser built it — `.to…` steps, `caseOf(…)` cases, `route(…)` routes, launches and joins with
- * what each puts on the path and what it is `about` —, the `.onError` table, and
+ * what each puts on the path —, the `.onError` table, and
  * every launch with its quorum and arbiter tree, each arbiter with its hashes.
  */
 
-/** One value an edge puts on the path: its shape, and what it is about. */
+/** One value an edge puts on the path: its shape. */
 export interface EdgeValueSnapshot {
   readonly value: string;
-  readonly about?: readonly string[];
   /** Written by `caseOf(…)`: the switch chose the edge by it. */
   readonly isCase?: true;
 }
@@ -87,7 +86,6 @@ const nameOf = (component: Class): string =>
 
 const valueOf = (write: ValueWrite): EdgeValueSnapshot => ({
   value: shapeLabel(write.shape),
-  ...(write.about === undefined ? {} : { about: write.about.map((dto) => dto.name) }),
   ...(write.isCase ? { isCase: true } : {}),
 });
 

@@ -101,7 +101,7 @@ export function launchOf(
 /** What a branch of the launch reads besides the scope at the launch: a per-item run's item. */
 export function itemWrites(launch: FlowLaunch): readonly ValueWrite[] {
   const element = launch.items?.element;
-  return typeof element === "function" ? [valueWrite(element, undefined, false)] : [];
+  return typeof element === "function" ? [valueWrite(element, false)] : [];
 }
 
 /**

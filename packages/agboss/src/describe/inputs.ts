@@ -3,7 +3,6 @@ import { StartChoice, type ChildChoice } from "../flow/analyse/children.js";
 import { entryLabel, startLabel } from "../flow/analyse/rules/children.js";
 import { NodeKind } from "../flow/ast.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
-import { aboutLabel, shapeLabel } from "../flow/analyse/labels.js";
 import { launchCounts } from "./launch-counts.js";
 import { quorumCounts } from "./quorum-counts.js";
 
@@ -60,22 +59,6 @@ export function inputLines(analysis: FlowAnalysis): readonly string[] {
     });
     return [`${node} ← ${texts.join(", ")}`];
   });
-}
-
-/**
- * Each value written with `{ about }` (#271 M2, #299 S54): `reviewer-agent → DraftChangesDto
- * { about: DraftDto }` — the producer, the value, and what it is about (a new value of it outdates
- * the value).
- */
-export function aboutLines(analysis: FlowAnalysis): readonly string[] {
-  const lines = analysis.graph.edges.flatMap((edge) =>
-    edge.writes.flatMap((write) =>
-      write.about === undefined
-        ? []
-        : [`${edge.from} → ${shapeLabel(write.shape)} ${aboutLabel(write.about)}`],
-    ),
-  );
-  return [...new Set(lines)];
 }
 
 function choiceText(found: ChildChoice): string {

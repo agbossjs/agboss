@@ -73,10 +73,10 @@ export function declaredDtos(declaration: ComponentDeclaration): readonly DtoCla
 function usedDtos(context: AnalysisContext): readonly DtoClass[] {
   const nodes = [...context.graph.nodes.values()].flatMap((node) => declaredDtos(node.declaration));
   const edges = context.graph.edges.flatMap((edge) =>
-    edge.writes.flatMap((write) => [...dtosOf(write.shape), ...(write.about ?? [])]),
+    edge.writes.flatMap((write) => dtosOf(write.shape)),
   );
   const cases = context.walked.switches.flatMap((site) => [
-    ...site.step.cases.flatMap((branch) => [branch.dto, ...(branch.about ?? [])]),
+    ...site.step.cases.flatMap((branch) => [branch.dto]),
     ...(site.returned === undefined ? [] : dtosOf(site.returned)),
   ]);
   return [...new Set([...nodes, ...edges, ...cases])].sort((first, second) =>

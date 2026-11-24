@@ -67,7 +67,7 @@ const reviewPaths = (
   onAgent(OfficerAgent)
     .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
     .switch(
-      caseOf(ChangesRequestedDto, { about: OfferDraftDto })
+      caseOf(ChangesRequestedDto)
         .toAgent(RewriterAgent)
         .onError(handled, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))
         .returns(OfferDraftDto)

@@ -111,10 +111,10 @@ class FlowWalker implements LaunchRecorder {
    * followed by a transition is the returns rule's `[flow.returns-mismatch]`).
    */
   private returns(step: ReturnsStep, cursor: Cursor): Cursor {
-    const { shape, about } = step.value;
+    const { shape } = step.value;
     if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
       return { ...cursor, oneOf: shape };
-    return { ...cursor, writes: [...cursor.writes, valueWrite(shape, about, false)] };
+    return { ...cursor, writes: [...cursor.writes, valueWrite(shape, false)] };
   }
 
   private enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
@@ -157,7 +157,7 @@ class FlowWalker implements LaunchRecorder {
     for (const branch of step.cases) {
       const inner: Cursor = {
         current: cursor.current,
-        writes: [valueWrite(branch.dto, branch.about, true)],
+        writes: [valueWrite(branch.dto, true)],
         entry: EdgeKind.Case,
         path: cursor.path,
         depth: cursor.depth + 1,

@@ -34,7 +34,6 @@ export type {
   ErrorHandling,
   GroupHead,
   PathHead,
-  ReturnsOptions,
   RouteContinuation,
   RouteHead,
   RoutePath,

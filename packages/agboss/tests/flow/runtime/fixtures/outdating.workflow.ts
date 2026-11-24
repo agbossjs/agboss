@@ -139,9 +139,9 @@ export class LoopWorkflowFinish {}
       .toAgent(LoopReviewerAgent)
       .returns(oneOf(ApprovalDto, DraftChangesDto))
       .switch(
-        caseOf(DraftChangesDto, { about: DraftDto })
+        caseOf(DraftChangesDto)
           .toAgent(LoopWriterAgent),
-        caseOf(ApprovalDto, { about: DraftDto })
+        caseOf(ApprovalDto)
           .toAgent(LoopPublisherAgent)
           .returns(ArticleDto)
           .toFinish(LoopWorkflowFinish),

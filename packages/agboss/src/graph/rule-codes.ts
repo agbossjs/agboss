@@ -31,9 +31,6 @@ export type RuleCode =
   | "input.history-max-previous"
   // outdating (#271 PR 1), reported by `src/flow/analyse`
   | "input.outdated-on-path"
-  | "io.ambiguous-cycle"
-  | "io.ambiguous-about"
-  | "io.about-on-start"
   | "router.duplicate-route"
   | "router.empty-input"
   | "router.no-model"

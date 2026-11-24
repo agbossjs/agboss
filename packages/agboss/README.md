@@ -477,7 +477,7 @@ of another version, which Claude Code prefers, is `[skills.shadowed]`. A problem
 
 [`examples/flow-patterns`](https://github.com/agbossjs/agboss/tree/main/examples/flow-patterns) — the flow's patterns with scripted tests only
 (no model key): `src/offer/` a review loop (`onAgent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
-`caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
+`caseOf(ChangesRequestedDto)`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
 parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies),
 `src/topic/` a workflow that researches its subtopics itself (`ThisWorkflow`, `maxDepth`, #264).
