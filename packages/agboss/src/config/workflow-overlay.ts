@@ -94,7 +94,10 @@ function constantsOf(
 }
 
 /** The overlays that apply to a workflow, in the order they apply: per profile, `"*"` then its own. */
-function overlaysOf(folded: FoldedConfig, workflow: string): readonly (Where & FoldedWorkflow)[] {
+export function overlaysOf(
+  folded: FoldedConfig,
+  workflow: string,
+): readonly (Where & FoldedWorkflow)[] {
   return folded.layers.flatMap((layer) =>
     [EVERY_WORKFLOW, workflow].flatMap((key) => {
       const one = layer.workflows[key];

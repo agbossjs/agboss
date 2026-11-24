@@ -11495,6 +11495,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
 export interface WorkflowOverlay {
     readonly agents?: Readonly<Record<string, OverlayPartial<AgentSettings>>>;
     readonly memories?: Readonly<Record<string, OverlayPartial<CompactionSettings>>>;
+    readonly placement?: ChildPlacement;
     readonly prompts?: Readonly<Record<string, PromptOverride>>;
     readonly routers?: Readonly<Record<string, ComponentModelOverlay>>;
     readonly version?: string;

@@ -1,6 +1,7 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import type { WorkflowPatch } from "../config/workflow-overlay.js";
 import { ComponentOptions } from "./component-options.js";
+import type { ChildPlacement } from "../flow/child-placement.js";
 
 export type { WorkflowPatch };
 import type { Class } from "./injection.js";
@@ -55,6 +56,22 @@ export const memoryOf = (
 /** The options of the components under the profiles, as the workflow's files are read; as declared without any. */
 export const optionsOf = (patch: WorkflowPatch | undefined): ComponentOptions =>
   patch?.componentOptions ?? ComponentOptions.none;
+
+/** Where child workflows run for this workflow's graph: the application's default, and what the profiles place. */
+export const placementsOf = (
+  owner:
+    | {
+        readonly defaults?: { readonly workflows?: { readonly placement?: ChildPlacement } };
+        readonly patch?: WorkflowPatch;
+      }
+    | undefined,
+): {
+  readonly default: ChildPlacement | undefined;
+  readonly overrides: ReadonlyMap<Class, ChildPlacement>;
+} => ({
+  default: owner?.defaults?.workflows?.placement,
+  overrides: optionsOf(owner?.patch).placements,
+});
 
 /** The window of a workflow's memory as the profiles leave it; `undefined` without a memory. */
 export const windowOf = (

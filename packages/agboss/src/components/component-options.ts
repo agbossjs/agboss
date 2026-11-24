@@ -9,6 +9,7 @@ import type {
   ChannelOverlay,
   McpServerOverlay,
 } from "../config/overlay-types.js";
+import type { ChildPlacement } from "../flow/child-placement.js";
 import type { Class } from "./injection.js";
 import { componentOf, type ComponentMeta } from "./metadata.js";
 
@@ -41,7 +42,11 @@ export type ChannelMeta = Extract<ComponentMeta, { readonly kind: "channel" }>["
 /** The classes the profiles give a workflow in place of its own, by workflow class. */
 export interface OptionSlots {
   readonly filePolicy?: ReadonlyMap<Class, Class> | undefined;
+  /** Where each child workflow runs under the profiles, by workflow class: over its declaration and the default. */
+  readonly placement?: ReadonlyMap<Class, ChildPlacement> | undefined;
 }
+
+const NO_PLACEMENTS: ReadonlyMap<Class, ChildPlacement> = new Map();
 
 export class ComponentOptions {
   /** What an assembly without profiles — or one that never named a shelf — carries: every class as declared. */
@@ -53,6 +58,11 @@ export class ComponentOptions {
   constructor(shelves: OptionShelves = {}, slots: OptionSlots = {}) {
     this.#shelves = shelves;
     this.#slots = slots;
+  }
+
+  /** Where each child workflow runs under the profiles (`workflows.<name>.placement`); none for a profile that sets none. */
+  get placements(): ReadonlyMap<Class, ChildPlacement> {
+    return this.#slots.placement ?? NO_PLACEMENTS;
   }
 
   /** The `@FilePolicy` of a workflow: its profile's slot over its `@Workflow({ filePolicy })`. */

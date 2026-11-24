@@ -30,7 +30,8 @@ import type { PauseTargetOverrides } from "../channels/pause-targets.js";
 import { pauseOverridesOf } from "../config/pause-overrides.js";
 import { checkComponentShelves, componentOptionsOf } from "./component-profile.js";
 import { budgetOverlaysOf } from "./budget-profile.js";
-import { checkMcpServers, optionCarrierOf } from "./option-shelves.js";
+import { checkMcpServers } from "./option-checks.js";
+import { optionCarrierOf, placementOverridesOf } from "./option-shelves.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import { checkMemories, checkPauseTargets } from "./profile-checks.js";
 import { withIsolatedStorage } from "./isolated-storage.js";
@@ -52,7 +53,10 @@ async function effectiveOptionsOf(
   // a profile that replaces `storage` is the application's own choice: no temporary file then
   const written =
     folded.replacements.storage === undefined
-      ? await withIsolatedStorage(declaration.written)
+      ? await withIsolatedStorage(
+          declaration.written,
+          placementOverridesOf(folded, declaration.written.workflows),
+        )
       : declaration.written;
   const replaced = { ...written, ...folded.replacements, ...own };
   // the database storage and the mesh the profiles' shelves change: a derived class, the declared one untouched

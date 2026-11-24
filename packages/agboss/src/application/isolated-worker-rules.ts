@@ -1,7 +1,11 @@
 import { NodeKind } from "../flow/ast.js";
 import type { Class } from "../components/injection.js";
 import { ChildPlacement } from "../flow/child-placement.js";
-import { childWorkflowsOf, placementOfWorkflow } from "../flow/analyse/child-placements.js";
+import {
+  childWorkflowsOf,
+  placementOfWorkflow,
+  type Placements,
+} from "../flow/analyse/child-placements.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
@@ -19,14 +23,19 @@ import { providersOf } from "./listed-providers.js";
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
 /** The child workflows of the application that run with `IsolatedWorker`. */
-export function isolatedChildrenOf(options: ApplicationOptions): readonly Class[] {
+export function isolatedChildrenOf(
+  options: ApplicationOptions,
+  placements: Placements | undefined,
+): readonly Class[] {
   const applicationDefault = options.defaults?.workflows?.placement;
   const children = new Set<Class>();
   for (const workflow of withChildWorkflows(options.workflows)) {
     const declaration = declarationOf(workflow);
     if (declaration?.kind !== NodeKind.Workflow) continue;
     for (const child of childWorkflowsOf(declaration.options.flow))
-      if (placementOfWorkflow(child, applicationDefault) === ChildPlacement.IsolatedWorker)
+      if (
+        placementOfWorkflow(child, applicationDefault, placements) === ChildPlacement.IsolatedWorker
+      )
         children.add(child);
   }
   return [...children];
@@ -48,7 +57,10 @@ function queueViolations(options: ApplicationOptions): RuleViolation[] {
   ];
 }
 
-export function isolatedWorkerViolations(options: ApplicationOptions): RuleViolation[] {
+export function isolatedWorkerViolations(
+  options: ApplicationOptions,
+  placements: Placements | undefined,
+): RuleViolation[] {
   const entry = options.isolatedWorker?.entry;
   if (entry !== undefined) {
     if (typeof entry === "string" && isFileUrlOrAbsolutePath(entry))
@@ -61,7 +73,7 @@ export function isolatedWorkerViolations(options: ApplicationOptions): RuleViola
       ),
     ];
   }
-  const children = isolatedChildrenOf(options);
+  const children = isolatedChildrenOf(options, placements);
   if (children.length === 0) return [];
   const names = children.map(nameOf).join(", ");
   return [

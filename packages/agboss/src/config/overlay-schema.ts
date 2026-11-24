@@ -7,6 +7,7 @@ import {
   UncompactedTurnsSchema,
 } from "./types.js";
 import { Ttl } from "../units/index.js";
+import { ChildPlacement } from "../flow/child-placement.js";
 import { isExpiresIn } from "../channels/channel-rules.js";
 
 /** Every field optional at every depth; unknown keys rejected (a typo surfaces with its path). */
@@ -175,6 +176,8 @@ export const MeshOverlaySchema = z
 export const WorkflowOverlaySchema = z.strictObject({
   /** The config version a profile's runs carry. */
   version: z.string().min(1).optional(),
+  /** Where the workflow runs when another launches it as a child. */
+  placement: z.enum(ChildPlacement).optional(),
   /** A `@Memory`'s compaction settings by its name: its model, turns between compactions, queue. */
   memories: z.record(z.string(), deepPartial(CompactionSettingsSchema)).optional(),
   agents: z.record(z.string(), deepPartial(AgentSettingsSchema)).optional(),

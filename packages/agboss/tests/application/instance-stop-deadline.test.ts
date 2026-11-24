@@ -2,13 +2,19 @@
  * #1366: the end of an instance's graceful stop is the earliest of the ends its `close({ timeout })` calls set — a later,
  * longer timeout never pushes back an earlier, shorter one — so an instance always ends within the timeout it was given.
  */
+import { ComponentOptions } from "../../src/components/component-options.js";
 import { describe, expect, it } from "vitest";
 import { instancePartsOf } from "../../src/application/instance-steps.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
 
 async function stopOf(clock: VirtualClock) {
-  const assembled = { maxConcurrentSteps: undefined, compensationTimeout: 1, providers: [] };
+  const assembled = {
+    maxConcurrentSteps: undefined,
+    compensationTimeout: 1,
+    providers: [],
+    componentOptions: ComponentOptions.none,
+  };
   const log = { warn: () => undefined };
   const stores = {
     executionTrees: {},

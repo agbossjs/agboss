@@ -89,6 +89,7 @@ export async function instancePartsOf(
     instanceId,
     claimTimeout: assembled.childClaimTimeout,
     defaultPlacement: assembled.childPlacement,
+    placements: assembled.componentOptions.placements,
   };
   const notices = pauseNoticeHubOf(
     assembled,

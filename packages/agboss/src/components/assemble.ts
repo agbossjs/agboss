@@ -6,14 +6,13 @@ import {
   patchedConfig,
   patchedPrompts,
   profiledBundle,
-  windowOf,
   type WorkflowPatch,
 } from "./profiled.js";
 import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import { maxStepsOf as stepsLimitOf } from "../flow/analyse/steps.js";
 import { agentMetasOf } from "../flow/runtime/agents.js";
-import { runtimeGraphOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
+import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { loadRouters } from "../flow/runtime/routers.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { providerModulesOf, ragParts, toolBuilder } from "./runtime.js";
@@ -35,11 +34,7 @@ import type { ToolClasses } from "./assemble-checks.js";
 import { checkedChannelsOf, createdClassesOf } from "./channel-parts.js";
 import { PromptLoader } from "./prompt-render.js";
 import { configDefaultsOf, moduleOf, workflowDeclarationOf } from "./module.js";
-import {
-  cascadeDefaults,
-  rememberDefaultsLevels,
-  type DefaultsLevels,
-} from "../config/defaults.js";
+import { cascadeDefaults, type DefaultsLevels } from "../config/defaults.js";
 import type { PromptVariables } from "./prompt-variables.js";
 import { judgePartsOf, judgeSettingsOf, type AssembledJudges } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
@@ -52,6 +47,7 @@ import {
   checkedJudgesOf,
 } from "./model-parts.js";
 import { settingsOf } from "./workflow-settings.js";
+import { graphOf } from "./assemble-graph.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { AssembledMemories } from "../memory/assembly.js";
 import { workflowWindowOf } from "../memory/memory.decorator.js";
@@ -149,27 +145,6 @@ function analysedModule(
       ...(applicationDefaults === undefined ? {} : { applicationDefaults }),
     }),
   };
-}
-
-/** The levels the workflow's defaults come from: its application's (if any) and its own. */
-const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLevels => {
-  const { options } = workflowDeclarationOf(workflow);
-  return {
-    ...(owner === undefined ? {} : { application: owner }),
-    workflow: {
-      name: options.name,
-      defaults: options.defaults,
-      uncompactedTurns: windowOf(memoryOf(options, owner?.patch), owner?.patch),
-    },
-  };
-};
-
-/** The workflow's runtime graph, with the levels its defaults came from remembered (#261). */
-function graphOf(analysis: FlowAnalysis, workflow: Class, owner: WorkflowOwner | undefined) {
-  const { flow } = workflowDeclarationOf(workflow).options;
-  const graph = runtimeGraphOf(analysis, flow, workflow, owner?.defaults?.workflows?.placement);
-  rememberDefaultsLevels(graph, levelsOf(workflow, owner));
-  return graph;
 }
 
 /** The workflow's module, its runtime graph and its agents: its paths analysed with the defaults it cascades. */

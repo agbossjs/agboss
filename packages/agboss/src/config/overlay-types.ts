@@ -2,6 +2,7 @@ import type { ApplicationOptions } from "../application/application.js";
 import type { EnvOverrides } from "../environments/define-env.js";
 import type { EnvContract } from "../environments/env-ref.js";
 import type { Class } from "../components/injection.js";
+import type { ChildPlacement } from "../flow/child-placement.js";
 import type { EnvRef } from "../environments/env-ref.js";
 import type { Milliseconds, Ttl, Usd } from "../units/index.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
@@ -99,6 +100,8 @@ export interface MeshOverlay {
 export interface WorkflowOverlay {
   /** The config version the workflow's runs carry under this profile. */
   readonly version?: string;
+  /** Where this workflow runs when another launches it as a child, over its `@Workflow({ placement })` and the application's default. */
+  readonly placement?: ChildPlacement;
   /** A `@Memory`'s compaction settings by its name. */
   readonly memories?: Readonly<Record<string, OverlayPartial<CompactionSettings>>>;
   /** An agent's settings by its name: model, temperature, thinking, limits. */

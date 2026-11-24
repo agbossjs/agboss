@@ -99,17 +99,21 @@ describe("#1286: placement is the child's, never the flow's", () => {
     const own = childWith(ChildPlacement.OtherWorker);
     const bare = childWith(undefined);
 
-    expect(placementOfWorkflow(own, ChildPlacement.AnyWorker)).toBe(ChildPlacement.OtherWorker);
-    expect(placementOfWorkflow(bare, ChildPlacement.AnyWorker)).toBe(ChildPlacement.AnyWorker);
-    expect(placementOfWorkflow(bare, undefined)).toBe(ChildPlacement.CurrentProcess);
+    expect(placementOfWorkflow(own, ChildPlacement.AnyWorker, undefined)).toBe(
+      ChildPlacement.OtherWorker,
+    );
+    expect(placementOfWorkflow(bare, ChildPlacement.AnyWorker, undefined)).toBe(
+      ChildPlacement.AnyWorker,
+    );
+    expect(placementOfWorkflow(bare, undefined, undefined)).toBe(ChildPlacement.CurrentProcess);
   });
 
   it("a child's placement is never its parent's", () => {
     const child = childWith(undefined);
     const parent = workflowWith([onStart(RemoteOneWorkflowStart).toWorkflow(child)]);
 
-    expect(placementOfWorkflow(child, undefined)).toBe(ChildPlacement.CurrentProcess);
-    expect(placementOfWorkflow(parent, undefined)).toBe(ChildPlacement.CurrentProcess);
+    expect(placementOfWorkflow(child, undefined, undefined)).toBe(ChildPlacement.CurrentProcess);
+    expect(placementOfWorkflow(parent, undefined, undefined)).toBe(ChildPlacement.CurrentProcess);
   });
 
   it("a tree launches through the queue when a child below it does, by its own or the default", () => {
@@ -118,9 +122,9 @@ describe("#1286: placement is the child's, never the flow's", () => {
     const withQueued = workflowWith([onStart(ReviewOneWorkflowStart).toWorkflow(queued)]);
     const withBare = workflowWith([onStart(ReviewOneWorkflowStart).toWorkflow(bare)]);
 
-    expect(treeLaunchesQueued(withQueued, undefined)).toBe(true);
-    expect(treeLaunchesQueued(withBare, undefined)).toBe(false);
-    expect(treeLaunchesQueued(withBare, ChildPlacement.OtherWorker)).toBe(true);
+    expect(treeLaunchesQueued(withQueued, undefined, undefined)).toBe(true);
+    expect(treeLaunchesQueued(withBare, undefined, undefined)).toBe(false);
+    expect(treeLaunchesQueued(withBare, ChildPlacement.OtherWorker, undefined)).toBe(true);
   });
 
   it("a child that can pause may run on any worker (#333 PR 4)", () => {

@@ -27,7 +27,7 @@ import {
 import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
 
-import { placementOfWorkflow } from "../analyse/child-placements.js";
+import { placementOfWorkflow, type Placements } from "../analyse/child-placements.js";
 import { isQueued, type ChildPlacement } from "../child-placement.js";
 import { expiresInOfQuestion, questionExpiriesOf } from "../analyse/question-expiry.js";
 /**
@@ -147,9 +147,10 @@ const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
 const placementOf = (
   node: FlowNode,
   applicationPlacement: ChildPlacement | undefined,
+  overrides: Placements | undefined,
 ): ChildPlacement | undefined => {
   if (node.kind !== NodeKind.Workflow) return undefined;
-  const placement = placementOfWorkflow(node.component, applicationPlacement);
+  const placement = placementOfWorkflow(node.component, applicationPlacement, overrides);
   return isQueued(placement) ? placement : undefined;
 };
 
@@ -158,13 +159,13 @@ export function runtimeGraphOf(
   analysis: FlowAnalysis,
   flow: readonly FlowPath[],
   type: Class,
-  applicationPlacement?: ChildPlacement,
+  where: { readonly default?: ChildPlacement | undefined; readonly overrides?: Placements } = {},
 ): RuntimeGraph {
   const nodes = new Map<string, RuntimeNode>();
   const expiries = questionExpiriesOf(flow);
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);
-    const placement = placementOf(node, applicationPlacement);
+    const placement = placementOf(node, where.default, where.overrides);
     const expiresIn = expiresInOfQuestion(expiries, node.component);
     const edges = analysis.graph.edges.filter((edge) => edge.from === node.name);
     nodes.set(node.name, {

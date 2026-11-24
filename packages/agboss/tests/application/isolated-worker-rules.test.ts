@@ -62,15 +62,21 @@ const options = (rest: Partial<ApplicationOptions>): ApplicationOptions => ({
 
 describe("#1286b: isolatedWorkerViolations", () => {
   it("finds nothing when no child runs isolated", () => {
-    expect(isolatedWorkerViolations(options({ workflows: [parentWith(undefined)] }))).toEqual([]);
     expect(
-      isolatedWorkerViolations(options({ workflows: [parentWith(ChildPlacement.OtherWorker)] })),
+      isolatedWorkerViolations(options({ workflows: [parentWith(undefined)] }), undefined),
+    ).toEqual([]);
+    expect(
+      isolatedWorkerViolations(
+        options({ workflows: [parentWith(ChildPlacement.OtherWorker)] }),
+        undefined,
+      ),
     ).toEqual([]);
   });
 
   it("requires the entry for a child placed IsolatedWorker, by its own placement", () => {
     const found = isolatedWorkerViolations(
       options({ workflows: [parentWith(ChildPlacement.IsolatedWorker)] }),
+      undefined,
     );
 
     expect(found.map((one) => one.code)).toEqual(["application.isolated-worker-invalid"]);
@@ -83,6 +89,7 @@ describe("#1286b: isolatedWorkerViolations", () => {
         workflows: [parentWith(undefined)],
         defaults: { workflows: { placement: ChildPlacement.IsolatedWorker } },
       }),
+      undefined,
     );
 
     expect(found.map((one) => one.code)).toEqual(["application.isolated-worker-invalid"]);
@@ -97,6 +104,7 @@ describe("#1286b: isolatedWorkerViolations", () => {
             isolatedWorker: { entry },
             providers: [SqliteChildExecutionQueueRepository],
           }),
+          undefined,
         ),
       ).toEqual([]);
     }
@@ -108,6 +116,7 @@ describe("#1286b: isolatedWorkerViolations", () => {
         workflows: [parentWith(ChildPlacement.IsolatedWorker)],
         isolatedWorker: { entry: "file:///app/main.js" },
       }),
+      undefined,
     );
 
     expect(found.map((one) => one.code)).toEqual(["application.isolated-worker-invalid"]);
@@ -115,7 +124,7 @@ describe("#1286b: isolatedWorkerViolations", () => {
 
   it("refuses an entry that is neither, with or without an isolated child", () => {
     for (const entry of ["", "./main.js", "main.js"]) {
-      const found = isolatedWorkerViolations(options({ isolatedWorker: { entry } }));
+      const found = isolatedWorkerViolations(options({ isolatedWorker: { entry } }), undefined);
 
       expect(found.map((one) => one.code)).toEqual(["application.isolated-worker-invalid"]);
     }
@@ -130,25 +139,25 @@ describe("#1286b (D9): the temporary file in place of in-memory storage", () => 
       ...rest,
     });
   const declaredOf = async (one: ApplicationOptions) =>
-    declaredOptionsOf(await withIsolatedStorage(one));
+    declaredOptionsOf(await withIsolatedStorage(one, undefined));
 
   it("an application with no storage and an isolated child gets a shared temporary SQLite file", async () => {
     const declared = await declaredOf(isolated({}));
 
-    expect(isolatedWorkerViolations(declared)).toEqual([]);
+    expect(isolatedWorkerViolations(declared, undefined)).toEqual([]);
     expect(declared.providers).toContain(SqliteChildExecutionQueueRepository);
   });
 
   it("InMemoryDatabaseStorage is replaced the same way", async () => {
     const declared = await declaredOf(isolated({ storage: { database: InMemoryDatabaseStorage } }));
 
-    expect(isolatedWorkerViolations(declared)).toEqual([]);
+    expect(isolatedWorkerViolations(declared, undefined)).toEqual([]);
   });
 
   it("one application's passes share one file; a second application has its own", async () => {
     const first = isolated({});
     const databaseOf = async (one: ApplicationOptions) =>
-      assembledStorageOf((await withIsolatedStorage(one)).storage)?.database?.cls;
+      assembledStorageOf((await withIsolatedStorage(one, undefined)).storage)?.database?.cls;
 
     expect(await databaseOf(first)).toBe(await databaseOf({ ...first }));
     expect(await databaseOf(first)).not.toBe(await databaseOf(isolated({})));
@@ -158,7 +167,7 @@ describe("#1286b (D9): the temporary file in place of in-memory storage", () => 
     const chosen = isolated({ storage: { database: SqliteDatabaseStub } });
     const plain = options({ workflows: [parentWith(undefined)] });
 
-    expect((await withIsolatedStorage(chosen)).storage).toBe(chosen.storage);
-    expect(await withIsolatedStorage(plain)).toBe(plain);
+    expect((await withIsolatedStorage(chosen, undefined)).storage).toBe(chosen.storage);
+    expect(await withIsolatedStorage(plain, undefined)).toBe(plain);
   });
 });

@@ -1705,4 +1705,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "the application rules that read the components' options under the profiles (#1318c): the A2A contracts' rules and the A2A files' rules called with the carrier, one list; assembly rules that decide no spend, lease, fence or cancel; covered by tests/config/peers-shelves.test.ts, tests/config/file-policies-shelf.test.ts and tests/a2a/a2a-agent-rules.test.ts",
     ["src/application/carrier-rules.ts"],
   ),
+  ...reviewed(
+    "the checks that what a profile's shelves name exists in the application and fits (#1318c): a channel, an A2A endpoint or agent, an MCP server and its transport — assembly-time checks of names and kinds that decide no spend, lease, fence or cancel; covered by tests/config/channels-shelf.test.ts and tests/config/peers-shelves.test.ts",
+    ["src/application/option-checks.ts"],
+  ),
+  ...reviewed(
+    "the workflow's runtime graph with the levels its defaults came from remembered, moved out of `assemble.ts` as it was (#1318c) to keep it under the line limit: it reads where child workflows run through the carrier of the components' options; no decision of spend, lease, fence or cancel; covered by tests/config/placement-shelf.test.ts and tests/flow/runtime/remote-children-rules.test.ts",
+    ["src/components/assemble-graph.ts"],
+  ),
 ]);

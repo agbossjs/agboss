@@ -93,11 +93,15 @@ export function childWorkflowsOf(flow: readonly FlowPath[]): ReadonlySet<Class> 
 export function placementOfWorkflow(
   workflow: Class,
   applicationDefault: ChildPlacement | undefined,
+  overrides: Placements | undefined,
 ): ChildPlacement {
   const declaration = declarationOf(workflow);
   const own = declaration?.kind === NodeKind.Workflow ? declaration.options.placement : undefined;
-  return own ?? applicationDefault ?? ChildPlacement.CurrentProcess;
+  return overrides?.get(workflow) ?? own ?? applicationDefault ?? ChildPlacement.CurrentProcess;
 }
+
+/** What the selected profiles give child workflows (#1318c): their placement, by workflow class, over the declared one. */
+export type Placements = ReadonlyMap<Class, ChildPlacement>;
 
 /** A runtime node as far as its placement goes. */
 interface PlacedNode {
@@ -125,22 +129,36 @@ const treesQueued = new WeakMap<Class, Map<ChildPlacement | undefined, boolean>>
 export function treeLaunchesQueued(
   workflow: Class,
   applicationDefault: ChildPlacement | undefined,
+  overrides: Placements | undefined,
 ): boolean {
+  // the memo knows the declarations and the default alone: a profile's placements are asked afresh
+  if (overrides !== undefined && overrides.size > 0)
+    return launchesQueuedUnder(workflow, applicationDefault, overrides);
   const byDefault = treesQueued.get(workflow) ?? new Map<ChildPlacement | undefined, boolean>();
   treesQueued.set(workflow, byDefault);
   const known = byDefault.get(applicationDefault);
   if (known !== undefined) return known;
+  const launches = launchesQueuedUnder(workflow, applicationDefault, undefined);
+  byDefault.set(applicationDefault, launches);
+  return launches;
+}
+
+/** Whether a tree rooted at `workflow` can launch a child through the queue, under these placements. */
+function launchesQueuedUnder(
+  workflow: Class,
+  applicationDefault: ChildPlacement | undefined,
+  overrides: Placements | undefined,
+): boolean {
   const seen = new Set<Class>([workflow]);
   const pending: Class[] = [workflow];
   let launches = false;
   for (let next = pending.pop(); next !== undefined && !launches; next = pending.pop()) {
     for (const child of childWorkflowsOf(flowOf(next))) {
-      if (isQueued(placementOfWorkflow(child, applicationDefault))) launches = true;
+      if (isQueued(placementOfWorkflow(child, applicationDefault, overrides))) launches = true;
       if (seen.has(child)) continue;
       seen.add(child);
       pending.push(child);
     }
   }
-  byDefault.set(applicationDefault, launches);
   return launches;
 }
