@@ -1,11 +1,11 @@
-import type { Clock } from "../../infrastructure/clock.js";
+import { lazyLoad, type Clock } from "../../infrastructure/clock.js";
 import {
   compensationsOfHeldVisit,
   compensationsOfVisit,
   type CompensationEntry,
   type HeldUndo,
 } from "../compensation.js";
-import { hasHeldEntries, undoneHeldEntries } from "./compensation/step-error-undo.js";
+import { hasHeldEntries } from "./compensation/held-entries.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import type { VisitDeps } from "./visit.js";
 
@@ -49,8 +49,10 @@ export async function handledFailure(
   const { deps, clock, isHeldBack, reported, state, frame } = site;
   const own = await failedCompensations(site, deps, { isHeldBack, clock });
   // #1281: what the step's finished children left open is undone before the side path runs
-  const held = hasHeldEntries(state, frame.execution.executionId)
-    ? await undoneHeldEntries({ state, frame, deps, clock, cause: site.failure })
+  const held = hasHeldEntries(state.compensations, frame.execution.executionId)
+    ? await (
+        await lazyLoad(import("./compensation/step-error-undo.js"))
+      ).undoneHeldEntries({ state, frame, deps, clock, cause: site.failure })
     : undefined;
   const entries = [...(held?.compensations ?? []), ...reported.compensations];
   const withHeld = { ...own, usage: [...(held?.usage ?? []), ...(own.usage ?? [])] };

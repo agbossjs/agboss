@@ -37,6 +37,20 @@ export const isChildsEntry = (entry: CompensationEntry, executionId: string): bo
 /** Whether an entry is one its holder's own workflow opened (not moved up from a child). */
 export const isOwnEntry = (entry: CompensationEntry): boolean => entry.childPath === undefined;
 
+/** Whether an entry is one a child left open to this execution (#1281, D8): its step's failure undoes it. */
+export const isHeldOpen =
+  (executionId: string) =>
+  (entry: CompensationEntry): boolean =>
+    entry.status === CompensationEntryStatus.Open &&
+    !isOwnEntry(entry) &&
+    holderOf(entry) === executionId;
+
+/** Whether the entries hold an open one a child left to this execution. */
+export const hasHeldEntries = (
+  entries: readonly CompensationEntry[],
+  executionId: string,
+): boolean => entries.some(isHeldOpen(executionId));
+
 /**
  * What a child's finish writes of its open entries: each moved to its parent, out of the child's
  * launches (they ended with the child). Their status stays open: the parent commits or undoes them.

@@ -22,6 +22,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.DuplicateExecutionIdError, { generator: "SequentialIds" }),
   fx(root.ExecutionCancelledError, { message }),
   fx(root.ExecutionStoppedError, { message }),
+  fx(root.ExecutionPausedError, { message }),
   fx(root.ExecutionStopFencedError, {
     scopeKey: "acme:root-1",
     tenantId: "acme",
@@ -70,7 +71,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.CostLedgerEntryExpiredError, { ledgerIds: ["l-1"], prunedBefore: new Date(0) }),
   fx(root.CostLedgerEntryInvalidError, { index: 0, reason: "no id" }),
   fx(stores.InvalidA2APageTokenError, {}),
-  fx(root.PauseError.PermissionDenied, { message }),
   fx(root.PauseExtensionContendedError, { pauseKey: "default:p-1", attempts: 8 }),
   fx(root.UnknownPauseError, { message }),
   fx(root.NotPausedError, { message }),

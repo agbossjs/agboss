@@ -12,7 +12,7 @@ import type { FrameSpec } from "../../context/frame.js";
 import { rootFactsOf } from "../../context/frame.js";
 import type { ExecutionStateType } from "../state.js";
 import type { VisitDeps } from "../visit.js";
-import { heldUndoSiteOf, holderOf, isOwnEntry } from "./held-entries.js";
+import { heldUndoSiteOf, isHeldOpen } from "./held-entries.js";
 import { unwound } from "./unwind.js";
 import { markUndone, withUndoneMarks, type UndoneMarks } from "./unwinding-marks.js";
 
@@ -27,18 +27,6 @@ import { markUndone, withUndoneMarks, type UndoneMarks } from "./unwinding-marks
  * every automatic undo (#607): each success is marked done in the tree's store before the next, and a
  * step run again after a crash reads the entries through the marks and undoes nothing twice.
  */
-
-/** Whether an entry is one of this execution's held child entries, still open. */
-const isHeldOpen =
-  (executionId: string) =>
-  (entry: CompensationEntry): boolean =>
-    entry.status === CompensationEntryStatus.Open &&
-    !isOwnEntry(entry) &&
-    holderOf(entry) === executionId;
-
-/** Whether the state holds an open entry a child left to this execution. */
-export const hasHeldEntries = (state: ExecutionStateType, executionId: string): boolean =>
-  state.compensations.some(isHeldOpen(executionId));
 
 /** What the failed step's visit adds: the entries closed (as the undo ended) and the undo's spend. */
 export interface HeldEntriesUndone {
