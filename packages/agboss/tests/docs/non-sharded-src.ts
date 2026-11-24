@@ -454,7 +454,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ]),
   ...reviewed(
     "fans out each execution event to the observers and logs observer failures; no rules",
-    ["src/core/observer-manager.ts"],
+    ["src/core/observer-manager.ts", "src/core/observer-call.ts"],
   ),
   ...reviewed("the description of an application (docs and reports): read-only", [
     "src/describe/a2a-agents.ts",

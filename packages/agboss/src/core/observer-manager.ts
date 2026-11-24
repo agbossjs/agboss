@@ -43,12 +43,12 @@ import type {
   AgentRetryEvent,
 } from "./observability.js";
 import { isWanted, type ObserverHook, type ExecutionObserver } from "./observer-hooks.js";
+import { callAll, type ObserverFailure } from "./observer-call.js";
 
 export { unmasked, type EventMask, type UnknownCostTally } from "./observer-mask.js";
 import { unmasked, type EventMask, type UnknownCostTally } from "./observer-mask.js";
 
-/** Told when an observer's hook throws; the execution goes on. */
-export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
+export type { ObserverFailure } from "./observer-call.js";
 
 /** Without a listener a failing hook is only skipped (the application logs it, `observer.failed`). */
 const ignore: ObserverFailure = () => undefined;
@@ -83,28 +83,13 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     event: TEvent,
     call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
   ): Promise<void> {
-    await this.callAll(this.builtIn, hook, event, call);
+    await callAll(this.builtIn, hook, event, call, this.onFailure);
     // an observer's `workflows` / `agents` read the event as it is, before the mask
     const wanting = this.observers.filter((observer) => isWanted(observer, event as object));
     if (wanting.length === 0) return;
     // the mask keeps an event's shape: every string masked, class instances (errors) as they are
     const shown = (await this.mask(event)) as TEvent;
-    await this.callAll(wanting, hook, shown, call);
-  }
-
-  private async callAll<TEvent>(
-    observers: readonly ExecutionObserver[],
-    hook: ObserverHook,
-    event: TEvent,
-    call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
-  ): Promise<void> {
-    for (const observer of observers) {
-      try {
-        await call(observer, event);
-      } catch (error) {
-        this.onFailure(observer.constructor.name, hook, error);
-      }
-    }
+    await callAll(wanting, hook, shown, call, this.onFailure);
   }
 
   onExecutionStart(event: ExecutionStartEvent): Promise<void> {

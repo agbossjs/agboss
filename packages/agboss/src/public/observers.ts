@@ -7,6 +7,7 @@ export type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-t
 export type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
 export type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
 export type { CircuitStateChangeEvent } from "../flow/observers/circuit-state.js";
+export type { CircuitState } from "../models/circuit-breaker.js";
 export type {
   CompensationEndEvent,
   CompensationStartEvent,

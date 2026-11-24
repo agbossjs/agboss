@@ -1510,6 +1510,9 @@ export interface ChosenRouterRoute {
 }
 
 // @public
+export type CircuitState = "closed" | "open" | "half-open";
+
+// @public
 export interface CircuitStateChangeEvent {
     readonly at: Date;
     // (undocumented)
