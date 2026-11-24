@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { sortedJson } from "../../flow/runtime/json.js";
 import { Send } from "@langchain/langgraph";
 import { approvalChannelOf } from "../../tools/index.js";
 import { loopUsage } from "./state.js";
@@ -25,6 +27,14 @@ import {
   type ToolTask,
 } from "./state.js";
 
+/** The digest of the arguments the model gave a call. */
+export const argsDigestOf = (args: Record<string, unknown>): string =>
+  createHash("sha256").update(sortedJson(args)).digest("hex");
+
+/** Whether a prepared call is the call as the model made it: its tool and its arguments. */
+export const isPreparedFor = (prepared: PreparedCall, call: ToolCallRequest): boolean =>
+  prepared.tool === call.tool && prepared.argsDigest === argsDigestOf(call.args);
+
 /**
  * Calls of the move not prepared yet (#1295c): no input check, PII search and `before` hooks has
  * made them ready, refused or ended — or an approver's override came after the ones that did.
@@ -34,7 +44,12 @@ export const unpreparedCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
     if (state.results[call.callId] !== undefined) return false;
     const prepared = state.prepared[call.callId];
     const overridden = state.decisions[call.callId]?.overrideArguments !== undefined;
-    return prepared === undefined || (overridden && prepared.from !== PreparedFrom.Approver);
+    // prepared for another tool or other arguments (a call id the model reused): prepared anew
+    return (
+      prepared === undefined ||
+      !isPreparedFor(prepared, call) ||
+      (overridden && prepared.from !== PreparedFrom.Approver)
+    );
   });
 
 /**
@@ -75,7 +90,8 @@ export const runnableCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
 function preparedOf(state: AgentLoopStateType, call: ToolCallRequest): PreparedCall {
   const prepared = state.prepared[call.callId];
   // never run a call nobody checked
-  if (prepared === undefined) throw new TypeError(`tool call ${call.callId} was not prepared`);
+  if (prepared === undefined || !isPreparedFor(prepared, call))
+    throw new TypeError(`tool call ${call.callId} was not prepared`);
   return prepared;
 }
 

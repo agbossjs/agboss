@@ -12,6 +12,7 @@ import type { AgentAnswer } from "../../flow/runtime/answer-tools.js";
 import type { HistoryTurn } from "../../flow/runtime/history.js";
 import type { ApprovalRecord } from "../../pause/index.js";
 import type { SensitiveValue } from "../../pii/policy-set.js";
+import { mergeMove } from "./move-entries.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 import type { LoopProgress } from "../../flow/context/frame.js";
 import type { ToolCallStop } from "./tool-stops.js";
@@ -77,6 +78,9 @@ export type PreparedCall = PreparedCallEnd & {
   readonly args: Readonly<Record<string, unknown>>;
   /** Whose arguments they are: the model's, or an approver's override (prepared once more, #1295c). */
   readonly from: PreparedFrom;
+  /** The tool the call was for and the digest of the arguments the model gave: a reused call id never matches (#1295c). */
+  readonly tool: string;
+  readonly argsDigest: string;
   /** The remote execution an interceptor's hook reported while it ran (#398). */
   readonly remote?: ToolCallRemote;
 };
@@ -184,17 +188,29 @@ export const AgentLoopState = Annotation.Root({
   messages: Annotation<BaseMessage[]>({ reducer: append, default: () => [] }),
   /** The model's last move while its tool calls are judged, approved and run. */
   move: Annotation<AIMessage | null>({ reducer: replace, default: () => null }),
-  results: Annotation<Record<string, StoredToolCall>>({ reducer: merge, default: () => ({}) }),
-  decisions: Annotation<Record<string, CallDecision>>({ reducer: merge, default: () => ({}) }),
-  /** The calls of the move as they were prepared by call id (#1295c): checked before any approval. */
-  prepared: Annotation<Record<string, PreparedCall>>({ reducer: merge, default: () => ({}) }),
-  /** The answers to the visit's question calls by call id (#712): asked before the move's tools run. */
-  questionAnswers: Annotation<Record<string, QuestionCallAnswer>>({
-    reducer: merge,
+  results: Annotation<Record<string, StoredToolCall>, Record<string, StoredToolCall | undefined>>({
+    reducer: mergeMove,
     default: () => ({}),
   }),
+  decisions: Annotation<Record<string, CallDecision>, Record<string, CallDecision | undefined>>({
+    reducer: mergeMove,
+    default: () => ({}),
+  }),
+  /** The calls of the move as they were prepared by call id (#1295c): checked before any approval. */
+  prepared: Annotation<Record<string, PreparedCall>, Record<string, PreparedCall | undefined>>({
+    reducer: mergeMove,
+    default: () => ({}),
+  }),
+  /** The answers to the visit's question calls by call id (#712): asked before the move's tools run. */
+  questionAnswers: Annotation<
+    Record<string, QuestionCallAnswer>,
+    Record<string, QuestionCallAnswer | undefined>
+  >({ reducer: mergeMove, default: () => ({}) }),
   /** Each ended call's record by its call id (#395): run, refused, declined or unparsable. */
-  callRecords: Annotation<Record<string, ToolCallRecord>>({ reducer: merge, default: () => ({}) }),
+  callRecords: Annotation<
+    Record<string, ToolCallRecord>,
+    Record<string, ToolCallRecord | undefined>
+  >({ reducer: mergeMove, default: () => ({}) }),
   /** The visit's tool calls in call order (#395): a move's records, appended when it is collected. */
   trajectory: Annotation<ToolCallRecord[]>({ reducer: append, default: () => [] }),
   /** The judges' verdicts on the visit's replies (#395 C3), in the order they judged. */

@@ -19,6 +19,9 @@ export function budgetLoopShard() {
       // the calls prepared before any approval (#1295c): the spend of their PII search and of the hooks' services
       "src/graph/agent-loop/prepare-node.ts",
       "src/graph/agent-loop/question-ask.ts",
+      // what a move's call ids keep and the call that never reaches a tool (#1295c)
+      "src/graph/agent-loop/move-entries.ts",
+      "src/graph/agent-loop/call-output.ts",
       "src/graph/agent-loop/limits.ts",
       "src/graph/agent-loop/judge-budget.ts",
       // what a judge reads of the answer is left out: it is not spend, and its checks are those of the answer's shape

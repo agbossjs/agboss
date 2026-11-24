@@ -1,9 +1,9 @@
+import { callOf } from "./call-output.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import { callerOfSpend } from "../../finops/explicit-caller.js";
 import type { AnyTool, ToolInvocationContext, ToolOutput } from "../../tools/index.js";
 import { readingAgent, closedResult, type ClosedResult } from "./tool-pii.js";
-import { runTool } from "./run-tool.js";
 import { toolNamed, type AgentLoopDeps } from "./deps.js";
 import { reportInvalidInput } from "./retry-event.js";
 import { callStepOf, endedCallRecordOf, type CallTimes } from "./call-records.js";
@@ -13,7 +13,7 @@ import type { PiiTokenMap } from "../../pii/tokens.js";
 import { toolRecordOf } from "../../flow/runtime/tool-keys.js";
 import type { StepRecord } from "../../flow/context/execution-context.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
-import { afterCall, interceptorsOf, questionResultOf } from "./tool-interception.js";
+import { afterCall, interceptorsOf } from "./tool-interception.js";
 import { keepStopCause, type ToolCallStop } from "./tool-stops.js";
 import { storedCallOf } from "./stored-call.js";
 import { toolMeshCallOf, type ToolMeshCall } from "./mesh-call.js";
@@ -43,14 +43,6 @@ interface GuardedCall {
   readonly stop?: ToolCallStop;
 }
 
-/** What a call gives: a question's (#712) without running the tool, else the tool's run. */
-const callOf = (
-  tool: AnyTool,
-  task: ToolTask,
-  context: ToolInvocationContext,
-  args: unknown,
-): Promise<ToolOutput<unknown>> => questionResultOf(tool, task, () => runTool(tool, args, context));
-
 /** What the model would read of a stopped call: the loop fails the step before it reads it. */
 const stoppedContent = (stop: ToolCallStop): string =>
   `Tool error: the call was stopped by ${stop.interceptor}: ${stop.reason}`;
@@ -59,8 +51,7 @@ const stoppedContent = (stop: ToolCallStop): string =>
  * The call in its frame, as it was prepared before its approval (#1295c): refused by a block rule
  * in its arguments, answered or stopped by a tool interceptor's `before` hook — all of them ended
  * without running the tool —, or run with the arguments that were checked, then through its `after`
- * hooks (#384) and its result closed (#120). A call whose arguments are no input of the tool goes
- * the tool's own way: its error is what the model reads.
+ * hooks (#384) and its result closed (#120). Arguments that are no input of the tool give its error.
  */
 async function guardedCall(
   deps: AgentLoopDeps,

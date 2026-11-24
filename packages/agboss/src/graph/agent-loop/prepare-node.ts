@@ -12,7 +12,7 @@ import type { PiiPolicySet } from "../../pii/policy-set.js";
 import type { PiiTokenMap } from "../../pii/tokens.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { AsyncNode } from "../types.js";
-import { unpreparedCalls } from "./boundary.js";
+import { argsDigestOf, unpreparedCalls } from "./boundary.js";
 import { callSignalOf } from "./call-signal.js";
 import { toolNamed, type AgentLoopDeps, type ToolCallRequest } from "./deps.js";
 import { toolMeshCallOf } from "./mesh-call.js";
@@ -55,7 +55,16 @@ export function makePrepareNode(
     // one after the other, in the move's order: the tokens of one call are known to the next
     for (const call of unpreparedCalls(state)) {
       const tool = toolNamed(deps.agent, call.tool);
-      if (tool === undefined) continue;
+      if (tool === undefined) {
+        // a tool the agent does not have ends here, as an invalid call: it is never left unprepared
+        ended[call.callId] = {
+          ...identityOf(call),
+          args: call.args,
+          from: PreparedFrom.Model,
+          kind: "invalid",
+        };
+        continue;
+      }
       throwIfCancelled(runCtx.run);
       const known = { ...state.piiTokens, ...tokens };
       const prepared = await preparedCallOf({ state, deps, config, runCtx }, { call, tool, known });
@@ -67,6 +76,12 @@ export function makePrepareNode(
     return { prepared: ended, questionAnswers: asked, usage, piiTokens: tokens };
   };
 }
+
+/** What a prepared call is of: its tool and the arguments the model gave (#1295c). */
+const identityOf = (call: ToolCallRequest): Pick<PreparedCall, "tool" | "argsDigest"> => ({
+  tool: call.tool,
+  argsDigest: argsDigestOf(call.args),
+});
 
 /** Where the preparing runs. */
 interface PrepareSite {
@@ -152,7 +167,12 @@ async function preparedCallOf(site: PrepareSite, target: PrepareTarget): Promise
   const { args, from } = argumentsOf(state, target.call);
   const own: Own = {
     args,
-    end: (end, spent = {}) => ({ call: { args, from, ...end }, usage: [], tokens: {}, ...spent }),
+    end: (end, spent = {}) => ({
+      call: { ...identityOf(target.call), args, from, ...end },
+      usage: [],
+      tokens: {},
+      ...spent,
+    }),
   };
   const started = await startedOf(site, target, own);
   if ("end" in started) return started.end;
