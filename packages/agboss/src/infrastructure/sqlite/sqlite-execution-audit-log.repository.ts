@@ -7,13 +7,6 @@ import {
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { parsedStoredJson } from "../stored-step.js";
 
-const EVENTS_SCHEMA = `CREATE TABLE IF NOT EXISTS execution_lease_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
-  occurred_at INTEGER NOT NULL, record TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS execution_lease_events_tree
-  ON execution_lease_events (tenant_id, root_execution_id, occurred_at, id);
-CREATE INDEX IF NOT EXISTS execution_lease_events_occurred ON execution_lease_events (occurred_at);`;
-
 const EventRow = z.object({ record: z.string() });
 
 /** A row's record (written by `save`: the record as JSON). */
@@ -34,7 +27,6 @@ const recordOf = (row: unknown): ExecutionAuditEventRecord =>
 export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogRepository {
   constructor(private readonly connection: SqliteConnection) {
     super();
-    connection.ensureSchema("execution_lease_events", EVENTS_SCHEMA);
   }
 
   ping(): Promise<void> {

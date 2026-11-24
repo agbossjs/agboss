@@ -11,6 +11,23 @@ const reviewed = (reason: string, names: readonly string[]): [string, string][] 
   names.map((name) => [name, reason]);
 
 export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntries([
+  ...reviewed(
+    "the storage components' declarations and wiring (#1321): decorators, driver descriptors, settings and field readers, the in-memory database and the barrel — which store holds the leases, the idempotency keys and the retention is decided in the sharded storage-assembly, storage-rules, storage-secret-rules and ttl-problem (assembly-rules); covered by tests/storage/storage-application.test.ts and tests/storage/storage.test-d.ts",
+    [
+      "src/storage/drivers.ts",
+      "src/storage/in-memory-storage.ts",
+      "src/storage/index.ts",
+      "src/storage/settings.ts",
+      "src/storage/storage-decorators.ts",
+      "src/storage/storage-driver.ts",
+      "src/storage/storage-fields.ts",
+      "src/infrastructure/sqlite/sqlite-settings.ts",
+    ],
+  ),
+  ...reviewed(
+    "the build-time list of the application's extra rule codes (#1321) and the instance sources' wiring: declarations; covered by tests/storage/storage-application.test.ts",
+    ["src/graph/extra-rule-codes.ts", "src/application/instance-sources.ts"],
+  ),
   ...reviewed("the A2A decorators, rules and card checks: declarations and build-time checks", [
     "src/a2a/a2a-caller-gate.ts",
   ]),

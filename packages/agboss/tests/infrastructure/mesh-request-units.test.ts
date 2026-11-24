@@ -184,15 +184,12 @@ describe("#1374: the in-memory mesh request store keeps copies", () => {
 });
 
 describe("#1374: the SQLite mesh request store on its own", () => {
-  it("is a SQLite implementation, and creates its table once under its own name", () => {
+  it("is a SQLite implementation, and its table is made when the connection opens", () => {
     const connection = connectionTo(temporarySqlitePath());
     const store = new SqliteMeshRequestRepository(connection);
 
     expect(isSqliteImplementation(store)).toBe(true);
-    // the name is cached: a second create under it is not run (an invalid DDL would throw)
-    expect(() => {
-      connection.ensureSchema("mesh_requests", "CREATE TABLE boom (");
-    }).not.toThrow();
+    expect(connection.columnsOf("mesh_requests")).toContain("idempotency_key");
   });
 
   it("refuses a stored answer that is no JSON, naming the store and the row's peer and key, never the text", async () => {

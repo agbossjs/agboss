@@ -12,9 +12,6 @@ import {
 
 /** The rows of `SqliteA2ATaskRepository` (#807): its schema, and their records. */
 
-/** #810: the body hash of a trusted task's first message, added to a file written before. */
-export const MESH_BODY_HASH_COLUMN = ["a2a_tasks", "mesh_body_hash", "TEXT"] as const;
-
 export const TERMINAL_STATES = Object.values(A2ATaskState).filter(isTerminalA2ATaskState);
 
 export const SCHEMA = `CREATE TABLE IF NOT EXISTS a2a_tasks (

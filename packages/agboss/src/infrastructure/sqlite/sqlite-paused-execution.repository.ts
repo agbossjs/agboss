@@ -11,7 +11,6 @@ import type {
 } from "../pause-notices.js";
 import type { PauseRecord } from "../pause-record.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { preparePauseTables } from "./sqlite-pause-schema.js";
 import { SqlitePauseStore } from "./sqlite-pause-store.js";
 
 /**
@@ -32,7 +31,6 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
   constructor(connection: SqliteConnection, clock: Clock) {
     super();
     this.#store = new SqlitePauseStore(connection, clock);
-    preparePauseTables(connection);
   }
 
   ping(): Promise<void> {

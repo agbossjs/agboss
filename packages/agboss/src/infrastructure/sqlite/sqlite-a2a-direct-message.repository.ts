@@ -19,9 +19,8 @@ import {
   savedA2ADirectMessageOf,
 } from "../in-memory-a2a-direct-message.repository.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
-import { answerOf, MESSAGE_KEY, messageKeyOf, messageOf, SCHEMA } from "./sqlite-a2a-task-rows.js";
+import { answerOf, MESSAGE_KEY, messageKeyOf, messageOf } from "./sqlite-a2a-task-rows.js";
 import {
-  DIRECT_SCHEMA,
   directColumnsOf,
   directMessageOf,
   INSERT_DIRECT,
@@ -42,10 +41,6 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
 
   constructor(private readonly connection: SqliteConnection) {
     super();
-    // Stryker disable next-line StringLiteral: the names only keep each schema run once per connection
-    connection.ensureSchema("a2a_tasks", SCHEMA);
-    // Stryker disable next-line StringLiteral: as above
-    connection.ensureSchema("a2a_direct_messages", DIRECT_SCHEMA);
   }
 
   ping(): Promise<void> {

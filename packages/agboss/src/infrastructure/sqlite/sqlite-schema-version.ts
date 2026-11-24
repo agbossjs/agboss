@@ -5,15 +5,13 @@ import { AGBossError, type AGBossErrorOptions } from "../../core/errors.js";
 /**
  * The schema version of a SQLite file (#1104), kept in the table `agboss_schema` — not in
  * `PRAGMA user_version`, which the turn store already counts its own migrations in on this very file
- * (`src/turns/schema.ts`). 0.1.0 never stamped: a file with no stamp (0) is a 0.1.0 file (or a new
- * one): this build migrates it and stamps it. A build that changes the schema raises the number —
- * `2` (#1117): each tree's cancel mark moved onto its lease row, `execution_cancel_requests` gone,
- * so a build of `1` (which reads that table) must not open the file —; a build opening a file
- * stamped above its own refuses it
- * (`SqliteSchemaTooNewError`) before it writes a row — what `PostgresSchemaTooNewError` does for
- * PostgreSQL. A 0.1.0 binary never reads the stamp and cannot be refused: stop it before the upgrade.
+ * (`src/turns/schema.ts`). `1` is the 0.1.1 baseline (#1321c): the whole schema in one place
+ * (`sqlite-baseline-schema.ts`), reset once from the numbers of the development builds; a 0.1.0
+ * file (no stamp) is not read or migrated. A build that changes the schema raises the number; a
+ * build opening a file stamped above its own refuses it (`SqliteSchemaTooNewError`) before it writes
+ * a row — what `PostgresSchemaTooNewError` does for PostgreSQL.
  */
-export const SQLITE_SCHEMA_VERSION = 2;
+export const SQLITE_SCHEMA_VERSION = 1;
 
 /** What a refusal knows: the version the file is stamped with and the one this build writes. */
 export interface SqliteSchemaTooNewErrorOptions extends AGBossErrorOptions {
@@ -64,8 +62,8 @@ export function stampOf(database: DatabaseSync): number {
  * At open: a file of a newer version is refused, an older or unstamped one is stamped with this
  * build's. A current file is only read (no write lock), and the database is closed when it is refused; the stamp is set inside `BEGIN IMMEDIATE`
  * after reading again, so two builds racing neither lower a stamp nor miss a newer one. The stamp
- * comes before the stores migrate: migrations are keyed by the file's shape, never by the stamp, so
- * a crash between them is finished by the next open.
+ * comes before the baseline DDL, which is keyed by the file's shape, never by the stamp, so a crash
+ * between them is finished by the next open.
  */
 export function checkedSchemaVersion(database: DatabaseSync): void {
   try {

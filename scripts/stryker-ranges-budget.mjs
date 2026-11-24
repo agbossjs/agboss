@@ -87,6 +87,11 @@ export function assemblyRulesShard() {
       "src/flow/analyse/steps.ts",
       "src/flow/analyse/strongly-connected.ts",
       "src/health/health-check.ts",
+      // #1321: which storage holds the leases, the idempotency keys and the retention
+      "src/storage/storage-assembly.ts",
+      "src/storage/storage-rules.ts",
+      "src/storage/storage-secret-rules.ts",
+      "src/storage/ttl-problem.ts",
     ],
   };
 }

@@ -64,7 +64,7 @@ const BUSINESS_ROWS = "CREATE TABLE IF NOT EXISTS contract_rows (row TEXT NOT NU
 /** The SQLite store on this instance's connection to the test's file, with its lease store. */
 export const sqliteFencedEffects: StoreFactory<FencedEffectTarget<DatabaseSync>> = (seam) => {
   const connection = seam.connection();
-  connection.ensureSchema("contract_rows", BUSINESS_ROWS);
+  connection.database.exec(BUSINESS_ROWS);
   return {
     effects: new SqliteFencedEffectRepository(
       connection,

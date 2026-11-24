@@ -132,30 +132,6 @@ describe("#626: the SQLite fencing stores beyond their contracts", () => {
       });
   });
 
-  it.each(TABLES)(
-    "a store registers %s under its name: another store of the file never runs that DDL again",
-    (table, make) => {
-      const connection = connectionTo(temporarySqlitePath());
-      make(connection);
-
-      expect(() => {
-        connection.ensureSchema(table, "NOT A STATEMENT");
-      }).not.toThrow();
-    },
-  );
-
-  it("a file an older version wrote, without the yielded column: the lease store adds it", async () => {
-    const path = temporarySqlitePath();
-    connectionTo(path).database.exec(`CREATE TABLE execution_leases (
-      tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
-      lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
-      PRIMARY KEY (tenant_id, root_execution_id))`);
-    const stores = storesOn(path);
-
-    expect(stores.connection.columnsOf("execution_leases")).toContain("yielded");
-    expect(await stores.leases.yield(await held(stores.leases))).toBeTypeOf("number");
-  });
-
   it.each(PINGED)(
     "ping() of the %s asks the file: answered while open, refused once closed",
     async (_, ping) => {

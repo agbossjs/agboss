@@ -1,8 +1,8 @@
 /**
  * #1101 and the guarantees #1035 left unpinned: the `step` the newest-by-step read orders by is
  * read for every metadata type the saver can write (a serde that names its type anything but
- * `json` is read by the serde, never ordered by id); the column stays REAL (0.1.0's own `SELECT *`
- * survives a step of 2^53); a step that is not a number is -2, a missing one is -2 and not -1.
+ * `json` is read by the serde, never ordered by id); the column stays REAL (a step of 2^53 and above
+ * is read as the double it was written as); a step that is not a number is -2, a missing one is -2 and not -1.
  */
 import {
   emptyCheckpoint,
@@ -12,10 +12,6 @@ import {
 import { describe, expect, it } from "vitest";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
-import { installPublished010, oldPuts } from "./published-0.1.0.js";
-
-installPublished010();
-
 const at = { configurable: { thread_id: "t", checkpoint_ns: "" } };
 const loop = (step: number): CheckpointMetadata => ({ source: "loop", step, parents: {} });
 const put = (saver: SqliteCheckpointSaver, id: string, metadata: unknown): Promise<unknown> =>
@@ -83,15 +79,12 @@ describe("#1101 AC1: a serde that names its metadata type something else", () =>
 });
 
 describe("#1035 guarantees: the generated step column", () => {
-  it("the column is REAL: published 0.1.0's own SELECT * reads a thread at step 2^53 and beyond", async () => {
+  it("the column is REAL: a thread at step 2^53 and beyond is read, the newest is the highest", async () => {
     const path = temporarySqlitePath();
     const saver = new SqliteCheckpointSaver(connectionTo(path));
     await put(saver, "a", loop(2 ** 53));
-    // 0.1.0 writes after this version opened the file and reads each put back with SELECT *
-    await oldPuts(path, [
-      { id: "b", metadata: loop(2 ** 53) },
-      { id: "c", metadata: loop(2 ** 60) },
-    ]);
+    await put(saver, "b", loop(2 ** 53));
+    await put(saver, "c", loop(2 ** 60));
     expect((await saver.latestByStep(at))?.checkpoint.id).toBe("c");
   });
 

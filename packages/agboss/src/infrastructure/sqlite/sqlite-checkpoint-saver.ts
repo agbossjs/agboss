@@ -3,8 +3,6 @@ import { BaseCheckpointSaver, copyCheckpoint, type CheckpointTuple } from "@lang
 import { Injectable } from "../../components/decorators.js";
 import {
   CHECKPOINT_COLUMNS,
-  CHECKPOINT_SCHEMA,
-  TENANT_TAGGED_TABLES,
   CheckpointRow,
   checkpointOf,
   configOf,
@@ -17,13 +15,7 @@ import {
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
 import type { LatestByStepCheckpointSaver } from "../latest-by-step.js";
-import {
-  latestRowOf,
-  migrateSteps,
-  newestIdOf,
-  rowOf,
-  stepsToRank,
-} from "./sqlite-latest-by-step.js";
+import { latestRowOf, newestIdOf, rowOf, stepsToRank } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
 /**
@@ -41,10 +33,6 @@ export class SqliteCheckpointSaver
 {
   constructor(private readonly connection: SqliteConnection) {
     super();
-    connection.ensureSchema("checkpoints", CHECKPOINT_SCHEMA);
-    for (const table of TENANT_TAGGED_TABLES)
-      connection.addColumn(table, "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
-    migrateSteps(connection);
   }
 
   /** One `SELECT 1` on the file (#300): what `app.checkReadiness()` asks of the checkpoint saver. */

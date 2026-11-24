@@ -50,6 +50,9 @@ export function sqliteStoresShard() {
       "src/infrastructure/sqlite/sqlite-outbound-call-pages.ts",
       // #825: the table's declared seq, and its upgrade
       "src/infrastructure/sqlite/sqlite-outbound-call-schema.ts",
+      // #1321c: the baseline DDL — the keys, primary keys and unique indexes that fence and deduplicate
+      "src/infrastructure/sqlite/sqlite-tables.ts",
+      "src/infrastructure/sqlite/sqlite-baseline-schema.ts",
     ],
   };
 }

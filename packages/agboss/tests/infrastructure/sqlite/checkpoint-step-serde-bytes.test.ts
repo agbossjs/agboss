@@ -159,23 +159,6 @@ describe("#1114 AC1: a serde that keeps the type json and changes the bytes", ()
     );
     expect((await saver.latestByStep(at))?.checkpoint.id).toBe("y");
   });
-
-  it("AC1: a file a #1101 build opened loses its foreign-metadata index and gets the new one", () => {
-    const path = temporarySqlitePath();
-    const first = openSaver(path);
-    databaseOf(first).exec(
-      "DROP INDEX checkpoints_unreadable_step; CREATE INDEX checkpoints_foreign_metadata ON checkpoints (thread_id, checkpoint_ns) WHERE metadata_type <> 'json'",
-    );
-    const reopened = openSaver(path);
-    const names = databaseOf(reopened)
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'checkpoints_%' ORDER BY name",
-      )
-      .all()
-      .map((row) => row.name);
-    expect(names).toContain("checkpoints_unreadable_step");
-    expect(names).not.toContain("checkpoints_foreign_metadata");
-  });
 });
 
 describe("#1115 AC1: every SQLite path breaks a tie of steps by code point", () => {

@@ -20,23 +20,14 @@ import {
 import { pendingOutboundCallOf } from "../fenced-effect-key.js";
 import { parsedStoredJson } from "../stored-step.js";
 import { sqlitePageOf } from "./sqlite-outbound-call-pages.js";
-import {
-  OUTBOUND_CALL_COLUMNS,
-  OUTBOUND_CALLS_SCHEMA,
-  upgradeOutboundCallsSeq,
-} from "./sqlite-outbound-call-schema.js";
+import { OUTBOUND_CALL_COLUMNS } from "./sqlite-outbound-call-schema.js";
 import {
   checkSqliteCancel,
   oneRowChanged,
   SqliteConnection,
   sqliteImplementation,
 } from "./sqlite-connection.js";
-import { ensureLeaseSchema } from "./sqlite-lease-schema.js";
-import {
-  checkSqliteFence,
-  FENCED_EFFECTS_SCHEMA,
-  RAISE_MARK,
-} from "./sqlite-fenced-effect.repository.js";
+import { checkSqliteFence, RAISE_MARK } from "./sqlite-fenced-effect.repository.js";
 
 const RecordRow = z.object({ record: z.string() });
 
@@ -74,10 +65,6 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     private readonly clock: Pick<StoreClock, "now">,
   ) {
     super();
-    ensureLeaseSchema(connection);
-    connection.ensureSchema("fenced_effects", FENCED_EFFECTS_SCHEMA);
-    upgradeOutboundCallsSeq(connection);
-    connection.ensureSchema("outbound_calls", OUTBOUND_CALLS_SCHEMA);
   }
 
   /**

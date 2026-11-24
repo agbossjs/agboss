@@ -36,7 +36,7 @@ try {
   });
   const connection = container.get(SqliteConnection);
   if (!(connection instanceof SqliteConnection)) throw new Error("not a SqliteConnection");
-  connection.ensureSchema("notes", "CREATE TABLE IF NOT EXISTS notes (text TEXT NOT NULL);");
+  connection.database.exec("CREATE TABLE IF NOT EXISTS notes (text TEXT NOT NULL);");
   connection.transaction(() => {
     connection.database.exec("INSERT INTO notes VALUES ('x')");
   });

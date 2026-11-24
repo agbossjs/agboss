@@ -18,7 +18,6 @@ import {
   checkSqliteCancel,
   markedCancelRequested,
 } from "../../src/infrastructure/sqlite/sqlite-connection.js";
-import { ensureLeaseSchema } from "../../src/infrastructure/sqlite/sqlite-lease-schema.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { connectionTo, temporarySqlitePath } from "./contracts/store-kinds.js";
 
@@ -129,9 +128,7 @@ describe("#1366: the retention of the in-memory outbound calls", () => {
 
 /** A connection to a new file with the lease table made. */
 function sqlite() {
-  const connection = connectionTo(temporarySqlitePath());
-  ensureLeaseSchema(connection);
-  return connection;
+  return connectionTo(temporarySqlitePath());
 }
 
 const rowOf = (connection: ReturnType<typeof sqlite>, root: string) =>
@@ -214,67 +211,13 @@ describe("#1356: the cancel mark and check of the SQLite stores", () => {
   });
 });
 
-describe("#1356: a file whose marks lived in their own table", () => {
-  it("has them moved onto the lease rows, a seed row for a tree with none, and its old table dropped", () => {
-    const connection = connectionTo(temporarySqlitePath());
-    connection.database.exec(`
-      CREATE TABLE execution_leases (
-        tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
-        lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
-        yielded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (tenant_id, root_execution_id));
-      CREATE TABLE execution_cancel_requests (
-        tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, requested_at INTEGER NOT NULL,
-        PRIMARY KEY (tenant_id, root_execution_id));
-      INSERT INTO execution_leases VALUES ('t1', 'held', 'h', 4, 0, 1, 0);
-      INSERT INTO execution_cancel_requests VALUES ('t1', 'held', 11), ('t1', 'bare', 12);`);
-
-    ensureLeaseSchema(connection);
-    ensureLeaseSchema(connection);
-
-    expect({ ...rowOf(connection, "held") }).toMatchObject({
-      lease_epoch: 4,
-      cancel_requested_at: 11,
-    });
-    expect({ ...rowOf(connection, "bare") }).toMatchObject({
-      holder_instance_id: "",
-      lease_epoch: 0,
-      released: 1,
-      cancel_requested_at: 12,
-    });
-    expect(connection.columnsOf("execution_cancel_requests")).toEqual([]);
-  });
-
-  it("adds the columns an older file lacks — yielded (#516) and the mark — to the rows it has", () => {
-    const connection = connectionTo(temporarySqlitePath());
-    connection.database.exec(`
-      CREATE TABLE execution_leases (
-        tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
-        lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
-        PRIMARY KEY (tenant_id, root_execution_id));
-      INSERT INTO execution_leases VALUES ('t1', 'old', 'h', 2, 0, 1);`);
-
-    ensureLeaseSchema(connection);
-
-    expect({ ...rowOf(connection, "old") }).toMatchObject({
-      yielded: 0,
-      cancel_requested_at: null,
-    });
-  });
-
-  it("makes the table once per connection, by the name it shares with the stores that make it", () => {
-    const connection = connectionTo(temporarySqlitePath());
-    connection.ensureSchema("execution_leases", "SELECT 1");
-
-    // the name was made already: no second DDL, so no table for the columns to be added to
-    expect(() => {
-      ensureLeaseSchema(connection);
-    }).toThrow();
-  });
-
-  it("leaves a file with no old table as it is", () => {
+describe("#1321c: the lease table of the baseline", () => {
+  it("is made when the connection opens, with the yielded column and the cancel mark, and no table of marks of its own", () => {
     const connection = sqlite();
 
-    expect(connection.columnsOf("execution_leases")).toContain("cancel_requested_at");
+    expect(connection.columnsOf("execution_leases")).toEqual(
+      expect.arrayContaining(["yielded", "cancel_requested_at"]),
+    );
     expect(connection.columnsOf("execution_cancel_requests")).toEqual([]);
   });
 });

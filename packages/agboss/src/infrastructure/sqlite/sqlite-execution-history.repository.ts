@@ -9,14 +9,6 @@ import { executionHistoryRecordOfJson } from "../stored-history.js";
 import { parsedStoredJson } from "../stored-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
-const SCHEMA = `CREATE TABLE IF NOT EXISTS execution_history (
-  tenant_id TEXT NOT NULL, execution_id TEXT NOT NULL, thread_id TEXT NOT NULL,
-  started_at TEXT NOT NULL, ended_at TEXT, record TEXT NOT NULL,
-  PRIMARY KEY (tenant_id, execution_id));
-CREATE INDEX IF NOT EXISTS execution_history_started ON execution_history (started_at, execution_id);
-CREATE INDEX IF NOT EXISTS execution_history_thread ON execution_history (tenant_id, thread_id);
-CREATE INDEX IF NOT EXISTS execution_history_ended ON execution_history (ended_at);`;
-
 const Row = z.object({ execution_id: z.string().optional(), record: z.string() });
 
 const ORDER = "ORDER BY started_at, execution_id";
@@ -38,7 +30,6 @@ const recordOf = (row: unknown): ExecutionHistoryRecord => {
 export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository {
   constructor(private readonly connection: SqliteConnection) {
     super();
-    connection.ensureSchema("execution_history", SCHEMA);
   }
 
   ping(): Promise<void> {

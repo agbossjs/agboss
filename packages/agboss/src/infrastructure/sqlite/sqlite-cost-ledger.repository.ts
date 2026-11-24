@@ -16,37 +16,6 @@ import {
 import { CostLedgerEntryExpiredError } from "../../finops/ledger-mark.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
-/** One counter per budget, scope key and period; the last `maxSpend()` per budget and scope key. */
-const SCHEMA = `CREATE TABLE IF NOT EXISTS cost_ledger (
-  budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, period TEXT NOT NULL,
-  spent_usd REAL NOT NULL, PRIMARY KEY (budget, scope, scope_key, period));
-CREATE TABLE IF NOT EXISTS cost_ledger_max_spend (
-  budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, max_spend_usd REAL NOT NULL,
-  PRIMARY KEY (budget, scope, scope_key));
-CREATE TABLE IF NOT EXISTS cost_ledger_entries (
-  ledger_id TEXT NOT NULL PRIMARY KEY, made_at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS cost_ledger_entries_pruned (
-  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1), pruned_before INTEGER NOT NULL);`;
-
-/**
- * The entries' date (#771), on a file #727 wrote without it: an entry kept before it is dated
- * "never" — never pruned, never refused (a retry of it made earlier than any cutoff it would get
- * is held) — so pruning cannot reach one whose save may still come; delete those rows by hand once
- * no pass from before the upgrade runs.
- */
-const ENTRY_DATE = `INTEGER NOT NULL DEFAULT ${String(Number.MAX_SAFE_INTEGER)}`;
-
-/** The entries by date, for the sweep's prune (after the column exists). */
-const ENTRY_DATE_INDEX =
-  "CREATE INDEX IF NOT EXISTS cost_ledger_entries_made_at ON cost_ledger_entries (made_at)";
-
-/**
- * The migration of a file written before budgets (#261 PR 5, #265 S69 e): the old table counted
- * one key (a workflow's name) per UTC day for `settings().limits`, which no budget reads — it is
- * dropped, and the budgets' counters start from zero.
- */
-const BUDGETS_MIGRATION = "DROP TABLE cost_ledger;";
-
 const SpentRow = z.object({ spent_usd: z.number() });
 const MaxSpendRow = z.object({ max_spend_usd: z.number() });
 const PrunedRow = z.object({ pruned_before: z.number() });
@@ -67,16 +36,6 @@ const scopeOf = (account: BudgetAccount): string => z.enum(BudgetScope).parse(ac
 export class SqliteCostLedgerRepository extends CostLedgerRepository {
   constructor(private readonly connection: SqliteConnection) {
     super();
-    connection.transaction(() => {
-      const columns = connection.columnsOf("cost_ledger");
-      if (columns.length > 0 && !columns.includes("budget"))
-        connection.database.exec(BUDGETS_MIGRATION);
-    });
-    connection.ensureSchema("cost_ledger", SCHEMA);
-    connection.addColumn("cost_ledger_entries", "made_at", ENTRY_DATE);
-    connection.transaction(() => {
-      connection.database.exec(ENTRY_DATE_INDEX);
-    });
   }
 
   /** The pruning mark (#771, kept in ms): entries made before it may have been removed; none yet → `undefined`. */

@@ -11,15 +11,6 @@ import {
 import { ExecutionRecordStatus } from "../execution-record.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
-const SCHEMA = `CREATE TABLE IF NOT EXISTS child_execution_queue (
-  tenant_id TEXT NOT NULL, execution_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
-  parent_execution_id TEXT NOT NULL, root_workflow TEXT NOT NULL, workflow TEXT NOT NULL,
-  depth INTEGER NOT NULL, status TEXT NOT NULL, run TEXT NOT NULL, queued_at INTEGER NOT NULL,
-  instance_id TEXT, claimed_at INTEGER, ended_at INTEGER, failure TEXT,
-  PRIMARY KEY (tenant_id, execution_id));
-CREATE INDEX IF NOT EXISTS child_execution_queue_claims
-  ON child_execution_queue (status, depth DESC, queued_at);`;
-
 const STATUSES = Object.values(ExecutionRecordStatus) as [
   ExecutionRecordStatus,
   ...ExecutionRecordStatus[],
@@ -82,7 +73,6 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
     private readonly applicationContext: ApplicationContext,
   ) {
     super();
-    connection.ensureSchema("child_execution_queue", SCHEMA);
   }
 
   ping(): Promise<void> {

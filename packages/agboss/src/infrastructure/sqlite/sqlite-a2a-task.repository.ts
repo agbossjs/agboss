@@ -20,8 +20,6 @@ import {
   messageOf,
   MESSAGE_KEY,
   ownerColumnOf,
-  MESH_BODY_HASH_COLUMN,
-  SCHEMA,
   taskOf,
   TERMINAL_STATES,
 } from "./sqlite-a2a-task-rows.js";
@@ -43,9 +41,6 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
 
   constructor(private readonly connection: SqliteConnection) {
     super();
-    // Stryker disable next-line StringLiteral: the name only keeps the schema run once per connection
-    connection.ensureSchema("a2a_tasks", SCHEMA);
-    connection.addColumn(...MESH_BODY_HASH_COLUMN);
   }
 
   ping(): Promise<void> {

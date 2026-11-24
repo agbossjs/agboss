@@ -2031,7 +2031,6 @@ export interface SetAsideMailbox {
 // @public
 export class SqliteConnection implements OnDestroy {
     constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
-    addColumn(table: string, column: string, definition: string): void;
     columnsOf(table: string): readonly string[];
     get database(): DatabaseSync;
     ensureSchema(name: string, ddl: string): void;
@@ -2039,7 +2038,6 @@ export class SqliteConnection implements OnDestroy {
     readonly path: string;
     ping(): Promise<void>;
     transaction<TResult>(work: () => TResult): TResult;
-    uniqueIndexesOf(table: string): readonly string[];
 }
 
 // @public

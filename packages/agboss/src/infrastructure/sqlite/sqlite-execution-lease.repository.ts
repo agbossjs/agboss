@@ -17,7 +17,6 @@ import {
   SqliteConnection,
   sqliteImplementation,
 } from "./sqlite-connection.js";
-import { ensureLeaseSchema } from "./sqlite-lease-schema.js";
 
 /**
  * `released`: 0 held (or expired), 1 released by its holder, 2 closed as expired by an outbound
@@ -76,7 +75,6 @@ export class SqliteExecutionLeaseRepository extends ExecutionLeaseRepository {
     private readonly applicationContext: ApplicationContext,
   ) {
     super();
-    ensureLeaseSchema(connection);
   }
 
   ping(): Promise<void> {

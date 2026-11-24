@@ -14,6 +14,7 @@ import { pauseThread } from "../clock.js";
 import type { EffectKey } from "../effect-key.js";
 import { cancelTreeOf } from "../issued-keys.js";
 import { afterFailedCommit, classifiedDatabase } from "./sqlite-outcome.js";
+import { ensureBaselineSchema } from "./sqlite-baseline-schema.js";
 import { checkedSchemaVersion } from "./sqlite-schema-version.js";
 
 export { SQLITE_SCHEMA_VERSION } from "./sqlite-schema-version.js";
@@ -39,10 +40,6 @@ const SqliteEnvironment = z.object({
 
 /** One row of `PRAGMA table_info`: a column's name. */
 const ColumnRow = z.looseObject({ name: z.string() });
-
-/** One row of `PRAGMA index_list` (its name, whether unique) and of `PRAGMA index_info` (a column). */
-const IndexRow = z.looseObject({ name: z.string(), unique: z.number() });
-const IndexColumnRow = z.looseObject({ name: z.string().nullable() });
 
 /** SQLite's `SQLITE_BUSY` result code; its extended codes (`SQLITE_BUSY_RECOVERY` = 261, …) keep it in the low byte. */
 const SQLITE_BUSY = 5;
@@ -143,8 +140,8 @@ export function inImmediateTransaction<TResult>(
 export class SqliteConnection implements OnDestroy {
   /** The file (`sqlitePath`); `:memory:` keeps the database in this connection only. */
   readonly path: string;
-  readonly #database: DatabaseSync;
   readonly #prepared = new Set<string>();
+  readonly #database: DatabaseSync;
 
   constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings) {
     const parsed = SqliteEnvironment.safeParse(
@@ -160,6 +157,12 @@ export class SqliteConnection implements OnDestroy {
     this.path = parsed.data.sqlitePath;
     const database = openSqliteDatabase(this.path);
     checkedSchemaVersion(database);
+    try {
+      ensureBaselineSchema(database);
+    } catch (error) {
+      database.close();
+      throw error;
+    }
     this.#database = classifiedDatabase(database);
   }
 
@@ -179,7 +182,10 @@ export class SqliteConnection implements OnDestroy {
     });
   }
 
-  /** Runs a store's `CREATE TABLE IF NOT EXISTS …` once per connection (its tables, its indexes). */
+  /**
+   * Runs an application repository's own `CREATE TABLE IF NOT EXISTS …` once per connection (the
+   * framework's tables are made at open by `ensureBaselineSchema`; this is for the application's).
+   */
   ensureSchema(name: string, ddl: string): void {
     if (this.#prepared.has(name)) return;
     inImmediateTransaction(this.#database, () => {
@@ -188,39 +194,12 @@ export class SqliteConnection implements OnDestroy {
     this.#prepared.add(name);
   }
 
-  /** The columns a table of this file has now (none when it does not exist). */
+  /** The columns a table of this file has now (none when it does not exist): what a shape-keyed schema step reads. */
   columnsOf(table: string): readonly string[] {
     return this.#database
       .prepare(`PRAGMA table_info(${table})`)
       .all()
       .map((row) => ColumnRow.parse(row).name);
-  }
-
-  /** The unique indexes of a table of this file, each as its columns joined by `,` (#663). */
-  uniqueIndexesOf(table: string): readonly string[] {
-    const columnsOf = (index: string): string =>
-      this.#database
-        .prepare(`PRAGMA index_info("${index}")`)
-        .all()
-        .map((row) => IndexColumnRow.parse(row).name)
-        .join(",");
-    return this.#database
-      .prepare(`PRAGMA index_list(${table})`)
-      .all()
-      .map((row) => IndexRow.parse(row))
-      .filter((index) => index.unique === 1)
-      .map((index) => columnsOf(index.name));
-  }
-
-  /**
-   * A migration of a file an older version wrote: adds `column` to `table` when it lacks it (checked
-   * inside the transaction, so of two connections one adds it), nothing otherwise.
-   */
-  addColumn(table: string, column: string, definition: string): void {
-    inImmediateTransaction(this.#database, () => {
-      if (this.columnsOf(table).includes(column)) return;
-      this.#database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-    });
   }
 
   /** `work` in one `BEGIN IMMEDIATE` transaction on this connection. */

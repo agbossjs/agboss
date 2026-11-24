@@ -29,7 +29,7 @@ describe("#265 S32: one connection per instance on sqlitePath", () => {
   it("BEGIN IMMEDIATE between connections: a busy file fails after the timeout, then the rows are seen", () => {
     const path = temporarySqlitePath();
     const writer = connectionTo(path);
-    writer.ensureSchema("notes", "CREATE TABLE IF NOT EXISTS notes (text TEXT NOT NULL);");
+    writer.database.exec("CREATE TABLE IF NOT EXISTS notes (text TEXT NOT NULL);");
     const impatient = openSqliteDatabase(path, 50);
 
     writer.database.exec("BEGIN IMMEDIATE");
@@ -49,7 +49,7 @@ describe("#265 S32: one connection per instance on sqlitePath", () => {
 
   it("a transaction that throws is rolled back", () => {
     const connection = connectionTo(temporarySqlitePath());
-    connection.ensureSchema("notes", "CREATE TABLE IF NOT EXISTS notes (text TEXT NOT NULL);");
+    connection.database.exec("CREATE TABLE IF NOT EXISTS notes (text TEXT NOT NULL);");
 
     expect(() =>
       connection.transaction(() => {

@@ -1,8 +1,8 @@
 /**
  * #1104 (core): a SQLite file carries the schema version of the build that migrated it
  * (`agboss_schema`). An older build opening a newer file fails closed at open, before it
- * writes a row — as `PostgresSchemaTooNewError` does; a newer build migrates and stamps. 0.1.0 never
- * stamped: an unstamped file (`user_version` 0) is a 0.1.0 file and is migrated.
+ * writes a row — as `PostgresSchemaTooNewError` does; a build opening an older or unstamped file
+ * stamps it. The stamp is the 0.1.1 baseline's (#1321c): no 0.1.0 file is migrated.
  */
 import { describe, expect, it } from "vitest";
 import { SqliteSchemaTooNewError } from "../../../src/index.js";
@@ -13,9 +13,6 @@ import {
 import { stampOf } from "../../../src/infrastructure/sqlite/sqlite-schema-version.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
-import { installPublished010, oldPuts } from "./published-0.1.0.js";
-
-installPublished010();
 
 const versionOf = (path: string): number => {
   const database = openSqliteDatabase(path);
@@ -45,18 +42,17 @@ describe("#1104 AC1: the file carries the schema version", () => {
     expect(versionOf(path)).toBe(SQLITE_SCHEMA_VERSION);
   });
 
-  it("AC1: a file written by 0.1.0 (unstamped) is migrated and stamped, its rows kept", async () => {
+  it("AC1: a file with no stamp gets the baseline's, and its schema is complete at open", () => {
     const path = temporarySqlitePath();
-    await oldPuts(path, [{ id: "id-1", metadata: { source: "loop", step: 1, parents: {} } }]);
+    const bare = openSqliteDatabase(path);
+    bare.close();
     expect(versionOf(path)).toBe(0);
 
-    const saver = new SqliteCheckpointSaver(connectionTo(path));
+    const connection = connectionTo(path);
 
     expect(versionOf(path)).toBe(SQLITE_SCHEMA_VERSION);
-    expect(
-      (await saver.getTuple({ configurable: { thread_id: "t", checkpoint_ns: "" } }))?.checkpoint
-        .id,
-    ).toBe("id-1");
+    expect(connection.columnsOf("execution_leases")).toContain("cancel_requested_at");
+    expect(connection.columnsOf("checkpoint_writes")).toContain("tenant_id");
   });
 
   it("AC1: a second open of a stamped file changes nothing", () => {
@@ -102,20 +98,5 @@ describe("#1104 AC2: an older build opening a newer file fails closed", () => {
         .map((row) => row.name),
     ).toEqual(["agboss_schema"]);
     check.close();
-  });
-
-  it("AC2: the published 0.1.0 cannot be refused (it never reads the version): it writes on, the stamp stays, this build still opens the file", async () => {
-    const path = temporarySqlitePath();
-    new SqliteCheckpointSaver(connectionTo(path));
-    expect(versionOf(path)).toBe(SQLITE_SCHEMA_VERSION);
-
-    await oldPuts(path, [{ id: "id-1", metadata: { source: "loop", step: 1, parents: {} } }]);
-
-    expect(versionOf(path)).toBe(SQLITE_SCHEMA_VERSION);
-    const saver = new SqliteCheckpointSaver(connectionTo(path));
-    expect(
-      (await saver.getTuple({ configurable: { thread_id: "t", checkpoint_ns: "" } }))?.checkpoint
-        .id,
-    ).toBe("id-1");
   });
 });

@@ -9,17 +9,6 @@ import { z } from "zod";
  * one checkpoint), the values as `this.serde` dumps them with their type.
  */
 
-export const CHECKPOINT_SCHEMA = `CREATE TABLE IF NOT EXISTS checkpoints (
-  thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
-  parent_checkpoint_id TEXT, checkpoint_type TEXT NOT NULL, checkpoint BLOB NOT NULL,
-  metadata_type TEXT NOT NULL, metadata BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id));
-CREATE TABLE IF NOT EXISTS checkpoint_writes (
-  thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
-  task_id TEXT NOT NULL, idx INTEGER NOT NULL, channel TEXT NOT NULL, value_type TEXT NOT NULL,
-  value BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));`;
-
 /**
  * The newest checkpoint of a thread's namespace by `(step, id)` is one index read (#962). `step` is
  * a VIRTUAL generated column: `metadata.step` read from the JSON the saver's serde dumps the metadata
@@ -33,6 +22,18 @@ export const STEP_COLUMN = `REAL GENERATED ALWAYS AS (COALESCE(
     AND json_valid(CAST(metadata AS TEXT))
     AND json_type(CAST(metadata AS TEXT), '$.step') IN ('integer', 'real')
     THEN json_extract(CAST(metadata AS TEXT), '$.step') END, -2)) VIRTUAL`;
+
+export const CHECKPOINT_TABLES = `CREATE TABLE IF NOT EXISTS checkpoints (
+  thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
+  parent_checkpoint_id TEXT, checkpoint_type TEXT NOT NULL, checkpoint BLOB NOT NULL,
+  metadata_type TEXT NOT NULL, metadata BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
+  step ${STEP_COLUMN},
+  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id));
+CREATE TABLE IF NOT EXISTS checkpoint_writes (
+  thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
+  task_id TEXT NOT NULL, idx INTEGER NOT NULL, channel TEXT NOT NULL, value_type TEXT NOT NULL,
+  value BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
+  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));`;
 
 export const STEP_INDEX = `CREATE INDEX IF NOT EXISTS checkpoints_latest_by_step
   ON checkpoints (thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)`;
@@ -82,9 +83,6 @@ export const UNREADABLE_STEP_ROWS_SQL = `SELECT checkpoint_id, metadata_type, me
 /** One checkpoint row by its key, every column: the winner of the read by the serde. */
 export const CHECKPOINT_ROW_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints
   WHERE thread_id = ? AND checkpoint_ns = ? AND checkpoint_id = ?`;
-
-/** The tables `tenant_id` is added to in a file written before tenants (#261, #265 S69 e). */
-export const TENANT_TAGGED_TABLES: readonly string[] = ["checkpoints", "checkpoint_writes"];
 
 /** What the saver's methods take (LangGraph's types are not all re-exported). */
 export type PutWritesArguments = Parameters<BaseCheckpointSaver["putWrites"]>;

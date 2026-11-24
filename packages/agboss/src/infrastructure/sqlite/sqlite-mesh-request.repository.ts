@@ -8,11 +8,6 @@ import {
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { parsedStoredJson } from "../stored-step.js";
 
-const SCHEMA = `CREATE TABLE IF NOT EXISTS mesh_requests (
-  tenant_id TEXT NOT NULL, peer TEXT NOT NULL, idempotency_key TEXT NOT NULL,
-  created_at TEXT NOT NULL, response TEXT,
-  PRIMARY KEY (tenant_id, peer, idempotency_key));`;
-
 const Row = z.object({
   tenant_id: z.string(),
   peer: z.string(),
@@ -33,7 +28,6 @@ const KEY = "tenant_id = ? AND peer = ? AND idempotency_key = ?";
 export class SqliteMeshRequestRepository extends MeshRequestRepository {
   constructor(private readonly connection: SqliteConnection) {
     super();
-    connection.ensureSchema("mesh_requests", SCHEMA);
   }
 
   ping(): Promise<void> {

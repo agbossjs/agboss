@@ -22,21 +22,7 @@ import {
 } from "../fenced-effect.repository.js";
 import { SyncWorkRequiredError } from "../fenced-effect-errors.js";
 import { checkSqliteCancel, SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-import { ensureLeaseSchema } from "./sqlite-lease-schema.js";
 import { assertFingerprintDecided } from "../fenced-effect-fingerprint.js";
-
-/** The scopes' marks and the results (#500); the marks are every fenced store's of the file. */
-export const FENCED_EFFECTS_SCHEMA = `
-CREATE TABLE IF NOT EXISTS fenced_effect_marks (
-  scope_key TEXT PRIMARY KEY, highest_token INTEGER NOT NULL, stored_at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS fenced_effect_results (
-  scope_key TEXT NOT NULL, idempotency_key TEXT NOT NULL, name TEXT NOT NULL,
-  token INTEGER NOT NULL, stored_at INTEGER NOT NULL, result TEXT NOT NULL,
-  PRIMARY KEY (scope_key, idempotency_key, name));
-CREATE TABLE IF NOT EXISTS fenced_effect_business_results (
-  tenant_id TEXT NOT NULL, name TEXT NOT NULL, business_key TEXT NOT NULL,
-  token INTEGER NOT NULL, stored_at INTEGER NOT NULL, result TEXT NOT NULL, facts TEXT NOT NULL,
-  PRIMARY KEY (tenant_id, name, business_key));`;
 
 const LeaseRow = z.object({
   lease_epoch: z.number(),
@@ -116,8 +102,6 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
     settings: FencedEffectSettings,
   ) {
     super(settings);
-    ensureLeaseSchema(connection);
-    connection.ensureSchema("fenced_effects", FENCED_EFFECTS_SCHEMA);
   }
 
   ping(): Promise<void> {

@@ -2,6 +2,7 @@
  * #807 — the A2A task stores' helpers on their own: the page token's refusal, a saved task's shape,
  * the sweep's expiry, the stores' `ping()` and the SQLite store's registration.
  */
+import { ensureBaselineSchema } from "../../src/infrastructure/sqlite/sqlite-baseline-schema.js";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { a2aPagePositionOf, nextPageTokenOf } from "../../src/infrastructure/a2a-task-pages.js";
@@ -115,15 +116,8 @@ describe("#807: the A2A task stores' helpers", () => {
 
   it("a SQLite row whose state column and status disagree is refused, never read (M6)", async () => {
     const database = new DatabaseSync(":memory:");
-    const connection = {
-      database,
-      ensureSchema: (_name: string, ddl: string) => {
-        database.exec(ddl);
-      },
-      // #810: the schema written today has the column already
-      addColumn: () => undefined,
-      transaction: <T>(work: () => T): T => work(),
-    };
+    ensureBaselineSchema(database);
+    const connection = { database, transaction: <T>(work: () => T): T => work() };
     const sqlite = new SqliteA2ATaskRepository(connection as never);
     await sqlite.saveIfAbsent(accepted);
     database.prepare("UPDATE a2a_tasks SET state = 'TASK_STATE_COMPLETED'").run();

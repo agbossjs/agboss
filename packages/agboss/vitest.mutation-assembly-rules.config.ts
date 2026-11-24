@@ -21,6 +21,7 @@ export default defineConfig({
       "tests/graph/count-limit.test.ts",
       "tests/health/{rules,health-rules-direct}.test.ts",
       "tests/components/tool-expiry-direct.test.ts",
+      "tests/storage/*.test.ts",
     ],
   },
 });
