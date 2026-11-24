@@ -1,3 +1,4 @@
+import { shownContentOf } from "../models/messages.js";
 import type { ChatModelUser, DecisionSpec, ModelGateway } from "../llm/gateway.js";
 import { componentOf } from "../components/metadata.js";
 import type { Class } from "../components/injection.js";
@@ -144,7 +145,7 @@ function outcomeOf(turn: ScriptedTurn, spec: DecisionSpec, script: ComponentScri
 /** A router's decision request, as `mockLlm(Router).requests` records it. */
 const decisionRequestOf = (spec: DecisionSpec): ModelRequest => ({
   kind: "decision",
-  input: spec.request.input,
+  input: shownContentOf(spec.request.input),
   options: spec.request.options.map((option) => option.name),
   routes: Object.fromEntries(spec.request.options.map((o) => [o.name, o.description])),
   instructions: spec.request.instructions ?? "",

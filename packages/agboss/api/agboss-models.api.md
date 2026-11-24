@@ -509,6 +509,17 @@ export enum ModelKind {
 }
 
 // @public
+export interface ModelMessage {
+    // (undocumented)
+    readonly content: string | readonly ModelInputPart[];
+    // (undocumented)
+    readonly role: ModelMessageRole;
+}
+
+// @public
+export type ModelMessageRole = "system" | "user" | "assistant" | "tool";
+
+// @public
 export interface ModelPrice {
     // (undocumented)
     readonly cacheReadPerMillion?: Usd | undefined;
@@ -827,7 +838,7 @@ export interface PartMeta {
     // (undocumented)
     readonly sha256: string;
     // (undocumented)
-    readonly sizeBytes: number;
+    readonly sizeBytes: Bytes;
     // (undocumented)
     readonly type: "agboss_part";
 }
@@ -1112,6 +1123,40 @@ export interface RoutingProblem {
 }
 
 // @public
+export type ShownBlock = ShownTextBlock | PartMeta;
+
+// @public
+export type ShownContent = string | readonly ShownBlock[];
+
+// @public
+export interface ShownModelMessage {
+    // (undocumented)
+    readonly content: ShownContent;
+    // (undocumented)
+    readonly role: ModelMessageRole;
+    readonly toolCallId?: string;
+    readonly toolCalls?: readonly ShownToolCall[];
+}
+
+// @public
+export interface ShownTextBlock {
+    // (undocumented)
+    readonly text: string;
+    // (undocumented)
+    readonly type: "text";
+}
+
+// @public
+export interface ShownToolCall {
+    // (undocumented)
+    readonly args: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly id?: string;
+    // (undocumented)
+    readonly name: string;
+}
+
+// @public
 export type TextSetting = string | EnvRef<string>;
 
 // @public
@@ -1307,6 +1352,15 @@ export interface WireTool {
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "knownModels".
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "decide".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "role".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "content".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "type".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "text".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "id".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "name".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "args".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "role".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "content".
 // src/models/model-driver.ts - (ae-undocumented) Missing documentation for "baseUrl".
 // src/models/model-driver.ts - (ae-undocumented) Missing documentation for "apiKey".
 // src/models/model-driver.ts - (ae-undocumented) Missing documentation for "headers".

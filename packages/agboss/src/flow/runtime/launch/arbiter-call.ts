@@ -1,3 +1,4 @@
+import { chatMessagesOf } from "../../../models/messages.js";
 import { HumanMessage } from "@langchain/core/messages";
 import type { ResolvedModelSettings, RouterModel } from "../../../config/types.js";
 import { chargedCall } from "../../../finops/charged-call.js";
@@ -54,7 +55,8 @@ function invokeOf(
   deps: LaunchDeciderDeps,
   call: ArbiterCall,
 ): ArbiterModel["invoke"] {
-  return async (given) => {
+  return async (asGiven) => {
+    const given = typeof asGiven === "string" ? asGiven : chatMessagesOf(asGiven);
     if (model.kind !== "llm")
       throw new ModelKindError({ model: model.model, kind: ModelKind.Decisions, call: "invoke" });
     const caller = arbiterCaller(name);

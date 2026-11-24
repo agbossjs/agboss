@@ -1,4 +1,5 @@
 import type { AIMessageChunk, BaseMessage } from "@langchain/core/messages";
+import { shownMessagesOf } from "../../models/messages.js";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { NO_PROVIDER, recordUsage, type UsageRecord } from "../../finops/usage.js";
@@ -101,14 +102,14 @@ async function observedCall(
   const { name, binding } = deps.agent;
   const modelName = binding.settings.model;
   // what the model was sent, masked: the conversation without the instructions
-  const rawPayload = request.messages.slice(1);
+  const shown = shownMessagesOf(request.messages.slice(1));
   await reportNodeEvent((base) =>
     deps.observer?.onModelStart({
       ...base,
       model: modelName,
       provider: binding.settings.modelProvider ?? NO_PROVIDER,
       caller: name,
-      rawPayload,
+      messages: shown,
     }),
   );
   const counter = new ChunkCounter();
@@ -131,7 +132,7 @@ async function observedCall(
     model: modelName,
     provider: usageRecord.provider,
     caller: name,
-    rawContent: response.content,
+    content: response.text,
     usage: {
       inputTokens: usageRecord.inputTokens,
       outputTokens: usageRecord.outputTokens,

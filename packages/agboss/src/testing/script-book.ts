@@ -2,7 +2,13 @@ import { ComponentScript } from "./component-script.js";
 import { TestFailure } from "./errors.js";
 
 export { ComponentScript, type ReturnedValue } from "./component-script.js";
-export type { ChatLine, ModelRequest, ModelScript, WhenScript } from "./model-script.js";
+export type {
+  ChatLine,
+  ChatToolDefinition,
+  ModelRequest,
+  ModelScript,
+  WhenScript,
+} from "./model-script.js";
 
 /** Something a test scripted that can be left unused: a model's script, a tool's failures. */
 export interface ScriptedExpectation {

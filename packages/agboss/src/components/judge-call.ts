@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { BaseMessageLike } from "@langchain/core/messages";
+import type { ModelMessage } from "../models/messages.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import { JudgeModel } from "./judge-decorators.js";
 import { ComponentError } from "./metadata.js";
@@ -31,7 +31,7 @@ export class LiveJudgeModel extends JudgeModel {
     return this.current("model").model;
   }
 
-  invoke(input: string | readonly BaseMessageLike[]): Promise<string> {
+  invoke(input: string | readonly ModelMessage[]): Promise<string> {
     return this.current("invoke").invoke(input);
   }
 

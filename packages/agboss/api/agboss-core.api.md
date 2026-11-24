@@ -4,8 +4,6 @@
 
 ```ts
 
-import type { BaseMessage } from '@langchain/core/messages';
-import type { BaseMessageLike } from '@langchain/core/messages';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 
@@ -297,7 +295,7 @@ export interface JudgeHandler<TOutput> {
 // @public
 export abstract class JudgeModel {
     abstract decide<const Q extends DecisionQuestions>(request: DecisionRequest<Q>): Promise<AnswersOf<Q>>;
-    abstract invoke(input: string | readonly BaseMessageLike[]): Promise<string>;
+    abstract invoke(input: string | readonly ModelMessage[]): Promise<string>;
     abstract readonly model: string;
 }
 
@@ -331,12 +329,11 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
 export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
     readonly caller: string;
+    readonly content: string;
     readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
     readonly provider: string;
-    // (undocumented)
-    readonly rawContent: MessageContent;
     readonly usage: TokenUsage;
 }
 
@@ -344,11 +341,10 @@ export interface ModelEndEvent extends NodeEvent {
 export interface ModelStartEvent extends NodeEvent {
     // (undocumented)
     readonly caller: string;
+    readonly messages: readonly ShownModelMessage[];
     // (undocumented)
     readonly model: string;
     readonly provider: string;
-    // (undocumented)
-    readonly rawPayload: readonly BaseMessage[];
 }
 
 // @public
@@ -544,10 +540,8 @@ export class WorkflowSettings {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "model".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "caller".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "rawPayload".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "model".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "caller".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "rawContent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "judge".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "agent".

@@ -1,4 +1,5 @@
-import { HumanMessage, type BaseMessageLike } from "@langchain/core/messages";
+import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
+import { chatMessagesOf, type ModelMessage } from "../../models/messages.js";
 import { decisionStateWith } from "../../files/decision-parts.js";
 import { contentWithPieces, type FilePiece } from "../../files/file-pieces.js";
 import type { JudgeModel } from "../../components/judge-decorators.js";
@@ -29,9 +30,9 @@ const judgeCaller = (judge: string): string => `judge:${judge}`;
 
 /** What a judge asks its chat model with the files the agent's model read after it (#899 §8). */
 function withPiecesIn(
-  input: string | readonly BaseMessageLike[],
+  input: string | readonly BaseMessage[],
   pieces: readonly FilePiece[],
-): string | readonly BaseMessageLike[] {
+): string | readonly BaseMessage[] {
   if (pieces.length === 0) return input;
   const files = new HumanMessage({ content: contentWithPieces("", pieces) });
   return typeof input === "string"
@@ -48,8 +49,8 @@ function invokeOf(
   pieces: readonly FilePiece[],
   beforeCall: BeforeCall,
 ): JudgeModel["invoke"] {
-  return async (given: string | readonly BaseMessageLike[]) => {
-    const input = withPiecesIn(given, pieces);
+  return async (given: string | readonly ModelMessage[]) => {
+    const input = withPiecesIn(typeof given === "string" ? given : chatMessagesOf(given), pieces);
     if (binding.kind !== ModelKind.Chat) {
       throw new ModelKindError({ model: binding.model, kind: ModelKind.Decisions, call: "invoke" });
     }

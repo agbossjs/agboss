@@ -5,17 +5,14 @@
 ```ts
 
 import type { Assertion } from 'vitest';
-import type { BaseMessage } from '@langchain/core/messages';
 import type { Graph } from '@langchain/core/runnables/graph';
 import type { IncomingMessage } from 'node:http';
 import { inspect } from 'node:util';
 import { KeyObject } from 'node:crypto';
-import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import { Mocked } from 'vitest';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { TestAPI } from 'vitest';
-import type { ToolDefinition } from '@langchain/core/language_models/base';
 import type { TracerProvider } from '@opentelemetry/api';
 
 // @public
@@ -201,7 +198,19 @@ export interface ChatLine {
     // (undocumented)
     readonly role: string;
     // (undocumented)
-    readonly text: MessageContent;
+    readonly text: ShownContent;
+}
+
+// @public
+export interface ChatToolDefinition {
+    // (undocumented)
+    readonly function: {
+        readonly name: string;
+        readonly description?: string;
+        readonly parameters?: Readonly<Record<string, unknown>>;
+    };
+    // (undocumented)
+    readonly type: "function";
 }
 
 // @public
@@ -675,19 +684,19 @@ export enum ModelFailure {
 export type ModelRequest = {
     readonly kind: "chat";
     readonly system: string;
-    readonly input: MessageContent;
+    readonly input: ShownContent;
     readonly messages: readonly ChatLine[];
-    readonly tools: readonly ToolDefinition[];
+    readonly tools: readonly ChatToolDefinition[];
     readonly parts: readonly PartMeta[];
 } | {
     readonly kind: "decision";
-    readonly input: MessageContent;
+    readonly input: ShownContent;
     readonly options: readonly string[];
     readonly routes: Readonly<Record<string, string>>;
     readonly instructions: string;
 } | {
     readonly kind: "decide";
-    readonly input: MessageContent;
+    readonly input: ShownContent;
     readonly state: DecisionState;
     readonly questions: DecisionQuestions;
 };
@@ -1599,6 +1608,8 @@ export interface WorkflowMatchers<R = unknown> {
 // src/testing/matchers.ts - (ae-undocumented) Missing documentation for "toHaveBeenAskedWith".
 // src/testing/mcp-stubs.ts - (ae-undocumented) Missing documentation for "tool".
 // src/testing/mcp-stubs.ts - (ae-undocumented) Missing documentation for "args".
+// src/testing/model-script.ts - (ae-undocumented) Missing documentation for "type".
+// src/testing/model-script.ts - (ae-undocumented) Missing documentation for "function".
 // src/testing/model-script.ts - (ae-undocumented) Missing documentation for "role".
 // src/testing/model-script.ts - (ae-undocumented) Missing documentation for "text".
 // src/testing/model-script.ts - (ae-undocumented) Missing documentation for "thenReturn".

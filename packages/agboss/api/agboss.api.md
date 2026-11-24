@@ -5,8 +5,6 @@
 ```ts
 
 import { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { BaseMessage } from '@langchain/core/messages';
-import type { BaseMessageLike } from '@langchain/core/messages';
 import { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
 import type { IncomingMessage } from 'node:http';
@@ -668,7 +666,7 @@ export interface ArbiterErrorOptions {
 // @public
 export abstract class ArbiterModel {
     abstract decide<const Q extends DecisionQuestions>(request: DecisionRequest<Q>): Promise<AnswersOf<Q>>;
-    abstract invoke(input: string | readonly BaseMessageLike[]): Promise<string>;
+    abstract invoke(input: string | readonly ModelMessage[]): Promise<string>;
     abstract readonly model: string;
 }
 
@@ -5530,7 +5528,7 @@ export type JudgeMetrics = Readonly<Record<string, number | string | boolean>>;
 // @public
 export abstract class JudgeModel {
     abstract decide<const Q extends DecisionQuestions>(request: DecisionRequest<Q>): Promise<AnswersOf<Q>>;
-    abstract invoke(input: string | readonly BaseMessageLike[]): Promise<string>;
+    abstract invoke(input: string | readonly ModelMessage[]): Promise<string>;
     abstract readonly model: string;
 }
 
@@ -6378,12 +6376,11 @@ export interface ModelDefaults {
 export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
     readonly caller: string;
+    readonly content: string;
     readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
     readonly provider: string;
-    // (undocumented)
-    readonly rawContent: MessageContent;
     readonly usage: TokenUsage;
 }
 
@@ -6529,6 +6526,14 @@ export interface ModelKindErrorOptions {
 }
 
 // @public
+export interface ModelMessage {
+    // (undocumented)
+    readonly content: string | readonly ModelInputPart[];
+    // (undocumented)
+    readonly role: ModelMessageRole;
+}
+
+// @public
 export interface ModelProviderOverlay {
     readonly model?: string;
     readonly models?: Readonly<Record<string, string>>;
@@ -6600,11 +6605,10 @@ interface ModelSettings {
 export interface ModelStartEvent extends NodeEvent {
     // (undocumented)
     readonly caller: string;
+    readonly messages: readonly ShownModelMessage[];
     // (undocumented)
     readonly model: string;
     readonly provider: string;
-    // (undocumented)
-    readonly rawPayload: readonly BaseMessage[];
 }
 
 // @public
@@ -9368,6 +9372,19 @@ export interface ServiceSpend {
     readonly cost: Usd;
     readonly service: string;
     readonly tokens?: Partial<TokenUsage>;
+}
+
+// @public
+export type ShownContent = string | readonly ShownBlock[];
+
+// @public
+export interface ShownModelMessage {
+    // (undocumented)
+    readonly content: ShownContent;
+    // (undocumented)
+    readonly role: ModelMessageRole;
+    readonly toolCallId?: string;
+    readonly toolCalls?: readonly ShownToolCall[];
 }
 
 // @public
@@ -12266,10 +12283,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "probability".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "model".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "caller".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "rawPayload".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "model".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "caller".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "rawContent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "judge".
@@ -13307,6 +13322,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "role".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "content".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "role".
+// src/models/messages.ts - (ae-undocumented) Missing documentation for "content".
 // src/models/model-kind.ts - (ae-undocumented) Missing documentation for "Chat".
 // src/models/model-kind.ts - (ae-undocumented) Missing documentation for "Decisions".
 // src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseOpened".

@@ -1,6 +1,6 @@
 import { recordOptionKeys } from "./option-keys.js";
 import { JUDGE_KEYS } from "./decorator-options.js";
-import type { BaseMessageLike } from "@langchain/core/messages";
+import type { ModelMessage } from "../models/messages.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import type { DtoClass } from "../dto/types.js";
 import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
@@ -106,7 +106,7 @@ export abstract class JudgeModel {
   /** The model id (`@Judge({ model })`). */
   abstract readonly model: string;
   /** One chat call; returns the reply's text. On a decision model: `ModelKindError`. */
-  abstract invoke(input: string | readonly BaseMessageLike[]): Promise<string>;
+  abstract invoke(input: string | readonly ModelMessage[]): Promise<string>;
   /**
    * One decision (questions from `Decision.choice / boolean / score`), its answers typed by them. On a
    * chat model: `ModelKindError`.

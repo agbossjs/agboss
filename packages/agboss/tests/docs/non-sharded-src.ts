@@ -1088,6 +1088,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/models/jev-alias.ts",
       "src/models/jev.provider.ts",
       "src/models/lazy-chat-model.ts",
+      "src/models/messages.ts",
       "src/models/model-cascade.ts",
       "src/models/model-driver.ts",
       "src/models/model-drivers.ts",

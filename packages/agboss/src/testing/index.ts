@@ -64,7 +64,13 @@ export type {
   ToolCallsTurn,
   WaitTurn,
 } from "./turns.js";
-export type { ChatLine, ModelRequest, ModelScript, WhenScript } from "./script-book.js";
+export type {
+  ChatLine,
+  ChatToolDefinition,
+  ModelRequest,
+  ModelScript,
+  WhenScript,
+} from "./script-book.js";
 export type {
   DeepPartial,
   InputMatcherOf,

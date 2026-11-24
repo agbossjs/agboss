@@ -50,7 +50,7 @@ class SeeingObserver {
     seen.push(event.output);
   }
   onModelStart(event: ModelStartEvent): void {
-    seen.push(event.rawPayload.map((message) => JSON.stringify(message.content)).join(" "));
+    seen.push(event.messages.map((message) => JSON.stringify(message.content)).join(" "));
     throw new Error(`observer broke on ${EMAIL}`);
   }
 }

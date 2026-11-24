@@ -481,7 +481,7 @@ union of the application's and every workflow's policies, as is a span that name
 application's workflows: fail closed, never weaker than any run's own mask
 ([Tracing → Off by default](Tracing#off-by-default)). The masking uses the formats and a project's own detectors, never a model (nothing
 outside a step calls one); a `block` kind is shown as `<kind>` and fails nothing. An
-event keeps its shape — every string masked, a model call's `rawPayload` messages rebuilt with
+event keeps its shape — every string masked, a model call's `messages` (plain `ShownModelMessage`s, #1313f) with
 their content masked, class instances (an `Error`) kept. A trace of the graph's state also hides
 the execution's own PII channels: the token map's values (`piiTokens`), the sensitive values
 (`piiValues`) and the context fields marked `sensitive`. The tool itself, the scope and the

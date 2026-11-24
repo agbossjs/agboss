@@ -1,4 +1,4 @@
-import type { MessageContent } from "@langchain/core/messages";
+import type { ShownContent } from "../../models/messages.js";
 import type { Class } from "../../components/injection.js";
 import { PromptLoader } from "../../components/prompt-render.js";
 import { loadedMemoryOf } from "../../memory/assembly.js";
@@ -134,7 +134,7 @@ const unitRunOf = (spent: UsageRecord[]): CompactionRun => ({
 });
 
 /** An input message as text: a compaction's is one text part. */
-const textOf = (content: MessageContent): string =>
+const textOf = (content: ShownContent): string =>
   typeof content === "string" ? content : JSON.stringify(content);
 
 /** The chat requests the script took since `from`, as the model got them. */

@@ -2,7 +2,7 @@ import { type Bytes, type Usd } from "../units/index.js";
 import type { InterruptReason } from "../app/interrupt-types.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
-import type { BaseMessage, MessageContent } from "@langchain/core/messages";
+import type { ShownModelMessage } from "../models/messages.js";
 import type { JudgeVerdict } from "../components/judge-decorators.js";
 import type { CostReport, TokenUsage } from "../finops/usage.js";
 import type { ExecutionEvent, NodeEvent } from "../flow/observers/execution-event.js";
@@ -118,7 +118,8 @@ export interface ModelStartEvent extends NodeEvent {
   /** The `@ModelProvider` the call goes to, by its `name`; `(none)` when no provider names the model. */
   readonly provider: string;
   readonly caller: string;
-  readonly rawPayload: readonly BaseMessage[];
+  /** The conversation so far, without the instructions: plain messages, files by their meta, never their bytes. */
+  readonly messages: readonly ShownModelMessage[];
 }
 
 /** A model answered: its content, token usage and cost. */
@@ -127,7 +128,8 @@ export interface ModelEndEvent extends NodeEvent {
   /** The `@ModelProvider` that served it (a fallback's, when one answered), by its `name`; `(none)` when none is named. */
   readonly provider: string;
   readonly caller: string;
-  readonly rawContent: MessageContent;
+  /** What the model said: its text. */
+  readonly content: string;
   /** What the call used: input and output tokens, the cache's apart. */
   readonly usage: TokenUsage;
   /** What it cost, by its price (`0` for a free or unpriced model). */

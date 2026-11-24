@@ -3,7 +3,7 @@
  * `defaults.tools` (application → workflow), else 128 KB — cut before PII masking, with a marker;
  * error results and context-mode knowledge blocks too; `onToolEnd` says whether it was cut.
  */
-import type { MessageContent } from "@langchain/core/messages";
+import type { ShownContent } from "../../../src/models/messages.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
@@ -34,7 +34,7 @@ const page = "x".repeat(MEGABYTE);
 const renderedSize = MEGABYTE + `{"text":""}`.length;
 
 /** A message's content as text (a tool result and an input message are text). */
-const textOf = (content: MessageContent | undefined): string =>
+const textOf = (content: ShownContent | undefined): string =>
   typeof content === "string" ? content : JSON.stringify(content);
 
 /** The last message the agent's model read on its second call: the tool's result. */

@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { BaseMessageLike } from "@langchain/core/messages";
+import type { ModelMessage } from "../../../models/messages.js";
 import { ComponentError } from "../../../components/metadata.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../../../llm/decisions.js";
 import { ArbiterModel } from "../../decorators/arbiter.js";
@@ -30,7 +30,7 @@ export class LiveArbiterModel extends ArbiterModel {
     return this.current("model").model;
   }
 
-  invoke(input: string | readonly BaseMessageLike[]): Promise<string> {
+  invoke(input: string | readonly ModelMessage[]): Promise<string> {
     return this.current("invoke").invoke(input);
   }
 

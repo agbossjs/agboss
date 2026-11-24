@@ -520,7 +520,7 @@ describe("#1366: what the observer hears of a model call", () => {
       model: "m",
       provider: "(none)",
       caller: "alpha",
-      rawPayload: [new HumanMessage("hi")],
+      messages: [{ role: "user", content: "hi" }],
     });
   });
 
@@ -546,7 +546,7 @@ describe("#1366: what the observer hears of a model call", () => {
       model: "m",
       provider: "(none)",
       caller: "alpha",
-      rawContent: "answer",
+      content: "answer",
       usage: { inputTokens: 10, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0 },
       costUsd: usd(0.25),
     });

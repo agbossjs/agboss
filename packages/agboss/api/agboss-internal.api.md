@@ -7,8 +7,6 @@
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { BaseMessage } from '@langchain/core/messages';
-import type { BaseMessageLike } from '@langchain/core/messages';
 import type { Graph } from '@langchain/core/runnables/graph';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
@@ -1217,7 +1215,7 @@ export interface GraphDeps<TName extends string> {
     };
     readonly contexts?: RuntimeContexts;
     readonly executionIds?: ExecutionIds | undefined;
-    readonly executionLimitsOf?: ExecutionLimitsOf | undefined;
+    readonly executionLimitsOf: ExecutionLimitsOf;
     readonly fingerprintKeys?: FingerprintKeys | undefined;
     readonly graph: RuntimeGraph;
     readonly guardrails?: GuardrailRuntime;

@@ -6,7 +6,7 @@
  * arguments revealed; the four levels and their excludes; MCP tools; a misbehaving interceptor
  * fails the step with its error as the cause.
  */
-import type { MessageContent } from "@langchain/core/messages";
+import type { ShownContent } from "../../src/models/messages.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   AgentFailedError,
@@ -41,7 +41,7 @@ const test = testWith(ScoutApplication);
 
 const acme = { tenant: { tenantId: "acme", allowedCities: ["Haifa"] } } as const;
 
-const textOf = (content: MessageContent | undefined): string =>
+const textOf = (content: ShownContent | undefined): string =>
   typeof content === "string" ? content : JSON.stringify(content);
 
 /** What the agent's model read last on its second call: the tool call's result. */

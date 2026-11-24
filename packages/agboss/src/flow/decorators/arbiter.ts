@@ -1,7 +1,7 @@
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { ARBITER_KEYS } from "../../components/decorator-options.js";
 import "../../polyfills/symbol-metadata.js";
-import type { BaseMessageLike } from "@langchain/core/messages";
+import type { ModelMessage } from "../../models/messages.js";
 import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import type { PromptSource } from "../../components/prompt-source.js";
@@ -63,7 +63,7 @@ export abstract class ArbiterModel {
   /** The model id (`@Arbiter({ model })`). */
   abstract readonly model: string;
   /** One chat call; returns the reply's text. On a decision model: `ModelKindError`. */
-  abstract invoke(input: string | readonly BaseMessageLike[]): Promise<string>;
+  abstract invoke(input: string | readonly ModelMessage[]): Promise<string>;
   /**
    * One decision (questions from `Decision.choice / boolean / score`), its answers typed by them. On
    * a chat model: `ModelKindError`.

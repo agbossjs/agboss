@@ -1,14 +1,23 @@
-import type { ToolDefinition } from "@langchain/core/language_models/base";
-import type { MessageContent } from "@langchain/core/messages";
+import type { ShownContent } from "../models/messages.js";
 import type { PartMeta } from "../models/content.js";
 import type { DecisionQuestions, DecisionState } from "../llm/decisions.js";
 import type { InputMatcherOf, RecordedInputOf, TurnFor } from "./script-types.js";
 import type { ScriptedTurn } from "./turns.js";
 
+/** A tool the agent bound, in OpenAI's function form: what the model sees of it. */
+export interface ChatToolDefinition {
+  readonly type: "function";
+  readonly function: {
+    readonly name: string;
+    readonly description?: string;
+    readonly parameters?: Readonly<Record<string, unknown>>;
+  };
+}
+
 /** One message of a chat request: who said it and its text. */
 export interface ChatLine {
   readonly role: string;
-  readonly text: MessageContent;
+  readonly text: ShownContent;
 }
 
 /** What a component sent its model: an agent's chat, a router's decision request, or a judge's decision. */
@@ -17,16 +26,16 @@ export type ModelRequest =
       readonly kind: "chat";
       readonly system: string;
       /** The input message (#270 Q51). */
-      readonly input: MessageContent;
+      readonly input: ShownContent;
       readonly messages: readonly ChatLine[];
       /** The tools the agent bound — its own and its answer tools, as the model sees them. */
-      readonly tools: readonly ToolDefinition[];
+      readonly tools: readonly ChatToolDefinition[];
       /** The files that rode with it, in order: `{ kind, mediaType, filename?, sizeBytes, sha256 }`, never the bytes (#899). */
       readonly parts: readonly PartMeta[];
     }
   | {
       readonly kind: "decision";
-      readonly input: MessageContent;
+      readonly input: ShownContent;
       readonly options: readonly string[];
       /** Each option's route text as the router's model got it. */
       readonly routes: Readonly<Record<string, string>>;
@@ -36,7 +45,7 @@ export type ModelRequest =
       /** A judge's `judgeModel.decide`: the state and the questions, as sent. */
       readonly kind: "decide";
       /** The state as text (JSON unless it is a string). */
-      readonly input: MessageContent;
+      readonly input: ShownContent;
       readonly state: DecisionState;
       readonly questions: DecisionQuestions;
     };

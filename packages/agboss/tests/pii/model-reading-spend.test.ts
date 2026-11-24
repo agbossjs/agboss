@@ -3,7 +3,7 @@ import { usd } from "../../src/units/index.js";
  * #1366: what a model's PII reading cost — a judge's texts and a model arbiter's question each go through the
  * agent's policies, and the paid detections are in the usage the judge or the arbiter hands back.
  */
-import { AIMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { createArbiterModel } from "../../src/flow/runtime/launch/arbiter-model.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
@@ -33,7 +33,7 @@ describe("#1366: the usage of a model's reading", () => {
     const reading = new JudgeReading(costing);
 
     await reading.text("first");
-    await reading.input(["second", "third"]);
+    await reading.input([new HumanMessage("second"), new HumanMessage("third")]);
 
     expect(reading.usage.map((each) => each.caller)).toEqual([
       "detect:first",
