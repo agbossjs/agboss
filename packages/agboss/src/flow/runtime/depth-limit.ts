@@ -16,7 +16,7 @@ export interface DepthLimitExceededErrorOptions {
  * A recursion launched by code went past its workflow's `maxDepth` (#264): the launch does not
  * start, and the level above gets `ChildExecutionFailedError` with this error as its `cause` — a
  * child's own limit (#263 S25), so `.onError(LimitExceededError, …)` right after
- * `.toWorkflow(ThisWorkflow)` (or `.onError(…)` after a per-item launch's join) takes it. A model
+ * `.toWorkflow(() => ItsOwnClass)` (or `.onError(…)` after a per-item launch's join) takes it. A model
  * never meets it: on the last level its recursive choices are not offered (the soft stop).
  */
 export class DepthLimitExceededError extends LimitExceededError {

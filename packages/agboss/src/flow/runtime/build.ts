@@ -32,7 +32,6 @@ import { visitNode } from "./visit.js";
 import { childRunner, type ChildGraph } from "./child.js";
 import { ChildWorkflowUnavailableError } from "./child-errors.js";
 import { nodeDepsOf } from "./node-deps.js";
-import { isThisWorkflow } from "../this-workflow.js";
 import { nodeOptionsOf, recursiveChildOf, type OwnGraph } from "./recursive-child.js";
 import { TreeSlotRegistry } from "./launch/launch-registry.js";
 
@@ -138,7 +137,7 @@ function subgraphRunnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Par
 /**
  * The compiled graph of every child workflow of the graph for this pass (#263 S37): each with its
  * own deps, on the parent's budgets and checkpointer; `chain` — the workflows above — stops a
- * workflow from containing an ancestor (a recursion is `ThisWorkflow`, #264).
+ * workflow from containing an ancestor (a recursion is a node of the workflow itself, #264, #1287).
  */
 function childGraphsOf(
   deps: GraphDeps<string>,
@@ -150,7 +149,7 @@ function childGraphsOf(
   const children = new Map<string, ChildGraph>();
   for (const node of deps.graph.nodes.values()) {
     if (node.kind !== NodeKind.Workflow) continue;
-    if (isThisWorkflow(node.component)) {
+    if (node.component === deps.graph.type) {
       children.set(node.id, recursiveChildOf(deps, self));
       continue;
     }

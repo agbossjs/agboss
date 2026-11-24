@@ -131,7 +131,7 @@ const ownSnapshot = <TName extends string>(
 
 /**
  * Every child workflow reachable from a workflow's flow (#336), depth first, each once, by name with
- * its own snapshot — never `ThisWorkflow` (a recursive workflow is hashed once, as the root), never
+ * its own snapshot — never itself (a recursive workflow is hashed once, as the root), never
  * the workflow itself; a child `children` does not know is left out.
  */
 function childSnapshotsOf(

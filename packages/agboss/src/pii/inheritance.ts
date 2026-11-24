@@ -40,7 +40,7 @@ function partsOf(workflow: Class): WorkflowParts | undefined {
   return {
     name: options.name,
     policies: options.piiPolicies ?? [],
-    children: childClassesOf(options.flow),
+    children: childClassesOf(options.flow, workflow),
   };
 }
 

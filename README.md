@@ -468,23 +468,22 @@ inside its parent's checkpoint and budgets; an uncaught failure of its own fails
 with `ChildExecutionFailedError`, and `result.children` holds the nested records
 ([Wiki → Workflow-as-a-step](https://github.com/agbossjs/agboss/wiki/Workflow-as-a-step)).
 
-A workflow may **launch itself** (#264): `ThisWorkflow` stands for the enclosing workflow in
-`.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)` or `.toParallelWorkflows(ThisWorkflow, { maxItems
+A workflow may **launch itself** (#264, #1287): a thunk of its own class stands for it in
+`.toWorkflow(() => Self)`, `route(() => Self)` or `.toParallelWorkflows(() => Self, { maxItems
 })` — a topic too broad for one report researched subtopic by subtopic by the same workflow. A
 recursive workflow sets `@Workflow({ maxDepth: 3 })` (`[graph.recursion-without-depth]`); the root is
 at depth 1 (`executionContext.depth`, and each child record's `depth`), so the last level is
 `depth === maxDepth`. There the framework stops it, never the prompt: an agent's `oneOf` variant
-whose `caseOf(…)` launches `ThisWorkflow` leaves its response schema, a model router does not see such
+whose `caseOf(…)` launches the workflow itself leaves its response schema, a model router does not see such
 a route, a code router returning one fails with `RouterDecisionError` — so every such branch keeps a
 way out (`[graph.recursion-without-exit]`); a launch decided by code past `maxDepth` does not start
 and fails its step with `ChildExecutionFailedError` caused by `DepthLimitExceededError`
 (`.onError(LimitExceededError, …)` takes it). Only direct recursion: a workflow launching one that
 launches it is `[graph.mutual-recursion]`. The root's execution budget counts every level; each
-level has its own `maxSteps`; `agboss describe` prints `recursive: ThisWorkflow, maxDepth 3, on the
-last level: researcher-agent → TopicReportDto only`. Each recursive workflow is typed by its own
-entry: a `ThisWorkflow` launch is checked by `@Workflow({ name, flow })`
-against the generated `ThisWorkflowOutputs[name]`, so one project holds recursive workflows with
-different finishes.
+level has its own `maxSteps`; `agboss describe` prints `recursive: maxDepth 3, on the
+last level: researcher-agent → TopicReportDto only`. A launch of itself is typed like any child's:
+`typeof Self` carries the generated brand, so one project holds recursive workflows with different
+finishes.
 
 The whole tree shares one **concurrency cap** (#264): `@Workflow({ maxConcurrentExecutions: 6 })` of
 the root (default 10) — how many executions of the tree, the root and all its descendants, work on a
@@ -586,7 +585,7 @@ runs graphify.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
 3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
 4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.toParallelAgents().acceptedBy().joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseClosedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
-5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyInstance`, `SqliteChildExecutionQueueRepository`, recursive `ThisWorkflow` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
+5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyInstance`, `SqliteChildExecutionQueueRepository`, recursive a thunk of its own class (`() => Self`) (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
 6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AExpose` and `@McpTool` / `@McpExpose`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
 7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`).
 8. **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** — the job scout the snippets above come from (in this repository until #489): resume → proposed search brief → Greenhouse jobs ranked by Jev — typed child workflows, per-item launches, a quorum and a budget on a real multi-step agent; its `check`, `test` and `demo` scripts run offline at $0 against the published `@agboss/core`, `demo:live` with `OPENROUTER_API_KEY`.
@@ -604,7 +603,7 @@ runs graphify.
 `caseOf(ChangesRequestedDto)`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
 parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies),
-`src/topic/` a workflow that researches its subtopics itself (`ThisWorkflow`, `maxDepth`, #264).
+`src/topic/` a workflow that researches its subtopics itself (`() => TopicResearchWorkflow`, `maxDepth`, #264).
 Point the CLI at it:
 
 ```bash

@@ -144,14 +144,15 @@ export function inputEntry(
 }
 
 /**
- * A child workflow's `Inputs` entry (#263): its start is chosen per edge, so the entry only carries
+ * A child workflow's `Inputs` entry (#263, #1287): its start is chosen per edge, so the entry carries
  * the problems of that choice (`[graph.no-matching-start]`, `[input.missing-on-path]`, …) — which
- * make `.toWorkflow(W)` a compile error — and `NoInput` otherwise.
+ * make `.toWorkflow(W)` a compile error — and otherwise the union of its starts' inputs
+ * (`startInputs`).
  */
-export const childInputEntry = (input: NodeInput, names: ImportTable): InputEntry =>
+export const childInputEntry = (input: NodeInput, startInputs: string): InputEntry =>
   input.problems.length > 0
     ? { type: errorType(input.problems.join("; ")) }
-    : { type: names.use(TablesImport.NoInput) };
+    : { type: startInputs };
 
 /** What the generator knows of one node's input over the given workflows (`input.*` problems too). */
 export function nodeInput(workflows: readonly AnalysedWorkflow[], name: ComponentName): NodeInput {

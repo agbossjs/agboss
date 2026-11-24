@@ -4,7 +4,6 @@ import {
   DecidedBy,
   Router,
   StepFailedError,
-  ThisWorkflow,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -251,7 +250,7 @@ export class OnceLevelWorkflowFinish {}
       .toAction(LevelItemAction)
       .switch(
         caseOf(ItemDto)
-          .toWorkflow(ThisWorkflow)
+          .toWorkflow(() => OnceLevelWorkflow)
           .toFinish(OnceLevelWorkflowFinish),
         caseOf(ItemResultDto)
           .toFinish(OnceLevelWorkflowFinish),

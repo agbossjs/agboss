@@ -9,6 +9,7 @@ import {
   subPathFrom,
   type PathBuilder,
 } from "../../src/flow/path-builder.js";
+import type { TargetRef } from "../../src/flow/target-ref.js";
 
 /**
  * The path builder without its compile-time checks, for the framework's own feature tests: the
@@ -29,10 +30,10 @@ export const onRouter = (source: Class): PathBuilder<PathSource> =>
 export const onAction = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Action, source);
 
-export const onWorkflow = (source: Class): PathBuilder<PathSource> =>
+export const onWorkflow = (source: TargetRef): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Workflow, source);
 
-export const route = (target: Class, options?: unknown): PathBuilder<undefined> => {
+export const route = (target: TargetRef, options?: unknown): PathBuilder<undefined> => {
   const placement = placementOptionOf(options, "route(W, { placement })");
   return subPathFrom({ kind: "route", target, ...(placement && { placement }) });
 };
@@ -53,7 +54,7 @@ export const toRouter = (target: Class): PathBuilder<undefined> =>
 export const toFinish = (target: Class): PathBuilder<undefined> =>
   side()
     .toFinish(target);
-export const toWorkflow = (target: Class): PathBuilder<undefined> =>
+export const toWorkflow = (target: TargetRef): PathBuilder<undefined> =>
   side()
     .toWorkflow(target);
 

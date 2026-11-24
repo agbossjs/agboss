@@ -8,14 +8,13 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { ThisWorkflow } from "../../../src/flow/this-workflow.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
 
 /**
- * #264 — the issue's recursive topic research in the typed builder: `ThisWorkflow` as a per-item
+ * #264 — the issue's recursive topic research in the typed builder: `toParallelWorkflows(() => Self, …)` as a per-item
  * launch's target (its join typed as the workflow's own finishes), and as a route of a model and a
- * code router (`Route<R>` names `typeof ThisWorkflow`).
+ * code router (`Route<R>` names the workflow itself).
  */
 
 export class ResearchTopicDto {
@@ -121,7 +120,7 @@ export class ResearchFailedWorkflowFinish {}
           .toFinish(ResearchReportWorkflowFinish),
         caseOf(ResearchTooBroadDto)
           .toAction(SplitTopicAction)
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
+          .toParallelWorkflows(() => DeepResearchWorkflow, { maxConcurrency: 3, maxItems: 5 })
           .join()
           .toAgent(ReportMergerAgent)
           .onError(StepFailedError, toAction(FailTopicAction))
@@ -151,21 +150,21 @@ export class OutlineWorkflowStart {}
 })
 export class OutlineAgent {}
 
-/** Deeper while the topic's level is low: `route()` returns `typeof ThisWorkflow` or the agent. */
+/** Deeper while the topic's level is low: `route()` returns the workflow itself or the agent. */
 @Router({
   name: "outline-depth-router",
   description: "One level deeper, or outline here",
   decidedBy: DecidedBy.Code,
   input: { topic: ResearchTopicDto },
-  routes: [{ target: ThisWorkflow }, { target: OutlineAgent }],
+  routes: [{ target: () => OutlineWorkflow }, { target: OutlineAgent }],
 })
 export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
   route(input: InputOf<OutlineDepthRouter>): Route<OutlineDepthRouter> {
-    return input.topic.value.level < 2 ? ThisWorkflow : OutlineAgent;
+    return input.topic.value.level < 2 ? OutlineWorkflow : OutlineAgent;
   }
 }
 
-/** The same finishes as the research; each recursive workflow has its own `ThisWorkflowOutputs` entry. */
+/** The same finishes as the research; each recursive workflow names itself with a thunk. */
 @Workflow({
   name: "outline-workflow",
   version: "1.0.0",
@@ -173,7 +172,7 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
     onStart(OutlineWorkflowStart)
       .toRouter(OutlineDepthRouter)
       .chooseOne(
-        route(ThisWorkflow)
+        route(() => OutlineWorkflow)
           .switch(
             caseOf(ResearchReportDto)
               .toFinish(ResearchReportWorkflowFinish),

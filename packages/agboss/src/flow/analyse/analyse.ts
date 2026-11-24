@@ -64,7 +64,7 @@ export interface FlowAnalysis {
   readonly children: readonly ChildChoice[];
   /** The worst case of one call of each start (#261, #273). */
   readonly worstCases: readonly WorstCase[];
-  /** How it launches itself (`ThisWorkflow`, #264); absent when it does not. */
+  /** How it launches itself (#264, #1287); absent when it does not. */
   readonly recursion?: Recursion;
 }
 

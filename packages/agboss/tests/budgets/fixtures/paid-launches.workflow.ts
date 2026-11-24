@@ -1,6 +1,5 @@
 import {
   listOf,
-  ThisWorkflow,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -125,7 +124,7 @@ export class PaidLevelWorkflowFinish {}
       .toAction(LevelOrderAction)
       .switch(
         caseOf(OrderDto)
-          .toWorkflow(ThisWorkflow)
+          .toWorkflow(() => PaidLevelWorkflow)
           .toFinish(PaidLevelWorkflowFinish),
         caseOf(OrderNoteDto)
           .toFinish(PaidLevelWorkflowFinish),

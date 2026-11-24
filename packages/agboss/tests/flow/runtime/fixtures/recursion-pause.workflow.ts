@@ -6,7 +6,6 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   oneOf,
-  ThisWorkflow,
   Tool,
   variant,
   Workflow,
@@ -80,7 +79,7 @@ export class DiggerAgent {}
       .toAgent(DiggerAgent)
       .switch(
         caseOf(CountDto)
-          .toWorkflow(ThisWorkflow)
+          .toWorkflow(() => DigWorkflow)
           .toFinish(CountDoneWorkflowFinish),
         caseOf(CountDoneDto)
           .toFinish(CountDoneWorkflowFinish),
@@ -139,7 +138,7 @@ export class HoldDepthAction {
       .toAction(HoldDepthAction)
       .switch(
         caseOf(CountDto)
-          .toWorkflow(ThisWorkflow)
+          .toWorkflow(() => HoldDepthWorkflow)
           .toFinish(CountDoneWorkflowFinish),
         caseOf(CountDoneDto)
           .toFinish(CountDoneWorkflowFinish),

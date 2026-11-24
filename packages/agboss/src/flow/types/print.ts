@@ -126,7 +126,6 @@ export function printTypes(
 ): string {
   const declarations = [
     ...environmentLines(tables.environments ?? []),
-    ...tableLines("ThisWorkflowOutputs", tables.thisWorkflowOutputs, 1),
     ...namespaceLines([
       tableLines("ProducerOutputs", tables.producerOutputs),
       tableLines("Inputs", tables.inputs),

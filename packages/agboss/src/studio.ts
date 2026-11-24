@@ -11,7 +11,7 @@ import { studioGraph } from "./graph/studio-graph.js";
 /**
  * The graphs `agboss studio` serves (#268 AC7): every workflow of an `@Application` — the listed ones
  * and the children they launch — built on the application's environment. A child is a subgraph node
- * of its parent (#263 S37), so Studio draws it inside; `ThisWorkflow` is a node marked
+ * of its parent (#263 S37), so Studio draws it inside; a workflow launching itself is a node marked
  * `recursive: maxDepth N` (#264). The module `agboss studio` writes into `.agboss/` reads them by name.
  */
 

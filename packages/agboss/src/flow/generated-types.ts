@@ -150,16 +150,6 @@ export declare namespace AGBossTypes {
 }
 
 /**
- * `ThisWorkflow` per recursive workflow (#264 S112), keyed by the workflow's `name`: `input` — the
- * problems of launching it (`[graph.no-matching-start]`, `[input.missing-on-path]`, …) or
- * `NoInput`; `output` — what one child gives (its finishes' outputs). `@Workflow({ name, flow })`
- * checks the launches of `ThisWorkflow` in its flow against `input`.
- */
-export interface ThisWorkflowOutputs {
-  readonly [notGenerated]?: never;
-}
-
-/**
  * What a channel of `TRole` is asked (`ChannelAsk<TRole>["value"]`), from the generated
  * `ChannelRoles` entry of the role: the tool call an approval role approves, a question role's
  * `ask` (#659); `MissingGeneratedTypes` before `agboss check`.

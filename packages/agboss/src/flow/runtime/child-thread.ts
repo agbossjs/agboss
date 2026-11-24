@@ -95,7 +95,7 @@ export const childThreadIn = (values: unknown): string | undefined =>
 /** What a waiting parent's node interrupts with (`child-own-thread.ts`): where its child is. */
 export interface WaitingFor {
   readonly thread: string;
-  /** The parent's node: the child's graph is its registered subgraph (or `ThisWorkflow`'s own). */
+  /** The parent's node: the child's graph is its registered subgraph (or its own, for a recursion). */
   readonly node: string;
   readonly isRecursive: boolean;
   /** Whether the child runs on any instance through `ChildExecutionQueueRepository` (#333 PR 4). */

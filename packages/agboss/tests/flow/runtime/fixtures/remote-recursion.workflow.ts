@@ -1,8 +1,9 @@
 import {
   ChildPlacement,
+  DecidedBy,
   EmptyEnvironment,
   LimitExceededError,
-  ThisWorkflow,
+  Router,
   Workflow,
   WorkflowStart,
 } from "../../../../src/index.js";
@@ -17,7 +18,6 @@ import {
   CountDto,
   CountStoppedDto,
   CountStoppedWorkflowFinish,
-  DeeperRouter,
   DepthStoppedAction,
   LinkAgent,
   LinkDto,
@@ -27,7 +27,7 @@ import {
  * #333 PR 3 — a recursion whose every level runs on any instance (`ChildPlacement.AnyInstance`):
  * `remote-countdown-workflow` (`maxDepth: 3`) goes one level deeper by code until its count is
  * spent — level 3 runs on a worker, and its launch of level 4 is refused there; `remote-chain-workflow`
- * (`maxDepth: 2`) a code router whose route launches `ThisWorkflow` — on the last level, on a worker,
+ * (`maxDepth: 2`) a code router whose route launches itself — on the last level, on a worker,
  * that route is not ready (the soft stop).
  */
 
@@ -46,7 +46,7 @@ export class RemoteCountdownWorkflowStart {}
       .toAction(CountdownAction)
       .switch(
         caseOf(CountDto)
-          .toWorkflow(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
+          .toWorkflow(() => RemoteCountdownWorkflow, { placement: ChildPlacement.AnyInstance })
           .onError(
             LimitExceededError,
             toAction(DepthStoppedAction)
@@ -73,14 +73,29 @@ export class RemoteCountdownWorkflow {}
 })
 export class RemoteChainWorkflowStart {}
 
+/** Always one link further: on the last level that route is not ready. */
+@Router({
+  name: "remote-deeper-router",
+  description: "Always goes one link further, on any instance",
+  decidedBy: DecidedBy.Code,
+  input: { link: LinkDto },
+  maxVisits: 1,
+  routes: [{ target: () => RemoteChainWorkflow }, { target: LinkAgent }],
+})
+export class RemoteDeeperRouter {
+  route(): unknown {
+    return RemoteChainWorkflow;
+  }
+}
+
 @Workflow({
   name: "remote-chain-workflow",
   version: "1.0.0",
   flow: [
     onStart(RemoteChainWorkflowStart)
-      .toRouter(DeeperRouter)
+      .toRouter(RemoteDeeperRouter)
       .chooseOne(
-        route(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
+        route(() => RemoteChainWorkflow, { placement: ChildPlacement.AnyInstance })
           .toFinish(ChainDoneWorkflowFinish),
         route(LinkAgent)
           .toFinish(ChainDoneWorkflowFinish),

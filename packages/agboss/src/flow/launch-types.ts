@@ -2,10 +2,8 @@ import type { ChildStepOptions } from "./child-placement.js";
 import type { Class } from "../components/injection.js";
 import type { ErrorClass, NodeKind } from "./ast.js";
 import type { KindLabel, PathHead, SidePath, TargetCheck, Transitions } from "./builder-types.js";
-import type { ClaimsOf } from "./builder-types.js";
-import type { NameOf } from "./generated-types.js";
 import type { Quorums } from "./quorum-types.js";
-import type { ThisWorkflowLaunched, ThisWorkflowName, WithClaims } from "./this-workflow-types.js";
+import type { ClassOf, TargetRef } from "./target-ref.js";
 
 /**
  * The types of a parallel launch (#273): `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })`,
@@ -78,10 +76,7 @@ export type AgentsLaunched<THead extends PathHead> = Launched<THead> & Quorums<T
 
 /** `.onError(E, toAction(X)…)` right after `.join()`: a failed branch, a limit in a branch. */
 export interface JoinErrorHandling<THead extends PathHead> {
-  onError<const TPath extends SidePath>(
-    error: ErrorClass,
-    path: TPath,
-  ): Joined<WithClaims<THead, ClaimsOf<TPath>>>;
+  onError(error: ErrorClass, path: SidePath): Joined<THead>;
 }
 
 /** After `.join()`: its `.onError(…)`, then one transition — its values are derived (#1270). */
@@ -95,15 +90,6 @@ export type ChildLaunchCheck<TClass extends Class, TValue> =
         readonly __error: "toParallelWorkflows(W, …) runs one child per item — the step before it gives a list";
       };
 
-/**
- * After `.toParallelWorkflows(W, …)`: its `.join()` — for `ThisWorkflow` one that claims the launch,
- * checked by `@Workflow({ name, flow })` (#264 S112).
- */
-export type ChildLaunched<TClass extends Class, THead extends PathHead> =
-  ThisWorkflowName extends NameOf<InstanceType<TClass>>
-    ? ThisWorkflowLaunched<THead>
-    : Launched<THead>;
-
 /** The launches a step's values (`TValue`, the chain's last one per item) may lead into. */
 export interface Launches<TValue, THead extends PathHead> {
   toParallelAgents<const TArgs extends LaunchArguments>(
@@ -113,10 +99,10 @@ export interface Launches<TValue, THead extends PathHead> {
     ...targets: TArgs & LaunchCheck<TArgs, NodeKind.Action>
   ): Launched<THead>;
   /** One child execution of `W` per item of the list (#263), at most `maxConcurrency` at once. */
-  toParallelWorkflows<const TClass extends Class>(
-    workflow: TClass & ChildLaunchCheck<TClass, TValue>,
+  toParallelWorkflows<const TRef extends TargetRef>(
+    workflow: TRef & ChildLaunchCheck<ClassOf<TRef>, TValue>,
     options: WorkflowLaunchOptions,
-  ): ChildLaunched<TClass, THead>;
+  ): Launched<THead>;
 }
 
 /** A router's launch (`.toRouter(R).toParallelAgents(…)`): agents only, never per item. */

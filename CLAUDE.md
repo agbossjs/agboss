@@ -166,8 +166,8 @@ CLI's package test on the lockfile, `check:packed` on the packed install, which 
 studio` and reads each graph from the server).
 `agboss describe` (#268 PR 2)
 prints the application's tree — the workflows it lists with their starts and the child workflows
-they launch (`per item from vendor-finder-agent (maxItems 20, maxConcurrency 3)`, `ThisWorkflow,
-recursive, maxDepth 3`) —, each contract's implementation and why, the model providers and why, each
+they launch (`per item from vendor-finder-agent (maxItems 20, maxConcurrency 3)`, `recursive,
+maxDepth 3`) —, each contract's implementation and why, the model providers and why, each
 channel (a role's question → answer, who answers, its reply interpreter and its implementation),
 the budgets by scope and the execution budget of each workflow, then every workflow: its guardrails
 and PII policies with their refusals (the text, or `ClassName.refusal()`), flow, each node's inputs
@@ -665,16 +665,20 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   finish and output or error, path, own spend, own `pauses` (the resolved pauses its own steps asked,
   #267 S124), own children; `result.handledErrors` the failures
   a side path took; observer events carry `parentExecutionId` / `rootExecutionId`.
-- **Recursion (#264):** `ThisWorkflow` — a marker for the enclosing workflow (a decorator's
-  arguments are evaluated before its class exists) — is a child like any other: `.toWorkflow(ThisWorkflow)`,
-  `route(ThisWorkflow)`, `.toParallelWorkflows(ThisWorkflow, { maxItems })`, the node `this-workflow`
-  (one class = one node; its own path `onWorkflow(ThisWorkflow)…` from two places). It is the workflow's
-  own compiled graph, run from the registry — never its own subgraph (Studio: the node
-  `this-workflow`, marked `recursive: maxDepth N` in its `getGraphAsync` metadata). `@Workflow({ maxDepth })` is required (`[graph.recursion-without-depth]`);
+- **Recursion (#264, #1287):** a workflow launches itself by a thunk of its own class — a decorator's
+  arguments are evaluated before its class exists, `() => Self` is read later, at assembly — a child
+  like any other: `.toWorkflow(() => Self)`, `route(() => Self)`, `.toParallelWorkflows(() => Self,
+{ maxItems })`, the node of the workflow's own name (one class = one node; its own path
+  `onWorkflow(() => Self)…` from two places). `toWorkflow` / `onWorkflow` take `Class | (() => Class)`
+  (`TargetRef`, `resolveTarget`, `UnwrapTarget` in `src/flow/target-ref.ts`, shared with `@Router` routes);
+  the builder keeps the thunk unread (`withTarget`) and every reader of a step's `target` sees the
+  class. `@Workflow` returns `void`, so a class's type never depends on its own decorator. It is the
+  workflow's own compiled graph, run from the registry — never its own subgraph (Studio: the node
+  of its own name, marked `recursive: maxDepth N` in its `getGraphAsync` metadata). `@Workflow({ maxDepth })` is required (`[graph.recursion-without-depth]`);
   `executionContext.depth` is 1 at the root, each child record has its `depth`, the last level is
   `depth === maxDepth` — no model sees the depth, a domain level is an `input` field (`TopicDto.level`).
   The **soft stop** on the last level: of a branch (`.switch` / `.chooseOne`) the options whose path
-  launches `ThisWorkflow` before the next branch are not offered — an agent's variants leave its
+  launches the workflow itself before the next branch are not offered — an agent's variants leave its
   response schema (a second cache prefix for that level), a model router's routes are hidden, a code
   router returning one is `RouterDecisionError`; each such branch keeps one that does not recurse
   (`[graph.recursion-without-exit]`). A launch decided by code or data past `maxDepth` does not start:
@@ -682,12 +686,12 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   `maxDepth`, `depth`; a refused child record with an empty path) — `.onError(LimitExceededError, …)`
   right after the launch, `.onError(…)` after a per-item join. Only direct recursion
   (`[graph.mutual-recursion]`, also for a class undefined by a circular import). Each level has its own
-  `maxSteps`; the root's budgets count the tree. `agboss describe`: `recursive: ThisWorkflow, maxDepth
-3, on the last level: researcher-agent → TopicReportDto only`, a list's producers `this-workflow ×0–5`.
-  `ThisWorkflow` is typed per path (S112): a `ThisWorkflow` launch (any form, a side path's too) is a
-  claim carried in the path's type up to `@Workflow({ name, flow })`, which checks the launch's
-  `input` against the generated `ThisWorkflowOutputs[name]` (`input`, `output`); what a child gives is
-  derived by the analyser; recursive workflows with different finishes live side by side.
+  `maxSteps`; the root's budgets count the tree. `agboss describe`: `recursive: maxDepth
+3, on the last level: researcher-agent → TopicReportDto only`, a list's producers
+  `topic-research-workflow ×0–5`. The launch is typed like any child's: `typeof Self` is branded by
+  `.agboss/types.d.ts`, its `Inputs[name]` is the union of its starts' inputs (a path that cannot fill it
+  is a compile error), what a child gives is derived by the analyser; no claim travels in the path's
+  type, no `ThisWorkflowOutputs` table.
 - **The tree's concurrency cap (#264 PR 2, S27):** `@Workflow({ maxConcurrentExecutions })` of the
   root (default 10, a whole number from 1 — `[limits.max-concurrent-executions-invalid]`) — how many
   executions of the tree work at once. An execution holds a slot while one of its working steps
@@ -2473,7 +2477,7 @@ StoreTime }`) — with `StoreTimeSource.Database` a networked store's database c
   the store is asked and again once it gave the lease, which then goes back at once.
   Wiki → Several-instances.
 - **Fencing external writes (#471):** `executionContext.fence` is the lease the current step runs
-  under — the root's for a root, its `ParentInstance` children and `ThisWorkflow` levels, an
+  under — the root's for a root, its `ParentInstance` children and recursive levels, an
   `AnyInstance` child's own: `scopeKey` (each part `encodeURIComponent`-encoded, joined by one
   `:`), `tenantId`, `leaseExecutionId`, `token` (the fencing token: a counter of that one
   key), `trustedUntil`, `assertHeld()` (local; past `trustedUntil` it expires the lease first),

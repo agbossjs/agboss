@@ -18,7 +18,7 @@ export interface ExecutionFence {
   readonly tenantId: string;
   /**
    * The execution whose lease the step runs under: the root (and its `ParentInstance` children,
-   * `ThisWorkflow` levels), or a `ChildPlacement.AnyInstance` child itself.
+   * recursive levels), or a `ChildPlacement.AnyInstance` child itself.
    */
   readonly leaseExecutionId: string;
   /**

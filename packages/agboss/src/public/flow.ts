@@ -1,6 +1,6 @@
 /**
  * The workflow's graph (the root entry, #272): the path builder (`start`, `agent`, `router`, `action`,
- * `workflow`, `question`, `route`, `caseOf`, the side-path starters, `ThisWorkflow`), the decorators
+ * `workflow`, `question`, `route`, `caseOf`, the side-path starters), the decorators
  * with their `<Kind>Options`, the handler contracts, the DTO wrappers, the tables
  * `.agboss/types.d.ts` fills and their lookups, and the workflow settings and limits.
  */
@@ -22,7 +22,6 @@ export {
   toWorkflow,
   onWorkflow,
 } from "../flow/builder.js";
-export { ThisWorkflow, type ThisWorkflowOutputs } from "../flow/this-workflow.js";
 export { ChildPlacement, type ChildStepOptions } from "../flow/child-placement.js";
 
 export type {

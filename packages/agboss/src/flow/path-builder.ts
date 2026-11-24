@@ -26,6 +26,7 @@ import {
 import { placementOptionOf } from "./child-placement.js";
 import { expiresInOptionOf } from "./question-options.js";
 import type { PathStart } from "./path-start.js";
+import { withTarget, type TargetRef } from "./target-ref.js";
 
 /**
  * The runtime of the path builder (#272): one immutable class behind every typed builder state;
@@ -71,12 +72,17 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   }
 
   private to(
-    target: Class,
+    target: TargetRef,
     kind: NodeKind,
     extra: Pick<ToStep, "placement" | "expiresIn"> = {},
   ): PathBuilder<TSource> {
-    const step: ToStep = { kind: StepKind.To, target, targetKind: kind };
-    return this.then({ ...step, ...extra });
+    const rest = { kind: StepKind.To as const, targetKind: kind, ...extra };
+    // only a child workflow may be named by a thunk (#1287): any other target is read as written
+    const step: ToStep =
+      kind === NodeKind.Workflow
+        ? withTarget("target", target, rest)
+        : { ...rest, target: target as Class };
+    return this.then(step);
   }
 
   toAgent(target: Class): PathBuilder<TSource> {
@@ -101,7 +107,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   }
 
   /** `.toWorkflow(W)` (#263): one child of `W`; `.toWorkflow(W, { placement })` (#333 PR 2). */
-  toWorkflow(target: Class, options?: unknown): PathBuilder<TSource> {
+  toWorkflow(target: TargetRef, options?: unknown): PathBuilder<TSource> {
     const placement = placementOptionOf(options, "toWorkflow(W, {…})");
     return this.to(target, NodeKind.Workflow, placement === undefined ? {} : { placement });
   }
@@ -204,7 +210,8 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   private asRoute(): ChooseOneRoute {
     if (this.start.kind !== "route") throw syntaxError(".chooseOne(…) takes route(…) paths");
     const { target, placement } = this.start;
-    return Object.freeze({ target, path: this.subPath(), ...(placement && { placement }) });
+    const rest = { path: this.subPath(), ...(placement && { placement }) };
+    return Object.freeze(withTarget("target", target, rest));
   }
 
   /** A group: its agents, priority and own path. */
@@ -224,8 +231,12 @@ export const fromSource = (source: PathSource): PathBuilder<PathSource> =>
 
 export const fromComponent = (
   kind: ComponentSource["kind"],
-  node: Class,
-): PathBuilder<PathSource> => fromSource({ kind, node });
+  node: TargetRef,
+): PathBuilder<PathSource> =>
+  // a child workflow may be named by a thunk (#1287), read when the path is analysed
+  fromSource(
+    kind === NodeKind.Workflow ? withTarget("node", node, { kind }) : { kind, node: node as Class },
+  );
 
 /** A sub-path's builder. */
 export const subPathFrom = (start: PathStart): PathBuilder<undefined> =>

@@ -10,6 +10,7 @@ import {
 } from "./ast.js";
 import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
 import { FlowSyntaxError } from "./flow-syntax-error.js";
+import { withTargets, type TargetRef } from "./target-ref.js";
 
 /**
  * The launch step of the path builder (#273): `.toParallelAgents(A, B, …, { maxConcurrency,
@@ -102,12 +103,13 @@ export function launchStepOf(
     throw new FlowSyntaxError({
       message: `${call}(…, { placement }): only a child workflow has a placement`,
     });
-  return Object.freeze({
-    kind: StepKind.Launch,
-    targetKind,
-    targets: Object.freeze([...(targets as readonly Class[])]),
-    ...options,
-  });
+  const rest = { kind: StepKind.Launch as const, targetKind, ...options };
+  // a child workflow may be named by a thunk (#1287), read when the flow is analysed
+  return Object.freeze(
+    targetKind === NodeKind.Workflow
+      ? withTargets("targets", targets as readonly TargetRef[], rest)
+      : { ...rest, targets: Object.freeze([...(targets as readonly Class[])]) },
+  );
 }
 
 /**

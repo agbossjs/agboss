@@ -89,7 +89,7 @@ describe("#268 AC7: studioOf(Application) — every workflow, children inside th
   });
 });
 
-describe("#264: ThisWorkflow in Studio", () => {
+describe("#264, #1287: a workflow launching itself in Studio", () => {
   it("a node marked recursive: maxDepth N, never its own subgraph", async () => {
     const bundle = await workflowInApplication(TopicResearchWorkflow);
     const deps = await createAppDeps(bundle, { gateway: createScriptedGateway(new ScriptBook()) });
@@ -98,16 +98,18 @@ describe("#264: ThisWorkflow in Studio", () => {
     await deps.close();
 
     const ids = Object.keys(drawn.nodes);
-    expect(ids).toContain("this-workflow");
-    expect(ids.filter((id) => id.startsWith("this-workflow:"))).toEqual([]);
-    expect(drawn.nodes["this-workflow"]?.metadata).toEqual({ recursive: "maxDepth 3" });
+    expect(ids).toContain("topic-research-workflow");
+    expect(ids.filter((id) => id.startsWith("topic-research-workflow:"))).toEqual([]);
+    expect(drawn.nodes["topic-research-workflow"]?.metadata).toEqual({ recursive: "maxDepth 3" });
   });
 
   it("studioOf(Application) draws it the same way", async () => {
     const nodes = await drawnNodes(RecursionApplication, "topic-research-workflow");
 
-    expect(Object.keys(nodes).filter((id) => id.startsWith("this-workflow:"))).toEqual([]);
-    expect(nodes["this-workflow"]?.metadata).toEqual({ recursive: "maxDepth 3" });
+    expect(Object.keys(nodes).filter((id) => id.startsWith("topic-research-workflow:"))).toEqual(
+      [],
+    );
+    expect(nodes["topic-research-workflow"]?.metadata).toEqual({ recursive: "maxDepth 3" });
   });
 });
 

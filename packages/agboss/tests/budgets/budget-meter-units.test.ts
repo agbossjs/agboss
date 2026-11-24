@@ -309,13 +309,13 @@ class NotABudget {
 
 describe("#633: an execution's budgets", () => {
   it("another workflow's execution budget is not the default; a class without @Budget is none", () => {
-    const ThisWorkflow = class {
-      readonly name = "this-workflow";
+    const OwnWorkflow = class {
+      readonly name = "own-workflow";
     };
 
     const chosen = budgetsOfExecution(
       [NotABudget, OtherWorkflowBudget, DefaultExecutionBudget],
-      ThisWorkflow,
+      OwnWorkflow,
     );
 
     expect(chosen.map((each) => each.meta.name)).toEqual(["default-execution-budget"]);

@@ -10,7 +10,7 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 > **Status.** #263 PR 1 — the grammar, the analyser and the generated types; PR 2 — children at run
 > time: a subgraph node of the parent, their own executions, `ChildExecutionFailedError`, nested
 > records (`result.children`), `toHaveChildExecutions` / `toHaveHandledError`, and a child as an
-> error handler (`toWorkflow(W)` side paths). Recursion — `ThisWorkflow`, `maxDepth`, the soft stop
+> error handler (`toWorkflow(W)` side paths). Recursion — `() => Self`, `maxDepth`, the soft stop
 > — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrentExecutions` is #264 PR 2
 > ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)). A child on any instance —
 > `placement: ChildPlacement.AnyInstance` — is #333 PR 2 ([below](#on-any-instance-333-pr-2)).
@@ -365,7 +365,7 @@ thread. A child that rests at a pause makes its parent's node interrupt with a *
 pause: it never reaches a channel or `result.pending`); the tree rests as for any pause, its pending
 pauses are read through the markers, and a resume — one command for the tree — is forwarded by the
 parent's node to the child's thread. A child that started before ADR-0022 (its whole state under its
-task) is continued that way. One class is one node; only `ThisWorkflow` (#264) is run from the
+task) is continued that way. One class is one node; only a workflow launching itself (#264) is run from the
 registry — the workflow's own compiled graph, never its own subgraph ([Recursion](#recursion-264)).
 
 | | |
@@ -532,16 +532,17 @@ export const anyInstancePaths = [
 
 ## Recursion (#264)
 
-A workflow launches **itself** with the marker `ThisWorkflow` — a decorator's arguments are
-evaluated before its class exists, so the class cannot name itself: `.toWorkflow(ThisWorkflow)`,
-`route(ThisWorkflow)`, `.toParallelWorkflows(ThisWorkflow, { maxConcurrency, maxItems })`.
-Everything else is a child's: its start chosen by class, its scope its start input only, its result
-one of its finishes' outputs, its errors and limits. `ThisWorkflow` is one node, `this-workflow`
-(from two places: its own path `onWorkflow(ThisWorkflow)…`). A topic too broad for one report is split
+A workflow launches **itself** with a thunk of its own class — a decorator's arguments are
+evaluated before its class exists, so the class cannot name itself, but `() => Self` is read later,
+at assembly: `.toWorkflow(() => Self)`, `route(() => Self)`,
+`.toParallelWorkflows(() => Self, { maxConcurrency, maxItems })`. Everything else is a child's: its
+start chosen by class, its scope its start input only, its result one of its finishes' outputs, its
+errors and limits. It is one node, named by the workflow itself (from two places: its own path
+`onWorkflow(() => Self)…`). A topic too broad for one report is split
 and each subtopic researched the same way:
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, onAction, caseOf, onStart, toAction, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAction, caseOf, onStart, toAction, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
 import { Integer, List, Text, listOf, oneOf } from "@agboss/core/dto";
 
 export class TopicDto {
@@ -624,7 +625,7 @@ export class TopicFailedWorkflowFinish {}
           .toFinish(TopicReportWorkflowFinish),
         caseOf(TopicTooBroadDto) // left out of the researcher's schema on the last level
           .toAction(SubtopicsAction)
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
+          .toParallelWorkflows(() => TopicResearchWorkflow, { maxConcurrency: 3, maxItems: 5 })
           .join()
           .toAgent(MergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
@@ -639,7 +640,7 @@ export class TopicFailedWorkflowFinish {}
 export class TopicResearchWorkflow {}
 ```
 
-**The depth.** `@Workflow({ maxDepth })` is required on a workflow that can reach `ThisWorkflow`
+**The depth.** `@Workflow({ maxDepth })` is required on a workflow that can launch itself
 (`[graph.recursion-without-depth]`, a whole number from 1). `executionContext.depth` is 1 at the
 root, 2 for its children and so on — the same in every child record (`result.children[…].depth`) and
 in each child's trace metadata — so `maxDepth: 3` allows levels 1–3 and the last level is
@@ -650,7 +651,7 @@ starts deeper than 1 while its first topic's `level` is 0.
 
 **The soft stop.** On the last level the framework, not the prompt, stops the recursion. Of every
 branch — a `.switch(caseOf(…))`, a `.chooseOne(route(…))` — the options whose path launches
-`ThisWorkflow` before the next branch are not offered:
+the workflow itself before the next branch are not offered:
 
 | Who decides | On the last level |
 | --- | --- |
@@ -666,18 +667,18 @@ path with no branch at all — an action whose list of subtopics comes back empt
 `onExecutionStart` — and fails the launching step with `ChildExecutionFailedError` caused by
 `DepthLimitExceededError` (`limit.depth`; `workflow`, `maxDepth`, `depth`: `topic-research-workflow
 went 5 levels deep; its maxDepth is 4`). It is a child's own limit (S25): `.onError(LimitExceededError,
-…)` right after `.toWorkflow(ThisWorkflow)`, or `.onError(LimitExceededError, …)` after a per-item
+…)` right after `.toWorkflow(() => Self)`, or `.onError(LimitExceededError, …)` after a per-item
 launch's join, takes it — leading only to actions and finishes (`[graph.limit-handler-uses-model]`).
 The refused launch is a failed child record with an empty path.
 
 **The tree.** Each execution has its own `maxSteps`; the root's execution budget is the whole pass,
 every level included, and the tenant and application budgets count it too. Only direct recursion:
-a workflow launching one that launches it again — or naming its own class — is
+a workflow launching one that launches it again is
 `[graph.mutual-recursion]` (as is a class `undefined` while the flow is built, the trace of a
-circular import). At run time `ThisWorkflow` is the workflow's own compiled graph, taken from the
+circular import). At run time a launch of itself is the workflow's own compiled graph, taken from the
 registry when its step runs (a graph cannot contain itself): each level on its own child thread,
 pauses inside any level resumed like any child's, through every waiting marker above it; Studio draws it
-as the node `this-workflow`, which `getGraphAsync({ xray: true })` marks `recursive: maxDepth 3` in its
+as the node of its own name, which `getGraphAsync({ xray: true })` marks `recursive: maxDepth 3` in its
 metadata ([CLI → Watch mode and Studio](CLI#watch-mode-and-studio-268)).
 
 **The tree's cap.** `maxDepth` bounds how deep the tree goes, the launches' `maxConcurrency` how
@@ -686,32 +687,19 @@ of the tree's executions work at once — the stricter wins. A level whose child
 so a cap of 1 still finishes; the queue serves a level closing its branch first, then the deepest
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
 
-**Seen in.** `agboss describe`: `recursive: ThisWorkflow, maxDepth 3, on the last level:
+**Seen in.** `agboss describe`: `recursive: maxDepth 3, on the last level:
 researcher-agent → TopicReportDto only`, and each input with its producers — `merge-agent ← topic:
-topic-research-workflow-start, results: this-workflow ×0–5`: the execution's own topic from its start,
+topic-research-workflow-start, results: topic-research-workflow ×0–5`: the execution's own topic from its start,
 never a subtopic (a `listOf(TopicDto)` never fills one `TopicDto` field). The worst case counts the
 levels down to `maxDepth`.
 
-**Typed per path (S112).** `ThisWorkflow` is one class for every recursive workflow, so what it
-gives is not one project-wide entry: `agboss check` writes one `ThisWorkflowOutputs` entry per
-recursive workflow, keyed by its `name` — `input` (the problems of launching it, or `NoInput`),
-`output` (what one child gives: its finishes' outputs) and, with a per-item launch, `join`:
-
-```ts no-check: an excerpt of a generated .agboss/types.d.ts
-interface ThisWorkflowOutputs {
-  "topic-research-workflow": { readonly input: NoInput; readonly output: TopicFailedDto | TopicReportDto };
-  "org-chart-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto };
-}
-```
-
-A `ThisWorkflow` launch — `.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)`,
-`onWorkflow(ThisWorkflow)`, the side-path starter `toWorkflow(ThisWorkflow)`, or
-`.toParallelWorkflows(ThisWorkflow, …)` — is recorded as a claim in the path's type, carried through
-every sub-path (`caseOf`, `route`, `.switch`, `.chooseOne`, `.onError`) up to
-`@Workflow({ name, flow })`, which checks the launch's `input` against its own entry. What a child
-gives is derived by the analyser from the workflow's finishes; the project code is the same as for
-any child. Several recursive workflows with different finishes
-live in one project.
+**Typed like any child (#1287).** `() => Self` carries the real `typeof Self`: the class is branded by
+the generated `.agboss/types.d.ts` and `@Workflow` returns nothing, so a flow naming its own class
+compiles without a circular reference (TS2506, TS7022), and Go to Definition and Rename Symbol follow
+it. The launch is checked as any child's is: `Inputs[name]` is the union of the workflow's starts'
+inputs, or the problem of the paths into it (`[input.missing-on-path]`). What a child gives is
+derived by the analyser from the workflow's finishes; the project code is the same as for any
+child, and several recursive workflows with different finishes live in one project.
 
 ## Testing
 

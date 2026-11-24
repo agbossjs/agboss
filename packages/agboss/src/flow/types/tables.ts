@@ -5,10 +5,8 @@ import type { Class } from "../../components/injection.js";
 import { NodeKind } from "../ast.js";
 import { onDemandRoutesOf, routesOf, type RouterOptions } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
-import type { ImportTable } from "./imports.js";
+import { TablesImport, type ImportTable } from "./imports.js";
 import { childInputEntry, inputEntry, nodeInput } from "./inputs.js";
-import { isThisWorkflow } from "../this-workflow.js";
-import { thisWorkflowEntries } from "./this-workflow.js";
 import { outputText, startInputText, startOutputText, valueText } from "./shapes.js";
 import { offPathUndoActions } from "./undo-actions.js";
 
@@ -63,8 +61,6 @@ export interface TypeTables {
   readonly workflowStarts: TypeTable;
   readonly routes: TypeTable;
   readonly routerAnswers: TypeTable;
-  /** `ThisWorkflow` per recursive workflow, by the workflow's name (#264 S112). */
-  readonly thisWorkflowOutputs: TypeTable;
   /** S4 lines for `agboss check`: the nodes whose `InputOf` is flat. */
   readonly notes: readonly string[];
 }
@@ -105,6 +101,32 @@ function startOutputs(
     }
   }
   return outputs.size === 0 ? "never" : [...outputs].sort().join(" | ");
+}
+
+/**
+ * `Inputs[workflow]` (#1287): what a workflow takes — the union of its starts' inputs, as
+ * `app.execute(Start, input)` takes each; `NoInput` for a workflow without a start. Printed on
+ * first use, so the classes it names are imported in the order the tables meet them.
+ */
+function startInputsOf(
+  workflows: readonly AnalysedWorkflow[],
+  names: ImportTable,
+): ReadonlyMap<string, () => string> {
+  return new Map(
+    workflows.map(({ analysis }): [string, () => string] => [
+      analysis.workflow,
+      () => {
+        const inputs = analysis.graph.starts.flatMap((start) => {
+          const declaration = analysis.graph.nodes.get(start)?.declaration;
+          return declaration?.kind === NodeKind.Start
+            ? [startInputText(declaration.options.input, names)]
+            : [];
+        });
+        const union = [...new Set(inputs)].sort();
+        return union.length === 0 ? names.use(TablesImport.NoInput) : union.join(" | ");
+      },
+    ]),
+  );
 }
 
 /** The entries one node contributes to the tables other than `Inputs`. */
@@ -184,18 +206,22 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
     launchingRouters: launchingRouters(workflows),
     notes: [],
   };
+  const startInputs = startInputsOf(workflows, names);
   for (const node of nodes.values()) {
     names.ref(node.component);
-    // `ThisWorkflow` is a different workflow in each recursive one: its own table (#264 S112)
-    if (isThisWorkflow(node.component)) continue;
     writeNode(node, workflows, names, tables);
     if (node.kind === NodeKind.Start) continue;
     const input = nodeInput(workflows, node.name);
     const isChild = node.kind === NodeKind.Workflow;
-    const entry = isChild ? childInputEntry(input, names) : inputEntry(input, names, componentOf);
+    const entry = isChild
+      ? childInputEntry(input, startInputs.get(node.name)?.() ?? names.use(TablesImport.NoInput))
+      : inputEntry(input, names, componentOf);
     tables.inputs.set(node.name, entry.type);
     if (entry.note !== undefined) tables.notes.push(entry.note);
   }
+  // a workflow no other launches takes its starts' inputs too (#1287)
+  for (const [workflow, input] of startInputs)
+    if (!tables.inputs.has(workflow)) tables.inputs.set(workflow, input());
   // the undo actions only the framework runs (#340): typed from their declared fields
   const nodeNames = new Set<string>(nodes.keys());
   for (const undo of offPathUndoActions(workflows, names, (name) => nodeNames.has(name))) {
@@ -203,8 +229,5 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
     tables.outputs.set(undo.name, undo.output);
     tables.producerOutputs.set(undo.name, undo.output);
   }
-  return {
-    ...tables,
-    thisWorkflowOutputs: thisWorkflowEntries(workflows, names),
-  };
+  return tables;
 }

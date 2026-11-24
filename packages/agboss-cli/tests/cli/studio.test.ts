@@ -112,7 +112,7 @@ describe("#268 AC7: the Studio config in .agboss/", () => {
     );
   });
 
-  it("the generated module serves the graphs: children inside their parent, ThisWorkflow a node", async () => {
+  it("the generated module serves the graphs: children inside their parent, a workflow launching itself a node", async () => {
     const cwd = project();
     vi.stubEnv("OPENROUTER_API_KEY", "sk-placeholder");
 
@@ -123,8 +123,8 @@ describe("#268 AC7: the Studio config in .agboss/", () => {
 
     expect(perItem).toEqual(expect.arrayContaining(["studio-item-workflow:check-item-action"]));
     expect(one).toEqual(expect.arrayContaining(["studio-item-workflow:check-item-action"]));
-    expect(recursive).toContain("this-workflow");
-    expect(recursive.filter((id) => id.startsWith("this-workflow:"))).toEqual([]);
+    expect(recursive).toContain("split-workflow");
+    expect(recursive.filter((id) => id.startsWith("split-workflow:"))).toEqual([]);
   });
 
   it("#666 / #671: a project reached through a symlink still loads its application in the module", async () => {

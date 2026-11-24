@@ -479,7 +479,7 @@ export interface ValueProvider<T = unknown> {
 }
 
 // @public (undocumented)
-export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>): <TClass extends Class>(value: TClass) => TClass;
+export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow>): (value: Class) => void;
 
 // @public
 export interface WorkflowDefinition {

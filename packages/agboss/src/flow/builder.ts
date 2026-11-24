@@ -31,6 +31,7 @@ import {
   type PathBuilder,
 } from "./path-builder.js";
 import type { GroupStart } from "./quorum-types.js";
+import type { ClassOf, TargetRef } from "./target-ref.js";
 
 /**
  * The path builder (#272): `onStart(S)…`, `onAgent(X)…`, `onRouter(R)…`, `onAction(X)…`, `onWorkflow(W)…`
@@ -78,10 +79,10 @@ export function onAction(source: Class): unknown {
  * The own path of a child workflow reached from two or more places (#263):
  * `onWorkflow(W).onError(…).switch(…)`.
  */
-export function onWorkflow<const TClass extends Class>(
-  source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
-): AfterStep<InstanceType<TClass>, SourceHead>;
-export function onWorkflow(source: Class): unknown {
+export function onWorkflow<const TRef extends TargetRef>(
+  source: TRef & KindCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
+): AfterStep<InstanceType<ClassOf<TRef>>, SourceHead>;
+export function onWorkflow(source: TargetRef): unknown {
   return fromComponent(NodeKind.Workflow, source);
 }
 
@@ -97,11 +98,11 @@ export function onExternalTask(source: Class): unknown {
 }
 
 /** One target of `.chooseOne(…)` and what follows it. */
-export function route<const TClass extends Class>(
-  target: TClass & TargetCheck<TClass, RouteTargetKind, RouteTargetLabel>,
-  ...options: RouteOptions<TClass>
-): RouteContinuation<InstanceType<TClass>>;
-export function route(target: Class, options?: unknown): PathBuilder<undefined> {
+export function route<const TRef extends TargetRef>(
+  target: TRef & TargetCheck<ClassOf<TRef>, RouteTargetKind, RouteTargetLabel>,
+  ...options: RouteOptions<ClassOf<TRef>>
+): RouteContinuation<InstanceType<ClassOf<TRef>>>;
+export function route(target: TargetRef, options?: unknown): PathBuilder<undefined> {
   const placement = placementOptionOf(options, "route(W, { placement })");
   return subPathFrom({ kind: "route", target, ...(placement && { placement }) });
 }
@@ -163,11 +164,11 @@ export function toExternalTask(target: Class, options?: unknown): unknown {
  * after `.toWorkflow(W)`. A side path that can catch a limit leads only to actions and finishes
  * (`[graph.limit-handler-uses-model]`).
  */
-export function toWorkflow<const TClass extends Class>(
-  target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
+export function toWorkflow<const TRef extends TargetRef>(
+  target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
   options?: ChildStepOptions,
-): AfterStep<InstanceType<TClass>, SideHead>;
-export function toWorkflow(target: Class, options?: unknown): unknown {
+): AfterStep<InstanceType<ClassOf<TRef>>, SideHead>;
+export function toWorkflow(target: TargetRef, options?: unknown): unknown {
   return sidePath().toWorkflow(target, options);
 }
 

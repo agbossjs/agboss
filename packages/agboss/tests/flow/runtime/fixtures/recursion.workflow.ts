@@ -1,3 +1,4 @@
+import type { Class } from "../../../../src/components/injection.js";
 import { Integer, List, Text } from "../../../../src/dto/index.js";
 import {
   Action,
@@ -10,7 +11,6 @@ import {
   oneOf,
   Router,
   StepFailedError,
-  ThisWorkflow,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -25,9 +25,9 @@ import { onAction, caseOf, route, onStart, toAction } from "../../../helpers/flo
  * #264 — recursion at run time. `topic-research-workflow` (the issue's example, `maxDepth: 3`): a
  * researcher reports on a topic or finds it too broad, its subtopics researched each by the
  * workflow itself, per item, and merged. `countdown-workflow` (`maxDepth: 3`): code decides to go
- * one level deeper (`.toWorkflow(ThisWorkflow)`) until its count is spent — past `maxDepth` the
+ * one level deeper (`.toWorkflow(() => CountdownWorkflow)`) until its count is spent — past `maxDepth` the
  * launch is refused and the side path finishes. `chain-workflow` / `code-chain-workflow`: a model
- * router and a code router whose route launches `ThisWorkflow` (`maxDepth: 2`).
+ * router and a code router whose route launches itself (`maxDepth: 2`).
  */
 
 export class TopicDto {
@@ -167,7 +167,7 @@ export class TopicFailedWorkflowFinish {}
           .toFinish(TopicReportWorkflowFinish),
         caseOf(TopicTooBroadDto)
           .toAction(SubtopicsAction)
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
+          .toParallelWorkflows(() => TopicResearchWorkflow, { maxConcurrency: 3, maxItems: 5 })
           .join()
           .toAgent(MergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
@@ -245,12 +245,12 @@ export class CountDoneWorkflowFinish {}
 export class CountStoppedWorkflowFinish {}
 
 /** One level deeper while the count lasts; past `maxDepth` the side path finishes. */
-const countdownPath = (from: typeof CountdownWorkflowStart) =>
+const countdownPath = (from: typeof CountdownWorkflowStart, self: () => Class) =>
   onStart(from)
     .toAction(CountdownAction)
     .switch(
       caseOf(CountDto)
-        .toWorkflow(ThisWorkflow)
+        .toWorkflow(self)
         .onError(
           LimitExceededError,
           toAction(DepthStoppedAction)
@@ -269,7 +269,7 @@ const countdownPath = (from: typeof CountdownWorkflowStart) =>
 @Workflow({
   name: "countdown-workflow",
   version: "1.0.0",
-  flow: [countdownPath(CountdownWorkflowStart)],
+  flow: [countdownPath(CountdownWorkflowStart, () => CountdownWorkflow)],
   maxDepth: 3,
 })
 export class CountdownWorkflow {}
@@ -281,7 +281,7 @@ export class ShallowWorkflowStart {}
 @Workflow({
   name: "shallow-workflow",
   version: "1.0.0",
-  flow: [countdownPath(ShallowWorkflowStart)],
+  flow: [countdownPath(ShallowWorkflowStart, () => ShallowWorkflow)],
   maxDepth: 1,
 })
 export class ShallowWorkflow {}
@@ -338,7 +338,7 @@ export class SumAction {
   flow: [
     onStart(SplitWorkflowStart)
       .toAction(SplitAction)
-      .toParallelWorkflows(ThisWorkflow, { maxItems: 2 })
+      .toParallelWorkflows(() => SplitWorkflow, { maxItems: 2 })
       .join()
       .onError(
         LimitExceededError,
@@ -384,7 +384,7 @@ export class LinkAgent {}
   input: { link: LinkDto },
   maxVisits: 1,
   routes: [
-    { prompt: "Go one link further", target: ThisWorkflow },
+    { prompt: "Go one link further", target: () => ChainWorkflow },
     { prompt: "End the chain", target: LinkAgent },
   ],
 })
@@ -400,7 +400,7 @@ export class ChainDoneWorkflowFinish {}
     onStart(ChainWorkflowStart)
       .toRouter(LinkRouter)
       .chooseOne(
-        route(ThisWorkflow)
+        route(() => ChainWorkflow)
           .toFinish(ChainDoneWorkflowFinish),
         route(LinkAgent)
           .toFinish(ChainDoneWorkflowFinish),
@@ -420,11 +420,11 @@ export class CodeChainWorkflowStart {}
   decidedBy: DecidedBy.Code,
   input: { link: LinkDto },
   maxVisits: 1,
-  routes: [{ target: ThisWorkflow }, { target: LinkAgent }],
+  routes: [{ target: () => CodeChainWorkflow }, { target: LinkAgent }],
 })
 export class DeeperRouter {
   route(): unknown {
-    return ThisWorkflow;
+    return CodeChainWorkflow;
   }
 }
 
@@ -435,7 +435,7 @@ export class DeeperRouter {
     onStart(CodeChainWorkflowStart)
       .toRouter(DeeperRouter)
       .chooseOne(
-        route(ThisWorkflow)
+        route(() => CodeChainWorkflow)
           .toFinish(ChainDoneWorkflowFinish),
         route(LinkAgent)
           .toFinish(ChainDoneWorkflowFinish),

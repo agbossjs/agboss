@@ -2,7 +2,6 @@ import { isCancelRequested } from "../cancel-requests.js";
 import type { Class } from "../../components/injection.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { NodeKind } from "../../flow/ast.js";
-import { isThisWorkflow } from "../../flow/this-workflow.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type {
   ChildExecutionQueueRepository,
@@ -119,7 +118,7 @@ export function childRegistryOf(workflows: readonly BuiltApp[]): ChildRegistry {
     if (byName.has(deps.config.name)) return;
     byName.set(deps.config.name, deps);
     for (const node of deps.graph.nodes.values()) {
-      if (node.kind !== NodeKind.Workflow || isThisWorkflow(node.component)) continue;
+      if (node.kind !== NodeKind.Workflow || node.component === deps.graph.type) continue;
       const child = deps.childDepsOf?.(node.component);
       if (child !== undefined) visit(child);
     }
@@ -128,7 +127,7 @@ export function childRegistryOf(workflows: readonly BuiltApp[]): ChildRegistry {
   for (const workflow of workflows) byName.set(workflow.deps.config.name, workflow.deps);
   for (const workflow of workflows) {
     for (const node of workflow.deps.graph.nodes.values()) {
-      if (node.kind !== NodeKind.Workflow || isThisWorkflow(node.component)) continue;
+      if (node.kind !== NodeKind.Workflow || node.component === workflow.deps.graph.type) continue;
       const child = workflow.deps.childDepsOf?.(node.component);
       if (child !== undefined) visit(child);
     }

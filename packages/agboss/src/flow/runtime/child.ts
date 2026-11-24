@@ -48,7 +48,7 @@ export interface ChildGraph {
   /** The child's compiled graph, streamed inside the parent's step. */
   readonly graph: ExecutionGraph;
   /**
-   * `ThisWorkflow` (#264): the workflow's own graph, taken from the registry when the step runs —
+   * A recursion (#264, #1287): the workflow's own graph, taken from the registry when the step runs —
    * never the node's subgraph (a graph cannot contain itself) — and held to `maxDepth`.
    */
   readonly isRecursive: boolean;

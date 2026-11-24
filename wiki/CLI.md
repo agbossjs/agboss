@@ -480,7 +480,7 @@ needed it.
 What Studio shows (S37): a child workflow is a **subgraph inside its parent** — entered by an edge
 (`.toWorkflow(W)`, `route(W)`) or one per item (`.toParallelWorkflows(W, …)`), its steps drawn as
 `vendor-check-workflow:vendor-checker-agent` in the parent's graph — and also a graph of its own
-(it runs alone through its own starts). `ThisWorkflow` is the node `this-workflow`, never its own
+(it runs alone through its own starts). A workflow launching itself (`() => Self`) is the node of its own name, never its own
 subgraph; `getGraphAsync({ xray: true })` marks it `recursive: maxDepth N` in the node's metadata,
 which Studio's graph endpoint does not pass on (its JSON keeps a node's id, type and name only) — so
 Studio shows a plain node there (an open question of #268 PR 3). Studio's own runs are limited by
@@ -493,7 +493,7 @@ key, no network and no project code run (no `maxSpend()`):
 
 - **The tree** — the workflows `@Application({ workflows })` lists, each with its starts (and their
   input) and, below it, the child workflows it launches, by which step, one or one per item, down to
-  their own children; `ThisWorkflow` is the workflow again, marked with its `maxDepth`.
+  their own children; a workflow launching itself is the workflow again, marked with its `maxDepth`.
 - **Implementations** — each infrastructure contract's class and why (listed in `@Application
   providers` / built-in default); **model providers** — the listed ones, else the built-ins, each
   with what it `serves` ([Model providers](Model-providers)).
@@ -524,7 +524,7 @@ vendor-screening-workflow 1.0.0
     start vendor-check-workflow-start (VendorDto)
 topic-research-workflow 1.0.0
   start topic-research-workflow-start (TopicDto)
-  child topic-research-workflow (ThisWorkflow, recursive, maxDepth 3) per item from subtopics-action (maxItems 5, maxConcurrency 3)
+  child topic-research-workflow (recursive, maxDepth 3) per item from subtopics-action (maxItems 5, maxConcurrency 3)
 ```
 
 ### The declarative snapshot (#268)

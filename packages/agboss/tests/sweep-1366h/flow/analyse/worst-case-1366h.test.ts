@@ -18,7 +18,6 @@ import { NodeKind } from "../../../../src/flow/ast.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import { declarationOf } from "../../../../src/flow/decorators/declaration.js";
-import { ThisWorkflow } from "../../../../src/flow/this-workflow.js";
 import { caseOf as caseWhen } from "../../../helpers/flow.js";
 import {
   CountdownAction,
@@ -337,10 +336,10 @@ describe("#1366: the start log's line", () => {
 });
 
 /** A workflow that launches itself, or the other one: mutual recursion, which the analyser refuses but still sizes. */
-const throughBoth = (other: abstract new () => unknown) => [
+const throughBoth = (self: () => abstract new () => unknown, other: abstract new () => unknown) => [
   pathStart(CountdownWorkflowStart)
     .toAction(CountdownAction)
-    .switch(caseWhen(CountDto).toWorkflow(ThisWorkflow), caseWhen(CountDoneDto).toWorkflow(other)),
+    .switch(caseWhen(CountDto).toWorkflow(self), caseWhen(CountDoneDto).toWorkflow(other)),
 ];
 
 describe("#1366: a workflow that launches itself inside a loop of workflows", () => {
@@ -350,14 +349,14 @@ describe("#1366: a workflow that launches itself inside a loop of workflows", ()
     @Workflow({
       name: "ping-case-workflow",
       version: "1.0.0",
-      flow: throughBoth(PongCase),
+      flow: throughBoth(() => PingCase, PongCase),
       maxDepth: 4,
     })
     class PingCase {}
     Workflow({
       name: "pong-case-workflow",
       version: "1.0.0",
-      flow: throughBoth(PingCase),
+      flow: throughBoth(() => PongCase, PingCase),
       maxDepth: 4,
     })(PongCase);
 

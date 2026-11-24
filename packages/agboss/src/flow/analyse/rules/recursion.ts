@@ -17,11 +17,11 @@ import {
 import type { AnalysisContext } from "./context.js";
 
 /**
- * The recursion rules (#264 PR 1) and the tree's cap (#264 PR 2, below): a workflow that can reach `ThisWorkflow` sets `@Workflow({ maxDepth })`,
+ * The recursion rules (#264 PR 1) and the tree's cap (#264 PR 2, below): a workflow that can launch itself (`toWorkflow(() => Self)`, #1287) sets `@Workflow({ maxDepth })`,
  * a positive whole number (`[graph.recursion-without-depth]`); every branch with a recursive option
  * keeps one that is not, so the last level can still end (`[graph.recursion-without-exit]`); and a
- * workflow never launches a child that launches it again, nor names its own class
- * (`[graph.mutual-recursion]` — only direct recursion, through `ThisWorkflow`, is supported).
+ * workflow never launches a child that launches it again
+ * (`[graph.mutual-recursion]` — only direct recursion, a workflow launching itself, is supported).
  */
 
 const isPositiveWhole = (value: unknown): boolean => Number.isInteger(value) && Number(value) >= 1;
@@ -31,7 +31,7 @@ function depthViolations(context: AnalysisContext, recursion: Recursion): RuleVi
   if (isPositiveWhole(maxDepth)) return [];
   const what =
     maxDepth === undefined
-      ? "it launches ThisWorkflow but sets no maxDepth"
+      ? "it launches itself but sets no maxDepth"
       : `its maxDepth is ${String(maxDepth)}, not a whole number of levels from 1`;
   const message =
     `${what} — a recursive workflow bounds its levels: @Workflow({ maxDepth: 4 }) allows ` +
@@ -48,7 +48,7 @@ function exitViolations(recursion: Recursion): RuleViolation[] {
     .map((branch) => {
       const options = branch.recursive.map((option) => optionLabel(branch, option)).join(", ");
       const message =
-        `${branch.node}: every way on (${options}) launches ThisWorkflow — on the last level ` +
+        `${branch.node}: every way on (${options}) launches the workflow itself — on the last level ` +
         "(depth === maxDepth) none is left; add a caseOf(…) or route(…) that does not recurse";
       return violation("graph.recursion-without-exit", message, [branch.node]);
     });
@@ -63,7 +63,7 @@ function chainBack(from: Class, self: Class, seen: Set<Class>): readonly Class[]
   // Stryker disable next-line OptionalChaining: equivalent: `childClassesOf` lists only classes that are workflows, so a declaration is always there; the check stays for a class that is not one
   switch (declaration?.kind) {
     case NodeKind.Workflow:
-      for (const child of childClassesOf(declaration.options.flow)) {
+      for (const child of childClassesOf(declaration.options.flow, from)) {
         const chain = chainBack(child, self, seen);
         if (chain !== undefined) return [from, ...chain];
       }
@@ -80,14 +80,12 @@ const nameOf = (workflow: Class): string =>
 
 function mutualViolations(context: AnalysisContext, self: Class): RuleViolation[] {
   const name = context.workflow.name;
-  return childClassesOf(context.workflow.flow).flatMap((child) => {
+  return childClassesOf(context.workflow.flow, self).flatMap((child) => {
     const chain = chainBack(child, self, new Set());
     if (chain === undefined) return [];
     const message =
-      child === self
-        ? `its flow names its own class (${classLabel(self)}) — a workflow launches itself with ThisWorkflow`
-        : `${[name, ...chain.map(nameOf)].join(" → ")}: mutual recursion is not supported — ` +
-          "a workflow launches only itself (ThisWorkflow); merge the two into one recursive workflow";
+      `${[name, ...chain.map(nameOf)].join(" → ")}: mutual recursion is not supported — ` +
+      "a workflow launches only itself (toWorkflow(() => ItsOwnClass)); merge the two into one recursive workflow";
     return [violation("graph.mutual-recursion", message, [name, nameOf(child)])];
   });
 }

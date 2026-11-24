@@ -1079,7 +1079,7 @@ export enum BudgetScope {
 }
 
 // @public
-export type BuiltPath<THead extends PathHead> = (THead extends SourceHead<unknown> ? FlowPath : SubPath) & {
+export type BuiltPath<THead extends PathHead> = (THead extends SourceHead ? FlowPath : SubPath) & {
     readonly [pathHead]?: THead;
 };
 
@@ -1146,22 +1146,20 @@ export interface CancelOutput {
 }
 
 // @public (undocumented)
-export interface CaseHead<TValue, TClaims = never> {
+export interface CaseHead<TValue> {
     // (undocumented)
     readonly case: TValue;
-    // (undocumented)
-    readonly claims: TClaims;
 }
 
 // @public
 export function caseOf<const TDto extends DtoClass>(dto: TDto): AfterValue<InstanceType<TDto>, CaseHead<InstanceType<TDto>>>;
 
 // @public
-export type CasePath = BuiltPath<CaseHead<unknown, unknown>>;
+export type CasePath = BuiltPath<CaseHead<unknown>>;
 
 // @public
 type CaseValueOf<TPath> = TPath extends {
-    readonly [pathHead]?: CaseHead<infer T, unknown>;
+    readonly [pathHead]?: CaseHead<infer T>;
 } ? T : never;
 
 // @public
@@ -1577,9 +1575,6 @@ export type ChildLaunchCheck<TClass extends Class, TValue> = IsPerItem<readonly 
 };
 
 // @public
-type ChildLaunched<TClass extends Class, THead extends PathHead> = ThisWorkflowName extends NameOf<InstanceType<TClass>> ? ThisWorkflowLaunched<THead> : Launched<THead>;
-
-// @public
 export interface ChildLaunchRecord {
     readonly nodeId: string;
     readonly visitNumber: number;
@@ -1645,24 +1640,11 @@ export interface ChosenRouterRoute {
     readonly target: TargetRef;
 }
 
-// @public (undocumented)
-type ClaimsCheck<TEntry> = [TEntry] extends [GeneratedTypeError] ? {
-    readonly flow: TEntry;
-} : TEntry extends {
-    readonly input: infer TInput;
-} ? [TInput] extends [GeneratedTypeError] ? {
-    readonly flow: TInput;
-} : unknown : never;
-
-// @public
-type ClaimsOf<TPath> = TPath extends {
-    readonly [pathHead]?: infer THead;
-} ? THead extends {
-    readonly claims: infer TClaims;
-} ? TClaims : never : never;
-
 // @public
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
+
+// @public
+type ClassOf<TRef> = UnwrapTarget<TRef> extends infer TClass extends Class ? TClass : never;
 
 // @public
 export interface ClassProvider<T = unknown> {
@@ -2738,9 +2720,6 @@ export interface EndEvent<U> extends NodeEvent {
 }
 
 // @public
-type EntryOf<TName extends string> = TName extends keyof ThisWorkflowOutputs ? ThisWorkflowOutputs[TName] : MissingGeneratedTypes;
-
-// @public
 export const env: EnvReaders;
 
 // @public
@@ -2881,7 +2860,7 @@ export type ErrorDetails = Readonly<Record<string, unknown>>;
 // @public
 export interface ErrorHandling<TInstance, THead extends PathHead> {
     // (undocumented)
-    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): AfterStep<TInstance, WithClaims<THead, ClaimsOf<TPath>>>;
+    onError(error: ErrorClass, path: SidePath): AfterStep<TInstance, THead>;
 }
 
 // @public
@@ -4314,7 +4293,6 @@ declare namespace FlowTypes {
         ComponentSource,
         StartSource,
         CaseValueOf,
-        ClaimsOf,
         IsGroupPath,
         IsOneOf,
         IsUnion,
@@ -4347,7 +4325,6 @@ declare namespace FlowTypes {
         StartTenantOf,
         TenantOptionOf,
         WorkflowStartEntry,
-        ChildLaunched,
         IsPerItem,
         IsSeveral,
         LastValue,
@@ -4356,16 +4333,8 @@ declare namespace FlowTypes {
         GroupArguments,
         GroupCheck,
         GroupsCheck,
-        ClaimsCheck,
-        EntryOf,
-        ThisWorkflowCheck,
-        ThisWorkflowClaim,
-        ThisWorkflowJoined,
-        ThisWorkflowLaunched,
-        ThisWorkflowName,
-        ThisWorkflowStep,
-        ThisWorkflowSwitching,
-        WithClaims,
+        ClassOf,
+        UnwrapTarget,
         PiiRefusalShape,
         CacheSetting,
         ModelSettings,
@@ -4418,15 +4387,13 @@ type GroupCheck<TPath> = IsGroupPath<TPath> extends true ? unknown : {
 };
 
 // @public
-export interface GroupHead<TClaims = never> {
-    // (undocumented)
-    readonly claims: TClaims;
+export interface GroupHead {
     // (undocumented)
     readonly group: true;
 }
 
 // @public
-export type GroupPath = BuiltPath<GroupHead<unknown>>;
+export type GroupPath = BuiltPath<GroupHead>;
 
 // @public
 type GroupsCheck<TArgs extends readonly unknown[]> = {
@@ -4437,7 +4404,7 @@ type GroupsCheck<TArgs extends readonly unknown[]> = {
 
 // @public
 export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
-    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): GroupsJoined<WithClaims<THead, ClaimsOf<TPath>>>;
+    onError(error: ErrorClass, path: SidePath): GroupsJoined<THead>;
 };
 
 // @public
@@ -5102,7 +5069,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 }
 
 // @public
-type InputCheck<TInstance> = ThisWorkflowName extends NameOf<TInstance> ? unknown : [InputOf<TInstance>] extends [GeneratedTypeError] ? InputOf<TInstance> : unknown;
+type InputCheck<TInstance> = [InputOf<TInstance>] extends [GeneratedTypeError] ? InputOf<TInstance> : unknown;
 
 // @public
 export type InputFields = Readonly<Record<string, InputFieldShape>>;
@@ -5260,7 +5227,7 @@ export interface InvalidThreadIdErrorOptions {
 
 // @public
 type IsGroupPath<TPath> = TPath extends {
-    readonly [pathHead]?: GroupHead<unknown>;
+    readonly [pathHead]?: GroupHead;
 } ? true : false;
 
 // @public
@@ -5304,7 +5271,7 @@ export interface JoinErrorHandler {
 // @public
 export interface JoinErrorHandling<THead extends PathHead> {
     // (undocumented)
-    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): Joined<WithClaims<THead, ClaimsOf<TPath>>>;
+    onError(error: ErrorClass, path: SidePath): Joined<THead>;
 }
 
 // @public
@@ -5513,7 +5480,7 @@ export interface Launches<TValue, THead extends PathHead> {
     toParallelActions<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Action>): Launched<THead>;
     // (undocumented)
     toParallelAgents<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>): AgentsLaunched<THead>;
-    toParallelWorkflows<const TClass extends Class>(workflow: TClass & ChildLaunchCheck<TClass, TValue>, options: WorkflowLaunchOptions): ChildLaunched<TClass, THead>;
+    toParallelWorkflows<const TRef extends TargetRef>(workflow: TRef & ChildLaunchCheck<ClassOf<TRef>, TValue>, options: WorkflowLaunchOptions): Launched<THead>;
 }
 
 // @public
@@ -6570,7 +6537,7 @@ export interface OnStop {
 }
 
 // @public
-export function onWorkflow<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<TClass>, SourceHead>;
+export function onWorkflow<const TRef extends TargetRef>(source: TRef & KindCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SourceHead>;
 
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
@@ -7245,7 +7212,7 @@ export interface PassedJudgeVerdictOptions {
 }
 
 // @public (undocumented)
-export type PathHead = SourceHead<unknown> | RouteHead<unknown> | CaseHead<unknown, unknown> | SideHead<unknown> | GroupHead<unknown>;
+export type PathHead = SourceHead | RouteHead | CaseHead<unknown> | SideHead | GroupHead;
 
 // @public
 export type PathSource = StartSource | ComponentSource;
@@ -8363,7 +8330,7 @@ export interface QuorumGroupsOptions {
 
 // @public
 export type QuorumJoined<THead extends PathHead> = {
-    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): QuorumJoined<WithClaims<THead, ClaimsOf<TPath>>>;
+    onError(error: ErrorClass, path: SidePath): QuorumJoined<THead>;
 } & Transitions<THead>;
 
 // @public
@@ -8409,7 +8376,7 @@ export interface Quorums<THead extends PathHead> {
     // (undocumented)
     joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
     // (undocumented)
-    joinQuorumGroups<const TArgs extends GroupArguments>(...groups: TArgs & GroupsCheck<TArgs>): GroupsJoined<WithClaims<THead, ClaimsOf<TArgs[number]>>>;
+    joinQuorumGroups<const TArgs extends GroupArguments>(...groups: TArgs & GroupsCheck<TArgs>): GroupsJoined<THead>;
 }
 
 // @public
@@ -8702,15 +8669,13 @@ export type ReturnedShape = ValueShape | OneOfWrapper;
 export type Route<TInstance> = GeneratedEntry<AGBossTypes.Routes, TInstance>;
 
 // @public
-export function route<const TClass extends Class>(target: TClass & TargetCheck<TClass, RouteTargetKind, RouteTargetLabel>, ...options: RouteOptions<TClass>): RouteContinuation<InstanceType<TClass>>;
+export function route<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, RouteTargetKind, RouteTargetLabel>, ...options: RouteOptions<ClassOf<TRef>>): RouteContinuation<InstanceType<ClassOf<TRef>>>;
 
 // @public
 export type RouteContinuation<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish] ? BuiltPath<RouteHead> : AfterStep<TInstance, RouteHead>;
 
 // @public (undocumented)
-export interface RouteHead<TClaims = never> {
-    // (undocumented)
-    readonly claims: TClaims;
+export interface RouteHead {
     // (undocumented)
     readonly route: true;
 }
@@ -8748,7 +8713,7 @@ export type RouteOutcome = {
 };
 
 // @public
-export type RoutePath = BuiltPath<RouteHead<unknown>>;
+export type RoutePath = BuiltPath<RouteHead>;
 
 // @public
 export function Router(options: ModelRouterOptions): ModelRouterDecorator;
@@ -8869,9 +8834,9 @@ export type RouterStartEvent = StartEvent<string>;
 // @public
 export interface RouterStep<THead extends PathHead, TInstance = unknown> extends RouterLaunches<THead> {
     // (undocumented)
-    chooseOne<const TRoutes extends readonly [RoutePath, ...RoutePath[]]>(...routes: TRoutes): BuiltPath<WithClaims<THead, ClaimsOf<TRoutes[number]>>>;
+    chooseOne(...routes: readonly [RoutePath, ...RoutePath[]]): BuiltPath<THead>;
     // (undocumented)
-    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): BuiltPath<WithClaims<THead, ClaimsOf<TPath>>> & RouterStep<WithClaims<THead, ClaimsOf<TPath>>, TInstance>;
+    onError(error: ErrorClass, path: SidePath): BuiltPath<THead> & RouterStep<THead, TInstance>;
 }
 
 // @public
@@ -9006,15 +8971,13 @@ export interface ServiceSpend {
 }
 
 // @public (undocumented)
-export interface SideHead<TClaims = never> {
-    // (undocumented)
-    readonly claims: TClaims;
+export interface SideHead {
     // (undocumented)
     readonly side: true;
 }
 
 // @public
-export type SidePath = BuiltPath<SideHead<unknown>>;
+export type SidePath = BuiltPath<SideHead>;
 
 // @public
 export interface SingleSummaryCompactionOptions {
@@ -9033,10 +8996,8 @@ export interface SingleSummaryCompactionOptions {
     readonly turnsBetweenCompactions: number;
 }
 
-// @public
-export interface SourceHead<TClaims = never> {
-    // (undocumented)
-    readonly claims: TClaims;
+// @public (undocumented)
+export interface SourceHead {
     // (undocumented)
     readonly source: true;
 }
@@ -9472,7 +9433,7 @@ export type Step = ToStep | SwitchStep | ChooseOneStep | OnErrorStep | LaunchSte
 // @public (undocumented)
 type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [
 never
-] ? Transitions<THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ThisWorkflowName extends NameOf<TInstance> ? ErrorHandling<TInstance, THead> & ThisWorkflowStep<THead> : ErrorHandling<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead>;
+] ? Transitions<THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ErrorHandling<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead>;
 
 // @public
 export interface StepCoordinates {
@@ -9921,7 +9882,7 @@ CaseValueOf<TCases[number]>
 // @public (undocumented)
 export interface Switching<TOutput, THead extends PathHead> {
     // (undocumented)
-    switch<const TCases extends readonly [CasePath, ...CasePath[]]>(...cases: TCases & SwitchCheck<TCases, TOutput>): BuiltPath<WithClaims<THead, ClaimsOf<TCases[number]>>>;
+    switch<const TCases extends readonly [CasePath, ...CasePath[]]>(...cases: TCases & SwitchCheck<TCases, TOutput>): BuiltPath<THead>;
 }
 
 // @public (undocumented)
@@ -10063,55 +10024,6 @@ type Thinking = "default" | "none" | "minimal" | "low" | "medium" | "high" | "xh
 } | {
     kind: "off";
 };
-
-// @public
-export class ThisWorkflow {
-    // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "this-workflow";
-        readonly kind: NodeKind.Workflow;
-    };
-}
-
-// @public
-type ThisWorkflowCheck<TName extends string, TFlow extends readonly unknown[]> = [
-ClaimsOf<TFlow[number]>
-] extends [never] ? unknown : ClaimsCheck<EntryOf<TName>>;
-
-// @public
-interface ThisWorkflowClaim {
-    // (undocumented)
-    readonly launches: true;
-}
-
-// @public
-type ThisWorkflowJoined<THead extends PathHead> = {
-    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;
-} & Transitions<WithClaims<THead, ThisWorkflowClaim>>;
-
-// @public
-interface ThisWorkflowLaunched<THead extends PathHead> {
-    // (undocumented)
-    join(): ThisWorkflowJoined<THead>;
-}
-
-// @public
-type ThisWorkflowName = NameOf<ThisWorkflow>;
-
-// @public
-export interface ThisWorkflowOutputs {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
-
-// @public
-type ThisWorkflowStep<THead extends PathHead> = Transitions<WithClaims<THead, ThisWorkflowClaim>> & Launches<never, WithClaims<THead, ThisWorkflowClaim>> & ThisWorkflowSwitching<WithClaims<THead, ThisWorkflowClaim>>;
-
-// @public
-interface ThisWorkflowSwitching<THead extends PathHead> {
-    // (undocumented)
-    switch<const TCases extends readonly [CasePath, ...CasePath[]]>(...cases: TCases): BuiltPath<WithClaims<THead, ClaimsOf<TCases[number]>>>;
-}
 
 // @public
 export class ThreadIdsExhaustedError extends AGBossError {
@@ -10476,7 +10388,7 @@ export function totalCost(records: readonly {
 }[]): Usd;
 
 // @public
-export function toWorkflow<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<TClass>, SideHead>;
+export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, SideHead>;
 
 // @public
 export interface TranscribeOptions {
@@ -10505,7 +10417,7 @@ export interface Transitions<THead extends PathHead> {
     toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<THead>;
     // (undocumented)
     toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, THead>;
-    toWorkflow<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<TClass>, THead>;
+    toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<ClassOf<TRef>>, THead>;
 }
 
 // @public
@@ -10672,6 +10584,9 @@ export class UnknownThreadError extends AGBossError {
     // (undocumented)
     name: string;
 }
+
+// @public
+type UnwrapTarget<TRef> = TRef extends abstract new (...args: never[]) => unknown ? TRef : TRef extends () => infer TClass ? TClass : TRef;
 
 // @public
 export interface UsageRecord extends TokenUsage {
@@ -10851,11 +10766,8 @@ export enum Weekday {
     Wednesday = 3
 }
 
-// @public
-type WithClaims<THead extends PathHead, TNew> = [TNew] extends [never] ? THead : THead extends SourceHead<infer TClaims> ? SourceHead<TClaims | TNew> : THead extends RouteHead<infer TClaims> ? RouteHead<TClaims | TNew> : THead extends CaseHead<infer TValue, infer TClaims> ? CaseHead<TValue, TClaims | TNew> : THead extends SideHead<infer TClaims> ? SideHead<TClaims | TNew> : THead extends GroupHead<infer TClaims> ? GroupHead<TClaims | TNew> : never;
-
 // @public (undocumented)
-export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>): <TClass extends Class>(value: TClass) => TClass;
+export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow>): (value: Class) => void;
 
 // @public
 export type WorkflowClass = Class;
@@ -11941,19 +11853,15 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "steps".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "source".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "steps".
+// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "SourceHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "source".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "RouteHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "route".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "CaseHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "case".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "SideHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "side".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "group".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "claims".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "PathHead".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""workflow-start"".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""workflow-finish"".
@@ -12108,7 +12016,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "StartExecutionOf".
 // src/flow/handlers.ts - (ae-undocumented) Missing documentation for "execute".
 // src/flow/handlers.ts - (ae-undocumented) Missing documentation for "route".
@@ -12254,11 +12161,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/tool-calls.ts - (ae-undocumented) Missing documentation for "input".
 // src/flow/runtime/tool-calls.ts - (ae-undocumented) Missing documentation for "output".
 // src/flow/runtime/tool-calls.ts - (ae-undocumented) Missing documentation for "status".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "launches".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "switch".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "join".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "ClaimsCheck".
-// src/flow/this-workflow.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/graph/errors.ts - (ae-undocumented) Missing documentation for "message".
 // src/graph/errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/graph/errors.ts - (ae-undocumented) Missing documentation for "details".

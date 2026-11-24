@@ -518,8 +518,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/quorum-types.ts",
     "src/flow/registry.ts",
     "src/flow/target-ref.ts",
-    "src/flow/this-workflow-types.ts",
-    "src/flow/this-workflow.ts",
   ]),
   ...reviewed(
     "the execution contexts and their values: carriers of ids and scopes, no spend or lease decision",

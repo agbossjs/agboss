@@ -10,7 +10,7 @@ import type { AnalysisContext } from "./context.js";
  * (`[flow.conflicting-placement]` — one class is one node).
  */
 
-/** The flow node of a child class: its own, or the `ThisWorkflow` node of a recursion. */
+/** The flow node of a child class: its own; a recursion is the workflow itself. */
 const nodeOf = (context: AnalysisContext, child: Class): FlowNode | undefined =>
   [...context.graph.nodes.values()].find((node) => node.component === child);
 

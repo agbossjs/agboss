@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { RecursionDecider } from "../../../src/flow/analyse/recursion.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { ThisWorkflow } from "../../../src/flow/this-workflow.js";
+import type { Class } from "../../../src/components/injection.js";
 import { inputLines } from "../../../src/describe/inputs.js";
 import { recursionLines } from "../../../src/describe/recursion.js";
 import { caseOf, onStart, onWorkflow } from "../../helpers/flow.js";
@@ -21,18 +21,19 @@ import {
 } from "../runtime/fixtures/recursion.workflow.js";
 
 /**
- * #264 AC2, AC5, AC11, AC12 — recursion in the analyser: `ThisWorkflow` is the node
- * `this-workflow` standing for the workflow itself; `maxDepth` is required; every recursive branch
+ * #264 AC2, AC5, AC11, AC12, #1287 — recursion in the analyser: a workflow launches itself with
+ * `toWorkflow(() => ItsOwnClass)`, a node of its own name that is the workflow itself; `maxDepth` is required; every recursive branch
  * keeps an exit; mutual recursion is reported; a list of subtopics never fills one topic.
  */
 
 type Flow = WorkflowOptions["flow"];
 
 let count = 0;
-/** A recursive workflow of one flow, named uniquely. */
-function recursive(flow: Flow, maxDepth?: number): abstract new () => unknown {
+/** A recursive workflow of one flow, named uniquely; the flow gets the thunk of its own class. */
+function recursive(flowOf: Flow | ((self: () => Class) => Flow), maxDepth?: number): Class {
   count += 1;
   const name = `self-case-${String(count)}-workflow`;
+  const flow = typeof flowOf === "function" ? flowOf(() => SelfCaseWorkflow) : flowOf;
   @Workflow(
     maxDepth === undefined
       ? { name, version: "1.0.0", flow }
@@ -51,22 +52,22 @@ const messagesOf = (target: abstract new () => unknown, code: string): readonly 
     .map((found) => found.message);
 
 /** The countdown's flow: code goes one level deeper while the count lasts. */
-const countdown: Flow = [
+const countdown = (self: () => Class): Flow => [
   onStart(CountdownWorkflowStart)
     .toAction(CountdownAction)
     .switch(
-      caseOf(CountDto).toWorkflow(ThisWorkflow).toFinish(CountDoneWorkflowFinish),
+      caseOf(CountDto).toWorkflow(self).toFinish(CountDoneWorkflowFinish),
       caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
     ),
 ];
 
-describe("ThisWorkflow: the workflow itself as a node", () => {
+describe("a workflow launching itself: the workflow itself as a node", () => {
   it("the issue's topic research checks clean: one branch recurses, the researcher's", () => {
     const { analysis, errors, warnings } = checkWorkflow(TopicResearchWorkflow);
 
     expect(errors).toEqual([]);
     expect(warnings).toEqual([]);
-    expect(analysis?.graph.nodes.get("this-workflow" as never)?.recursionOf).toBe(
+    expect(analysis?.graph.nodes.get("topic-research-workflow" as never)?.recursionOf).toBe(
       TopicResearchWorkflow,
     );
     expect(analysis?.recursion).toEqual({
@@ -93,7 +94,7 @@ describe("ThisWorkflow: the workflow itself as a node", () => {
     ]);
   });
 
-  it("a workflow without ThisWorkflow has no recursion", () => {
+  it("a workflow that never launches itself has no recursion", () => {
     expect(checkWorkflow(recursive([], 2)).analysis?.recursion).toBeUndefined();
   });
 });
@@ -123,11 +124,11 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
     );
 
     expect(messagesOf(PingWorkflow, "graph.mutual-recursion")).toEqual([
-      "ping-workflow → pong-workflow → ping-workflow: mutual recursion is not supported — a workflow launches only itself (ThisWorkflow); merge the two into one recursive workflow",
+      "ping-workflow → pong-workflow → ping-workflow: mutual recursion is not supported — a workflow launches only itself (toWorkflow(() => ItsOwnClass)); merge the two into one recursive workflow",
     ]);
   });
 
-  it("a flow naming its own class: use ThisWorkflow", () => {
+  it("a flow naming its own class, as a class or a thunk, is a recursion, not mutual recursion", () => {
     @Workflow({ name: "loop-workflow", version: "1.0.0", flow: [] })
     class LoopWorkflow {}
     const flow: Flow = [
@@ -135,9 +136,10 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
     ];
     Workflow({ name: "loop-workflow", version: "1.0.0", flow })(LoopWorkflow);
 
-    expect(messagesOf(LoopWorkflow, "graph.mutual-recursion")).toEqual([
-      "loop-workflow: its flow names its own class (LoopWorkflow) — a workflow launches itself with ThisWorkflow",
-    ]);
+    expect(codesOf(LoopWorkflow)).toEqual(["graph.recursion-without-depth"]);
+    expect(
+      codesOf(recursive((self) => [onStart(CountdownWorkflowStart).toWorkflow(self)], 2)),
+    ).not.toContain("graph.mutual-recursion");
   });
 
   it("a class undefined while the flow is built (a circular import)", () => {
@@ -155,23 +157,20 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
 });
 
 describe("AC5: [graph.recursion-without-exit]", () => {
-  it("every case of a switch launches ThisWorkflow", () => {
-    const flow: Flow = [
+  it("every case of a switch launches the workflow itself", () => {
+    const flowOf = (self: () => Class): Flow => [
       onStart(CountdownWorkflowStart)
         .toAction(CountdownAction)
-        .switch(
-          caseOf(CountDto).toWorkflow(ThisWorkflow),
-          caseOf(CountDoneDto).toWorkflow(ThisWorkflow),
-        ),
-      onWorkflow(ThisWorkflow).switch(
+        .switch(caseOf(CountDto).toWorkflow(self), caseOf(CountDoneDto).toWorkflow(self)),
+      onWorkflow(self).switch(
         caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
         caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
       ),
     ];
 
-    expect(messagesOf(recursive(flow, 2), "graph.recursion-without-exit")).toEqual([
+    expect(messagesOf(recursive(flowOf, 2), "graph.recursion-without-exit")).toEqual([
       expect.stringContaining(
-        "countdown-action: every way on (caseOf(CountDoneDto), caseOf(CountDto)) launches ThisWorkflow",
+        "countdown-action: every way on (caseOf(CountDoneDto), caseOf(CountDto)) launches the workflow itself",
       ),
     ]);
   });
@@ -184,22 +183,22 @@ describe("AC5: [graph.recursion-without-exit]", () => {
 });
 
 describe("AC11, AC12: what describe prints; a list of subtopics never fills one topic", () => {
-  it("recursive: ThisWorkflow, maxDepth, what is left on the last level", () => {
+  it("recursive: maxDepth, what is left on the last level", () => {
     const lines = (target: abstract new () => unknown) => {
       const { analysis } = checkWorkflow(target);
       return analysis === undefined ? [] : recursionLines(analysis);
     };
 
     expect(lines(TopicResearchWorkflow)).toEqual([
-      "recursive: ThisWorkflow, maxDepth 3, on the last level: researcher-agent → TopicReportDto only",
+      "recursive: maxDepth 3, on the last level: researcher-agent → TopicReportDto only",
     ]);
     expect(lines(ChainWorkflow)).toEqual([
-      "recursive: ThisWorkflow, maxDepth 2, on the last level: link-router → route(link-agent) only",
+      "recursive: maxDepth 2, on the last level: link-router → route(link-agent) only",
     ]);
     expect(lines(CountdownWorkflow)).toEqual([
-      "recursive: ThisWorkflow, maxDepth 3, on the last level: countdown-action → CountDto fails (DepthLimitExceededError)",
+      "recursive: maxDepth 3, on the last level: countdown-action → CountDto fails (DepthLimitExceededError)",
     ]);
-    expect(lines(SplitWorkflow)).toEqual(["recursive: ThisWorkflow, maxDepth 2"]);
+    expect(lines(SplitWorkflow)).toEqual(["recursive: maxDepth 2"]);
   });
 
   it("each input with its producers: the topic from the start, the results ×0–5", () => {
@@ -207,7 +206,7 @@ describe("AC11, AC12: what describe prints; a list of subtopics never fills one 
 
     expect(analysis === undefined ? [] : inputLines(analysis)).toEqual([
       "mark-topic-failed-action ← topic: topic-research-workflow-start",
-      "merge-agent ← topic: topic-research-workflow-start, results: this-workflow ×0–5",
+      "merge-agent ← topic: topic-research-workflow-start, results: topic-research-workflow ×0–5",
       "researcher-agent ← topic: topic-research-workflow-start",
       "subtopics-action ← topic: topic-research-workflow-start, tooBroad: researcher-agent",
     ]);

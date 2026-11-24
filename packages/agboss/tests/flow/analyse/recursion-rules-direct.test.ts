@@ -57,7 +57,7 @@ describe("#1366: the depth of a recursive workflow", () => {
     expect(rules(undefined)).toEqual([
       {
         code: "graph.recursion-without-depth",
-        message: `it launches ThisWorkflow but sets no maxDepth${tail}`,
+        message: `it launches itself but sets no maxDepth${tail}`,
         nodes: ["deep-workflow"],
       },
     ]);
@@ -105,7 +105,7 @@ describe("#1366: the exit of a recursive branch", () => {
     expect(rules(branch(RecursionDecider.Agent, ["AaDto", "BbDto"], ["AaDto", "BbDto"]))).toEqual([
       {
         code: "graph.recursion-without-exit",
-        message: `chooser: every way on (caseOf(AaDto), caseOf(BbDto)) launches ThisWorkflow${tail.replace(" — ", " — ")}`,
+        message: `chooser: every way on (caseOf(AaDto), caseOf(BbDto)) launches the workflow itself${tail.replace(" — ", " — ")}`,
         nodes: ["chooser"],
       },
     ]);
@@ -114,7 +114,7 @@ describe("#1366: the exit of a recursive branch", () => {
   it("names a router whose every route recurses, by its routes, either kind of router", () => {
     for (const decider of [RecursionDecider.ModelRouter, RecursionDecider.CodeRouter]) {
       expect(rules(branch(decider, ["r1", "r2"], ["r1", "r2"])).map((one) => one.message)).toEqual([
-        `chooser: every way on (route(r1), route(r2)) launches ThisWorkflow${tail}`,
+        `chooser: every way on (route(r1), route(r2)) launches the workflow itself${tail}`,
       ]);
     }
   });
@@ -125,7 +125,7 @@ describe("#1366: the exit of a recursive branch", () => {
 });
 
 describe("#1366: a workflow that launches itself through another", () => {
-  it("names a workflow whose flow names its own class", () => {
+  it("finds nothing in a workflow whose flow names its own class: that is a recursion", () => {
     @Workflow({ name: "own-workflow", version: "1.0.0", flow: [] })
     class OwnWorkflow {
       readonly fixture = true;
@@ -134,14 +134,7 @@ describe("#1366: a workflow that launches itself through another", () => {
 
     expect(
       shown(recursionRules(contextOf(optionsOf(OwnWorkflow)), OwnWorkflow, undefined)),
-    ).toEqual([
-      {
-        code: "graph.mutual-recursion",
-        message:
-          "its flow names its own class (OwnWorkflow) — a workflow launches itself with ThisWorkflow",
-        nodes: ["own-workflow", "own-workflow"],
-      },
-    ]);
+    ).toEqual([]);
   });
 
   it("names the chain of two, three, and a child that is no workflow", () => {
@@ -163,7 +156,7 @@ describe("#1366: a workflow that launches itself through another", () => {
       {
         code: "graph.mutual-recursion",
         message:
-          "a-workflow → b-workflow → c-workflow → a-workflow: mutual recursion is not supported — a workflow launches only itself (ThisWorkflow); merge the two into one recursive workflow",
+          "a-workflow → b-workflow → c-workflow → a-workflow: mutual recursion is not supported — a workflow launches only itself (toWorkflow(() => ItsOwnClass)); merge the two into one recursive workflow",
         nodes: ["a-workflow", "b-workflow"],
       },
     ]);

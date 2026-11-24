@@ -6,7 +6,7 @@ import type { ComponentName } from "../flow/registry.js";
 
 /**
  * How many results of a per-item child launch a list field may get (#264 AC11), as `agboss
- * describe` prints them: `results: this-workflow ×0–5` — from none (an empty list) to the launch's
+ * describe` prints them: `results: deep-research-workflow ×0–5` — from none (an empty list) to the launch's
  * `maxItems`.
  */
 export function launchCounts(

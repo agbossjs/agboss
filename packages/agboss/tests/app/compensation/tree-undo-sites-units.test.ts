@@ -14,7 +14,6 @@ import {
 } from "../../../src/app/compensation/tree-undo-sites.js";
 import { NodeKind } from "../../../src/flow/ast.js";
 import { COMPENSATION_TIMEOUT, CompensationReason } from "../../../src/flow/compensation.js";
-import { ThisWorkflow } from "../../../src/flow/this-workflow.js";
 import type { GraphDeps } from "../../../src/graph/deps.js";
 import { systemClock } from "../../../src/infrastructure/clock.js";
 import { VirtualClock } from "../../../src/testing/index.js";
@@ -38,11 +37,12 @@ function depsNamed(
   version: string,
   nodes: Record<string, unknown>,
   children: Record<string, Deps> = {},
+  type?: unknown,
 ): Deps {
   const deps = {
     label,
     config: { name: label, version },
-    graph: { nodes: new Map(Object.entries(nodes)) },
+    graph: { nodes: new Map(Object.entries(nodes)), type },
     childDepsOf: (component: unknown) =>
       Object.values(children).find(
         (child) => child.label === (component as { label?: string }).label,
@@ -58,6 +58,9 @@ const booking = depsNamed("booking-workflow", "2.0.0", {
     component: { label: "night-workflow" },
   },
 });
+class DeskWorkflow {
+  readonly fixture = true;
+}
 const root = depsNamed(
   "desk-workflow",
   "1.0.0",
@@ -66,11 +69,12 @@ const root = depsNamed(
       kind: NodeKind.Workflow,
       component: { label: "booking-workflow" },
     },
-    "this-workflow": { kind: NodeKind.Workflow, component: ThisWorkflow },
+    "desk-workflow": { kind: NodeKind.Workflow, component: DeskWorkflow },
     "reserve-room-action": { kind: NodeKind.Action, component: Object },
     "lost-workflow": { kind: NodeKind.Workflow, component: { label: "lost" } },
   },
   { booking, night },
+  DeskWorkflow,
 );
 (booking as { childDepsOf: unknown }).childDepsOf = () => night;
 
@@ -79,7 +83,7 @@ describe("#633: depsOfNamespace", () => {
     ["", "desk-workflow"],
     ["booking-workflow:1", "booking-workflow"],
     ["booking-workflow:1|night-workflow:2", "night-workflow"],
-    ["this-workflow:1", "desk-workflow"],
+    ["desk-workflow:1", "desk-workflow"],
     ["reserve-room-action:1", "desk-workflow"],
     ["unknown-node:1|booking-workflow:1", "desk-workflow"],
     ["lost-workflow:1", "desk-workflow"],
@@ -90,10 +94,10 @@ describe("#633: depsOfNamespace", () => {
 });
 
 describe("#633: depsOfNamespace beyond its children", () => {
-  it("a recursion level stays on its workflow even where the deps would name one for the marker", () => {
+  it("a recursion level stays on its workflow even where the deps would name one for its own class", () => {
     const anything = { ...root, childDepsOf: () => night } as Deps;
 
-    expect((depsOfNamespace(anything, "this-workflow:1") as Deps).label).toBe("desk-workflow");
+    expect((depsOfNamespace(anything, "desk-workflow:1") as Deps).label).toBe("desk-workflow");
   });
 
   it("deps that launch no children: a child node's namespace stays on them", () => {

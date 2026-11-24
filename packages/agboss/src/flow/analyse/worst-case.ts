@@ -56,7 +56,7 @@ export interface WorstCaseChild {
   readonly maxItems?: number;
   /** A per-item launch's `maxConcurrency`; absent when unset or for one child. */
   readonly maxConcurrency?: number;
-  /** `ThisWorkflow` (#264): the workflow again, one level deeper (bounded by `maxDepth`). */
+  /** A recursion (#264): the workflow again, one level deeper (bounded by `maxDepth`). */
   readonly isRecursive: boolean;
   /** The child's worst start. */
   readonly worst: WorstCase;
@@ -147,7 +147,7 @@ function childCaseOf(workflow: Class, at: Place): WorstCase | undefined {
 }
 
 /**
- * The worst case of `ThisWorkflow` (#264): the workflow again, one level deeper — none from its
+ * The worst case of a recursion (#264, #1287): the workflow again, one level deeper — none from its
  * last level (`maxDepth`), where a recursive launch is never offered or fails before it starts.
  */
 function recursiveCaseOf(at: Place, maxDepth: number | undefined): WorstCase | undefined {

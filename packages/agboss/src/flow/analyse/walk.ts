@@ -175,7 +175,7 @@ class FlowWalker implements LaunchRecorder {
   }
 }
 
-/** Walks every path of a flow; `self` is the workflow it belongs to (`ThisWorkflow`, #264). */
+/** Walks every path of a flow; `self` is the workflow it belongs to (a recursion names it, #264, #1287). */
 export function walkFlow(flow: readonly FlowPath[], self?: Class): WalkedFlow {
   const walker = new FlowWalker(new NodeTable(self));
   for (const path of flow) walker.walkPath(path);

@@ -8,7 +8,6 @@ import {
 } from "../../flow/context/runtime-contexts.js";
 import type { UndoSite } from "../../flow/runtime/compensation/undo.js";
 import { joinKeysOf, workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
-import { isThisWorkflow } from "../../flow/this-workflow.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import { systemClock } from "../../infrastructure/clock.js";
 import type { AppDeps } from "../app-deps.js";
@@ -46,7 +45,8 @@ export function depsOfNamespace(deps: GraphDeps<string>, namespace: string): Gra
     // Stryker disable next-line StringLiteral: `split` always gives a first part, so the fallback is never read
     const node = current.graph.nodes.get(parts[0] ?? "");
     if (node?.kind !== NodeKind.Workflow) break;
-    if (!isThisWorkflow(node.component)) current = current.childDepsOf?.(node.component) ?? current;
+    if (node.component !== current.graph.type)
+      current = current.childDepsOf?.(node.component) ?? current;
   }
   return current;
 }

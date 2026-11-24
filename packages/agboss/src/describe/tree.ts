@@ -11,8 +11,8 @@ import type { AssembledWorkflow } from "../workflow.js";
 /**
  * The tree of an application as `agboss describe` shows it (#268 AC4): the workflows it lists,
  * each with its starts and, below it, the child workflows it launches — by which step, one or one
- * per item (`maxItems`, `maxConcurrency`) — down to their own children; `ThisWorkflow` (#264) is the
- * workflow again, marked with its `maxDepth`. Read from the decorators only.
+ * per item (`maxItems`, `maxConcurrency`) — down to their own children; a workflow that launches itself (#264,
+ * #1287) is shown as the workflow again, marked with its `maxDepth`. Read from the decorators only.
  */
 
 /** How a child is entered from its parent. */
@@ -36,7 +36,7 @@ export interface DescribedWorkflowNode {
 /** A child of a workflow in the tree. */
 export interface DescribedChild {
   readonly launch: DescribedLaunch;
-  /** `ThisWorkflow` (#264): the enclosing workflow again, `maxDepth` levels at most. */
+  /** A recursion (#264): the enclosing workflow again, `maxDepth` levels at most. */
   readonly isRecursive: boolean;
   readonly maxDepth?: number;
   /** The child workflow; a recursive one is its parent again and is not expanded. */
@@ -108,7 +108,7 @@ function nodeOf(
   };
 }
 
-/** A workflow named in the tree without its children (`ThisWorkflow`: its parent again). */
+/** A workflow named in the tree without its children (a recursion: its parent again). */
 function leafOf(workflow: Class): DescribedWorkflowNode {
   const declaration = declarationOf(workflow);
   const options = declaration?.kind === NodeKind.Workflow ? declaration.options : undefined;
@@ -148,9 +148,7 @@ function childLines(child: DescribedChild, indent: string): string[] {
   const { workflow } = child;
   if (child.isRecursive) {
     const depth = child.maxDepth === undefined ? "" : `, maxDepth ${String(child.maxDepth)}`;
-    return [
-      `${indent}child ${workflow.name} (ThisWorkflow, recursive${depth}) ${launchText(child.launch)}`,
-    ];
+    return [`${indent}child ${workflow.name} (recursive${depth}) ${launchText(child.launch)}`];
   }
   return [
     `${indent}child ${workflow.name} ${workflow.version} ${launchText(child.launch)}`,

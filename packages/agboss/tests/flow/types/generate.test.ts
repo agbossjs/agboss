@@ -64,7 +64,7 @@ async function fixtureModules(): Promise<readonly LoadedModule[]> {
       .filter((file) => file.endsWith(".ts") && !file.endsWith(".d.ts"))
       .map((file) => join(fixtures, file)),
     join(framework, "src/dto/index.ts"),
-    // the flow's public entry: `ThisWorkflow` (#264) is imported from it
+    // the flow's public entry
     join(framework, "src/public/flow.ts"),
   ];
   return Promise.all(

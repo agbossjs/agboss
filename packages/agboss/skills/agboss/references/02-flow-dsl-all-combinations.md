@@ -35,7 +35,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                              | the first complete group (by priority) continues its own path                                                                                                                   | `[flow.quorum-impossible]`                                                                                   |
 | `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                     | a child workflow: one, chosen by a router, or one per item                                                                                                                      | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
 | `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` — `05-channels-and-human-in-the-loop.md`                                              | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
-| `ThisWorkflow` + `@Workflow({ maxDepth })`                                                  | the workflow launches itself                                                                                                                                                    | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
+| `() => Self` + `@Workflow({ maxDepth })`                                                    | the workflow launches itself                                                                                                                                                    | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
 | `@Action({ compensateWith, committedBy })`                                                  | the action's undo and its commit point; side paths must run the undo                                                                                                            | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
 The wrappers (`agboss`, also re-exported by `@agboss/core/dto`): `listOf(XDto)`, `oneOf(A, B)`,
@@ -2065,10 +2065,10 @@ ChildPlacement.AnyInstance }` on `.toWorkflow(W, …)`, `.toParallelWorkflows(W,
   one placement (`[flow.conflicting-placement]`); pauses, `app.resume`, and per-child crash recovery
   work across instances on `<parentThreadId>/child/<id>`.
 
-## 7. Recursion: `ThisWorkflow`
+## 7. Recursion: `() => Self`
 
-A workflow launches itself with the marker `ThisWorkflow` (its class does not exist yet when its
-decorator's arguments are evaluated). `@Workflow({ maxDepth })` is required; on the last level
+A workflow launches itself with a thunk of its own class (the class does not exist yet when its
+decorator's arguments are evaluated; the thunk is read at assembly). `@Workflow({ maxDepth })` is required; on the last level
 (`depth === maxDepth`) the options of a branch that would recurse are not offered — so every such
 branch keeps one that does not recurse.
 
@@ -2198,7 +2198,7 @@ export class TopicFailedWorkflowFinish {}
 ```
 
 ```ts file=src/topic/workflows/topic-research/topic-research.workflow.ts
-import { StepFailedError, ThisWorkflow, Workflow, onAction, caseOf, listOf, oneOf, onStart, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onAction, caseOf, listOf, oneOf, onStart, toAction } from "@agboss/core";
 import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
 import { SplitTopicAction } from "../../actions/split-topic.action.js";
 import { TopicMergeAgent } from "../../agents/topic-merge/topic-merge.agent.js";
@@ -2223,7 +2223,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
           .toFinish(TopicReportWorkflowFinish),
         caseOf(TopicTooBroadDto) // not offered on the last level: this case recurses
           .toAction(SplitTopicAction)
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 3 })
+          .toParallelWorkflows(() => TopicResearchWorkflow, { maxConcurrency: 3, maxItems: 3 })
           .join()
           .toAgent(TopicMergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
@@ -2241,8 +2241,8 @@ export class TopicResearchWorkflow {}
 ```
 
 - No `maxDepth` → `[graph.recursion-without-depth]`; a branch whose every option recurses →
-  `[graph.recursion-without-exit]`; only direct recursion — two workflows launching each other, or a
-  flow naming its own class instead of `ThisWorkflow`, is `[graph.mutual-recursion]`.
+  `[graph.recursion-without-exit]`; only direct recursion — two workflows launching each other is
+  `[graph.mutual-recursion]`; a flow naming its own class (as a thunk) is the recursion itself.
 - A launch by code or data past `maxDepth` does not start: the parent's step fails with
   `ChildExecutionFailedError` caused by `DepthLimitExceededError` — take it with
   `.onError(LimitExceededError, …)` (actions and finishes only) right after the launch, or

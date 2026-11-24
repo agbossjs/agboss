@@ -15,18 +15,17 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { ThisWorkflow } from "../../../src/flow/this-workflow.js";
 import { LimitExceededError } from "../../../src/errors.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
 
 /**
- * #264 S112 — `ThisWorkflow` typed per path: three recursive workflows whose finishes give other
- * classes than the research of recursion.fixture.ts (`TeamChartDto | OrgChartFailedDto`), each typed
- * by its own `ThisWorkflowOutputs` entry. `org-chart-workflow`: a per-item launch with its
- * `.onError(…)`; `org-drill-workflow`: `route(ThisWorkflow)` and `.toWorkflow(ThisWorkflow)`
- * continued on the own path `onWorkflow(ThisWorkflow)…`; `org-retry-workflow`: the side-path starter
- * `.onError(E, toWorkflow(ThisWorkflow)…)`.
+ * #264 S112, #1287 — a workflow launching itself with a thunk, typed per path: three recursive
+ * workflows whose finishes give other classes than the research of recursion.fixture.ts
+ * (`TeamChartDto | OrgChartFailedDto`). `org-chart-workflow`: a per-item launch with its
+ * `.onError(…)`; `org-drill-workflow`: `route(() => Self)` and `.toWorkflow(() => Self)` continued
+ * on the own path `onWorkflow(() => Self)…`; `org-retry-workflow`: the side-path starter
+ * `.onError(E, toWorkflow(() => Self)…)`.
  */
 
 export class OrgUnitDto {
@@ -129,7 +128,7 @@ export class OrgChartFailedWorkflowFinish {}
           .toFinish(TeamChartWorkflowFinish),
         caseOf(OrgSplitDto)
           .toAction(SplitUnitAction)
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 2, maxItems: 4 })
+          .toParallelWorkflows(() => OrgChartWorkflow, { maxConcurrency: 2, maxItems: 4 })
           .join()
           .onError(
             LimitExceededError,
@@ -161,17 +160,17 @@ export class OrgDrillWorkflowStart {}
 })
 export class UnitPickerAgent {}
 
-/** Deeper while the unit's level is low: `route()` returns `typeof ThisWorkflow` or the agent. */
+/** Deeper while the unit's level is low: `route()` returns the workflow itself or the agent. */
 @Router({
   name: "org-depth-router",
   description: "One level deeper, or chart here",
   decidedBy: DecidedBy.Code,
   input: { unit: OrgUnitDto },
-  routes: [{ target: ThisWorkflow }, { target: UnitPickerAgent }],
+  routes: [{ target: () => OrgDrillWorkflow }, { target: UnitPickerAgent }],
 })
 export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
   route(input: InputOf<OrgDepthRouter>): Route<OrgDepthRouter> {
-    return input.unit.value.level < 1 ? ThisWorkflow : UnitPickerAgent;
+    return input.unit.value.level < 1 ? OrgDrillWorkflow : UnitPickerAgent;
   }
 }
 
@@ -182,16 +181,16 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
     onStart(OrgDrillWorkflowStart)
       .toRouter(OrgDepthRouter)
       .chooseOne(
-        route(ThisWorkflow),
+        route(() => OrgDrillWorkflow),
         route(UnitPickerAgent)
           .switch(
             caseOf(TeamChartDto)
               .toFinish(TeamChartWorkflowFinish),
             caseOf(OrgUnitDto)
-              .toWorkflow(ThisWorkflow),
+              .toWorkflow(() => OrgDrillWorkflow),
           ),
       ),
-    onWorkflow(ThisWorkflow)
+    onWorkflow(() => OrgDrillWorkflow)
       .onError(
         StepFailedError,
         toAction(MarkUnitFailedAction)
@@ -233,7 +232,7 @@ export class UnitCharterAgent {}
       .toAgent(UnitCharterAgent)
       .onError(
         StepFailedError,
-        toWorkflow(ThisWorkflow)
+        toWorkflow(() => OrgRetryWorkflow)
           .switch(
             caseOf(TeamChartDto)
               .toFinish(TeamChartWorkflowFinish),

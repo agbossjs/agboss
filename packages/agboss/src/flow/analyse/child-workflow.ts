@@ -10,7 +10,6 @@ import {
 import { oneOf, type ListWrapper, type OutputShape, type ValueShape } from "../dto-wrappers.js";
 import { FlowSyntaxError } from "../flow-syntax-error.js";
 import type { ComponentName } from "../registry.js";
-import { isThisWorkflow } from "../this-workflow.js";
 import { shapeLabel } from "./labels.js";
 import { slotOfField, type SlotKey } from "./scope.js";
 
@@ -114,7 +113,11 @@ const outputShapeOf = (
   const [firstClass, secondClass, ...moreClasses] = classes;
   if (classes.length !== outputs.length || firstClass === undefined || secondClass === undefined) {
     throw new FlowSyntaxError({
-      message: `${workflow}: its finishes give ${outputs.map(shapeLabel).join(" and ")} — a list output cannot be one of several; give every finish the same list, or end the lists in one finish`,
+      message: `${workflow}: its finishes give ${outputs
+        .map(shapeLabel)
+        .join(
+          " and ",
+        )} — a list output cannot be one of several; give every finish the same list, or end the lists in one finish`,
     });
   }
   return oneOf(firstClass, secondClass, ...moreClasses);
@@ -158,11 +161,11 @@ export function flowClassesOf(flow: readonly FlowPath[]): readonly Class[] {
 
 /**
  * The workflow classes a flow launches: `.toWorkflow(W)`, `route(W)`, `.toParallelWorkflows(W, …)` —
- * never `ThisWorkflow` (#264), which is the workflow itself.
+ * never `self`, the workflow the flow belongs to, when given (a recursion, #264, #1287).
  */
-export const childClassesOf = (flow: readonly FlowPath[]): readonly Class[] =>
+export const childClassesOf = (flow: readonly FlowPath[], self?: Class): readonly Class[] =>
   flowClassesOf(flow).filter(
-    (target) => declarationOf(target)?.kind === NodeKind.Workflow && !isThisWorkflow(target),
+    (target) => declarationOf(target)?.kind === NodeKind.Workflow && target !== self,
   );
 
 /** The workflows and, depth first, every child workflow they launch, each once. */
@@ -173,7 +176,7 @@ export function withChildWorkflows(workflows: readonly Class[]): readonly Class[
     found.add(workflow);
     const declaration = declarationOf(workflow);
     if (declaration?.kind === NodeKind.Workflow)
-      childClassesOf(declaration.options.flow).forEach(visit);
+      childClassesOf(declaration.options.flow, workflow).forEach(visit);
   };
   workflows.forEach(visit);
   return [...found];
@@ -191,7 +194,7 @@ export function childrenFirst(workflows: readonly Class[]): readonly Class[] {
     entered.add(workflow);
     const declaration = declarationOf(workflow);
     if (declaration?.kind === NodeKind.Workflow)
-      childClassesOf(declaration.options.flow).forEach(visit);
+      childClassesOf(declaration.options.flow, workflow).forEach(visit);
     ordered.push(workflow);
   };
   workflows.forEach(visit);

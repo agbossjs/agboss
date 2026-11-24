@@ -6,7 +6,6 @@ import type { FileDefaults } from "../../files/model-files.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import type { Bytes } from "../../units/index.js";
 import { NodeKind, type FlowPath } from "../ast.js";
-import type { ThisWorkflowCheck } from "../this-workflow-types.js";
 import { declarationOf, declared, recordDeclaration } from "./declaration.js";
 
 /** Defaults of every chat model (agents, model routers): no `thinking` strings (#269). */
@@ -67,10 +66,10 @@ export interface WorkflowOptions<
   TName extends string = string,
   TFlow extends readonly FlowPath[] = readonly FlowPath[],
 > {
-  /** Ends with `-workflow` (`offer-workflow`); keys its `ThisWorkflowOutputs` entry (#264). */
+  /** Ends with `-workflow` (`offer-workflow`); also the node a recursion (`toWorkflow(() => Self)`) shows in its graph. */
   readonly name: TName;
   readonly version: string;
-  /** The paths; what they claim of `ThisWorkflow` is checked against this workflow's own entry. */
+  /** The paths; a workflow launches itself with `toWorkflow(() => ItsOwnClass)` (#1287). */
   readonly flow: TFlow;
   /** Steps (agent and router visits) per execution; default (agents + routers) × 3 (#261). */
   readonly maxSteps?: number;
@@ -146,13 +145,14 @@ export interface WorkflowOptions<
 const plainPath = (path: FlowPath): FlowPath => ({ source: path.source, steps: path.steps });
 
 export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(
-  options: WorkflowOptions<TName, TFlow> & ThisWorkflowCheck<TName, TFlow>,
-): <TClass extends Class>(value: TClass) => TClass {
+  options: WorkflowOptions<TName, TFlow>,
+): (value: Class) => void {
   const source = callerFile();
   const recorded: WorkflowOptions = { ...options, flow: options.flow.map(plainPath) };
-  return <TClass extends Class>(value: TClass): TClass => {
+  // returns nothing: a class's own type must not depend on its decorator, or `() => ItsOwnClass`
+  // inside its own `flow` would be a circular reference (TS2506, TS7022; its brand is generated)
+  return (value: Class): void => {
     recordDeclaration(value, declared(NodeKind.Workflow, recorded, source));
-    return value;
   };
 }
 

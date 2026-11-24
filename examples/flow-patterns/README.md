@@ -157,7 +157,7 @@ Not OK: a child's steps flat in the parent's trace. Run a second turn with
 ### #264 M1 — topic research in Langfuse (recursion)
 
 ```bash
-npm run describe                      # topic-research-workflow: recursive: ThisWorkflow, maxDepth 3,
+npm run describe                      # topic-research-workflow: recursive: maxDepth 3,
                                       # and what is left on the last level
 npx agboss run --start topic-research-workflow-start \
   --input '{"title":"the history of computing","level":0}'

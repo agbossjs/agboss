@@ -2,14 +2,12 @@ import type { Milliseconds } from "../units/index.js";
 import type { ErrorClass } from "./ast.js";
 import type {
   BuiltPath,
-  ClaimsOf,
   GroupHead,
   IsGroupPath,
   PathHead,
   SidePath,
   Transitions,
 } from "./builder-types.js";
-import type { WithClaims } from "./this-workflow-types.js";
 import type { ArbiterChoice } from "./quorum-step.js";
 
 /**
@@ -39,18 +37,12 @@ export interface QuorumGroupsOptions {
 
 /** After `.joinQuorum(…)`: its `.onError(…)`, then one transition. */
 export type QuorumJoined<THead extends PathHead> = {
-  onError<const TPath extends SidePath>(
-    error: ErrorClass,
-    path: TPath,
-  ): QuorumJoined<WithClaims<THead, ClaimsOf<TPath>>>;
+  onError(error: ErrorClass, path: SidePath): QuorumJoined<THead>;
 } & Transitions<THead>;
 
 /** After `.joinQuorumGroups(…)`: only `.onError(…)` — each group continued its own path. */
 export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
-  onError<const TPath extends SidePath>(
-    error: ErrorClass,
-    path: TPath,
-  ): GroupsJoined<WithClaims<THead, ClaimsOf<TPath>>>;
+  onError(error: ErrorClass, path: SidePath): GroupsJoined<THead>;
 };
 
 /** `group(A, B, …)`: its `.priority(n)` (1 is the highest), then its own path. */
@@ -59,7 +51,7 @@ export interface GroupStart extends Transitions<GroupHead> {
 }
 
 /** A group continued to its own path: what `.joinQuorumGroups(…)` takes. */
-export type GroupPath = BuiltPath<GroupHead<unknown>>;
+export type GroupPath = BuiltPath<GroupHead>;
 
 /** `.joinQuorumGroups(…)`'s arguments: one or more groups, then its options. */
 export type GroupArguments =
@@ -85,5 +77,5 @@ export interface Quorums<THead extends PathHead> {
   joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
   joinQuorumGroups<const TArgs extends GroupArguments>(
     ...groups: TArgs & GroupsCheck<TArgs>
-  ): GroupsJoined<WithClaims<THead, ClaimsOf<TArgs[number]>>>;
+  ): GroupsJoined<THead>;
 }

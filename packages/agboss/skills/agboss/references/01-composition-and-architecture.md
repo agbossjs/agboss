@@ -28,7 +28,7 @@ Rules of thumb:
   (`RouterFailedError`, `RouterDecisionError`). Decide by data whenever the data exist.
 - **Extract a child workflow** when the same sub-process is reached from two workflows, runs once
   per item of a list, needs its own failure finish (a per-item child that fails soft), or calls
-  itself (`ThisWorkflow`, `maxDepth`). A child gets only its start's input as its scope — pass it
+  itself (`() => Self`, `maxDepth`). A child gets only its start's input as its scope — pass it
   what it needs through that DTO.
 - **Every loop is bounded**: a node on a cycle has `maxVisits`, the workflow has `maxSteps`, money
   is the application's `@Budget`s.

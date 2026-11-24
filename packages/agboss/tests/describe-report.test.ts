@@ -134,11 +134,11 @@ describe("#268 AC4: the tree — workflows, their starts and children", () => {
     ]);
   });
 
-  it("ThisWorkflow is the workflow again, marked recursive with its maxDepth", async () => {
+  it("a workflow launching itself is the workflow again, marked recursive with its maxDepth", async () => {
     const lines = describeApplication(await applicationOf(applicationWith(DeepResearchWorkflow)));
 
     expect(lines).toContain(
-      "    child deep-research-workflow (ThisWorkflow, recursive, maxDepth 4) per item from split-topic-action (maxItems 5, maxConcurrency 3)",
+      "    child deep-research-workflow (recursive, maxDepth 4) per item from split-topic-action (maxItems 5, maxConcurrency 3)",
     );
   });
 });

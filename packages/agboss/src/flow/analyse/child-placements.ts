@@ -10,7 +10,6 @@ import {
   type ToStep,
 } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
-import { isThisWorkflow } from "../this-workflow.js";
 import { ChildPlacement } from "../child-placement.js";
 
 /**
@@ -53,7 +52,7 @@ class PlacementWalk {
     for (const path of subPathsOf(step)) this.steps(path.steps);
     if (step.kind !== StepKind.ChooseOne) return;
     for (const route of step.routes)
-      if (isThisWorkflow(route.target) || declarationOf(route.target)?.kind === NodeKind.Workflow)
+      if (declarationOf(route.target)?.kind === NodeKind.Workflow)
         this.add(route.target, route.placement);
   }
 }
@@ -127,7 +126,7 @@ export function treeLaunchesOnAnyInstance(workflow: Class): boolean {
   for (let next = pending.pop(); next !== undefined && !launches; next = pending.pop()) {
     for (const [child, placements] of childPlacementsOf(flowOf(next))) {
       if (placements.includes(ChildPlacement.AnyInstance)) launches = true;
-      if (isThisWorkflow(child) || seen.has(child)) continue;
+      if (seen.has(child)) continue;
       seen.add(child);
       pending.push(child);
     }

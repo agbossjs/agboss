@@ -136,11 +136,11 @@ export interface FlowNode {
   readonly kind: NodeKind;
   readonly component: Class;
   readonly declaration: ComponentDeclaration;
-  /** `ThisWorkflow` (#264): the enclosing workflow it launches (its declaration is this node's). */
+  /** A recursion (#264, #1287): this node is the enclosing workflow itself, launched again. */
   readonly recursionOf?: Class;
 }
 
-/** The workflow a child node launches: its class, or for `ThisWorkflow` the enclosing one (#264). */
+/** The workflow a child node launches: its class (for a recursion, the enclosing workflow itself). */
 export const childClassOf = (node: Pick<FlowNode, "component" | "recursionOf">): Class =>
   node.recursionOf ?? node.component;
 

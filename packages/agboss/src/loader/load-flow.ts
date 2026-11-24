@@ -8,7 +8,6 @@ import { walkFlow } from "../flow/analyse/walk.js";
 import type { LoadedModule } from "../flow/analyse/rules/context.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { isThisWorkflow } from "../flow/this-workflow.js";
 import { toolComponentNameOf } from "../flow/types/agent-tools.js";
 import { channelBrandOf } from "../flow/types/channel-roles.js";
 import { WorkflowLoadError } from "./load-errors.js";
@@ -41,9 +40,7 @@ export interface FlowLoadOptions {
 }
 
 const isFlowWorkflow = (value: unknown): value is Class =>
-  typeof value === "function" &&
-  declarationOf(value)?.kind === NodeKind.Workflow &&
-  !isThisWorkflow(value as Class);
+  typeof value === "function" && declarationOf(value)?.kind === NodeKind.Workflow;
 
 const isApplication = (value: unknown): value is Class =>
   typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined;
@@ -119,8 +116,7 @@ export async function loadFlowProject(
     ...new Set(
       modules
         .filter((module) => own.has(module.file))
-        .flatMap((module) => Object.values(module.exports).filter(isComponent))
-        .filter((component) => !isThisWorkflow(component)),
+        .flatMap((module) => Object.values(module.exports).filter(isComponent)),
     ),
   ];
   return { workflows, applications, components, modules };

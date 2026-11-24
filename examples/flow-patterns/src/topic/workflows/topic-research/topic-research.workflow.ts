@@ -1,12 +1,4 @@
-import {
-  onAction,
-  caseOf,
-  onStart,
-  StepFailedError,
-  ThisWorkflow,
-  toAction,
-  Workflow,
-} from "@agboss/core";
+import { onAction, caseOf, onStart, StepFailedError, toAction, Workflow } from "@agboss/core";
 import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
 import { SubtopicsAction } from "../../actions/subtopics.action.js";
 import { MergeAgent } from "../../agents/merge/merge.agent.js";
@@ -19,7 +11,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
 
 /**
  * Recursion (#264): a topic too broad for one report is split, and each subtopic is researched by
- * this workflow itself — `ThisWorkflow`, one child execution per item — its results merged. At most
+ * this workflow itself — `() => TopicResearchWorkflow`, one child execution per item — its results merged. At most
  * three levels (`maxDepth`): on the third the researcher can only report (the soft stop). At most
  * four executions of the tree work at once (`maxConcurrentExecutions`); the rest wait their turn.
  */
@@ -35,7 +27,7 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
           .toFinish(TopicReportWorkflowFinish),
         caseOf(TopicTooBroadDto) // left out of the schema on the last level
           .toAction(SubtopicsAction)
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
+          .toParallelWorkflows(() => TopicResearchWorkflow, { maxConcurrency: 3, maxItems: 5 })
           .join()
           .toAgent(MergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))

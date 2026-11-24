@@ -50,7 +50,7 @@ function chosenRoute(
   if (name !== undefined && unready.includes(name))
     throw new RouterDecisionError({
       ...step,
-      reason: `route() returned ${name}: on the last level (depth = maxDepth) a route that launches ThisWorkflow is not ready`,
+      reason: `route() returned ${name}: on the last level (depth = maxDepth) a route that launches the workflow itself is not ready`,
     });
   if (name !== undefined && node.exits.routes.has(name)) return name;
   const why = Array.isArray(answer)

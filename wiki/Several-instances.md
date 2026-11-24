@@ -377,7 +377,7 @@ idempotency key and the lease's fencing token — and the framework gives both:
 | Member | What it is |
 | --- | --- |
 | `scopeKey` | `${encodeURIComponent(tenantId)}:${encodeURIComponent(leaseExecutionId)}` — one `:`, decodable, the same text as the ids for plain and UUID ids; the key of the high-water mark. A public format. |
-| `tenantId`, `leaseExecutionId` | The lease's key: the root for the root, its `ChildPlacement.ParentInstance` children and `ThisWorkflow` levels; a `ChildPlacement.AnyInstance` child itself. |
+| `tenantId`, `leaseExecutionId` | The lease's key: the root for the root, its `ChildPlacement.ParentInstance` children and recursive levels; a `ChildPlacement.AnyInstance` child itself. |
 | `token` | The lease's `token`: 1, 2, … — a counter of **this one lease key**, rising with every take (a recovery, a resume, the reclaim after remote children); never a sequence across keys. |
 | `trustedUntil` | The `Clock` time up to which the store confirmed the lease (#335). |
 | `assertHeld()` | Synchronous, no I/O: lost, or `clock.now() >= trustedUntil` → expires the lease here first, then throws `ExecutionLeaseLostError`. |

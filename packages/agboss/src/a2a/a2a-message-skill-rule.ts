@@ -7,7 +7,6 @@ import { componentOf } from "../components/metadata.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { isThisWorkflow } from "../flow/this-workflow.js";
 import { violation, type RuleCode, type RuleViolation } from "../graph/rule-error.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
 import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
@@ -106,7 +105,7 @@ function toolProblems(agent: string, tool: Class): SkillProblem[] {
 /** What a node is, by its kind: a child, a question, an undo; none for any other. */
 function kindProblem(node: Class, name: string): SkillProblem | undefined {
   const declared = declarationOf(node);
-  if (isThisWorkflow(node) || declared?.kind === NodeKind.Workflow)
+  if (declared?.kind === NodeKind.Workflow)
     return { code: "a2a.message-skill-child", text: `it launches ${name}` };
   if (declared?.kind === NodeKind.Question)
     return { code: "a2a.message-skill-pause", text: `${name} asks its caller` };

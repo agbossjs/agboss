@@ -11,7 +11,6 @@ export { type GuardrailDecorator } from "../components/policy-decorators.js";
 export { type ComponentSource, type StartSource } from "../flow/ast.js";
 export {
   type CaseValueOf,
-  type ClaimsOf,
   type IsGroupPath,
   type IsOneOf,
   type IsUnion,
@@ -50,7 +49,6 @@ export {
   type WorkflowStartEntry,
 } from "../flow/generated-types.js";
 export {
-  type ChildLaunched,
   type IsPerItem,
   type IsSeveral,
   type LastValue,
@@ -58,17 +56,6 @@ export {
   type LaunchCheck,
 } from "../flow/launch-types.js";
 export { type GroupArguments, type GroupCheck, type GroupsCheck } from "../flow/quorum-types.js";
-export {
-  type ClaimsCheck,
-  type EntryOf,
-  type ThisWorkflowCheck,
-  type ThisWorkflowClaim,
-  type ThisWorkflowJoined,
-  type ThisWorkflowLaunched,
-  type ThisWorkflowName,
-  type ThisWorkflowStep,
-  type ThisWorkflowSwitching,
-  type WithClaims,
-} from "../flow/this-workflow-types.js";
+export { type ClassOf, type UnwrapTarget } from "../flow/target-ref.js";
 export { type PiiRefusalShape } from "../pii/pii-policy.decorator.js";
 export { type CacheSetting, type ModelSettings, type Thinking } from "../config/settings-types.js";

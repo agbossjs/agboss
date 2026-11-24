@@ -1,7 +1,6 @@
 import {
   ChildPlacement,
   EmptyEnvironment,
-  ThisWorkflow,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -106,7 +105,7 @@ export class SpendTreeWorkflowFinish {}
       .toAction(PayAfterAction)
       .switch(
         caseOf(SpendNodeDto)
-          .toWorkflow(ThisWorkflow)
+          .toWorkflow(() => SpendTreeWorkflow)
           .toAction(PayCloseAction)
           .toFinish(SpendTreeWorkflowFinish),
         caseOf(SpendNoteDto)
@@ -148,7 +147,7 @@ export class RemoteSpendTreeWorkflowFinish {}
       .toAction(PayAfterAction)
       .switch(
         caseOf(SpendNodeDto)
-          .toWorkflow(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
+          .toWorkflow(() => RemoteSpendTreeWorkflow, { placement: ChildPlacement.AnyInstance })
           .toAction(PayCloseAction)
           .toFinish(RemoteSpendTreeWorkflowFinish),
         caseOf(SpendNoteDto)
