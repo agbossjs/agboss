@@ -4,16 +4,16 @@ Read this before writing any test. Tests never call a real model or the network:
 application runs under `testWith(App)` with scripted models, and one component runs alone under its
 unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 
-| You test…                                                                                                     | Use                                                                                                                                               |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                                               |
-| a race between parallel branches                                                                              | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                                     |
-| time: timeouts, retries, retention, leases                                                                    | the `clock` fixture: `await clock.advance(seconds(31))`                                                                                           |
-| a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                        |
-| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testUnit`                                                                                                                       |
-| real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                                        |
+| You test…                                                                                                     | Use                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                               |
+| a race between parallel branches                                                                              | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                     |
+| time: timeouts, retries, retention, leases                                                                    | the `clock` fixture: `await clock.advance(seconds(31))`                                                                           |
+| a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                        |
+| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testUnit`                                                                                                       |
+| real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                        |
 | what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, case `tools`, `judges`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>` |
-| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                            |
+| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                            |
 
 `vitest.config.ts` wraps its `test` options in `agbossVitest()` from `@agboss/core/testing/vitest`: AGBoss loaded
 through vite, in the test's module graph (so `testWith(App)` loads the application next to its workflows, with
@@ -361,7 +361,7 @@ export class VerdictAgent {}
 
 ```ts file=src/screening/arbiters/has-notes/has-notes.arbiter.ts
 // a code arbiter: @Arbitrate(…targets) methods, typed by those targets' output
-import { Arbiter, DecidedBy, Arbitrate } from "@agboss/core";
+import { Arbiter, Arbitrate } from "@agboss/core";
 import { CultureAgent } from "../../agents/culture/culture.agent.js";
 import { SkillsAgent } from "../../agents/skills/skills.agent.js";
 import { CultureReportDto } from "../../dto/culture-report.dto.js";
@@ -432,7 +432,7 @@ import { ScreeningWorkflowStart } from "./screening.workflow-start.js";
   flow: [
     onStart(ScreeningWorkflowStart)
       .toParallelAgents(SkillsAgent, CultureAgent)
-      .acceptedBy(HasNotesArbiter)
+      .arbitratedBy(HasNotesArbiter)
       .joinQuorum({ min: 2 })
       .toAgent(VerdictAgent)
       .toRouter(HireRouter)

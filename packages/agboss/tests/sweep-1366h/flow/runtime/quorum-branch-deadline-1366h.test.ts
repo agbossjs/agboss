@@ -148,7 +148,7 @@ describe("#1366: an answer without a value under arbiters", () => {
     };
 
     const marked = await markAnswer(live as never, { index: 0, node: "a" } as never, undefined, {
-      launch: { launch: { acceptedBy: [{}] } },
+      launch: { launch: { arbitratedBy: (() => undefined) as never } },
       deps: {},
     } as never);
 

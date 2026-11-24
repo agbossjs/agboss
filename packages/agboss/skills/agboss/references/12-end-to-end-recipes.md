@@ -9,7 +9,7 @@ read the reference each part points to.
 | Recipe                                                | Shows                                                                                                                                             |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. An offer review loop                               | `oneOf` + `switch`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                                |
-| 2. Sourcing: children per item, a quorum, an approval | `.toParallelWorkflows`, a soft child failure, `.acceptedBy(anyOf(…))`, `.joinQuorum`, a channel role, `app.resume`                                |
+| 2. Sourcing: children per item, a quorum, an approval | `.toParallelWorkflows`, a soft child failure, `.arbitratedBy(…)`, `.joinQuorum`, a channel role, `app.resume`                                     |
 | 3. A help desk on MCP and A2A, streamed               | `@McpServer` behind a tool, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                           |
 | 4. A production multi-tenant application              | tenant context, budgets, model providers with a fallback and `TenantWeighted`, PII, a guardrail, SQLite, health, undo, unit and integration tests |
 
@@ -688,7 +688,7 @@ export class TermsReviewAgent {}
 ```
 
 ```ts file=sourcing/src/arbiters/review-range/review-range.arbiter.ts
-import { Arbiter, DecidedBy, Arbitrate } from "@agboss/core";
+import { Arbiter, Arbitrate } from "@agboss/core";
 import type { ArbiterAnswerOf } from "@agboss/core";
 import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
 import { RiskReviewAgent } from "../../agents/risk-review/risk-review.agent.js";
@@ -715,25 +715,6 @@ export class ReviewRangeArbiter {
     return score >= 1 && score <= 10 && reason.trim() !== "";
   }
 }
-```
-
-```ts file=sourcing/src/arbiters/review-grounded/review-grounded.arbiter.ts
-import { Arbiter, DecidedBy } from "@agboss/core";
-import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
-import { RiskReviewAgent } from "../../agents/risk-review/risk-review.agent.js";
-import { TermsReviewAgent } from "../../agents/terms-review/terms-review.agent.js";
-
-@Arbiter({
-  name: "review-grounded-arbiter",
-  model: "typesafe/jev-1.13",
-  prompt: "Count a review only if it meets the criterion of the agent that gave it.",
-  criteria: [
-    { target: PriceReviewAgent, prompt: "The reason compares the price with the market" },
-    { target: RiskReviewAgent, prompt: "The reason names a concrete risk" },
-    { target: TermsReviewAgent, prompt: "The reason names a delivery term" },
-  ],
-})
-export class ReviewGroundedArbiter {}
 ```
 
 ```ts file=sourcing/src/tools/place-purchase.tool.ts
@@ -798,7 +779,7 @@ export class PurchaseUnreviewedWorkflowFinish {}
 The parent workflow:
 
 ```ts file=sourcing/src/workflows/sourcing/sourcing.workflow.ts
-import { QuorumNotReachedError, Workflow, anyOf, listOf, oneOf, onStart, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, listOf, oneOf, onStart, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { minutes } from "@agboss/core/units";
 import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
@@ -807,7 +788,6 @@ import { RiskReviewAgent } from "../../agents/risk-review/risk-review.agent.js";
 import { SupplierFinderAgent } from "../../agents/supplier-finder/supplier-finder.agent.js";
 import { SupplierShortlistAgent } from "../../agents/supplier-shortlist/supplier-shortlist.agent.js";
 import { TermsReviewAgent } from "../../agents/terms-review/terms-review.agent.js";
-import { ReviewGroundedArbiter } from "../../arbiters/review-grounded/review-grounded.arbiter.js";
 import { ReviewRangeArbiter } from "../../arbiters/review-range/review-range.arbiter.js";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { PurchaseSummaryDto } from "../../dto/purchase-summary.dto.js";
@@ -830,7 +810,7 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
       .join()
       .toAgent(SupplierShortlistAgent)
       .toParallelAgents(PriceReviewAgent, RiskReviewAgent, TermsReviewAgent)
-      .acceptedBy(anyOf(ReviewRangeArbiter, ReviewGroundedArbiter)) // the model only when the code rejects
+      .arbitratedBy(ReviewRangeArbiter) // one arbiter judges every review
       .joinQuorum({ min: 2, max: 3, deadline: minutes(2) })
       .onError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
       .toAgent(PurchaseAgent) // its tool pauses for the buyer

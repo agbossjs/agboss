@@ -68,7 +68,7 @@ export function arbiterUnit<
         signal,
       };
       const judged = { node: nameOfTarget(target), answer };
-      const verdict = await judgeAnswer([{ arbiters: [arbiter] }], judged, deps);
+      const verdict = await judgeAnswer(arbiter, judged, deps);
       spent.push(...verdict.usage);
       return verdict.isAccepted;
     });

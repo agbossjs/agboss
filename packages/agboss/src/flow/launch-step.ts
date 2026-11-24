@@ -118,26 +118,25 @@ function afterJoinProblem(join: JoinStep, next: Step): string | undefined {
   return "after .join() the path goes on with .onError(…) and one .to…(…)";
 }
 
-/** Why a join cannot follow the launch before it: a launch with arbiters needs a quorum (AC12). */
-function quorumJoinProblem(launch: LaunchStep, isQuorum: boolean): string | undefined {
-  if (!isQuorum)
-    return launch.acceptedBy === undefined
-      ? undefined
-      : ".acceptedBy(…) is followed by .joinQuorum(…) or .joinQuorumGroups(…), not .join()";
-  return launch.targetKind === NodeKind.Agent
-    ? undefined
-    : "a quorum counts agents' answers — .joinQuorum(…) follows .toParallelAgents(…)";
+/** Why a quorum join cannot follow the launch before it: groups need a launch of fixed branches, not one per item. */
+function quorumProblem(launch: LaunchStep | InParallelStep | ForEachItemStep, join: JoinStep) {
+  if (join.quorum?.kind === QuorumKind.Groups && launch.kind === StepKind.ForEachItem)
+    return "a .forEachItem(…) launch runs one target per item — .joinQuorum(…) counts its answers; .joinQuorumGroups(…) groups different targets";
+  if (launch.kind === StepKind.Launch && launch.targetKind !== NodeKind.Agent)
+    return "a quorum counts agents' answers — .joinQuorum(…) follows .inParallel([…]), .forEachItem(…) or .toParallelAgents(…)";
+  return undefined;
 }
 
-/** Why a join cannot follow the launch before it: a quorum needs the arbiters of #1282 after the new launches. */
+/** Why a join cannot follow the launch before it: a launch with an arbiter needs a quorum (AC12). */
 function joinProblem(
   launch: LaunchStep | InParallelStep | ForEachItemStep,
   join: JoinStep,
 ): string | undefined {
-  if (launch.kind === StepKind.Launch) return quorumJoinProblem(launch, join.quorum !== undefined);
-  return join.quorum === undefined
-    ? undefined
-    : "a quorum join follows .arbitratedBy(…) after .inParallel([…]) or .forEachItem(…) (#1282)";
+  if (join.quorum === undefined)
+    return launch.arbitratedBy === undefined
+      ? undefined
+      : ".arbitratedBy(…) is followed by .joinQuorum(…) or .joinQuorumGroups(…), not .join()";
+  return quorumProblem(launch, join);
 }
 
 /** Whether a step launches branches that a `.join()` follows. */

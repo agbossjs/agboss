@@ -16,7 +16,7 @@ import { groupAgentNames } from "../quorum-joins.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
- * The arbiter rules (#279 AC5, AC6, #1283): an `.acceptedBy(X)` names an `@Arbiter` class
+ * The arbiter rules (#279 AC5, AC6, #1283): an `.arbitratedBy(X)` names an `@Arbiter` class
  * (`[arbiter.not-an-arbiter]`); it covers every distinct target of its launch — a criterion of a
  * declarative arbiter or an `@Arbitrate(…targets)` method of a code one, each
  * (`[arbiter.unhandled-target]`; the arbiter's `prompt` never stands in) — and nothing else
@@ -125,7 +125,7 @@ function oneArbiter(
 ): readonly RuleViolation[] {
   const declaration = arbiterOf(arbiter);
   if (declaration === undefined) {
-    const message = `.acceptedBy(${classLabel(arbiter)}): ${classLabel(arbiter)} has no @Arbiter decorator — decorate it with @Arbiter({ … })`;
+    const message = `.arbitratedBy(${classLabel(arbiter)}): ${classLabel(arbiter)} has no @Arbiter decorator — decorate it with @Arbiter({ … })`;
     return [violation("arbiter.not-an-arbiter", message, [])];
   }
   const { name } = declaration.options;
@@ -149,7 +149,7 @@ export function arbiterViolations(
     const node = context.graph.nodes.get(target);
     return node === undefined ? target : classLabel(node.component);
   };
-  return (launch.acceptedBy ?? []).flatMap(({ arbiters }) =>
-    arbiters.flatMap((arbiter) => oneArbiter(arbiter, launch, context, targetClassOf)),
-  );
+  return launch.arbitratedBy === undefined
+    ? []
+    : oneArbiter(launch.arbitratedBy, launch, context, targetClassOf);
 }

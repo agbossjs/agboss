@@ -58,8 +58,7 @@ describe("each kind of model component has its join keys", () => {
     const snapshot =
       workflow === undefined ? undefined : workflowSnapshotOf(workflow, describeServices);
     const launched = snapshot?.launches
-      .flatMap((launch) => launch.acceptedBy)
-      .flat()
+      .flatMap((launch) => (launch.arbitratedBy === undefined ? [] : [launch.arbitratedBy]))
       .find((one) => one.name === "panel-model-arbiter");
     expect(launched?.promptHash).toBe(arbiter?.promptHash);
   });

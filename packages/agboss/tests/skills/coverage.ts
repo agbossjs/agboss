@@ -187,7 +187,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
   ],
   "references/02-flow-dsl-all-combinations.md": [
     ...["Workflow", "WorkflowStart", "WorkflowFinish", "WorkflowStartTextDto"],
-    ...["onStart", "onAgent", "onAction", "onWorkflow", "route", "caseOf", "group", "anyOf"],
+    ...["onStart", "onAgent", "onAction", "onWorkflow", "route", "caseOf", "group"],
     ...["toAction", "toAgent", "toRouter", "toWorkflow", "toFinish"],
     ...["oneOf", "listOf", "optional", "historyOf", "variant", "SpawnPolicy", "FailurePolicy"],
     ...["Arbiter", "Arbitrate", "ArbiterAnswerOf", "BranchVerdict", "BranchStatus"],
@@ -302,7 +302,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     "ExecutionFencedError",
   ],
   "references/12-end-to-end-recipes.md": [
-    ...["createApp", "testWith", "Application", "Workflow", "historyOf", "anyOf", "listOf"],
+    ...["createApp", "testWith", "Application", "Workflow", "historyOf", "listOf"],
     ...[
       "ChannelRole",
       "Channel",

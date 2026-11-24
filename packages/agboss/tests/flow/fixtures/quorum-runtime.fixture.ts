@@ -1,5 +1,4 @@
 import { Application } from "../../../src/application/application.js";
-import { anyOf } from "../../../src/flow/builder.js";
 import { groupFrom } from "../../../src/flow/path-builder.js";
 import {
   ArbiterError,
@@ -14,7 +13,7 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { onStart, toFinish } from "../../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import {
   CopyArbiter,
   CriticPanelAgent,
@@ -24,6 +23,7 @@ import {
   EvenItemArbiter,
   FastPanelAgent,
   HirePanelAgent,
+  HybridPanelArbiter,
   InRangeArbiter,
   LegalPanelAgent,
   NoQuorumPanelWorkflowFinish,
@@ -44,7 +44,7 @@ import {
 
 /**
  * #279 PR 2 — quorums at run time, one application per workflow: any two of three; a quorum with an
- * arbiter, `max` and a deadline; one without `.onError`; a model arbiter, a chain and `anyOf`;
+ * arbiter, `max` and a deadline; one without `.onError`; a model arbiter and a hybrid one, `.inParallel([…])` and `.forEachItem(…)` quorums;
  * a per-item and a copies launch with code arbiters reading `ExecutionContext`; groups with priority.
  */
 
@@ -69,7 +69,7 @@ export class QuickPanelWorkflow {}
   flow: [
     onStart(PanelWorkflowStart)
       .toParallelAgents(...PANEL)
-      .acceptedBy(InRangeArbiter)
+      .arbitratedBy(InRangeArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
       .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
       .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
@@ -85,7 +85,7 @@ export class CheckedPanelWorkflow {}
   flow: [
     onStart(PanelWorkflowStart)
       .toParallelAgents(...PANEL)
-      .acceptedBy(InRangeArbiter)
+      .arbitratedBy(InRangeArbiter)
       .joinQuorum({ min: 2 })
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
@@ -99,7 +99,7 @@ export class StrictPanelWorkflow {}
   flow: [
     onStart(PanelWorkflowStart)
       .toParallelAgents(...PANEL)
-      .acceptedBy(PanelModelArbiter)
+      .arbitratedBy(PanelModelArbiter)
       .joinQuorum({ min: 2, max: 3 })
       .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
@@ -114,7 +114,7 @@ export class ModelPanelWorkflow {}
   flow: [
     onStart(PanelWorkflowStart)
       .toParallelAgents(...PANEL)
-      .acceptedBy(PanelChatArbiter)
+      .arbitratedBy(PanelChatArbiter)
       .joinQuorum({ min: 2, max: 3 })
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
@@ -122,34 +122,54 @@ export class ModelPanelWorkflow {}
 })
 export class ChatPanelWorkflow {}
 
+/** One hybrid arbiter in place of a chain of a code and a model arbiter: its code asks its own model for what it cannot decide (#1283). */
 @Workflow({
-  name: "chain-panel-workflow",
+  name: "hybrid-panel-workflow",
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
       .toParallelAgents(...PANEL)
-      .acceptedBy(InRangeArbiter)
-      .acceptedBy(PanelModelArbiter)
+      .arbitratedBy(HybridPanelArbiter)
       .joinQuorum({ min: 1, max: 3 })
+      .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
-export class ChainPanelWorkflow {}
+export class HybridPanelWorkflow {}
 
+/** `.inParallel([…])` with an arbiter and a quorum (#1282): the branches of any kind, one arbiter judges them. */
 @Workflow({
-  name: "any-of-panel-workflow",
+  name: "arbitrated-panel-workflow",
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(...PANEL)
-      .acceptedBy(anyOf(InRangeArbiter, PanelModelArbiter))
-      .joinQuorum({ min: 1, max: 3 })
+      .inParallel([toAgent(SkillsPanelAgent), toAgent(RisksPanelAgent), toAgent(HirePanelAgent)])
+      .arbitratedBy(InRangeArbiter)
+      .joinQuorum({ min: 2, max: 3 })
+      .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
+      .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
   ],
 })
-export class AnyOfPanelWorkflow {}
+export class ArbitratedPanelWorkflow {}
+
+/** `.forEachItem(…)` with an arbiter and a quorum (#1282): one run per item, the arbiter reads which item it is. */
+@Workflow({
+  name: "each-item-panel-workflow",
+  version: "1.0.0",
+  maxSteps: 10,
+  flow: [
+    onStart(PanelItemsWorkflowStart)
+      .forEachItem(toAgent(SkillsPanelAgent), { takeFirst: 5 })
+      .arbitratedBy(EvenItemArbiter)
+      .joinQuorum({ min: 3 })
+      .toAgent(PanelSummaryAgent)
+      .toFinish(PanelReviewWorkflowFinish),
+  ],
+})
+export class EachItemPanelWorkflow {}
 
 @Workflow({
   name: "item-panel-workflow",
@@ -158,7 +178,7 @@ export class AnyOfPanelWorkflow {}
   flow: [
     onStart(PanelItemsWorkflowStart)
       .toParallelAgents(SkillsPanelAgent, { maxItems: 5 })
-      .acceptedBy(EvenItemArbiter)
+      .arbitratedBy(EvenItemArbiter)
       .joinQuorum({ min: 3 })
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
@@ -172,7 +192,7 @@ export class ItemPanelWorkflow {}
   flow: [
     onStart(PanelWorkflowStart)
       .toParallelAgents(SkillsPanelAgent, SkillsPanelAgent, SkillsPanelAgent)
-      .acceptedBy(CopyArbiter)
+      .arbitratedBy(CopyArbiter)
       .joinQuorum({ min: 2, max: 3 })
       .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
       .toAgent(PanelSummaryAgent)
@@ -258,22 +278,31 @@ export class StrictPanelApplication {}
 export class ModelPanelApplication {}
 
 @Application({
-  name: "chain-panel-application",
+  name: "hybrid-panel-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [ChainPanelWorkflow],
+  workflows: [HybridPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
-export class ChainPanelApplication {}
+export class HybridPanelApplication {}
 
 @Application({
-  name: "any-of-panel-application",
+  name: "arbitrated-panel-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [AnyOfPanelWorkflow],
+  workflows: [ArbitratedPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
-export class AnyOfPanelApplication {}
+export class ArbitratedPanelApplication {}
+
+@Application({
+  name: "each-item-panel-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [EachItemPanelWorkflow],
+  budgets: TEST_BUDGETS,
+})
+export class EachItemPanelApplication {}
 
 @Application({
   name: "item-panel-application",

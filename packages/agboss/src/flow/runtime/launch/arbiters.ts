@@ -2,7 +2,7 @@ import type { ModelReadingMask } from "../../../pii/model-boundary.js";
 import type { Class } from "../../../components/injection.js";
 import { normalisePromptText } from "../../../components/prompt-render.js";
 import type { UsageRecord } from "../../../finops/usage.js";
-import type { AcceptedBy, ArbiterClass } from "../../ast.js";
+import type { ArbiterClass } from "../../ast.js";
 import {
   answerMethodsOf,
   arbiterOf,
@@ -18,7 +18,7 @@ import { runArbiterCall } from "./arbiter-live.js";
 import { ArbiterError } from "./quorum-errors.js";
 
 /**
- * The arbiter of a branch (#279 AC12, S57, #1282): run inside the branch, under its slot and in its
+ * The arbiter of a branch (#279 AC12, #1282): run inside the branch, under its slot and in its
  * frame, on the answer its target gave — one `.arbitratedBy(A)` per launch. A code arbiter's
  * `@Arbitrate(…targets)` method gets the answer (tracked as given by that target); with
  * `ArbiterModel` injected it may ask its own model; a declarative arbiter asks its model with the
@@ -204,29 +204,18 @@ async function judgeOnce(
   }
 }
 
-/** The chain on one answer: AND over the steps in path order, `anyOf` inside a step. */
+/** The launch's arbiter on one answer; an answer of a launch without one counts. */
 export async function judgeAnswer(
-  chain: readonly AcceptedBy[],
+  arbiter: ArbiterClass | undefined,
   site: JudgedAnswer,
   deps: ArbiterDeps,
 ): Promise<ChainVerdict> {
   const usage: UsageRecord[] = [];
+  if (arbiter === undefined) return { isAccepted: true, rejectedBy: [], usage };
   try {
-    for (const step of chain) {
-      const rejectedBy: string[] = [];
-      let isAccepted = false;
-      for (const arbiter of step.arbiters) {
-        const passed = await judgeOnce(arbiter, site, usage, deps);
-        if (deps.signal.aborted) return { isAccepted: false, rejectedBy: [], usage };
-        if (passed) {
-          isAccepted = true;
-          break;
-        }
-        rejectedBy.push(arbiterNameOf(arbiter));
-      }
-      if (!isAccepted) return { isAccepted, rejectedBy, usage };
-    }
-    return { isAccepted: true, rejectedBy: [], usage };
+    const isAccepted = await judgeOnce(arbiter, site, usage, deps);
+    if (deps.signal.aborted) return { isAccepted: false, rejectedBy: [], usage };
+    return { isAccepted, rejectedBy: isAccepted ? [] : [arbiterNameOf(arbiter)], usage };
   } catch (error) {
     // a limit or a cancel ends the check with no verdict: its spend is kept by the branch (#1399)
     if (passesThrough(error)) deps.keepSpend?.(usage);

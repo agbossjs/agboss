@@ -16,22 +16,45 @@ import type { Changes, FileToWrite } from "./write.js";
 
 /**
  * `agboss g arbiter <name>-arbiter --workflow <name>-workflow [--agent <name>-agent]` (#279 S77 i): a code arbiter for the agents of a
- * launch — the flow's one `.toParallelAgents(…)`, or the one launching `--agent` — with one
+ * launch — the flow's one `.inParallel([…])` / `.forEachItem(…)` / `.toParallelAgents(…)`, or the one launching `--agent` — with one
  * `@OnAnswer(Agent) from<Agent>(answer)` method per distinct agent class, each accepting every
- * answer until it is written. It is not put into the flow: where it sits (`.acceptedBy(…)`) is a
+ * answer until it is written. It is not put into the flow: where it sits (`.arbitratedBy(…)`) is a
  * choice.
  */
 
 const isCallOf = (node: ts.CallExpression, name: string): boolean =>
-  ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === name;
+  (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === name) ||
+  (ts.isIdentifier(node.expression) && node.expression.text === name);
 
-/** The agent classes of every `.toParallelAgents(…)` of the flow, repeats removed, as listed. */
+/** `A` of `toAgent(A)`; nothing for any other branch. */
+function agentOfBranch(branch: ts.Expression): readonly string[] {
+  let call: ts.Expression = branch;
+  // `toAgent(A).onError(E, skip())`: the branch is the call the chain starts with
+  while (
+    ts.isCallExpression(call) &&
+    ts.isPropertyAccessExpression(call.expression) &&
+    ts.isCallExpression(call.expression.expression)
+  )
+    call = call.expression.expression;
+  if (!ts.isCallExpression(call) || !isCallOf(call, "toAgent")) return [];
+  const [agent] = call.arguments;
+  return agent !== undefined && ts.isIdentifier(agent) ? [agent.text] : [];
+}
+
+/** The agent classes of every launch of the flow — `.inParallel([toAgent(A), …])`, `.forEachItem(toAgent(A), …)`, `.toParallelAgents(…)` — repeats removed, as listed. */
 function launchesOf(source: ts.SourceFile): readonly (readonly string[])[] {
   const launches: string[][] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && isCallOf(node, "toParallelAgents")) {
-      const agents = node.arguments.flatMap((arg) => (ts.isIdentifier(arg) ? [arg.text] : []));
-      launches.push([...new Set(agents)]);
+    if (ts.isCallExpression(node)) {
+      const [first] = node.arguments;
+      const agents = isCallOf(node, "toParallelAgents")
+        ? node.arguments.flatMap((arg) => (ts.isIdentifier(arg) ? [arg.text] : []))
+        : isCallOf(node, "inParallel") && first !== undefined && ts.isArrayLiteralExpression(first)
+          ? first.elements.flatMap(agentOfBranch)
+          : isCallOf(node, "forEachItem") && first !== undefined
+            ? agentOfBranch(first)
+            : undefined;
+      if (agents !== undefined) launches.push([...new Set(agents)]);
     }
     ts.forEachChild(node, visit);
   };
@@ -52,7 +75,7 @@ function launchFor(graph: WorkflowGraph, agent: string | undefined): readonly st
   if (found !== undefined) return found;
   const why =
     launches.length === 0
-      ? "has no .toParallelAgents(…) launch to judge"
+      ? "has no agents' launch (.inParallel([…]), .forEachItem(…) or .toParallelAgents(…)) to judge"
       : wanted === undefined
         ? `has ${String(launches.length)} agents' launches — name one of its agents with --agent <full name>`
         : `launches no ${wanted}`;

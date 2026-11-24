@@ -463,7 +463,6 @@ describe("AC4 / AC8: removed forms do not exist", () => {
   it("removed forms do not exist", () => {
     expect(Object.keys(builder).sort()).toEqual([
       "FlowSyntaxError",
-      "anyOf",
       "caseOf",
       "forEachItem",
       "group",

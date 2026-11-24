@@ -343,8 +343,7 @@ Not every answer is always needed: a **quorum** (#279) counts them — `.joinQuo
 deadline: seconds(30) })` goes on with the counted answers, `.joinQuorumGroups(group(LegalAgent,
 CriticAgent).priority(1).toAgent(…), …)` with the first complete group (by priority),
 each group on its own path. `@Arbiter` classes decide which answers count, attached with
-`.acceptedBy(X)` before the quorum (a chain is an AND, `anyOf(A, B)` stops at the first that
-accepts): by model, a criterion per target; by code, `@Arbitrate(A, B)` methods (with `ArbiterModel` injected, code that asks its own model only where it must). A single
+`.arbitratedBy(X)` before the quorum (one arbiter per launch): by model, a criterion per target; by code, `@Arbitrate(A, B)` methods (with `ArbiterModel` injected, code that asks its own model only where it must). A single
 answer a quorum may leave out is `optional(XDto)` — a step that requires it fails `agboss check` with
 `[input.missing-on-path]`. At run time the quorum is decided as answers arrive: once `max` answers are
 counted (or a group has won, or the quorum can no longer be reached) the other branches are

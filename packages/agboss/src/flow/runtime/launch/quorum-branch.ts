@@ -143,11 +143,11 @@ export async function markAnswer(
 ): Promise<MarkedAnswer | undefined> {
   const { quorum } = live;
   if (quorum === undefined) return undefined;
-  const chain = arbiters.launch.launch.acceptedBy ?? [];
-  const isChecked = chain.length > 0;
+  const arbiter = arbiters.launch.launch.arbitratedBy;
+  const isChecked = arbiter !== undefined;
   if (isChecked && live.controller.signal.aborted) return cancelled(live, ticket, []);
   const site = { node: ticket.node, answer: value?.value };
-  const judged = await judgeAnswer(chain, site, arbiters.deps);
+  const judged = await judgeAnswer(arbiter, site, arbiters.deps);
   const { usage } = judged;
   if (isChecked && live.controller.signal.aborted) return cancelled(live, ticket, usage);
   if (!judged.isAccepted) {

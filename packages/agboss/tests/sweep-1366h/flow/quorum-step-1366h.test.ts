@@ -4,8 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  acceptedByOf,
-  anyOf,
+  arbitratedByOf,
   countQuorumOf,
   groupsQuorumOf,
   priorityOf,
@@ -26,20 +25,13 @@ class AgentX {
 
 const asArbiter = (c: unknown): never => c as never;
 
-describe("#1366: anyOf and acceptedBy", () => {
-  it("anyOf refuses a non-class among its arbiters", () => {
-    expect(() => anyOf(ArbiterA as never, "x" as never)).toThrow(FlowSyntaxError);
-    expect(() => (anyOf as (...a: unknown[]) => unknown)(ArbiterA)).toThrow(FlowSyntaxError);
-    expect(anyOf(ArbiterA as never, ArbiterB as never).arbiters).toEqual([ArbiterA, ArbiterB]);
-  });
-
-  it("acceptedBy takes a class or an anyOf, refuses anything else", () => {
-    expect(acceptedByOf(ArbiterA).arbiters).toEqual([ArbiterA]);
-    const choice = anyOf(ArbiterA, ArbiterB);
-    expect(acceptedByOf(choice).arbiters).toEqual([ArbiterA, ArbiterB]);
-    expect(() => acceptedByOf({ arbiters: [ArbiterA, ArbiterB] })).toThrow(FlowSyntaxError);
-    expect(() => acceptedByOf(null)).toThrow(FlowSyntaxError);
-    expect(() => acceptedByOf(asArbiter(5))).toThrow(FlowSyntaxError);
+describe("#1366: arbitratedBy", () => {
+  it("takes one class, refuses anything else — no anyOf, no list", () => {
+    expect(arbitratedByOf(ArbiterA)).toBe(ArbiterA);
+    expect(() => arbitratedByOf({ arbiters: [ArbiterA, ArbiterB] })).toThrow(FlowSyntaxError);
+    expect(() => arbitratedByOf([ArbiterA, ArbiterB])).toThrow(FlowSyntaxError);
+    expect(() => arbitratedByOf(null)).toThrow(FlowSyntaxError);
+    expect(() => arbitratedByOf(asArbiter(5))).toThrow(FlowSyntaxError);
   });
 });
 

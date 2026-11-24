@@ -17,7 +17,7 @@ import {
 import { declarationOf } from "./decorators/declaration.js";
 import { isLaunching, LAUNCH_CALLS } from "./launch-step.js";
 import {
-  acceptedByLine,
+  arbitratedByLine,
   countQuorumOptions,
   groupsQuorumOptions,
   isGroupsQuorum,
@@ -97,8 +97,12 @@ class Printer {
   private launch(step: LaunchStep, depth: number): void {
     const targets = step.targets.map((target) => this.label(target)).join(", ");
     this.line(depth, `.${LAUNCH_CALLS[step.targetKind]}(${targets}${launchOptions(step)})`);
-    for (const accepted of step.acceptedBy ?? [])
-      this.line(depth, acceptedByLine(accepted, this.label));
+  }
+
+  /** `.arbitratedBy(A)` of a launch (#1282). */
+  private arbiter(step: LaunchStep | InParallelStep | ForEachItemStep, depth: number): void {
+    if (step.arbitratedBy !== undefined)
+      this.line(depth, arbitratedByLine(step.arbitratedBy, this.label));
   }
 
   /** One branch of `.inParallel([…])`: `toAgent(A).onError(StepError, skip())`. */
@@ -138,6 +142,7 @@ class Printer {
     if (step.kind === StepKind.Launch) this.launch(step, depth);
     else if (step.kind === StepKind.InParallel) this.inParallel(step, depth);
     else this.forEachItem(step, depth);
+    this.arbiter(step, depth);
   }
 
   /** `.joinQuorumGroups(` each `group(…)` with its priority and path, its options `)` (#279). */

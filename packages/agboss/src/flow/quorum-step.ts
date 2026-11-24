@@ -5,70 +5,51 @@ import {
   NodeKind,
   QuorumKind,
   StepKind,
-  type AcceptedBy,
   type ArbiterClass,
   type CountQuorum,
+  type ForEachItemStep,
   type GroupsQuorum,
+  type InParallelStep,
   type LaunchStep,
   type QuorumGroup,
   type Step,
 } from "./ast.js";
 import type { PathStart } from "./path-start.js";
-import { FlowSyntaxError } from "./launch-step.js";
+import { FlowSyntaxError, isLaunching } from "./launch-step.js";
 
 /**
- * The quorum steps of the path builder (#279), read from their arguments: `.acceptedBy(A)` /
- * `.acceptedBy(anyOf(A, B))` right after an agents' launch, `.joinQuorum({ min, max, deadline })`
- * and `.joinQuorumGroups(group(…)…, { deadline })` after it — and the order they impose: an
- * `.acceptedBy(…)` is followed by a quorum join, never by `.join()`. The typed builder makes the
- * wrong forms compile errors; these checks hold for untyped code.
+ * The quorum steps of the path builder (#279), read from their arguments: `.arbitratedBy(A)` right
+ * after a launch (#1282), `.joinQuorum({ min, max, deadline })` and `.joinQuorumGroups(group(…)…, {
+ * deadline })` after it — and the order they impose: an `.arbitratedBy(…)` is followed by a quorum
+ * join, never by `.join()`. The typed builder makes the wrong forms compile errors; these checks hold
+ * for untyped code.
  */
 
-declare const anyOfArbiters: unique symbol;
-
-/** `anyOf(A, B, …)` inside `.acceptedBy(…)` (S57): tried in order, the first that accepts wins. */
-export interface AnyOfArbiters {
-  readonly [anyOfArbiters]?: true;
-  readonly arbiters: readonly [ArbiterClass, ArbiterClass, ...ArbiterClass[]];
-}
-
-/** What `.acceptedBy(…)` takes: one `@Arbiter` class, or `anyOf(…)` of several. */
-export type ArbiterChoice = ArbiterClass | AnyOfArbiters;
-
-const ANY_OF = new WeakSet<object>();
-
-/** `anyOf(FastCodeArbiter, DeepModelArbiter)`: the model arbiter runs only when the code one rejects. */
-export function anyOf(
-  ...arbiters: readonly [ArbiterClass, ArbiterClass, ...ArbiterClass[]]
-): AnyOfArbiters {
-  if (arbiters.length < 2 || arbiters.some((arbiter) => typeof arbiter !== "function"))
-    throw new FlowSyntaxError({ message: "anyOf(…) takes two or more @Arbiter classes" });
-  const choice: AnyOfArbiters = Object.freeze({ arbiters: Object.freeze(arbiters) });
-  ANY_OF.add(choice);
-  return choice;
-}
-
-/** The `AcceptedBy` of `.acceptedBy(choice)`. */
-export function acceptedByOf(choice: unknown): AcceptedBy {
-  if (typeof choice === "function")
-    return Object.freeze({ arbiters: Object.freeze([choice as ArbiterClass]) });
-  if (typeof choice === "object" && choice !== null && ANY_OF.has(choice))
-    return Object.freeze({ arbiters: (choice as AnyOfArbiters).arbiters });
+/** The `@Arbiter` class of `.arbitratedBy(A)`: one per launch (no `anyOf`, no `and` / `or` trees). */
+export function arbitratedByOf(arbiter: unknown): ArbiterClass {
+  if (typeof arbiter === "function") return arbiter as ArbiterClass;
   throw new FlowSyntaxError({
-    message: ".acceptedBy(…) takes an @Arbiter class, or anyOf(A, B, …)",
+    message:
+      ".arbitratedBy(…) takes one @Arbiter class — the rule it decides by lives in that class",
   });
 }
 
-/** The launch `.acceptedBy(…)` extends: right after an agents' launch (or another `.acceptedBy`). */
-export function acceptingLaunch(previous: Step | undefined): LaunchStep {
-  if (previous?.kind !== StepKind.Launch)
+/** The launch `.arbitratedBy(…)` extends: right after a launch that gives answers a quorum counts. */
+export function arbitratingLaunch(
+  previous: Step | undefined,
+): LaunchStep | InParallelStep | ForEachItemStep {
+  if (!isLaunching(previous))
     throw new FlowSyntaxError({
       message:
-        ".acceptedBy(…) stands right after .toParallelAgents(…), before .joinQuorum(…) / .joinQuorumGroups(…)",
+        ".arbitratedBy(…) stands right after .inParallel([…]), .forEachItem(…) or .toParallelAgents(…), before .joinQuorum(…) / .joinQuorumGroups(…)",
     });
-  if (previous.targetKind !== NodeKind.Agent)
+  if (previous.kind === StepKind.Launch && previous.targetKind !== NodeKind.Agent)
     throw new FlowSyntaxError({
-      message: ".acceptedBy(…) judges agents' answers — after .toParallelAgents(…)",
+      message: ".arbitratedBy(…) judges answers — after .inParallel([…]) or .toParallelAgents(…)",
+    });
+  if (previous.arbitratedBy !== undefined)
+    throw new FlowSyntaxError({
+      message: ".arbitratedBy(…) is written once per launch — one @Arbiter class decides it",
     });
   return previous;
 }

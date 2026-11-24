@@ -8,7 +8,7 @@ import type { Milliseconds, WorkingDuration } from "../units/index.js";
  * Parallel launches and their joins (#273) are steps too; a child workflow (#263) is a node of kind
  * `Workflow`, entered by `.toWorkflow(W)` (a `ToStep`) or launched per item by
  * `.toParallelWorkflows(W, …)` (a `LaunchStep`); a quorum (#279) is a join that counts the answers
- * its launch's arbiters accept (`LaunchStep.acceptedBy`, `JoinStep.quorum`).
+ * its launch's arbiter accepts (`LaunchStep.arbitratedBy`, `JoinStep.quorum`).
  */
 
 /** What a node of the graph is. The values are the kind suffixes of component names. */
@@ -131,15 +131,6 @@ export interface OnErrorStep {
 /** An `@Arbiter` class (#279): decides whether an answer of a launch counts. */
 export type ArbiterClass = Class;
 
-/**
- * One `.acceptedBy(…)` of a launch (#279, S57): `.acceptedBy(A)` — one arbiter; `.acceptedBy(anyOf(A,
- * B))` — tried in order, the first that accepts accepts the answer. Several `.acceptedBy(…)` are an
- * AND, in path order.
- */
-export interface AcceptedBy {
-  readonly arbiters: readonly ArbiterClass[];
-}
-
 /** What a launch runs (#273): agents, actions, or a child workflow per item (#263). */
 export type LaunchTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow;
 
@@ -159,10 +150,10 @@ export interface LaunchStep {
   /** A per-item launch takes the first `maxItems` items (`[launch.max-items-required]`). */
   readonly maxItems?: number;
   /**
-   * `.acceptedBy(…)` after it (#279): the arbiters every branch's answer passes before a quorum
-   * counts it — they run inside the branch, in path order. Agents only, before a quorum join.
+   * `.arbitratedBy(A)` after it (#279, #1282): the one arbiter every branch's answer passes before a
+   * quorum counts it — it runs inside the branch. Agents only, before a quorum join.
    */
-  readonly acceptedBy?: readonly AcceptedBy[];
+  readonly arbitratedBy?: ArbiterClass;
 }
 
 /** What a branch of `.inParallel([…])` / `.forEachItem(…)` runs (#1279): any component a path enters. */
@@ -197,6 +188,8 @@ export interface InParallelStep {
   readonly branches: readonly ParallelBranchStep[];
   /** At most this many branches in progress at once; a limit only. */
   readonly maxConcurrency?: number;
+  /** `.arbitratedBy(A)` after it (#1282): the one arbiter every branch's answer passes before a quorum counts it. */
+  readonly arbitratedBy?: ArbiterClass;
 }
 
 /**
@@ -212,6 +205,8 @@ export interface ForEachItemStep {
   /** An intended slice: the first `takeFirst` items run, the rest are dropped, recorded. */
   readonly takeFirst?: number;
   readonly maxConcurrency?: number;
+  /** `.arbitratedBy(A)` after it (#1282): the one arbiter every item's answer passes before a quorum counts it. */
+  readonly arbitratedBy?: ArbiterClass;
 }
 
 /** `.onError(ErrorClass, toAction(X)…)`: the side path a failed launch takes. */

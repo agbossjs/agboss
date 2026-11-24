@@ -69,7 +69,7 @@ export interface QuorumSnapshot {
   readonly groups?: readonly { readonly agents: readonly string[]; readonly priority?: number }[];
 }
 
-/** One launch: who launches what, how wide, its quorum and its arbiters (`.acceptedBy`, `anyOf`). */
+/** One launch: who launches what, how wide, its quorum and its arbiter (`.arbitratedBy`). */
 export interface LaunchSnapshot {
   readonly launcher: string;
   readonly targets: readonly string[];
@@ -78,8 +78,8 @@ export interface LaunchSnapshot {
   readonly maxItems?: number;
   readonly takeFirst?: number;
   readonly quorum?: QuorumSnapshot;
-  /** Each `.acceptedBy(…)` in path order (an AND); its arbiters an `anyOf` (the first that accepts). */
-  readonly acceptedBy: readonly (readonly ArbiterSnapshot[])[];
+  /** The launch's one `.arbitratedBy(A)` arbiter. */
+  readonly arbitratedBy?: ArbiterSnapshot;
 }
 
 const nameOf = (component: Class): string =>
@@ -150,7 +150,9 @@ const launchOf = (launch: FlowLaunch, quorum: Quorum | undefined): LaunchSnapsho
   ...(launch.maxItems === undefined ? {} : { maxItems: launch.maxItems }),
   ...(launch.takeFirst === undefined ? {} : { takeFirst: launch.takeFirst }),
   ...(quorum === undefined ? {} : { quorum: quorumOf(quorum) }),
-  acceptedBy: (launch.acceptedBy ?? []).map((step) => step.arbiters.map(arbiterSnapshotOf)),
+  ...(launch.arbitratedBy === undefined
+    ? {}
+    : { arbitratedBy: arbiterSnapshotOf(launch.arbitratedBy) }),
 });
 
 /** Every launch of the graph. */

@@ -123,7 +123,7 @@ class OwnersFinish {}
   flow: [
     onStart(OwnersStart)
       .toParallelAgents(OwnerAgent, OwnerAgent)
-      .acceptedBy(ChatArbiter)
+      .arbitratedBy(ChatArbiter)
       .joinQuorum({ min: 2 })
       .toAction(OwnersAction)
       .toFinish(OwnersFinish),

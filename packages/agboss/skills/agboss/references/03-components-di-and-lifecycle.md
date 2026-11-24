@@ -622,7 +622,7 @@ export class OfferRangeJudge implements JudgeHandler<OfferDto | RefusalDto> {
 ## Arbiters in short
 
 An arbiter decides whether one branch's answer of a parallel launch counts toward a quorum
-(`.acceptedBy(X)`, reference 02). By code: `@Arbitrate(A, B)` methods covering every target of the
+(`.arbitratedBy(X)`, reference 02). By code: `@Arbitrate(A, B)` methods covering every target of the
 launch once, typed by those targets' output (`[arbiter.unhandled-target]`, `[arbiter.unknown-target]`,
 `[arbiter.duplicate-target]`); with `deps: [ArbiterModel]` the code also asks its own model; by model:
 `model`, `prompt` and one `criteria` entry per target.

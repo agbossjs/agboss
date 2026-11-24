@@ -1,6 +1,6 @@
 import type { Class } from "../components/injection.js";
 import type { LimitError } from "../core/error-families/limit-errors.js";
-import type { ErrorClass, NodeKind } from "./ast.js";
+import type { ArbiterClass, ErrorClass, NodeKind } from "./ast.js";
 import type {
   BuiltPath,
   KindLabel,
@@ -13,7 +13,7 @@ import type {
 } from "./builder-types.js";
 import type { KindOf } from "./generated-types.js";
 import type { RoutesOf } from "./route-types.js";
-import type { Quorums } from "./quorum-types.js";
+import type { Quorums, QuorumJoined, QuorumOptions } from "./quorum-types.js";
 import type { ClassOf, TargetRef } from "./target-ref.js";
 
 /**
@@ -82,7 +82,7 @@ export interface Launched<THead extends PathHead> {
   join(): Joined<THead>;
 }
 
-/** After an agents' launch: `.join()`, or its arbiters and a quorum join (#279). */
+/** After an agents' launch or `.inParallel([…])`: `.join()`, or its arbiter and a quorum join (#279, #1282). */
 export type AgentsLaunched<THead extends PathHead> = Launched<THead> & Quorums<THead>;
 
 /** `.onError(E, toAction(X)…)` right after `.join()`: a failed branch, a limit in a branch. */
@@ -139,8 +139,43 @@ export interface NeedsItemsHandler<THead extends PathHead> {
   ): [LimitError.Items] extends [ErrorInstance<TError>] ? Joined<THead> : NeedsItemsHandler<THead>;
 }
 
-/** After a `{ maxItems }` launch: `.join()`, then the mandatory `.onError(LimitError.Items, …)`. */
-export interface ItemsLaunched<THead extends PathHead> {
+/** After the quorum join of a `{ maxItems }` launch: only `.onError(…)` until one catches `LimitError.Items`. */
+export interface NeedsItemsQuorumHandler<THead extends PathHead> {
+  onError<const TError extends ErrorClass>(
+    error: TError,
+    path: SidePath,
+  ): [LimitError.Items] extends [ErrorInstance<TError>]
+    ? QuorumJoined<THead>
+    : NeedsItemsQuorumHandler<THead>;
+}
+
+/**
+ * What `.arbitratedBy(A)` after `.forEachItem(…)` gives (#1282): `.joinQuorum(…)` only — every item
+ * runs the same target, so there are no groups to tell apart. With `TNeedsItemsError` (a
+ * `{ maxItems }` launch) the join goes on with `.onError(LimitError.Items, …)` first.
+ */
+export interface PerItemArbitratedQuorums<
+  THead extends PathHead,
+  TNeedsItemsError extends boolean = false,
+> {
+  joinQuorum(
+    options: QuorumOptions,
+  ): TNeedsItemsError extends true ? NeedsItemsQuorumHandler<THead> : QuorumJoined<THead>;
+}
+
+/** After a `{ takeFirst }` launch: `.join()`, a quorum join, or `.arbitratedBy(A)` and then a quorum join. */
+export interface PerItemLaunched<
+  THead extends PathHead,
+  TNeedsItemsError extends boolean = false,
+> extends PerItemArbitratedQuorums<THead, TNeedsItemsError> {
+  arbitratedBy(arbiter: ArbiterClass): PerItemArbitratedQuorums<THead, TNeedsItemsError>;
+}
+
+/** After a `{ takeFirst }` launch (nothing throws): `.join()` too. */
+export type TakeFirstLaunched<THead extends PathHead> = Launched<THead> & PerItemLaunched<THead>;
+
+/** After a `{ maxItems }` launch: `.join()` or a quorum join, then the mandatory `.onError(LimitError.Items, …)`. */
+export interface ItemsLaunched<THead extends PathHead> extends PerItemLaunched<THead, true> {
   join(): NeedsItemsHandler<THead>;
 }
 
@@ -209,12 +244,12 @@ export interface ParallelLaunches<TValue, THead extends PathHead> {
   inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(
     branches: TBranches & BranchesCheck<TBranches>,
     options?: ParallelOptions,
-  ): Launched<THead>;
+  ): AgentsLaunched<THead>;
   /** One run of `step` per item of the list the step before gives (#1280). */
   forEachItem<const TStep extends SidePath>(
     step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>,
     options: TakeFirstOptions,
-  ): Launched<THead>;
+  ): TakeFirstLaunched<THead>;
   forEachItem<const TStep extends SidePath>(
     step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>,
     options: MaxItemsOptions,

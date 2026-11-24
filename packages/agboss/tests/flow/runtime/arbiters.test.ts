@@ -9,10 +9,12 @@ import {
   type ModelRequest,
   TestConcurrency,
 } from "../../../src/testing/index.js";
+import { usd } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
 import { ScoreDto, ScoreReviewDto } from "../fixtures/quorum-dtos.js";
 import {
   HirePanelAgent,
+  HybridPanelArbiter,
   panel,
   PanelFailedWorkflowFinish,
   PanelItemsWorkflowStart,
@@ -28,21 +30,22 @@ import {
   SkillsPanelAgent,
 } from "../fixtures/quorum-runtime-parts.js";
 import {
-  AnyOfPanelApplication,
   ChatPanelApplication,
-  ChainPanelApplication,
   CheckedPanelApplication,
   CopiesPanelApplication,
+  EachItemPanelApplication,
+  HybridPanelApplication,
   ItemPanelApplication,
   ModelPanelApplication,
+  ArbitratedPanelApplication,
   StrictPanelApplication,
 } from "../fixtures/quorum-runtime.fixture.js";
 
 /**
  * #279 PR 2 — arbiters at run time (AC5, AC6, AC12, S57): a model arbiter judges each answer by its
- * agent's criterion; a code arbiter by its `@OnAnswer` method, the copy and the item from
- * `ExecutionContext`; a chain is an AND in path order whose first rejection stops it; `anyOf` stops at
- * the first acceptance; a check still running when the quorum is decided does not count; an arbiter
+ * agent's criterion; a code arbiter by its `@Arbitrate` method, the copy and the item from
+ * `ExecutionContext`; a hybrid arbiter asks its own model only for what its code cannot decide; a
+ * check still running when the quorum is decided does not count; an arbiter
  * that fails is `ArbiterError`, never a rejection.
  */
 
@@ -50,8 +53,9 @@ import {
 const REAL = { concurrency: TestConcurrency.Real };
 const model = testWith(ModelPanelApplication, REAL);
 const checked = testWith(CheckedPanelApplication, REAL);
-const chain = testWith(ChainPanelApplication, REAL);
-const anyOf = testWith(AnyOfPanelApplication, REAL);
+const hybrid = testWith(HybridPanelApplication, REAL);
+const arbitrated = testWith(ArbitratedPanelApplication, REAL);
+const eachItem = testWith(EachItemPanelApplication, REAL);
 const items = testWith(ItemPanelApplication, REAL);
 const copies = testWith(CopiesPanelApplication, REAL);
 const strict = testWith(StrictPanelApplication, REAL);
@@ -214,52 +218,99 @@ describe("AC6: a code arbiter, the copy and the item from ExecutionContext", () 
   });
 });
 
-describe("AC12: the chain — AND in path order, anyOf, cancelled at max", () => {
-  chain("the first rejection stops the chain: the model is not asked", async ({ app, mockLlm }) => {
-    mockLlm(SkillsPanelAgent).thenReturn(score(11));
-    mockLlm(RisksPanelAgent).thenReturn(score(6));
-    mockLlm(HirePanelAgent).thenReturn(score(9));
-    mockLlm(PanelModelArbiter).thenAnswer(
-      judgeBy({ "risks-panel-agent": 0.9, "hire-panel-agent": 0.1 }),
-    );
-    mockLlm(PanelSummaryAgent).thenReturn(summary);
-
-    const result = await execute(app, PanelWorkflowStart, ANNA);
-
-    expect(result.launches[0]?.branches).toMatchObject([
-      { verdict: BranchVerdict.Rejected, rejectedBy: ["in-range-arbiter"] },
-      { verdict: BranchVerdict.Counted },
-      { verdict: BranchVerdict.Rejected, rejectedBy: ["panel-model-arbiter"] },
-    ]);
-    const judged = mockLlm(PanelModelArbiter).requests.map(textOf);
-    expect(judged).toHaveLength(2);
-    expect(judged.join()).not.toContain("(from skills-panel-agent)");
-  });
-
-  anyOf(
-    "anyOf stops at the first that accepts: the model only for what the code rejects",
+describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, cancelled at max", () => {
+  hybrid(
+    "a hybrid arbiter decides at $0 what its code can and asks its own model for the rest (#1283)",
     async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(11));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(12));
-      mockLlm(PanelModelArbiter).thenAnswer(
-        judgeBy({ "skills-panel-agent": 0.9, "hire-panel-agent": 0.1 }),
-      );
+      mockLlm(SkillsPanelAgent).thenReturn(score(9)); // clear: counted by code
+      mockLlm(RisksPanelAgent).thenReturn(score(6)); // borderline: its model is asked
+      mockLlm(HirePanelAgent).thenReturn(score(2)); // clear: rejected by code
+      mockLlm(HybridPanelArbiter).thenReturn(decideWith({ acceptable: 0.9 }, { cost: usd(0.002) }));
       mockLlm(PanelSummaryAgent).thenReturn(summary);
 
       const result = await execute(app, PanelWorkflowStart, ANNA);
 
+      expect(result).toFinishWith(PanelReviewWorkflowFinish);
       expect(result.launches[0]?.branches).toMatchObject([
         { verdict: BranchVerdict.Counted },
         { verdict: BranchVerdict.Counted },
-        {
-          verdict: BranchVerdict.Rejected,
-          rejectedBy: ["in-range-arbiter", "panel-model-arbiter"],
-        },
+        { verdict: BranchVerdict.Rejected, rejectedBy: ["hybrid-panel-arbiter"] },
       ]);
-      const judged = mockLlm(PanelModelArbiter).requests.map(textOf);
-      expect(judged).toHaveLength(2);
-      expect(judged.join()).not.toContain("(from risks-panel-agent)");
+      expect(mockLlm(HybridPanelArbiter).requests).toHaveLength(1);
+      expect(result.spend.byCaller["arbiter:hybrid-panel-arbiter"]).toBe(0.002);
+    },
+  );
+
+  hybrid(
+    "a hybrid arbiter that fails after its model call is ArbiterError, and the call's spend is in the ledger (#1399)",
+    async ({ app, mockLlm }) => {
+      mockLlm(SkillsPanelAgent).thenReturn(score(5)); // asks its model, then throws
+      mockLlm(RisksPanelAgent).thenReturn(score(9));
+      mockLlm(HirePanelAgent).thenReturn(score(9));
+      mockLlm(HybridPanelArbiter).thenReturn(decideWith({ acceptable: 0.9 }, { cost: usd(0.002) }));
+
+      const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
+
+      expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
+      expect(result.record?.lastError).toMatchObject({
+        code: "step.arbiter",
+        details: { arbiter: "hybrid-panel-arbiter" },
+      });
+      expect(result.spend.byCaller["arbiter:hybrid-panel-arbiter"]).toBe(0.002);
+    },
+  );
+
+  arbitrated(
+    ".inParallel([…]) takes .arbitratedBy(A) and a quorum, as .toParallelAgents does (#1282)",
+    async ({ app, mockLlm }) => {
+      mockLlm(SkillsPanelAgent).thenReturn(score(11));
+      mockLlm(RisksPanelAgent).thenReturn(score(6));
+      mockLlm(HirePanelAgent).thenReturn(score(9));
+      mockLlm(PanelSummaryAgent).thenReturn(summary);
+
+      const result = await execute(app, PanelWorkflowStart, ANNA);
+
+      expect(result).toFinishWith(PanelReviewWorkflowFinish);
+      expect(result.launches[0]?.branches).toMatchObject([
+        { verdict: BranchVerdict.Rejected, rejectedBy: ["in-range-arbiter"] },
+        { verdict: BranchVerdict.Counted },
+        { verdict: BranchVerdict.Counted },
+      ]);
+    },
+  );
+
+  arbitrated(
+    "an .inParallel([…]) quorum no arbiter lets reach min is not reached",
+    async ({ app, mockLlm }) => {
+      mockLlm(SkillsPanelAgent).thenReturn(score(0));
+      mockLlm(RisksPanelAgent).thenReturn(score(11));
+      mockLlm(HirePanelAgent).thenReturn(score(9));
+
+      const result = await execute(app, PanelWorkflowStart, ANNA);
+
+      expect(result).toFinishWith(PanelFailedWorkflowFinish, ANNA);
+    },
+  );
+
+  eachItem(
+    ".forEachItem(…) takes .arbitratedBy(A) and .joinQuorum(…): the arbiter reads the item (#1282)",
+    async ({ app, mockLlm }) => {
+      mockLlm(SkillsPanelAgent).thenReturnAlways(score(5));
+      mockLlm(PanelSummaryAgent).thenReturn(summary);
+      const six = ["a", "b", "c", "d", "e", "f"].map((name) => ({ name }));
+
+      const result = await execute(app, PanelItemsWorkflowStart, six);
+
+      expect(result).toFinishWith(PanelReviewWorkflowFinish);
+      // the launch took the first five items; only the even ones (0, 2, 4) count
+      const verdicts = result.launches[0]?.branches.map((branch) => branch.verdict);
+      expect(verdicts).toEqual([
+        BranchVerdict.Counted,
+        BranchVerdict.Rejected,
+        BranchVerdict.Counted,
+        BranchVerdict.Rejected,
+        BranchVerdict.Counted,
+      ]);
     },
   );
 

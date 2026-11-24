@@ -1,9 +1,9 @@
 import type { Milliseconds } from "../units/index.js";
-import { QuorumKind, type AcceptedBy, type CountQuorum, type GroupsQuorum } from "./ast.js";
+import { QuorumKind, type ArbiterClass, type CountQuorum, type GroupsQuorum } from "./ast.js";
 import type { ComponentLabel } from "./print.js";
 
 /**
- * How the printout writes a quorum (#279): `.acceptedBy(A)` / `.acceptedBy(anyOf(A, B))`, the
+ * How the printout writes a quorum (#279): `.arbitratedBy(A)`, the
  * options of `.joinQuorum({ min, max, deadline })` and `.joinQuorumGroups(…, { deadline })`, a
  * deadline in the unit it reads best in (`seconds(30)`, `minutes(2)`, `hours(1)`).
  */
@@ -18,14 +18,9 @@ export function durationText(duration: Milliseconds): string {
   return `seconds(${String(duration / 1000)})`;
 }
 
-/** `.acceptedBy(GoodScoreArbiter)`, `.acceptedBy(anyOf(FastArbiter, DeepArbiter))`. */
-export function acceptedByLine(accepted: AcceptedBy, label: ComponentLabel): string {
-  const names = accepted.arbiters.map((arbiter) => label(arbiter));
-  const [one] = names;
-  return names.length === 1 && one !== undefined
-    ? `.acceptedBy(${one})`
-    : `.acceptedBy(anyOf(${names.join(", ")}))`;
-}
+/** `.arbitratedBy(GoodScoreArbiter)`. */
+export const arbitratedByLine = (arbiter: ArbiterClass, label: ComponentLabel): string =>
+  `.arbitratedBy(${label(arbiter)})`;
 
 /** `{ min: 2, max: 3, deadline: seconds(30) }`, as written. */
 export function countQuorumOptions(quorum: CountQuorum): string {

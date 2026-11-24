@@ -36,7 +36,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)`                  | a launch: each listed target runs once, a repeat is a copy                                                                                                                                                                                        | `[launch.join-required]`, `[launch.branch-continued]`                                                        |
 | `.toParallelAgents(X, { maxItems })` after a step whose output is a list                    | one run per item of the list                                                                                                                                                                                                                      | `[launch.max-items-required]`, `[launch.item-not-read]`, `[launch.max-items-without-list]`                   |
 | `.join()` → `.onError(E, …)`                                                                | where a launch's values meet; a failed branch's side path                                                                                                                                                                                         | `[launch.unjoinable-output]`, `[launch.branch-outdates-sibling]`                                             |
-| `.acceptedBy(X)` / `.acceptedBy(anyOf(X, Y))` → `.joinQuorum({ min, max, deadline })`       | count the accepted answers instead of waiting for all                                                                                                                                                                                             | `[flow.quorum-impossible]`, `[arbiter.*]`                                                                    |
+| `.arbitratedBy(X)` → `.joinQuorum({ min, max, deadline })`                                  | count the accepted answers instead of waiting for all                                                                                                                                                                                             | `[flow.quorum-impossible]`, `[arbiter.*]`                                                                    |
 | `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                              | the first complete group (by priority) continues its own path                                                                                                                                                                                     | `[flow.quorum-impossible]`                                                                                   |
 | `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                     | a child workflow: one, chosen by a router, or one per item                                                                                                                                                                                        | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
 | `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` — `05-channels-and-human-in-the-loop.md`                                                                                                                | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
@@ -1177,9 +1177,11 @@ Launch rules:
 
 ## 5. Quorums, groups and arbiters
 
-After `.toParallelAgents(…)` a join may count answers instead of waiting for all. `@Arbiter` classes
-decide whether an answer counts: several `.acceptedBy(…)` are an AND in path order,
-`.acceptedBy(anyOf(A, B))` stops at the first that accepts.
+After `.inParallel([…])` (or `.toParallelAgents(…)`) a join may count answers instead of waiting for
+all. One `@Arbiter` class — `.arbitratedBy(A)`, once per launch — decides whether an answer counts;
+how it decides (code, model, or code that asks its own model through `ArbiterModel`) lives in that
+class, never in the flow: no `and` / `or` of arbiters, no `anyOf`. A method takes the answer of its
+targets — `ArbiterAnswerOf<typeof A>` is one target's, `ArbitratedAnswerOf<[typeof A, typeof B]>` the union.
 
 ```ts file=src/panel/dto/panel-candidate.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -1304,8 +1306,7 @@ export class PanelUndecidedWorkflowFinish {}
 ```
 
 ```ts file=src/panel/arbiters/score-range/score-range.arbiter.ts
-import { Arbiter, DecidedBy, Arbitrate } from "@agboss/core";
-import type { ArbiterAnswerOf } from "@agboss/core";
+import { Arbiter, Arbitrate, type ArbitratedAnswerOf } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
@@ -1313,29 +1314,19 @@ import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.j
 // by code: @Arbitrate(…targets) methods covering every target of the launch once; the name is yours
 @Arbiter({ name: "score-range-arbiter" })
 export class ScoreRangeArbiter {
-  @Arbitrate(SkillsPanelAgent)
-  fromSkillsPanel(answer: ArbiterAnswerOf<typeof SkillsPanelAgent>): boolean {
-    return this.isInRange(answer.score);
-  }
-
-  @Arbitrate(CulturePanelAgent)
-  fromCulturePanel(answer: ArbiterAnswerOf<typeof CulturePanelAgent>): boolean {
-    return this.isInRange(answer.score);
-  }
-
-  @Arbitrate(RiskPanelAgent)
-  fromRiskPanel(answer: ArbiterAnswerOf<typeof RiskPanelAgent>): boolean {
-    return this.isInRange(answer.score);
-  }
-
-  private isInRange(score: number): boolean {
-    return score >= 1 && score <= 10;
+  @Arbitrate(SkillsPanelAgent, CulturePanelAgent, RiskPanelAgent)
+  isInRange(
+    answer: ArbitratedAnswerOf<
+      [typeof SkillsPanelAgent, typeof CulturePanelAgent, typeof RiskPanelAgent]
+    >,
+  ): boolean {
+    return answer.score >= 1 && answer.score <= 10;
   }
 }
 ```
 
 ```ts file=src/panel/arbiters/reasoned-score/reasoned-score.arbiter.ts
-import { Arbiter, DecidedBy, onAgent } from "@agboss/core";
+import { Arbiter } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
@@ -1354,42 +1345,45 @@ import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.j
 export class ReasonedScoreArbiter {}
 ```
 
-```ts file=src/panel/arbiters/has-reason/has-reason.arbiter.ts
-import { Arbiter, DecidedBy, Arbitrate } from "@agboss/core";
-import type { ArbiterAnswerOf } from "@agboss/core";
+A code arbiter that lists `ArbiterModel` in `deps` decides what it can at `$0` and asks its own model
+(`model`, resolved like every model: its provider, its workflow's, its application's) only where it
+must — one class for the whole rule, so the flow names _which_ rule applies, never how it escalates:
+
+```ts file=src/panel/arbiters/panel-score/panel-score.arbiter.ts
+import { Arbiter, ArbiterModel, Arbitrate, Decision, type ArbitratedAnswerOf } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
-@Arbiter({ name: "has-reason-arbiter" })
-export class HasReasonArbiter {
-  @Arbitrate(SkillsPanelAgent)
-  fromSkillsPanel(answer: ArbiterAnswerOf<typeof SkillsPanelAgent>): boolean {
-    return answer.reason.length > 40;
-  }
+@Arbiter({ name: "panel-score-arbiter", model: "typesafe/jev-1.13", deps: [ArbiterModel] })
+export class PanelScoreArbiter {
+  constructor(private readonly arbiterModel: ArbiterModel) {}
 
-  @Arbitrate(CulturePanelAgent)
-  fromCulturePanel(answer: ArbiterAnswerOf<typeof CulturePanelAgent>): boolean {
-    return answer.reason.length > 40;
-  }
-
-  @Arbitrate(RiskPanelAgent)
-  fromRiskPanel(answer: ArbiterAnswerOf<typeof RiskPanelAgent>): boolean {
-    return answer.reason.length > 40;
+  @Arbitrate(SkillsPanelAgent, CulturePanelAgent, RiskPanelAgent)
+  async isCounted(
+    answer: ArbitratedAnswerOf<
+      [typeof SkillsPanelAgent, typeof CulturePanelAgent, typeof RiskPanelAgent]
+    >,
+  ): Promise<boolean> {
+    if (answer.score < 1 || answer.score > 10) return false; // code, `$0`
+    if (answer.reason.length > 200) return true; // code, `$0`
+    const read = await this.arbiterModel.decide({
+      state: `Score ${String(answer.score)}: ${answer.reason}`,
+      questions: { counts: Decision.boolean("The reason names something concrete") },
+    });
+    return read.counts.probability > 0.7; // budget-checked and charged as arbiter:panel-score-arbiter
   }
 }
 ```
 
 ```ts file=src/panel/workflows/panel/panel.workflow.ts
-import { QuorumNotReachedError, Workflow, anyOf, listOf, onStart, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { PanelVerdictAgent } from "../../agents/panel-verdict/panel-verdict.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
-import { HasReasonArbiter } from "../../arbiters/has-reason/has-reason.arbiter.js";
-import { ReasonedScoreArbiter } from "../../arbiters/reasoned-score/reasoned-score.arbiter.js";
-import { ScoreRangeArbiter } from "../../arbiters/score-range/score-range.arbiter.js";
+import { PanelScoreArbiter } from "../../arbiters/panel-score/panel-score.arbiter.js";
 import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 import { PanelVerdictDto } from "../../dto/panel-verdict.dto.js";
@@ -1402,9 +1396,12 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(SkillsPanelAgent, CulturePanelAgent, RiskPanelAgent)
-      .acceptedBy(ScoreRangeArbiter) // AND, in path order: the cheap check first
-      .acceptedBy(anyOf(HasReasonArbiter, ReasonedScoreArbiter)) // the model only when the code rejects
+      .inParallel([
+        toAgent(SkillsPanelAgent),
+        toAgent(CulturePanelAgent),
+        toAgent(RiskPanelAgent),
+      ])
+      .arbitratedBy(PanelScoreArbiter) // one arbiter; its code asks its own model only where it must
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) }) // two accepted answers are enough
       .onError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish)) // one output class from several agents: a list, in counting order
       .toAgent(PanelVerdictAgent)
@@ -1579,7 +1576,7 @@ export class DealWorkflow {}
 
 Quorum rules:
 
-- `.acceptedBy(…)` stands between the launch and the quorum (`.acceptedBy(…).join()` does not compile).
+- `.arbitratedBy(X)` stands between the launch and the quorum (`.arbitratedBy(…).join()` does not compile), once per launch; after `.forEachItem(…)` only `.joinQuorum(…)` follows (no groups).
 - A code arbiter's `@Arbitrate(…targets)` methods cover every target class of the launch exactly
   once — `[arbiter.unhandled-target]`, `[arbiter.unknown-target]`, `[arbiter.duplicate-target]`; a
   void `@Action` has nothing to judge (`[arbiter.branch-has-no-output]`); an undecorated class is

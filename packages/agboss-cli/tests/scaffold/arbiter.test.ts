@@ -11,7 +11,10 @@ const AGENT = (name: string, id: string) =>
   `@Agent({ name: "${id}", description: "x" })\nexport class ${name} {}\n`;
 
 /** A project whose workflow launches `launches` (each a list of agent classes). */
-function projectWith(launches: readonly (readonly string[])[]): string {
+function projectWith(
+  launches: readonly (readonly string[])[],
+  form: "toParallelAgents" | "inParallel" = "toParallelAgents",
+): string {
   const root = mkdtempSync(join(tmpdir(), "agboss-arbiter-"));
   mkdirSync(join(root, "src/review/agents"), { recursive: true });
   const agents = [...new Set(launches.flat())];
@@ -25,8 +28,12 @@ function projectWith(launches: readonly (readonly string[])[]): string {
       return `import { ${agent} } from "./agents/${id}.agent.js";`;
     })
     .join("\n");
+  const call = (launch: readonly string[]) =>
+    form === "inParallel"
+      ? `.inParallel([${launch.map((agent) => `toAgent(${agent})`).join(", ")}])`
+      : `.toParallelAgents(${launch.join(", ")})`;
   const paths = launches
-    .map((launch) => `onStart(S).toParallelAgents(${launch.join(", ")}).joinQuorum({ min: 1 })`)
+    .map((launch) => `onStart(S)${call(launch)}.joinQuorum({ min: 1 })`)
     .join(",\n");
   const review = {
     module: "src/review/review.workflow.ts",
@@ -62,6 +69,14 @@ describe("#279: agboss generate arbiter", () => {
     expect(file?.content.match(/@Arbitrate\(/g)).toHaveLength(1);
   });
 
+  it("the agents of an .inParallel([toAgent(A), …]) launch are judged too", async () => {
+    const root = projectWith([["ScoreAAgent", "CriticAgent"]], "inParallel");
+
+    const { create } = await planGenerate("arbiter", "valid-score-arbiter", options, root);
+
+    expect(create[0]?.content).toContain("@Arbitrate(ScoreAAgent, CriticAgent)");
+  });
+
   it("several launches: --agent names the one to judge", async () => {
     const root = projectWith([["ScoreAAgent"], ["CriticAgent", "AuditAgent"]]);
 
@@ -82,7 +97,7 @@ describe("#279: agboss generate arbiter", () => {
     const root = projectWith([]);
 
     await expect(planGenerate("arbiter", "pick-arbiter", options, root)).rejects.toThrow(
-      "has no .toParallelAgents(…) launch to judge",
+      "has no agents' launch (.inParallel([…]), .forEachItem(…) or .toParallelAgents(…)) to judge",
     );
   });
 

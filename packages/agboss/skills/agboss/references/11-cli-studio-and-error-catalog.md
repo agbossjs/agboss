@@ -204,7 +204,7 @@ export function codesOf(error: unknown): readonly RuleCode[] {
 ```
 
 A path that cannot even be built — a launch right after a join, a `.join()` after
-`.acceptedBy(…)` — fails when the module loads with `FlowSyntaxError` (`flow.syntax`), naming the
+`.arbitratedBy(…)` — fails when the module loads with `FlowSyntaxError` (`flow.syntax`), naming the
 call; most of these are compile errors first.
 
 ## Studio
@@ -314,7 +314,7 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[launch.branch-continued]`           | a launched class is continued somewhere else too                                          | `CheckAgent` launched and also `.toAgent(CheckAgent)` → a second class, or a child workflow per item |
 | `[launch.branch-outdates-sibling]`    | a branch renews a value a sibling of the same launch read                                 | a branch returning a new `DraftDto` while another reads `DraftDto` → move the rewrite after the join |
 | `[flow.quorum-impossible]`            | `min` above what can run, or a group that can never complete                              | `.joinQuorum({ min: 4 })` over three agents → `min: 2`, or launch more                               |
-| `[arbiter.not-an-arbiter]`            | `.acceptedBy(X)` with an undecorated `X`                                                  | decorate it `@Arbiter({ … })`                                                                        |
+| `[arbiter.not-an-arbiter]`            | `.arbitratedBy(X)` with an undecorated `X`                                                | decorate it `@Arbiter({ … })`                                                                        |
 | `[arbiter.unhandled-target]`          | a code arbiter has no method (a model arbiter no criterion) for a target                  | add `@Arbitrate(RiskAgent) isMeaningful(answer): boolean` / a `criteria` entry                       |
 | `[arbiter.unknown-target]`            | a method or criterion for a target the launch does not run                                | remove the `@Arbitrate(OldAgent)` method                                                             |
 | `[arbiter.duplicate-target]`          | two methods or criteria for one target class                                              | keep one; share a rule through a private method                                                      |

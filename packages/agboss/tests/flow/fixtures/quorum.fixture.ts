@@ -1,7 +1,6 @@
 import {
   onAction,
   onAgent,
-  anyOf,
   group,
   route,
   onStart,
@@ -51,7 +50,7 @@ import {
 import { ScoreDto } from "./quorum-dtos.js";
 
 /**
- * #279 — the issue's quorums, each a workflow: any two of three with a deadline and `anyOf(…)`
+ * #279 — the issue's quorums, each a workflow: any two of three with a deadline and an arbiter
  * arbiters, different DTOs left out of a quorum (`optional`), a per-item launch with a chain of a
  * code and a model arbiter, and groups with priority continuing their own paths. They pass the
  * analyser; their runtime is #279 PR 2.
@@ -102,7 +101,7 @@ export class ValidScoreArbiter {}
   flow: [
     onStart(CandidateReviewWorkflowStart)
       .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
-      .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))
+      .arbitratedBy(ValidScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
       .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
       .toAgent(ScoreSummaryAgent)
@@ -152,8 +151,7 @@ export class ConvincingReasonArbiter {}
     onStart(CompanySearchWorkflowStart)
       .toAgent(BoardSearchAgent)
       .toParallelAgents(CompanyVetAgent, { maxItems: 50 })
-      .acceptedBy(GoodScoreArbiter)
-      .acceptedBy(ConvincingReasonArbiter)
+      .arbitratedBy(ConvincingReasonArbiter)
       .joinQuorum({ min: 5, deadline: minutes(2) })
       .toAgent(CompanyShortlistAgent)
       .toFinish(CompanyShortlistWorkflowFinish),
@@ -187,7 +185,7 @@ export class DueDiligenceArbiter {}
         FastScreenAgent,
         { maxConcurrency: 4 },
       )
-      .acceptedBy(DueDiligenceArbiter)
+      .arbitratedBy(DueDiligenceArbiter)
       .joinQuorumGroups(
         group(LegalAgent, DealCriticAgent)
           .priority(1)

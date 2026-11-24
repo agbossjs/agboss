@@ -90,6 +90,7 @@ export function parallelLaunchOf(
     branches: [...branches.values()],
     listed,
     ...(step.maxConcurrency === undefined ? {} : { maxConcurrency: step.maxConcurrency }),
+    ...(step.arbitratedBy === undefined ? {} : { arbitratedBy: step.arbitratedBy }),
     ...(chosen.size === 0 ? {} : { chooser: { routes: [...chosen] } }),
     isRouterLaunch: chosen.size > 0,
   };

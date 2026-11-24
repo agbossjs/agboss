@@ -41,7 +41,7 @@ function liveOf(isDecided: boolean) {
 }
 
 const ticket = { index: 3, node: "agent" } as never;
-const arbiters = { launch: { launch: { acceptedBy: [{}] } }, deps: {} } as never;
+const arbiters = { launch: { launch: { arbitratedBy: (() => undefined) as never } }, deps: {} } as never;
 
 describe("#1366: the mark of a judged answer", () => {
   it("an answer judged while the quorum was decided is no mark: its place left, the spend of its arbiters kept", async () => {

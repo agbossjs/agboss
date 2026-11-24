@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { anyOf, group, onStart, toFinish } from "../../src/flow/builder.js";
+import { group, onStart, toFinish } from "../../src/flow/builder.js";
 import { ExecutionContext } from "../../src/flow/context/execution-context.js";
 import {
   Arbiter,
@@ -61,18 +61,22 @@ const deal = () =>
 const fastGroup = () => group(FastScreenAgent).priority(3).toFinish(QuickRejectWorkflowFinish);
 
 describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
-  it("options are always an object; .acceptedBy(…).join() does not compile", () => {
+  it("options are always an object; .arbitratedBy(…).join() does not compile", () => {
     // @ts-expect-error — the number shorthand is gone: .joinQuorum({ min: 2 })
     scores().joinQuorum(2);
-    // @ts-expect-error — after .acceptedBy(…) a quorum join, never .join()
-    scores().acceptedBy(ValidScoreArbiter).join();
+    // @ts-expect-error — after .arbitratedBy(…) a quorum join, never .join()
+    scores().arbitratedBy(ValidScoreArbiter).join();
     // @ts-expect-error — a deadline has a unit: seconds(30), not 30
     scores().joinQuorum({ min: 2, deadline: 30 });
     scores()
-      .acceptedBy(GoodScoreArbiter)
-      .acceptedBy(anyOf(GoodScoreArbiter, ValidScoreArbiter))
+      .arbitratedBy(GoodScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) });
-    expectTypeOf(scores().acceptedBy(ValidScoreArbiter)).toHaveProperty("joinQuorumGroups");
+    // @ts-expect-error — one arbiter per launch: .arbitratedBy(A).arbitratedBy(B) does not compile (no anyOf, no and / or)
+    scores().arbitratedBy(GoodScoreArbiter).arbitratedBy(ValidScoreArbiter);
+    // @ts-expect-error — anyOf(…) is gone with .acceptedBy(…)
+    const gone: unknown = index.anyOf;
+    expectTypeOf(gone).toBeUnknown();
+    expectTypeOf(scores().arbitratedBy(ValidScoreArbiter)).toHaveProperty("joinQuorumGroups");
   });
 
   it("AC4: .onError right after the quorum, .onJoinError does not compile", () => {

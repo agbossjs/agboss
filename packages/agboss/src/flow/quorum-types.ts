@@ -1,5 +1,5 @@
 import type { Milliseconds } from "../units/index.js";
-import type { ErrorClass } from "./ast.js";
+import type { ArbiterClass, ErrorClass } from "./ast.js";
 import type {
   BuiltPath,
   GroupHead,
@@ -8,11 +8,10 @@ import type {
   SidePath,
   Transitions,
 } from "./builder-types.js";
-import type { ArbiterChoice } from "./quorum-step.js";
 
 /**
- * The types of quorums (#279): after `.toParallelAgents(…)` the launch takes `.acceptedBy(A)` /
- * `.acceptedBy(anyOf(A, B))` (then never `.join()`), and a quorum join —
+ * The types of quorums (#279): after `.inParallel([…])` (or `.toParallelAgents(…)`) the launch takes
+ * `.arbitratedBy(A)` — one `@Arbiter` class (#1282; then never `.join()`) — and a quorum join —
  * `.joinQuorum({ min, max, deadline })`, which goes on with `.onError(…)` and a transition, or
  * `.joinQuorumGroups(group(…)…, { deadline })`, whose groups continue their own path. What the
  * counted answers give is derived by the analyser (#1270): after `.joinQuorum(…)` with `min` below
@@ -69,13 +68,21 @@ export type GroupsCheck<TArgs extends readonly unknown[]> = {
 };
 
 /**
- * What an agents' launch takes besides `.join()` (#279): its arbiters, then a quorum join. After
- * `.acceptedBy(…)` only these: `.acceptedBy(…).join()` does not compile (AC12).
+ * What `.arbitratedBy(A)` of a launch of fixed branches (`.inParallel([…])`) gives (#1282): a quorum
+ * join, never `.join()` (AC12) — `.joinQuorum(…)` or `.joinQuorumGroups(…)`.
  */
-export interface Quorums<THead extends PathHead> {
-  acceptedBy(arbiter: ArbiterChoice): Quorums<THead>;
+export interface FixedArbitratedQuorums<THead extends PathHead> {
   joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
   joinQuorumGroups<const TArgs extends GroupArguments>(
     ...groups: TArgs & GroupsCheck<TArgs>
   ): GroupsJoined<THead>;
+}
+
+/**
+ * What a launch of fixed branches takes besides `.join()` (#279): a quorum join as it is (every
+ * answer counts), or `.arbitratedBy(A)` — one `@Arbiter` class — and then a quorum join.
+ */
+export interface Quorums<THead extends PathHead> extends FixedArbitratedQuorums<THead> {
+  /** The one arbiter whose rule decides which answers count. */
+  arbitratedBy(arbiter: ArbiterClass): FixedArbitratedQuorums<THead>;
 }

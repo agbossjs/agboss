@@ -7,7 +7,6 @@
 export {
   onAction,
   onAgent,
-  anyOf,
   caseOf,
   group,
   onExternalTask,
@@ -67,6 +66,7 @@ export type {
   WorkflowLaunchOptions,
 } from "../flow/launch-types.js";
 export type {
+  FixedArbitratedQuorums,
   GroupPath,
   GroupStart,
   GroupsJoined,
@@ -75,12 +75,10 @@ export type {
   QuorumOptions,
   Quorums,
 } from "../flow/quorum-types.js";
-export type { AnyOfArbiters, ArbiterChoice } from "../flow/quorum-step.js";
 export {
   NodeKind,
   QuorumKind,
   StepKind,
-  type AcceptedBy,
   type ArbiterClass,
   type ChooseOneRoute,
   type ChooseOneStep,

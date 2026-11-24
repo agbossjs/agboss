@@ -28,6 +28,7 @@ import {
   ScoreCAgent,
   SkillsScoreAgent,
   FastScreenAgent,
+  OpenDealRoomAction,
 } from "../fixtures/quorum-agents.js";
 import {
   CultureScoreDto,
@@ -48,7 +49,7 @@ import {
   GoodScoreArbiter,
   ValidScoreArbiter,
 } from "../fixtures/quorum.fixture.js";
-import { onAgent, group, onStart } from "../fixtures/paths.js";
+import { onAgent, group, onStart, toAction, toAgent } from "../fixtures/paths.js";
 
 /** #279 PR 1 — quorums in the analyser: impossible quorums, what `.returns` may promise, arbiters. */
 
@@ -299,7 +300,7 @@ class UndecoratedArbiter {
 const scored = (arbiter: unknown) => [
   onStart(FitReviewWorkflowStart)
     .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
-    .acceptedBy(arbiter)
+    .arbitratedBy(arbiter)
     .joinQuorum({ min: 2 })
     .toAgent(FitSummaryAgent)
     .toFinish(FitSummaryWorkflowFinish),
@@ -333,14 +334,9 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
     ]);
   });
 
-  it("a criterion covers every item of a per-item launch; a chain of a code and a model arbiter", () => {
+  it("a criterion covers every item of a per-item launch", () => {
     const flow = [
-      shortlisted(
-        searched()
-          .acceptedBy(GoodScoreArbiter)
-          .acceptedBy(ConvincingReasonArbiter)
-          .joinQuorum({ min: 5 }),
-      ),
+      shortlisted(searched().arbitratedBy(ConvincingReasonArbiter).joinQuorum({ min: 5 })),
     ];
     expect(codesOf(flow)).toEqual([]);
   });
@@ -348,7 +344,7 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
   it("a criterion covers every copy of a repeated agent", () => {
     const flow = [
       dealLaunch()
-        .acceptedBy(DueDiligenceArbiter)
+        .arbitratedBy(DueDiligenceArbiter)
         .joinQuorumGroups(
           group(LegalAgent, DealCriticAgent)
             .toAgent(FullReviewAgent)
@@ -364,7 +360,7 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
       {
         code: "arbiter.not-an-arbiter",
         message:
-          ".acceptedBy(UndecoratedArbiter): UndecoratedArbiter has no @Arbiter decorator — decorate it with @Arbiter({ … })",
+          ".arbitratedBy(UndecoratedArbiter): UndecoratedArbiter has no @Arbiter decorator — decorate it with @Arbiter({ … })",
       },
     ]);
     expect(arbiterErrorsOf(BadlyNamedArbiter)).toEqual([
@@ -375,7 +371,7 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
     ]);
   });
 
-  it("every arbiter of anyOf(…) and of a chain is checked; a good one adds nothing", () => {
+  it("a good arbiter adds nothing", () => {
     expect(arbiterErrorsOf(ValidScoreArbiter)).toEqual([]);
   });
 });
@@ -400,5 +396,42 @@ describe("#279 AC6: a code arbiter has one @Arbitrate(Agent) method per agent", 
 
   it("a variadic @Arbitrate(A, B, C) method covers every target it names", () => {
     expect(arbiterErrorsOf(OneMethodArbiter)).toEqual([]);
+  });
+});
+
+describe("#1282: an arbiter of an .inParallel([…]) or .forEachItem(…) launch", () => {
+  const parallel = (branches: readonly ReturnType<typeof toAgent>[]) => [
+    onStart(FitReviewWorkflowStart)
+      .inParallel(branches)
+      .arbitratedBy(ValidScoreArbiter)
+      .joinQuorum({ min: 2 })
+      .toAgent(FitSummaryAgent)
+      .toFinish(FitSummaryWorkflowFinish),
+  ];
+
+  it("judges the branches of .inParallel([…]) as it does those of .toParallelAgents(…)", () => {
+    const flow = parallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)]);
+
+    expect(errorsOf(flow).filter(({ code }) => code.startsWith("arbiter."))).toEqual([]);
+  });
+
+  it("a target of the launch the arbiter has no criterion for is unhandled; one it names and the launch lacks is unknown", () => {
+    const flow = parallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent)]);
+
+    expect(
+      errorsOf(flow)
+        .filter(({ code }) => code.startsWith("arbiter."))
+        .map(({ code }) => code),
+    ).toEqual(["arbiter.unknown-target"]);
+  });
+
+  it("a void @Action branch gives the arbiter nothing to judge", () => {
+    const flow = parallel([toAgent(ScoreAAgent), toAction(OpenDealRoomAction)]);
+
+    expect(errorsOf(flow).filter(({ code }) => code === "arbiter.branch-has-no-output")).toEqual([
+      expect.objectContaining({
+        message: expect.stringContaining("an @Action without an output") as unknown,
+      }),
+    ]);
   });
 });

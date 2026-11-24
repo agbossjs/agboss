@@ -730,9 +730,10 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
 .priority(1).to…(…), …, { deadline })`, where every group continues its own path (1
   is the highest priority; nothing follows the groups but `.onError(E, …)`). `@Arbiter`
   classes (`arbiters/*.arbiter.ts`, `-arbiter`) decide whether an answer counts, attached with
-  `.acceptedBy(X)` between the launch and the quorum (`.acceptedBy(…).join()` does not compile):
-  several `.acceptedBy(…)` are an AND in path order, `.acceptedBy(anyOf(A, B))` stops at the first
-  that accepts (S57). `criteria: [{ target, prompt }]` with `model` and `prompt` — a model arbiter, one
+  `.arbitratedBy(X)` between the launch and the quorum (`.arbitratedBy(…).join()` does not compile):
+  one arbiter per launch (#1282: no `anyOf`, no and / or — the rule and its escalation from code to a
+  model live in the class), after `.inParallel([…])`, `.forEachItem(…)` (`.joinQuorum(…)` only) or
+  `.toParallelAgents(…)`. `criteria: [{ target, prompt }]` with `model` and `prompt` — a model arbiter, one
   entry per target of the launch; `@Arbitrate(A, B, …) isMeaningful(answer: XDto): boolean` — an
   arbiter of code, a method per one or more targets (copy / item through `deps: [ExecutionContext]`);
   `deps: [ArbiterModel]` (+ `model`) lets that code ask its own model where it must (charged under
@@ -1087,7 +1088,7 @@ export const childPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, onStart } from "@agboss/core";
+import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, group, onStart, toAgent } from "@agboss/core";
 import { Integer, Text, listOf, optional } from "@agboss/core/dto";
 import { minutes, seconds } from "@agboss/core/units";
 
@@ -1190,8 +1191,8 @@ export class ValidScoreArbiter {}
 export const quorumPaths = [
   // any two of three: the counted answers only, the third cancelled
   onStart(CandidateWorkflowStart)
-    .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
-    .acceptedBy(anyOf(InRangeArbiter, ValidScoreArbiter)) // the model only when the code rejects
+    .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)])
+    .arbitratedBy(ValidScoreArbiter) // one arbiter; a hybrid one asks its own model only where its code cannot decide
     .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
     .toAgent(ScoreSummaryAgent)
     .toFinish(ScoreReviewWorkflowFinish),

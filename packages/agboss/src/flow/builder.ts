@@ -22,11 +22,12 @@ import type { ClaimsOf } from "./one-of-types.js";
 import type {
   BranchesCheck,
   BranchCheck,
+  AgentsLaunched,
   ItemsLaunched,
   MaxItemsOptions,
+  TakeFirstLaunched,
   TakeFirstOptions,
   LaunchCheck,
-  Launched,
   ParallelOptions,
 } from "./launch-types.js";
 import { fromSource, subPathFrom, type PathBuilder } from "./path-builder.js";
@@ -38,11 +39,10 @@ import type { ClassOf, TargetRef } from "./target-ref.js";
  * The path builder (#272): `onStart(S)…`, `onAgent(X)…`, `onRouter(R)…`, `onAction(X)…`, `onWorkflow(W)…`
  * (#263), `onExternalTask(Q)…` (#659) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
  * `toRouter(R)…`, `toExternalTask(Q)…` (#910), `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `group(A, …)…` of `.joinQuorumGroups(…)`
- * (#279) begin a sub-path and return the same builder; `anyOf(A, B)` goes inside `.acceptedBy(…)`.
+ * (#279) begin a sub-path and return the same builder.
  */
 
 export { FlowSyntaxError } from "./path-builder.js";
-export { anyOf } from "./quorum-step.js";
 export { skip, type Skip } from "./parallel-step.js";
 
 /** A path from a start: `onStart(S).toAgent(A)…`. */
@@ -189,7 +189,7 @@ export function toFinish(target: Class): unknown {
 export function inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(
   branches: TBranches & BranchesCheck<TBranches>,
   options?: ParallelOptions,
-): Launched<SideHead>;
+): AgentsLaunched<SideHead>;
 export function inParallel(branches: unknown, options?: unknown): unknown {
   return sidePath().inParallel(branches, options);
 }
@@ -198,7 +198,7 @@ export function inParallel(branches: unknown, options?: unknown): unknown {
 export function forEachItem<const TStep extends SidePath>(
   step: TStep & BranchCheck<TStep>,
   options: TakeFirstOptions,
-): Launched<SideHead>;
+): TakeFirstLaunched<SideHead>;
 export function forEachItem<const TStep extends SidePath>(
   step: TStep & BranchCheck<TStep>,
   options: MaxItemsOptions,

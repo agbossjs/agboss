@@ -207,7 +207,7 @@ export function arbiterApplication(modelProvider?: Class): Class {
     flow: [
       onStart(ArbStart)
         .toParallelAgents(ArbAgent, ArbAgent)
-        .acceptedBy(ArbArbiter)
+        .arbitratedBy(ArbArbiter)
         .joinQuorum({ min: 2 })
         .toAction(ArbAction)
         .toFinish(ArbFinish),

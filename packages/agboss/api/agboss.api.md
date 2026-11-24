@@ -244,12 +244,6 @@ export interface A2ATaskStatus {
 // @public
 export type A2ATerminalTaskState = A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Canceled | A2ATaskState.Rejected;
 
-// @public
-export interface AcceptedBy {
-    // (undocumented)
-    readonly arbiters: readonly ArbiterClass[];
-}
-
 // @public (undocumented)
 export function Action<const TDeps extends readonly Token[] = []>(options: ActionOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => ExecuteMethod>(value: TClass) => TClass;
 
@@ -683,17 +677,6 @@ export type AnswersOf<Q extends DecisionQuestions> = {
 };
 
 // @public
-export function anyOf(...arbiters: readonly [ArbiterClass, ArbiterClass, ...ArbiterClass[]]): AnyOfArbiters;
-
-// @public
-export interface AnyOfArbiters {
-    // (undocumented)
-    readonly [anyOfArbiters]?: true;
-    // (undocumented)
-    readonly arbiters: readonly [ArbiterClass, ArbiterClass, ...ArbiterClass[]];
-}
-
-// @public
 export type AnyPiiAction = MaskingPiiAction | BlockAction;
 
 // @public
@@ -836,9 +819,6 @@ export function Arbiter<const TDeps extends readonly Token[] = []>(options?: Cod
 
 // @public
 export type ArbiterAnswerOf<TTarget extends Class> = ProducerOutputOf<InstanceType<TTarget>>;
-
-// @public
-export type ArbiterChoice = ArbiterClass | AnyOfArbiters;
 
 // @public
 export type ArbiterClass = Class;
@@ -4302,6 +4282,14 @@ interface FinishHandling<TInstance, THead extends PathHead, TRemaining> {
 }
 
 // @public
+export interface FixedArbitratedQuorums<THead extends PathHead> {
+    // (undocumented)
+    joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
+    // (undocumented)
+    joinQuorumGroups<const TArgs extends GroupArguments>(...groups: TArgs & GroupsCheck<TArgs>): GroupsJoined<THead>;
+}
+
+// @public
 export interface FlowDefaults {
     // (undocumented)
     readonly maxPathDepth?: number;
@@ -4412,7 +4400,7 @@ declare namespace FlowTypes {
 }
 
 // @public
-export function forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep>, options: TakeFirstOptions): Launched<SideHead>;
+export function forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep>, options: TakeFirstOptions): TakeFirstLaunched<SideHead>;
 
 // @public (undocumented)
 export function forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep>, options: MaxItemsOptions): ItemsLaunched<SideHead>;
@@ -4422,6 +4410,7 @@ export type ForEachItemOptions = TakeFirstOptions | MaxItemsOptions;
 
 // @public
 export interface ForEachItemStep {
+    readonly arbitratedBy?: ArbiterClass;
     // (undocumented)
     readonly branch: ParallelBranchStep;
     // (undocumented)
@@ -5393,10 +5382,11 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 }
 
 // @public
-export function inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(branches: TBranches & BranchesCheck<TBranches>, options?: ParallelOptions): Launched<SideHead>;
+export function inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(branches: TBranches & BranchesCheck<TBranches>, options?: ParallelOptions): AgentsLaunched<SideHead>;
 
 // @public
 export interface InParallelStep {
+    readonly arbitratedBy?: ArbiterClass;
     readonly branches: readonly ParallelBranchStep[];
     // (undocumented)
     readonly kind: StepKind.InParallel;
@@ -5534,7 +5524,7 @@ type ItemsCheck<TValue> = [LastValue<TValue>] extends [never] ? {
 };
 
 // @public
-export interface ItemsLaunched<THead extends PathHead> {
+export interface ItemsLaunched<THead extends PathHead> extends PerItemLaunched<THead, true> {
     // (undocumented)
     join(): NeedsItemsHandler<THead>;
 }
@@ -5803,7 +5793,7 @@ export interface LaunchRecord {
 
 // @public
 export interface LaunchStep {
-    readonly acceptedBy?: readonly AcceptedBy[];
+    readonly arbitratedBy?: ArbiterClass;
     // (undocumented)
     readonly kind: StepKind.Launch;
     readonly maxConcurrency?: number;
@@ -6670,6 +6660,12 @@ export interface NeedsItemsHandler<THead extends PathHead> {
 }
 
 // @public
+export interface NeedsItemsQuorumHandler<THead extends PathHead> {
+    // (undocumented)
+    onError<const TError extends ErrorClass>(error: TError, path: SidePath): [LimitError.Items] extends [ErrorInstance<TError>] ? QuorumJoined<THead> : NeedsItemsQuorumHandler<THead>;
+}
+
+// @public
 export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
 
 // @public
@@ -7396,10 +7392,10 @@ export interface ParallelBranchStep {
 
 // @public
 export interface ParallelLaunches<TValue, THead extends PathHead> {
-    forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>, options: TakeFirstOptions): Launched<THead>;
+    forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>, options: TakeFirstOptions): TakeFirstLaunched<THead>;
     // (undocumented)
     forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>, options: MaxItemsOptions): ItemsLaunched<THead>;
-    inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(branches: TBranches & BranchesCheck<TBranches>, options?: ParallelOptions): Launched<THead>;
+    inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(branches: TBranches & BranchesCheck<TBranches>, options?: ParallelOptions): AgentsLaunched<THead>;
 }
 
 // @public
@@ -8104,6 +8100,18 @@ export interface PeriodBudgetOptions<TDeps extends readonly Token[]> extends Dec
 }
 
 // @public
+export interface PerItemArbitratedQuorums<THead extends PathHead, TNeedsItemsError extends boolean = false> {
+    // (undocumented)
+    joinQuorum(options: QuorumOptions): TNeedsItemsError extends true ? NeedsItemsQuorumHandler<THead> : QuorumJoined<THead>;
+}
+
+// @public
+export interface PerItemLaunched<THead extends PathHead, TNeedsItemsError extends boolean = false> extends PerItemArbitratedQuorums<THead, TNeedsItemsError> {
+    // (undocumented)
+    arbitratedBy(arbiter: ArbiterClass): PerItemArbitratedQuorums<THead, TNeedsItemsError>;
+}
+
+// @public
 export const PiiAction: {
     readonly mask: {
         (): MaskAction;
@@ -8615,13 +8623,8 @@ export interface QuorumOptions {
 }
 
 // @public
-export interface Quorums<THead extends PathHead> {
-    // (undocumented)
-    acceptedBy(arbiter: ArbiterChoice): Quorums<THead>;
-    // (undocumented)
-    joinQuorum(options: QuorumOptions): QuorumJoined<THead>;
-    // (undocumented)
-    joinQuorumGroups<const TArgs extends GroupArguments>(...groups: TArgs & GroupsCheck<TArgs>): GroupsJoined<THead>;
+export interface Quorums<THead extends PathHead> extends FixedArbitratedQuorums<THead> {
+    arbitratedBy(arbiter: ArbiterClass): FixedArbitratedQuorums<THead>;
 }
 
 // @public
@@ -10246,6 +10249,9 @@ export interface SwitchStep {
     // (undocumented)
     readonly kind: StepKind.Switch;
 }
+
+// @public
+export type TakeFirstLaunched<THead extends PathHead> = Launched<THead> & PerItemLaunched<THead>;
 
 // @public
 export interface TakeFirstOptions {
@@ -12218,7 +12224,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "error".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "path".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "targetKind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "target".
@@ -12414,6 +12419,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "takeFirst".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxConcurrency".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "onError".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "onError".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "joinQuorum".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "arbitratedBy".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "join".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "chooseMany".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "forEachItem".
@@ -12453,11 +12461,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "__error".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "onFinish".
 // src/flow/parallel-step.ts - (ae-undocumented) Missing documentation for "[SKIP]".
-// src/flow/quorum-step.ts - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
-// src/flow/quorum-step.ts - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "deadline".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "priority".
-// src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "acceptedBy".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "joinQuorum".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "joinQuorumGroups".
 // src/flow/route-types.ts - (ae-undocumented) Missing documentation for "onRoute".

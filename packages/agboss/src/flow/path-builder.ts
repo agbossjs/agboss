@@ -17,8 +17,8 @@ import { caseOfPath, oneOfStepOf, onFinishStepOf, routeOf, routeOfPath } from ".
 import * as parallel from "./parallel-step.js";
 import { FlowSyntaxError, launchOrderProblem, launchStepOf, siteOf } from "./launch-step.js";
 import {
-  acceptedByOf,
-  acceptingLaunch,
+  arbitratedByOf,
+  arbitratingLaunch,
   countQuorumOf,
   groupsQuorumOf,
   prioritisedStart,
@@ -65,7 +65,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return new PathBuilder(this.start, this.source, [...this.steps, recordStepSpan(step)]);
   }
 
-  /** The last step replaced: a join extended, a launch given one more arbiter. */
+  /** The last step replaced: a join extended, a launch given its arbiter. */
   private withLast(step: Step): PathBuilder<TSource> {
     const replaced = this.last;
     const kept = replaced === undefined ? step : carryStepSpan(replaced, step);
@@ -205,11 +205,10 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.joined();
   }
 
-  /** `.acceptedBy(A)` / `.acceptedBy(anyOf(A, B))` (#279): one more arbiter of the launch, AND. */
-  acceptedBy(choice: unknown): PathBuilder<TSource> {
-    const launch = acceptingLaunch(this.last);
-    const acceptedBy = Object.freeze([...(launch.acceptedBy ?? []), acceptedByOf(choice)]);
-    return this.withLast(Object.freeze({ ...launch, acceptedBy }));
+  /** `.arbitratedBy(A)` (#1282): the one arbiter every answer of the launch passes before a quorum counts it. */
+  arbitratedBy(arbiter: unknown): PathBuilder<TSource> {
+    const launch = arbitratingLaunch(this.last);
+    return this.withLast(Object.freeze({ ...launch, arbitratedBy: arbitratedByOf(arbiter) }));
   }
 
   /** `.joinQuorum({ min, max, deadline })` (#279): goes on with the counted answers. */

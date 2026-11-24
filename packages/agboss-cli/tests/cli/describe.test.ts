@@ -174,10 +174,11 @@ describe("#268 S93: agboss describe --json is the declarative snapshot the recor
               expect.objectContaining({
                 launcher: "panel-workflow-start",
                 quorum: { kind: "count", min: 2, max: 3, deadline: 30_000 },
-                acceptedBy: [
-                  [{ name: "in-range-arbiter", kind: "arbiter", decidedBy: "code" }],
-                  [expect.objectContaining({ decidedBy: "model", promptHash: HASH })],
-                ],
+                arbitratedBy: {
+                  name: "panel-score-arbiter",
+                  kind: "arbiter",
+                  decidedBy: "code",
+                },
               }),
             ],
           }),

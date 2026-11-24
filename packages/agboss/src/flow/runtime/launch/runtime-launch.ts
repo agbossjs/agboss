@@ -104,8 +104,8 @@ export function launchesOf(edges: readonly FlowEdge[]): ReadonlyMap<string, Runt
 
 /** Every `@Arbiter` class of the graph's launches (#279), once each, in the order first attached. */
 export function arbiterClassesOf(launches: readonly RuntimeLaunch[]): readonly ArbiterClass[] {
-  const chains = launches.flatMap((launch) => launch.launch.acceptedBy ?? []);
-  return [...new Set(chains.flatMap((step) => step.arbiters))];
+  const arbiters = launches.flatMap((launch) => launch.launch.arbitratedBy ?? []);
+  return [...new Set(arbiters)];
 }
 
 /** A model arbiter by its `name` and `model` (#279): a model use of the workflow. */

@@ -37,7 +37,7 @@ import type { BudgetOwnerQuestion, BudgetOwnerReplyInterpreter, CheckLimitAction
 import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, CompanySearchWorkflowStart, CompanyShortlistAgent, CompanyShortlistWorkflowFinish, CompanyVetAgent, CultureScoreAgent, DealCriticAgent, DealRoomOpenedWorkflowFinish, DealWorkflowStart, DueDiligenceReportWorkflowFinish, FastScreenAgent, FitReviewWorkflowStart, FitSummaryAgent, FitSummaryWorkflowFinish, FullReviewAgent, LegalAgent, NotifyReviewerAction, OpenDealRoomAction, QuickRejectWorkflowFinish, ReviewerNotifiedWorkflowFinish, SalaryFitAgent, ScoreAAgent, ScoreBAgent, ScoreCAgent, ScoreReviewFailedWorkflowFinish, ScoreReviewWorkflowFinish, ScoreSummaryAgent, SecondOpinionRouter, SkillsScoreAgent } from "../tests/flow/fixtures/quorum-agents.js";
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
 import type { ConfirmScoreTool, CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent, WaitTool } from "../tests/flow/fixtures/quorum-runtime-parts.js";
-import type { AnyOfPanelWorkflow, ChainPanelWorkflow, ChatPanelWorkflow, CheckedPanelWorkflow, CopiesPanelWorkflow, DealPanelWorkflow, ItemPanelWorkflow, ModelPanelWorkflow, QuickPanelWorkflow, RecoveryPanelWorkflow, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
+import type { ArbitratedPanelWorkflow, ChatPanelWorkflow, CheckedPanelWorkflow, CopiesPanelWorkflow, DealPanelWorkflow, EachItemPanelWorkflow, HybridPanelWorkflow, ItemPanelWorkflow, ModelPanelWorkflow, QuickPanelWorkflow, RecoveryPanelWorkflow, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
 import type { CardRefundsWorkflow, RefundApprovalChannel, RefundCardInputDto, RefundCardOutputDto, RefundCardTool, RefundClerkAgent, RefundWorkflowFinish, RefundWorkflowStart } from "../tests/flow/fixtures/refunds.fixture.js";
@@ -322,11 +322,11 @@ declare module "../src/flow/generated-types.js" {
         | { message: Produced<WorkflowStartTextDto, typeof HelpDeskWorkflowStart>; order: Produced<OrderStatusDto, typeof OrderLookupAgent>; refund?: undefined; loyalty?: undefined };
       "answer-router": { order: Produced<OrderStatusDto, typeof OrderAgent> };
       "answer-workflow-finish": NoInput;
-      "any-of-panel-workflow": CandidateDto;
       "approval-agent": { order: Produced<CreditOrderDto, typeof OrderIntakeAgent> };
       "approved-workflow-finish": NoInput;
       "approver-question": { ask: Produced<PurchaseQuestionDto, never> };
       "approver-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
+      "arbitrated-panel-workflow": CandidateDto;
       "article-draft-agent": { request: Produced<ArticleRequestDto, typeof ArticleWorkflowStart> };
       "article-draft-workflow-finish": NoInput;
       "article-workflow": ArticleRequestDto;
@@ -359,7 +359,6 @@ declare module "../src/flow/generated-types.js" {
       "candidate-review-workflow-start": CandidateDto;
       "card-refunds-workflow": WorkflowStartTextDto;
       "cfo-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
-      "chain-panel-workflow": CandidateDto;
       "charge-card-action":
         | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval: Produced<CreditApprovalDto, typeof ApprovalAgent> }
         | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval?: undefined };
@@ -442,6 +441,7 @@ declare module "../src/flow/generated-types.js" {
       "draft-reviewer-agent": { article: Produced<ArticleDto, typeof ArticleDraftAgent> };
       "due-diligence-report-workflow-finish": NoInput;
       "due-diligence-workflow": DealDto;
+      "each-item-panel-workflow": readonly CandidateDto[];
       "edge-once-question": { ask: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
       "edge-once-reply-interpreter": { readonly ask: PurchaseQuestionDto; readonly reply: string };
       "edge-once-workflow": WorkflowStartTextDto;
@@ -515,6 +515,7 @@ declare module "../src/flow/generated-types.js" {
       "hire-panel-agent": { candidate: Produced<CandidateDto, typeof PanelWorkflowStart> };
       "history-offer-workflow": ShortlistDto;
       "history-offer-workflow-start": ShortlistDto;
+      "hybrid-panel-workflow": CandidateDto;
       "intake-workflow-start": WorkflowStartTextDto;
       "item-blind-agent": { readonly __error: "[launch.item-not-read] broken-screening-workflow: item-blind-agent runs once per CompanyDto of listOf(CompanyDto) (screening-agent → toParallelAgents(item-blind-agent)), but reads no CompanyDto — add an input field of type CompanyDto" };
       "item-panel-workflow": readonly CandidateDto[];
@@ -2768,11 +2769,8 @@ declare module "../tests/flow/fixtures/quorum-runtime-parts.js" {
 }
 
 declare module "../tests/flow/fixtures/quorum-runtime.fixture.js" {
-  interface AnyOfPanelWorkflow {
-    readonly [agbossComponent]?: { readonly name: "any-of-panel-workflow"; readonly kind: NodeKind.Workflow };
-  }
-  interface ChainPanelWorkflow {
-    readonly [agbossComponent]?: { readonly name: "chain-panel-workflow"; readonly kind: NodeKind.Workflow };
+  interface ArbitratedPanelWorkflow {
+    readonly [agbossComponent]?: { readonly name: "arbitrated-panel-workflow"; readonly kind: NodeKind.Workflow };
   }
   interface ChatPanelWorkflow {
     readonly [agbossComponent]?: { readonly name: "chat-panel-workflow"; readonly kind: NodeKind.Workflow };
@@ -2785,6 +2783,12 @@ declare module "../tests/flow/fixtures/quorum-runtime.fixture.js" {
   }
   interface DealPanelWorkflow {
     readonly [agbossComponent]?: { readonly name: "deal-panel-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface EachItemPanelWorkflow {
+    readonly [agbossComponent]?: { readonly name: "each-item-panel-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface HybridPanelWorkflow {
+    readonly [agbossComponent]?: { readonly name: "hybrid-panel-workflow"; readonly kind: NodeKind.Workflow };
   }
   interface ItemPanelWorkflow {
     readonly [agbossComponent]?: { readonly name: "item-panel-workflow"; readonly kind: NodeKind.Workflow };

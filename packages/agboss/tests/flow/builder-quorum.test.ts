@@ -8,7 +8,6 @@ import {
   type FlowPath,
   type JoinStep,
 } from "../../src/flow/ast.js";
-import { anyOf } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { flowLines } from "../../src/flow/print.js";
 import { FlowSyntaxError } from "../../src/flow/launch-step.js";
@@ -30,7 +29,7 @@ import {
   QuickScoreArbiter,
   ValidScoreArbiter,
 } from "./fixtures/quorum.fixture.js";
-import { group, onStart } from "./fixtures/paths.js";
+import { group, onStart, toAgent } from "./fixtures/paths.js";
 
 /** #279 PR 1 — quorums in the path builder, the printout, `describe` and assembly. */
 
@@ -46,16 +45,28 @@ const lastJoin = (steps: FlowPath["steps"]): JoinStep | undefined =>
   steps.flatMap((step) => (step.kind === StepKind.Join ? [step] : [])).pop();
 
 describe("#279: the AST of quorums", () => {
-  it("acceptedBy on the launch, in path order; anyOf keeps its order", () => {
+  it("arbitratedBy sits on the launch, one arbiter, whichever launch it is", () => {
     const path = launched()
-      .acceptedBy(GoodScoreArbiter)
-      .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))
+      .arbitratedBy(GoodScoreArbiter)
       .joinQuorum({ min: 1, max: 2, deadline: seconds(30) });
     const launch = path.steps.find((step) => step.kind === StepKind.Launch);
-    expect(launch?.kind === StepKind.Launch ? launch.acceptedBy : undefined).toEqual([
-      { arbiters: [GoodScoreArbiter] },
-      { arbiters: [QuickScoreArbiter, ValidScoreArbiter] },
-    ]);
+    expect(launch?.kind === StepKind.Launch ? launch.arbitratedBy : undefined).toBe(
+      GoodScoreArbiter,
+    );
+    const parallel = onStart(FitReviewWorkflowStart)
+      .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent)])
+      .arbitratedBy(ValidScoreArbiter)
+      .joinQuorum({ min: 1 });
+    const each = onStart(FitReviewWorkflowStart)
+      .forEachItem(toAgent(ScoreAAgent), { takeFirst: 3 })
+      .arbitratedBy(QuickScoreArbiter)
+      .joinQuorum({ min: 1 });
+    expect(parallel.steps.find((step) => step.kind === StepKind.InParallel)).toMatchObject({
+      arbitratedBy: ValidScoreArbiter,
+    });
+    expect(each.steps.find((step) => step.kind === StepKind.ForEachItem)).toMatchObject({
+      arbitratedBy: QuickScoreArbiter,
+    });
     expect(lastJoin(path.steps)?.quorum).toEqual({
       kind: QuorumKind.Count,
       min: 1,
@@ -88,22 +99,35 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
     ["max below min", () => launched().joinQuorum({ min: 2, max: 1 }), "at least min"],
     ["a bare deadline", () => launched().joinQuorum({ min: 1, deadline: -1 }), "positive duration"],
     [
-      "acceptedBy then .join()",
-      () => launched().acceptedBy(GoodScoreArbiter).join(),
+      "arbitratedBy then .join()",
+      () => launched().arbitratedBy(GoodScoreArbiter).join(),
       "not .join()",
     ],
     [
-      "acceptedBy without a launch",
-      () => onStart(FitReviewWorkflowStart).acceptedBy(GoodScoreArbiter),
+      "arbitratedBy without a launch",
+      () => onStart(FitReviewWorkflowStart).arbitratedBy(GoodScoreArbiter),
       "right after",
     ],
     [
-      "acceptedBy after actions",
+      "arbitratedBy after actions",
       () =>
         onStart(FitReviewWorkflowStart)
           .toParallelActions(OpenDealRoomAction)
-          .acceptedBy(GoodScoreArbiter),
-      "judges agents",
+          .arbitratedBy(GoodScoreArbiter),
+      "judges answers",
+    ],
+    [
+      "arbitratedBy twice: one arbiter decides a launch",
+      () => launched().arbitratedBy(GoodScoreArbiter).arbitratedBy(ValidScoreArbiter),
+      "once per launch",
+    ],
+    [
+      "a quorum of groups after forEachItem",
+      () =>
+        onStart(FitReviewWorkflowStart)
+          .forEachItem(toAgent(ScoreAAgent), { takeFirst: 2 })
+          .joinQuorumGroups(group(ScoreAAgent).toFinish(NotifyReviewerAction)),
+      "one target per item",
     ],
     [
       "a quorum of actions",
@@ -113,14 +137,7 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
           .joinQuorum({ min: 1 }),
       "agents' answers",
     ],
-    ["acceptedBy of a non-class", () => launched().acceptedBy("x"), "an @Arbiter class"],
-    [
-      "anyOf of one arbiter",
-      () => {
-        Reflect.apply(anyOf, undefined, [GoodScoreArbiter]);
-      },
-      "two or more",
-    ],
+    ["arbitratedBy of a non-class", () => launched().arbitratedBy("x"), "one @Arbiter class"],
     [
       "groups with min",
       () =>
@@ -154,10 +171,10 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
 });
 
 describe("#279 AC9: the printout and describe", () => {
-  it("prints acceptedBy, anyOf and the quorum's options as written", () => {
+  it("prints arbitratedBy and the quorum's options as written", () => {
     expect(flowLines(flowOf(CandidateReviewWorkflow))).toEqual(
       expect.arrayContaining([
-        "  .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))",
+        "  .arbitratedBy(ValidScoreArbiter)",
         "  .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })",
       ]),
     );

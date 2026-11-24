@@ -28,7 +28,7 @@ export enum BranchStatus {
 
 /**
  * What a quorum made of a finished branch's answer (#279 S26): `Counted` — it took a place (only
- * these enter the path scope); `Rejected` — an arbiter of its `.acceptedBy(…)` chain said no;
+ * these enter the path scope); `Rejected` — its `.arbitratedBy(…)` arbiter said no;
  * `Surplus` — accepted after the quorum was already decided (`max` taken, a group won, the deadline
  * passed).
  */
@@ -94,7 +94,7 @@ export interface BranchOutcomeRecord {
   /** Under a quorum (#279): what became of its answer, and its place in the counting order. */
   readonly verdict?: BranchVerdict;
   readonly acceptedSequence?: number;
-  /** The arbiters that rejected it (every one of an `anyOf(…)`), by `name`. */
+  /** The arbiter that rejected it, by `name`. */
   readonly rejectedBy?: readonly string[];
 }
 

@@ -106,7 +106,7 @@ export function launchOf(
     ...(step.maxConcurrency === undefined ? {} : { maxConcurrency: step.maxConcurrency }),
     ...(step.maxItems === undefined ? {} : { maxItems: step.maxItems }),
     isRouterLaunch: launcher.kind === NodeKind.Router,
-    ...(step.acceptedBy === undefined ? {} : { acceptedBy: step.acceptedBy }),
+    ...(step.arbitratedBy === undefined ? {} : { arbitratedBy: step.arbitratedBy }),
   };
 }
 

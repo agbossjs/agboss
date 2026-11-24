@@ -26,6 +26,7 @@ import {
   ParallelPanelWriterAgent,
 } from "../fixtures/in-parallel.fixture.js";
 import { PlanResearcherAgent } from "../fixtures/launch.fixture.js";
+import { GoodScoreArbiter } from "../fixtures/quorum.fixture.js";
 
 /** #1279a: `.inParallel([…])` takes branches, skip() stands on a branch only, `.join()` follows. */
 
@@ -107,6 +108,45 @@ describe("#1279a: .inParallel([…branches], options?)", () => {
       "toAgent",
     );
     expectTypeOf(needing.onError(StepError, toFinish(RankingWorkflowFinish))).not.toHaveProperty(
+      "toAgent",
+    );
+  });
+
+  it("a quorum follows .inParallel([…]) and .forEachItem(…), with or without .arbitratedBy(A) (#1282)", () => {
+    const parallel = planned().inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent)]);
+    expectTypeOf(parallel).toHaveProperty("join");
+    expectTypeOf(parallel.joinQuorum({ min: 1 })).toHaveProperty("toAgent");
+    expectTypeOf(parallel.arbitratedBy(GoodScoreArbiter)).toHaveProperty("joinQuorumGroups");
+    expectTypeOf(parallel.arbitratedBy(GoodScoreArbiter).joinQuorum({ min: 1 })).toHaveProperty(
+      "toAgent",
+    );
+    // @ts-expect-error — after .arbitratedBy(…) a quorum join, never .join()
+    parallel.arbitratedBy(GoodScoreArbiter).join();
+    // @ts-expect-error — one arbiter per launch
+    parallel.arbitratedBy(GoodScoreArbiter).arbitratedBy(GoodScoreArbiter);
+
+    const listed = onStart(ScreeningWorkflowStart).toAgent(ScreeningAgent);
+    const taken = listed.forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 3 });
+    expectTypeOf(taken).toHaveProperty("join");
+    expectTypeOf(taken.joinQuorum({ min: 1 })).toHaveProperty("toAgent");
+    expectTypeOf(taken.arbitratedBy(GoodScoreArbiter).joinQuorum({ min: 1 })).toHaveProperty(
+      "toAgent",
+    );
+    // @ts-expect-error — every item runs one target: there are no groups to tell apart
+    const groups: unknown = taken.arbitratedBy(GoodScoreArbiter).joinQuorumGroups;
+    expectTypeOf(groups).toBeUnknown();
+    // @ts-expect-error — after .arbitratedBy(…) a quorum join, never .join()
+    taken.arbitratedBy(GoodScoreArbiter).join();
+
+    const strict = listed
+      .forEachItem(toAgent(CompanyAuditAgent), { maxItems: 3 })
+      .arbitratedBy(GoodScoreArbiter)
+      .joinQuorum({ min: 1 });
+    expectTypeOf(strict).not.toHaveProperty("toAgent");
+    expectTypeOf(strict.onError(LimitError.Items, toFinish(RankingWorkflowFinish))).toHaveProperty(
+      "toAgent",
+    );
+    expectTypeOf(strict.onError(StepError, toFinish(RankingWorkflowFinish))).not.toHaveProperty(
       "toAgent",
     );
   });

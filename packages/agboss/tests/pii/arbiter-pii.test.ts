@@ -90,7 +90,7 @@ class OwnersFinish {}
   flow: [
     onStart(OwnersStart)
       .toParallelAgents(ContactAnswerAgent, ContactAnswerAgent)
-      .acceptedBy(ContactArbiter)
+      .arbitratedBy(ContactArbiter)
       .joinQuorum({ min: 2 })
       .toAction(OwnersAction)
       .toFinish(OwnersFinish),

@@ -1,7 +1,7 @@
 import type { Class } from "../../components/injection.js";
 import {
   NodeKind,
-  type AcceptedBy,
+  type ArbiterClass,
   type ErrorClass,
   type ParallelTargetKind,
   type Quorum,
@@ -98,8 +98,8 @@ export interface FlowLaunch {
   readonly chooser?: { readonly routes: readonly ComponentName[] };
   /** Launched right after a router: its routes' policies apply. */
   readonly isRouterLaunch: boolean;
-  /** `.acceptedBy(…)` (#279): the arbiters each answer passes, in path order. */
-  readonly acceptedBy?: readonly AcceptedBy[];
+  /** `.arbitratedBy(A)` (#279, #1282): the one arbiter each answer passes. */
+  readonly arbitratedBy?: ArbiterClass;
 }
 
 /** The `group(…)` of `.joinQuorumGroups(…)` a join edge continues (#279). */
