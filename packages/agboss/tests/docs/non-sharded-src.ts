@@ -77,6 +77,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/a2a/a2a-card-source.ts",
     "src/a2a/client/a2a-agent-config.ts",
     "src/a2a/client/a2a-call-bounds.ts",
+    "src/a2a/client/a2a-card-shape.ts",
     "src/a2a/client/a2a-client-cache.ts",
     "src/a2a/client/a2a-client-reads.ts",
     "src/a2a/a2a-endpoint.decorator.ts",
