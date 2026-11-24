@@ -1,4 +1,4 @@
-import { Flag, Integer, Text } from "../../../src/dto/index.js";
+import { Bool, Integer, Text } from "../../../src/dto/index.js";
 
 /**
  * DTOs of the #273 examples (with `PlanDto`, `ResearchDto`, `CritiqueDto` of `review-dtos.ts` and
@@ -14,7 +14,7 @@ export class CompanyCheckDto {
   @Text({ prompt: "the company checked" })
   name!: string;
 
-  @Flag({ prompt: "whether the company passed the check" })
+  @Bool({ prompt: "whether the company passed the check" })
   passed!: boolean;
 }
 

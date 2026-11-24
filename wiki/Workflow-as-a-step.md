@@ -20,7 +20,7 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 
 <!-- snippet-context
 import { Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAgent, caseOf, onStart, toAction, toFinish, onWorkflow } from "@agboss/core";
-import { Flag, Text, WorkflowStartTextDto, listOf, oneOf, optional } from "@agboss/core/dto";
+import { Bool, Text, WorkflowStartTextDto, listOf, oneOf, optional } from "@agboss/core/dto";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
@@ -39,7 +39,7 @@ export class VendorRejectedDto {
   reason!: string;
 }
 export class VendorCheckFailedDto {
-  @Flag({ prompt: "the check could not be done" })
+  @Bool({ prompt: "the check could not be done" })
   failed!: boolean;
 }
 export class VendorRankingDto {
@@ -571,7 +571,7 @@ and each subtopic researched the same way:
 
 <!-- snippet-context
 import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, onAction, caseOf, onStart, toAction, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
-import { Integer, ListOf, Text, listOf, oneOf } from "@agboss/core/dto";
+import { Integer, List, Text, listOf, oneOf } from "@agboss/core/dto";
 
 export class TopicDto {
   @Text({ prompt: "the topic" })
@@ -584,7 +584,7 @@ export class TopicReportDto {
   text!: string;
 }
 export class TopicTooBroadDto {
-  @ListOf(Text, { prompt: "the subtopics" })
+  @List(Text, { prompt: "the subtopics" })
   subtopics!: string[];
 }
 export class TopicFailedDto {

@@ -3,7 +3,7 @@ import { Channel } from "../../../src/components/decorators.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
-import { Flag, Text } from "../../../src/dto/index.js";
+import { Bool, Text } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -32,7 +32,7 @@ export class ListOrderDto {
 }
 
 export class ListDecisionDto {
-  @Flag({ prompt: "whether the order goes on" })
+  @Bool({ prompt: "whether the order goes on" })
   approved!: boolean;
 }
 

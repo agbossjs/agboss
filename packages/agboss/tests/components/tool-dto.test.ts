@@ -5,7 +5,7 @@ import { McpServer, McpServerClient } from "../../src/mcp/index.js";
 import { mcpServerStub } from "../../src/testing/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { toolOf } from "../../src/components/runtime.js";
-import { DtoError, Integer, ListOf, Nested, Text, Url } from "../../src/dto/index.js";
+import { DtoError, Integer, List, Nested, Text, Url } from "../../src/dto/index.js";
 import { toolDefinitionOf, type ToolInvocationContext } from "../../src/tools/index.js";
 import { testConfig, testDefaults } from "../helpers.js";
 import { starOf } from "../fixtures/test-flow/star.js";
@@ -21,7 +21,7 @@ class Link {
 }
 
 class JobPick {
-  @ListOf(Link, { prompt: "the jobs to keep", minItems: 1 })
+  @List(Link, { prompt: "the jobs to keep", minItems: 1 })
   jobs!: Link[];
 
   @Integer({ prompt: "how many at most", min: 1, default: 2 })
@@ -29,7 +29,7 @@ class JobPick {
 }
 
 class JobKept {
-  @ListOf(Text)
+  @List(Text)
   kept!: string[];
 }
 

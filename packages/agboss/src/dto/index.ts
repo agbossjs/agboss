@@ -5,20 +5,20 @@
 import "../polyfills/symbol-metadata.js";
 
 export {
+  Bool,
   CountryCode,
   CurrencyCode,
-  Date,
-  DateTime,
-  Decimal,
   DecimalString,
-  Duration,
   Email,
-  Flag,
+  Enum,
+  Float,
   Integer,
-  ListOf,
+  IsoDate,
+  IsoDateTime,
+  IsoDuration,
+  List,
   MediaType,
   Nested,
-  OneOf,
   PhoneNumber,
   Text,
   TimeZone,
@@ -87,7 +87,7 @@ export {
   type Variant,
   type VariantOf,
 } from "../flow/dto-wrappers.js";
-export { type ListOptions, type OneOfOptions } from "./decorators.js";
+export { type EnumOptions, type ListOptions } from "./decorators.js";
 export { type ToolArguments } from "./standard/framework.js";
 export { type DecimalStringLimits, type NumberLimits, type TextLimits } from "./types.js";
 /** @beta Type machinery of the DTO decorators and wrappers: not a contract, names may change. */

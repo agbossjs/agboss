@@ -1371,13 +1371,13 @@ tests. Production also needs `main.ts` with the probes and the Kubernetes manife
 
 ```ts file=loans/src/contexts/lender.context.ts
 import { TenantContext } from "@agboss/core";
-import { Decimal, OneOf } from "@agboss/core/dto";
+import { Float, Enum } from "@agboss/core/dto";
 
 export class LenderTenantContext extends TenantContext {
-  @OneOf({ values: ["standard", "enterprise"] })
+  @Enum(["standard", "enterprise"])
   plan!: "standard" | "enterprise";
 
-  @Decimal({ min: 0 })
+  @Float({ min: 0 })
   dailyBudgetUsd!: number;
 }
 ```
@@ -1559,13 +1559,13 @@ export class CreditScore {
 ```
 
 ```ts file=loans/src/dto/loan-decision.dto.ts
-import { Decimal, Flag, Text } from "@agboss/core/dto";
+import { Float, Bool, Text } from "@agboss/core/dto";
 
 export class LoanDecisionDto {
-  @Flag({ prompt: "whether the loan is pre-approved" })
+  @Bool({ prompt: "whether the loan is pre-approved" })
   isApproved!: boolean;
 
-  @Decimal({ prompt: "the yearly rate, 0 to 1", min: 0, max: 1 })
+  @Float({ prompt: "the yearly rate, 0 to 1", min: 0, max: 1 })
   rate!: number;
 
   @Text({ prompt: "one sentence: why" })

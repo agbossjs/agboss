@@ -1,5 +1,5 @@
 import { AGBossError } from "../../../../src/core/errors.js";
-import { Integer, OneOf, Text } from "../../../../src/dto/index.js";
+import { Integer, Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   EmptyEnvironment,
@@ -33,7 +33,7 @@ export class ItemDto {
   @Integer({ prompt: "how long it takes, in ms" })
   delay!: number;
 
-  @OneOf({ values: ["ok", "fail"], prompt: "how it ends" })
+  @Enum(["ok", "fail"], { prompt: "how it ends" })
   outcome!: "ok" | "fail";
 }
 

@@ -2,7 +2,7 @@ import { fieldsOf, isOpen } from "./metadata.js";
 import type { DtoClass } from "./types.js";
 
 /**
- * The first reference cycle in a DTO's graph (a DTO that holds itself through `@Nested` or `@ListOf`,
+ * The first reference cycle in a DTO's graph (a DTO that holds itself through `@Nested` or `@List`,
  * directly or via other DTOs), as the classes along it with the first repeated at the end
  * (`[A, B, A]`); `undefined` for a graph without one. A DTO used twice (a diamond) is not a cycle.
  * Iterative, so a very deep (finite) graph cannot overflow the stack either.

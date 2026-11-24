@@ -16,7 +16,7 @@ import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import {
-  Decimal,
+  Float,
   Text,
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
@@ -47,7 +47,7 @@ export class ShopCostLedgerRepository extends InMemoryCostLedgerRepository {
 
 /** The tenant's own fields: its daily amount, from the caller's server-side tenant data. */
 export class ShopTenantContext extends TenantContext {
-  @Decimal()
+  @Float()
   dailyBudgetUsd!: number;
 }
 

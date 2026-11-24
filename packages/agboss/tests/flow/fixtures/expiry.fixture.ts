@@ -9,7 +9,7 @@ import {
   type PauseExpiryHandler,
 } from "../../../src/channels/pause-expiration.js";
 import type { ChannelPauseClosedEvent } from "../../../src/pause/notice-events.js";
-import { Flag, Text } from "../../../src/dto/index.js";
+import { Bool, Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -45,7 +45,7 @@ export class ExpiryOrderDto {
 }
 
 export class ExpiryDecisionDto {
-  @Flag({ prompt: "whether the order goes on" })
+  @Bool({ prompt: "whether the order goes on" })
   approved!: boolean;
 
   @Text({ prompt: "why", optional: true })

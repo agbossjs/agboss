@@ -12,7 +12,7 @@ import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
 import { A2AFileDto, nestedFileFieldsOf } from "../../../src/a2a/files/a2a-file.dto.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
-import { ListOf, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { List, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -33,7 +33,7 @@ export class AttachmentItemDto {
 
 /** A request whose files sit in list items. */
 export class ItemsRequestDto {
-  @ListOf(AttachmentItemDto, { prompt: "the attachments" })
+  @List(AttachmentItemDto, { prompt: "the attachments" })
   items!: AttachmentItemDto[];
 }
 

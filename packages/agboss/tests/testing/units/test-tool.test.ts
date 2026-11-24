@@ -109,7 +109,7 @@ describe("testTool", () => {
     ).toThrow(DtoValidationError);
   });
 
-  it("a tenant value outside its OneOf is refused, as app.execute refuses it", () => {
+  it("a tenant value outside its Enum is refused, as app.execute refuses it", () => {
     expect(() =>
       testTool(PlanReportTool, {
         tenantContext: ShopTenantContext,

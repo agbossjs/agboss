@@ -1,8 +1,8 @@
 import {
   CountryCode,
   CurrencyCode,
-  Date as CalendarDate,
-  DateTime,
+  IsoDate as CalendarDate,
+  IsoDateTime,
   DecimalString,
   Email,
   MediaType,
@@ -42,10 +42,10 @@ crossFieldRule(DateRangeDto, ({ from, to }) =>
 
 /** Exact moments: from included, to excluded. */
 export class DateTimeRangeDto {
-  @DateTime({ prompt: "start, with a UTC offset, e.g. 2026-09-01T09:00:00+03:00" })
+  @IsoDateTime({ prompt: "start, with a UTC offset, e.g. 2026-09-01T09:00:00+03:00" })
   from!: string;
 
-  @DateTime({ prompt: "end, with a UTC offset, e.g. 2026-09-01T18:00:00+03:00" })
+  @IsoDateTime({ prompt: "end, with a UTC offset, e.g. 2026-09-01T18:00:00+03:00" })
   to!: string;
 }
 crossFieldRule(DateTimeRangeDto, ({ from, to }) =>

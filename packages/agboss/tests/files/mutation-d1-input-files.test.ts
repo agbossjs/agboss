@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
-import { ListOf, Nested, Text } from "../../src/dto/index.js";
+import { List, Nested, Text } from "../../src/dto/index.js";
 import type { ResolvedField } from "../../src/flow/analyse/fields.js";
 import { slotOfField } from "../../src/flow/analyse/scope.js";
 import type { InputFieldShape } from "../../src/flow/decorators/declaration.js";
@@ -16,7 +16,7 @@ class ParcelDto {
   @Nested(A2AFileDto, { prompt: "the cover" })
   cover!: A2AFileDto;
 
-  @ListOf(A2AFileDto, { prompt: "pages", optional: true })
+  @List(A2AFileDto, { prompt: "pages", optional: true })
   pages?: A2AFileDto[];
 
   @Text({ prompt: "a note", optional: true })

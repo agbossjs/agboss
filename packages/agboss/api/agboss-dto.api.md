@@ -31,6 +31,9 @@ export class AttachmentDto {
 }
 
 // @public
+export const Bool: FieldFactory<boolean, object>;
+
+// @public
 export class ContactInfoDto {
     // (undocumented)
     email?: string;
@@ -45,10 +48,6 @@ export const CountryCode: FieldFactory<string, object>;
 export const CurrencyCode: FieldFactory<string, object>;
 
 // @public
-const Date_2: FieldFactory<string, object>;
-export { Date_2 as Date }
-
-// @public
 export class DateRangeDto {
     // (undocumented)
     from: string;
@@ -59,18 +58,12 @@ export class DateRangeDto {
 }
 
 // @public
-export const DateTime: FieldFactory<string, object>;
-
-// @public
 export class DateTimeRangeDto {
     // (undocumented)
     from: string;
     // (undocumented)
     to: string;
 }
-
-// @public
-export const Decimal: FieldFactory<number, NumberLimits>;
 
 // @public
 export const DecimalString: FieldFactory<string, DecimalStringLimits>;
@@ -117,7 +110,10 @@ export interface DtoIssue {
 
 declare namespace DtoTypes {
     export {
-        ListOfFactory,
+        EnumFactory,
+        ListFactory,
+        ListField,
+        OptionalListField,
         PlainFieldContext,
         ListElementShape,
         OneOfVariants,
@@ -149,11 +145,26 @@ export interface DtoValidationErrorOptions {
     readonly issues: readonly DtoIssue[];
 }
 
-// @public
-export const Duration: FieldFactory<string, object>;
-
 // @public (undocumented)
 export const Email: FieldFactory<string, object>;
+
+// @public (undocumented)
+export const Enum: EnumFactory;
+
+// @public
+interface EnumFactory {
+    // (undocumented)
+    <const V extends readonly [string, ...string[]]>(values: V, options: EnumOptions<V[number]> & OptionalField): FieldDecorator<V[number] | undefined>;
+    // (undocumented)
+    <const V extends readonly [string, ...string[]]>(values: V, options?: EnumOptions<V[number]> & RequiredField<V[number]>): FieldDecorator<V[number]>;
+    // (undocumented)
+    <const E extends Readonly<Record<string, string>>>(values: E, options: EnumOptions<E[keyof E]> & OptionalField): FieldDecorator<E[keyof E] | undefined>;
+    // (undocumented)
+    <const E extends Readonly<Record<string, string>>>(values: E, options?: EnumOptions<E[keyof E]> & RequiredField<E[keyof E]>): FieldDecorator<E[keyof E]>;
+}
+
+// @public
+export type EnumOptions<T extends string> = FieldOptions<T>;
 
 // @public
 export type FieldDecorator<T> = <This>(value: undefined, context: ClassFieldDecoratorContext<This, T> & PlainFieldContext<This>) => (initial: T) => T;
@@ -176,7 +187,7 @@ export interface FieldOptions<T> {
 }
 
 // @public
-export const Flag: FieldFactory<boolean, object>;
+export const Float: FieldFactory<number, NumberLimits>;
 
 // @public
 export interface HistoryOf<TValue> {
@@ -208,6 +219,15 @@ export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
 export const Integer: FieldFactory<number, NumberLimits>;
 
 // @public
+export const IsoDate: FieldFactory<string, object>;
+
+// @public
+export const IsoDateTime: FieldFactory<string, object>;
+
+// @public
+export const IsoDuration: FieldFactory<string, object>;
+
+// @public
 export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
 
 // @public
@@ -218,24 +238,35 @@ export function isVariant<TItem extends {
 }>;
 
 // @public
+export const List: ListFactory;
+
+// @public
 type ListElementShape = DtoClass | OneOfWrapper;
+
+// @public
+interface ListFactory {
+    // (undocumented)
+    <T>(item: ListItem<T>, options: ListOptions<T> & OptionalField): OptionalListField<T>;
+    // (undocumented)
+    <T>(item: ListItem<T>, options?: ListOptions<T> & RequiredField<T[]>): ListField<T>;
+    // (undocumented)
+    <const V extends readonly [string, ...string[]]>(values: V, options: ListOptions<V[number]> & OptionalField): OptionalListField<V[number]>;
+    // (undocumented)
+    <const V extends readonly [string, ...string[]]>(values: V, options?: ListOptions<V[number]> & RequiredField<V[number][]>): ListField<V[number]>;
+    // (undocumented)
+    <const E extends Readonly<Record<string, string>>>(values: E, options: ListOptions<E[keyof E]> & OptionalField): OptionalListField<E[keyof E]>;
+    // (undocumented)
+    <const E extends Readonly<Record<string, string>>>(values: E, options?: ListOptions<E[keyof E]> & RequiredField<E[keyof E][]>): ListField<E[keyof E]>;
+}
+
+// @public
+type ListField<T> = FieldDecorator<T[]> & FieldDecorator<readonly T[]>;
 
 // @public
 export type ListItem<T> = DtoClass<T> | ((options: never) => FieldDecorator<T>);
 
-// @public
-export const ListOf: ListOfFactory;
-
 // @public (undocumented)
 export function listOf<const TElement extends ListElementShape>(element: TElement): ListWrapper<TElement>;
-
-// @public
-interface ListOfFactory {
-    // (undocumented)
-    <T>(item: ListItem<T>, options: ListOptions<T> & OptionalField): FieldDecorator<T[] | undefined>;
-    // (undocumented)
-    <T>(item: ListItem<T>, options?: ListOptions<T> & RequiredField<T[]>): FieldDecorator<T[]>;
-}
 
 // @public (undocumented)
 export type ListOptions<T> = FieldOptions<T[]> & {
@@ -280,19 +311,8 @@ export interface NumberLimits {
     readonly min?: number;
 }
 
-// @public
-export function OneOf<const V extends readonly [string, ...string[]]>(options: OneOfOptions<V> & OptionalField): FieldDecorator<V[number] | undefined>;
-
-// @public (undocumented)
-export function OneOf<const V extends readonly [string, ...string[]]>(options: OneOfOptions<V> & RequiredField<V[number]>): FieldDecorator<V[number]>;
-
 // @public (undocumented)
 export function oneOf<const TVariants extends OneOfVariants>(...variants: TVariants): OneOfWrapper<TVariants>;
-
-// @public (undocumented)
-export type OneOfOptions<V extends readonly string[]> = FieldOptions<V[number]> & {
-    readonly values: V;
-};
 
 // @public
 type OneOfVariants = readonly [DtoClass, DtoClass, ...DtoClass[]];
@@ -318,6 +338,9 @@ export interface OptionalField {
 
 // @public
 type OptionalInnerShape = DtoClass | ListWrapper;
+
+// @public (undocumented)
+type OptionalListField<T> = FieldDecorator<T[] | undefined> & FieldDecorator<readonly T[] | undefined>;
 
 // @public
 export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInnerShape> {
@@ -557,9 +580,17 @@ enum Wrapper {
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Email".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Url".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Uuid".
-// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "OneOfOptions".
-// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "OneOf".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Enum".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "ListOptions".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "OptionalListField".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Nested".

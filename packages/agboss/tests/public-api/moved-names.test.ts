@@ -123,7 +123,7 @@ describe("#895: the type machinery is one @beta namespace per entry", () => {
     [
       "agboss-dto",
       "DtoTypes",
-      "ListOfFactory OneOfVariants OptionalInnerShape Wrapper",
+      "ListFactory OneOfVariants OptionalInnerShape Wrapper",
       "dto/index.ts",
     ],
     ["agboss-eval", "EvalTypes", "EvalContextsOf EvalTurnsOf", "eval/index.ts"],

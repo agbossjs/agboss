@@ -16,7 +16,7 @@ import {
   ReplyInterpretation,
   ReplyInterpreter,
 } from "../../../src/channels/channel-role.decorator.js";
-import { ListOf, Nested, Text } from "../../../src/dto/index.js";
+import { List, Nested, Text } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -35,7 +35,7 @@ export class ReviewRequestDto {
   @Nested(A2AFileDto, { prompt: "the document to review" })
   document!: A2AFileDto;
 
-  @ListOf(A2AFileDto, { prompt: "more pages", optional: true })
+  @List(A2AFileDto, { prompt: "more pages", optional: true })
   pages?: A2AFileDto[];
 
   @Text({ prompt: "a note to the reviewer", optional: true })

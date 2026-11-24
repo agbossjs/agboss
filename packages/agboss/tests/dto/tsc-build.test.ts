@@ -15,14 +15,14 @@ const dir = mkdtempSync(join(tmpdir(), "agboss-dto-"));
 
 /** A user's DTO module, compiled by `tsc` (its decorator emit), importing the built package. */
 const source = `
-import { Text, ListOf } from ${JSON.stringify(new URL("index.js", dist).href)};
+import { Text, List } from ${JSON.stringify(new URL("index.js", dist).href)};
 import { jsonSchemaOf } from ${JSON.stringify(new URL("schema.js", dist).href)};
 
 class Order {
   @Text({ prompt: "the order code" })
   code!: string;
 
-  @ListOf(Text, { optional: true })
+  @List(Text, { optional: true })
   notes?: string[];
 }
 

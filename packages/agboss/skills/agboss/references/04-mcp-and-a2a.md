@@ -37,11 +37,11 @@ export class IssueHitDto {
 ```
 
 ```ts file=src/support/dto/issue-hits.dto.ts
-import { ListOf } from "@agboss/core/dto";
+import { List } from "@agboss/core/dto";
 import { IssueHitDto } from "./issue-hit.dto.js";
 
 export class IssueHitsDto {
-  @ListOf(IssueHitDto, { prompt: "the matching issues" })
+  @List(IssueHitDto, { prompt: "the matching issues" })
   issues!: IssueHitDto[];
 }
 ```
@@ -584,7 +584,7 @@ export class LookupA2AExpose {}
 ### File parts (#859)
 
 A start's input or a finish's output may hold files: an `A2AFileDto` field (`@Nested(A2AFileDto)`, or
-`@ListOf(A2AFileDto)`) is filled from `raw` (inline bytes) or `url` parts of the message — never from
+`@List(A2AFileDto)`) is filled from `raw` (inline bytes) or `url` parts of the message — never from
 a data part (`-32602 a2a.file-field-in-data`) — and a finish's file fields leave as file parts of its
 artifact. A step reads and writes them through `A2AFiles` (`read`, `save`, `fromUrl`):
 

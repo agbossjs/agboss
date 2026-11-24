@@ -1,4 +1,4 @@
-import { Decimal, Flag, ListOf, Nested, Text } from "../decorators.js";
+import { Float, Bool, List, Nested, Text } from "../decorators.js";
 import { markOpen } from "../metadata.js";
 import { crossFieldRule } from "../schema.js";
 import { PiiAction } from "../../pii/actions.js";
@@ -27,7 +27,7 @@ export class WorkflowPauseQuestionDto {
   @Text({ prompt: "the question to ask, in one sentence" })
   question!: string;
 
-  @ListOf(Text, {
+  @List(Text, {
     prompt: "answers to choose from, if the choice is closed",
     optional: true,
     maxItems: 6,
@@ -67,7 +67,7 @@ export class ToolCallApprovalAskDto {
  * resume's `answeredBy` or the thread's owner, checked by the framework.
  */
 export class ToolCallApprovalDecisionDto {
-  @Flag({ prompt: "true to run the call, false to refuse it" })
+  @Bool({ prompt: "true to run the call, false to refuse it" })
   approved!: boolean;
 
   @Text({ prompt: "why: the reason for a rejection, or a note on an approval", optional: true })
@@ -118,6 +118,6 @@ export class RagSearchResultDto {
   @Text({ prompt: "where it comes from: a document, a page, a file" })
   source!: string;
 
-  @Decimal({ prompt: "how well it matches the query, from 0 to 1", optional: true, min: 0, max: 1 })
+  @Float({ prompt: "how well it matches the query, from 0 to 1", optional: true, min: 0, max: 1 })
   score?: number;
 }

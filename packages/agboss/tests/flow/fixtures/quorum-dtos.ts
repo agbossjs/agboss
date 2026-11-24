@@ -1,4 +1,4 @@
-import { Flag, Integer, Text } from "../../../src/dto/index.js";
+import { Bool, Integer, Text } from "../../../src/dto/index.js";
 
 /** DTOs of the #279 examples (with `CompanyDto` of `data-dtos.ts`, `CompanyCheckDto` of `launch-dtos.ts`). */
 
@@ -28,7 +28,7 @@ export class CultureScoreDto {
 }
 
 export class SalaryFitDto {
-  @Flag({ prompt: "whether the salary fits" })
+  @Bool({ prompt: "whether the salary fits" })
   fits!: boolean;
 }
 
@@ -58,12 +58,12 @@ export class DealCritiqueDto {
 }
 
 export class AuditDto {
-  @Flag({ prompt: "whether the audit passed" })
+  @Bool({ prompt: "whether the audit passed" })
   passed!: boolean;
 }
 
 export class FastScreenDto {
-  @Flag({ prompt: "whether the deal is rejected at once" })
+  @Bool({ prompt: "whether the deal is rejected at once" })
   rejected!: boolean;
 }
 

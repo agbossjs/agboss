@@ -346,10 +346,10 @@ export class PurchaseDto {
 ```
 
 ```ts file=src/purchases/dto/spending-limit.dto.ts
-import { Flag, Integer } from "@agboss/core/dto";
+import { Bool, Integer } from "@agboss/core/dto";
 
 export class SpendingLimitDto {
-  @Flag({ prompt: "whether the purchase may go on" })
+  @Bool({ prompt: "whether the purchase may go on" })
   approved!: boolean;
 
   @Integer({ prompt: "the most it may cost, in dollars", min: 0 })

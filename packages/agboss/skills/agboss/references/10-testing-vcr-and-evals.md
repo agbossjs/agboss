@@ -66,10 +66,10 @@ export class CultureReportDto {
 ```
 
 ```ts file=src/screening/dto/verdict.dto.ts
-import { OneOf, Text } from "@agboss/core/dto";
+import { Enum, Text } from "@agboss/core/dto";
 
 export class VerdictDto {
-  @OneOf({ values: ["hire", "reject"], prompt: "the decision" })
+  @Enum(["hire", "reject"], { prompt: "the decision" })
   decision!: "hire" | "reject";
 
   @Text({ prompt: "why, in one sentence" })
@@ -1360,11 +1360,11 @@ output DTO. A method the class does not have is a `TestSetupError`.
 
 <!-- snippet-context
 import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext, type ToolHandler } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 import { testToolInterceptor } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 export class CityTenantContext extends TenantContext {
-  @ListOf(Text)
+  @List(Text)
   allowedCities!: string[];
 }
 export class CityQuery {

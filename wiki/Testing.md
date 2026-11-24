@@ -62,7 +62,7 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 <!--
 ```ts file=job-scout.ts
 import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, type ToolHandler, TerminalUserChannel, route, Router, onStart, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
-import { ListOf, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
+import { List, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient, McpTool } from "@agboss/core/mcp";
 const model = "moonshotai/kimi-k2.6";
 export class FileRead { @Text() path!: string; }
@@ -72,8 +72,8 @@ const tools = { read_text_file: { input: FileRead, output: FileContent }, write_
 @McpServer({ name: "shortlist", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "."], tools })
 export class ShortlistServer extends McpServerClient<typeof tools> {}
 export class ChosenJob { @Text() title!: string; @Text() link!: string; }
-export class ChosenJobs { @ListOf(ChosenJob) jobs!: ChosenJob[]; }
-export class SavedJobs { @ListOf(Text) added!: string[]; }
+export class ChosenJobs { @List(ChosenJob) jobs!: ChosenJob[]; }
+export class SavedJobs { @List(Text) added!: string[]; }
 @McpTool({
   server: ShortlistServer,
   name: "save-shortlist-tool",
@@ -105,7 +105,7 @@ export class OrderStatus implements ToolHandler<OrderQuery, OrderInfo> {
   async run({ orderId }: OrderQuery): Promise<OrderInfo> { return { status: await this.book.statusOf(orderId) }; }
 }
 export class JobQuery { @Text() query!: string; }
-export class JobList { @ListOf(Text) jobs!: string[]; }
+export class JobList { @List(Text) jobs!: string[]; }
 @Tool({ name: "greenhouse-jobs-tool", description: "Finds jobs", input: JobQuery, output: JobList })
 export class GreenhouseJobs implements ToolHandler<JobQuery, JobList> { run(): Promise<JobList> { return Promise.resolve({ jobs: [] }); } }
 @Agent({ name: "scout-agent", description: "Finds jobs", prompt: "Find jobs.", model, tools: [GreenhouseJobs, OrderStatus] }) export class Scout {}

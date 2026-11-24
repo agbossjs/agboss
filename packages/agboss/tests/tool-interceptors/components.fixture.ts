@@ -15,11 +15,11 @@ import {
   type ToolCallResultContext,
   type ToolHandler,
 } from "../../src/index.js";
-import { ListOf, Text } from "../../src/dto/index.js";
+import { List, Text } from "../../src/dto/index.js";
 import { McpServer, McpServerClient, McpTool } from "../../src/mcp/index.js";
 
 export class JobScoutTenantContext extends TenantContext {
-  @ListOf(Text)
+  @List(Text)
   allowedCities!: string[];
 }
 

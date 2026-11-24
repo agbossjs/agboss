@@ -1,4 +1,4 @@
-import { Flag, Text } from "../../../../src/dto/index.js";
+import { Bool, Text } from "../../../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
@@ -30,7 +30,7 @@ import {
  */
 
 export class VoteDto {
-  @Flag({ prompt: "whether to go ahead" })
+  @Bool({ prompt: "whether to go ahead" })
   yes!: boolean;
 }
 

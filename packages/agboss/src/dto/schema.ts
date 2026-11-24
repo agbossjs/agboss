@@ -25,6 +25,7 @@ const schemas = new WeakMap<DtoClass, ObjectSchema>();
 
 const elementSchema = (element: ElementSpec | undefined): z.ZodType => {
   if (element === undefined) return z.unknown();
+  if (element.kind === "enum") return z.enum(element.values);
   return element.kind === "dto" ? objectSchemaOf(element.dto) : scalarSchemas[element.scalar]({});
 };
 

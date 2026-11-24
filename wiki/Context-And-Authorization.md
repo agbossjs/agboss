@@ -100,7 +100,7 @@ The levels are fixed (application → tenant → execution → step); the projec
 the execution level by **subclassing** them, with DTO field decorators (`@agboss/core/dto`), and declares
 the subclasses once, `@Application({ tenantContext, executionContext })` — workflows declare none.
 How an organization is structured inside (clinics → units → wards) is data in the tenant
-subclass, nested with `@ListOf` / `@Nested`, not new framework levels.
+subclass, nested with `@List` / `@Nested`, not new framework levels.
 
 - Fields of a context take **no `prompt`**: no model reads a context, the field's name is its
   meaning — a `prompt` fails assembly, `[context.prompt-unused] ClinicTenantContext.units has a
@@ -123,7 +123,7 @@ executionContext: ClinicExecutionContext })`.
 
 ```ts file=clinic.context.ts
 import { ExecutionContext, Injectable, PiiAction, TenantContext } from "@agboss/core";
-import { ListOf, Nested, Text } from "@agboss/core/dto";
+import { List, Nested, Text } from "@agboss/core/dto";
 
 export class UnitDto {
   @Text()
@@ -140,7 +140,7 @@ export class ClinicianDto {
 
 // config/context.config.ts — the project's tenant level
 export class ClinicTenantContext extends TenantContext {
-  @ListOf(UnitDto)
+  @List(UnitDto)
   units!: UnitDto[];
 }
 

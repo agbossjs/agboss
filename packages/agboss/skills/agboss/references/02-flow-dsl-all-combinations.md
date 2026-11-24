@@ -76,13 +76,13 @@ export class CustomerDto {
 ```
 
 ```ts file=src/ticket/dto/triage.dto.ts
-import { Flag, OneOf } from "@agboss/core/dto";
+import { Bool, Enum } from "@agboss/core/dto";
 
 export class TriageDto {
-  @OneOf({ values: ["billing", "bug", "other"], prompt: "the ticket's queue" })
+  @Enum(["billing", "bug", "other"], { prompt: "the ticket's queue" })
   queue!: "billing" | "bug" | "other";
 
-  @Flag({ prompt: "whether the ticket is urgent" })
+  @Bool({ prompt: "whether the ticket is urgent" })
   isUrgent!: boolean;
 }
 ```
@@ -724,10 +724,10 @@ export class StyleNotesDto {
 ```
 
 ```ts file=src/review/dto/fact-check.dto.ts
-import { Flag } from "@agboss/core/dto";
+import { Bool } from "@agboss/core/dto";
 
 export class FactCheckDto {
-  @Flag({ prompt: "whether every claim is supported" })
+  @Bool({ prompt: "whether every claim is supported" })
   isSupported!: boolean;
 }
 ```
@@ -1222,10 +1222,10 @@ export class PanelScoreDto {
 ```
 
 ```ts file=src/panel/dto/panel-verdict.dto.ts
-import { Flag } from "@agboss/core/dto";
+import { Bool } from "@agboss/core/dto";
 
 export class PanelVerdictDto {
-  @Flag({ prompt: "whether to hire" })
+  @Bool({ prompt: "whether to hire" })
   isHire!: boolean;
 }
 ```
@@ -1450,10 +1450,10 @@ export class DealDto {
 ```
 
 ```ts file=src/deal/dto/legal-review.dto.ts
-import { Flag } from "@agboss/core/dto";
+import { Bool } from "@agboss/core/dto";
 
 export class LegalReviewDto {
-  @Flag({ prompt: "whether the terms are legal" })
+  @Bool({ prompt: "whether the terms are legal" })
   isLegal!: boolean;
 }
 ```
@@ -1468,10 +1468,10 @@ export class DealCritiqueDto {
 ```
 
 ```ts file=src/deal/dto/fast-screen.dto.ts
-import { Flag } from "@agboss/core/dto";
+import { Bool } from "@agboss/core/dto";
 
 export class FastScreenDto {
-  @Flag({ prompt: "whether the deal is obviously bad" })
+  @Bool({ prompt: "whether the deal is obviously bad" })
   isObviouslyBad!: boolean;
 }
 ```

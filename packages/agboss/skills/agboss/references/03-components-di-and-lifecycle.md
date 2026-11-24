@@ -87,13 +87,13 @@ export class CustomerQueryDto {
 ```
 
 ```ts file=src/desk/dto/customer.dto.ts
-import { Flag, Text } from "@agboss/core/dto";
+import { Bool, Text } from "@agboss/core/dto";
 
 export class CustomerDto {
   @Text({ prompt: "the customer's plan" })
   plan!: string;
 
-  @Flag({ prompt: "whether the customer has an open ticket" })
+  @Bool({ prompt: "whether the customer has an open ticket" })
   hasOpenTicket!: boolean;
 }
 ```
@@ -650,9 +650,9 @@ one is `[tool-interceptor.not-an-interceptor]`).
 
 <!-- snippet-context
 import { TenantContext } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 class JobScoutTenantContext extends TenantContext {
-  @ListOf(Text)
+  @List(Text)
   allowedCities!: string[];
 }
 -->

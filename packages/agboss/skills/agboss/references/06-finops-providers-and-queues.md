@@ -23,10 +23,10 @@ budget and one application budget — no execution runs uncapped.
 ```ts file=src/billing/contexts/shop-tenant.context.ts
 // contexts/shop-tenant.context.ts — the tenant's own fields, given per execution (identity, never secrets)
 import { TenantContext } from "@agboss/core";
-import { Decimal } from "@agboss/core/dto";
+import { Float } from "@agboss/core/dto";
 
 export class ShopTenantContext extends TenantContext {
-  @Decimal({ min: 0 })
+  @Float({ min: 0 })
   dailyBudgetUsd!: number;
 }
 ```
@@ -157,10 +157,10 @@ export class TaxQuery {
 ```
 
 ```ts file=src/billing/dto/tax-rate.dto.ts
-import { Decimal } from "@agboss/core/dto";
+import { Float } from "@agboss/core/dto";
 
 export class TaxRate {
-  @Decimal({ prompt: "the VAT rate, 0 to 1", min: 0, max: 1 })
+  @Float({ prompt: "the VAT rate, 0 to 1", min: 0, max: 1 })
   rate!: number;
 }
 ```

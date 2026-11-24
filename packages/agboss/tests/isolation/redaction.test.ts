@@ -2,7 +2,7 @@
 import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
 import { redactedArguments, redactedDto } from "../../src/dto/redact.js";
-import { ListOf, Nested, Text } from "../../src/dto/index.js";
+import { List, Nested, Text } from "../../src/dto/index.js";
 import { PiiAction } from "../../src/index.js";
 import { schemaOf } from "../../src/dto/schema.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
@@ -54,7 +54,7 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
       @Nested(Holder)
       holder!: Holder;
 
-      @ListOf(Holder)
+      @List(Holder)
       others!: Holder[];
     }
     const order = { id: "o", holder: { name: "Ann" }, others: [{ name: "Bo" }], extra: 1 };

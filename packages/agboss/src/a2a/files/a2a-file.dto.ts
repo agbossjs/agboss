@@ -1,5 +1,5 @@
 import "../../polyfills/symbol-metadata.js";
-import { Integer, ListOf, MediaType, Nested, Text, Url } from "../../dto/decorators.js";
+import { Integer, List, MediaType, Nested, Text, Url } from "../../dto/decorators.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import { crossFieldRule } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
@@ -111,11 +111,11 @@ export class WorkflowFinishFileDto {
 
 /** A run that finishes with files: its artifact is one part per file, in order (#859). */
 export class WorkflowFinishFilesDto {
-  @ListOf(A2AFileDto, { prompt: "the files the run finishes with", minItems: 1 })
+  @List(A2AFileDto, { prompt: "the files the run finishes with", minItems: 1 })
   files!: A2AFileDto[];
 }
 
-/** A field of a DTO that holds files: one (`@Nested(A2AFileDto)`) or a list (`@ListOf`). */
+/** A field of a DTO that holds files: one (`@Nested(A2AFileDto)`) or a list (`@List`). */
 export interface A2AFileField {
   readonly name: string;
   readonly isList: boolean;

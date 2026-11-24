@@ -219,7 +219,7 @@ protocolVersion: "1.0" }`.
 ### Files — `raw` and `url` parts (#859)
 
 A skill takes files when its start's input DTO has `A2AFileDto` fields — `@Nested(A2AFileDto)` for
-one, `@ListOf(A2AFileDto)` for several (`@agboss/core/a2a`). A step holds a file as a descriptor
+one, `@List(A2AFileDto)` for several (`@agboss/core/a2a`). A step holds a file as a descriptor
 (`mediaType`, `filename`, `sha256`, `sizeBytes`, and where its bytes are: `fileId` in the store,
 `inline` base64, or `url`) and reads its bytes with the `A2AFiles` service (`deps: [A2AFiles]`,
 `read(file)`); it makes one with `save({ bytes, mediaType, filename })` or names one by reference

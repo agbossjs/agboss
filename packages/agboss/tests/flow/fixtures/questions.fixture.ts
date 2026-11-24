@@ -8,7 +8,7 @@ import {
   ReplyInterpreter,
   type ReplyInterpreterHandler,
 } from "../../../src/channels/channel-role.decorator.js";
-import { Flag, Integer, Text } from "../../../src/dto/index.js";
+import { Bool, Integer, Text } from "../../../src/dto/index.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
@@ -45,7 +45,7 @@ export class PurchaseQuestionDto {
 }
 
 export class SpendingLimitAnswerDto {
-  @Flag({ prompt: "whether the purchase may go on" })
+  @Bool({ prompt: "whether the purchase may go on" })
   approved!: boolean;
 
   @Integer({ prompt: "the most it may cost, in dollars", min: 0 })

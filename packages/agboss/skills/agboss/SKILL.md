@@ -66,7 +66,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
    position. Every path ends in a finish.
 4. **Data are DTO classes, values are plain objects.** One field decorator per field (`@Text`,
-   `@Integer`, `@Flag`, `@OneOf`, `@ListOf`, `@Nested`, …) from `@agboss/core/dto`; a value is
+   `@Integer`, `@Bool`, `@Enum`, `@List`, `@Nested`, …) from `@agboss/core/dto`; a value is
    `{ orderId: "7" }`, never `new OrderDto()`. No zod, no JSON Schema by hand.
 5. **Decorator = metadata, constructor = dependencies, methods = a contract.** `deps: [A, B]` lists
    the constructor's parameters in order (the compiler checks it); `implements ToolHandler<In, Out>`,

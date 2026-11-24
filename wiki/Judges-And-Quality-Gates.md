@@ -162,7 +162,7 @@ import {
   type JudgeHandler,
   type JudgeInput,
 } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 
 export class JobDto {
   @Text({ prompt: "the job's title" })
@@ -173,7 +173,7 @@ export class JobDto {
 }
 
 export class JobReportDto {
-  @ListOf(JobDto, { prompt: "the jobs found" })
+  @List(JobDto, { prompt: "the jobs found" })
   jobs!: JobDto[];
 }
 

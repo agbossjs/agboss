@@ -1,7 +1,7 @@
 /** #1269: the answer-files module's promises, pinned value by value. */
 import { describe, expect, it } from "vitest";
 import { A2AFileDto, redactedFileOf } from "../../src/a2a/files/a2a-file.dto.js";
-import { ListOf, Nested, Text } from "../../src/dto/index.js";
+import { List, Nested, Text } from "../../src/dto/index.js";
 import type { JsonSchema } from "../../src/dto/schema.js";
 import {
   answerFilesOf,
@@ -32,10 +32,10 @@ class SubPickedDto {
 }
 
 class ManyDto {
-  @ListOf(A2AFileDto, { prompt: "the files" })
+  @List(A2AFileDto, { prompt: "the files" })
   files!: A2AFileDto[];
 
-  @ListOf(Text, { prompt: "tags", optional: true })
+  @List(Text, { prompt: "tags", optional: true })
   tags?: string[];
 }
 
@@ -48,7 +48,7 @@ class OuterDto {
   @Nested(InnerDto, { prompt: "the inner" })
   inner!: InnerDto;
 
-  @ListOf(InnerDto, { prompt: "the inners", optional: true })
+  @List(InnerDto, { prompt: "the inners", optional: true })
   inners?: InnerDto[];
 }
 
@@ -61,7 +61,7 @@ class WithPlainDto {
   @Nested(PlainDto, { prompt: "plain" })
   plain!: PlainDto;
 
-  @ListOf(PlainDto, { prompt: "plains", optional: true })
+  @List(PlainDto, { prompt: "plains", optional: true })
   plains?: PlainDto[];
 
   @Nested(A2AFileDto, { prompt: "the file" })

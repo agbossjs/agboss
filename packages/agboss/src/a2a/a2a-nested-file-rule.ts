@@ -55,7 +55,7 @@ export function nestedFileFieldViolations(options: ApplicationOptions): RuleViol
     nestedFileFieldsOf(dto).map((path) =>
       violation(
         "a2a.nested-file-field",
-        `${dto.name}.${path} holds an A2AFileDto below the top level: an A2A file is a part of its own, filled into a top-level field — move it up (@Nested(A2AFileDto) / @ListOf(A2AFileDto) on ${dto.name} itself)`,
+        `${dto.name}.${path} holds an A2AFileDto below the top level: an A2A file is a part of its own, filled into a top-level field — move it up (@Nested(A2AFileDto) / @List(A2AFileDto) on ${dto.name} itself)`,
         [dto.name],
       ),
     ),

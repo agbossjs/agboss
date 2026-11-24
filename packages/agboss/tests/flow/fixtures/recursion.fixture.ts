@@ -10,7 +10,7 @@ import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
 import { ThisWorkflow } from "../../../src/flow/this-workflow.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
-import { Integer, ListOf, Text } from "../../../src/dto/index.js";
+import { Integer, List, Text } from "../../../src/dto/index.js";
 
 /**
  * #264 — the issue's recursive topic research in the typed builder: `ThisWorkflow` as a per-item
@@ -32,7 +32,7 @@ export class ResearchReportDto {
 }
 
 export class ResearchTooBroadDto {
-  @ListOf(Text, { prompt: "the subtopics" })
+  @List(Text, { prompt: "the subtopics" })
   subtopics!: string[];
 }
 

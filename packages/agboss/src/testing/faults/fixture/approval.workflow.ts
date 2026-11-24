@@ -4,7 +4,7 @@ import { ChannelOf } from "../../../channels/channel-handler.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../channels/channel-role.decorator.js";
 import type { Class } from "../../../components/injection.js";
-import { Flag, Text } from "../../../dto/index.js";
+import { Bool, Text } from "../../../dto/index.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
 import {
@@ -38,7 +38,7 @@ export class FaultApprovalAskDto {
 
 /** The caller's answer. */
 export class FaultApprovalDto {
-  @Flag({ prompt: "whether the order may be charged" })
+  @Bool({ prompt: "whether the order may be charged" })
   approved!: boolean;
 }
 

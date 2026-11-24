@@ -1,4 +1,4 @@
-import { Flag, Text } from "../../../src/dto/index.js";
+import { Bool, Text } from "../../../src/dto/index.js";
 
 /** DTOs of the #272 examples (one file for the fixtures; a project keeps one class per file). */
 
@@ -45,7 +45,7 @@ export class DraftApprovedDto {
 }
 
 export class OfferSentDto {
-  @Flag({ prompt: "the offer was delivered" })
+  @Bool({ prompt: "the offer was delivered" })
   delivered!: boolean;
 }
 

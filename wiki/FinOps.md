@@ -161,10 +161,10 @@ export class ExecutionBudget implements BudgetHandler {
 
 <!-- snippet-context
 import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, onStart, type BudgetHandler } from "@agboss/core";
-import { Decimal, WorkflowStartTextDto } from "@agboss/core/dto";
+import { Float, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd, type Usd } from "@agboss/core/units";
 export class ShopTenantContext extends TenantContext {
-  @Decimal()
+  @Float()
   dailyBudgetUsd!: number;
 }
 @WorkflowStart({ name: "screening-workflow-start", description: "A role", input: WorkflowStartTextDto })

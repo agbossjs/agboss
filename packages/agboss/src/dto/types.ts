@@ -8,7 +8,7 @@ import type { MaskingPiiAction } from "../pii/actions.js";
 /** A DTO class: plain data, constructed with no arguments. */
 export type DtoClass<T = object> = abstract new () => T;
 
-/** Field kinds of plain values — what `@ListOf(Text)` can hold besides DTOs. */
+/** Field kinds of plain values — what `@List(Text)` can hold besides DTOs. */
 export type ScalarKind =
   | "text"
   | "integer"
@@ -85,7 +85,8 @@ export interface FieldSettings
 /** What a list holds or a nested field is: a plain value or a DTO. */
 export type ElementSpec =
   | { readonly kind: "scalar"; readonly scalar: ScalarKind }
-  | { readonly kind: "dto"; readonly dto: DtoClass };
+  | { readonly kind: "dto"; readonly dto: DtoClass }
+  | { readonly kind: "enum"; readonly values: readonly string[] };
 
 /** One decorated field as recorded at class definition. */
 export interface FieldSpec {
@@ -93,7 +94,7 @@ export interface FieldSpec {
   readonly kind: FieldKind;
   readonly optional: boolean;
   readonly settings: FieldSettings;
-  /** `@ListOf` element / `@Nested` DTO. */
+  /** `@List` element / `@Nested` DTO. */
   readonly element?: ElementSpec;
   /** Declared on a `#private` field (not plain data). */
   readonly isPrivate: boolean;

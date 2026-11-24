@@ -27,7 +27,7 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { Rag } from "../../../src/components/decorators.js";
-import { OneOf, PlainTextDto, Text } from "../../../src/dto/index.js";
+import { Enum, PlainTextDto, Text } from "../../../src/dto/index.js";
 import type { RagConnector, RagRetrieval } from "../../../src/rag/types.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { RagTenancy } from "../../../src/rag/types.js";
@@ -267,7 +267,7 @@ export class MisnamedPolicy {}
 // ── the project's context levels ──
 
 export class ShopTenantContext extends TenantContext {
-  @OneOf({ values: ["free", "pro"] })
+  @Enum(["free", "pro"])
   plan!: "free" | "pro";
 }
 

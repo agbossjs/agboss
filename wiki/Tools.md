@@ -11,7 +11,7 @@ const ISSUES_API = new InjectionToken<IssuesApi>("ISSUES_API");
 
 ```ts
 import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 import { seconds } from "@agboss/core/units";
 
 export class Issue {
@@ -25,7 +25,7 @@ export class IssueQuery {
 }
 
 export class IssueList {
-  @ListOf(Issue)
+  @List(Issue)
   issues!: Issue[];
 }
 
@@ -226,9 +226,9 @@ the class name by default); its `deps` are injected by the container like any co
 
 <!-- snippet-context
 import { TenantContext } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 export class JobScoutTenantContext extends TenantContext {
-  @ListOf(Text)
+  @List(Text)
   allowedCities!: string[];
 }
 -->

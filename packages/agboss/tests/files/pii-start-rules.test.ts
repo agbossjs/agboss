@@ -24,7 +24,7 @@ import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import { fieldsOf, recordField } from "../../src/dto/metadata.js";
 import { METADATA_KEY } from "../../src/polyfills/symbol-metadata.js";
 import { hasFileAtAnyDepth } from "../../src/a2a/files/a2a-file.dto.js";
-import { ListOf, Nested, Text } from "../../src/dto/index.js";
+import { List, Nested, Text } from "../../src/dto/index.js";
 import { FetchedDto, readerApplication } from "./reader.factory.js";
 
 @PiiPolicy({
@@ -112,7 +112,7 @@ class TopDto {
   middle!: MiddleDto;
 }
 class ListedDto {
-  @ListOf(InnerDto, { prompt: "l" })
+  @List(InnerDto, { prompt: "l" })
   items!: InnerDto[];
 }
 class NodeDto {

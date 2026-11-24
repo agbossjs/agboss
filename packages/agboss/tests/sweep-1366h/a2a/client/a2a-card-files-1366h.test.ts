@@ -19,7 +19,7 @@ import {
 } from "../../../../src/a2a/client/a2a-card-schemas.js";
 import { FILE_PART_KEYWORD } from "../../../../src/a2a/a2a-card-file-fields.js";
 import { A2AFileDto } from "../../../../src/a2a/files/a2a-file.dto.js";
-import { ListOf, Nested, Text } from "../../../../src/dto/index.js";
+import { List, Nested, Text } from "../../../../src/dto/index.js";
 import { jsonSchemaOf } from "../../../../src/dto/schema.js";
 
 class OneRequired {
@@ -31,7 +31,7 @@ class OneOptional {
   doc?: A2AFileDto;
 }
 class ManyRequired {
-  @ListOf(A2AFileDto, { prompt: "doc" })
+  @List(A2AFileDto, { prompt: "doc" })
   doc!: A2AFileDto[];
 }
 class NoFiles {

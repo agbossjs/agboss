@@ -9,7 +9,7 @@ export type Schema = OpenAPIV3.SchemaObject;
 export interface FieldModel {
   readonly name: string;
   readonly decorator: string;
-  /** The decorator's first argument: `@ListOf(Text, …)`, `@Nested(Pet, …)`. */
+  /** The decorator's first argument: `@List(Text, …)`, `@Nested(Pet, …)`. */
   readonly lead?: string;
   readonly values?: readonly string[];
   readonly type: string;
@@ -47,7 +47,7 @@ export function flatten(schema: Schema): Schema {
 }
 
 const FORMATS: Readonly<Record<string, readonly [string, string]>> = {
-  "date-time": ["DateTime", "2026-01-01T00:00:00Z"],
+  "date-time": ["IsoDateTime", "2026-01-01T00:00:00Z"],
   email: ["Email", "user@example.com"],
   uri: ["Url", "https://example.com"],
   url: ["Url", "https://example.com"],
@@ -59,7 +59,7 @@ function stringKind(schema: Schema): Kind {
   const [first] = values;
   if (first !== undefined) {
     return {
-      decorator: "OneOf",
+      decorator: "Enum",
       values,
       type: values.map((v) => JSON.stringify(v)).join(" | "),
       sample: first,
@@ -69,12 +69,12 @@ function stringKind(schema: Schema): Kind {
   return { decorator, type: "string", sample };
 }
 
-/** A plain value's decorator: Text (or a format), OneOf, Integer, Decimal, Flag. */
+/** A plain value's decorator: Text (or a format), Enum, Integer, Float, Bool. */
 function scalarKind(schema: Schema): Kind | undefined {
   if (schema.type === "string") return stringKind(schema);
   if (schema.type === "integer") return { decorator: "Integer", type: "number", sample: 1 };
-  if (schema.type === "number") return { decorator: "Decimal", type: "number", sample: 1 };
-  if (schema.type === "boolean") return { decorator: "Flag", type: "boolean", sample: true };
+  if (schema.type === "number") return { decorator: "Float", type: "number", sample: 1 };
+  if (schema.type === "boolean") return { decorator: "Bool", type: "boolean", sample: true };
   return undefined;
 }
 
@@ -154,12 +154,12 @@ export class DtoSet {
     const items = flatten(raw);
     const scalar = scalarKind(items);
     if (scalar !== undefined) {
-      const plain = scalar.decorator === "OneOf" ? { decorator: "Text", type: "string" } : scalar;
-      return { decorator: "ListOf", lead: plain.decorator, type: `${plain.type}[]`, sample: [] };
+      const plain = scalar.decorator === "Enum" ? { decorator: "Text", type: "string" } : scalar;
+      return { decorator: "List", lead: plain.decorator, type: `${plain.type}[]`, sample: [] };
     }
     if (items.type !== "object" && items.properties === undefined) return undefined;
     const item = this.object(`${name}Item`, items, comment(items.description ?? name), depth);
-    return item && { decorator: "ListOf", lead: item.name, type: `${item.name}[]`, sample: [] };
+    return item && { decorator: "List", lead: item.name, type: `${item.name}[]`, sample: [] };
   }
 }
 
@@ -169,13 +169,15 @@ export const sampleOf = (model: ClassModel): Record<string, Sample> =>
 
 function fieldSource(field: FieldModel): string {
   const options: (readonly [string, string])[] = [["prompt", text(field.prompt)]];
-  if (field.values !== undefined)
-    options.push(["values", `[${field.values.map((v) => JSON.stringify(v)).join(", ")}]`]);
   if (field.optional) options.push(["optional", "true"]);
   const decorator = call(
     2,
     `@${field.decorator}`,
-    field.lead === undefined ? [] : [field.lead],
+    field.values !== undefined
+      ? [`[${field.values.map((v) => JSON.stringify(v)).join(", ")}]`]
+      : field.lead === undefined
+        ? []
+        : [field.lead],
     options,
   );
   return `${decorator}\n  ${propertyKey(field.name)}${field.optional ? "?" : "!"}: ${field.type};`;
@@ -189,7 +191,7 @@ export const dtoFileStem = (className: string): string =>
 export function dtoClassSource(model: ClassModel, allClasses: readonly ClassModel[]): string {
   const names = new Set(allClasses.map((c) => c.name));
   const scalars = model.fields.flatMap((f) =>
-    f.decorator === "ListOf" && f.lead !== undefined && !names.has(f.lead) ? [f.lead] : [],
+    f.decorator === "List" && f.lead !== undefined && !names.has(f.lead) ? [f.lead] : [],
   );
   const decorators = [...new Set([...model.fields.map((f) => f.decorator), ...scalars])].sort();
   const siblingImports = [

@@ -1,5 +1,5 @@
 import { AGBossError } from "../../../../src/core/errors.js";
-import { Integer, ListOf, OneOf, Text } from "../../../../src/dto/index.js";
+import { Integer, List, Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   Clock,
@@ -27,7 +27,7 @@ export class TaskDto {
   @Integer({ prompt: "how long it works, in seconds" })
   seconds!: number;
 
-  @OneOf({ values: ["ok", "fail", "hold"], prompt: "how it ends" })
+  @Enum(["ok", "fail", "hold"], { prompt: "how it ends" })
   outcome!: "ok" | "fail" | "hold";
 }
 
@@ -40,7 +40,7 @@ export class GroupDto {
   @Text({ prompt: "the group's name" })
   name!: string;
 
-  @ListOf(TaskDto, { prompt: "its tasks" })
+  @List(TaskDto, { prompt: "its tasks" })
   tasks!: TaskDto[];
 }
 

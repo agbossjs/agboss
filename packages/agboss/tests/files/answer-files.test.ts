@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
-import { Nested, Text, ListOf } from "../../src/dto/index.js";
+import { Nested, Text, List } from "../../src/dto/index.js";
 import { modelWrittenFileProblem } from "../../src/files/answer-files.js";
 import { AnswerFiles, FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
 import { AgentAnswerInvalidError, GuardrailBlockedError } from "../../src/index.js";
@@ -33,7 +33,7 @@ class PickedDto {
 }
 
 class ManyDto {
-  @ListOf(A2AFileDto, { prompt: "the files" })
+  @List(A2AFileDto, { prompt: "the files" })
   files!: A2AFileDto[];
 }
 

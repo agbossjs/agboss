@@ -1,4 +1,4 @@
-import { Integer, ListOf, Text } from "../../../../src/dto/index.js";
+import { Integer, List, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   Agent,
@@ -47,7 +47,7 @@ export class TopicReportDto {
 }
 
 export class TopicTooBroadDto {
-  @ListOf(Text, { prompt: "the subtopics" })
+  @List(Text, { prompt: "the subtopics" })
   subtopics!: string[];
 }
 

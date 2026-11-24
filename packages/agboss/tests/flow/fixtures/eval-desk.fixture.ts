@@ -22,7 +22,7 @@ import {
   type JudgeInput,
   type ToolHandler,
 } from "../../../src/index.js";
-import { Integer, OneOf, Text } from "../../../src/dto/index.js";
+import { Integer, Enum, Text } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
@@ -35,7 +35,7 @@ import { caseOf, onStart } from "./paths.js";
  */
 
 export class DeskTenantContext extends TenantContext {
-  @OneOf({ values: ["free", "pro"] })
+  @Enum(["free", "pro"])
   plan!: "free" | "pro";
 }
 

@@ -12,7 +12,7 @@ import {
 import { EmptyEnvironment } from "../../../src/index.js";
 import {
   Integer,
-  ListOf,
+  List,
   PlainTextDto,
   Text,
   WorkflowStartTextDto,
@@ -38,7 +38,7 @@ export class JobDto {
 
 /** What the scout found. */
 export class JobReportDto {
-  @ListOf(JobDto, { prompt: "the jobs found" })
+  @List(JobDto, { prompt: "the jobs found" })
   jobs!: JobDto[];
 }
 

@@ -11,7 +11,7 @@ import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js
 import { ThisWorkflow } from "../../../src/flow/this-workflow.js";
 import { LimitExceededError } from "../../../src/errors.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
-import { Integer, ListOf, Text } from "../../../src/dto/index.js";
+import { Integer, List, Text } from "../../../src/dto/index.js";
 
 /**
  * #264 S112 — `ThisWorkflow` typed per path: three recursive workflows whose finishes give other
@@ -36,7 +36,7 @@ export class TeamChartDto {
 }
 
 export class OrgSplitDto {
-  @ListOf(Text, { prompt: "the unit's sub-units" })
+  @List(Text, { prompt: "the unit's sub-units" })
   units!: string[];
 }
 

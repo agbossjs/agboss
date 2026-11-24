@@ -8,7 +8,7 @@ import {
   ReplyInterpreter,
   type ReplyInterpreterHandler,
 } from "../../../src/channels/channel-role.decorator.js";
-import { Flag, Integer, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
+import { Bool, Integer, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -37,7 +37,7 @@ import {
  */
 
 export class ApproverAnswerDto {
-  @Flag({ prompt: "whether the purchase may go on" })
+  @Bool({ prompt: "whether the purchase may go on" })
   approved!: boolean;
 
   @Integer({ prompt: "the most it may cost, in dollars", min: 0 })

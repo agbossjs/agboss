@@ -19,7 +19,7 @@ import type { ExecutionContextClass } from "../../src/flow/context/context-value
 import type { Class } from "../../src/components/injection.js";
 import type { JudgeHandlerClass } from "../../src/components/judge-decorators.js";
 import type { DtoClass } from "../../src/dto/types.js";
-import { ListOf, Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
+import { List, Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import type { ModelFiles } from "../../src/files/model-files.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
@@ -34,7 +34,7 @@ export class BundleDto {
   @Nested(A2AFileDto, { prompt: "the document" })
   document!: A2AFileDto;
 
-  @ListOf(A2AFileDto, { prompt: "more files", optional: true })
+  @List(A2AFileDto, { prompt: "more files", optional: true })
   pages?: A2AFileDto[];
 
   @Text({ prompt: "a note", optional: true })

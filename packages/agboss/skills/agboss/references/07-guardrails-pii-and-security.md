@@ -20,10 +20,10 @@ The project's execution context (identity only) and a service the refusal reads:
 
 ```ts file=src/clinic/contexts/clinic-execution.context.ts
 import { ExecutionContext } from "@agboss/core";
-import { OneOf } from "@agboss/core/dto";
+import { Enum } from "@agboss/core/dto";
 
 export class ClinicExecutionContext extends ExecutionContext {
-  @OneOf({ values: ["en", "he"] })
+  @Enum(["en", "he"])
   locale!: "en" | "he";
 }
 ```

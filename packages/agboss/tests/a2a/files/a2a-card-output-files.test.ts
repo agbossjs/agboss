@@ -16,7 +16,7 @@ import { A2AFileDto } from "../../../src/a2a/files/a2a-file.dto.js";
 import { A2AClient } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { DtoClass } from "../../../src/dto/types.js";
-import { ListOf, Nested, Text } from "../../../src/dto/index.js";
+import { List, Nested, Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -149,7 +149,7 @@ describe("#916 item 4 AC4: the card's output schemas describe file fields as fil
       verdict!: string;
     }
     class ReportsDto {
-      @ListOf(A2AFileDto, { prompt: "the reports" })
+      @List(A2AFileDto, { prompt: "the reports" })
       report!: A2AFileDto[];
 
       @Text({ prompt: "the verdict" })

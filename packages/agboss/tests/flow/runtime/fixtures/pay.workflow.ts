@@ -1,6 +1,6 @@
 import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
 import { AGBossError } from "../../../../src/core/errors.js";
-import { OneOf, Text } from "../../../../src/dto/index.js";
+import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   Agent,
@@ -30,7 +30,7 @@ export class OrderDto {
   @Text({ prompt: "the order id" })
   id!: string;
 
-  @OneOf({ values: ["pay", "decline", "fail", "crash"], prompt: "how the charge goes" })
+  @Enum(["pay", "decline", "fail", "crash"], { prompt: "how the charge goes" })
   outcome!: "pay" | "decline" | "fail" | "crash";
 }
 

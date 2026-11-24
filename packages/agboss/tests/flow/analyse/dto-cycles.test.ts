@@ -57,7 +57,7 @@ describe("#1080: an agent's output that holds itself", () => {
   it.each([
     ["itself", SelfDto, "reader-agent: SelfDto → SelfDto"],
     ["itself through another DTO", PingDto, "reader-agent: PingDto → PongDto → PingDto"],
-    ["itself through ListOf", TreeDto, "reader-agent: TreeDto → TreeDto"],
+    ["itself through List", TreeDto, "reader-agent: TreeDto → TreeDto"],
   ] as const)(
     "a DTO holding %s: start fails naming the agent and the cycle",
     async (_l, dto, text) => {

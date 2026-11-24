@@ -15,9 +15,9 @@ class's `check(text)` says ([below](#decided-by-code)).
 
 <!-- snippet-context
 import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
-import { OneOf } from "@agboss/core/dto";
+import { Enum } from "@agboss/core/dto";
 export class ClinicExecutionContext extends ExecutionContext {
-  @OneOf({ values: ["en", "he"] })
+  @Enum(["en", "he"])
   locale!: "en" | "he";
 }
 @Injectable()

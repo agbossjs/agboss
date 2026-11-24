@@ -1,4 +1,4 @@
-import { Flag, Text } from "../../../src/dto/index.js";
+import { Bool, Text } from "../../../src/dto/index.js";
 import {
   Agent,
   Channel,
@@ -50,22 +50,22 @@ export class ApprovalRequestDto {
 }
 
 export class LegalDecisionDto {
-  @Flag({ prompt: "legal approves" })
+  @Bool({ prompt: "legal approves" })
   approved!: boolean;
 }
 
 export class FinanceDecisionDto {
-  @Flag({ prompt: "finance approves" })
+  @Bool({ prompt: "finance approves" })
   approved!: boolean;
 }
 
 export class CfoDecisionDto {
-  @Flag({ prompt: "the CFO approves" })
+  @Bool({ prompt: "the CFO approves" })
   approved!: boolean;
 }
 
 export class CooDecisionDto {
-  @Flag({ prompt: "the COO approves" })
+  @Bool({ prompt: "the COO approves" })
   approved!: boolean;
 }
 

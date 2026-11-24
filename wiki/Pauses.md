@@ -847,7 +847,7 @@ import {
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
-import { Flag, Text } from "@agboss/core/dto";
+import { Bool, Text } from "@agboss/core/dto";
 import { hours } from "@agboss/core/units";
 
 // the chat the channels talk to: yours is a Slack or Teams client
@@ -864,7 +864,7 @@ export class DeskOrderDto {
 }
 
 export class DeskDecisionDto {
-  @Flag({ prompt: "whether the refund goes on" })
+  @Bool({ prompt: "whether the refund goes on" })
   approved!: boolean;
 }
 

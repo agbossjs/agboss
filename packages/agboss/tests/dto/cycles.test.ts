@@ -1,5 +1,5 @@
 /**
- * #1080: a DTO that holds itself (through `@Nested` or `@ListOf`, directly or via other DTOs) is a
+ * #1080: a DTO that holds itself (through `@Nested` or `@List`, directly or via other DTOs) is a
  * typed error, never a stack overflow; a DTO used twice and a deep finite chain are fine.
  */
 import { describe, expect, it } from "vitest";
@@ -23,7 +23,7 @@ describe("#1080 dtoCycleOf", () => {
     expect(names(dtoCycleOf(PongDto))).toEqual(["PongDto", "PingDto", "PongDto"]);
   });
 
-  it("finds a cycle through ListOf", () => {
+  it("finds a cycle through List", () => {
     expect(names(dtoCycleOf(TreeDto))).toEqual(["TreeDto", "TreeDto"]);
   });
 
@@ -40,7 +40,7 @@ describe("#1080 every DTO walk refuses a cycle with dto.cyclic", () => {
   const cyclic: readonly (readonly [string, DtoClass, string])[] = [
     ["a direct self-cycle", SelfDto, "SelfDto → SelfDto"],
     ["a two-DTO cycle", PingDto, "PingDto → PongDto → PingDto"],
-    ["a cycle through ListOf", TreeDto, "TreeDto → TreeDto"],
+    ["a cycle through List", TreeDto, "TreeDto → TreeDto"],
   ];
 
   it.each(cyclic)("%s: the runtime schema", (_label, dto, path) => {

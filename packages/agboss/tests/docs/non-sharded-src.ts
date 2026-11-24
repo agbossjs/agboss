@@ -306,6 +306,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/components/prompt-input.ts",
     "src/components/prompt-options.ts",
     "src/components/prompt-problems.ts",
+    "src/components/prompt-source.ts",
     "src/components/prompt-render.ts",
     "src/components/render-template.ts",
   ]),

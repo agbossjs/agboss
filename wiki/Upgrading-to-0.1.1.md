@@ -95,14 +95,14 @@ import {
   type ChannelAsk,
   type ChannelPauseClosedEvent,
 } from "@agboss/core";
-import { Flag, Text } from "@agboss/core/dto";
+import { Bool, Text } from "@agboss/core/dto";
 
 export class HoldRequest {
   @Text() bookingId!: string;
 }
 
 export class HoldDecision {
-  @Flag({ prompt: "whether the hold goes on" }) approved!: boolean;
+  @Bool({ prompt: "whether the hold goes on" }) approved!: boolean;
 }
 
 @ChannelRole({

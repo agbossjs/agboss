@@ -1,5 +1,5 @@
 import { METADATA_KEY } from "../../src/polyfills/symbol-metadata.js";
-import { ListOf, Nested, Text } from "../../src/dto/index.js";
+import { List, Nested, Text } from "../../src/dto/index.js";
 import type { DtoClass, FieldDecorator } from "../../src/dto/types.js";
 
 /**
@@ -39,7 +39,7 @@ export class TreeDto {
   @Text({ prompt: "the label" })
   label!: string;
 }
-addField(TreeDto, "children", ListOf(TreeDto, { optional: true }));
+addField(TreeDto, "children", List(TreeDto, { optional: true }));
 
 /** Two fields hold the same DTO: a diamond, not a cycle. */
 export class SharedDto {
@@ -51,7 +51,7 @@ export class DiamondDto {
   @Nested(SharedDto)
   left!: SharedDto;
 
-  @ListOf(SharedDto)
+  @List(SharedDto)
   right!: SharedDto[];
 }
 

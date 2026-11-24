@@ -1,4 +1,4 @@
-import { Flag, Text } from "@agboss/core/dto";
+import { Bool, Text } from "@agboss/core/dto";
 
 /** What `close-account-tool` takes — a call the desk's interceptor never lets through. */
 export class AccountClosureDto {
@@ -8,6 +8,6 @@ export class AccountClosureDto {
 
 /** What `close-account-tool` would give. */
 export class AccountClosedDto {
-  @Flag({ prompt: "whether the account was closed" })
+  @Bool({ prompt: "whether the account was closed" })
   closed!: boolean;
 }

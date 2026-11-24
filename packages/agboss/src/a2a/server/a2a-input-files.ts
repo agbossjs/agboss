@@ -6,7 +6,7 @@ import { invalidParams } from "./a2a-wire-errors.js";
  * Where a message's files go in its input (#859): each into the field it names
  * (`metadata[A2A_SKILLS_EXTENSION].field`); the ones that name none — a foreign client's — in
  * order into the fields in declaration order: each `@Nested(A2AFileDto)` not filled yet takes one,
- * the first `@ListOf(A2AFileDto)` the rest. A file left over is `-32602
+ * the first `@List(A2AFileDto)` the rest. A file left over is `-32602
  * a2a.too-many-files-for-field`. The `data` part never fills a file field itself (`-32602
  * a2a.file-field-in-data`): a file's descriptor is the server's, made at its admission, never the
  * caller's — so no caller names a file it did not send.

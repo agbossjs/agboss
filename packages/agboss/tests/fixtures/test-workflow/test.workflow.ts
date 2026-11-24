@@ -8,7 +8,7 @@ import {
   type ToolHandler,
 } from "../../../src/index.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
-import { DateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { IsoDateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { route, onStart } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../test-flow/test.flow.js";
 import { Application } from "../../../src/application/application.js";
@@ -23,7 +23,7 @@ class ClockQuery {
 }
 
 class ClockTime {
-  @DateTime()
+  @IsoDateTime()
   iso!: string;
 
   @TimeZone()

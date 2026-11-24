@@ -1,4 +1,4 @@
-import { OneOf, Text } from "../../../../src/dto/index.js";
+import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   DecidedBy,
@@ -35,7 +35,7 @@ export const ANSWERS = [
 export type Answer = (typeof ANSWERS)[number];
 
 export class AskDto {
-  @OneOf({ values: ANSWERS, prompt: "what the router answers" })
+  @Enum(ANSWERS, { prompt: "what the router answers" })
   answer!: Answer;
 }
 

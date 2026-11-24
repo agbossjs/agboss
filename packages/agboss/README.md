@@ -502,7 +502,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
   `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts and SQLite / in-memory repositories (`Clock`,
   `IdGenerator`, `ChildExecutionQueueRepository`, `ExecutionHistoryRepository`, `MeshRequestRepository`, …),
   `Decision`, observers, errors and types
-- `@agboss/core/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
+- `@agboss/core/dto` — field decorators (`@Text`, `@List`, …), the DTO wrappers (`listOf`, `oneOf`,
   `optional`, `variant`) and the standard DTOs
 - `@agboss/core/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
 - `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
@@ -726,7 +726,7 @@ most 200 questions per call; an answer that does not fit its question fails with
 
 <!-- snippet-context
 import { InjectionToken } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 export class JobDto {
   @Text({ prompt: "the job's title" })
   title!: string;
@@ -735,7 +735,7 @@ export class JobDto {
   url!: string;
 }
 export class JobReportDto {
-  @ListOf(JobDto, { prompt: "the jobs found" })
+  @List(JobDto, { prompt: "the jobs found" })
   jobs!: JobDto[];
 }
 interface JobSearch {
@@ -1591,9 +1591,9 @@ budgets. Called outside a step or a tool call, `record` throws `SpendOutsideStep
 
 <!-- snippet-context
 import { ExecutionContext, TenantContext } from "@agboss/core";
-import { Decimal } from "@agboss/core/dto";
+import { Float } from "@agboss/core/dto";
 export class ShopTenantContext extends TenantContext {
-  @Decimal()
+  @Float()
   dailyBudgetUsd!: number;
 }
 -->
@@ -1776,9 +1776,9 @@ answer tool; its `model` or `defaults.guardrail.model` (never `defaults.router`;
 
 <!-- snippet-context
 import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
-import { OneOf } from "@agboss/core/dto";
+import { Enum } from "@agboss/core/dto";
 export class ClinicExecutionContext extends ExecutionContext {
-  @OneOf({ values: ["en", "he"] })
+  @Enum(["en", "he"])
   locale!: "en" | "he";
 }
 @Injectable()

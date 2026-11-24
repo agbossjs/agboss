@@ -27,7 +27,7 @@ import {
   type OnGuardrailEnd,
   type OnGuardrailStart,
 } from "../../src/index.js";
-import { OneOf, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { Enum, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -35,13 +35,13 @@ import { route, onStart } from "../helpers/flow.js";
 
 /** The tenant's own field: which shop it is (its blocklist). */
 export class ShopTenantContext extends TenantContext {
-  @OneOf({ values: ["toys", "tools"] })
+  @Enum(["toys", "tools"])
   shop!: "toys" | "tools";
 }
 
 /** The execution's own field: the sender's language. */
 export class ShopExecutionContext extends ExecutionContext {
-  @OneOf({ values: ["en", "he"] })
+  @Enum(["en", "he"])
   locale!: "en" | "he";
 }
 

@@ -57,11 +57,11 @@ export class JobDto {
 ```
 
 ```ts file=src/shortlist/dto/shortlist.dto.ts
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 import { JobDto } from "./job.dto.js";
 
 export class ShortlistDto {
-  @ListOf(JobDto, { prompt: "the jobs that match the request, best first", minItems: 1 })
+  @List(JobDto, { prompt: "the jobs that match the request, best first", minItems: 1 })
   jobs!: JobDto[];
 
   @Text({ prompt: "one sentence: why these jobs", optional: true })
@@ -343,8 +343,8 @@ What this shows:
 ## DTOs: what the model sees and what the code gets
 
 - One field decorator per field (`[dto.undecorated-field]` otherwise): `@Text`, `@Integer`,
-  `@Decimal`, `@Flag`, `@OneOf({ values: ["a", "b"] })`, `@ListOf(ItemDto | Text, { minItems })`,
-  `@Nested(OtherDto)`, formats `@Email`, `@Url`, `@Uuid`, `@Date`, `@DateTime`, `@PhoneNumber`, ….
+  `@Float`, `@Bool`, `@Enum(["a", "b"])`, `@List(ItemDto | Text, { minItems })`,
+  `@Nested(OtherDto)`, formats `@Email`, `@Url`, `@Uuid`, `@IsoDate`, `@IsoDateTime`, `@PhoneNumber`, ….
   Options: `prompt` (the field's description in the JSON Schema the model reads), `optional: true`,
   `default`, limits (`minLength`, `maxLength`, `pattern`, `min`, `max`), `example`, `sensitive`
   (a PII action, reference 07).
@@ -352,7 +352,7 @@ What this shows:
   object literals; the framework validates every value that crosses a boundary — a start's input,
   a tool's arguments and result, an agent's answer, an action's output, a resume's decision — and
   throws `DtoValidationError` (`dto`, `issues: [{ path, reason }]`) naming the field, never the value.
-- **No cycles** (`[dto.cyclic]`): a DTO may not hold itself through `@Nested` or `@ListOf`, directly
+- **No cycles** (`[dto.cyclic]`): a DTO may not hold itself through `@Nested` or `@List`, directly
   or via other DTOs — its JSON Schema would never end. Start fails naming the component and the cycle
   (`PingDto → PongDto → PingDto`); use an id field or a flat list. A DTO used twice is fine.
 - **An agent's invalid answer is retried for you.** Its answer tool's arguments are validated against
@@ -367,11 +367,11 @@ What this shows:
 Anti-pattern — the "God DTO":
 
 ```ts file=src/shortlist/dto/screening-result.dto.ts
-import { Flag, Integer, Text } from "@agboss/core/dto";
+import { Bool, Integer, Text } from "@agboss/core/dto";
 
 // ✗ one class for every outcome: optional fields nobody can rely on, a flag the code must re-check
 export class ScreeningResultDto {
-  @Flag({ prompt: "whether anything matched" })
+  @Bool({ prompt: "whether anything matched" })
   found!: boolean;
 
   @Text({ prompt: "the shortlist id, when saved", optional: true })

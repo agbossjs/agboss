@@ -6,7 +6,7 @@ import {
   PauseAnswerer,
 } from "../../../../agboss/src/channels/channel-role.decorator.js";
 import { Channel } from "../../../../agboss/src/components/decorators.js";
-import { Flag, Integer, Text } from "../../../../agboss/src/dto/index.js";
+import { Bool, Integer, Text } from "../../../../agboss/src/dto/index.js";
 import { EmptyEnvironment } from "../../../../agboss/src/environments/empty.js";
 import { Workflow } from "../../../../agboss/src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../../agboss/src/flow/decorators/workflow-finish.js";
@@ -22,7 +22,7 @@ export class LimitQuestionDto {
 }
 
 export class LimitAnswerDto {
-  @Flag({ prompt: "whether it may go on" })
+  @Bool({ prompt: "whether it may go on" })
   approved!: boolean;
 
   @Integer({ prompt: "the limit in dollars", min: 0 })

@@ -807,7 +807,7 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   (`-agent`, `-router`, `-action`, `-workflow-start`, `-workflow-finish`, `-workflow`, a question
   role's `-question`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
-  end with `Dto` (`[dto.name]`) and never hold themselves through `@Nested` / `@ListOf`, directly or
+  end with `Dto` (`[dto.name]`) and never hold themselves through `@Nested` / `@List`, directly or
   via other DTOs (`[dto.cyclic]`, naming the component and `A → B → A`; #1080); a path ends in a finish; a router's `chooseOne` lists exactly its
   routes (`[router.routes-mismatch]`); a node on a cycle has `maxVisits`. No field reads an outdated
   value — one built from an older version of what was renewed since (`[input.outdated-on-path]`,
@@ -819,7 +819,7 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
 
 <!-- snippet-context
 import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, caseOf, onStart, toAction } from "@agboss/core";
-import { Flag, Text, oneOf } from "@agboss/core/dto";
+import { Bool, Text, oneOf } from "@agboss/core/dto";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -838,7 +838,7 @@ export class DraftApprovedDto {
   note?: string;
 }
 export class OfferSentDto {
-  @Flag({ prompt: "the offer was delivered" })
+  @Bool({ prompt: "the offer was delivered" })
   delivered!: boolean;
 }
 @WorkflowStart({ name: "offer-workflow-start", description: "A shortlist", input: ShortlistDto })
@@ -899,14 +899,14 @@ export const offerPaths = [
 
 <!-- snippet-context
 import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
-import { Flag, Text, WorkflowStartTextDto, listOf, optional } from "@agboss/core/dto";
+import { Bool, Text, WorkflowStartTextDto, listOf, optional } from "@agboss/core/dto";
 
 export class CompanyDto {
   @Text({ prompt: "the company's name" })
   name!: string;
 }
 export class CompanyCheckDto {
-  @Flag({ prompt: "whether the company passed" })
+  @Bool({ prompt: "whether the company passed" })
   passed!: boolean;
 }
 export class RankingDto {
@@ -1001,7 +1001,7 @@ export const launchPaths = [
 
 <!-- snippet-context
 import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, onStart, toAction } from "@agboss/core";
-import { Flag, Text, WorkflowStartTextDto, listOf, oneOf } from "@agboss/core/dto";
+import { Bool, Text, WorkflowStartTextDto, listOf, oneOf } from "@agboss/core/dto";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
@@ -1016,7 +1016,7 @@ export class VendorRejectedDto {
   reason!: string;
 }
 export class VendorCheckFailedDto {
-  @Flag({ prompt: "the check could not be done" })
+  @Bool({ prompt: "the check could not be done" })
   failed!: boolean;
 }
 export class VendorRankingDto {
@@ -1545,8 +1545,8 @@ export class SeenJobsRepository {
 }
 ```
 
-- **Data are DTO classes** (`@agboss/core/dto`): `@Text`, `@Integer`, `@Flag`, `@OneOf`,
-  `@ListOf`, `@Nested`, …; plain data, no methods; on paths wrapped as `listOf(Dto)`,
+- **Data are DTO classes** (`@agboss/core/dto`): `@Text`, `@Integer`, `@Bool`, `@Enum`,
+  `@List`, `@Nested`, …; plain data, no methods; on paths wrapped as `listOf(Dto)`,
   `oneOf(A, B)`, `optional(Dto)`, `historyOf(Dto, { maxPrevious })` (an input: the current value and the
   earlier versions), `variant(Dto, value)`. Standard ones: `WorkflowStartTextDto`,
   `WorkflowFinishTextDto`, `ToolCallApprovalDecisionDto`, `RagSearchResultDto`, `PlainTextDto`
@@ -2092,9 +2092,9 @@ GuardrailRefusal`, its services and the execution through `deps`) — never both
 
 <!-- snippet-context
 import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
-import { OneOf } from "@agboss/core/dto";
+import { Enum } from "@agboss/core/dto";
 export class ClinicExecutionContext extends ExecutionContext {
-  @OneOf({ values: ["en", "he"] })
+  @Enum(["en", "he"])
   locale!: "en" | "he";
 }
 @Injectable()
@@ -2418,12 +2418,12 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
 
 <!-- snippet-context
 import { ExecutionContext, Injectable, PiiAction, TenantContext } from "@agboss/core";
-import { OneOf, Text } from "@agboss/core/dto";
+import { Enum, Text } from "@agboss/core/dto";
 -->
 
 ```ts
 export class ShopTenantContext extends TenantContext {
-  @OneOf({ values: ["free", "pro"] })
+  @Enum(["free", "pro"])
   plan!: "free" | "pro";
 }
 

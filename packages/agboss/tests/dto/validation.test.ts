@@ -3,19 +3,19 @@ import { describe, expect, it } from "vitest";
 import {
   CountryCode,
   CurrencyCode,
-  Date,
-  DateTime,
-  Decimal,
+  IsoDate,
+  IsoDateTime,
+  Float,
   DecimalString,
-  Duration,
+  IsoDuration,
   DtoValidationError,
   Email,
-  Flag,
+  Bool,
   Integer,
-  ListOf,
+  List,
   MediaType,
   Nested,
-  OneOf,
+  Enum,
   PhoneNumber,
   Text,
   TimeZone,
@@ -28,22 +28,22 @@ class Everything {
   @Text({ minLength: 2, maxLength: 5 }) text!: string;
   @Text({ pattern: /^[A-Z]{2}-\d{4}$/, optional: true }) code?: string;
   @Integer({ min: 1, max: 50 }) count!: number;
-  @Decimal({ min: 0, max: 1 }) score!: number;
-  @Flag() done!: boolean;
+  @Float({ min: 0, max: 1 }) score!: number;
+  @Bool() done!: boolean;
   @Email() email!: string;
   @Url() url!: string;
   @Uuid() id!: string;
-  @Date() day!: string;
-  @DateTime() at!: string;
-  @Duration() takes!: string;
+  @IsoDate() day!: string;
+  @IsoDateTime() at!: string;
+  @IsoDuration() takes!: string;
   @DecimalString({ scale: 2 }) amount!: string;
   @CurrencyCode() currency!: string;
   @CountryCode() country!: string;
   @PhoneNumber() phone!: string;
   @MediaType() type!: string;
   @TimeZone() zone!: string;
-  @OneOf({ values: ["file", "folder"] }) kind!: "file" | "folder";
-  @ListOf(Text, { minItems: 1, maxItems: 2 }) tags!: string[];
+  @Enum(["file", "folder"]) kind!: "file" | "folder";
+  @List(Text, { minItems: 1, maxItems: 2 }) tags!: string[];
 }
 
 const valid = {
@@ -142,7 +142,7 @@ describe("DTO validation (#118)", () => {
       @Url() url!: string;
     }
     class Jobs {
-      @ListOf(Job) jobs!: Job[];
+      @List(Job) jobs!: Job[];
       @Nested(Job, { optional: true }) best?: Job;
     }
     const jobs = [{ url: "https://a.io" }, { url: "https://b.io" }, { url: "nope" }];

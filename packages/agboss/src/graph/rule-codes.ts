@@ -121,7 +121,7 @@ export type RuleCode =
   | "name.not-kebab-case"
   | "dto.name"
   | "dto.duplicate-name"
-  // a DTO that holds itself through @Nested / @ListOf (#1080)
+  // a DTO that holds itself through @Nested / @List (#1080)
   | "dto.cyclic"
   | "tool.name-too-long"
   | "tool.name-invalid"

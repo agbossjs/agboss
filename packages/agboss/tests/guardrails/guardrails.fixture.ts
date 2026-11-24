@@ -20,7 +20,7 @@ import {
   pii,
   type GuardrailRefusal,
 } from "../../src/index.js";
-import { OneOf, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { Enum, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -28,7 +28,7 @@ import { route, onStart } from "../helpers/flow.js";
 
 /** The execution's own field: the sender's language. */
 export class ClinicExecutionContext extends ExecutionContext {
-  @OneOf({ values: ["en", "he"] })
+  @Enum(["en", "he"])
   locale!: "en" | "he";
 }
 

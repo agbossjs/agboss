@@ -9,7 +9,7 @@ import type { A2AFileOptions } from "../../../../src/a2a/files/a2a-file-options.
 import { fileTierSizeOf, finishDtosOf } from "../../../../src/a2a/files/a2a-file-tier.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import type { Class } from "../../../../src/components/injection.js";
-import { ListOf, Nested, Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
+import { List, Nested, Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Action } from "../../../../src/flow/decorators/action.js";
 import type { Produced } from "../../../../src/index.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
@@ -95,7 +95,7 @@ describe("fileTierSizeOf", () => {
 
   it("a list of files counts as files", () => {
     class ListedDto {
-      @ListOf(A2AFileDto, { prompt: "l" })
+      @List(A2AFileDto, { prompt: "l" })
       files!: A2AFileDto[];
     }
     expect(tierOf([skill(ListedDto, TextDto)], SIZES)).toBe(1000);

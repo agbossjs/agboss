@@ -1,4 +1,4 @@
-import { OneOf, Text } from "../../../../src/dto/index.js";
+import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   oneOf,
@@ -18,7 +18,7 @@ export class TicketDto {
   @Text({ prompt: "the ticket" })
   text!: string;
 
-  @OneOf({ values: ["bug", "question", "unmarked"], prompt: "what the ticket is" })
+  @Enum(["bug", "question", "unmarked"], { prompt: "what the ticket is" })
   kind!: "bug" | "question" | "unmarked";
 }
 
