@@ -28,8 +28,8 @@ function hasFailureFinish(workflow: Class): boolean {
 }
 
 function launchWarnings(context: AnalysisContext, launch: FlowLaunch): readonly RuleViolation[] {
-  if (launch.targetKind !== NodeKind.Workflow) return [];
   return launch.branches.flatMap((branch) => {
+    if (branch.kind !== NodeKind.Workflow || branch.skip.length > 0) return [];
     const child = context.graph.nodes.get(branch.node);
     if (child === undefined || hasFailureFinish(childClassOf(child))) return [];
     const message =

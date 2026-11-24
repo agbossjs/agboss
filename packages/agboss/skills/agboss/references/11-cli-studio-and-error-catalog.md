@@ -308,6 +308,9 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[launch.max-items-required]`      | a per-item launch without `maxItems`                                                      | `.toParallelAgents(X)` after `listOf(…)` → `.toParallelAgents(X, { maxItems: 20 })`                  |
 | `[launch.max-items-without-list]`  | `maxItems` on a launch that is not per item                                               | `.toParallelAgents(A, B, { maxItems: 5 })` → remove `maxItems`                                       |
 | `[launch.item-not-read]`           | the per-item target reads no field of the item's class                                    | `input: { request: RequestDto }` → add `company: CompanyDto` for `listOf(CompanyDto)`                |
+| `[launch.skip-differs]`            | one class is listed twice in `.inParallel([…])` with different `.onError(E, skip())`          |
+| `[launch.for-each-item-no-list]`   | `.forEachItem(…)` stands where the step before it gives no list                               |
+| `[launch.max-items-handler-required]` | `.forEachItem(…, { maxItems })` has no `.onError(LimitError.Items, …)` after its join         |
 | `[launch.branch-continued]`        | a launched class is continued somewhere else too                                          | `CheckAgent` launched and also `.toAgent(CheckAgent)` → a second class, or a child workflow per item |
 | `[launch.branch-outdates-sibling]` | a branch renews a value a sibling of the same launch read                                 | a branch returning a new `DraftDto` while another reads `DraftDto` → move the rewrite after the join |
 | `[flow.quorum-impossible]`         | `min` above what can run, or a group that can never complete                              | `.joinQuorum({ min: 4 })` over three agents → `min: 2`, or launch more                               |

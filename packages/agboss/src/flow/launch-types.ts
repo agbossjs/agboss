@@ -1,6 +1,17 @@
 import type { Class } from "../components/injection.js";
 import type { ErrorClass, NodeKind } from "./ast.js";
-import type { KindLabel, PathHead, SidePath, TargetCheck, Transitions } from "./builder-types.js";
+import type {
+  BuiltPath,
+  KindLabel,
+  PathHead,
+  SideHead,
+  SidePath,
+  StartOfPath,
+  TargetCheck,
+  Transitions,
+} from "./builder-types.js";
+import type { KindOf } from "./generated-types.js";
+import type { RoutesOf } from "./route-types.js";
 import type { Quorums } from "./quorum-types.js";
 import type { ClassOf, TargetRef } from "./target-ref.js";
 
@@ -89,8 +100,104 @@ export type ChildLaunchCheck<TClass extends Class, TValue> =
         readonly __error: "toParallelWorkflows(W, …) runs one child per item — the step before it gives a list";
       };
 
+/** `{ maxConcurrency }` — the second argument of `.inParallel([…], options)` (#1279). */
+export interface ParallelOptions {
+  /** At most this many branches in progress at once; a limit only, it never changes the result. */
+  readonly maxConcurrency?: number | undefined;
+}
+
+/**
+ * `.forEachItem(step, options)` (#1280): exactly one bound — `maxItems` (more items throw
+ * `LimitError.Items`, handled after the join) or `takeFirst` (the first items run, the rest are
+ * dropped, recorded) — and an optional `maxConcurrency`.
+ */
+export type ForEachItemOptions =
+  | {
+      readonly maxItems: number;
+      readonly takeFirst?: never;
+      readonly maxConcurrency?: number | undefined;
+    }
+  | {
+      readonly takeFirst: number;
+      readonly maxItems?: never;
+      readonly maxConcurrency?: number | undefined;
+    };
+
+/** What a branch of a parallel step may start with: an agent, an action, a question role, a child workflow — or a router, which only `chooseMany([…])` completes. */
+export type BranchKind =
+  NodeKind.Agent | NodeKind.Action | NodeKind.Question | NodeKind.Workflow | NodeKind.Router;
+
+/** `unknown` when the branch starts with a kind a parallel step runs, else a readable error. */
+export type BranchCheck<TPath> = [StartOfPath<TPath>] extends [never]
+  ? unknown
+  : [StartOfPath<TPath>] extends [Class]
+    ? [KindOf<InstanceType<StartOfPath<TPath>>>] extends [never]
+      ? unknown
+      : [KindOf<InstanceType<StartOfPath<TPath>>>] extends [BranchKind]
+        ? unknown
+        : {
+            readonly __error: "a branch is toAgent(…), toAction(…), toExternalTask(…), toWorkflow(…) or toRouter(…).chooseMany([…])";
+          }
+    : unknown;
+
+/** Each branch of `.inParallel([…])` checked. */
+export type BranchesCheck<TBranches extends readonly unknown[]> = {
+  [K in keyof TBranches]: BranchCheck<TBranches[K]>;
+};
+
+/** `unknown` when a branch of `chooseMany([…])` is one of the router's routes, else a readable error. */
+export type ChoicesCheck<TBranches extends readonly unknown[], TInstance> = {
+  [K in keyof TBranches]: [RoutesOf<TInstance>] extends [never]
+    ? unknown
+    : [StartOfPath<TBranches[K]>] extends [never]
+      ? unknown
+      : [StartOfPath<TBranches[K]>] extends [RoutesOf<TInstance>]
+        ? unknown
+        : { readonly __error: "a branch of chooseMany([…]) is one of the router's routes" };
+};
+
+/** `toRouter(R).chooseMany([…])` (#1279b): the branches the router picks among, in a branch of `.inParallel([…])`. */
+export interface ChooseMany<THead extends PathHead, TInstance> {
+  chooseMany<const TBranches extends readonly [SidePath, ...SidePath[]]>(
+    branches: TBranches & BranchesCheck<TBranches> & ChoicesCheck<TBranches, TInstance>,
+  ): BuiltPath<THead>;
+}
+
+/** A router's `chooseMany` stands in a side path only. */
+export type ChooseManyOf<THead extends PathHead, TInstance> = THead extends SideHead
+  ? ChooseMany<THead, TInstance>
+  : unknown;
+
+/** `.forEachItem(…)` stands after a step that gives a list. */
+export type ItemsCheck<TValue> = [LastValue<TValue>] extends [never]
+  ? {
+      readonly __error: "forEachItem(step, …) runs once per item — the step before it gives a list";
+    }
+  : [LastValue<TValue>] extends [readonly unknown[]]
+    ? unknown
+    : {
+        readonly __error: "forEachItem(step, …) runs once per item — the step before it gives a list";
+      };
+
+/** The parallel launches of #1279 and #1280: `.inParallel([…branches])`, `.forEachItem(step, options)`. */
+export interface ParallelLaunches<TValue, THead extends PathHead> {
+  /**
+   * Branches of any kind at once (#1279): `toAgent(A)`, `toAction(X)`, `toExternalTask(Q)`,
+   * `toWorkflow(W)`, each with an optional `.onError(E, skip())`; followed by `.join()`.
+   */
+  inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(
+    branches: TBranches & BranchesCheck<TBranches>,
+    options?: ParallelOptions,
+  ): Launched<THead>;
+  /** One run of `step` per item of the list the step before gives (#1280). */
+  forEachItem<const TStep extends SidePath>(
+    step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>,
+    options: ForEachItemOptions,
+  ): Launched<THead>;
+}
+
 /** The launches a step's values (`TValue`, the chain's last one per item) may lead into. */
-export interface Launches<TValue, THead extends PathHead> {
+export interface Launches<TValue, THead extends PathHead> extends ParallelLaunches<TValue, THead> {
   toParallelAgents<const TArgs extends LaunchArguments>(
     ...targets: TArgs & LaunchCheck<TArgs, NodeKind.Agent>
   ): AgentsLaunched<THead>;

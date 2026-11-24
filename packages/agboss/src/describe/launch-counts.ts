@@ -29,5 +29,5 @@ export function launchCounts(
 /** The join of a per-item launch of child workflows. */
 const isPerItemChildJoin = (edge: FlowEdge): boolean =>
   edge.kind === EdgeKind.Join &&
-  edge.join?.launch.targetKind === NodeKind.Workflow &&
+  edge.join?.launch.branches[0]?.kind === NodeKind.Workflow &&
   edge.join.launch.items !== undefined;

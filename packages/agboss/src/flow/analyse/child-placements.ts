@@ -4,6 +4,8 @@ import {
   QuorumKind,
   StepKind,
   type FlowPath,
+  type ForEachItemStep,
+  type InParallelStep,
   type LaunchStep,
   type Step,
   type SubPath,
@@ -28,7 +30,15 @@ class ChildWalk {
 
   private step(step: Step): void {
     if (step.kind === StepKind.To || step.kind === StepKind.Launch) this.mention(step);
+    else if (step.kind === StepKind.InParallel || step.kind === StepKind.ForEachItem)
+      this.mentionBranches(step);
     else this.branches(step);
+  }
+
+  private mentionBranches(step: InParallelStep | ForEachItemStep): void {
+    const given = step.kind === StepKind.InParallel ? step.branches : [step.branch];
+    for (const branch of given)
+      if (branch.targetKind === NodeKind.Workflow) this.found.add(branch.target);
   }
 
   private mention(step: ToStep | LaunchStep): void {
@@ -38,7 +48,9 @@ class ChildWalk {
   }
 
   /** The sub-paths of a step; a route to a child workflow names it too. */
-  private branches(step: Exclude<Step, ToStep | LaunchStep>): void {
+  private branches(
+    step: Exclude<Step, ToStep | LaunchStep | InParallelStep | ForEachItemStep>,
+  ): void {
     for (const path of subPathsOf(step)) this.steps(path.steps);
     if (step.kind !== StepKind.ChooseOne) return;
     for (const route of step.routes)
@@ -47,7 +59,9 @@ class ChildWalk {
 }
 
 /** The sub-paths a step holds. */
-export function subPathsOf(step: Exclude<Step, ToStep | LaunchStep>): readonly SubPath[] {
+export function subPathsOf(
+  step: Exclude<Step, ToStep | LaunchStep | InParallelStep | ForEachItemStep>,
+): readonly SubPath[] {
   switch (step.kind) {
     case StepKind.ChooseOne:
       return step.routes.map((route) => route.path);

@@ -4,15 +4,18 @@ import { spanText } from "../units/working-time.js";
 import {
   StepKind,
   type FlowPath,
+  type ForEachItemStep,
   type GroupsQuorum,
+  type InParallelStep,
   type JoinStep,
   type LaunchStep,
   type OneOfStep,
+  type ParallelBranchStep,
   type Step,
   type ToStep,
 } from "./ast.js";
 import { declarationOf } from "./decorators/declaration.js";
-import { LAUNCH_CALLS } from "./launch-step.js";
+import { isLaunching, LAUNCH_CALLS } from "./launch-step.js";
 import {
   acceptedByLine,
   countQuorumOptions,
@@ -98,6 +101,45 @@ class Printer {
       this.line(depth, acceptedByLine(accepted, this.label));
   }
 
+  /** One branch of `.inParallel([…])`: `toAgent(A).onError(StepError, skip())`. */
+  private parallelBranch(branch: ParallelBranchStep): string {
+    const skips = branch.skip.map((error) => `.onError(${error.name}, skip())`).join("");
+    const chosen = branch.chooses?.map((one) => this.parallelBranch(one)).join(", ");
+    const picks = chosen === undefined ? "" : `.chooseMany([${chosen}])`;
+    return `${toCallOf(branch.targetKind)}(${this.label(branch.target)})${skips}${picks}`;
+  }
+
+  /** `.inParallel([toAgent(A), …], { maxConcurrency })` (#1279). */
+  private inParallel(step: InParallelStep, depth: number): void {
+    const branches = step.branches.map((branch) => this.parallelBranch(branch)).join(", ");
+    const options =
+      step.maxConcurrency === undefined
+        ? ""
+        : `, { maxConcurrency: ${String(step.maxConcurrency)} }`;
+    this.line(depth, `.inParallel([${branches}]${options})`);
+  }
+
+  /** `.forEachItem(toAgent(A), { takeFirst: 4 })` (#1280). */
+  private forEachItem(step: ForEachItemStep, depth: number): void {
+    const options = [
+      ...(step.maxItems === undefined ? [] : [`maxItems: ${String(step.maxItems)}`]),
+      ...(step.takeFirst === undefined ? [] : [`takeFirst: ${String(step.takeFirst)}`]),
+      ...(step.maxConcurrency === undefined
+        ? []
+        : [`maxConcurrency: ${String(step.maxConcurrency)}`]),
+    ];
+    this.line(
+      depth,
+      `.forEachItem(${this.parallelBranch(step.branch)}, { ${options.join(", ")} })`,
+    );
+  }
+
+  private launching(step: LaunchStep | InParallelStep | ForEachItemStep, depth: number): void {
+    if (step.kind === StepKind.Launch) this.launch(step, depth);
+    else if (step.kind === StepKind.InParallel) this.inParallel(step, depth);
+    else this.forEachItem(step, depth);
+  }
+
   /** `.joinQuorumGroups(` each `group(…)` with its priority and path, its options `)` (#279). */
   private groups(quorum: GroupsQuorum, depth: number): void {
     this.line(depth, ".joinQuorumGroups(");
@@ -141,6 +183,10 @@ class Printer {
   }
 
   private step(step: Step, depth: number): void {
+    if (isLaunching(step)) {
+      this.launching(step, depth);
+      return;
+    }
     switch (step.kind) {
       case StepKind.To:
         this.line(
@@ -173,9 +219,7 @@ class Printer {
       case StepKind.OnError:
         this.sidePath(step.error.name, step.path.steps, depth, "onError");
         return;
-      case StepKind.Launch:
-        this.launch(step, depth);
-        return;
+
       case StepKind.Join:
         this.join(step, depth);
         return;

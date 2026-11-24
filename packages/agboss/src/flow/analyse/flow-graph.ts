@@ -3,7 +3,7 @@ import {
   NodeKind,
   type AcceptedBy,
   type ErrorClass,
-  type LaunchTargetKind,
+  type ParallelTargetKind,
   type Quorum,
 } from "../ast.js";
 import type { ComponentDeclaration } from "../decorators/declaration.js";
@@ -63,7 +63,13 @@ export interface LaunchBranch {
   readonly node: ComponentName;
   /** How many times the launch lists it (`toParallelAgents(CriticAgent, CriticAgent)`: 2). */
   readonly copies: number;
-  /** Its router route is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip`: the join may lack it. */
+  /** What it is: a launch may mix kinds (#1279). */
+  readonly kind: ParallelTargetKind;
+  /** `.onError(E, skip())` (#1279): the error classes that drop it out of the join; a router route's `Skip` is `StepFailedError`. */
+  readonly skip: readonly ErrorClass[];
+  /** Listed with different `skip()`s: `[launch.skip-differs]`. */
+  readonly skipDiffers?: true;
+  /** Its router route is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip`, or it is `skip()`ped: the join may lack it. */
   readonly isOptional: boolean;
   /** Its router route is `SpawnPolicy.Always` + `FailurePolicy.FailFast` (or no router): it runs. */
   readonly alwaysRuns: boolean;
@@ -73,7 +79,10 @@ export interface LaunchBranch {
 export interface FlowLaunch {
   /** The launching step: an agent, an action, a start or a router. */
   readonly launcher: ComponentName;
-  readonly targetKind: LaunchTargetKind;
+  /** How a message names the launch's call: `toParallelAgents`, `inParallel`, `forEachItem`. */
+  readonly call: string;
+  /** `.inParallel([…])` / `.forEachItem(…)`; absent for the older `.toParallel…(…)`. */
+  readonly form?: "in-parallel" | "for-each-item";
   /** Distinct targets, in the order first listed. */
   readonly branches: readonly LaunchBranch[];
   /** The targets as listed, repeats included. */
@@ -81,7 +90,12 @@ export interface FlowLaunch {
   /** The list a per-item launch runs over: the list the step before it gives. */
   readonly items?: ListWrapper;
   readonly maxConcurrency?: number;
+  /** A strict bound: more items throw `LimitError.Items` (#1280). */
   readonly maxItems?: number;
+  /** An intended slice: the first `takeFirst` items run (#1280). */
+  readonly takeFirst?: number;
+  /** `toRouter(R).chooseMany([…])` (#1279b): the router `launcher` is, and the targets it picks among. */
+  readonly chooser?: { readonly routes: readonly ComponentName[] };
   /** Launched right after a router: its routes' policies apply. */
   readonly isRouterLaunch: boolean;
   /** `.acceptedBy(…)` (#279): the arbiters each answer passes, in path order. */
@@ -214,3 +228,8 @@ export function reachableFrom(
   }
   return seen;
 }
+
+/** The most items a per-item launch runs: `maxItems` or `takeFirst` (#1280); undefined when unbounded. */
+export const itemBoundOf = (
+  launch: Pick<FlowLaunch, "maxItems" | "takeFirst">,
+): number | undefined => launch.maxItems ?? launch.takeFirst;

@@ -13,6 +13,7 @@ import {
   type QuorumGroup,
   type Step,
 } from "./ast.js";
+import type { PathStart } from "./path-start.js";
 import { FlowSyntaxError } from "./launch-step.js";
 
 /**
@@ -167,4 +168,15 @@ export function quorumGroupOf(start: GroupStart, steps: readonly Step[]): Quorum
   const path = Object.freeze({ steps: Object.freeze([...steps]) });
   const group = { agents, path };
   return Object.freeze(priority === undefined ? group : { ...group, priority });
+}
+
+/** `group(…).priority(n)`: the group's start with its priority; written right after `group(…)`. */
+export function prioritisedStart(
+  start: PathStart,
+  steps: readonly Step[],
+  priority: unknown,
+): PathStart {
+  if (start.kind !== "group" || steps.length > 0)
+    throw new FlowSyntaxError({ message: ".priority(n) stands right after group(…)" });
+  return { ...start, priority: priorityOf(priority) };
 }

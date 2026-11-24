@@ -35,7 +35,7 @@ import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-qu
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
 import { abortLaunch, settledEnd } from "./branch-settle.js";
-import { FailurePolicy } from "../../decorators/router.js";
+import { isSkippedBranch } from "./branch-skip.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { branchFrameOf, branchVisitOf } from "./branch-view.js";
 import type { EndedChildRecord } from "../child-records.js";
@@ -174,7 +174,7 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   const failure = failureOfBranch(run.budgetStop, error);
   const status = failedStatusOf({ live, ticket, isQuorum: live.quorum !== undefined }, failure);
   // an expired branch follows its launch: a quorum or `Skip` drops it, a plain `FailFast` launch fails
-  const isDropped = live.quorum !== undefined || ticket.failure === FailurePolicy.Skip;
+  const isDropped = live.quorum !== undefined || isSkippedBranch(ticket, failure);
   if (status === BranchStatus.Failed || (status === BranchStatus.Expired && !isDropped)) {
     live.errors.set(ticket.index, failure);
     run.deps.branchErrors?.keep(run.owner.ticket.launchId, ticket.index, failure);

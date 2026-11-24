@@ -12,6 +12,7 @@ import {
 } from "../../decorators/router.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import type { ScopeRecords } from "../records.js";
+import { skipCodesOf } from "./branch-skip.js";
 import type { BranchTicket, LaunchTicket } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
@@ -48,6 +49,7 @@ interface Planned {
   readonly copyNumber: number;
   readonly itemIndex?: number;
   readonly failure: FailurePolicy;
+  readonly skip: readonly string[];
 }
 
 const routeOf = (launcher: RuntimeNode, node: string): AnyRouterRoute | undefined => {
@@ -60,6 +62,12 @@ const routeOf = (launcher: RuntimeNode, node: string): AnyRouterRoute | undefine
 
 /** Whether a listed target runs: always, unless a router left its `OnDemand` route out. */
 function isLaunched(site: DispatchSite, node: string, route: AnyRouterRoute | undefined): boolean {
+  const { chooser } = site.launch.launch;
+  // `chooseMany([…])` (#1279b): the router's routes run when it chose them, the siblings always
+  if (chooser !== undefined)
+    return (
+      !(chooser.routes as readonly string[]).includes(node) || site.chosen?.includes(node) === true
+    );
   const { declaration } = site.launcher;
   if (route === undefined || declaration.kind !== NodeKind.Router) return true;
   if (spawnPolicyOf(declaration.options, route) === SpawnPolicy.Always) return true;
@@ -77,7 +85,10 @@ function listedBranches(site: DispatchSite): readonly Planned[] {
     const isRepeated = listed.filter((name) => name === node).length > 1;
     const failure = route === undefined ? FailurePolicy.FailFast : failurePolicyOf(route);
     const nodeId = isRepeated ? `${node}#${String(copyNumber)}` : node;
-    return [{ node, nodeId, copyNumber, failure }];
+    const skip = skipCodesOf(
+      site.launch.launch.branches.find((branch) => branch.node === node)?.skip ?? [],
+    );
+    return [{ node, nodeId, copyNumber, failure, skip }];
   });
 }
 
@@ -98,6 +109,7 @@ function itemBranches(site: DispatchSite, taken: number): readonly Planned[] {
     copyNumber: 1,
     itemIndex,
     failure: FailurePolicy.FailFast,
+    skip: skipCodesOf(branch.skip),
   }));
 }
 
@@ -109,7 +121,8 @@ function counted(site: DispatchSite, planned: readonly Planned[]): readonly Bran
     const visitNumber = (site.visits[branch.node] ?? 0) + 1;
     const stepsBefore = steps;
     if (site.graph.nodes.get(branch.node)?.kind === NodeKind.Agent) steps += 1;
-    return { ...branch, index, visitNumber, stepsBefore };
+    const { skip, ...rest } = branch;
+    return { ...rest, ...(skip.length === 0 ? {} : { skip }), index, visitNumber, stepsBefore };
   });
 }
 

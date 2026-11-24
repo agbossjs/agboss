@@ -155,6 +155,8 @@ function stepClassesOf(steps: readonly Step[]): readonly Class[] {
   return allSteps(steps).flatMap((step): readonly Class[] => {
     if (step.kind === StepKind.To) return [step.target];
     if (step.kind === StepKind.Launch) return step.targets;
+    if (step.kind === StepKind.InParallel) return step.branches.map((branch) => branch.target);
+    if (step.kind === StepKind.ForEachItem) return [step.branch.target];
     if (step.kind === StepKind.Join && step.quorum?.kind === QuorumKind.Groups)
       return step.quorum.groups.flatMap((group) => stepClassesOf(group.path.steps));
     return step.kind === StepKind.ChooseOne ? step.routes.map((route) => route.target) : [];

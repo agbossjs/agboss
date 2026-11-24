@@ -10,6 +10,7 @@ import {
   SpawnPolicy,
   type RouterOptions,
 } from "../../decorators/router.js";
+import type { FlowLaunch } from "../../analyse/flow-graph.js";
 import type { RuntimeNode } from "../graph-model.js";
 import { RouterDecisionError, routerFailureOf, type RouterVisit } from "../router-error.js";
 import type { LoadedRouter } from "../routers.js";
@@ -40,6 +41,8 @@ const nameOf = (target: Class): string => declarationOf(target)?.options.name ??
 
 /** The `OnDemand` routes' targets, in the order of `@Router({ routes })`. */
 export const onDemandTargetsOf = (node: RuntimeNode): readonly string[] => {
+  const chooser = chooserOf(node);
+  if (chooser !== undefined) return chooser.routes;
   const options = optionsOf(node);
   return routesOf(options)
     .filter((route) => spawnPolicyOf(options, route) === SpawnPolicy.OnDemand)
@@ -51,14 +54,19 @@ const hasAlwaysRoute = (node: RuntimeNode): boolean => {
   return routesOf(options).some((route) => spawnPolicyOf(options, route) === SpawnPolicy.Always);
 };
 
-/** Nothing would run: every `OnDemand` route out, and no `Always` one. */
+/** The routes a `chooseMany([…])` launch of this router picks among (#1279b). */
+const chooserOf = (node: RuntimeNode): FlowLaunch["chooser"] =>
+  [...node.exits.launches.values()].find((runtime) => runtime.launch.chooser !== undefined)?.launch
+    .chooser;
+
+/** Nothing would run: every `OnDemand` route out, and no `Always` one — never so under `chooseMany([…])`, where `[]` is an answer. */
 function checkLaunches(
   node: RuntimeNode,
   step: RouterVisit,
   launch: readonly string[],
   usage: readonly UsageRecord[],
 ): void {
-  if (launch.length > 0 || hasAlwaysRoute(node)) return;
+  if (launch.length > 0 || chooserOf(node) !== undefined || hasAlwaysRoute(node)) return;
   const reason =
     "it launched none of its OnDemand routes and has no Always route — nothing would run";
   throw new RouterDecisionError({ ...step, reason, usage });

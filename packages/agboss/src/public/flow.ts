@@ -32,6 +32,7 @@ export {
 } from "../flow/metadata.js";
 export { ChildPlacement } from "../flow/child-placement.js";
 export type { IsolatedWorkerOptions } from "../application/application.js";
+export * from "./flow-parallel.js";
 
 export type {
   AfterStep,

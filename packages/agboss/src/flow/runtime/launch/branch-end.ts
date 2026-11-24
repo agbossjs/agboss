@@ -5,7 +5,7 @@ import { ExecutionCancelledError } from "../../../core/errors.js";
 import { extractRunContext } from "../../../core/run-context.js";
 import { StepFailedError } from "../../../graph/errors.js";
 import { LimitExceededError } from "../../../graph/limits.js";
-import { FailurePolicy } from "../../decorators/router.js";
+import { isSkippedBranch } from "./branch-skip.js";
 import type { LiveLaunch } from "./launch-registry.js";
 import { ArbiterError } from "./quorum-errors.js";
 import { BranchStatus, type BranchOutcomeRecord, type BranchTicket } from "./records.js";
@@ -38,7 +38,7 @@ export function failedStatusOf(site: BranchFailureSite, error: unknown): BranchS
   if (site.live.controller.signal.aborted || isWithdrawn(error)) return BranchStatus.Cancelled;
   if (error instanceof ArbiterError || !(error instanceof StepFailedError))
     return BranchStatus.Failed;
-  const isDropped = site.ticket.failure === FailurePolicy.Skip || site.isQuorum;
+  const isDropped = isSkippedBranch(site.ticket, error) || site.isQuorum;
   return isDropped ? BranchStatus.Skipped : BranchStatus.Failed;
 }
 

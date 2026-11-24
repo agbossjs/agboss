@@ -120,7 +120,11 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
   /** Visits per execution; one more fails before it decides (`VisitsLimitExceededError`). */
   readonly maxVisits?: number;
   readonly decidedBy: DecidedBy.Code;
-  readonly routes: readonly [CodeRouterRoute, ...CodeRouterRoute[]];
+  /**
+   * The targets `route()` picks among: a class, or `() => Class` for one declared below (#1279b);
+   * `{ target, spawn?, failure? }` is the form of a launch right after the router, until it goes.
+   */
+  readonly routes: readonly [CodeRouterRoute | TargetRef, ...(CodeRouterRoute | TargetRef)[]];
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: TDeps;
   readonly model?: never;
@@ -198,7 +202,10 @@ export interface AnyRouterRoute {
  * assembly and run time, once every module has run, never while a decorator is evaluated.
  */
 export const routesOf = (options: RouterOptions): readonly AnyRouterRoute[] =>
-  options.routes.map((route) => ({ ...route, target: resolveTarget(route.target) }));
+  options.routes.map((route): AnyRouterRoute => {
+    const written = typeof route === "function" ? { target: route } : route;
+    return { ...written, target: resolveTarget(written.target) };
+  });
 
 /**
  * A route's spawn policy in a launch (#273, #280): as written, else the kind's default — `Always`

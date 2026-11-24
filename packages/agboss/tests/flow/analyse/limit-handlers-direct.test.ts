@@ -169,7 +169,7 @@ describe("#1366: what a side path after a limit reaches", () => {
 });
 
 describe("#1366: a join's handler", () => {
-  const launch = { launcher: "L", targetKind: "agent", listed: ["B1", "B2"], branches: [] };
+  const launch = { launcher: "L", call: "toParallelAgents", listed: ["B1", "B2"], branches: [] };
   const joined = (error: unknown, after: readonly (readonly [string, NodeKind])[]) => ({
     graph: graphOf(
       [

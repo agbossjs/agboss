@@ -980,6 +980,19 @@ export interface BooleanQuestion {
 }
 
 // @public
+type BranchCheck<TPath> = [StartOfPath<TPath>] extends [never] ? unknown : [StartOfPath<TPath>] extends [Class] ? [KindOf<InstanceType<StartOfPath<TPath>>>] extends [never] ? unknown : [KindOf<InstanceType<StartOfPath<TPath>>>] extends [BranchKind] ? unknown : {
+    readonly __error: "a branch is toAgent(…), toAction(…), toExternalTask(…), toWorkflow(…) or toRouter(…).chooseMany([…])";
+} : unknown;
+
+// @public
+type BranchesCheck<TBranches extends readonly unknown[]> = {
+    [K in keyof TBranches]: BranchCheck<TBranches[K]>;
+};
+
+// @public
+type BranchKind = NodeKind.Agent | NodeKind.Action | NodeKind.Question | NodeKind.Workflow | NodeKind.Router;
+
+// @public
 export interface BranchRecord {
     readonly acceptedSequence?: number;
     readonly copyNumber: number;
@@ -1667,6 +1680,22 @@ export interface ChoiceQuestion<O extends string = string> {
 }
 
 // @public
+type ChoicesCheck<TBranches extends readonly unknown[], TInstance> = {
+    [K in keyof TBranches]: [RoutesOf<TInstance>] extends [never] ? unknown : [StartOfPath<TBranches[K]>] extends [never] ? unknown : [StartOfPath<TBranches[K]>] extends [RoutesOf<TInstance>] ? unknown : {
+        readonly __error: "a branch of chooseMany([…]) is one of the router's routes";
+    };
+};
+
+// @public
+interface ChooseMany<THead extends PathHead, TInstance> {
+    // (undocumented)
+    chooseMany<const TBranches extends readonly [SidePath, ...SidePath[]]>(branches: TBranches & BranchesCheck<TBranches> & ChoicesCheck<TBranches, TInstance>): BuiltPath<THead>;
+}
+
+// @public
+type ChooseManyOf<THead extends PathHead, TInstance> = THead extends SideHead ? ChooseMany<THead, TInstance> : unknown;
+
+// @public
 export interface ChooseOneRoute {
     // (undocumented)
     readonly path: SubPath;
@@ -1866,8 +1895,7 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
     readonly promptUrls?: never;
     // (undocumented)
     readonly promptVariables?: never;
-    // (undocumented)
-    readonly routes: readonly [CodeRouterRoute, ...CodeRouterRoute[]];
+    readonly routes: readonly [CodeRouterRoute | TargetRef, ...(CodeRouterRoute | TargetRef)[]];
 }
 
 // @public
@@ -3849,7 +3877,7 @@ export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly T
 }
 
 // @public
-export type ExtraRuleCode = FileRuleCode | ModelProviderRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+export type ExtraRuleCode = FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export interface FailedHealthCheckResult {
@@ -4262,6 +4290,8 @@ declare namespace FlowTypes {
         ComponentSource,
         StartSource,
         CaseValueOf,
+        SkipHandling,
+        SkipOf,
         IsGroupPath,
         IsOneOf,
         IsUnion,
@@ -4293,6 +4323,13 @@ declare namespace FlowTypes {
         StartTenantOf,
         TenantOptionOf,
         WorkflowStartEntry,
+        BranchCheck,
+        ChooseMany,
+        ChooseManyOf,
+        ChoicesCheck,
+        BranchKind,
+        BranchesCheck,
+        ItemsCheck,
         IsPerItem,
         IsSeveral,
         LastValue,
@@ -4322,6 +4359,32 @@ declare namespace FlowTypes {
         ClaimsOfPath,
         NextHead
     }
+}
+
+// @public
+export function forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep>, options: ForEachItemOptions): Launched<SideHead>;
+
+// @public
+export type ForEachItemOptions = {
+    readonly maxItems: number;
+    readonly takeFirst?: never;
+    readonly maxConcurrency?: number | undefined;
+} | {
+    readonly takeFirst: number;
+    readonly maxItems?: never;
+    readonly maxConcurrency?: number | undefined;
+};
+
+// @public
+export interface ForEachItemStep {
+    // (undocumented)
+    readonly branch: ParallelBranchStep;
+    // (undocumented)
+    readonly kind: StepKind.ForEachItem;
+    // (undocumented)
+    readonly maxConcurrency?: number;
+    readonly maxItems?: number;
+    readonly takeFirst?: number;
 }
 
 // @public
@@ -5262,6 +5325,17 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 }
 
 // @public
+export function inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(branches: TBranches & BranchesCheck<TBranches>, options?: ParallelOptions): Launched<SideHead>;
+
+// @public
+export interface InParallelStep {
+    readonly branches: readonly ParallelBranchStep[];
+    // (undocumented)
+    readonly kind: StepKind.InParallel;
+    readonly maxConcurrency?: number;
+}
+
+// @public
 type InputCheck<TInstance> = [InputOf<TInstance>] extends [GeneratedTypeError] ? InputOf<TInstance> : unknown;
 
 // @public
@@ -5383,6 +5457,13 @@ export function isVariant<TItem extends {
 }, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, {
     readonly variant: DtoClass<InstanceType<TDto>>;
 }>;
+
+// @public
+type ItemsCheck<TValue> = [LastValue<TValue>] extends [never] ? {
+    readonly __error: "forEachItem(step, …) runs once per item — the step before it gives a list";
+} : [LastValue<TValue>] extends [readonly unknown[]] ? unknown : {
+    readonly __error: "forEachItem(step, …) runs once per item — the step before it gives a list";
+};
 
 // @public
 export type Joined<THead extends PathHead> = JoinErrorHandling<THead> & Transitions<THead>;
@@ -5615,7 +5696,7 @@ export interface Launched<THead extends PathHead> {
 }
 
 // @public
-export interface Launches<TValue, THead extends PathHead> {
+export interface Launches<TValue, THead extends PathHead> extends ParallelLaunches<TValue, THead> {
     // (undocumented)
     toParallelActions<const TArgs extends LaunchArguments>(...targets: TArgs & LaunchCheck<TArgs, NodeKind.Action>): Launched<THead>;
     // (undocumented)
@@ -7212,6 +7293,30 @@ export interface PairwiseResult {
     // (undocumented)
     readonly wins: number;
 }
+
+// @public
+export interface ParallelBranchStep {
+    readonly chooses?: readonly ParallelBranchStep[];
+    readonly skip: readonly ErrorClass[];
+    // (undocumented)
+    readonly target: Class;
+    // (undocumented)
+    readonly targetKind: ParallelTargetKind;
+}
+
+// @public
+export interface ParallelLaunches<TValue, THead extends PathHead> {
+    forEachItem<const TStep extends SidePath>(step: TStep & BranchCheck<TStep> & ItemsCheck<TValue>, options: ForEachItemOptions): Launched<THead>;
+    inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(branches: TBranches & BranchesCheck<TBranches>, options?: ParallelOptions): Launched<THead>;
+}
+
+// @public
+export interface ParallelOptions {
+    readonly maxConcurrency?: number | undefined;
+}
+
+// @public
+export type ParallelTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question | NodeKind.Router;
 
 // @public
 export interface PassedJudgeVerdict {
@@ -9082,6 +9187,24 @@ export interface SingleSummaryCompaction extends SummariserOptions {
     readonly summaryQueueLength?: never;
 }
 
+// @public
+export interface Skip {
+    // (undocumented)
+    readonly [SKIP]: true;
+}
+
+// @public
+export const skip: () => Skip;
+
+// @public
+interface SkipHandling<TInstance, THead extends PathHead> {
+    // (undocumented)
+    onError(error: ErrorClass, path: Skip): AfterStep<TInstance, THead>;
+}
+
+// @public
+type SkipOf<TInstance, THead extends PathHead> = THead extends SideHead ? SkipHandling<TInstance, THead> : unknown;
+
 // @public (undocumented)
 export interface SourceHead {
     // (undocumented)
@@ -9539,12 +9662,12 @@ type StartTenantOf<TInstance> = WorkflowStartEntry<TInstance> extends {
 } ? TTenant : never;
 
 // @public (undocumented)
-export type Step = ToStep | SwitchStep | OneOfStep | OnFinishStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
+export type Step = ToStep | SwitchStep | OneOfStep | OnFinishStep | ChooseOneStep | OnErrorStep | LaunchStep | InParallelStep | ForEachItemStep | JoinStep;
 
 // @public (undocumented)
 type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [
 never
-] ? Transitions<THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ErrorHandling<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead> & WithFinishes<TInstance, THead>;
+] ? Transitions<THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> & ChooseManyOf<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ErrorHandling<TInstance, THead> & SkipOf<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead> & WithFinishes<TInstance, THead>;
 
 // @public
 export interface StepCoordinates {
@@ -9755,6 +9878,8 @@ export interface StepHandedOverRecord extends ExecutionAuditEventBase {
 export enum StepKind {
     // (undocumented)
     ChooseOne = "choose-one",
+    ForEachItem = "for-each-item",
+    InParallel = "in-parallel",
     Join = "join",
     Launch = "launch",
     OneOf = "one-of",
@@ -10508,9 +10633,11 @@ export function toRouter<const TClass extends Class>(target: TClass & TargetChec
 
 // @public
 export interface ToStep {
+    readonly chooses?: readonly ParallelBranchStep[];
     readonly expiresIn?: Milliseconds | WorkingDuration;
     // (undocumented)
     readonly kind: StepKind.To;
+    readonly skip?: readonly ErrorClass[];
     // (undocumented)
     readonly target: Class;
     // (undocumented)
@@ -11998,6 +12125,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "targetKind".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "target".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "targetKind".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "branch".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "maxConcurrency".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "error".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "path".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
@@ -12043,6 +12176,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "toFinish".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "Switching".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "switch".
+// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "chooseOne".
@@ -12107,7 +12241,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "deps".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "routes".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "model".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/flow/decorators/router.ts - (ae-undocumented) Missing documentation for "prompt".
@@ -12181,6 +12314,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxItems".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "join".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "onError".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "chooseMany".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelAgents".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelActions".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelAgents".
@@ -12217,6 +12351,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "OneOfError".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "__error".
 // src/flow/one-of-types.ts - (ae-undocumented) Missing documentation for "onFinish".
+// src/flow/parallel-step.ts - (ae-undocumented) Missing documentation for "[SKIP]".
 // src/flow/quorum-step.ts - (ae-undocumented) Missing documentation for "[anyOfArbiters]".
 // src/flow/quorum-step.ts - (ae-undocumented) Missing documentation for "arbiters".
 // src/flow/quorum-types.ts - (ae-undocumented) Missing documentation for "deadline".

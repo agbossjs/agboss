@@ -1,0 +1,110 @@
+import { describe, expect, it } from "vitest";
+import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
+import { Action } from "../../../src/flow/decorators/action.js";
+import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
+import { StepFailedError } from "../../../src/graph/errors.js";
+import { skip } from "../../../src/flow/builder.js";
+import {
+  ChooserRouter,
+  ChooserWorkflow,
+  ChooserWorkflowStart,
+  ChosenAAction,
+  ChosenBAction,
+  ChosenSummaryAction,
+  FirstAction,
+  InParallelWorkflow,
+  InParallelWorkflowStart,
+  ModelChooserWorkflow,
+  SecondAction,
+  SecondDto,
+  SummaryDto,
+  SummaryWorkflowFinish,
+  ThirdAgent,
+} from "../runtime/fixtures/in-parallel.workflow.js";
+import { onStart, toAction, toAgent, toRouter } from "../../helpers/flow.js";
+
+/** #1279: `.inParallel([…])`, `skip()` and `chooseMany([…])` in the analyser. */
+
+@Action({
+  name: "needs-second-action",
+  description: "Needs the second branch's value, whole",
+  input: { second: SecondDto },
+  output: SummaryDto,
+})
+class NeedsSecondAction {
+  execute(): SummaryDto {
+    return { text: "x" };
+  }
+}
+
+let count = 0;
+const codesOf = (flow: WorkflowOptions["flow"]): readonly string[] => {
+  count += 1;
+  @Workflow({ name: `in-parallel-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  class InParallelCaseWorkflow {}
+  return checkWorkflow(InParallelCaseWorkflow).errors.map((found) => found.code);
+};
+
+describe("#1279: the assembly of a parallel launch", () => {
+  it("a launch of mixed kinds, a skip() and a router's choice pass", () => {
+    expect(checkWorkflow(InParallelWorkflow).errors).toEqual([]);
+    expect(checkWorkflow(ChooserWorkflow).errors).toEqual([]);
+    expect(checkWorkflow(ModelChooserWorkflow).errors).toEqual([]);
+  });
+
+  it("a skipped branch's value is optional: a step that needs it whole fails", () => {
+    const codes = codesOf([
+      onStart(InParallelWorkflowStart)
+        .inParallel([
+          toAction(FirstAction),
+          toAction(SecondAction).onError(StepFailedError, skip()),
+          toAgent(ThirdAgent),
+        ])
+        .join()
+        .toAction(NeedsSecondAction)
+        .toFinish(SummaryWorkflowFinish),
+    ]);
+    expect(codes).toContain("input.missing-on-path");
+  });
+
+  it("a class listed twice with different skip() is [launch.skip-differs]", () => {
+    expect(
+      codesOf([
+        onStart(InParallelWorkflowStart)
+          .inParallel([
+            toAction(SecondAction),
+            toAction(SecondAction).onError(StepFailedError, skip()),
+          ])
+          .join()
+          .toFinish(SummaryWorkflowFinish),
+      ]),
+    ).toContain("launch.skip-differs");
+  });
+
+  it("a forEachItem after a step that gives no list is [launch.for-each-item-no-list]", () => {
+    expect(
+      codesOf([
+        onStart(InParallelWorkflowStart)
+          .forEachItem(toAction(FirstAction), { takeFirst: 2 })
+          .join()
+          .toFinish(SummaryWorkflowFinish),
+      ]),
+    ).toContain("launch.for-each-item-no-list");
+  });
+
+  it("chooseMany's branches are the router's routes: [router.routes-mismatch]", () => {
+    expect(
+      codesOf([
+        onStart(ChooserWorkflowStart)
+          .inParallel([
+            toAction(FirstAction),
+            toRouter(ChooserRouter).chooseMany([toAction(ChosenAAction)]),
+          ])
+          .join()
+          .toAction(ChosenSummaryAction)
+          .toFinish(SummaryWorkflowFinish),
+      ]),
+    ).toContain("router.routes-mismatch");
+    expect(ChosenBAction.name).toBe("ChosenBAction");
+  });
+});

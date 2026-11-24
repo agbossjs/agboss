@@ -3,6 +3,7 @@ import { RecordedError, type ErrorRecord } from "../../../core/error-record.js";
 import { valueWrite, type FlowEdge } from "../../analyse/flow-graph.js";
 import { compensationsOfFailedJoin } from "../../compensation.js";
 import { FailurePolicy } from "../../decorators/router.js";
+import { isSkippedBranch } from "./branch-skip.js";
 import { errorHandlerOf } from "../graph-model.js";
 import { sidePathEntered } from "../limits.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
@@ -141,6 +142,9 @@ export function failingRecordOf(
   return records.find(
     (record) =>
       record.status === BranchStatus.Expired &&
-      ticket.branches[record.index]?.failure !== FailurePolicy.Skip,
+      !isSkippedBranch(
+        ticket.branches[record.index] ?? { failure: FailurePolicy.FailFast },
+        record.error ?? failureRecordOf(record),
+      ),
   );
 }

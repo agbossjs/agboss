@@ -10,7 +10,8 @@ import type {
   ProducerOutputOf,
 } from "./generated-types.js";
 import type { QuestionStepOptions } from "./child-placement.js";
-import type { Launches, RouterLaunches } from "./launch-types.js";
+import type { Skip } from "./parallel-step.js";
+import type { ChooseManyOf, Launches, RouterLaunches } from "./launch-types.js";
 import type { ClaimsOf, OneOfCheck, WithFinishes } from "./one-of-types.js";
 import type { RouteMore, RoutesOf } from "./route-types.js";
 import type { ClassOf, TargetRef } from "./target-ref.js";
@@ -164,10 +165,11 @@ export type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInsta
 ]
   ? Transitions<THead>
   : [KindOf<TInstance>] extends [NodeKind.Router]
-    ? RouterStep<THead, TInstance>
+    ? RouterStep<THead, TInstance> & ChooseManyOf<THead, TInstance>
     : [KindOf<TInstance>] extends [NodeKind.Start]
       ? ValueContinuation<ProducerOutputOf<TInstance>, THead>
       : ErrorHandling<TInstance, THead> &
+          SkipOf<TInstance, THead> &
           OutputContinuation<ProducerOutputOf<TInstance>, THead> &
           WithFinishes<TInstance, THead>;
 
@@ -255,6 +257,16 @@ export interface Switching<TOutput, THead extends PathHead> {
 export interface ErrorHandling<TInstance, THead extends PathHead> {
   onError(error: ErrorClass, path: SidePath): AfterStep<TInstance, THead>;
 }
+
+/** `.onError(E, skip())` after the step of a branch of `.inParallel([…])` / `.forEachItem(…)` (#1279). */
+export interface SkipHandling<TInstance, THead extends PathHead> {
+  onError(error: ErrorClass, path: Skip): AfterStep<TInstance, THead>;
+}
+
+/** A side path's step offers `skip()` too; a flow path's does not. */
+export type SkipOf<TInstance, THead extends PathHead> = THead extends SideHead
+  ? SkipHandling<TInstance, THead>
+  : unknown;
 
 /**
  * After a router: its `.onError(…)`, then its choice — `.onRoute(subPath)` once per route (#1278),

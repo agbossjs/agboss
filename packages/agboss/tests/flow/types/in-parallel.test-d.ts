@@ -1,0 +1,74 @@
+import { describe, expectTypeOf, it } from "vitest";
+import type { FlowPath } from "../../../src/flow/ast.js";
+import { inParallel, onStart, skip, toAgent, toRouter } from "../../../src/flow/builder.js";
+import { StepError } from "../../../src/core/error-families/step-errors.js";
+import { ArticleWriterAgent, CriticAgent, PlannerAgent } from "../fixtures/launch.fixture.js";
+import {
+  ParallelPanelRouter,
+  ParallelPanelWorkflowStart,
+  ParallelPanelWriterAgent,
+} from "../fixtures/in-parallel.fixture.js";
+import { PlanResearcherAgent } from "../fixtures/launch.fixture.js";
+
+/** #1279a: `.inParallel([…])` takes branches, skip() stands on a branch only, `.join()` follows. */
+
+describe("#1279a: .inParallel([…branches], options?)", () => {
+  const planned = () => onStart(ParallelPanelWorkflowStart).toAgent(PlannerAgent);
+
+  it("is followed by .join() and nothing else", () => {
+    const launched = planned().inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent)]);
+    expectTypeOf(launched).toHaveProperty("join");
+    expectTypeOf(launched).not.toHaveProperty("toAgent");
+    const path: FlowPath = launched
+      .join()
+      .toAgent(ArticleWriterAgent)
+      .toAgent(ParallelPanelWriterAgent);
+    expectTypeOf(path).toEqualTypeOf<FlowPath>();
+  });
+
+  it("takes options as the second argument, maxConcurrency only", () => {
+    planned().inParallel([toAgent(CriticAgent)], { maxConcurrency: 2 });
+    // @ts-expect-error — maxItems is forEachItem's
+    planned().inParallel([toAgent(CriticAgent)], { maxItems: 2 });
+  });
+
+  it("branches are an array of one or more", () => {
+    // @ts-expect-error — not an array
+    planned().inParallel(toAgent(CriticAgent));
+    // @ts-expect-error — at least one branch
+    planned().inParallel([]);
+  });
+
+  it("a branch is an agent, an action, a question role or a child workflow", () => {
+    planned().inParallel([toAgent(CriticAgent), toAgent(PlanResearcherAgent)]);
+  });
+
+  it("skip() stands right after a branch's step", () => {
+    toAgent(CriticAgent).onError(StepError, skip());
+    // @ts-expect-error — a flow path's step has no skip()
+    planned().onError(StepError, skip());
+  });
+
+  it("the standalone starter gives a launch too", () => {
+    expectTypeOf(inParallel([toAgent(CriticAgent)])).toHaveProperty("join");
+  });
+
+  it("toRouter(R).chooseMany([…]) is a branch: its branches are the router's routes (#1279b)", () => {
+    planned().inParallel([
+      toAgent(PlanResearcherAgent),
+      toRouter(ParallelPanelRouter).chooseMany([
+        toAgent(PlanResearcherAgent),
+        toAgent(CriticAgent).onError(StepError, skip()),
+      ]),
+    ]);
+    const picks = toRouter(ParallelPanelRouter);
+    // @ts-expect-error — PlannerAgent is no route of the router
+    picks.chooseMany([toAgent(PlannerAgent)]);
+  });
+
+  it("chooseMany stands in a branch, never in a flow path", () => {
+    const router = planned().toRouter(ParallelPanelRouter);
+    // @ts-expect-error — a flow path's router has routes, not chooseMany
+    router.chooseMany([toAgent(CriticAgent)]);
+  });
+});

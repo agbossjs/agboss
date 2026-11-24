@@ -14,11 +14,19 @@ import type {
   RouteTargetKind,
   RouteTargetLabel,
   SideHead,
+  SidePath,
   SourceHead,
   TargetCheck,
 } from "./builder-types.js";
 import type { ClaimsOf } from "./one-of-types.js";
-import type { LaunchCheck } from "./launch-types.js";
+import type {
+  BranchesCheck,
+  BranchCheck,
+  ForEachItemOptions,
+  LaunchCheck,
+  Launched,
+  ParallelOptions,
+} from "./launch-types.js";
 import { fromSource, subPathFrom, type PathBuilder } from "./path-builder.js";
 import { fromComponent, groupFrom } from "./path-sources.js";
 import type { GroupStart } from "./quorum-types.js";
@@ -33,6 +41,7 @@ import type { ClassOf, TargetRef } from "./target-ref.js";
 
 export { FlowSyntaxError } from "./path-builder.js";
 export { anyOf } from "./quorum-step.js";
+export { skip, type Skip } from "./parallel-step.js";
 
 /** A path from a start: `onStart(S).toAgent(A)…`. */
 export function onStart<const TClass extends Class>(
@@ -169,6 +178,27 @@ export function toFinish<const TClass extends Class>(
 ): BuiltPath<SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
 export function toFinish(target: Class): unknown {
   return sidePath().toFinish(target);
+}
+
+/**
+ * `inParallel([toAgent(A), toAction(X)…], { maxConcurrency })` as a side path's starter (#1279):
+ * inside `.toOneOf([…])`, `.onFinish(…)` and `.onGroup(…)` — its `.join()` follows.
+ */
+export function inParallel<const TBranches extends readonly [SidePath, ...SidePath[]]>(
+  branches: TBranches & BranchesCheck<TBranches>,
+  options?: ParallelOptions,
+): Launched<SideHead>;
+export function inParallel(branches: unknown, options?: unknown): unknown {
+  return sidePath().inParallel(branches, options);
+}
+
+/** `forEachItem(toAgent(A), { takeFirst: 4 })` as a side path's starter (#1280). */
+export function forEachItem<const TStep extends SidePath>(
+  step: TStep & BranchCheck<TStep>,
+  options: ForEachItemOptions,
+): Launched<SideHead>;
+export function forEachItem(step: unknown, options: unknown): unknown {
+  return sidePath().forEachItem(step, options);
 }
 
 /**

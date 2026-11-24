@@ -1,6 +1,5 @@
 import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
 import { listOf, optional, Wrapper, type OutputShape, type ValueShape } from "../dto-wrappers.js";
-import { LAUNCH_CALLS } from "../launch-step.js";
 import type { ComponentName } from "../registry.js";
 import {
   isTextAgent,
@@ -117,5 +116,5 @@ export function producersOfSlot(
 
 /** How a message names a launch: `planner-agent → toParallelAgents(researcher-agent, critic-agent)`. */
 export function launchLabel(launch: FlowLaunch): string {
-  return `${launch.launcher} → ${LAUNCH_CALLS[launch.targetKind]}(${launch.listed.join(", ")})`;
+  return `${launch.launcher} → ${launch.call}(${launch.listed.join(", ")})`;
 }

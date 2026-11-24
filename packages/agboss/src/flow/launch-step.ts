@@ -3,6 +3,8 @@ import {
   NodeKind,
   QuorumKind,
   StepKind,
+  type ForEachItemStep,
+  type InParallelStep,
   type JoinStep,
   type LaunchStep,
   type LaunchTargetKind,
@@ -127,15 +129,33 @@ function quorumJoinProblem(launch: LaunchStep, isQuorum: boolean): string | unde
     : "a quorum counts agents' answers — .joinQuorum(…) follows .toParallelAgents(…)";
 }
 
+/** Why a join cannot follow the launch before it: a quorum needs the arbiters of #1282 after the new launches. */
+function joinProblem(
+  launch: LaunchStep | InParallelStep | ForEachItemStep,
+  join: JoinStep,
+): string | undefined {
+  if (launch.kind === StepKind.Launch) return quorumJoinProblem(launch, join.quorum !== undefined);
+  return join.quorum === undefined
+    ? undefined
+    : "a quorum join follows .arbitratedBy(…) after .inParallel([…]) or .forEachItem(…) (#1282)";
+}
+
+/** Whether a step launches branches that a `.join()` follows. */
+export const isLaunching = (
+  step: Step | undefined,
+): step is LaunchStep | InParallelStep | ForEachItemStep =>
+  step?.kind === StepKind.Launch ||
+  step?.kind === StepKind.InParallel ||
+  step?.kind === StepKind.ForEachItem;
+
 /** Why `next` cannot follow `previous` around a launch; undefined when it can. */
 export function launchOrderProblem(previous: Step | undefined, next: Step): string | undefined {
-  const isLaunch = previous?.kind === StepKind.Launch;
+  const isLaunch = isLaunching(previous);
   if (isLaunch !== (next.kind === StepKind.Join))
     return isLaunch
       ? "a parallel launch is followed by .join()"
-      : ".join() follows a parallel launch: .toParallelAgents(…), .toParallelActions(…) or .toParallelWorkflows(…)";
-  if (previous?.kind === StepKind.Launch && next.kind === StepKind.Join)
-    return quorumJoinProblem(previous, next.quorum !== undefined);
+      : ".join() follows a parallel launch: .inParallel([…]) or .forEachItem(…)";
+  if (isLaunching(previous) && next.kind === StepKind.Join) return joinProblem(previous, next);
   return previous?.kind === StepKind.Join ? afterJoinProblem(previous, next) : undefined;
 }
 
@@ -144,3 +164,8 @@ export const afterRouter = (last: Step | undefined, source: PathSource | undefin
   last === undefined
     ? source?.kind === NodeKind.Router
     : last.kind === StepKind.To && last.targetKind === NodeKind.Router;
+
+/** Where a launch stands: right after a router (the step before it, or the path's own source). */
+export const siteOf = (last: Step | undefined, source: PathSource | undefined): LaunchSite => ({
+  followsRouter: afterRouter(last, source),
+});

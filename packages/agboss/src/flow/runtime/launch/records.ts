@@ -59,6 +59,8 @@ export interface BranchTicket {
   readonly stepsBefore: number;
   /** Its route's failure policy (a router's launch); `FailFast` everywhere else. */
   readonly failure: FailurePolicy;
+  /** `.onError(E, skip())` (#1279): the error codes that drop this branch out of the join. */
+  readonly skip?: readonly string[];
 }
 
 /** The launch in flight: written by the launching step, read by its branches and its join. */

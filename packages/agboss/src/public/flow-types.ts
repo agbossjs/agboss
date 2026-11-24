@@ -11,6 +11,8 @@ export { type GuardrailDecorator } from "../components/policy-decorators.js";
 export { type ComponentSource, type StartSource } from "../flow/ast.js";
 export {
   type CaseValueOf,
+  type SkipHandling,
+  type SkipOf,
   type IsGroupPath,
   type IsOneOf,
   type IsUnion,
@@ -48,6 +50,13 @@ export {
   type WorkflowStartEntry,
 } from "../flow/generated-types.js";
 export {
+  type BranchCheck,
+  type ChooseMany,
+  type ChooseManyOf,
+  type ChoicesCheck,
+  type BranchKind,
+  type BranchesCheck,
+  type ItemsCheck,
   type IsPerItem,
   type IsSeveral,
   type LastValue,

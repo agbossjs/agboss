@@ -1,6 +1,6 @@
 import { captureCallSite, type SourceSpan } from "../core/diagnostics/source-span.js";
 import type { Class } from "../components/injection.js";
-import type { Step } from "./ast.js";
+import { StepKind, type Step } from "./ast.js";
 
 /**
  * Where each step of a flow is written (#1325c): the call of `.toAgent(X)`, `.onError(…)` in the
@@ -40,6 +40,9 @@ export const stepSpanOf = (step: Step): SourceSpan | undefined => spans.get(step
  */
 function targetsOf(step: Step): readonly unknown[] {
   if ("targets" in step) return step.targets;
+  if ("branches" in step && step.kind === StepKind.InParallel)
+    return step.branches.map((branch) => branch.target);
+  if ("branch" in step) return [step.branch.target];
   return "target" in step ? [step.target] : [];
 }
 

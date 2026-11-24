@@ -30,6 +30,15 @@ export type PauseTargetRuleCode =
   | "channel-interpreter.not-an-interpreter"
   | "channel-interpreter.no-interpret-method";
 
+/** Codes of the parallel launches `.inParallel([…])` and `.forEachItem(…)` (#1279, #1280). */
+export type ParallelLaunchRuleCode =
+  "launch.skip-differs" | "launch.for-each-item-no-list" | "launch.max-items-handler-required";
+
 /** The rule codes that live beside their feature, not in the one list. */
 export type ExtraRuleCode =
-  FileRuleCode | ModelProviderRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+  | FileRuleCode
+  | ModelProviderRuleCode
+  | ParallelLaunchRuleCode
+  | PauseTargetRuleCode
+  | PiiRuleCode
+  | StorageRuleCode;

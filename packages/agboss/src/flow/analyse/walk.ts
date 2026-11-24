@@ -35,6 +35,7 @@ import {
 import { NodeTable } from "./nodes.js";
 import { cursorAt, kindOfTarget, type Cursor } from "./walk-cursor.js";
 import { walkOneOf, walkOnFinish, type BranchRecorder } from "./walk-one-of.js";
+import { isLaunching } from "../launch-step.js";
 import { walkJoin, walkLaunch, type LaunchRecorder } from "./walk-launch.js";
 import { isGroupsJoin } from "./walk-quorum.js";
 
@@ -86,6 +87,7 @@ class FlowWalker implements LaunchRecorder, BranchRecorder {
 
   /** One step; returns where the walk stands after it (every kind of step has its case). */
   private walkStep(step: Step, cursor: Cursor, isFollowed: boolean): Cursor {
+    if (isLaunching(step)) return walkLaunch(this, step, cursor);
     switch (step.kind) {
       case StepKind.To:
         return this.enter(step, cursor, isFollowed);
@@ -104,14 +106,12 @@ class FlowWalker implements LaunchRecorder, BranchRecorder {
       case StepKind.OnError:
         this.walkOnError(step, cursor);
         return cursor;
-      case StepKind.Launch:
-        return walkLaunch(this, step, cursor);
       case StepKind.Join:
         return walkJoin(this, step, cursor, (steps, inner) => this.walkSteps(steps, inner));
     }
   }
 
-  private enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
+  enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
     const target = this.table.resolve(step.target, step.targetKind);
     if (target !== undefined) this.arrive(target, cursor, isContinued);
     return cursorAt(this.table, target, cursor.depth, cursor.path);

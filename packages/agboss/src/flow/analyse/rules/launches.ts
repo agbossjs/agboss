@@ -18,7 +18,32 @@ import { routeSetViolations, type RouteListing } from "./routers.js";
  * start or an action has none.
  */
 
+/** The rules of `.inParallel([…])` and `.forEachItem(…)` (#1279, #1280). */
+function parallelViolations(launch: FlowLaunch): readonly RuleViolation[] {
+  const label = launchLabel(launch);
+  const nodes = [launch.launcher];
+  const found: RuleViolation[] = launch.branches
+    .filter((branch) => branch.skipDiffers === true)
+    .map((branch) =>
+      violation(
+        "launch.skip-differs",
+        `${label}: ${branch.node} is listed more than once with different .onError(E, skip()) — give every copy the same skips`,
+        nodes,
+      ),
+    );
+  if (launch.form === "for-each-item" && launch.items === undefined)
+    found.push(
+      violation(
+        "launch.for-each-item-no-list",
+        `${label}: .forEachItem(…) runs the step once per item of the list the step before it gives — that step gives no list`,
+        nodes,
+      ),
+    );
+  return found;
+}
+
 function widthViolations(context: AnalysisContext, launch: FlowLaunch): readonly RuleViolation[] {
+  if (launch.form !== undefined) return parallelViolations(launch);
   const label = launchLabel(launch);
   const nodes = [launch.launcher];
   const { items, maxItems } = launch;
@@ -46,7 +71,7 @@ function widthViolations(context: AnalysisContext, launch: FlowLaunch): readonly
   const [branch] = launch.branches;
   // a child workflow takes its item through a start (`[graph.no-matching-start]`, #263)
   if (typeof element !== "function" || branch === undefined) return found;
-  if (launch.targetKind === NodeKind.Workflow) return found;
+  if (branch.kind === NodeKind.Workflow) return found;
   const reads = (context.fields.get(branch.node) ?? []).some(
     (field) => field.slot === slotOfDto(element),
   );
@@ -90,6 +115,7 @@ const groupLabel = (join: JoinEdge): string =>
   `${launchLabel(join.launch)} group(${join.group?.agents.join(", ") ?? ""})`;
 
 const ROUTER_LAUNCH: RouteListing = { call: ".toParallelAgents(…)", item: "" };
+const CHOOSE_MANY: RouteListing = { call: ".chooseMany([…])", item: "" };
 
 function routerLaunchViolations(
   context: AnalysisContext,
@@ -97,6 +123,9 @@ function routerLaunchViolations(
 ): readonly RuleViolation[] {
   const router = context.graph.nodes.get(launch.launcher);
   if (router?.declaration.kind !== NodeKind.Router) return [];
+  // `toRouter(R).chooseMany([…])` (#1279b): the branches are R's routes, all chosen by it
+  if (launch.chooser !== undefined)
+    return routeSetViolations(router, router.declaration, launch.chooser.routes, CHOOSE_MANY);
   return [
     ...routeSetViolations(router, router.declaration, launch.listed, ROUTER_LAUNCH),
     ...launchViolations(router.name, router.declaration),

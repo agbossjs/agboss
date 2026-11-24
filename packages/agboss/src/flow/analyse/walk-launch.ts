@@ -1,5 +1,19 @@
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind, QuorumKind, type JoinStep, type LaunchStep, type Step } from "../ast.js";
+import { StepFailedError } from "../../graph/errors.js";
+import {
+  NodeKind,
+  QuorumKind,
+  StepKind,
+  type ForEachItemStep,
+  type InParallelStep,
+  type JoinStep,
+  type LaunchStep,
+  type ParallelTargetKind,
+  type Step,
+  type ToStep,
+} from "../ast.js";
+import { LAUNCH_CALLS } from "../launch-step.js";
+import { chooserOf, itemsOf, parallelLaunchOf } from "./walk-parallel.js";
 import { declarationOf } from "../decorators/declaration.js";
 import {
   failurePolicyOf,
@@ -10,7 +24,6 @@ import {
   type AnyRouterRoute,
   type RouterOptions,
 } from "../decorators/router.js";
-import { Wrapper, type ListWrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import {
   EdgeKind,
@@ -47,10 +60,15 @@ function routeFor(options: RouterOptions, target: ComponentName): AnyRouterRoute
 }
 
 /** One distinct target: the router's policies of its route, or `Always` + `FailFast`. */
-function branchOf(launcher: FlowNode, node: ComponentName, copies: number): LaunchBranch {
+function branchOf(
+  launcher: FlowNode,
+  node: ComponentName,
+  copies: number,
+  kind: ParallelTargetKind,
+): LaunchBranch {
   const { declaration } = launcher;
   if (declaration.kind !== NodeKind.Router)
-    return { node, copies, isOptional: false, alwaysRuns: true };
+    return { node, kind, skip: [], copies, isOptional: false, alwaysRuns: true };
   const route = routeFor(declaration.options, node);
   const spawn =
     route === undefined ? SpawnPolicy.Always : spawnPolicyOf(declaration.options, route);
@@ -59,18 +77,12 @@ function branchOf(launcher: FlowNode, node: ComponentName, copies: number): Laun
   const isOnDemand = spawn === SpawnPolicy.OnDemand;
   return {
     node,
+    kind,
+    skip: isSkipped ? [StepFailedError] : [],
     copies,
     isOptional: isSkipped || isOnDemand,
     alwaysRuns: !isSkipped && !isOnDemand,
   };
-}
-
-/** The list a per-item launch runs over: the one the step before it gives, last. */
-function itemsOf(writes: readonly ValueWrite[]): ListWrapper | undefined {
-  const last = writes[writes.length - 1]?.shape;
-  return last !== undefined && typeof last !== "function" && last.kind === Wrapper.List
-    ? last
-    : undefined;
 }
 
 /** The launch of `step` from `launcher` with the values `writes`; undefined when no target resolves. */
@@ -87,8 +99,8 @@ export function launchOf(
   const items = step.targets.length === 1 ? itemsOf(writes) : undefined;
   return {
     launcher: launcher.name,
-    targetKind: step.targetKind,
-    branches: [...copies].map(([node, count]) => branchOf(launcher, node, count)),
+    call: LAUNCH_CALLS[step.targetKind],
+    branches: [...copies].map(([node, count]) => branchOf(launcher, node, count, step.targetKind)),
     listed,
     ...(items === undefined ? {} : { items }),
     ...(step.maxConcurrency === undefined ? {} : { maxConcurrency: step.maxConcurrency }),
@@ -121,6 +133,8 @@ export function joinEdgeOf(launch: FlowLaunch, step: JoinStep, nodeOf: NodeLooku
 /** What the walker keeps that a launch and its join add to. */
 export interface LaunchRecorder {
   readonly table: NodeTable;
+  /** Enters a node from the cursor: its placement, mention and edge. */
+  enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor;
   readonly edges: FlowEdge[];
   readonly placements: Placement[];
   readonly mentions: Mention[];
@@ -131,17 +145,35 @@ export interface LaunchRecorder {
 }
 
 /** A launch: one edge to each distinct target, the scope at the launch (+ its item) on it. */
-export function walkLaunch(walker: LaunchRecorder, step: LaunchStep, cursor: Cursor): Cursor {
-  const { current } = cursor;
-  if (current === undefined) return cursor;
-  const launch = launchOf(walker.table, walker.table.node(current), step, cursor.writes);
-  if (launch === undefined) return cursor;
+export function walkLaunch(
+  walker: LaunchRecorder,
+  step: LaunchStep | InParallelStep | ForEachItemStep,
+  cursor: Cursor,
+): Cursor {
+  const router = step.kind === StepKind.InParallel ? chooserOf(step) : undefined;
+  // a router that picks branches is entered first; it launches (`chooseMany`, #1279b)
+  const at =
+    router === undefined
+      ? cursor
+      : walker.enter(
+          { kind: StepKind.To, target: router.target, targetKind: NodeKind.Router },
+          cursor,
+          true,
+        );
+  const { current } = at;
+  if (current === undefined) return at;
+  const launcher = walker.table.node(current);
+  const launch =
+    step.kind === StepKind.Launch
+      ? launchOf(walker.table, launcher, step, at.writes)
+      : parallelLaunchOf(walker.table, launcher, step, at.writes);
+  if (launch === undefined) return at;
   walker.launches.push(launch);
   for (const node of launch.listed) {
-    walker.placements.push({ node, depth: cursor.depth, path: cursor.path });
+    walker.placements.push({ node, depth: at.depth, path: at.path });
     walker.mentions.push({ node, kind: MentionKind.Entry, isContinued: false });
   }
-  const writes = [...cursor.writes, ...itemWrites(launch)];
+  const writes = [...at.writes, ...itemWrites(launch)];
   for (const branch of launch.branches)
     walker.edges.push({
       from: current,
@@ -150,7 +182,7 @@ export function walkLaunch(walker: LaunchRecorder, step: LaunchStep, cursor: Cur
       writes,
       launch,
     });
-  return { ...cursor, launch };
+  return { ...at, launch };
 }
 
 /** Walks a side path; whether it reached a node of its own. */

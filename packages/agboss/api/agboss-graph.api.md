@@ -12,7 +12,7 @@ export type ExecutionId = string & {
 };
 
 // @public
-export type ExtraRuleCode = FileRuleCode | ModelProviderRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+export type ExtraRuleCode = FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds" | "file-policy.invalid" | "file-policy.not-a-file-policy" | "file-policy.ttl-required-on-workflow" | "workflow.file-policy-required" | "a2a.skill-file-policy-exceeds-workflow";
@@ -85,6 +85,9 @@ export type ModelProviderRuleCode = "model-provider.fallback-cycle" | "model.inc
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
 
 // @public
+export type ParallelLaunchRuleCode = "launch.skip-differs" | "launch.for-each-item-no-list" | "launch.max-items-handler-required";
+
+// @public
 export type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "pause.setting-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
 
 // @public
@@ -138,9 +141,11 @@ export type StorageRuleCode = "storage.not-a-storage" | "storage.driver-invalid"
 
 // @public
 export interface ToStep {
+    readonly chooses?: readonly ParallelBranchStep[];
     readonly expiresIn?: Milliseconds | WorkingDuration;
     // (undocumented)
     readonly kind: StepKind.To;
+    readonly skip?: readonly ErrorClass[];
     // (undocumented)
     readonly target: Class;
     // (undocumented)

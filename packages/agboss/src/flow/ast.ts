@@ -40,6 +40,10 @@ export enum StepKind {
   Launch = "launch",
   /** `.join()` after a launch, with its `.onError(…)` handlers. */
   Join = "join",
+  /** `.inParallel([…branches])` (#1279): branches of any kind launched at once. */
+  InParallel = "in-parallel",
+  /** `.forEachItem(step, { maxItems | takeFirst })` (#1280): one run of `step` per item of the list before it. */
+  ForEachItem = "for-each-item",
 }
 
 /** An error class: what `.onError(…)` catches (by class, through the cause chain) and `toFailWith` matches. */
@@ -69,6 +73,10 @@ export interface ToStep {
   readonly targetKind: NodeKind;
   /** `.toExternalTask(Q, { expiresIn })` (#941): the question's deadline; absent = its role's. */
   readonly expiresIn?: Milliseconds | WorkingDuration;
+  /** `.onError(E, skip())` (#1279): written on a branch of `.inParallel([…])` / `.forEachItem(…)` only. */
+  readonly skip?: readonly ErrorClass[];
+  /** `toRouter(R).chooseMany([…])` (#1279b): the branches the router picks among; a branch of `.inParallel([…])` only. */
+  readonly chooses?: readonly ParallelBranchStep[];
 }
 
 /** One `caseOf(XDto)…` of a `.switch(…)`. */
@@ -157,6 +165,55 @@ export interface LaunchStep {
   readonly acceptedBy?: readonly AcceptedBy[];
 }
 
+/** What a branch of `.inParallel([…])` / `.forEachItem(…)` runs (#1279): any component a path enters. */
+export type ParallelTargetKind =
+  NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question | NodeKind.Router;
+
+/**
+ * One branch of `.inParallel([…])` / the step of `.forEachItem(…)` (#1279, #1280): its target and
+ * kind, and the error classes `.onError(E, skip())` drops out of the join (#1279) — a failed branch
+ * of such a class leaves its place empty instead of failing the launch. A thunk-named child workflow
+ * (#1287) is read on first use, like a `ToStep` target.
+ */
+export interface ParallelBranchStep {
+  readonly target: Class;
+  readonly targetKind: ParallelTargetKind;
+  /** `.onError(E, skip())`: the classes whose failure the branch drops; empty = a failure fails the launch. */
+  readonly skip: readonly ErrorClass[];
+  /**
+   * A router branch, `toRouter(R).chooseMany([…])` (#1279b): `target` is the router, these are the
+   * branches it picks among — none, some or all of them run. Never nested.
+   */
+  readonly chooses?: readonly ParallelBranchStep[];
+}
+
+/**
+ * `.inParallel([toAgent(A), toAction(X).onError(StepError, skip()), …], { maxConcurrency })`
+ * (#1279): each listed branch runs once, of any kind; always followed by `.join()`.
+ */
+export interface InParallelStep {
+  readonly kind: StepKind.InParallel;
+  /** As listed, repeats included. */
+  readonly branches: readonly ParallelBranchStep[];
+  /** At most this many branches in progress at once; a limit only. */
+  readonly maxConcurrency?: number;
+}
+
+/**
+ * `.forEachItem(toAgent(A), { maxItems | takeFirst, maxConcurrency })` (#1280): one run of the step
+ * per item of the list the step before gives — the first `takeFirst` items, or all of them when there
+ * are at most `maxItems` (more throws `LimitError.Items` before any branch starts).
+ */
+export interface ForEachItemStep {
+  readonly kind: StepKind.ForEachItem;
+  readonly branch: ParallelBranchStep;
+  /** A strict upper bound: more items throw `LimitError.Items`, handled by `.onError(…)` after the join. */
+  readonly maxItems?: number;
+  /** An intended slice: the first `takeFirst` items run, the rest are dropped, recorded. */
+  readonly takeFirst?: number;
+  readonly maxConcurrency?: number;
+}
+
 /** `.onError(ErrorClass, toAction(X)…)`: the side path a failed launch takes. */
 export interface JoinErrorHandler {
   readonly error: ErrorClass;
@@ -224,6 +281,8 @@ export type Step =
   | ChooseOneStep
   | OnErrorStep
   | LaunchStep
+  | InParallelStep
+  | ForEachItemStep
   | JoinStep;
 
 /** The steps inside `route(X)…`, `caseOf(D)…`, a `.toOneOf([…])` branch or the side path of `.onError`. */
