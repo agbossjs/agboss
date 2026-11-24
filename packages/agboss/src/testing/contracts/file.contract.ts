@@ -1,12 +1,13 @@
+import { bytes as byteSize } from "../../units/index.js";
 import { expect } from "vitest";
+import { FileError } from "../../core/error-families/remote-errors.js";
 import {
-  A2AFileConflictError,
   metadataOf,
-  type A2AFileMetadata,
-  type A2AFileOwner,
-  type A2AFileRepository,
-  type NewA2AFile,
-} from "../../infrastructure/a2a-file.repository.js";
+  type FileMetadata,
+  type FileOwner,
+  type FileRepository,
+  type NewFile,
+} from "../../infrastructure/file.repository.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import type { ContractTarget } from "./instance-context.js";
 
@@ -14,7 +15,7 @@ const NINE = new Date("2026-01-05T09:00:00.000Z");
 const TEN = new Date("2026-01-05T10:00:00.000Z");
 
 /** A file of `text`'s bytes, its digest given (the store never computes one). */
-const fileOf = (fields: Partial<NewA2AFile> & { readonly text?: string } = {}): NewA2AFile => {
+const fileOf = (fields: Partial<NewFile> & { readonly text?: string } = {}): NewFile => {
   const bytes = new TextEncoder().encode(fields.text ?? "%PDF-1.7 contract");
   return {
     tenantId: "default",
@@ -26,16 +27,16 @@ const fileOf = (fields: Partial<NewA2AFile> & { readonly text?: string } = {}): 
       .padEnd(64, "0")
       .slice(0, 64)
       .replace(/[^0-9a-f]/g, "a"),
-    sizeBytes: bytes.byteLength,
+    sizeBytes: byteSize(bytes.byteLength),
     createdAt: NINE,
     bytes,
     ...fields,
   };
 };
 
-const metaOf = (file: NewA2AFile): A2AFileMetadata => metadataOf(file);
+const metaOf = (file: NewFile): FileMetadata => metadataOf(file);
 
-const FILE_CASES: readonly ContractCase<A2AFileRepository>[] = [
+const FILE_CASES: readonly ContractCase<FileRepository>[] = [
   {
     name: "a saved file is read back on another instance: its bytes and its metadata",
     run: async ({ first, second }) => {
@@ -65,8 +66,8 @@ const FILE_CASES: readonly ContractCase<A2AFileRepository>[] = [
       await first.save(file);
 
       await second.save(file);
-      const other = fileOf({ text: "bbbb other bytes", sizeBytes: 16 });
-      await expect(second.save(other)).rejects.toBeInstanceOf(A2AFileConflictError);
+      const other = fileOf({ text: "bbbb other bytes", sizeBytes: byteSize(16) });
+      await expect(second.save(other)).rejects.toBeInstanceOf(FileError.Conflict);
       expect(await first.findMetadata(file)).toEqual(metaOf(file));
     },
   },
@@ -114,8 +115,8 @@ const FILE_CASES: readonly ContractCase<A2AFileRepository>[] = [
         await first.save(fileOf({ fileId: `${owner}.0`, ownerId: owner }));
       await first.save(fileOf({ fileId: "a.1", ownerId: "a", text: "dddd" }));
 
-      const pages: (readonly A2AFileOwner[])[] = [];
-      for (let after: A2AFileOwner | undefined, page = 0; page < 4; page += 1) {
+      const pages: (readonly FileOwner[])[] = [];
+      for (let after: FileOwner | undefined, page = 0; page < 4; page += 1) {
         const owners = await second.findOwnersByCreatedAtBefore(TEN, 2, after);
         pages.push(owners);
         after = owners.at(-1);
@@ -178,11 +179,11 @@ const FILE_CASES: readonly ContractCase<A2AFileRepository>[] = [
 ];
 
 /**
- * `A2AFileRepository` (#859): the A2A tasks' files by `(tenantId, fileId)`. A file saved on one
+ * `FileRepository` (#859): the A2A tasks' files by `(tenantId, fileId)`. A file saved on one
  * instance is read on another, bytes and metadata; it is its tenant's; it never changes (the same
- * bytes again do nothing, others are `A2AFileConflictError`); of two saves at once one is kept;
+ * bytes again do nothing, others are `FileError.Conflict`); of two saves at once one is kept;
  * the sweep finds the owners of files older than its cutoff and removes an owner's files together.
  */
-export function a2aFileContract(target: ContractTarget<A2AFileRepository>): void {
+export function fileContract(target: ContractTarget<FileRepository>): void {
   registerContract("A2A file contract", target, [{ cases: FILE_CASES }], pingOf);
 }

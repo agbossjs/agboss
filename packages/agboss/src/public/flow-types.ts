@@ -41,7 +41,7 @@ export {
   type ExecutionOptionOf,
   type GeneratedEntry,
   type KindOf,
-  type InstanceOrSelf,
+  type KindOfName,
   type NameOf,
   type ProducerOutputOf,
   type StartExecutionOf,

@@ -9,7 +9,11 @@ import {
   childLog,
   resetChildLog,
 } from "./fixtures/children.workflow.js";
-import { Observer, EmptyEnvironment, type ExecutionEndEvent } from "../../../src/index.js";
+import {
+  EmptyEnvironment,
+  type ExecutionEndEvent,
+  type OnExecutionEnd,
+} from "../../../src/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
@@ -37,8 +41,8 @@ const BACK_STEPS = [50, 3_600_000];
 const remoteEnds: ExecutionEndEvent[] = [];
 
 /** Every execution's end: a remote child's is announced by the worker that ran it (#562). */
-@Observer()
-export class RemoteEndLog {
+@Injectable()
+export class RemoteEndLog implements OnExecutionEnd {
   onExecutionEnd(event: ExecutionEndEvent): void {
     remoteEnds.push(event);
   }

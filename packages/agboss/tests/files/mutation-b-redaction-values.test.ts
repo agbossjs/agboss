@@ -21,8 +21,11 @@ import {
   type ModelProviderType,
 } from "../../src/models/model-provider.decorator.js";
 import { directoryOf } from "../../src/models/workflow-models.js";
-import { ModelKind } from "../../src/models/model-kind.js";
-import { registeredOf, type RegisteredModelProvider } from "../../src/models/resolve.js";
+import {
+  ModelPurpose,
+  registeredOf,
+  type RegisteredModelProvider,
+} from "../../src/models/resolve.js";
 import type { ModelUse, ModelUseKey } from "../../src/models/uses.js";
 import { seconds } from "../../src/units/index.js";
 import { httpOptionsOf, LocalModelProvider } from "../models/providers.fixture.js";
@@ -136,7 +139,7 @@ const directory = directoryOf(PROVIDERS);
 const use = (key: ModelUseKey, model: string): ModelUse => ({
   key,
   model,
-  purpose: ModelKind.Chat,
+  purpose: ModelPurpose.Chat,
 });
 const providerOf = (found: ModelUse): RegisteredModelProvider | undefined => {
   const resolution = directory.resolve(found);

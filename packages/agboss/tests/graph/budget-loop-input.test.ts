@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules of an agent's input step, each on its own over fakes: the check
  * before a model call that reads a file (with the spend of the loop so far), the failures that rise as they are and
@@ -41,7 +40,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -203,7 +202,7 @@ describe("#1366: the check before a model call that reads a file", () => {
         limit: 1,
         actual: 2,
         path: [],
-        spentUsd: usd(0),
+        spentUsd: 0,
         usage: [],
       }),
       new PiiRefusedError({ message: "pii" } as never),

@@ -532,7 +532,6 @@ describe("#1366: the end of a child is announced once", () => {
       frame: h.frame,
       ended: expect.anything(),
       finish: { node: "child-finish" },
-      output: "out",
       spend: "the-spend",
     });
   });

@@ -16,9 +16,9 @@ import { Injectable } from "../../../src/components/decorators.js";
 import type { Provider } from "../../../src/components/injection.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
-import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
-import { LocalDiskA2AFileRepository } from "../../../src/infrastructure/local-disk-a2a-file.repository.js";
+import { LocalDiskFileRepository } from "../../../src/infrastructure/local-disk-file.repository.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { hours, kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -32,7 +32,7 @@ import {
 
 /** A file store every instance reaches (an S3 bucket, say). */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
-class SharedA2AFiles extends InMemoryA2AFileRepository {
+class SharedA2AFiles extends InMemoryFileRepository {
   static override readonly store: StoreDescriptor = { backend: "s3" };
 }
 
@@ -105,7 +105,7 @@ describe("#859 AC4: the storage tier of files, with no file store listed", () =>
 
   it("above 256 KB: [a2a.file-store-required] — a file store listed lifts it", async () => {
     expect((await outcomeOf(appWith(sized(257)))).violations).toEqual(["a2a.file-store-required"]);
-    expect(await outcomeOf(appWith(sized(1024), [InMemoryA2AFileRepository]))).toEqual({
+    expect(await outcomeOf(appWith(sized(1024), [InMemoryFileRepository]))).toEqual({
       violations: [],
       warnings: [],
     });
@@ -122,7 +122,7 @@ describe("#859 AC4: files above 256 KB on leases the instances share", () => {
   const shared = [PostgresLeases, PostgresA2ATasks];
 
   it("in one host's store (in-memory, local disk): [a2a.file-store-not-shared]", async () => {
-    for (const store of [InMemoryA2AFileRepository, LocalDiskA2AFileRepository])
+    for (const store of [InMemoryFileRepository, LocalDiskFileRepository])
       expect((await outcomeOf(appWith(sized(1024), [...shared, store]))).violations).toEqual([
         "a2a.file-store-not-shared",
       ]);
@@ -133,12 +133,12 @@ describe("#859 AC4: files above 256 KB on leases the instances share", () => {
       [],
     );
     expect(
-      (await outcomeOf(appWith(sized(64), [...shared, InMemoryA2AFileRepository]))).violations,
+      (await outcomeOf(appWith(sized(64), [...shared, InMemoryFileRepository]))).violations,
     ).toEqual([]);
   });
 
   it("on the in-memory leases of one instance, any store is its own: assembled", async () => {
-    expect((await outcomeOf(appWith(sized(1024), [InMemoryA2AFileRepository]))).violations).toEqual(
+    expect((await outcomeOf(appWith(sized(1024), [InMemoryFileRepository]))).violations).toEqual(
       [],
     );
   });

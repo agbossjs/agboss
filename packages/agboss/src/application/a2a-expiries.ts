@@ -1,4 +1,4 @@
-import { a2aFileExpiryOf } from "../infrastructure/a2a-file.repository.js";
+import { fileExpiryOf } from "../infrastructure/file.repository.js";
 import { a2aTaskExpiryOf } from "../infrastructure/a2a-task.repository.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { Expiry } from "../infrastructure/expiry.js";
@@ -26,7 +26,7 @@ export const a2aExpiriesOf = (
   retentions: A2ARetentions,
 ): readonly Expiry[] => [
   a2aTaskExpiryOf(infrastructure.a2aTasks, retentions.a2aTaskRetention),
-  a2aFileExpiryOf({
+  fileExpiryOf({
     files: infrastructure.a2aFiles,
     tasks: infrastructure.a2aTasks,
     clock: infrastructure.clock,

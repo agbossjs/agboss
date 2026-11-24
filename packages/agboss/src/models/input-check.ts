@@ -1,6 +1,6 @@
 import type { ModelCapabilities } from "./capabilities.js";
 import type { ModelProblem } from "./problems.js";
-import { ModelKind } from "./model-kind.js";
+import { ModelPurpose } from "./resolve.js";
 import type { InputNeed, ModelUse } from "./uses.js";
 
 const DECISION_IMAGES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -37,7 +37,7 @@ export function inputProblems(
       ];
     // a decision model's image is a png, jpeg or webp (`Decision.image`): a gif is no image to it
     if (
-      use.purpose === ModelKind.Decisions &&
+      use.purpose === ModelPurpose.Decision &&
       need.kind === "image" &&
       !DECISION_IMAGES.has(need.mediaType)
     )

@@ -117,7 +117,6 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
   ),
   ChannelInterpreter: statefulClass("@ChannelInterpreter()", "interpret(): void"),
   ChannelListener: statefulClass("@ChannelListener()", "onPauseOpened(): void"),
-  Observer: statefulClass('@Observer({ name: "desk-observer" })', "onExecutionEnd(): void"),
   PauseListener: statefulClass(
     '@PauseListener({ name: "back-office-pause-listener" })',
     "async onPauseClosed(): Promise<void>",
@@ -125,18 +124,6 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
   WorkingCalendar: statefulClass(
     '@WorkingCalendar({ name: "office-working-calendar" })',
     "async addWorkingTime(): Promise<void>",
-  ),
-  DatabaseStorage: statefulClass(
-    '@DatabaseStorage({ name: "app-database-storage", driver: SqliteDriver.inMemory(), auditLogTtl: hours(24), ledgerEntriesTtl: hours(24) })',
-    "async ping(): Promise<void>",
-  ),
-  ClusterStorage: statefulClass(
-    '@ClusterStorage({ name: "app-cluster-storage", driver: redis })',
-    "async ping(): Promise<void>",
-  ),
-  ObjectStorage: statefulClass(
-    '@ObjectStorage({ name: "app-object-storage", driver: InMemoryObjectDriver() })',
-    "async ping(): Promise<void>",
   ),
   ModelProvider: statefulClass(
     '@ModelProvider({ name: "local-model-provider", description: "d", serves: [/^local\\//], baseUrl: "http://localhost" })',
@@ -202,10 +189,6 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   McpExpose: "what createMcpService exposes: an empty configuration class",
   A2AExpose: "what a2aHttpListener serves (#398 PR 3): an empty configuration class",
   OnAnswer: "a method decorator (of a code @Arbiter)",
-  SqliteDriver: "a driver factory (#1321): settings for a storage component, not a class",
-  S3Driver: "a driver factory (#1321): settings for a storage component, not a class",
-  LocalDiskDriver: "a driver factory (#1321): settings for a storage component, not a class",
-  InMemoryObjectDriver: "a driver factory (#1321): settings for a storage component, not a class",
   EvalSuite: "an eval suite (#396): its cases and checks as metadata, never instantiated",
 };
 

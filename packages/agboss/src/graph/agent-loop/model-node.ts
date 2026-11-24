@@ -157,7 +157,7 @@ async function observedCall(
       completionTokens: usageRecord.outputTokens,
       totalTokens: usageRecord.inputTokens + usageRecord.outputTokens,
     },
-    costUsd: usageRecord.costUsd,
+    calculatedCost: usageRecord.costUsd,
   };
   await reportNodeEvent((base) => deps.observer?.onModelEnd({ ...base, ...ended }));
   return { response, usageRecord };

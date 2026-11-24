@@ -64,13 +64,12 @@ export const FILES_APPLICATION = `import {
   WorkflowStart,
   onStart,
 } from "@agboss/core";
-import { A2AFileDto, WorkflowFinishFileDto } from "@agboss/core/a2a";
-import { Nested } from "@agboss/core/dto";
+import { File, FileDto, WorkflowFinishFileDto } from "@agboss/core/dto";
 import { usd } from "@agboss/core/units";
 
 export class DocumentDto {
-  @Nested(A2AFileDto, { prompt: "the document" })
-  document!: A2AFileDto;
+  @File({ prompt: "the document" })
+  document!: FileDto;
 }
 
 @WorkflowStart({ name: "files-workflow-start", description: "A document", input: DocumentDto })

@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import type { ReadableStream as WebStream } from "node:stream/web";
 import { AGBossError } from "../../core/errors.js";
 import { kilobytes, type Bytes } from "../../units/index.js";
-import { A2AFileSource, fileSourceOf } from "../files/a2a-file.dto.js";
-import { A2AFileUnavailableError, A2AFileUnavailableReason } from "../files/a2a-file-errors.js";
-import type { A2AReceivedFile } from "./a2a-client-files.js";
+import { FilePayloadSource, fileSourceOf } from "../../dto/standard/file.js";
+import { fileUnavailable, FileUnavailableReason } from "../../files/file-errors.js";
+import type { FileDto } from "../../dto/standard/file.js";
 
-export type { A2AReceivedFile };
+export type { FileDto };
 
 /** `client.downloadFile(file, { maxSize?, signal? })` (#859). */
 export interface A2ADownloadOptions {
@@ -22,7 +22,7 @@ export interface A2ADownload extends A2ADownloadOptions {
   readonly fetcher: typeof fetch;
 }
 
-const unavailable = (reason: A2AFileUnavailableReason) => new A2AFileUnavailableError({ reason });
+const unavailable = (reason: FileUnavailableReason) => fileUnavailable({ reason });
 
 /** The body of a response, at most `max` bytes: the read cancelled at the first byte past it. */
 async function boundedBodyOf(response: Response, max: number): Promise<Uint8Array> {
@@ -32,7 +32,7 @@ async function boundedBodyOf(response: Response, max: number): Promise<Uint8Arra
   let size = 0;
   for await (const chunk of body ?? []) {
     size += chunk.byteLength;
-    if (size > max) throw unavailable(A2AFileUnavailableReason.TooLarge);
+    if (size > max) throw unavailable(FileUnavailableReason.TooLarge);
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
@@ -49,28 +49,25 @@ async function fetchedOf(url: string, download: A2ADownload, max: number): Promi
   } catch (error) {
     // an origin refused by the client's policy is said as it is (`A2AOriginError`)
     if (error instanceof AGBossError) throw error;
-    throw unavailable(A2AFileUnavailableReason.DownloadFailed);
+    throw unavailable(FileUnavailableReason.DownloadFailed);
   }
-  if (!response.ok) throw unavailable(A2AFileUnavailableReason.DownloadFailed);
+  if (!response.ok) throw unavailable(FileUnavailableReason.DownloadFailed);
   return boundedBodyOf(response, max);
 }
 
 /** A received file's bytes, as `A2AClient.downloadFile` says. */
-export async function downloadedFile(
-  file: A2AReceivedFile,
-  download: A2ADownload,
-): Promise<Uint8Array> {
+export async function downloadedFile(file: FileDto, download: A2ADownload): Promise<Uint8Array> {
   const max = download.maxSize ?? DEFAULT_MAX_SIZE;
   // a stored descriptor is another application's own: never a file the client received
-  if (fileSourceOf(file) === A2AFileSource.Stored)
-    throw unavailable(A2AFileUnavailableReason.NotFound);
+  if (fileSourceOf(file) === FilePayloadSource.Stored)
+    throw unavailable(FileUnavailableReason.NotFound);
   const bytes =
-    fileSourceOf(file) === A2AFileSource.Url
+    fileSourceOf(file) === FilePayloadSource.Url
       ? await fetchedOf(file.url ?? "", download, max)
       : new Uint8Array(Buffer.from(file.inline ?? "", "base64"));
-  if (bytes.byteLength > max) throw unavailable(A2AFileUnavailableReason.TooLarge);
+  if (bytes.byteLength > max) throw unavailable(FileUnavailableReason.TooLarge);
   const digest = createHash("sha256").update(bytes).digest("hex");
   if (file.sha256 !== undefined && file.sha256 !== digest)
-    throw unavailable(A2AFileUnavailableReason.DigestMismatch);
+    throw unavailable(FileUnavailableReason.DigestMismatch);
   return bytes;
 }

@@ -7,7 +7,7 @@ import {
   Agent,
   ChildPlacement,
   DecidedBy,
-  Observer,
+  Injectable,
   PiiAction,
   PiiPolicy,
   Router,
@@ -18,6 +18,10 @@ import {
   type AgentStartEvent,
   type ExecutionEndEvent,
   type ExecutionStartEvent,
+  type OnAgentEnd,
+  type OnAgentStart,
+  type OnExecutionEnd,
+  type OnExecutionStart,
   type PiiMatch,
   type PiiPolicyHandler,
 } from "../../src/index.js";
@@ -59,8 +63,8 @@ export class ChildSecretPiiPolicy implements PiiPolicyHandler {
 /** Every event an observer saw, as JSON, with the workflow it names. */
 export const chainSeen: { hook: string; workflow: string; text: string }[] = [];
 
-@Observer()
-export class ChainObserver {
+@Injectable()
+export class ChainObserver implements OnExecutionStart, OnExecutionEnd, OnAgentStart, OnAgentEnd {
   private see(hook: string, event: { readonly workflow: { readonly name: string } }): void {
     chainSeen.push({ hook, workflow: event.workflow.name, text: JSON.stringify(event) });
   }

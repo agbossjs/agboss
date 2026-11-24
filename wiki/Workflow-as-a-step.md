@@ -239,7 +239,7 @@ children
   finishes' output classes — one class continues the path, several are a `oneOf(…)` and `.switch(caseOf(…)…)`
   with exactly one case per class (a missing or extra class →
   `[flow.switch-not-exhaustive]` / `[flow.switch-unknown-case]`, and a compile error through
-  `AGBossTypes.ProducerOutputs`). Two finishes with one output class are one case. A `caseOf(XDto)` counts as
+  `ProducerOutputs`). Two finishes with one output class are one case. A `caseOf(XDto)` counts as
   reading `XDto` (`[flow.unused-output]` never fires on a branch that ends in a finish).
 - After a per-item launch the join gives **one polymorphic list**:
   `listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))`,

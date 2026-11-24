@@ -5,13 +5,15 @@ import {
   ExecutionContext,
   ExecutionRecordStatus,
   ExecutionTreeRepository,
-  Injectable, Observer,
+  Injectable,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ExecutionErrorEvent,
   type ExecutionTreeValue,
+  type OnExecutionError,
+  type OnExecutionResume,
   type PausedExecution,
   type ExecutionResumeEvent,
 } from "../../../src/index.js";
@@ -122,35 +124,20 @@ export class Hold {
   }
 }
 
-/** The tree of the execution a tool runs in: its tenant and its root execution. */
-const treeOf = (context: ExecutionContext) => ({
-  tenantId: context.tenant.tenantId,
-  rootExecutionId: context.root.executionId,
-});
-
 /** Claims `claim:<text>` once per request (`saveIfAbsent`). */
 @Tool({
   name: "claim-tool",
   description: "Claims a key",
   input: Query,
   output: Query,
-  deps: [ExecutionTreeRepository, ExecutionContext],
+  deps: [ExecutionTreeRepository],
 })
 export class Claim {
-  constructor(
-    private readonly executionTreeRepository: ExecutionTreeRepository,
-    private readonly executionContext: ExecutionContext,
-  ) {}
+  constructor(private readonly executionTreeRepository: ExecutionTreeRepository) {}
 
   async execute(input: Query): Promise<Query> {
     seen.trees.push(this.executionTreeRepository);
-    seen.claims.push(
-      await this.executionTreeRepository.saveIfAbsentInTree(
-        treeOf(this.executionContext),
-        `claim:${input.text}`,
-        true,
-      ),
-    );
+    seen.claims.push(await this.executionTreeRepository.saveIfAbsent(`claim:${input.text}`, true));
     return input;
   }
 }
@@ -161,21 +148,13 @@ export class Claim {
   description: "Reads a key",
   input: Query,
   output: Query,
-  deps: [ExecutionTreeRepository, ExecutionContext],
+  deps: [ExecutionTreeRepository],
 })
 export class Recall {
-  constructor(
-    private readonly executionTreeRepository: ExecutionTreeRepository,
-    private readonly executionContext: ExecutionContext,
-  ) {}
+  constructor(private readonly executionTreeRepository: ExecutionTreeRepository) {}
 
   async execute(input: Query): Promise<Query> {
-    seen.recalls.push(
-      await this.executionTreeRepository.findByIdInTree(
-        treeOf(this.executionContext),
-        `claim:${input.text}`,
-      ),
-    );
+    seen.recalls.push(await this.executionTreeRepository.findById(`claim:${input.text}`));
     return input;
   }
 }
@@ -192,8 +171,8 @@ export class Recall {
 export class Clerk {}
 
 /** The errors and resumes the observers saw. */
-@Observer()
-export class LeaseLog {
+@Injectable()
+export class LeaseLog implements OnExecutionError, OnExecutionResume {
   onExecutionError(event: ExecutionErrorEvent): void {
     seen.errors.push(event.error);
   }

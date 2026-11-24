@@ -28,13 +28,8 @@ export const COMPONENT_DECORATORS = [
   "Compaction",
   "Budget",
   "HealthCheck",
-  "Observer",
   "PauseListener",
   "WorkingCalendar",
-  // `@agboss/core` storage components (#1321): one place of rows each, the container creates them
-  "DatabaseStorage",
-  "ClusterStorage",
-  "ObjectStorage",
   // `@agboss/core/models`
   "ModelProvider",
   // `@agboss/core/mcp`

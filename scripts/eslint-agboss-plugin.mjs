@@ -35,16 +35,9 @@ const errorFamilyRules = {
   rules: { "@typescript-eslint/no-namespace": ["error", { allowDeclarations: true }] },
 };
 
-/** `AGBossTypes` (#1324g): the tables `.agboss/types.d.ts` fills, one declared (type-only) namespace. */
-const generatedTypesRules = {
-  files: ["packages/agboss/src/flow/generated-types.ts"],
-  rules: { "@typescript-eslint/no-namespace": ["error", { allowDeclarations: true }] },
-};
-
 export const agbossRules = [
   componentStateRules,
   directTimeRules,
   internalImportRules,
   errorFamilyRules,
-  generatedTypesRules,
 ];

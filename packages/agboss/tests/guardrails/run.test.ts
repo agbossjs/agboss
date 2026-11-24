@@ -95,7 +95,7 @@ describe("#120 AC1, AC2: a guardrail blocks with its refusal", () => {
     const result = await execute(app, ClinicStart, { text: "I have a headache." }, english);
 
     expect(result.output).toEqual({ text: "Drink water." });
-    expect(result.spend.byCategory.guardrails).toBeCloseTo(0.001, 9);
+    expect(result.spend.byCategory.guards).toBeCloseTo(0.001, 9);
     expect(result.spend.trace.map((line) => line.caller)).toContain(
       "guardrail:legal-advice-guardrail",
     );

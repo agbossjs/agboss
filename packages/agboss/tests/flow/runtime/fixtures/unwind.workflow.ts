@@ -1,5 +1,4 @@
 import {
-  Observer,
   listOf,
   Action,
   EmptyEnvironment,
@@ -10,6 +9,8 @@ import {
   WorkflowStart,
   type CompensationEndEvent,
   type ExecutionErrorEvent,
+  type OnCompensationEnd,
+  type OnExecutionError,
   type Produced,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
@@ -272,8 +273,8 @@ export const unwindSeen: {
   readonly errors: ExecutionErrorEvent[];
 } = { undos: [], errors: [] };
 
-@Observer()
-export class UnwindLog {
+@Injectable()
+export class UnwindLog implements OnCompensationEnd, OnExecutionError {
   onCompensationEnd(event: CompensationEndEvent): void {
     unwindSeen.undos.push(event);
   }

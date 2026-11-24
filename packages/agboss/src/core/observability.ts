@@ -1,4 +1,3 @@
-import { type Usd } from "../units/index.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
 import type { BaseMessage, MessageContent } from "@langchain/core/messages";
@@ -27,12 +26,12 @@ export interface StartEvent<I> extends NodeEvent {
 /** The end of a named part of a step, with what it produced. */
 export interface EndEvent<U> extends NodeEvent {
   readonly name: string;
-  readonly output: U;
+  readonly update: U;
 }
 
 /** An agent starts: `input` is its input message (#270 Q51). */
 export type AgentStartEvent = StartEvent<string>;
-/** An agent answered: `output` is its value (and its class for a `oneOf`). */
+/** An agent answered: `update` is its value (and its class for a `oneOf`). */
 export type AgentEndEvent = EndEvent<NodeValue>;
 
 /** A router starts: `input` is its input message. */
@@ -54,20 +53,17 @@ export type RagEndEvent = EndEvent<RagRetrieval>;
 
 /** A tool is called by an agent, with the model's (validated) arguments. */
 export interface ToolStartEvent extends NodeEvent {
-  /** The tool's name. */
-  readonly tool: string;
-  /** The agent that called it; absent for a standalone `@Tool` call through an `@McpEndpoint`. */
-  readonly agent?: string;
-  readonly input: Readonly<Record<string, unknown>>;
+  readonly toolName: string;
+  readonly agentName: string;
+  readonly arguments: Readonly<Record<string, unknown>>;
 }
 
-/** A tool returned: `output` is the text the model sees. */
+/** A tool returned: `update` is the text the model sees. */
 export interface ToolEndEvent extends NodeEvent {
-  readonly tool: string;
-  /** The agent that called it; absent for a standalone `@Tool` call through an `@McpEndpoint`. */
-  readonly agent?: string;
-  readonly output: string;
-  /** Whether the result was cut at its `maxResultSize` (`output` then ends with the marker, #336). */
+  readonly toolName: string;
+  readonly agentName: string;
+  readonly update: string;
+  /** Whether the result was cut at its `maxResultSize` (`update` then ends with the marker, #336). */
   readonly isResultTruncated: boolean;
 }
 
@@ -97,17 +93,17 @@ export interface GuardrailOutcome {
   readonly isBlocked: boolean;
   readonly probability: number;
 }
-/** A guardrail decided: `output` is its outcome (a blocked one then fails the execution). */
+/** A guardrail decided: `update` is its outcome (a blocked one then fails the execution). */
 export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 
 /** An `@Action` starts with its input fields (`Produced` values). */
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
-/** An action finished: `output` is what its `execute` returned. */
+/** An action finished: `update` is what its `execute` returned. */
 export type ActionEndEvent = EndEvent<unknown>;
 
 /** An approval request goes out on a channel: `input` is the tool call's arguments. */
 export type ChannelStartEvent = StartEvent<unknown>;
-/** A channel answered: `output` is the raw decision, before the channel's adapter reads it. */
+/** A channel answered: `update` is the raw decision, before the channel's adapter reads it. */
 export type ChannelEndEvent = EndEvent<unknown>;
 
 /** A model is called by an agent (`callerName`) with the conversation so far. */
@@ -130,46 +126,21 @@ export interface ModelEndEvent extends NodeEvent {
   readonly callerName: string;
   readonly rawContent: MessageContent;
   readonly usage: ModelUsage;
-  readonly costUsd?: Usd;
-}
-
-/** Why an agent ran its model again inside one step: what the retry loop corrected. */
-export enum AgentRetryReason {
-  /** The answer did not parse or validate against the agent's output. */
-  InvalidAnswer = "invalid-answer",
-  /** The model called a tool with arguments that do not match its input. */
-  InvalidToolInput = "invalid-tool-input",
-  /** A judge rejected the answer, and the agent tries again with its feedback. */
-  JudgeRejected = "judge-rejected",
-}
-
-/** An agent corrects itself: one iteration of its internal retry loop (`onAgentRetry`). */
-export interface AgentRetryEvent extends NodeEvent {
-  /** The agent's name. */
-  readonly agent: string;
-  readonly reason: AgentRetryReason;
-  /** The attempt that just failed, from 1. */
-  readonly attempt: number;
-  /** How many attempts the agent may make in all. */
-  readonly maxAttempts: number;
-  /** What the model is told about the failure (masked like any observed text). */
-  readonly feedback: string;
+  readonly calculatedCost?: number;
 }
 
 /** A judge evaluates an agent's reply (`input`). */
 export interface JudgeStartEvent extends NodeEvent {
-  /** The judge's name. */
-  readonly judge: string;
-  /** The agent whose reply it evaluates. */
-  readonly agent: string;
+  readonly name: string;
+  readonly agentName: string;
   readonly input: unknown;
 }
 
 /** A judge's verdict. */
 export interface JudgeEndEvent extends NodeEvent {
-  readonly judge: string;
-  readonly agent: string;
-  readonly output: JudgeVerdict;
+  readonly name: string;
+  readonly agentName: string;
+  readonly update: JudgeVerdict;
 }
 
 /** An execution starts (`onExecutionStart`): once, at `app.execute` — a resume does not start it again. */
@@ -182,8 +153,6 @@ export type ExecutionStartEvent = ExecutionEvent;
 export interface ExecutionEndEvent extends ExecutionEvent {
   /** The workflow finish it reached. */
   readonly finish: ComponentRecord;
-  /** What the execution produced: the finish's value (`result.output`). */
-  readonly output: unknown;
   /** What it cost, all its passes together. */
   readonly spend: CostReport;
 }

@@ -2,7 +2,6 @@ import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { Integer } from "../../../src/dto/index.js";
 import {
-  Observer,
   Agent,
   Arbiter,
   Clock,
@@ -13,6 +12,7 @@ import {
   Tool,
   WorkflowFinish,
   WorkflowStart,
+  type OnQuorumDecided,
   type QuorumDecidedEvent,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
@@ -359,8 +359,8 @@ export class QuickRejectPanelWorkflowFinish {}
 })
 export class NoQuorumPanelWorkflowFinish {}
 
-@Observer()
-export class QuorumLog {
+@Injectable()
+export class QuorumLog implements OnQuorumDecided {
   onQuorumDecided(event: QuorumDecidedEvent): void {
     panel.decided.push(event);
   }

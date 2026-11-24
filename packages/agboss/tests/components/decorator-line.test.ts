@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #120 PR 4 — the check is on the decorator line; `implements` is documentation. A decorator that
  * constrains a contract does it with a function-typed property, so its parameters are checked with
@@ -37,7 +36,7 @@ interface NarrowQuery {
 @Rag({ name: "docs", description: "Docs", tenancy: RagTenancy.PerTenant, topK: 3 })
 export class DocsRag {
   retrieve(query: string): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [], costUsd: usd(query.length * 0) });
+    return Promise.resolve({ results: [], costUsd: query.length * 0 });
   }
 }
 
@@ -45,7 +44,7 @@ export class DocsRag {
 @Rag({ name: "narrow-docs", description: "Docs", tenancy: RagTenancy.PerTenant, topK: 3 })
 export class NarrowDocsRag {
   retrieve(query: "faq"): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [], costUsd: usd(query.length * 0) });
+    return Promise.resolve({ results: [], costUsd: query.length * 0 });
   }
 }
 

@@ -43,11 +43,8 @@ export abstract class MeshRequestRepository {
   /** Forgets a request whose run did not answer (its caller may try again). */
   abstract deleteByKey(key: MeshRequestKey): Promise<void>;
 
-  /**
-   * Removes every request admitted before `cutoff` (the recovery sweep, `now - retention`) and gives
-   * the number removed (`onTtlSweep`'s count).
-   */
-  abstract deleteExpired(cutoff: Date): Promise<number>;
+  /** Removes every request admitted before `cutoff` (the recovery sweep, `now - retention`). */
+  abstract deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
 }
 
 /** The row key of a request (`\u0000` never occurs in a name or a key). */
@@ -91,13 +88,9 @@ export class InMemoryMeshRequestRepository extends MeshRequestRepository {
     return Promise.resolve();
   }
 
-  deleteExpired(cutoff: Date): Promise<number> {
-    let removed = 0;
+  deleteByCreatedAtBefore(cutoff: Date): Promise<void> {
     for (const [row, record] of this.database.meshRequests)
-      if (Date.parse(record.createdAt) < cutoff.getTime()) {
-        this.database.meshRequests.delete(row);
-        removed += 1;
-      }
-    return Promise.resolve(removed);
+      if (Date.parse(record.createdAt) < cutoff.getTime()) this.database.meshRequests.delete(row);
+    return Promise.resolve();
   }
 }

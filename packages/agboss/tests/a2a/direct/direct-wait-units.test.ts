@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #860 (mutation shard `a2a-direct`): a resend while its message's attempt is in flight waits for it
  * — the store read every 250 ms on the `Clock` — and gets its reply; it stops at the caller's
@@ -23,7 +22,7 @@ import {
 
 const hello = () => messageOf("m-1", ["hello"]);
 const helloHash = requestHashOf(DIRECT_SKILL.id, hello());
-const REPLY = { finish: "unit-workflow-finish", output: { total: 9 }, spentUsd: usd(0) };
+const REPLY = { finish: "unit-workflow-finish", output: { total: 9 }, spentUsd: 0 };
 
 /** The rig with its first run held at a gate. */
 function heldRig(): DirectRig & { readonly release: () => void } {

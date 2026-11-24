@@ -18,7 +18,6 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
     prompt: options.prompt,
     promptUrls: options.promptUrls,
     model: options.model,
-    modelProvider: options.modelProvider,
     memoryStrategy: options.memoryStrategy,
     price: options.price,
     thinking: options.reasoning,

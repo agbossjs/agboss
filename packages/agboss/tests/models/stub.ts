@@ -11,8 +11,6 @@ export interface StubReply {
 export interface StubRequest {
   readonly url: string;
   readonly authorization: string | null;
-  /** Every header, names in lower case. */
-  readonly headers: Readonly<Record<string, string>>;
   readonly body: Record<string, unknown> | undefined;
   readonly raw: string | undefined;
 }
@@ -117,7 +115,6 @@ export function providerStub(
     requests.push({
       url,
       authorization: new Headers(init?.headers).get("authorization"),
-      headers: Object.fromEntries(new Headers(init?.headers).entries()),
       body: parsed(raw),
       raw,
     });

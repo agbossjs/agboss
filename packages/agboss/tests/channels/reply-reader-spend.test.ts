@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend of a model interpreter's reading — what masking the request cost (a model detector) and what the
  * call cost are both on the reading, whether the model answered or declined.
@@ -27,7 +26,7 @@ const masking: UsageRecord = {
   ...ZERO_USAGE,
   caller: "pii-detector",
   model: "m",
-  costUsd: usd(0.125),
+  costUsd: 0.125,
   costSource: CostSource.Api,
 };
 

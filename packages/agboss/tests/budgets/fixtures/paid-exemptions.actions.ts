@@ -1,10 +1,13 @@
 import {
   Action,
-  Observer,
+  Injectable,
   SpendRecorder,
   type CompensationStartEvent,
   type ExecutionEndEvent,
+  type OnCompensationStart,
   type ExecutionErrorEvent,
+  type OnExecutionEnd,
+  type OnExecutionError,
   type Produced,
 } from "../../../src/index.js";
 import { usd } from "../../../src/units/index.js";
@@ -89,8 +92,8 @@ export class RejectOrderAction {
 }
 
 /** How every root execution ended, on whichever instance ended it; every undo that started. */
-@Observer()
-export class ExemptionsLog {
+@Injectable()
+export class ExemptionsLog implements OnExecutionEnd, OnExecutionError, OnCompensationStart {
   onCompensationStart(event: CompensationStartEvent): void {
     exemptions.undone.push(event.step.idempotencyKey);
   }

@@ -1,4 +1,4 @@
-import type { ExecutionObserver } from "../core/observer-hooks.js";
+import type { OnActionEnd, OnActionStart } from "../core/observer-hooks.js";
 import type { ActionEndEvent, ActionStartEvent } from "../core/observability.js";
 import type { DtoClass } from "../dto/types.js";
 import { variantClassOf } from "../flow/dto-wrappers.js";
@@ -32,7 +32,7 @@ export type OutputClassOf = (action: string) => DtoClass | undefined;
  * Records every action call of a test's applications by its `name` — registered as one more
  * observer of each instance, so the matchers see the real action's input and result.
  */
-export class ActionCallRecorder implements ExecutionObserver {
+export class ActionCallRecorder implements OnActionStart, OnActionEnd {
   readonly #calls = new Map<string, ActionCalls>();
 
   constructor(
@@ -54,10 +54,10 @@ export class ActionCallRecorder implements ExecutionObserver {
 
   onActionEnd(event: ActionEndEvent): void {
     const name = event.step.component.name;
-    const update: unknown = event.output;
+    const update: unknown = event.update;
     // a list result names its class on its elements (`variant(…)`), a single one on itself
     const first: unknown = Array.isArray(update) ? (update as readonly unknown[])[0] : update;
     const dto = variantClassOf(first) ?? this.outputClassOf(name);
-    if (dto !== undefined) this.callsOf(name).returned.push({ dto, value: event.output });
+    if (dto !== undefined) this.callsOf(name).returned.push({ dto, value: event.update });
   }
 }

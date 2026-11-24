@@ -114,7 +114,7 @@ describe("compaction is the built-in strategy's memory update", () => {
     expect(fourth.compacted).toMatchObject([
       { compaction: "desk-compaction", fromTurn: 1, toTurn: 2, summaries: 1 },
     ]);
-    expect(fourth.spend.byCategory.memory).toBeCloseTo(0.004, 6);
+    expect(fourth.spend.byCategory.compaction).toBeCloseTo(0.004, 6);
     expect(fourth.spend.totalUsd).toBeCloseTo(0.005, 6);
     expect(fourth.spend.trace.map((line) => line.caller)).toEqual([
       "compaction:desk-compaction",

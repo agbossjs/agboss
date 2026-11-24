@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #395 PR 6 (S8): OpenRouter's host routing — camelCase in TypeScript (`allowFallbacks`,
  * `quantizations: [Quantization.Bf16]`), snake_case only in the body sent; `UsageRecord.servedBy`
@@ -111,7 +110,7 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
       },
     );
 
-    expect(record).toMatchObject({ servedBy: "Fireworks", costUsd: usd(0.001), costSource: "api" });
+    expect(record).toMatchObject({ servedBy: "Fireworks", costUsd: 0.001, costSource: "api" });
   });
 
   it("through the provider's chat model: the call's usage record names its host", async () => {
@@ -130,7 +129,7 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
 
     expect(recordUsage("agent:scout", settings, message)).toMatchObject({
       servedBy: "Fireworks",
-      costUsd: usd(0.001),
+      costUsd: 0.001,
     });
     expect(stub.requests.at(-1)?.body).toMatchObject({
       provider: { only: ["fireworks"], allow_fallbacks: false, quantizations: ["bf16"] },

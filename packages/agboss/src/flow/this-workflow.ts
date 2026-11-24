@@ -17,10 +17,7 @@ export type { ThisWorkflowOutputs } from "./generated-types.js";
  * (a graph cannot contain itself, #263 S37).
  */
 export class ThisWorkflow {
-  declare readonly [agbossComponent]?: {
-    readonly name: "this-workflow";
-    readonly kind: NodeKind.Workflow;
-  };
+  declare readonly [agbossComponent]?: "this-workflow";
 }
 
 /** The node `ThisWorkflow` is in every recursive workflow's graph. */

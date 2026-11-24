@@ -1,4 +1,3 @@
-import { usd } from "../src/units/index.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
 import { LimitExceededError } from "../src/graph/limits.js";
@@ -27,7 +26,7 @@ class SearchResults {
 }
 
 /** What one decision of the paid search's router costs (set per test). */
-const paid = { costUsd: usd(0.01) };
+const paid = { costUsd: 0.01 };
 
 /** Jev's answer to the paid search's decision, at `paid.costUsd`. */
 const paidDecision = () =>
@@ -72,7 +71,7 @@ const EXECUTION_BUDGET_SPENT = {
 };
 
 async function setup({ alpha, maxToolCalls = 3, runCost = 1, toolCostUsd = 0.01 }: Setup) {
-  paid.costUsd = usd(toolCostUsd);
+  paid.costUsd = toolCostUsd;
   const model = new ScriptedChatModel(alpha);
   const ledger = memoryLedger();
   const workflow = toolWorkflowOf({ tools: [Clock, PaidSearch], maxToolCalls });

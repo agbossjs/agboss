@@ -10,7 +10,6 @@ import {
   GuardrailVerdict,
   InputGuardrail,
   Injectable,
-  Observer,
   OutputGuardrail,
   PiiKind,
   PiiPolicy,
@@ -23,6 +22,8 @@ import {
   type GuardrailHandler,
   type GuardrailRefusal,
   type GuardrailStartEvent,
+  type OnGuardrailEnd,
+  type OnGuardrailStart,
 } from "../../src/index.js";
 import { Enum, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -206,8 +207,8 @@ export class ShopWorkflow {}
 /** What the observers saw of the guardrails, in order (cleared by each test that reads it). */
 export const guardrailEvents: (GuardrailStartEvent | GuardrailEndEvent)[] = [];
 
-@Observer()
-export class GuardrailEventsObserver {
+@Injectable()
+export class GuardrailEventsObserver implements OnGuardrailStart, OnGuardrailEnd {
   onGuardrailStart(event: GuardrailStartEvent): void {
     guardrailEvents.push(event);
   }

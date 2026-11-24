@@ -1,6 +1,6 @@
 /**
  * #900: a pause's decision never carries a file's descriptor — a follow-up `{ pauseId?, decision }`
- * holding an `A2AFileDto`-shaped object at any depth is `-32602 a2a.file-field-in-data`, nothing
+ * holding an `FileDto`-shaped object at any depth is `-32602 a2a.file-field-in-data`, nothing
  * resumed; a decision too deep or too large to read is refused too (`a2a.answer-shape`); one with
  * no descriptor resumes as before.
  */

@@ -5,8 +5,7 @@ import { OpenRouterModelProvider } from "./openrouter-model.provider.js";
 import { promptCachingLabel } from "./prompt-caching.js";
 import { reasoningLabel } from "./reasoning.js";
 import type { ModelProviderType } from "./model-provider.decorator.js";
-import { ModelKind } from "./model-kind.js";
-import { ModelProviderDirectory } from "./resolve.js";
+import { ModelProviderDirectory, ModelPurpose } from "./resolve.js";
 import type { ModelUse } from "./uses.js";
 
 /**
@@ -25,7 +24,7 @@ function priced<T extends ModelSettings>(settings: T, directory: ModelProviderDi
   const resolution = directory.resolve({
     key: settings.model,
     model: settings.model,
-    purpose: ModelKind.Chat,
+    purpose: ModelPurpose.Chat,
   });
   if (resolution.kind === "problem") return settings;
   const price = priceOf(resolution.provider.options.cost, settings.model);
@@ -76,7 +75,7 @@ export function modelSummaryOf(
     const inherited = ` (inherited from ${provider.name})`;
     const settings = use.settings;
     const chat =
-      use.purpose === ModelKind.Decisions || settings === undefined
+      use.purpose === ModelPurpose.Decision || settings === undefined
         ? []
         : [
             `reasoning ${reasoningLabel(settings.reasoning ?? provider.reasoning)}${settings.reasoning === undefined ? inherited : ""}`,

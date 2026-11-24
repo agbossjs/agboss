@@ -5,8 +5,8 @@ import type { ResolvedModelFiles } from "../files/file-settings.js";
 import { FileView } from "../files/model-files.js";
 import type { ModelInputKind } from "./content.js";
 import { resolveSettings } from "../llm/registry.js";
-import { ModelKind } from "./model-kind.js";
-import { providerOf, purposeOf, type ProviderKinds } from "./use-purpose.js";
+import { isDecisionModel } from "./decision-models.js";
+import { ModelPurpose } from "./resolve.js";
 
 /**
  * Every kind of model use, the first segment of a `ModelUse.key` (#716): the one list a kind of
@@ -39,9 +39,7 @@ export interface ModelUse {
   /** Where it is set: `agents.scout`, `routers.main`, `defaults.router`, `compactions.conversation-compaction`, `guardrails.legal-advice-guardrail`. */
   readonly key: ModelUseKey;
   readonly model: string;
-  readonly purpose: ModelKind;
-  /** The provider's `name` its cascade resolved (#1313); absent = the older providers' `serves` decide. */
-  readonly modelProvider?: string | undefined;
+  readonly purpose: ModelPurpose;
   /** Chat uses: the settings over the chat defaults (reasoning and caching unset = the provider's). */
   readonly settings?: ResolvedModelSettings;
   /**
@@ -64,8 +62,6 @@ export interface InputNeed {
 export interface ModelNamingRouter {
   readonly name: string;
   readonly model: string;
-  /** The provider's `name` the component names itself (#1313). */
-  readonly modelProvider?: string | undefined;
   /** What it reads of agents' files (#899 §8): a guardrail's. */
   readonly reads?: FileReader | undefined;
 }
@@ -76,26 +72,21 @@ const fileReadsOf = (reader: FileReader | undefined): Partial<ModelUse> =>
     ? {}
     : { needs: reader.needs, isNeedStrict: reader.isNeedStrict, forAgents: reader.agents };
 
+/** A model's use: a decision (decision models) or a chat model with its settings over the defaults. */
+const purposeOf = (model: string): ModelPurpose =>
+  isDecisionModel(model) ? ModelPurpose.Decision : ModelPurpose.Chat;
+
 const routerUse = (
   key: ModelUse["key"],
   model: RouterModel,
   config: AgentsConfigOf<string>,
-  kinds?: ProviderKinds,
 ): ModelUse =>
-  model.kind === "jev" ||
-  (model.modelProvider !== undefined &&
-    purposeOf(model.model, model.modelProvider, kinds) === ModelKind.Decisions)
-    ? {
-        key,
-        model: model.model,
-        purpose: ModelKind.Decisions,
-        ...providerOf(model.modelProvider),
-      }
+  model.kind === "jev"
+    ? { key, model: model.model, purpose: ModelPurpose.Decision }
     : {
         key,
         model: model.model,
-        purpose: ModelKind.Chat,
-        ...providerOf(model.modelProvider),
+        purpose: ModelPurpose.Chat,
         settings: resolveSettings(model, config.defaults.models),
       };
 
@@ -178,8 +169,7 @@ const chatUseOf =
   (key: ModelUse["key"], settings: Parameters<typeof resolveSettings>[0]): ModelUse => ({
     key,
     model: settings.model,
-    purpose: ModelKind.Chat,
-    ...providerOf(settings.modelProvider),
+    purpose: ModelPurpose.Chat,
     settings: resolveSettings(settings, config.defaults.models),
   });
 
@@ -187,32 +177,15 @@ const chatUseOf =
 function judgeUsesOf(
   config: AgentsConfigOf<string>,
   chat: (key: ModelUseKey, settings: Parameters<typeof resolveSettings>[0]) => ModelUse,
-  kinds?: ProviderKinds,
 ): readonly ModelUse[] {
   const readers = judgeReadersOf(config);
   return Object.entries(config.judges ?? {}).map(([name, judge]): ModelUse => {
     const reads = fileReadsOf(readers.get(name));
-    return purposeOf(judge.model, judge.modelProvider, kinds) === ModelKind.Decisions
-      ? {
-          key: `judges.${name}`,
-          model: judge.model,
-          purpose: ModelKind.Decisions,
-          ...providerOf(judge.modelProvider),
-          ...reads,
-        }
+    return purposeOf(judge.model) === ModelPurpose.Decision
+      ? { key: `judges.${name}`, model: judge.model, purpose: ModelPurpose.Decision, ...reads }
       : { ...chat(`judges.${name}`, judge), ...reads };
   });
 }
-
-/** A component that names its model (and maybe its provider): a model router's or an arbiter's use. */
-const namedUse =
-  (kind: "routers" | "arbiters", kinds: ProviderKinds | undefined) =>
-  (named: ModelNamingRouter): ModelUse => ({
-    key: `${kind}.${named.name}`,
-    model: named.model,
-    purpose: purposeOf(named.model, named.modelProvider, kinds),
-    ...providerOf(named.modelProvider),
-  });
 
 /**
  * Every model use of a workflow: agents, compactions, judges, the default router, flow routers,
@@ -224,7 +197,6 @@ export function modelUsesOf(
   config: AgentsConfigOf<string>,
   routers: readonly ModelNamingRouter[],
   components: ModelNamingComponents = {},
-  kinds?: ProviderKinds,
 ): readonly ModelUse[] {
   const { arbiters = [], piiDetectors = [], interpreters = [], guardrails = [] } = components;
   const chat = chatUseOf(config);
@@ -238,26 +210,33 @@ export function modelUsesOf(
     ...Object.entries(config.compactions ?? {}).flatMap(([name, compaction]) =>
       compaction.model === undefined ? [] : [chat(`compactions.${name}`, compaction.model)],
     ),
-    ...judgeUsesOf(config, chat, kinds),
+    ...judgeUsesOf(config, chat),
     ...(config.defaults.router === undefined
       ? []
-      : [routerUse("defaults.router", config.defaults.router, config, kinds)]),
-    ...routers.map(namedUse("routers", kinds)),
-    ...arbiters.map(namedUse("arbiters", kinds)),
+      : [routerUse("defaults.router", config.defaults.router, config)]),
+    ...routers.map((router): ModelUse => ({
+      key: `routers.${router.name}`,
+      model: router.model,
+      purpose: purposeOf(router.model),
+    })),
+    ...arbiters.map((arbiter): ModelUse => ({
+      key: `arbiters.${arbiter.name}`,
+      model: arbiter.model,
+      purpose: purposeOf(arbiter.model),
+    })),
     ...piiDetectors.map((detector) => chat(`pii.${detector.name}`, { model: detector.model })),
     ...interpreters.flatMap(({ name, model }): readonly ModelUse[] => {
       if (model === undefined) return [];
       const key: ModelUseKey = `replyInterpreters.${name}`;
       // a decision model reads an approval's yes / no (#267 S124 a)
-      return purposeOf(model) === ModelKind.Decisions
-        ? [{ key, model, purpose: ModelKind.Decisions }]
+      return purposeOf(model) === ModelPurpose.Decision
+        ? [{ key, model, purpose: ModelPurpose.Decision }]
         : [chat(key, { model })];
     }),
     ...guardrails.map((guardrail): ModelUse => ({
       key: `guardrails.${guardrail.name}`,
       model: guardrail.model,
-      purpose: purposeOf(guardrail.model, guardrail.modelProvider, kinds),
-      ...providerOf(guardrail.modelProvider),
+      purpose: purposeOf(guardrail.model),
       ...fileReadsOf(guardrail.reads),
     })),
     ...(components.rerankers ?? []).map(({ name, model }) => chat(`rerankers.${name}`, { model })),

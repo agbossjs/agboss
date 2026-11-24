@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a visit writes when it leaves by an edge, and which edge it leaves by, each rule
  * on its own over fakes: nothing at a finish or when the edge writes nothing, else the values the node gave —
@@ -31,7 +30,7 @@ const record = (costUsd: number): UsageRecord => ({
   ...ZERO_USAGE,
   caller: "router",
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

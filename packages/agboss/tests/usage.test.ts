@@ -1,7 +1,6 @@
-import { usd } from "../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import {
-  CostReport,
+  buildCostReport,
   costCategoryOf,
   costOf,
   CostSource,
@@ -68,7 +67,7 @@ describe("finops usage", () => {
   });
 
   it("aggregates cost per caller and cached tokens", () => {
-    const report = CostReport.fromUsage([
+    const report = buildCostReport([
       record("router:main", 0.1),
       { ...record("coder", 0.2), cacheReadTokens: 50 },
       record("router:main", 0.1),
@@ -81,28 +80,21 @@ describe("finops usage", () => {
   });
 
   it("reports zero for a run without calls", () => {
-    expect(CostReport.fromUsage([])).toEqual({
-      totalUsd: usd(0),
+    expect(buildCostReport([])).toEqual({
+      totalUsd: 0,
       calls: 0,
       unknownCalls: 0,
-      inputTokens: 0,
-      outputTokens: 0,
       cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      totalTokens: 0,
       byCaller: {},
       byCategory: {
         agents: 0,
         routing: 0,
-        guardrails: 0,
+        guards: 0,
         review: 0,
         tools: 0,
-        memory: 0,
-        rag: 0,
+        compaction: 0,
+        retrieval: 0,
         files: 0,
-        pii: 0,
-        arbiters: 0,
-        pauses: 0,
       },
       byModel: {},
       trace: [],
@@ -114,7 +106,7 @@ describe("turn financials", () => {
   const record = (caller: string, model: string, costUsd: number): UsageRecord => ({
     caller,
     model,
-    costUsd: usd(costUsd),
+    costUsd,
     costSource: caller.startsWith("tool:") ? CostSource.Tool : CostSource.PriceTable,
     inputTokens: 10,
     outputTokens: 2,
@@ -124,15 +116,15 @@ describe("turn financials", () => {
 
   it("categorises callers", () => {
     expect(costCategoryOf("tool:exchange_rate")).toBe("tools");
-    expect(costCategoryOf("guardrail:personal-data-guardrail")).toBe("guardrails");
+    expect(costCategoryOf("guardrail:personal-data-guardrail")).toBe("guards");
     expect(costCategoryOf("router:quality:coder")).toBe("review");
-    expect(costCategoryOf("compaction:conversation-compaction")).toBe("memory");
+    expect(costCategoryOf("compaction:conversation-compaction")).toBe("compaction");
     expect(costCategoryOf("router:main")).toBe("routing");
     expect(costCategoryOf("researcher")).toBe("agents");
   });
 
   it("reports categories, models and the call trace in order", () => {
-    const report = CostReport.fromUsage([
+    const report = buildCostReport([
       record("guardrail:prompt-injection-guardrail", "jev", 0.00001),
       record("router:main", "jev", 0.00002),
       record("researcher", "kimi", 0.003),
@@ -142,19 +134,16 @@ describe("turn financials", () => {
     expect(report.byCategory).toEqual({
       agents: 0.003,
       routing: 0.00002,
-      guardrails: 0.00001,
+      guards: 0.00001,
       review: 0,
       tools: 0.001,
-      memory: 0,
-      rag: 0,
+      compaction: 0,
+      retrieval: 0,
       files: 0,
-      pii: 0,
-      arbiters: 0,
-      pauses: 0,
     });
     expect(report.byModel.jev).toBeCloseTo(0.00003);
     expect(report.trace.map((line) => [line.caller, line.category])).toEqual([
-      ["guardrail:prompt-injection-guardrail", "guardrails"],
+      ["guardrail:prompt-injection-guardrail", "guards"],
       ["router:main", "routing"],
       ["researcher", "agents"],
       ["tool:exchange_rate", "tools"],
@@ -171,7 +160,7 @@ describe("a built-in tool's reported cost (a knowledge-base search)", () => {
       recordReportedCost({ name: "search-docs-tool", costCaller: "rag:docs" }, 0.01),
     ).toMatchObject({
       caller: "rag:docs",
-      costUsd: usd(0.01),
+      costUsd: 0.01,
       costSource: "tool",
     });
     expect(() => recordReportedCost({ name: "search-docs-tool" }, -1)).toThrow(

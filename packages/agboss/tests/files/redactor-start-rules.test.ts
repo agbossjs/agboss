@@ -14,7 +14,7 @@ import {
   PiiPolicy,
   type RedactionResult,
 } from "../../src/index.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { kilobytes } from "../../src/units/index.js";
 import { readerApplication } from "./reader.factory.js";
 
@@ -123,7 +123,7 @@ describe("[files.no-redactor]: a redactor must take every type the files can be"
 });
 
 describe("[files.redacted-needs-store]: a copy over 64 KB does not fit the execution's state", () => {
-  it("limits that allow a larger image need an A2AFileRepository that keeps files", async () => {
+  it("limits that allow a larger image need a FileRepository that keeps files", async () => {
     const small = readerApplication({
       files: REDACTED(["image/png"], kilobytes(64)),
       providers: [],
@@ -136,7 +136,7 @@ describe("[files.redacted-needs-store]: a copy over 64 KB does not fit the execu
     });
     const largeStored = readerApplication({
       files: REDACTED(["image/png"], kilobytes(200)),
-      providers: [InMemoryA2AFileRepository],
+      providers: [InMemoryFileRepository],
       piiPolicies: [CardsPolicy],
     });
 

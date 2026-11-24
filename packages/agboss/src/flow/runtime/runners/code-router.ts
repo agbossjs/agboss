@@ -96,9 +96,7 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
     if (node.exits.launches.size > 0) {
       const launch = codeRouterLaunch(node, step, answer);
       const update = { route: launch.join(", "), reason: "decided by code" };
-      await reportNodeEvent((base) =>
-        deps.observer?.onRouterEnd({ ...base, name, output: update }),
-      );
+      await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
       return { launch, read: input.read };
     }
     const route = chosenRoute(
@@ -108,7 +106,7 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
       unreadyRoutesOf(deps.graph, node.id, RecursionDecider.CodeRouter),
     );
     const update = { route, reason: "decided by code" };
-    await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, output: update }));
+    await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
     return { route, read: input.read };
   };
 }

@@ -5,7 +5,6 @@ import {
   ExecutionContext,
   FencedEffectRepository,
   Injectable,
-  Observer,
   SpendRecorder,
   effectKeyOf,
   oneOf,
@@ -13,6 +12,9 @@ import {
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
+  type OnExecutionEnd,
+  type OnExecutionError,
+  type OnExecutionLeaseTakeover,
   type Produced,
 } from "../../../src/index.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
@@ -216,8 +218,8 @@ export class HookedExecutionTreeRepository extends InMemoryExecutionTreeReposito
 }
 
 /** Every root's end or failure and every takeover, with its instance. */
-@Observer({ deps: [ApplicationContext] })
-export class UndoOnceLog {
+@Injectable({ deps: [ApplicationContext] })
+export class UndoOnceLog implements OnExecutionEnd, OnExecutionError, OnExecutionLeaseTakeover {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {

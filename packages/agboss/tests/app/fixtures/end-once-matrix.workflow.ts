@@ -2,9 +2,11 @@ import { MemorySaver } from "@langchain/langgraph";
 import {
   ApplicationContext,
   EmptyEnvironment,
-  Injectable, Observer,
+  Injectable,
   type ExecutionEndEvent,
   type ExecutionLeaseTakeoverEvent,
+  type OnExecutionEnd,
+  type OnExecutionLeaseTakeover,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -116,8 +118,8 @@ export const finishesSeen: { finish: string; instanceId: string }[] = [];
 export const takeoversSeen: { holder: string; previous: string | undefined }[] = [];
 
 /** Keeps every root's finish: which way the tree went, whoever ended it. */
-@Observer({ deps: [ApplicationContext] })
-export class FinishLog {
+@Injectable({ deps: [ApplicationContext] })
+export class FinishLog implements OnExecutionEnd, OnExecutionLeaseTakeover {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {

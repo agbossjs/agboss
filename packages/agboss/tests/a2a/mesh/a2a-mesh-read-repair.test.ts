@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #844 (money) — a mesh call whose remote task completed by read repair: the peer's end event is
  * lost (its projection's write of COMPLETED fails, as an at-most-once observer event may), so the
@@ -74,7 +73,7 @@ describe("#844: a task completed by read repair is charged its run report", () =
 
       expect(lossy.lost).toBe(1); // the projection's end was lost: read repair completed it
       expect(await peerTaskOf(served1)).toMatchObject({
-        status: { state: A2ATaskState.Completed, spentUsd: usd(3) },
+        status: { state: A2ATaskState.Completed, spentUsd: 3 },
       });
       expect(peer.runs).toHaveLength(1);
       expect(result.spend.totalUsd).toBeCloseTo(3);

@@ -3,7 +3,7 @@ import {
   Injectable,
   Tool,
   Workflow,
-  type ExecutionObserver,
+  type ObserverClass,
   type Provider,
   WorkflowFinish,
   WorkflowStart,
@@ -78,9 +78,11 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
       tools: { maxToolCalls: 2 },
     },
     uncompactedTurns: 1,
-    flow: [onStart(Start)
-      .toAgent(Worker)
-      .toFinish(Finish)],
+    flow: [
+      onStart(Start)
+        .toAgent(Worker)
+        .toFinish(Finish),
+    ],
     providers: [AuditService, ...providers],
   })
   class ObservedWorkflow {}
@@ -93,7 +95,7 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
  */
 export function applicationWith(
   name: string,
-  observers: readonly Class<ExecutionObserver>[],
+  observers: readonly ObserverClass[],
   providers: readonly Provider[] = [],
   infrastructure: readonly Provider[] = [],
 ): Class {

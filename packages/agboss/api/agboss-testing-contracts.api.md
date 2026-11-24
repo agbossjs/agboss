@@ -5,6 +5,7 @@
 ```ts
 
 import { BaseCheckpointSaver } from '@langchain/langgraph';
+import type { MessageContent } from '@langchain/core/messages';
 
 // @public
 export function a2aDirectMessageContract(target: ContractTarget<A2ADirectMessageStores>): void;
@@ -16,9 +17,6 @@ export interface A2ADirectMessageStores {
     // (undocumented)
     readonly tasks: A2ATaskRepository;
 }
-
-// @public
-export function a2aFileContract(target: ContractTarget<A2AFileRepository>): void;
 
 // @public
 export function a2aTaskContract(target: ContractTarget<A2ATaskRepository>): void;
@@ -98,6 +96,9 @@ export interface FencedEffectTarget<TTransaction> {
 export interface FencingContractOptions {
     readonly acceptWithoutDoubleChargeProtection?: boolean;
 }
+
+// @public
+export function fileContract(target: ContractTarget<FileRepository>): void;
 
 // @public
 export interface InterleavingOptions {
@@ -236,7 +237,7 @@ export interface StoreInstanceContext {
 // @public
 export interface StoreSet<TTransaction = unknown> {
     readonly a2aDirectMessage?: StoreEntry<A2ADirectMessageStores>;
-    readonly a2aFile?: StoreEntry<A2AFileRepository>;
+    readonly a2aFile?: StoreEntry<FileRepository>;
     readonly a2aTask?: StoreEntry<A2ATaskRepository>;
     // (undocumented)
     readonly checkpointSaver?: StoreEntry<BaseCheckpointSaver>;

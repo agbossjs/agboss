@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — the budget rules of the output guardrails on an agent's answer, each on its own over
  * fakes: a file of the answer that is transcribed by a model is checked against the execution's budgets first, with
@@ -27,7 +26,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

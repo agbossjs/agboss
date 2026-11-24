@@ -61,7 +61,7 @@ export async function gatherKnowledge(
       const retrieval = await RunnableLambda.from((q: string) =>
         source.retrieve(q, { topK: source.topK, signal }),
       ).invoke(query, { ...config, runName: `rag:${source.name}` });
-      await reportNodeEvent((base) => observer?.onRagEnd({ ...base, name, output: retrieval }));
+      await reportNodeEvent((base) => observer?.onRagEnd({ ...base, name, update: retrieval }));
       records.push(...recordsOf(source.name, retrieval));
       if (retrieval.results.length > 0)
         blocks.push(

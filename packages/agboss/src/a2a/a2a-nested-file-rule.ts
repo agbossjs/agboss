@@ -5,13 +5,13 @@ import type { DtoClass } from "../dto/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { hasFileAtAnyDepth, nestedFileFieldsOf } from "./files/a2a-file.dto.js";
+import { hasFileAtAnyDepth, nestedFileFieldsOf } from "../dto/standard/file.js";
 import { finishDtosOf, listFinishItemsOf } from "./files/a2a-file-tier.js";
 
 /**
  * Fail closed at assembly (#859): a file of an A2A message or answer is a part of its own, filled
  * into a top-level field — so an exported start's input, its finishes' outputs and an
- * `@A2AAgent`'s input and output hold `A2AFileDto` at the top level only. One below it (a nested
+ * `@A2AAgent`'s input and output hold `FileDto` at the top level only. One below it (a nested
  * DTO's field, a list item's) would travel inside the data part as a descriptor the other side made:
  * `[a2a.nested-file-field]`, naming the DTO and the path.
  */
@@ -63,7 +63,7 @@ const agentDtosOf = (options: ApplicationOptions): readonly DtoClass[] =>
 
 /**
  * A list output's items are below the top level: no file part can be filled from them, so an item
- * class (or a `oneOf` variant) holding an `A2AFileDto` at any depth is refused, never served
+ * class (or a `oneOf` variant) holding an `FileDto` at any depth is refused, never served
  * without the file checks.
  */
 function listItemViolations(options: ApplicationOptions): RuleViolation[] {
@@ -72,7 +72,7 @@ function listItemViolations(options: ApplicationOptions): RuleViolation[] {
       ? [
           violation(
             "a2a.nested-file-field",
-            `${dto.name} holds an A2AFileDto and is an item of the list output of ${finish}: an A2A file is a part of its own, filled into a top-level field — give ${finish} a DTO with the files at its top level (@List(A2AFileDto) on it)`,
+            `${dto.name} holds a FileDto and is an item of the list output of ${finish}: an A2A file is a part of its own, filled into a top-level field — give ${finish} a DTO with the files at its top level (@List(FileDto) on it)`,
             [dto.name],
           ),
         ]
@@ -89,7 +89,7 @@ export function nestedFileFieldViolations(options: ApplicationOptions): RuleViol
       nestedFileFieldsOf(dto).map((path) =>
         violation(
           "a2a.nested-file-field",
-          `${dto.name}.${path} holds an A2AFileDto below the top level: an A2A file is a part of its own, filled into a top-level field — move it up (@Nested(A2AFileDto) / @List(A2AFileDto) on ${dto.name} itself)`,
+          `${dto.name}.${path} holds a FileDto below the top level: an A2A file is a part of its own, filled into a top-level field — move it up (@Nested(FileDto) / @List(FileDto) on ${dto.name} itself)`,
           [dto.name],
         ),
       ),

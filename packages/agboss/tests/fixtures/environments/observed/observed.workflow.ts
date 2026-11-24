@@ -1,8 +1,9 @@
 import {
   Agent,
   ApplicationContext,
-  Observer,
+  Injectable,
   Workflow,
+  type OnExecutionStart,
 } from "../../../../src/index.js";
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -10,8 +11,8 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 
 /** An observer — not a tool — that reads the app's environment; created when the app starts. */
-@Observer({ deps: [ApplicationContext] })
-export class RunLog {
+@Injectable({ deps: [ApplicationContext] })
+export class RunLog implements OnExecutionStart {
   constructor(readonly applicationContext: ApplicationContext) {}
 
   onExecutionStart(): void {

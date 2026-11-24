@@ -6,7 +6,7 @@ import {
   ChannelOutcome,
   ChannelRole,
   EmptyEnvironment,
-  Observer,
+  Injectable,
   optional,
   PauseAnswerer,
   PauseListener,
@@ -19,6 +19,8 @@ import {
   type ChannelPauseJoinFailedEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
+  type OnExecutionEnd,
+  type OnExecutionError,
   type PauseListenerClosedEvent,
   type PauseListenerHandler,
   type PauseListenerJoinFailedEvent,
@@ -276,8 +278,8 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
 })
 export class JoinExpiryWorkflow {}
 
-@Observer()
-export class JoinExpiryLog {
+@Injectable()
+export class JoinExpiryLog implements OnExecutionEnd, OnExecutionError {
   onExecutionEnd(event: ExecutionEndEvent): void {
     je.ended.push(event);
   }

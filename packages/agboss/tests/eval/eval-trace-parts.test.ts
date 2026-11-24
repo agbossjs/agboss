@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #397 PR 2 — the parts of a run's trace that a scripted desk does not reach, built from records as
  * an execution writes them: judge verdicts with retries, guardrail decisions, a handled error,
@@ -21,7 +20,7 @@ import {
   type ExecutionStepRecord,
   type StepRecord,
 } from "../../src/index.js";
-import { CostReport } from "../../src/finops/usage.js";
+import { buildCostReport } from "../../src/finops/usage.js";
 import { executionTraceOf } from "../../src/eval/run/trace-of.js";
 import { attemptDivergenceOf, AttemptDivergenceReason } from "../../src/eval/run/divergence.js";
 import { evalRunReportOf } from "../../src/eval/run/read-report.js";
@@ -61,7 +60,7 @@ const visitOf = (
   inputHash: "hash-1",
   judgeVerdicts: [],
   guardrailDecisions: [],
-  spend: CostReport.fromUsage([]),
+  spend: buildCostReport([]),
   startedAt: "2026-01-05T09:00:00.000Z",
   endedAt: "2026-01-05T09:00:01.000Z",
   ...parts,
@@ -84,7 +83,7 @@ const CHILD: ChildExecutionRecord = {
   status: ChildExecutionStatus.Failed,
   error,
   path: ["check-workflow-start"],
-  spend: CostReport.fromUsage([]),
+  spend: buildCostReport([]),
   toolCalls: [],
   steps: [visitOf(stepOf("check-workflow-start", ComponentKind.WorkflowStart))],
   pauses: [],
@@ -95,7 +94,7 @@ const RECORD: ExecutionRecord = {
   path: ["refund-workflow-start", "refund-agent"],
   scope: [],
   outdatedValues: [],
-  spend: CostReport.fromUsage([]),
+  spend: buildCostReport([]),
   children: [CHILD],
   pauses: [
     {
@@ -257,7 +256,7 @@ const step = (nodeId: string, parts: Partial<EvalStepTrace> = {}): EvalStepTrace
   toolCalls: [],
   guardrailDecisions: [],
   judgeVerdicts: [],
-  spentUsd: usd(0),
+  spentUsd: 0,
   startedAt: "2026-01-05T09:00:00.000Z",
   endedAt: "2026-01-05T09:00:00.000Z",
   ...parts,
@@ -279,7 +278,7 @@ const runWith = (run: number, trace?: EvalExecutionTrace): EvalRunResult => ({
   threadId: `t${String(run)}`,
   passed: run === 1,
   checks: [],
-  spentUsd: usd(0),
+  spentUsd: 0,
   ...(trace === undefined ? {} : { trace }),
 });
 
@@ -373,13 +372,13 @@ describe("#397 PR 2: the one reader on both versions", () => {
             threadId: "t",
             passed: true,
             checks: [{ check: "trajectory", status: CheckStatus.Passed }],
-            spentUsd: usd(0),
+            spentUsd: 0,
           },
         ],
       },
     ],
     summary: { cases: 1, passAtK: 1, passHatK: 1, unstable: 0, judgeCalls: 0, skippedByCascade: 0 },
-    spend: { totalUsd: usd(0) },
+    spend: { totalUsd: 0 },
   };
 
   it("a version 1 artifact still reads: no traces, no expectations", () => {

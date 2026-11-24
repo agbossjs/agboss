@@ -202,7 +202,7 @@ export const usageRecord = (caller: string, costUsd: number): UsageRecord => ({
   outputTokens: 0,
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.PriceTable,
 });
 

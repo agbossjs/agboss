@@ -192,9 +192,6 @@ export type RuleCode =
   // model providers (#266 PR 1): every model of the application resolves to one provider
   | "model.unserved"
   | "model.ambiguous-provider"
-  | "model.missing-provider"
-  | "model.incompatible-provider"
-  | "model.missing"
   | "model.price-invalid"
   | "model-provider.both-modes"
   | "model-provider.circuit-breaker-required"

@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { A2AExpose } from "../../../../src/a2a/a2a-expose.decorator.js";
-import { A2AFileDto, WorkflowFinishFileDto } from "../../../../src/a2a/files/a2a-file.dto.js";
+import { FileDto, WorkflowFinishFileDto } from "../../../../src/dto/standard/file.js";
 import type { A2AFileOptions } from "../../../../src/a2a/files/a2a-file-options.js";
 import { fileTierSizeOf, finishDtosOf } from "../../../../src/a2a/files/a2a-file-tier.js";
 import { Injectable } from "../../../../src/components/decorators.js";
@@ -29,8 +29,8 @@ import {
 } from "../../fixtures/files.application.js";
 
 class FilesInDto {
-  @Nested(A2AFileDto, { prompt: "f" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "f" })
+  file!: FileDto;
 }
 class TextDto {
   @Text({ prompt: "t" })
@@ -95,8 +95,8 @@ describe("fileTierSizeOf", () => {
 
   it("a list of files counts as files", () => {
     class ListedDto {
-      @List(A2AFileDto, { prompt: "l" })
-      files!: A2AFileDto[];
+      @List(FileDto, { prompt: "l" })
+      files!: FileDto[];
     }
     expect(tierOf([skill(ListedDto, TextDto)], SIZES)).toBe(1000);
   });

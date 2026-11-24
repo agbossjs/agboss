@@ -7,7 +7,7 @@ import {
   ChildPlacement,
   EmptyEnvironment,
   ExecutionContext,
-  Observer,
+  Injectable,
   listOf,
   Tool,
   Workflow,
@@ -16,6 +16,8 @@ import {
   type ChannelAsk,
   type ExecutionEndEvent,
   type ExecutionStartEvent,
+  type OnExecutionEnd,
+  type OnExecutionStart,
   type Produced,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -287,8 +289,8 @@ export const announceHold = {
 };
 
 /** Every execution's start and end, by workflow name and execution id. */
-@Observer()
-export class YieldLog {
+@Injectable()
+export class YieldLog implements OnExecutionStart, OnExecutionEnd {
   onExecutionStart(event: ExecutionStartEvent): void {
     yieldSeen.starts.push(`${event.workflow.name} ${event.executionId}`);
   }

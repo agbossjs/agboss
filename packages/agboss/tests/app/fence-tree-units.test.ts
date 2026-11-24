@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (shard `fence-tree`) on their own: the end of a tree whose instance died (`orphan-tree.ts`) is made
  * only under the tree's lease, a resting one by the cancel path; a child's failure is announced only by the
@@ -483,7 +482,7 @@ describe("#1366: failedChild", () => {
   it("the spend a failure reports goes to the parent's step, once each", async () => {
     const { frame, services } = frameOf({ assertHeld: vi.fn() });
     const { parent, record } = parentOf(frame);
-    const spend = [{ costUsd: usd(1) }, { costUsd: usd(2) }] as never;
+    const spend = [{ costUsd: 1 }, { costUsd: 2 }] as never;
 
     await failed(
       parent,
@@ -493,13 +492,13 @@ describe("#1366: failedChild", () => {
     ).catch(() => undefined);
 
     expect(services.reportUsage).toHaveBeenCalledTimes(2);
-    expect(services.reportUsage).toHaveBeenNthCalledWith(1, { costUsd: usd(1) });
-    expect(services.reportUsage).toHaveBeenNthCalledWith(2, { costUsd: usd(2) });
+    expect(services.reportUsage).toHaveBeenNthCalledWith(1, { costUsd: 1 });
+    expect(services.reportUsage).toHaveBeenNthCalledWith(2, { costUsd: 2 });
     expect(record).not.toHaveBeenCalled();
   });
 
   it("a failed undo carries no spend: it is written to the ledger now — by class and by record, never for another error", async () => {
-    const spend = [{ costUsd: usd(3) }] as never;
+    const spend = [{ costUsd: 3 }] as never;
     const undoFailed = new CompensationFailedError({ failures: [], cause: undefined });
     const recorded = new RecordedError(errorRecordOf(undoFailed));
     for (const [error, isWritten] of [
@@ -575,7 +574,7 @@ describe("#1366: failedChild of a child that has nothing to hand its parent", ()
       undo: { child: { deps: { graph: { nodes: new Map() } }, workflow: ENDED.workflow }, run: {} },
     } as never;
     const own = new ExecutionCancelledError({ message: "stopped" });
-    const spend = [{ costUsd: usd(1) }] as never;
+    const spend = [{ costUsd: 1 }] as never;
 
     for (const announces of [false, true]) {
       const thrown = await failedChild(

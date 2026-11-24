@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #853 — which passes a recovery finds lost, and which tasks record them: only takeovers at the
  * head checkpoint from a lease that expired, each pass once; only tasks of the root graph's
@@ -15,7 +14,7 @@ import {
   unknownCostRecordsOf,
   type LostPasses,
 } from "../../src/flow/runtime/lost-pass-records.js";
-import { CostReport, CostSource, recordToolCost } from "../../src/finops/usage.js";
+import { buildCostReport, CostSource, recordToolCost } from "../../src/finops/usage.js";
 import { NodeKind } from "../../src/flow/ast.js";
 
 /** The instance's tally of Unknown-cost entries, as its metrics keep it (#875). */
@@ -117,9 +116,9 @@ describe("#853: the tasks that record them", () => {
     const step = { nodeId: "writer-agent", taskId: "task", caller: "agent:writer-agent" };
     const records = [...unknownCostRecordsOf(lost, step, new Date(0)), recordToolCost("x-tool", 2)];
 
-    const report = CostReport.fromUsage(records);
+    const report = buildCostReport(records);
 
-    expect(report).toMatchObject({ totalUsd: usd(2), calls: 1, unknownCalls: 2 });
+    expect(report).toMatchObject({ totalUsd: 2, calls: 1, unknownCalls: 2 });
     expect(report.byCaller).toEqual({ "tool:x-tool": 2 });
     expect(report.byModel).not.toHaveProperty("unknown");
     expect(report.trace).toHaveLength(3);

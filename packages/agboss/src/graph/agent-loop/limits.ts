@@ -1,4 +1,3 @@
-import { usd } from "../../units/index.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { countBoundOf } from "../count-limit.js";
 import { LimitExceededError } from "../limits.js";
@@ -62,7 +61,7 @@ export function agentLimitError(
     limit: breach.max,
     actual: breach.actual,
     path: state.flowPath,
-    spentUsd: usd(totalCost(state.usage) + totalCost(breach.spent)),
+    spentUsd: totalCost(state.usage) + totalCost(breach.spent),
     usage,
   });
 }

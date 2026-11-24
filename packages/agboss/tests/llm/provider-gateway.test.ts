@@ -1,8 +1,11 @@
-import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { providerClients, ProviderCapabilityError } from "../../src/llm/provider-clients.js";
-import { ConfigurationError, DecisionsModelProvider, ModelKind } from "../../src/models/index.js";
+import {
+  ConfigurationError,
+  DecisionsModelProvider,
+  ModelPurpose,
+} from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import type { ProviderResolution, RegisteredModelProvider } from "../../src/models/resolve.js";
@@ -37,7 +40,7 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     expect(outcome).toMatchObject({
       kind: "decided",
       decision: { next: "finish" },
-      usage: { costUsd: usd(0.0001) },
+      usage: { costUsd: 0.0001 },
     });
     expect(stub.requests[0]).toMatchObject({
       url: "https://openrouter.ai/api/alpha/decisions",
@@ -85,6 +88,6 @@ describe("AC6: the default gateway resolves each model's provider", () => {
     expect(() => clients.jevClient({ model: "local/llama", state: "", questions: {} })).toThrow(
       ProviderCapabilityError,
     );
-    expect(ModelKind.Chat).toBe("chat");
+    expect(ModelPurpose.Chat).toBe("chat");
   });
 });

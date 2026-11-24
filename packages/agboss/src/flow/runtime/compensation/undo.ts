@@ -152,7 +152,7 @@ async function ranUndo(
   let error: ErrorRecord | undefined;
   try {
     const update: unknown = await instance.execute(input);
-    await reportNodeEvent((base) => site.observer?.onActionEnd({ ...base, name, output: update }));
+    await reportNodeEvent((base) => site.observer?.onActionEnd({ ...base, name, update }));
   } catch (thrown) {
     // a fenced write (#471) is a hand-over, never a failed undo: the instance that holds the lease
     // runs it again

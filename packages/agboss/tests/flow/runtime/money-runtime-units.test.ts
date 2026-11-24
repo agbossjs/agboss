@@ -54,7 +54,7 @@ const record = (costUsd: number, model = "m"): UsageRecord => ({
   ...ZERO_USAGE,
   caller: "agent:a",
   model,
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -141,7 +141,7 @@ describe("#1356: the limits of a visit", () => {
       maxVisits: 2,
       visits: 3,
       path: ["start", "clerk"],
-      spentUsd: usd(0.75),
+      spentUsd: 0.75,
       component: { name: "clerk", kind: "agent", promptHash: "p", schemaHash: "s" },
     });
     await expect(
@@ -268,7 +268,7 @@ describe("#1356: the limits of a visit", () => {
       maxSteps: 3,
       steps: 4,
       path: ["start", "clerk"],
-      spentUsd: usd(0.75),
+      spentUsd: 0.75,
       workflow: { name: "flow", version: "v2", startedVersion: "v1", configHash: "hash" },
     });
     const fresh = await caught(() =>
@@ -495,7 +495,7 @@ describe("#1356: the ledger ids of lost passes", () => {
         ...ZERO_USAGE,
         caller: "agent:clerk",
         model: "unknown",
-        costUsd: usd(0),
+        costUsd: 0,
         costSource: CostSource.Unknown,
         ledgerKey: { id: "unknown:root:clerk:task-1:1", madeAt: now },
       },
@@ -503,7 +503,7 @@ describe("#1356: the ledger ids of lost passes", () => {
         ...ZERO_USAGE,
         caller: "agent:clerk",
         model: "unknown",
-        costUsd: usd(0),
+        costUsd: 0,
         costSource: CostSource.Unknown,
         ledgerKey: { id: "unknown:root:clerk:task-1:4", madeAt: now },
       },
@@ -522,7 +522,7 @@ describe("#1356: the spend a failure carries", () => {
       maxSpend: usd(1),
       spent: usd(2),
       path: [],
-      spentUsd: usd(2),
+      spentUsd: 2,
       usage: spent,
     });
 
@@ -568,7 +568,7 @@ describe("#1356: the spend a failure carries", () => {
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: usd(0),
+      spentUsd: 0,
       usage: [record(5)],
       message: "m",
     });
@@ -656,7 +656,7 @@ describe("#1356: how a child's failure reaches its parent", () => {
       maxSpend: usd(1),
       spent: usd(2),
       path: [],
-      spentUsd: usd(2),
+      spentUsd: 2,
       usage,
     });
   const through = (error: unknown, signal: AbortSignal = new AbortController().signal) =>

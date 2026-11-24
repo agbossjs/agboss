@@ -3,8 +3,6 @@ import type { AgentsConfigOf } from "../config/types.js";
 import type { Class } from "./injection.js";
 import { judgeNamesOf } from "./judge-parts.js";
 import type { AgentMeta } from "./meta-types.js";
-import { DEFAULT_MODEL_ALIAS } from "../models/model-cascade.js";
-import { modelProviderOf } from "../models/model-provider.decorator.js";
 import { ragMeta, ragSettings, searchToolName } from "./rag.js";
 
 /** An agent's settings as the config holds them (tools by name). */
@@ -28,11 +26,7 @@ export function agentSettings(
   const rag = ragSettings(agent);
   const judges = judgeNamesOf(agent);
   return {
-    // no model named: the role the provider maps (#1313)
-    model: agent.model ?? DEFAULT_MODEL_ALIAS,
-    ...(agent.modelProvider === undefined
-      ? {}
-      : { modelProvider: modelProviderOf(agent.modelProvider).name }),
+    model: agent.model,
     description: agent.description,
     ...(judges.length === 0 ? {} : { judges }),
     tools: [...(agent.tools ?? []).map((cls) => names.get(cls) ?? cls.name), ...search],

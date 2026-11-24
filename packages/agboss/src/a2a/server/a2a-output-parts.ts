@@ -1,12 +1,12 @@
 import type { Part } from "@a2a-js/sdk";
-import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
+import type { FileRepository } from "../../infrastructure/file.repository.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import {
-  A2AFileSource,
+  FilePayloadSource,
   fileSourceOf,
-  type A2AFileDto,
-  type A2AFileField,
-} from "../files/a2a-file.dto.js";
+  type FileDto,
+  type FileField,
+} from "../../dto/standard/file.js";
 import type { ServedOutput } from "./a2a-skills.js";
 
 /**
@@ -19,7 +19,7 @@ import type { ServedOutput } from "./a2a-skills.js";
  */
 
 /** A file part as the wire carries it, its field named. */
-export function filePartOf(file: A2AFileDto, content: Part["content"], field: string): Part {
+export function filePartOf(file: FileDto, content: Part["content"], field: string): Part {
   return {
     content,
     metadata: { [A2A_SKILLS_EXTENSION]: { field } },
@@ -40,25 +40,25 @@ export interface OutputOwner {
 
 /** A file's content on the wire; `undefined` for a stored one its owner cannot serve. */
 async function contentOf(
-  file: A2AFileDto,
+  file: FileDto,
   task: OutputOwner,
-  store: A2AFileRepository,
+  store: FileRepository,
 ): Promise<Part["content"] | undefined> {
   switch (fileSourceOf(file)) {
-    case A2AFileSource.Url:
+    case FilePayloadSource.Url:
       return { $case: "url", value: file.url ?? "" };
-    case A2AFileSource.Inline:
+    case FilePayloadSource.Inline:
       return { $case: "raw", value: Buffer.from(file.inline ?? "", "base64") };
-    case A2AFileSource.Stored:
+    case FilePayloadSource.Stored:
       return storedContentOf(file, task, store);
   }
 }
 
 /** A stored file's bytes, served only as its own task's and as its descriptor says. */
 async function storedContentOf(
-  file: A2AFileDto,
+  file: FileDto,
   task: OutputOwner,
-  store: A2AFileRepository,
+  store: FileRepository,
 ): Promise<Part["content"] | undefined> {
   const key = { tenantId: task.tenantId, fileId: file.fileId ?? "" };
   const meta = await store.findMetadata(key);
@@ -68,11 +68,11 @@ async function storedContentOf(
 }
 
 /** The files a field of the output holds, in order. */
-function filesIn(output: Readonly<Record<string, unknown>>, field: A2AFileField): A2AFileDto[] {
+function filesIn(output: Readonly<Record<string, unknown>>, field: FileField): FileDto[] {
   const value = output[field.name];
   if (value === undefined || value === null) return [];
   // the finish's output was validated as its DTO: the field holds descriptors
-  return (Array.isArray(value) ? value : [value]) as A2AFileDto[];
+  return (Array.isArray(value) ? value : [value]) as FileDto[];
 }
 
 /** An output's file parts, its data part, and how many of its files could not be served. */
@@ -84,7 +84,7 @@ export interface FileOutputParts {
 /** The output's other fields: what its data part carries. */
 const dataOf = (
   output: Readonly<Record<string, unknown>>,
-  fields: readonly A2AFileField[],
+  fields: readonly FileField[],
 ): Record<string, unknown> =>
   Object.fromEntries(
     Object.entries(output).filter(([name]) => !fields.some((field) => field.name === name)),
@@ -94,7 +94,7 @@ const dataOf = (
 export async function fileOutputPartsOf(
   task: OutputOwner,
   served: ServedOutput,
-  store: A2AFileRepository,
+  store: FileRepository,
   dataPart: (value: unknown) => Part,
 ): Promise<FileOutputParts> {
   const output = (task.output ?? {}) as Readonly<Record<string, unknown>>;

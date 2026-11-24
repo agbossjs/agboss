@@ -1,5 +1,5 @@
 import type { Milliseconds } from "../../units/index.js";
-import { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
+import { FileRepository } from "../../infrastructure/file.repository.js";
 import type { A2AApp } from "../a2a-caller.js";
 import type { A2AServerFiles } from "../server/a2a-server-parts.js";
 import { DEFAULT_FILE_FETCH_TIMEOUT } from "./a2a-file-options.js";
@@ -29,7 +29,7 @@ const slotsOf = (store: object, options: FileFetchOptions): FileFetchSlots =>
 
 /** Where the listener's files are kept and how one by url is fetched (#859): bound by time (#859) and by slots (#1256). */
 export const serverFilesOf = (app: A2AApp, options: FileFetchOptions): A2AServerFiles => {
-  const store = app.resolve(A2AFileRepository);
+  const store = app.resolve(FileRepository);
   return {
     store,
     transport: fileTransportOf(options),

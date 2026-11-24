@@ -5,7 +5,6 @@ import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
 import { ComponentError, recordComponent } from "./metadata.js";
-import { recordInjectAs, type InjectAs, type PortInstances } from "./injection.js";
 import { declareEnvironmentFields, type EnvironmentFields } from "../environments/contract.js";
 
 /**
@@ -117,19 +116,9 @@ export function Tool<
 }
 
 /** The options of `@Injectable`. */
-export interface InjectableOptions<
-  D extends readonly Token[],
-  TPorts extends InjectAs = readonly [],
-> {
+export interface InjectableOptions<D extends readonly Token[]> {
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
-  /**
-   * The abstract ports (#1324) this class is the implementation of: a dependency on `Port` gets
-   * it. Checked by the compiler — the class must be assignable to every port. List it in the
-   * `services` of the `@Application` (all workflows) or of one `@Workflow` (that workflow only,
-   * over the application's).
-   */
-  readonly injectAs?: TPorts;
   /**
    * The fields of the environment contract the class reads (#511) — a store's connection:
    * `{ postgresUrl: EnvironmentField.secret(), postgresPoolSize: EnvironmentField.integer({ optional: true }) }`.
@@ -140,13 +129,11 @@ export interface InjectableOptions<
 }
 
 /** A class the container creates for others (a judge, a client, a store's connection, …). */
-export function Injectable<
-  const D extends readonly Token[] = [],
-  const TPorts extends InjectAs = readonly [],
->(options: InjectableOptions<D, TPorts> = {}) {
-  return <C extends new (...args: ResolvedAll<D>) => PortInstances<TPorts>>(value: C): C => {
+export function Injectable<const D extends readonly Token[] = []>(
+  options: InjectableOptions<D> = {},
+) {
+  return <C extends new (...args: ResolvedAll<D>) => object>(value: C): C => {
     recordComponent(value, { kind: "injectable", meta: { deps: options.deps ?? [] } });
-    recordInjectAs(value, options.injectAs);
     if (options.environmentFields !== undefined) {
       declareEnvironmentFields(value, options.environmentFields);
     }
@@ -158,21 +145,12 @@ export function Injectable<
  * An MCP server the workflow connects to: its launch config and the server tools the workflow uses
  * (`tools`), which type the class's `call` (`extends McpServerClient<typeof tools>`).
  */
-export function McpServer<
-  const TTools extends ServerTools,
-  const TPorts extends InjectAs = readonly [],
->(
-  options: {
-    readonly name: string;
-    readonly tools: TTools;
-    /** The abstract ports this server's client is the implementation of (#1324). */
-    readonly injectAs?: TPorts;
-  } & McpServerConfig,
+export function McpServer<const TTools extends ServerTools>(
+  options: { readonly name: string; readonly tools: TTools } & McpServerConfig,
 ) {
-  return <C extends new () => McpServerClient<TTools> & PortInstances<TPorts>>(value: C): C => {
-    const { name, tools, injectAs, ...config } = options;
+  return <C extends new () => McpServerClient<TTools>>(value: C): C => {
+    const { name, tools, ...config } = options;
     recordComponent(value, { kind: "mcp-server", meta: { name, config, tools } });
-    recordInjectAs(value, injectAs);
     return value;
   };
 }

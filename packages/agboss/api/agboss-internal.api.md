@@ -238,9 +238,6 @@ export enum AttemptDivergenceReason {
 }
 
 // @public
-export type AuditLogHooks = Pick<ExecutionObserver, "onExecutionLeaseTakeover" | "onStepHandedOver" | "onFencedEffect" | "onOutboundCall">;
-
-// @public
 export interface BlastRadiusEntry {
     // (undocumented)
     readonly application: string;
@@ -350,7 +347,7 @@ export function compareProfilesWith<TApplication extends Class>(application: App
 }): Promise<ProfileComparison>;
 
 // @public
-export const completedStatusOf: (finish: string, output: unknown, spentUsd: Usd) => A2ATaskStatus;
+export const completedStatusOf: (finish: string, output: unknown, spentUsd: number) => A2ATaskStatus;
 
 // @public
 export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
@@ -385,19 +382,13 @@ export enum CostCategory {
     // (undocumented)
     Agents = "agents",
     // (undocumented)
-    Arbiters = "arbiters",
+    Compaction = "compaction",
     // (undocumented)
     Files = "files",
     // (undocumented)
-    Guardrails = "guardrails",
+    Guards = "guards",
     // (undocumented)
-    Memory = "memory",
-    // (undocumented)
-    Pauses = "pauses",
-    // (undocumented)
-    Pii = "pii",
-    // (undocumented)
-    Rag = "rag",
+    Retrieval = "retrieval",
     // (undocumented)
     Review = "review",
     // (undocumented)
@@ -415,7 +406,7 @@ export interface CostLine extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: Usd;
+    readonly costUsd: number;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -424,35 +415,24 @@ export interface CostLine extends TokenUsage {
 // @public
 export interface CostReport {
     // (undocumented)
-    readonly byCaller: Readonly<Record<string, Usd>>;
-    readonly byCategory: Readonly<Record<CostCategory, Usd>>;
+    readonly byCaller: Readonly<Record<string, number>>;
+    readonly byCategory: Readonly<Record<CostCategory, number>>;
     // (undocumented)
-    readonly byModel: Readonly<Record<string, Usd>>;
+    readonly byModel: Readonly<Record<string, number>>;
+    // (undocumented)
     readonly cacheReadTokens: number;
-    readonly cacheWriteTokens: number;
     readonly calls: number;
-    readonly inputTokens: number;
-    readonly outputTokens: number;
-    readonly totalTokens: number;
-    readonly totalUsd: Usd;
+    readonly totalUsd: number;
     readonly trace: readonly CostLine[];
     readonly unknownCalls: number;
 }
-
-// @public
-export const CostReport: {
-    readonly fromUsage: (records: readonly UsageRecord[]) => CostReport;
-    readonly empty: () => CostReport;
-    readonly sum: (reports: readonly CostReport[]) => CostReport;
-};
 
 // @public
 export enum CostSource {
     Api = "api",
     PriceTable = "price-table",
     Tool = "tool",
-    Unknown = "unknown",
-    Unpriced = "unpriced"
+    Unknown = "unknown"
 }
 
 // @public
@@ -709,7 +689,7 @@ export type DurableExecutionState = {
     readonly status: DurableExecutionStatus.Finished;
     readonly finish: string;
     readonly output: unknown;
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
 } | {
     readonly status: DurableExecutionStatus.Failed;
     readonly reason: string;
@@ -895,8 +875,6 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     onActionStart(event: ActionStartEvent): Promise<void>;
     // (undocumented)
     onAgentEnd(event: AgentEndEvent): Promise<void>;
-    // (undocumented)
-    onAgentRetry(event: AgentRetryEvent): Promise<void>;
     // (undocumented)
     onAgentStart(event: AgentStartEvent): Promise<void>;
     // (undocumented)
@@ -1181,9 +1159,6 @@ export interface HistoryExportQuery {
 export function historyRecordsOf(history: ExecutionHistoryRepository, query: HistoryExportQuery): AsyncGenerator<ExecutionHistoryRecord>;
 
 // @public
-export type HookResult = Promise<void> | void;
-
-// @public
 export function inputLines(analysis: FlowAnalysis): readonly string[];
 
 // @public
@@ -1266,15 +1241,14 @@ export interface ModelUse {
     readonly key: ModelUseKey;
     // (undocumented)
     readonly model: string;
-    readonly modelProvider?: string | undefined;
     readonly needs?: readonly InputNeed[];
     // (undocumented)
-    readonly purpose: ModelKind;
+    readonly purpose: ModelPurpose;
     readonly settings?: ResolvedModelSettings;
 }
 
 // @public
-export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents, kinds?: ProviderKinds): readonly ModelUse[];
+export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents): readonly ModelUse[];
 
 // @public
 export interface ObservedExecution {
@@ -1303,17 +1277,8 @@ export interface ObservedTurn {
     readonly start: string;
 }
 
-// @public (undocumented)
-export const OBSERVER_HOOKS: readonly ObserverHook[];
-
-// @public
-export type ObserverClass = Class<ExecutionObserver>;
-
 // @public
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
-
-// @public
-export type ObserverHook = keyof ExecutionObserver;
 
 // @public
 export interface OpenedExecutionHistory {
@@ -1697,7 +1662,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "unknownCosts".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionPause".
@@ -1707,7 +1671,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionRejected".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentRetry".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onRouterStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onRouterEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onToolStart".
@@ -1831,22 +1794,20 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/federation/federation-types.ts - (ae-undocumented) Missing documentation for "problems".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guards".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Review".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Memory".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Rag".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pii".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Arbiters".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pauses".
-// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "category".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
+// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
+// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/analyse/steps.ts - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts - (ae-undocumented) Missing documentation for "most".
 // src/flow/analyse/worst-case.ts - (ae-undocumented) Missing documentation for "start".

@@ -83,7 +83,7 @@ export interface RagIndexReport {
     // (undocumented)
     readonly chunks: number;
     // (undocumented)
-    readonly costUsd?: Usd;
+    readonly costUsd?: number;
     // (undocumented)
     readonly documents: number;
     readonly skipped: number;
@@ -125,7 +125,7 @@ export type RagResultCount = {
 
 // @public
 export interface RagRetrieval {
-    readonly costUsd?: Usd;
+    readonly costUsd?: number;
     // (undocumented)
     readonly results: readonly RagSearchResultDto[];
 }
@@ -210,7 +210,7 @@ export interface RerankOptions {
 
 // @public
 export interface RerankResult {
-    readonly costUsd?: Usd;
+    readonly costUsd?: number;
     readonly results: readonly RagSearchResultDto[];
 }
 

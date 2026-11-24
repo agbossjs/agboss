@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1325a: every error family is a base class with one class per variant — each an `AGBossError` of
  * its family, with its `kind`, a code of its family's line, a name qualified by the family's (so
@@ -47,7 +46,7 @@ const variantOf = (family: FamilyValue, name: string): VariantClass => {
 
 /** The facts a variant takes that its constructor stores (a sample of each family's). */
 const FACTS: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
-  "LimitError.Items": { node: "fan-out", limit: 50, actual: 51, path: ["a"], spentUsd: usd(0.5) },
+  "LimitError.Items": { node: "fan-out", limit: 50, actual: 51, path: ["a"], spentUsd: 0.5 },
   "StepError.Agent": { agent: "buyer", nodeId: "buyer", visitNumber: 1 },
   "StepError.ToolTimeout": { tool: "pay", timeout: 30_000 },
   "GuardrailError.Blocked": { guardrail: "toxicity", refusal: "blocked", key: "k" },
@@ -164,7 +163,7 @@ describe("#1325a: the spend of a paid family", () => {
     {
       caller: "agent:buyer",
       model: "m",
-      costUsd: usd(0.25),
+      costUsd: 0.25,
       costSource: root.CostSource.Api,
       inputTokens: 1,
       outputTokens: 1,
@@ -193,7 +192,7 @@ describe("#1325a: the spend of a paid family", () => {
           limit: 1,
           actual: 2,
           path: [],
-          spentUsd: usd(0.25),
+          spentUsd: 0.25,
           usage,
         }),
     ],

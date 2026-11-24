@@ -96,7 +96,7 @@ describe("AC12: the default model gateway", () => {
       Object.keys(
         createProviderGateway(directoryOf(DEFAULT_MODEL_PROVIDERS), { env: {}, environment: KEYS }),
       ),
-    ).toEqual(["chatModel", "routeTo", "decide", "kindOf"]);
+    ).toEqual(["chatModel", "routeTo", "decide"]);
   });
 });
 

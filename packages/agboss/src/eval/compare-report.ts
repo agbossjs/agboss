@@ -1,4 +1,3 @@
-import { type Usd } from "../units/index.js";
 import { configSnapshot } from "../run/versions.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import type { PairwiseResult, ProfileOutcome } from "./compare.js";
@@ -10,7 +9,7 @@ export interface ProfileReport {
   readonly meanScore: number | null;
   readonly scored: number;
   readonly pairwise: PairwiseResult | null;
-  readonly costUsd: Usd;
+  readonly costUsd: number;
   readonly costPerTaskUsd: number;
   readonly latencyP50Ms: number | null;
   readonly latencyP95Ms: number | null;

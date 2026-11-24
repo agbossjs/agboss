@@ -4,12 +4,6 @@ export enum CostSource {
   Api = "api",
   /** Tokens × the model's configured price. */
   PriceTable = "price-table",
-  /**
-   * No price (#1318, #1313): a provider that reports no cost and has no price table — a CLI or a
-   * local model — so the call's `costUsd` is 0 while its tokens are real. Written to the ledger and
-   * counted against token budgets (`maxTokens`), and counted as a call in a report.
-   */
-  Unpriced = "unpriced",
   /** Reported by a paid tool (or a service step) itself. */
   Tool = "tool",
   /**

@@ -4,7 +4,7 @@ import {
   Action,
   Agent,
   ExecutionContext,
-  Observer,
+  Injectable,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -13,6 +13,11 @@ import {
   type ExecutionEndEvent,
   type ExecutionStartEvent,
   type ModelStartEvent,
+  type OnActionStart,
+  type OnExecutionEnd,
+  type OnExecutionStart,
+  type OnModelStart,
+  type OnToolStart,
   type ToolStartEvent,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -110,8 +115,10 @@ export class Shortlist {
 }
 
 /** Every event's run id. */
-@Observer()
-export class RunIds {
+@Injectable()
+export class RunIds
+  implements OnExecutionStart, OnExecutionEnd, OnModelStart, OnToolStart, OnActionStart
+{
   onExecutionStart(event: ExecutionStartEvent): void {
     seen.events.push(`execution-start:${event.executionId}`);
   }

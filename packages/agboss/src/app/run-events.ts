@@ -94,12 +94,7 @@ export async function observeLeg(
   if (result.status === ExecutionStatus.Paused && result.pending.length > 0)
     await observer.onExecutionPause({ ...event, pending: await shownPending(result.pending) });
   else if (result.finish !== undefined)
-    await observer.onExecutionEnd({
-      ...event,
-      finish: result.finish,
-      output: result.output,
-      spend: result.spend,
-    });
+    await observer.onExecutionEnd({ ...event, finish: result.finish, spend: result.spend });
   return result;
 }
 

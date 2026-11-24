@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #824 (mutation shard `a2a-server`): a task's stream on its own — the task first, each status
  * change (a completed one's output artifact before it, its parts by the task's own skill), the
@@ -255,7 +254,7 @@ describe("#824: a task's stream", () => {
       status: DurableExecutionStatus.Finished,
       finish: FINISH,
       output: { text: "done" },
-      spentUsd: usd(0),
+      spentUsd: 0,
     };
     finish();
     expect(await nextOf(stream)).toMatchObject({ payload: { $case: "artifactUpdate" } });
@@ -437,7 +436,7 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
       status: DurableExecutionStatus.Finished,
       finish: FINISH,
       output: { text: "done" },
-      spentUsd: usd(0),
+      spentUsd: 0,
     };
     finish();
     events.push(...(await restOf(stream)));

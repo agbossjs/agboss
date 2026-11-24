@@ -118,7 +118,7 @@ export {
 } from "./eval/run/divergence.js";
 export { goldenFile, goldenFromRecent, loadGolden, saveGolden } from "./eval/golden.js";
 export { replay } from "./eval/replay.js";
-export { CostCategory, CostSource, type CostLine, CostReport } from "./finops/usage.js";
+export { CostCategory, CostSource, type CostLine, type CostReport } from "./finops/usage.js";
 export { flowLines } from "./flow/print.js";
 export { childLines, inputLines } from "./describe/inputs.js";
 export {
@@ -184,6 +184,3 @@ export * from "./core/observer-manager.js";
 // #895: the assembly a unit test reads; `testWith` and `testTool` are the testing API
 export { workflowOf } from "./testing/workflow-of.js";
 export { toolOf } from "./components/runtime.js";
-export { OBSERVER_HOOKS, type ObserverClass, type ObserverHook } from "./core/observer-hooks.js";
-export type { HookResult } from "./core/hook-result.js";
-export type { AuditLogHooks } from "./flow/observers/audit-log.js";

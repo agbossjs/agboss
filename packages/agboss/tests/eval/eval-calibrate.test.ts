@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #396 PR 4 — `agboss eval calibrate`: a judge's verdicts in a run artifact against people's labels
  * (S2 C4–C5, Q8) — pairwise Cohen's κ between the judge and each labeler and between labelers, the
@@ -39,7 +38,7 @@ const runOf = (
     { check: "trajectory", status: CheckStatus.Passed },
     { check: JUDGE, status: passed ? CheckStatus.Passed : CheckStatus.Failed, metrics },
   ],
-  spentUsd: usd(0),
+  spentUsd: 0,
 });
 
 const reportOf = (runResults: readonly EvalRunResult[]): EvalRunReport => {
@@ -59,7 +58,7 @@ const reportOf = (runResults: readonly EvalRunResult[]): EvalRunReport => {
     endedAt: "2026-01-05T09:01:00.000Z",
     cases,
     summary: summaryOf(cases),
-    spend: { totalUsd: usd(0) },
+    spend: { totalUsd: 0 },
   };
 };
 

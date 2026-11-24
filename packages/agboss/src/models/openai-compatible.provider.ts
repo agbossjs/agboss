@@ -59,7 +59,7 @@ export abstract class OpenAiCompatibleProvider<
               wireFetch(this.wirePlanOf(request), connection.fetch, connection.provider),
             ),
           ),
-          defaultHeaders: this.headersOf(connection),
+          defaultHeaders: { "X-Title": "AGBoss" },
         },
       });
     const loaded = loadedChatOpenAI();
@@ -87,11 +87,6 @@ export abstract class OpenAiCompatibleProvider<
         ...caching.fields,
       },
     };
-  }
-
-  /** Headers every request carries; a driver's own come from its connection. */
-  protected headersOf(connection: ProviderConnection): Readonly<Record<string, string>> {
-    return { "X-Title": "AGBoss", ...connection.headers };
   }
 
   /** The client's fetch as answers come back; a subclass may read more of them (OpenRouter's host). */

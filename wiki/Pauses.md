@@ -408,7 +408,7 @@ value for the steps after it. Everything else is a pause like an approval's:
   A side path that can catch a limit (`LimitExceededError`, `BudgetExceededError`, `AGBossError`, …)
   still leads only to actions and finishes: a question there is `[graph.limit-handler-uses-model]`
   (a reply interpreter may call a model).
-- `AGBossTypes.ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`, so the channel's
+- `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`, so the channel's
   `ask.value` and `decided(…)` are typed; the interpreter's `InputOf` is `{ ask: AskDto; reply }`,
   its `OutputOf` `AnswerDto`. The step's own `InputOf<Role>` is `{ ask: … }` (#802), the role's
   `ask` read from the path. `agboss describe` prints the role with `asked at <step> (<workflow>)`.

@@ -1,5 +1,5 @@
 import { isFileDescriptor } from "../a2a/files/a2a-file-scrub.js";
-import type { A2AFileDto } from "../a2a/files/a2a-file.dto.js";
+import type { FileDto } from "../dto/standard/file.js";
 import type { HistoryTurn } from "../flow/runtime/history.js";
 import { createHash } from "node:crypto";
 import type { SourceFile, FileRuntime } from "./visit-files.js";
@@ -27,7 +27,7 @@ function jsonOf(text: string): unknown {
 }
 
 /** Every file descriptor in a JSON value, at any depth. */
-function descriptorsIn(value: unknown, found: A2AFileDto[]): void {
+function descriptorsIn(value: unknown, found: FileDto[]): void {
   if (isFileDescriptor(value)) {
     found.push(value);
     return;
@@ -45,7 +45,7 @@ export function historyDescriptorsOf(history: readonly HistoryTurn[]): readonly 
       const match = LINE.exec(line);
       if (match === null) return [];
       const parts = { ...match.groups }; // every group is in a match
-      const found: A2AFileDto[] = [];
+      const found: FileDto[] = [];
       descriptorsIn(jsonOf(String(parts.json)), found);
       return found.flatMap((descriptor) => {
         const key = `${descriptor.fileId ?? ""}|${descriptor.url ?? ""}|${descriptor.sha256 ?? ""}`;

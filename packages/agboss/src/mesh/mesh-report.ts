@@ -32,7 +32,7 @@ const ReportSchema = z.object({
 export interface RunReportFacts {
   readonly issuer: string;
   readonly executionId: string;
-  readonly spentUsd: Usd;
+  readonly spentUsd: number;
   readonly bodyHash: string;
   readonly issuedAt: Date;
 }

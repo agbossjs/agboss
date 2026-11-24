@@ -1,4 +1,3 @@
-import { usd, type Usd } from "../../../src/units/index.js";
 import type {
   RagIndexReport,
   RagConnector,
@@ -51,7 +50,7 @@ export class MemoryConnector implements RagConnector {
       documents: documents.length,
       chunks: this.chunks.get(key)?.length ?? 0,
       skipped: 0,
-      costUsd: (this.flaws.costUsd ?? 0) as Usd,
+      costUsd: this.flaws.costUsd ?? 0,
     });
   }
 
@@ -68,7 +67,7 @@ export class MemoryConnector implements RagConnector {
     const taken = this.flaws.ignoresTopK === true ? scored : scored.slice(0, options.topK);
     return Promise.resolve({
       results: taken.map(({ chunk, score }) => ({ ...chunk, score })),
-      costUsd: (this.flaws.costUsd ?? 0) as Usd,
+      costUsd: this.flaws.costUsd ?? 0,
     });
   }
 

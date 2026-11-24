@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend of a model's yes/no decision (a router's launch, an arbiter's judgement) — a paid call is
  * recorded whether its answer is read or fails to parse, so the ledger holds what the model charged.
@@ -40,7 +39,7 @@ describe("#1366: what a chat model's yes/no decision cost", () => {
     expect(await decider.decide(request)).toMatchObject({
       kind: "decided",
       launched: ["refunds"],
-      usage: { costUsd: usd(0.25), caller: "router:desk" },
+      usage: { costUsd: 0.25, caller: "router:desk" },
     });
   });
 
@@ -52,7 +51,7 @@ describe("#1366: what a chat model's yes/no decision cost", () => {
     expect(outcome).toMatchObject({
       kind: "failed",
       reason: expect.stringContaining("is not true or false"),
-      usage: { costUsd: usd(0.25), caller: "router:desk" },
+      usage: { costUsd: 0.25, caller: "router:desk" },
     });
     expect(outcome).not.toHaveProperty("cause");
   });

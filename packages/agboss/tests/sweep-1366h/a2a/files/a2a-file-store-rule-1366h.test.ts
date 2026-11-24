@@ -12,9 +12,9 @@ import {
 import { A2AExpose } from "../../../../src/a2a/a2a-expose.decorator.js";
 import type { A2AFileOptions } from "../../../../src/a2a/files/a2a-file-options.js";
 import type { Provider } from "../../../../src/components/injection.js";
-import { InMemoryA2AFileRepository } from "../../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../../../src/infrastructure/execution-lease.repository.js";
-import { LocalDiskA2AFileRepository } from "../../../../src/infrastructure/local-disk-a2a-file.repository.js";
+import { LocalDiskFileRepository } from "../../../../src/infrastructure/local-disk-file.repository.js";
 import { kilobytes } from "../../../../src/units/index.js";
 import { PostgresLeases } from "../../../application/fixtures/store-backends.fixture.js";
 import { PostgresA2ATasks } from "../../../a2a/fixtures/a2a-task-stores.fixture.js";
@@ -81,7 +81,7 @@ describe("#1366 the nodes a violation names", () => {
 
     const notShared = outcomeOf({
       a2aFiles: sized(1024),
-      providers: [PostgresLeases, PostgresA2ATasks, InMemoryA2AFileRepository],
+      providers: [PostgresLeases, PostgresA2ATasks, InMemoryFileRepository],
     });
     expect(notShared).toHaveLength(1);
     expect(notShared[0]).toMatchObject({
@@ -105,7 +105,7 @@ describe("#1366 tiers and absent options", () => {
 
   it("256 KB exactly needs no store; a store of one host is the same with every one-host backend", () => {
     expect(outcomeOf({ a2aFiles: sized(256) })).toEqual([]);
-    for (const store of [InMemoryA2AFileRepository, LocalDiskA2AFileRepository]) {
+    for (const store of [InMemoryFileRepository, LocalDiskFileRepository]) {
       expect(
         outcomeOf({
           a2aFiles: sized(257),
@@ -119,7 +119,7 @@ describe("#1366 tiers and absent options", () => {
     const providers: Provider[] = [
       PostgresLeases,
       InMemoryExecutionLeaseRepository,
-      InMemoryA2AFileRepository,
+      InMemoryFileRepository,
     ];
     expect(outcomeOf({ a2aFiles: sized(1024), providers }).map(({ code }) => code)).toEqual([
       "a2a.file-store-not-shared",
@@ -145,7 +145,7 @@ describe("#1366 inlineFilesWarningOf", () => {
 
   it("none when a store is listed", () => {
     expect(
-      inlineFilesWarningOf({ ...sourcesOf(100), providers: [InMemoryA2AFileRepository] }),
+      inlineFilesWarningOf({ ...sourcesOf(100), providers: [InMemoryFileRepository] }),
     ).toBeUndefined();
   });
 });

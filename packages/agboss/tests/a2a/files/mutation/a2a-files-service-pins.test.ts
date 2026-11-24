@@ -1,27 +1,28 @@
 /**
- * #1244: `A2AFiles` and its work, pinned: the exact descriptor a save and `fromUrl` give, the
+ * #1244: `Files` and its work, pinned: the exact descriptor a save and `fromUrl` give, the
  * size limit at the byte, and each refusal's reason and facts.
  */
+import { FileError } from "../../../../src/core/error-families/remote-errors.js";
 import { describe, expect, it } from "vitest";
-import { A2AFileRefusal, A2AFileRefusedError } from "../../../../src/a2a/files/a2a-file-errors.js";
-import { A2AFiles } from "../../../../src/a2a/files/a2a-files.service.js";
-import { InlineA2AFileRepository } from "../../../../src/infrastructure/a2a-file.repository.js";
-import { InMemoryA2AFileRepository } from "../../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { FileRefusal } from "../../../../src/files/file-errors.js";
+import { Files } from "../../../../src/a2a/files/files.service.js";
+import { InlineFileRepository } from "../../../../src/infrastructure/file.repository.js";
+import { InMemoryFileRepository } from "../../../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../../src/testing/clock.js";
 import { inTestFrame } from "../../../helpers/frame.js";
 
 const clock = new VirtualClock(new Date("2026-01-05T09:00:00.000Z"));
-const inline = new A2AFiles(new InlineA2AFileRepository(), clock);
-const stored = () => new A2AFiles(new InMemoryA2AFileRepository(new InMemoryDatabase()), clock);
+const inline = new Files(new InlineFileRepository(), clock);
+const stored = () => new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock);
 const LIMIT = 64 * 1024;
 const text = (size: number): Uint8Array => new TextEncoder().encode("a".repeat(size));
 
-async function refusalOf(work: Promise<unknown>): Promise<A2AFileRefusedError> {
+async function refusalOf(work: Promise<unknown>): Promise<FileError.Refused> {
   try {
     await work;
   } catch (error) {
-    if (error instanceof A2AFileRefusedError) return error;
+    if (error instanceof FileError.Refused) return error;
     throw error;
   }
   throw new Error("not refused");
@@ -57,9 +58,9 @@ describe("fromUrl", () => {
       } catch (error) {
         thrown = error;
       }
-      expect(thrown, url).toBeInstanceOf(A2AFileRefusedError);
-      expect((thrown as A2AFileRefusedError).refusal).toBe(A2AFileRefusal.UrlInvalid);
-      expect((thrown as A2AFileRefusedError).details).toStrictEqual({ refusal: "url-invalid" });
+      expect(thrown, url).toBeInstanceOf(FileError.Refused);
+      expect((thrown as FileError.Refused).refusal).toBe(FileRefusal.UrlInvalid);
+      expect((thrown as FileError.Refused).details).toStrictEqual({ refusal: "url-invalid" });
     }
   });
 });
@@ -124,7 +125,7 @@ describe("save", () => {
     );
 
     expect(atLimit.sizeBytes).toBe(LIMIT);
-    expect(refused.refusal).toBe(A2AFileRefusal.TooLarge);
+    expect(refused.refusal).toBe(FileRefusal.TooLarge);
     expect(refused.sizeBytes).toBe(LIMIT + 1);
     expect(refused.details).toStrictEqual({ refusal: "too-large", sizeBytes: LIMIT + 1 });
   });

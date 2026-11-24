@@ -134,7 +134,7 @@ export class InvoiceExecutionBudget implements BudgetHandler {
   application's `CostLedgerRepository` — the built-in in-memory one counts per instance and resets on
   restart (`[application.in-memory-cost-ledger]`); list `SqliteCostLedgerRepository` (reference 09).
 - **The terms** (#817): **cost** is what one call cost (`UsageRecord.costUsd`, `CostLine`,
-  `CostSource.Api | PriceTable | Tool | Unpriced | Unknown`, `CostCategory`); **spend** what was consumed against a
+  `CostSource.Api | PriceTable | Tool | Unknown`, `CostCategory`); **spend** what was consumed against a
   budget (`result.spend`, `findSpentByCounter`, `spentUsd`); **usage** tokens only (`TokenUsage`).
   A record's place in the ledger is its one state `UsageRecord.ledger` (`ledgerMarkOf(record)`:
   `LedgerState.Written` with `ledgerId` + `madeAt: Date`, or `LedgerState.RecordedElsewhere`); the
@@ -660,13 +660,9 @@ await app.close();
 
 **A lost pass's cost is not known (#853):** a model call sent by a pass that dies before its answer (a `kill -9`, a frozen instance) leaves no amount — the recovery or the resume that takes the tree over and runs the step again records one ledger entry per lost pass first: `CostSource.Unknown`, `costUsd` 0, under `unknown:<rootExecutionId>:<step>:<task>:<lease token of the lost pass>` (`UsageRecord.ledgerKey`), so two takers, or a re-run lost in turn, write it once, and a second lost pass gets its own; a budget counts it as nothing. `result.spend.unknownCalls` (and the CLI's total, `… of unknown cost`) counts them next to `totalUsd` / `calls`, which hold only known costs; `agboss.instance.costs.unknown` (`{pass}`, `workflow`) adds them as the pass records them — whether the execution then finishes, fails or is cancelled (#875; a pass lost again before its checkpoint has its taker record them again, counted again) — and a takeover whose read of the lost passes fails (logged `cost.unknown-unrecorded`, none recorded) adds one to `agboss.instance.costs.unknown_unrecorded` (`{read}`, `workflow`). Found from the tree's audit log (a takeover at the head checkpoint from a lease that expired) and the checkpoint (no write there finished the step's task — a pause's, its resume's or an error's does not): nothing is written on a pass that takes no tree over. Limits: Unknown is "maybe nothing" — a taker that died before it ran the step is a lost pass too; only an agent's or a model router's step of the root workflow (a branch too, one cancelled before it runs included) records one — a call inside a child workflow and a lease released by a graceful stop past `shutdownTimeout` are not counted.
 
-`spend.byCategory` has every key — `agents`, `routing`, `guardrails`, `review`, `tools`, `memory`,
-`rag`, `files`, `pii`, `arbiters`, `pauses`; callers are named `tool:<name>`, `action:<name>`,
-`router:<name>`, `guardrail:<name>`, `arbiter:<name>`, `memory:<name>`, `rag:<name>`,
-`reranker:<name>`, `pii:<name>`, `files:<name>`, `channel-interpreter:<name>`, or the agent's name.
-Every amount is `Usd`; `spend` also carries tokens — `inputTokens`, `outputTokens`,
-`cacheReadTokens`, `cacheWriteTokens`, `totalTokens` — and is built with `CostReport.empty()`,
-`CostReport.sum(reports)` or `CostReport.fromUsage(records)`.
+`spend.byCategory` has every key — `agents`, `routing`, `guards`, `review`, `tools`, `compaction`,
+`retrieval`; callers are named `tool:<name>`, `action:<name>`, `router:<name>`, `guardrail:<name>`,
+`arbiter:<name>`, `compaction:<name>`, `rag:<name>`, or the agent's name.
 
 ## Testing the money
 

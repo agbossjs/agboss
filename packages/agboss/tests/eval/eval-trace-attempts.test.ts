@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366: the validation attempts a traced step states — the most of the step's own and of its tool calls'.
  */
@@ -35,7 +34,7 @@ const attemptsOf = (own: number, calls: readonly number[]): number | undefined =
       path: [],
       scope: [],
       outdatedValues: [],
-      spend: { trace: [], totalUsd: usd(0), byCategory: {} },
+      spend: { trace: [], totalUsd: 0, byCategory: {} },
       children: [],
       pauses: [],
       compensations: [],
@@ -46,7 +45,7 @@ const attemptsOf = (own: number, calls: readonly number[]): number | undefined =
           inputHash: "h",
           judgeVerdicts: [],
           guardrailDecisions: [],
-          spend: { trace: [], totalUsd: usd(0), byCategory: {} },
+          spend: { trace: [], totalUsd: 0, byCategory: {} },
           startedAt: "2026-01-05T09:00:00.000Z",
           endedAt: "2026-01-05T09:00:01.000Z",
         },

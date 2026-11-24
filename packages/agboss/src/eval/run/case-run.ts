@@ -1,4 +1,3 @@
-import { usd } from "../../units/index.js";
 import type { AppDeps } from "../../app/app-deps.js";
 import type { AssembledWorkflow } from "../../workflow.js";
 import type { App, ExecutionOutput } from "../../app/types.js";
@@ -144,7 +143,7 @@ export async function runCaseOnce(
   const { last } = turns;
   const turn = judgedTurnOf(parts, written.turns.at(-1), last, values);
   const checks = await runChecks(parts, written, turn);
-  const judged = usd(checks.reduce((sum, check) => sum + (check.spentUsd ?? 0), 0));
+  const judged = checks.reduce((sum, check) => sum + (check.spentUsd ?? 0), 0);
   const trace = await runTraceOf(parts, last);
   return {
     run,
@@ -154,7 +153,7 @@ export async function runCaseOnce(
     ...(last.finish === undefined ? {} : { finish: last.finish.name }),
     passed: checks.every((check) => check.status === CheckStatus.Passed),
     checks,
-    spentUsd: usd(turns.spentUsd + judged),
+    spentUsd: turns.spentUsd + judged,
     ...(trace === undefined ? {} : { trace }),
   };
 }

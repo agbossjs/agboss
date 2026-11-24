@@ -3,7 +3,7 @@ import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import { startComponents } from "../components/container/lifecycle.js";
-import type { Class } from "../components/injection.js";
+import { isClassProvider, type Class } from "../components/injection.js";
 import {
   APP_DEFAULT_ENVIRONMENT,
   namedEnvironmentFor,
@@ -21,7 +21,6 @@ import { instanceAppOf } from "./compose-app.js";
 import { closeOnStopSignals } from "./stop-signals.js";
 import { sourcesOf } from "./instance-sources.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
-import { createListed } from "./create-listed.js";
 import { productionOptionsOf } from "./app-options.js";
 import type { InstanceSeams } from "./instance-seams.js";
 
@@ -71,6 +70,22 @@ export function contextsOf(
   });
   const { tenantContext, executionContext } = assembled;
   return { application, tenantContext, executionContext };
+}
+
+/**
+ * Every class the application and its workflows list (providers, budgets), created now — one
+ * instance each, so a missing dependency fails at start and every one gets its hooks.
+ */
+function createListed(assembled: AssembledApplication, workflows: readonly BuiltApp[]): void {
+  const [first] = workflows;
+  if (first === undefined) return;
+  for (const module of assembled.modules) {
+    for (const provider of module.providers) {
+      if (typeof provider === "function") first.app.resolve(provider);
+      // a class for a token (#891): created now too, under its token, its hooks with the rest
+      else if (isClassProvider(provider)) first.app.resolve(provider.useClass);
+    }
+  }
 }
 
 /**

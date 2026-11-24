@@ -1,7 +1,6 @@
 import { Send } from "@langchain/langgraph";
 import { loopUsage } from "./state.js";
-import { invalidArgumentsMessage, unknownToolMessage } from "../../prompts/agents.js";
-import { AgentRetryReason, reportAgentRetry } from "./retry-event.js";
+import { unknownToolMessage } from "../../prompts/agents.js";
 import type { AsyncNode } from "../types.js";
 import {
   callsOf,
@@ -99,7 +98,7 @@ export function routeToActions(
 export function makeBoundaryNode(
   deps: AgentLoopDeps,
 ): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  return async (state, config) => {
+  return (state, config) => {
     const at = extractRunContext(config, state.runId).clock.now();
     const results: Record<string, StoredToolCall> = {};
     const unknown: Record<string, ToolCallRecord> = {};
@@ -115,16 +114,7 @@ export function makeBoundaryNode(
     const messages = state.move === null ? [] : [state.move];
     const unread = unreadCallsOf(state, deps, at);
     const callRecords = { ...unknown, ...unread.callRecords };
-    const attempted = loopProgressOf(state).validationAttempts;
-    for (const [index, call] of invalidCallsOf(state.move).entries()) {
-      await reportAgentRetry(deps, {
-        reason: AgentRetryReason.InvalidToolInput,
-        attempt: attempted + index + 1,
-        maxAttempts: deps.agent.limits.modelCalls,
-        feedback: invalidArgumentsMessage([call]),
-      });
-    }
-    return { messages, results, ...unread, callRecords };
+    return Promise.resolve({ messages, results, ...unread, callRecords });
   };
 }
 

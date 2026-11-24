@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 import { describe, expect, it, vi } from "vitest";
 import { pairwise, runProfile, type ProfileOutcome } from "../../src/eval/compare.js";
 import {
@@ -85,7 +84,7 @@ describe("compare — pairwise", () => {
     version: "1",
     answers: ["a1", "a2", "a3", undefined],
     scores: [],
-    costUsd: usd(0),
+    costUsd: 0,
     latenciesMs: [],
     failed: 0,
   };
@@ -166,7 +165,7 @@ describe("compare — report", () => {
       version: "1.0.0-x",
       answers: ["a", "b"],
       scores: [0.8, 0.6],
-      costUsd: usd(0.02),
+      costUsd: 0.02,
       latenciesMs: [1000, 3000],
       failed: 0,
     };

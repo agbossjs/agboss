@@ -209,10 +209,8 @@ describe("#263: an unlisted child goes through the application's rules", () => {
   });
 
   it("a child's dependency nobody provides fails the assembly, naming it", async () => {
-    // undecorated: a decorated class is found through `deps` (#1324), a bare one cannot be created
-    class UnprovidedLookupService {
-      readonly kind = "unprovided";
-    }
+    @Injectable()
+    class UnprovidedLookupService {}
     class LookupDto {
       @Text({ prompt: "what to look up" })
       text!: string;

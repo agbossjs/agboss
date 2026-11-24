@@ -27,40 +27,21 @@ function sourceRootOf(module: string): string | undefined {
 }
 
 /**
- * A module `agboss check` does not load for its types: tests, declarations, dependencies, output, and
- * the executables — `scripts/` and `bin/` modules run when imported, they declare no components.
- */
-const SKIPPED_FOLDERS: ReadonlySet<string> = new Set([
-  "node_modules",
-  ".agboss",
-  "dist",
-  "scripts",
-  "bin",
-]);
-
-const isSkipped = (path: string): boolean => {
-  const parts = path.split(sep);
-  return (
-    !/\.[cm]?ts$/.test(path) ||
-    /\.d\.[cm]?ts$/.test(path) ||
-    /\.(test|spec)(-d)?\.[cm]?ts$/.test(path) ||
-    parts.some((part) => SKIPPED_FOLDERS.has(part))
-  );
-};
-
-/**
- * The module and every other source module of its `src/` (#1324g): one `.agboss/types.d.ts` holds
- * the types of every workflow and every decorated class of the project — a component no workflow
- * reaches (under test), a tool-only application's — so checking one keeps the others'. Tests,
- * declarations and dependencies are left out. A module outside a `src/` is generated alone.
+ * The module and the other workflow and application modules of its `src/` (`*.workflow.ts`,
+ * `*.application.ts` — #261: an application's `defaults` and environment contract): one
+ * `.agboss/types.d.ts` holds the types of every workflow of the project, so checking one keeps the
+ * others'. A module outside a `src/` is generated alone.
  */
 function workflowModulesOf(project: string, file: string): string[] {
   const given = resolve(project, file);
   const root = sourceRootOf(given);
   if (root === undefined) return [given];
   const found = readdirSync(root, { recursive: true, encoding: "utf8" })
-    .filter((path) => !isSkipped(path))
-    .sort()
+    .filter(
+      (path) =>
+        (path.endsWith(".workflow.ts") || path.endsWith(".application.ts")) &&
+        !path.split(sep).includes("node_modules"),
+    )
     .map((path) => join(root, path));
   return [given, ...found.filter((path) => path !== given)];
 }

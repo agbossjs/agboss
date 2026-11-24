@@ -31,7 +31,7 @@ export declare namespace LimitError {
   /** A budget is exhausted. */
   export type Budget = PaidErrorVariant<LimitErrorKind.Budget, "limit.budget"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
   } & {
     readonly budget: Pick<ComponentRecord, "name">;
     readonly scope: BudgetScope;
@@ -43,37 +43,37 @@ export declare namespace LimitError {
   /** The execution ran past its deadline. */
   export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
   } & { readonly deadline: Milliseconds; readonly deadlineAt: Date };
   /** A launch has more items than its limit allows. */
   export type Items = PaidErrorVariant<LimitErrorKind.Items, "limit.items"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
   } & { readonly node: string; readonly limit: number; readonly actual: number };
   /** The execution took more steps than its workflow allows. */
   export type Steps = PaidErrorVariant<LimitErrorKind.Steps, "limit.steps"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
   } & { readonly workflow: string; readonly limit: number; readonly actual: number };
   /** A node was visited more often than its limit allows. */
   export type Visits = PaidErrorVariant<LimitErrorKind.Visits, "limit.visits"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
   } & { readonly nodeId: string; readonly limit: number; readonly actual: number };
   /** A recursion went deeper than its workflow allows. */
   export type Depth = PaidErrorVariant<LimitErrorKind.Depth, "limit.depth"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
   } & { readonly workflow: string; readonly limit: number; readonly actual: number };
   /** A call crossed more mesh hops than the limit allows. */
   export type Hops = PaidErrorVariant<LimitErrorKind.Hops, "limit.hops"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
   } & { readonly entry: string; readonly limit: number; readonly actual: number };
   /** A mesh call came back to an entry it was already in. */
   export type MeshLoop = PaidErrorVariant<LimitErrorKind.MeshLoop, "limit.mesh-loop"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
   } & { readonly entry: string; readonly limit: number; readonly actual: number };
 }
 

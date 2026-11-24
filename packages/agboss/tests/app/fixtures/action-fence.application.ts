@@ -10,12 +10,13 @@ import {
   ApplicationContext,
   EmptyEnvironment,
   ExecutionContext,
-  Observer,
+  Injectable,
   StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ActionStartEvent,
+  type OnActionStart,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -48,8 +49,8 @@ export function armActionGate(action: string): void {
 }
 
 /** Holds the first `onActionStart` of the armed action (then disarms), on whichever instance. */
-@Observer({ deps: [ApplicationContext] })
-export class ActionStartGate {
+@Injectable({ deps: [ApplicationContext] })
+export class ActionStartGate implements OnActionStart {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onActionStart(event: ActionStartEvent): Promise<void> | undefined {

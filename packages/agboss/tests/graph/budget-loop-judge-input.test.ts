@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — what a judge of the quality gate reads and what the gate records, each rule on its own
  * over fakes: the shape of the input by the shape of the answer — a text, one value with its answer tool's class, a list
@@ -34,7 +33,7 @@ const record = (costUsd: number): UsageRecord => ({
   ...ZERO_USAGE,
   caller: "judge",
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

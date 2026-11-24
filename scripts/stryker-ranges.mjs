@@ -23,7 +23,7 @@ export function spendShard() {
   return {
     configFile: "vitest.mutation-spend.config.ts",
     mutate: [
-      "src/finops/{record-stream,usage,cost-report,cost-source,cost-category,fallback-mark,served-by}.ts",
+      "src/finops/{record-stream,usage,cost-source,cost-category,fallback-mark,served-by}.ts",
       "src/app/restored-usage.ts",
       "src/app/remote/queued-child-spend.ts",
       "src/models/calls/response-usage.ts",

@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1356 — one model call's usage record: the cost the provider reported, the fallback's, else tokens ×
  * the price; a call with none of them fails; the cost a tool reports and its caller.
@@ -59,7 +58,7 @@ describe("#1356: one model call's record", () => {
       outputTokens: 500_000,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: usd(0.1),
+      costUsd: 0.1,
       costSource: CostSource.Api,
     });
   });
@@ -94,7 +93,7 @@ describe("#1356: one model call's record", () => {
       outputTokens: 500_000,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: usd(4),
+      costUsd: 4,
       costSource: CostSource.PriceTable,
     });
   });
@@ -118,7 +117,7 @@ describe("#1356: one model call's record", () => {
       outputTokens: 500_000,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: usd(0.3),
+      costUsd: 0.3,
       costSource: CostSource.Api,
       servedBy: "Together",
     });
@@ -178,7 +177,7 @@ describe("#1356: the cost a tool reports", () => {
       caller: "tool:search",
       model: "search",
       ...ZERO_USAGE,
-      costUsd: usd(0.02),
+      costUsd: 0.02,
       costSource: CostSource.Tool,
     });
     expect(recordToolCost("free", 0).costUsd).toBe(0);

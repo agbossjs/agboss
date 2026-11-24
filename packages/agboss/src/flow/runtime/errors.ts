@@ -1,4 +1,3 @@
-import { type Usd } from "../../units/index.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import {
   AGBossError,
@@ -29,7 +28,7 @@ export interface VisitsLimitExceededErrorOptions {
   readonly component: ComponentRecord;
   readonly maxVisits: number;
   readonly path: readonly string[];
-  readonly spentUsd: Usd;
+  readonly spentUsd: number;
   readonly cause?: unknown;
 }
 

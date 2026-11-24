@@ -551,16 +551,14 @@ decides what to show:
 
 | Field                                  | Meaning                                                                                         |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `totalUsd`, `calls`                    | the turn in total (`totalUsd` is `Usd`)                                                         |
-| `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens` | the turn's tokens; `totalTokens` is input plus output, what a token budget counts |
+| `totalUsd`, `calls`, `cacheReadTokens` | the turn in total                                                                               |
 | `unknownCalls`                         | the [lost passes of unknown cost](#a-lost-pass-unknown-cost-853) (#853), outside every sum      |
-| `byCategory`                           | `agents`, `routing`, `guardrails`, `review`, `tools`, `memory`, `rag`, `files`, `pii`, `arbiters`, `pauses` — every key present |
+| `byCategory`                           | `agents`, `routing`, `guards`, `review`, `tools`, `compaction`, `retrieval` — every key present |
 | `byModel`, `byCaller`                  | the same money by model and by caller                                                           |
 | `trace`                                | every call in order: caller, category, model, cost, how it was priced, tokens                   |
 
-Categories come from the caller: `tool:*` and `action:*` → tools, `memory:*` → memory, `rag:*` and `reranker:*` → rag, `pii:*` → pii,
-`files:*`, `file-masker:*` and `file-transcriber:*` → files, `arbiter:*` → arbiters, `channel-interpreter:*` → pauses, `guardrail:*` → guardrails,
-`router:quality:*` and `judge:*` → review, other `router:*` → routing, an agent name → agents. A resumed (paused) run reports the whole
+Categories come from the caller: `tool:*` → tools, `compaction:*` → compaction, `rag:*` → retrieval, `guardrail:*` → guards, `router:quality:*` →
+review, other `router:*` → routing, an agent name → agents. A resumed (paused) run reports the whole
 run.
 
 The CLI and the chat print it every turn:
@@ -568,7 +566,7 @@ The CLI and the chat print it every turn:
 ```
 thread 6cc2173e-… · http://localhost:3000/project/…/sessions/6cc2173e-…
 researcher · stop: jev confidence 0.96
-agents $0.002332 · routing $0.000038 · guardrails $0.000033 · tools $0.001000
+agents $0.002332 · routing $0.000038 · guards $0.000033 · tools $0.001000
    1. guardrail:prompt-injection-guardrail  typesafe/jev-1.13  $0.000014  api-priced
    2. router:main                    typesafe/jev-1.13  $0.000016  api-priced
    3. researcher                     kimi-k2.6          $0.000426  306 in / 116 out
@@ -595,6 +593,7 @@ Unit tests use fakes and cost $0; real calls only in `make smoke`.
 ## Spend on files (#899)
 
 The built-in transcriber and redactor are model calls billed under `files:transcriber` and `files:redactor`,
-category `CostCategory.Files` — `CostReport.byCategory` has a `files` key. A project's own transcriber or redactor reports its `cost`, billed as `CostSource.Tool` under the
+category `CostCategory.Files` — `CostReport.byCategory` has a `files` key (a record stored before it reads
+it as 0). A project's own transcriber or redactor reports its `cost`, billed as `CostSource.Tool` under the
 same caller. The budget is checked before each call; a transcription or a redacted copy is made once per
 execution. See [Files for models](Files-for-models).

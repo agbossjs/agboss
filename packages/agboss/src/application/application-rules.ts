@@ -1,7 +1,7 @@
 import { movedRetentionViolations, retentionViolations } from "./retention.js";
 import { budgetOf } from "../budgets/budget.js";
 import { budgetRuleViolations } from "../budgets/budget-rules.js";
-import { createdClassesOf, type Class, type Provider } from "../components/injection.js";
+import { createdClassesOf, type Class } from "../components/injection.js";
 import { depsOf } from "../components/container/container.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
@@ -169,14 +169,6 @@ function infrastructureViolations(options: ApplicationOptions): RuleViolation[] 
   });
 }
 
-/** The application's providers and, besides them, the model provider it names (#1313): checked like a listed one. */
-const withNamedModelProvider = (options: ApplicationOptions): readonly Provider[] => [
-  ...new Set([
-    ...(options.providers ?? []),
-    ...(options.modelProvider === undefined ? [] : [options.modelProvider]),
-  ]),
-];
-
 export function applicationRuleViolations(
   application: Class,
   options: ApplicationOptions,
@@ -187,10 +179,10 @@ export function applicationRuleViolations(
     ...budgetViolations(options),
     ...budgetRuleViolations(options),
     ...modelProviderNameViolations(options),
-    ...providerModeViolations(options.name, withNamedModelProvider(options)),
-    ...providerBreakerViolations(options.name, withNamedModelProvider(options)),
-    ...providerFieldsViolations(options.name, withNamedModelProvider(options)),
-    ...providerPriceViolations(options.name, withNamedModelProvider(options)),
+    ...providerModeViolations(options.name, options.providers),
+    ...providerBreakerViolations(options.name, options.providers),
+    ...providerFieldsViolations(options.name, options.providers),
+    ...providerPriceViolations(options.name, options.providers),
     ...infrastructureViolations(options),
     ...environmentRuleViolations(
       options.name,

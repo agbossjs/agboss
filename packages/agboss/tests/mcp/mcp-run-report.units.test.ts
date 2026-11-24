@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366: the run report of a trusted MCP call — signed with the application's `mesh.signingKey`, it names who issued it,
  * which execution, what it spent (what a trusted caller charges from), the call's body hash and when; none for a call
@@ -27,7 +26,7 @@ function appWith(keys: MeshSettings["keys"] | undefined): object {
 const call = (bodyHash: string | undefined) =>
   ({ args: {}, signal: new AbortController().signal, bodyHash }) as never;
 
-const result = { executionId: "exec-7", spend: { totalUsd: usd(0.0125) } } as never;
+const result = { executionId: "exec-7", spend: { totalUsd: 0.0125 } } as never;
 
 describe("#1366: the run report of a trusted call", () => {
   it("names the issuer, the execution, what it spent, the body it answers and when", () => {

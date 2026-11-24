@@ -1,4 +1,3 @@
-import { usd } from "../src/units/index.js";
 import { createAppWith } from "../src/application/create-app.js";
 import { TestWorkflow, TestApplication } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
@@ -57,7 +56,7 @@ const guardrailsPass: NonNullable<ModelGateway["decide"]> = (spec) =>
       outputTokens: 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: usd(0),
+      costUsd: 0,
       costSource: CostSource.Api,
     },
   });

@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #1366: the runtime errors keep their facts as fields and details (visits key and figures, attempts, a guardrail's
  * refusal, key and sureness); a step's own error passes a limit, a cancel and a pause through, and nothing else.
@@ -22,7 +21,7 @@ describe("#1366: runtime errors", () => {
       component,
       maxVisits: 3,
       path: ["a"],
-      spentUsd: usd(0),
+      spentUsd: 0,
     });
 
     expect(error.key).toBe("router-1.maxVisits");
@@ -67,7 +66,7 @@ describe("#1366: runtime errors", () => {
     expect(passesThrough(new GraphInterrupt([]))).toBe(true);
     expect(
       passesThrough(
-        new LimitExceededError({ key: "k", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
+        new LimitExceededError({ key: "k", limit: 1, actual: 2, path: [], spentUsd: 0 }),
       ),
     ).toBe(true);
     expect(passesThrough(new ExecutionCancelledError())).toBe(true);

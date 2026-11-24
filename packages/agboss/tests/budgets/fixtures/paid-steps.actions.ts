@@ -1,12 +1,13 @@
 import {
   Action,
   ExecutionContext,
-  Observer,
+  Injectable,
   listOf,
   oneOf,
   SpendRecorder,
   variant,
   type ExecutionStartEvent,
+  type OnExecutionStart,
   type Produced,
 } from "../../../src/index.js";
 import { usd } from "../../../src/units/index.js";
@@ -197,8 +198,8 @@ export class HoldOrderAction {
 }
 
 /** Every execution started: a child or a level refused before it starts is never here. */
-@Observer()
-export class PaidStepsLog {
+@Injectable()
+export class PaidStepsLog implements OnExecutionStart {
   onExecutionStart(event: ExecutionStartEvent): void {
     paidSteps.started.push(event.workflow.name);
   }

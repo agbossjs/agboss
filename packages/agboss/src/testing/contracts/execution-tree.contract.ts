@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import { ExecutionContextUnavailableError } from "../../flow/context/errors.js";
 import type {
   ExecutionTree,
   ExecutionTreeRepository,
@@ -75,10 +76,21 @@ const TREE_CASES: readonly ContractCase<ExecutionTreeRepository>[] = [
       expect(await second.findByIdInTree(tree, "answer")).toEqual(value);
     },
   },
+  {
+    name: "saveIfAbsent / findById outside an execution throw ExecutionContextUnavailableError",
+    run: async ({ first }) => {
+      await expect(async () => first.saveIfAbsent("k", true)).rejects.toThrow(
+        ExecutionContextUnavailableError,
+      );
+      await expect(async () => first.findById("k")).rejects.toThrow(
+        ExecutionContextUnavailableError,
+      );
+    },
+  },
 ];
 
 /**
- * `ExecutionTreeRepository` (#265 AC2): `saveIfAbsentInTree` is atomic; the keys of a request are visible
+ * `ExecutionTreeRepository` (#265 AC2): `saveIfAbsent` is atomic; the keys of a request are visible
  * to its whole tree on any instance, invisible to other requests, removed when the tree ends; a
  * value is stored as JSON, a copy.
  */

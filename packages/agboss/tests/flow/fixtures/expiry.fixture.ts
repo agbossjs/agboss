@@ -22,6 +22,9 @@ import type {
   ExecutionEndEvent,
   ExecutionErrorEvent,
   ExecutionResumeEvent,
+  OnExecutionEnd,
+  OnExecutionError,
+  OnExecutionResume,
 } from "../../../src/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { Clock } from "../../../src/infrastructure/clock.js";
@@ -29,7 +32,6 @@ import { hours, minutes, seconds } from "../../../src/units/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { onStart, toAction, toExternalTask } from "./paths.js";
-import { Observer } from "../../../src/index.js";
 
 /**
  * #941 — a pause with a deadline: an order the manager approves within 24 hours; when nobody
@@ -398,8 +400,8 @@ export class PlainWorkflowStart {}
 export class PlainWorkflow {}
 
 /** What the observers heard of each execution: how it ended and why it was resumed. */
-@Observer()
-export class ExpiryLog {
+@Injectable()
+export class ExpiryLog implements OnExecutionError, OnExecutionResume, OnExecutionEnd {
   onExecutionEnd(event: ExecutionEndEvent): void {
     expiry.ended.push(event);
   }

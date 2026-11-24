@@ -13,7 +13,7 @@ import { encodeRunReport } from "../../mesh/mesh-report.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
-import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
+import type { FileRepository } from "../../infrastructure/file.repository.js";
 import { fileOutputPartsOf, type OutputOwner } from "./a2a-output-parts.js";
 
 /**
@@ -102,7 +102,7 @@ export interface FinishParts {
 export async function finishPartsOf(
   owner: OutputOwner & { readonly finish: string },
   skill: ServedSkill | undefined,
-  files: A2AFileRepository,
+  files: FileRepository,
 ): Promise<FinishParts> {
   const served = skill?.outputs.find((entry) => entry.finish === owner.finish);
   if (served === undefined || served.fileFields.length === 0)
@@ -121,7 +121,7 @@ export const outputArtifactIdOf = (taskId: string): string => `${taskId}:output`
 export async function outputArtifactOf(
   task: A2ATaskRecord,
   skill: ServedSkill | undefined,
-  files: A2AFileRepository,
+  files: FileRepository,
 ): Promise<Artifact | undefined> {
   const { status } = task;
   if (status.state !== A2ATaskState.Completed || status.finish === undefined) return undefined;
@@ -147,7 +147,7 @@ export interface TaskViewParts {
   readonly skills: readonly ServedSkill[];
   readonly mesh: Pick<MeshSettings, "application" | "keys">;
   /** Where its stored output files are read (#859). */
-  readonly files: { readonly store: A2AFileRepository };
+  readonly files: { readonly store: FileRepository };
 }
 
 /**

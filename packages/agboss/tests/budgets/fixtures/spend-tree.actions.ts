@@ -5,13 +5,13 @@ import {
   BudgetPeriod,
   BudgetScope,
   Injectable,
-  Observer,
   listOf,
   oneOf,
   SpendRecorder,
   variant,
   type BudgetHandler,
   type ExecutionEndEvent,
+  type OnExecutionEnd,
   type Produced,
 } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
@@ -242,8 +242,8 @@ export class HoldItemAction {
 }
 
 /** Every root's end, on whichever instance ended it. */
-@Observer()
-export class SpendTreeLog {
+@Injectable()
+export class SpendTreeLog implements OnExecutionEnd {
   onExecutionEnd(event: ExecutionEndEvent): void {
     if (event.parentExecutionId !== undefined) return;
     const cents = Math.round(event.spend.totalUsd * 100);

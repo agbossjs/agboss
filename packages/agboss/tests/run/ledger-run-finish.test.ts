@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-run shard) — what finishing a run writes, each rule on its own over fakes: the turn's cost and its
  * status, the spend of the loops a pause leaves going to the ledger at once and once, the strategies' spend of a
@@ -7,7 +6,12 @@ import { usd } from "../../src/units/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AGBossError } from "../../src/core/errors.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { CostReport, CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
+import {
+  buildCostReport,
+  CostSource,
+  ZERO_USAGE,
+  type UsageRecord,
+} from "../../src/finops/usage.js";
 import { finishLine } from "../../src/flow/runtime/history.js";
 import { endOf, finishRun, outcomeOf } from "../../src/run/finish.js";
 import { updateMemoryAfter } from "../../src/run/memory.js";
@@ -30,7 +34,7 @@ const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -104,7 +108,7 @@ describe("#1366: a finished run's turn", () => {
       stopReason: "",
       route: ["chat", "alpha"],
       steps: [],
-      costUsd: usd(0.5),
+      costUsd: 0.5,
     });
     expect(out).toEqual({
       status: ExecutionStatus.Finished,
@@ -112,7 +116,7 @@ describe("#1366: a finished run's turn", () => {
       startInput: { text: "hi" },
       path: ["chat", "alpha"],
       budgetUsd: 2,
-      cost: CostReport.fromUsage([record(0.5)]),
+      cost: buildCostReport([record(0.5)]),
       threadId: "thread-1",
       tenantId: "tenant-1",
       turnId: "turn-new",
@@ -145,7 +149,7 @@ describe("#1366: a finished run's turn", () => {
     expect(append).not.toHaveBeenCalled();
     expect(complete).toHaveBeenCalledWith(
       "turn-running",
-      expect.objectContaining({ status: "answered", costUsd: usd(0.5) }),
+      expect.objectContaining({ status: "answered", costUsd: 0.5 }),
     );
     expect(out.turnId).toBe("turn-running");
   });
@@ -168,8 +172,8 @@ describe("#1366: a finished run's turn", () => {
       start: "the task",
       finish: finishLine("done", { text: "ok" }),
     });
-    expect(append).toHaveBeenCalledWith(expect.objectContaining({ costUsd: usd(0.75) }));
-    expect(out.cost).toEqual(CostReport.fromUsage([record(0.5), record(0.25, "memory")]));
+    expect(append).toHaveBeenCalledWith(expect.objectContaining({ costUsd: 0.75 }));
+    expect(out.cost).toEqual(buildCostReport([record(0.5), record(0.25, "memory")]));
   });
 
   it("says what the compactions did, only when they did", async () => {
@@ -271,13 +275,13 @@ describe("#1366: a paused run", () => {
       stopReason: "waiting for approval",
       route: ["chat", "alpha"],
       steps: [],
-      costUsd: usd(0.75),
+      costUsd: 0.75,
     });
     expect(updateMemoryAfter).not.toHaveBeenCalled();
     expect(out.status).toBe(ExecutionStatus.Paused);
     expect(out.path).toEqual(["chat", "alpha", "alpha-agent"]);
     expect(out.pending).toEqual(made.pending);
-    expect(out.cost).toEqual(CostReport.fromUsage([record(0.5), record(0.25, "loop")]));
+    expect(out.cost).toEqual(buildCostReport([record(0.5), record(0.25, "loop")]));
     expect(Object.keys(out)).not.toContain("finish");
     expect(Object.keys(out)).not.toContain("output");
   });
@@ -321,7 +325,7 @@ describe("#1366: the turn's outcome and the end a result reports", () => {
       stopReason: "",
       route: ["chat", "alpha"],
       steps: [],
-      costUsd: usd(0.75),
+      costUsd: 0.75,
     });
   });
 
@@ -332,7 +336,7 @@ describe("#1366: the turn's outcome and the end a result reports", () => {
       stopReason: "waiting for approval",
       route: ["chat", "alpha"],
       steps: [],
-      costUsd: usd(0.5),
+      costUsd: 0.5,
     });
   });
 

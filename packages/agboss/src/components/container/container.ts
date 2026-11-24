@@ -106,33 +106,21 @@ export interface Container {
   readonly created: readonly string[];
 }
 
-const unregistered = (token: Token, dependant: string): ComponentError =>
-  new ComponentError({
-    message: `[di.unregistered-token] ${dependant}: "${tokenName(token)}" is not registered in @Workflow({ providers })`,
-  });
-
-/**
- * Whether nothing may be created for an unregistered `token`: a named value is never its own
- * registration; a decorated class is (found through `deps`, #1324); in an application an undecorated
- * one — a port nothing is `injectAs` for — is never `new`-ed (a workflow on its own, `agboss check`,
- * still does).
- */
-const isRefused = (token: Token, isStrict: boolean): boolean =>
-  token instanceof InjectionToken ||
-  (isStrict && typeof token === "function" && !isDecorated(token));
-
 /** What a token is registered as; an unregistered class (a tool, an action) is its own registration. */
 function registrationOf(
   registrations: Registrations,
   token: Token,
   dependant: string,
-  isStrict: boolean,
 ): Registration {
   const found = registrations.find(token, dependant);
   if (found?.kind === "value" && found.value instanceof UnavailableValue) {
     throw new ComponentError({ message: found.value.message(dependant) });
   }
-  if (found === undefined && isRefused(token, isStrict)) throw unregistered(token, dependant);
+  if (found === undefined && token instanceof InjectionToken) {
+    throw new ComponentError({
+      message: `"${tokenName(token)}" is not registered in @Workflow({ providers })`,
+    });
+  }
   return found ?? { kind: "class", cls: token as Class };
 }
 
@@ -161,36 +149,6 @@ const registrationsOf = (
   );
 
 /**
- * Whether a class is created for this container's workflow alone (#1324): it is listed in the
- * workflow's `services`, or something it depends on is — a class the application shares reaching a
- * port the workflow binds itself would otherwise give every workflow the first one's instance.
- */
-function scopeChecker(registrations: Registrations): (cls: Class) => boolean {
-  if (!registrations.hasScope) return () => false;
-  const known = new Map<Token, boolean>();
-  const visit = (token: Token, dependant: string): boolean => {
-    const memo = known.get(token);
-    if (memo !== undefined) return memo;
-    // a cycle is no reason to be scoped: the cycle's other members decide
-    known.set(token, false);
-    const answer = (): boolean => {
-      if (registrations.isScoped(token)) return true;
-      const found = registrations.find(token, dependant);
-      if (found?.kind === "value") return false;
-      // an unlisted class is its own registration (found through `deps`)
-      const cls = found?.cls ?? (typeof token === "function" ? token : undefined);
-      if (cls === undefined) return false;
-      if (registrations.isScoped(cls)) return true;
-      return depsOf(cls).some((dep) => visit(dep, tokenName(cls)));
-    };
-    const result = answer();
-    known.set(token, result);
-    return result;
-  };
-  return (cls) => visit(cls, tokenName(cls));
-}
-
-/**
  * Creates every class once, dependencies first; `created` records the order. A dependency on a
  * contract gets the one class that implements it (the same instance as asking for that class).
  */
@@ -201,14 +159,9 @@ export function createContainer(
   const registrations = registrationsOf(sources, options.application);
   registrations.override(options.overrides ?? new Map());
   registrations.replace(options.replacements ?? new Map());
-  const shared = options.application?.instances ?? new Map<Token, unknown>();
-  // a workflow's `services` (#1324): what depends on them is created for this workflow alone
-  const scoped = new Map<Token, unknown>();
-  const scopeOf = scopeChecker(registrations);
-  const isInApplication = options.application !== undefined;
+  const instances = options.application?.instances ?? new Map<Token, unknown>();
   const created: string[] = [];
   const instanceOf = (cls: Class): unknown => {
-    const instances = scopeOf(cls) ? scoped : shared;
     if (instances.has(cls)) return instances.get(cls);
     const instance = construct(cls, resolve);
     const decorated = options.decorate?.(cls, instance) ?? instance;
@@ -224,7 +177,7 @@ export function createContainer(
         envValues.set(token, options.envOf?.(token) ?? resolveEnv(token, process.env));
       return envValues.get(token);
     }
-    const registration = registrationOf(registrations, token, dependant, isInApplication);
+    const registration = registrationOf(registrations, token, dependant);
     if (registration.kind === "class") return instanceOf(registration.cls);
     const { value } = registration;
     return value instanceof DependantValue ? value.valueFor(dependant) : value;

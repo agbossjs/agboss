@@ -85,10 +85,8 @@ export async function endpointsOf(
   model: string,
   connection: ProviderConnection,
 ): Promise<readonly ModelEndpoint[]> {
-  const headers: Record<string, string> = {
-    ...connection.headers,
-    ...(connection.apiKey === undefined ? {} : { authorization: `Bearer ${connection.apiKey}` }),
-  };
+  const headers: Record<string, string> =
+    connection.apiKey === undefined ? {} : { authorization: `Bearer ${connection.apiKey}` };
   const url = `${connection.baseUrl.replace(/\/$/, "")}/models/${model}/endpoints`;
   const response = await connection.fetch(url, { headers });
   if (!response.ok) return [];

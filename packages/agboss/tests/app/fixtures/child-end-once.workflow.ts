@@ -1,7 +1,7 @@
 import {
   ApplicationContext,
   EmptyEnvironment,
-  Injectable, Observer,
+  Injectable,
   LeaseTakeoverReason,
   Workflow,
   WorkflowFinish,
@@ -9,6 +9,9 @@ import {
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
+  type OnExecutionEnd,
+  type OnExecutionError,
+  type OnExecutionLeaseTakeover,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { MemorySaver } from "@langchain/langgraph";
@@ -90,8 +93,8 @@ export class EndOnceLocalWorkflowFinish {}
 export class EndOnceLocalWorkflow {}
 
 /** Every end, failure and recovery, with the instance it was heard on. */
-@Observer({ deps: [ApplicationContext] })
-export class EndOnceLog {
+@Injectable({ deps: [ApplicationContext] })
+export class EndOnceLog implements OnExecutionEnd, OnExecutionError, OnExecutionLeaseTakeover {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {

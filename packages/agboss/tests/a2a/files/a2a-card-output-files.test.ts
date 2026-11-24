@@ -12,7 +12,7 @@ import type { Class } from "../../../src/components/injection.js";
 import { A2ACardFileFields, A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import { FILE_PART_KEYWORD } from "../../../src/a2a/a2a-card-file-fields.js";
 import { checkCard } from "../../../src/a2a/client/a2a-card.js";
-import { A2AFileDto } from "../../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../../src/dto/standard/file.js";
 import { A2AClient } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { DtoClass } from "../../../src/dto/types.js";
@@ -149,8 +149,8 @@ describe("#916 item 4 AC4: the card's output schemas describe file fields as fil
       verdict!: string;
     }
     class ReportsDto {
-      @List(A2AFileDto, { prompt: "the reports" })
-      report!: A2AFileDto[];
+      @List(FileDto, { prompt: "the reports" })
+      report!: FileDto[];
 
       @Text({ prompt: "the verdict" })
       verdict!: string;
@@ -195,15 +195,15 @@ describe("#916 item 2 AC2: a Marker card declares each file field as Extension d
       document!: string;
     }
     class OnePageDto {
-      @Nested(A2AFileDto, { prompt: "the document" })
-      document!: A2AFileDto;
+      @Nested(FileDto, { prompt: "the document" })
+      document!: FileDto;
 
-      @Nested(A2AFileDto, { prompt: "one page", optional: true })
-      pages?: A2AFileDto;
+      @Nested(FileDto, { prompt: "one page", optional: true })
+      pages?: FileDto;
     }
     class OptionalDocumentDto {
-      @Nested(A2AFileDto, { prompt: "the document", optional: true })
-      document?: A2AFileDto;
+      @Nested(FileDto, { prompt: "the document", optional: true })
+      document?: FileDto;
     }
     for (const expose of [FilesA2AExpose, MarkedOutputsA2AExpose]) {
       const { url } = await a2aServer(serve(expose));

@@ -113,7 +113,7 @@ describe("toHaveChildExecutions", () => {
           status: "finished",
           finish: { name: "item-checked-workflow-finish" },
           path: [],
-          spend: { totalUsd: usd(0) },
+          spend: { totalUsd: 0 },
           children: [],
         },
       ],

@@ -1,10 +1,11 @@
-import type { A2AFileDto } from "../files/a2a-file.dto.js";
+import { bytes as byteSize } from "../../units/index.js";
+import type { FileDto } from "../../dto/standard/file.js";
 import { fetchedFile } from "../files/a2a-file-fetch.js";
 import { callerKeyOf, tenantKeyOf } from "../files/a2a-file-slots.js";
 import { isOfMediaType } from "../files/a2a-media-check.js";
 import { httpsFileTransport } from "../files/a2a-file-transport.js";
-import { isInlineFileStore } from "../../infrastructure/a2a-file.repository.js";
-import type { A2AFileMetadata, NewA2AFile } from "../../infrastructure/a2a-file.repository.js";
+import { isInlineFileStore } from "../../infrastructure/file.repository.js";
+import type { FileMetadata, NewFile } from "../../infrastructure/file.repository.js";
 import { sha256Of, type IncomingFile } from "./a2a-message-files.js";
 import type { A2ARequestCaller, A2AServerParts } from "./a2a-server-parts.js";
 import type { ServedSkill } from "./a2a-skills.js";
@@ -23,13 +24,13 @@ import { invalidParams } from "./a2a-wire-errors.js";
 /** One admitted file: the input field it names, if any, and its descriptor. */
 export interface AdmittedFile {
   readonly field: string | undefined;
-  readonly file: A2AFileDto;
+  readonly file: FileDto;
 }
 
 /** A message's files for one task id: what the input holds, and what the store is to keep. */
 export interface AdmittedFiles {
   readonly files: readonly AdmittedFile[];
-  readonly toSave: readonly NewA2AFile[];
+  readonly toSave: readonly NewFile[];
 }
 
 /** The admission of one message's files, for the task id the accept minted. */
@@ -41,7 +42,7 @@ const NO_FILES: AdmittedFiles = { files: [], toSave: [] };
 export const inputFileIdOf = (taskId: string, index: number): string =>
   `${taskId}.${String(index)}`;
 
-const describedOf = (meta: A2AFileMetadata): A2AFileDto => ({
+const describedOf = (meta: FileMetadata): FileDto => ({
   mediaType: meta.mediaType,
   ...(meta.filename === undefined ? {} : { filename: meta.filename }),
   fileId: meta.fileId,
@@ -99,7 +100,7 @@ function checkedMetadataOf(
   each: IncomingFile,
   bytes: Uint8Array,
   owner: { readonly tenantId: string; readonly taskId: string },
-): A2AFileMetadata {
+): FileMetadata {
   if (!isOfMediaType(each.mediaType, bytes))
     throw invalidParams(
       "a2a.media-type-mismatch",
@@ -112,13 +113,13 @@ function checkedMetadataOf(
     mediaType: each.mediaType,
     ...(each.filename === undefined ? {} : { filename: each.filename }),
     sha256: sha256Of(bytes),
-    sizeBytes: bytes.byteLength,
+    sizeBytes: byteSize(bytes.byteLength),
     createdAt: parts.clock.now(),
   };
 }
 
 /** A file's descriptor with its bytes inline: no store keeps it. */
-const inlineOf = (meta: A2AFileMetadata, bytes: Uint8Array): A2AFileDto => ({
+const inlineOf = (meta: FileMetadata, bytes: Uint8Array): FileDto => ({
   mediaType: meta.mediaType,
   ...(meta.filename === undefined ? {} : { filename: meta.filename }),
   sha256: meta.sha256,
@@ -130,7 +131,7 @@ const inlineOf = (meta: A2AFileMetadata, bytes: Uint8Array): A2AFileDto => ({
 interface OneAdmitted {
   readonly admitted: AdmittedFile;
   readonly sizeBytes: number;
-  readonly toSave: NewA2AFile | undefined;
+  readonly toSave: NewFile | undefined;
 }
 
 /** What the files of one message are admitted with. */
@@ -191,7 +192,7 @@ export function fileAdmissionOf(
   };
   return async (taskId) => {
     const files: AdmittedFile[] = [];
-    const toSave: NewA2AFile[] = [];
+    const toSave: NewFile[] = [];
     let total = 0;
     for (const each of incoming) {
       const one = await admittedOne(admission, each, taskId);

@@ -1,16 +1,9 @@
 import { OBSERVER_HOOKS, type ObserverHook } from "../core/observer-hooks.js";
-import { observerOf } from "../core/observer-hooks.js";
-import { kebabNameProblem } from "../flow/names.js";
 import { tokenName, type Class } from "./injection.js";
 import { ComponentError } from "./metadata.js";
 
-/** Component lifecycle hooks (`OnReady`, …): an observer may have them, they are not observer hooks. */
-const LIFECYCLE_HOOKS: ReadonlySet<string> = new Set([
-  "onInit",
-  "onReady",
-  "onBeforeDestroy",
-  "onDestroy",
-]);
+/** Component lifecycle hooks (`OnStart`, …): an observer may have them, they are not observer hooks. */
+const LIFECYCLE_HOOKS: ReadonlySet<string> = new Set(["onInit", "onStart", "onStop", "onDestroy"]);
 const HOOKS: ReadonlySet<string> = new Set(OBSERVER_HOOKS);
 const HOOK_LIKE = /^on[A-Z]/;
 
@@ -72,36 +65,8 @@ function observerViolations(cls: Class): string[] {
   return violations;
 }
 
-/** What is wrong with the listed observers as a set: a class without `@Observer`, a bad or repeated name. */
-function listingViolations(observers: readonly Class[]): string[] {
-  const names = new Map<string, Class[]>();
-  const violations: string[] = [];
-  for (const cls of observers) {
-    const meta = observerOf(cls);
-    if (meta === undefined) {
-      violations.push(
-        `[observer.not-an-observer] ${tokenName(cls)} is listed in @Application observers but has no @Observer decorator`,
-      );
-      continue;
-    }
-    const problem = kebabNameProblem(meta.name, "@Observer");
-    if (problem !== undefined) violations.push(`[${problem.code}] ${problem.message}`);
-    names.set(meta.name, [...(names.get(meta.name) ?? []), cls]);
-  }
-  for (const [name, classes] of names) {
-    if (classes.length < 2) continue;
-    violations.push(
-      `[observer.duplicate-name] "${name}" names ${classes.map(tokenName).join(" and ")} in @Application observers — give each its own name`,
-    );
-  }
-  return violations;
-}
-
-/**
- * Every `@Application({ observers })` class is an `@Observer` with its own kebab-case name,
- * implements at least one hook, and no misspelled one.
- */
+/** Every `@Application({ observers })` class implements at least one hook, and no misspelled one. */
 export function checkObservers(observers: readonly Class[]): void {
-  const violations = [...listingViolations(observers), ...observers.flatMap(observerViolations)];
+  const violations = observers.flatMap(observerViolations);
   if (violations.length > 0) throw new ComponentError({ message: violations.join("\n") });
 }

@@ -7,9 +7,7 @@
 // @public
 export class AutoApproveChannel {
     // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "auto-approve-channel";
-    };
+    readonly [agbossComponent]?: "auto-approve-channel";
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
@@ -17,9 +15,7 @@ export class AutoApproveChannel {
 // @public
 export class AutoRejectChannel {
     // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "auto-reject-channel";
-    };
+    readonly [agbossComponent]?: "auto-reject-channel";
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
@@ -27,9 +23,7 @@ export class AutoRejectChannel {
 // @public
 export class TerminalUserChannel {
     // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "terminal-user-channel";
-    };
+    readonly [agbossComponent]?: "terminal-user-channel";
     // (undocumented)
     send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
 }

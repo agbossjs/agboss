@@ -21,7 +21,7 @@ export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const OPENROUTER_BASE_URL_FIELD = "openRouterBaseUrl";
 
 /** A choice question's options sorted by name; yes/no and score questions as asked (a scale is ordered). */
-export function sortedOptions(question: DecisionQuestion): DecisionQuestion {
+function sortedOptions(question: DecisionQuestion): DecisionQuestion {
   if (question.type !== "choice") return question;
   const criteria = Object.entries(question.criteria).sort(([a], [b]) => compareNames(a, b));
   return { ...question, criteria: Object.fromEntries(criteria) };

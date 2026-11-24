@@ -1,4 +1,3 @@
-import { usd } from "../../../../src/units/index.js";
 /**
  * #1366: the SQLite execution-record repository answers every read and score method with the Turn store's rows
  * (cost, status, version, scores, summaries, config snapshots), pings its connection, and is marked a SQLite
@@ -36,7 +35,7 @@ const turnOf = (threadId: string, over: Record<string, unknown> = {}) => ({
   stopReason: "done",
   route: [],
   steps: [],
-  costUsd: usd(0.25),
+  costUsd: 0.25,
   promptVersion: "v1",
   modelVersion: "m",
   replayOf: null,
@@ -55,9 +54,9 @@ describe("#1366: SqliteExecutionRecordRepository", () => {
   it("reads versions, scores, originals, history, summaries and config snapshots from the Turn store", async () => {
     const r = repo();
     const thread = await r.createThread({ workflow: "wf", tenantId: "t" });
-    const a = await r.append(turnOf(thread, { costUsd: usd(0.25) }));
-    const b = await r.append(turnOf(thread, { costUsd: usd(0.5), promptVersion: "v2" }));
-    const c = await r.append(turnOf(thread, { costUsd: usd(1), promptVersion: "v1" }));
+    const a = await r.append(turnOf(thread, { costUsd: 0.25 }));
+    const b = await r.append(turnOf(thread, { costUsd: 0.5, promptVersion: "v2" }));
+    const c = await r.append(turnOf(thread, { costUsd: 1, promptVersion: "v1" }));
 
     expect((await r.byVersion("wf", "v1", 10)).map((t) => t.id).sort()).toEqual(
       [a.id, c.id].sort(),
@@ -78,14 +77,14 @@ describe("#1366: SqliteExecutionRecordRepository", () => {
       turns: 2,
       scored: 2,
       meanScore: 0.75,
-      costUsd: usd(1.25),
+      costUsd: 1.25,
     });
     expect(summary).toContainEqual({
       promptVersion: "v2",
       turns: 1,
       scored: 0,
       meanScore: null,
-      costUsd: usd(0.5),
+      costUsd: 0.5,
     });
 
     expect((await r.recentOriginals("wf", 10)).map((t) => t.id)).toEqual([a.id, b.id, c.id]);
@@ -104,7 +103,7 @@ describe("#1366: SqliteExecutionRecordRepository", () => {
       toTurnId: b.id,
       turns: 2,
       text: "s",
-      costUsd: usd(0.1),
+      costUsd: 0.1,
     });
     expect(await r.summaryCount("t", thread, "k")).toBe(1);
     expect((await r.uncovered("t", thread, "k")).map((t) => t.id)).toEqual([c.id]);

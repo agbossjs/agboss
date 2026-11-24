@@ -1,14 +1,10 @@
 import { mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
-import type { A2AFileDto } from "../a2a/files/a2a-file.dto.js";
+import type { FileDto } from "../dto/standard/file.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { Bytes } from "../units/index.js";
 import type { PiiTokenMap } from "../pii/tokens.js";
 import { fileContentOf, type FileContent, type FileReadContext } from "./file-bytes.js";
-import {
-  ModelFileLimitError,
-  ModelFileUnavailableError,
-  ModelFileUnavailableReason,
-} from "./file-errors.js";
+import { ModelFileLimitError, fileUnavailable, FileUnavailableReason } from "./file-errors.js";
 import { hasModelForm } from "./file-needs.js";
 import type { FileMask } from "./file-mask.js";
 import { headingOf, sizeOfPiece, type FilePiece, type FilePlace } from "./file-pieces.js";
@@ -26,7 +22,7 @@ import { ModelFileLimit } from "./model-files.js";
 
 /** A file of a source, with where it is shown from: JSON, it rides the loop's state. */
 export interface SourceFile {
-  readonly descriptor: A2AFileDto;
+  readonly descriptor: FileDto;
   /** The field it sits in (an input field's name, a tool's name). */
   readonly field: string;
   /** Who gave it: the producer of the input value, or `tool <name>`. */
@@ -166,7 +162,7 @@ async function pinnedContentOf(batch: FileBatch, source: SourceFile, index: numb
   const content = await fileContentOf(source.descriptor, batch.runtime.context());
   const pin = batch.pins?.[index];
   if (pin !== undefined && pin !== content.sha256)
-    throw new ModelFileUnavailableError({ reason: ModelFileUnavailableReason.DigestMismatch });
+    throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
   return content;
 }
 

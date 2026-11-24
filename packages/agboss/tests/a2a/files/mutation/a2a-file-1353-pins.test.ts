@@ -3,7 +3,7 @@
  * zone, the families the block list is asked in, a start's input that is no class.
  */
 import { describe, expect, it } from "vitest";
-import { inputClassOf } from "../../../../src/a2a/files/a2a-file.dto.js";
+import { inputClassOf } from "../../../../src/dto/standard/file.js";
 import { isDeniedAddress, withoutZone } from "../../../../src/a2a/files/a2a-file-address.js";
 import { Text } from "../../../../src/dto/decorators.js";
 import { listOf } from "../../../../src/flow/dto-wrappers.js";

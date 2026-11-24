@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #860 (mutation shard `a2a-direct`): a completed direct reply as the wire shows it — for a trusted
  * caller (its message's `bodyHash` kept) of an application that signs, the run report over what the
@@ -10,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
 import { wireReplyOf } from "../../../src/a2a/server/a2a-direct-view.js";
 import type { TaskViewParts } from "../../../src/a2a/server/a2a-task-view.js";
-import { InlineA2AFileRepository } from "../../../src/infrastructure/a2a-file.repository.js";
+import { InlineFileRepository } from "../../../src/infrastructure/file.repository.js";
 import {
   A2ADirectMessageState,
   type A2ADirectMessageRecord,
@@ -26,7 +25,7 @@ const COMPLETED_AT = new Date(NINE.getTime() + seconds(3));
 const completed = (overrides: Partial<A2ADirectMessageRecord> = {}): A2ADirectMessageRecord => ({
   ...acceptedMessage({ meshBodyHash: "body-hash-1" }),
   state: A2ADirectMessageState.Completed,
-  reply: { finish: "unit-workflow-finish", output: { total: 3 }, spentUsd: usd(0.25) },
+  reply: { finish: "unit-workflow-finish", output: { total: 3 }, spentUsd: 0.25 },
   completedAt: COMPLETED_AT,
   ...overrides,
 });
@@ -37,7 +36,7 @@ const viewParts = (signs: boolean, skill = DIRECT_SKILL): TaskViewParts => ({
     application: "unit-application",
     keys: { peers: new Map(), ...(signs ? { signingKey: privateKey } : {}) },
   },
-  files: { store: new InlineA2AFileRepository() },
+  files: { store: new InlineFileRepository() },
 });
 
 const meshOf = async (message: A2ADirectMessageRecord, signs: boolean) =>
@@ -90,7 +89,7 @@ describe("#860: a direct reply's files", () => {
     };
     const lost = { mediaType: "text/plain", fileId: "gone.0", sha256: "00", sizeBytes: 1 };
     const message = completed({
-      reply: { finish: "unit-workflow-finish", output: { report: lost }, spentUsd: usd(0) },
+      reply: { finish: "unit-workflow-finish", output: { report: lost }, spentUsd: 0 },
     });
 
     const shown = await wireReplyOf(message, viewParts(false, skill));

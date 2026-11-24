@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366: what masking a custom compaction's input cost — every paid detection of its summaries and
  * turns is in the usage the compaction hands back, so the budget left for the next compaction and the
@@ -16,7 +15,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -45,7 +44,7 @@ function run() {
   const base: CompactionRun = {
     tenantId: "t",
     threadId: "th",
-    budgetLeftUsd: usd(10),
+    budgetLeftUsd: 10,
     callbacks: [],
     tokens: {},
     inFrame: (work) => work(),

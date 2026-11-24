@@ -119,11 +119,8 @@ export abstract class ExecutionHistoryRepository {
     page: ExecutionHistoryPage,
   ): Promise<ExecutionHistoryRecord[]>;
 
-  /**
-   * Removes every record that ended before `cutoff` (the recovery sweep, `now - retention`) and gives
-   * the number removed (`onTtlSweep`'s count).
-   */
-  abstract deleteExpired(cutoff: Date): Promise<number>;
+  /** Removes every record that ended before `cutoff` (the recovery sweep, `now - retention`). */
+  abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
 }
 
 /** The row key of a record (`\u0000` never occurs in an id). */
@@ -201,14 +198,11 @@ export class InMemoryExecutionHistoryRepository extends ExecutionHistoryReposito
     return found.slice(page.offset, page.offset + page.limit);
   }
 
-  deleteExpired(cutoff: Date): Promise<number> {
-    let removed = 0;
+  deleteByEndedAtBefore(cutoff: Date): Promise<void> {
     for (const [key, record] of this.database.executionHistory)
-      if (record.endedAt !== undefined && Date.parse(record.endedAt) < cutoff.getTime()) {
+      if (record.endedAt !== undefined && Date.parse(record.endedAt) < cutoff.getTime())
         this.database.executionHistory.delete(key);
-        removed += 1;
-      }
-    return Promise.resolve(removed);
+    return Promise.resolve();
   }
 
   /** The records that match, oldest start first, copies. */

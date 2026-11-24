@@ -1,4 +1,3 @@
-import { type Usd, usd } from "../../units/index.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import type { EvalCase, EvalTurn } from "../suite/cases.js";
 import { CheckStatus } from "../suite/checks.js";
@@ -20,7 +19,7 @@ import { ranToolNames, trajectoryFailures } from "./trajectory.js";
 /** What the check says, and what its variants' runs spent. */
 export interface MetamorphicOutcome {
   readonly result: EvalCheckResult;
-  readonly spentUsd: Usd;
+  readonly spentUsd: number;
 }
 
 const listed = (names: readonly string[]): string =>
@@ -32,7 +31,7 @@ async function variantFailures(
   written: EvalCase,
   run: { readonly variant: EvalTurn; readonly index: number; readonly values: CaseContextValues },
   expectedTools: readonly string[],
-): Promise<{ readonly failures: readonly string[]; readonly spentUsd: Usd }> {
+): Promise<{ readonly failures: readonly string[]; readonly spentUsd: number }> {
   const label = `variant ${String(run.index + 1)}`;
   const threadId = parts.newThreadId();
   await writeCaseHistory(
@@ -68,11 +67,11 @@ export async function runMetamorphicCheck(
 ): Promise<MetamorphicOutcome> {
   const expectedTools = ranToolNames(original);
   const failures: string[] = [];
-  let spentUsd: Usd = usd(0);
+  let spentUsd = 0;
   for (const [index, variant] of (written.variants ?? []).entries()) {
     const found = await variantFailures(parts, written, { variant, index, values }, expectedTools);
     failures.push(...found.failures);
-    spentUsd = usd(spentUsd + found.spentUsd);
+    spentUsd += found.spentUsd;
   }
   const metrics = { variants: written.variants?.length ?? 0 };
   const result: EvalCheckResult =

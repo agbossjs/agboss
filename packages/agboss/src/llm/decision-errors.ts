@@ -1,8 +1,10 @@
 import { AGBossError } from "../core/errors.js";
 
-import { ModelKind } from "../models/model-kind.js";
-
-export { ModelKind };
+/** What a model can do (#269): chat (`invoke`) or decide (`decide`). */
+export enum ModelKind {
+  Chat = "chat",
+  Decisions = "decisions",
+}
 
 /** What a model used for what it cannot do takes (#906): the model, what it is and the call. */
 export interface ModelKindErrorOptions {

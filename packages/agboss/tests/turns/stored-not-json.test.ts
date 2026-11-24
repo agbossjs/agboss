@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1194 (#1166, #1121, #906 D4-b): the SQLite Turn store reads its stored texts — a turn's task,
  * answer, stop reason, route and steps, a summary's text — with `parsedStoredJson`: a row whose text
@@ -49,7 +48,7 @@ async function seeded(): Promise<{ path: string; turnId: string; threadId: strin
     stopReason: "done",
     route: ["alpha"],
     steps: [{ agent: "alpha", content: "answer" }],
-    costUsd: usd(0),
+    costUsd: 0,
     promptVersion: "p",
     modelVersion: "m",
     replayOf: null,
@@ -65,7 +64,7 @@ async function seeded(): Promise<{ path: string; turnId: string; threadId: strin
     toTurnId: turn.id,
     turns: 1,
     text: "summary",
-    costUsd: usd(0),
+    costUsd: 0,
   });
   store.close();
   return { path, turnId: turn.id, threadId };

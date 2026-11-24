@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #633 (recovery shard) — a tree ended without a pass (`ended-tree.ts`) on its own: the call that
  * fails its record observes `onExecutionError` once, with what the undo ran — an empty list when it
@@ -43,13 +42,7 @@ const STATE = { runId: "root-1", threadId: "thread-1", tenantId: "acme", started
 
 function partsOf(isFailedHere: boolean, recordThread = "thread-1") {
   const onExecutionError = vi.fn(() => Promise.resolve());
-  const record = {
-    id: "tern-1",
-    runId: "root-1",
-    threadId: recordThread,
-    route: [],
-    costUsd: usd(0),
-  };
+  const record = { id: "tern-1", runId: "root-1", threadId: recordThread, route: [], costUsd: 0 };
   const findByTenantIdAndRunId = vi.fn(() => Promise.resolve(record));
   const completeIfStatus = vi.fn(() => Promise.resolve(isFailedHere));
   const deps: AppDeps = {
@@ -113,7 +106,7 @@ describe("#633: endedWithoutPass", () => {
   });
 
   it("#860 D1: a lost run's call of unknown cost goes with the record this call ended, tallied once", async () => {
-    const lost = [{ caller: "lost-pass:w", costUsd: usd(0) }];
+    const lost = [{ caller: "lost-pass:w", costUsd: 0 }];
     kept.lost.splice(0, kept.lost.length, ...lost);
     kept.ends.length = 0;
     kept.tallied.length = 0;

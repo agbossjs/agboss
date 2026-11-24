@@ -5,7 +5,7 @@ import type {
   OutboundCallOptions,
 } from "../infrastructure/fenced-effect-settings.js";
 import { callerFile } from "../components/call-site.js";
-import type { Class, Provider, ServiceEntry } from "../components/injection.js";
+import type { Class, Provider } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { NodeKind } from "../flow/ast.js";
@@ -14,7 +14,7 @@ import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import type { ExecutionObserver } from "../core/observer-hooks.js";
+import type { ObserverClass } from "../core/observer-hooks.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
 import type { RetentionOptions } from "./retention.js";
@@ -55,13 +55,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   /** The `@ChannelListener` classes: told of every pause of the application (#1307, #1310). */
   readonly channelListeners?: readonly Class[];
   /**
-   * The application's services (#1324): `@Injectable`, `@McpServer` and `@A2AAgent` classes bound to
-   * abstract ports with their `injectAs`, and values bound with `provide(TOKEN, value)`. One instance
-   * for every workflow; a workflow's own `services` bind the same port over these, for that workflow
-   * alone. A concrete class reached through `deps` needs no listing.
-   */
-  readonly services?: readonly ServiceEntry[];
-  /**
    * Where the application's rows go (#1321): `storage: AppDatabaseStorage`, or `storage: { database,
    * cluster?, objects? }` — `@DatabaseStorage`, `@ClusterStorage` and `@ObjectStorage` classes, each
    * holding its driver (`SqliteDriver`, `PostgresDriver`, `RedisDriver`, `S3Driver`, …). The stores
@@ -73,13 +66,14 @@ export interface ApplicationOptions<TEnvironment = unknown> {
   /** Every `@Budget` of the application (`config/budget.config.ts`). */
   readonly budgets?: readonly Class[];
   /**
-   * The `@Observer` classes, the only place observers are registered: one instance each, called
-   * for every execution of the application — child executions included — within the
-   * `workflows` / `agents` its decorator names. None listed → no observer is called.
+   * The observers (`implements OnExecutionEnd, OnToolEnd, …`, `@Injectable`), the only place they
+   * are registered: one instance each, called for every execution of the application — child
+   * executions included (filter by `event.workflow.name`). None listed → no observer is called.
    */
-  readonly observers?: readonly Class<ExecutionObserver>[];
+  readonly observers?: readonly ObserverClass[];
   /**
-   * The project's readiness checks (#300): `@HealthCheck` classes, the only place they are listed — created by the container, run by `app.checkReadiness()` each
+   * The project's readiness checks (#300): `@HealthCheck` classes (`implements HealthCheckHandler`),
+   * the only place they are listed — created by the container, run by `app.checkReadiness()` each
    * under its own `timeout`, besides the framework's own (the stores, the model providers' circuit
    * breakers, the recovery loop).
    */
@@ -93,12 +87,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * listed `@WorkingCalendar`, is `[working-calendar.invalid]`.
    */
   readonly workingCalendar?: WorkingCalendarSource;
-  /**
-   * The `@ModelProvider` class every model of the application is served from unless its workflow
-   * or its component names another (#1313): `Component.modelProvider ?? Workflow.modelProvider ??
-   * Application.modelProvider`. List it in `providers`.
-   */
-  readonly modelProvider?: Class;
   /**
    * How long `app.close()` (and SIGTERM / SIGINT) takes at most (#265 S51): the running executions,
    * interrupted `min(seconds(5), 20 %)` of it before its end (#367 S3: the grace for their step
@@ -139,7 +127,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * How much its A2A skills take as files (#859): `maxFileSize`, `maxTotalFileSize`, `maxFiles`,
    * `allowedMediaTypes`, `allowedFileOrigins` — each skill's `@A2AExpose({ skills: { [id]: { files }
    * } })` over it, field by field; `[a2a.file-options-invalid]`. A total above 64 KB without an
-   * `A2AFileRepository` listed warns `[a2a.inline-files-without-store]`, above 256 KB it is
+   * `FileRepository` listed warns `[a2a.inline-files-without-store]`, above 256 KB it is
    * `[a2a.file-store-required]`. How long files are kept is `retention.a2aFiles`.
    */
   readonly a2aFiles?: A2AFileOptions;
@@ -300,9 +288,7 @@ export function Application<TEnvironment>(options: ApplicationOptions<TEnvironme
   return <TClass extends Class>(value: TClass): TClass => {
     // kept as the application's options: the contract's field types are a compile-time check only
     // `storage` becomes the stores in `providers`: everything downstream reads one list
-    const declared = withServices(
-      withStorageProviders(withShelfProviders(options as ApplicationOptions)),
-    );
+    const declared = withStorageProviders(withShelfProviders(options as ApplicationOptions));
     applications.set(
       value,
       source === undefined ? { options: declared } : { options: declared, source },
@@ -312,13 +298,6 @@ export function Application<TEnvironment>(options: ApplicationOptions<TEnvironme
       listedIn.set(workflow, [...(listedIn.get(workflow) ?? []), value]);
     return value;
   };
-}
-
-/** The `services` listed with the providers: one list, the application's own instances. */
-function withServices(options: ApplicationOptions): ApplicationOptions {
-  const { services, ...rest } = options;
-  if (services === undefined) return options;
-  return { ...rest, providers: [...(options.providers ?? []), ...services] };
 }
 
 /** What `@Application` recorded on a class; `undefined` for any other class. */

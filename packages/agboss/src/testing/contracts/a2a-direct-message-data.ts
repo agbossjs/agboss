@@ -1,4 +1,3 @@
-import { usd } from "../../units/index.js";
 import {
   A2ADirectMessageSaveStatus,
   type A2ADirectMessageKey,
@@ -53,7 +52,7 @@ export const keyOf = (message: A2ADirectMessageKey): A2ADirectMessageKey => ({
 export const REPLY: A2ADirectMessageReply = {
   finish: "quote-workflow-finish",
   output: { text: NUL_TEXT, lines: [{ sku: "a", amount: 12.5 }], paid: true },
-  spentUsd: usd(0.0125),
+  spentUsd: 0.0125,
 };
 
 /** The message `saveIfAbsent` saved; fails the case when it did not. */

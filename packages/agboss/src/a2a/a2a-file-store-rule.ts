@@ -8,7 +8,7 @@ import {
 import type { Class, Provider } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
+import { FileRepository } from "../infrastructure/file.repository.js";
 import { definedOf } from "../infrastructure/clock.js";
 import { kilobytes } from "../units/index.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
@@ -21,7 +21,7 @@ import { fileTierSizeOf } from "./files/a2a-file-tier.js";
 
 /**
  * Where an application's A2A files may live (#859), read from the declarations, fail closed: with
- * no `A2AFileRepository` listed a file rides inline in its task's records — silently up to 64 KB,
+ * no `FileRepository` listed a file rides inline in its task's records — silently up to 64 KB,
  * with the warning `[a2a.inline-files-without-store]` up to 256 KB (an error under `--strict`),
  * never above it (`[a2a.file-store-required]`); and on leases its instances share, files above
  * 256 KB in a store of one host (`in-memory`, `local-disk`) are `[a2a.file-store-not-shared]` — a
@@ -43,9 +43,9 @@ function fileStoreOf(providers: readonly Provider[]): {
   readonly isListed: boolean;
 } {
   const choice = definedOf(
-    implementationsOf(providers).find(({ contract }) => contract === A2AFileRepository),
+    implementationsOf(providers).find(({ contract }) => contract === FileRepository),
     // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
-    "A2AFileRepository is a built-in contract",
+    "FileRepository is a built-in contract",
   );
   return { store: choice.implementation, isListed: choice.reason === ImplementationReason.Listed };
 }
@@ -106,7 +106,7 @@ export function a2aFileStoreViolations(options: ApplicationOptions): RuleViolati
       ...found,
       violation(
         "a2a.file-store-required",
-        `${options.name}'s A2A skills keep up to ${kb(size)} of files, above the ${kb(MAX_INLINE)} that ride inline in a task's records — list an A2AFileRepository (S3A2AFileRepository, LocalDiskA2AFileRepository) in @Application({ providers }), or lower maxTotalFileSize`,
+        `${options.name}'s A2A skills keep up to ${kb(size)} of files, above the ${kb(MAX_INLINE)} that ride inline in a task's records — list a FileRepository (S3FileRepository, LocalDiskFileRepository) in @Application({ providers }), or lower maxTotalFileSize`,
         [options.name],
       ),
     ];
@@ -118,7 +118,7 @@ export function a2aFileStoreViolations(options: ApplicationOptions): RuleViolati
     ...found,
     violation(
       "a2a.file-store-not-shared",
-      `${options.name} shares its leases between instances, but keeps its A2A files (up to ${kb(size)}) in ${store.name} (backend "${backend}"), one host's — a task taken over by another instance would find no bytes: list S3A2AFileRepository or another store every instance reaches`,
+      `${options.name} shares its leases between instances, but keeps its A2A files (up to ${kb(size)}) in ${store.name} (backend "${backend}"), one host's — a task taken over by another instance would find no bytes: list S3FileRepository or another store every instance reaches`,
       [options.name],
     ),
   ];
@@ -129,5 +129,5 @@ export function inlineFilesWarningOf(sources: FileTierSources): string | undefin
   const size = tierOf(sources);
   if (size <= SILENT_INLINE || size > MAX_INLINE || fileStoreOf(sources.providers).isListed)
     return undefined;
-  return `${sources.name}'s A2A skills keep up to ${kb(size)} of files inline in each task's records (checkpoints, task rows) — list an A2AFileRepository to keep them apart`;
+  return `${sources.name}'s A2A skills keep up to ${kb(size)} of files inline in each task's records (checkpoints, task rows) — list a FileRepository to keep them apart`;
 }

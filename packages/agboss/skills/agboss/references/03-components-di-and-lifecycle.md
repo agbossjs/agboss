@@ -977,7 +977,7 @@ export class SeatWorkflow {}
   instance stops; no budget refuses it; what its services cost (`SpendRecorder`) is spend under
   `action:<undo name>`. An undo that fails does not stop the others; then the execution fails with
   `CompensationFailedError` (`compensation.failed`: `failures`, `cause`).
-- **Observers** see the automatic ones through `onCompensationStart` / `onCompensationEnd`
+- **Observers** see the automatic ones through `OnCompensationStart` / `OnCompensationEnd`
   (`CompensationStartEvent`: `step`, `compensated`, `reason`; `CompensationEndEvent` adds `status`,
   `error`), around the undo action's own `onActionStart` / `onActionEnd`; `onExecutionError`'s
   `compensations` lists what ran (reference 08). Every run's `result.compensations` lists them all.

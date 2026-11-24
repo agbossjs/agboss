@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend of the agent's model boundary — what the check of a final answer cost is kept whether the answer
  * is taken or is invalid (a token nobody gave the model), so the ledger holds every paid detection.
@@ -13,7 +12,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

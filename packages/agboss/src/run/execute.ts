@@ -1,4 +1,3 @@
-import { type Usd } from "../units/index.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { handedOverOf, isHandedOver } from "../app/handed-over.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
@@ -84,7 +83,7 @@ export async function recordFailure(
  * The record of an execution while its tree moves (#265 S30): `running`, what it visited and spent
  * so far — what recovery continues when its instance dies.
  */
-export const runningOutcome = (route: readonly string[], costUsd: Usd): TurnOutcome => ({
+export const runningOutcome = (route: readonly string[], costUsd: number): TurnOutcome => ({
   replyWith: "",
   status: "running",
   stopReason: "",

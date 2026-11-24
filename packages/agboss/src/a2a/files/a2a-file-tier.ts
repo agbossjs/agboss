@@ -5,7 +5,7 @@ import type { DtoClass } from "../../dto/types.js";
 import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { listItemClassesOf, plainOutputClassOf } from "../../flow/finish-output.js";
-import { fileFieldsOf, inputClassOf } from "./a2a-file.dto.js";
+import { fileFieldsOf, inputClassOf } from "../../dto/standard/file.js";
 import { fileLimitsOf, type A2AFileOptions } from "./a2a-file-options.js";
 
 /**

@@ -128,7 +128,7 @@ describe("#633: a check counts what the meter recorded and tallied", () => {
     });
 
     expect(error).toBeInstanceOf(DeadlineExceededError);
-    expect(error).toMatchObject({ path: ["clerk-agent"], spentUsd: usd(0.25), usage });
+    expect(error).toMatchObject({ path: ["clerk-agent"], spentUsd: 0.25, usage });
   });
 
   it("no budgets: nothing is tallied, taken in or recorded — a deadline's error carries the caller's spend only", async () => {
@@ -142,7 +142,7 @@ describe("#633: a check counts what the meter recorded and tallied", () => {
       meter.check(0.25, []);
     });
 
-    expect(error).toMatchObject({ spentUsd: usd(0.25) });
+    expect(error).toMatchObject({ spentUsd: 0.25 });
     expect(meter.exhausted.aborted).toBe(false);
   });
 });

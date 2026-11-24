@@ -4,12 +4,14 @@ import {
   ChildPlacement,
   EmptyEnvironment,
   ExecutionContext,
-  Observer,
+  Injectable,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
+  type OnExecutionEnd,
+  type OnExecutionError,
   type Produced,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -174,8 +176,8 @@ const CHILDREN: ReadonlySet<string> = new Set([
 ]);
 
 /** Every root finish and every failure, with the instance that announced it. */
-@Observer({ deps: [ApplicationContext] })
-export class RouteLog {
+@Injectable({ deps: [ApplicationContext] })
+export class RouteLog implements OnExecutionEnd, OnExecutionError {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {

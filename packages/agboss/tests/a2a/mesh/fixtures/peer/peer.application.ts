@@ -16,11 +16,11 @@ import {
   Action,
   Clock,
   Injectable,
-  Observer,
   SpendRecorder,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  type OnExecutionStart,
   type ExecutionStartEvent,
   type Produced,
 } from "../../../../../src/index.js";
@@ -128,8 +128,8 @@ export class PeerCallerResolver implements A2ACallerResolver<Class> {
 }
 
 /** Sees each execution's start: what the mesh put in its contexts (budget, deadline, origin). */
-@Observer()
-export class PeerStarts {
+@Injectable()
+export class PeerStarts implements OnExecutionStart {
   onExecutionStart(event: ExecutionStartEvent): void {
     peer.starts.push(event);
   }

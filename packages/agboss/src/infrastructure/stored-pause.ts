@@ -12,7 +12,6 @@ import {
   type PauseAsk,
   type PauseRecord,
 } from "./pause-record.js";
-import { storedUsd } from "../finops/cost-report.js";
 import { readStored, StoredComponent } from "./stored-step.js";
 
 /**
@@ -27,7 +26,7 @@ const StoredUsage = z.looseObject({
   model: z.string(),
   ...{ inputTokens: z.number(), outputTokens: z.number() },
   ...{ cacheReadTokens: z.number(), cacheWriteTokens: z.number() },
-  costUsd: storedUsd,
+  costUsd: z.number(),
   costSource: z.enum(CostSource),
   servedBy: z.string().optional(),
 });

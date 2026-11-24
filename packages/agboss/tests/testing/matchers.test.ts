@@ -1,8 +1,7 @@
-import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
-import { CostReport } from "../../src/finops/usage.js";
+import { buildCostReport } from "../../src/finops/usage.js";
 import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
@@ -34,7 +33,7 @@ const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
   executionId: "run-1",
   status: ExecutionStatus.Finished,
   path: PATH,
-  spend: CostReport.fromUsage([]),
+  spend: buildCostReport([]),
   launches: [],
   children: [],
   handledErrors: [],
@@ -111,7 +110,7 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
       limit: 1,
       actual: 2,
       path: ["writer-agent"],
-      spentUsd: usd(2),
+      spentUsd: 2,
     });
     const agent = new AgentFailedError({
       agent: "writer-agent",

@@ -15,7 +15,7 @@ import {
   type WorkflowDefinition,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
-import { CostReport } from "../../src/finops/usage.js";
+import { buildCostReport } from "../../src/finops/usage.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -87,7 +87,7 @@ describe("AC12: the app's parts", () => {
       startInput: { text: "hi" },
       path: ["task-workflow-start", "coder-agent"],
       budgetUsd: 1,
-      cost: CostReport.fromUsage([]),
+      cost: buildCostReport([]),
       threadId: "t",
       tenantId: "default",
       turnId: "tern",

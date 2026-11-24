@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1187 (recovery shard) — the wake of a `paused` root beside an answer no pass took
  * (`answered-wake.ts`) and the drain's mark before it takes an answer (`answeredRunOf`,
@@ -34,14 +33,14 @@ const recordOf = (status: string): Turn => {
     status,
     configVersion: "1.0.0",
     route: ["ask"],
-    costUsd: usd(0.5),
+    costUsd: 0.5,
   } as never;
   return record;
 };
 
 /** The stored rest of `root-1`, its record `turn-1`. */
 const STORED = {
-  run: { runId: "root-1", turnId: "turn-1", path: ["ask"], cost: { totalUsd: usd(0.5) } },
+  run: { runId: "root-1", turnId: "turn-1", path: ["ask"], cost: { totalUsd: 0.5 } },
 };
 
 function partsOf(
@@ -97,7 +96,7 @@ describe("#1187: the drain marks its record running before it takes an answer af
     expect(completeIfStatus).toHaveBeenCalledWith(
       "turn-1",
       ExecutionRecordStatus.Paused,
-      runningOutcome(["ask"], usd(0.5)),
+      runningOutcome(["ask"], 0.5),
     );
   });
 
@@ -139,7 +138,7 @@ describe("#1187: the wake of a paused root beside an untaken answer", () => {
     expect(completeIfStatus).toHaveBeenCalledWith(
       "turn-1",
       ExecutionRecordStatus.Paused,
-      runningOutcome(["ask"], usd(0.5)),
+      runningOutcome(["ask"], 0.5),
     );
     expect(released).toHaveBeenCalledOnce();
     expect(takes[0]?.isTakeover).toBe(true);

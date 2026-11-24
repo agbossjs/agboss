@@ -3,7 +3,7 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   Agent,
-  Observer,
+  Injectable,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -21,6 +21,18 @@ import {
   type ExecutionStartEvent,
   type ModelStartEvent,
   type NodeEvent,
+  type OnActionStart,
+  type OnAgentStart,
+  type OnChannelEnd,
+  type OnChannelStart,
+  type OnExecutionEnd,
+  type OnExecutionError,
+  type OnExecutionPause,
+  type OnExecutionRejected,
+  type OnExecutionResume,
+  type OnExecutionStart,
+  type OnModelStart,
+  type OnToolStart,
   type ToolStartEvent,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -111,8 +123,22 @@ export class FileAway {
 }
 
 /** Records every execution-level event and the node events, each with its execution and thread. */
-@Observer()
-export class RunLog {
+@Injectable()
+export class RunLog
+  implements
+    OnExecutionStart,
+    OnExecutionPause,
+    OnExecutionResume,
+    OnExecutionEnd,
+    OnExecutionError,
+    OnExecutionRejected,
+    OnAgentStart,
+    OnModelStart,
+    OnToolStart,
+    OnChannelStart,
+    OnChannelEnd,
+    OnActionStart
+{
   private push(hook: string, event: ExecutionEvent, detail?: unknown): void {
     events.push({ hook, runId: event.executionId, threadId: event.threadId, detail });
   }

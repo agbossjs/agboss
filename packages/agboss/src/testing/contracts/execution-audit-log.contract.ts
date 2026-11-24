@@ -171,7 +171,7 @@ const AUDIT_EVENT_CASES: readonly ContractCase<ExecutionAuditLogRepository>[] = 
       const cutoff = clock.now();
       await first.save(takeover(cutoff.toISOString(), { token: 3 }));
 
-      await second.deleteExpired(cutoff);
+      await second.deleteByOccurredAtBefore(cutoff);
 
       const found = await first.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
         "default",

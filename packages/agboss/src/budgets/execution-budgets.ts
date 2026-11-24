@@ -1,4 +1,3 @@
-import { usd } from "../units/index.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
@@ -187,7 +186,7 @@ export class BudgetMeter implements BudgetCheck {
     const written = typeof state === "number" ? 0 : this.#ids.writtenBefore(state);
     const meterSpent = this.#executionSpent();
     const spent = Math.max(stateSpent, meterSpent);
-    checkDeadline(this.deadline, this.clock.now(), { path, spentUsd: usd(spent), usage });
+    checkDeadline(this.deadline, this.clock.now(), { path, spentUsd: spent, usage });
     const breach = this.#breachOf(spent, path, usage, Math.max(stateSpent - written, meterSpent));
     if (breach !== undefined) throw breach;
   }

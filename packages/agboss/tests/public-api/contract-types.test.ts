@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #511 AC4: a store outside the core implements an infrastructure contract on the public surface
  * alone — every type a contract's members name (and the data shapes those name in turn) is
@@ -182,7 +181,7 @@ const costing = (costUsd: number): UsageRecord => ({
   outputTokens: 5,
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

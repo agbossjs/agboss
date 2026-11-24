@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #521 AC4: the SQLite Turn store keeps free text — a task, an answer, a stop reason, a summary —
  * as JSON text, so a NUL character comes back (node:sqlite reads a TEXT value only up to a NUL).
@@ -22,7 +21,7 @@ const turn = (threadId: string, overrides: Partial<NewTurn> = {}): NewTurn => ({
   stopReason: "done",
   route: ["alpha"],
   steps: [{ agent: "alpha", content: "answer" }],
-  costUsd: usd(0.01),
+  costUsd: 0.01,
   promptVersion: "p1",
   modelVersion: "m1",
   replayOf: null,
@@ -47,7 +46,7 @@ describe("#521 AC4: the SQLite Turn store keeps free text as JSON text", () => {
       toTurnId: appended.id,
       turns: 1,
       text: NUL_TEXT,
-      costUsd: usd(0),
+      costUsd: 0,
     });
 
     const [read] = await store.byIds([appended.id]);

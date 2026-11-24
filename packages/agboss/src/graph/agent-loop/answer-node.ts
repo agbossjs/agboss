@@ -12,10 +12,9 @@ import {
   type InvalidToolCallRequest,
   type ToolCallRequest,
 } from "./deps.js";
-import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
+import type { FileDto } from "../../dto/standard/file.js";
 import { modelWrittenFileProblem, seenPicker, type FilePicker } from "../../files/answer-files.js";
 import { AnswerFiles, FileView } from "../../files/model-files.js";
-import { AgentRetryReason, reportAgentRetry } from "./retry-event.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
 /** Invalid answers an agent may give before its step fails (S9: 2 retries, 3 attempts). */
@@ -26,12 +25,12 @@ export const ONE_ANSWER_MESSAGE =
   "Call regular tools first, and call exactly one answer tool when ready to finish — none of this message's tools ran.";
 
 /** One more invalid answer: back to the model with the problem, or the step fails after the last attempt. */
-export async function invalidAnswer(
+export function invalidAnswer(
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
   problem: string,
   messages: readonly BaseMessage[],
-): Promise<AgentLoopUpdate> {
+): AgentLoopUpdate {
   const attempts = state.invalidAnswers + 1;
   if (attempts >= MAX_ANSWER_ATTEMPTS) {
     throw new AgentAnswerInvalidError({
@@ -41,12 +40,6 @@ export async function invalidAnswer(
       cause: problem,
     });
   }
-  await reportAgentRetry(deps, {
-    reason: AgentRetryReason.InvalidAnswer,
-    attempt: attempts,
-    maxAttempts: MAX_ANSWER_ATTEMPTS,
-    feedback: problem,
-  });
   return { messages: [...messages], move: null, invalidAnswers: 1 };
 }
 
@@ -101,12 +94,12 @@ function answerCallsOf(deps: AgentLoopDeps, calls: readonly ToolCallRequest[]): 
  * A move with an answer whose arguments are no JSON (#395: truncated): an invalid answer — the
  * model reads why, none of the move's tools runs.
  */
-async function unreadAnswer(
+function unreadAnswer(
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
   calls: readonly ToolCallRequest[],
   unread: readonly InvalidToolCallRequest[],
-): Promise<AgentLoopUpdate> {
+): AgentLoopUpdate {
   const problem = invalidArgumentsMessage(unread);
   const move = state.move === null ? [] : [state.move];
   const replies = calls.length === 0 ? [new HumanMessage(problem)] : toolMessages(calls, problem);
@@ -141,7 +134,7 @@ function pickerOf(state: AgentLoopStateType, deps: AgentLoopDeps): FilePicker | 
  */
 function writtenFilesProblem(
   deps: AgentLoopDeps,
-  files: readonly A2AFileDto[],
+  files: readonly FileDto[],
 ): Promise<string | undefined> {
   const { fileRuntime, agent } = deps;
   if (

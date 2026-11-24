@@ -120,7 +120,7 @@ export type {
   MessageErrorOptions,
   PlainErrorOptions,
 } from "../core/errors.js";
-export { ModelKind } from "./model-kind.js";
+export { ModelPurpose } from "./resolve.js";
 export { DEFAULT_MODEL_PROVIDERS } from "./workflow-models.js";
 export { toWireRequest, type WirePlan, type WireRequest } from "./wire.js";
 export { type ResolvedModelSettings } from "../config/types.js";
@@ -128,25 +128,6 @@ export { type JevDecisionRequest } from "../llm/jev-client.js";
 export { type RoutingProblem } from "./handler.js";
 export { type ModelEntry } from "./model-list.js";
 export {
-  DecisionsDriver,
-  OpenAiCompatibleDriver,
-  OpenRouterDriver,
-  type DecisionsDriverOptions,
-  type OpenAiCompatibleDriverOptions,
-  type OpenRouterDriverOptions,
-} from "./model-drivers.js";
-export {
-  type ChatModelDriver,
-  type DecisionsModelDriver,
-  type DriverConnectionSettings,
-  type DriverHeaders,
-  type ModelDriver,
-  type ModelDriverSettings,
-  type TextSetting,
-} from "./model-driver.js";
-export {
-  type DriverModelProviderOptions,
-  type DriverModelProviderType,
   type HttpModelProviderOptions,
   type HttpModelProviderType,
   type TransportModelProviderOptions,

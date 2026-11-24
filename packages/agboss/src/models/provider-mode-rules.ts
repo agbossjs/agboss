@@ -4,7 +4,6 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
   circuitBreakerPolicyOf,
   hasProviderMethod,
-  isDriverOptions,
   isTransportClass,
   modelProviderOf,
   type ModelProviderType,
@@ -25,19 +24,8 @@ const HTTP_FIELDS = ["baseUrl", "baseUrlField", "apiKey"] as const;
 const httpFieldsOf = (cls: ModelProviderType): readonly string[] =>
   HTTP_FIELDS.filter((field) => Reflect.get(modelProviderOf(cls), field) !== undefined);
 
-/** A driver provider speaks its driver's protocol: its class is empty (#1313). */
-const driverModeProblemOf = (cls: ModelProviderType): string | undefined =>
-  isTransportClass(cls)
-    ? "sets a driver and implements complete(request) — the driver makes its calls: remove the method"
-    : undefined;
-
 /** What is wrong with a provider's mode, if anything. */
 function modeProblemOf(cls: ModelProviderType): string | undefined {
-  return isDriverOptions(modelProviderOf(cls)) ? driverModeProblemOf(cls) : ownModeProblemOf(cls);
-}
-
-/** What is wrong with an HTTP or transport provider's mode, if anything. */
-function ownModeProblemOf(cls: ModelProviderType): string | undefined {
   const fields = httpFieldsOf(cls);
   const isTransport = isTransportClass(cls);
   if (isTransport && fields.length > 0)

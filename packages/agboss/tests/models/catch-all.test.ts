@@ -24,7 +24,7 @@ import {
   DecisionsModelProvider,
   ModelCost,
   ModelProvider,
-  ModelKind,
+  ModelPurpose,
   OpenRouterModelProvider,
   OpenRouterProvider,
   PromptCaching,
@@ -137,7 +137,7 @@ class CatchAllWorkflow {}
 })
 class CatchAllApplication {}
 
-const chat = (model: string) => ({ key: "agents.scout", model, purpose: ModelKind.Chat });
+const chat = (model: string) => ({ key: "agents.scout", model, purpose: ModelPurpose.Chat });
 
 const providerOf = (directory: ModelProviderDirectory, query: ReturnType<typeof chat>): string => {
   const resolution = directory.resolve(query);
@@ -157,7 +157,7 @@ describe("#454 AC1: the built-ins yield to a provider that claims the model", ()
     expect(providerOf(directory, chat("harness/x"))).toBe("harness-model-provider");
     expect(providerOf(directory, chat("moonshotai/kimi-k2.6"))).toBe("openrouter-model-provider");
     expect(
-      providerOf(directory, { ...chat("typesafe/jev-1.13"), purpose: ModelKind.Decisions }),
+      providerOf(directory, { ...chat("typesafe/jev-1.13"), purpose: ModelPurpose.Decision }),
     ).toBe("decisions-model-provider");
   });
 
@@ -177,7 +177,7 @@ describe("#454 AC1: the built-ins yield to a provider that claims the model", ()
 
   it("the Decisions built-in yields too: a decision model another provider claims is its", () => {
     const directory = ModelProviderDirectory.of([OpenRouterModelProvider, DecisionsModelProvider]);
-    const decision = { ...chat("typesafe/jev-1.13"), purpose: ModelKind.Decisions };
+    const decision = { ...chat("typesafe/jev-1.13"), purpose: ModelPurpose.Decision };
 
     expect(providerOf(directory, decision)).toBe("decisions-model-provider");
     // a model neither serves stays unserved: yielding never invents a provider

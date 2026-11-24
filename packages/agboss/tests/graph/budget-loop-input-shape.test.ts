@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — what the input step adds to the loop when it has nothing to read, and the text of the
  * decisions an agent is told about, each on its own over fakes: no files, no guardrails and no mask leave the lists empty
@@ -36,7 +35,7 @@ const record = (costUsd: number): UsageRecord => ({
   ...ZERO_USAGE,
   caller: "x",
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

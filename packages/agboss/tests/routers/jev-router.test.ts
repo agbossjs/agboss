@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 import { describe, expect, it, vi } from "vitest";
 import type { JevClient } from "../../src/llm/jev-client.js";
 import { createJevRouter } from "../../src/routers/index.js";
@@ -43,7 +42,7 @@ describe("Jev router", () => {
       usage: {
         caller: "router:main",
         model: "typesafe/jev-1.13-20260917",
-        costUsd: usd(1e-5),
+        costUsd: 1e-5,
         costSource: "api",
       },
     });
@@ -56,7 +55,7 @@ describe("Jev router", () => {
 
     expect(await router.route(request)).toMatchObject({
       decision: { reason: "jev confidence 0.80" },
-      usage: { costUsd: usd(2e-5) },
+      usage: { costUsd: 2e-5 },
     });
   });
 
@@ -65,7 +64,7 @@ describe("Jev router", () => {
 
     expect(await router.route(request)).toMatchObject({
       decision: { reason: "jev" },
-      usage: { model: "typesafe/jev-1.13", costUsd: usd(0) },
+      usage: { model: "typesafe/jev-1.13", costUsd: 0 },
     });
   });
 

@@ -96,7 +96,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.CostLedgerCutoffInvalidError, { reason: "not a Date" }),
   fx(root.CostLedgerEntryExpiredError, { ledgerIds: ["l-1"], prunedBefore: new Date(0) }),
   fx(root.CostLedgerEntryInvalidError, { index: 0, reason: "no id" }),
-  fx(root.A2AFileConflictError, { fileId: "f-1" }),
   fx(root.InvalidA2APageTokenError, {}),
   fx(root.PauseAnswererError, { message }),
   fx(root.PauseExtensionContendedError, { pauseKey: "default:p-1", attempts: 8 }),
@@ -141,8 +140,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(models.ModelProviderFailureError, { failure: ModelFailure.Timeout, retryAfter: seconds(1) }),
   fx(root.ModelCallError, { code: "model.circuit-open", provider: "openai", message }),
   fx(models.ModelProviderInputError, { kind: "image", mediaType: "image/png" }),
-  fx(root.ModelFileUnavailableError, { reason: root.ModelFileUnavailableReason.NotFound }),
-  fx(root.ModelFileRefusedError, { refusal: root.ModelFileRefusal.TooLarge }),
   fx(root.ModelFileLimitError, {
     agent: "reader-agent",
     limit: root.ModelFileLimit.MaxFiles,
@@ -203,11 +200,5 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(a2a.A2ATaskCanceledError, task),
   fx(a2a.A2ATaskFailedError, { ...task, end: a2a.A2ATaskEnd.Failed, remoteCode: "limit.hops" }),
   fx(a2a.A2ATaskInterruptedError, { ...task, interruption: a2a.A2ATaskInterruption.InputRequired }),
-  fx(a2a.A2AFileRefusedError, {
-    refusal: a2a.A2AFileRefusal.TooLarge,
-    mediaType: "image/png",
-    sizeBytes: 10,
-  }),
-  fx(a2a.A2AFileUnavailableError, { reason: a2a.A2AFileUnavailableReason.NotFound }),
   ...Object.entries(flowFixtures),
 ]);

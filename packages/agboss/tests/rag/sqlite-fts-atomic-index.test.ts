@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -102,7 +101,7 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
 
     const report = await connector.index({ tenantId, signal });
 
-    expect(report).toEqual({ documents: 1, chunks: 1, skipped: 0, costUsd: usd(0) });
+    expect(report).toEqual({ documents: 1, chunks: 1, skipped: 0, costUsd: 0 });
     expect(await sourcesOf(connector, "secret")).toEqual(["a.md: Alpha secret is azure now."]);
   });
 

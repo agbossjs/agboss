@@ -15,7 +15,7 @@ import { DecidedBy } from "../../flow/decorators/router.js";
 import type { A2AReply } from "../a2a-expose.decorator.js";
 import type { A2ACardFileFields } from "../files/a2a-file-options.js";
 import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
-import { fileFieldsOf, type A2AFileField } from "../files/a2a-file.dto.js";
+import { fileFieldsOf, type FileField } from "../../dto/standard/file.js";
 import {
   fileLimitsOf,
   type A2AFileLimits,
@@ -40,7 +40,7 @@ export interface ServedOutput {
   readonly mediaType: A2AMediaType;
   readonly schema: JsonSchema | null;
   /** Its DTO's fields that hold files (#859): each one's parts are file parts. */
-  readonly fileFields: readonly A2AFileField[];
+  readonly fileFields: readonly FileField[];
   /** Whether its DTO has a field that holds no file: what its `data` part carries. */
   readonly hasData: boolean;
 }
@@ -60,11 +60,11 @@ export interface ServedSkill {
   readonly inputSchemaHash: string | null;
   readonly outputs: readonly ServedOutput[];
   /** The input DTO's fields that hold files (#859): none — no file part is taken (`-32005`). */
-  readonly inputFiles: readonly A2AFileField[];
+  readonly inputFiles: readonly FileField[];
   /** What its files are bounded by: the skill's own, else the application's, else the defaults. */
   readonly fileLimits: A2AFileLimits;
   /**
-   * The media types its finishes' files may be (#904): what `A2AFiles.save` takes — the
+   * The media types its finishes' files may be (#904): what `Files.save` takes — the
    * application's `a2aFiles`, else the defaults; a skill's own `files` bound what it takes only.
    */
   readonly outputFileMediaTypes: readonly string[];

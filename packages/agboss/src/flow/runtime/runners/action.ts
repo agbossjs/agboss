@@ -92,7 +92,7 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
     const result = await instance.execute(input.fields).catch((error: unknown) => {
       throw failure(node.id, error);
     });
-    await reportNodeEvent((base) => deps.observer?.onActionEnd({ ...base, name, output: result }));
+    await reportNodeEvent((base) => deps.observer?.onActionEnd({ ...base, name, update: result }));
     if (output === undefined) return { read: input.read };
     return { value: checkedActionValue(node.id, output, result), read: input.read };
   };

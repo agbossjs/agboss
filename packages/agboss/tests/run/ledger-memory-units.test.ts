@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-memory shard) — the spend of a thread's memory, each rule on its own over fakes: the strategies'
  * update after a finished turn (#844), the compactions before a new execution (#120), the masking and the store
@@ -22,7 +21,7 @@ const record = (costUsd: number, caller = "memory"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -35,7 +34,7 @@ describe("#1366: memory before a new execution", () => {
     tenantId: "tenant-1",
     threadId: "thread-1",
     isNewThread,
-    budgetUsd: 2,
+    budgetLeftUsd: 2,
     callbacks: [],
     record: vi.fn(),
     inFrame: vi.fn(),
@@ -78,11 +77,7 @@ describe("#1366: memory before a new execution", () => {
 
     const out = await memoryBeforeRun(deps, given as never);
 
-    expect(compactDue).toHaveBeenCalledWith(deps, plan, {
-      ...given,
-      budgetLeftUsd: usd(2),
-      tokens: {},
-    });
+    expect(compactDue).toHaveBeenCalledWith(deps, plan, { ...given, tokens: {} });
     expect(out).toEqual({
       history: ["h"],
       memory: {},
@@ -125,8 +120,8 @@ describe("#1366: memory after a finished turn", () => {
       executionId: "run-1",
       turn: history,
     };
-    expect(first.updateMemory).toHaveBeenCalledWith({ ...turn, budgetLeftUsd: usd(1) });
-    expect(second.updateMemory).toHaveBeenCalledWith({ ...turn, budgetLeftUsd: usd(0.5) });
+    expect(first.updateMemory).toHaveBeenCalledWith({ ...turn, budgetLeftUsd: 1 });
+    expect(second.updateMemory).toHaveBeenCalledWith({ ...turn, budgetLeftUsd: 0.5 });
   });
 
   it("records what the strategies spent, once and together, and returns it", async () => {

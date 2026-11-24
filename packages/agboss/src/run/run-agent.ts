@@ -1,4 +1,3 @@
-import { usd } from "../units/index.js";
 import { systemClock, unkeptExecutionIds } from "../infrastructure/clock.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf } from "../flow/runtime/build.js";
@@ -96,11 +95,11 @@ async function runOnce<TName extends string>(
     const budgetUsd = budgets.meter.budgetUsd();
     const thread = { tenantId, threadId, isNewThread: known === undefined, record };
     const inFrame = inStartFrame(deps, { ...options, ...site, threadId });
-    const before = { ...thread, budgetUsd, callbacks: config.callbacks, inFrame };
+    const before = { ...thread, budgetLeftUsd: budgetUsd, callbacks: config.callbacks, inFrame };
     // the compactions due run before the thread is read: a CompactionError fails it here (S132)
     const read = await memoryBeforeRun(deps, before);
     // the record is `running` while the tree moves: what recovery continues (#265 S30)
-    turnId = (await deps.turns.append({ ...base, ...runningOutcome([], usd(0)) })).id;
+    turnId = (await deps.turns.append({ ...base, ...runningOutcome([], 0) })).id;
     const graph = executionGraphOf(deps, { budgets: budgets.meter });
     const memory = { history: read.history, memory: read.memory, usage: [...read.usage] };
     const kept = { budgetUsd, budgets: budgets.records, ...memory, runId };

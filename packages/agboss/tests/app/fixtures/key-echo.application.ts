@@ -4,7 +4,7 @@ import {
   Action,
   ExecutionContext,
   InMemoryFencedEffectRepository,
-  Observer,
+  Injectable,
   NotSentTrust,
   OutboundCallReconciliation,
   OutboundCalls,
@@ -15,6 +15,9 @@ import {
   type ActionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionRejectedEvent,
+  type OnActionEnd,
+  type OnExecutionError,
+  type OnExecutionRejected,
   type Produced,
   FingerprintPolicy,
 } from "../../../src/index.js";
@@ -43,8 +46,8 @@ export function resetEchoSeen(): void {
 }
 
 /** Keeps every refusal, error and action end. */
-@Observer()
-export class EchoObserver {
+@Injectable()
+export class EchoObserver implements OnExecutionRejected, OnExecutionError, OnActionEnd {
   onExecutionRejected(event: ExecutionRejectedEvent): void {
     echoSeen.events.push(event);
   }

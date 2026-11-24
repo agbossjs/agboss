@@ -1,4 +1,3 @@
-import { usd } from "../../units/index.js";
 import { expect } from "vitest";
 import {
   A2ATaskState,
@@ -118,7 +117,7 @@ export const A2A_TASK_STATUS_CASES: readonly ContractCase<A2ATaskRepository>[] =
         pendingPauses: [],
         finish: "charged-workflow-finish",
         output: { chargeId: "ch-1" },
-        spentUsd: usd(0.000123),
+        spentUsd: 0.000123,
       };
       await first.compareAndSetStatus(keyOf(newTask("t-2")), 1, completed, at(1));
 

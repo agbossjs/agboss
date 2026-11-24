@@ -1,12 +1,12 @@
 import { isFiniteNumber } from "../graph/count-limit.js";
 import { checkedPrice } from "../models/cost.js";
 import type { Price, ResolvedModelSettings } from "../config/types.js";
-import { usd, type Usd } from "../units/index.js";
+import type { Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
-import type { CostCategory } from "./cost-category.js";
+import { CostCategory, costCategoryOf, NO_COST_BY_CATEGORY } from "./cost-category.js";
 import { CostSource } from "./cost-source.js";
 import { servedByOf } from "./served-by.js";
-import type { LedgerKey, LedgerMark } from "./ledger-mark.js";
+import { withoutLedgerMarks, type LedgerKey, type LedgerMark } from "./ledger-mark.js";
 
 /** Anything a chat model returns that may carry token usage (AIMessage, AIMessageChunk). */
 export interface UsageCarrier {
@@ -38,7 +38,7 @@ export interface TokenUsage {
 export interface UsageRecord extends TokenUsage {
   readonly caller: string;
   readonly model: string;
-  readonly costUsd: Usd;
+  readonly costUsd: number;
   readonly costSource: CostSource;
   /**
    * The host that served the call, as its provider names it (#395 PR 6: OpenRouter's upstream —
@@ -63,17 +63,39 @@ export interface UsageRecord extends TokenUsage {
 
 export { CostCategory, costCategoryOf } from "./cost-category.js";
 export { CostSource } from "./cost-source.js";
-export { CostReport, tokensOf, totalCost, totalTokens } from "./cost-report.js";
 
 /** One call of the turn, in order. */
 export interface CostLine extends TokenUsage {
   readonly caller: string;
   readonly category: CostCategory;
   readonly model: string;
-  readonly costUsd: Usd;
+  readonly costUsd: number;
   readonly costSource: CostSource;
   /** The host that served the call (`UsageRecord.servedBy`, #395 PR 6). */
   readonly servedBy?: string;
+}
+
+/**
+ * Financial result of a turn — part of every run result. Clients routeTo what to show; the core
+ * always reports all of it.
+ */
+export interface CostReport {
+  /** The known total: what every call of known cost cost. */
+  readonly totalUsd: number;
+  /** The calls of known cost. */
+  readonly calls: number;
+  /**
+   * The lost passes of a step whose cost is not known (#853, `CostSource.Unknown`): each a pass that
+   * lost its lease mid step, run again by a recovery — none in `totalUsd`, `calls` or the sums.
+   */
+  readonly unknownCalls: number;
+  readonly cacheReadTokens: number;
+  readonly byCaller: Readonly<Record<string, number>>;
+  /** Every category is present (0 when unused). */
+  readonly byCategory: Readonly<Record<CostCategory, number>>;
+  readonly byModel: Readonly<Record<string, number>>;
+  /** Every call in the order it happened. */
+  readonly trace: readonly CostLine[];
 }
 
 export const ZERO_USAGE: TokenUsage = {
@@ -116,11 +138,11 @@ export class ModelCostError extends Error {
 }
 
 /** The cost the provider reported in its replyWith (`usage.cost`), when it did. */
-export function reportedCostOf(message: UsageCarrier): Usd | undefined {
+export function reportedCostOf(message: UsageCarrier): number | undefined {
   const usage = message.response_metadata?.usage;
   const cost =
     typeof usage === "object" && usage !== null && "cost" in usage ? usage.cost : undefined;
-  return isFiniteNumber(cost) && cost >= 0 ? usd(cost) : undefined;
+  return isFiniteNumber(cost) && cost >= 0 ? cost : undefined;
 }
 
 /**
@@ -160,17 +182,17 @@ export function recordUsage(
       `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
     );
   }
-  const priced = costOf(usage, settings.price);
+  const costUsd = costOf(usage, settings.price);
   // tokens a provider left out price as NaN: never accounted as an amount (#817)
-  if (!Number.isFinite(priced) || priced < 0)
+  if (!Number.isFinite(costUsd) || costUsd < 0)
     throw new ModelCostError(
-      `${caller}: model ${settings.model} — its tokens price at no amount: ${String(priced)}`,
+      `${caller}: model ${settings.model} — its tokens price at no amount: ${String(costUsd)}`,
     );
   return {
     caller,
     model: settings.model,
     ...usage,
-    costUsd: usd(priced),
+    costUsd,
     costSource: CostSource.PriceTable,
     ...served,
   };
@@ -198,7 +220,48 @@ export function recordToolCost(tool: string, costUsd: number): UsageRecord {
     caller: `tool:${tool}`,
     model: tool,
     ...ZERO_USAGE,
-    costUsd: usd(costUsd),
+    costUsd,
     costSource: CostSource.Tool,
+  };
+}
+
+/**
+ * What calls cost together, in USD: the sum of their records' `costUsd` — what
+ * `CostLedgerRepository.saveAll` adds to each counter (a store of your own sums its entries with
+ * it, #521: their total is `Usd`).
+ */
+export function totalCost(entries: readonly (UsageRecord & { readonly costUsd: Usd })[]): Usd;
+export function totalCost(records: readonly UsageRecord[]): number;
+export function totalCost(records: readonly UsageRecord[]): number {
+  return records.reduce((sum, record) => sum + record.costUsd, 0);
+}
+
+function sumBy(
+  lines: readonly CostLine[],
+  key: (line: CostLine) => string,
+): Record<string, number> {
+  const sums: Record<string, number> = {};
+  for (const line of lines) sums[key(line)] = (sums[key(line)] ?? 0) + line.costUsd;
+  return sums;
+}
+
+export function buildCostReport(records: readonly UsageRecord[]): CostReport {
+  const trace = records.map((record): CostLine => ({
+    ...withoutLedgerMarks(record),
+    category: costCategoryOf(record.caller),
+  }));
+  const byCategory = { ...NO_COST_BY_CATEGORY };
+  for (const line of trace) byCategory[line.category] += line.costUsd;
+  // a lost pass's record (#853): in the trace, of no amount, counted apart from the calls
+  const known = trace.filter((line) => line.costSource !== CostSource.Unknown);
+  return {
+    totalUsd: totalCost(records),
+    calls: known.length,
+    unknownCalls: trace.length - known.length,
+    cacheReadTokens: records.reduce((sum, record) => sum + record.cacheReadTokens, 0),
+    byCaller: sumBy(known, (line) => line.caller),
+    byCategory,
+    byModel: sumBy(known, (line) => line.model),
+    trace,
   };
 }

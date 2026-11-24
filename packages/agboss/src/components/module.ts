@@ -80,7 +80,6 @@ export function moduleOf(workflow: Class): WorkflowMeta {
     uncompactedTurns: options.uncompactedTurns,
     mcp: options.mcp,
     providers: options.providers,
-    services: options.services,
     promptVariables: options.promptVariables,
   });
   modules.set(workflow, module);

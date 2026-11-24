@@ -1,4 +1,3 @@
-import { type Usd } from "../units/index.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 
 /**
@@ -39,7 +38,7 @@ export interface A2ADirectMessageReply {
   readonly finish: string;
   readonly output: unknown;
   /** What the run spent in all, in USD: what a trusted caller's run report signs. */
-  readonly spentUsd: Usd;
+  readonly spentUsd: number;
 }
 
 /** One attempt at a reply: its root execution's id, when it began and until when it may run. */

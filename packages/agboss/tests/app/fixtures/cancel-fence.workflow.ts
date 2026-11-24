@@ -4,7 +4,7 @@ import {
   ChildPlacement,
   ExecutionContext,
   InMemoryFencedEffectRepository,
-  Observer,
+  Injectable,
   NotSentTrust,
   OutboundCallReconciliation,
   OutboundCalls,
@@ -12,6 +12,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   effectKeyOf,
+  type OnFencedEffect,
+  type OnOutboundCall,
   type Produced,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -61,8 +63,8 @@ export class ReceiptDto {
 }
 
 /** Keeps the audit events of the fenced writes and the calls. */
-@Observer()
-export class CancelFenceObserver {
+@Injectable()
+export class CancelFenceObserver implements OnFencedEffect, OnOutboundCall {
   onFencedEffect(event: { readonly name: string; readonly outcome: string }): void {
     seen.fenced.push({ name: event.name, outcome: event.outcome });
   }

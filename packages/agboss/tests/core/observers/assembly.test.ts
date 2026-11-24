@@ -1,6 +1,13 @@
 import { createAppWith } from "../../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { ComponentError, Injectable, Observer } from "../../../src/index.js";
+import {
+  ComponentError,
+  Injectable,
+  type OnAgentStart,
+  type OnExecutionRejected,
+  type OnExecutionPause,
+  type OnExecutionResume,
+} from "../../../src/index.js";
 import { closestHook } from "../../../src/components/observer-checks.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -8,8 +15,8 @@ import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import { applicationWith } from "./fixture.js";
 
 /** A typo next to a real hook: compiles, rejected at assembly with the hook it meant. */
-@Observer()
-class TypoObserver {
+@Injectable()
+class TypoObserver implements OnAgentStart {
   onAgentStart(): void {
     /* real hook */
   }
@@ -19,12 +26,11 @@ class TypoObserver {
 }
 
 /** No hook at all. */
-@Observer()
+@Injectable()
 class EmptyObserver {}
 
-/** Only a misspelled hook: rejected by `tsc` already (at its decorator), and at assembly. */
-// @ts-expect-error — OnlyTypo shares no hook with ExecutionObserver
-@Observer()
+/** Only a misspelled hook: rejected by `tsc` already, and at assembly. */
+@Injectable()
 class OnlyTypo {
   onToolFinish(): void {
     /* never a hook */
@@ -32,9 +38,9 @@ class OnlyTypo {
 }
 
 /** Lifecycle hooks are not observer hooks, and not typos either. */
-@Observer()
-class LifecycleObserver {
-  onReady(): void {
+@Injectable()
+class LifecycleObserver implements OnAgentStart {
+  onStart(): void {
     /* lifecycle */
   }
   onAgentStart(): void {
@@ -43,8 +49,8 @@ class LifecycleObserver {
 }
 
 /** Only the pause / resume hooks (#244): a valid observer. */
-@Observer()
-class PauseObserver {
+@Injectable()
+class PauseObserver implements OnExecutionPause, OnExecutionResume {
   onExecutionPause(): void {
     /* real hook */
   }
@@ -54,8 +60,8 @@ class PauseObserver {
 }
 
 /** A typo of the pause hook next to the real one. */
-@Observer()
-class PausedTypo {
+@Injectable()
+class PausedTypo implements OnExecutionPause {
   onExecutionPause(): void {
     /* real hook */
   }
@@ -65,16 +71,16 @@ class PausedTypo {
 }
 
 /** Only the refused-request hook (#246): a valid observer. */
-@Observer()
-class RejectedObserver {
+@Injectable()
+class RejectedObserver implements OnExecutionRejected {
   onExecutionRejected(): void {
     /* real hook */
   }
 }
 
 /** The PII policy hooks removed in #120 PR 1: never emitted, so an observer with them fails. */
-@Observer()
-class PiiPolicyObserver {
+@Injectable()
+class PiiPolicyObserver implements OnExecutionRejected {
   onExecutionRejected(): void {
     /* real hook */
   }
@@ -84,8 +90,8 @@ class PiiPolicyObserver {
 }
 
 /** A typo of the refused-request hook next to the real one. */
-@Observer()
-class RejectedTypo {
+@Injectable()
+class RejectedTypo implements OnExecutionRejected {
   onExecutionRejected(): void {
     /* real hook */
   }
@@ -120,7 +126,7 @@ describe("@Application observers are checked at assembly", () => {
   });
 
   it("rejects a class with only a misspelled hook, at tsc and at assembly", async () => {
-    // @ts-expect-error — and listing it is refused by its type as well
+    // @ts-expect-error — OnlyTypo shares no hook with ExecutionObserver
     expect(await assemblyError([OnlyTypo])).toContain("did you mean onToolEnd?");
   });
 

@@ -1,7 +1,6 @@
 import { extractText } from "./multimodal-utils.js";
 import { z } from "zod";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
-import { usd, type Usd } from "../units/index.js";
 import type { JevClient } from "../llm/jev-client.js";
 import { callFailed, decided, failed, unknownOption } from "./outcome.js";
 import { jevRouteInstructions } from "./prompts.js";
@@ -34,8 +33,7 @@ const JevResponseSchema = z.object({
 type JevResponse = z.infer<typeof JevResponseSchema>;
 type JevRoute = JevResponse["answers"]["route"];
 
-const reportedCost = (usage: JevResponse["usage"]): Usd =>
-  usd(usage?.cost ?? usage?.total_cost ?? 0);
+const reportedCost = (usage: JevResponse["usage"]): number => usage?.cost ?? usage?.total_cost ?? 0;
 
 const scoreOf = (route: JevRoute): number | undefined =>
   route.probabilities?.[route.choice] ?? route.confidence;
@@ -46,7 +44,7 @@ function reasonFor(score: number | undefined): string {
 
 function toOutcome(raw: unknown, request: RouteRequest, usageOf: UsageFactory): RouteOutcome {
   const parsed = JevResponseSchema.safeParse(raw);
-  if (!parsed.success) return failed("invalid router output", usageOf(undefined, usd(0)));
+  if (!parsed.success) return failed("invalid router output", usageOf(undefined, 0));
   const { answers, usage, model } = parsed.data;
   const record = usageOf(model, reportedCost(usage));
   const { route } = answers;
@@ -58,7 +56,7 @@ function toOutcome(raw: unknown, request: RouteRequest, usageOf: UsageFactory): 
   return decided(score === undefined ? decision : { ...decision, confidence: score }, record);
 }
 
-type UsageFactory = (reportedModel: string | undefined, costUsd: Usd) => UsageRecord;
+type UsageFactory = (reportedModel: string | undefined, costUsd: number) => UsageRecord;
 
 /** Jev picks among options with calibrated probabilities; cost comes from the API response. */
 export function createJevRouter(deps: JevRouterDeps): RouterEngine {
@@ -87,7 +85,7 @@ export function createJevRouter(deps: JevRouterDeps): RouterEngine {
         });
         return toOutcome(raw, request, usageOf);
       } catch (error) {
-        return callFailed(error, usageOf(undefined, usd(0)));
+        return callFailed(error, usageOf(undefined, 0));
       }
     },
   };

@@ -1,4 +1,3 @@
-import { usd } from "../units/index.js";
 import type {
   CompactionHandler,
   CompactionInput,
@@ -157,7 +156,7 @@ export async function compactWithHandler<TName extends string>(
     due,
     current,
     text: JSON.stringify(summaries),
-    costUsd: usd(0),
+    costUsd: 0,
     summaries: summaries.length,
     summaryQueueLength: summaries.length,
   });

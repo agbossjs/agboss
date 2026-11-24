@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 import { describe, expect, it, vi } from "vitest";
 import { recordUsage } from "../../src/finops/usage.js";
 import {
@@ -160,7 +159,7 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
 
     expect(stub.requests).toHaveLength(3);
     expect(recordUsage("scout", settings, replyWith)).toMatchObject({
-      costUsd: usd(0.002),
+      costUsd: 0.002,
       costSource: "api",
     });
   });

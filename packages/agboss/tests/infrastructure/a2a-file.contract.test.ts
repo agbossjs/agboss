@@ -6,9 +6,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll } from "vitest";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
-import { LocalDiskA2AFileRepository } from "../../src/infrastructure/local-disk-a2a-file.repository.js";
-import { a2aFileContract } from "../../src/testing/contracts/index.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import { LocalDiskFileRepository } from "../../src/infrastructure/local-disk-file.repository.js";
+import { fileContract } from "../../src/testing/contracts/index.js";
 import { resolveEnvironment } from "../../src/environments/resolve.js";
 import {
   applicationContextOf,
@@ -16,7 +16,7 @@ import {
 } from "../../src/flow/context/application-context.js";
 import { inMemoryTarget } from "./contracts/store-kinds.js";
 
-a2aFileContract(inMemoryTarget(({ database }) => new InMemoryA2AFileRepository(database)));
+fileContract(inMemoryTarget(({ database }) => new InMemoryFileRepository(database)));
 
 /** An application context of this environment, as an instance makes one. */
 const contextOf = (
@@ -41,11 +41,11 @@ afterAll(() => {
   for (const each of folders) rmSync(each, { recursive: true, force: true });
 });
 
-a2aFileContract({
+fileContract({
   name: "local disk",
   reset: () => {
     folder = mkdtempSync(join(tmpdir(), "agboss-a2a-files-"));
     folders.push(folder);
   },
-  instance: () => new LocalDiskA2AFileRepository(contextOf({ a2aFilesPath: folder })),
+  instance: () => new LocalDiskFileRepository(contextOf({ a2aFilesPath: folder })),
 });

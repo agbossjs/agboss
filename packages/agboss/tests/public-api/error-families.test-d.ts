@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1325a, at compile time: a family is a union discriminated by `kind` (and by the literal `code`), a
  * variant's facts are not optional once `kind` is narrowed, `instanceof Family` and
@@ -92,19 +91,13 @@ describe("#1325a: a family and a variant are error classes", () => {
 
 describe("#1325a: a variant's constructor takes the facts it carries", () => {
   it("the facts are required, `message`, `cause` and `usage` are not", () => {
-    const made = new LimitError.Items({
-      node: "n",
-      limit: 1,
-      actual: 2,
-      path: [],
-      spentUsd: usd(0),
-    });
+    const made = new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: 0 });
 
     expectTypeOf(made).toEqualTypeOf<LimitError.Items>();
     // @ts-expect-error `limit` and `actual` are facts of the variant
-    new LimitError.Items({ node: "n", path: [], spentUsd: usd(0) });
+    new LimitError.Items({ node: "n", path: [], spentUsd: 0 });
     // @ts-expect-error a fact the variant does not carry
-    new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: usd(0), nope: 1 });
+    new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: 0, nope: 1 });
   });
 
   it("a variant with no required fact is made with no argument", () => {

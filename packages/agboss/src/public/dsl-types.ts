@@ -3,8 +3,6 @@
  * Types only: re-exported with `export type *`, so it is no module the root import loads.
  */
 export { type ChannelOptions, type TargetChannelOptions } from "../components/decorators.js";
-export { type OnBeforeDestroy, type OnReady } from "../components/container/lifecycle.js";
-export { type InjectAs, type PortInstances, type ServiceEntry } from "../components/injection.js";
 export { type CustomCompactionOptions } from "../compaction/compaction.decorator.js";
 export { type AgentSettings, type AgentSettingsOf } from "../config/types.js";
 export { type UnavailableRead } from "../flow/context/errors.js";

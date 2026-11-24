@@ -1,5 +1,4 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { usd } from "../../units/index.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../finops/usage.js";
 import { extractRunContext } from "../../core/run-context.js";
 import { NodeKind } from "../ast.js";
@@ -135,7 +134,7 @@ export const unknownCostRecordsOf = (
     ...ZERO_USAGE,
     caller: step.caller,
     model: "unknown",
-    costUsd: usd(0),
+    costUsd: 0,
     costSource: CostSource.Unknown,
     ledgerKey: {
       id: unknownLedgerIdOf(lost.rootExecutionId, step.nodeId, step.taskId, token),

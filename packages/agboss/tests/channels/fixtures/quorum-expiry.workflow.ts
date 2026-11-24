@@ -9,7 +9,7 @@ import {
   ChannelOutcome,
   ChannelRole,
   EmptyEnvironment,
-  Observer,
+  Injectable,
   listOf,
   PauseAnswerer,
   Tool,
@@ -17,8 +17,11 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
+  type OnExecutionEnd,
+  type OnExecutionError,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
+  type OnQuorumDecided,
   type Produced,
   type QuorumDecidedEvent,
   Action,
@@ -68,8 +71,8 @@ export function resetQuorumExpiry(): void {
   qe.shortAsks.length = 0;
 }
 
-@Observer()
-export class QuorumExpiryLog {
+@Injectable()
+export class QuorumExpiryLog implements OnQuorumDecided, OnExecutionEnd, OnExecutionError {
   onQuorumDecided(event: QuorumDecidedEvent): void {
     qe.decided.push(event);
   }

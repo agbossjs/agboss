@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366, #1065 (shard `fence-tree`): the part of moving a tree that an expiry adds (`tree-expiry.ts`), on its own —
  * the lease is taken only when free and given back whenever nothing is drained, the pass an expiry starts is
@@ -35,7 +34,7 @@ vi.mock("../../src/app/tree-ends.js", async (importOriginal) => ({
 const STATE = { runId: "root-1", threadId: "t-1", tenantId: "acme", startedVersion: "1" };
 const NOW = new Date("2026-01-01T12:00:00.000Z");
 const stored = {
-  run: { runId: "root-1", turnId: "turn-1", path: ["a", "b"], cost: { totalUsd: usd(0.25) } },
+  run: { runId: "root-1", turnId: "turn-1", path: ["a", "b"], cost: { totalUsd: 0.25 } },
 };
 
 function partsOf(options: { turns?: unknown[]; found?: unknown; lease?: unknown } = {}) {
@@ -128,7 +127,7 @@ describe("#1366: the pass an expiry starts", () => {
       stopReason: "",
       route: ["a", "b"],
       steps: [],
-      costUsd: usd(0.25),
+      costUsd: 0.25,
     });
     expect(mocks.expirePauses.mock.calls[0]?.[2]).toBe(signal);
   });

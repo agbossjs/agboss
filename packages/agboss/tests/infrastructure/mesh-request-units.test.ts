@@ -137,7 +137,7 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
     await store.saveIfAbsent(at("2026-01-05T09:30:00.000Z", exactly));
     await store.saveIfAbsent(at("2026-01-05T09:30:00.001Z", after));
 
-    await expect(store.deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).resolves.toBe(1);
+    await store.deleteByCreatedAtBefore(new Date("2026-01-05T09:30:00.000Z"));
 
     expect(await store.findByKey(before)).toBeUndefined();
     expect(await store.findByKey(exactly)).toBeDefined();
@@ -145,7 +145,9 @@ describe.each(stores)("#1374: the mesh request store %s", (_kind, make) => {
   });
 
   it("sweeps nothing from an empty store", async () => {
-    await expect(make().deleteExpired(new Date("2026-01-05T09:30:00.000Z"))).resolves.toBe(0);
+    await expect(
+      make().deleteByCreatedAtBefore(new Date("2026-01-05T09:30:00.000Z")),
+    ).resolves.toBeUndefined();
   });
 });
 

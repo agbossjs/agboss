@@ -2,7 +2,7 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   ExecutionContext,
-  Observer,
+  Injectable,
   NotSentTrust,
   OutboundCallReconciliation,
   OutboundCallUnreconciledError,
@@ -13,6 +13,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   effectKeyOf,
+  type OnOutboundCall,
   type OutboundCallEvent,
   type OutboundCallSendStatus,
   type Produced,
@@ -54,8 +55,8 @@ export function resetRuns(): void {
 export const heard = { events: [] as OutboundCallEvent[], throws: false };
 
 /** Hears every move of every call that left the system. */
-@Observer()
-export class OutboundCallLog {
+@Injectable()
+export class OutboundCallLog implements OnOutboundCall {
   onOutboundCall(event: OutboundCallEvent): void {
     heard.events.push(event);
     if (heard.throws) throw new Error("the observer is broken");

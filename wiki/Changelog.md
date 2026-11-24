@@ -345,9 +345,9 @@ Breaking changes and notable additions, newest first. The API reports
 - **Fixed — SSRF**: every non-globally-reachable IANA special-purpose range is refused, embedded IPv4
   (mapped, translated, compatible, NAT64, 6to4) checked as IPv4; a url with userinfo is
   `a2a.file-origin-denied`, on a redirect too.
-- **Fixed**: `S3A2AFileRepository` keeps every valid id (segments ≤ 255 bytes, keys ≤ 1024, metadata
+- **Fixed**: `S3FileRepository` keeps every valid id (segments ≤ 255 bytes, keys ≤ 1024, metadata
   in the body; `a2aS3Prefix` ≤ 99 bytes); concurrent duplicates fetch a url once per listener; the
-  card's `outputModes` list what `A2AFiles.save` takes; `agboss check` types a `WorkflowFinishFileDto`
+  card's `outputModes` list what `Files.save` takes; `agboss check` types a `WorkflowFinishFileDto`
   finish; `A2AClient` reads a card without `capabilities.extensions`; `[application.retention-invalid]`
   names only the fields at fault.
 
@@ -396,7 +396,7 @@ Breaking changes and notable additions, newest first. The API reports
   never removes a live attempt; the client trusts a resend to such a skill only
   within that retention. The TCK's `DM-MSG-001` passes: 67 of 67 `MUST`
   ([A2A → direct replies](A2A#direct-replies--a2areplymessage-860)).
-- **Fixed** (#900): a pause's decision holding an `A2AFileDto`-shaped object at any depth is
+- **Fixed** (#900): a pause's decision holding an `FileDto`-shaped object at any depth is
   `-32602 a2a.file-field-in-data`.
 
 ## Unreleased — 0.1.1: the store entry, FencedEffects, the errors, Turn, the prune verbs (#890, API review G8)
@@ -437,12 +437,12 @@ Breaking changes and notable additions, newest first. The API reports
 
 ## Unreleased — 0.1.1: A2A file parts in messages and artifacts (#859)
 
-- **Added**: `raw` and `url` file parts — a skill whose input DTO has `A2AFileDto` fields takes
+- **Added**: `raw` and `url` file parts — a skill whose input DTO has `FileDto` fields takes
   them, bounded by `@A2AExpose({ skills: { [id]: { files } } })` / `@Application({ a2aFiles })`,
   each checked against its media type, a url fetched SSRF-safe once at the admission; a finish with
   file fields (`WorkflowFinishFileDto`, `WorkflowFinishFilesDto`) answers with file parts; the
-  `A2AFiles` service; `A2AFileRepository` (`InMemoryA2AFileRepository`,
-  `LocalDiskA2AFileRepository`, `S3A2AFileRepository`, `a2aFileContract`) or inline bytes, with
+  `Files` service; `FileRepository` (`InMemoryFileRepository`,
+  `LocalDiskFileRepository`, `S3FileRepository`, `fileContract`) or inline bytes, with
   `[a2a.inline-files-without-store]`, `[a2a.file-store-required]`, `[a2a.file-store-not-shared]`,
   `[a2a.file-options-invalid]`, `[a2a.nested-file-field]`; `retention.a2aFiles`; `a2aHttpListener({ fileFetchTimeout })`; the
   client's `A2AClientFile`, `downloadFile`, `A2ATaskResult.files`. The TCK's `DM-ART-001` file

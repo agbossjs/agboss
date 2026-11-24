@@ -63,8 +63,6 @@ export interface ModelSettings {
   cache?: CacheSetting | undefined;
   /** Overrides the provider's price table; the provider's own cost comes first. */
   price?: Price | undefined;
-  /** The `@ModelProvider` this model is served from, by `name` (#1313); absent = by `serves`. */
-  modelProvider?: string | undefined;
 }
 
 /**
@@ -137,10 +135,7 @@ export interface AgentsConfig {
       cache?: CacheSetting | undefined;
     };
     /** The model of `ROUTER_FACTORY` routers and of eval; none = they need their own. */
-    router?:
-      | { kind: "jev"; model: string; modelProvider?: string | undefined }
-      | (ModelSettings & { kind: "llm" })
-      | undefined;
+    router?: { kind: "jev"; model: string } | (ModelSettings & { kind: "llm" }) | undefined;
     tools?: { maxToolCalls?: number | undefined; maxResultSize?: number | undefined } | undefined;
     /** Recent turns every agent and model router sees in full. */
     uncompactedTurns: number | TurnLimit.ALL;

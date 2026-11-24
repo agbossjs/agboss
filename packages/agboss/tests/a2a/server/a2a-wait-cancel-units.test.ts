@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #824 (mutation shard `a2a-server`): the server's wait and cancel on their own — when a send
  * stops waiting, a wait's read once its run here ended (forced from the records) or not (as kept),
@@ -34,7 +33,7 @@ const FINISHED = {
   status: DurableExecutionStatus.Finished,
   finish: "unit-workflow-finish",
   output: { text: "done" },
-  spentUsd: usd(0),
+  spentUsd: 0,
 } as const;
 
 const newTasks = () => new InMemoryA2ATaskRepository(new InMemoryDatabase());

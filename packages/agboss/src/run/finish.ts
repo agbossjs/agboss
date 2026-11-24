@@ -1,6 +1,6 @@
 import { AGBossError } from "../core/errors.js";
 import { ExecutionStatus } from "../app/types.js";
-import { CostReport, totalCost } from "../finops/usage.js";
+import { buildCostReport, totalCost } from "../finops/usage.js";
 import { finishLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
@@ -116,7 +116,7 @@ export async function finishRun<TName extends string>(
     startInput: state.startInput,
     path: pathOf(state, pending),
     budgetUsd: ctx.budgetUsd,
-    cost: CostReport.fromUsage([...usage, ...memory.usage]),
+    cost: buildCostReport([...usage, ...memory.usage]),
     threadId: ctx.base.threadId,
     tenantId: ctx.base.tenantId,
     turnId,

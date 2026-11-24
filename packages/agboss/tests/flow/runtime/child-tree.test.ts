@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 import { beforeEach, describe, expect } from "vitest";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -132,7 +131,7 @@ describe("AC14: identity and inheritance", () => {
     ]);
     expect(childLog.ends[0]).toMatchObject({
       finish: { name: "item-checked-workflow-finish" },
-      spend: { totalUsd: usd(0.01) },
+      spend: { totalUsd: 0.01 },
     });
   });
 });

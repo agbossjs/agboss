@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #265 S30 edges of continuing an interrupted execution from its last checkpoint: a run is
  * `running` while it moves and completed when it ends; a graph that had already finished is only
@@ -112,7 +111,7 @@ describe("#265 S30: continuing an interrupted execution", () => {
       modelVersion: "m",
       configVersion: null,
       configHash: null,
-      ...runningOutcome([], usd(0)),
+      ...runningOutcome([], 0),
     });
 
     const continued = continueAgent(

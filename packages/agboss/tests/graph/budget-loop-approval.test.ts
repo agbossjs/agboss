@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the approval of a tool call at the loop's approval step, each rule on its own over
  * fakes: the interpreter's spend of a free-text reply is the loop's spend from now on (#267 PR 3), what the approver
@@ -31,7 +30,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

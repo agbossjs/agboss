@@ -4,7 +4,7 @@ import { partMetaOf, partOfBlock } from "../../models/content.js";
 import { messageWithBlocks } from "../../pii/message-mask.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
-import { A2AFileDto, redactedFileOf } from "./a2a-file.dto.js";
+import { FileDto, redactedFileOf } from "../../dto/standard/file.js";
 
 /**
  * Where a file descriptor is shown (#899 §0), found by what the value is. A renderer that knows the
@@ -23,8 +23,8 @@ const isPlain = (value: unknown): value is Plain => {
 
 const SOURCE_KEYS = ["fileId", "inline", "url"] as const;
 
-/** Whether a value is the descriptor of a file (`A2AFileDto`'s shape). */
-export function isFileDescriptor(value: unknown): value is A2AFileDto {
+/** Whether a value is the descriptor of a file (`FileDto`'s shape). */
+export function isFileDescriptor(value: unknown): value is FileDto {
   if (!isPlain(value) || typeof value.mediaType !== "string") return false;
   return SOURCE_KEYS.filter((key) => typeof value[key] === "string").length === 1;
 }
@@ -40,7 +40,7 @@ const blockShown = (block: ContentBlock): ContentBlock => {
 };
 
 /** A value with every descriptor in it through `onFile`; anything else as it is. */
-function mapped(value: unknown, onFile: (file: A2AFileDto) => unknown, depth = 0): unknown {
+function mapped(value: unknown, onFile: (file: FileDto) => unknown, depth = 0): unknown {
   if (depth > MAX_DEPTH) return TOO_DEEP;
   // a message to a model (an event's `rawPayload`): its file parts without their bytes (#899 §9)
   if (BaseMessage.isInstance(value)) return messageWithBlocks(value, blockShown);
@@ -80,8 +80,7 @@ export const withoutInlineBytes = (value: unknown): unknown =>
     Object.fromEntries(Object.entries(file).filter(([key]) => key !== "inline")),
   );
 
-const isFileDto = (dto: DtoClass): boolean =>
-  dto === A2AFileDto || dto.prototype instanceof A2AFileDto;
+const isFileDto = (dto: DtoClass): boolean => dto === FileDto || dto.prototype instanceof FileDto;
 
 /** What is left of a value a file DTO's place holds that is no descriptor: nothing that carries bytes. */
 const withoutSources = (value: Plain): Plain =>

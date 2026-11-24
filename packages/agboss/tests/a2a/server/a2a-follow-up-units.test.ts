@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #824 (mutation shard `a2a-server`): a follow-up on its own — the pause it answers (the one named,
  * the only one, else `-32602`; none waiting `-32004`), the resume as the caller, the outcome kept
@@ -246,7 +245,7 @@ describe("#824: a follow-up sent again", () => {
         await tasks.compareAndSetStatus(
           { tenantId: task.tenantId, taskId: task.taskId },
           task.version,
-          { ...done, spentUsd: usd(0) },
+          { ...done, spentUsd: 0 },
           NINE,
         );
       }

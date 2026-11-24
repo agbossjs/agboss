@@ -1,4 +1,6 @@
 import { Injectable } from "../components/decorators.js";
+import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
+import { ExecutionContextUnavailableError } from "../flow/context/errors.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
@@ -19,14 +21,27 @@ export interface ExecutionTree {
   readonly rootExecutionId: string;
 }
 
+/** The tree of the execution the caller runs in; outside one, `ExecutionContextUnavailableError`. */
+function currentTree(field: string): ExecutionTree {
+  const frame = currentFrame();
+  if (frame === undefined || frame.isClosed()) {
+    throw ExecutionContextUnavailableError.outside({
+      consumer: `ExecutionTreeRepository.${field}`,
+      field: "executionContext.root",
+    });
+  }
+  // a child's tree is its root's (#263): every execution of the request shares the keys
+  const { tenant } = frame.execution;
+  return { tenantId: tenant.tenantId, rootExecutionId: rootFactsOf(frame.execution).executionId };
+}
+
 /**
  * Infrastructure (#265): the shared state of one request — keys under its root execution, visible
  * to the whole tree of executions at any depth and on any instance, invisible to other requests,
- * removed when the tree finishes, fails or is cancelled (a pause keeps them). Every call names its
- * tree (`saveIfAbsentInTree(tree, …)`, `findByIdInTree(tree, …)`: #1321 removed the unscoped ones, which
- * read the tree from the running execution). Listed only in `@Application({ providers })`; the built-in
- * default is in memory. Your own `extends ExecutionTreeRepository` and implements the three tree-scoped
- * methods.
+ * removed when the tree finishes, fails or is cancelled (a pause keeps them). Inject it
+ * (`deps: [ExecutionTreeRepository]`) and call `saveIfAbsent` / `findById` inside an execution.
+ * Listed only in `@Application({ providers })`; the built-in default is in memory. Your own
+ * `extends ExecutionTreeRepository` and implements the three tree-scoped methods.
  */
 export abstract class ExecutionTreeRepository {
   /**
@@ -35,6 +50,16 @@ export abstract class ExecutionTreeRepository {
    * timeout of its own.
    */
   abstract ping(): Promise<void>;
+  /** Saves `value` under `key` of the current tree when the key is absent; `true` when this call saved it. */
+  saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean> {
+    return this.saveIfAbsentInTree(currentTree("saveIfAbsent"), key, value);
+  }
+
+  /** The value under `key` of the current tree; `undefined` when absent. */
+  findById(key: string): Promise<ExecutionTreeValue | undefined> {
+    return this.findByIdInTree(currentTree("findById"), key);
+  }
+
   /** Atomic: of two concurrent calls with one key, exactly one gets `true`. */
   abstract saveIfAbsentInTree(
     tree: ExecutionTree,

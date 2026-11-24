@@ -248,9 +248,7 @@ A workflow is a folder of components, one class per file, wired by a `*.workflow
 budgets, and is what `createApp` and `testWith` take, and what the CLI works on — its path set once
 in `package.json` (`"agboss": { "application": "src/desk/desk.application.ts" }`), a workflow chosen
 by its start (`agboss chat --start chat-workflow-start`, #268); `agboss check` writes `.agboss/types.d.ts`, which types the paths, every node's input and
-`app.execute`. It types every decorated class under `src/` (tests, `scripts/` and `bin/` left out), a
-workflow reaches it or not — a component under test, a tool-only application's router; the tables are the one namespace
-`AGBossTypes` (`AGBossTypes.Inputs`, `.Outputs`, …) and each class is branded `{ name, kind }`, which `NameOf` / `KindOf` read. The shape every workflow follows — a support desk with one tool, one injected
+`app.execute`. The shape every workflow follows — a support desk with one tool, one injected
 service, one agent and a router:
 
 ```ts file=src/desk/tools/order-status.dto.ts
@@ -1575,12 +1573,12 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
   checked before `send`), a `send` that throws or an invalid `decided(…)` is `QuestionFailedError`
   (`step.question`, `question` the step; `new QuestionFailedError({ question, cause })`) for `.onError` right after it; a tool naming a question role is
-  `[channel.wrong-tool]`; `AGBossTypes.ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`;
+  `[channel.wrong-tool]`; `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`;
   `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitQuestion] })` — its model sees a tool named the role (input = `ask`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `answer` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `question`; no tool interceptors), `result.pending[i].step` the asking agent, the record's `kind` `question` and its `component` the role; `maxVisits` bounds one visit's calls (`VisitsLimitExceededError` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `AgentFailedError`; an approval role there is `[channel.approval-role-as-tool]`; `callTool(Role, ask)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. Its one implementation (`@Channel`, `extends` the role) is
   listed in `@Application({ providers })` — channel transport is infrastructure, never a workflow's
   provider; none → `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`. A channel has
   one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, value }`,
-  typed by the generated `AGBossTypes.ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
+  typed by the generated `ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
   `app.resume({ pauseId, decision })`, `ChannelOutcome.decided(decision)` goes on at once (validated
   like a reply, its record closed at once: `Taken`, `PauseResolution.Decided`). The `pauseId` is made
   once per pause, before the first `send` — a retried `send` gets the same one (the channel's
@@ -1617,12 +1615,10 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   (`pause.no-reply-interpreter`); `[reply-interpreter.not-an-interpreter]`,
   `[reply-interpreter.no-interpret-method]` at assembly.
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
-  and never in `@Workflow`: an `@Observer({ name?, workflows?, agents?, deps? })` class with a
-  method per hook (`onToolEnd(event: ToolEndEvent)`, no `implements`), one instance each, called for
-  every execution of the application within its `workflows` / `agents` filter (`nameOf(C)` is the
-  `name` of any decorated class); a listed class without `@Observer`, with no hook or a misspelled
-  one, or with a repeated name fails assembly (`[observer.not-an-observer]`, `[observer.no-hooks]`,
-  `[observer.unknown-hook]`, `[observer.duplicate-name]`), one that throws
+  and never in `@Workflow`: typed hooks (`implements OnToolEnd, …`), one instance each, called for
+  every execution of the application (filter by `event.workflow.name === nameOf(W)` — `nameOf(C)`
+  is the `name` of any decorated class); an observer with no or a
+  misspelled hook fails assembly (`[observer.no-hooks]`, `[observer.unknown-hook]`), one that throws
   is a warning in the log (`observer.failed`). One event object per hook, plain data, never the
   internal state: every execution event (`ExecutionEvent`) has `executionId`, `parentExecutionId`,
   `rootExecutionId`, `threadId`, `tenantId`, `workflow` (`WorkflowRecord`: `name`, `version`,
@@ -1883,18 +1879,18 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   handler refuses a decoded request that is not the admitted one (`-32602 a2a.request-mismatch`). A
   message names its skill in `metadata[A2A_SKILLS_EXTENSION].skill` (optional with one export) and
   carries text parts (a `WorkflowStartTextDto` start) or one `data` part, checked before anything is
-  kept (`-32602`; files `-32005` — unless the start's input DTO holds `A2AFileDto` fields, #859:
+  kept (`-32602`; files `-32005` — unless the start's input DTO holds `FileDto` fields, #859:
   `raw` / `url` parts fill them (each in the field its `metadata[A2A_SKILLS_EXTENSION].field` names,
   else in order; never from the data part, `a2a.file-field-in-data`), bounded by
   `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`, each file's bytes
   checked against its media type, a url fetched once at the admission — `https:` on
   `allowedFileOrigins`, manual redirects ≤ 3, no special-purpose address (embedded IPv4 checked as IPv4) and no userinfo, #904, never through a proxy nor `node:http(s)` — its own connection and its own HTTP/1.1 `GET` on it (#1138: the name resolved once by the guarded resolver, every answer checked → a raw `net` socket to the vetted address, with a `lookup` that answers only it → its remote address checked at `connect`, before any byte, else destroyed → `tls.connect` on that socket (SNI and certificate for the host) → the request written on it, `Connection: close`, the response read by hand (`a2a-file-http.ts`: strict head, `chunked` / `Content-Length` / close framing; #1244: HTTP's blanks only, no control byte, one `Location`, a lone `chunked` never beside a length, `Accept-Encoding: identity` and no other coding on a 2xx, at most 4 bodiless `1xx` sharing the head's 16 KiB, a 2xx to the close refused — its truncation cannot be told); **one TCP connection per request, to the vetted address only, ever**: no `ClientRequest`, agent or global agent is constructed or asked, so a replaced `ClientRequest` / agent / `http.globalAgent` or an interceptor makes no lookup and no connection for it, whatever its resolver's timing (a same-tick answer too), nothing is pooled or reused, and each redirect hop goes through the same steps; **0 bytes to a denied peer** — no TCP payload, no ClientHello, no request —; the TLS socket is destroyed on every failure, #1022; what stays outside: a patch of `net` / `tls` itself acts on its own — one that connects elsewhere is refused at the peer check with nothing sent, though its TCP connection was made —, pass-through wrappers (APM) of `net` / `tls` work and `ClientRequest` wrappers never see the request; a `net` patch that lies about `remoteAddress` cannot be detected; one OpenTelemetry `CLIENT` span per request (an error status with `error.type` on any failure, after a 2xx status too: `a2a.file-too-large`, `ABORT_ERR`, `ECONNRESET`, #1139), no propagation header, `url.full` without query or fragment, a no-op without an SDK and never in Langfuse's isolated provider, #1021), whatever `NODE_USE_ENV_PROXY` / `HTTPS_PROXY` / the global agent / a replaced `https.Agent` / `global-agent` / a patched `https.request` say, and the deadline settling the fetch on its own timer, #916 —, `fileFetchTimeout`, the request's
-  end —; the card never asks for a file field in data, of the input or of a finish's output (#916) — `@A2AExpose({ cardFileFields })`, `A2ACardFileFields.Extension` (out of the data schemas, in the skills extension's `files` / `outputFiles` by finish) or `.Marker` (`x-agboss-file-part: { list, optional, mediaTypes }`, which the client's card check reads as it reads `files`), per skill too, #904; a finish with file fields answers with file parts; steps use `A2AFiles` (`read` / `save` /
-  `fromUrl`); bytes ride inline with no `A2AFileRepository` listed (`[a2a.inline-files-without-store]`
+  end —; the card never asks for a file field in data, of the input or of a finish's output (#916) — `@A2AExpose({ cardFileFields })`, `A2ACardFileFields.Extension` (out of the data schemas, in the skills extension's `files` / `outputFiles` by finish) or `.Marker` (`x-agboss-file-part: { list, optional, mediaTypes }`, which the client's card check reads as it reads `files`), per skill too, #904; a finish with file fields answers with file parts; steps use `Files` (`read` / `save` /
+  `fromUrl`); bytes ride inline with no `FileRepository` listed (`[a2a.inline-files-without-store]`
   above 64 KB, `[a2a.file-store-required]` above 256 KB) or in the store under the task
-  (`InMemoryA2AFileRepository`, `LocalDiskA2AFileRepository`, `S3A2AFileRepository`;
-  `a2aFileContract`; `[a2a.file-store-not-shared]`), removed `retention.a2aFiles` after the task is over, never while it
-  waits; the client's `A2AClientFile.fromBytes` / `.fromUrl`, `downloadFile`). One task = one root execution under the task's id (P1's reserved
+  (`InMemoryFileRepository`, `LocalDiskFileRepository`, `S3FileRepository`;
+  `fileContract`; `[a2a.file-store-not-shared]`), removed `retention.a2aFiles` after the task is over, never while it
+  waits; the client's `FileDto.fromBytes` / `.fromUrl` (the wire's `A2APart.fromFile`), `downloadFile`). One task = one root execution under the task's id (P1's reserved
   id) in `A2ATaskRepository`: the same `messageId` (per tenant and owner) again gets the same task,
   other content `-32602` — on every instance, as the store declares its `static store` backend (#824, #825): an
   application serving A2A on leases its instances share (any but `in-memory`) keeps its tasks on
@@ -1920,7 +1916,7 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   completed replies swept (an attempt in flight keeps its row and claim; a takeover accepts its
   message anew); the client
   trusts a resend to such a skill only within `messageIdempotencyRetention` (`callPeerOf`, 15 min by
-  default); a pause's decision holding an `A2AFileDto`-shaped object at any depth is `-32602
+  default); a pause's decision holding an `FileDto`-shaped object at any depth is `-32602
 a2a.file-field-in-data` (#900);
   `ListTasks.totalSize` counts every task its filters match, `statusTimestampAfter` keeps a status at or after
   it (`>=`, a2a.proto's words; #811 — the store's own bound stays `>`, the server passes one ms before
@@ -2052,7 +2048,7 @@ GuardrailRefusal`, its services and the execution through `deps`) — never both
   (`[guardrail.exclude-not-inherited]`, `[guardrail.not-a-guardrail]`); a model router takes the
   input ones (an `@OutputGuardrail` on a router is `[guardrail.output-on-router]`), a code router
   none (its own list: `[guardrail.no-model-call]`); a child workflow gets its own workflow's lists
-  over the application's. Spend `guardrail:<name>` (category `guardrails`); events `onGuardrailStart`
+  over the application's. Spend `guardrail:<name>` (category `guards`); events `onGuardrailStart`
   (`side`, `element`, `text`) / `onGuardrailEnd` (`isBlocked`, `probability`). Tests:
   `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes. **Code
   guardrails (#383):** `decidedBy: DecidedBy.Code` (absent = `DecidedBy.Model`; options

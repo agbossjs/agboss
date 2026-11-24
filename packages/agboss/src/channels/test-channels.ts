@@ -16,7 +16,7 @@ import type { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
   description: "Automatically approves any request (for tests)",
 })
 export class AutoApproveChannel {
-  declare readonly [agbossComponent]?: { readonly name: "auto-approve-channel" };
+  declare readonly [agbossComponent]?: "auto-approve-channel";
 
   send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>> {
     return Promise.resolve(ChannelOutcome.decided({ approved: true }));
@@ -29,7 +29,7 @@ export class AutoApproveChannel {
   description: "Automatically rejects any request (for tests)",
 })
 export class AutoRejectChannel {
-  declare readonly [agbossComponent]?: { readonly name: "auto-reject-channel" };
+  declare readonly [agbossComponent]?: "auto-reject-channel";
 
   send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>> {
     return Promise.resolve(

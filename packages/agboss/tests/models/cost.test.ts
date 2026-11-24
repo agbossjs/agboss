@@ -36,7 +36,7 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
       },
     );
 
-    expect(record).toMatchObject({ costUsd: usd(0.0123), costSource: "api" });
+    expect(record).toMatchObject({ costUsd: 0.0123, costSource: "api" });
   });
 
   it("AC6: without a reported cost, tokens × the price table (price-table)", () => {
@@ -48,7 +48,7 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
     );
 
     expect(recordUsage("summariser", { model: "local/llama", price }, tokens)).toMatchObject({
-      costUsd: usd(3),
+      costUsd: 3,
       costSource: "price-table",
     });
   });

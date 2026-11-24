@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-memory shard) — what both kinds of compaction share at run time, each rule on its own: a text read
  * through the PII policies with the spend of masking it recorded at once, and one summary stored with the records
@@ -13,7 +12,7 @@ const record = (costUsd: number): UsageRecord => ({
   ...ZERO_USAGE,
   caller: "pii",
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -70,7 +69,7 @@ describe("#1366: one compaction stored", () => {
     compaction: "notes",
     due: [turn("a"), turn("b"), turn("c")],
     text: "summary",
-    costUsd: usd(0.5),
+    costUsd: 0.5,
     summaries: 2,
     summaryQueueLength: 4,
   };
@@ -89,7 +88,7 @@ describe("#1366: one compaction stored", () => {
       toTurnId: "c",
       turns: 3,
       text: "summary",
-      costUsd: usd(0.5),
+      costUsd: 0.5,
     });
     expect(turnNumber).toHaveBeenCalledWith("tenant-1", "thread-1", "a");
     expect(turnNumber).toHaveBeenCalledWith("tenant-1", "thread-1", "c");

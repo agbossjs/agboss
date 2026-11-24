@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366: a mesh limit that a tool met fails the step with the loop's spend — its figure and its records — at
  * the loop's path, whichever of the two limits it is, so the ledger and the error agree on what the run cost.
@@ -13,7 +12,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -51,7 +50,7 @@ describe("#1366: the spend a mesh limit fails the step with", () => {
     ]);
 
     expect(error).toBeInstanceOf(MeshLoopDetectedError);
-    expect(error).toMatchObject({ spentUsd: usd(0.75), usage: [inLoop], path: ["flow", "alpha"] });
+    expect(error).toMatchObject({ spentUsd: 0.75, usage: [inLoop], path: ["flow", "alpha"] });
   });
 
   it("the hop limit: the same figure, records and path", async () => {
@@ -62,7 +61,7 @@ describe("#1366: the spend a mesh limit fails the step with", () => {
 
     expect(error).toBeInstanceOf(HopsLimitExceededError);
     expect(error).toMatchObject({
-      spentUsd: usd(0.75),
+      spentUsd: 0.75,
       usage: [inLoop],
       path: ["flow", "alpha"],
       maxMeshHops: 3,

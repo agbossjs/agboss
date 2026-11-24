@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules around one model call of an agent's loop, each on its own over fakes:
  * the exhausted signal on the call in flight, the check before the call (after a stop by an exhausted budget first),
@@ -42,7 +41,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -198,7 +197,7 @@ describe("#1366: the agent's limits", () => {
     const failure = await node(stateOf({ modelCalls: 2 }), undefined).catch((e: unknown) => e);
 
     expect(failure).toBeInstanceOf(LimitExceededError);
-    expect(failure).toMatchObject({ limit: 2, actual: 3, path: ["a", "b"], spentUsd: usd(1.5) });
+    expect(failure).toMatchObject({ limit: 2, actual: 3, path: ["a", "b"], spentUsd: 1.5 });
     expect((failure as LimitExceededError).usage).toEqual([record(0.5, "loop")]);
     expect((failure as Error).message).toContain("agents.alpha.limits.modelCalls");
     expect(invoke).not.toHaveBeenCalled();
@@ -294,7 +293,7 @@ describe("#1366: the spend of a call is counted at once", () => {
     expect(budgets.check).toHaveBeenCalledTimes(2);
     const spent = [
       record(0.125, "mask"),
-      expect.objectContaining({ costUsd: usd(0.25) }),
+      expect.objectContaining({ costUsd: 0.25 }),
       record(0.0625, "check"),
     ];
     expect(budgets.check).toHaveBeenLastCalledWith(
@@ -545,7 +544,7 @@ describe("#1366: what the observer hears of a model call", () => {
       callerName: "alpha",
       rawContent: "answer",
       usage: { promptTokens: 10, completionTokens: 4, totalTokens: 14 },
-      costUsd: usd(0.25),
+      calculatedCost: 0.25,
     });
   });
 

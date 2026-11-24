@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a branch of a launch watches of the budgets, each rule on its own over fakes:
  * the pass's `exhausted` signal stops the branch's step and its calls — unless a budget was exhausted before the
@@ -27,7 +26,7 @@ const record = (costUsd: number, caller = "service"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

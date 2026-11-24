@@ -8,10 +8,11 @@ import {
   type Produced,
 } from "../../../src/flow/dto-wrappers.js";
 import type {
-  AGBossTypes,
+  DtoBrands,
   InputOf,
   OutputOf,
   ProducerOutputOf,
+  WorkflowStarts,
 } from "../../../src/flow/generated-types.js";
 import {
   CompanyDto,
@@ -124,7 +125,7 @@ describe("S39: DTO brands tell two DTOs of the same shape apart", () => {
       caseOf(ApprovedVerdictDto).toFinish(RejectedWorkflowFinish),
     );
     expectTypeOf<ApprovedVerdictDto>().not.toEqualTypeOf<RejectedVerdictDto>();
-    expectTypeOf<AGBossTypes.DtoBrands["ApprovedVerdictDto"]>().toEqualTypeOf<ApprovedVerdictDto>();
+    expectTypeOf<DtoBrands["ApprovedVerdictDto"]>().toEqualTypeOf<ApprovedVerdictDto>();
   });
 
   it("the brand is optional: project code creates DTO values as before", () => {
@@ -170,7 +171,7 @@ describe("#270 AC13: InputOf is path-sensitive — optional fields narrow withou
 
 describe("#270 AC13 / AC21: WorkflowStarts types app.execute's input and result.output", () => {
   it("a map start's input; the outputs of the finishes it reaches", () => {
-    expectTypeOf<AGBossTypes.WorkflowStarts["company-check-workflow-start"]>().toEqualTypeOf<{
+    expectTypeOf<WorkflowStarts["company-check-workflow-start"]>().toEqualTypeOf<{
       input: { company: CompanyDto; request?: SearchRequestDto };
       output: CompanyScoreDto;
     }>();

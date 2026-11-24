@@ -135,7 +135,7 @@ export function agentRunner(
     // every check of the answer passed: what was held back goes out now (#1006)
     streamed?.release();
     const value: NodeValue = result.answer ?? { value: { text: result.reply } };
-    await reportNodeEvent((base) => deps.observer?.onAgentEnd({ ...base, name, output: value }));
+    await reportNodeEvent((base) => deps.observer?.onAgentEnd({ ...base, name, update: value }));
     const read = readInput(deps.graph, node, state).read;
     const { approvals, piiTokens, toolCalls, judgeVerdicts } = result;
     const usage = [...result.usage, ...guarded.usage];

@@ -121,7 +121,7 @@ function modelProvidersOfApplication(
       name: options.name,
       className: provider.name,
       reason: isListed ? ImplementationReason.Listed : ImplementationReason.Default,
-      serves: (options.serves ?? []).map(String),
+      serves: options.serves.map(String),
       isTransport: isTransportClass(provider),
     };
   });

@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 import { RagMode } from "../../src/rag/types.js";
 import { Agent, Workflow, type Class } from "../../src/index.js";
 import { Rag, RagTenancy } from "../../src/rag/index.js";
@@ -17,7 +16,7 @@ export class Handbook implements RagConnector {
       { source: "leave.md", text: "Leave is 25 days a year." },
       { source: "tools.md", text: "Use the #help channel." },
     ];
-    return Promise.resolve({ results: results.slice(0, options.topK), costUsd: usd(0.0002) });
+    return Promise.resolve({ results: results.slice(0, options.topK), costUsd: 0.0002 });
   }
 }
 

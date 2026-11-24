@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1269 (mutation shard files-pii): `viewOf` in the transcription view — what is kept for the cache and
  * what is not, the transcriber's call and its spend, the masking's spend, and the file as the model saw it.
@@ -20,7 +19,7 @@ import { NO_REDACTION } from "./runtime-parts.js";
 const usageOf = (caller: string): UsageRecord => ({
   caller,
   model: "m/x",
-  costUsd: usd(0.5),
+  costUsd: 0.5,
   costSource: CostSource.Api,
   inputTokens: 1,
   outputTokens: 2,

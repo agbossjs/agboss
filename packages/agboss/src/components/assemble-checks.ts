@@ -124,9 +124,7 @@ export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): 
 
 /** The classes among a workflow's `providers` (values excluded). */
 const providerClassesOf = (bundle: WorkflowMeta): readonly Class[] =>
-  [...(bundle.providers ?? []), ...(bundle.services ?? [])].flatMap((p) =>
-    "provide" in p ? [] : [p],
-  );
+  (bundle.providers ?? []).flatMap((p) => ("provide" in p ? [] : [p]));
 
 /**
  * Every class the container creates for the workflow, for the dependency graph check; `created` =

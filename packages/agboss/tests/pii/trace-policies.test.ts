@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppWith } from "../../src/application/create-app.js";
 import { Application } from "../../src/application/application.js";
 import type { AgentStartEvent } from "../../src/core/observability.js";
-import { Observer } from "../../src/index.js";
+import { Injectable, type OnAgentStart } from "../../src/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { replyWith, routeTo } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -83,8 +83,8 @@ const LANGFUSE = {
 const seen: string[] = [];
 
 /** Sees each agent's input, then breaks with a value of its own: the application's log has it. */
-@Observer()
-class BreakingObserver {
+@Injectable()
+class BreakingObserver implements OnAgentStart {
   onAgentStart(event: AgentStartEvent): void {
     seen.push(event.input);
     throw new Error(`observer broke on ${EMPLOYEE_ID}`);

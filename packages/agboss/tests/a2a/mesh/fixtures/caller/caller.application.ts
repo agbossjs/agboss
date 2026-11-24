@@ -7,12 +7,14 @@ import { Application } from "../../../../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../../src/dto/index.js";
 import {
   Action,
-  Observer,
+  Injectable,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
+  type OnExecutionEnd,
+  type OnExecutionError,
   type Produced,
 } from "../../../../../src/index.js";
 import { usd } from "../../../../../src/units/index.js";
@@ -207,8 +209,8 @@ export class AskPeerAction {
 }
 
 /** Every end and error of the caller's executions, on whichever instance. */
-@Observer()
-export class CallerLog {
+@Injectable()
+export class CallerLog implements OnExecutionEnd, OnExecutionError {
   onExecutionEnd(event: ExecutionEndEvent): void {
     caller.ends.push(event);
   }

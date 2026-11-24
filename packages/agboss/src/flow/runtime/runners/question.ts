@@ -101,7 +101,7 @@ export function questionRunner(
       failedAsking(error, node, { state, budgets }),
     );
     await reportNodeEvent((base) =>
-      deps.observer?.onChannelEnd({ ...base, name: role.name, output: reply.decision }),
+      deps.observer?.onChannelEnd({ ...base, name: role.name, update: reply.decision }),
     );
     return { value: { value: answered(reply.decision) }, read: input.read, usage: reply.usage };
   };

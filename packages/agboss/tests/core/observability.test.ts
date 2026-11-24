@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   Agent,
-  Observer,
+  Injectable,
   Tool,
   Workflow,
   type ExecutionStartEvent,
@@ -13,6 +13,19 @@ import {
   type AgentEndEvent,
   type RouterEndEvent,
   type RagEndEvent,
+  type OnAgentEnd,
+  type OnAgentStart,
+  type OnExecutionError,
+  type OnModelEnd,
+  type OnModelStart,
+  type OnRagStart,
+  type OnRagEnd,
+  type OnRouterEnd,
+  type OnRouterStart,
+  type OnToolEnd,
+  type OnToolStart,
+  type OnExecutionEnd,
+  type OnExecutionStart,
   type ToolEndEvent,
   type ToolStartEvent,
   Router,
@@ -41,8 +54,23 @@ class ToolInput {
 const hookEvents: string[] = [];
 let capturedState: ExecutionStartEvent | null = null;
 
-@Observer()
-class GlobalObserver {
+@Injectable()
+class GlobalObserver
+  implements
+    OnExecutionStart,
+    OnExecutionEnd,
+    OnAgentStart,
+    OnAgentEnd,
+    OnRouterStart,
+    OnRouterEnd,
+    OnToolStart,
+    OnToolEnd,
+    OnModelStart,
+    OnModelEnd,
+    OnRagStart,
+    OnRagEnd,
+    OnExecutionError
+{
   async onExecutionStart(state: ExecutionStartEvent) {
     hookEvents.push("WorkflowStart");
     capturedState = state;
@@ -66,10 +94,10 @@ class GlobalObserver {
   }
 
   async onToolStart(ctx: ToolStartEvent) {
-    hookEvents.push(`ToolStart:${ctx.tool}`);
+    hookEvents.push(`ToolStart:${ctx.toolName}`);
   }
   async onToolEnd(ctx: ToolEndEvent) {
-    hookEvents.push(`ToolEnd:${ctx.tool}`);
+    hookEvents.push(`ToolEnd:${ctx.toolName}`);
   }
 
   async onModelStart(req: ModelStartEvent) {

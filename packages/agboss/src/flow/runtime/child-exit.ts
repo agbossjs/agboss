@@ -4,7 +4,7 @@ import { handedOverOf, recordedHandOver } from "../../app/handed-over.js";
 import { HandOverSite } from "../../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf, RecordedError } from "../../core/error-record.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
-import { CostReport, type UsageRecord } from "../../finops/usage.js";
+import { buildCostReport, type UsageRecord } from "../../finops/usage.js";
 import { BudgetExceededError, LimitExceededError } from "../../graph/limits.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
 import { ChildExecutionFailedError } from "./child-errors.js";
@@ -95,7 +95,7 @@ export function childRecordOf(
       ? { finish: recordOfNode(child.records, state.finish), output: state.output }
       : {}),
     ...(end.error === undefined ? {} : { error: errorRecordOf(end.error) }),
-    spend: CostReport.fromUsage(end.usage),
+    spend: buildCostReport(end.usage),
     ...ownRecordsOf(state, end.carried),
   };
 }

@@ -17,7 +17,6 @@ import {
   type ProviderClientOptions,
 } from "./provider-clients.js";
 import type { ModelProviderDirectory } from "../models/resolve.js";
-import type { ModelKind } from "../models/model-kind.js";
 import type { ReplyInterpreterInput } from "../channels/reply-reader.js";
 
 /** Who a chat model is for: what a substitute gateway (scripted, replayed) keys its answers on. */
@@ -53,7 +52,7 @@ export interface ChatModelSpec {
 
 /** A router's model, resolved: a decision model by id (`kind: "jev"`), or a chat model with complete settings. */
 export type DecisionModel =
-  | { readonly kind: "jev"; readonly model: string; readonly modelProvider?: string | undefined }
+  | { readonly kind: "jev"; readonly model: string }
   | { readonly kind: "llm"; readonly settings: ResolvedModelSettings };
 
 /** A decision request: which router asks, on which model, over which routes. */
@@ -68,8 +67,6 @@ export interface DecideSpec {
   /** The cost caller, also the script key in tests (`judge:<name>`). */
   readonly caller: string;
   readonly model: string;
-  /** The provider's `name` its cascade resolved (#1313). */
-  readonly modelProvider?: string | undefined;
   readonly request: DecisionRequest;
 }
 
@@ -86,11 +83,6 @@ export interface ModelGateway {
    * judges on a decision model (a gateway without it fails their app at start).
    */
   readonly decide?: (spec: DecideSpec) => Promise<DecisionOutcome>;
-  /**
-   * What the provider a model's cascade resolved speaks (#1313): chat or decisions; `undefined`
-   * for no provider named — the model's name decides, as it did before drivers.
-   */
-  readonly kindOf?: (modelProvider: string | undefined) => ModelKind | undefined;
 }
 
 /** A gateway that also decides (the default, scripted and recording gateways). */
@@ -100,7 +92,6 @@ export type DecidingGateway = ModelGateway & Required<Pick<ModelGateway, "decide
 export interface ModelClients {
   readonly chatModel: ModelFactory;
   readonly jevClient: JevClient;
-  readonly kindOf?: ModelGateway["kindOf"];
 }
 
 /** Settings that make a different client; identical ones share one. */
@@ -111,7 +102,6 @@ const clientKey = (settings: ResolvedModelSettings): string =>
     settings.maxTokens,
     settings.reasoning,
     settings.promptCaching,
-    settings.modelProvider,
   ]);
 
 /** The default gateway over raw clients: one chat client per settings, Jev or LLM decisions. */
@@ -125,33 +115,19 @@ export function createModelGateway(clients: ModelClients): DecidingGateway {
   };
   const strategyOf = ({ router, model }: DecisionSpec): RouterEngine =>
     model.kind === "jev"
-      ? createJevRouter({
-          name: router,
-          model: model.model,
-          client: (request) => clients.jevClient(request, model.modelProvider),
-        })
+      ? createJevRouter({ name: router, model: model.model, client: clients.jevClient })
       : createLlmRouter({
           name: router,
           model: chatModel({ user: { kind: "router", router }, settings: model.settings }),
           settings: model.settings,
         });
-  const decide = async ({
-    caller,
-    model,
-    modelProvider,
-    request,
-  }: DecideSpec): Promise<DecisionOutcome> => {
+  const decide = async ({ caller, model, request }: DecideSpec): Promise<DecisionOutcome> => {
     checkDecisionRequest(request);
     const { state, questions } = request;
-    const raw = await clients.jevClient({ model, state, questions }, modelProvider);
+    const raw = await clients.jevClient({ model, state, questions });
     return readDecision(raw, { caller, model, questions });
   };
-  return {
-    chatModel,
-    routeTo: (spec) => strategyOf(spec).route(spec.request),
-    decide,
-    ...(clients.kindOf === undefined ? {} : { kindOf: clients.kindOf }),
-  };
+  return { chatModel, routeTo: (spec) => strategyOf(spec).route(spec.request), decide };
 }
 
 /**

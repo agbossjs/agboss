@@ -32,8 +32,8 @@ describe("#1366: the record of a run with guardrails", () => {
       { execution: { locale: "en" }, record: true },
     );
 
-    expect(result.spend.byCategory.guardrails).toBeCloseTo(0.375, 9);
-    expect(result.record?.spend.byCategory.guardrails).toBeCloseTo(0.375, 9);
+    expect(result.spend.byCategory.guards).toBeCloseTo(0.375, 9);
+    expect(result.record?.spend.byCategory.guards).toBeCloseTo(0.375, 9);
     expect(result.record?.spend.totalUsd).toBeCloseTo(0.875, 9);
   });
 });

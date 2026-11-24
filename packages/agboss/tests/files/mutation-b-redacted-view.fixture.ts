@@ -6,8 +6,8 @@ import type { RedactionResult, RedactionPlan } from "../../src/files/file-redact
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NO_FILES, type FileBatch, type FileRuntime } from "../../src/files/visit-files.js";
-import type { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
-import { InlineA2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
+import type { FileRepository } from "../../src/infrastructure/file.repository.js";
+import { InlineFileRepository } from "../../src/infrastructure/file.repository.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import type { PiiRefusedError } from "../../src/pii/errors.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -33,7 +33,7 @@ export const pngOfSize = (size: number, filename?: string): FileContent =>
 export const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
 
 export interface RuntimeOver {
-  readonly store?: A2AFileRepository;
+  readonly store?: FileRepository;
   readonly supports?: (mediaType: string) => boolean;
   readonly redact?: (file: FileContent, plan: RedactionPlan) => Promise<RedactionResult>;
   readonly maxFileSize?: number;
@@ -41,7 +41,7 @@ export interface RuntimeOver {
 }
 
 export function runtimeOf(over: RuntimeOver = {}): FileRuntime {
-  const store = over.store ?? new InlineA2AFileRepository();
+  const store = over.store ?? new InlineFileRepository();
   return {
     agent: AGENT,
     settings: {

@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (mesh-charge shard) — which signed report a caller takes, each rule on its own: only one that is signed by
  * the key of the peer it names, for the very request it sent (its body hash), and well formed; every other counts
@@ -20,7 +19,7 @@ const peers = new Map([["peer-app", peer.publicKey]]);
 const facts = {
   issuer: "peer-app",
   executionId: "exec-1",
-  spentUsd: usd(0.25),
+  spentUsd: 0.25,
   bodyHash: "hash-1",
   issuedAt: new Date("2030-01-01T00:00:00.000Z"),
 };

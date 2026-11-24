@@ -1,4 +1,3 @@
-import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (money-runtime shard) — where a run's spend is recorded, forwarded or carried in the flow runtime, each rule on
  * its own over fakes: what a visit's records and its code's services report, what a router's visit spends (the masking
@@ -58,7 +57,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 
@@ -171,7 +170,7 @@ describe("#1366: the lost passes a step records", () => {
     expect(reportUsage.mock.calls[0]?.[0]).toMatchObject({
       caller: "agent:n#2",
       model: "unknown",
-      costUsd: usd(0),
+      costUsd: 0,
       costSource: CostSource.Unknown,
       ledgerKey: { id: "unknown:root:n#2:task-1:1" },
     });
@@ -375,7 +374,7 @@ describe("#1366: the cost a child's record and a turn report", () => {
       rootExecutionId: "root",
       depth: 2,
       status: ChildExecutionStatus.Failed,
-      spend: { totalUsd: usd(0.75), calls: 2 },
+      spend: { totalUsd: 0.75, calls: 2 },
       error: { message: "broke" },
       path: [],
       children: [],
@@ -406,7 +405,7 @@ describe("#1366: the cost a child's record and a turn report", () => {
     expect(out).toMatchObject({
       itemIndex: 3,
       output: { o: 1 },
-      spend: { totalUsd: usd(0) },
+      spend: { totalUsd: 0 },
       path: ["p"],
     });
     expect("finish" in out).toBe(true);
@@ -443,13 +442,13 @@ describe("#1366: the cost a child's record and a turn report", () => {
   });
 
   it("the record of a turn that is running carries the cost so far; a failed one the cost of what it spent", () => {
-    expect(runningOutcome(["a", "b"], usd(0.5))).toEqual({
+    expect(runningOutcome(["a", "b"], 0.5)).toEqual({
       replyWith: "",
       status: "running",
       stopReason: "",
       route: ["a", "b"],
       steps: [],
-      costUsd: usd(0.5),
+      costUsd: 0.5,
     });
     expect(failedOutcome(new Error("it broke"), [record(0.5), record(0.25)])).toEqual({
       replyWith: "",
@@ -457,7 +456,7 @@ describe("#1366: the cost a child's record and a turn report", () => {
       stopReason: "it broke",
       route: [],
       steps: [],
-      costUsd: usd(0.75),
+      costUsd: 0.75,
     });
   });
 
@@ -683,7 +682,7 @@ describe("#1366: what a router's visit spends", () => {
     expect(onRouterEnd).toHaveBeenCalledWith({
       base: true,
       name: "r",
-      output: { route: "yes", reason: "because" },
+      update: { route: "yes", reason: "because" },
     });
   });
 
@@ -701,7 +700,7 @@ describe("#1366: what a router's visit spends", () => {
     expect(onRouterEnd).toHaveBeenCalledWith({
       base: true,
       name: "r",
-      output: { route: "a, b", reason: "both" },
+      update: { route: "a, b", reason: "both" },
     });
   });
 });

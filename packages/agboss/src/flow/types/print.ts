@@ -1,4 +1,3 @@
-import { NodeKind } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { TablesImport, type ClassImport, type ImportTable } from "./imports.js";
 import type { TypeTable, TypeTables } from "./tables.js";
@@ -18,36 +17,29 @@ const HEADER = [
   "// run `agboss check` again after changing a workflow or a component.",
 ];
 
-const pad = (depth: number): string => "  ".repeat(depth);
+const INDENT = "    ";
 
 /** One entry; a union over several lines is written one member per line. */
-function entryLines(key: string, type: string, depth: number): readonly string[] {
+function entryLines(key: string, type: string): readonly string[] {
   const name = JSON.stringify(key);
-  if (!type.includes("\n")) return [`${pad(depth)}${name}: ${type};`];
-  const members = type.split("\n").map((member) => `${pad(depth + 1)}${member}`);
+  if (!type.includes("\n")) return [`${INDENT}${name}: ${type};`];
+  const members = type.split("\n").map((member) => `${INDENT}  ${member}`);
   const last = members.length - 1;
   return [
-    `${pad(depth)}${name}:`,
+    `${INDENT}${name}:`,
     ...members.map((line, index) => (index === last ? `${line};` : line)),
   ];
 }
 
-/** An interface of entries at `depth` (1: in the module, 2: in `namespace AGBossTypes`). */
-function tableLines(table: string, entries: TypeTable, depth = 2): readonly string[] {
+function tableLines(table: string, entries: TypeTable): readonly string[] {
   if (entries.size === 0) return [];
   const sorted = [...entries].sort(([first], [second]) => first.localeCompare(second));
   return [
-    `${pad(depth)}interface ${table} {`,
-    ...sorted.flatMap(([key, type]) => entryLines(key, type, depth + 1)),
-    `${pad(depth)}}`,
+    `  interface ${table} {`,
+    ...sorted.flatMap(([key, type]) => entryLines(key, type)),
+    "  }",
   ];
 }
-
-/** The tables, all inside `namespace AGBossTypes`; none when every table is empty. */
-const namespaceLines = (tables: readonly (readonly string[])[]): readonly string[] => {
-  const written = tables.filter((lines) => lines.length > 0);
-  return written.length === 0 ? [] : ["  namespace AGBossTypes {", ...written.flat(), "  }"];
-};
 
 function dtoBrands(names: ImportTable): TypeTable {
   return new Map(
@@ -55,55 +47,35 @@ function dtoBrands(names: ImportTable): TypeTable {
   );
 }
 
-const NODE_KIND_KEYS: ReadonlyMap<string, string> = new Map(
-  Object.entries(NodeKind).map(([key, value]) => [value, key]),
-);
-
-/** `NodeKind.Agent` for a flow component's declared kind; undefined for a class that is not one. */
-function kindText(component: ClassImport["component"], names: ImportTable): string | undefined {
-  const kind = declarationOf(component)?.kind;
-  const key = kind === undefined ? undefined : NODE_KIND_KEYS.get(kind);
-  return key === undefined ? undefined : `${names.use(TablesImport.NodeKind)}.${key}`;
-}
-
-/**
- * The brand of one class: its component `{ name, kind }` (a channel or a tool has no flow kind), or a
- * DTO's class name; none for any other class the file imports (a context, an application).
- */
+/** The brand of one class: its component `name`, or a DTO's class name. */
 function brandLines(imported: ClassImport, names: ImportTable): readonly string[] {
   const name =
     declarationOf(imported.component)?.options.name ??
     channelBrandOf(imported.component) ??
     toolComponentNameOf(imported.component);
-  const header = `  interface ${imported.component.name} {`;
-  if (name !== undefined) {
-    const kind = kindText(imported.component, names);
-    const brand = `{ readonly name: ${JSON.stringify(name)}${kind === undefined ? "" : `; readonly kind: ${kind}`} }`;
-    return [
-      header,
-      `${pad(2)}readonly [${names.use(TablesImport.ComponentBrand)}]?: ${brand};`,
-      "  }",
-    ];
-  }
-  if (!names.isDto(imported.component)) return [];
-  const brand = `readonly [${names.use(TablesImport.DtoBrand)}]?: ${JSON.stringify(imported.component.name)};`;
-  return [header, `${pad(2)}${brand}`, "  }"];
+  const brand =
+    name === undefined
+      ? `readonly [${names.use(TablesImport.DtoBrand)}]?: ${JSON.stringify(imported.component.name)};`
+      : `readonly [${names.use(TablesImport.ComponentBrand)}]?: ${JSON.stringify(name)};`;
+  return [`  interface ${imported.component.name} {`, `${INDENT}${brand}`, "  }"];
 }
 
 function brandBlocks(names: ImportTable): readonly string[] {
-  const byModule = new Map<string, string[]>();
-  const branded = names.classes
-    .filter((found) => names.isBranded(found.component))
-    .sort((first, second) => first.component.name.localeCompare(second.component.name));
-  for (const imported of branded) {
-    const lines = brandLines(imported, names);
-    if (lines.length === 0) continue;
+  const byModule = new Map<string, ClassImport[]>();
+  for (const imported of names.classes.filter((found) => names.isBranded(found.component))) {
     const from = names.specifier(imported.file);
-    byModule.set(from, [...(byModule.get(from) ?? []), ...lines]);
+    byModule.set(from, [...(byModule.get(from) ?? []), imported]);
   }
   return [...byModule]
     .sort(([first], [second]) => first.localeCompare(second))
-    .flatMap(([from, lines]) => ["", `declare module "${from}" {`, ...lines, "}"]);
+    .flatMap(([from, classes]) => [
+      "",
+      `declare module "${from}" {`,
+      ...[...classes]
+        .sort((first, second) => first.component.name.localeCompare(second.component.name))
+        .flatMap((imported) => brandLines(imported, names)),
+      "}",
+    ]);
 }
 
 /** The whole file. */
@@ -126,19 +98,17 @@ export function printTypes(
 ): string {
   const declarations = [
     ...environmentLines(tables.environments ?? []),
-    ...tableLines("ThisWorkflowOutputs", tables.thisWorkflowOutputs, 1),
-    ...namespaceLines([
-      tableLines("ProducerOutputs", tables.producerOutputs),
-      tableLines("Inputs", tables.inputs),
-      tableLines("Outputs", tables.outputs),
-      tableLines("WorkflowStarts", tables.workflowStarts),
-      tableLines("Routes", tables.routes),
-      tableLines("RouterAnswers", tables.routerAnswers),
-      tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
-      tableLines("PauseTargets", tables.pauseTargets ?? new Map()),
-      tableLines("AgentTools", tables.agentTools ?? new Map()),
-      tableLines("DtoBrands", dtoBrands(names)),
-    ]),
+    ...tableLines("ProducerOutputs", tables.producerOutputs),
+    ...tableLines("Inputs", tables.inputs),
+    ...tableLines("Outputs", tables.outputs),
+    ...tableLines("WorkflowStarts", tables.workflowStarts),
+    ...tableLines("Routes", tables.routes),
+    ...tableLines("RouterAnswers", tables.routerAnswers),
+    ...tableLines("ThisWorkflowOutputs", tables.thisWorkflowOutputs),
+    ...tableLines("ChannelRoles", tables.channelRoles ?? new Map()),
+    ...tableLines("PauseTargets", tables.pauseTargets ?? new Map()),
+    ...tableLines("AgentTools", tables.agentTools ?? new Map()),
+    ...tableLines("DtoBrands", dtoBrands(names)),
   ];
   const brands = brandBlocks(names);
   const body = [

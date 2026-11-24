@@ -1,7 +1,14 @@
 /** #120 AC7: logs, traces, events and the record are masked by the application's lists. */
 import { createAppWith } from "../../src/application/create-app.js";
 import { describe, expect, it } from "vitest";
-import { Observer, PiiAction } from "../../src/index.js";
+import {
+  Injectable,
+  PiiAction,
+  type OnAgentStart,
+  type OnModelStart,
+  type OnToolEnd,
+  type OnToolStart,
+} from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import type {
   AgentStartEvent,
@@ -37,16 +44,16 @@ const EMAIL = "alice@example.com";
 /** Every event the observers saw, as text. */
 const seen: string[] = [];
 
-@Observer()
-class SeeingObserver {
+@Injectable()
+class SeeingObserver implements OnAgentStart, OnToolStart, OnToolEnd, OnModelStart {
   onAgentStart(event: AgentStartEvent): void {
     seen.push(event.input);
   }
   onToolStart(event: ToolStartEvent): void {
-    seen.push(JSON.stringify(event.input));
+    seen.push(JSON.stringify(event.arguments));
   }
   onToolEnd(event: ToolEndEvent): void {
-    seen.push(event.output);
+    seen.push(event.update);
   }
   onModelStart(event: ModelStartEvent): void {
     seen.push(event.rawPayload.map((message) => JSON.stringify(message.content)).join(" "));

@@ -1,4 +1,3 @@
-import { usd } from "../../src/units/index.js";
 /**
  * #1366 (files-pii shard) — what a policy set's model detectors cost: a search carries the spend of every policy's
  * detector, a text that is empty is searched by nobody and costs nothing, and the refusal of a blocked finding carries
@@ -15,7 +14,7 @@ const record = (costUsd: number, caller = "pii"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd: usd(costUsd),
+  costUsd,
   costSource: CostSource.Api,
 });
 

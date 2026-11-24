@@ -81,11 +81,11 @@ export class SqliteMeshRequestRepository extends MeshRequestRepository {
     return Promise.resolve();
   }
 
-  deleteExpired(cutoff: Date): Promise<number> {
-    const { changes } = this.connection.database
+  deleteByCreatedAtBefore(cutoff: Date): Promise<void> {
+    this.connection.database
       .prepare("DELETE FROM mesh_requests WHERE created_at < ?")
       .run(cutoff.toISOString());
-    return Promise.resolve(Number(changes));
+    return Promise.resolve();
   }
 }
 

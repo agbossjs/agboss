@@ -1,6 +1,6 @@
 /**
  * #859 AC3: a file is never smuggled inside a data part — an A2A file is a part of its own, filled
- * into a top-level field, so a DTO an application exchanges over A2A holds `A2AFileDto` at the top
+ * into a top-level field, so a DTO an application exchanges over A2A holds `FileDto` at the top
  * level only: one in a nested DTO or a list item is `[a2a.nested-file-field]` at assembly (an
  * exported start's input, its finishes' outputs, an `@A2AAgent`'s input and output), and a client
  * built with such a contract refuses to call.
@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
 import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
-import { A2AFileDto, nestedFileFieldsOf } from "../../../src/a2a/files/a2a-file.dto.js";
+import { FileDto, nestedFileFieldsOf } from "../../../src/dto/standard/file.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { List, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -28,8 +28,8 @@ export class AttachmentItemDto {
   @Text({ prompt: "what it is" })
   label!: string;
 
-  @Nested(A2AFileDto, { prompt: "its file" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "its file" })
+  file!: FileDto;
 }
 
 /** A request whose files sit in list items. */
@@ -155,7 +155,7 @@ describe("#1271: a list output of an exported finish never skips the file checks
   });
 });
 
-describe("#859 AC3: A2AFileDto only at the top level of an A2A DTO", () => {
+describe("#859 AC3: FileDto only at the top level of an A2A DTO", () => {
   it("the paths where a file sits below the top level, a list item's and a nested DTO's", () => {
     expect(nestedFileFieldsOf(ItemsRequestDto)).toEqual(["items[].file"]);
     expect(nestedFileFieldsOf(WrappedRequestDto)).toEqual(["request.document", "request.pages[]"]);

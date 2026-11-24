@@ -1,6 +1,5 @@
 import { Text } from "../../../../src/dto/index.js";
 import {
-  Observer,
   Action,
   EmptyEnvironment,
   ExecutionContext,
@@ -10,6 +9,8 @@ import {
   WorkflowStart,
   type CompensationEndEvent,
   type CompensationStartEvent,
+  type OnCompensationEnd,
+  type OnCompensationStart,
   type Produced,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
@@ -336,8 +337,8 @@ export class UndoPathWorkflow {}
 /** Every compensation event, in order. */
 export const undoEvents: (CompensationStartEvent | CompensationEndEvent)[] = [];
 
-@Observer()
-export class UndoLog {
+@Injectable()
+export class UndoLog implements OnCompensationStart, OnCompensationEnd {
   onCompensationStart(event: CompensationStartEvent): void {
     undoEvents.push(event);
   }

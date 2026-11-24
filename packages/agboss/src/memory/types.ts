@@ -1,4 +1,3 @@
-import { type Usd } from "../units/index.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { HistoryTurn } from "../flow/runtime/history.js";
 
@@ -31,7 +30,7 @@ export interface MemoryTurn {
   readonly executionId: string;
   readonly turn: HistoryTurn;
   /** What is left of the run's budget; a strategy that calls a model does nothing at 0. */
-  readonly budgetLeftUsd: Usd | undefined;
+  readonly budgetLeftUsd: number;
 }
 
 /** What an update did; the spend of its model calls goes to the run's cost report. */

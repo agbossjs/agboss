@@ -3,7 +3,7 @@ import { ExecutionCancelledError } from "../core/errors.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { currentAuditEventOf } from "../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
-import { CostReport, type UsageRecord } from "../finops/usage.js";
+import { buildCostReport, type UsageRecord } from "../finops/usage.js";
 import { compensationRecordsOf, type CompensationRecord } from "../flow/compensation.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
@@ -129,7 +129,7 @@ const recordPartOf = (values: RecordedState, end: HistoryEnd) => ({
   scope: Object.values(values.scope),
   outdatedValues: values.outdatedValues,
   ...(values.lastError === null ? {} : { lastError: values.lastError }),
-  spend: CostReport.fromUsage([...values.usage, ...(end.lostUsage ?? [])]),
+  spend: buildCostReport([...values.usage, ...(end.lostUsage ?? [])]),
   children: withChildPauses(values.children, []),
   pauses: [],
   compensations: compensationRecordsOf(values.compensations),

@@ -71,8 +71,8 @@
           "reason": "default"
         },
         {
-          "contract": "A2AFileRepository",
-          "implementation": "InlineA2AFileRepository",
+          "contract": "FileRepository",
+          "implementation": "InlineFileRepository",
           "reason": "default"
         },
         {

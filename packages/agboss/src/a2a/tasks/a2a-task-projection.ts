@@ -1,4 +1,10 @@
-import type { ExecutionObserver } from "../../core/observer-hooks.js";
+import type {
+  OnExecutionEnd,
+  OnExecutionError,
+  OnExecutionPause,
+  OnExecutionResume,
+  OnExecutionStart,
+} from "../../core/observer-hooks.js";
 import type {
   ExecutionEndEvent,
   ExecutionErrorEvent,
@@ -41,7 +47,9 @@ export interface A2ATaskProjectionParts {
  * write is a compare-and-set on the task's version and a terminal status is never left. Events are
  * at most once (#562, #597): a status they miss is repaired on read.
  */
-export class A2ATaskProjection implements ExecutionObserver {
+export class A2ATaskProjection
+  implements OnExecutionStart, OnExecutionPause, OnExecutionResume, OnExecutionEnd, OnExecutionError
+{
   constructor(private readonly parts: A2ATaskProjectionParts) {}
 
   onExecutionStart(event: ExecutionEvent): Promise<void> {

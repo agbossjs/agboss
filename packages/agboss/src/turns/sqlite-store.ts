@@ -1,4 +1,3 @@
-import { usd } from "../units/index.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
@@ -24,7 +23,7 @@ function toVersionScore(row: unknown): VersionScore {
     turns: r.turns,
     scored: r.scored,
     meanScore: r.mean_score,
-    costUsd: usd(r.cost_usd),
+    costUsd: r.cost_usd,
   };
 }
 

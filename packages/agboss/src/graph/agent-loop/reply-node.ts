@@ -18,7 +18,9 @@ export function makeReplyNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     const answerTools = deps.agent.answerTools.tools.map((tool) => tool.name);
     if (answerTools.length > 0) {
       const problem = answerWithToolMessage(answerTools);
-      return invalidAnswer(state, deps, problem, [...move, new HumanMessage(problem)]);
+      return Promise.resolve(
+        invalidAnswer(state, deps, problem, [...move, new HumanMessage(problem)]),
+      );
     }
     const text = state.move?.text.trim() ?? "";
     return Promise.resolve({ messages: move, move: null, reply: text });

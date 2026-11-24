@@ -2,9 +2,12 @@ import { describe, expect } from "vitest";
 import {
   Workflow,
   Agent,
+  OnExecutionStart,
   type ExecutionStartEvent,
+  OnAgentStart,
   type AgentStartEvent,
-  Observer,
+  Injectable,
+  OnAgentEnd,
   type AgentEndEvent,
   WorkflowStart,
   WorkflowFinish,
@@ -13,8 +16,8 @@ import { testWith, replyWith } from "../../src/testing/index.js";
 
 const logs: string[] = [];
 
-@Observer()
-class MyMetricsObserver {
+@Injectable()
+class MyMetricsObserver implements OnExecutionStart, OnAgentStart, OnAgentEnd {
   onExecutionStart(_event: ExecutionStartEvent) {
     logs.push(`start-wf`);
   }

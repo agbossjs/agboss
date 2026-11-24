@@ -9,8 +9,6 @@ import type { LoadedModule } from "../flow/analyse/rules/context.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { isThisWorkflow } from "../flow/this-workflow.js";
-import { toolComponentNameOf } from "../flow/types/agent-tools.js";
-import { channelBrandOf } from "../flow/types/channel-roles.js";
 import { WorkflowLoadError } from "./load-errors.js";
 import { importedModules, registerTypeScript } from "./typescript.js";
 import { lazyLoad } from "../infrastructure/clock.js";
@@ -27,11 +25,6 @@ export interface FlowProject {
   readonly workflows: readonly Class[];
   /** The `@Application` classes the loaded modules export (#261: defaults, environment contract). */
   readonly applications: readonly Class[];
-  /**
-   * The decorated classes the project's own modules export (#1324g): flow components, tools and
-   * channels — the classes `.agboss/types.d.ts` brands, whether or not a workflow reaches them.
-   */
-  readonly components: readonly Class[];
   readonly modules: readonly LoadedModule[];
 }
 
@@ -47,12 +40,6 @@ const isFlowWorkflow = (value: unknown): value is Class =>
 
 const isApplication = (value: unknown): value is Class =>
   typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined;
-
-const isComponent = (value: unknown): value is Class =>
-  typeof value === "function" &&
-  (declarationOf(value) !== undefined ||
-    channelBrandOf(value as Class) !== undefined ||
-    toolComponentNameOf(value as Class) !== undefined);
 
 const namespaceOf = async (file: string): Promise<Readonly<Record<string, unknown>>> =>
   (await lazyLoad(import(pathToFileURL(file).href))) as Readonly<Record<string, unknown>>;
@@ -115,13 +102,5 @@ export async function loadFlowProject(
   const loaded = new Set(modules.map((module) => module.file));
   for (const file of environmentFilesOf(applications).filter((path) => !loaded.has(path)))
     modules.push({ file, exports: await namespaceOf(file) });
-  const components = [
-    ...new Set(
-      modules
-        .filter((module) => own.has(module.file))
-        .flatMap((module) => Object.values(module.exports).filter(isComponent))
-        .filter((component) => !isThisWorkflow(component)),
-    ),
-  ];
-  return { workflows, applications, components, modules };
+  return { workflows, applications, modules };
 }

@@ -1,4 +1,4 @@
-// #859 — an S3-compatible store in process, for `S3A2AFileRepository`'s tests: path-style objects
+// #859 — an S3-compatible store in process, for `S3FileRepository`'s tests: path-style objects
 // of one bucket, `If-None-Match: *` puts, user metadata, `ListObjectsV2` paged by two (from
 // `start-after`, recording each listing's keys) — and every
 // request's Signature Version 4 recomputed and checked, so an unsigned or mis-signed call fails.

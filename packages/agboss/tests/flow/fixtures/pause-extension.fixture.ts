@@ -1,7 +1,7 @@
 import { Application } from "../../../src/application/application.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
-import { Channel } from "../../../src/components/decorators.js";
-import type { ExecutionErrorEvent } from "../../../src/index.js";
+import { Channel, Injectable } from "../../../src/components/decorators.js";
+import type { ExecutionErrorEvent, OnExecutionError } from "../../../src/index.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
@@ -27,7 +27,6 @@ import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
 import { onStart } from "./paths.js";
-import { Observer } from "../../../src/index.js";
 
 /**
  * #942 — a pause that is extended and reminded: a manager's approval (24 h, a reminder 2 h before),
@@ -220,8 +219,8 @@ export class ExtensionPauseListener implements PauseListenerHandler {
 }
 
 /** What the observers heard: the errors executions failed with. */
-@Observer()
-export class ExtensionLog {
+@Injectable()
+export class ExtensionLog implements OnExecutionError {
   onExecutionError(event: ExecutionErrorEvent): void {
     told.errors.push(event.error);
   }

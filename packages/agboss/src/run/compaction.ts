@@ -1,5 +1,3 @@
-import { budgetLeftAfter, isBudgetLeftUsed } from "../finops/cost-report.js";
-import { type Usd } from "../units/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { HumanMessage, SystemMessage, type AIMessage } from "@langchain/core/messages";
 import { CompactionError } from "../compaction/errors.js";
@@ -48,7 +46,7 @@ export interface Compacted {
 export interface CompactionRun {
   readonly tenantId: string;
   readonly threadId: string;
-  readonly budgetLeftUsd: Usd | undefined;
+  readonly budgetLeftUsd: number;
   readonly callbacks: BaseCallbackHandler[];
   /** The execution's PII tokens: a value already tokenised keeps its token. */
   readonly tokens: PiiTokenMap;
@@ -239,7 +237,7 @@ export async function compactDue<TName extends string>(
   const usage: UsageRecord[] = [];
   const compacted: Compacted[] = [];
   for (const compaction of plan.compactions) {
-    if (isBudgetLeftUsed(budgetLeftAfter(run.budgetLeftUsd, totalCost(usage)))) break;
+    if (run.budgetLeftUsd - totalCost(usage) <= 0) break;
     const one = await compactOne(deps, compaction, run);
     usage.push(...one.usage);
     if (one.compacted !== undefined) compacted.push(one.compacted);

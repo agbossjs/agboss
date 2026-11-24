@@ -1,6 +1,6 @@
 import { LimitExceededError } from "../graph/limits.js";
 import type { UsageRecord } from "../finops/usage.js";
-import { type Milliseconds, type Usd } from "../units/index.js";
+import type { Milliseconds } from "../units/index.js";
 
 /**
  * An execution's deadline (#398 PR 2): `app.execute(…, { deadline: seconds(30) })`, or the time a
@@ -23,7 +23,7 @@ export interface DeadlineExceededErrorOptions {
   /** When it passed (ISO 8601). */
   readonly deadlineAt: string;
   readonly path: readonly string[];
-  readonly spentUsd: Usd;
+  readonly spentUsd: number;
   readonly usage?: readonly UsageRecord[];
   readonly cause?: unknown;
 }
@@ -73,7 +73,7 @@ export function checkDeadline(
   now: Date,
   place: {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
+    readonly spentUsd: number;
     readonly usage: readonly UsageRecord[];
   },
 ): void {

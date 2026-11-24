@@ -1,7 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import {
   InjectionToken,
-  injectAsOf,
   isClassProvider,
   tokenName,
   type Class,
@@ -25,12 +24,6 @@ export interface ProviderModule {
   readonly providers: readonly Provider[];
   /** The decorator that lists them (default `@Workflow`). */
   readonly declaredIn?: "@Workflow" | "@Application";
-  /**
-   * What a workflow lists in `services` (#1324), among `providers` too: these are scoped to the
-   * workflow — its container creates them (and whatever depends on them) itself, they shadow the
-   * application's implementation of the same port, and no other workflow sees them.
-   */
-  readonly services?: readonly Provider[];
 }
 
 /** `@Workflow "desk-workflow"` / `@Application "desk-application"`. */
@@ -42,11 +35,10 @@ export type Registration =
   | { readonly kind: "value"; readonly value: unknown }
   | { readonly kind: "class"; readonly cls: Class };
 
-/** Whether `cls` is `contract`, extends it, names it in `injectAs` (#1324), or is a `@Channel` serving it as its `target`. */
+/** Whether `cls` is `contract`, extends it, or is a `@Channel` serving it as its `target`. */
 const implementsContract = (cls: Class, contract: Class): boolean =>
   cls === contract ||
   Object.prototype.isPrototypeOf.call(contract.prototype, cls.prototype) ||
-  injectAsOf(cls).includes(contract) ||
   channelTargetOf(cls) === contract;
 
 /** Values must come with an `InjectionToken`: a class is listed and created by the container. */
@@ -71,10 +63,6 @@ export class Registrations {
   readonly #valueOwners = new Map<Token, string>();
   readonly #classes = new Map<Class, string>();
   readonly #replacements = new Map<Class, Class>();
-  /** The module a workflow's service class is listed in (lower = more specific): it shadows later ones. */
-  readonly #serviceRanks = new Map<Class, number>();
-  /** The tokens and classes only this container's own workflow lists in `services` (#1324). */
-  readonly #scoped = new Set<Token>();
   /** A class for a token (#891: `provide(EXECUTION_ID_STORE, Class)`): found under that token only. */
   readonly #tokenClasses = new Map<Token, Class>();
 
@@ -86,34 +74,14 @@ export class Registrations {
     // an application with no storage component: the settings tokens are there, empty (#1321)
     for (const token of STORAGE_SETTINGS_TOKENS) this.#values.set(token, undefined);
     for (const [token, value] of core) this.#values.set(token, value);
-    modules.forEach((module, rank) => {
+    for (const module of modules) {
       const owner = ownerOf(module);
-      for (const service of module.services ?? []) this.#addService(service, rank);
       for (const provider of module.providers) {
         if (isClassProvider(provider)) this.#addClass(provider.provide, provider.useClass, owner);
         else if ("provide" in provider) this.#addValue(provider.provide, provider.useValue, owner);
         else if (!this.#classes.has(provider)) this.#classes.set(provider, owner);
       }
-    });
-  }
-
-  #addService(service: Provider, rank: number): void {
-    if (typeof service === "function") {
-      if (!this.#serviceRanks.has(service)) this.#serviceRanks.set(service, rank);
-      this.#scoped.add(service);
-    } else if ("provide" in service) {
-      this.#scoped.add(service.provide);
     }
-  }
-
-  /** Whether this container's own workflow lists the token (a service class, or a value's token) in `services`. */
-  isScoped(token: Token): boolean {
-    return this.#scoped.has(token);
-  }
-
-  /** Whether any `services` of a workflow are in this container. */
-  get hasScope(): boolean {
-    return this.#scoped.size > 0;
   }
 
   #addValue(token: Token, value: unknown, owner: string): void {
@@ -165,23 +133,11 @@ export class Registrations {
     if (token instanceof InjectionToken) return undefined;
     const replacement = this.#replacements.get(token);
     if (replacement !== undefined) return { kind: "class", cls: replacement };
-    const found = this.#shadowed(this.classes.filter((cls) => implementsContract(cls, token)));
+    const found = this.classes.filter((cls) => implementsContract(cls, token));
     if (found.length > 1) throw this.#ambiguous(token, found, dependant);
     const cls = found[0] ?? this.defaults.get(token);
     if (cls === undefined) return undefined;
     return this.#resolvedClass(cls);
-  }
-
-  /**
-   * A workflow's `services` over the application's (#1324): of several classes for one port, the
-   * ones listed in the most specific module's `services` are the ones — the others are shadowed.
-   */
-  #shadowed(found: readonly Class[]): readonly Class[] {
-    if (found.length < 2) return found;
-    const ranked = found.filter((cls) => this.#serviceRanks.has(cls));
-    if (ranked.length === 0) return found;
-    const best = Math.min(...ranked.map((cls) => this.#serviceRanks.get(cls) ?? 0));
-    return ranked.filter((cls) => this.#serviceRanks.get(cls) === best);
   }
 
   /**

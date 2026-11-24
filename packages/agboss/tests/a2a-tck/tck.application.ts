@@ -8,8 +8,8 @@
 // the execution as a declared context field. Everything past that is AGBoss as an application
 // serves it.
 import { A2AExpose, A2AReply } from "../../src/a2a/a2a-expose.decorator.js";
-import { WorkflowFinishFileDto } from "../../src/a2a/files/a2a-file.dto.js";
-import { A2AFiles } from "../../src/a2a/files/a2a-files.service.js";
+import { WorkflowFinishFileDto } from "../../src/dto/standard/file.js";
+import { Files } from "../../src/a2a/files/files.service.js";
 import {
   A2ACallerResolution,
   type A2ACallerRequest,
@@ -103,12 +103,12 @@ type TckAnswer = Variant<
   description: "Answers as the TCK scenario of the message says",
   input: { message: WorkflowStartTextDto },
   output: oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto, WorkflowFinishFileDto),
-  deps: [TckExecutionContext, A2AFiles],
+  deps: [TckExecutionContext, Files],
 })
 export class TckScenarioAction {
   constructor(
     private readonly tckExecutionContext: TckExecutionContext,
-    private readonly a2aFiles: A2AFiles,
+    private readonly a2aFiles: Files,
   ) {}
 
   async execute(_input: {

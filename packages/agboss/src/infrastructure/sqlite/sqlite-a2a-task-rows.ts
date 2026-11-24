@@ -1,4 +1,3 @@
-import { storedUsd } from "../../finops/cost-report.js";
 import { z } from "zod";
 import { parsedStoredJson } from "../stored-step.js";
 import { PauseKind } from "../../pause/types.js";
@@ -75,7 +74,7 @@ const Status = z.looseObject({
   output: z.unknown().optional(),
   errorCode: z.string().optional(),
   errorDetails: z.unknown().optional(),
-  spentUsd: storedUsd.optional(),
+  spentUsd: z.number().nonnegative().optional(),
   cancelRequestedAt: isoTime().optional(),
 });
 

@@ -1,4 +1,3 @@
-import { type Usd } from "../../units/index.js";
 import { RecordedError } from "../../core/error-record.js";
 import { AGBossError, ExecutionCancelledError } from "../../core/errors.js";
 import { DurableExecutionStatus, type DurableExecutionState } from "../../app/execution-control.js";
@@ -61,7 +60,7 @@ export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus 
 export const completedStatusOf = (
   finish: string,
   output: unknown,
-  spentUsd: Usd,
+  spentUsd: number,
 ): A2ATaskStatus => ({
   state: A2ATaskState.Completed,
   pendingPauses: [],

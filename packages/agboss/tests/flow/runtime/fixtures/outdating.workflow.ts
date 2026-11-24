@@ -3,12 +3,13 @@ import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
-  Observer,
+  Injectable,
   Router,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  type OnValuesOutdated,
   type ValuesOutdatedEvent,
 } from "../../../../src/index.js";
 import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
@@ -42,8 +43,8 @@ export const resetOutdatingLog = (): void => {
   outdatingEvents.length = 0;
 };
 
-@Observer()
-export class OutdatingLog {
+@Injectable()
+export class OutdatingLog implements OnValuesOutdated {
   onValuesOutdated(event: ValuesOutdatedEvent): void {
     outdatingEvents.push(event);
   }

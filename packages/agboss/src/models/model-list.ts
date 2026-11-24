@@ -42,10 +42,8 @@ export class ModelListError extends Error {
 export async function fetchModelList(
   connection: ProviderConnection,
 ): Promise<ReadonlyMap<string, ModelEntry>> {
-  const headers: Record<string, string> = {
-    ...connection.headers,
-    ...(connection.apiKey === undefined ? {} : { authorization: `Bearer ${connection.apiKey}` }),
-  };
+  const headers: Record<string, string> =
+    connection.apiKey === undefined ? {} : { authorization: `Bearer ${connection.apiKey}` };
   const response = await connection.fetch(`${connection.baseUrl.replace(/\/$/, "")}/models`, {
     headers,
   });

@@ -3,7 +3,7 @@ import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { appFileSlotsOf } from "../../src/a2a/files/a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "../../src/a2a/files/a2a-file-slots.js";
-import { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
+import { FileRepository } from "../../src/infrastructure/file.repository.js";
 import { DEFAULT_FILE_FETCH_TIMEOUT } from "../../src/a2a/files/a2a-file-options.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { fileRuntimeOf } from "../../src/files/file-runtime.js";
@@ -51,7 +51,7 @@ function depsOf(
   const store = {};
   return {
     container: {
-      get: (token: Token) => (token === A2AFileRepository ? store : instances.get(token)),
+      get: (token: Token) => (token === FileRepository ? store : instances.get(token)),
     },
     registry: {
       fileTranscribers: extra.transcribers ?? new Map(),
@@ -139,7 +139,7 @@ describe("#1269: the read context", () => {
   it("a download takes the application's fetch slots, under its tenant's and its thread owner's keys (#1312)", async () => {
     const deps = depsOf(new Map());
     const store = (deps as { container: { get: (token: Token) => object } }).container.get(
-      A2AFileRepository,
+      FileRepository,
     );
     const context = await inFrame(() => Promise.resolve(runtimeOf(deps).context()));
     const { execution } = testFrame();
@@ -219,7 +219,7 @@ describe("#1269: a project's own transcriber", () => {
     expect(result.usage).toMatchObject({
       caller: "files:transcriber",
       model: "transcriber",
-      costUsd: usd(0.01),
+      costUsd: 0.01,
       costSource: "tool",
     });
   });
@@ -234,7 +234,7 @@ describe("#1269: a project's own transcriber", () => {
   });
 
   it("a usage it reports itself is kept, not replaced by its price", async () => {
-    const usage = { caller: "mine", model: "m", costUsd: usd(5) } as never;
+    const usage = { caller: "mine", model: "m", costUsd: 5 } as never;
     const answer = { text: "T", cost: usd(0.01), usage };
     const runtime = runtimeOf(
       depsOf(new Map<Token, unknown>([[FileTranscriber, new OwnTranscriber(answer)]])),
@@ -292,7 +292,7 @@ describe("#1269: the redactor", () => {
     expect(result.usage).toMatchObject({
       caller: "files:redactor",
       model: "redactor",
-      costUsd: usd(0.02),
+      costUsd: 0.02,
       costSource: "tool",
     });
     expect(own.seen).toHaveLength(1);

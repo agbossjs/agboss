@@ -5,12 +5,13 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   ExecutionFencedError,
-  Injectable, Observer,
+  Injectable,
   Tool,
   ToolCallDecision,
   ToolInterceptor,
   Workflow,
   type BeforeToolCall,
+  type OnToolEnd,
   type ToolEndEvent,
   WorkflowFinish,
   WorkflowStart,
@@ -311,10 +312,10 @@ export class FenceToolInterceptor implements BeforeToolCall {
 }
 
 /** The tools whose calls ended (what the model would read). */
-@Observer()
-export class ToolEndLog {
+@Injectable()
+export class ToolEndLog implements OnToolEnd {
   onToolEnd(event: ToolEndEvent): void {
-    seen.toolEnds.push(event.tool);
+    seen.toolEnds.push(event.toolName);
   }
 }
 

@@ -1,4 +1,4 @@
-import { CostReport, type UsageRecord } from "../../finops/usage.js";
+import { buildCostReport, type CostReport, type UsageRecord } from "../../finops/usage.js";
 import { AGBossError, type ErrorDetails } from "../errors.js";
 
 /**
@@ -133,7 +133,7 @@ function familyBaseOf(family: FamilySpec<object>): typeof AGBossError {
     // the spend report of the usage the error carries: made on the first read, from the same usage
     Object.defineProperty(Base.prototype, "spend", {
       get(this: { readonly usage: readonly UsageRecord[] }): CostReport {
-        return CostReport.fromUsage(this.usage);
+        return buildCostReport(this.usage);
       },
     });
   }

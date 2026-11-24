@@ -187,7 +187,7 @@ export async function checkGuardrail(
   };
   await reportNodeEvent((base) => observer?.onGuardrailStart({ ...base, name, input }));
   const update = await runtime.decide(checked, spent);
-  await reportNodeEvent((base) => observer?.onGuardrailEnd({ ...base, name, output: update }));
+  await reportNodeEvent((base) => observer?.onGuardrailEnd({ ...base, name, update }));
   return update;
 }
 
