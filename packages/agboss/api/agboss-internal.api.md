@@ -118,7 +118,7 @@ export class ApplicationLoadError extends AGBossError {
 }
 
 // @public
-export function applicationModelUsesOf(workflows: readonly WorkflowModels[]): readonly ModelUse[];
+export function applicationModelUsesOf(workflows: readonly WorkflowModels_2[]): readonly ModelUse[];
 
 // @public (undocumented)
 export function applicationOf(application: Class, assembly?: ApplicationAssembly, where?: string): Promise<AssembledApplication>;
@@ -143,6 +143,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
     // (undocumented)
     readonly application: Class;
     readonly auditLogRetention?: Milliseconds | undefined;
+    readonly budgetOverlays?: BudgetOverlays | undefined;
     // (undocumented)
     readonly budgets: readonly Class[];
     readonly childClaimTimeout: Milliseconds;
@@ -181,6 +182,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
 // @public
 export interface AssembledWorkflow<TName extends string = string> {
     readonly arbiters?: readonly ModelArbiterUse[];
+    readonly budgetOverlays?: BudgetOverlays | undefined;
     readonly businessKeyWriter?: BusinessKeyWriterUse;
     readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
     // (undocumented)
@@ -266,7 +268,7 @@ export interface BlastRadiusEntry {
 }
 
 // @public
-export interface BudgetListing {
+export interface BudgetListing extends OverlaidBudgets {
     // (undocumented)
     readonly applicationName: string;
     readonly attached?: readonly Class[] | undefined;
@@ -1487,7 +1489,7 @@ export function replay<TName extends string>(run: AgentExecutionDeps<TName>, eva
 export const reservedExecutionIdOf: (options: object) => string | undefined;
 
 // @public
-export function resolvedModelUsesOf(workflow: WorkflowModels): readonly ResolvedModelUse[];
+export function resolvedModelUsesOf(workflow: WorkflowModels_2): readonly ResolvedModelUse[];
 
 // @public
 export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv, secrets?: SecretResolution): Environment;

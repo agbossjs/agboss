@@ -1217,6 +1217,14 @@ export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
 }
 
 // @public
+export interface TestWithSeams {
+    readonly channels?: readonly Class[] | undefined;
+    readonly modelProvider?: Class | undefined;
+    readonly startAt?: Date | string | undefined;
+    readonly tracerProvider?: TracerProvider | TracingAdapter | undefined;
+}
+
+// @public
 export type ToolCallExpectation<TInput> = DeepPartial<TInput> | ((input: TInput) => boolean);
 
 // @public

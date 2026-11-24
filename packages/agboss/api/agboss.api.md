@@ -337,7 +337,6 @@ export enum AgentRetryReason {
 export interface AgentsConfig {
     // (undocumented)
     agents: Record<string, AgentSettings>;
-    compactions?: Record<string, CompactionSettings> | undefined;
     // (undocumented)
     defaults: {
         models: {
@@ -360,6 +359,7 @@ export interface AgentsConfig {
         uncompactedTurns: number | TurnLimit.All;
     };
     judges?: Record<string, ModelSettings> | undefined;
+    memories?: Record<string, CompactionSettings> | undefined;
     name: string;
     version: string;
 }
@@ -516,6 +516,9 @@ export interface ApplicationDefaults extends WorkflowDefaults {
 // @public
 export interface ApplicationExecutionLimits {
     readonly childClaimTimeout?: Milliseconds;
+    readonly compensationTimeout?: Milliseconds;
+    readonly maxConcurrentSteps?: number;
+    readonly shutdownTimeout?: Milliseconds;
 }
 
 // @public
@@ -524,7 +527,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly channelListeners?: readonly Class[];
     readonly channels?: readonly Class[];
     readonly channelSelectors?: readonly Class[];
-    readonly compensationTimeout?: Milliseconds;
     readonly defaults?: ApplicationDefaults;
     readonly endpoints?: readonly Class[];
     readonly environment: Class<TEnvironment>;
@@ -533,7 +535,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
     readonly isolatedWorker?: IsolatedWorkerOptions;
-    readonly maxConcurrentSteps?: number;
     readonly mesh?: Class;
     readonly modelProvider?: Class;
     readonly name: string;
@@ -544,7 +545,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly providers?: readonly Provider[];
     readonly retention?: RetentionOptions;
     readonly services?: readonly ServiceEntry[];
-    readonly shutdownTimeout?: Milliseconds;
     readonly storage?: ApplicationStorage;
     readonly tenantContext?: TenantContextClass;
     readonly toolInterceptors?: readonly Class[];
@@ -895,6 +895,14 @@ export interface BudgetLimit {
 
 // @public
 export type BudgetOptions<TDeps extends readonly Token[] = readonly Token[]> = ExecutionBudgetOptions<TDeps> | PeriodBudgetOptions<TDeps>;
+
+// @public
+export interface BudgetOverlay {
+    // (undocumented)
+    readonly maxSpend?: Usd | EnvRef<Usd>;
+    // (undocumented)
+    readonly maxTokens?: number | EnvRef<number>;
+}
 
 // @public
 export enum BudgetPeriod {
@@ -1874,6 +1882,20 @@ export enum ComponentKind {
 }
 
 // @public
+export interface ComponentModelConfig {
+    // (undocumented)
+    readonly model?: string;
+    // (undocumented)
+    readonly modelProvider?: string | Class;
+}
+
+// @public
+export interface ComponentModelOverlay {
+    readonly model?: string;
+    readonly modelProvider?: string;
+}
+
+// @public
 export type ComponentName<TComponent extends Class> = [NameOf<InstanceType<TComponent>>] extends [
 never
 ] ? string : NameOf<InstanceType<TComponent>>;
@@ -2024,12 +2046,18 @@ export interface ConfigSnapshot {
 
 // @public
 export interface ConfigSpec {
+    readonly arbiters?: Readonly<Record<string, ComponentModelConfig>>;
+    readonly budgets?: Readonly<Record<string, BudgetOverlay>>;
+    readonly channelInterpreters?: Readonly<Record<string, ComponentModelConfig>>;
     readonly channels?: ApplicationOptions["channels"];
     readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
     readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
+    readonly guardrails?: Readonly<Record<string, ComponentModelConfig>>;
     readonly healthChecks?: ApplicationOptions["healthChecks"];
+    readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
     readonly modelProvider?: Class;
     readonly modelProviders?: Readonly<Record<string, ModelProviderOverlay>>;
+    readonly piiPolicies?: Readonly<Record<string, ComponentModelConfig>>;
     readonly storage?: ApplicationOptions["storage"];
     readonly workflows?: Readonly<Record<string, WorkflowConfig>>;
 }
@@ -10939,8 +10967,12 @@ export function Workflow<const TName extends string, const TFlow extends readonl
 export type WorkflowClass = Class;
 
 // @public
-export interface WorkflowConfig extends WorkflowOverlay {
+export interface WorkflowConfig extends Omit<WorkflowOverlay, "routers"> {
+    readonly budget?: Class;
+    readonly filePolicy?: Class;
+    readonly memory?: Class;
     readonly modelProvider?: Class;
+    readonly routers?: Readonly<Record<string, ComponentModelConfig>>;
 }
 
 // @public
@@ -11044,9 +11076,9 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
 // @public
 export interface WorkflowOverlay {
     readonly agents?: Readonly<Record<string, OverlayPartial<AgentSettings>>>;
-    readonly compactions?: Readonly<Record<string, OverlayPartial<CompactionSettings>>>;
-    readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
+    readonly memories?: Readonly<Record<string, OverlayPartial<CompactionSettings>>>;
     readonly prompts?: Readonly<Record<string, PromptOverride>>;
+    readonly routers?: Readonly<Record<string, ComponentModelOverlay>>;
     readonly version?: string;
 }
 
@@ -11326,6 +11358,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/types.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
 // src/application/application.ts - (ae-undocumented) Missing documentation for "Application".
 // src/application/types.ts - (ae-undocumented) Missing documentation for "__error".
+// src/budgets/budget-overlay.ts - (ae-undocumented) Missing documentation for "maxSpend".
+// src/budgets/budget-overlay.ts - (ae-undocumented) Missing documentation for "maxTokens".
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "Day".
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "Week".
 // src/budgets/budget.ts - (ae-undocumented) Missing documentation for "Month".
@@ -11565,6 +11599,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "name".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "model".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "model".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "temperature".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "maxTokens".
