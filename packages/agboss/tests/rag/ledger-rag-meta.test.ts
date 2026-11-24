@@ -300,10 +300,12 @@ describe("#1366: the scope of a retrieval", () => {
     expect(scopeKeyOfRetrieval(metaOf(RagScope.Tenant), {}, services)).toEqual({
       tenantId: "tenant-1",
       scopeId: "tenant-1",
+      scope: RagScope.Tenant,
     });
     expect(scopeKeyOfRetrieval(metaOf(RagScope.Owner), {}, services)).toEqual({
       tenantId: "tenant-1",
       scopeId: "alice",
+      scope: RagScope.Owner,
     });
   });
 
@@ -435,6 +437,7 @@ describe("#1366: the retrieval of a knowledge base", () => {
       signal,
       tenantId: "tenant-1",
       scopeId: "tenant-1",
+      scope: RagScope.Tenant,
       filter: { lang: "en" },
     });
   });
@@ -460,12 +463,14 @@ describe("#1366: the retrieval of a knowledge base", () => {
       signal,
       tenantId: "tenant-1",
       scopeId: "tenant-1",
+      scope: RagScope.Tenant,
     });
     expect(rerankedRetrieval).toHaveBeenCalledWith(expect.any(Function), reranker, {
       query: "query",
       topK: 4,
       tenantId: "tenant-1",
       scopeId: "tenant-1",
+      scope: RagScope.Tenant,
       signal,
     });
   });

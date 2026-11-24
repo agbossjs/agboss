@@ -144,7 +144,7 @@ export function ragSourceContract<TSource extends object>(target: RagSourceContr
 
 // @public
 export interface RagSourceContractTarget<TSource extends object = object> {
-    readonly documents: (source: TSource, scopeId: string, documents: readonly RagContractDocument[]) => Promise<void>;
+    readonly documents: (source: TSource, scopeId: string, documents: readonly RagContractDocument[], tenantId: string) => Promise<void>;
     readonly name: string;
     readonly rerank?: {
         readonly by: ContractReranker;

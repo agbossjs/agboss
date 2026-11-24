@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SqliteFtsRagSource } from "../../src/rag/sqlite-fts.js";
+import { RagScope } from "../../src/rag/types.js";
 import { index, retrieve } from "./access.js";
 
 const signal = new AbortController().signal;
@@ -24,7 +25,7 @@ async function sourceOf(documents: Readonly<Record<string, string>>) {
   }
   const looked: string[] = [];
   const source = new SqliteFtsRagSource({
-    directory: (scopeId, tenantId) => {
+    directory: ({ scopeId, tenantId }) => {
       looked.push(`${String(tenantId)}|${String(scopeId)}`);
       return folders.get(`${String(tenantId)}|${String(scopeId)}`);
     },
@@ -82,7 +83,11 @@ describe("a crafted id never collides with another pair's key", () => {
     expect(await askAs(source, "a:b", "c")).toEqual(["The plum vault of the second."]);
     // a JSON-looking id is just text: it is its own pair
     expect(await askAs(source, 'a","b', "c")).toEqual(["The plum vault of the crafted one."]);
-    expect(looked).toEqual(["a|b:c", "a:b|c", 'a","b|c']);
+    expect(looked.filter((entry) => !entry.includes("another-tenant"))).toEqual([
+      "a|b:c",
+      "a:b|c",
+      'a","b|c',
+    ]);
   });
 
   it("a scope with a tenant and no id (or an id and no tenant) is no scope: it fails closed", async () => {
@@ -94,5 +99,91 @@ describe("a crafted id never collides with another pair's key", () => {
     await expect(retrieve(source, "x", { topK: 1, scopeId: "a", signal })).rejects.toThrow(
       /neither \(shared\)/u,
     );
+  });
+});
+
+describe("the directory callback is asked for the whole scope key and must depend on the tenant", () => {
+  const folderOf = async (root: string, name: string): Promise<string> => {
+    const folder = join(root, name);
+    await mkdir(folder, { recursive: true });
+    await writeFile(join(folder, "doc.md"), `The plum vault of ${name}.`);
+    return folder;
+  };
+
+  it("gets one object { tenantId, scopeId, scope }, and the same owner id in two tenants gets two folders", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-dir-key-"));
+    const folders = new Map([
+      ["tenant-a|alice", await folderOf(root, "tenant-a")],
+      ["tenant-b|alice", await folderOf(root, "tenant-b")],
+    ]);
+    const keys: unknown[] = [];
+    const source = new SqliteFtsRagSource({
+      directory: (key) => {
+        keys.push(key);
+        return folders.get(`${String(key.tenantId)}|${String(key.scopeId)}`);
+      },
+      path: join(root, "index.sqlite"),
+    });
+
+    const asA = await retrieve(source, "plum vault", {
+      topK: 5,
+      tenantId: "tenant-a",
+      scopeId: "alice",
+      scope: RagScope.Owner,
+      signal,
+    });
+
+    expect(asA.results.map((r) => r.text)).toEqual(["The plum vault of tenant-a."]);
+    expect(keys[0]).toEqual({ tenantId: "tenant-a", scopeId: "alice", scope: RagScope.Owner });
+  });
+
+  it("a callback keyed on the scope id alone is refused at first use: fail closed, nothing indexed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-dir-alone-"));
+    const shared = await folderOf(root, "one-folder-for-alice");
+    const source = new SqliteFtsRagSource({
+      directory: ({ scopeId }) => (scopeId === "alice" ? shared : undefined),
+      path: join(root, "index.sqlite"),
+    });
+
+    await expect(
+      retrieve(source, "plum vault", {
+        topK: 5,
+        tenantId: "tenant-a",
+        scopeId: "alice",
+        scope: RagScope.Owner,
+        signal,
+      }),
+    ).rejects.toThrow(/rag\.directory-not-tenant-keyed/u);
+  });
+
+  it("the same refusal at index time", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-dir-alone-index-"));
+    const shared = await folderOf(root, "one-folder-for-alice");
+    const source = new SqliteFtsRagSource({
+      directory: ({ scopeId }) => (scopeId === "alice" ? shared : undefined),
+      path: join(root, "index.sqlite"),
+    });
+
+    await expect(
+      index(source, { tenantId: "tenant-a", scopeId: "alice", scope: RagScope.Custom, signal }),
+    ).rejects.toThrow(/rag\.directory-not-tenant-keyed/u);
+  });
+
+  it("a shared scope may have one folder: it has no tenant to depend on", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fts-dir-shared-"));
+    const shared = await folderOf(root, "help");
+    const source = new SqliteFtsRagSource({
+      directory: () => shared,
+      path: join(root, "index.sqlite"),
+    });
+    const callback = new SqliteFtsRagSource({
+      directory: ({ scope }) => (scope === RagScope.Shared ? shared : undefined),
+      path: join(root, "index2.sqlite"),
+    });
+
+    for (const one of [source, callback])
+      expect(
+        (await retrieve(one, "plum vault", { topK: 5, scope: RagScope.Shared, signal })).results,
+      ).toHaveLength(1);
   });
 });

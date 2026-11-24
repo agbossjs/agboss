@@ -18,6 +18,7 @@ export function Rag<const D extends readonly Token[] = []>(options: {
 
 // @public
 export interface RagIndexOptions {
+    readonly scope?: RagScope;
     // (undocumented)
     readonly scopeId?: string;
     // (undocumented)
@@ -70,6 +71,7 @@ export interface RagRetrieval {
 // @public
 export interface RagRetrieveOptions<TFilter = never> {
     readonly filter?: TFilter;
+    readonly scope?: RagScope;
     // (undocumented)
     readonly scopeId?: string;
     // (undocumented)
@@ -158,8 +160,21 @@ export interface RerankResult {
 }
 
 // @public
+export type SqliteFtsDirectory = string | ((key: SqliteFtsDirectoryKey) => string | undefined);
+
+// @public
+export interface SqliteFtsDirectoryKey {
+    // (undocumented)
+    readonly scope: RagScope;
+    // (undocumented)
+    readonly scopeId: string | undefined;
+    // (undocumented)
+    readonly tenantId: string | undefined;
+}
+
+// @public
 export interface SqliteFtsOptions {
-    readonly directory: string | ((scopeId: string | undefined, tenantId: string | undefined) => string | undefined);
+    readonly directory: SqliteFtsDirectory;
     readonly maxChunkLength?: number;
     readonly path: string;
 }
@@ -188,6 +203,9 @@ export class SqliteFtsRagSource extends RagSource {
 // src/rag/dto.ts - (ae-undocumented) Missing documentation for "url".
 // src/rag/dto.ts - (ae-undocumented) Missing documentation for "quote".
 // src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "scopeId".
+// src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "scope".
 // src/rag/sqlite-fts.ts - (ae-undocumented) Missing documentation for "retrieve".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "results".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "documents".

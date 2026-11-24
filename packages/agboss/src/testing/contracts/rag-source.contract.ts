@@ -57,9 +57,9 @@ async function contextOf<TSource extends object>(
   const own = await target.source();
   const calls: ObservedRagCall[] = [];
   const source = observedSource(own, scope, calls);
-  const fill: RagCaseContext["fill"] = async (scopeId, documents) => {
-    await target.documents(own, scopeId, documents);
-    await source.index?.({ ...scopeOf(scope, scopeId), signal: liveSignal() });
+  const fill: RagCaseContext["fill"] = async (scopeId, documents, tenantId = scopeId) => {
+    await target.documents(own, scopeId, documents, tenantId);
+    await source.index?.({ ...scopeOf(scope, scopeId, tenantId), signal: liveSignal() });
   };
   return { source, calls, fill, retrieve: retrieveThrough(target, source, scope, calls) };
 }
@@ -68,8 +68,9 @@ async function contextOf<TSource extends object>(
 const scopeOf = (
   scope: RagScope,
   scopeId: string,
+  tenantId: string = scopeId,
 ): { readonly tenantId?: string; readonly scopeId?: string } =>
-  scope === RagScope.Shared ? {} : { tenantId: scopeId, scopeId };
+  scope === RagScope.Shared ? {} : { tenantId, scopeId };
 
 /** The source as the suite calls it: the same calls, each one's scope id recorded first. */
 function observedSource(own: object, scope: RagScope, calls: ObservedRagCall[]): ContractSource {
@@ -120,8 +121,8 @@ function retrieveThrough<TSource extends object>(
 ): ContractRetrieve {
   const { rerank } = target;
   if (rerank === undefined)
-    return (query, { topK, scopeId, signal }) =>
-      source.retrieve(query, { topK, signal, ...scopeOf(scope, scopeId) });
+    return (query, { topK, scopeId, tenantId, signal }) =>
+      source.retrieve(query, { topK, signal, ...scopeOf(scope, scopeId, tenantId) });
   const bound = {
     rag: target.name,
     reranker: "contract-reranker",
@@ -130,8 +131,8 @@ function retrieveThrough<TSource extends object>(
     onFailure: RerankFailurePolicy.FailStep,
     source: { kind: "code", instance: () => observedReranker(rerank.by, calls) },
   } as const;
-  return (query, { topK, scopeId, signal }) => {
-    const carried = scopeOf(scope, scopeId);
+  return (query, { topK, scopeId, tenantId, signal }) => {
+    const carried = scopeOf(scope, scopeId, tenantId);
     return rerankedRetrieval(
       (k) => source.retrieve(query, { topK: k, signal, ...carried }),
       bound,

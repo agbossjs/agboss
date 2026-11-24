@@ -53,12 +53,15 @@ export interface RagSourceContractTarget<TSource extends object = object> {
    * Makes `documents` the whole source of tenant `scopeId`'s knowledge base, replacing what was
    * there (a folder's files, a bucket): the suite calls the source's `index({ scopeId })` next.
    * A source without `index` makes them searchable here. Under `RagScope.Shared` they are the
-   * one corpus, whatever `scopeId` says.
+   * one corpus, whatever `scopeId` says. `tenantId` is the tenant the scope belongs to: the scope id
+   * itself for tenant-scoped sources, and for owner and custom scopes the tenant of the case — the
+   * same `scopeId` (one owner id) may be asked about in two tenants, which hold different documents.
    */
   readonly documents: (
     source: TSource,
     scopeId: string,
     documents: readonly RagContractDocument[],
+    tenantId: string,
   ) => Promise<void>;
   /** After each case: drop what it stored. */
   readonly reset?: () => Promise<void>;
@@ -72,7 +75,13 @@ export interface RagSourceContractTarget<TSource extends object = object> {
 /** A retrieval of the suite: the source's own, or through the core's seam around it. */
 export type ContractRetrieve = (
   query: string,
-  options: { readonly topK: number; readonly scopeId: string; readonly signal: AbortSignal },
+  options: {
+    readonly topK: number;
+    readonly scopeId: string;
+    /** The scope's tenant; default: `scopeId` (a tenant's own scope). */
+    readonly tenantId?: string;
+    readonly signal: AbortSignal;
+  },
 ) => Promise<RagRetrieval>;
 
 /** The scope id a call to the source carried: none for a shared source. */
@@ -90,7 +99,11 @@ export interface RagCaseContext {
   /** Every call the source (and the reranker) received so far, in order. */
   readonly calls: readonly ObservedRagCall[];
   /** Fills a scope's knowledge base and indexes it (when the source has an index). */
-  readonly fill: (scopeId: string, documents: readonly RagContractDocument[]) => Promise<void>;
+  readonly fill: (
+    scopeId: string,
+    documents: readonly RagContractDocument[],
+    tenantId?: string,
+  ) => Promise<void>;
   readonly retrieve: ContractRetrieve;
 }
 

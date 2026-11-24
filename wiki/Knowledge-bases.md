@@ -359,8 +359,11 @@ rolled back). A scope never indexed is indexed by its first retrieval on the ins
 whole; then every retrieval only reads. After the documents change, run `agboss rag index`: a running
 instance does not re-read a folder on its own. The file handle closes with the application
 (`onDestroy`). Every chunk is its scope's: `directory` is one folder every scope indexes for itself
-(a `Shared` source has one copy), or a function giving each scope its own — look it up, never build
-the path from the id (an id may hold `/` or `..`):
+(a `Shared` source has one copy), or a function of the scope's whole key `{ tenantId, scopeId, scope }`
+giving each scope its own — look it up, never build the path from the id (an id may hold `/` or
+`..`). An owner id is unique within a tenant only, so for any scope but `Shared` the folder must
+depend on the tenant: a function that answers one folder for the same `scopeId` in two tenants is
+refused (`rag.directory-not-tenant-keyed`) at index time and at the scope's first use:
 
 <!-- snippet-context
 import { Rag, RagScope, SqliteFtsRagSource } from "@agboss/core/rag";
@@ -371,7 +374,7 @@ const folders = new Map([["acme", "docs/acme"], ["globex", "docs/globex"]]);
 @Rag({ name: "tenant-docs", description: "Each tenant's own docs", scope: RagScope.Tenant, topK: 4 })
 export class TenantDocs extends SqliteFtsRagSource {
   constructor() {
-    super({ directory: (scopeId) => folders.get(scopeId ?? ""), path: "docs.sqlite" });
+    super({ directory: ({ tenantId }) => folders.get(tenantId ?? ""), path: "docs.sqlite" });
   }
 }
 ```

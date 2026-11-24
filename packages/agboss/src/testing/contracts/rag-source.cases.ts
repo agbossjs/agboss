@@ -43,6 +43,30 @@ const isolation: RagContractCase = {
   },
 };
 
+const OWNER_SCOPES = [RagScope.Owner, RagScope.Custom] as const;
+
+const ownerInTwoTenants: RagContractCase = {
+  scopes: OWNER_SCOPES,
+  name: "owner and tenant isolation: one owner id in two tenants is two scopes — neither tenant's owner ever sees the other's documents, through retrieval and after a re-index",
+  run: async ({ fill, retrieve }) => {
+    const owner = "alice";
+    await fill(owner, [{ source: "a.md", text: "The plum vault of tenant A." }], TENANT_A);
+    await fill(owner, [{ source: "b.md", text: "The plum vault of tenant B." }], TENANT_B);
+    const signal = liveSignal();
+    const ask = async (tenantId: string) =>
+      textsOf(
+        (await retrieve("plum vault", { topK: WIDE, scopeId: owner, tenantId, signal })).results,
+      );
+
+    expect(await ask(TENANT_A)).toEqual(["The plum vault of tenant A."]);
+    expect(await ask(TENANT_B)).toEqual(["The plum vault of tenant B."]);
+    // building tenant A's owner again leaves tenant B's owner as it was
+    await fill(owner, [{ source: "a.md", text: "The plum vault of tenant A, revised." }], TENANT_A);
+    expect(await ask(TENANT_A)).toEqual(["The plum vault of tenant A, revised."]);
+    expect(await ask(TENANT_B)).toEqual(["The plum vault of tenant B."]);
+  },
+};
+
 const nearIdentical: RagContractCase = {
   scopes: PER_TENANT,
   name: "#700: near-identical tenant ids — case, width, NFC and accent twins, `/` and `%2F`, 200 characters — are each their own tenant: each gets its own passage only",
@@ -171,6 +195,7 @@ const shape: RagContractCase = {
 /** Every case, in the order the suite registers them. */
 export const RAG_SOURCE_CASES: readonly RagContractCase[] = [
   isolation,
+  ownerInTwoTenants,
   nearIdentical,
   reindex,
   topK,

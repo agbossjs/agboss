@@ -41,7 +41,7 @@ writeFileSync(join(root, "b", "vault.md"), "# Vault\n\nThe vault code is plum se
 export class TenantDocsRag extends SqliteFtsRagSource {
   constructor() {
     super({
-      directory: (scopeId) => (scopeId === undefined ? undefined : FOLDERS.get(scopeId)),
+      directory: ({ tenantId }) => (tenantId === undefined ? undefined : FOLDERS.get(tenantId)),
       path: join(root, "index", "docs.sqlite"),
     });
   }

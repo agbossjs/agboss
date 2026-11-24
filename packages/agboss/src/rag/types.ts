@@ -49,6 +49,8 @@ export interface RagScopeKey {
   readonly tenantId?: string;
   /** The scope's id within the tenant (the tenant's own id for `RagScope.Tenant`); `undefined` for `Shared`. */
   readonly scopeId?: string;
+  /** The `@Rag`'s declared scope: set by the core and the CLI; a source never needs to set it. */
+  readonly scope?: RagScope;
 }
 
 /** What one retrieval is asked for. */
@@ -63,6 +65,8 @@ export interface RagRetrieveOptions<TFilter = never> {
    */
   readonly tenantId?: string;
   readonly scopeId?: string;
+  /** The `@Rag`'s declared scope (`Shared` when `tenantId` and `scopeId` are both `undefined`). */
+  readonly scope?: RagScope;
   /** What `search(query, { filter })` was called with. */
   readonly filter?: TFilter;
 }
@@ -72,6 +76,8 @@ export interface RagIndexOptions {
   /** The scope (its tenant and its id) to build or update: index into it only; none for `RagScope.Shared`. */
   readonly tenantId?: string;
   readonly scopeId?: string;
+  /** The `@Rag`'s declared scope (`Shared` when `tenantId` and `scopeId` are both `undefined`). */
+  readonly scope?: RagScope;
   readonly signal: AbortSignal;
 }
 

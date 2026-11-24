@@ -81,5 +81,9 @@ export function scopeKeyOfRetrieval(
   // every non-global scope is bound to the tenant: an owner id or a custom key is unique within one
   const { tenantId } = frame.execution.tenant;
   checkedTenantId(tenantId);
-  return { tenantId, scopeId: resolve({ consumer, frame, source, services }) };
+  return {
+    tenantId,
+    scopeId: resolve({ consumer, frame, source, services }),
+    scope: meta.scope,
+  };
 }

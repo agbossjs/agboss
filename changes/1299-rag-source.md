@@ -35,3 +35,8 @@ model?, modelProvider? })` (an empty class is the LLM reranker, a class with `re
   (both the `rag` category) wherever the search is called from; a zero retrieval reports nothing.
 - `agboss rag index --tenant <id> [--scope <id>]`: `--tenant` is required for a knowledge base whose
   scope is not `Shared`, `--scope` too for an owner or custom one. The FTS index file is rebuilt, never migrated (`FTS_SCHEMA_VERSION` 2).
+- A reranker's results are the retrieval's own passages, found by key: the reranker contributes
+  their order and score only, never a text or a field. `SqliteFtsOptions.directory` is
+  `(key: SqliteFtsDirectoryKey) => string | undefined` with `{ tenantId, scopeId, scope }` and is
+  refused (`rag.directory-not-tenant-keyed`) when it answers one folder for a scope id in two
+  tenants; `RagRetrieveOptions` and `RagIndexOptions` carry the declared `scope`.

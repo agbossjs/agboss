@@ -11,7 +11,7 @@ import { SqliteFtsRagSource } from "../../src/rag/sqlite-fts.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { afterAll, expect } from "vitest";
 import { modelRerankerOf } from "../../src/rag/llm-reranker.js";
-import type { RerankResult, RerankerHandler } from "../../src/rag/types.js";
+import { RagScope, type RerankResult, type RerankerHandler } from "../../src/rag/types.js";
 import {
   ragSourceContract,
   type RagSourceContractTarget,
@@ -28,18 +28,22 @@ const target = {
     const root = await mkdtemp(join(tmpdir(), "fts-contract-"));
     const byTenant = new Map<string, string>();
     const connector = new SqliteFtsRagSource({
-      directory: (scopeId) => (scopeId === undefined ? undefined : byTenant.get(scopeId)),
+      directory: ({ tenantId, scopeId }) =>
+        tenantId === undefined || scopeId === undefined
+          ? undefined
+          : byTenant.get(JSON.stringify([tenantId, scopeId])),
       path: join(root, "index.sqlite"),
     });
     folders.set(connector, byTenant);
     roots.set(connector, root);
     return connector;
   },
-  documents: async (connector, scopeId, documents) => {
+  documents: async (connector, scopeId, documents, tenantId) => {
     const byTenant = folders.get(connector) ?? new Map<string, string>();
+    const pair = JSON.stringify([tenantId, scopeId]);
     const folder =
-      byTenant.get(scopeId) ?? join(roots.get(connector) ?? tmpdir(), `t${String(byTenant.size)}`);
-    byTenant.set(scopeId, folder);
+      byTenant.get(pair) ?? join(roots.get(connector) ?? tmpdir(), `t${String(byTenant.size)}`);
+    byTenant.set(pair, folder);
     await rm(folder, { recursive: true, force: true });
     await mkdir(folder, { recursive: true });
     for (const document of documents) await writeFile(join(folder, document.source), document.text);
@@ -47,6 +51,9 @@ const target = {
 } satisfies RagSourceContractTarget<SqliteFtsRagSource>;
 
 ragSourceContract(target);
+// an owner id is unique within a tenant only: two tenants' "alice" never share documents
+ragSourceContract({ ...target, name: "SqliteFtsRagSource (owner scope)", scope: RagScope.Owner });
+ragSourceContract({ ...target, name: "SqliteFtsRagSource (custom scope)", scope: RagScope.Custom });
 
 /**
  * #703 AC5 — the same cases through the core's reranking: the LLM reranker on a model that always

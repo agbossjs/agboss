@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { retrieve, index } from "./access.js";
 import { describe, expect, it } from "vitest";
-import { chunkMarkdown, ftsQuery, SqliteFtsRagSource } from "../../src/rag/sqlite-fts.js";
+import { chunkMarkdown, ftsQuery } from "../../src/rag/sqlite-fts-chunks.js";
+import { SqliteFtsRagSource } from "../../src/rag/sqlite-fts.js";
 
 const signal = new AbortController().signal;
 const scopeId = "default";
@@ -56,7 +57,7 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
     await writeFile(join(root, "a", "a.md"), "Alpha secret is amber.");
     const folders = new Map([["Acme", join(root, "a")]]);
     const connector = new SqliteFtsRagSource({
-      directory: (tenant) => (tenant === undefined ? undefined : folders.get(tenant)),
+      directory: ({ tenantId }) => (tenantId === undefined ? undefined : folders.get(tenantId)),
       path: join(root, "fts.sqlite"),
     });
 
@@ -173,9 +174,10 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
     const root = await mkdtemp(join(tmpdir(), "fts-lazy-"));
     const looked: string[] = [];
     const connector = new SqliteFtsRagSource({
-      directory: (tenant) => {
-        looked.push(tenant ?? "");
-        return tenant === undefined ? undefined : folders.get(tenant);
+      directory: ({ tenantId }) => {
+        // the source's own second look, for another tenant, is not a lookup of this scope
+        if (!tenantId?.includes("another-tenant")) looked.push(tenantId ?? "");
+        return tenantId === undefined ? undefined : folders.get(tenantId);
       },
       path: join(root, "fts.sqlite"),
     });

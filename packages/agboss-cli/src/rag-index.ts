@@ -19,6 +19,7 @@ interface KnowledgeBase {
   readonly index: (options: {
     readonly tenantId?: string;
     readonly scopeId?: string;
+    readonly scope?: RagScope;
     readonly signal: AbortSignal;
   }) => Promise<RagIndexReport | undefined>;
 }
@@ -114,7 +115,7 @@ async function indexAll(
   for (const { base, scope } of planned) {
     const { name } = base;
     if (signal.aborted) throw interrupted(name);
-    const options = { ...scope, signal };
+    const options = { ...scope, scope: base.scope, signal };
     const report = await base.index(options).catch((error: unknown) => {
       throw signal.aborted ? interrupted(name) : error;
     });

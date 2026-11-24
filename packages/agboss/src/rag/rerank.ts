@@ -1,5 +1,5 @@
 import { RunnableLambda } from "@langchain/core/runnables";
-import type { RagSearchResultDto } from "./dto.js";
+import { copyOfResult, type RagSearchResultDto } from "./dto.js";
 import { recordReportedCost, type UsageRecord } from "../finops/usage.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
@@ -92,26 +92,34 @@ const keyOf = (result: RagSearchResultDto): string =>
     ? `${result.source}\u0000${result.text}`
     : `id\u0000${result.id}\u0000${result.source}`;
 
-/** The reranking's results, once each is one of the candidates, none twice, at most `topK`. */
+/**
+ * The reranking's results: each is one of the candidates, none twice, at most `topK`. What comes
+ * back is the CANDIDATE itself, found by key — the reranker contributes its order and its score
+ * only, never a text or a field: a model-backed reranker is untrusted, and what it returns must
+ * not reach the agent's context rewritten.
+ */
 function checkedResults(
   candidates: readonly RagSearchResultDto[],
   reranking: RerankResult,
   topK: number,
 ): readonly RagSearchResultDto[] {
-  const known = new Set(candidates.map(keyOf));
+  const known = new Map(candidates.map((candidate) => [keyOf(candidate), candidate] as const));
   const seen = new Set<string>();
   if (reranking.results.length > topK)
     throw new InvalidRerankingError(
       `it returned ${String(reranking.results.length)} > topK ${String(topK)}`,
     );
-  for (const result of reranking.results) {
+  return reranking.results.map((result) => {
     const key = keyOf(result);
-    if (!known.has(key))
+    const candidate = known.get(key);
+    if (candidate === undefined)
       throw new InvalidRerankingError("it returned a passage that is no candidate");
     if (seen.has(key)) throw new InvalidRerankingError("it returned one candidate twice");
     seen.add(key);
-  }
-  return reranking.results;
+    return typeof result.score === "number" && Number.isFinite(result.score)
+      ? copyOfResult(candidate, { score: result.score })
+      : candidate;
+  });
 }
 
 /**
