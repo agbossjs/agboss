@@ -1,3 +1,5 @@
+import type { UnitRun } from "./units/unit-types.js";
+import type { TestRunOptions } from "./slices.js";
 import { Application, type ApplicationOptions } from "../application/application.js";
 import type { Class, Resolved, Token } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
@@ -46,16 +48,17 @@ export interface TestModule {
   /** The module's app, for what the slices do not cover (`execute`, `resume`, `cancel`). */
   readonly app: TestApp;
   /** The agent's reply to an input message: its text, or its answer's JSON. */
-  runAgent(agent: Class, input: string): Promise<string>;
+  runAgent(agent: Class, input: string, options?: TestRunOptions): Promise<UnitRun<string>>;
   /** The action's `execute(input)`, in a step's frame. */
-  runAction(action: Class, input: unknown): Promise<unknown>;
+  runAction(action: Class, input: unknown, options?: TestRunOptions): Promise<UnitRun<unknown>>;
   /** The tool as an agent gets it: validated, with its timeout, errors as results. */
   runTool<TInput, TOutput>(
     tool: ToolClassOf<TInput, TOutput>,
     input: TInput,
-  ): Promise<ToolOutput<TOutput>>;
+    options?: TestRunOptions,
+  ): Promise<UnitRun<ToolOutput<TOutput>>>;
   /** The component a router chooses for an input message. */
-  runRouter(router: Class, input: string): Promise<Class>;
+  runRouter(router: Class, input: string, options?: TestRunOptions): Promise<UnitRun<Class>>;
   /** What the module's container holds for a token. */
   get<TToken extends Token>(token: TToken): Resolved<TToken>;
   /** The script of an agent, a router or a `@Judge`'s model (by class). */
@@ -144,10 +147,10 @@ export async function testModule(options: TestModuleOptions): Promise<TestModule
   return {
     clock: environment.clock,
     app,
-    runAgent: (agent, input) => app.runAgent(agent, input),
-    runAction: (action, input) => app.runAction(action, input),
-    runTool: (tool, input) => app.runTool(tool, input),
-    runRouter: (router, input) => app.runRouter(router, input),
+    runAgent: (agent, input, call) => app.runAgent(agent, input, call),
+    runAction: (action, input, call) => app.runAction(action, input, call),
+    runTool: (tool, input, call) => app.runTool(tool, input, call),
+    runRouter: (router, input, call) => app.runRouter(router, input, call),
     get: (token) => app.get(token),
     mockModel: (component) => environment.mockLlm(component),
     mockTool: (tool) => environment.mocks.mockTool(tool),

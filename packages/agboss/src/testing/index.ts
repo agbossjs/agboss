@@ -21,7 +21,7 @@ export type { TestApp } from "./test-app.js";
 export type { A2AServerFixture, A2ATestServer } from "./a2a-server.js";
 export type { McpServerFixture, McpServerFixtureOptions, McpTestServer } from "./mcp-server.js";
 export type { A2AStub, BoundaryStub, RagStub } from "./boundary-stubs.js";
-export type { AgentSlice, RouterSlice, ToolSlice, ToolClassOf } from "./slices.js";
+export type { AgentSlice, RouterSlice, ToolSlice, ToolClassOf, TestRunOptions } from "./slices.js";
 export {
   replyWith,
   callTool,

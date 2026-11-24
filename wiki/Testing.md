@@ -606,7 +606,10 @@ expect(mockLlm(Scout)).toHaveBeenCalledTimes(3);
 
 ## Slices
 
-One component of the real app on its own:
+One component of the real app on its own; each returns a `UnitRun` (`{ output, spend }`) and takes
+`{ tenant }` as its last argument — the application that declares a `tenantContext` refuses a call
+with no tenant of its own and none from `testWith(App, { tenant })`
+(`ValidationError.TenantRequired`):
 
 - `app.runTool(X, input)` — the tool with its real (or mocked) dependencies → `ToolResult`; it
   runs in an execution of its own, so an injected `ExecutionContext` reads (`step.callId`

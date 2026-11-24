@@ -99,7 +99,7 @@ describe("AC12: mockLlm — what a component sent its model", () => {
 
 describe("AC12: slices — one component of the real app on its own", () => {
   test("app.runTool(X, …) runs the tool with its real dependencies", async ({ app }) => {
-    expect(await app.runTool(OrderStatus, { orderId: "9" })).toEqual({
+    expect((await app.runTool(OrderStatus, { orderId: "9" })).output).toEqual({
       kind: "ok",
       value: { status: "order 9 shipped" },
     });
@@ -111,7 +111,7 @@ describe("AC12: slices — one component of the real app on its own", () => {
   }) => {
     mockLlm(MainRouter).thenReturn(routeTo(Writer));
 
-    expect(await app.runRouter(MainRouter, "write a reply")).toBe(Writer);
+    expect((await app.runRouter(MainRouter, "write a reply")).output).toBe(Writer);
     expect(mockLlm(MainRouter).onlyRequest).toMatchObject({ input: "write a reply" });
   });
 
@@ -124,7 +124,7 @@ describe("AC12: slices — one component of the real app on its own", () => {
       replyWith("Order 3 shipped."),
     );
 
-    expect(await app.runAgent(Support, "where is 3?")).toBe("Order 3 shipped.");
+    expect((await app.runAgent(Support, "where is 3?")).output).toBe("Order 3 shipped.");
     expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
   });
 

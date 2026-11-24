@@ -59,8 +59,11 @@ export interface ReplyAnsweringParts {
   /** What the interpreter's model reads through: the policies and the execution's tokens. */
   /** The policies the paused execution's interpreter reads through: its workflow's chain (#1150). */
   readonly piiOf: (state: TreeState, pause: PauseRecord) => ReplyPii;
-  /** The workflow's observers, masked by its policies (`onChannelInterpreterStart` / `End`). */
-  readonly observer?: ExecutionObserverManager | undefined;
+  /**
+   * The observers of the pause's own workflow, masked by its policies (`onChannelInterpreterStart` /
+   * `End`): resolved per pause, as its PII policies are, never the answering app's.
+   */
+  readonly observerOf?: (pause: PauseRecord) => ExecutionObserverManager | undefined;
 }
 
 /** The tree's budgets as the reading counts them: none without the application's budgets. */
@@ -76,7 +79,14 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
   workflow: deps.config.name,
   budgets: deps.budgets,
   tracing: deps.tracing,
-  observer: deps.observer,
+  observerOf: (pause) => {
+    try {
+      return ownDepsOf(deps, pause.workflow).observer;
+    } catch {
+      // a workflow this application no longer has: nobody to tell
+      return undefined;
+    }
+  },
   treeStateOf: (rootExecutionId) => treeStateOf(deps, rootExecutionId),
   frameOf: async (pause, state) => pauseFrameOf(deps, pause, await pauseTreeOf(deps, pause, state)),
   piiOf: (state, pause) => {
@@ -111,7 +121,7 @@ export function replyAnsweringOf(parts: ReplyAnsweringParts, reader: ReplyReader
     const callbacks = parts.tracing?.callbacks(trace) ?? [];
     const frame = await parts.frameOf(pause, state);
     const pii = parts.piiOf(state, pause);
-    const { observer } = parts;
+    const observer = parts.observerOf?.(pause);
     const call = { pause, reply, validate, beforeModelCall, callbacks, frame, pii, observer };
     const reading = await reader(call);
     await meter?.record(reading.usage);

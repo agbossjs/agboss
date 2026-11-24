@@ -36,7 +36,8 @@ export interface AgentRunner extends Pick<
 export async function testAgent(agent: Class, options: TestAgentOptions): Promise<AgentRunner> {
   const { workflow, components = [], ...rest } = options;
   const module = await testModule({ ...rest, components: [workflow, ...components] });
-  const run = (input: string): Promise<string> => module.runAgent(agent, input);
+  const run = async (input: string): Promise<string> =>
+    (await module.runAgent(agent, input)).output;
   return Object.assign(run, {
     run,
     mockModel: (component: Class = agent): ModelScript => module.mockModel(component),

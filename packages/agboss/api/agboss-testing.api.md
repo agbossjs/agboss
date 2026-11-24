@@ -56,7 +56,7 @@ export interface ActionScript<TSelf = unknown> {
 // @public
 export interface ActionSlice {
     // (undocumented)
-    run(input: unknown): Promise<unknown>;
+    run(input: unknown, tenant: TenantContext): Promise<UnitRun<unknown>>;
 }
 
 // @public
@@ -71,7 +71,7 @@ export interface AgentRunner extends Pick<TestModule, "mockTool" | "mockService"
 // @public
 export interface AgentSlice {
     // (undocumented)
-    replyWith(input: string): Promise<string>;
+    replyWith(input: string): Promise<UnitRun<string>>;
 }
 
 // @public
@@ -840,7 +840,7 @@ export interface RouterRunner<TInput, TOutput> extends UnitClock {
 // @public
 export interface RouterSlice {
     // (undocumented)
-    routeTo(input: string): Promise<Class>;
+    routeTo(input: string): Promise<UnitRun<Class>>;
 }
 
 // @public
@@ -1009,10 +1009,10 @@ export interface TestApp extends Pick<AnyTenantApp, "execute" | "resume" | "exte
     readonly clock: VirtualClock;
     get<TToken extends Token>(token: TToken): Resolved<TToken>;
     ready(): Promise<void>;
-    runAction(action: Class, input: unknown): Promise<unknown>;
-    runAgent(agent: Class, input: string): Promise<string>;
-    runRouter(router: Class, input: string): Promise<Class>;
-    runTool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>, input: TInput): Promise<ToolOutput<TOutput>>;
+    runAction(action: Class, input: unknown, options?: TestRunOptions): Promise<UnitRun<unknown>>;
+    runAgent(agent: Class, input: string, options?: TestRunOptions): Promise<UnitRun<string>>;
+    runRouter(router: Class, input: string, options?: TestRunOptions): Promise<UnitRun<Class>>;
+    runTool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>, input: TInput, options?: TestRunOptions): Promise<UnitRun<ToolOutput<TOutput>>>;
     readonly settings: Readonly<Record<string, AgentsConfigOf<string>>>;
 }
 
@@ -1154,10 +1154,10 @@ export interface TestModule {
     mockService<T>(service: Class<T>): Mocked<T>;
     // (undocumented)
     mockTool(tool: Class): ToolScript;
-    runAction(action: Class, input: unknown): Promise<unknown>;
-    runAgent(agent: Class, input: string): Promise<string>;
-    runRouter(router: Class, input: string): Promise<Class>;
-    runTool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>, input: TInput): Promise<ToolOutput<TOutput>>;
+    runAction(action: Class, input: unknown, options?: TestRunOptions): Promise<UnitRun<unknown>>;
+    runAgent(agent: Class, input: string, options?: TestRunOptions): Promise<UnitRun<string>>;
+    runRouter(router: Class, input: string, options?: TestRunOptions): Promise<UnitRun<Class>>;
+    runTool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>, input: TInput, options?: TestRunOptions): Promise<UnitRun<ToolOutput<TOutput>>>;
 }
 
 // @public
@@ -1169,6 +1169,11 @@ export type TestModuleApplicationOptions = Partial<Omit<ApplicationOptions, "nam
 // @public
 export interface TestModuleOptions extends TestWithOptions, TestModuleApplicationOptions {
     readonly components: readonly Class[];
+}
+
+// @public
+export interface TestRunOptions {
+    readonly tenant?: TenantValues | undefined;
 }
 
 // @public
@@ -1213,6 +1218,7 @@ export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
     readonly profile?: ProfileSelection | undefined;
     readonly real?: readonly Class[];
     readonly services?: readonly ServiceEntry[];
+    readonly tenant?: TenantValues;
     readonly vcr?: VcrConfig;
 }
 
@@ -1314,7 +1320,7 @@ export interface ToolScript {
 // @public
 export interface ToolSlice<TInput, TOutput> {
     // (undocumented)
-    invoke(input: TInput): Promise<ToolOutput<TOutput>>;
+    invoke(input: TInput, tenant: TenantContext): Promise<UnitRun<ToolOutput<TOutput>>>;
 }
 
 // @public

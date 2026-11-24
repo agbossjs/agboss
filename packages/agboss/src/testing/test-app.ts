@@ -7,7 +7,8 @@ import type { AgentsConfigOf } from "../config/types.js";
 import type { VirtualClock } from "./clock.js";
 import type { TestEnvironment } from "./environment.js";
 import { TestFailure } from "./errors.js";
-import type { ToolClassOf } from "./slices.js";
+import type { TestRunOptions, ToolClassOf } from "./slices.js";
+import type { UnitRun } from "./units/unit-types.js";
 import type { ToolOutput } from "../tools/index.js";
 import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
 import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
@@ -64,16 +65,17 @@ export interface TestApp extends Pick<
    */
   get<TToken extends Token>(token: TToken): Resolved<TToken>;
   /** One action of the app on its own, as its step runs it: its input in, its output out (#1328). */
-  runAction(action: Class, input: unknown): Promise<unknown>;
+  runAction(action: Class, input: unknown, options?: TestRunOptions): Promise<UnitRun<unknown>>;
   /** One agent of the app on its own: an input message in, its reply out — its text, or its answer's JSON. */
-  runAgent(agent: Class, input: string): Promise<string>;
+  runAgent(agent: Class, input: string, options?: TestRunOptions): Promise<UnitRun<string>>;
   /** One router of the app on its own: an input message in, the component it chooses out. */
-  runRouter(router: Class, input: string): Promise<Class>;
+  runRouter(router: Class, input: string, options?: TestRunOptions): Promise<UnitRun<Class>>;
   /** One tool of the app, as the agents get it (validation, timeout, errors as results). */
   runTool<TInput, TOutput>(
     tool: ToolClassOf<TInput, TOutput>,
     input: TInput,
-  ): Promise<ToolOutput<TOutput>>;
+    options?: TestRunOptions,
+  ): Promise<UnitRun<ToolOutput<TOutput>>>;
 }
 
 /**

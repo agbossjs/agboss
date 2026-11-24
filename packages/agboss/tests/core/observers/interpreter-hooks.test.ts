@@ -46,6 +46,16 @@ class InterpreterWatch {
   }
 }
 
+const filtered: ChannelInterpreterStartEvent[] = [];
+
+/** Only the other workflow's events: a reading of the treasury workflow's pause is not its own. */
+@Observer({ workflows: [TreasuryDeskWorkflow] })
+class DeskInterpreterWatch {
+  onChannelInterpreterStart(event: ChannelInterpreterStartEvent): void {
+    filtered.push(event);
+  }
+}
+
 @Application({
   name: "watched-treasury-application",
   version: "1.0.0",
@@ -54,7 +64,7 @@ class InterpreterWatch {
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,
   piiPolicies: [TreasuryPiiPolicy],
-  observers: [InterpreterWatch],
+  observers: [InterpreterWatch, DeskInterpreterWatch],
 })
 class WatchedTreasuryApplication {}
 
@@ -63,6 +73,7 @@ const test = testWith(WatchedTreasuryApplication);
 beforeEach(() => {
   resetReplyDesk();
   events.length = 0;
+  filtered.length = 0;
 });
 
 const manager = { answeredBy: "manager-17" };
@@ -132,5 +143,22 @@ describe("#1343: onChannelInterpreterStart / onChannelInterpreterEnd", () => {
     const shown = JSON.stringify(events);
     expect(shown).not.toContain("ann@example.com");
     expect(shown).not.toContain(id);
+  });
+
+  test("the observers are the paused execution's own workflow's: its filter and its mask apply", async ({
+    app,
+    mockLlm,
+  }) => {
+    mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout), replyWith("Paid."));
+    mockLlm(PayoutReplyInterpreter).thenReturn(
+      replyWith(ToolCallApprovalDecisionDto, { approved: true }),
+    );
+    await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
+
+    await app.resume({ pauseId: pauseId(), reply: "yes" }, manager);
+
+    expect(events).toHaveLength(2);
+    // an observer of another workflow hears nothing of this one's pause
+    expect(filtered).toEqual([]);
   });
 });

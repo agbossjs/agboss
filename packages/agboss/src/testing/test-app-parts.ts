@@ -7,7 +7,15 @@ import { definedOf } from "../infrastructure/clock.js";
 import type { TestEnvironment } from "./environment.js";
 import { TestSetupError } from "./errors.js";
 import { toolNameOf } from "./script.js";
-import { actionSlice, agentSlice, routerSlice, toolSlice } from "./slices.js";
+import { TenantOperation } from "../app/tenant-gate.js";
+import {
+  actionSlice,
+  agentSlice,
+  routerSlice,
+  sliceTenantOf,
+  toolSlice,
+  type TestRunOptions,
+} from "./slices.js";
 import type { TestApp } from "./test-app.js";
 
 /** `resolve` and `get`: what the built app's container holds for a token (a class, a value, an env dictionary). */
@@ -74,24 +82,43 @@ export function workflowWithTool(built: BuiltApplication, tool: Class): BuiltApp
 export const slicesOf = (
   environment: TestEnvironment,
   built: () => Promise<BuiltApplication>,
-): Pick<TestApp, "runAction" | "runAgent" | "runRouter" | "runTool"> => ({
-  runAction: (action, input) =>
-    checked(environment, async () =>
-      actionSlice(workflowWith(await built(), action), action).run(input),
-    ),
-  runAgent: (agent, task) =>
-    checked(environment, async () =>
-      agentSlice(workflowWith(await built(), agent), agent).replyWith(task),
-    ),
-  runRouter: (router, input) =>
-    checked(environment, async () =>
-      routerSlice(workflowWith(await built(), router), router).routeTo(input),
-    ),
-  runTool: (tool, input) =>
-    checked(environment, async () =>
-      toolSlice(workflowWithTool(await built(), tool), tool).invoke(input),
-    ),
-});
+): Pick<TestApp, "runAction" | "runAgent" | "runRouter" | "runTool"> => {
+  const tenantFor = (
+    app: BuiltApp,
+    operation: TenantOperation,
+    options: TestRunOptions | undefined,
+  ) =>
+    sliceTenantOf(app, environment.assembled.hasTenantContext, operation, {
+      call: options?.tenant,
+      suite: environment.tenant,
+    });
+  return {
+    runAction: (action, input, options) =>
+      checked(environment, async () => {
+        const app = workflowWith(await built(), action);
+        const tenant = tenantFor(app, TenantOperation.RunAction, options);
+        return actionSlice(app, action).run(input, tenant);
+      }),
+    runAgent: (agent, task, options) =>
+      checked(environment, async () => {
+        const app = workflowWith(await built(), agent);
+        tenantFor(app, TenantOperation.RunAgent, options);
+        return agentSlice(app, agent).replyWith(task);
+      }),
+    runRouter: (router, input, options) =>
+      checked(environment, async () => {
+        const app = workflowWith(await built(), router);
+        tenantFor(app, TenantOperation.RunRouter, options);
+        return routerSlice(app, router).routeTo(input);
+      }),
+    runTool: (tool, input, options) =>
+      checked(environment, async () => {
+        const app = workflowWithTool(await built(), tool);
+        const tenant = tenantFor(app, TenantOperation.RunTool, options);
+        return toolSlice(app, tool).invoke(input, tenant);
+      }),
+  };
+};
 
 /**
  * What answers during and after `close()` too: the probes (an orchestrator asks while the app
@@ -129,11 +156,23 @@ export const runsOf = (
   built: () => Promise<BuiltApplication>,
 ): Pick<TestApp, "execute" | "resume"> => ({
   execute: (start, input, ...options) =>
-    checked(environment, async () =>
-      remembered(environment, await (await built()).app.execute(start, input, ...options)),
-    ),
+    checked(environment, async () => {
+      const call = withSuiteTenant(environment, options);
+      return remembered(environment, await (await built()).app.execute(start, input, ...call));
+    }),
   resume: (request, options): Promise<ExecutionOutput> =>
     checked(environment, async () =>
       remembered(environment, await (await built()).app.resume(request, options)),
     ),
 });
+
+/** The call's options with the test's tenant (`testWith(App, { tenant })`) where the call names none. */
+function withSuiteTenant<TOptions extends readonly unknown[]>(
+  environment: TestEnvironment,
+  options: TOptions,
+): TOptions {
+  const { tenant } = environment;
+  const [first] = options as readonly (Readonly<Record<string, unknown>> | undefined)[];
+  if (tenant === undefined || first?.tenant !== undefined) return options;
+  return [{ ...first, tenant }] as unknown as TOptions;
+}

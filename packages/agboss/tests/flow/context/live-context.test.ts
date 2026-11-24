@@ -127,7 +127,7 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
 
 describe("#280: a tool called on its own runs in an execution of its own", () => {
   test("app.runTool(T, …): one step, the tool's name as its node id", async ({ app }) => {
-    const result = await app.runTool(NoteTool, { text: "alone" });
+    const { output: result } = await app.runTool(NoteTool, { text: "alone" });
 
     expect(result).toEqual({ kind: "ok", value: { text: "alone" } });
     expect(seen.toolSteps).toEqual([

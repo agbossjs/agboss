@@ -1,3 +1,4 @@
+import type { TenantValues } from "../flow/context/context-values.js";
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import type { BuildOptions } from "../app/app-deps.js";
 import type { ExecutionOutput } from "../app/types.js";
@@ -39,6 +40,13 @@ import { TEST_IDEMPOTENCY_KEYS } from "../application/idempotency-key.js";
  * test never falls back to dev's values, and fails without `test.environment.ts`).
  */
 export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
+  /**
+   * The tenant the test's calls run for (`ContextValues` of the application's `TenantContext`): what
+   * `app.runAgent` / `runAction` / `runRouter` / `runTool` and `app.execute` use when the call names
+   * none. An application that declares a `tenantContext` refuses a call with neither
+   * (`ValidationError.TenantRequired`).
+   */
+  readonly tenant?: TenantValues;
   /** Components kept real: MCP server classes connect through their configured transports. */
   readonly real?: readonly Class[];
   /** Hosts a test may reach (`localhost` covers every loopback address); everything else is blocked. */
@@ -118,6 +126,8 @@ export class TestEnvironment {
   readonly database = new InMemoryDatabase();
   /** `mockOf`, `mockTool`, `mockAction`: what the test replaces or watches. */
   readonly mocks: TestMocks;
+  /** The tenant of the test (`testWith(App, { tenant })`), when it names one. */
+  readonly tenant: TenantValues | undefined;
   /** What the last `execute` or `resume` of any app of the test gave: `answerPause` answers its pause. */
   lastOutput: ExecutionOutput | undefined;
   readonly #apps: BuiltApplication[] = [];
@@ -140,6 +150,7 @@ export class TestEnvironment {
     options: TestWithOptions,
     { named: environment, processEnv }: TestKeyedEnvironment,
   ) {
+    this.tenant = options.tenant;
     this.clock = new VirtualClock(startOf(options.startAt));
     const { workflows } = assembled;
     this.#nodes = workflows.flatMap((workflow) => [...workflow.graph.nodes.values()]);

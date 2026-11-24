@@ -6,6 +6,10 @@ import { agentLoopGraph, loopInputOf, noJudges } from "../graph/agent-loop/index
 import { RouterDecisionError, routerFailureOf } from "../flow/runtime/router-error.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { ToolOutput } from "../tools/index.js";
+import { CostReport, type UsageRecord } from "../finops/usage.js";
+import type { FrameSpec } from "../flow/context/frame.js";
+import type { TenantContext } from "../flow/context/tenant-context.js";
+import type { UnitRun } from "./units/unit-types.js";
 import { TestSetupError } from "./errors.js";
 import { nodeNameOf } from "./failure-facts.js";
 import { toolNameOf } from "./script.js";
@@ -13,16 +17,37 @@ import { standaloneCallFrameOf } from "../flow/context/call-frame.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
 import { runInFrame } from "../flow/context/frame.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
-import { defaultTenantOf, contextsOutsideExecution } from "../flow/context/runtime-contexts.js";
+import {
+  contextsOutsideExecution,
+  defaultTenantOf,
+  tenantOfExecution,
+} from "../flow/context/runtime-contexts.js";
+import { tenantFieldsOf, type TenantValues } from "../flow/context/context-values.js";
+import { checkedTenant, TenantOperation } from "../app/tenant-gate.js";
+
+/** `work` in `frame`, with what its services record (`SpendRecorder`, a tool's reported cost) as its spend. */
+async function spentIn<TOutput>(
+  frame: FrameSpec,
+  work: () => Promise<TOutput>,
+): Promise<UnitRun<TOutput>> {
+  const spent: UsageRecord[] = [];
+  const services = {
+    reportUsage: (record: UsageRecord): void => {
+      spent.push(record);
+    },
+  };
+  const output = await runInFrame({ ...frame, services }, work);
+  return { output, spend: CostReport.fromUsage(spent) };
+}
 
 /** One tool of the app, as the agents get it (validation, timeout, errors as results). */
 export interface ToolSlice<TInput, TOutput> {
-  invoke(input: TInput): Promise<ToolOutput<TOutput>>;
+  invoke(input: TInput, tenant: TenantContext): Promise<UnitRun<ToolOutput<TOutput>>>;
 }
 
 /** One router of the app on its own: an input message in, the component it chooses out. */
 export interface RouterSlice {
-  routeTo(input: string): Promise<Class>;
+  routeTo(input: string): Promise<UnitRun<Class>>;
 }
 
 /**
@@ -30,7 +55,7 @@ export interface RouterSlice {
  * JSON (no flow, no approval pause).
  */
 export interface AgentSlice {
-  replyWith(input: string): Promise<string>;
+  replyWith(input: string): Promise<UnitRun<string>>;
 }
 
 /** A tool class, typed by its `execute`. */
@@ -53,16 +78,14 @@ export function toolSlice<TInput, TOutput>(
     executionId: "tool-slice",
     callId: "tool-slice",
     signal,
-    tenant: defaultTenantOf(built.deps.contexts ?? contextsOutsideExecution(built.deps.config)),
   };
   return {
     // the tool validates its result against the output DTO that `execute` returns
     // one call is an execution of its own — what its injected `ExecutionContext` reads (#280)
-    invoke: (input) =>
-      runInFrame(
-        standaloneCallFrameOf(call),
-        async () => (await tool.invoke(input)) as ToolOutput<TOutput>,
-      ),
+    invoke: (input, tenant) =>
+      spentIn(standaloneCallFrameOf({ ...call, tenant }), async () => {
+        return (await tool.invoke(input)) as ToolOutput<TOutput>;
+      }),
   };
 }
 
@@ -89,7 +112,8 @@ export function routerSlice(built: BuiltApp, target: Class): RouterSlice {
         const reason = `"${outcome.decision.next}" is not one of its routes`;
         throw new RouterDecisionError({ ...step, reason });
       }
-      return chosen.component;
+      const records = [...(outcome.usage === undefined ? [] : [outcome.usage])];
+      return { output: chosen.component, spend: CostReport.fromUsage(records) };
     },
   };
 }
@@ -149,14 +173,14 @@ export function agentSlice(built: BuiltApp, target: Class): AgentSlice {
   return {
     replyWith: async (input) => {
       const after = await loop.invoke(loopInputOf(freshState("agent-slice"), name, input));
-      return after.reply ?? "";
+      return { output: after.reply ?? "", spend: CostReport.fromUsage(after.usage) };
     },
   };
 }
 
 /** One action of the app on its own: its input in, what `execute` gives out (no flow, no output node). */
 export interface ActionSlice {
-  run(input: unknown): Promise<unknown>;
+  run(input: unknown, tenant: TenantContext): Promise<UnitRun<unknown>>;
 }
 
 /** The action as the container created it, run in a step's frame of an execution of its own. */
@@ -170,15 +194,43 @@ export function actionSlice(built: BuiltApp, cls: Class): ActionSlice {
     executionId: "action-slice",
     callId: "action-slice",
     signal,
-    tenant: defaultTenantOf(built.deps.contexts ?? contextsOutsideExecution(built.deps.config)),
   };
   return {
-    run: (input) =>
-      runInFrame(standaloneCallFrameOf(call), async () => {
+    run: (input, tenant) =>
+      spentIn(standaloneCallFrameOf({ ...call, tenant }), async () => {
         const instance = built.deps.container.get(cls) as {
           execute(input: unknown): unknown;
         };
         return await instance.execute(input);
       }),
   };
+}
+
+/** What a component run on its own (`app.runAgent`, …) is called with besides its input (#1328). */
+export interface TestRunOptions {
+  /**
+   * The tenant the call runs for (`ContextValues` of the application's `TenantContext`); omitted → the
+   * one `testWith(App, { tenant })` gives. An application that declares a `tenantContext` refuses a
+   * call with neither (`ValidationError.TenantRequired`); one without runs as the tenant `"default"`.
+   */
+  readonly tenant?: TenantValues | undefined;
+}
+
+/**
+ * The tenant a run on its own is made for: the call's, else the suite's; none of them with a
+ * declared `tenantContext` is `ValidationError.TenantRequired`, never the tenant `"default"`.
+ */
+export function sliceTenantOf(
+  built: BuiltApp,
+  isDeclared: boolean,
+  operation: TenantOperation,
+  tenants: { readonly call?: TenantValues | undefined; readonly suite?: TenantValues | undefined },
+): TenantContext {
+  const contexts = built.deps.contexts ?? contextsOutsideExecution(built.deps.config);
+  const raw = tenants.call ?? tenants.suite;
+  if (raw === undefined) {
+    checkedTenant(isDeclared, operation, undefined);
+    return defaultTenantOf(contexts);
+  }
+  return tenantOfExecution(contexts, tenantFieldsOf(contexts.tenantContext, raw));
 }

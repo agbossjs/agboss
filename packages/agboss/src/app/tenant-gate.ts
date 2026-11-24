@@ -22,6 +22,11 @@ export enum TenantOperation {
   AuditLogOf = "auditLogOf",
   OutboundCallsOf = "outboundCallsOf",
   PendingOutboundCallsOf = "pendingOutboundCallsOf",
+  /** `app.runAction` / `runAgent` / `runRouter` / `runTool` of a test app (#1328). */
+  RunAction = "runAction",
+  RunAgent = "runAgent",
+  RunRouter = "runRouter",
+  RunTool = "runTool",
 }
 
 /** A tenant as a call names it: a `string` (whether its text is a key's is checked where it is read). */

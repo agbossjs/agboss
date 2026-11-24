@@ -29,6 +29,7 @@ const deskModule = async (): Promise<TestModule> =>
     modelProvider: EvalDeskModelProvider,
     tenantContext: DeskTenantContext,
     executionContext: DeskExecutionContext,
+    tenant: { tenantId: "acme", plan: "pro" },
     budgets: TEST_BUDGETS,
   }));
 
@@ -36,7 +37,7 @@ describe("#1328b: testModule", () => {
   it("runs a tool of the slice as an agent gets it", async () => {
     const desk = await deskModule();
 
-    const result = await desk.runTool(GetOrderTool, { orderId: "9" });
+    const { output: result } = await desk.runTool(GetOrderTool, { orderId: "9" });
 
     expect(result).toMatchObject({ kind: "ok", value: { status: "order 9 arrived broken" } });
   });
@@ -45,7 +46,7 @@ describe("#1328b: testModule", () => {
     const desk = await deskModule();
     desk.mockModel(DeskAgent).thenReturn(replyWith(DeskAnswerDto, { text: "Order 9 shipped." }));
 
-    const reply = await desk.runAgent(DeskAgent, "Where is order 9?");
+    const { output: reply } = await desk.runAgent(DeskAgent, "Where is order 9?");
 
     expect(reply).toContain("Order 9 shipped.");
     expect(desk.get(GetOrderTool)).toBeInstanceOf(GetOrderTool);
@@ -72,6 +73,7 @@ describe("#1328b: testAgent", () => {
       modelProvider: EvalDeskModelProvider,
       tenantContext: DeskTenantContext,
       executionContext: DeskExecutionContext,
+      tenant: { tenantId: "acme", plan: "pro" },
       budgets: TEST_BUDGETS,
     });
     agent.mockModel().thenReturn(replyWith(DeskAnswerDto, { text: "Order 9 shipped." }));

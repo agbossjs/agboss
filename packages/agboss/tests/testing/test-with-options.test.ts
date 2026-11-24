@@ -25,7 +25,7 @@ describe("#1328: mockTool(T).thenReturn and app.runTool", () => {
     async ({ app, mockTool }) => {
       mockTool(OrderStatus).thenReturn({ status: "shipped" });
 
-      const output = await app.runTool(OrderStatus, { orderId: "7" });
+      const { output } = await app.runTool(OrderStatus, { orderId: "7" });
 
       expect(output).toMatchObject({ kind: "ok", value: { status: "shipped" } });
     },
@@ -40,7 +40,7 @@ describe("#1328: mockTool(T).thenReturn and app.runTool", () => {
         replyWith("It is lost."),
       );
 
-      expect(await app.runAgent(Support, "Where is order 7?")).toBe("It is lost.");
+      expect((await app.runAgent(Support, "Where is order 7?")).output).toBe("It is lost.");
     },
   );
 
