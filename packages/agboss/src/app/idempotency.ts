@@ -17,6 +17,7 @@ import { EXECUTION_LEASE } from "./lease-fence.js";
 import type { IdempotencyRunOptions } from "./idempotency-types.js";
 import { boundedWork } from "./idempotency-work.js";
 import { callKeyIn } from "./idempotency-keys.js";
+import { assertNotNested, assertOutsideRunOnce, inRunOnce } from "./idempotency-scope.js";
 import { callKeyErrorOf, checkedRecovery } from "./outbound-call-contract.js";
 import { expiryOf, type LiveCall } from "./outbound-call-parts.js";
 import type {
@@ -110,12 +111,15 @@ export class Idempotency {
     if (timeoutProblem !== undefined) throw refused("runOnce", timeoutProblem);
     if (timeout >= EXECUTION_LEASE) throw refused("runOnce", `timeout is not below the lease`);
     if (typeof execute !== "function") throw refused("runOnce", "execute is not a function");
+    assertNotNested(name);
     const context = liveExecutionContextOf(undefined, "Idempotency");
     const expiresAt = expiryOf(this.clock, ttl);
     const parts = { ...options, key, expiresAt, maxResultSize };
     const effectKey = callKeyIn(context, name, parts, "runOnce");
     const bounded = boundedWork(this.clock, { name, timeout }, execute);
-    return this.effects.runOnce(effectKey, bounded);
+    // `execute` runs in the scope of its runOnce, closed once it ended (a store may call it again)
+    const scoped: typeof bounded = (transaction) => inRunOnce(name, () => bounded(transaction));
+    return this.effects.runOnce(effectKey, scoped);
   }
 
   /**
@@ -131,6 +135,7 @@ export class Idempotency {
   ): Promise<OutboundCallOutcome<TResult>> {
     // read once: a getter is never asked again
     const { name, key, target, request, timeout, ttl, send, recovery, isDefiniteFailure } = options;
+    assertOutsideRunOnce(`Idempotency.sendOnce "${name}"`);
     const operation = options.operation ?? name;
     const maxPayloadSize = options.maxPayloadSize ?? DEFAULT_PAYLOAD_SIZE;
     const timeoutProblem = timeoutProblemOf(timeout);

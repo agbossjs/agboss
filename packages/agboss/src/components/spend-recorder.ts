@@ -1,3 +1,4 @@
+import { assertOutsideRunOnce } from "../app/idempotency-scope.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { CostSource, ZERO_USAGE, type TokenUsage, type UsageRecord } from "../finops/usage.js";
@@ -54,6 +55,8 @@ export class LiveSpendRecorder extends SpendRecorder {
   }
 
   record(spend: ServiceSpend): void {
+    // a store may run a `runOnce`'s `execute` again: a spend counted in it would be counted twice
+    assertOutsideRunOnce(`SpendRecorder.record of "${spend.service}"`);
     const frame = currentFrame();
     const report = frame?.isClosed() === false ? frame.services.reportUsage : undefined;
     if (report === undefined) {

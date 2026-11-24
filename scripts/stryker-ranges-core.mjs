@@ -29,7 +29,7 @@ export function fencingEffectsShard() {
       // the call's changes; #825: the paged listing's keyset, the in-memory record order; #1317: an intent's status
       "src/infrastructure/outbound-call-{changes,pages,status}.ts",
       // #1317: whether a call's request is stored only masked; the keys of a call (the digest of a business key, the wire key, its prefix)
-      "src/app/{outbound-masking,idempotency-keys,outbound-call-keys}.ts",
+      "src/app/{outbound-masking,idempotency-keys,outbound-call-keys,idempotency-scope}.ts",
       "src/infrastructure/business-key-digest.ts",
       // #825: a store's static store, read as declared
       "src/infrastructure/store-descriptor.ts",
