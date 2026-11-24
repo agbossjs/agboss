@@ -20,7 +20,8 @@ where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one s
 
 <!-- snippet-context
 import { Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAgent, caseOf, onStart, toAction, toFinish, onWorkflow } from "@agboss/core";
-import { Bool, Text, WorkflowStartTextDto, listOf, oneOf, optional } from "@agboss/core/dto";
+import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
+import { listOf, oneOf, optional } from "@agboss/core";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
@@ -424,7 +425,8 @@ instances that share the stores ([Several instances](Several-instances#children-
 
 <!-- snippet-context
 import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish } from "@agboss/core";
-import { Text, WorkflowStartTextDto, listOf } from "@agboss/core/dto";
+import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
+import { listOf } from "@agboss/core";
 export class SupplierDto {
   @Text({ prompt: "the supplier's name" })
   name!: string;
@@ -552,7 +554,8 @@ and each subtopic researched the same way:
 
 <!-- snippet-context
 import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAction, caseOf, onStart, toAction, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
-import { Integer, List, Text, listOf, oneOf } from "@agboss/core/dto";
+import { Integer, List, Text } from "@agboss/core/dto";
+import { listOf, oneOf } from "@agboss/core";
 
 export class TopicDto {
   @Text({ prompt: "the topic" })

@@ -943,7 +943,7 @@ export class RefusalDto {
 
 ```ts
 import { Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { isVariant, oneOf } from "@agboss/core/dto";
+import { isVariant, oneOf } from "@agboss/core";
 
 @Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {

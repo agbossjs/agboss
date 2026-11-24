@@ -123,6 +123,8 @@ export type RuleCode =
   | "dto.duplicate-name"
   // a DTO that holds itself through @Nested / @List (#1080)
   | "dto.cyclic"
+  // an action's oneOf / polymorphic listOf whose classes one plain value could all satisfy (#1288)
+  | "dto.ambiguous-one-of"
   | "tool.name-too-long"
   | "tool.name-invalid"
   // a bound on tool results (#336), reported at assembly by `src/components/assemble-tools.ts`

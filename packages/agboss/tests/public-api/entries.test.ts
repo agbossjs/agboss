@@ -119,9 +119,10 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
     expect(Object.keys(root)).toEqual(expect.arrayContaining(expected));
   });
 
-  it("agboss/dto exports the wrappers too, the same values as the root", () => {
-    for (const name of ["listOf", "oneOf", "optional", "variant", "isVariant"] as const) {
-      expect(dto[name]).toBe(root[name]);
+  it("agboss/dto no longer re-exports the wrappers: the root entry is their one import path (#1288)", () => {
+    for (const name of ["listOf", "oneOf", "optional", "historyOf", "variant", "isVariant"]) {
+      expect(name in dto).toBe(false);
+      expect(name in root).toBe(true);
     }
   });
 

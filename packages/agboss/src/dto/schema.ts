@@ -3,6 +3,7 @@ import { dtoCycleOf, cycleText } from "./cycles.js";
 import { DtoError, DtoValidationError, pathOf } from "./errors.js";
 import { scalarSchemas } from "./formats.js";
 import { checksOf, isOpen, registerDto } from "./metadata.js";
+import { hydrateInPlace } from "./hydrate.js";
 import { rememberDtoOf } from "./redact.js";
 import type { DtoCheck, DtoClass, ElementSpec, FieldSpec } from "./types.js";
 
@@ -102,17 +103,25 @@ export function objectSchemaOf(dto: DtoClass): ObjectSchema {
   if (cycle !== undefined)
     throw new DtoError({ code: "dto.cyclic", message: cyclicMessage(cycle) });
   const checks = checksOf(dto);
-  const schema = fieldsSchemaOf(fields).superRefine((value, ctx) => {
-    for (const check of checks) {
-      for (const issue of runCheck(check, value)) {
-        ctx.addIssue({
-          code: "custom",
-          path: issue.field === undefined ? [] : [issue.field],
-          message: issue.reason,
-        });
+  const schema = fieldsSchemaOf(fields)
+    .superRefine((value, ctx) => {
+      for (const check of checks) {
+        for (const issue of runCheck(check, value)) {
+          ctx.addIssue({
+            code: "custom",
+            path: issue.field === undefined ? [] : [issue.field],
+            message: issue.reason,
+          });
+        }
       }
-    }
-  });
+    })
+    // the value of a DTO carries the DTO's prototype (#1288); zod built it, nothing else holds it yet
+    .check(
+      z.overwrite((value: Record<string, unknown>) => {
+        hydrateInPlace(dto, value);
+        return value;
+      }),
+    );
   schemas.set(dto, schema);
   rememberDtoOf(schema, dto);
   return schema;
@@ -148,4 +157,24 @@ export function validate<T extends object>(dto: DtoClass<T>, raw: unknown): T {
       reason: issue.message,
     })),
   });
+}
+
+const strictSchemas = new WeakMap<DtoClass, z.ZodType>();
+
+function strictSchemaOf(dto: DtoClass): z.ZodType {
+  const cached = strictSchemas.get(dto);
+  if (cached !== undefined) return cached;
+  const base = objectSchemaOf(dto);
+  const strict = base instanceof z.ZodObject ? base.strict() : base;
+  strictSchemas.set(dto, strict);
+  return strict;
+}
+
+/**
+ * The class a plain value is, by strict validation: the first of `dtos` whose strict schema (no
+ * field it does not declare) accepts it. Assembly refuses polymorphic outputs where two classes
+ * could accept one value (`[dto.ambiguous-one-of]`), so the first match is the only one.
+ */
+export function strictMatchOf(dtos: readonly DtoClass[], value: unknown): DtoClass | undefined {
+  return dtos.find((dto) => strictSchemaOf(dto).safeParse(value).success);
 }

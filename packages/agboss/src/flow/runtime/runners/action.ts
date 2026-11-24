@@ -1,5 +1,5 @@
 import { ExecutionLeaseLostError } from "../../../app/lease-lost.js";
-import { validate } from "../../../dto/schema.js";
+import { strictMatchOf, validate } from "../../../dto/schema.js";
 import type { DtoClass } from "../../../dto/types.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { NodeKind } from "../../ast.js";
@@ -34,17 +34,21 @@ const isAction = (value: unknown): value is ActionInstance =>
   "execute" in value &&
   typeof value.execute === "function";
 
-/** A `oneOf` value names its class with `variant(XDto, value)`: never guessed from the shape. */
+/**
+ * A `oneOf` value is of the class `variant(XDto, value)` names, else of the one class whose strict
+ * schema accepts it (assembly guarantees at most one: `[dto.ambiguous-one-of]`, #1288).
+ */
 function variantOf(
   node: string,
   oneOf: OneOfWrapper,
   value: unknown,
 ): { dto: DtoClass; value: unknown } {
-  const dto = variantClassOf(value);
+  const named = variantClassOf(value);
+  const dto = named ?? strictMatchOf(oneOf.variants, value);
   if (dto === undefined || !oneOf.variants.includes(dto)) {
     const classes = oneOf.variants.map((variant) => variant.name).join(", ");
     throw new OutputInvalidError({
-      message: `${node} has output oneOf(${classes}) — return variant(XDto, value) with one of them`,
+      message: `${node} has output oneOf(${classes}) — return a value of exactly one of them`,
     });
   }
   return { dto, value: validate(dto, value) };

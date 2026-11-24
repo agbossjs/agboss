@@ -77,28 +77,6 @@ export {
   MoneyDto,
   PersonNameDto,
 } from "./standard/domain.js";
-/** The DTO wrappers of the flow (#272): the same values as the root entry's. */
-export {
-  historyOf,
-  isVariant,
-  listOf,
-  oneOf,
-  optional,
-  variant,
-  type HistoryOf,
-  type HistoryOptions,
-  type HistoryWrapper,
-  type ListWrapper,
-  type OneOfWrapper,
-  type OptionalWrapper,
-  type OutputShape,
-  type Produced,
-  type ProducedValue,
-  type ValueOf,
-  type ValueShape,
-  type Variant,
-  type VariantOf,
-} from "../flow/dto-wrappers.js";
 export { type EnumOptions, type ListOptions } from "./decorators.js";
 export { type ToolArguments } from "./standard/framework.js";
 export {

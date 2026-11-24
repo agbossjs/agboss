@@ -93,6 +93,17 @@ function behaviourOf(dto: DtoClass): string[] {
 const registered = new WeakSet<DtoClass>();
 
 /**
+ * The mark a registered DTO's prototype carries (a hydrated value's prototype is that object).
+ * A registered symbol, so code that cannot import this module — `stableJson`, loadable by Node's
+ * type stripping — reads the same mark.
+ */
+export const DTO_PROTOTYPE: unique symbol = Symbol.for("agboss.dto-prototype");
+
+/** Whether a value is a registered DTO class (a hydrated value's prototype names it). */
+export const isDtoClass = (value: unknown): value is DtoClass =>
+  typeof value === "function" && registered.has(value as DtoClass);
+
+/**
  * The startup check of a DTO class (once per class): every own field is decorated, and the class is
  * plain data — no methods, accessors or `#private` fields. Needs `useDefineForClassFields` (ES2022+).
  */
@@ -121,5 +132,6 @@ export function registerDto(dto: DtoClass): readonly FieldSpec[] {
     });
   }
   registered.add(dto);
+  Object.defineProperty(dto.prototype, DTO_PROTOTYPE, { value: true });
   return fields;
 }

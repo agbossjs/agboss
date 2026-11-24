@@ -21,7 +21,15 @@ export { type UnavailableRead } from "../flow/context/errors.js";
 export { type AlwaysRouterRoute, type ChosenRouterRoute } from "../flow/decorators/router.js";
 export { type TargetRef } from "../flow/target-ref.js";
 export { type WorkflowStartInput } from "../flow/decorators/workflow-start.js";
-export { type ReturnedShape } from "../flow/dto-wrappers.js";
+export {
+  type ListElementOf,
+  type ListElementShape,
+  type OneOfVariants,
+  type OptionalInnerShape,
+  type PartialVariant,
+  type ReturnedShape,
+  type Wrapper,
+} from "../flow/dto-wrappers.js";
 export { type NodeValue } from "../flow/runtime/scope.js";
 export {
   type RouteOption,

@@ -1,4 +1,5 @@
-import { Text, WorkflowStartTextDto, optional } from "../../../../src/dto/index.js";
+import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
+import { optional } from "../../../../src/index.js";
 import {
   Action,
   Agent,

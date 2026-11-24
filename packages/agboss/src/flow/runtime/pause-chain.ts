@@ -64,7 +64,10 @@ export class PauseStepKeyMismatchError extends AGBossError {
 function canonicalText(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalText).join(",")}]`;
   if (typeof value !== "object" || value === null) return JSON.stringify(value);
-  const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
+  const entries = Object.entries(value)
+    .filter(([, item]) => item !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalText(item)}`).join(",")}}`;
 }
 

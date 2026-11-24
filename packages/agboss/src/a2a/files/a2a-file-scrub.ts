@@ -2,6 +2,7 @@ import { BaseMessage, type ContentBlock } from "@langchain/core/messages";
 import { definedOf } from "../../infrastructure/clock.js";
 import { partMetaOf, partOfBlock } from "../../models/content.js";
 import { messageWithBlocks } from "../../pii/message-mask.js";
+import { isDtoOrPlainObject, likeOriginal } from "../../dto/plain.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
 import { FileDto, redactedFileOf } from "../../dto/standard/file.js";
@@ -15,11 +16,7 @@ import { FileDto, redactedFileOf } from "../../dto/standard/file.js";
 
 type Plain = Readonly<Record<string, unknown>>;
 
-const isPlain = (value: unknown): value is Plain => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-};
+const isPlain = (value: unknown): value is Plain => isDtoOrPlainObject(value);
 
 const SOURCE_KEYS = ["fileId", "inline", "url"] as const;
 
@@ -54,8 +51,9 @@ function mapped(value: unknown, onFile: (file: FileDto) => unknown, depth = 0): 
 
 /** The record with each value through `change`; its symbol keys (a variant's brand) kept as they are. */
 function rebuilt(value: Plain, change: (item: unknown, key: string) => unknown): Plain {
-  const copy = Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, change(item, key)]),
+  const copy = likeOriginal(
+    value,
+    Object.fromEntries(Object.entries(value).map(([key, item]) => [key, change(item, key)])),
   );
   for (const symbol of Object.getOwnPropertySymbols(value)) {
     const descriptor = definedOf(

@@ -21,7 +21,8 @@ count and — with groups — which combination wins and where the execution goe
 
 <!-- snippet-context
 import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish } from "@agboss/core";
-import { Integer, Text, listOf, optional } from "@agboss/core/dto";
+import { Integer, Text } from "@agboss/core/dto";
+import { listOf, optional } from "@agboss/core";
 import { minutes, seconds } from "@agboss/core/units";
 
 export class CandidateDto {

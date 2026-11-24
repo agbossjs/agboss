@@ -1,5 +1,11 @@
 import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
-import { listOf, optional, Wrapper, type OutputShape, type ValueShape } from "../dto-wrappers.js";
+import {
+  listOfElement,
+  optional,
+  Wrapper,
+  type OutputShape,
+  type ValueShape,
+} from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import {
   isTextAgent,
@@ -75,7 +81,7 @@ function groupOf(launch: FlowLaunch, gathered: Gathered): JoinGroup {
           problem: `${names} gives ${label}, several times — a join holds no list of lists; launch it once, or give it one value per run`,
         }
       : withShape(producers, output, false);
-  if (isList) return withShape(producers, listOf(output), true);
+  if (isList) return withShape(producers, listOfElement(output), true);
   if (typeof output !== "function")
     return {
       slot,

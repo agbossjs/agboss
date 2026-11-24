@@ -37,7 +37,7 @@ export class ReportDto {
   text!: string;
 }
 
-/** A `oneOf` output names its class with `variant(XDto, value)`; "unmarked" forgets it. */
+/** A `oneOf` output is a plain value of one of the classes (or `variant(XDto, value)`); "unmarked" fits none. */
 @Action({
   name: "classify-action",
   description: "Classifies the ticket",
@@ -49,7 +49,7 @@ export class ClassifyAction {
     const { text, kind } = input.ticket.value;
     if (kind === "bug") return Promise.resolve(variant(BugDto, { summary: text }));
     if (kind === "question") return Promise.resolve(variant(QuestionDto, { question: text }));
-    return Promise.resolve({ summary: text });
+    return Promise.resolve({ note: text });
   }
 }
 

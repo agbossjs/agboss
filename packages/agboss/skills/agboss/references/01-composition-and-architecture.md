@@ -358,6 +358,13 @@ What this shows:
 - **No cycles** (`[dto.cyclic]`): a DTO may not hold itself through `@Nested` or `@List`, directly
   or via other DTOs — its JSON Schema would never end. Start fails naming the component and the cycle
   (`PingDto → PongDto → PingDto`); use an id field or a flat list. A DTO used twice is fine.
+- **A validated DTO is an instance of its class** (#1288): `item instanceof ScoreDto` and
+  `item.constructor` hold on a validated answer, a scope read after a resume and a `testUnit` input
+  (the prototype is set; nothing is frozen, no constructor runs). `listOf(ScoreDto, RejectedDto, …)`
+  is a list of one or several classes; an action returns plain literals for a `oneOf` / `listOf(A, B)`
+  output, and the runtime tells the class by its strict schema (no undeclared field). Two classes one
+  plain value could both be fail at start (`[dto.ambiguous-one-of]`): give them a field the other lacks.
+  `listOf`, `oneOf`, `optional` and `historyOf` come from `@agboss/core` only, not from `@agboss/core/dto`.
 - **An agent's invalid answer is retried for you.** Its answer tool's arguments are validated against
   the DTO; the model reads what was wrong and answers again, up to 3 attempts, then
   `AgentAnswerInvalidError` (a `StepFailedError`, so an `.onError` can take it).

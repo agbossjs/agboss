@@ -822,7 +822,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   role's `-question`) and are unique
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
   end with `Dto` (`[dto.name]`) and never hold themselves through `@Nested` / `@List`, directly or
-  via other DTOs (`[dto.cyclic]`, naming the component and `A → B → A`; #1080); a path ends in a finish; a router's `chooseOne` lists exactly its
+  via other DTOs (`[dto.cyclic]`, naming the component and `A → B → A`; #1080); an action's `oneOf` / `listOf(A, B, …)` output whose classes one plain value could all satisfy (`[dto.ambiguous-one-of]`, #1288); a path ends in a finish; a router's `chooseOne` lists exactly its
   routes (`[router.routes-mismatch]`; a route's `target` is a class or a thunk `() => Class` for one
   declared below the router, #1271); a node on a cycle has `maxVisits`. No field reads an outdated
   value — one built from an older version of what was renewed since (`[input.outdated-on-path]`,
@@ -834,7 +834,8 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
 
 <!-- snippet-context
 import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, caseOf, onStart, toAction } from "@agboss/core";
-import { Bool, Text, oneOf } from "@agboss/core/dto";
+import { Bool, Text } from "@agboss/core/dto";
+import { oneOf } from "@agboss/core";
 
 export class ShortlistDto {
   @Text({ prompt: "the shortlisted candidates" })
@@ -909,7 +910,8 @@ export const offerPaths = [
 
 <!-- snippet-context
 import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, onStart, inline } from "@agboss/core";
-import { Bool, Text, WorkflowStartTextDto, listOf, optional } from "@agboss/core/dto";
+import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
+import { listOf, optional } from "@agboss/core";
 
 export class CompanyDto {
   @Text({ prompt: "the company's name" })
@@ -1002,7 +1004,8 @@ export const launchPaths = [
 
 <!-- snippet-context
 import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, onStart, toAction } from "@agboss/core";
-import { Bool, Text, WorkflowStartTextDto, listOf, oneOf } from "@agboss/core/dto";
+import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
+import { listOf, oneOf } from "@agboss/core";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
@@ -1090,7 +1093,8 @@ export const childPaths = [
 
 <!-- snippet-context
 import { Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish } from "@agboss/core";
-import { Integer, Text, listOf, optional } from "@agboss/core/dto";
+import { Integer, Text } from "@agboss/core/dto";
+import { listOf, optional } from "@agboss/core";
 import { minutes, seconds } from "@agboss/core/units";
 
 export class CandidateDto {

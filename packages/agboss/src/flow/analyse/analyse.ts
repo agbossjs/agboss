@@ -28,6 +28,7 @@ import { graphRules } from "./rules/graph.js";
 import { launchRules } from "./rules/launches.js";
 import { limitHandlerRules } from "./rules/limit-handlers.js";
 import { dtoCycleRules } from "./rules/dto-cycles.js";
+import { dtoOneOfRules } from "./rules/dto-one-of.js";
 import { modelRules } from "./rules/models.js";
 import { nameRules } from "./rules/names.js";
 import { countLimitRules, optionsRules } from "./rules/options.js";
@@ -79,6 +80,7 @@ export interface FlowCheck {
 const RULES: readonly FlowRule[] = [
   nameRules,
   dtoCycleRules,
+  dtoOneOfRules,
   graphRules,
   placementRules,
   cycleRules,

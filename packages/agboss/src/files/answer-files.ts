@@ -1,6 +1,7 @@
 import { FileDto, hasFileAtAnyDepth, redactedFileOf } from "../dto/standard/file.js";
 import { isFileDescriptor } from "../a2a/files/a2a-file-scrub.js";
 import { fieldsOf } from "../dto/metadata.js";
+import { isDtoOrPlainObject, likeOriginal } from "../dto/plain.js";
 import type { JsonSchema } from "../dto/schema.js";
 import type { DtoClass, FieldSpec } from "../dto/types.js";
 import type { FileRepository } from "../infrastructure/file.repository.js";
@@ -17,7 +18,7 @@ import type { SeenFile } from "./visit-files.js";
 const isFileDto = (dto: DtoClass): boolean => dto === FileDto || dto.prototype instanceof FileDto;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  isDtoOrPlainObject(value);
 
 /** What is done to the value where a file sits: a replacement for it. */
 export type FileMapper = (file: unknown) => unknown;
@@ -36,7 +37,7 @@ function mappedField(field: FieldSpec, held: unknown, map: FileMapper): unknown 
 /** The DTO's value with every file replaced by `map(file)`, at any depth: nested DTOs and lists of them. */
 export function mapFileFields(dto: DtoClass, value: unknown, map: FileMapper): unknown {
   if (!isRecord(value) || !hasFileAtAnyDepth(dto)) return value;
-  const mapped: Record<string, unknown> = { ...value };
+  const mapped: Record<string, unknown> = likeOriginal(value, { ...value });
   for (const field of fieldsOf(dto)) {
     const held = mapped[field.name];
     if (held !== undefined && held !== null) mapped[field.name] = mappedField(field, held, map);

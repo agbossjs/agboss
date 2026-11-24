@@ -11,10 +11,3 @@ export {
   type OptionalListField,
 } from "./decorators.js";
 export { type PlainFieldContext } from "./types.js";
-export {
-  type ListElementShape,
-  type OneOfVariants,
-  type OptionalInnerShape,
-  type PartialVariant,
-  type Wrapper,
-} from "../flow/dto-wrappers.js";

@@ -2,8 +2,9 @@ import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { NodeKind } from "../../flow/ast.js";
-import { declarationOf } from "../../flow/decorators/declaration.js";
+import { declarationOf, type InputFields } from "../../flow/decorators/declaration.js";
 import type { ExecuteMethod } from "../../flow/decorators/action.js";
+import { hydratedForShape } from "../../flow/runtime/shape-hydration.js";
 import { checkedActionValue } from "../../flow/runtime/runners/action.js";
 import { TestSetupError } from "../errors.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
@@ -36,6 +37,17 @@ function actionOptionsOf(action: Class) {
   return declaration.options;
 }
 
+/** The input's fields as the flow hands them over: instances of their classes (#1288). */
+function hydratedInputOf(shapes: InputFields | undefined, input: unknown): unknown {
+  if (shapes === undefined || typeof input !== "object" || input === null) return input;
+  return Object.fromEntries(
+    Object.entries(input).map(([key, value]) => {
+      const shape = shapes[key];
+      return [key, shape === undefined ? value : hydratedForShape(shape, value)];
+    }),
+  );
+}
+
 /**
  * An `@Action` on its own (#262 S62, the shape of `testUnit`): created by its own container (its
  * `deps`, `overrides`, the `environment`); each call runs `execute(input)` in the frame of its step
@@ -53,7 +65,7 @@ export function actionUnit<
   action: TAction,
   options: UnitOptions<TExecution, TTenant> = {},
 ): ActionRunner<ActionInputOf<InstanceType<TAction>>, ActionOutputOf<InstanceType<TAction>>> {
-  const { name, output } = actionOptionsOf(action);
+  const { name, output, input: shapes } = actionOptionsOf(action);
   const site = new UnitSite(options);
   const run = async (
     input: ActionInputOf<InstanceType<TAction>>,
@@ -63,7 +75,7 @@ export function actionUnit<
     // the container creates the class itself: an instance of the action, `execute` included
     const instance = site.instanceOf(action) as ExecutableAction;
     return site.run(frame, async () => {
-      const result = await instance.execute(input);
+      const result = await instance.execute(hydratedInputOf(shapes, input));
       if (output !== undefined) checkedActionValue(name, output, result);
       return result as ActionOutputOf<InstanceType<TAction>>;
     });

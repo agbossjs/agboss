@@ -1,11 +1,6 @@
 import { onEffectCommit } from "../../../src/infrastructure/in-memory-effect-writes.js";
-import {
-  Integer,
-  listOf,
-  Text,
-  WorkflowFinishTextDto,
-  WorkflowStartTextDto,
-} from "../../../src/dto/index.js";
+import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { listOf } from "../../../src/index.js";
 import {
   Action,
   Agent,

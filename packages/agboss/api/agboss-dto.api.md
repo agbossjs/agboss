@@ -105,12 +105,7 @@ declare namespace DtoTypes {
         ListFactory,
         ListField,
         OptionalListField,
-        PlainFieldContext,
-        ListElementShape,
-        OneOfVariants,
-        OptionalInnerShape,
-        PartialVariant,
-        Wrapper
+        PlainFieldContext
     }
 }
 
@@ -228,32 +223,6 @@ export enum FilePayloadSource {
 export const Float: FieldFactory<number, NumberLimits>;
 
 // @public
-export interface HistoryOf<TValue> {
-    // (undocumented)
-    readonly current: TValue;
-    // (undocumented)
-    readonly previous: readonly TValue[];
-}
-
-// @public
-export function historyOf<const TDto extends DtoClass>(dto: TDto, options?: HistoryOptions): HistoryWrapper<TDto>;
-
-// @public
-export interface HistoryOptions {
-    readonly maxPrevious?: number;
-}
-
-// @public
-export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
-    // (undocumented)
-    readonly dto: TDto;
-    // (undocumented)
-    readonly kind: Wrapper.History;
-    // (undocumented)
-    readonly maxPrevious?: number;
-}
-
-// @public
 export const Integer: FieldFactory<number, NumberLimits>;
 
 // @public
@@ -264,16 +233,6 @@ export const IsoDateTime: FieldFactory<string, object>;
 
 // @public
 export const IsoDuration: FieldFactory<string, object>;
-
-// @public
-export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
-
-// @public
-export function isVariant<TItem extends {
-    readonly variant: DtoClass;
-}, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, {
-    readonly variant: DtoClass<InstanceType<TDto>>;
-}>;
 
 // @public
 export const jsonSchemaOf: (dto: DtoClass) => Readonly<Record<string, unknown>>;
@@ -290,9 +249,6 @@ export interface KeyTextOptions {
 
 // @public
 export const List: ListFactory;
-
-// @public
-type ListElementShape = DtoClass | OneOfWrapper;
 
 // @public
 interface ListFactory {
@@ -317,21 +273,10 @@ type ListField<T> = FieldDecorator<T[]> & FieldDecorator<readonly T[]>;
 export type ListItem<T> = DtoClass<T> | ((options: never) => FieldDecorator<T>);
 
 // @public (undocumented)
-export function listOf<const TElement extends ListElementShape>(element: TElement): ListWrapper<TElement>;
-
-// @public (undocumented)
 export type ListOptions<T> = FieldOptions<T[]> & {
     readonly minItems?: number;
     readonly maxItems?: number;
 };
-
-// @public
-export interface ListWrapper<TElement extends ListElementShape = ListElementShape> {
-    // (undocumented)
-    readonly element: TElement;
-    // (undocumented)
-    readonly kind: Wrapper.List;
-}
 
 // @public
 export const maskDto: <T extends object>(dto: DtoClass<T>, value: T) => Record<string, unknown>;
@@ -365,23 +310,6 @@ export interface NumberLimits {
     readonly min?: number;
 }
 
-// @public (undocumented)
-export function oneOf<const TVariants extends OneOfVariants>(...variants: TVariants): OneOfWrapper<TVariants>;
-
-// @public
-type OneOfVariants = readonly [DtoClass, DtoClass, ...DtoClass[]];
-
-// @public
-export interface OneOfWrapper<TVariants extends OneOfVariants = OneOfVariants> {
-    // (undocumented)
-    readonly kind: Wrapper.OneOf;
-    // (undocumented)
-    readonly variants: TVariants;
-}
-
-// @public (undocumented)
-export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
-
 // @public
 export interface OptionalField {
     // (undocumented)
@@ -390,27 +318,8 @@ export interface OptionalField {
     readonly optional: true;
 }
 
-// @public
-type OptionalInnerShape = DtoClass | ListWrapper;
-
 // @public (undocumented)
 type OptionalListField<T> = FieldDecorator<T[] | undefined> & FieldDecorator<readonly T[] | undefined>;
-
-// @public
-export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInnerShape> {
-    // (undocumented)
-    readonly inner: TInner;
-    // (undocumented)
-    readonly kind: Wrapper.Optional;
-}
-
-// @public
-export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
-
-// @public
-type PartialVariant<TDto extends DtoClass> = Partial<InstanceType<TDto>> & {
-    readonly [variantClass]: TDto;
-};
 
 // @public
 export class PersonNameDto {
@@ -437,17 +346,6 @@ interface PlainFieldContext<This> {
 export class PlainTextDto {
     // (undocumented)
     text: string;
-}
-
-// @public
-export type Produced<TValue, TProducer> = TValue extends unknown ? ProducedValue<TValue, TProducer> : never;
-
-// @public (undocumented)
-export interface ProducedValue<TValue, TProducer> {
-    // (undocumented)
-    readonly producer: TProducer;
-    // (undocumented)
-    readonly value: TValue;
 }
 
 // @public
@@ -557,29 +455,6 @@ export type ValidationIssue<TDto> = string | {
 };
 
 // @public
-export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
-
-// @public
-export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
-
-// @public
-export type Variant<TDto extends DtoClass> = InstanceType<TDto> & {
-    readonly [variantClass]: TDto;
-};
-
-// @public
-export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
-
-// @public
-export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
-
-// @public
-export type VariantOf<TValue> = TValue extends unknown ? {
-    readonly variant: DtoClass<TValue>;
-    readonly value: TValue;
-} : never;
-
-// @public
 export class WorkflowFinishFileDto {
     // (undocumented)
     file: FileDto;
@@ -617,18 +492,6 @@ export class WorkflowStartTextDto {
     author?: string;
     // (undocumented)
     text: string;
-}
-
-// @public
-enum Wrapper {
-    // (undocumented)
-    History = "history",
-    // (undocumented)
-    List = "list",
-    // (undocumented)
-    OneOf = "one-of",
-    // (undocumented)
-    Optional = "optional"
 }
 
 // Warnings were encountered during analysis:
@@ -727,27 +590,6 @@ enum Wrapper {
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "static".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "__call".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "Optional".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "List".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "OneOf".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "History".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "variants".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "element".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "inner".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "dto".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "maxPrevious".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "current".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "previous".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "optional".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "listOf".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "oneOf".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "ProducedValue".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "producer".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "value".
 
 // (No @packageDocumentation comment for this package)
 

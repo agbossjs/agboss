@@ -272,7 +272,7 @@ export class RefusalDto {
 
 ```ts
 import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { isVariant, oneOf } from "@agboss/core/dto";
+import { isVariant, oneOf } from "@agboss/core";
 
 @Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
@@ -315,7 +315,7 @@ export class RefusalDto {
 
 ```ts
 import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { isVariant, listOf, oneOf, type VariantOf } from "@agboss/core/dto";
+import { isVariant, listOf, oneOf, type VariantOf } from "@agboss/core";
 
 type Decisions = readonly VariantOf<OfferDto | RefusalDto>[];
 
@@ -344,7 +344,7 @@ A list agent's judge declares the list and gets its items (`variant` is `JobDto`
 
 ```ts
 import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { listOf } from "@agboss/core/dto";
+import { listOf } from "@agboss/core";
 import { JobDto, JobSearch } from "./judges/answer-grounded.judge.js";
 
 @Judge({ name: "jobs-judge", model: "typesafe/jev-1.13", output: listOf(JobDto), deps: [JobSearch, JudgeModel] })

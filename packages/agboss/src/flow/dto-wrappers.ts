@@ -27,11 +27,18 @@ export interface OneOfWrapper<TVariants extends OneOfVariants = OneOfVariants> {
 /** What a list holds: a DTO or a `oneOf(…)` — never an `optional(…)` (a list element is never absent). */
 export type ListElementShape = DtoClass | OneOfWrapper;
 
-/** `listOf(XDto)` / `listOf(oneOf(…))` — a list of values. */
+/** `listOf(XDto)` / `listOf(ADto, BDto, …)` — a list of values; several classes make a polymorphic list. */
 export interface ListWrapper<TElement extends ListElementShape = ListElementShape> {
   readonly kind: Wrapper.List;
+  /** The one class, or the `oneOf(…)` of the several the list holds. */
   readonly element: TElement;
+  /** Every class the list may hold, in the order written (one for a homogeneous list). */
+  readonly variants: readonly [DtoClass, ...DtoClass[]];
 }
+
+/** What `listOf(...variants)` holds: the class itself, or the `oneOf(…)` of two or more. */
+export type ListElementOf<TVariants extends readonly [DtoClass, ...DtoClass[]]> =
+  TVariants extends OneOfVariants ? OneOfWrapper<TVariants> : TVariants[0];
 
 /** What may be optional: a DTO or a list (`optional(listOf(XDto))`, Q49). */
 export type OptionalInnerShape = DtoClass | ListWrapper;
@@ -99,10 +106,40 @@ export function optional<const TInner extends OptionalInnerShape>(
   return Object.freeze({ kind: Wrapper.Optional, inner });
 }
 
-export function listOf<const TElement extends ListElementShape>(
+/**
+ * `listOf(VendorDto)` — a list of one class; `listOf(ScoreDto, RejectedDto, …)` — a polymorphic list,
+ * each item one of the classes (#1288). The old `listOf(oneOf(…))` form is read as the same list
+ * until the flow flip removes it.
+ */
+export function listOf<const TVariants extends readonly [DtoClass, ...DtoClass[]]>(
+  ...variants: TVariants
+): ListWrapper<ListElementOf<TVariants>>;
+export function listOf<const TElement extends OneOfWrapper>(
   element: TElement,
-): ListWrapper<TElement> {
-  return Object.freeze({ kind: Wrapper.List, element });
+): ListWrapper<TElement>;
+export function listOf(
+  ...given: readonly [DtoClass, ...DtoClass[]] | readonly [OneOfWrapper]
+): ListWrapper {
+  const [first] = given;
+  return typeof first === "function"
+    ? listOfVariants(given as readonly [DtoClass, ...DtoClass[]])
+    : listOfElement(first);
+}
+
+/** The list of one class, or of the several a `oneOf(…)` names. */
+export function listOfElement(element: ListElementShape): ListWrapper {
+  return listOfVariants(typeof element === "function" ? [element] : element.variants);
+}
+
+function listOfVariants(variants: readonly [DtoClass, ...DtoClass[]]): ListWrapper {
+  const [only] = variants;
+  const element: ListElementShape =
+    variants.length === 1 ? only : oneOf(...(variants as OneOfVariants));
+  return Object.freeze({
+    kind: Wrapper.List,
+    element,
+    variants: Object.freeze([...variants] as [DtoClass, ...DtoClass[]]),
+  });
 }
 
 export function oneOf<const TVariants extends OneOfVariants>(

@@ -25,7 +25,11 @@ import { ReviewerAgent } from "./fixtures/offer.fixture.js";
 describe("#270: optional, listOf and oneOf are frozen descriptors", () => {
   it("describes each wrapper", () => {
     expect(optional(OfferDraftDto)).toEqual({ kind: Wrapper.Optional, inner: OfferDraftDto });
-    expect(listOf(OfferDraftDto)).toEqual({ kind: Wrapper.List, element: OfferDraftDto });
+    expect(listOf(OfferDraftDto)).toEqual({
+      kind: Wrapper.List,
+      element: OfferDraftDto,
+      variants: [OfferDraftDto],
+    });
     expect(oneOf(ChangesRequestedDto, DraftApprovedDto)).toEqual({
       kind: Wrapper.OneOf,
       variants: [ChangesRequestedDto, DraftApprovedDto],
@@ -35,6 +39,7 @@ describe("#270: optional, listOf and oneOf are frozen descriptors", () => {
       inner: {
         kind: Wrapper.List,
         element: { kind: Wrapper.OneOf, variants: [ChangesRequestedDto, DraftApprovedDto] },
+        variants: [ChangesRequestedDto, DraftApprovedDto],
       },
     });
   });
@@ -124,6 +129,6 @@ describe("#299 AC2: about(…) is gone — what values are about is said in the 
     expect("about" in rootEntry).toBe(false);
     expect("about" in dtoEntry).toBe(false);
     expect(rootEntry.historyOf).toBe(historyOf);
-    expect(dtoEntry.historyOf).toBe(historyOf);
+    expect("historyOf" in dtoEntry).toBe(false);
   });
 });

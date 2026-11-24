@@ -33,13 +33,13 @@ describe("#272: an @Action runs execute(input) with its fields from the path sco
     ]);
   });
 
-  test("a oneOf value without variant(…) fails the step: the class is never guessed", async ({
+  test("a oneOf value that fits none of its classes fails the step: the class is never guessed", async ({
     app,
   }) => {
     const run = execute(app, TicketStart, { text: "?", kind: "unmarked" });
 
     await expect(run).rejects.toFailWith(OutputInvalidError);
-    await expect(run).rejects.toThrow("return variant(XDto, value)");
+    await expect(run).rejects.toThrow("return a value of exactly one of them");
   });
 
   test("the record names who gave each value and what it was built from", async ({ app }) => {

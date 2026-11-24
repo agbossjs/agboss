@@ -23,9 +23,14 @@ const childPath = (path: string, key: string): string =>
 /** UTF-16 code-unit order (RFC 8785 §3.2.3) — never the locale. Keys of one object never tie. */
 const byCodeUnits = (a: string, b: string): number => (a < b ? -1 : 1);
 
+/** A registered DTO's prototype carries this mark (`dto/metadata.ts`): no import here, Node's type stripping loads this file. */
+const DTO_PROTOTYPE = Symbol.for("agboss.dto-prototype");
+
+/** A plain object, or a hydrated DTO (its prototype's own mark; the same value serialises the same). */
 const isPlainObject = (value: object): boolean => {
   const proto: unknown = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
+  if (proto === Object.prototype || proto === null) return true;
+  return Object.getOwnPropertyDescriptor(proto, DTO_PROTOTYPE)?.value === true;
 };
 
 function canonicalString(text: string, path: string): string {

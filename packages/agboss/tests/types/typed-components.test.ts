@@ -10,15 +10,8 @@ import {
   inline,
 } from "../../src/index.js";
 import type { JudgeInput } from "../../src/index.js";
-import {
-  Integer,
-  PlainTextDto,
-  Text,
-  isVariant,
-  listOf,
-  oneOf,
-  type VariantOf,
-} from "../../src/dto/index.js";
+import { Integer, PlainTextDto, Text } from "../../src/dto/index.js";
+import { isVariant, listOf, oneOf, type VariantOf } from "../../src/index.js";
 
 /**
  * #200 D4: compile-time checks of an agent's slots. Each `@ts-expect-error` below is a negative type
