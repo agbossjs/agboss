@@ -32,7 +32,7 @@ export interface ApplicationKeySource {
   readonly application: string;
   readonly field?: string | undefined;
   /** `@DatabaseStorage({ piiSecret })` (#1321). */
-  readonly secret?: SecretRef | undefined;
+  readonly secret?: SecretRef | OptionalSecretRef | undefined;
   /** `@DatabaseStorage({ previousPiiSecret })`: the key `secret` rotates from. */
   readonly previousSecret?: SecretRef | OptionalSecretRef | undefined;
   readonly environment: Environment;
@@ -115,7 +115,7 @@ const secretRequiredError = (application: string, tokenizing: readonly string[])
 /** The keys of `@DatabaseStorage({ piiSecret, previousPiiSecret })`: read from the variables, else the test's. */
 function storageKeysOf(
   source: ApplicationKeySource,
-  secret: SecretRef,
+  secret: SecretRef | OptionalSecretRef,
 ): ApplicationKeys | undefined {
   const key = storageSecretOf(source, "piiSecret", secret, testKeyOf(source));
   if (key === undefined) return undefined;
@@ -129,6 +129,12 @@ function storageKeysOf(
   return previousKey === undefined ? { key } : { key, previousKey };
 }
 
+/** No key found: fine when nothing makes a token (or the instance's key is allowed); else the start fails. */
+function assertNoKeyAllowed(source: ApplicationKeySource): void {
+  if (source.tokenizing.length === 0 || source.isInstanceKeyAllowed === true) return;
+  throw secretRequiredError(source.application, source.tokenizing);
+}
+
 /**
  * The application's keys; none when nothing makes a token and no key is named (a key of the
  * instance then masks its logs). Anything that tokenizes with no key to do it with fails the start.
@@ -136,13 +142,18 @@ function storageKeysOf(
 export function applicationPseudonymKeysOf(
   source: ApplicationKeySource,
 ): ApplicationKeys | undefined {
-  if (source.secret !== undefined) return storageKeysOf(source, source.secret);
+  if (source.secret !== undefined) {
+    // an unset `secret.optional(…)` is never "no key needed" when something tokenizes
+    const keys = storageKeysOf(source, source.secret);
+    if (keys === undefined) assertNoKeyAllowed(source);
+    return keys;
+  }
   const key = source.field === undefined ? undefined : keyValueOf(source, source.field);
   if (key !== undefined) return { key };
   const test = testKeyOf(source);
   if (test !== undefined) return { key: test };
   // #825: a named field without a value fails the start — never a silent key of the instance
   if (source.field !== undefined) throw namedKeyMissing(source, source.field);
-  if (source.tokenizing.length === 0 || source.isInstanceKeyAllowed === true) return undefined;
-  throw secretRequiredError(source.application, source.tokenizing);
+  assertNoKeyAllowed(source);
+  return undefined;
 }
