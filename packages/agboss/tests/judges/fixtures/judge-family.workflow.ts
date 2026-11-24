@@ -9,6 +9,8 @@ import {
   WorkflowStart,
   type JudgeHandler,
 } from "../../../src/index.js";
+import { ModelProvider, OpenAiCompatibleDriver } from "../../../src/models/index.js";
+import { seconds } from "../../../src/units/index.js";
 import {
   PlainTextDto,
   WorkflowFinishTextDto,
@@ -38,7 +40,7 @@ export class LengthJudge implements JudgeHandler<PlainTextDto> {
   judge = passes;
 }
 
-@Judge({ name: "bare-judge", model: "gpt-6", output: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "bare-judge", model: "mistral-large", output: PlainTextDto, deps: [JudgeModel] })
 export class BareJudge implements JudgeHandler<PlainTextDto> {
   judge = passes;
 }
@@ -49,6 +51,7 @@ export class BareJudge implements JudgeHandler<PlainTextDto> {
   description: "Writes on an OpenAI model",
   model: "openai/gpt-6-mini",
   judges: [OpenAiJudge, JevJudge, LengthJudge, BareJudge],
+  maxRetries: 1,
 })
 export class FamilyWriter {}
 
@@ -65,11 +68,107 @@ export class FamilyReply {}
 @Workflow({
   name: "judge-family-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(FamilyTaskStart)
-      .toAgent(FamilyWriter)
-      .toFinish(FamilyReply),
-  ],
+  flow: [onStart(FamilyTaskStart)
+    .toAgent(FamilyWriter)
+    .toFinish(FamilyReply)],
   defaults: { router: { model: "typesafe/jev-1.13" } },
 })
 export class JudgeFamilyWorkflow {}
+
+/** A judge whose provider maps the role "fast" to an OpenAI model: the alias is resolved first. */
+@ModelProvider({
+  name: "alias-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://alias.test/v1" }),
+  models: { default: "gpt-6", fast: "gpt-6-mini" },
+  timeout: seconds(5),
+})
+export class AliasProvider {}
+
+@Judge({
+  name: "alias-judge",
+  model: "fast",
+  modelProvider: AliasProvider,
+  output: PlainTextDto,
+  deps: [JudgeModel],
+})
+export class AliasJudge implements JudgeHandler<PlainTextDto> {
+  judge = passes;
+}
+
+/** A judge of a bare `claude-…` id, a writer on a bare `gpt-…` id: two vendors. */
+@Judge({ name: "claude-judge", model: "claude-sonnet-5", output: PlainTextDto, deps: [JudgeModel] })
+export class ClaudeJudge implements JudgeHandler<PlainTextDto> {
+  judge = passes;
+}
+
+@Agent({
+  name: "alias-writer-agent",
+  prompt: "Write.",
+  description: "Writes on a bare OpenAI model id",
+  model: "gpt-6-mini",
+  judges: [AliasJudge, ClaudeJudge],
+  maxRetries: 1,
+})
+export class AliasWriter {}
+
+/** A judge on a provider and a model, and an agent on another provider that serves the same model. */
+@ModelProvider({
+  name: "mirror-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://mirror.test/v1" }),
+  model: "shared-model",
+  timeout: seconds(5),
+})
+export class MirrorProvider {}
+
+@ModelProvider({
+  name: "other-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://other.test/v1" }),
+  model: "shared-model",
+  timeout: seconds(5),
+})
+export class OtherProvider {}
+
+@Judge({
+  name: "mirror-judge",
+  modelProvider: MirrorProvider,
+  output: PlainTextDto,
+  deps: [JudgeModel],
+})
+export class MirrorJudge implements JudgeHandler<PlainTextDto> {
+  judge = passes;
+}
+
+/** No judge retries: the zero-retries warning, and an agent with retries and one without judges. */
+@Judge({ name: "plain-judge", output: PlainTextDto })
+export class PlainJudge implements JudgeHandler<PlainTextDto> {
+  judge = passes;
+}
+
+@Agent({
+  name: "no-retry-agent",
+  prompt: "Write.",
+  description: "No retries",
+  judges: [PlainJudge],
+})
+export class NoRetryAgent {}
+
+@Agent({
+  name: "zero-retry-agent",
+  prompt: "Write.",
+  description: "Zero retries",
+  judges: [PlainJudge],
+  maxRetries: 0,
+})
+export class ZeroRetryAgent {}
+
+@Agent({
+  name: "retry-agent",
+  prompt: "Write.",
+  description: "Retries",
+  judges: [PlainJudge],
+  maxRetries: 2,
+})
+export class RetryAgent {}
+
+@Agent({ name: "judgeless-agent", prompt: "Write.", description: "No judges" })
+export class JudgelessAgent {}

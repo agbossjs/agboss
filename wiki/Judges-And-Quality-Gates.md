@@ -116,6 +116,40 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
 
 `decide` on a chat model or `invoke` on a decision model throws `ModelKindError` (`model.wrong-kind`).
 
+## A declarative judge: an empty class with a prompt
+
+A model judge needs no code. An empty `@Judge` class with a `prompt` — a `.prompt.md` file next to it,
+or `inline(…)` — is decided by its own model, which reads the criterion, the task and the answer and
+answers one **structured verdict**, never a text marker:
+
+```ts
+@Judge({
+  description: "The explanation is grounded in the order record",
+  output: SupportAnswerDto,
+  prompt: "./grounded-answer.prompt.md",
+  model: "fast",
+  threshold: 0.8,
+})
+export class GroundedAnswerJudge {}
+```
+
+- Without `threshold` the model answers `{ passed, reason }`; with it `{ score, reason }` (0 to 1), and the
+  answer passes when `score >= threshold` — `threshold` is in `(0, 1]` (`[judge.bad-threshold]`), and only
+  a judge with a `prompt` has one (`[judge.threshold-without-prompt]`). The score is kept in the verdict's
+  `metrics`.
+- A chat model answers one JSON object; a decision model (`openai/gpt-6-luna-decisions`) answers one yes/no
+  question, its probability of yes the score. An answer that is no verdict fails the agent closed with
+  `DecisionError.InvalidResponse` — its message names the judge, never what the model said.
+- `prompt` is read at assembly like an agent's (a path starts with `./`, `../` or `/`; a list is joined in
+  order); the file is looked up next to the declaring file. A `prompt` and a `judge(input)` method on one class
+  (`[judge.declarative-with-judge]`), a `prompt` and `deps` (`[judge.declarative-with-deps]`) or a prompt that is
+  none (`[judge.bad-prompt]`) fail assembly.
+- `model` and `modelProvider` are as on any model judge: the role of its provider when left out.
+- The execution's budgets are checked **before each model call** of a judge: once a judge's call spends them, the
+  next judge makes none and the run stops with `BudgetExceededError`.
+- In `testJudge` and in `testWith` a declarative judge nobody scripted **passes** (`replyWith` /
+  `decideWith({ verdict: … })` script it); it is still asked, so `mockLlm(Judge).requests` shows what it read.
+
 ## A code judge: no model
 
 A judge whose rule is code — a length, a format, a side effect a service can look up — needs no
@@ -405,8 +439,17 @@ judge-family-workflow: open-ai-judge (openai/gpt-6) judges writer-agent, whose m
 
 An agent's judges are read against that agent's model; an [eval suite](Eval-Suites)'s judges against
 every agent of the workflow its start opens. A code judge has no model, and a model id without a
-vendor prefix (`gpt-6`) has no family — neither is compared. The fix: a judge model of another vendor
+known vendor has no family — neither is compared. A model id is read as it names its vendor (`openai/gpt-6`,
+or `gpt-6`, `o3`, `claude-…`, `gemini-…`, `deepseek…`, `qwen…`, `llama…`, `mistral…`, `grok-…`), after a role such
+as `fast` is resolved through the judge's or the agent's own `modelProvider`; one model name on one endpoint
+(`baseUrl`) is one family whatever its name. The fix: a judge model of another vendor
 (a decision model such as `typesafe/jev-1.13`), or a code judge for what code can check.
+
+## `[judge.zero-retries]`
+
+An agent with `judges` and `maxRetries` unset or `0` fails the run at its first rejection: the judge's
+reason never reaches the model. That is the warning `[judge.zero-retries]` (an error under `--strict`) —
+set `maxRetries` so a rejected answer gets another try.
 
 ## Adding judges to an agent
 

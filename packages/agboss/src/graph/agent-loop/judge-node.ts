@@ -1,5 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { runJudgeCall } from "../../components/judge-call.js";
+import { verdictOfJudge } from "../../judges/declarative-judge.js";
+import { BudgetExceededError } from "../limits.js";
 import type {
   AnyJudgeInput,
   JudgeOutputShape,
@@ -14,9 +15,10 @@ import type { AsyncNode } from "../types.js";
 import type { AgentJudge, AgentLoopDeps } from "./deps.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { meteredModel } from "./judge-model.js";
+import { judgeBudgetCheckOf } from "./judge-budget.js";
+import { verdictRecordOf } from "./judge-verdict-record.js";
 import { loopPoliciesOf } from "./model-pii.js";
 import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-boundary.js";
-import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { carryRecords } from "../../flow/runtime/carried-records.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
@@ -121,19 +123,6 @@ async function judgedFilesOfLazily(
   return judgedFilesOf(state, deps);
 }
 
-/** A verdict as the step's record keeps it (#395 C3). */
-const verdictRecordOf = (
-  judge: string,
-  attempt: number,
-  verdict: JudgeVerdict,
-): JudgeVerdictRecord => ({
-  judge: bareRecordOf(judge, ComponentKind.Judge),
-  attempt,
-  passed: verdict.passed,
-  ...(verdict.passed ? {} : { reason: verdict.reason }),
-  ...(verdict.metrics === undefined ? {} : { metrics: verdict.metrics }),
-});
-
 /** A judge's model reads as the agent's model does (#708): its policies, values and tokens. */
 const judgeReadingOf = (
   state: AgentLoopStateType,
@@ -159,9 +148,16 @@ async function rejectionsOf(
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeStart({ ...base, ...event, input: text }),
     );
-    const model = meteredModel(judge, spent.usage, judgeReadingOf(state, deps), seen.pieces);
-    const verdict: JudgeVerdict = await runJudgeCall(model, () => judge.handler.judge(input)).catch(
+    const model = meteredModel(
+      judge,
+      spent.usage,
+      judgeReadingOf(state, deps),
+      seen.pieces,
+      judgeBudgetCheckOf(state, deps, spent.usage),
+    );
+    const verdict: JudgeVerdict = await verdictOfJudge(judge, input, model).catch(
       (error: unknown) => {
+        if (error instanceof BudgetExceededError) throw error;
         throw new AgentFailedError({
           agent,
           usage: [...loopUsage(state), ...spent.usage],

@@ -17,6 +17,7 @@ export function budgetLoopShard() {
       "src/graph/agent-loop/input-node.ts",
       "src/graph/agent-loop/approval-node.ts",
       "src/graph/agent-loop/limits.ts",
+      "src/graph/agent-loop/judge-budget.ts",
       // what a judge reads of the answer is left out: it is not spend, and its checks are those of the answer's shape
       ...wholeFile("src/graph/agent-loop/judge-node.ts", {
         answeredClassesOf:

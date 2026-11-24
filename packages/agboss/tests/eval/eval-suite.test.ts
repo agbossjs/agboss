@@ -290,9 +290,9 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
     class NotAJudge {
       readonly isJudge = false;
     }
+    // @ts-expect-error -- a code judge takes no model
     @Judge({
       name: "x-judge",
-      // @ts-expect-error -- a code judge takes no model
       model: "m",
       output: RefundCardOutputDto,
     })

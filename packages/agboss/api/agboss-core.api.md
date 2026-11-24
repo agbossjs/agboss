@@ -260,6 +260,9 @@ export class InjectionToken<T> {
 }
 
 // @public
+export function Judge<const TOutput extends JudgeOutputShape>(options: DeclarativeJudgeOptions<TOutput>): <C extends Class>(value: DeclarativeJudgeClass<C>) => C;
+
+// @public (undocumented)
 export function Judge<const TOutput extends JudgeOutputShape, const TDeps extends readonly Token[] = []>(options: CodeJudgeOptions<TOutput, TDeps> & HybridJudgeModelOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => JudgeMethod<TOutput>>(value: C) => C;
 
 // @public
@@ -503,6 +506,7 @@ export class WorkflowSettings {
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
+// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "Judge".
 // src/components/metadata.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/metadata.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/metadata.ts - (ae-undocumented) Missing documentation for "name".

@@ -13,6 +13,9 @@ import type {
 } from "../flow/generated-types.js";
 import { resolvedName } from "../flow/names.js";
 import { recordComponent } from "./metadata.js";
+import { callerFile } from "./call-site.js";
+import type { DeclarativeJudgeClass, DeclarativeJudgeOptions } from "./judge-declaration.js";
+import type { PromptSource } from "./prompt-source.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 
 /**
@@ -70,14 +73,27 @@ export type JudgeOptions<TOutput extends JudgeOutputShape = JudgeOutputShape> =
   };
 
 /** What `@Judge` recorded on a class: its options with the name and `deps` resolved. */
-export type JudgeRecord = Omit<JudgeOptions, "name" | "deps"> & {
+export type JudgeRecord = Omit<JudgeOptions, "name" | "deps" | "prompt"> & {
   readonly name: string;
   readonly deps: readonly Token[];
+  /** A declarative model judge's criterion, as written. */
+  readonly prompt?: PromptSource;
+  /** A declarative model judge's pass score, in `(0, 1]`. */
+  readonly threshold?: number;
+  /** The file that declared it (where `./` prompt files are read from). */
+  readonly source?: string;
 };
 
-/** Whether a judge decides by its class's code alone: it does not inject `JudgeModel`. */
-export const isCodeJudge = (meta: Pick<JudgeRecord, "deps">): boolean =>
-  !meta.deps.includes(JudgeModel);
+/** Whether a judge is declarative (#1290): an empty class with a `prompt`, decided by its model alone. */
+export const isDeclarativeJudge = (meta: Pick<JudgeRecord, "prompt">): boolean =>
+  meta.prompt !== undefined;
+
+/**
+ * Whether a judge decides by its class's code alone: it injects no `JudgeModel` and is not
+ * declarative (a declarative judge always has its model).
+ */
+export const isCodeJudge = (meta: Pick<JudgeRecord, "deps" | "prompt">): boolean =>
+  !isDeclarativeJudge(meta) && !meta.deps.includes(JudgeModel);
 
 /**
  * The judge's own model (`@Judge({ model })`), through the model gateway: every call is in the
@@ -256,6 +272,8 @@ export interface JudgeInstance {
   readonly output: JudgeOutputShape;
   /** Whether it has its own model (`JudgeModel` in its `deps`): a code judge has none (`$0`). */
   readonly hasModel: boolean;
+  /** A declarative judge's criterion (#1290): read at assembly; its model decides it. */
+  readonly declared?: { readonly prompt: string; readonly threshold?: number };
 }
 
 /**
@@ -287,19 +305,37 @@ export interface JudgeMethod<TOutput extends JudgeOutputShape> {
 }
 
 /**
- * A quality gate of an agent's output (`@Agent({ judges: [...], executionLimits })`), created by the
- * workflow's container with its `deps`; its model calls go through the model gateway. A class with
- * `judge(input)` decides by code at `$0`; with `JudgeModel` in `deps` it asks its own model too (hybrid).
+ * A quality gate of an agent's output (`@Agent({ judges: [...], maxRetries })`), created by the
+ * workflow's container with its `deps`; its model calls go through the model gateway. An empty class
+ * with a `prompt` is a declarative model judge (#1290); a class with `judge(input)` decides by code at
+ * `$0`; with `JudgeModel` in `deps` it asks its own model too (hybrid).
  */
+export function Judge<const TOutput extends JudgeOutputShape>(
+  options: DeclarativeJudgeOptions<TOutput>,
+): <C extends Class>(value: DeclarativeJudgeClass<C>) => C;
 export function Judge<
   const TOutput extends JudgeOutputShape,
   const TDeps extends readonly Token[] = [],
->(options: CodeJudgeOptions<TOutput, TDeps> & HybridJudgeModelOptions<TDeps>) {
-  return <C extends new (...args: ResolvedAll<TDeps>) => JudgeMethod<TOutput>>(value: C): C => {
+>(
+  options: CodeJudgeOptions<TOutput, TDeps> & HybridJudgeModelOptions<TDeps>,
+): <C extends new (...args: ResolvedAll<TDeps>) => JudgeMethod<TOutput>>(value: C) => C;
+export function Judge(
+  options: Omit<JudgeRecord, "name" | "deps"> & {
+    readonly name?: string;
+    readonly deps?: readonly Token[];
+  },
+): <C extends Class>(value: C) => C {
+  const source = callerFile();
+  return <C extends Class>(value: C): C => {
     const name = resolvedName(options.name, value);
     recordComponent(value, {
       kind: "judge",
-      meta: { ...options, name, deps: options.deps ?? [] },
+      meta: {
+        ...options,
+        name,
+        deps: options.deps ?? [],
+        ...(options.prompt === undefined || source === undefined ? {} : { source }),
+      },
     });
     return value;
   };

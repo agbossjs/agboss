@@ -1,3 +1,4 @@
+import type { DeclaredCriterion } from "../../judges/declarative-judge.js";
 import { UNREADABLE_ARGUMENTS } from "../../prompts/agents.js";
 import type { BudgetCheck } from "../../budgets/execution-budgets.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
@@ -50,6 +51,8 @@ export interface AgentJudge {
   readonly output: JudgeOutputShape;
   /** Its model; none for a code judge (`$0`). */
   readonly binding?: JudgeBinding;
+  /** A declarative judge's criterion (#1290): its model decides it, its class has no code. */
+  readonly declared?: DeclaredCriterion;
 }
 
 /** What an agent's loop is built from. */

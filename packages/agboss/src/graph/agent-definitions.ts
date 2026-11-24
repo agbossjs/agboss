@@ -33,12 +33,12 @@ function judgesOf<TName extends string>(
   const judges = (agent?.judges ?? []).map((name): AgentJudge => {
     const judge = deps.judges?.get(name);
     if (judge === undefined) throw new MissingJudgeError(`Judge "${name}" has no instance`);
-    const { handler, output } = judge;
+    const { handler, output, declared } = judge;
     // a code judge has no model; a judge with `JudgeModel` always has its binding
     if (!judge.hasModel) return { name, handler, output };
     const binding = deps.registry.judges.get(name);
     if (binding === undefined) throw new MissingJudgeError(`Judge "${name}" has no model`);
-    return { name, handler, output, binding };
+    return { name, handler, output, binding, ...(declared === undefined ? {} : { declared }) };
   });
   return { judges, maxRetries: agent?.maxRetries ?? 0 };
 }

@@ -1,6 +1,6 @@
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
-import { runJudgeCall } from "../../components/judge-call.js";
+import { verdictOfJudge } from "../../judges/declarative-judge.js";
 import type {
   JudgedOutput,
   JudgeOutputOf,
@@ -8,7 +8,7 @@ import type {
   RunnableJudge,
 } from "../../components/judge-decorators.js";
 import { isCodeJudge } from "../../components/judge-decorators.js";
-import { checkedJudgeOf } from "../../components/judge-parts.js";
+import { checkedJudgeOf, loadedCriterionOf } from "../../components/judge-parts.js";
 import type { Class } from "../../components/injection.js";
 import { DEFAULT_MODEL_ALIAS } from "../../models/model-cascade.js";
 import { requireComponent } from "../../components/metadata.js";
@@ -63,7 +63,7 @@ function bindingOf(site: UnitSite, name: string, model: string): JudgeBinding {
  * the `environment`); its injected `JudgeModel` is its own `@Judge({ model })` answering from
  * `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model (`ModelKindError`
  * for the wrong call, as at run time). Each call runs `judge(input)` in a step's frame; the
- * verdict is `output`, the model calls `spend` (`judge:<name>`). A code judge (no `JudgeModel` in its `deps`)
+ * verdict is `output`, the model calls `spend` (`judge:<name>`). A declarative judge (#1290) has its model answer the verdict: script it with `replyWith('{"passed":true,"reason":""}')`, or `decideWith({ verdict: 0.9 })` on a decision model; unscripted it passes. A code judge (no `JudgeModel` in its `deps`)
  * runs its `judge(input)` alone — no `model` script (one is a `TestSetupError`), no spend.
  */
 export function testJudge<
@@ -102,11 +102,11 @@ export function testJudge<
       caller: judgeKeyOf(meta.name),
       ...callTimeoutOf(call.timeout),
     };
+    // a declarative judge's criterion, read as at assembly (#1290)
+    const declared = await loadedCriterionOf(meta);
     return site.run(frame, ({ spent }: { readonly spent: UsageRecord[] }) => {
       const model = meteredModel({ name: meta.name, binding }, spent);
-      return runJudgeCall(model, () =>
-        handler.judge(input as Parameters<RunnableJudge["judge"]>[0]),
-      );
+      return verdictOfJudge({ name: meta.name, handler, declared, binding }, input, model);
     });
   };
   return Object.assign(run, { clock: site.clock });

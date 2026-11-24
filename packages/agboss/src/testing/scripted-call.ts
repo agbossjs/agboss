@@ -6,6 +6,12 @@ import type { RecordedInput } from "./input-match.js";
 import type { ModelRequest } from "./model-script.js";
 import type { ScriptedCall } from "./turns.js";
 import { GUARDRAIL_QUESTION } from "../prompts/guardrail.js";
+import {
+  JUDGE_INSTRUCTION_LEAD,
+  JUDGE_QUESTION,
+  UNSCRIPTED_JUDGE_REPLY,
+} from "../judges/declarative-judge.js";
+import { replyWith } from "./script.js";
 
 /**
  * One scripted model call (#262): the request recorded, the turn chosen by the step's input (an
@@ -26,10 +32,28 @@ const GUARDRAIL_PASSES: ScriptedCall = {
   delay: 0,
 };
 
+const JUDGE_PASSES_CHAT: ScriptedCall = { turn: replyWith(UNSCRIPTED_JUDGE_REPLY), delay: 0 };
+const JUDGE_PASSES_DECIDE: ScriptedCall = {
+  turn: { kind: "decide", answers: { [JUDGE_QUESTION]: 1 }, details: {} },
+  delay: 0,
+};
+
+/** The call of a declarative judge (#1290): its instructions' first line, or its one verdict question. */
+function declarativeJudgeCall(
+  key: string | undefined,
+  request: ModelRequest,
+): ScriptedCall | undefined {
+  if (key?.startsWith("judge:") !== true) return undefined;
+  if (request.kind === "chat")
+    return request.system.startsWith(JUDGE_INSTRUCTION_LEAD) ? JUDGE_PASSES_CHAT : undefined;
+  const [only, ...more] = request.kind === "decide" ? Object.keys(request.questions) : [];
+  return only === JUDGE_QUESTION && more.length === 0 ? JUDGE_PASSES_DECIDE : undefined;
+}
+
 /**
  * The call's turn: recorded, chosen; throws what the script says (no script, exhausted, …).
  * `input`: what a call outside a step reads (a reply interpreter's `{ ask, reply }`). An
- * unscripted guardrail (`guardrail:<name>`) passes.
+ * unscripted guardrail (`guardrail:<name>`) passes, and so does an unscripted declarative judge.
  */
 export function scriptedCall(
   script: ComponentScript,
@@ -41,6 +65,10 @@ export function scriptedCall(
   script.requests.push(request);
   checkRequest?.();
   if (!script.isScripted && key?.startsWith("guardrail:") === true) return GUARDRAIL_PASSES;
+  if (!script.isScripted) {
+    const passes = declarativeJudgeCall(key, request);
+    if (passes !== undefined) return passes;
+  }
   return script.next(request, stepInputOf(script, input));
 }
 

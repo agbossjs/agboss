@@ -453,6 +453,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/describe/application.ts",
   ]),
   ...reviewed("the DTOs: validation of shapes", ["src/dto/**"]),
+  ...reviewed(
+    "a declarative judge's verdict (#1290): reads its model's answer as pass or fail or as a score against a threshold; no spend, limit, fencing or cancel is decided there — the budget check before each of its calls is judge-node's, in the budget-loop shard; covered by tests/judges/declarative-judges.test.ts",
+    ["src/judges/**", "src/components/judge-declaration.ts"],
+  ),
   ...reviewed("the environments of a run: configuration", ["src/environments/**"]),
   ...reviewed("re-exports the error classes of the public API", ["src/errors.ts"]),
   ...reviewed("the ESLint plugin: tooling", ["src/eslint/**"]),
@@ -680,6 +684,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/graph/agent-loop/call-records.ts",
     "src/graph/agent-loop/call-signal.ts",
     "src/graph/agent-loop/retry-event.ts",
+    "src/graph/agent-loop/judge-verdict-record.ts",
     "src/graph/agent-loop/deps.ts",
     "src/graph/agent-loop/index.ts",
   ]),

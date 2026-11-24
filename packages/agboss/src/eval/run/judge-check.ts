@@ -1,7 +1,10 @@
 import type { AppDeps } from "../../app/app-deps.js";
 import type { ComponentRecord } from "../../flow/runtime/records.js";
-import { recordApplicationSpend } from "../../budgets/application-spend.js";
-import { runJudgeCall } from "../../components/judge-call.js";
+import {
+  isApplicationSpendExhausted,
+  recordApplicationSpend,
+} from "../../budgets/application-spend.js";
+import { verdictOfJudge } from "../../judges/declarative-judge.js";
 import {
   isCodeJudge,
   type AnyJudgeInput,
@@ -9,7 +12,7 @@ import {
   type JudgeVerdict,
   type RunnableJudge,
 } from "../../components/judge-decorators.js";
-import { checkedJudgeOf } from "../../components/judge-parts.js";
+import { checkedJudgeOf, loadedCriterionOf } from "../../components/judge-parts.js";
 import type { DtoClass } from "../../dto/types.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { NodeKind } from "../../flow/ast.js";
@@ -104,8 +107,14 @@ export async function runJudgeCheck(
   if (why !== undefined || output === undefined)
     return { check: meta.name, status: CheckStatus.Failed, reason: why ?? "no output" };
   const spent: UsageRecord[] = [];
-  const model = meteredModel({ name: meta.name, binding: bindingOf(deps, meta) }, spent);
+  const binding = bindingOf(deps, meta);
+  // the evaluation's budgets are checked before each model call of the judge, with its spend so far
+  const model = meteredModel({ name: meta.name, binding }, spent, undefined, [], async () => {
+    if (await isApplicationSpendExhausted(deps.evaluation.budgets))
+      throw new Error("an application budget is exhausted: the judge's model call is not made");
+  });
   const handler = deps.container.get(judge) as RunnableJudge;
+  const declared = await loadedCriterionOf(meta);
   const input: AnyJudgeInput = {
     variant: output,
     output: turn.output,
@@ -116,7 +125,9 @@ export async function runJudgeCheck(
   };
   const frame = judgeFrameOf(deps, turn, { type: judge, name: meta.name });
   try {
-    const verdict = await runInFrame(frame, () => runJudgeCall(model, () => handler.judge(input)));
+    const verdict = await runInFrame(frame, () =>
+      verdictOfJudge({ name: meta.name, handler, declared, binding }, input, model),
+    );
     return verdictResult(meta.name, verdict, spent);
   } catch (error) {
     const reason = `${meta.name} threw: ${error instanceof Error ? error.message : String(error)}`;

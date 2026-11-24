@@ -16,7 +16,7 @@ import { childFailureWarnings } from "./rules/child-failure.js";
 import { childPlacementRules } from "./rules/child-placement.js";
 import { questionExpiryRules } from "./question-expiry.js";
 import { remindBeforeWarnings } from "./remind-before.js";
-import { judgeFamilyWarnings } from "./rules/judge-family.js";
+import { judgeFamilyWarnings, judgeRetryWarnings } from "./rules/judge-family.js";
 import { childRules } from "./rules/children.js";
 import { compensationRules, compensationWarnings } from "./rules/compensation.js";
 import type { AnalyseOptions, AnalysisContext, FlowRule } from "./rules/context.js";
@@ -127,6 +127,7 @@ const warningsOf = (context: AnalysisContext): readonly RuleViolation[] => [
   ...concurrencyWarnings(context),
   ...compensationWarnings(context),
   ...judgeFamilyWarnings(context),
+  ...judgeRetryWarnings(context),
   ...worstCaseStepsWarnings(context),
   ...remindBeforeWarnings(context),
 ];

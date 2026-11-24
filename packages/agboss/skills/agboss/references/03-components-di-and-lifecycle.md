@@ -586,6 +586,9 @@ Injected like any dependency, read only while a step runs (outside → `Executio
   `isVariant(input, OfferDto)` (`input.variant` is the class the answer validated as); a
   `listOf(oneOf(…))` output's items are `VariantOf<A | B>` (`{ variant, value }`, narrowed with
   `isVariant(item, A)`).
+- A judge that only asks its model is an empty class: `@Judge({ output, prompt: "./criterion.prompt.md" | inline(…), threshold?, model?, modelProvider? })`
+  (`threshold` in `(0, 1]`: the model scores, the answer passes at `score >= threshold`; else pass or fail). No `judge()`, no `deps`; the
+  budgets are checked before each of its model calls; in tests an unscripted one passes. `[judge.zero-retries]` warns for an agent with judges and no `maxRetries`.
 - Verdicts only through `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason)`; when
   `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
 

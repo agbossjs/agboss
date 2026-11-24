@@ -39,7 +39,7 @@ import {
   type DefaultsLevels,
 } from "../config/defaults.js";
 import type { PromptVariables } from "./prompt-variables.js";
-import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
+import { judgePartsOf, judgesOf, judgeSettingsOf, type AssembledJudges } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
 import { memoriesFor, policyPartsOf, type CompactionConfigPart } from "./policy-parts.js";
 import {
@@ -79,7 +79,7 @@ function configOf(
   bundle: WorkflowMeta,
   agents: readonly AgentMeta[],
   names: ReadonlyMap<Class, string>,
-  judges: ReadonlyMap<string, JudgeClass>,
+  judges: AssembledJudges,
   memories: AssembledMemories & CompactionConfigPart,
 ): AgentsConfigOf<string> {
   return {
@@ -87,7 +87,7 @@ function configOf(
     version: bundle.version,
     defaults: bundle.defaults,
     ...(Object.keys(memories.settings).length === 0 ? {} : { compactions: memories.settings }),
-    ...judgeSettingsOf(judges),
+    ...judgeSettingsOf(judges.classes),
     agents: Object.fromEntries(agents.map((agent) => [agent.name, agentSettings(agent, names)])),
   };
 }
@@ -160,9 +160,9 @@ const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLe
 };
 
 /** The workflow's provider classes, checked before the graph; then its judges. */
-function checkedJudgeClassesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[]) {
+function checkedJudgesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[], loader: PromptLoader) {
   checkProviderClasses(bundle);
-  return judgeClassesOf(agents);
+  return judgesOf(agents, loader);
 }
 
 /** The workflow's runtime graph, with the levels its defaults came from remembered (#261). */
@@ -200,7 +200,7 @@ export async function workflowOf(
   const routers = await loadRouters(graph, loader, bundle.defaults.router?.model, resolver);
   const tools = toolClassesOf(bundle, agents, graph);
   const rags = await checkedRagClassesOf(bundle, agents, tools.local);
-  const judges = checkedJudgeClassesOf(bundle, agents);
+  const judges = await checkedJudgesOf(bundle, agents, loader);
   const sources = { workflow, bundle, owner, agents, graph, loader };
   const policies = await policyPartsOf({ ...sources, resolver });
   const memories = await memoriesFor({ bundle, agents, graph, loader });

@@ -835,6 +835,12 @@ the agent for its retry, and once `maxRetries` retries are spent the run throws 
 (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`). A judge without a model
 fails at app start (`[judge.no-model]`).
 
+A judge that only asks its model needs no code: an empty class with a `prompt` (a `.prompt.md` file next
+to it, or `inline(…)`) and an optional `threshold` in `(0, 1]` is a **declarative judge**. Its model answers
+one structured verdict — `{ passed, reason }`, or with a `threshold` `{ score, reason }` that passes at
+`score >= threshold` — and an answer that is no verdict fails the agent closed. The budgets are checked before
+each of its model calls, and in tests it passes unless scripted.
+
 A judge's model comes through the constructor (`deps: [JudgeModel]`): a chat model
 (`judgeModel.invoke(...)`) or a **decision model** (`judgeModel.decide({ state, questions })`) —
 every model of OpenRouter's Decisions API:

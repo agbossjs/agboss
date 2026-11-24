@@ -75,6 +75,10 @@ export {
   type TokenizeAction,
 } from "../pii/index.js";
 export {
+  type DeclarativeJudgeClass,
+  type DeclarativeJudgeOptions,
+} from "../components/judge-declaration.js";
+export {
   type CodeJudgeOptions,
   type FailedJudgeVerdict,
   type FailedJudgeVerdictOptions,

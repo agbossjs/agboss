@@ -228,6 +228,8 @@ export type RuleCode =
   | "judge.wrong-output"
   // a judge of its own model family (#396 PR 5): a warning, an error under --strict
   | "judge.same-model-family"
+  // an agent with judges and no retries (#1290): a warning, an error under --strict
+  | "judge.zero-retries"
   // eval suites (#396 PR 1), reported when a suite is assembled on its application
   | "eval.unknown-start"
   | "eval.duplicate-case"

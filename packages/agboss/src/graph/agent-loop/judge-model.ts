@@ -17,6 +17,11 @@ async function judgeReadingOf(mask: ModelReadingMask) {
   return new JudgeReading(mask);
 }
 
+/** What runs right before each model call of a judge: the budgets' check (#1290), throwing when spent. */
+export type BeforeCall = () => void | Promise<void>;
+
+const NO_CHECK: BeforeCall = () => undefined;
+
 /** The cost caller of a judge's model calls (category `review`). */
 const judgeCaller = (judge: string): string => `judge:${judge}`;
 
@@ -39,6 +44,7 @@ function invokeOf(
   spent: UsageRecord[],
   mask: ModelReadingMask | undefined,
   pieces: readonly FilePiece[],
+  beforeCall: BeforeCall,
 ): JudgeModel["invoke"] {
   return async (given: string | readonly BaseMessageLike[]) => {
     const input = withPiecesIn(given, pieces);
@@ -46,6 +52,7 @@ function invokeOf(
       throw new ModelKindError({ model: binding.model, kind: ModelKind.Decisions, call: "invoke" });
     }
     const { model, settings } = binding.chat;
+    await beforeCall(); // a budget of the execution that is spent stops the judge before this call
     const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
     const sent = reading === undefined ? input : await reading.input(input);
     spent.push(...(reading?.usage ?? []));
@@ -62,6 +69,7 @@ function decideOf(
   spent: UsageRecord[],
   mask: ModelReadingMask | undefined,
   pieces: readonly FilePiece[],
+  beforeCall: BeforeCall,
 ): JudgeModel["decide"] {
   return async <const Q extends DecisionQuestions>(
     request: DecisionRequest<Q>,
@@ -69,6 +77,7 @@ function decideOf(
     if (binding.kind !== ModelKind.Decisions) {
       throw new ModelKindError({ model: binding.model, kind: ModelKind.Chat, call: "decide" });
     }
+    await beforeCall(); // a budget of the execution that is spent stops the judge before this call
     const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
     const asked = {
       ...request,
@@ -111,12 +120,13 @@ export function meteredModel(
   spent: UsageRecord[],
   mask?: ModelReadingMask,
   pieces: readonly FilePiece[] = [],
+  beforeCall: BeforeCall = NO_CHECK,
 ): JudgeModel {
   const { binding } = judge;
   if (binding === undefined) return noModelOf(judge.name);
   return {
     model: binding.model,
-    invoke: invokeOf(judge.name, binding, spent, mask, pieces),
-    decide: decideOf(judge.name, binding, spent, mask, pieces),
+    invoke: invokeOf(judge.name, binding, spent, mask, pieces, beforeCall),
+    decide: decideOf(judge.name, binding, spent, mask, pieces, beforeCall),
   };
 }

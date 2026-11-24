@@ -77,9 +77,9 @@ describe("#396: a code judge in an agent's quality gate", () => {
   });
 });
 
+// @ts-expect-error -- a code judge takes no model ([judge.model-on-code-judge] for plain JS)
 @Judge({
   name: "named-model-judge",
-  // @ts-expect-error -- a code judge takes no model ([judge.model-on-code-judge] for plain JS)
   model: "local/judge",
   output: PlainTextDto,
 })
