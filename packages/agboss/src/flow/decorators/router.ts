@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../../components/option-keys.js";
+import { ROUTER_KEYS } from "../../components/decorator-options.js";
 import type { PromptVariables } from "../../components/prompt-variables.js";
 import type { PromptSource } from "../../components/prompt-source.js";
 import { callerFile } from "../../components/call-site.js";
@@ -196,6 +198,7 @@ export function Router(options: RouterOptions): <TClass extends Class>(value: TC
   const source = callerFile();
   const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "Router", options, ROUTER_KEYS);
     recordDeclaration(value, declared(NodeKind.Router, options, source, span));
     return value;
   };

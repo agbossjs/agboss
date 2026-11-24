@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../../components/option-keys.js";
+import { ACTION_KEYS } from "../../components/decorator-options.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
@@ -65,6 +67,7 @@ export function Action<const TDeps extends readonly Token[] = []>(options: Actio
   return <TClass extends new (...args: ResolvedAll<TDeps>) => ExecuteMethod>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "Action", options, ACTION_KEYS);
     recordDeclaration(value, declared(NodeKind.Action, options, source, span));
     return value;
   };

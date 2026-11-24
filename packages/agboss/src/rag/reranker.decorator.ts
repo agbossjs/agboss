@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { RAG_RERANKER_KEYS } from "../components/decorator-options.js";
 import { callerFile } from "../components/call-site.js";
 import { recordComponent } from "../components/metadata.js";
 import type { PromptSource } from "../components/prompt-source.js";
@@ -74,6 +76,7 @@ export function RagReranker(
 ): <C extends new (...args: never[]) => object>(value: C) => C {
   const source = callerFile();
   return <C extends new (...args: never[]) => object>(value: C): C => {
+    recordOptionKeys(value, "RagReranker", options, RAG_RERANKER_KEYS);
     recordComponent(value, {
       kind: "reranker",
       meta: {

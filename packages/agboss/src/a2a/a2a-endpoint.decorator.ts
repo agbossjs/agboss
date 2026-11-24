@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { A2A_ENDPOINT_KEYS } from "../components/decorator-options.js";
 import type { Class } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
@@ -138,6 +140,7 @@ export const skillOptionsOf = (
  */
 export function A2AEndpoint(options: A2AEndpointOptions) {
   return <C extends Class>(target: C): C => {
+    recordOptionKeys(target, "A2AEndpoint", options, A2A_ENDPOINT_KEYS);
     recordComponent(target, { kind: "a2a-endpoint", meta: options satisfies A2AEndpointMeta });
     return target;
   };

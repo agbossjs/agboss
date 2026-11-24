@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../../components/option-keys.js";
+import { ARBITER_KEYS } from "../../components/decorator-options.js";
 import "../../polyfills/symbol-metadata.js";
 import type { BaseMessageLike } from "@langchain/core/messages";
 import { callerFile } from "../../components/call-site.js";
@@ -140,6 +142,7 @@ export function Arbiter(
 ): <TClass extends Class>(value: TClass) => TClass {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "Arbiter", options, ARBITER_KEYS);
     const named = { ...options, name: resolvedName(options.name, value) };
     arbiters.set(value, source === undefined ? { options: named } : { options: named, source });
     return value;

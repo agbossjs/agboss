@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { OBSERVER_KEYS } from "../components/decorator-options.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
@@ -217,6 +219,7 @@ export function Observer<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => ExecutionObserver>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "Observer", options, OBSERVER_KEYS);
     const { description, workflows = [], agents = [], deps = [] } = options;
     const meta = { name: resolvedName(options.name, value), workflows, agents, deps };
     recordComponent(value, {

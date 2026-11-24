@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { WORKING_CALENDAR_KEYS } from "../components/decorator-options.js";
 import { AGBossError } from "../core/errors.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
@@ -112,6 +114,7 @@ export function WorkingCalendar<const TDeps extends readonly Token[] = []>(
 ) => TClass;
 export function WorkingCalendar(options: WorkingCalendarOptions) {
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "WorkingCalendar", options, WORKING_CALENDAR_KEYS);
     const { description, week } = options;
     const meta = {
       name: resolvedName(options.name, value),

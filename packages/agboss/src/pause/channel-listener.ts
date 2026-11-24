@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { CHANNEL_LISTENER_KEYS } from "../components/decorator-options.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
@@ -60,6 +62,7 @@ export function ChannelListener<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => object & ChannelListenerHandler>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "ChannelListener", options, CHANNEL_LISTENER_KEYS);
     const { description, includePauseIds = false } = options;
     const meta = {
       name: resolvedName(options.name, value),

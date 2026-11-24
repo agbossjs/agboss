@@ -1,3 +1,11 @@
+import { recordOptionKeys } from "./option-keys.js";
+import {
+  CHANNEL_KEYS,
+  INJECTABLE_KEYS,
+  MCP_SERVER_KEYS,
+  RAG_KEYS,
+  TOOL_KEYS,
+} from "./decorator-options.js";
 import type { McpServerConfig } from "../config/mcp-server-config.js";
 import type { RagScope } from "../rag/types.js";
 import type { RagSource } from "../rag/rag-source.js";
@@ -110,6 +118,7 @@ export function Tool<
   >(
     value: C,
   ): C => {
+    recordOptionKeys(value, "Tool", options, TOOL_KEYS);
     recordComponent(value, { kind: "tool", meta: withDeps(approvalAsChannel(options)) });
     return value;
   };
@@ -144,6 +153,7 @@ export function Injectable<
   const TPorts extends InjectAs = readonly [],
 >(options: InjectableOptions<D, TPorts> = {}) {
   return <C extends new (...args: ResolvedAll<D>) => PortInstances<TPorts>>(value: C): C => {
+    recordOptionKeys(value, "Injectable", options, INJECTABLE_KEYS);
     recordComponent(value, { kind: "injectable", meta: { deps: options.deps ?? [] } });
     recordInjectAs(value, options.injectAs);
     if (options.environmentFields !== undefined) {
@@ -172,11 +182,25 @@ export function McpServer<
   const TPorts extends InjectAs = readonly [],
 >(options: McpServerOptions<TTools> & { readonly injectAs?: TPorts }) {
   return <C extends new () => McpServerClient<TTools> & PortInstances<TPorts>>(value: C): C => {
+    recordOptionKeys(value, "McpServer", options, MCP_SERVER_KEYS);
     const { name, tools, injectAs, ...config } = options;
     recordComponent(value, { kind: "mcp-server", meta: { name, config, tools } });
     recordInjectAs(value, injectAs);
     return value;
   };
+}
+
+/** What `@Rag` takes. */
+export interface RagOptions<D extends readonly Token[] = readonly Token[]> {
+  readonly name: string;
+  readonly description: string;
+  /** Whose content it serves: one corpus for all, each tenant's, each owner's, or a custom scope. */
+  readonly scope: RagScope;
+  /** What the agent gets per retrieval. */
+  readonly topK: number;
+  /** A `@RagReranker` class: fetch its `candidates`, keep `topK`. */
+  readonly reranker?: Class;
+  readonly deps?: D;
 }
 
 /**
@@ -187,18 +211,9 @@ export function McpServer<
  * the reranker keeps `topK`). Agents list it in `rag: [CompanyDocs]`; a `@Tool` or an `@Action`
  * injects it (`deps: [CompanyDocs]`) and calls `search(query)`.
  */
-export function Rag<const D extends readonly Token[] = []>(options: {
-  readonly name: string;
-  readonly description: string;
-  /** Whose content it serves: one corpus for all, each tenant's, each owner's, or a custom scope. */
-  readonly scope: RagScope;
-  /** What the agent gets per retrieval. */
-  readonly topK: number;
-  /** A `@RagReranker` class: fetch its `candidates`, keep `topK`. */
-  readonly reranker?: Class;
-  readonly deps?: D;
-}) {
+export function Rag<const D extends readonly Token[] = []>(options: RagOptions<D>) {
   return <C extends new (...args: ResolvedAll<D>) => RagSource>(value: C): C => {
+    recordOptionKeys(value, "Rag", options, RAG_KEYS);
     recordComponent(value, { kind: "rag", meta: withDeps(options) });
     return value;
   };
@@ -250,6 +265,7 @@ export function Channel<const D extends readonly Token[] = []>(options: ChannelO
   return <C extends new (...args: ResolvedAll<D>) => { send(ask: never): unknown }>(
     value: C,
   ): C => {
+    recordOptionKeys(value, "Channel", options, CHANNEL_KEYS);
     recordComponent(value, { kind: "channel", meta: withDeps(options) });
     return value;
   };

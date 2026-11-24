@@ -369,7 +369,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed(
     "assembles the declared application into settings and runs the assembly rules; no run-time logic",
-    ["src/application/assemble.ts", "src/application/child-fields.ts"],
+    [
+      "src/application/application-errors.ts",
+      "src/application/assemble.ts",
+      "src/application/child-fields.ts",
+    ],
   ),
   ...reviewed(
     "builds the application instance and its workflows and starts the components; wiring only",
@@ -1688,5 +1692,15 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "the build of that carrier from the folded profiles and the checks that every name a shelf holds is a component the application has and leaves a valid one (#1318c): assembly-time rules that decide no spend, lease, fence or cancel; covered by tests/config/file-policies-shelf.test.ts",
     ["src/application/option-shelves.ts"],
+  ),
+  ...reviewed(
+    "the option-name rule (#1313, #1318, #1324): each decorator's key list is held equal to its options type by the compiler, the registry only collects the keys a decorator was given, and the rule names a stray key in a message; it decides no spend, limit, lease or fence and a missed key only leaves an option ignored as TypeScript already does; covered by tests/application/unknown-option-rules.test.ts and tests/application/unknown-option-families.test.ts",
+    [
+      "src/application/unknown-option-rules.ts",
+      "src/components/decorator-options.ts",
+      "src/components/option-lists/**",
+      "src/components/option-keys.ts",
+      "src/graph/distinct-violations.ts",
+    ],
   ),
 ]);

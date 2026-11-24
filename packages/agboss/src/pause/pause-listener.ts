@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { PAUSE_LISTENER_KEYS } from "../components/decorator-options.js";
 import type { Class, Provider, ResolvedAll, Token } from "../components/injection.js";
 import { isClassProvider } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
@@ -69,6 +71,7 @@ export function PauseListener<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => PauseListenerHandler>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "PauseListener", options, PAUSE_LISTENER_KEYS);
     const { description, allowAnswering = false } = options;
     const name = resolvedName(options.name, value);
     const meta = { name, deps: options.deps ?? [], allowAnswering };

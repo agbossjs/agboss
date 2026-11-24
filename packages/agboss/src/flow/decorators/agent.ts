@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../../components/option-keys.js";
+import { AGENT_KEYS } from "../../components/decorator-options.js";
 import type { PromptVariables } from "../../components/prompt-variables.js";
 import type { PromptSource } from "../../components/prompt-source.js";
 import type { ModelFiles } from "../../files/model-files.js";
@@ -95,6 +97,7 @@ export function Agent(options: AgentOptions) {
   const source = callerFile();
   const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "Agent", options, AGENT_KEYS);
     recordDeclaration(value, declared(NodeKind.Agent, options, source, span));
     return value;
   };

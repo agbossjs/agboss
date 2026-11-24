@@ -28,7 +28,11 @@ export class ShapeDto {
   shape!: string;
 }
 
-const text = { model: "local/llama", judges: [FlowJudge], maxRetries: 1 } as const;
+const text = {
+  model: "local/llama",
+  judges: [FlowJudge],
+  executionLimits: { maxRetries: 1 },
+} as const;
 
 @Agent({
   name: "editor-agent",

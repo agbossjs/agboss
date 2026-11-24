@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "./option-keys.js";
+import { JUDGE_KEYS } from "./decorator-options.js";
 import type { BaseMessageLike } from "@langchain/core/messages";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import type { DtoClass } from "../dto/types.js";
@@ -322,6 +324,7 @@ export function Judge(
 ): <C extends Class>(value: C) => C {
   const source = callerFile();
   return <C extends Class>(value: C): C => {
+    recordOptionKeys(value, "Judge", options, JUDGE_KEYS);
     const name = resolvedName(options.name, value);
     recordComponent(value, {
       kind: "judge",

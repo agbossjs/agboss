@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../../components/option-keys.js";
+import { WORKFLOW_START_KEYS } from "../../components/decorator-options.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class } from "../../components/injection.js";
@@ -23,6 +25,7 @@ export function WorkflowStart(options: WorkflowStartOptions) {
   const source = callerFile();
   const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "WorkflowStart", options, WORKFLOW_START_KEYS);
     recordDeclaration(value, declared(NodeKind.Start, options, source, span));
     return value;
   };

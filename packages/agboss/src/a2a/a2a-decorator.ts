@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { A2A_AGENT_KEYS } from "../components/decorator-options.js";
 import { recordComponent } from "../components/metadata.js";
 import { recordInjectAs, type InjectAs, type PortInstances } from "../components/injection.js";
 import type { ResolvedAll, Token } from "../components/injection.js";
@@ -126,6 +128,7 @@ export function A2AAgent<
   >(
     value: C,
   ): C => {
+    recordOptionKeys(value, "A2AAgent", config, A2A_AGENT_KEYS);
     const meta: A2AAgentMeta = {
       name: config.name,
       url: config.url,

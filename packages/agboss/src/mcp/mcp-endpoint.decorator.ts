@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { MCP_ENDPOINT_KEYS } from "../components/decorator-options.js";
 import type { Class } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
 
@@ -16,6 +18,7 @@ export interface McpEndpointOptions {
  */
 export function McpEndpoint(options: McpEndpointOptions) {
   return <C extends Class>(target: C): C => {
+    recordOptionKeys(target, "McpEndpoint", options, MCP_ENDPOINT_KEYS);
     recordComponent(target, { kind: "mcp-endpoint", meta: options });
     return target;
   };

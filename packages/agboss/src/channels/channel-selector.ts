@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { CHANNEL_SELECTOR_KEYS } from "../components/decorator-options.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
@@ -43,6 +45,7 @@ export function ChannelSelector<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => ChannelSelectorHandler>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "ChannelSelector", options, CHANNEL_SELECTOR_KEYS);
     const { description, target } = options;
     const meta = { name: resolvedName(options.name, value), target, deps: options.deps ?? [] };
     recordComponent(value, {

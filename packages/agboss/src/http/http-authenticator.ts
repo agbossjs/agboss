@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { HTTP_AUTHENTICATOR_KEYS } from "../components/decorator-options.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
@@ -46,6 +48,7 @@ export function HttpAuthenticator<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => HttpAuthenticatorHandler>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "HttpAuthenticator", options, HTTP_AUTHENTICATOR_KEYS);
     const { description } = options;
     const meta = {
       name: resolvedName(options.name, value),

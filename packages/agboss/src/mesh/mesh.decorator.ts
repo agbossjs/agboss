@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { MESH_KEYS } from "../components/decorator-options.js";
 import type { Class } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import type { EnvRef, OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
@@ -69,6 +71,7 @@ export interface MeshMeta extends MeshOptions {
  */
 export function Mesh(options: MeshOptions): <C extends Class>(value: C) => C {
   return <C extends Class>(value: C): C => {
+    recordOptionKeys(value, "Mesh", options, MESH_KEYS);
     const meta: MeshMeta = { ...options, name: resolvedName(options.name, value) };
     recordComponent(value, { kind: "mesh", meta });
     return value;

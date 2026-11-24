@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { TOOL_INTERCEPTOR_KEYS } from "../components/decorator-options.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
@@ -19,18 +21,22 @@ export interface ToolInterceptorMeta {
   readonly source?: string;
 }
 
+/** What `@ToolInterceptor` takes. */
+export interface ToolInterceptorOptions<D extends readonly Token[] = readonly Token[]> {
+  /** Kebab-case; the class name in kebab-case when left out (`TenantScope` → `tenant-scope`). */
+  readonly name?: string;
+  readonly description?: string;
+  /** Constructor dependencies, in order; checked against the constructor by the compiler. */
+  readonly deps?: D;
+}
+
 /** A tool interceptor: a class with `@BeforeTool` / `@AfterTool` methods, `beforeAnyTool` or `afterAnyTool`. */
 export function ToolInterceptor<const D extends readonly Token[] = []>(
-  options: {
-    /** Kebab-case; the class name in kebab-case when left out (`TenantScope` → `tenant-scope`). */
-    readonly name?: string;
-    readonly description?: string;
-    /** Constructor dependencies, in order; checked against the constructor by the compiler. */
-    readonly deps?: D;
-  } = {},
+  options: ToolInterceptorOptions<D> = {},
 ): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C {
   const source = callerFile();
   return (value) => {
+    recordOptionKeys(value, "ToolInterceptor", options, TOOL_INTERCEPTOR_KEYS);
     const meta: ToolInterceptorMeta = {
       name: resolvedName(options.name, value),
       ...(options.description === undefined ? {} : { description: options.description }),

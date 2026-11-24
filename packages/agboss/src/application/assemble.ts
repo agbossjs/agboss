@@ -4,7 +4,7 @@ import type { Class, Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
+import { GraphRuleError } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import * as P from "./effective-options.js";
 import type { Milliseconds } from "../units/index.js";
@@ -28,6 +28,8 @@ import {
 } from "./assembled-keys.js";
 import { storageFieldsOf, type StorageFields } from "../storage/storage-fields.js";
 import { crossWorkflowViolations } from "./workflow-rules.js";
+import { throwIfAny } from "./application-errors.js";
+import { unknownOptionViolations } from "./unknown-option-rules.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { ExecutionContext } from "../flow/context/execution-context.js";
 import { TenantContext } from "../flow/context/tenant-context.js";
@@ -171,23 +173,6 @@ async function assembleWorkflows(
   return { assembled, errors };
 }
 
-/** The rules an application breaks, its workflows' included: a `GraphRuleError` naming the application. */
-class ApplicationRuleError extends GraphRuleError {
-  constructor(violations: readonly RuleViolation[]) {
-    super({ violations });
-    const lines = violations.map((item) => `  - [${item.code}] ${item.message}`);
-    this.message = `The application breaks ${String(violations.length)} rule(s):\n${lines.join("\n")}`;
-  }
-}
-
-/** One error for everything found: a single workflow's own error as it is, else all violations. */
-function throwIfAny(own: readonly RuleViolation[], errors: readonly GraphRuleError[]): void {
-  const [only] = errors;
-  if (own.length === 0 && errors.length === 1 && only !== undefined) throw only;
-  const all = [...own, ...errors.flatMap((error) => error.violations)];
-  if (all.length > 0) throw new ApplicationRuleError(all);
-}
-
 /** What the application lists besides its workflows, each list empty when it lists none. */
 const listedOf = (
   options: ApplicationOptions,
@@ -227,7 +212,10 @@ export async function applicationOf(
   const { options, source, budgetOverlays } = applied;
   checkContextFields(options);
   checkObservers(options.observers ?? []);
-  const own = applicationRuleViolations(application, options, budgetOverlays);
+  const own = [
+    ...unknownOptionViolations([application]),
+    ...applicationRuleViolations(application, options, budgetOverlays),
+  ];
   // a child workflow is a workflow of the application, listed or not (#263 S74 c)
   const all = withChildWorkflows(options.workflows);
   const modules = [applicationModule(options, budgetOverlays), ...workflowModules(all)];

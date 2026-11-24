@@ -4,7 +4,7 @@ import "../polyfills/symbol-metadata.js";
  * Knowledge bases (RAG): `@Rag` on a `RagSource`, the search DTOs, the reranker decorator and the
  * reference source (Wiki → Knowledge bases). A reranker's author needs this entry only.
  */
-export { Rag } from "../components/decorators.js";
+export { Rag, type RagOptions } from "../components/decorators.js";
 export {
   RagQueryDto,
   RagSearchResultDto,

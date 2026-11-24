@@ -1,3 +1,9 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import {
+  CLUSTER_STORAGE_KEYS,
+  DATABASE_STORAGE_KEYS,
+  OBJECT_STORAGE_KEYS,
+} from "../components/decorator-options.js";
 import type { Class } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
@@ -84,6 +90,7 @@ const named = <TOptions extends { readonly name?: string | undefined }>(
 /** The place of the application's durable rows: `@DatabaseStorage({ driver, auditLogTtl, ledgerEntriesTtl })`. */
 export function DatabaseStorage(options: DatabaseStorageOptions) {
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "DatabaseStorage", options, DATABASE_STORAGE_KEYS);
     recordComponent(value, { kind: "database-storage", meta: named(options, value) });
     return value;
   };
@@ -92,6 +99,7 @@ export function DatabaseStorage(options: DatabaseStorageOptions) {
 /** The place of the rows that coordinate instances: `@ClusterStorage({ driver })`. */
 export function ClusterStorage(options: ClusterStorageOptions) {
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "ClusterStorage", options, CLUSTER_STORAGE_KEYS);
     recordComponent(value, { kind: "cluster-storage", meta: named(options, value) });
     return value;
   };
@@ -100,6 +108,7 @@ export function ClusterStorage(options: ClusterStorageOptions) {
 /** The place of the files: `@ObjectStorage({ driver })`. */
 export function ObjectStorage(options: ObjectStorageOptions) {
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "ObjectStorage", options, OBJECT_STORAGE_KEYS);
     recordComponent(value, { kind: "object-storage", meta: named(options, value) });
     return value;
   };

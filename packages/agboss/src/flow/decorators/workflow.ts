@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../../components/option-keys.js";
+import { WORKFLOW_KEYS } from "../../components/decorator-options.js";
 import type { PromptVariables } from "../../components/prompt-variables.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
@@ -188,6 +190,7 @@ export function Workflow<const TName extends string, const TFlow extends readonl
   // returns nothing: a class's own type must not depend on its decorator, or `() => ItsOwnClass`
   // inside its own `flow` would be a circular reference (TS2506, TS7022; its brand is generated)
   return (value: Class): void => {
+    recordOptionKeys(value, "Workflow", options, WORKFLOW_KEYS);
     recordDeclaration(value, declared(NodeKind.Workflow, recorded, source, span));
   };
 }

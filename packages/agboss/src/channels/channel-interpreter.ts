@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { CHANNEL_INTERPRETER_KEYS } from "../components/decorator-options.js";
 import type { PromptVariables } from "../components/prompt-variables.js";
 import { callerFile } from "../components/call-site.js";
 import type { PromptSource } from "../components/prompt-source.js";
@@ -119,6 +121,7 @@ export function ChannelInterpreter(
 ): <TClass extends Class>(value: TClass) => TClass {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "ChannelInterpreter", options, CHANNEL_INTERPRETER_KEYS);
     const name = resolvedName(options.name, value);
     // a model one has a `prompt` (or names its model or provider); a class with `interpret` decides by code
     const isModel =

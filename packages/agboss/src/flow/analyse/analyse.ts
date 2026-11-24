@@ -44,6 +44,7 @@ import { stepsRules } from "./steps.js";
 import { stepsAboveOldDefaultWarnings } from "./steps-default.js";
 import { worstCaseStepsWarnings } from "./strongly-connected.js";
 import { walkFlow } from "./walk.js";
+import { graphClassesOf, unknownOptionViolations } from "../../application/unknown-option-rules.js";
 import { worstCasesOf, type WorstCase } from "./worst-case.js";
 
 /**
@@ -160,6 +161,7 @@ export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): Fl
   const recursion = recursionOf(walked.graph, declaration.options.maxDepth);
   const errors = [
     ...walked.violations,
+    ...unknownOptionViolations(graphClassesOf(workflow, walked.graph)),
     ...RULES.flatMap((rule) => rule(context)),
     ...recursionRules(context, workflow, recursion),
     ...concurrencyErrors(context),

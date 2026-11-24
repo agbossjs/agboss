@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { CHANNEL_ROLE_KEYS } from "../components/decorator-options.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class } from "../components/injection.js";
 import { ComponentError } from "../components/metadata.js";
@@ -158,6 +160,7 @@ export interface QuestionNodeOptions {
 export function ChannelRole(options: ChannelRoleOptions) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "ChannelRole", options, CHANNEL_ROLE_KEYS);
     const declared = declaredOf(options);
     if ("problem" in declared) {
       throw new ComponentError({

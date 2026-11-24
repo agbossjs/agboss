@@ -27,14 +27,7 @@ export interface ModelRagRerankerOptions extends RagRerankerBase {
 }
 
 // @public
-export function Rag<const D extends readonly Token[] = []>(options: {
-    readonly name: string;
-    readonly description: string;
-    readonly scope: RagScope;
-    readonly topK: number;
-    readonly reranker?: Class;
-    readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => RagSource>(value: C) => C;
+export function Rag<const D extends readonly Token[] = []>(options: RagOptions<D>): <C extends new (...args: ResolvedAll<D>) => RagSource>(value: C) => C;
 
 // @public
 export interface RagIndexOptions {
@@ -56,6 +49,19 @@ export interface RagIndexReport {
     readonly documents: number;
     readonly skipped: number;
     readonly tokens?: number;
+}
+
+// @public
+export interface RagOptions<D extends readonly Token[] = readonly Token[]> {
+    // (undocumented)
+    readonly deps?: D;
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly name: string;
+    readonly reranker?: Class;
+    readonly scope: RagScope;
+    readonly topK: number;
 }
 
 // @public
@@ -203,6 +209,9 @@ export class SqliteFtsRagSource extends RagSource {
 
 // Warnings were encountered during analysis:
 //
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "deps".
 // src/rag/dto.ts - (ae-undocumented) Missing documentation for "text".
 // src/rag/dto.ts - (ae-undocumented) Missing documentation for "source".
 // src/rag/dto.ts - (ae-undocumented) Missing documentation for "score".

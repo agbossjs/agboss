@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { FILE_POLICY_KEYS } from "../components/decorator-options.js";
 import { DEFAULT_A2A_FILE_MEDIA_TYPES } from "../a2a/files/a2a-file-options.js";
 import type { Class } from "../components/injection.js";
 import { filePolicyProblemsOf } from "./file-policy-problems.js";
@@ -72,6 +74,7 @@ export interface FilePolicyMeta extends FilePolicyOptions {
 export function FilePolicy(options: FilePolicyOptions = {}) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "FilePolicy", options, FILE_POLICY_KEYS);
     const meta: FilePolicyMeta = { ...options, name: resolvedName(options.name, value) };
     recordComponent(value, {
       kind: "file-policy",

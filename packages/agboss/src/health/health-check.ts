@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { HEALTH_CHECK_KEYS } from "../components/decorator-options.js";
 import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import { seconds } from "../units/index.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
@@ -160,6 +162,7 @@ export function HealthCheck<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => HealthCheckHandler>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "HealthCheck", options, HEALTH_CHECK_KEYS);
     const { description, timeout = HEALTH_CHECK_TIMEOUT } = options;
     const name = resolvedName(options.name, value);
     const meta = { name, timeout, deps: options.deps ?? [] };

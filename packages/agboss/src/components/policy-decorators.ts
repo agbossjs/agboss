@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "./option-keys.js";
+import { GUARDRAIL_KEYS } from "./decorator-options.js";
 import type { PromptVariables } from "./prompt-variables.js";
 import type { PromptSource } from "./prompt-source.js";
 import { callerFile } from "./call-site.js";
@@ -145,6 +147,12 @@ const guardrailDecorator =
       side,
       deps: options.deps ?? [],
     };
+    recordOptionKeys(
+      value,
+      side === GuardrailSide.Input ? "InputGuardrail" : "OutputGuardrail",
+      options,
+      GUARDRAIL_KEYS,
+    );
     recordComponent(value, {
       kind: "guardrail",
       meta: source === undefined ? meta : { ...meta, source },

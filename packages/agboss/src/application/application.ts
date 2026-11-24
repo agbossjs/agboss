@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { APPLICATION_KEYS } from "../components/decorator-options.js";
 import type { Secret } from "../environments/secret.js";
 import type { PromptVariables } from "../components/prompt-variables.js";
 import { callerFile } from "../components/call-site.js";
@@ -289,6 +291,7 @@ export function Application<TEnvironment>(options: ApplicationOptions<TEnvironme
   return <TClass extends Class>(value: TClass): TClass => {
     // kept as the application's options: the contract's field types are a compile-time check only
     const written = options as ApplicationOptions;
+    recordOptionKeys(value, "Application", written, APPLICATION_KEYS);
     const declared = declaredOptionsOf(written);
     applications.set(
       value,

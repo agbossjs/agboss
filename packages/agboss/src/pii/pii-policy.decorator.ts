@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { PII_POLICY_KEYS } from "../components/decorator-options.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
@@ -139,6 +141,7 @@ export function PiiPolicy(
   options: DeclarativePiiPolicyOptions | CustomPiiPolicyOptions,
 ): <C extends new (...args: never[]) => object>(value: C) => C {
   return (value) => {
+    recordOptionKeys(value, "PiiPolicy", options, PII_POLICY_KEYS);
     recordComponent(value, {
       kind: "pii-policy",
       meta: { ...options, name: resolvedName(options.name, value), deps: options.deps ?? [] },

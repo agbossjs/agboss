@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../../components/option-keys.js";
+import { EVAL_SUITE_KEYS } from "../../components/decorator-options.js";
 import type { Class } from "../../components/injection.js";
 import type { EvalAttemptHook } from "./attempts.js";
 import type { EvalCase, EvalCaseOf } from "./cases.js";
@@ -57,6 +59,7 @@ export function EvalSuite<const TStart extends Class>(
   options: EvalSuiteOptions<TStart>,
 ): <C extends Class>(value: C) => C {
   return (value) => {
+    recordOptionKeys(value, "EvalSuite", options, EVAL_SUITE_KEYS);
     const cases: readonly EvalCase[] = options.cases;
     const cascade = options.cascade ?? EvalCascade.StopAtFirstFailure;
     const judges = Object.freeze([...(options.judges ?? [])]);

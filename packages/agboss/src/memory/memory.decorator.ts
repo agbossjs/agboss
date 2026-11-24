@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { MEMORY_KEYS } from "../components/decorator-options.js";
 import type { PromptVariables } from "../components/prompt-variables.js";
 import type { PromptSource } from "../components/prompt-source.js";
 import { callerFile } from "../components/call-site.js";
@@ -149,6 +151,7 @@ export function Memory(options: MemoryOptions): <C extends Class>(value: C) => C
   const source = callerFile();
   const recorded: MemoryMeta = { ...options, deps: options.deps ?? [] };
   return <C extends Class>(value: C): C => {
+    recordOptionKeys(value, "Memory", options, MEMORY_KEYS);
     recordComponent(value, {
       kind: "memory",
       meta: source === undefined ? recorded : { ...recorded, source },

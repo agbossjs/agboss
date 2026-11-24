@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { MODEL_PROVIDER_KEYS } from "../components/decorator-options.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import type { Milliseconds } from "../units/index.js";
 import type { CircuitBreakerPolicy } from "./circuit-breaker-policy.js";
@@ -217,6 +219,12 @@ const keptOf = (options: ModelProviderOptions, name: string): KeptModelProviderO
     promptCaching: options.promptCaching ?? AUTO_PROMPT_CACHING,
   });
 
+/** Keeps a provider's options, and the keys it was given that `@ModelProvider` does not take. */
+function keepProvider(value: object, options: ModelProviderOptions, name: string): void {
+  recordOptionKeys(value, "ModelProvider", options, MODEL_PROVIDER_KEYS);
+  providers.set(value, keptOf(options, name));
+}
+
 /**
  * A model provider: `@ModelProvider({ baseUrl, … }) class X extends OpenAiCompatibleProvider<F>`
  * (HTTP), or `@ModelProvider({ deps, … }) class X implements ModelProviderHandler` with
@@ -243,7 +251,7 @@ export function ModelProvider(
   }
   return <C extends ModelProviderType>(value: C): C => {
     const name = resolvedName(options.name, value);
-    providers.set(value, keptOf(options, name));
+    keepProvider(value, options, name);
     return value;
   };
 }
@@ -264,7 +272,7 @@ function driverProvider(
   }
   return <C extends DriverModelProviderType>(value: C): C => {
     const name = resolvedName(options.name, value);
-    providers.set(value, keptOf(options, name));
+    keepProvider(value, options, name);
     return value;
   };
 }

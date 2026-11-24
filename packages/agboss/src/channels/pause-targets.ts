@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { EXTERNAL_TASK_KEYS, TOOL_APPROVAL_KEYS } from "../components/decorator-options.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
@@ -159,6 +161,7 @@ export function ToolApproval<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => object & PauseTargetHooks>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "ToolApproval", options, TOOL_APPROVAL_KEYS);
     checkRespondent("@ToolApproval", options.name, options.respondent);
     // no `input`: the approval gates any tool
     const stored: StoredChannelRole =
@@ -183,6 +186,7 @@ export function ExternalTask<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => object & PauseTargetHooks>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "ExternalTask", options, EXTERNAL_TASK_KEYS);
     checkRespondent("@ExternalTask", options.name, options.respondent);
     const stored: StoredChannelRole = {
       ...roleBaseOf(options),

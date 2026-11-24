@@ -2536,6 +2536,9 @@ export interface DeclaredLimits {
 }
 
 // @public
+export type DecoratorRuleCode = "decorator.unknown-option";
+
+// @public
 export function defineConfig(spec: ConfigSpec): ConfigOverlay;
 
 // @public
@@ -3830,7 +3833,7 @@ export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly T
 }
 
 // @public
-type ExtraRuleCode = A2AEndpointRuleCode | ContextRuleCode | EvalRuleCode | FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+type ExtraRuleCode = A2AEndpointRuleCode | ContextRuleCode | DecoratorRuleCode | EvalRuleCode | FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export interface FailedHealthCheckResult {
@@ -10811,11 +10814,15 @@ export type ToolInputOf<TTool> = TTool extends {
 } ? TInput : never;
 
 // @public
-export function ToolInterceptor<const D extends readonly Token[] = []>(options?: {
-    readonly name?: string;
-    readonly description?: string;
+export function ToolInterceptor<const D extends readonly Token[] = []>(options?: ToolInterceptorOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+
+// @public
+export interface ToolInterceptorOptions<D extends readonly Token[] = readonly Token[]> {
     readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+    // (undocumented)
+    readonly description?: string;
+    readonly name?: string;
+}
 
 // @public
 export type ToolNameOf<TTool> = [NameOf<TTool>] extends [never] ? string : NameOf<TTool>;
@@ -13404,6 +13411,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "description".
 // src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "description".
+// src/tool-interceptors/decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/tools/define-tool.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/tools/define-tool.ts - (ae-undocumented) Missing documentation for "cause".
 // src/tools/define-tool.ts - (ae-undocumented) Missing documentation for "code".

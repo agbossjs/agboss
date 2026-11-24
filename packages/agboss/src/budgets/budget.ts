@@ -1,3 +1,5 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { BUDGET_KEYS } from "../components/decorator-options.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import type { EnvRef } from "../environments/env-ref.js";
@@ -107,6 +109,7 @@ export function Budget<const TDeps extends readonly Token[] = []>(options: Budge
   return <TClass extends new (...args: ResolvedAll<TDeps>) => BudgetHandler>(
     value: TClass,
   ): TClass => {
+    recordOptionKeys(value, "Budget", options, BUDGET_KEYS);
     const { name, scope, period, workflow, description, maxSpend, maxTokens } = options;
     recordComponent(value, {
       kind: "budget",
