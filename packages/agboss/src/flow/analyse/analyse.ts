@@ -37,6 +37,7 @@ import { placementRules } from "./rules/placement.js";
 import { quorumRules } from "./rules/quorum.js";
 import { concurrencyErrors, concurrencyWarnings, recursionRules } from "./rules/recursion.js";
 import { routerRules } from "./rules/routers.js";
+import { oneOfRules } from "./rules/one-of.js";
 import { switchRules } from "./rules/switch.js";
 import { judgeOutputRules, textAgentRules } from "./rules/text-agents.js";
 import { stepsRules } from "./steps.js";
@@ -83,6 +84,7 @@ const RULES: readonly FlowRule[] = [
   cycleRules,
   countLimitRules,
   switchRules,
+  oneOfRules,
   textAgentRules,
   judgeOutputRules,
   errorRules,

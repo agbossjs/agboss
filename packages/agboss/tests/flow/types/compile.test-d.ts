@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { onAgent, caseOf, onStart } from "../../../src/flow/builder.js";
+import { onAgent, caseOf, onStart, toAction, toAgent } from "../../../src/flow/builder.js";
 import {
   historyOf,
   oneOf,
@@ -85,6 +85,21 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
       caseOf(ChangesRequestedDto).toAgent(EditorAgent),
       caseOf(DraftApprovedDto).toAction(SendOfferAction),
     );
+  });
+
+  it("1275a: a oneOf output is branched by .toOneOf([…side paths]) — no DTO named", () => {
+    const reviewed = onAgent(ReviewerAgent);
+    reviewed.toOneOf([toAgent(EditorAgent), toAction(SendOfferAction)]);
+    // @ts-expect-error — one branch is no choice: two or more side paths
+    reviewed.toOneOf([toAgent(EditorAgent)]);
+    // @ts-expect-error — the branches are an array, not arguments
+    reviewed.toOneOf(toAgent(EditorAgent), toAction(SendOfferAction));
+    // @ts-expect-error — a caseOf(…) path is not a side path
+    reviewed.toOneOf([caseOf(ChangesRequestedDto).toAgent(EditorAgent), toAgent(EditorAgent)]);
+    // @ts-expect-error — a step that gives one class has nothing to branch
+    onAgent(DraftAgent).toOneOf([toAgent(EditorAgent), toAction(SendOfferAction)]);
+    // @ts-expect-error — a transition right after a oneOf output is not offered
+    reviewed.toAction(SendOfferAction);
   });
 
   it("AC3: from(Dto, tag) does not exist; historyOf is HistoryOf<Produced<…>> in InputOf (AC4)", () => {

@@ -28,6 +28,8 @@ export enum NodeKind {
 export enum StepKind {
   To = "to",
   Switch = "switch",
+  /** `.toOneOf([…branches])` (#1275): the DTO-free branching of a `oneOf(…)` output. */
+  OneOf = "one-of",
   ChooseOne = "choose-one",
   OnError = "on-error",
   /**
@@ -79,6 +81,16 @@ export interface SwitchCase {
 export interface SwitchStep {
   readonly kind: StepKind.Switch;
   readonly cases: readonly SwitchCase[];
+}
+
+/**
+ * `.toOneOf([toAction(A)…, toFinish(F)])` (#1275): one side path per variant of the `oneOf(…)` the
+ * step before gives. A branch names no DTO — its variant is the one its entry consumer reads
+ * (`analyse/one-of.ts`).
+ */
+export interface OneOfStep {
+  readonly kind: StepKind.OneOf;
+  readonly branches: readonly SubPath[];
 }
 
 /** One `route(X)…` of a `.chooseOne(…)`: its target and what follows it. */
@@ -199,9 +211,10 @@ export interface JoinStep {
   readonly quorum?: Quorum;
 }
 
-export type Step = ToStep | SwitchStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
+export type Step =
+  ToStep | SwitchStep | OneOfStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
 
-/** The steps inside `route(X)…`, `caseOf(D)…` or the side path of `.onError`. */
+/** The steps inside `route(X)…`, `caseOf(D)…`, a `.toOneOf([…])` branch or the side path of `.onError`. */
 export interface SubPath {
   readonly steps: readonly Step[];
 }

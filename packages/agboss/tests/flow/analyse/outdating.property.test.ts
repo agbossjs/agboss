@@ -179,6 +179,7 @@ function analyse(graph: FlowGraph): Analysed {
     mentions: [],
     placements: [],
     switches: [],
+    oneOfs: [],
     choices: [],
     errorHandlers: [],
     launches: [],

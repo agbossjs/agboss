@@ -379,7 +379,7 @@ describe("#263 AC3 / AC17: the child's output — one case per finish output cla
       .toWorkflow(CompanyReviewWorkflow)
       .toAgent(JobOfferAgent)
       .toFinish(JobOfferWorkflowFinish);
-    expect(codesOf([unwritten])).toContain("flow.switch-not-exhaustive");
+    expect(codesOf([unwritten])).toContain("flow.one-of-not-exhaustive");
     expect(codesOf([graded(picked().toWorkflow(TwiceGradeWorkflow))])).toEqual([]);
   });
 

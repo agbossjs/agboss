@@ -39,6 +39,9 @@ const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ 
 
 export type { PathStart } from "./path-start.js";
 
+const ONE_OF_PATHS = ".toOneOf([…]) takes side paths";
+const SIDE_PATH_HINT = "toAction(…), toAgent(…), toFinish(…), …";
+
 /** A flow path's builder holds its source; a sub-path's holds `undefined`. */
 type SourceOf = PathSource | undefined;
 
@@ -114,6 +117,17 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   switch(...cases: readonly PathBuilder[]): PathBuilder<TSource> {
     return this.then({ kind: StepKind.Switch, cases: cases.map((path) => path.asCase()) });
+  }
+
+  /** `.toOneOf([toAction(A)…, toFinish(F)])` (#1275): the branches of a `oneOf(…)` output. */
+  toOneOf(branches: unknown): PathBuilder<TSource> {
+    if (!Array.isArray(branches) || branches.length < 2)
+      throw syntaxError(".toOneOf([…]) takes an array of two or more side paths: toAction(…), …");
+    const paths = (branches as readonly unknown[]).map((path) => {
+      if (path instanceof PathBuilder) return path.asSidePath(ONE_OF_PATHS);
+      throw syntaxError(`${ONE_OF_PATHS}: ${SIDE_PATH_HINT}`);
+    });
+    return this.then({ kind: StepKind.OneOf, branches: paths });
   }
 
   chooseOne(...routes: readonly PathBuilder[]): PathBuilder<TSource> {
@@ -219,9 +233,8 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.start.kind === "group" ? quorumGroupOf(this.start, this.steps) : undefined;
   }
 
-  private asSidePath(): SubPath {
-    if (this.start.kind !== "side")
-      throw syntaxError(".onError(E, …) takes a side path: toAction(…), toFinish(…), …");
+  private asSidePath(call = ".onError(E, …) takes a side path"): SubPath {
+    if (this.start.kind !== "side") throw syntaxError(`${call}: ${SIDE_PATH_HINT}`);
     return this.subPath();
   }
 }

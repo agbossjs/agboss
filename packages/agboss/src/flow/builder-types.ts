@@ -218,6 +218,11 @@ export interface Transitions<THead extends PathHead> {
 }
 
 export interface Switching<TOutput, THead extends PathHead> {
+  /**
+   * One side path per variant of the `oneOf(…)` the step gives (#1275): no DTO is named, each
+   * branch takes the variant its entry consumer reads.
+   */
+  toOneOf(branches: readonly [SidePath, SidePath, ...SidePath[]]): BuiltPath<THead>;
   switch<const TCases extends readonly [CasePath, ...CasePath[]]>(
     ...cases: TCases & SwitchCheck<TCases, TOutput>
   ): BuiltPath<THead>;

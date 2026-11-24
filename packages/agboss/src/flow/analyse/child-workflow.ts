@@ -67,6 +67,8 @@ function allSteps(steps: readonly Step[]): readonly Step[] {
     switch (step.kind) {
       case StepKind.Switch:
         return [step, ...step.cases.flatMap((branch) => allSteps(branch.path.steps))];
+      case StepKind.OneOf:
+        return [step, ...step.branches.flatMap((branch) => allSteps(branch.steps))];
       case StepKind.ChooseOne:
         return [step, ...step.routes.flatMap((route) => allSteps(route.path.steps))];
       case StepKind.OnError:

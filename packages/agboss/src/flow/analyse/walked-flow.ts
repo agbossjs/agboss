@@ -5,11 +5,13 @@ import type {
   OnErrorStep,
   PathSource,
   Step,
+  OneOfStep,
   SwitchStep,
 } from "../ast.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
 import type { ComponentName } from "../registry.js";
 import type { FlowGraph, FlowLaunch } from "./flow-graph.js";
+import type { OneOfResolution } from "./one-of.js";
 
 /** What one walk over a flow's paths gives the rules (`walk.ts`). */
 
@@ -42,6 +44,11 @@ export interface BranchSite<TStep extends Step> {
 /** A `.switch(…)` and the step it follows. */
 export type SwitchSite = BranchSite<SwitchStep>;
 
+/** A `.toOneOf([…])`, the step it follows and the variant each branch took (#1275). */
+export interface OneOfSite extends BranchSite<OneOfStep> {
+  readonly resolution: OneOfResolution;
+}
+
 /** One `.onError(E, …)` and the launch whose join it follows (#273). */
 export interface JoinErrorSite {
   readonly node: ComponentName;
@@ -61,6 +68,7 @@ export interface WalkedFlow {
   readonly mentions: readonly Mention[];
   readonly placements: readonly Placement[];
   readonly switches: readonly SwitchSite[];
+  readonly oneOfs: readonly OneOfSite[];
   readonly choices: readonly BranchSite<ChooseOneStep>[];
   readonly errorHandlers: readonly BranchSite<OnErrorStep>[];
   /** Every parallel launch, in the order written (#273). */

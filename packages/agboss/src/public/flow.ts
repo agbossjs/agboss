@@ -88,6 +88,7 @@ export {
   type JoinStep,
   type LaunchStep,
   type LaunchTargetKind,
+  type OneOfStep,
   type OnErrorStep,
   type PathSource,
   type Quorum,

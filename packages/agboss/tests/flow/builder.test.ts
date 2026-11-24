@@ -325,6 +325,25 @@ describe("#299 S54: a case holds its class only", () => {
     );
   });
 
+  it("records a .toOneOf([…]) as its side paths, no DTO in it (#1275a)", () => {
+    const edits = builder.toAgent(EditorAgent);
+    const sends = builder.toFinish(OfferFailedWorkflowFinish);
+
+    expect(builder.onAgent(ReviewerAgent).toOneOf([edits, sends])).toEqual(
+      expect.objectContaining({
+        steps: [
+          {
+            kind: StepKind.OneOf,
+            branches: [
+              { steps: [to(EditorAgent, NodeKind.Agent)] },
+              { steps: [to(OfferFailedWorkflowFinish, NodeKind.Finish)] },
+            ],
+          },
+        ],
+      }),
+    );
+  });
+
   it("`.returns` is gone: values are derived from the steps' declarations (#1270)", () => {
     expect(() => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto])).toThrow(
       TypeError,
@@ -355,6 +374,14 @@ describe("misuse from untyped code fails with FlowSyntaxError", () => {
 
   it.each([
     ["switch takes caseOf paths", () => callUntyped(reviewer, "switch", [route(DraftAgent)])],
+    [
+      "toOneOf takes an array of two or more side paths",
+      () => callUntyped(reviewer, "toOneOf", [[builder.toAgent(EditorAgent)]]),
+    ],
+    [
+      "toOneOf takes side paths, not caseOf",
+      () => callUntyped(reviewer, "toOneOf", [[caseOf(ProfileDto), builder.toAgent(EditorAgent)]]),
+    ],
     ["chooseOne takes route paths", () => callUntyped(router, "chooseOne", [caseOf(ProfileDto)])],
     [
       "onError takes a toAction side path",

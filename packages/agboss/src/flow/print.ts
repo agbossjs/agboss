@@ -7,6 +7,7 @@ import {
   type GroupsQuorum,
   type JoinStep,
   type LaunchStep,
+  type OneOfStep,
   type Step,
   type ToStep,
 } from "./ast.js";
@@ -146,6 +147,20 @@ class Printer {
       this.sidePath(handler.error.name, handler.path.steps, depth, "onError");
   }
 
+  /** `.toOneOf([` each branch as a side path `])` (#1275). */
+  private oneOf(step: OneOfStep, depth: number): void {
+    this.line(depth, ".toOneOf([");
+    for (const branch of step.branches) {
+      const [first, ...rest] = branch.steps;
+      const head =
+        first?.kind === StepKind.To
+          ? `${toCallOf(first.targetKind)}(${this.label(first.target)}${toOptions(first)})`
+          : "";
+      this.branch(head, first?.kind === StepKind.To ? rest : branch.steps, depth + 1, false);
+    }
+    this.line(depth, "])");
+  }
+
   private step(step: Step, depth: number): void {
     switch (step.kind) {
       case StepKind.To:
@@ -161,6 +176,9 @@ class Printer {
           this.branch(head, branch.path.steps, depth + 1, index === step.cases.length - 1);
         });
         this.line(depth, ")");
+        return;
+      case StepKind.OneOf:
+        this.oneOf(step, depth);
         return;
       case StepKind.ChooseOne:
         this.line(depth, ".chooseOne(");

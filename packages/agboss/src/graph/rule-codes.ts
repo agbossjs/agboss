@@ -18,6 +18,8 @@ export type RuleCode =
   | "flow.continuation-twice"
   | "flow.switch-not-exhaustive"
   | "flow.switch-unknown-case"
+  | "flow.one-of-not-exhaustive"
+  | "flow.one-of-ambiguous"
   | "flow.duplicate-error-handler"
   | "flow.path-too-deep"
   | "flow.analysis-too-large"

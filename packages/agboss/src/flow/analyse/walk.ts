@@ -5,6 +5,7 @@ import {
   StepKind,
   type ChooseOneStep,
   type FlowPath,
+  type OneOfStep,
   type OnErrorStep,
   type Step,
   type SwitchStep,
@@ -26,12 +27,14 @@ import {
   type JoinErrorSite,
   type Mention,
   type QuorumSite,
+  type OneOfSite,
   type Placement,
   type SwitchSite,
   type WalkedFlow,
 } from "./walked-flow.js";
 import { NodeTable } from "./nodes.js";
 import { cursorAt, kindOfTarget, type Cursor } from "./walk-cursor.js";
+import { planOneOf } from "./walk-one-of.js";
 import { walkJoin, walkLaunch, type LaunchRecorder } from "./walk-launch.js";
 import { isGroupsJoin } from "./walk-quorum.js";
 
@@ -47,6 +50,7 @@ class FlowWalker implements LaunchRecorder {
   readonly mentions: Mention[] = [];
   readonly placements: Placement[] = [];
   readonly switches: SwitchSite[] = [];
+  readonly oneOfs: OneOfSite[] = [];
   readonly choices: BranchSite<ChooseOneStep>[] = [];
   readonly errorHandlers: BranchSite<OnErrorStep>[] = [];
   readonly launches: FlowLaunch[] = [];
@@ -86,6 +90,9 @@ class FlowWalker implements LaunchRecorder {
         return this.enter(step, cursor, isFollowed);
       case StepKind.Switch:
         this.walkSwitch(step, cursor);
+        return cursor;
+      case StepKind.OneOf:
+        this.walkOneOf(step, cursor);
         return cursor;
       case StepKind.ChooseOne:
         this.walkChooseOne(step, cursor);
@@ -147,6 +154,19 @@ class FlowWalker implements LaunchRecorder {
     }
   }
 
+  /** `.toOneOf([…])` (#1275): each branch enters with the variant its entry consumer reads. */
+  private walkOneOf(step: OneOfStep, cursor: Cursor): void {
+    const { current } = cursor;
+    if (current === undefined) return;
+    const { site, branches } = planOneOf(this.table, step, cursor, current);
+    this.oneOfs.push(site);
+    for (const branch of branches) {
+      if (this.walkSteps(branch.steps, branch.cursor)) continue;
+      const message = `${current}: a .toOneOf([…]) branch leads nowhere — continue it with .to…(…)`;
+      this.violations.push(violation("graph.dead-end", message, [current]));
+    }
+  }
+
   private walkChooseOne(step: ChooseOneStep, cursor: Cursor): void {
     if (cursor.current !== undefined) this.choices.push({ node: cursor.current, step });
     const depth = cursor.depth + 1;
@@ -192,6 +212,7 @@ export function walkFlow(flow: readonly FlowPath[], self?: Class): WalkedFlow {
     mentions: walker.mentions,
     placements: walker.placements,
     switches: walker.switches,
+    oneOfs: walker.oneOfs,
     choices: walker.choices,
     errorHandlers: walker.errorHandlers,
     launches: walker.launches,

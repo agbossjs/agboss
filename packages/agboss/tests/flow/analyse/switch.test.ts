@@ -116,9 +116,9 @@ describe("AC5: exhaustive switch", () => {
   it("a transition right after a oneOf output, without the switch, fails", () => {
     expect(checkWorkflow(UnswitchedOneOfWorkflow).errors).toContainEqual(
       expect.objectContaining({
-        code: "flow.switch-not-exhaustive",
+        code: "flow.one-of-not-exhaustive",
         message:
-          "unswitched-one-of-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — branch it with .switch(caseOf(…)…)",
+          "unswitched-one-of-workflow: review-kit-agent gives oneOf(ChangesRequestedDto, DraftApprovedDto) — branch it with .toOneOf([…])",
       }),
     );
   });
