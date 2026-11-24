@@ -8,6 +8,7 @@
  * that createApp did not build (no mesh settings or no execution control) is refused with
  * `[a2a.app-required]`.
  */
+import { ComponentOptions } from "../../../src/components/component-options.js";
 import { hours, minutes } from "../../../src/units/index.js";
 import { MESH_DEFAULTS } from "../../helpers/mesh-settings.js";
 import { describe, expect, it } from "vitest";
@@ -69,6 +70,7 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
       if (cls === Logger) return logger;
       if (cls === Clock) return clock;
       if (cls === BearerAuthenticator) return resolver;
+      if (cls === ComponentOptions) return ComponentOptions.none;
       throw new Boom("resolved");
     }) as never,
   };
@@ -209,21 +211,18 @@ describe("#1366: a request the listener cannot serve", () => {
     expect(sent.seen.status).toBe(0);
   });
 
-  it("an expose whose metadata is no longer an @A2AEndpoint's at the first request is refused as not-an-expose", async () => {
+  it("an expose whose metadata is not an @A2AEndpoint's is refused when the listener is made", () => {
     const host = hostOf({ mesh: true, control: true });
-    const listener = a2aHttpListener(host.app, {
-      endpoint: FlippedExpose,
-      authenticator: BearerAuthenticator,
-      publicUrl: "https://desk.example",
-    });
-    // the listener checked the class when it was made; its metadata is replaced before the first request
+    // the endpoint is read once, at the listener's creation (with its profile's shelf): nothing is built later
     recordComponent(FlippedExpose, { kind: "a2a-agent", meta: {} } as never);
-    const out = responseOf(false);
-    listener({} as never, out.res as never);
-    await until(() => out.seen.written, "the answer");
 
-    expect(out.seen.status).toBe(503);
-    expect(host.logger.entries[0]?.message).toContain("[a2a.not-an-endpoint]");
+    expect(() =>
+      a2aHttpListener(host.app, {
+        endpoint: FlippedExpose,
+        authenticator: BearerAuthenticator,
+        publicUrl: "https://desk.example",
+      }),
+    ).toThrow();
     expect(host.builds()).toBe(0);
   });
 

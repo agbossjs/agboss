@@ -3,6 +3,7 @@
  * (none when it names none), the services an application remembers for its executions' calls (its stored-file reader among
  * them), and how a stored file is read before it is sent — through the application's `Files`, and refused outside one.
  */
+import { ComponentOptions } from "../../../../src/components/component-options.js";
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../../src/a2a/a2a-decorator.js";
 import { A2AClient } from "../../../../src/a2a/client/a2a-client.js";
@@ -113,6 +114,7 @@ describe("#1366: what an application remembers for its executions' A2A calls", (
         if (token === Clock) return clock;
         if (token === Idempotency) return outbound;
         if (token === Files) return filesService;
+        if (token === ComponentOptions) return ComponentOptions.none;
         throw new Error("unexpected token");
       },
     };

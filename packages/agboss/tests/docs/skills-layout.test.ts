@@ -677,7 +677,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
       "monotonic fencing token",
       "`ExecutionLeaseLostError`",
       "every 30 s",
-      "`@Application({ maxConcurrentSteps })`",
+      "`@Application({ executionLimits: { maxConcurrentSteps } })`",
       "once its 30 s lease expires",
       "`SqliteChildExecutionQueueRepository`",
     ],
