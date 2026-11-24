@@ -4,7 +4,7 @@
  * report), sends its reason back for a retry, and fails the run with `QualityGateError` once the
  * retries are spent. A judge without a model fails at app start.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { QualityGateError } from "../../src/errors.js";
 import { replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
@@ -108,7 +108,7 @@ describe("quality gates of an agent", () => {
 
 describe("AC3: a judge without a model", () => {
   it("is rejected at app start with judge.no-model", async () => {
-    await expect(createAppWith(ModellessDeskApplication, offline())).rejects.toThrow(
+    await expect(createTestAppWith(ModellessDeskApplication, offline())).rejects.toThrow(
       /^\[judge\.no-model\] @Judge Modelless/u,
     );
   });

@@ -1,4 +1,4 @@
-import { createAppWith } from "../../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../../src/testing/create-app-with.js";
 import { A2AAgent, A2AClient, type A2AMesh, type A2ATarget } from "../../../../src/a2a/index.js";
 import {
   Agent,
@@ -160,7 +160,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
     spec.signing === undefined
       ? {}
       : { env: "signing", processEnv: meshEnvOf(spec.signing.own, spec.signing.peer) };
-  const app = await createAppWith(CallerApplication, { ...offline(book), ...signing });
+  const app = await createTestAppWith(CallerApplication, { ...offline(book), ...signing });
   const ask = (question: string) => {
     book
       .scriptOf(`agent:${name}-desk-agent`)

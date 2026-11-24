@@ -4,7 +4,7 @@
  * and injected; their values passed per execution, validated before the first step, frozen and
  * kept by a resume; the default tenant; threads keyed by tenant + thread.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -84,7 +84,7 @@ describe("#261 AC4: the levels link up; the project's subclasses are declared an
   });
 
   it("outside an execution a read throws, naming the consumer and the field — never undefined", async () => {
-    const app = await createAppWith(ClinicApplication, {
+    const app = await createTestAppWith(ClinicApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });

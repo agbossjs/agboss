@@ -4,7 +4,7 @@
  * really takes 3 s, so the deadline passes inside the calendar while the channel's expiry handler is entered and
  * held. It reports (IPC, #1128) what the extension did and what is stored.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { workingMinutes } from "../../src/units/index.js";
 import { report } from "../helpers/child-channel.js";
@@ -18,7 +18,7 @@ import {
 const [file = ""] = process.argv.slice(2);
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-const app = await createAppWith(SqliteFreshNowProcessApplication, {
+const app = await createTestAppWith(SqliteFreshNowProcessApplication, {
   processEnv: { ...process.env, AGBOSS_SQLITE_TEST_PATH: file },
 });
 try {

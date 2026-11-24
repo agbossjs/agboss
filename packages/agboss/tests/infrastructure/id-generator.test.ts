@@ -5,7 +5,7 @@
  * `createApp` and in `testWith`; the built-in default keeps the formats (random UUIDs). A `pauseId`
  * never comes from it: a random 128-bit token in every case.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -77,7 +77,7 @@ async function pausedAndResumed(
 async function scriptedApp(application: typeof PrefixedIdsApplication): Promise<App> {
   const book = new ScriptBook();
   book.scriptOf("agent:child-refund-agent").thenAnswer(confirmer);
-  return createAppWith(application, { gateway: createScriptedGateway(book) });
+  return createTestAppWith(application, { gateway: createScriptedGateway(book) });
 }
 
 describe("#313 AC2: under testWith the ids are deterministic", () => {

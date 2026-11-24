@@ -4,7 +4,7 @@
  * no model call, no spend), refused at assembly with a model (`[judge.model-on-code-judge]`) or an
  * injected `JudgeModel`, and run by `testJudge` without a model script.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -127,7 +127,7 @@ class SomeProvider {
 
 describe("#396: [judge.model-on-code-judge] at assembly", () => {
   it("a code judge that names a model is refused", async () => {
-    await expect(createAppWith(gatedBy(NamedModelJudge, "named"), offline())).rejects.toThrow(
+    await expect(createTestAppWith(gatedBy(NamedModelJudge, "named"), offline())).rejects.toThrow(
       /^\[judge\.model-on-code-judge\] @Judge NamedModelJudge \("named-model-judge"\): names a model, but it does not inject JudgeModel/u,
     );
   });

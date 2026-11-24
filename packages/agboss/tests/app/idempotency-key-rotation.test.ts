@@ -7,7 +7,7 @@
  * under the current key only, so they replay after the previous one is gone.
  */
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,7 +39,7 @@ async function instanceOf(application: Class): Promise<App> {
     ROTATION_IDEMPOTENCY_KEY_V2: "key-after-the-rotation",
     ROTATION_OPENROUTER_API_KEY: "sk-unused",
   };
-  const app = await createAppWith(application, { env: "dev", processEnv });
+  const app = await createTestAppWith(application, { env: "dev", processEnv });
   opened.push(app);
   return app;
 }

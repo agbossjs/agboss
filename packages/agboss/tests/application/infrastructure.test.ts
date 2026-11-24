@@ -3,7 +3,7 @@
  * `ExecutionRecordRepository`, `PausedExecutionRepository`, `BaseCheckpointSaver` — each with an
  * in-memory default: nothing is written to the home folder, nothing outlives the instance.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { InMemoryExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
 import { mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -69,12 +69,12 @@ describe("#261 S28: the built-in infrastructure is in memory", () => {
     const folder = mkdtempSync(join(tmpdir(), "agboss-home-"));
     process.env.HOME = folder;
     const options = { processEnv: { HOME: folder }, gateway: createScriptedGateway(scripted()) };
-    const first = await createAppWith(DesksApplication, options);
+    const first = await createTestAppWith(DesksApplication, options);
     const { threadId: thread } = await execute(first, OrdersWorkflowStart, {
       text: "where is order 7?",
     });
     await first.close();
-    const second = await createAppWith(DesksApplication, options);
+    const second = await createTestAppWith(DesksApplication, options);
 
     // the second instance has its own records: the first one's thread is unknown to it
     await expect(second.cancel(thread)).rejects.toBeInstanceOf(UnknownThreadError);

@@ -1,5 +1,5 @@
 import { McpTransport } from "../../src/config/mcp-server-config.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -57,7 +57,7 @@ async function served(book: ScriptBook, peerUrl: string, maxMeshHops?: number) {
   });
   @McpEndpoint({ name: "orders-mcp", version: "1.0.0", tools: [parts.MeshStart, parts.CallPeer] })
   class OrdersMcp {}
-  const app = await createAppWith(parts.MeshApplication, offline(book));
+  const app = await createTestAppWith(parts.MeshApplication, offline(book));
   apps.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   await connectMcp(plainApp(app), { endpoint: OrdersMcp, transport: serverSide });

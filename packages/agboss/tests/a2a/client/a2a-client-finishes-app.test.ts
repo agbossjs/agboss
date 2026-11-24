@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { A2AAgent, A2AClient, A2AUnexpectedFinishError } from "../../../src/a2a/index.js";
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import type { App } from "../../../src/app/types.js";
@@ -113,7 +113,7 @@ class AskApplication {}
 
 describe("#916 item 3: an unexpected finish in an execution", () => {
   it("AC3.8 the step fails with A2AUnexpectedFinishError and .onError takes it", async () => {
-    const app = await createAppWith(AskApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(AskApplication, offline(new ScriptBook()));
     apps.push(app);
 
     const result = await execute(app, AskWorkflowStart, { text: "hi" });

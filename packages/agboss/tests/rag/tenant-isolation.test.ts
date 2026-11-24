@@ -9,7 +9,7 @@
  * path once while it is collected (one app, one search to its finish), so each test's timeout
  * bounds its own work only (QUALITY.md → Tests: warm the path first).
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
 import { replyWith } from "../../src/testing/index.js";
@@ -44,7 +44,7 @@ afterEach(async () => {
 });
 
 async function appWith(book: ScriptBook): Promise<App> {
-  app = await createAppWith(TenantDocsApplication, { gateway: createScriptedGateway(book) });
+  app = await createTestAppWith(TenantDocsApplication, { gateway: createScriptedGateway(book) });
   return app;
 }
 
@@ -52,7 +52,9 @@ async function appWith(book: ScriptBook): Promise<App> {
 async function warmedPath(): Promise<void> {
   const book = new ScriptBook();
   book.scriptOf("agent:searching-agent").thenReturn(searchVault, replyWith("done"));
-  const warm = await createAppWith(TenantDocsApplication, { gateway: createScriptedGateway(book) });
+  const warm = await createTestAppWith(TenantDocsApplication, {
+    gateway: createScriptedGateway(book),
+  });
   try {
     await execute(warm, SearchStart, { text: QUESTION }, { tenant: { tenantId: "tenant-a" } });
   } finally {

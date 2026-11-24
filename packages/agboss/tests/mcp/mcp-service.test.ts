@@ -1,5 +1,6 @@
 import { Window2Memory } from "../helpers/window-memory.js";
-import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
@@ -138,7 +139,7 @@ async function connected(
   stubs = new McpStubs(book),
   session: McpSessionOptions = {},
 ): Promise<Client> {
-  const app = await createAppWith(ClerkDeskApplication, offline(book, stubs));
+  const app = await createTestAppWith(ClerkDeskApplication, offline(book, stubs));
   opened.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   await connectMcp(plainApp(app), { endpoint: DeskMcp, transport: serverSide, session: session });
@@ -309,7 +310,7 @@ describe("McpService over an in-memory MCP transport", () => {
   });
 
   it("exporting a tool the workflow does not use fails when the server starts", async () => {
-    const app = await createAppWith(DeskApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(DeskApplication, offline(new ScriptBook()));
     opened.push(app);
     const [, serverSide] = InMemoryTransport.createLinkedPair();
 

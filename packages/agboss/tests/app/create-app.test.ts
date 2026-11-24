@@ -1,9 +1,6 @@
 import { Window2Memory } from "../helpers/window-memory.js";
-import {
-  createApp,
-  createAppWith,
-  type BuildApplicationOptions,
-} from "../../src/application/create-app.js";
+import { createApp, type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { NotAWorkflowStartError } from "../../src/app/create-app.js";
 import {
@@ -130,7 +127,7 @@ describe("AC12: createApp — the real app", () => {
   it("assembles before any model call and reports every assembly error at once", async () => {
     const book = new ScriptBook();
 
-    const built = createAppWith(BrokenApplication, offline(book));
+    const built = createTestAppWith(BrokenApplication, offline(book));
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     const codes = await built.catch((error: unknown) =>
@@ -146,7 +143,7 @@ describe("AC12: createApp — the real app", () => {
       .thenReturn(replyWith(CodeDto, { text: "v1" }, { cost: usd(0.002) }));
     book.scriptOf("agent:reviewer-agent").thenReturn(replyWith(ReviewDto, { text: "clean" }));
     book.scriptOf("router:review-gate-router").thenReturn(routeTo(PullRequest));
-    const app = await createAppWith(CodeReviewApplication, offline(book));
+    const app = await createTestAppWith(CodeReviewApplication, offline(book));
 
     const result = await execute(app, TaskStart, { text: "Add a flag" });
     await app.close();
@@ -177,7 +174,7 @@ describe("AC12: createApp — the real app", () => {
     book
       .scriptOf("agent:support-agent")
       .thenReturn(callTool(SaveNote, { title: "a", text: "b" }), replyWith("Saved."));
-    const app = await createAppWith(DeskApplication, offline(book, stubs));
+    const app = await createTestAppWith(DeskApplication, offline(book, stubs));
 
     const paused = await execute(app, ChatStart, { text: "save a note" });
     const done = await app.resume(answerOf(paused, { approved: true }));
@@ -200,7 +197,7 @@ describe("AC12: createApp — the real app", () => {
 
   it("close runs onStop of the components it started, once", async () => {
     lifecycle.length = 0;
-    const app = await createAppWith(DeskApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(DeskApplication, offline(new ScriptBook()));
     const started = [...lifecycle];
 
     await app.close();
@@ -212,7 +209,7 @@ describe("AC12: createApp — the real app", () => {
 
   it("checks the start and its input DTO before any call", async () => {
     const book = new ScriptBook();
-    const app = await createAppWith(CodeReviewApplication, offline(book));
+    const app = await createTestAppWith(CodeReviewApplication, offline(book));
 
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toBeInstanceOf(
       NotAWorkflowStartError,
@@ -229,7 +226,7 @@ describe("AC12: createApp — the real app", () => {
     const book = new ScriptBook();
     book.scriptOf("agent:ticket-agent").thenReturn(replyWith("ticket"));
     book.scriptOf("agent:writer-agent").thenReturn(replyWith("chat"));
-    const app = await createAppWith(TwoStartsApplication, offline(book));
+    const app = await createTestAppWith(TwoStartsApplication, offline(book));
 
     const ticket = await execute(app, TicketStart, { text: "printer broken", id: "T-1" });
     const chat = await execute(app, ChatStart, { text: "hi" });
@@ -272,7 +269,7 @@ describe("#834 AC4: createApp takes env, profile and meterProvider only", () => 
   });
 
   it("the internal build path takes the seams: what testWith and the CLI use", async () => {
-    const app = await createAppWith(CodeReviewApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(CodeReviewApplication, offline(new ScriptBook()));
 
     expect(app.warnings).toEqual(expect.any(Array));
     await app.close();

@@ -67,6 +67,7 @@ describe("#825 AC6: each key on a variable of its own", () => {
   it("checked where the start reads the keys: applicationIdempotencyKeysOf refuses before any key is made", () => {
     const assembled = {
       name: "keys-application",
+      workflows: [],
       piiKeyField: "piiKey",
       otherKeys: OTHER_KEYS,
     };

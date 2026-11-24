@@ -12,7 +12,7 @@ import {
   Action,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { EnvironmentError } from "../../src/environments/errors.js";
 import {
@@ -91,7 +91,7 @@ class AnsAppApplication {}
 
 describe("#716: an arbiter-only provider", () => {
   it("still fails at createApp without the OpenRouter key", async () => {
-    const started = createAppWith(AnsAppApplication, {
+    const started = createTestAppWith(AnsAppApplication, {
       processEnv: {},
       providerFetch: providerStub([], [{ id: "local/llama" }]).fetch,
     });

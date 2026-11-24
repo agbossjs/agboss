@@ -1,5 +1,5 @@
 /** #120: the application's PII key — one token per value on every instance, a policy's own key wins. */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { tokenOf } from "../../src/pii/tokens.js";
@@ -90,7 +90,7 @@ describe("#120: the application's secret", () => {
 
 describe("#120: a missing application key", () => {
   it("fails the start with [pii.secret-required] when something tokenizes, naming what does", async () => {
-    const failure = await createAppWith(UnkeyedApplication, {
+    const failure = await createTestAppWith(UnkeyedApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     }).catch((error: unknown) => error);

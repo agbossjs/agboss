@@ -4,7 +4,7 @@
  * `@RagReranker` (`[rag.not-a-reranker]`), its name kebab-case, a model reranker's model from its
  * provider (`[model.missing]`, `[model.missing-provider]`) — and no default model of the core's own.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Agent, EmptyEnvironment, Workflow, type Class } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";

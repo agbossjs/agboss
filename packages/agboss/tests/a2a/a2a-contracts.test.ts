@@ -1,4 +1,4 @@
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { A2AAgent, A2AClient, A2AExpose, a2aHttpListener } from "../../src/a2a/index.js";
 import { Application } from "../../src/application/application.js";
@@ -30,7 +30,7 @@ afterEach(async () => {
 
 describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
   it("an expose the application does not list: [application.expose-unlisted]", async () => {
-    const app = await createAppWith(ShopApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(ShopApplication, offline(new ScriptBook()));
     apps.push(app);
 
     const built = () =>

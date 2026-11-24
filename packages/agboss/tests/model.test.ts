@@ -1,5 +1,5 @@
 import { usd } from "../src/units/index.js";
-import { createAppWith } from "../src/application/create-app.js";
+import { createTestAppWith } from "../src/testing/create-app-with.js";
 import { TestWorkflow, TestApplication } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import { KEYS } from "./models/gateway.js";
@@ -73,7 +73,7 @@ describe("AC12: createAppDeps on an injected model gateway", () => {
       TERN_DB: ":memory:",
       SPEND_LEDGER_DIR: mkdtempSync(join(tmpdir(), "agboss-135-")),
     };
-    const app = await createAppWith(TestApplication, {
+    const app = await createTestAppWith(TestApplication, {
       processEnv: env,
       gateway: { chatModel, routeTo, decide },
     });

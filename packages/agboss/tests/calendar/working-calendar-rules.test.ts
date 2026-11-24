@@ -8,7 +8,7 @@
  * listed `@WorkingCalendar`.
  */
 import { describe, expect, it } from "vitest";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import type { Class } from "../../src/components/injection.js";
@@ -26,7 +26,10 @@ import { workingApp, workingToolApp } from "../flow/fixtures/working-time-app.js
 import { ALL_DAYS, TEL_AVIV, WEEKDAYS } from "./helpers.js";
 
 const assemble = (application: Class) =>
-  createAppWith(application, { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) });
+  createTestAppWith(application, {
+    processEnv: {},
+    gateway: createScriptedGateway(new ScriptBook()),
+  });
 
 const violationsOf = async (
   application: Class,

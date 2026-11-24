@@ -2,7 +2,7 @@
  * #183 AC1: one `deps` contract for every component kind — each kind that takes `deps` gets its
  * dependency injected by the app's container (through `createApp`), not `undefined`.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { JudgeVerdict } from "../../src/components/judge-decorators.js";
@@ -27,7 +27,7 @@ const runVault = async () => {
   book
     .scriptOf("agent:keeper-agent")
     .thenReturn(callTool(RevealTool, { what: "it" }), replyWith(KeptDto, { text: "ok" }));
-  const app = await createAppWith(VaultApplication, offline(book));
+  const app = await createTestAppWith(VaultApplication, offline(book));
   const result = await execute(app, Chat, { text: "open" });
   return { app, book, result };
 };

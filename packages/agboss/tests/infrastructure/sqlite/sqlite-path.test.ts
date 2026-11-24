@@ -3,7 +3,7 @@
  * by listing it; `sqlitePath` is required only then, and a missing one fails — at assembly when
  * the contract lacks the field, at start when its value is empty — naming it.
  */
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
@@ -85,7 +85,7 @@ describe("#265 AC3: sqlitePath is required only when a SQLite implementation is 
 
   it("listed none: every contract is the built-in in-memory default", async () => {
     const book = new ScriptBook();
-    const app = await createAppWith(InMemoryApplication, {
+    const app = await createTestAppWith(InMemoryApplication, {
       gateway: createScriptedGateway(book),
       connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
     });

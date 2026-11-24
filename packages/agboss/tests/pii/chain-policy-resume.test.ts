@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { createAppDeps, type AppDeps } from "../../src/app/app-deps.js";
 import { ownDepsOf } from "../../src/app/own-deps.js";
 import type { Class } from "../../src/components/injection.js";
@@ -203,12 +203,12 @@ const scripted = (): ScriptBook => {
 async function resumedAcross(before: Policies, after: Policies) {
   const book = scripted();
   const options = () => ({ processEnv: {}, gateway: createScriptedGateway(book) });
-  const first = await createAppWith(deployment(before).app, options());
+  const first = await createTestAppWith(deployment(before).app, options());
   const paused = await execute(first, CrRootStart, { text: "Email the boss" });
   await first.close();
   expect(paused.status).toBe(ExecutionStatus.Paused);
   expect(paused.pending[0]?.childExecutionId).toBeDefined();
-  const next = await createAppWith(deployment(after).app, options());
+  const next = await createTestAppWith(deployment(after).app, options());
   try {
     return await next.resume(answerOf(paused, { approved: true }));
   } finally {

@@ -1,5 +1,5 @@
 import { Window1Memory } from "../helpers/window-memory.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it, vi } from "vitest";
 import { createAppDeps } from "../../src/app/app-deps.js";
 import { toolLookup, UnknownToolError } from "../../src/app/parts.js";
@@ -130,7 +130,7 @@ describe("AC12: the app's parts", () => {
   });
 
   it("with no start of WorkflowStartTextDto, a plain text has no start", async () => {
-    const app = await createAppWith(TicketsApplication, offline());
+    const app = await createTestAppWith(TicketsApplication, offline());
 
     expect(app.textStart).toBeUndefined();
     await app.close();

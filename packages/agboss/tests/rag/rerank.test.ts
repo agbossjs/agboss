@@ -5,7 +5,7 @@
  * falls back to the retrieval's order with a trace when the reranker says `Fallback` (AC3); a
  * reranking that is no subset of the candidates is a failure (isolation).
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -58,7 +58,7 @@ afterEach(async () => {
 });
 
 async function appWith(book: ScriptBook, application: Class = rerankApplication()): Promise<App> {
-  app = await createAppWith(application, { gateway: createScriptedGateway(book) });
+  app = await createTestAppWith(application, { gateway: createScriptedGateway(book) });
   return app;
 }
 

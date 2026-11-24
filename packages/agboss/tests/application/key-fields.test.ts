@@ -10,7 +10,11 @@
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { applicationIdempotencyKeysOf } from "../../src/application/idempotency-key.js";
+import {
+  applicationIdempotencyKeysOf,
+  TEST_IDEMPOTENCY_KEYS,
+} from "../../src/application/idempotency-key.js";
+import { createAppWith } from "../../src/application/create-app.js";
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { Application } from "../../src/application/application.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
@@ -376,5 +380,79 @@ describe("#1317d: an idempotency secret that is named must resolve", () => {
       applicationIdempotencyKeysOf(assembled, {} as never, { OPTIONAL_IDEMPOTENCY: "one" }),
     ).toEqual({ fingerprintKeys: { current: "one" } });
     expect(() => applicationIdempotencyKeysOf(plain, {} as never, {})).not.toThrow();
+  });
+});
+
+describe("#1317b: the test's idempotency keys are for tests only", () => {
+  const keyedApplication = async () => {
+    @Application({
+      name: "test-keys-application",
+      version: "1.0.0",
+      environment: KeysEnvironment,
+      workflows: [BookOrderWorkflow],
+      budgets: TEST_BUDGETS,
+      storage: KEYED,
+    })
+    class TestKeysApplication {}
+    return { TestKeysApplication, assembled: await applicationOf(TestKeysApplication) };
+  };
+
+  it("createAppWith with a keyed runOnce and no secret declared fails the start — it is never given the test's keys", async () => {
+    @Application({
+      name: "no-secret-application",
+      version: "1.0.0",
+      environment: KeysEnvironment,
+      workflows: [BookOrderWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class NoSecretApplication {}
+
+    await expect(createAppWith(NoSecretApplication)).rejects.toThrow(/idempotency-key-required/u);
+  });
+
+  it("createAppWith with a declared secret whose variable is not set fails the start — no fallback key", async () => {
+    const { TestKeysApplication } = await keyedApplication();
+
+    await expect(
+      createAppWith(TestKeysApplication, { env: "test", processEnv: {} }),
+    ).rejects.toThrow("KEYS_TEST_IDEMPOTENCY is not set");
+  });
+
+  it("the keys of a test: a declared secret's unset variable gets them in the test's environment; the variable set is used as it is", async () => {
+    const { assembled } = await keyedApplication();
+
+    expect(applicationIdempotencyKeysOf(assembled, {} as never, {}, TEST_IDEMPOTENCY_KEYS)).toEqual(
+      { fingerprintKeys: { current: TEST_IDEMPOTENCY_KEYS.current } },
+    );
+    expect(
+      applicationIdempotencyKeysOf(
+        assembled,
+        {} as never,
+        { KEYS_TEST_IDEMPOTENCY: "real" },
+        TEST_IDEMPOTENCY_KEYS,
+      ),
+    ).toEqual({ fingerprintKeys: { current: "real" } });
+    expect(() => applicationIdempotencyKeysOf(assembled, {} as never, {})).toThrow(
+      "KEYS_TEST_IDEMPOTENCY is not set",
+    );
+  });
+
+  it("a production process never gets them", async () => {
+    const { assembled } = await keyedApplication();
+
+    expect(() =>
+      applicationIdempotencyKeysOf(
+        assembled,
+        {} as never,
+        { NODE_ENV: "production" },
+        TEST_IDEMPOTENCY_KEYS,
+      ),
+    ).toThrow(IdempotencyError.SecretKeyMissing);
+    expect(
+      applicationIdempotencyKeysOf(assembled, {} as never, {
+        NODE_ENV: "production",
+        KEYS_TEST_IDEMPOTENCY: "real",
+      }),
+    ).toEqual({ fingerprintKeys: { current: "real" } });
   });
 });

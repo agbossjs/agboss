@@ -6,7 +6,7 @@
  */
 import { InMemorySpanExporter, type ReadableSpan } from "@opentelemetry/sdk-trace-base";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Application } from "../../src/application/application.js";
 import type { AgentStartEvent } from "../../src/core/observability.js";
 import { Observer } from "../../src/index.js";
@@ -126,7 +126,7 @@ const OTHER_LANGFUSE = {
 };
 
 const appOf = (book: ScriptBook) =>
-  createAppWith(TracePoliciesApplication, {
+  createTestAppWith(TracePoliciesApplication, {
     processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });
@@ -222,7 +222,7 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
     book.scriptOf("agent:support-agent").thenReturn(replyWith(`checked ${EMPLOYEE_ID}`));
     book.scriptOf("agent:open-agent").thenReturn(replyWith("ok"));
     const app = await appOf(book);
-    const other = await createAppWith(OtherTracingApplication, {
+    const other = await createTestAppWith(OtherTracingApplication, {
       processEnv: OTHER_LANGFUSE,
       gateway: createScriptedGateway(book),
     });
@@ -246,7 +246,7 @@ const spansOf = (workflow: string): string =>
     .join("\n");
 
 const chainAppOf = (book: ScriptBook) =>
-  createAppWith(ChainApplication, {
+  createTestAppWith(ChainApplication, {
     processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });

@@ -3,7 +3,7 @@
  * and pauses possible with the built-in in-memory paused executions or checkpoints. In `app.warnings` and the start log; errors
  * under `agboss check --strict` (the CLI's tests); silent in tests (`testWith`).
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
@@ -40,7 +40,7 @@ beforeEach(resetLogged);
 
 describe("#261 AC14: in-memory ledger and pauses warn", () => {
   it("the built-in in-memory ledger with tenant and application budgets, and pauses in memory: both", async () => {
-    const app = await createAppWith(LoggedApplication, offline);
+    const app = await createTestAppWith(LoggedApplication, offline);
     await app.close();
 
     expect(app.warnings).toEqual([LEDGER, PAUSES]);
@@ -58,7 +58,7 @@ describe("#261 AC14: in-memory ledger and pauses warn", () => {
   });
 
   it("durable stores listed: none of the stores' warnings", async () => {
-    const app = await createAppWith(DurableLoggedApplication, offline);
+    const app = await createTestAppWith(DurableLoggedApplication, offline);
     await app.close();
 
     expect(app.warnings).toEqual([]);
@@ -118,7 +118,7 @@ describe("#401 PR 1: kept execution history in memory warns", () => {
 
 describe("#1301: no PII secret and nothing tokenizes: a key of the instance, no warning", () => {
   it("the start goes on and says nothing about a key", async () => {
-    const app = await createAppWith(NoteLoggedApplication, offline);
+    const app = await createTestAppWith(NoteLoggedApplication, offline);
     await app.close();
 
     expect(app.warnings.some((warning) => warning.includes("pii"))).toBe(false);
@@ -138,7 +138,7 @@ describe("#1301: no PII secret and nothing tokenizes: a key of the instance, no 
 
   it("a key named: no warning", async () => {
     const processEnv = { PII_APP_KEY: "k", PII_TEST_PSEUDONYM_KEY: "own" };
-    const app = await createAppWith(KeyedApplication, { ...offline, processEnv });
+    const app = await createTestAppWith(KeyedApplication, { ...offline, processEnv });
     await app.close();
 
     expect(app.warnings.some((warning) => warning.includes("pii"))).toBe(false);

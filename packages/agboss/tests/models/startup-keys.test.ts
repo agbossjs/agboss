@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { EnvironmentError } from "../../src/environments/errors.js";
@@ -55,7 +55,7 @@ function applicationFor(models: KindModels, providers: readonly Class[]): Class 
 const VAULT_ONLY = [FallbackLocalModelProvider];
 const SERVERS = [LocalModelProvider, KeyedModelProvider, DecisionsModelProvider];
 const start = (application: Class) =>
-  createAppWith(application, {
+  createTestAppWith(application, {
     processEnv: {},
     providerFetch: providerStub([], [{ id: LOCAL }]).fetch,
   });

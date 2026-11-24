@@ -5,7 +5,7 @@
  * config-drift warning) only after every `onInit` → `onStart` ran, and the warning is still in
  * `app.warnings` and the start log.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -129,14 +129,14 @@ beforeEach(() => {
 
 describe("#747: no store is called before the components started", () => {
   it("AC1: the record store's first call comes after its onInit", async () => {
-    const app = await createAppWith(StartedStoresApplication, { processEnv: {} });
+    const app = await createTestAppWith(StartedStoresApplication, { processEnv: {} });
     await app.close();
 
     expect(callsBeforeStart).toEqual([]);
   });
 
   it("AC3: the config snapshot is still written at start: its drift is a start warning", async () => {
-    const app = await createAppWith(StartedStoresApplication, { processEnv: {} });
+    const app = await createTestAppWith(StartedStoresApplication, { processEnv: {} });
     await app.close();
 
     expect(app.warnings).toContainEqual(expect.stringMatching(DRIFT_WARNING));

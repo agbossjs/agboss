@@ -1,4 +1,4 @@
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { ComponentError, Injectable, Observer } from "../../../src/index.js";
 import { closestHook } from "../../../src/components/observer-checks.js";
@@ -95,7 +95,7 @@ class RejectedTypo {
 }
 
 const assemblyError = async (observers: Parameters<typeof applicationWith>[1]): Promise<string> =>
-  createAppWith(applicationWith("checked-workflow", observers), {
+  createTestAppWith(applicationWith("checked-workflow", observers), {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
   }).then(

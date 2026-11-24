@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { ChannelOf } from "../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
@@ -34,7 +34,10 @@ import {
 } from "../flow/fixtures/expiry.fixture.js";
 
 const assemble = (application: Class) =>
-  createAppWith(application, { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) });
+  createTestAppWith(application, {
+    processEnv: {},
+    gateway: createScriptedGateway(new ScriptBook()),
+  });
 
 const violationsOf = async (
   application: Class,

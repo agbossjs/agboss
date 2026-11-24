@@ -1,4 +1,4 @@
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -54,7 +54,7 @@ async function billing(book: ScriptBook, orders: MeshKeyPair, own: MeshKeyPair) 
   });
   @McpEndpoint({ name: "billing-mcp", version: "1.0.0", tools: [parts.MeshStart] })
   class BillingMcp {}
-  const app = await createAppWith(parts.MeshApplication, {
+  const app = await createTestAppWith(parts.MeshApplication, {
     ...offline(book),
     env: "signing",
     processEnv: meshEnvOf(own, orders),

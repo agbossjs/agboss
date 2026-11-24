@@ -15,7 +15,7 @@ import {
   replyWith,
   testWith,
 } from "../../../src/testing/index.js";
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import { ComponentError } from "../../../src/index.js";
@@ -181,7 +181,7 @@ describe("@Observer records its options", () => {
 });
 
 const assemblyError = (observers: Parameters<typeof applicationWith>[1]): Promise<string> =>
-  createAppWith(applicationWith("observed-workflow", observers), {
+  createTestAppWith(applicationWith("observed-workflow", observers), {
     gateway: createScriptedGateway(new ScriptBook()),
     processEnv: {},
   }).then(

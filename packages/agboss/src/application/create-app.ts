@@ -28,7 +28,7 @@ import { withExecutionControl as byId } from "../app/tree-control.js";
 import type { ApplicationClass } from "./types.js";
 import type { applicationPiiMaskOf } from "./application-pii.js";
 import { instancePiiOf } from "./instance-pii.js";
-import { applicationIdempotencyKeysOf, TEST_IDEMPOTENCY_KEYS } from "./idempotency-key.js";
+import { applicationIdempotencyKeysOf } from "./idempotency-key.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type * as InstanceSteps from "./instance-steps.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
@@ -203,17 +203,15 @@ export async function createApp<TApplication extends Class>(
 export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {}
 
 /**
- * An app instance on the internal build path (#834): `createApp` with its seams. A test's: an
- * application with no `@DatabaseStorage` gets the test's idempotency keys (as `testWith` gives
- * them), where `createApp` refuses a component that reaches `Idempotency` without a secret.
+ * An app instance on the internal build path (#834): `createApp` with its seams — and never the
+ * test's idempotency keys: those are given by the test paths only (`testWith`, `createTestAppWith`
+ * of `@agboss/core/testing`).
  */
 export async function createAppWith(
   application: Class,
   options: BuildApplicationOptions = {},
 ): Promise<App> {
-  const withTestKeys = { withoutIdempotencyKeys: true as const, ...options };
-  const seams = { idempotencyTestKeys: TEST_IDEMPOTENCY_KEYS };
-  return (await builtApplicationOf(application, withTestKeys, seams)).app;
+  return (await builtApplicationOf(application, options)).app;
 }
 
 /**

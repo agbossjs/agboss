@@ -3,7 +3,7 @@
  * every call, and none of it reaches the user's stream.
  */
 import { describe, expect, it } from "vitest";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -59,7 +59,9 @@ describe("#1004: the model reranker is silent", () => {
     const book = new ScriptBook();
     book.scriptOf("reranker:docs-reranker").thenReturn(replyWith(RANKING));
     book.scriptOf("agent:model-context-agent").thenReturn(replyWith("done"));
-    const app = await createAppWith(rerankApplication(), { gateway: createScriptedGateway(book) });
+    const app = await createTestAppWith(rerankApplication(), {
+      gateway: createScriptedGateway(book),
+    });
     const events: ExecutionStreamEvent[] = [];
 
     await execute(

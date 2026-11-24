@@ -33,12 +33,11 @@ function storageSecretOf(
   option: string,
   ref: SecretRef | OptionalSecretRef,
   env: NodeJS.ProcessEnv,
-  fallback: string | undefined,
 ): string | undefined {
   const variable = variableOfSecretRef(ref);
   const raw = env[variable];
+  // never a key of the framework's own: a declared secret that is not set fails the start
   if (raw !== undefined && raw !== "") return raw;
-  if (fallback !== undefined) return fallback;
   if (isOptionalRef(ref)) return undefined;
   throw new EnvironmentError({
     code: EnvironmentErrorCode.MissingVariables,
@@ -54,17 +53,10 @@ const isOptionalRef = (ref: SecretRef | OptionalSecretRef): boolean =>
 function storageKeysOf(
   assembled: Pick<AssembledApplication, "name" | "storage">,
   env: NodeJS.ProcessEnv,
-  fallback: FingerprintKeys | undefined,
 ): FingerprintKeys | undefined {
   const meta = assembled.storage?.database?.meta;
   if (meta?.idempotencySecret === undefined) return undefined;
-  const current = storageSecretOf(
-    assembled.name,
-    "idempotencySecret",
-    meta.idempotencySecret,
-    env,
-    fallback?.current,
-  );
+  const current = storageSecretOf(assembled.name, "idempotencySecret", meta.idempotencySecret, env);
   if (current === undefined) return undefined;
   if (meta.previousIdempotencySecret === undefined) return Object.freeze({ current });
   const previous = storageSecretOf(
@@ -72,7 +64,6 @@ function storageKeysOf(
     "previousIdempotencySecret",
     meta.previousIdempotencySecret,
     env,
-    fallback?.previous,
   );
   return Object.freeze(previous === undefined ? { current } : { current, previous });
 }
@@ -88,6 +79,48 @@ const unresolvedSecret = (application: string): IdempotencyError.SecretKeyMissin
     effect: application,
   });
 
+/** A named secret that resolved to nothing: fine only where no component can write under a business key. */
+function assertSecretNotNeeded(
+  assembled: Pick<AssembledApplication, "name" | "storage" | "workflows">,
+): void {
+  const isNamed = assembled.storage?.database?.meta.idempotencySecret !== undefined;
+  const reachesWriter = assembled.workflows.some((one) => one.businessKeyWriter !== undefined);
+  if (isNamed && reachesWriter) throw unresolvedSecret(assembled.name);
+}
+
+/** The refusal of the test's idempotency keys in a production process (`NODE_ENV=production`). */
+const testKeysInProduction = (): IdempotencyError.SecretKeyMissing =>
+  new IdempotencyError.SecretKeyMissing({
+    message:
+      "the test's idempotency keys are public: they are never used when NODE_ENV is production — name idempotencySecret in @DatabaseStorage and set its variable",
+    effect: "idempotency keys",
+  });
+
+/**
+ * The environment of a test (`testWith`, a unit runner, a fault pod): a declared secret's variable
+ * that is not set gets the test's key — in the test's environment only, never as a fallback of the
+ * reader: `createApp` and every tool read the process as it is.
+ */
+function testEnvOf(
+  assembled: Pick<AssembledApplication, "storage">,
+  env: NodeJS.ProcessEnv,
+  test: FingerprintKeys | undefined,
+): NodeJS.ProcessEnv {
+  const meta = assembled.storage?.database?.meta;
+  if (test === undefined || meta === undefined) return env;
+  const given: Record<string, string | undefined> = { ...env };
+  const named = [
+    [meta.idempotencySecret, test.current],
+    [meta.previousIdempotencySecret, test.previous],
+  ] as const;
+  for (const [ref, value] of named) {
+    if (ref === undefined || value === undefined) continue;
+    const variable = variableOfSecretRef(ref);
+    if (given[variable] === undefined || given[variable] === "") given[variable] = value;
+  }
+  return given;
+}
+
 /** An assembled application's idempotency keys (#825), as its instance's parts take them. */
 export function applicationIdempotencyKeysOf(
   assembled: Pick<AssembledApplication, "name" | "storage" | "workflows"> & AssembledKeyFields,
@@ -95,10 +128,9 @@ export function applicationIdempotencyKeysOf(
   env: NodeJS.ProcessEnv,
   fallback?: FingerprintKeys,
 ): { readonly fingerprintKeys?: FingerprintKeys } {
-  const fromStorage = storageKeysOf(assembled, env, fallback);
-  const isNamed = assembled.storage?.database?.meta.idempotencySecret !== undefined;
-  const reachesWriter = assembled.workflows.some((one) => one.businessKeyWriter !== undefined);
-  if (fromStorage === undefined && isNamed && reachesWriter) throw unresolvedSecret(assembled.name);
+  if (fallback !== undefined && env.NODE_ENV === "production") throw testKeysInProduction();
+  const fromStorage = storageKeysOf(assembled, testEnvOf(assembled, env, fallback));
+  if (fromStorage === undefined) assertSecretNotNeeded(assembled);
   assertKeyVariablesApart(assembled.name, assembled, environment);
   if (fromStorage !== undefined) return { fingerprintKeys: fromStorage };
   // no storage declared (in-memory defaults): a test's keys, else none

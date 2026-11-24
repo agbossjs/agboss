@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { applicationPiiKeyOf } from "../../src/application/application-pii.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -301,7 +301,7 @@ describe("#1301b: [pii.secret-required]", () => {
   const offline = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
   const failureOf = async (application: new () => object): Promise<GraphRuleError> => {
-    const failure = await createAppWith(application as never, offline).catch(
+    const failure = await createTestAppWith(application as never, offline).catch(
       (error: unknown) => error,
     );
     expect(failure).toBeInstanceOf(GraphRuleError);
@@ -339,7 +339,7 @@ describe("#1301b: [pii.secret-required]", () => {
     class OwnSecretApplication {}
     const processEnv = { [PII_KEY_VARIABLE]: "k" };
 
-    const app = await createAppWith(OwnSecretApplication, { ...offline, processEnv }).catch(
+    const app = await createTestAppWith(OwnSecretApplication, { ...offline, processEnv }).catch(
       (error: unknown) => error,
     );
 
@@ -484,7 +484,7 @@ describe("#1301b: a Logger the application's components inject is masked", () =>
       storage: InMemoryDatabaseStorage,
     })
     class LoggerMaskingApplication {}
-    const app = await createAppWith(LoggerMaskingApplication, {
+    const app = await createTestAppWith(LoggerMaskingApplication, {
       processEnv: { [PII_KEY_VARIABLE]: "k" },
       gateway: createScriptedGateway(new ScriptBook()),
     });

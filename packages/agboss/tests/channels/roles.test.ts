@@ -2,7 +2,7 @@
  * #267 PR 1 (AC4, AC6): a channel role's form and the tools it may approve. #659 (AC1): a question
  * role (`ask` / `answer`) is declared again — a flow step asks it; a tool that names it is wrong.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ChannelOf } from "../../src/channels/channel-handler.js";
@@ -93,8 +93,11 @@ function applicationWith(name: string, tools: readonly (typeof ChargeTool)[]) {
   return ToolApplication;
 }
 
-const assemble = (application: Parameters<typeof createAppWith>[0]) =>
-  createAppWith(application, { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) });
+const assemble = (application: Parameters<typeof createTestAppWith>[0]) =>
+  createTestAppWith(application, {
+    processEnv: {},
+    gateway: createScriptedGateway(new ScriptBook()),
+  });
 
 describe("#267 AC6: a tool's input is its role's approves", () => {
   it("wrong tool: a tool whose input is not the role's approves fails assembly", async () => {

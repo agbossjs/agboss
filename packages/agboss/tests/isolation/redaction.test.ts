@@ -1,5 +1,5 @@
 /** #202, #120 AC8: a tool's `sensitive` arguments go through their action wherever a channel shows them. */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { redactedArguments, redactedDto } from "../../src/dto/redact.js";
 import { List, Nested, Text } from "../../src/dto/index.js";
@@ -20,7 +20,7 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
   it("the channel, the pause and the ask summary get the card masked; the tool gets it whole", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:cashier-agent").thenReturn(callTool(Pay, card), replyWith("Paid."));
-    const app = await createAppWith(PaymentsApplication, {
+    const app = await createTestAppWith(PaymentsApplication, {
       processEnv: {},
       gateway: createScriptedGateway(book),
     });

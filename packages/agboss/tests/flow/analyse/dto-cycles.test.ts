@@ -6,7 +6,7 @@
  */
 import { Window2Memory } from "../../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import {
   Agent,
   GraphRuleError,
@@ -76,7 +76,7 @@ describe("#1080: an agent's output that holds itself", () => {
     const agent = agentWith({ output: PingDto });
 
     const error = await failureOf(() =>
-      createAppWith(applicationWith("cyc-workflow", {}, agent), { processEnv: {} }),
+      createTestAppWith(applicationWith("cyc-workflow", {}, agent), { processEnv: {} }),
     );
 
     expect(error).toBeInstanceOf(GraphRuleError);

@@ -1,4 +1,4 @@
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { generateKeyPairSync } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
@@ -23,7 +23,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       readonly kind = "not-a-mesh";
     }
     const bad = (options: Partial<MeshOptions>) =>
-      createAppWith(
+      createTestAppWith(
         meshAppOf({ name: "billing", peerUrl: "http://unused", mesh: meshOf("orders", options) })
           .MeshApplication,
         { processEnv: {} },
@@ -40,7 +40,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       peers: [{ application: "orders", verifyKeys: [meshEnv.peerKey], allowEndpoints: [stray] }],
     });
     const short = bad({ deduplicationTtl: seconds(40) });
-    const notMesh = createAppWith(
+    const notMesh = createTestAppWith(
       meshAppOf({ name: "billing", peerUrl: "http://unused", mesh: NotAMesh }).MeshApplication,
       { processEnv: {} },
     );
@@ -66,7 +66,11 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       mesh: meshOf("orders-application"),
     });
     const start = (processEnv: NodeJS.ProcessEnv) =>
-      createAppWith(MeshApplication, { ...offline(new ScriptBook()), processEnv, env: "signing" });
+      createTestAppWith(MeshApplication, {
+        ...offline(new ScriptBook()),
+        processEnv,
+        env: "signing",
+      });
     const rsaPem = rsa.publicKey.export({ type: "spki", format: "pem" }).toString();
 
     await expect(
@@ -90,7 +94,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       mesh: meshOf("orders-application"),
     });
 
-    const app = await createAppWith(MeshApplication, {
+    const app = await createTestAppWith(MeshApplication, {
       ...offline(new ScriptBook()),
       processEnv: meshEnvOf(own, peer),
       env: "signing",
@@ -104,7 +108,7 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
 describe("#398 PR 2: app.execute(…, { deadline })", () => {
   it("an execution past its deadline fails before its next step with DeadlineExceededError", async () => {
     const book = new ScriptBook();
-    const app = await createAppWith(RemoteDeskApplication, offline(book));
+    const app = await createTestAppWith(RemoteDeskApplication, offline(book));
     apps.push(app);
 
     const run = execute(app, AskStart, { text: "hi" }, { deadline: seconds(0) });
@@ -119,7 +123,7 @@ describe("#398 PR 2: app.execute(…, { deadline })", () => {
   it("a deadline not reached changes nothing", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:desk-agent").thenReturn(replyWith("hello"));
-    const app = await createAppWith(RemoteDeskApplication, offline(book));
+    const app = await createTestAppWith(RemoteDeskApplication, offline(book));
     apps.push(app);
 
     const result = await execute(app, AskStart, { text: "hi" }, { deadline: seconds(60) });

@@ -3,7 +3,7 @@
  * fails, the role needs its one implementation, its name is the tool name the model sees; and
  * `agboss describe` names the agent that asks it. Without a pause seam the call is a tool error.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -34,7 +34,10 @@ import {
 } from "../flow/fixtures/question-tools.fixture.js";
 
 const assemble = (application: Class) =>
-  createAppWith(application, { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) });
+  createTestAppWith(application, {
+    processEnv: {},
+    gateway: createScriptedGateway(new ScriptBook()),
+  });
 
 /** An application whose one agent lists `tools`, with `providers`. */
 function buyingApplication(

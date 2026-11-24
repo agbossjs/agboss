@@ -25,6 +25,7 @@ interface Secrets {
 const assembledWith = (secrets?: Secrets) =>
   ({
     name: "keys-application",
+    workflows: [],
     storage: secrets === undefined ? undefined : { database: { meta: secrets } },
   }) as never;
 

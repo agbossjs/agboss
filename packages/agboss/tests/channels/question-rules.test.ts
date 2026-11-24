@@ -2,7 +2,7 @@
  * #659 AC1 / AC4 / AC6: the assembly rules of a question role — its name ends with `-question`, a
  * tool never names it, its interpreter is no decision model, it has one implementation.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ChannelOf } from "../../src/channels/channel-handler.js";
@@ -37,7 +37,10 @@ import {
 } from "../flow/fixtures/questions.fixture.js";
 
 const assemble = (application: Class) =>
-  createAppWith(application, { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) });
+  createTestAppWith(application, {
+    processEnv: {},
+    gateway: createScriptedGateway(new ScriptBook()),
+  });
 
 const violationsOf = async (application: Class): Promise<unknown> => {
   const error: unknown = await assemble(application).catch((thrown: unknown) => thrown);

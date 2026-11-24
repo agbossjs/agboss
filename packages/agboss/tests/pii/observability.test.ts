@@ -1,5 +1,5 @@
 /** #120 AC7: logs, traces, events and the record are masked by the application's lists. */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Observer, PiiAction } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
@@ -69,7 +69,7 @@ class SeeingObserver {
 class SeenApplication {}
 
 async function seenApp(book: ScriptBook) {
-  return createAppWith(SeenApplication, {
+  return createTestAppWith(SeenApplication, {
     processEnv: { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });

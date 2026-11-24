@@ -1,4 +1,4 @@
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import type { App } from "../../../src/app/types.js";
@@ -34,7 +34,7 @@ const test = testWith(ContextApplication);
 
 /** The audit workflow's app, nothing running: its services are created at start, outside any execution. */
 const auditApp = (): Promise<App> =>
-  createAppWith(AuditApplication, {
+  createTestAppWith(AuditApplication, {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
   });
@@ -154,7 +154,7 @@ describe("#280: a tool called on its own runs in an execution of its own", () =>
 describe("#280 AC7, AC12: outside an execution a read throws, never undefined", () => {
   it("outside an execution throws: a constructor reading it at start names its class", async () => {
     // every listed provider is created at start (#261): the application does not start
-    const start = createAppWith(EagerAuditApplication, {
+    const start = createTestAppWith(EagerAuditApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });
