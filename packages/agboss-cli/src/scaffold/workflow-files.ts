@@ -33,14 +33,12 @@ function extras(
   spec: WorkflowSpec,
   srcDir: string,
   firstAgent: FileToWrite,
-): { files: FileToWrite[]; agent: FileToWrite; server: string } {
+): { files: FileToWrite[]; agent: FileToWrite } {
   const files: FileToWrite[] = [];
   let agent = firstAgent;
-  let server = "";
   if (spec.mcp.kind !== "none") {
     const mcp = mcpFiles(srcDir, spec.mcp);
     files.push(...mcp.files);
-    server = mcp.server;
     agent = wire(agent, "Agent", "tools", mcp.tool, mcp.tool, `../../${mcp.toolModule}.js`);
   }
   if (spec.rag !== undefined) {
@@ -53,16 +51,14 @@ function extras(
     // the mode is an enum (#269): its import goes with the knowledge base's
     agent = { ...agent, content: addImport(agent.content, agent.path, "RagMode", "@agboss/core") };
   }
-  return { files, agent, server };
+  return { files, agent };
 }
 
-/** The workflow module's imports: its agents, its MCP server, the project's `ApiService`. */
+/** The workflow module's imports: its agents, the project's `ApiService`. */
 function moduleImports(
   modulePath: string,
   srcDir: string,
-  spec: WorkflowSpec,
   agents: readonly PlannedAgent[],
-  server: string,
   service: string | undefined,
 ): string {
   return [
@@ -70,11 +66,6 @@ function moduleImports(
       const target = `${srcDir}/agents/${a.names.kebab}/${a.names.kebab}.agent.ts`;
       return `import { ${a.names.pascal}Agent } from "${importPath(modulePath, target)}";`;
     }),
-    ...(spec.mcp.kind === "none"
-      ? []
-      : [
-          `import { ${server} } from "${importPath(modulePath, `${srcDir}/mcp/${namesOf(spec.mcp.name).kebab}.mcp-server.ts`)}";`,
-        ]),
     ...(service === undefined ? [] : [`import { ApiService } from "${service}";`]),
   ].join("\n");
 }
@@ -160,11 +151,10 @@ export function planWorkflow(spec: WorkflowSpec, at: WorkflowPlacement): FileToW
     ...vars(workflow),
     routerClass: `${routerNames.pascal}Router`,
     routerFrom: importPath(modulePath, router.path),
-    imports: moduleImports(modulePath, srcDir, spec, agents, more.server, service),
+    imports: moduleImports(modulePath, srcDir, agents, service),
     routes: agents
       .map((a) => `        route(${a.names.pascal}Agent)\n          .toFinish(TextWorkflowFinish),`)
       .join("\n"),
-    servers: more.server,
     providers: service === undefined ? "" : "  providers: [ApiService],\n",
   });
   return [

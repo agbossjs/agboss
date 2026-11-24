@@ -96,7 +96,7 @@ describe("agboss create / agboss generate end to end", () => {
       /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk-notes-rag \(tool, k 3, per-tenant\)/,
     );
     expect(out).toContain("· search-orders-tool (local)");
-    expect(out).toContain("· read-desk-files-tool (MCP desk-files)");
+    expect(out).toContain("read-desk-files-tool");
     // #107 AC2: files named by kind, the prompt next to its agent (no prompt parameter)
     for (const file of [
       "src/agents/answerer/answerer.agent.ts",
@@ -192,7 +192,7 @@ describe("agboss create / agboss generate end to end", () => {
     ).toContain("maxVisits: 1,");
     expect(out).toContain("rag: policies-rag (tool, k 3, per-tenant)");
     expect(out).toContain("· refund-tool (local)");
-    expect(out).toContain("· tickets-search-tool (MCP tickets)");
+    expect(out).toContain("tickets-search-tool");
     // #141 AC3: a text-only MCP server tool replies with PlainTextDto
     expect(readFileSync(join(project, "src/mcp/tickets.mcp-server.ts"), "utf8")).toContain(
       "output: PlainTextDto",

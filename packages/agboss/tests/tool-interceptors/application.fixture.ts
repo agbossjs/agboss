@@ -61,7 +61,6 @@ export class ScoutAgent {}
   version: "1.0.0",
   flow: [onStart(ScoutStart).toAgent(ScoutAgent).toFinish(ScoutAnswer)],
   toolInterceptors: [TenantScopeToolInterceptor],
-  mcp: [JobBoardServer],
   defaults: { tools: { maxResultSize: kilobytes(1) } },
 })
 export class ScoutWorkflow {}

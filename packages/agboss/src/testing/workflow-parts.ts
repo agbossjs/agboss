@@ -1,6 +1,5 @@
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class, Provider } from "../components/injection.js";
-import { requireComponent } from "../components/metadata.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { codeClassesOf, isCodeNode } from "../flow/runtime/graph-model.js";
@@ -10,13 +9,7 @@ import { codeInterpreterClassesOf } from "../channels/discovery.js";
 
 /** The MCP server classes of every workflow of the application, and their names. */
 export function mcpServersOf(assembled: AssembledApplication): ReadonlyMap<Class, string> {
-  return new Map(
-    assembled.workflows.flatMap((workflow) =>
-      (moduleOf(workflow.graph.type).mcp ?? []).map(
-        (cls) => [cls, requireComponent(cls, "mcp-server", "testWith").meta.name] as const,
-      ),
-    ),
-  );
+  return new Map(assembled.workflows.flatMap((workflow) => [...(workflow.mcpServerClasses ?? [])]));
 }
 
 const classesOf = (providers: readonly Provider[]): Class[] =>

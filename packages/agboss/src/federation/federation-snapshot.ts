@@ -88,7 +88,7 @@ const MCP_IMPORT = z.object({
   tool: z.string(),
   target: z.object({ application: z.string(), expose: z.string() }).nullable(),
   usedBy: z.array(USE),
-  input: DTO,
+  input: DTO.nullable(),
   output: DTO,
 });
 

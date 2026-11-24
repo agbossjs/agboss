@@ -189,6 +189,8 @@ export interface AssembledWorkflow<TName extends string = string> {
         readonly connector: RagConnector;
     }[];
     readonly maxSteps: number;
+    readonly mcpServerClasses?: ReadonlyMap<Class, string>;
+    readonly mcpServerConfigs?: Readonly<Record<string, McpServerConfig>>;
     // (undocumented)
     readonly mcpServers: readonly McpServerHandle<string>[];
     readonly memoryStrategies?: (services: WorkflowServices) => ReadonlyMap<string, BaseMemoryStrategy>;
@@ -1241,7 +1243,7 @@ export const loadWorkflow: (path: string, options?: {
 }) => Promise<AssembledWorkflow>;
 
 // @public
-export type McpConnect = (bundle: AssembledWorkflow, config: AgentsConfigOf<string>, env: NodeJS.ProcessEnv) => Promise<McpConnections>;
+export type McpConnect = (bundle: AssembledWorkflow, config: AgentsConfigOf<string>, env: NodeJS.ProcessEnv, identity: McpIdentity) => Promise<McpConnections>;
 
 // @public
 export interface MessageErrorOptions extends AGBossErrorOptions {

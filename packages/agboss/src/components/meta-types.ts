@@ -81,7 +81,7 @@ export interface AgentMeta
   readonly cache?: AgentSettings["cache"];
   /** Tool calls per call of the agent (`agents.<name>.limits.toolCalls`); default 20. */
   readonly maxToolCalls?: number;
-  /** `@Tool` or `@McpTool` classes, and question roles (#712). */
+  /** `@Tool` classes, and question roles (#712). */
   readonly tools?: readonly AgentToolClass[];
   /** `@Judge` classes. */
   readonly judges?: readonly JudgeHandlerClass[];
@@ -117,7 +117,6 @@ export interface WorkflowMeta {
   readonly compaction?: Class;
   /** Recent turns seen in full by every agent and model router, over the application's. */
   readonly uncompactedTurns?: UncompactedTurns;
-  readonly mcp?: readonly Class[];
   readonly providers?: readonly Provider[];
   /** `@Workflow({ services })` (#1324): scoped to the workflow's own container. */
   readonly services?: readonly Provider[];

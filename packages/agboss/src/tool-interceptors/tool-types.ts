@@ -3,12 +3,10 @@ import type { AgentMeta } from "../components/meta-types.js";
 import { componentOf } from "../components/metadata.js";
 import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
 
-/** The name of a `@Tool` / `@McpTool` class; none for a class of another kind. */
+/** The name of a `@Tool` class; none for a class of another kind. */
 export const toolNameOf = (tool: Class): string | undefined => {
   const component = componentOf(tool);
-  return component?.kind === "tool" || component?.kind === "mcp-tool"
-    ? component.meta.name
-    : undefined;
+  return component?.kind === "tool" ? component.meta.name : undefined;
 };
 
 const hasAnyInterceptor = (
@@ -34,7 +32,7 @@ function agentToolTypes(
         found.push(
           violation(
             "tool-interceptor.unresolved-tool",
-            `${agent.name}: ${tool.name || "(anonymous class)"} in tools is not a @Tool / @McpTool class, so its calls cannot be intercepted — an agent with tool interceptors runs no tool they cannot cover`,
+            `${agent.name}: ${tool.name || "(anonymous class)"} in tools is not a @Tool class, so its calls cannot be intercepted — an agent with tool interceptors runs no tool they cannot cover`,
             [agent.name],
           ),
         );

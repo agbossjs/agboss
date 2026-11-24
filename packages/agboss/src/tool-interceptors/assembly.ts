@@ -42,7 +42,7 @@ export interface LoadedToolInterceptor {
 export interface AssembledToolInterceptors {
   readonly byAgent: ReadonlyMap<string, ReadonlyMap<string, readonly LoadedToolInterceptor[]>>;
   readonly interceptors: readonly LoadedToolInterceptor[];
-  /** Per agent: the `@Tool` / `@McpTool` class of each tool name it calls (names may repeat across agents). */
+  /** Per agent: the `@Tool` class of each tool name it calls (names may repeat across agents). */
   readonly toolTypes: ReadonlyMap<string, ReadonlyMap<string, Class>>;
   /** Per agent: the interceptors of its upper levels and its own, which meet every call, even of a tool nobody resolved. */
   readonly agentLevel: ReadonlyMap<string, readonly LoadedToolInterceptor[]>;
@@ -100,7 +100,7 @@ function targetViolations(cls: Class, meta: ToolInterceptorMeta): RuleViolation[
         found.push(
           violation(
             "tool-interceptor.target-not-a-tool",
-            `${meta.name}: ${cls.name}.${hook.method} names ${tool.name || "(anonymous class)"}, which is not a @Tool / @McpTool class`,
+            `${meta.name}: ${cls.name}.${hook.method} names ${tool.name || "(anonymous class)"}, which is not a @Tool class`,
             [cls.name],
           ),
         );

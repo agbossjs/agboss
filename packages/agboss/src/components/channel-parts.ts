@@ -32,12 +32,9 @@ import { customCompactionClassesOf } from "../compaction/custom-classes.js";
 
 /** The distinct channel classes the workflow's tools name, and the question roles it asks (#659). */
 function channelClassesOf(tools: ToolClasses): readonly Class[] {
-  const named = [...tools.local, ...tools.mcp].flatMap((cls) => {
+  const named = tools.local.flatMap((cls) => {
     const component = componentOf(cls);
-    const channel =
-      component?.kind === "tool" || component?.kind === "mcp-tool"
-        ? component.meta.channel
-        : undefined;
+    const channel = component?.kind === "tool" ? component.meta.channel : undefined;
     return channel === undefined ? [] : [channel];
   });
   return [...new Set([...named, ...(tools.questions ?? [])])];

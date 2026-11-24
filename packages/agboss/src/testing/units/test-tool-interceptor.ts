@@ -1,7 +1,7 @@
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
-import { componentOf, requireComponent, type ToolMeta } from "../../components/metadata.js";
+import { requireComponent, type ToolMeta } from "../../components/metadata.js";
 import { validate } from "../../dto/schema.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import { throwIfViolated } from "../../graph/rule-error.js";
@@ -24,9 +24,7 @@ import { callTimeoutOf, UnitSite, type UnitFrame } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-types.js";
 
 const toolMetaOf = (tool: Class): ToolMeta =>
-  componentOf(tool)?.kind === "mcp-tool"
-    ? requireComponent(tool, "mcp-tool", "testToolInterceptor").meta
-    : requireComponent(tool, "tool", "testToolInterceptor").meta;
+  requireComponent(tool, "tool", "testToolInterceptor").meta;
 
 /** The interceptor's name, its rules checked (`-tool-interceptor`, a method). */
 function checkedNameOf(interceptor: Class): string {

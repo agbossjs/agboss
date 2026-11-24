@@ -1,18 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { McpTransport } from "../../../src/config/mcp-server-config.js";
+import { McpError } from "../../../src/core/error-families/remote-errors.js";
+import { bearer, defineEnv } from "../../../src/environments/define-env.js";
+import { env } from "../../../src/environments/env-readers.js";
+import { secret } from "../../../src/environments/secret.js";
 import { defaultTransport } from "../../../src/tools/mcp/connect.js";
+import { resolvedServerOf } from "../../../src/tools/mcp/resolve.js";
 import {
   connectMcpServers,
   mcpResultValue,
   mcpServer,
-  McpContractError,
-  McpUnavailableError,
   schemaDifferences,
 } from "../../../src/tools/index.js";
 import { fakeMcpServer, type FakeTool } from "./fake-server.js";
 
 const ctx = { signal: new AbortController().signal, reportCost: vi.fn() };
-const stdio = { transport: "stdio" as const, command: "unused" };
+const stdio = { transport: McpTransport.Stdio as const, command: "unused" };
 
 const repoPrs: FakeTool = {
   name: "list_pull_requests",
@@ -67,8 +71,15 @@ describe("MCP facades", () => {
     );
     expect(() =>
       mcpResultValue({ isError: true, content: [{ type: "text", text: "denied" }] }, object),
-    ).toThrow("denied");
-    expect(() => mcpResultValue({ isError: true }, object)).toThrow("MCP tool reported an error");
+    ).toThrow(McpError.Unavailable);
+    // the server's own words never reach the error
+    expect(() =>
+      mcpResultValue({ isError: true, content: [{ type: "text", text: "denied" }] }, object),
+    ).not.toThrow(/denied/);
+    expect(() =>
+      mcpResultValue({ content: [{ type: "text", text: "{not json" }] }, object),
+    ).toThrow(McpError.Contract);
+    expect(() => mcpResultValue({ content: 42 }, object)).toThrow(McpError.Contract);
   });
 
   it("turns server errors and bad output into error results", async () => {
@@ -79,11 +90,10 @@ describe("MCP facades", () => {
     };
     const connections = await connect([failing], facades);
 
-    expect(await facades.prs.invoke({ owner: "o", repo: "r" }, ctx)).toEqual({
-      kind: "error",
-      message: "rate limited",
-      cause: expect.any(Error) as unknown,
-    });
+    const failed = await facades.prs.invoke({ owner: "o", repo: "r" }, ctx);
+
+    expect(failed).toMatchObject({ kind: "error", cause: expect.any(McpError.Unavailable) });
+    expect(JSON.stringify(failed)).not.toContain("rate limited");
     await connections.close();
   });
 
@@ -92,7 +102,7 @@ describe("MCP facades", () => {
 
     expect(await facades.prs.invoke({ owner: "o", repo: "r" }, ctx)).toMatchObject({
       kind: "error",
-      message: 'MCP server "github" is not connected',
+      cause: expect.any(McpError.Unavailable) as unknown,
     });
   });
 });
@@ -107,15 +117,15 @@ describe("connectMcpServers", () => {
   it("fails startup when a used server is not configured", async () => {
     const { github, prs } = declare();
 
-    await expect(connectMcpServers({}, [github], [prs], {})).rejects.toThrow(McpUnavailableError);
+    await expect(connectMcpServers({}, [github], [prs], {})).rejects.toThrow(McpError.Unavailable);
   });
 
   it("fails startup when a server cannot be reached", async () => {
     const { github, prs } = declare();
-    const http = { transport: "http" as const, url: "http://127.0.0.1:9/mcp" };
+    const http = { transport: McpTransport.Http as const, url: "http://127.0.0.1:9/mcp" };
 
     await expect(connectMcpServers({ github: http }, [github], [prs], {})).rejects.toThrow(
-      /Cannot connect to MCP server "github"/,
+      McpError.Unavailable,
     );
   });
 
@@ -147,11 +157,12 @@ describe("connectMcpServers", () => {
 
     const failure = await connect([drifted], facades).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(McpContractError);
+    expect(failure).toBeInstanceOf(McpError.Contract);
+    // our tool and the kind of difference; never the server's own property names
     expect(String(failure)).toContain(
-      'github__list_pull_requests (github.list_pull_requests) input: server requires "repository"',
+      "github__list_pull_requests (github.list_pull_requests): input differs",
     );
-    expect(String(failure)).toContain('facade declares "repo", server does not know it');
+    expect(String(failure)).not.toContain("repository");
   });
 
   it("reports a tool missing on the server and output drift", async () => {
@@ -163,34 +174,101 @@ describe("connectMcpServers", () => {
 
     await expect(connect([], facades)).rejects.toThrow("tool not found on the server");
     await expect(connect([outputDrift], declare())).rejects.toThrow(
-      'output: "count": facade type "number", server type "string"',
+      "github__list_pull_requests (github.list_pull_requests): output differs",
     );
   });
 });
 
-describe("defaultTransport", () => {
-  it("requires env variables by name for stdio and http", () => {
-    expect(() =>
-      defaultTransport("gh", { transport: "stdio", command: "x", env: ["GH_TOKEN"] }, {}),
-    ).toThrow("needs env variable GH_TOKEN");
-    expect(() =>
-      defaultTransport(
-        "api",
-        { transport: "http", url: "http://x/mcp", headers: { Authorization: "API_KEY" } },
-        {},
-      ),
-    ).toThrow("needs env variable API_KEY");
+const appEnv = defineEnv({
+  ghToken: secret("GH_TOKEN"),
+  gate: secret.optional("GATE_TOKEN"),
+  url: env("MCP_URL"),
+  proxy: env.optional("MCP_PROXY"),
+});
+
+describe("resolvedServerOf: the references of a declaration", () => {
+  it("reads a stdio server's command, args and env from the process environment", () => {
+    const resolved = resolvedServerOf(
+      "gh",
+      {
+        transport: McpTransport.Stdio,
+        command: "x",
+        args: ["--url", appEnv.url],
+        env: { GH_TOKEN: appEnv.ghToken, GATE: appEnv.gate, PROXY: appEnv.proxy, FIXED: "1" },
+      },
+      { PATH: "/bin", HOME: "/h", GH_TOKEN: "t", MCP_URL: "http://u", SECRET_OTHER: "no" },
+    );
+
+    expect(resolved).toEqual({
+      transport: McpTransport.Stdio,
+      command: "x",
+      args: ["--url", "http://u"],
+      // an optional entry that is unset is left out; the system variables are inherited
+      env: { PATH: "/bin", HOME: "/h", GH_TOKEN: "t", FIXED: "1" },
+    });
   });
 
-  it("builds transports when env variables are present", () => {
+  it("does not pass the system variables on with inheritSystemEnv: false", () => {
+    const resolved = resolvedServerOf(
+      "gh",
+      { transport: McpTransport.Stdio, command: "x", inheritSystemEnv: false },
+      { PATH: "/bin" },
+    );
+
+    expect(resolved).toMatchObject({ env: {} });
+  });
+
+  it("reads an http server's url and headers; a bearer header is Bearer <secret>", () => {
+    const resolved = resolvedServerOf(
+      "api",
+      {
+        transport: McpTransport.Http,
+        url: appEnv.url,
+        headers: { Authorization: bearer(appEnv.ghToken), "X-Plain": "p" },
+      },
+      { MCP_URL: "http://x/mcp", GH_TOKEN: "t" },
+    );
+
+    expect(resolved).toEqual({
+      transport: McpTransport.Http,
+      url: "http://x/mcp",
+      headers: { Authorization: "Bearer t", "X-Plain": "p" },
+    });
+  });
+
+  it("names a missing variable, never a value", () => {
+    expect(() =>
+      resolvedServerOf(
+        "gh",
+        { transport: McpTransport.Stdio, command: "x", env: { T: appEnv.ghToken } },
+        {},
+      ),
+    ).toThrow("GH_TOKEN is not set");
+  });
+
+  it("refuses an url that is none", () => {
+    expect(() =>
+      resolvedServerOf("api", { transport: McpTransport.Http, url: "not a url" }, {}),
+    ).toThrow(McpError.Unavailable);
+  });
+});
+
+describe("defaultTransport", () => {
+  it("builds the transports of a resolved server", () => {
+    const headers = () => Promise.resolve({});
+
     expect(
-      defaultTransport("gh", { transport: "stdio", command: "x", env: ["T"] }, { T: "1" }),
+      defaultTransport(
+        "gh",
+        { transport: McpTransport.Stdio, command: "x", args: [], env: { T: "1" } },
+        headers,
+      ),
     ).toBeDefined();
     expect(
       defaultTransport(
         "api",
-        { transport: "http", url: "http://x/mcp", headers: { Authorization: "K" } },
-        { K: "v" },
+        { transport: McpTransport.Http, url: "http://x/mcp", headers: { Authorization: "v" } },
+        headers,
       ),
     ).toBeDefined();
   });

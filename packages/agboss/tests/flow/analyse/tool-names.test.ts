@@ -1,6 +1,6 @@
 /**
  * #268 AC9: a project's tool is named like every component — kebab-case ending with `-tool`
- * (no suffix, #1343a), `@McpTool` too; every name a model sees fits the providers' limit,
+ * (no suffix, #1343a),; every name a model sees fits the providers' limit,
  * `[a-zA-Z0-9_-]` up to 64 characters (`[tool.name-too-long]`, `[tool.name-invalid]`); a knowledge
  * base's tool is `search-<rag name>-tool`. All found at assembly, at once, before any model call.
  */

@@ -1,7 +1,6 @@
 import { Workflow, onStart } from "@agboss/core";
 import { DeskA2AAgent } from "../../a2a/desk.a2a-agent.js";
 import { HelplineAgent } from "../../agents/helpline/helpline.agent.js";
-import { PolicyFilesServer } from "../../mcp/policy-files.server.js";
 import { HelplineAnswerWorkflowFinish } from "./helpline-answer.workflow-finish.js";
 import { HelplineWorkflowStart } from "./helpline.workflow-start.js";
 
@@ -17,7 +16,6 @@ import { HelplineWorkflowStart } from "./helpline.workflow-start.js";
       .toAgent(HelplineAgent)
       .toFinish(HelplineAnswerWorkflowFinish),
   ],
-  mcp: [PolicyFilesServer], // connected when the application starts
   providers: [DeskA2AAgent],
 })
 export class HelplineWorkflow {}

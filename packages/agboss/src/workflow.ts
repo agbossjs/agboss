@@ -2,6 +2,7 @@ import type { BusinessKeyWriterUse } from "./components/container/fenced-reach.j
 import type { JudgeInstance } from "./components/judge-decorators.js";
 import type { BaseMemoryStrategy } from "./memory/types.js";
 import type { AgentPrompts, AgentsConfigOf } from "./config/types.js";
+import type { McpServerConfig } from "./config/mcp-server-config.js";
 import type { KnowledgeSource, RagConnector } from "./rag/types.js";
 import type { ModelBinding } from "./llm/registry.js";
 import type { PauseChannel } from "./flow/runtime/pause.js";
@@ -70,6 +71,10 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly prompts: AgentPrompts<TName>;
   readonly tools: WorkflowTools;
   readonly mcpServers: readonly McpServerHandle<string>[];
+  /** The connection of each `@McpServer` the workflow reaches through its `deps`, by server name. */
+  readonly mcpServerConfigs?: Readonly<Record<string, McpServerConfig>>;
+  /** The `@McpServer` classes the workflow reaches, and their names. */
+  readonly mcpServerClasses?: ReadonlyMap<Class, string>;
   /** Every declared server tool, checked against its server at startup (`@McpServer({ tools })`). */
   readonly serverTools?: readonly McpFacade[];
   /** Agents' own memory strategies by agent name (`@Agent({ memoryStrategy })`). */

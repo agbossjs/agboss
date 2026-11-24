@@ -10,7 +10,7 @@ read the reference each part points to.
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. An offer review loop                               | `oneOf` + `switch`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                                |
 | 2. Sourcing: children per item, a quorum, an approval | `.toParallelWorkflows`, a soft child failure, `.acceptedBy(anyOf(…))`, `.joinQuorum`, a channel role, `app.resume`                                |
-| 3. A help desk on MCP and A2A, streamed               | `@McpServer` / `@McpTool`, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                            |
+| 3. A help desk on MCP and A2A, streamed               | `@McpServer` behind a tool, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                           |
 | 4. A production multi-tenant application              | tenant context, budgets, model providers with a fallback and `TenantWeighted`, PII, a guardrail, SQLite, health, undo, unit and integration tests |
 
 After writing any of them: `npx agboss check` (types, every rule), `npx agboss describe`, `npm test`.
@@ -994,9 +994,12 @@ export class KbArticleDto {
 ```
 
 ```ts file=helpdesk/src/mcp/kb.server.ts
-import { McpServer, McpServerClient } from "@agboss/core/mcp";
+import { defineEnv, secret } from "@agboss/core";
+import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 import { KbArticleDto } from "../dto/kb-article.dto.js";
 import { KbSearchDto } from "../dto/kb-search.dto.js";
+
+const kbEnv = defineEnv({ kbToken: secret("KB_TOKEN") });
 
 const tools = {
   search_articles: { input: KbSearchDto, output: KbArticleDto }, // the server's own tool name
@@ -1004,41 +1007,36 @@ const tools = {
 
 @McpServer({
   name: "kb",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: "kb-mcp-server",
   args: ["--read-only"],
-  env: ["KB_TOKEN"], // names of variables passed to the process, never values
+  env: { KB_TOKEN: kbEnv.kbToken }, // secrets are references, read at start, never values
   tools,
 })
 export class KbServer extends McpServerClient<typeof tools> {}
 ```
 
 ```ts file=helpdesk/src/mcp/search-kb.mcp.ts
-import { ExecutionContext } from "@agboss/core";
-import { McpTool } from "@agboss/core/mcp";
+import { Tool } from "@agboss/core";
 import { kilobytes, seconds } from "@agboss/core/units";
 import { KbArticleDto } from "../dto/kb-article.dto.js";
 import { KbSearchDto } from "../dto/kb-search.dto.js";
 import { KbServer } from "./kb.server.js";
 
-@McpTool({
-  server: KbServer,
+@Tool({
   name: "search-kb-tool",
   description: "Searches the help center's articles",
   input: KbSearchDto,
   output: KbArticleDto,
   timeout: seconds(10),
   maxResultSize: kilobytes(16),
-  deps: [KbServer, ExecutionContext],
+  deps: [KbServer],
 })
 export class SearchKbTool {
-  constructor(
-    private readonly kbServer: KbServer,
-    private readonly executionContext: ExecutionContext,
-  ) {}
+  constructor(private readonly kbServer: KbServer) {}
 
   execute({ query }: KbSearchDto): Promise<KbArticleDto> {
-    return this.kbServer.call("search_articles", { query }, this.executionContext.signal);
+    return this.kbServer.call("search_articles", { query });
   }
 }
 ```
@@ -1170,7 +1168,6 @@ import { HelpdeskWorkflowStart } from "./helpdesk.workflow-start.js";
       .toAgent(HelpdeskAgent)
       .toFinish(HelpdeskWorkflowFinish),
   ],
-  mcp: [KbServer], // connected at start, closed by app.close()
   providers: [BillingDeskA2AAgent],
   maxSteps: 1,
 })

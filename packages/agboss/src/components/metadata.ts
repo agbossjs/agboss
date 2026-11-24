@@ -1,4 +1,4 @@
-import type { McpServerConfig } from "../config/types.js";
+import type { McpServerConfig } from "../config/mcp-server-config.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
 import type { ServerTools } from "./mcp-client.js";
@@ -33,11 +33,6 @@ export interface ToolMeta {
   readonly deps: readonly Token[];
 }
 
-/** `@McpTool`: a tool whose server is among its dependencies. */
-export interface McpToolMeta extends ToolMeta {
-  readonly server: Class;
-}
-
 /** What a decorator recorded about a class. */
 export type ComponentMeta =
   | { readonly kind: "tool"; readonly meta: ToolMeta }
@@ -49,7 +44,6 @@ export type ComponentMeta =
         readonly tools: ServerTools;
       };
     }
-  | { readonly kind: "mcp-tool"; readonly meta: McpToolMeta }
   /** `@McpExpose` (`@agboss/core/mcp`): what `createMcpService` exposes to MCP clients. */
   | { readonly kind: "mcp-expose"; readonly meta: McpExposeOptions }
   /** `@A2AExpose` (`@agboss/core/a2a`, #398 PR 3): what `a2aHttpListener` serves to A2A callers. */
@@ -192,7 +186,6 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "tool-interceptor": "@ToolInterceptor",
   tool: "Tool",
   "mcp-server": "McpServer",
-  "mcp-tool": "McpTool",
   "mcp-expose": "McpExpose",
   "a2a-expose": "A2AExpose",
   "a2a-agent": "A2AAgent",

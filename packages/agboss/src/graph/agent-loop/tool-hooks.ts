@@ -62,7 +62,7 @@ export interface CallSite {
 
 const dtosOf = (type: Class | undefined): { input?: DtoClass; output?: DtoClass } => {
   const component = type === undefined ? undefined : componentOf(type);
-  return component?.kind === "tool" || component?.kind === "mcp-tool"
+  return component?.kind === "tool"
     ? { input: component.meta.input, output: component.meta.output }
     : {};
 };

@@ -6,7 +6,8 @@ import {
   type A2ACallerResolver,
 } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
-import { McpServer, McpTool } from "../../../src/components/decorators.js";
+import { McpServer } from "../../../src/components/decorators.js";
+import { McpTransport } from "../../../src/config/mcp-server-config.js";
 import { McpServerClient } from "../../../src/components/mcp-client.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -89,16 +90,14 @@ const kbTools = { search: { input: SearchQueryDto, output: SearchHitDto } };
 
 @McpServer({
   name: "kb",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: "kb-server",
-  target: { application: "kb-application", expose: "kb-mcp-expose" },
+  target: { application: "kb-application", endpoint: "kb-mcp-expose" },
   tools: kbTools,
 })
 export class KbServer extends McpServerClient<typeof kbTools> {}
 
-@McpTool({
-  server: KbServer,
-  name: "search-kb-tool",
+@Tool({ name: "search-kb-tool",
   description: "Searches the knowledge base",
   input: SearchQueryDto,
   output: SearchHitDto,
@@ -205,7 +204,6 @@ export class RefundWorkflow {}
       .toFinish(KbWorkflowFinish),
   ],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-  mcp: [KbServer],
 })
 export class KbWorkflow {}
 

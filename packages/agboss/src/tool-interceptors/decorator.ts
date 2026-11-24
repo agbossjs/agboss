@@ -4,10 +4,10 @@ import { componentOf, recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
 
 /**
- * `@ToolInterceptor` (#384): a cross-cutting check or rewrite of an agent's calls to its `@Tool`s and
- * `@McpTool`s — `@BeforeTool(Tool)` methods (and `beforeAnyTool`) decide whether the tool runs,
+ * `@ToolInterceptor` (#384): a cross-cutting check or rewrite of an agent's calls to its `@Tool`s —
+ * `@BeforeTool(Tool)` methods (and `beforeAnyTool`) decide whether the tool runs,
  * `@AfterTool(Tool)` methods (and `afterAnyTool`) give the result the model reads. Listed in `toolInterceptors: [...]` of `@Application` → `@Workflow` → `@Agent`
- * → `@Tool` / `@McpTool` (lists add up, outer first); `excludeToolInterceptors` on an agent or a
+ * → `@Tool` (lists add up, outer first); `excludeToolInterceptors` on an agent or a
  * tool removes an inherited one. Created by the container with its `deps`.
  */
 

@@ -583,8 +583,6 @@ export interface AgentsConfig {
         uncompactedTurns: number | TurnLimit.ALL;
     };
     judges?: Record<string, ModelSettings> | undefined;
-    // (undocumented)
-    mcpServers?: Record<string, McpServerConfig> | undefined;
     name: string;
     version: string;
 }
@@ -10887,7 +10885,6 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly maxConcurrentExecutions?: number;
     readonly maxDepth?: number;
     readonly maxSteps?: number;
-    readonly mcp?: readonly Class[];
     readonly modelProvider?: Class;
     readonly name: TName;
     readonly piiPolicies?: readonly Class[];
@@ -11463,7 +11460,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "description".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "maxRetries".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "defaults".
-// src/config/settings-types.ts - (ae-undocumented) Missing documentation for "mcpServers".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "agents".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "MODEL_MAX".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "ALL".

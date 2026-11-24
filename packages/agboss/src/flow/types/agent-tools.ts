@@ -9,7 +9,7 @@ import type { AnalysedWorkflow, TypeTable } from "./tables.js";
 
 /**
  * The `AgentTools` table (#679): per agent, the names its model may call — each `@Tool` /
- * `@McpTool` and question role (#712) it lists and each tool-mode knowledge base's `search-<rag>-tool` — so a scripted
+ * and question role (#712) it lists and each tool-mode knowledge base's `search-<rag>-tool` — so a scripted
  * `callTool(…)` / `callTools(…)` turn of another tool does not compile. Each tool and knowledge-base
  * class is branded with its name (`readonly [agbossComponent]?: "order-status-tool"`), what
  * `callTool(Tool, …)` reads.
@@ -25,7 +25,6 @@ export function toolComponentNameOf(cls: Class): string | undefined {
   const component = componentOf(cls);
   switch (component?.kind) {
     case "tool":
-    case "mcp-tool":
     case "rag":
       return component.meta.name;
     default:

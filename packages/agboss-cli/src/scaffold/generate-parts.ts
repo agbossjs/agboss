@@ -72,23 +72,14 @@ const mcpSpecOf = (name: string, o: GenerateOptions) =>
         tool: need(o.tool, "--tool <name>", "mcp"),
       };
 
-/** `agboss g mcp <name> --workflow … [--agent …]`: the server in the workflow's `mcp`, its tool in the agent. */
+/** `agboss g mcp <name> --workflow … [--agent …]`: its server and a tool that calls it, in the agent. */
 export function planMcp(root: string, name: string, o: GenerateOptions): Changes {
   const graph = workflowGraph(root, o);
   const srcDir = srcDirOf(graph);
   const spec = mcpSpecOf(name, o);
   const mcp = mcpFiles(srcDir, spec);
-  const serverPath = `${srcDir}/${mcp.serverModule}.ts`;
-  const modify = [
-    wire(
-      graph.module,
-      "Workflow",
-      "mcp",
-      mcp.server,
-      mcp.server,
-      importPath(graph.module.path, serverPath),
-    ),
-  ];
+  // the server is found through its tool's `deps`: nothing to list in the workflow
+  const modify: FileToWrite[] = [];
   if (o.agent !== undefined) {
     const agent = agentFileOf(root, graph, o.agent);
     const from = importPath(agent.path, `${srcDir}/${mcp.toolModule}.ts`);

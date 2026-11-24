@@ -3,6 +3,7 @@
  * allowed cities, a company lookup (local and over MCP), a ping tool whose interceptor misbehaves on
  * request. Every interceptor writes what it saw to `interceptorLog`, in order.
  */
+import { McpTransport } from "../../src/config/mcp-server-config.js";
 import {
   ExecutionContext,
   TenantContext,
@@ -14,7 +15,7 @@ import {
   type ToolCallResultContext,
 } from "../../src/index.js";
 import { List, Text } from "../../src/dto/index.js";
-import { McpServer, McpServerClient, McpTool } from "../../src/mcp/index.js";
+import { McpServer, McpServerClient } from "../../src/mcp/index.js";
 
 export class JobScoutTenantContext extends TenantContext {
   @List(Text)
@@ -221,15 +222,14 @@ const boardTools = { lookup: { input: CompanyQuery, output: CompanyInfo } };
 /** A job board over MCP (stubbed in tests: `mcpOf(JobBoardServer)`). */
 @McpServer({
   name: "board",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: process.execPath,
   args: [],
   tools: boardTools,
 })
 export class JobBoardServer extends McpServerClient<typeof boardTools> {}
 
-@McpTool({
-  server: JobBoardServer,
+@Tool({
   name: "board-lookup-tool",
   description: "A company on the job board",
   input: CompanyQuery,

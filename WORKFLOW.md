@@ -187,7 +187,7 @@ export class SlackUserDeletionApprovalChannel extends UserDeletionApprovalChanne
 
 ### 2. Name the role on the tool, list the implementation in the application
 
-`@Tool({ channel })` (or `@McpTool`) names the role; every call of that tool asks the channel before
+`@Tool({ channel })` names the role; every call of that tool asks the channel before
 the tool runs. The implementation is channel transport — infrastructure — listed only in
 `@Application({ providers })` (none → `[di.missing-implementation]`, two →
 `[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`). A

@@ -813,7 +813,7 @@ not wait forever. `@ChannelRole({ expiresIn: hours(24) })` gives every pause of 
 (at least `seconds(1)`); `.toExternalTask(Role, { expiresIn })` — and the side path
 `toExternalTask(Role, { expiresIn })` of an `.onError` — overrides it for a question step (a question node
 has one value: two edges with different ones are `[question.expires-in-conflict]`), and
-`@Tool({ channel, expiresIn })` (`@McpTool` too) for a tool (`[tool.expires-in-without-channel]`;
+`@Tool({ channel, expiresIn })`  for a tool (`[tool.expires-in-without-channel]`;
 `[channel.expires-in-invalid]` for a value under `seconds(1)` or no finite duration). The step's or the
 tool's value wins over the role's. The absolute deadline is fixed **when the pause is made** — a
 deploy that changes `expiresIn` never moves an open pause — as the smaller of it and the run's

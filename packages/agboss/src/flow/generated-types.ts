@@ -141,7 +141,7 @@ export declare namespace AGBossTypes {
 
   /**
    * The tools an agent's model may call, by the agent's `name` (#679): the names its scripted
-   * `callTool(…)` / `callTools(…)` turns are checked against — its `@Tool` / `@McpTool` classes and
+   * `callTool(…)` / `callTools(…)` turns are checked against — its `@Tool` classes and
    * its tool-mode knowledge bases' `search-<rag>-tool`.
    */
   export interface AgentTools {
@@ -227,7 +227,7 @@ export type GeneratedEntry<TTable, TInstance> =
 
 /**
  * The tools an agent's model may call, by the agent's `name` (#679): the names its scripted
- * `callTool(…)` / `callTools(…)` turns are checked against — its `@Tool` / `@McpTool` classes and
+ * `callTool(…)` / `callTools(…)` turns are checked against — its `@Tool` classes and
  * its tool-mode knowledge bases' `search-<rag>-tool`.
  */
 export interface AgentTools {

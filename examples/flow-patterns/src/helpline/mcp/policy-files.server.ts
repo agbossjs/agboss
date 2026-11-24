@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { McpServer, McpServerClient } from "@agboss/core/mcp";
+import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 import { PolicyFileContent, PolicyFileRead } from "../dto/policy-files.dto.js";
 
 /** The customer policies the helpline reads: `data/policies/` of this example. */
@@ -34,7 +34,7 @@ const tools = {
  */
 @McpServer({
   name: "policy-files",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: process.execPath,
   args: [FILESYSTEM_SERVER, POLICIES_DIR],
   tools,

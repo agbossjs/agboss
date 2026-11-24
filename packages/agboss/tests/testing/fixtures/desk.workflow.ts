@@ -1,3 +1,4 @@
+import { McpTransport } from "../../../src/config/mcp-server-config.js";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -16,7 +17,7 @@ import {
 } from "../../../src/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { route, onStart } from "../../helpers/flow.js";
-import { McpServer, McpServerClient, McpTool } from "../../../src/mcp/index.js";
+import { McpServer, McpServerClient } from "../../../src/mcp/index.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -112,7 +113,7 @@ const notesTools = {
 /** A real MCP server (the official filesystem server, a local process — no network). */
 @McpServer({
   name: "notes",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: process.execPath,
   args: [FILESYSTEM_SERVER, NOTES_DIR],
   tools: notesTools,
@@ -134,9 +135,7 @@ export class NoteText {
 
 const notePath = (title: string): string => join(NOTES_DIR, `${title}.md`);
 
-@McpTool({
-  server: NotesServer,
-  name: "save-note-tool",
+@Tool({ name: "save-note-tool",
   description: "Saves a note",
   channel: TerminalUserChannel,
   input: Note,
@@ -152,9 +151,7 @@ export class SaveNote {
   }
 }
 
-@McpTool({
-  server: NotesServer,
-  name: "read-note-tool",
+@Tool({ name: "read-note-tool",
   description: "Reads a note",
   input: NoteRef,
   output: NoteText,
@@ -255,7 +252,6 @@ export class MainRouter {}
   },
   uncompactedTurns: 4,
   guardrails: [PromptInjectionGuardrail],
-  mcp: [NotesServer],
   providers: [OrderBook],
 })
 export class Desk {}

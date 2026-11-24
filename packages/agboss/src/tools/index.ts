@@ -26,8 +26,9 @@ export type {
   ToolOutput,
 } from "./types.js";
 export { schemaDifferences } from "./mcp/compat.js";
-export type { Env, McpConnections, TransportFactory } from "./mcp/connect.js";
-export { McpContractError, McpUnavailableError } from "./mcp/errors.js";
+export type { McpConnections, McpIdentity, TransportFactory } from "./mcp/connect.js";
+export type { Env } from "./mcp/resolve.js";
+export { withCallIdentity } from "./mcp/call-identity.js";
 export {
   isMcpFacade,
   mcpResultValue,
@@ -36,6 +37,7 @@ export {
   type McpFacade,
   type McpFacadeDefinition,
   type McpServerHandle,
+  type McpServerHandleOptions,
   type McpToolRef,
 } from "./mcp/facade.js";
 import { lazyLoad } from "../infrastructure/clock.js";

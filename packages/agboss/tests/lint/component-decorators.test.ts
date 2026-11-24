@@ -146,10 +146,6 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@McpServer({ name: "files", command: "npx", args: [], tools: {} })',
     "async connect(): Promise<void>",
   ),
-  McpTool: statefulClass(
-    '@McpTool({ name: "read-file-tool", description: "d", server: FilesServer, input: FileRead, output: FileContent })',
-    "async run(): Promise<void>",
-  ),
   Rag: statefulClass(
     '@Rag({ name: "jobs-rag", description: "d" })',
     "async search(): Promise<void>",

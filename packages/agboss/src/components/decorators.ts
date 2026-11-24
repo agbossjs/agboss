@@ -1,4 +1,4 @@
-import type { McpServerConfig } from "../config/types.js";
+import type { McpServerConfig } from "../config/mcp-server-config.js";
 import type { RagConnector, RagRerank, RagTenancy } from "../rag/types.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
@@ -9,7 +9,7 @@ import { recordInjectAs, type InjectAs, type PortInstances } from "./injection.j
 import { declareEnvironmentFields, type EnvironmentFields } from "../environments/contract.js";
 
 /**
- * The shape of a tool (`@Tool`, `@McpTool`): `execute(input)` returns its output DTO, or a promise
+ * The shape of a tool (`@Tool`): `execute(input)` returns its output DTO, or a promise
  * of it. `@Tool({ input, output })` checks the method against its DTOs, so a tool class needs no
  * `implements`. `execute` gets only its input; the execution it runs in comes through
  * `deps: [ExecutionContext]` (#280).
@@ -18,7 +18,7 @@ export interface ToolHandler<TInput, TOutput> {
   execute: (input: TInput) => TOutput | Promise<TOutput>;
 }
 
-/** `@Tool` / `@McpTool` classes: the ones with a `ToolHandler`-shaped `execute`. */
+/** `@Tool` classes: the ones with a `ToolHandler`-shaped `execute`. */
 export type ToolHandlerClass = Class<ToolHandler<never, unknown>>;
 
 /**
@@ -27,7 +27,7 @@ export type ToolHandlerClass = Class<ToolHandler<never, unknown>>;
  */
 export type QuestionRoleClass = Class<{ send(ask: never): Promise<unknown> }>;
 
-/** What an agent's `tools: [...]` takes: `@Tool` / `@McpTool` classes and question roles (#712). */
+/** What an agent's `tools: [...]` takes: `@Tool` classes and question roles (#712). */
 export type AgentToolClass = ToolHandlerClass | QuestionRoleClass;
 
 /**
@@ -154,48 +154,28 @@ export function Injectable<
   };
 }
 
+/** What `@McpServer` records of its class: the name, the declared tools and the connection. */
+export type McpServerOptions<TTools extends ServerTools> = {
+  /** Clean identifier of the server (`catalog`, `playwright`): no kind suffix. */
+  readonly name: string;
+  /** The server tools the application calls, which type the class's `call`. */
+  readonly tools: TTools;
+} & McpServerConfig;
+
 /**
- * An MCP server the workflow connects to: its launch config and the server tools the workflow uses
- * (`tools`), which type the class's `call` (`extends McpServerClient<typeof tools>`).
+ * An MCP server the application connects to: its connection and the server tools it calls
+ * (`tools`), which type the class's `call` (`extends McpServerClient<typeof tools>`). A tool, an
+ * action or a service lists the class in its `deps`; the server is connected when the application
+ * starts.
  */
 export function McpServer<
   const TTools extends ServerTools,
   const TPorts extends InjectAs = readonly [],
->(
-  options: {
-    readonly name: string;
-    readonly tools: TTools;
-    /** The abstract ports this server's client is the implementation of (#1324). */
-    readonly injectAs?: TPorts;
-  } & McpServerConfig,
-) {
+>(options: McpServerOptions<TTools> & { readonly injectAs?: TPorts }) {
   return <C extends new () => McpServerClient<TTools> & PortInstances<TPorts>>(value: C): C => {
     const { name, tools, injectAs, ...config } = options;
     recordComponent(value, { kind: "mcp-server", meta: { name, config, tools } });
     recordInjectAs(value, injectAs);
-    return value;
-  };
-}
-
-/**
- * A tool backed by an MCP server: like `@Tool` (an `execute` method, dependencies through the
- * constructor) with its server's client among `deps`; `execute` calls the server's tools through it.
- */
-export function McpTool<
-  In extends DtoClass,
-  Out extends DtoClass,
-  const D extends readonly Token[] = [],
->(options: ToolOptions<In, Out, D> & { readonly server: Class }) {
-  return <
-    C extends new (...args: ResolvedAll<D>) => ToolHandler<InstanceType<In>, InstanceType<Out>>,
-  >(
-    value: C,
-  ): C => {
-    const { server, ...tool } = options;
-    recordComponent(value, {
-      kind: "mcp-tool",
-      meta: { ...approvalAsChannel(tool), deps: tool.deps ?? [], server },
-    });
     return value;
   };
 }

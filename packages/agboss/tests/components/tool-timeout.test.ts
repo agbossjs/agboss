@@ -4,7 +4,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { Tool } from "../../src/index.js";
-import { McpTool } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
 import { testTool } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
@@ -28,8 +27,6 @@ describe("#268 AC11: a tool's timeout has units", () => {
     Tool({ ...options, timeoutMs: 5000 });
     // @ts-expect-error — a bare number is not a duration
     Tool({ ...options, timeout: 5000 });
-    // @ts-expect-error — the same for an MCP tool
-    McpTool({ ...options, server: QuickTool, timeoutMs: 5000 });
 
     const { output } = await testTool(QuickTool)({ query: "x" });
 

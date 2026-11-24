@@ -77,16 +77,18 @@ export function stubbedMcpConnect(
   labels: ReadonlyMap<string, string>,
   real: ReadonlySet<string>,
 ): McpConnect {
-  return async (bundle, config, env) => {
+  return async (bundle, _config, env, identity) => {
     const stubbed = bundle.mcpServers.filter((handle) => !real.has(handle.name));
     for (const handle of stubbed) {
       handle.bind(stubs.callerOf(handle.name, labels.get(handle.name) ?? handle.name));
     }
     const connected = await connectMcpServers(
-      config.mcpServers,
+      bundle.mcpServerConfigs,
       bundle.mcpServers.filter((handle) => real.has(handle.name)),
       (bundle.serverTools ?? []).filter((facade) => real.has(facade.mcp.server)),
       env,
+      undefined,
+      identity,
     );
     return {
       close: async () => {

@@ -116,7 +116,7 @@ npm test
   (`new A2AClient({ url, headers, contract })`); the consumer's own test replaces the remote with
   `mockOf(DeskA2AAgent)`.
   The helpline also reads the customer policies (`data/policies/`) through the official filesystem
-  [MCP](Mcp) server — `@McpServer` `policy-files` over stdio, its `read-policy-tool` an `@McpTool`;
+  [MCP](Mcp) server — `@McpServer` `policy-files` over stdio, its `read-policy-tool` a `@Tool` with the server in its `deps`;
   `tests/helpline/workflows/helpline/helpline-mcp.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`.
 - **`src/intake/`** — a quorum by groups ([Parallel](Parallel), #279): a full legal check and a quick
   screen side by side, `.joinQuorumGroups(group(LegalCheckAgent).priority(1)…, group(FastScreenAgent)

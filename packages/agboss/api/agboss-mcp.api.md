@@ -5,22 +5,34 @@
 ```ts
 
 import type { IncomingMessage } from 'node:http';
-import { inspect } from 'node:util';
 import type { ServerResponse } from 'node:http';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 // @public
-export type ArgumentsOf<TTool extends ServerTool> = InstanceType<TTool["input"]>;
+export type ArgumentsOf<TTool extends ServerTool> = TTool extends {
+    readonly input: infer TInput extends DtoClass;
+} ? InstanceType<TInput> : undefined;
 
 // @public (undocumented)
 export function createMcpService(app: App, config: Class): McpService;
 
 // @public
-export type McpError = McpError.Unavailable | McpError.Contract;
+export type McpCallArguments<TTool extends ServerTool> = ArgumentsOf<TTool> extends undefined ? [options?: McpCallOptions] : [args: ArgumentsOf<TTool>, options?: McpCallOptions];
+
+// @public
+export interface McpCallOptions {
+    readonly key?: string;
+    readonly signal?: AbortSignal;
+    readonly timeout?: Milliseconds;
+}
+
+// @public
+export type McpError = McpError.Unavailable | McpError.Contract | McpError.MethodNotFound;
 
 // @public
 export namespace McpError {
     export type Contract = ErrorVariant<McpErrorKind.Contract, "mcp.contract">;
+    export type MethodNotFound = ErrorVariant<McpErrorKind.MethodNotFound, "mcp.method-not-found">;
     export type Unavailable = ErrorVariant<McpErrorKind.Unavailable, "mcp.unavailable">;
 }
 
@@ -28,12 +40,15 @@ export namespace McpError {
 export const McpError: FamilyConstructor<McpError, {
     Unavailable: McpError.Unavailable;
     Contract: McpError.Contract;
+    MethodNotFound: McpError.MethodNotFound;
 }>;
 
 // @public
 export enum McpErrorKind {
     // (undocumented)
     Contract = "contract",
+    // (undocumented)
+    MethodNotFound = "method-not-found",
     // (undocumented)
     Unavailable = "unavailable"
 }
@@ -52,38 +67,52 @@ export interface McpExposeOptions {
 }
 
 // @public
-export function McpServer<const TTools extends ServerTools, const TPorts extends InjectAs = readonly []>(options: {
-    readonly name: string;
-    readonly tools: TTools;
+export interface McpHttpConfig extends McpServerCommon {
+    // (undocumented)
+    readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | BearerAuth>>;
+    // (undocumented)
+    readonly transport: McpTransport.Http;
+    // (undocumented)
+    readonly url: string | EnvRef<string>;
+}
+
+// @public
+export function McpServer<const TTools extends ServerTools, const TPorts extends InjectAs = readonly []>(options: McpServerOptions<TTools> & {
     readonly injectAs?: TPorts;
-} & McpServerConfig): <C extends new () => McpServerClient<TTools> & PortInstances<TPorts>>(value: C) => C;
+}): <C extends new () => McpServerClient<TTools> & PortInstances<TPorts>>(value: C) => C;
 
 // @public
 export abstract class McpServerClient<TTools extends ServerTools> {
     // (undocumented)
-    call<K extends keyof TTools & string>(name: K, args: ArgumentsOf<TTools[K]>, signal?: AbortSignal): Promise<ResultOf<TTools[K]>>;
+    call<K extends keyof TTools & string>(name: K, ...rest: McpCallArguments<TTools[K]>): Promise<ResultOf<TTools[K]>>;
     readonly declaredTools?: TTools;
+    protected getHeaders(): Record<string, string> | Promise<Record<string, string>>;
 }
 
 // @public
-export type McpServerConfig = {
-    transport: "stdio";
-    target?: {
-        application: string;
-        expose: string;
-    } | undefined;
-    command: string;
-    args?: string[] | undefined;
-    env?: string[] | undefined;
-} | {
-    transport: "http";
-    target?: {
-        application: string;
-        expose: string;
-    } | undefined;
-    url: string;
-    headers?: Record<string, string> | undefined;
-};
+export interface McpServerCommon {
+    readonly costPerCall?: Usd;
+    readonly maxConcurrentCalls?: number;
+    readonly target?: McpServerTarget;
+    readonly timeout?: Milliseconds;
+}
+
+// @public
+export type McpServerConfig = McpStdioConfig | McpHttpConfig;
+
+// @public
+export type McpServerOptions<TTools extends ServerTools> = {
+    readonly name: string;
+    readonly tools: TTools;
+} & McpServerConfig;
+
+// @public
+export interface McpServerTarget {
+    // (undocumented)
+    readonly application: string;
+    // (undocumented)
+    readonly endpoint: string;
+}
 
 // @public
 export class McpService {
@@ -108,17 +137,30 @@ export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "e
 };
 
 // @public
-export function McpTool<In extends DtoClass, Out extends DtoClass, const D extends readonly Token[] = []>(options: ToolOptions<In, Out, D> & {
-    readonly server: Class;
-}): <C extends new (...args: ResolvedAll<D>) => ToolHandler<InstanceType<In>, InstanceType<Out>>>(value: C) => C;
+export interface McpStdioConfig extends McpServerCommon {
+    // (undocumented)
+    readonly args?: readonly (string | EnvRef<string>)[];
+    // (undocumented)
+    readonly command: string | EnvRef<string>;
+    readonly env?: Readonly<Record<string, string | EnvRef<string | undefined> | SecretRef | OptionalSecretRef>>;
+    readonly inheritSystemEnv?: boolean;
+    // (undocumented)
+    readonly transport: McpTransport.Stdio;
+}
 
-// @public (undocumented)
+// @public
+export enum McpTransport {
+    Http = "http",
+    Stdio = "stdio"
+}
+
+// @public
 export type ResultOf<TTool extends ServerTool> = InstanceType<TTool["output"]>;
 
 // @public
 export interface ServerTool {
     // (undocumented)
-    readonly input: DtoClass;
+    readonly input?: DtoClass;
     // (undocumented)
     readonly output: DtoClass;
 }
@@ -135,11 +177,19 @@ export type ToolsOf<TServer> = TServer extends {
 //
 // src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "input".
 // src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "output".
-// src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "ResultOf".
 // src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "ServerTools".
 // src/components/mcp-client.ts - (ae-undocumented) Missing documentation for "call".
+// src/config/mcp-server-config.ts - (ae-undocumented) Missing documentation for "application".
+// src/config/mcp-server-config.ts - (ae-undocumented) Missing documentation for "endpoint".
+// src/config/mcp-server-config.ts - (ae-undocumented) Missing documentation for "transport".
+// src/config/mcp-server-config.ts - (ae-undocumented) Missing documentation for "command".
+// src/config/mcp-server-config.ts - (ae-undocumented) Missing documentation for "args".
+// src/config/mcp-server-config.ts - (ae-undocumented) Missing documentation for "transport".
+// src/config/mcp-server-config.ts - (ae-undocumented) Missing documentation for "url".
+// src/config/mcp-server-config.ts - (ae-undocumented) Missing documentation for "headers".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Unavailable".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Contract".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "MethodNotFound".
 // src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "McpExposeOptions".
 // src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "name".
 // src/mcp/mcp-expose.decorator.ts - (ae-undocumented) Missing documentation for "version".

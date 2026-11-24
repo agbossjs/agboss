@@ -21,7 +21,7 @@ import type { ProviderFetch } from "../models/resilient-fetch.js";
 import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
 import { startedModels } from "./started-models.js";
 import { appModelsFor } from "./models.js";
-import { connectMcpServers, type McpConnections, type TransportFactory } from "../tools/index.js";
+import type { McpConnections, McpIdentity, TransportFactory } from "../tools/index.js";
 import {
   evaluationFor,
   flowFor,
@@ -31,7 +31,14 @@ import {
   servicesFor,
   toolLookup,
 } from "./parts.js";
-import { closeOf, configKeeperOf, observedBy, treeDepsOf } from "./app-deps-parts.js";
+import {
+  closeOf,
+  configKeeperOf,
+  connectConfigured,
+  mcpIdentityOf,
+  observedBy,
+  treeDepsOf,
+} from "./app-deps-parts.js";
 import { ownNoticesOf } from "./own-notices.js";
 import { startedOwn } from "./own-start.js";
 import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
@@ -88,6 +95,7 @@ export type McpConnect = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   env: NodeJS.ProcessEnv,
+  identity: McpIdentity,
 ) => Promise<McpConnections>;
 
 /** Everything an app may be given instead of its production default. */
@@ -138,17 +146,6 @@ export interface BuildOptions extends AppDepsOptions {
    */
   readonly gatewayOverProviders?: (real: () => ModelGateway) => ModelGateway;
 }
-
-const connectConfigured =
-  (transport: TransportFactory | undefined): McpConnect =>
-  (bundle, config, env) =>
-    connectMcpServers(
-      config.mcpServers,
-      bundle.mcpServers,
-      bundle.serverTools ?? [],
-      env,
-      transport,
-    );
 
 /**
  * What the application gives each of its workflows: the infrastructure (one per application) and,
@@ -246,7 +243,7 @@ export async function createWorkflowDeps(
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
   const { tools, config } = await startedModels(bundle, started, services, lifecycle);
   const connect = options.connectMcp ?? connectConfigured(options.transport);
-  const mcp = await connect(bundle, config, env);
+  const mcp = await connect(bundle, config, env, mcpIdentityOf(contexts));
   throwIfViolated(redactorValuesViolations(bundle, config, contexts));
   const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts);
   const tracing = await tracingOf(env, pii.observability, traceRouteOf(config.name, parts));

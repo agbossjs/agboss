@@ -175,31 +175,6 @@ export const RouterModelSchema = z.discriminatedUnion("kind", [
   LlmRouterModelSchema,
 ]);
 
-/** MCP server connection. Secrets are never here: only names of env variables. */
-/**
- * The AGBoss application behind an MCP server (#398 PR 3): its `@Application({ name })` — the
- * envelope's `audience` — and its `@McpExpose` name; unset for a third-party server.
- */
-const McpTargetSchema = z.object({ application: z.string().min(1), expose: z.string().min(1) });
-
-export const McpServerConfigSchema = z.discriminatedUnion("transport", [
-  z.object({
-    transport: z.literal("stdio"),
-    target: McpTargetSchema.optional(),
-    command: z.string().min(1),
-    args: z.array(z.string()).optional(),
-    /** Names of env variables passed to the server process. */
-    env: z.array(z.string()).optional(),
-  }),
-  z.object({
-    transport: z.literal("http"),
-    target: McpTargetSchema.optional(),
-    url: z.url(),
-    /** Header name → name of the env variable holding its value. */
-    headers: z.record(z.string(), z.string()).optional(),
-  }),
-]);
-
 export const AgentsConfigSchema = z.object({
   /** Agent workflow id: key of the daily spend ledger. */
   name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lowercase letters, digits and dashes"),
@@ -222,7 +197,6 @@ export const AgentsConfigSchema = z.object({
     /** Recent turns every agent and model router sees in full (workflow over application; 5). */
     uncompactedTurns: UncompactedTurnsSchema,
   }),
-  mcpServers: z.record(z.string(), McpServerConfigSchema).optional(),
   /** The `@Compaction`s its agents and model routers use, by name (#120 PR 3). */
   compactions: z.record(z.string(), CompactionSettingsSchema).optional(),
   /** `@Judge` models by judge name. */
@@ -238,7 +212,6 @@ export type {
   CacheSetting,
   CompactionSettings,
   MaxTokens,
-  McpServerConfig,
   ModelSettings,
   Price,
   Thinking,

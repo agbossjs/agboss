@@ -26,10 +26,9 @@ import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-er
 import { MAX_TOOL_NAME_LENGTH } from "../flow/analyse/rules/models.js";
 import { toolExpiryViolations } from "./tool-expiry-rules.js";
 
-/** A workflow's tool classes: local `@Tool`s and `@McpTool`s. */
+/** A workflow's tool classes: local `@Tool`s. */
 export interface ToolClasses {
   readonly local: readonly Class[];
-  readonly mcp: readonly Class[];
   /** The question roles the flow asks (#659), and its agents (#712): channels, not tools. */
   readonly questions?: readonly Class[];
   /** The question roles the agents ask through their tool loop (#712): tools to their models. */
@@ -64,9 +63,6 @@ export const toolNames = (
   tools.local.forEach((cls) => {
     add(cls, requireComponent(cls, "tool", "workflowOf").meta.name);
   });
-  tools.mcp.forEach((cls) => {
-    add(cls, requireComponent(cls, "mcp-tool", "workflowOf").meta.name);
-  });
   rags.forEach((cls) => {
     add(cls, searchToolName(ragMeta(cls)));
   });
@@ -96,8 +92,8 @@ function modelNameViolations(name: string, owner: string): RuleViolation[] {
 }
 
 /**
- * The names of a workflow's tools (#268 AC9, #1343a): every name a model sees — a project's `@Tool` /
- * `@McpTool`'s (no `-tool` suffix needed), a knowledge base's
+ * The names of a workflow's tools (#268 AC9, #1343a): every name a model sees — a project's `@Tool`s
+ * (no `-tool` suffix needed for an MCP one), a knowledge base's
  * `search-<name>-tool` too — fits the providers' `[a-zA-Z0-9_-]`, at most 64 characters. All at once.
  */
 export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): RuleViolation[] {
@@ -105,10 +101,6 @@ export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): 
     ...tools.local.map((cls) => ({
       cls,
       name: requireComponent(cls, "tool", "workflowOf").meta.name,
-    })),
-    ...tools.mcp.map((cls) => ({
-      cls,
-      name: requireComponent(cls, "mcp-tool", "workflowOf").meta.name,
     })),
   ];
   const own = named.flatMap(({ cls, name }) => modelNameViolations(name, tokenName(cls)));
@@ -145,7 +137,6 @@ export const componentClassesOf = (
   },
 ): Class[] => [
   ...tools.local,
-  ...tools.mcp,
   ...rags,
   ...rerankerClassesOf(rags),
   ...created,

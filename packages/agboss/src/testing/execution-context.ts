@@ -77,7 +77,6 @@ function nameOf(cls: Class, fallback: string): string {
 /** The kinds of the classes a unit runner runs, by their decorator's kind. */
 const KIND_OF_COMPONENT: Readonly<Partial<Record<string, ComponentKind>>> = {
   tool: ComponentKind.Tool,
-  "mcp-tool": ComponentKind.Tool,
   guardrail: ComponentKind.Guardrail,
   judge: ComponentKind.Judge,
   rag: ComponentKind.Rag,

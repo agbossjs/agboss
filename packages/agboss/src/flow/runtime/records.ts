@@ -25,7 +25,7 @@ export enum ComponentKind {
   Arbiter = "arbiter",
   /** `@InputGuardrail` / `@OutputGuardrail` (#120). */
   Guardrail = "guardrail",
-  /** `@Tool` / `@McpTool`. */
+  /** `@Tool`. */
   Tool = "tool",
   /** `@Judge`. */
   Judge = "judge",

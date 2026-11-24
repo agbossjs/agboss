@@ -96,7 +96,7 @@ export const decisionInputOf = (
 
 /** One tool call as an interceptor sees it: the tool, and its arguments with PII revealed. */
 export interface ToolCallContext {
-  /** The `@Tool` / `@McpTool` called, by its `name`. */
+  /** The `@Tool` called, by its `name`. */
   readonly tool: ComponentRecord;
   /** The agent whose loop makes the call. */
   readonly agent: ComponentRecord;
@@ -125,7 +125,7 @@ export const withToolType = <TContext extends ToolCallContext>(
 
 /** What a call's context gives about its tool. */
 export const ToolCall = {
-  /** The `@Tool` / `@McpTool` class a call is for: `ToolCall.typeOf(call) === OrderStatusTool`. */
+  /** The `@Tool` class a call is for: `ToolCall.typeOf(call) === OrderStatusTool`. */
   typeOf(call: ToolCallContext): Class {
     const type = toolTypes.get(call);
     if (type === undefined)

@@ -28,7 +28,7 @@ export interface WrittenCase {
 
 const START = ["WorkflowStart"];
 const FINISH = ["WorkflowFinish"];
-const TOOL = ["Tool", "McpTool"];
+const TOOL = ["Tool"];
 
 /** A value as TypeScript source: JSON is an object literal. */
 const literal = (value: unknown): string => JSON.stringify(value ?? {});

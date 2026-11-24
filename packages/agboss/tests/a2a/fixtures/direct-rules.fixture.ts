@@ -149,7 +149,6 @@ export class BusyWorkflowFinish {}
       .toFinish(BusyWorkflowFinish),
     onStart(BusyAgentWorkflowStart).toAgent(BusyAgent).toFinish(BusyWorkflowFinish),
   ],
-  mcp: [JobBoardServer],
   providers: [LedgerService, LedgerWriter],
 })
 export class BusyWorkflow {}

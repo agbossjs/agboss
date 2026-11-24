@@ -1,12 +1,16 @@
 import { mcpServer, type McpFacade } from "../tools/index.js";
+import { z } from "zod";
 import { objectSchemaOf } from "../dto/schema.js";
 import { checkToolData } from "./runtime.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
+import { depsOf } from "./container/container.js";
+import type { ProviderModule } from "./container/registrations.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { ToolClasses } from "./assemble-checks.js";
-import type { McpServerConfig } from "../config/types.js";
+import type { AssembledWorkflow } from "../workflow.js";
+import type { McpServerConfig } from "../config/mcp-server-config.js";
 import type { McpServerHandle } from "../tools/index.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelRoleOptionsOf } from "../channels/channel-role.decorator.js";
@@ -26,7 +30,6 @@ export interface Mcp {
   readonly handles: readonly McpServerHandle<string>[];
   readonly serverTools: readonly McpFacade[];
   readonly instances: ReadonlyMap<Token, unknown>;
-  readonly names: ReadonlyMap<Class, string>;
 }
 
 /** A bound on tool results is a whole number of bytes from 1 (`kilobytes(64)`, #336). */
@@ -48,10 +51,6 @@ export function resultSizeViolations(bundle: WorkflowMeta, tools: ToolClasses): 
   const defaults = bundle.defaults.tools?.maxResultSize;
   const own = [
     ...tools.local.map((cls) => ({ cls, meta: requireComponent(cls, "tool", "workflowOf").meta })),
-    ...tools.mcp.map((cls) => ({
-      cls,
-      meta: requireComponent(cls, "mcp-tool", "workflowOf").meta,
-    })),
   ].flatMap(({ cls, meta: { maxResultSize } }) =>
     maxResultSize === undefined || isResultSize(maxResultSize)
       ? []
@@ -67,11 +66,11 @@ function notAToolMessage(bundle: WorkflowMeta, cls: Class): string {
   const prefix = `@Workflow "${bundle.name}": ${cls.name} in an agent's tools`;
   if (channelRoleOptionsOf(cls) !== undefined)
     return `[channel.approval-role-as-tool] ${prefix} is an approval role: it approves the tools that name it (@Tool({ channel: ${cls.name} })) — only a question role (ask / answer) is an agent's tool`;
-  return `${prefix} is not a @Tool, @McpTool or question role`;
+  return `${prefix} is not a @Tool or question role`;
 }
 
 /**
- * The tool classes of the workflow's agents, checked: local `@Tool`s, `@McpTool`s and the question
+ * The tool classes of the workflow's agents, checked: local `@Tool`s and the question
  * roles they ask (#712).
  */
 export function toolsOf(bundle: WorkflowMeta, agents: readonly AgentMeta[]): ToolClasses {
@@ -80,28 +79,51 @@ export function toolsOf(bundle: WorkflowMeta, agents: readonly AgentMeta[]): Too
   for (const cls of classes) {
     if (asked.includes(cls)) continue;
     const kind = componentOf(cls)?.kind;
-    if (kind !== "tool" && kind !== "mcp-tool")
-      throw new ComponentError({ message: notAToolMessage(bundle, cls) });
-    checkToolData(cls, kind);
+    if (kind !== "tool") throw new ComponentError({ message: notAToolMessage(bundle, cls) });
+    checkToolData(cls);
   }
   return {
     local: classes.filter((cls) => componentOf(cls)?.kind === "tool"),
-    mcp: classes.filter((cls) => componentOf(cls)?.kind === "mcp-tool"),
     asked,
   };
 }
 
-/** The workflow's MCP servers, their facades and instances; every `@McpTool`'s server listed. */
-export function mcpOf(bundle: WorkflowMeta, mcpTools: readonly Class[]): Mcp {
-  const servers = (bundle.mcp ?? []).map((cls) => ({
+/**
+ * The `@McpServer` classes reachable from `roots` through their `deps` (and those of what they
+ * reach), in the order found: a tool, an action or a service that lists a server in its `deps`
+ * is what makes the workflow connect it.
+ */
+export function mcpServerClassesOf(
+  roots: readonly Class[],
+  modules: readonly ProviderModule[],
+): readonly Class[] {
+  const listed = modules.flatMap((module) =>
+    module.providers.flatMap((provider) => (typeof provider === "function" ? [provider] : [])),
+  );
+  const reached = new Set<Class>([...roots, ...listed]);
+  for (const cls of reached) {
+    for (const dep of depsOf(cls)) {
+      if (typeof dep === "function") reached.add(dep);
+    }
+  }
+  return [...reached].filter((cls) => componentOf(cls)?.kind === "mcp-server");
+}
+
+/** The workflow's MCP servers, their facades and instances. */
+export function mcpOf(servers: readonly Class[]): Mcp {
+  const parts = servers.map((cls) => ({
     cls,
-    ...requireComponent(cls, "mcp-server", `@Workflow "${bundle.name}"`).meta,
+    ...requireComponent(cls, "mcp-server", "workflowOf").meta,
   }));
   const handles = [];
   const serverTools: McpFacade[] = [];
   const instances = new Map<Token, unknown>();
-  for (const server of servers) {
-    const handle = mcpServer(server.name);
+  for (const server of parts) {
+    const instance = new (server.cls as new () => McpServerClient<ServerTools>)();
+    const handle = mcpServer(server.name, {
+      headers: () => instance.headersOfRequest(),
+      ...(server.config.timeout === undefined ? {} : { timeout: server.config.timeout }),
+    });
     handles.push(handle);
     const facades = new Map(
       Object.entries(server.tools).map(([tool, schemas]) => [
@@ -109,29 +131,33 @@ export function mcpOf(bundle: WorkflowMeta, mcpTools: readonly Class[]): Mcp {
         handle.tool({
           tool,
           description: `${server.name}: ${tool}`,
-          input: objectSchemaOf(schemas.input),
+          input: schemas.input === undefined ? z.object({}) : objectSchemaOf(schemas.input),
           output: objectSchemaOf(schemas.output),
         }),
       ]),
     );
     serverTools.push(...facades.values());
-    const instance = new (server.cls as unknown as new () => McpServerClient<ServerTools>)();
     instance.attachServerTools(facades);
+    instance.attachServer({
+      name: server.name,
+      timeout: server.config.timeout,
+      costPerCall: server.config.costPerCall,
+      maxConcurrentCalls: server.config.maxConcurrentCalls,
+    });
     instances.set(server.cls, instance);
   }
-  for (const cls of mcpTools) {
-    const { meta } = requireComponent(cls, "mcp-tool", `@Workflow "${bundle.name}"`);
-    if (!instances.has(meta.server)) {
-      throw new ComponentError({
-        message: `@McpTool ${cls.name}: its server ${meta.server.name} is not in @Workflow({ mcp })`,
-      });
-    }
-  }
-  return {
-    servers,
-    handles,
-    serverTools,
-    instances,
-    names: new Map(servers.map((s) => [s.cls, s.name] as const)),
-  };
+  return { servers: parts, handles, serverTools, instances };
 }
+
+/** The workflow's MCP servers and the server tools declared on them. */
+export const mcpPartsOf = (
+  mcp: Mcp,
+): Pick<
+  AssembledWorkflow,
+  "mcpServers" | "serverTools" | "mcpServerConfigs" | "mcpServerClasses"
+> => ({
+  mcpServers: mcp.handles,
+  serverTools: mcp.serverTools,
+  mcpServerConfigs: Object.fromEntries(mcp.servers.map((s) => [s.name, s.config])),
+  mcpServerClasses: new Map(mcp.servers.map((s) => [s.cls, s.name] as const)),
+});

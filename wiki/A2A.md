@@ -318,7 +318,7 @@ export class QuotesA2AExpose {}
   another start reaches counts): no pause (a question step, a question role, a tool with a
   channel — `[a2a.message-skill-pause]`), no fenced effect, `OutboundCalls` or `@A2AAgent` in any
   `deps` a node or a tool reaches (`[a2a.message-skill-effect]`), only `@Tool({ readOnly: true })`
-  tools and no `@McpTool` (`[a2a.message-skill-tool]`), no `compensateWith` / `committedBy`
+  tools (`[a2a.message-skill-tool]`), no `compensateWith` / `committedBy`
   (`[a2a.message-skill-compensation]`), no child workflow or recursion
   (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's files (`Files`) is fine. A
   `reply` for no export, a `defaultSkill` that is none: `[a2a.unknown-skill-option]`.

@@ -1,15 +1,15 @@
 import { NoInputDto, PlainTextDto } from "@agboss/core/dto";
-import { McpServer, McpServerClient } from "@agboss/core/mcp";
+import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 
 /** The server tools this workflow uses — checked against the server at startup. */
 const tools = {
   "{{serverTool}}": { input: NoInputDto, output: PlainTextDto },
 };
 
-/** An MCP server started with `{{command}}` (env: variable NAMES in `env`, never secrets). */
+/** An MCP server started with `{{command}}` (secrets go through `defineEnv`: `env: { TOKEN: appEnv.token }`). */
 @McpServer({
   name: "{{kebab}}",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: "{{command}}",
   tools,
 })

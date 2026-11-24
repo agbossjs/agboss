@@ -15,7 +15,7 @@ import { createContainer, DependantValue, type Container } from "./container/con
 import type { ProviderModule } from "./container/registrations.js";
 import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
-import { componentOf, requireComponent, type ToolMeta } from "./metadata.js";
+import { requireComponent, type ToolMeta } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { boundRerankerOf, contextSources, ragMeta, searchTool } from "./rag.js";
 import { channelNameOf, questionRoleOf } from "../channels/discovery.js";
@@ -42,17 +42,14 @@ export function toolOf<TInput, TOutput>(instance: {
   execute: (input: TInput) => TOutput | Promise<TOutput>;
 }): Tool<string, TInput, TOutput> {
   const cls = instance.constructor as Class;
-  const { meta } =
-    componentOf(cls)?.kind === "mcp-tool"
-      ? requireComponent(cls, "mcp-tool", "toolOf")
-      : requireComponent(cls, "tool", "toolOf");
+  const { meta } = requireComponent(cls, "tool", "toolOf");
   // The decorator's DTOs are erased in metadata; `execute` is what they validate for.
   return adapt(instance, meta) as unknown as Tool<string, TInput, TOutput>;
 }
 
 /** The startup check of a tool's DTOs (undecorated fields, behaviour) — before any run. */
-export const checkToolData = (cls: Class, kind: "tool" | "mcp-tool"): void => {
-  const { meta } = requireComponent(cls, kind, "workflowOf");
+export const checkToolData = (cls: Class): void => {
+  const { meta } = requireComponent(cls, "tool", "workflowOf");
   schemaOf(meta.input);
   schemaOf(meta.output);
 };
@@ -153,16 +150,11 @@ export function questionToolOf(role: ChannelQuestionRoleOptions): AnyTool {
 const strictObjectOf = (schema: z.ZodType): z.ZodType =>
   schema instanceof z.ZodObject ? schema.strict() : schema;
 
-/** Tools per run of the app: tools and MCP tools (created by the container), knowledge-base search tools. */
+/** Tools per run of the app: tools (created by the container), knowledge-base search tools. */
 export const toolBuilder =
-  (
-    bundle: WorkflowMeta,
-    agents: readonly AgentMeta[],
-    tools: ToolClasses,
-    serverNames: ReadonlyMap<Class, string>,
-  ) =>
+  (bundle: WorkflowMeta, agents: readonly AgentMeta[], tools: ToolClasses) =>
   (services: WorkflowServices): readonly AnyTool[] => {
-    const { local, mcp: mcpTools } = tools;
+    const { local } = tools;
     const container = containerFor(bundle, services);
     const instances = local.map((cls) =>
       adapt(
@@ -171,11 +163,6 @@ export const toolBuilder =
         requireComponent(cls, "tool", "workflowOf").meta,
       ),
     );
-    const mcp = mcpTools.map((cls) => {
-      const { meta } = requireComponent(cls, "mcp-tool", "workflowOf");
-      const tool = adapt(container.get(cls) as ToolHandler<unknown, unknown>, meta);
-      return { ...tool, mcp: { server: serverNames.get(meta.server) ?? "", tool: meta.name } };
-    });
     const searched = [
       ...new Set(
         agents.flatMap((a) =>
@@ -192,7 +179,7 @@ export const toolBuilder =
       const role = questionRoleOf(cls);
       return role === undefined ? [] : [questionToolOf(role)];
     });
-    return [...instances, ...mcp, ...search, ...asked];
+    return [...instances, ...search, ...asked];
   };
 
 export const ragParts = (

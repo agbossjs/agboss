@@ -51,7 +51,7 @@ export interface AgentOptions {
   readonly output?: OutputShape;
   /** Visits per execution; one more fails before the model call (`VisitsLimitExceededError`). */
   readonly maxVisits?: number;
-  /** `@Tool` or `@McpTool` classes, and question roles (`@ChannelRole({ ask, answer })`, #712). */
+  /** `@Tool` classes, and question roles (`@ChannelRole({ ask, answer })`, #712). */
   readonly tools?: readonly (
     Class<ToolHandler<never, unknown>> | Class<{ send(ask: never): Promise<unknown> }>
   )[];

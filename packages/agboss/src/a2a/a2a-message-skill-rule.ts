@@ -16,8 +16,8 @@ import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
  * assembly on its workflow's every node (fail closed: a node another start reaches counts too),
  * each problem once: no pause — a question step, a question role or a channel tool —
  * (`[a2a.message-skill-pause]`); no fenced effect (`FencedEffects`, `FencedEffectRepository`), outbound call or A2A call in any `deps` a node or a
- * tool reaches (`[a2a.message-skill-effect]`); only `@Tool({ readOnly: true })` tools, no `@McpTool`
- * (`[a2a.message-skill-tool]`); no `compensateWith` / `committedBy` (`[a2a.message-skill-compensation]`);
+ * tool reaches (`[a2a.message-skill-effect]`); only `@Tool({ readOnly: true })` tools
+ * (`[a2a.message-skill-tool]`), none reaching an MCP server (`[a2a.message-skill-effect]`); no `compensateWith` / `committedBy` (`[a2a.message-skill-compensation]`);
  * no child workflow, no recursion (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's
  * files (`Files`) is allowed. A `reply` set for no exported start is `[a2a.unknown-skill-option]`
  * (a misspelt one would answer with a task); a `defaultSkill` that is no export
@@ -62,11 +62,13 @@ function depsOf(token: Token): readonly Token[] {
 }
 
 /**
- * Whether a token changes things outside the run: an effect store, `OutboundCalls`, an A2A client —
- * each a class.
+ * Whether a token changes things outside the run: an effect store, `OutboundCalls`, an A2A client,
+ * an MCP server — each a class.
  */
 const isEffect = (token: Token): token is Class =>
-  EFFECT_TOKENS.has(token) || componentOf(token)?.kind === "a2a-agent";
+  EFFECT_TOKENS.has(token) ||
+  componentOf(token)?.kind === "a2a-agent" ||
+  componentOf(token)?.kind === "mcp-server";
 
 /** The first effect `token`'s `deps` reach, through the tokens it injects; `undefined` for none. */
 function effectOf(token: Token, seen = new Set<Token>()): Class | undefined {
@@ -88,8 +90,6 @@ function toolProblems(agent: string, tool: Class): SkillProblem[] {
       { code: "a2a.message-skill-pause", text: `${agent} asks ${tool.name} (a question role)` },
     ];
   const component = componentOf(tool);
-  if (component?.kind === "mcp-tool")
-    return [{ code: "a2a.message-skill-tool", text: `${agent} calls ${tool.name}, an @McpTool` }];
   if (component?.kind !== "tool") return [];
   const found: SkillProblem[] = [];
   if (component.meta.channel !== undefined)

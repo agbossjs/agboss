@@ -63,19 +63,18 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 ```ts file=job-scout.ts
 import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, TerminalUserChannel, route, Router, onStart, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
 import { List, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
-import { McpServer, McpServerClient, McpTool } from "@agboss/core/mcp";
+import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 const model = "moonshotai/kimi-k2.6";
 export class FileRead { @Text() path!: string; }
 export class FileContent { @Text() content!: string; }
 export class FileWrite { @Text() path!: string; @Text() content!: string; }
 const tools = { read_text_file: { input: FileRead, output: FileContent }, write_file: { input: FileWrite, output: FileContent } };
-@McpServer({ name: "shortlist", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "."], tools })
+@McpServer({ name: "shortlist", transport: McpTransport.Stdio, command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "."], tools })
 export class ShortlistServer extends McpServerClient<typeof tools> {}
 export class ChosenJob { @Text() title!: string; @Text() link!: string; }
 export class ChosenJobs { @List(ChosenJob) jobs!: ChosenJob[]; }
 export class SavedJobs { @List(Text) added!: string[]; }
-@McpTool({
-  server: ShortlistServer,
+@Tool({
   name: "save-shortlist-tool",
   description: "Saves jobs",
   channel: TerminalUserChannel,
@@ -140,7 +139,6 @@ export class MainRouter {}
     router: { model: "typesafe/jev-1.13" },
   },
   uncompactedTurns: 5,
-  mcp: [ShortlistServer],
   providers: [OrderBook],
 })
 export class JobScout {}

@@ -6,7 +6,7 @@ import { toolInterceptorMetaOf } from "./decorator.js";
 
 /**
  * The tool interceptors in effect per agent and tool (#384): lists add up `@Application` →
- * `@Workflow` → `@Agent` → `@Tool` / `@McpTool`, outer first, each class once (where it is first
+ * `@Workflow` → `@Agent` → `@Tool`, outer first, each class once (where it is first
  * listed); `excludeToolInterceptors` on an agent removes one its application or workflow lists, on a
  * tool one listed above it — by its application, its workflow or an agent that calls it. Excluding
  * one that is not inherited is `[tool-interceptor.exclude-not-inherited]`.
@@ -44,10 +44,10 @@ const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
 const isInterceptor = (cls: Class): boolean => toolInterceptorMetaOf(cls) !== undefined;
 
-/** A `@Tool` / `@McpTool` class's name and lists; none for a class of another kind. */
+/** A `@Tool` class's name and lists; none for a class of another kind. */
 function toolListsOf(cls: Class): ToolLists | undefined {
   const component = componentOf(cls);
-  if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return undefined;
+  if (component?.kind !== "tool") return undefined;
   const { name, toolInterceptors = [], excludeToolInterceptors = [] } = component.meta;
   return { name, toolInterceptors, excludeToolInterceptors };
 }

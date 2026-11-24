@@ -1,3 +1,4 @@
+import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { createAppWith } from "../../src/application/create-app.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -176,10 +177,10 @@ describe("#398 PR 1: the AGBoss MCP client sends _meta and reads a mesh limit", 
     const connections = await connectMcpServers(
       {
         kb: {
-          transport: "stdio",
+          transport: McpTransport.Stdio,
           command: "unused",
           // #398 PR 3: the AGBoss application behind it — the envelope's audience
-          target: { application: "kb-application", expose: "kb-mcp-expose" },
+          target: { application: "kb-application", endpoint: "kb-mcp-expose" },
         },
       },
       [kb],

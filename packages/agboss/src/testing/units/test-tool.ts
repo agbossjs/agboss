@@ -1,7 +1,7 @@
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
-import { componentOf, requireComponent, type ToolMeta } from "../../components/metadata.js";
+import { requireComponent, type ToolMeta } from "../../components/metadata.js";
 import { validate } from "../../dto/schema.js";
 import {
   DEFAULT_TOOL_TIMEOUT,
@@ -30,13 +30,10 @@ interface RunnableTool {
   execute(input: object): unknown;
 }
 
-const toolMetaOf = (tool: Class): ToolMeta =>
-  componentOf(tool)?.kind === "mcp-tool"
-    ? requireComponent(tool, "mcp-tool", "testTool").meta
-    : requireComponent(tool, "tool", "testTool").meta;
+const toolMetaOf = (tool: Class): ToolMeta => requireComponent(tool, "tool", "testTool").meta;
 
 /**
- * A `@Tool` (or `@McpTool`) on its own (#262 S55, S62): created by its own container (its `deps`,
+ * A `@Tool` on its own (#262 S55, S62): created by its own container (its `deps`,
  * `overrides` replacing classes, the `environment`); each call validates the input against its
  * input DTO, runs `execute` in the frame of a tool call — `executionContext.signal` aborts after
  * `timeout` (default the tool's `timeout`) on the runner's clock, `SpendRecorder` records into

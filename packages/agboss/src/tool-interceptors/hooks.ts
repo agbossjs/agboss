@@ -29,7 +29,7 @@ export interface ToolHook {
 
 const hooks = new WeakMap<object, ToolHook[]>();
 
-/** The tool classes a hook decorator takes: at least one `@Tool` / `@McpTool` class. */
+/** The tool classes a hook decorator takes: at least one `@Tool` class. */
 export type ToolTargets = readonly [ToolHandlerClass, ...ToolHandlerClass[]];
 
 /** What a `@BeforeTool` method is: the call's input in, the decision out. */

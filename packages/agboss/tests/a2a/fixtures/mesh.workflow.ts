@@ -10,6 +10,7 @@ import {
   Agent,
   EmptyEnvironment,
   Injectable,
+  Observer,
   MeshLoopDetectedError,
   Tool,
   Workflow,
@@ -167,7 +168,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   })
   class MeshWorkflow {}
 
-  @Injectable()
+  @Observer()
   class StartObserver {
     onExecutionStart(event: ExecutionEvent): void {
       started.push(event);

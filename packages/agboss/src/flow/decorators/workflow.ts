@@ -96,8 +96,6 @@ export interface WorkflowOptions<
    * created once for this workflow — and they bind a port over the application's own `services`.
    */
   readonly services?: readonly ServiceEntry[];
-  /** `@McpServer` classes its `@McpTool`s call. */
-  readonly mcp?: readonly Class[];
   /**
    * `@PiiPolicy` classes of every agent and router, over the application's (#120: lists add up). A
    * child workflow's are added to those of the workflows above it (#1150): a child is masked by its

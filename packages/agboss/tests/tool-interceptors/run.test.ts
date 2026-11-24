@@ -222,7 +222,7 @@ describe("#384: levels, excludes and MCP tools", () => {
     expect(toolRuns).toEqual(["job-search-tool:Eilat"]);
   });
 
-  test("an @McpTool is intercepted like a @Tool: allowed, and blocked before its server", async ({
+  test("a @Tool that calls an MCP server is intercepted: allowed, and blocked before its server", async ({
     app,
     mockLlm,
     mcpOf,

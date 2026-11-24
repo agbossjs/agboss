@@ -1,3 +1,4 @@
+import { McpTransport } from "../../../src/config/mcp-server-config.js";
 import { file } from "../../../src/components/file.js";
 
 import {
@@ -9,7 +10,7 @@ import {
   ROUTER_FACTORY,
   Tool,
 } from "../../../src/index.js";
-import { McpServer, McpServerClient, McpTool } from "../../../src/mcp/index.js";
+import { McpServer, McpServerClient } from "../../../src/mcp/index.js";
 import { Text } from "../../../src/dto/index.js";
 import type { RouterEngine } from "../../../src/routers/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
@@ -67,14 +68,13 @@ const filesTools = { read: { input: FileRead, output: FileContent } };
 
 @McpServer({
   name: "files",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: "files-server",
   tools: filesTools,
 })
 export class FilesServer extends McpServerClient<typeof filesTools> {}
 
-@McpTool({
-  server: FilesServer,
+@Tool({
   name: "read-file-tool",
   description: "Read a file.",
   input: FileRead,
@@ -106,7 +106,6 @@ export class GreeterAgent {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: starOf(GreeterAgent),
-  mcp: [FilesServer],
   providers: [Greeter, provide(GREETING, "Shalom")],
 })
 export class Greetings {}

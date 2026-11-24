@@ -1,3 +1,4 @@
+import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { file } from "../../src/components/file.js";
 
 import { describe, expect, it } from "vitest";
@@ -72,7 +73,6 @@ describe("components — assembly", () => {
     expect(bundle.config).toMatchObject({
       name: "greetings-workflow",
       version: "1.0.0",
-      mcpServers: { files: { transport: "stdio", command: "files-server" } },
     });
     expect(bundle.config.agents["greeter-agent"]).toMatchObject({
       model: "test/alpha",
@@ -81,7 +81,11 @@ describe("components — assembly", () => {
     });
     const text = bundle.prompts["greeter-agent"];
     expect(text?.trim()).toBe("You greet people in Hebrew.");
+    // found through the `deps` of the tool that calls it: no list in the workflow
     expect(bundle.mcpServers.map((server) => server.name)).toEqual(["files"]);
+    expect(bundle.mcpServerConfigs).toEqual({
+      files: { transport: McpTransport.Stdio, command: "files-server" },
+    });
   });
 });
 
@@ -117,7 +121,6 @@ describe("components — errors at assembly", () => {
       ...baseBundle,
       name: "no-providers-workflow",
       flow: starOf(GreeterAgent),
-      mcp: [FilesServer],
     })
     class NoProviders {}
 

@@ -220,7 +220,7 @@ request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`
 an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, a caller
 resolver) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
 `tests/desk/a2a/desk.a2a-expose.test.ts`, #398) that also reads policies through a stubbed `@McpServer` /
-`@McpTool` (`mcpOf`), and an
+`@Tool` (`mcpOf`), and an
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
 tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`); the review loop's
 reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals/workflows/offsite-booking/offsite-booking.workflow.test.ts` resumes a pause on a second
@@ -1244,7 +1244,7 @@ export const quorumPaths = [
   `{{variables}}` are checked at assembly (`[prompt.unknown-variable]`). What a node reads comes in
   its input message (`### field (from producer)`), never as `{{input.…}}` in instructions
   (`[prompt.input-in-instructions]`).
-- **`deps`, one contract for every kind** (`@Injectable`, `@Tool`, `@McpTool`, `@Rag`, `@Judge`,
+- **`deps`, one contract for every kind** (`@Injectable`, `@Tool`, `@Rag`, `@Judge`,
   `@Action`, a code `@Router`, `@InputGuardrail` / `@OutputGuardrail`, `@PiiPolicy`, `@Channel`): `deps` are checked
   against the constructor by the compiler and injected by the container. A token is a class or an
   `InjectionToken<T>`; values go in with `provide(TOKEN, value)` (a raw `{ provide, useValue }`
@@ -1527,7 +1527,7 @@ export class SeenJobsRepository {
   earlier versions), `variant(Dto, value)`. Standard ones: `WorkflowStartTextDto`,
   `WorkflowFinishTextDto`, `ToolCallApprovalDecisionDto`, `RagSearchResultDto`, `PlainTextDto`
   (Wiki → Standard-DTOs). zod stays inside the framework.
-- **Tool names** (#268 AC9): a project's `@Tool` / `@McpTool` is named like every component —
+- **Tool names** (#268 AC9): a project's `@Tool` is named like every component —
   kebab-case ending with `-tool` (`order-status-tool`, `[name.kind-suffix]`); a knowledge base's
   tool is `search-<rag name>-tool` (`search-jobs-rag-tool` for `jobs-rag`); an MCP server's own
   tools keep the server's names (`read_text_file`, in `@McpServer({ tools })`). Every name a model
@@ -1535,7 +1535,7 @@ export class SeenJobsRepository {
   and is unique over local, MCP, knowledge-base and answer tools (`answer-<dto>`) — else
   `[tool.duplicate-name]`. A tool's `timeout` has units: `@Tool({ timeout: seconds(5) })` (default
   30 s; there is no `timeoutMs`). What a model reads of one result is bounded (#336):
-  `maxResultSize: kilobytes(256)` on `@Tool` / `@McpTool`, else `defaults.tools.maxResultSize`
+  `maxResultSize: kilobytes(256)` on `@Tool`, else `defaults.tools.maxResultSize`
   (application → workflow), else 128 KB, in bytes of UTF-8 — a longer rendered result (an error's,
   a knowledge base's search or context block too) is cut before PII masking with
   `\n[result truncated: N bytes, the first M kept]` (`onToolEnd`'s `isResultTruncated`;
@@ -1547,7 +1547,7 @@ export class SeenJobsRepository {
   `[tool-interceptor.missing-handler]`; a non-tool target `[tool-interceptor.target-not-a-tool]`, two
   methods for one tool and phase `[tool-interceptor.duplicate-hook]`, a misspelt hook such as the 0.1.0
   `beforeToolCall` `[tool-interceptor.unknown-hook]`), listed in `toolInterceptors` of `@Application` →
-  `@Workflow` → `@Agent` → `@Tool` / `@McpTool` (lists add up, outer first; `excludeToolInterceptors`
+  `@Workflow` → `@Agent` → `@Tool` (lists add up, outer first; `excludeToolInterceptors`
   on an agent or a tool removes an inherited one, `[tool-interceptor.exclude-not-inherited]`,
   `[tool-interceptor.not-an-interceptor]`; `@Workflow({ excludeToolInterceptors })` removes an
   application-level one for the workflow). Runs in the tool call's frame (`step.callId`, its key and
@@ -1816,7 +1816,7 @@ tenantId })` → `RerankResult { results, costUsd? }`, everything from `@agboss/
   `tool`), counted by the budgets at once; describe: `rag: docs-rag (tool, k 3, per-tenant, reranked by
 docs-reranker from 30, on failure fallback)`; `ragConnectorContract({ …, rerank: { by, candidates } })`
   runs the suite through the core's reranking; a scripted agent searches with `callTool(HandbookRag, { query })` (the `@Rag`'s search tool), `testRag(R, { model })` scripts its model reranker. **MCP:** `@McpServer`
-  (`extends McpServerClient`) in `mcp: [...]`, its tools as `@McpTool` classes.
+  (`extends McpServerClient`) listed in the `deps` of the `@Tool`s that call it (connected at start, no `mcp: [...]`; `McpTransport`, `defineEnv` references, `call(name, args, { key, signal, timeout })`, `McpError`).
   **A2A (#387, #398 PR 3, #809) — declared contracts:** a call to an A2A v1.0 agent (another AGBoss
   application or a foreign one, on the official `@a2a-js/sdk`, exact pin) is an
   `@A2AAgent({ name: "-a2a-agent", url, target?: { application?, skill?, finishes? }, input?, output?, price?, mesh?, allowedOrigins?, deps })`
@@ -1917,7 +1917,7 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   ignored; `SendStreamingMessage` one frame, the message; `GetTask` / a follow-up naming it `-32001`; a
   message naming no skill runs `defaultSkill`) — a stateless workflow, checked on every node at assembly
   (`[a2a.message-skill-pause]`, `-effect` — a fenced effect, `OutboundCalls` or an `@A2AAgent` any `deps`
-  reach —, `-tool` — only `@Tool({ readOnly: true })`, no `@McpTool` —, `-compensation`, `-child`;
+  reach —, `-tool` — only `@Tool({ readOnly: true })` —, `-compensation`, `-child`;
   `[a2a.unknown-skill-option]`); its reply kept in `A2ADirectMessageRepository` (in memory by default,
   `SqliteA2ADirectMessageRepository`, PostgreSQL / MongoDB ones; `a2aDirectMessageContract`) on its task
   store's backend (`[a2a.message-store-not-shared]`), its id claimed among the task store's messages in
@@ -3134,7 +3134,7 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
                     root import); the probes, loaded on first use (application-health.ts, #300)
     testing/        `@agboss/core/testing`: testWith(App) (Vitest fixtures), scripted gateway, matchers, setup.ts
                     contracts/ — `@agboss/core/testing/contracts`: the published store contract suites (#481)
-    components/     @Tool @Agent @McpServer @McpTool @Rag @Injectable @Workflow, DI container, workflowOf
+    components/     @Tool @Agent @McpServer @Rag @Injectable @Workflow, DI container, workflowOf
     dto/            `@agboss/core/dto`: field decorators, DTO schemas and validation, standard/ DTOs
     units/          `@agboss/core/units`: usd(), seconds(), minutes(), kilobytes()
     workflow.ts     the assembled workflow type

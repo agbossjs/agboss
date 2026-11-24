@@ -6,7 +6,9 @@ import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
 import { NodeKind } from "../flow/ast.js";
-import { mcpUsesOf, usesOf, workflowPartsOf, type WorkflowParts } from "./contracts-parts.js";
+import { mcpServerClassesOf } from "../components/assemble-tools.js";
+import type { ProviderModule } from "../components/container/registrations.js";
+import { usesOf, workflowPartsOf, type WorkflowParts } from "./contracts-parts.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
 import type {
@@ -103,7 +105,7 @@ function mcpExportsOf(expose: Class, dtos: Dtos): readonly McpExportContract[] {
     const base = { kind: "mcp" as const, expose: meta.meta.name, version: meta.meta.version };
     if (start?.kind === NodeKind.Start)
       return [{ ...base, tool: start.options.name, input: dtos.ofShape(start.options.input) }];
-    if (tool?.kind === "tool" || tool?.kind === "mcp-tool")
+    if (tool?.kind === "tool")
       return [{ ...base, tool: tool.meta.name, input: dtos.of(tool.meta.input) }];
     return [];
   });
@@ -166,23 +168,28 @@ function a2aImportsOf(
   return clients.flatMap((client) => a2aImportOf(client, parts, dtos));
 }
 
-function mcpImportsOf(parts: readonly WorkflowParts[], dtos: Dtos): readonly McpImportContract[] {
-  const servers = new Set<Class>();
-  for (const tool of parts.flatMap((part) => part.tools)) {
-    const meta = componentOf(tool);
-    if (meta?.kind === "mcp-tool") servers.add(meta.meta.server);
-  }
-  return [...servers].flatMap((server): McpImportContract[] => {
+function mcpImportsOf(
+  parts: readonly WorkflowParts[],
+  modules: readonly ProviderModule[],
+  dtos: Dtos,
+): readonly McpImportContract[] {
+  const tools = parts.flatMap((part) => part.tools);
+  const servers = mcpServerClassesOf(tools, modules);
+  return servers.flatMap((server): McpImportContract[] => {
     const meta = componentOf(server);
     if (meta?.kind !== "mcp-server") return [];
-    const target = meta.meta.config.target ?? null;
+    const declared = meta.meta.config.target;
+    const target =
+      declared === undefined
+        ? null
+        : { application: declared.application, expose: declared.endpoint };
     return Object.entries(meta.meta.tools).map(([tool, io]) => ({
       kind: "mcp",
       server: meta.meta.name,
       tool,
       target,
-      usedBy: mcpUsesOf(server, parts),
-      input: dtos.of(io.input),
+      usedBy: usesOf(server, parts),
+      input: io.input === undefined ? null : dtos.of(io.input),
       output: dtos.of(io.output),
     }));
   });
@@ -196,6 +203,9 @@ export function contractsOf(assembled: AssembledApplication): ContractsSnapshot 
     ...a2aExportsOf(expose, parts, dtos),
     ...mcpExportsOf(expose, dtos),
   ]);
-  const imports = [...a2aImportsOf(assembled, parts, dtos), ...mcpImportsOf(parts, dtos)];
+  const imports = [
+    ...a2aImportsOf(assembled, parts, dtos),
+    ...mcpImportsOf(parts, assembled.modules, dtos),
+  ];
   return { exports, imports, schemas: dtos.schemas() };
 }

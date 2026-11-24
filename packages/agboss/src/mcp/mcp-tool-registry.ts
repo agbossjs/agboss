@@ -39,7 +39,7 @@ export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "e
 };
 
 /**
- * What an `@McpExpose` exposes: its `@Tool` / `@McpTool` exports (run through the same adapter as
+ * What an `@McpExpose` exposes: its `@Tool` exports (run through the same adapter as
  * agent tool calls — DTO validation of input and output, timeout, `callId`), its workflow starts
  * (`app.execute`), and `resume_workflow` (`app.resume`) when there is a start.
  */
@@ -65,7 +65,7 @@ export function collectTools(
 
 function toolMetaOf(exp: Class): ToolMeta | undefined {
   const component = componentOf(exp);
-  return component?.kind === "tool" || component?.kind === "mcp-tool" ? component.meta : undefined;
+  return component?.kind === "tool" ? component.meta : undefined;
 }
 
 const isToolHandler = (value: unknown): value is ToolHandler<unknown, unknown> =>

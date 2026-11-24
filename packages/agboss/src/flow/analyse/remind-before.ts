@@ -66,7 +66,7 @@ function toolsOf(context: AnalysisContext): readonly Class[] {
 function toolWarnings(context: AnalysisContext): RuleViolation[] {
   return toolsOf(context).flatMap((cls) => {
     const component = componentOf(cls);
-    if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return [];
+    if (component?.kind !== "tool") return [];
     const { name, channel, expiresIn } = component.meta;
     const role = channel === undefined ? undefined : channelRoleOf(channel)?.options;
     if (role === undefined || !leavesNoRoom(expiresIn, role.remindBefore)) return [];
@@ -95,7 +95,7 @@ function rolesOf(context: AnalysisContext): readonly StoredChannelRole[] {
   );
   const fromTools = toolsOf(context).flatMap((cls) => {
     const component = componentOf(cls);
-    if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return [];
+    if (component?.kind !== "tool") return [];
     const { channel } = component.meta;
     const role = channel === undefined ? undefined : channelRoleOf(channel)?.options;
     return role === undefined ? [] : [role];

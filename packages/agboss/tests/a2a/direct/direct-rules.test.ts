@@ -1,7 +1,7 @@
 /**
  * #860 AC3 — fail closed at assembly: a direct-reply skill (`A2AReply.Message`) is stateless — a
  * pause, a fenced effect or an outbound call (through any service a node or a tool injects), a tool
- * that is not `readOnly`, an `@McpTool`, an undo or a child workflow is `[a2a.message-skill-*]`, all
+ * that is not `readOnly`, an MCP server, an undo or a child workflow is `[a2a.message-skill-*]`, all
  * at once; a reply for no export and a `defaultSkill` of none are refused; and its replies are kept
  * on its task store's backend — `[a2a.message-store-not-shared]` otherwise, a multi-instance set
  * on shared leases included.
@@ -55,6 +55,7 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
       "a2a.message-skill-effect",
       "a2a.message-skill-effect",
       "a2a.message-skill-effect",
+      "a2a.message-skill-effect",
       "a2a.message-skill-tool",
       "a2a.message-skill-tool",
     ]);
@@ -64,7 +65,8 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
     // two hops down a tool's services: the readOnly flag does not hide it
     expect(text).toContain("LedgerReadTool injects FencedEffectRepository");
     expect(text).toContain("busy-agent calls PingTool, which is not @Tool({ readOnly: true })");
-    expect(text).toContain("busy-agent calls BoardLookupTool, an @McpTool");
+    // an MCP server reached through a tool's deps is an effect, whatever the tool says
+    expect(text).toContain("BoardLookupTool injects JobBoardServer");
     expect(text).toContain("reserve-action declares its undo");
     expect(text).toContain("it launches quote-workflow");
     // the read-only tool is allowed

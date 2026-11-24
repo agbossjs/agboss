@@ -58,7 +58,7 @@ interface ToolChannel {
 /** A tool class's name, input and channel; `undefined` for a class that is not a tool. */
 function toolChannelOf(cls: Class): ToolChannel | undefined {
   const component = componentOf(cls);
-  if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return undefined;
+  if (component?.kind !== "tool") return undefined;
   return component.meta;
 }
 

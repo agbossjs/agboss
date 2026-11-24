@@ -76,10 +76,10 @@ the money limits ([FinOps](FinOps)).
 
 A tool's `name` is what the model calls (#268 AC9, #1343a): letters, digits, `_` and `-`, at most 64
 characters (`[tool.name-invalid]`, `[tool.name-too-long]`); no `-tool` suffix is needed (`search-issues`,
-`search_issues`), `@McpTool` too. A knowledge base's tool is
+`search_issues`). A knowledge base's tool is
 `search-<rag name>-tool` (`search-jobs-rag-tool` for `jobs-rag`, [Knowledge bases](Knowledge-bases)).
 The tools an MCP server offers keep the server's own names (`read_text_file`, declared in
-`@McpServer({ tools })`) — a model never sees them, only the `@McpTool` calling them. Every name a
+`@McpServer({ tools })`) — a model never sees them, only the `@Tool` calling them. Every name a
 model sees — the framework's answer tools (`answer-<dto>`) too — fits what the providers accept
 (OpenAI, Anthropic, Gemini): `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`,
 `[tool.name-invalid]`), and is unique over the agent's tools (`[tool.duplicate-name]`). All found at
@@ -140,7 +140,7 @@ export class FetchPageTool {
 ```
 
 - The bound applies to the **rendered** result — the JSON of the output DTO, or `Tool error: …` for a
-  failed call — of a `@Tool`, an `@McpTool` and a knowledge base's `search-<rag>-tool` alike. Over
+  failed call — of a `@Tool` and a knowledge base's `search-<rag>-tool` alike. Over
   it, the text is cut at the last whitespace (space, tab, line break) within the final 256 bytes it
   keeps, else at the bound, never inside a character, and ends with
   `\n[result truncated: 1,048,587 bytes, the first 262,144 kept]` — a framework text the model reads,
@@ -167,8 +167,8 @@ registry: an agent's `tools: [SearchIssues]` **is** the registration.
 ## MCP
 
 A server declares the tools it offers that the workflow uses (`@McpServer({ tools })`, `extends McpServerClient`);
-an `@McpTool` is a tool with that server injected, calling it in `execute` — see
-[Components → MCP](Components#mcp). Env variable NAMES only in the config, never secrets.
+a `@Tool` lists the server class in its `deps` and calls it in `execute` — see
+[Components → MCP](Components#mcp). Secrets are `defineEnv` references in the config, never values.
 A server tool that answers with plain text declares `output: PlainTextDto` (`@agboss/core/dto`, the one
 field `text`) — the server's text arrives as `{ text }`; `agboss g mcp` writes that by default.
 
@@ -217,7 +217,7 @@ export class Scout {}
 
 ## Tool interceptors
 
-A `@ToolInterceptor` (#384) wraps an agent's calls to its own `@Tool`s and `@McpTool`s — a check
+A `@ToolInterceptor` (#384) wraps an agent's calls to its own `@Tool`s — a check
 of the arguments against the tenant, an audit, a rewrite of a result — without touching the tools.
 Its class has `@BeforeTool(Tool)` / `@AfterTool(Tool)` methods (the target-bound hooks, below),
 plain `beforeAnyTool(call)` / `afterAnyTool(call)` methods for every tool, or both kinds. A class
@@ -306,8 +306,8 @@ export class CityJobsToolInterceptor {
 }
 ```
 
-**Levels.** `toolInterceptors: [...]` on `@Application` → `@Workflow` → `@Agent` → `@Tool` /
-`@McpTool`: the lists add up, outer first, each class once. `@Workflow({ excludeToolInterceptors })`
+**Levels.** `toolInterceptors: [...]` on `@Application` → `@Workflow` → `@Agent` → `@Tool`:
+the lists add up, outer first, each class once. `@Workflow({ excludeToolInterceptors })`
 removes an application-level one for the whole workflow. `excludeToolInterceptors: [...]` on an
 agent removes one its application or workflow lists; on a tool, one listed above it (by its
 application, its workflow or an agent that calls it) — excluding one nothing above lists is
@@ -351,7 +351,7 @@ not give fails the step: `AgentFailedError`, its error as the `cause` (`ScopeSer
 `TypeError`, `DtoValidationError`), so `.onError(DomainError, …)` takes it through the cause; the
 tool does not run after a failed before hook.
 
-**What is intercepted**: an agent's calls to the project's `@Tool` / `@McpTool` classes — never
+**What is intercepted**: an agent's calls to the project's `@Tool` classes — never
 its answer tools, a knowledge base's `search-…-tool`, or a tool called on its own (over MCP,
 `createMcpService`).
 
@@ -443,7 +443,7 @@ unassigned tools: none
 
 ## Approval channels
 
-A tool that needs a decision before it runs names a channel: `@Tool({ channel })` (or `@McpTool`).
+A tool that needs a decision before it runs names a channel: `@Tool({ channel })` .
 Channels are found through the tools that name them, like services through `deps` — there is no
 `channelClasses` (#267) — and one instance serves every workflow of the application. A tool names
 either a concrete `@Channel` as is (`TerminalUserChannel`, `AutoApproveChannel`,

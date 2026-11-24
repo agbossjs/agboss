@@ -1,3 +1,4 @@
+import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { describe, expect, it } from "vitest";
 import { mcpServerStub } from "../../src/testing/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
@@ -36,7 +37,7 @@ describe("MCP tools: a tool with its server's client injected (#109)", () => {
     const workflow = await workflowOf(Greetings);
     const transport = await fakeMcpServer([readTool]);
     await connectMcpServers(
-      { files: { transport: "stdio", command: "unused" } },
+      { files: { transport: McpTransport.Stdio, command: "unused" } },
       workflow.mcpServers,
       workflow.serverTools ?? [],
       {},
@@ -57,7 +58,7 @@ describe("MCP tools: a tool with its server's client injected (#109)", () => {
 
     await expect(
       connectMcpServers(
-        { files: { transport: "stdio", command: "unused" } },
+        { files: { transport: McpTransport.Stdio, command: "unused" } },
         workflow.mcpServers,
         workflow.serverTools ?? [],
         {},

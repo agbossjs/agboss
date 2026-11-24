@@ -107,10 +107,14 @@ export const A2AError: FamilyConstructor<
 export enum McpErrorKind {
   Unavailable = "unavailable",
   Contract = "contract",
+  MethodNotFound = "method-not-found",
 }
 
-/** An MCP server could not be reached (`Unavailable`) or answered against its contract (`Contract`). */
-export type McpError = McpError.Unavailable | McpError.Contract;
+/**
+ * An MCP server could not be reached or failed the call (`Unavailable`), answered against its
+ * contract (`Contract`), or was asked for a tool it does not declare (`MethodNotFound`).
+ */
+export type McpError = McpError.Unavailable | McpError.Contract | McpError.MethodNotFound;
 
 /** The variants of `McpError`, each with the facts it carries. */
 export declare namespace McpError {
@@ -118,12 +122,18 @@ export declare namespace McpError {
   export type Unavailable = ErrorVariant<McpErrorKind.Unavailable, "mcp.unavailable">;
   /** The MCP server answered against its contract. */
   export type Contract = ErrorVariant<McpErrorKind.Contract, "mcp.contract">;
+  /** The tool called is not declared on the MCP server's class. */
+  export type MethodNotFound = ErrorVariant<McpErrorKind.MethodNotFound, "mcp.method-not-found">;
 }
 
 /** `McpError`: the family's constructor and its variants'. */
 export const McpError: FamilyConstructor<
   McpError,
-  { Unavailable: McpError.Unavailable; Contract: McpError.Contract }
+  {
+    Unavailable: McpError.Unavailable;
+    Contract: McpError.Contract;
+    MethodNotFound: McpError.MethodNotFound;
+  }
 > = defineFamily({
   name: "McpError",
   code: "mcp",
@@ -131,6 +141,7 @@ export const McpError: FamilyConstructor<
   variants: {
     Unavailable: ["the MCP server cannot be reached"],
     Contract: ["the MCP server answered against its contract"],
+    MethodNotFound: ["the tool called is not declared on the MCP server"],
   },
 });
 

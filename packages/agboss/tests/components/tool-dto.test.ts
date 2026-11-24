@@ -1,4 +1,5 @@
 /** #118 AC5: tools and MCP servers on DTOs — validation at the edge, DTO-shaped data inside. */
+import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { describe, expect, it } from "vitest";
 import { Agent, Workflow, Tool } from "../../src/index.js";
 import { McpServer, McpServerClient } from "../../src/mcp/index.js";
@@ -120,7 +121,7 @@ class TicketState {
 }
 const deskTools = { status: { input: Ticket, output: TicketState } };
 
-@McpServer({ name: "desk", transport: "stdio", command: "desk", tools: deskTools })
+@McpServer({ name: "desk", transport: McpTransport.Stdio, command: "desk", tools: deskTools })
 class DeskServer extends McpServerClient<typeof deskTools> {}
 
 describe("MCP servers on DTOs (#118)", () => {

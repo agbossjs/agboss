@@ -6,7 +6,7 @@ when one application calls another over A2A (agent-to-agent) or is called that w
 
 | You want to…                                          | Use                                                                                                           |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| give an agent tools of an MCP server                  | `@McpServer` (`extends McpServerClient`) in `@Workflow({ mcp })` + `@McpTool` classes in the agent's `tools`  |
+| give an agent tools of an MCP server                  | `@McpServer` (`extends McpServerClient`) in a `@Tool`'s `deps` (the tool calls it)                            |
 | let Claude Desktop / another agent call your workflow | `@McpExpose` + `createMcpService(app, Expose)` (`@agboss/core/mcp`)                                           |
 | call a workflow of another AGBoss application         | `@A2AAgent({ target, input, output })` (`extends A2AClient<In, Out>`) in `providers`, injected into a `@Tool` |
 | serve your workflow to A2A callers                    | `@A2AExpose` in `@Application({ exposes })` + `a2aHttpListener(app, { expose, callerResolver })`              |
@@ -47,10 +47,17 @@ export class IssueHitsDto {
 ```
 
 ```ts file=src/support/mcp/issues.server.ts
-// mcp/issues.server.ts — the server and the tools of it this workflow uses (checked at start)
-import { McpServer, McpServerClient } from "@agboss/core/mcp";
+// mcp/issues.server.ts — the server and the tools of it this application uses (checked at start)
+import { bearer, defineEnv, env, secret } from "@agboss/core";
+import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
+import { sec } from "@agboss/core/units";
 import { IssueHitsDto } from "../dto/issue-hits.dto.js";
 import { IssueSearchDto } from "../dto/issue-search.dto.js";
+
+const issuesEnv = defineEnv({
+  issuesMcpUrl: env("ISSUES_MCP_URL"),
+  issuesMcpToken: secret("ISSUES_MCP_TOKEN"),
+});
 
 const tools = {
   search_issues: { input: IssueSearchDto, output: IssueHitsDto }, // the server's own tool name
@@ -58,9 +65,10 @@ const tools = {
 
 @McpServer({
   name: "issues",
-  transport: "http", // Streamable HTTP; or transport: "stdio" with command, args, env
-  url: "https://mcp.issues.example/mcp",
-  headers: { authorization: "ISSUES_MCP_TOKEN" }, // header → NAME of the env variable, never the value
+  transport: McpTransport.Http, // Streamable HTTP; or McpTransport.Stdio with command, args, env
+  url: issuesEnv.issuesMcpUrl, // a text or an `EnvRef`, read once when the application starts
+  headers: { authorization: bearer(issuesEnv.issuesMcpToken) }, // secrets are references, never values
+  timeout: sec(15), // one call at most; default 30 s
   tools,
 })
 export class IssuesServer extends McpServerClient<typeof tools> {}
@@ -68,43 +76,49 @@ export class IssuesServer extends McpServerClient<typeof tools> {}
 
 ```ts file=src/support/mcp/search-issues.mcp.ts
 // mcp/search-issues.mcp.ts — the tool the model sees; it calls the server tool, typed by `tools`
-import { ExecutionContext } from "@agboss/core";
-import { McpTool } from "@agboss/core/mcp";
+import { Tool } from "@agboss/core";
 import { kilobytes, seconds } from "@agboss/core/units";
 import { IssueHitsDto } from "../dto/issue-hits.dto.js";
 import { IssueSearchDto } from "../dto/issue-search.dto.js";
 import { IssuesServer } from "./issues.server.js";
 
-@McpTool({
-  server: IssuesServer,
+@Tool({
   name: "search-issues-tool",
   description: "Searches the issue tracker",
   input: IssueSearchDto,
   output: IssueHitsDto,
   timeout: seconds(10),
   maxResultSize: kilobytes(32),
-  deps: [IssuesServer, ExecutionContext],
+  deps: [IssuesServer],
 })
 export class SearchIssuesTool {
-  constructor(
-    private readonly issuesServer: IssuesServer,
-    private readonly executionContext: ExecutionContext,
-  ) {}
+  constructor(private readonly issuesServer: IssuesServer) {}
 
   execute({ query }: IssueSearchDto): Promise<IssueHitsDto> {
-    // name and arguments checked by the compiler; the signal aborts it on timeout or cancel
-    return this.issuesServer.call("search_issues", { query }, this.executionContext.signal);
+    // name and arguments checked by the compiler; the running step's signal ends the call
+    return this.issuesServer.call("search_issues", { query });
   }
 }
 ```
 
-- **Connections are the framework's**: every `@McpServer` of `@Workflow({ mcp: [...] })` is
-  connected when the application starts and closed by `app.close()` — no lifecycle hook of yours.
-  At start each declared server tool must exist with a compatible input schema, else the start fails
-  naming it. Secrets are never in the decorator: `env: ["GITHUB_TOKEN"]` (stdio) and `headers`
-  (http) name variables.
-- **Names**: the `@McpTool`'s `name` ends with `-tool` (what the model sees); the server's own tool
-  names (`search_issues`) stay as the server has them and only appear in `tools` and `call(…)`.
+- **Connections are the framework's**: every `@McpServer` a workflow's components reach through
+  `deps` is connected when the application starts and closed by `app.close()` — no `mcp: [...]`
+  list, no lifecycle hook of yours. At start each declared server tool must exist with a compatible
+  input schema, else the start fails with `McpError.Contract` naming our tool. Secrets are never in
+  the decorator: `url`, `command`, `args`, `env` and `headers` take `defineEnv` references
+  (`EnvRef`, `SecretRef`, `bearer(secretRef)`), read once at start; an `env` entry that resolves to
+  `undefined` is left out and `inheritSystemEnv` (default `true`) passes `PATH`, `HOME`, `LANG` and
+  `TMPDIR` to a stdio server. The class's `protected getHeaders()` adds headers per HTTP request
+  over the declared `headers`.
+- **A call**: `call(name, args, { key?, signal?, timeout? })` (`McpCallOptions`; a tool declared
+  without `input` is `call(name, options?)`). The running step's signal ends it unless `signal` is
+  given; `maxConcurrentCalls` queues calls past the limit; `costPerCall` is charged to the step once per
+  call (under the call's own ledger identity); two calls of one step to one tool need distinct `key`s
+  to be distinct calls. A failure is an `McpError` (`Unavailable`, `Contract`, `MethodNotFound`) —
+  never the server's text — or the `AGBossError` it carried as it is (a mesh limit, a timeout).
+- **Names**: the `@Tool`'s `name` is what the model sees; the server's own tool
+  names (`search_issues`) stay as the server has them and only appear in `tools` and `call(…)`. A
+  server's `name` is a plain identifier (`issues`), no kind suffix.
 - **Everything a tool gets applies**: `timeout`, `maxResultSize`, `channel` (an approval before the
   call, reference 05), PII masking of arguments and results at the model boundary and block rules
   that reject the call (reference 07), `SpendRecorder`, `executionContext.step.idempotencyKey`.
@@ -281,7 +295,6 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OrderDeskA2AAgent } from "../../a2a/order-desk.a2a-agent.js";
 import { SupportA2aCallerResolver } from "../../a2a/support.a2a-caller-resolver.js";
 import { SupportAgent } from "../../agents/support/support.agent.js";
-import { IssuesServer } from "../../mcp/issues.server.js";
 import { ApiKeyDirectory } from "../../services/api-key-directory.service.js";
 import { SupportWorkflowFinish } from "./support.workflow-finish.js";
 import { SupportWorkflowStart } from "./support.workflow-start.js";
@@ -294,7 +307,6 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
       .toAgent(SupportAgent)
       .toFinish(SupportWorkflowFinish),
   ],
-  mcp: [IssuesServer], // the servers this workflow connects to
   // an A2A client and the caller resolver are providers like any service
   providers: [OrderDeskA2AAgent, ApiKeyDirectory, SupportA2aCallerResolver],
 })
@@ -887,7 +899,7 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 | the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                                 |
 | the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                                              |
 | `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                                        |
-| `[tool.name-invalid]` on an `@McpTool`                         | letters, digits, `_` and `-` only (no `-tool` suffix needed)                                         |
+| `[tool.name-invalid]` on a tool that calls an MCP server       | letters, digits, `_` and `-` only (no `-tool` suffix needed)                                         |
 | `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`)                |
 | `A2ATaskInterruptedError` (`input-required`)                   | the remote task waits for input: use `send` and `reply(taskId, …)`, or answer it remotely            |
 | `A2AProtocolError … declares A2A 0.3`                          | the agent speaks A2A v0.3 only: 0.1.1 calls v1.0 agents                                              |

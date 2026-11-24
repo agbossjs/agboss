@@ -16,7 +16,7 @@ export interface ToolInterceptorInstance {
 export interface RuntimeToolInterceptor {
   readonly name: string;
   readonly instance: ToolInterceptorInstance;
-  /** The `@Tool` / `@McpTool` class the chain is for; none for a call of a tool nobody resolved. */
+  /** The `@Tool` class the chain is for; none for a call of a tool nobody resolved. */
   readonly toolType: Class | undefined;
   /** The names of the `@BeforeTool` / `@AfterTool` methods of this tool, if it has them. */
   readonly beforeMethod: string | undefined;

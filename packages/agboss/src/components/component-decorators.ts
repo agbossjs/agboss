@@ -39,7 +39,6 @@ export const COMPONENT_DECORATORS = [
   "ModelProvider",
   // `@agboss/core/mcp`
   "McpServer",
-  "McpTool",
   // `@agboss/core/rag`
   "Rag",
   "Reranker",

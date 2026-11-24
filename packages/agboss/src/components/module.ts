@@ -79,7 +79,6 @@ export function moduleOf(workflow: Class): WorkflowMeta {
     excludeToolInterceptors: options.excludeToolInterceptors,
     compaction: options.compaction,
     uncompactedTurns: options.uncompactedTurns,
-    mcp: options.mcp,
     providers: options.providers,
     services: options.services,
     promptVariables: options.promptVariables,

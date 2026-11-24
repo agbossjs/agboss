@@ -104,7 +104,6 @@ class Clerk {}
     tools: { maxToolCalls: 2 },
   },
   uncompactedTurns: 2,
-  mcp: [NotesServer],
   providers: [OrderBook],
 })
 class ClerkDesk implements WorkflowDefinition {

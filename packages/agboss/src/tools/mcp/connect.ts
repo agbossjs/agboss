@@ -3,16 +3,31 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { z } from "zod";
-import type { McpServerConfig } from "../../config/types.js";
+import { McpTransport, type McpServerConfig } from "../../config/mcp-server-config.js";
+import { McpError } from "../../core/error-families/remote-errors.js";
+import { mergedHeaders, resolvedServerOf, type Env, type ResolvedMcpServer } from "./resolve.js";
 import { schemaDifferences } from "./compat.js";
-import { McpContractError, McpUnavailableError } from "./errors.js";
+import { callIdentityOf } from "./call-identity.js";
 import type { McpCaller, McpFacade, McpServerHandle } from "./facade.js";
 import { MESH_META_KEY, MESH_REPORT_META_KEY, TRACEPARENT } from "../../mesh/mesh-envelope.js";
 import { outboundMeshOf, type OutboundMesh } from "../../mesh/outbound-mesh.js";
 import { takeRunReport } from "../../mesh/mesh-report.js";
 
-export type Env = Readonly<Record<string, string | undefined>>;
-export type TransportFactory = (name: string, server: McpServerConfig, env: Env) => Transport;
+/** What a server's handshake says of this application. */
+export interface McpIdentity {
+  readonly name: string;
+  readonly version: string;
+}
+
+/**
+ * Makes the transport of one server; `headers` gives the headers its class adds per HTTP request
+ * (`getHeaders`).
+ */
+export type TransportFactory = (
+  name: string,
+  server: ResolvedMcpServer,
+  headers: () => Promise<Record<string, string>>,
+) => Transport;
 
 export interface McpConnections {
   readonly close: () => Promise<void>;
@@ -24,37 +39,27 @@ interface ListedTool {
   readonly outputSchema?: unknown;
 }
 
-function requireEnv(server: string, names: readonly string[], env: Env): Record<string, string> {
-  const values: Record<string, string> = {};
-  for (const name of names) {
-    const value = env[name];
-    if (value === undefined || value === "") {
-      throw new McpUnavailableError(
-        `MCP server "${server}" needs env variable ${name}, which is not set`,
-      );
-    }
-    values[name] = value;
-  }
-  return values;
-}
-
-/** stdio: env lists variable names; http: headers map header → env variable name. */
-export const defaultTransport: TransportFactory = (name, server, env) => {
-  if (server.transport === "stdio") {
+/**
+ * stdio: a process with the resolved env; http: the declared headers under the class's
+ * `getHeaders()`, read on every request.
+ */
+export const defaultTransport: TransportFactory = (_name, server, headers) => {
+  if (server.transport === McpTransport.Stdio) {
     return new StdioClientTransport({
       command: server.command,
-      args: server.args ?? [],
-      env: requireEnv(name, server.env ?? [], env),
+      args: [...server.args],
+      env: { ...server.env },
     });
   }
-  const headerVars = server.headers ?? {};
-  const values = requireEnv(name, Object.values(headerVars), env);
-  const headers = Object.fromEntries(
-    Object.entries(headerVars).map(([header, variable]) => [header, values[variable] ?? ""]),
-  );
-  return new StreamableHTTPClientTransport(new URL(server.url), { requestInit: { headers } });
+  const withHeaders: typeof fetch = async (input, init) => {
+    const own = new Headers(init?.headers);
+    const merged = mergedHeaders(server.headers, await headers(), Object.fromEntries(own));
+    return fetch(input, { ...init, headers: merged });
+  };
+  return new StreamableHTTPClientTransport(new URL(server.url), { fetch: withHeaders });
 };
 
+/** Where a server's tools differ from the declared ones: our tools' names and the kind of difference, never the server's own words. */
 function contractProblems(facades: readonly McpFacade[], listed: readonly ListedTool[]): string[] {
   const byName = new Map(listed.map((tool) => [tool.name, tool]));
   return facades.flatMap((facade) => {
@@ -70,36 +75,37 @@ function contractProblems(facades: readonly McpFacade[], listed: readonly Listed
         ? []
         : schemaDifferences(z.toJSONSchema(facade.output), remote.outputSchema);
     return [
-      ...input.map((p) => `${where} input: ${p}`),
-      ...output.map((p) => `${where} output: ${p}`),
+      ...(input.length === 0 ? [] : [`${where}: input differs`]),
+      ...(output.length === 0 ? [] : [`${where}: output differs`]),
     ];
   });
 }
 
 async function openClient(
-  name: string,
   transport: Transport,
+  identity: McpIdentity,
 ): Promise<{ client: Client; tools: ListedTool[] }> {
-  const client = new Client({ name: "langgraph-ts-template", version: "0.1.0" });
+  const client = new Client({ name: identity.name, version: identity.version });
   try {
     await client.connect(transport);
     const { tools } = await client.listTools();
     return { client, tools };
-  } catch (error) {
+  } catch {
     await client.close().catch(() => undefined);
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new McpUnavailableError(`Cannot connect to MCP server "${name}": ${reason}`);
+    // the server's own words are never in the error
+    throw new McpError.Unavailable();
   }
 }
 
 /**
- * The `_meta` of a call made inside an execution (#398): `callId` — the step's idempotency key, so
- * an AGBoss server answers a repeated call as the same one —, the mesh envelope and `traceparent`;
+ * The `_meta` of a call made inside an execution (#398): `callId` — the call's own identity (the
+ * step's idempotency key, the server, the tool and the call's key), so an AGBoss server answers a
+ * repeated call as the same one and two calls of a step never collide —, the mesh envelope and `traceparent`;
  * none outside one.
  */
 function callMetaOf(mesh: OutboundMesh): Record<string, string> {
   return {
-    callId: mesh.idempotencyKey,
+    callId: callIdentityOf()?.callId ?? mesh.idempotencyKey,
     [MESH_META_KEY]: mesh.envelope,
     [TRACEPARENT]: mesh.traceparent,
   };
@@ -127,7 +133,8 @@ const callerFor =
 
 /**
  * Connects every server used by a facade, checks contracts and binds the facades.
- * Any unavailable server or contract difference stops startup (fail fast).
+ * Any unavailable server or contract difference stops startup (fail fast). `identity` is what the
+ * handshake says: the application's name and version.
  */
 export async function connectMcpServers(
   servers: Readonly<Record<string, McpServerConfig>> | undefined,
@@ -135,6 +142,7 @@ export async function connectMcpServers(
   facades: readonly McpFacade[],
   env: Env,
   makeTransport: TransportFactory = defaultTransport,
+  identity: McpIdentity = { name: "agboss", version: "0.0.0" },
 ): Promise<McpConnections> {
   const clients: Client[] = [];
   const closeAll = async (): Promise<void> => {
@@ -148,19 +156,17 @@ export async function connectMcpServers(
       const used = facades.filter((facade) => facade.mcp.server === handle.name);
       if (used.length === 0) continue;
       const config = servers?.[handle.name];
-      if (config === undefined) {
-        throw new McpUnavailableError(
-          `MCP server "${handle.name}" is used by facades but missing in mcpServers`,
-        );
-      }
+      // a server used by a facade and not declared: nothing to connect to
+      if (config === undefined) throw new McpError.Unavailable();
+      const resolved = resolvedServerOf(handle.name, config, env);
       const { client, tools } = await openClient(
-        handle.name,
-        makeTransport(handle.name, config, env),
+        makeTransport(handle.name, resolved, handle.headers),
+        identity,
       );
       clients.push(client);
       const problems = contractProblems(used, tools);
       if (problems.length > 0)
-        throw new McpContractError(`MCP contract drift:\n- ${problems.join("\n- ")}`);
+        throw new McpError.Contract({ message: `MCP contract drift:\n- ${problems.join("\n- ")}` });
       handle.bind(callerFor(client, config.target?.application));
     }
   } catch (error) {

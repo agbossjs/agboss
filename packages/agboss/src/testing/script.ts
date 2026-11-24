@@ -71,7 +71,7 @@ export type CalledToolArguments<TInstance> = TInstance extends {
   : never;
 
 /**
- * The name an agent's model calls a `@Tool` / `@McpTool` class by — a `@Rag`'s search tool too
+ * The name an agent's model calls a `@Tool` class by — a `@Rag`'s search tool too
  * (#703), a question role's name (#712).
  */
 export function toolNameOf(tool: Class): string {
@@ -79,9 +79,9 @@ export function toolNameOf(tool: Class): string {
   if (role !== undefined) return role.name;
   const meta = componentOf(tool);
   if (meta?.kind === "rag") return `search-${meta.meta.name}-tool`;
-  if (meta?.kind !== "tool" && meta?.kind !== "mcp-tool") {
+  if (meta?.kind !== "tool") {
     throw new TestSetupError({
-      message: `${tool.name} is not a @Tool, @McpTool, @Rag or question role`,
+      message: `${tool.name} is not a @Tool, @Rag or question role`,
     });
   }
   return meta.meta.name;

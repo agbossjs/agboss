@@ -1,7 +1,7 @@
 /**
  * #1366: the config schemas admit exactly the settings they document - price, token ceiling, reasoning,
  * prompt caching, temperature, turn window, compaction, agent (with knowledge bases), router model,
- * MCP server and workflow name/defaults - and a config with an unknown tool fails with
+ * workflow name/defaults - and a config with an unknown tool fails with
  * `UnknownAgentToolError` (an agent without tools never does).
  */
 import { describe, expect, it } from "vitest";
@@ -13,7 +13,6 @@ import {
   CompactionSettingsSchema,
   JevRouterModelSchema,
   MaxTokensSchema,
-  McpServerConfigSchema,
   ModelSettingsSchema,
   PriceSchema,
   PromptCachingValueSchema,
@@ -178,43 +177,6 @@ describe("config schemas", () => {
       { kind: "llm", model: "" },
       { kind: "llm" },
     );
-  });
-
-  it("mcp servers: stdio with a command, http with a url, an optional target", () => {
-    const target = { application: "app", expose: "tool" };
-    admits(McpServerConfigSchema, { transport: "stdio", command: "run" });
-    admits(McpServerConfigSchema, {
-      transport: "stdio",
-      command: "run",
-      target,
-      args: ["a"],
-      env: ["K"],
-    });
-    admits(McpServerConfigSchema, { transport: "http", url: "https://example.com/mcp" });
-    admits(McpServerConfigSchema, {
-      transport: "http",
-      url: "https://example.com/mcp",
-      target,
-      headers: { a: "B" },
-    });
-    refuses(McpServerConfigSchema, { transport: "stdio", command: "" }, { transport: "stdio" });
-    refuses(McpServerConfigSchema, { transport: "ws", command: "run" });
-    refuses(McpServerConfigSchema, { transport: "http", url: "nope" });
-    refuses(McpServerConfigSchema, {
-      transport: "stdio",
-      command: "run",
-      target: { application: "", expose: "t" },
-    });
-    refuses(McpServerConfigSchema, {
-      transport: "stdio",
-      command: "run",
-      target: { application: "a", expose: "" },
-    });
-    refuses(McpServerConfigSchema, {
-      transport: "http",
-      url: "https://e.com",
-      target: { application: "a" },
-    });
   });
 
   it("workflow config: a name of lowercase letters, digits and dashes; a version; defaults", () => {

@@ -7,7 +7,7 @@ Tools themselves: `03-components-di-and-lifecycle.md`; durable stores: `09-persi
 
 ## How a pause works
 
-1. A `@Tool({ channel })` (or `@McpTool`) names a **channel role** — a project's abstract class
+1. A `@Tool({ channel })` names a **channel role** — a project's abstract class
    `@ChannelRole({ approves: ToolInputDto, answerer })` that `extends ChannelOf<Self>`.
 2. Before every call of that tool the framework creates a pause record (`PausedExecutionRepository`,
    keyed by the step's idempotency key) and calls the role's one implementation —

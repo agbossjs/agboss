@@ -5,7 +5,13 @@ import { ExecutionObserverManager } from "../core/observer-manager.js";
 import { executionIdsOf, type Clock } from "../infrastructure/clock.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructure/logger.js";
-import type { McpConnections } from "../tools/index.js";
+import {
+  connectMcpServers,
+  type McpConnections,
+  type McpIdentity,
+  type TransportFactory,
+} from "../tools/index.js";
+import type { McpConnect } from "./app-deps.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -228,3 +234,22 @@ export const historyKeeperOf = (
           outboundCalls: sources.infrastructure.outboundCalls,
         },
       };
+
+/** What an MCP server's handshake says: the application's name and version. */
+export const mcpIdentityOf = (contexts: RuntimeContexts): McpIdentity => ({
+  name: contexts.application.name,
+  version: contexts.application.version,
+});
+
+/** How the MCP servers of a workflow get connected by default: their configured transports. */
+export const connectConfigured =
+  (transport: TransportFactory | undefined): McpConnect =>
+  (bundle, _config, env, identity) =>
+    connectMcpServers(
+      bundle.mcpServerConfigs,
+      bundle.mcpServers,
+      bundle.serverTools ?? [],
+      env,
+      transport,
+      identity,
+    );

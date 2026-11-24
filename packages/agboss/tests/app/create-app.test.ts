@@ -94,7 +94,6 @@ const defaults = {
   ],
   defaults,
   uncompactedTurns: 2,
-  mcp: [NotesServer],
   providers: [OrderBook],
 })
 class TwoStarts {}

@@ -230,7 +230,7 @@ describe("#1141: a tool's timeout", () => {
     expect(() => defineTool(definition(MAX_TIMEOUT))).not.toThrow();
   });
 
-  it("@Tool / @McpTool: [limits.timeout-invalid] at assembly", () => {
+  it("@Tool: [limits.timeout-invalid] at assembly", () => {
     const toolWith = (timeout: Milliseconds): never => {
       @Tool({ name: "slow-tool", description: "d", input: Query, output: Query, timeout })
       class SlowTool {
@@ -242,11 +242,10 @@ describe("#1141: a tool's timeout", () => {
     };
     const refused = toolExpiryViolations({
       local: [toolWith(over(MAX_TIMEOUT))],
-      mcp: [],
     });
     expect(refused.map((one) => one.code)).toEqual(["limits.timeout-invalid"]);
     expect(refused[0]?.message).toContain("timeout is 86400001 ms");
-    expect(toolExpiryViolations({ local: [toolWith(MAX_TIMEOUT)], mcp: [] })).toEqual([]);
+    expect(toolExpiryViolations({ local: [toolWith(MAX_TIMEOUT)] })).toEqual([]);
   });
 });
 

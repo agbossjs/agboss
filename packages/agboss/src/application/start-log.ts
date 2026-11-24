@@ -107,16 +107,14 @@ const notAtomic = (store: Class): AssemblyWarning => ({
   message: `${store.name} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write; it passes no fencing case of storeConformance and must never back payments (Wiki → Your-own-store#an-opted-out-store-and-storeconformance-543)`,
 });
 
-/** The DTOs of a workflow's tools: an agent's `@Tool` / `@McpTool` input and output. */
+/** The DTOs of a workflow's tools: an agent's `@Tool` input and output. */
 const toolDtosOf = (workflow: AssembledWorkflow): readonly DtoClass[] =>
   [...workflow.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
     if (declaration.kind !== NodeKind.Agent) return [];
     return (declaration.options.tools ?? []).flatMap((cls): readonly DtoClass[] => {
       const component = componentOf(cls);
-      return component?.kind === "tool" || component?.kind === "mcp-tool"
-        ? [component.meta.input, component.meta.output]
-        : [];
+      return component?.kind === "tool" ? [component.meta.input, component.meta.output] : [];
     });
   });
 

@@ -87,7 +87,8 @@ export interface McpImportContract {
   readonly target: { readonly application: string; readonly expose: string } | null;
   /** The tools of the application's agents that call it (#398 PR 4). */
   readonly usedBy: readonly ContractUse[];
-  readonly input: ContractDto;
+  /** `null` for a tool without arguments. */
+  readonly input: ContractDto | null;
   readonly output: ContractDto;
 }
 

@@ -640,14 +640,14 @@ export class HasAnswerArbiter {
 
 ## Tool interceptors
 
-A `@ToolInterceptor` (#384) wraps an agent's calls to its `@Tool`s and `@McpTool`s — a tenant's
+A `@ToolInterceptor` (#384) wraps an agent's calls to its `@Tool`s — a tenant's
 scope, an audit, a rewrite of a result. Its class has `@BeforeTool(Tool)` / `@AfterTool(Tool)`
 methods (one tool or several: `@BeforeTool(A, B)`), plain `beforeAnyTool(call)` / `afterAnyTool(call)`
 for every tool, or both kinds (none: `[tool-interceptor.missing-handler]`; a target that is no tool
 `[tool-interceptor.target-not-a-tool]`; two methods for one tool and phase
 `[tool-interceptor.duplicate-hook]`; a misspelt name such as `beforeToolCall`
 `[tool-interceptor.unknown-hook]`); the name is optional (kebab-case, the class name by default). It is listed in `toolInterceptors: [...]` of `@Application` → `@Workflow` →
-`@Agent` → `@Tool` / `@McpTool` — lists add up, outer first; `excludeToolInterceptors` on an agent
+`@Agent` → `@Tool` — lists add up, outer first; `excludeToolInterceptors` on an agent
 or a tool removes an inherited one (`[tool-interceptor.exclude-not-inherited]`; a class that is not
 one is `[tool-interceptor.not-an-interceptor]`).
 
@@ -720,7 +720,7 @@ export class AuditToolInterceptor {
 - An interceptor that throws, returns no `ToolCallDecision` or an output its tool does not give
   fails the step — `AgentFailedError`, its error as the `cause` (`.onError(DomainError, …)` takes it
   through the cause).
-- Only the project's own `@Tool` / `@McpTool` calls are intercepted — never an answer tool, a
+- Only the project's own `@Tool` calls are intercepted — never an answer tool, a
   knowledge base's search tool or a tool called on its own (over MCP).
 - `agboss describe` prints `tool interceptors` (each one's methods and the agents' tools it
   intercepts), `describe --json` each agent's `toolInterceptors` by tool; `configHash` covers them.

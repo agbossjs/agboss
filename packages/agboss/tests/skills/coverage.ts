@@ -89,7 +89,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...[
       "McpServer",
       "McpServerClient",
-      "McpTool",
+      "McpTransport",
       "McpExpose",
       "createMcpService",
       "mcpServerStub",
@@ -303,7 +303,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "PauseAnswerer",
       "ExecutionStatus",
     ],
-    ...["McpServer", "McpServerClient", "McpTool", "A2AAgent", "A2AClient"],
+    ...["McpServer", "McpServerClient", "McpTransport", "A2AAgent", "A2AClient"],
     ...["a2aHttpListener", "ModelProvider", "OpenRouterProvider", "OpenAiCompatibleProvider"],
     ...["DecisionsModelProvider", "QueueBalancingStrategy", "RateLimitPolicy", "PiiPolicy"],
     ...[

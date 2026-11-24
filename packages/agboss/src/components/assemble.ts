@@ -10,7 +10,13 @@ import { loadRouters } from "../flow/runtime/routers.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { dependencyTree } from "./container/graph-check.js";
 import { providerModulesOf, ragParts, toolBuilder } from "./runtime.js";
-import { mcpOf, resultSizeViolations, toolsOf, type Mcp } from "./assemble-tools.js";
+import {
+  mcpOf,
+  mcpPartsOf,
+  mcpServerClassesOf,
+  resultSizeViolations,
+  toolsOf,
+} from "./assemble-tools.js";
 import { checkedRagClassesOf } from "./rag.js";
 import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
@@ -71,7 +77,6 @@ function configOf(
   bundle: WorkflowMeta,
   agents: readonly AgentMeta[],
   names: ReadonlyMap<Class, string>,
-  mcp: Mcp,
   judges: ReadonlyMap<string, JudgeClass>,
   compactions: AssembledCompactions & CompactionConfigPart,
 ): AgentsConfigOf<string> {
@@ -80,21 +85,12 @@ function configOf(
     version: bundle.version,
     defaults: bundle.defaults,
     ...(compactions.compactions.length === 0 ? {} : { compactions: compactions.settings }),
-    ...(mcp.servers.length === 0
-      ? {}
-      : { mcpServers: Object.fromEntries(mcp.servers.map((s) => [s.name, s.config])) }),
     ...judgeSettingsOf(judges),
     agents: Object.fromEntries(agents.map((agent) => [agent.name, agentSettings(agent, names)])),
   };
   // every model through its cascade: the component's provider, its workflow's, its application's (#1313)
   return cascadedConfigOf(config, bundle, agents);
 }
-
-/** The workflow's MCP servers and the server tools declared on them. */
-const mcpPartsOf = (mcp: Mcp): Pick<AssembledWorkflow, "mcpServers" | "serverTools"> => ({
-  mcpServers: mcp.handles,
-  serverTools: mcp.serverTools,
-});
 
 /** Each tool's dependency tree by tool name (tools without dependencies are left out). */
 const toolDependenciesOf = (
@@ -206,7 +202,6 @@ export async function workflowOf(
   const loader = new PromptLoader(bundle.promptVariables ?? {});
   const routers = await loadRouters(graph, loader, bundle.defaults.router?.model);
   const tools = toolClassesOf(bundle, agents, graph);
-  const mcp = mcpOf(bundle, tools.mcp);
   const rags = await checkedRagClassesOf(bundle, agents);
   const judges = checkedJudgeClassesOf(bundle, agents);
   const policies = await policyPartsOf({ workflow, bundle, owner, agents, graph, loader });
@@ -215,10 +210,11 @@ export async function workflowOf(
   const replyInterpreters = await checkedChannelsOf(workflow, modules, owner, loader);
   const created = createdClassesOf(graph, policies.classes, replyInterpreters, compactions);
   const components = componentClassesOf(bundle, agents, tools, rags, created, modules, owner);
+  const mcp = mcpOf(mcpServerClassesOf(components, modules));
   checkComponents(bundle, { components, modules, mcp, contexts });
   const names = toolNames(tools, rags, resultSizeViolations(bundle, tools));
   const files = { owner, workflow, graph, agents, pii: policies.assembled.pii };
-  const config = withAgentFiles(configOf(bundle, agents, names, mcp, judges, compactions), files);
+  const config = withAgentFiles(configOf(bundle, agents, names, judges, compactions), files);
   validateAgentsConfig(config, [...names.values()]);
   const models = workflowModelPartsOf(
     { owner, bundle, agents, config, routers, graph },
@@ -235,12 +231,12 @@ export async function workflowOf(
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
     routers,
     prompts: await promptsOf(agents, loader),
-    tools: toolBuilder(bundle, agents, tools, mcp.names),
+    tools: toolBuilder(bundle, agents, tools),
     ...(rags.length === 0 ? {} : ragParts(bundle, agents, rags)),
     ...memoryPartsOf(bundle, agents),
     ...judgePartsOf(bundle, judges),
     ...mcpPartsOf(mcp),
-    toolDependencies: toolDependenciesOf(bundle, [...tools.local, ...tools.mcp], names),
+    toolDependencies: toolDependenciesOf(bundle, tools.local, names),
     compactions,
   };
 }

@@ -107,24 +107,6 @@ export interface AgentSettings extends ModelSettings {
     | undefined;
 }
 
-/** An MCP server connection. Secrets are never here: only names of env variables. */
-export type McpServerConfig =
-  | {
-      transport: "stdio";
-      target?: { application: string; expose: string } | undefined;
-      command: string;
-      args?: string[] | undefined;
-      /** Names of env variables passed to the server process. */
-      env?: string[] | undefined;
-    }
-  | {
-      transport: "http";
-      target?: { application: string; expose: string } | undefined;
-      url: string;
-      /** Header name → name of the env variable holding its value. */
-      headers?: Record<string, string> | undefined;
-    };
-
 /** A workflow's config: its name and version, the defaults, the MCP servers and every agent. */
 export interface AgentsConfig {
   /** Agent workflow id: key of the daily spend ledger. */
@@ -147,7 +129,6 @@ export interface AgentsConfig {
     /** Recent turns every agent and model router sees in full. */
     uncompactedTurns: number | TurnLimit.ALL;
   };
-  mcpServers?: Record<string, McpServerConfig> | undefined;
   /** The `@Compaction`s its agents and model routers use, by name. */
   compactions?: Record<string, CompactionSettings> | undefined;
   /** `@Judge` models by judge name. */

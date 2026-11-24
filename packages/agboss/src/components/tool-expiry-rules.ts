@@ -17,9 +17,9 @@ export function toolExpiryViolations(tools: ToolClasses): RuleViolation[] {
 
 /** `[limits.timeout-invalid]` (#1141): a tool's `timeout` above its maximum would fire at once. */
 function toolTimeoutViolations(tools: ToolClasses): RuleViolation[] {
-  return [...tools.local, ...tools.mcp].flatMap((cls) => {
+  return tools.local.flatMap((cls) => {
     const component = componentOf(cls);
-    if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return [];
+    if (component?.kind !== "tool") return [];
     const { name, timeout } = component.meta;
     const problem =
       timeout === undefined ? undefined : timerProblemOf("timeout", timeout, MAX_TIMEOUT);
@@ -30,9 +30,9 @@ function toolTimeoutViolations(tools: ToolClasses): RuleViolation[] {
 }
 
 function toolExpiryOnlyViolations(tools: ToolClasses): RuleViolation[] {
-  return [...tools.local, ...tools.mcp].flatMap((cls) => {
+  return tools.local.flatMap((cls) => {
     const component = componentOf(cls);
-    if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return [];
+    if (component?.kind !== "tool") return [];
     const { name, channel, expiresIn } = component.meta;
     if (expiresIn === undefined) return [];
     const owner = tokenName(cls);
