@@ -1,7 +1,8 @@
 // the report from its own module, not `finops/usage`: `units` reaches this file for `ConfigError.Unit`
-import { CostReport } from "../../finops/cost-report.js";
+import type { CostReport } from "../../finops/cost-report.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { AGBossError, type AGBossErrorOptions, type ErrorDetails } from "../errors.js";
+import { spendReportOf } from "./spend-report.js";
 
 /**
  * Error families (#1325): the errors of one area as one `type` (a union discriminated by `kind`), one
@@ -138,7 +139,7 @@ function familyBaseOf(family: FamilySpec<object>): typeof AGBossError {
     // the spend report of the usage the error carries: made on the first read, from the same usage
     Object.defineProperty(Base.prototype, "spend", {
       get(this: { readonly usage: readonly UsageRecord[] }): CostReport {
-        return CostReport.fromUsage(this.usage);
+        return spendReportOf(this.usage);
       },
     });
   }

@@ -2,6 +2,8 @@ import { defineFamily, type FamilyConstructor, type PaidErrorVariant } from "./f
 import type { BudgetPeriod, BudgetScope, BudgetUnit } from "../../budgets/budget.js";
 import type { ComponentRecord } from "../../flow/runtime/records.js";
 import type { Milliseconds, Usd } from "../../units/index.js";
+// a paid family: its errors read their spend through the report finops/cost-report sets
+import "../../finops/cost-report.js";
 
 /** The kinds of `LimitError`: `switch (error.kind)` is exhaustive. */
 export enum LimitErrorKind {

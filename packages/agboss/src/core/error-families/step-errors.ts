@@ -3,6 +3,8 @@ import type { ModelFileLimit as FileLimit } from "../../files/model-files.js";
 import type { WorkflowRecord } from "../../flow/context/execution-context.js";
 import type { JudgeRejection, StepCoordinates } from "../../graph/errors.js";
 import type { Milliseconds } from "../../units/index.js";
+// a paid family: its errors read their spend through the report finops/cost-report sets
+import "../../finops/cost-report.js";
 
 /** The kinds of `StepError`: `switch (error.kind)` is exhaustive. */
 export enum StepErrorKind {

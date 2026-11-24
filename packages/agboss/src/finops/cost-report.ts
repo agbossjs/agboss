@@ -4,6 +4,7 @@ import { CostCategory, costCategoryOf, NO_COST_BY_CATEGORY } from "./cost-catego
 import { CostSource } from "./cost-source.js";
 import { NO_PROVIDER } from "./no-provider.js";
 import { withoutLedgerMarks } from "./ledger-mark.js";
+import { setSpendReport } from "../core/error-families/spend-report.js";
 import type { CostLine, TokenUsage, UsageRecord } from "./usage.js";
 
 /**
@@ -149,3 +150,6 @@ export const budgetLeftAfter = (left: Usd | undefined, spent: Usd): Usd | undefi
 
 /** Whether `left` is used up: an amount at 0 (`undefined` is never used up). */
 export const isBudgetLeftUsed = (left: Usd | undefined): boolean => left !== undefined && left <= 0;
+
+// a paid error's `spend` (the family machinery imports no finops at run time)
+setSpendReport((usage) => CostReport.fromUsage(usage));
