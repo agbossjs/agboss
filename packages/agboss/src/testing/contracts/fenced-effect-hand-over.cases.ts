@@ -130,7 +130,7 @@ export const expiryDuringWrite = <TTransaction>(): Case<TTransaction> => ({
   name: "#959: the lease running out and taken while its holder's write runs: the take waits for the write, or the write is refused — never the take of the expired lease during the work and the write landing after it",
   isFencing: true,
   // real time, the store's own clock: the lease runs out while the write is open
-  databaseTime: { secondSkew: ClockSkew.none },
+  databaseTime: { secondSkew: ClockSkew.None },
   run: async (stores) => {
     for (let round = 0; round < ATTEMPTS; round += 1)
       if (await attempt(stores, HandOver.Expiry, `execution-${String(round)}`)) return;

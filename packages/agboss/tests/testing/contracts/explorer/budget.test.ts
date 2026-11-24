@@ -41,7 +41,7 @@ function counted(calls = inMemoryTarget(inMemoryOutboundCalls)): {
   };
 }
 
-const world = worldOf(ExplorerWorldKind.Lease, 2, ClockSkew.none);
+const world = worldOf(ExplorerWorldKind.Lease, 2, ClockSkew.None);
 
 describe("#590: a search stops when its case is aborted or out of time, and says so", () => {
   it("aborted before it starts: no schedule, no reset — and the reason and what is left", async () => {
@@ -132,7 +132,7 @@ function abortingAt(at: number): {
   };
 }
 
-const lease3 = worldOf(ExplorerWorldKind.Lease, 3, ClockSkew.none);
+const lease3 = worldOf(ExplorerWorldKind.Lease, 3, ClockSkew.None);
 const WALKS = { runs: 20, depth: 20, seed: 533 };
 
 describe("#618: a search aborted while it shrinks the violation it found", () => {

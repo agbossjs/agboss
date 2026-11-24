@@ -101,7 +101,7 @@ const instanceContextOf = (
     : {
         clock: new SkewedClock(
           systemClock,
-          instanceId === FIRST_INSTANCE ? ClockSkew.none : time.secondSkew,
+          instanceId === FIRST_INSTANCE ? ClockSkew.None : time.secondSkew,
         ),
         storeClock: DATABASE_TIME,
       }),

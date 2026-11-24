@@ -22,7 +22,7 @@ import {
 
 /** How far the second instance's clock is off, in each run of a world. */
 export const EXPLORED_SKEWS: readonly ClockSkew[] = [
-  ClockSkew.none,
+  ClockSkew.None,
   ClockSkew.ahead(seconds(15)),
   ClockSkew.behind(seconds(15)),
   ClockSkew.ahead(EXPLORED_LEASE),
@@ -33,7 +33,7 @@ export const EXPLORED_SKEWS: readonly ClockSkew[] = [
 
 /** The skews of the worlds beyond the lease's own: on time, a lease ahead, a lease behind. */
 export const CALL_SKEWS: readonly ClockSkew[] = [
-  ClockSkew.none,
+  ClockSkew.None,
   ClockSkew.ahead(EXPLORED_LEASE),
   ClockSkew.behind(EXPLORED_LEASE),
 ];
@@ -57,7 +57,7 @@ export function worldOf(
     kind,
     instances,
     treeOf: (instance) => (isBusinessKey && instance % 2 === 0 ? "tree-2" : "tree-1"),
-    skewOf: (instance) => (instance === 1 ? ClockSkew.none : instance === 2 ? skew : opposite),
+    skewOf: (instance) => (instance === 1 ? ClockSkew.None : instance === 2 ? skew : opposite),
   };
 }
 

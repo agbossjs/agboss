@@ -192,7 +192,7 @@ export class ClockSkew {
     static behind(by: Milliseconds): ClockSkew;
     readonly drift: number;
     static drifting(rate: number): ClockSkew;
-    static readonly none: ClockSkew;
+    static readonly None: ClockSkew;
     readonly offset: number;
 }
 
@@ -398,7 +398,7 @@ export interface FakeGatewayPayment {
     readonly firstReceipt: FakeGatewayReceipt;
     // (undocumented)
     readonly idempotencyKey: string;
-    readonly madeAt: number;
+    readonly madeAt: Date;
     // (undocumented)
     readonly paymentId: string;
 }

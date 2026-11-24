@@ -287,7 +287,6 @@ export enum StoreHoldPoint {
     PauseCloseUntaken = "pause.closeUntaken",
     PausedRunDelete = "pausedRun.delete",
     PauseExpire = "pause.expire",
-    PauseExtend = "pause.extend",
     PauseFind = "pause.find",
     PauseMarkSent = "pause.markSent",
     PauseMarkTaken = "pause.markTaken",
@@ -297,6 +296,7 @@ export enum StoreHoldPoint {
     PauseReassign = "pause.reassign",
     PauseRemind = "pause.remind",
     PauseResolve = "pause.resolve",
+    PauseSetTimeout = "pause.setTimeout",
     TreeSaveIfAbsent = "executionTree.saveIfAbsent"
 }
 
