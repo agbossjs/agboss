@@ -135,7 +135,7 @@ export async function checkpointStateOf(deps: AppDeps, state: TreeState): Promis
 const originOf = (trusted: TrustedMesh | undefined) =>
   trusted === undefined ? {} : { origin: trusted.origin };
 
-/** What the flow kept, as `{ record: true }` gives it, and where a trusted mesh request came from. */
+/** What the flow kept, as `{ includeRecord: true }` gives it, and where a trusted mesh request came from. */
 const recordPartOf = (values: RecordedState, end: HistoryEnd) => ({
   path: values.path,
   scope: Object.values(values.scope),

@@ -53,7 +53,9 @@ describe("AC7: FailFast", () => {
   );
 
   items("onError by cause chain: the domain error inside ActionFailedError", async ({ app }) => {
-    const result = await execute(app, ItemsWorkflowStart, [ok("a"), bad("b")], { record: true });
+    const result = await execute(app, ItemsWorkflowStart, [ok("a"), bad("b")], {
+      includeRecord: true,
+    });
 
     expect(result).toFinishWith(ItemsFailedWorkflowFinish);
     expect(result.record?.lastError).toMatchObject({

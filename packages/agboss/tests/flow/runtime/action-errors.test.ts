@@ -47,7 +47,12 @@ describe("S22: ActionFailedError", () => {
   pay(
     "the record names the step, so .onError matches either the wrapper or the cause",
     async ({ app }) => {
-      const result = await execute(app, PayStart, { id: "8", outcome: "fail" }, { record: true });
+      const result = await execute(
+        app,
+        PayStart,
+        { id: "8", outcome: "fail" },
+        { includeRecord: true },
+      );
 
       expect(result.record?.lastError).toMatchObject({
         code: "step.action",

@@ -3,13 +3,13 @@
 Read this when you read what an execution did (`result`, `result.record`), write an observer (metrics,
 audit, your own tracer), replace the framework's log, or send traces to Langfuse or another backend.
 
-| You want                                          | Use                                                                                           |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| what one execution did, in code or a test         | the `ExecutionOutput` of `app.execute` / `app.resume`; `{ record: true }` for the full record |
-| metrics, audit, alerts, your own tracer           | an observer class in `@Application({ observers })`                                            |
-| a trace of every step, model call and tool call   | `createApp(App, { tracerProvider })`: an OpenTelemetry provider or `LangfuseTracer`           |
-| the framework's own problems (recovery, failures) | its log through the application's `Logger`                                                    |
-| the declarative spec the records join on          | `npx agboss describe --json` (`configHash`, each node's `promptHash` / `schemaHash`)          |
+| You want                                          | Use                                                                                                  |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| what one execution did, in code or a test         | the `ExecutionOutput` of `app.execute` / `app.resume`; `{ includeRecord: true }` for the full record |
+| metrics, audit, alerts, your own tracer           | an observer class in `@Application({ observers })`                                                   |
+| a trace of every step, model call and tool call   | `createApp(App, { tracerProvider })`: an OpenTelemetry provider or `LangfuseTracer`                  |
+| the framework's own problems (recovery, failures) | its log through the application's `Logger`                                                           |
+| the declarative spec the records join on          | `npx agboss describe --json` (`configHash`, each node's `promptHash` / `schemaHash`)                 |
 
 ## What an execution returns
 
@@ -29,7 +29,7 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 | `compensations`                       | every undo that ran — `CompensationRecord` (reference 02, section 8)                                                                |
 | `compacted`                           | what each compaction did before the execution                                                                                       |
 | `traceUrl`                            | the tracing adapter's link, on every status, when its `traceUrl` builds one (`LangfuseTracer` with a `projectId`)                   |
-| `record`                              | with `{ record: true }`: the `ExecutionRecord` below                                                                                |
+| `record`                              | with `{ includeRecord: true }`: the `ExecutionRecord` below                                                                         |
 
 `ExecutionRecord` — `path`, `scope` (every current value of the path scope: `ScopeValueRecord` with
 `valueId`, `slot`, `producer`, `builtFrom`, the value), `outdatedValues`
@@ -415,7 +415,7 @@ const test = testWith(DeskApplication);
 test("the record shows the path, the scope and the spend", async ({ app, mockLlm }) => {
   mockLlm(DeskAgent).thenReturn(replyWith(DeskAnswerDto, { text: "We are on it." }));
 
-  const result = await app.execute(DeskWorkflowStart, { text: "my order is late" }, { record: true });
+  const result = await app.execute(DeskWorkflowStart, { text: "my order is late" }, { includeRecord: true });
 
   expect(result.status).toBe(ExecutionStatus.Finished);
   expect(result).toFollowPath([DeskWorkflowStart, DeskAgent, OpenTicketAction, DeskWorkflowFinish]);

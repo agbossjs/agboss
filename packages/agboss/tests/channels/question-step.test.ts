@@ -75,7 +75,7 @@ describe("#659 AC2: a question pauses like any pause", () => {
         app,
         PurchaseWorkflowStart,
         { text: "mouse for 40" },
-        { ...asking, record: true },
+        { ...asking, includeRecord: true },
       );
 
       expect(done).toFinishWith(PurchaseWorkflowFinish, {
@@ -141,7 +141,7 @@ describe("#659 AC3: the typed answer reaches later nodes", () => {
 
     const done = await app.resume(answerOf(paused, { approved: true, limitUsd: 950 }), {
       ...owner,
-      record: true,
+      includeRecord: true,
     });
 
     expect(done.record?.pauses).toEqual([

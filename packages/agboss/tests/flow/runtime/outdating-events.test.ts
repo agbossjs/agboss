@@ -48,7 +48,7 @@ describe("#271 AC10: onValuesOutdated", () => {
     );
     mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "secret article" }));
 
-    const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { record: true });
+    const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
     expect(outdatingEvents.map((event) => event.trigger.valueId)).toEqual([
       "loop-writer-agent:2/DraftDto",
@@ -119,7 +119,7 @@ describe("#271 AC10: onValuesOutdated", () => {
     mockLlm(LoopReviewerAgent).thenReturn(replyWith(ApprovalDto, { reason: "ok" }));
     mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "a" }));
 
-    const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { record: true });
+    const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
     expect(outdatingEvents).toEqual([]);
     expect(result.record?.outdatedValues).toEqual([]);

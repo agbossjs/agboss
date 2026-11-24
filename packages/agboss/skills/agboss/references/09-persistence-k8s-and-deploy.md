@@ -445,7 +445,7 @@ or `secret`, `optional` / `has a default`) — the list for the manifest.
   `UnknownPauseError` after. `Pending` is never
   removed.
 
-## Execution history: `retention.executionRecords` and `agboss records export`
+## Execution history: `retention.executionRecords` and `agboss executions export`
 
 Nothing of an execution is kept beyond its thread's turns unless the application says how long:
 `@Application({ retention: { executionRecords: hours(24 * 30) } })`. Then every **root** execution's
@@ -468,8 +468,8 @@ it. Export it without running anything — the application's stores opened, no w
 sweep:
 
 ```
-npx agboss records export --env prod --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
-npx agboss records export --env prod --all-tenants --out hub/records/all.jsonl
+npx agboss executions export --env prod --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
+npx agboss executions export --env prod --all-tenants --out hub/records/all.jsonl
 ```
 
 One masked record per line, oldest start first, each `{ "kind": "agboss.execution-record",
@@ -486,7 +486,7 @@ network. Each service's CI saves what it has; a platform repo reads the folder:
 ```
 npx agboss describe --json > hub/desk-application/describe.json
 npx agboss eval run --suite refunds-eval-suite --runs 5 --env eval --report hub/desk-application/refunds.run.json
-npx agboss records export --env prod --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
+npx agboss executions export --env prod --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
 npx agboss hub show hub/ --html .artifacts/mesh.html
 ```
 

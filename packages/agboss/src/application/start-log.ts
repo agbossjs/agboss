@@ -73,7 +73,7 @@ function inMemoryPauses(records: boolean, checkpoints: boolean): AssemblyWarning
 const IN_MEMORY_EXECUTION_HISTORY: AssemblyWarning = {
   code: "application.in-memory-execution-history",
   message:
-    "in-memory execution history: retention.executionRecords keeps each instance's executions in its own memory — another instance and agboss records export do not see them, and they are lost on restart",
+    "in-memory execution history: retention.executionRecords keeps each instance's executions in its own memory — another instance and agboss executions export do not see them, and they are lost on restart",
 };
 
 const IN_MEMORY_CHILD_QUEUE: AssemblyWarning = {

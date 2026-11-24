@@ -1,7 +1,7 @@
 /**
  * The files `agboss hub` reads in its tests (#401 PR 3), written as the commands that make them
  * write them: two applications' `describe --json` envelopes (the shop that calls the billing desk
- * over A2A, #398), their kept executions exported as `agboss records export` does — the call seen
+ * over A2A, #398), their kept executions exported as `agboss executions export` does — the call seen
  * from both sides, a budget failure — and an eval run artifact of the shop.
  */
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";

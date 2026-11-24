@@ -1,5 +1,5 @@
 /**
- * #401 PR 1 — what `agboss records export` is built on: the application's history opened without
+ * #401 PR 1 — what `agboss executions export` is built on: the application's history opened without
  * running anything (`openExecutionHistory`), its records read page by page (`historyRecordsOf`)
  * and written one marked line each (`exportedRecordLine`).
  */

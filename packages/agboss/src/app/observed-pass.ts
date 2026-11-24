@@ -35,7 +35,9 @@ export function observedPass(
         pass(moving, signal),
       );
       await paused.settle(run);
-      const result = runResultOf(run, call.record === true, (name) => nodeRecordIn(deps, name));
+      const result = runResultOf(run, call.includeRecord === true, (name) =>
+        nodeRecordIn(deps, name),
+      );
       return await maskedRecordOf(result, deps);
     } catch (error) {
       if (!(error instanceof ExecutionCancelledError)) throw error;

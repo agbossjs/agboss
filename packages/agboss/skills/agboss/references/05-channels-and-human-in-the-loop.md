@@ -301,7 +301,7 @@ declare const pauseId: string;
 // the Slack webhook: the button's reply key is the pauseId the channel was sent
 const result = await app.resume(
   { pauseId, decision: { approved: true } }, // a ToolCallApprovalDecisionDto, validated first
-  { tenantId: "acme", answeredBy: "manager-17", record: true }, // Channel role → answeredBy (who answered)
+  { tenantId: "acme", answeredBy: "manager-17", includeRecord: true }, // Channel role → answeredBy (who answered)
 );
 console.log(result.status, result.pending.length, result.record?.pauses); // who answered what
 
@@ -495,7 +495,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   click: `answered`; over A2A `-32004` with `code: a2a.pause-closed`); `NotPausedError` stays for the thread-level paths
   only (a thread with no paused run); an unknown id or another tenant's → `UnknownPauseError`. Resolved records are kept
   `@Application({ retention: { pauseRecords: hours(24) } })`, then removed by the recovery sweep.
-- **`PauseAnswerRecord`** (`result.record.pauses`, with `{ record: true }`) — the permanent history:
+- **`PauseAnswerRecord`** (`result.record.pauses`, with `{ includeRecord: true }`) — the permanent history:
   `pauseId`, `executionId`, `step`, `role`, `answerer`, `answeredBy` (`responder`, deprecated), `resolution`
   (`PauseResolution.Decided` | `Replied` | `Withdrawn` | `Cancelled`), `askedAt`, `resolvedAt`, the
   masked `decision`. A child's own are in its `ChildExecutionRecord.pauses`.
@@ -703,7 +703,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | `[channel.shared-interpreter]`                           | one `@ReplyInterpreter` on two roles → one each                                                                                                                           |
 | `[reply-interpreter.no-interpret-method]`                | a code interpreter without `interpret` → add it                                                                                                                           |
 | `[application.in-memory-pauses]`                         | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones                                                                        |
-| `PauseError.PermissionDenied`                                     | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                                                                                |
+| `PauseError.PermissionDenied`                            | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                                                                                |
 | `IncompatibleResumeError`                                | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
 
 ## Pitfalls

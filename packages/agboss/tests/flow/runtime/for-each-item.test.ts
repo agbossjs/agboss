@@ -79,7 +79,7 @@ describe("#1280: .forEachItem(step, { maxItems })", () => {
     "a longer list launches no branch: LimitError.Items takes the join's handler, the producer's list is on the path",
     async ({ app }) => {
       const result = await execute(app, ItemsWorkflowStart, [ok("a"), ok("b"), ok("c"), ok("d")], {
-        record: true,
+        includeRecord: true,
       });
 
       expect(result).toFinishWith(ItemsFailedWorkflowFinish, { text: "failed on one of 4" });

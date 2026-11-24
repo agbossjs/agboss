@@ -164,7 +164,7 @@ the run step by step.
 | `runOnce({ ttl })` / `sendOnce({ ttl })` | per call, required; longer than any retry of the step | [Guarantees](Guarantees) A12 |
 | `sendOnce({ timeout })` | per call, required; above the other system's own timeout | [Guarantees](Guarantees) A6 |
 | `retention.auditLog` | 24 h (the default) | the audit log an operator and a verification read |
-| `retention.executionRecords` | set, when anyone reads the history | `agboss records export` |
+| `retention.executionRecords` | set, when anyone reads the history | `agboss executions export` |
 | Scale-in | stabilization 300 s, one pod per minute | a lull does not kill pods about to get work |
 
 ## Kubernetes-like platforms

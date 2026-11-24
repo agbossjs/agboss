@@ -517,8 +517,9 @@ describe("#1366: what the observer hears of a model call", () => {
 
     expect(onModelStart).toHaveBeenCalledWith({
       base: true,
-      modelName: "m",
-      callerName: "alpha",
+      model: "m",
+      provider: "(none)",
+      caller: "alpha",
       rawPayload: [new HumanMessage("hi")],
     });
   });
@@ -543,9 +544,10 @@ describe("#1366: what the observer hears of a model call", () => {
     expect(onModelEnd).toHaveBeenCalledWith({
       base: true,
       model: "m",
-      callerName: "alpha",
+      provider: "(none)",
+      caller: "alpha",
       rawContent: "answer",
-      usage: { promptTokens: 10, completionTokens: 4, totalTokens: 14 },
+      usage: { inputTokens: 10, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0 },
       costUsd: usd(0.25),
     });
   });

@@ -38,7 +38,7 @@ vi.mock("../../src/graph/agent-loop/tool-interception.js", () => ({
 }));
 vi.mock("../../src/graph/agent-loop/call-records.js", () => ({
   callStepOf: vi.fn(() => ({ step: true })),
-  endedCallRecordOf: vi.fn(() => ({ record: true })),
+  endedCallRecordOf: vi.fn(() => ({ includeRecord: true })),
 }));
 vi.mock("../../src/graph/agent-loop/tool-stops.js", async (original) => ({
   ...(await original<typeof import("../../src/graph/agent-loop/tool-stops.js")>()),
@@ -619,7 +619,7 @@ describe("#1366: what an ended task stores", () => {
       piiMasked: { m: "x" },
       guardrailDecisions: [{ decision: true }],
       results: { c1: "stored" },
-      callRecords: { c1: { record: true } },
+      callRecords: { c1: { includeRecord: true } },
     });
   });
 

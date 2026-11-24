@@ -946,8 +946,8 @@ type CacheSetting = boolean | {
 // @public
 export interface CallOptions {
     readonly configurable?: Readonly<Record<string, unknown>>;
+    readonly includeRecord?: boolean;
     readonly onStream?: (event: ExecutionStreamEvent) => void;
-    readonly record?: boolean;
     readonly signal?: AbortSignal | undefined;
 }
 
@@ -2030,7 +2030,6 @@ export interface ConfigSpec {
     readonly healthChecks?: ApplicationOptions["healthChecks"];
     readonly modelProvider?: Class;
     readonly modelProviders?: Readonly<Record<string, ModelProviderOverlay>>;
-    readonly observers?: ApplicationOptions["observers"];
     readonly storage?: ApplicationOptions["storage"];
     readonly workflows?: Readonly<Record<string, WorkflowConfig>>;
 }
@@ -4504,11 +4503,11 @@ export const HealthCheckResult: {
 // @public
 export enum HealthComponentKind {
     Application = "application",
+    HealthCheck = "health-check",
     ModelProvider = "model-provider",
     PauseTimers = "pause-timers",
-    Project = "project",
     RecoveryLoop = "recovery-loop",
-    Store = "store"
+    Storage = "storage"
 }
 
 // @public
@@ -6108,16 +6107,14 @@ export interface ModelDefaults {
 // @public
 export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
-    readonly callerName: string;
-    // (undocumented)
-    readonly costUsd?: Usd;
+    readonly caller: string;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
     readonly provider: string;
     // (undocumented)
     readonly rawContent: MessageContent;
-    // (undocumented)
-    readonly usage: ModelUsage;
+    readonly usage: TokenUsage;
 }
 
 // @public
@@ -6312,22 +6309,12 @@ interface ModelSettings {
 // @public
 export interface ModelStartEvent extends NodeEvent {
     // (undocumented)
-    readonly callerName: string;
+    readonly caller: string;
     // (undocumented)
-    readonly modelName: string;
+    readonly model: string;
     readonly provider: string;
     // (undocumented)
     readonly rawPayload: readonly BaseMessage[];
-}
-
-// @public
-export interface ModelUsage {
-    // (undocumented)
-    readonly completionTokens: number;
-    // (undocumented)
-    readonly promptTokens: number;
-    // (undocumented)
-    readonly totalTokens: number;
 }
 
 // @public
@@ -11783,17 +11770,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "isBlocked".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "probability".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "modelName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "callerName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "rawPayload".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "promptTokens".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "completionTokens".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "totalTokens".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "model".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "caller".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "rawPayload".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "model".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "caller".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "rawContent".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "judge".

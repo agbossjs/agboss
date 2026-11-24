@@ -11,7 +11,7 @@ import type { ExecutionStepRecord } from "./step-records.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 
 /**
- * The full record of one execution (#270 AC16), returned only with `app.execute(…, { record: true })`:
+ * The full record of one execution (#270 AC16), returned only with `app.execute(…, { includeRecord: true })`:
  * the path, every value of the path scope (with who gave it and what it was built from), the values
  * moved out of it (#271), the last handled error, the spend, its child executions, each nested
  * the same way (#263) with the pauses it asked (#267 S124 c), and who answered each pause of its

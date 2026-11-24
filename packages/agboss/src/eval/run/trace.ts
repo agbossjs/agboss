@@ -11,7 +11,7 @@ import type { ChildExecutionStatus } from "../../flow/runtime/child-records.js";
 
 /**
  * What a run artifact keeps of the case's last execution (#397 PR 2, schemaVersion 2): its
- * trajectory, step by step — taken from its execution record (`{ record: true }`), so every value
+ * trajectory, step by step — taken from its execution record (`{ includeRecord: true }`), so every value
  * is masked by the application's and the workflow's PII policies as the record is. Plain JSON,
  * smaller than the record: a step's spend is its model calls, a tool call names its tool.
  */

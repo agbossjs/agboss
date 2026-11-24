@@ -135,7 +135,7 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
         app,
         RefundPanelWorkflowStart,
         { orderId: "7" },
-        { record: true },
+        { includeRecord: true },
       );
 
       expect(result).toFinishWith(RefundDecidedWorkflowFinish);

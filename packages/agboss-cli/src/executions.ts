@@ -19,7 +19,7 @@ import { envOption } from "./cli/environment.js";
 import { tenantOptionOf, CliError, usageError } from "./cli/errors.js";
 
 /**
- * `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>]
+ * `agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>]
  * [--until <date>] [--env <name>]` (#401 PR 1): the application's kept root executions — its
  * `ExecutionHistoryRepository`, opened without running anything — as JSON Lines, one masked record
  * per line (`kind: "agboss.execution-record"`), oldest start first. A tenant is always named, or all
@@ -27,7 +27,7 @@ import { tenantOptionOf, CliError, usageError } from "./cli/errors.js";
  * `records.not-kept`.
  */
 
-const COMMAND = "records export";
+const COMMAND = "executions export";
 
 /** The far ends of a period nobody gave. */
 const EARLIEST = new Date("1970-01-01T00:00:00.000Z");
@@ -89,7 +89,11 @@ async function writeRecords(
 
 export const handle: CommandHandler = async (context) => {
   if (context.positionals[0] !== "export" || context.positionals.length > 1)
-    throw usageError("records", "usage.missing-argument", 'expected "agboss records export …"');
+    throw usageError(
+      "executions",
+      "usage.missing-argument",
+      'expected "agboss executions export …"',
+    );
   const query = queryOf(context);
   const out = requiredText(context.values, "out");
   const { application } = await loadCliApplication(context);

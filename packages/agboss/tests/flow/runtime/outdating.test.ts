@@ -72,7 +72,7 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
       );
       mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "v2, published" }));
 
-      const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { record: true });
+      const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
       const builtFrom = Object.fromEntries(
         (result.record?.scope ?? []).map((value) => [value.valueId, value.builtFrom]),
@@ -107,7 +107,7 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
       );
       mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "v2, published" }));
 
-      const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { record: true });
+      const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
       expect(result.record?.outdatedValues).toEqual([
         expect.objectContaining({
@@ -150,7 +150,7 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
       );
       mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "published" }));
 
-      const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { record: true });
+      const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
       const reviews = mockLlm(LoopReviewerAgent).requests;
       expect(
@@ -203,7 +203,7 @@ describe("#271 AC1/AC3: the review loop at run time", () => {
         app,
         LoopWorkflowStart,
         { topic: "two" },
-        { threadId: first.threadId, record: true },
+        { threadId: first.threadId, includeRecord: true },
       );
 
       expect(second.threadId).toBe(first.threadId);
@@ -244,7 +244,7 @@ describe("#271 AC1/AC3: outdating without a cycle — the jobs for an old profil
       );
       mockLlm(JobsRouter).thenReturn(routeTo(ProfileAgent), routeTo(JobsWorkflowFinish));
 
-      const result = await execute(app, JobsWorkflowStart, { text: "me" }, { record: true });
+      const result = await execute(app, JobsWorkflowStart, { text: "me" }, { includeRecord: true });
 
       const root = "profile-agent:2/CandidateProfileDto";
       expect(result.record?.outdatedValues.map((value) => [value.valueId, value.outdated])).toEqual(
@@ -287,7 +287,7 @@ describe("#271 AC1/AC3: outdating without a cycle — the jobs for an old profil
       mockLlm(PickAgent).thenReturn(replyWith(JobPickDto, { job: "p" }));
       mockLlm(JobsRouter).thenReturn(routeTo(JobsWorkflowFinish));
 
-      const result = await execute(app, JobsWorkflowStart, { text: "me" }, { record: true });
+      const result = await execute(app, JobsWorkflowStart, { text: "me" }, { includeRecord: true });
 
       const advice = result.record?.scope.find((value) => value.slot === "AdviceDto");
       expect(advice?.builtFrom).toEqual([
@@ -310,7 +310,7 @@ describe("#271 S40 (c): the record shows the live sources only", () => {
       );
       mockLlm(GateRouter).thenReturn(routeTo(EditorAgent), routeTo(DoneFinish));
 
-      const result = await execute(app, EditStart, { text: "write" }, { record: true });
+      const result = await execute(app, EditStart, { text: "write" }, { includeRecord: true });
 
       const draft = result.record?.scope.find((value) => value.slot === "DraftDto");
       expect(draft?.valueId).toBe("editor-agent:2/DraftDto");

@@ -66,7 +66,7 @@ function storesOf(sources: HealthSources): readonly [object, () => Promise<void>
 const storeProbes = (sources: HealthSources): Promise<HealthComponentReport>[] =>
   storesOf(sources).map(([store, ping]) =>
     probe(
-      { name: store.constructor.name, kind: HealthComponentKind.Store, timeout: STORE_TIMEOUT },
+      { name: store.constructor.name, kind: HealthComponentKind.Storage, timeout: STORE_TIMEOUT },
       sources.infrastructure.clock,
       async () => {
         await ping();
@@ -109,7 +109,7 @@ const projectProbe = (
   { meta, handler }: ProjectHealthCheck,
 ): Promise<HealthComponentReport> =>
   probe(
-    { name: meta.name, kind: HealthComponentKind.Project, timeout: meta.timeout },
+    { name: meta.name, kind: HealthComponentKind.HealthCheck, timeout: meta.timeout },
     sources.infrastructure.clock,
     async (signal) => {
       const result = await handler.check({ signal });

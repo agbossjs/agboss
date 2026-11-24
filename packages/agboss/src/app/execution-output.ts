@@ -54,7 +54,7 @@ export interface ExecutionOutputBase {
   readonly compacted?: readonly Compacted[];
   /** The conversation in the tracing UI (session = thread), when tracing is on. */
   readonly traceUrl?: string;
-  /** The full execution record, with `app.execute(…, { record: true })`. */
+  /** The full execution record, with `app.execute(…, { includeRecord: true })`. */
   readonly record?: ExecutionRecord;
 }
 
@@ -107,7 +107,7 @@ export interface CancelledExecutionOutput extends ExecutionOutputBase {
  * What one execution (or resume) of the app ended with, a union on `status`: `output` and `finish`
  * when it reached a workflow finish, `pending` when it waits for answers, `reason` when it was
  * stopped or cancelled; `path` = the node ids it visited, `spend` = its cost; `record` only with
- * `{ record: true }`.
+ * `{ includeRecord: true }`.
  */
 export type ExecutionOutput<TOutput = unknown> =
   | FinishedExecutionOutput<TOutput>

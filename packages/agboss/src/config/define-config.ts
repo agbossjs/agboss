@@ -15,7 +15,6 @@ export const TYPESCRIPT_ONLY_KEYS = [
   "storage",
   "modelProvider",
   "channels",
-  "observers",
   "healthChecks",
 ] as const;
 
@@ -73,7 +72,7 @@ function checkProviders(spec: Readonly<Record<string, unknown>>): void {
 
 /** The lists of classes that stand in for the application's own. */
 function checkClassLists(spec: Readonly<Record<string, unknown>>): void {
-  for (const key of ["channels", "observers", "healthChecks"]) {
+  for (const key of ["channels", "healthChecks"]) {
     if (spec[key] !== undefined && !isClassList(spec[key]))
       throw invalid(`defineConfig: ${key} takes a list of classes`);
   }

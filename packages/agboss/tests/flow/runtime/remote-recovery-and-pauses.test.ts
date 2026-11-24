@@ -150,7 +150,7 @@ describe("#333 PR 4 AC3: remote children that pause, resume across instances, an
     // resume on the SECOND instance: only "b" continues on its own thread, with the same child id
     const done = await instance(apps, 1).resume(answerOf(paused), {
       tenantId: "acme",
-      record: true,
+      includeRecord: true,
     });
 
     expect(done).toFinishWith(ReviewsSummaryWorkflowFinish, { text: "a, b" });

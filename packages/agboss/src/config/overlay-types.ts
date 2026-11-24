@@ -62,8 +62,6 @@ export interface ConfigSpec {
   readonly modelProvider?: Class;
   /** Replaces `@Application({ channels })`. */
   readonly channels?: ApplicationOptions["channels"];
-  /** Replaces `@Application({ observers })`. */
-  readonly observers?: ApplicationOptions["observers"];
   /** Replaces `@Application({ healthChecks })`. */
   readonly healthChecks?: ApplicationOptions["healthChecks"];
 }

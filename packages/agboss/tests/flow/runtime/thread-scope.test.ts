@@ -43,12 +43,17 @@ describe("#336 AC1: a second execution on one thread", () => {
     );
 
     // the first execution goes round the review loop: it leaves outdated values and visit 2s
-    const first = await execute(app, LoopWorkflowStart, { topic: "alpha" }, { record: true });
+    const first = await execute(
+      app,
+      LoopWorkflowStart,
+      { topic: "alpha" },
+      { includeRecord: true },
+    );
     const second = await execute(
       app,
       LoopWorkflowStart,
       { topic: "beta" },
-      { threadId: first.threadId, record: true },
+      { threadId: first.threadId, includeRecord: true },
     );
 
     expect(first.record?.outdatedValues).not.toEqual([]);

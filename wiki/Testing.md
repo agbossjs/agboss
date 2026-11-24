@@ -710,7 +710,7 @@ expect(succeeded.map((call) => call.input.orderId)).toContain("7");
 expect(result.toolCalls.every((call) => call.status !== ToolCallStatus.TimedOut)).toBe(true);
 ```
 
-`result.record.steps` (`{ record: true }`) has each visit's judge verdicts, guardrail decisions,
+`result.record.steps` (`{ includeRecord: true }`) has each visit's judge verdicts, guardrail decisions,
 spend and `inputHash`.
 
 ### Asserting an undo
@@ -769,7 +769,7 @@ await expect(app.execute(ChatWorkflowStart, { text: "hi" })).rejects.toFailWith(
 
 ### Asserting outdating
 
-`app.execute(…, { record: true })` returns `result.record` with both channels of the path scope
+`app.execute(…, { includeRecord: true })` returns `result.record` with both channels of the path scope
 ([Path scope → At run time](Path-scope#at-run-time)): `scope` (current values) and
 `outdatedValues` (each with `outdated: { byValueId, reason }`). Ids are deterministic
 (`${nodeId}:${visitNumber}/${slot}`), so a test names them:

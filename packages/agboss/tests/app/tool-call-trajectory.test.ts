@@ -96,7 +96,12 @@ describe("result.toolCalls", () => {
       replyWith("Shipped."),
     );
 
-    const result = await execute(app, ClerkStart, { text: "where is it?" }, { record: true });
+    const result = await execute(
+      app,
+      ClerkStart,
+      { text: "where is it?" },
+      { includeRecord: true },
+    );
 
     expect(result.toolCalls[0]?.input).toEqual({ orderId: "alice@example.com" });
     expect(result.record?.toolCalls[0]?.input).toEqual({ orderId: "<email>" });
@@ -118,7 +123,7 @@ describe("JudgeInput.toolCalls", () => {
       replyWith("Order 7 has shipped."),
     );
 
-    const result = await execute(app, ClerkStart, { text: "where is 7?" }, { record: true });
+    const result = await execute(app, ClerkStart, { text: "where is 7?" }, { includeRecord: true });
 
     expect(log.seen.mock.calls.map(([calls]) => calls.length)).toEqual([0, 1]);
     const agentStep = result.record?.steps.find((step) => step.step.nodeId === "clerk-agent");
@@ -151,7 +156,7 @@ describe("record.steps", () => {
       replyWith("Order 7 has shipped."),
     );
 
-    const result = await execute(app, ClerkStart, { text: "where is 7?" }, { record: true });
+    const result = await execute(app, ClerkStart, { text: "where is 7?" }, { includeRecord: true });
 
     const steps = result.record?.steps ?? [];
     expect(steps.map((step) => step.step.nodeId)).toEqual([
@@ -180,7 +185,7 @@ describe("record.steps", () => {
     const lookUpAndAnswer = [callTool(LookupOrderTool, { orderId: "7" }), replyWith("Shipped.")];
     mockLlm(ClerkAgent).thenReturn(...lookUpAndAnswer, ...lookUpAndAnswer, ...lookUpAndAnswer);
     const agentHashOf = async (text: string): Promise<string | undefined> => {
-      const result = await execute(app, ClerkStart, { text }, { record: true });
+      const result = await execute(app, ClerkStart, { text }, { includeRecord: true });
       return result.record?.steps.find((step) => step.step.nodeId === "clerk-agent")?.inputHash;
     };
 
@@ -247,7 +252,12 @@ describe("a failed visit keeps its calls and verdicts (#395 S6)", () => {
       replyWith("It has shipped."),
     );
 
-    const result = await execute(app, StrictClerkStart, { text: "where is it?" }, { record: true });
+    const result = await execute(
+      app,
+      StrictClerkStart,
+      { text: "where is it?" },
+      { includeRecord: true },
+    );
 
     expect(result.finish?.name).toBe("hand-over-workflow-finish");
     expect(result.toolCalls.map((call) => call.status)).toEqual([ToolCallStatus.Failed]);

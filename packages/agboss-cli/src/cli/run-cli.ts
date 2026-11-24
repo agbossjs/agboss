@@ -15,7 +15,7 @@ const HANDLERS: Readonly<Record<string, () => Promise<CommandHandler>>> = {
   check: async () => (await import("../check.js")).handle,
   explain: async () => (await import("../explain.js")).handle,
   rag: async () => (await import("../rag-index.js")).handle,
-  records: async () => (await import("../records.js")).handle,
+  executions: async () => (await import("../executions.js")).handle,
   hub: async () => (await import("../hub/hub-cli.js")).handle,
   dev: async () => (await import("../dev.js")).handle,
   studio: async () => (await import("../studio.js")).handle,

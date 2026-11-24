@@ -538,7 +538,7 @@ under a run that is gone.
 
 ## Who answered: `result.record.pauses`
 
-`{ record: true }` on `execute` / `resume` returns the execution record
+`{ includeRecord: true }` on `execute` / `resume` returns the execution record
 ([Observability → the execution record](Observability)); its `pauses` are the audit trail — every
 resolved pause of the tree, in the order they were asked:
 

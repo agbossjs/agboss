@@ -76,7 +76,7 @@ describe("#1150 AC4: a child on another instance is masked by its chain", () => 
     const agent = mockLlm(ChainFarAgent);
     agent.thenReturn(replyWith(`done ${CHILD_SECRET}`));
 
-    const result = await execute(a, ChainFarRootStart, { text: TEXT }, { record: true });
+    const result = await execute(a, ChainFarRootStart, { text: TEXT }, { includeRecord: true });
 
     expect(carried).toEqual([["contact-pii-policy", "root-secret-pii-policy"]]);
     const text = agent.requests.map(requestText).join("\n");

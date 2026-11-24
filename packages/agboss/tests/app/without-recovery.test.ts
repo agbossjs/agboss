@@ -157,7 +157,7 @@ describe("#860: a run no recovery continues", () => {
 
 const kept = testWith(KeptRecoveryApplication, { instances: 2 });
 
-/** The kept record of the one root the test ran, read on `app` (what `records export` writes). */
+/** The kept record of the one root the test ran, read on `app` (what `executions export` writes). */
 async function keptRecordOn(app: TestApp) {
   const [root] = (await stores.records?.lastTurns("default", THREAD, 1)) ?? [];
   return app.resolve(ExecutionHistoryRepository).findAllByExecutionId(root?.runId ?? "");

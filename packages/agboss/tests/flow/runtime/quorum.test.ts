@@ -89,7 +89,7 @@ describe("AC3: min unreachable fails at once", () => {
       mockLlm(RisksPanelAgent).thenReturn(score(12));
       mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
 
-      const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
+      const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
       expect(result).toFinishWith(PanelFailedWorkflowFinish, ANNA);
       expect(result.launches[0]?.isQuorumReached).toBe(false);

@@ -19,7 +19,7 @@ import type {
 
 /**
  * A run's trajectory from the case's last execution record (#397 PR 2): the record as
- * `{ record: true }` returns it — masked by the application's and the workflow's PII policies — cut
+ * `{ includeRecord: true }` returns it — masked by the application's and the workflow's PII policies — cut
  * down to what the report shows; a step's tool calls are the calls of its visit.
  */
 

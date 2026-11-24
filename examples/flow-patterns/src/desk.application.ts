@@ -20,7 +20,7 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
  * and its eval suites run with no key and no network. `FlowPatternsApplication` lists the same
  * workflow beside OpenRouter. It serves the desk over A2A (`DeskA2AExpose`): the helpline of
  * `FlowPatternsApplication` is its consumer, checked by `agboss check --federation`. It keeps each
- * execution for 30 days (#401): `agboss records export` writes them, `agboss generate eval-case
+ * execution for 30 days (#401): `agboss executions export` writes them, `agboss generate eval-case
  * --from-execution` and `agboss eval ui`'s "Save as golden case" (#397 PR 5) draft a case from one.
  */
 @Application({
@@ -32,7 +32,7 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
   maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
-  retention: { executionRecords: hours(24 * 30) }, // each execution kept 30 days (#401): records export, eval cases
+  retention: { executionRecords: hours(24 * 30) }, // each execution kept 30 days (#401): executions export, eval cases
   storage: DeskDatabaseStorage, // SQLite, the kept executions (#401) too
   services: [DeskMetricsService], // the observer's
   providers: [HarnessModelProvider],

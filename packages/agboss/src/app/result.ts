@@ -16,7 +16,7 @@ const visiblePauseOf = (pause: WaitingPause): PendingPause =>
   pendingPauseOf(pause, pause.answerer === PauseAnswerer.ThreadOwner);
 
 /**
- * The full record of an execution (`{ record: true }`, #270 AC16); its `pauses`, and its children's,
+ * The full record of an execution (`{ includeRecord: true }`, #270 AC16); its `pauses`, and its children's,
  * are read once the tree rests (`withPauseAnswers`, #267 S107 / S124 c).
  */
 const recordOf = (run: AgentExecutionOutput): ExecutionRecord => ({

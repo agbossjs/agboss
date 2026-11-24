@@ -9,7 +9,7 @@ const databaseEnv = defineEnv({
 
 /**
  * Where the offline desk's rows go: SQLite at `.agboss/desk-offline.sqlite` (git-ignored), so its
- * kept executions (`retention.executionRecords`, #401) outlive the run — `agboss records export`
+ * kept executions (`retention.executionRecords`, #401) outlive the run — `agboss executions export`
  * and `agboss generate eval-case --from-execution` read them. The desk writes under no business key,
  * so it names no idempotency secret; its PII policy needs the PII key.
  */

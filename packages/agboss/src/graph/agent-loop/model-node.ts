@@ -105,9 +105,9 @@ async function observedCall(
   await reportNodeEvent((base) =>
     deps.observer?.onModelStart({
       ...base,
-      modelName,
+      model: modelName,
       provider: binding.settings.modelProvider ?? NO_PROVIDER,
-      callerName: name,
+      caller: name,
       rawPayload,
     }),
   );
@@ -130,12 +130,13 @@ async function observedCall(
   const ended = {
     model: modelName,
     provider: usageRecord.provider,
-    callerName: name,
+    caller: name,
     rawContent: response.content,
     usage: {
-      promptTokens: usageRecord.inputTokens,
-      completionTokens: usageRecord.outputTokens,
-      totalTokens: usageRecord.inputTokens + usageRecord.outputTokens,
+      inputTokens: usageRecord.inputTokens,
+      outputTokens: usageRecord.outputTokens,
+      cacheReadTokens: usageRecord.cacheReadTokens,
+      cacheWriteTokens: usageRecord.cacheWriteTokens,
     },
     costUsd: usageRecord.costUsd,
   };

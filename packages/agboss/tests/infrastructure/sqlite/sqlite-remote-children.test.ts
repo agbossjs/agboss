@@ -160,7 +160,7 @@ describe("#333 PR 4 M2: remote child pauses and per-child recovery on two instan
 
     const done = await second(apps).resume(
       { pauseId, decision: { approved: true } },
-      { record: true },
+      { includeRecord: true },
     );
 
     expect(done).toFinishWith(ReviewsSummaryWorkflowFinish, { text: "a, b" });

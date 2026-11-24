@@ -3,7 +3,7 @@ import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
 import type { BaseMessage, MessageContent } from "@langchain/core/messages";
 import type { JudgeVerdict } from "../components/judge-decorators.js";
-import type { CostReport } from "../finops/usage.js";
+import type { CostReport, TokenUsage } from "../finops/usage.js";
 import type { ExecutionEvent, NodeEvent } from "../flow/observers/execution-event.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { NodeValue } from "../flow/runtime/scope.js";
@@ -111,20 +111,13 @@ export type ChannelStartEvent = StartEvent<unknown>;
 /** A channel answered: `output` is the raw decision, before the channel's adapter reads it. */
 export type ChannelEndEvent = EndEvent<unknown>;
 
-/** A model is called by an agent (`callerName`) with the conversation so far. */
+/** A model is called by an agent (`caller`) with the conversation so far. */
 export interface ModelStartEvent extends NodeEvent {
-  readonly modelName: string;
+  readonly model: string;
   /** The `@ModelProvider` the call goes to, by its `name`; `(none)` when no provider names the model. */
   readonly provider: string;
-  readonly callerName: string;
+  readonly caller: string;
   readonly rawPayload: readonly BaseMessage[];
-}
-
-/** The tokens of one model call. */
-export interface ModelUsage {
-  readonly promptTokens: number;
-  readonly completionTokens: number;
-  readonly totalTokens: number;
 }
 
 /** A model answered: its content, token usage and cost. */
@@ -132,10 +125,12 @@ export interface ModelEndEvent extends NodeEvent {
   readonly model: string;
   /** The `@ModelProvider` that served it (a fallback's, when one answered), by its `name`; `(none)` when none is named. */
   readonly provider: string;
-  readonly callerName: string;
+  readonly caller: string;
   readonly rawContent: MessageContent;
-  readonly usage: ModelUsage;
-  readonly costUsd?: Usd;
+  /** What the call used: input and output tokens, the cache's apart. */
+  readonly usage: TokenUsage;
+  /** What it cost, by its price (`0` for a free or unpriced model). */
+  readonly costUsd: Usd;
 }
 
 /** Why an agent ran its model again inside one step: what the retry loop corrected. */

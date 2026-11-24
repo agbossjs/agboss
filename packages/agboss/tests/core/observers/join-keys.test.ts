@@ -150,7 +150,7 @@ describe("#268 S93: StepRecord + toolLoopIteration and validationAttempts", () =
     );
 
     const paused = await execute(app, Ask, { text: "apply" });
-    const done = await app.resume(answerOf(paused, { approved: true }), { record: true });
+    const done = await app.resume(answerOf(paused, { approved: true }), { includeRecord: true });
 
     expect(done.record?.pauses).toMatchObject([
       {

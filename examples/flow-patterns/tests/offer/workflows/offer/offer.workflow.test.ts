@@ -81,7 +81,7 @@ describe("the editor's maxVisits spent", () => {
     mockLlm(ReviewerAgent).thenReturnAlways(changes("still not right"));
     mockLlm(EditorAgent).thenReturn(draft("v2"), draft("v3"));
 
-    const result = await app.execute(OfferWorkflowStart, shortlist, { record: true });
+    const result = await app.execute(OfferWorkflowStart, shortlist, { includeRecord: true });
 
     expect(result).toFollowPath([
       OfferWorkflowStart,

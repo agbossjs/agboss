@@ -1,5 +1,5 @@
 /**
- * #401 PR 1 — `agboss records export`: the application's kept root executions as JSON Lines, one
+ * #401 PR 1 — `agboss executions export`: the application's kept root executions as JSON Lines, one
  * masked record per line (`kind: "agboss.execution-record"`), read from its own store without
  * running anything. A tenant is named, or all of them explicitly; an application that keeps no
  * records is `records.not-kept` (exit 3).
@@ -23,7 +23,7 @@ const NOT_KEPT = new URL("../../../agboss/tests/flow/fixtures/evals.fixture.ts",
 
 const CWD = mkdtempSync(join(tmpdir(), "agboss-records-"));
 const ENV = { AGBOSS_SQLITE_TEST_PATH: join(CWD, "app.db") };
-const EXPORT = ["records", "export", "--application", APPLICATION] as const;
+const EXPORT = ["executions", "export", "--application", APPLICATION] as const;
 
 /** A kept record of the desk: `tenantId`'s execution `executionId`, started at `startedAt`. */
 const recordOf = (
@@ -83,7 +83,7 @@ const linesOf = (file: string): Record<string, unknown>[] =>
     .split("\n")
     .map((line) => JSON.parse(line) as Record<string, unknown>);
 
-describe("#401 PR 1: agboss records export", () => {
+describe("#401 PR 1: agboss executions export", () => {
   it("one tenant's records, oldest first, each line marked", async () => {
     const call = await agboss([...EXPORT, "--tenant", "acme", "--out", "acme.jsonl"], CWD, ENV);
 
@@ -167,7 +167,7 @@ describe("#401 PR 1: agboss records export", () => {
   it("an application that keeps no records: records.not-kept, exit 3", async () => {
     const call = await agboss(
       [
-        "records",
+        "executions",
         "export",
         "--application",
         NOT_KEPT,

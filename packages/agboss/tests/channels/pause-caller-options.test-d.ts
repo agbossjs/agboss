@@ -53,7 +53,7 @@ describe("#942: PauseCallerOptions", () => {
     // @ts-expect-error — `onStream` belongs to a run: extendPause runs nothing
     void app.extendPause(request, { answeredBy: "m", onStream: () => undefined });
     // @ts-expect-error — `record` belongs to a run
-    void app.extendPause(request, { ownerId: "alice", record: true });
+    void app.extendPause(request, { ownerId: "alice", includeRecord: true });
     // @ts-expect-error — `signal` belongs to a run
     void app.extendPause(request, { answeredBy: "m", signal: new AbortController().signal });
   });
@@ -73,6 +73,6 @@ describe("#942: PauseCallerOptions", () => {
       answeredBy: string;
     }>();
     expectTypeOf<ResumeOptions>().toExtend<PauseCallerOptions>();
-    void app.resume({ pauseId: "p", decision: {} }, { answeredBy: "m", record: true });
+    void app.resume({ pauseId: "p", decision: {} }, { answeredBy: "m", includeRecord: true });
   });
 });

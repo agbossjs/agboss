@@ -56,7 +56,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 
     const done = await app.resume(
       { pauseId: depositPauseId(), reply: "sure, go ahead" },
-      { ...clerk, record: true },
+      { ...clerk, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Returned." });
@@ -88,7 +88,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 
     const done = await app.resume(
       { pauseId: depositPauseId(), reply: "no, the flat is damaged" },
-      { ...clerk, record: true },
+      { ...clerk, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Not returned." });

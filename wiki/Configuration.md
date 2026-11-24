@@ -370,7 +370,7 @@ export default defineConfig({
     "*": { version: "1.4.0-prod" },
     "credit-workflow": { agents: { "order-intake-agent": { temperature: 0 } } },
   },
-  modelProvider: ProdModels, // replaces @Application({ modelProvider }); also storage, channels, observers, healthChecks
+  modelProvider: ProdModels, // replaces @Application({ modelProvider }); also storage, channels, healthChecks (observers are only in `@Application({ observers })`)
 });
 ```
 

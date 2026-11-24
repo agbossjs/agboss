@@ -75,10 +75,10 @@ class GlobalObserver {
   }
 
   async onModelStart(req: ModelStartEvent) {
-    hookEvents.push(`ModelStart:${req.callerName}`);
+    hookEvents.push(`ModelStart:${req.caller}`);
   }
   async onModelEnd(res: ModelEndEvent) {
-    hookEvents.push(`ModelEnd:${res.callerName}`);
+    hookEvents.push(`ModelEnd:${res.caller}`);
   }
 
   async onRagStart(ctx: RagStartEvent) {

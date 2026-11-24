@@ -317,7 +317,7 @@ const providers = [
 })
 export class RecoveryApplication {}
 
-/** The same application keeping its executions' records (#401): what `records export` reads. */
+/** The same application keeping its executions' records (#401): what `executions export` reads. */
 @Application({
   name: "kept-recovery-application",
   version: "1.0.0",

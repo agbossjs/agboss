@@ -88,7 +88,7 @@ describe("#1150 AC2: an exclusion is honoured at the model boundary only", () =>
     const agent = mockLlm(ChainPeekAgent);
     agent.thenReturn(replyWith(`seen ${ROOT_SECRET}`));
 
-    const result = await execute(app, ChainPeekRootStart, { text: TEXT }, { record: true });
+    const result = await execute(app, ChainPeekRootStart, { text: TEXT }, { includeRecord: true });
 
     expect(allRequests(agent.requests)).toContain(ROOT_SECRET);
     expect(allRequests(agent.requests)).not.toContain(CHILD_SECRET);
@@ -144,7 +144,7 @@ describe("#1150 AC3: the child's observability is masked by the whole chain", ()
     mockLlm(ChainChildRouter).thenReturn(routeTo(ChainChildAgent));
     mockLlm(ChainChildAgent).thenReturn(replyWith(`answered ${CHILD_SECRET}`));
 
-    const result = await execute(app, ChainRootStart, { text: TEXT }, { record: true });
+    const result = await execute(app, ChainRootStart, { text: TEXT }, { includeRecord: true });
 
     const children = JSON.stringify(result.record?.children);
     expect(children).toContain("chain-child-workflow");

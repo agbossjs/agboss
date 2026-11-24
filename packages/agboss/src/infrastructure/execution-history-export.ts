@@ -5,7 +5,7 @@ import type {
 } from "./execution-history.repository.js";
 
 /**
- * The export of kept executions (#401 PR 1, `agboss records export`): JSON Lines, one record per
+ * The export of kept executions (#401 PR 1, `agboss executions export`): JSON Lines, one record per
  * line, each self-describing — `{ "kind": "agboss.execution-record", "schema": 1, …record }` — so
  * a reader recognises the file by its lines, not by its name or folder. The records are masked as
  * they were kept.

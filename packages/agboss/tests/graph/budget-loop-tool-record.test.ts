@@ -36,7 +36,7 @@ vi.mock("../../src/graph/agent-loop/tool-interception.js", () => ({
 }));
 vi.mock("../../src/graph/agent-loop/call-records.js", () => ({
   callStepOf: vi.fn(() => ({ step: true })),
-  endedCallRecordOf: vi.fn(() => ({ record: true })),
+  endedCallRecordOf: vi.fn(() => ({ includeRecord: true })),
 }));
 vi.mock("../../src/graph/agent-loop/tool-stops.js", async (original) => ({
   ...(await original<typeof import("../../src/graph/agent-loop/tool-stops.js")>()),

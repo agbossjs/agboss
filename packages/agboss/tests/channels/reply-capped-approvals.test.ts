@@ -131,7 +131,7 @@ describe("#688: a capped approval after a reply not understood", () => {
 
     const done = await app.resume(
       { pauseId, reply: "yes, up to $900" },
-      { ...manager, record: true },
+      { ...manager, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Paid." });

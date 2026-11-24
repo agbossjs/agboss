@@ -149,7 +149,12 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
     book.scriptOf("agent:support-agent").thenReturn(replyWith(`checked ${EMPLOYEE_ID}`));
     const app = await appOf(book);
 
-    const result = await execute(app, PiiStart, { text: `about ${EMPLOYEE_ID}` }, { record: true });
+    const result = await execute(
+      app,
+      PiiStart,
+      { text: `about ${EMPLOYEE_ID}` },
+      { includeRecord: true },
+    );
     await app.close();
 
     expect(result.output).toEqual({ text: `checked ${EMPLOYEE_ID}` });
@@ -163,7 +168,12 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
     book.scriptOf("agent:support-agent").thenReturn(replyWith(`checked ${EMPLOYEE_ID}`));
     const app = await appOf(book);
 
-    const result = await execute(app, PiiStart, { text: `about ${EMPLOYEE_ID}` }, { record: true });
+    const result = await execute(
+      app,
+      PiiStart,
+      { text: `about ${EMPLOYEE_ID}` },
+      { includeRecord: true },
+    );
     await app.close();
 
     expect(seen.join("\n")).toContain("<employee-id>");

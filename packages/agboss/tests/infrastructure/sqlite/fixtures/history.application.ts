@@ -11,7 +11,7 @@ import { SqliteTestEnvironment } from "./environments/app.environment.js";
 
 /**
  * #401 PR 1 — the refunds desk keeping its root executions' history on the SQLite file
- * (`AGBOSS_SQLITE_TEST_PATH`): what `agboss records export` reads.
+ * (`AGBOSS_SQLITE_TEST_PATH`): what `agboss executions export` reads.
  */
 @Application({
   name: "sqlite-history-application",

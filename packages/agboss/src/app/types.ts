@@ -50,7 +50,7 @@ export interface CallOptions {
   /** Extra LangGraph `configurable` keys for the run's nodes (the framework's own keys win). */
   readonly configurable?: Readonly<Record<string, unknown>>;
   /** Also return the full execution record (`result.record`, #270 AC16). */
-  readonly record?: boolean;
+  readonly includeRecord?: boolean;
 }
 
 /**

@@ -404,7 +404,7 @@ export class UnreconciledCallAlert {
 ## Pause answers
 
 Who answered each pause, and how, is not an event of its own — it is in the execution record
-(#267 S107): `result.record.pauses` (`{ record: true }` on `execute` / `resume`) lists every
+(#267 S107): `result.record.pauses` (`{ includeRecord: true }` on `execute` / `resume`) lists every
 resolved pause of the tree in the order asked — `PauseAnswerRecord` (`pauseId` — none for a
 `PauseAnswerer.Channel` pause —, `step`, `role`, `answerer`, `answeredBy` (the person; `responder`, deprecated), `resolution:
 PauseResolution`, `askedAt`, `resolvedAt`, `decision`),
@@ -432,7 +432,7 @@ What an execution did step by step is in its result and record too (#395), not o
   `error?`, `isResultTruncated`, `startedAt`, `endedAt`. A call to a tool the agent does not have is
   `UnknownTool` (#395 S6): nothing ran, `step.component` names what the model called, `error` what
   it read.
-- `result.record.toolCalls` (`{ record: true }`) — the same, masked like the rest of the record.
+- `result.record.toolCalls` (`{ includeRecord: true }`) — the same, masked like the rest of the record.
 - `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
   ended: `step`, `inputHash` (a stable hash of the values it read — the same input, the same hash on
   every machine and run; a start's is its input's), `decision?` (#401: what it decided — `route:<node>`

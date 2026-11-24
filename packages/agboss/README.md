@@ -1209,7 +1209,7 @@ A code interpreter returns its outcome: `ReplyInterpretation.understood({ approv
 button value it knows, `ReplyInterpretation.notUnderstood({ reason: "not a button value" })` for
 anything else (Wiki → Pauses has the whole class).
 
-**Who answered each pause (#267 S107).** `app.resume(…, { record: true })` (or `execute`) returns
+**Who answered each pause (#267 S107).** `app.resume(…, { includeRecord: true })` (or `execute`) returns
 `result.record.pauses`: every resolved pause of the tree in the order asked —
 `PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), executionId (the
 execution it waited in: the root's or a child's), step, role, answerer, answeredBy (the person; `responder` is its deprecated alias), resolution,

@@ -57,7 +57,12 @@ describe("#271 S15: an about(…) output answers and returns its shape", () => {
     mockLlm(PolishAgent).thenReturn(replyWith(DraftDto, { text: "draft" }));
     mockLlm(CritiqueRouter).thenReturn(routeTo(PolishedWorkflowFinish));
 
-    const result = await execute(app, StoryWorkflowStart, { topic: "lists" }, { record: true });
+    const result = await execute(
+      app,
+      StoryWorkflowStart,
+      { topic: "lists" },
+      { includeRecord: true },
+    );
 
     expect(result).toFollowPath([
       StoryWorkflowStart,

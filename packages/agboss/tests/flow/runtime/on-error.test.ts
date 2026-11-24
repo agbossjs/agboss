@@ -30,7 +30,12 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
   }) => {
     mockLlm(ApologizerAgent).thenReturn(replyWith(ApologyDto, { text: "Sorry." }));
 
-    const result = await execute(app, PayStart, { id: "7", outcome: "decline" }, { record: true });
+    const result = await execute(
+      app,
+      PayStart,
+      { id: "7", outcome: "decline" },
+      { includeRecord: true },
+    );
 
     expect(result).toFinishWith(DeclinedFinish, { text: "Sorry." });
     expect(result.path).toEqual([
@@ -74,7 +79,7 @@ describe("#272 AC7: .onError(E, path) right after the step that throws", () => {
 
     const paused = await execute(app, PayStart, { id: "7", outcome: "decline" });
     const restarted = await recoverApp();
-    const done = await restarted.resume(answerOf(paused, approve), { record: true });
+    const done = await restarted.resume(answerOf(paused, approve), { includeRecord: true });
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused).toHavePausedAt(ApologizerAgent);

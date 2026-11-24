@@ -16,7 +16,7 @@ import { KeptUnwindRecoveryApplication } from "../flow/runtime/fixtures/unwind-r
 /**
  * Found by #484's scenario 12 (a crash mid-undo on PostgreSQL and SQLite pods): the instance that
  * takes a tree over mid-undo finishes the undo (#340 PR 4) and ends the tree failed — and its kept
- * record (`ExecutionHistoryRecord.compensations`, what `agboss records export` writes) must list
+ * record (`ExecutionHistoryRecord.compensations`, what `agboss executions export` writes) must list
  * every undo action that ran, the ones of the instance that died and its own, as the
  * `onExecutionError` event does.
  */

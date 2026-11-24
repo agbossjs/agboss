@@ -135,7 +135,7 @@ npm test
   score` is not part of it: it scores with Jev, which needs OpenRouter.
   The desk keeps each execution 30 days (`retention.executionRecords`, [Execution history](Execution-history),
   #401) in `.agboss/desk-offline.sqlite` on `--env offline`: `npm run records:check` runs it once,
-  exports the kept records (`agboss records export --tenant default --out .agboss/records/desk.jsonl`)
+  exports the kept records (`agboss executions export --tenant default --out .agboss/records/desk.jsonl`)
   and drafts an eval case from the newest (`agboss generate eval-case lookup-from-history --suite
   desk-eval-suite --from-execution <id> --dry-run`) — what `agboss eval ui`'s "Save as golden case"
   (#397 PR 5) writes into the suite.

@@ -31,7 +31,7 @@ describe("#401 PR 5: record.steps[].decision", () => {
         replyWith(DraftDto, { text: "v1" }),
       );
 
-      const result = await execute(app, EditStart, { text: "a poem" }, { record: true });
+      const result = await execute(app, EditStart, { text: "a poem" }, { includeRecord: true });
 
       const decisions = (result.record?.steps ?? []).map((step) => [
         step.step.nodeId,
@@ -56,7 +56,7 @@ describe("#401 PR 5: record.steps[].decision", () => {
       app,
       TicketStart,
       { text: "it crashes", kind: "bug" },
-      { record: true },
+      { includeRecord: true },
     );
 
     const classify = result.record?.steps.find((step) => step.step.nodeId === "classify-action");

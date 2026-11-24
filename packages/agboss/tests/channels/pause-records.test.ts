@@ -79,7 +79,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 
       const done = await app.resume(
         { pauseId: payoutPauseId(), decision: { approved: false, reason: "ask ann@example.com" } },
-        { ...manager, record: true },
+        { ...manager, includeRecord: true },
       );
 
       expect(done.record?.pauses).toEqual([
@@ -129,7 +129,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         app,
         TreasuryWorkflowStart,
         { text: "pay ann" },
-        { record: true },
+        { includeRecord: true },
       );
 
       expect(paused.record?.pauses).toEqual([]);
@@ -154,7 +154,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
 
       const done = await app.resume(
         { pauseId: pauseId ?? "", reply: '{"approved":true}' },
-        { ownerId: "alice", record: true },
+        { ownerId: "alice", includeRecord: true },
       );
 
       expect(done.record?.pauses).toMatchObject([
@@ -185,7 +185,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         app,
         TreasuryWorkflowStart,
         { text: "transfer" },
-        { record: true },
+        { includeRecord: true },
       );
 
       expect(done.record?.pauses).toMatchObject([
@@ -211,7 +211,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
         waitFor(seconds(5)),
         callTool(RefundTool, { orderId: "7" }),
       );
-      const run = execute(app, PayoutWorkflowStart, { orderId: "7" }, { record: true });
+      const run = execute(app, PayoutWorkflowStart, { orderId: "7" }, { includeRecord: true });
       await until(() => seen.confirmations.length === 1);
       await clock.advance(seconds(5));
 
@@ -295,7 +295,7 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
       await expect(app.resume(payout, manager)).rejects.toBeInstanceOf(UnknownPauseError);
 
       const expense = { pauseId: waiting.pending[0]?.pauseId ?? "", decision: { approved: true } };
-      const done = await app.resume(expense, { record: true });
+      const done = await app.resume(expense, { includeRecord: true });
 
       expect(done.record?.pauses.map((pause) => [pause.role, pause.resolution])).toEqual([
         ["payout-approval-channel", PauseResolution.Replied],

@@ -47,7 +47,7 @@ describe("records on the path", () => {
     const desk = mockOf(UndoDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
-    const result = await execute(app, UndoPathWorkflowStart, GUEST, { record: true });
+    const result = await execute(app, UndoPathWorkflowStart, GUEST, { includeRecord: true });
 
     expect(result).toFinishWith(SeatConfirmedWorkflowFinish, { seatId: "seat-1" });
     expect(result.compensations).toEqual([]);
@@ -59,7 +59,7 @@ describe("records on the path", () => {
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.charge.mockRejectedValue(new UndoDeskError("card declined"));
 
-    const result = await execute(app, UndoPathWorkflowStart, GUEST, { record: true });
+    const result = await execute(app, UndoPathWorkflowStart, GUEST, { includeRecord: true });
 
     expect(result).toFinishWith(NotReservedWorkflowFinish, GUEST);
     expect(result).toHaveCompensated(ReserveRoomAction, {

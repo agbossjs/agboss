@@ -65,7 +65,7 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
       [item("ok"), item("bad", 0, "fail")],
       {
         ...who,
-        record: true,
+        includeRecord: true,
       },
     );
 
@@ -124,7 +124,10 @@ describe("AC9: the side path sees the scope before the launch, and the settled a
   }) => {
     const items = [item("quick"), item("bad", 30, "fail")];
 
-    const result = await execute(app, CheckItemsWorkflowStart, items, { ...who, record: true });
+    const result = await execute(app, CheckItemsWorkflowStart, items, {
+      ...who,
+      includeRecord: true,
+    });
 
     expect(result).toFinishWith(ChecksFailedWorkflowFinish, { text: "failed on one of 2" });
     const slots = result.record?.scope.map((value) => value.slot) ?? [];

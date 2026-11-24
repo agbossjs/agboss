@@ -70,7 +70,7 @@ for (const [label, application] of applications) {
       mockLlm(ReaderAgent).thenReturn(callTool(ScanTool, { name: "a" }), replyWith("done"));
       const document = await inlineFile(DOCUMENT_BYTES, "invoice.pdf");
 
-      const result = await execute(app, ReaderStart, { document }, { record: true });
+      const result = await execute(app, ReaderStart, { document }, { includeRecord: true });
 
       const seen = JSON.stringify([result.record, result.toolCalls, toldEvents]);
       expect(seen).not.toContain(DOCUMENT_B64);

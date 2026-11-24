@@ -121,7 +121,7 @@ npm test                                                           # scripted mo
   or a recorded cassette — reference 10. Assert the path, the finish and trajectory invariants
   through `result.toolCalls` (`ToolCallRecord`, `ToolCallStatus`, `toolCallsOf`): which tools ran,
   with what, how each ended — never the position of a step. `result.record.steps`
-  (`{ record: true }`) has each visit's judge verdicts, guardrail decisions, spend and `inputHash`;
+  (`{ includeRecord: true }`) has each visit's judge verdicts, guardrail decisions, spend and `inputHash`;
   a judge reads the visit's calls as `input.toolCalls`.
 - **A stale cassette** (`StaleCassetteError`, `[vcr.stale-cassette]` — a component's prompt or
   schema changed since it was recorded; `npx agboss check --cassettes` finds it without a test):

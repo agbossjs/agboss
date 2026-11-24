@@ -34,11 +34,11 @@ export enum HealthComponentKind {
   /** The pause timers (#940): `Unhealthy` when their last tick is older than three intervals. */
   PauseTimers = "pause-timers",
   /** One of the instance's stores (#265 contracts, the checkpoint saver): its `ping()`. */
-  Store = "store",
+  Storage = "storage",
   /** A model provider (#266): its circuit breaker's state, never a model call. */
   ModelProvider = "model-provider",
   /** A project's `@HealthCheck`. */
-  Project = "project",
+  HealthCheck = "health-check",
 }
 
 /** One component of a report. */

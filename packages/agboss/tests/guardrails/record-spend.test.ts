@@ -1,6 +1,6 @@
 /**
  * #1366: what an agent's step keeps of its answer's guardrails — the cost of a guardrail's model is in the usage
- * the step hands on, so the execution's record (`record: true`) states the spend of the whole run, the agent's
+ * the step hands on, so the execution's record (`includeRecord: true`) states the spend of the whole run, the agent's
  * answer checks included.
  */
 import { describe, expect } from "vitest";
@@ -29,7 +29,7 @@ describe("#1366: the record of a run with guardrails", () => {
       app,
       ClinicStart,
       { text: "I have a headache." },
-      { execution: { locale: "en" }, record: true },
+      { execution: { locale: "en" }, includeRecord: true },
     );
 
     expect(result.spend.byCategory.guardrails).toBeCloseTo(0.375, 9);

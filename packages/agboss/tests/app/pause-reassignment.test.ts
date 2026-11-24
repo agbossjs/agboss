@@ -331,7 +331,7 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       ).toContainEqual(expect.stringContaining(newId));
       const done = await app.resume(
         { pauseId: newId, decision: approve },
-        { ...manager, record: true },
+        { ...manager, includeRecord: true },
       );
       expect(JSON.stringify(done)).not.toContain(newId);
       // the audit trail shows the step once, under its own key, never a replacement's `~r1`

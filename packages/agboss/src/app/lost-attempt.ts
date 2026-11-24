@@ -11,7 +11,7 @@ import type { TreeState } from "./tree-move-types.js";
  * The lost pass of a run no recovery continues (#860 D1, as #853 records a lost pass): an instance
  * that takes its lease over ends it without a pass, so its holder's pass was lost mid-run — for a
  * run that can call a model, one call of unknown cost, no amount (`CostSource.Unknown`), in the
- * spend of its kept record (`spend.unknownCalls`, what `agboss records export` writes) and counted
+ * spend of its kept record (`spend.unknownCalls`, what `agboss executions export` writes) and counted
  * by the instance's tally, under the run's own ledger key: one per run, whoever ends it. No budget
  * counter is written: the amount is none, and a budget's `maxSpend()` is read inside an execution
  * only.

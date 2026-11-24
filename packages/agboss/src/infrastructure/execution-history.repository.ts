@@ -17,7 +17,7 @@ import type { InMemoryDatabase } from "./in-memory-database.js";
  * nothing is kept), saved when its tree rests or ends and removed by the recovery sweep on the
  * `Clock` once it ended longer ago than that. Listed only in `@Application({ providers })`; the
  * built-in default is in memory, `SqliteExecutionHistoryRepository` keeps it in the application's
- * SQLite file. `agboss records export` reads it.
+ * SQLite file. `agboss executions export` reads it.
  */
 
 /** How a kept execution stands: resting at a pause, or ended. */
@@ -74,7 +74,7 @@ export interface ExecutionHistoryRecord extends ExecutionRecord {
   readonly auditLog?: readonly ExecutionAuditEventRecord[];
   /**
    * Every call its tree made that left the system (#505), in the order recorded, masked like the
-   * record — so `agboss records export` carries them. None in a record saved before #505.
+   * record — so `agboss executions export` carries them. None in a record saved before #505.
    */
   readonly outboundCalls?: readonly OutboundCallRecord[];
 }

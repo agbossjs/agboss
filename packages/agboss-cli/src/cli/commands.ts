@@ -119,10 +119,10 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
     positionals: "index",
     options: RAG_INDEX_OPTIONS,
   },
-  records: {
+  executions: {
     summary: "export the application's kept execution records as JSON Lines (masked)",
     usage:
-      "agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--profile <name>] [--env <name>] [--application <path>]",
+      "agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--profile <name>] [--env <name>] [--application <path>]",
     positionals: "export",
     options: [
       APPLICATION,

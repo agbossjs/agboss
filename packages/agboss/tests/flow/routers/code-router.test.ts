@@ -120,7 +120,7 @@ describe("AC1 (S19): a failing route() is RouterFailedError, its cause caught by
     mockLlm(DeskRouter).thenReturn(routeTo(OrderIntakeAgent));
     mockLlm(OrderIntakeAgent).thenReturn(order(50));
 
-    const result = await app.execute(CreditWorkflowStart, { text: "tea" }, { record: true });
+    const result = await app.execute(CreditWorkflowStart, { text: "tea" }, { includeRecord: true });
 
     expect(result).toFollowPath([
       CreditWorkflowStart,

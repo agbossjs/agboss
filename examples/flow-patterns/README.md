@@ -36,7 +36,7 @@ npm run eval:check                    # the desk's eval suite offline against it
                                       # (eval/runs/, --fail-on-regression), eval show --html, and
                                       # eval calibrate on the checked-in labels (eval/labels/)
 npm run eval                          # rewrites the baseline (then relabel eval/labels/)
-npm run records:check                 # one kept run, records export, an eval case drafted from it
+npm run records:check                 # one kept run, executions export, an eval case drafted from it
 npm run snapshot                      # the desk's describe --json, after raising its expose's version
 npm test                              # scripted models only: no key, no network
 ```
@@ -58,7 +58,7 @@ eval score` is not here: it scores with Jev, a decision model, which needs OpenR
 
 The desk keeps each execution for 30 days (`@Application({ retention: { executionRecords } })`, #401) in
 `.agboss/desk-offline.sqlite` on `--env offline`. `npm run records:check` (the last step of `npm run
-check`) runs the desk once, exports the kept records (`agboss records export --tenant default --out
+check`) runs the desk once, exports the kept records (`agboss executions export --tenant default --out
 .agboss/records/desk.jsonl`) and drafts an eval case from the newest (`agboss generate eval-case
 lookup-from-history --suite desk-eval-suite --from-execution <id> --dry-run`, #396) — the draft
 `agboss eval ui`'s "Save as golden case" (#397) writes into the suite.

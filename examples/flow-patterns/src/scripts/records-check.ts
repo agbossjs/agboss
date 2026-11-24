@@ -19,7 +19,7 @@ agboss(
 );
 mkdirSync(".agboss/records", { recursive: true });
 const out = ".agboss/records/desk.jsonl";
-agboss("records", "export", "--tenant", "default", "--out", out);
+agboss("executions", "export", "--tenant", "default", "--out", out);
 
 const lines = readFileSync(out, "utf8").trim().split("\n");
 const newest: unknown = JSON.parse(lines.at(-1) ?? "{}");

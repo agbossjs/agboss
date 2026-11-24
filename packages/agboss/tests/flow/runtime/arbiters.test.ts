@@ -117,7 +117,7 @@ describe("AC5: a model arbiter judges each answer by its agent's criterion", () 
     mockLlm(HirePanelAgent).thenReturn(score(9));
     mockLlm(PanelModelArbiter).thenReturnAlways(failWith(ModelFailure.Timeout));
 
-    const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
+    const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
     expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
     expect(result.record?.lastError).toMatchObject({
@@ -202,7 +202,7 @@ describe("AC6: a code arbiter, the copy and the item from ExecutionContext", () 
     mockLlm(RisksPanelAgent).thenReturn(score(6));
     mockLlm(HirePanelAgent).thenReturn(score(9));
 
-    const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
+    const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
     expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
     expect(result.record?.lastError).toMatchObject({
@@ -249,7 +249,7 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
       mockLlm(HirePanelAgent).thenReturn(score(9));
       mockLlm(HybridPanelArbiter).thenReturn(decideWith({ acceptable: 0.9 }, { cost: usd(0.002) }));
 
-      const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
+      const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
       expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
       expect(result.record?.lastError).toMatchObject({

@@ -48,7 +48,7 @@ async function runTurn(
   let last = await executeWithoutInputCheck(parts.app, parts.start.component, options.input, {
     threadId: thread.threadId,
     ...contexts,
-    record: options.isLast, // the last turn's trajectory (#397 PR 2)
+    includeRecord: options.isLast, // the last turn's trajectory (#397 PR 2)
   });
   outputs.push(last);
   for (const script of options.script) {

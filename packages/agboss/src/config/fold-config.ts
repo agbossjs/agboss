@@ -18,7 +18,6 @@ export interface ApplicationReplacements {
   readonly storage?: ApplicationOptions["storage"];
   readonly modelProvider?: Class;
   readonly channels?: ApplicationOptions["channels"];
-  readonly observers?: ApplicationOptions["observers"];
   readonly healthChecks?: ApplicationOptions["healthChecks"];
 }
 
@@ -110,7 +109,7 @@ function lastOf<TKey extends keyof ApplicationReplacements>(
 }
 
 const replacementsOf = (layers: readonly LoadedProfile[]): ApplicationReplacements => {
-  const keys = ["storage", "modelProvider", "channels", "observers", "healthChecks"] as const;
+  const keys = ["storage", "modelProvider", "channels", "healthChecks"] as const;
   return Object.fromEntries(
     keys.flatMap((key) => {
       const value = lastOf(layers, key);

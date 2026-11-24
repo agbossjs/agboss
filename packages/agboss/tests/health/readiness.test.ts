@@ -43,44 +43,52 @@ describe("#300 AC2: readiness", () => {
       { name: "pause-timers", kind: HealthComponentKind.PauseTimers, status: "healthy" },
       {
         name: "StallingExecutionRecordRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
-      { name: "FlakyCostLedgerRepository", kind: HealthComponentKind.Store, status: "healthy" },
+      { name: "FlakyCostLedgerRepository", kind: HealthComponentKind.Storage, status: "healthy" },
       {
         name: "InMemoryPausedExecutionRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
         name: "InMemoryExecutionLeaseRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
         name: "InMemoryExecutionTreeRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
-      { name: "ReachableRateLimitRepository", kind: HealthComponentKind.Store, status: "healthy" },
-      { name: "InMemoryMeshRequestRepository", kind: HealthComponentKind.Store, status: "healthy" },
-      { name: "InMemoryA2ATaskRepository", kind: HealthComponentKind.Store, status: "healthy" },
+      {
+        name: "ReachableRateLimitRepository",
+        kind: HealthComponentKind.Storage,
+        status: "healthy",
+      },
+      {
+        name: "InMemoryMeshRequestRepository",
+        kind: HealthComponentKind.Storage,
+        status: "healthy",
+      },
+      { name: "InMemoryA2ATaskRepository", kind: HealthComponentKind.Storage, status: "healthy" },
       {
         name: "InMemoryA2ADirectMessageRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
         name: "InMemoryExecutionHistoryRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
         name: "InMemoryExecutionAuditLogRepository", // #501
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
-      { name: "SharedCheckpointSaver", kind: HealthComponentKind.Store, status: "healthy" },
+      { name: "SharedCheckpointSaver", kind: HealthComponentKind.Storage, status: "healthy" },
       {
         name: "openrouter-model-provider",
         kind: HealthComponentKind.ModelProvider,
@@ -103,7 +111,7 @@ describe("#300 AC2: readiness", () => {
 
       expect(report.status).toBe(HealthStatus.Unhealthy);
       expect(componentOf(report, "FlakyCostLedgerRepository")).toMatchObject({
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: HealthStatus.Unhealthy,
         reason: "connection refused",
       });
@@ -136,11 +144,11 @@ describe("#300 AC2: readiness", () => {
 
     expect(report.status).toBe(HealthStatus.Degraded);
     expect(componentOf(report, "crm-health-check")).toMatchObject({
-      kind: HealthComponentKind.Project,
+      kind: HealthComponentKind.HealthCheck,
       status: HealthStatus.Healthy,
     });
     expect(componentOf(report, "search-health-check")).toMatchObject({
-      kind: HealthComponentKind.Project,
+      kind: HealthComponentKind.HealthCheck,
       status: HealthStatus.Degraded,
       reason: "a replica is down",
     });

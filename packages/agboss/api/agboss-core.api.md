@@ -318,24 +318,22 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
 // @public
 export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
-    readonly callerName: string;
-    // (undocumented)
-    readonly costUsd?: Usd;
+    readonly caller: string;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
     readonly provider: string;
     // (undocumented)
     readonly rawContent: MessageContent;
-    // (undocumented)
-    readonly usage: ModelUsage;
+    readonly usage: TokenUsage;
 }
 
 // @public
 export interface ModelStartEvent extends NodeEvent {
     // (undocumented)
-    readonly callerName: string;
+    readonly caller: string;
     // (undocumented)
-    readonly modelName: string;
+    readonly model: string;
     readonly provider: string;
     // (undocumented)
     readonly rawPayload: readonly BaseMessage[];
@@ -532,14 +530,12 @@ export class WorkflowSettings {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "component".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "text".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "modelName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "model".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "caller".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "rawPayload".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "model".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "callerName".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "caller".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "rawContent".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "judge".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "agent".

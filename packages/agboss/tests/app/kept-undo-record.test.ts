@@ -1,5 +1,5 @@
 /**
- * #635 — a root's kept record (`ExecutionHistoryRecord.compensations`, what `agboss records export`
+ * #635 — a root's kept record (`ExecutionHistoryRecord.compensations`, what `agboss executions export`
  * writes) lists every undo action that ran, as its `onExecutionError` does, however the tree ended:
  * a pass's own failure, a failed undo, a cancel of the running tree, a side path's undo before the
  * failure, a failed per-item child, a cancel of the paused tree, a cancel request seen at rest. The

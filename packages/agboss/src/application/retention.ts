@@ -22,7 +22,7 @@ export interface RetentionOptions {
   /**
    * The history of each root execution after it ended (#401) — its `ExecutionHistoryRecord`, masked
    * like its traces, saved in the `ExecutionHistoryRepository` when its tree rests or ends and read
-   * by `agboss records export`. On the built-in in-memory store it warns
+   * by `agboss executions export`. On the built-in in-memory store it warns
    * `[application.in-memory-execution-history]`.
    *
    * @defaultValue unset: **nothing is kept** — unlike every other retention, the safe default for

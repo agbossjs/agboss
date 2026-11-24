@@ -9,7 +9,7 @@ import { environmentOwnerOf, type BuildApplicationOptions } from "./create-app.j
 import { contextsOf } from "./instance-contexts.js";
 
 /**
- * An application's execution history opened for reading (#401 PR 1, `agboss records export`):
+ * An application's execution history opened for reading (#401 PR 1, `agboss executions export`):
  * the application assembled, its environment read, its stores created as an instance creates them
  * — and nothing else: no workflow built, no recovery sweep, no execution moved.
  */
@@ -32,7 +32,7 @@ export async function openExecutionHistory(
   const assembled = await applicationOf(
     application,
     { profile: options.profile, processEnv, withoutIdempotencyKeys: true },
-    "agboss records export",
+    "agboss executions export",
   );
   const owner = environmentOwnerOf(assembled);
   const environment = await namedEnvironmentFor(owner, options, processEnv);

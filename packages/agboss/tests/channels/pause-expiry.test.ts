@@ -64,7 +64,7 @@ describe("#941 AC1: a pause nobody answers expires and the step fails", () => {
     const director = expiry.directorAsked[0];
     const done = await app.resume(
       { pauseId: director?.pauseId ?? "", decision: { approved: true } },
-      { answeredBy: "director-1", record: true },
+      { answeredBy: "director-1", includeRecord: true },
     );
     expect(done.record?.pauses).toMatchObject([
       { resolution: PauseResolution.Expired, answeredBy: undefined },

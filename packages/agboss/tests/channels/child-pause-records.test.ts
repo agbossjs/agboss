@@ -56,7 +56,7 @@ describe("#267 S124 c: a single child's record lists its own pauses", () => {
 
     const done = await app.resume(
       { pauseId: pending?.pauseId ?? "", reply: yes },
-      { ...owner, record: true },
+      { ...owner, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryDeskWorkflowFinish, { text: "Booked." });
@@ -100,7 +100,7 @@ describe("#267 S124 c: each per-item child's record lists its own pauses", () =>
     await app.resume({ pauseId: lunch.pauseId, reply: yes }, owner);
     const done = await app.resume(
       { pauseId: taxi.pauseId, reply: '{"approved":false}' },
-      { ...owner, record: true },
+      { ...owner, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryBatchWorkflowFinish, { text: "Both booked." });

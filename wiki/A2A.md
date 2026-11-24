@@ -354,7 +354,7 @@ export class QuotesA2AEndpoint {}
   pass alone. That instance keeps, for a skill that can call a model, one call of unknown cost in
   the run's record, as a lost pass of #853: `spend.unknownCalls` 1, a line `lost-pass:<workflow>`
   of no amount (`CostSource.Unknown`, ledger key `unknown:lost-run:<tenantId>:<runId>`) — what
-  `agboss records export` writes — counted in `agboss.instance.costs.unknown`. The message of an
+  `agboss executions export` writes — counted in `agboss.instance.costs.unknown`. The message of an
   attempt lost to a crash is taken over by exactly one resend or by the sweep, which removes its
   files. A failed attempt keeps nothing: a resend runs it again.
 - **A live attempt is never swept.** The sweep removes completed replies only, the oldest first,

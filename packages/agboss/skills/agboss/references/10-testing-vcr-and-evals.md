@@ -728,7 +728,7 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
 `UnknownTool` (the model called a tool its agent does not have).
 
 - `result.toolCalls` — the root execution's own calls, in call order, **real values**;
-  `result.children[i].toolCalls` and `.steps` — each child's own. `result.record.toolCalls` (`{ record: true }`)
+  `result.children[i].toolCalls` and `.steps` — each child's own. `result.record.toolCalls` (`{ includeRecord: true }`)
   holds the same **masked** by the application's and the workflow's PII policies.
 - `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
   ended: its `step`, `inputHash` (a stable hash of what it read — the same input, the same hash on
@@ -786,7 +786,7 @@ test("the skills agent looks the candidate up, whatever else runs", async ({ app
   mockLlm(VerdictAgent).thenReturn(replyWith(VerdictDto, { decision: "hire", reason: "both reports at 7+" }));
   mockLlm(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.9 }));
 
-  const result = await app.execute(ScreeningWorkflowStart, { name: "Dana", cv: "TypeScript" }, { record: true });
+  const result = await app.execute(ScreeningWorkflowStart, { name: "Dana", cv: "TypeScript" }, { includeRecord: true });
 
   // invariants, not positions: the archive was asked, once at least for Dana, and every lookup succeeded
   expect(result).toHaveCalledTools([CandidateArchiveTool]);

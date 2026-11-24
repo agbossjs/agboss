@@ -85,7 +85,7 @@ describe("#120 AC7: observability is masked by the whole list", () => {
       .thenReturn(callTool(SendEmail, { to: EMAIL, body: "hi" }), replyWith(`wrote ${EMAIL}`));
     const app = await seenApp(book);
 
-    const result = await execute(app, PiiStart, { text: `to ${EMAIL}` }, { record: true });
+    const result = await execute(app, PiiStart, { text: `to ${EMAIL}` }, { includeRecord: true });
 
     expect(seen.length).toBeGreaterThan(3);
     expect(seen.join("\n")).not.toContain(EMAIL);

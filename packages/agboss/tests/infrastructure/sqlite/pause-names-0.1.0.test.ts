@@ -74,7 +74,7 @@ describe("AC3: a SQLite file written by 0.1.0", () => {
     });
   });
 
-  it("a kept history record and its children's pauses normalised; agboss records export prints the new names", async () => {
+  it("a kept history record and its children's pauses normalised; agboss executions export prints the new names", async () => {
     const connection = connectionTo(temporarySqlitePath());
     const history = new SqliteExecutionHistoryRepository(connection);
     connection.database

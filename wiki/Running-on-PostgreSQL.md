@@ -69,7 +69,7 @@ export const environment: AppEnvironment = {
     PostgresCheckpointSaver, // LangGraph's PostgresSaver on the shared pool
     PostgresChildExecutionQueueRepository, // ChildPlacement.AnyWorker children
     PostgresCostLedgerRepository, // budgets count every pod's spend
-    PostgresExecutionHistoryRepository, // agboss records export on any pod
+    PostgresExecutionHistoryRepository, // agboss executions export on any pod
     PostgresExecutionAuditLogRepository, // the audit log: app.auditLogOf
     PostgresExecutionLeaseRepository, // one holder per tree, fenced by epoch
     PostgresExecutionRecordRepository, // threads, records, scores, summaries

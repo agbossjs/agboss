@@ -205,7 +205,7 @@ application's twelve workflows `--federation` against the desk's fresh `describe
 eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
 with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`, then `npm
 run records:check` — the desk keeps its executions (`retention.executionRecords`, #401, in
-`.agboss/desk-offline.sqlite` on `offline`): one run, `agboss records export`, `agboss generate
+`.agboss/desk-offline.sqlite` on `offline`): one run, `agboss executions export`, `agboss generate
 eval-case --from-execution --dry-run` (#396 PR 8, what `eval ui`'s "Save as golden case" writes,
 #397 PR 5); `npm run snapshot` rewrites the desk's describe, `npm run eval` its baseline) ·
 `npm run describe`
@@ -1300,7 +1300,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `finish` + `output`, `contexts`, `error` — masked like its traces, saved when its tree rests or
   ends, only with `@Application({ retention: { executionRecords } })` (unset → nothing kept; on the
   in-memory store `[application.in-memory-execution-history]`), removed by the recovery sweep once it
-  ended longer ago; `agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl>
+  ended longer ago; `agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl>
 [--since] [--until]` writes it as JSON Lines, `kind: "agboss.execution-record"`, opening the stores
   only — `records.tenant-required`, `records.not-kept`), `ExecutionAuditLogRepository` (#501: the
   audit log, append-only — `save`, `findAllByTenantIdAndRootExecutionIdOrderByOccurredAt`,
@@ -1310,7 +1310,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   tokens only, masked like observer events; always written, whatever `retention.executionRecords` says,
   readable mid-run with `app.auditLogOf({ tenantId, rootExecutionId })`, removed by the recovery
   sweep after `@Application({ retention: { auditLog } })`, default `hours(24)`; a kept
-  `ExecutionHistoryRecord` carries its tree's rows as `auditLog`, so `agboss records export` does)
+  `ExecutionHistoryRecord` carries its tree's rows as `auditLog`, so `agboss executions export` does)
   — and the
   `@ModelProvider` classes (#266; an HTTP one is not created by the container, a transport one
   is — on its first call, #385; a misplaced one in a workflow's `providers` is
@@ -2305,7 +2305,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   any but `Pending` → `PauseClosedError` (`reason`; `NotPausedError` is the thread-level miss). `app.resume({ pauseId, reply }, …)` answers with free text
   instead (exactly one of `decision` / a non-empty `reply`, else `DtoValidationError`), read by the
   role's `@ReplyInterpreter` (Components above). Who answered each pause is in
-  `result.record.pauses` (`{ record: true }`, #267 S107): every resolved pause of the tree in the order
+  `result.record.pauses` (`{ includeRecord: true }`, #267 S107): every resolved pause of the tree in the order
   asked — `PauseAnswerRecord { pauseId (none for a Channel pause), executionId, step, role,
 answerer, answeredBy (the person; `responder` deprecated), resolution: PauseResolution,
 askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when withdrawn or cancelled, `asked` (#688) the call as
@@ -2409,7 +2409,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `onExecutionRejected`; `cancel`'s thread id the same, #552), `cancel` of it is `UnknownThreadError`;
   a tenant id is a key's text too (#552: at `execute`, `resume` and `cancel` — #568: and at
   `auditLogOf`, `outboundCallsOf`, `pendingOutboundCallsOf`, whose tree reads check `rootExecutionId` (#580)
-  so too; `agboss records export --tenant` and `generate eval-case --tenant`, `usage.option-value`; a
+  so too; `agboss executions export --tenant` and `generate eval-case --tenant`, `usage.option-value`; a
   trusted A2A / MCP request under another is never deduplicated —, else `dto.invalid` naming
   `tenantId` and the rule, never the id — `t\uD800` and `t\uD801` would be one tenant in UTF-8; so is
   who calls, #589: `ownerId` at `execute`, `resume`, `cancel` and a `Channel` pause's `answeredBy`); every
@@ -2676,8 +2676,8 @@ running, oldestQueuedAt? }`, one read per collection, a batch callback; a failed
   idle may read true meanwhile, `tests/metrics/hand-over-window.test.ts`).
 - **Health checks (#300):** `app.checkLiveness()` / `app.checkReadiness()` → `HealthReport { status,
 components }` (the worst component's `HealthStatus.Healthy | Degraded | Unhealthy`; each
-  `HealthComponentReport { name, kind: HealthComponentKind.Application | RecoveryLoop | Store |
-ModelProvider | Project | StepSlots, status, reason?, duration }`) — the project's server exposes them, no
+  `HealthComponentReport { name, kind: HealthComponentKind.Application | RecoveryLoop | Storage |
+ModelProvider | HealthCheck | StepSlots, status, reason?, duration }`) — the project's server exposes them, no
   endpoint of the framework. Liveness: no I/O — the application (`Unhealthy`, `stopping`, from
   `app.close()` on) and the recovery loop (`Unhealthy` when its last sweep ended more than three
   sweep intervals ago on the `Clock`). Readiness: liveness's components, every store's `ping()`

@@ -245,7 +245,7 @@ describe("AC4: input guardrails on the files of tool results (guardToolResultFil
         app,
         tools.Start,
         { document: inline(CSV_BYTES, "text/csv", "items.csv") },
-        { record: true },
+        { includeRecord: true },
       );
 
       expect(result.output).toEqual({ text: "I could not read it" });
@@ -291,7 +291,7 @@ describe("AC4: input guardrails on the files of tool results (guardToolResultFil
         app,
         tools.Start,
         { document: inline(CSV_BYTES, "text/csv", "items.csv") },
-        { record: true },
+        { includeRecord: true },
       );
 
       expect(partsOf(agent.requests[1] ?? agent.onlyRequest).map((part) => part.mediaType)).toEqual(

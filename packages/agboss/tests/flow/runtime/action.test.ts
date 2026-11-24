@@ -43,7 +43,12 @@ describe("#272: an @Action runs execute(input) with its fields from the path sco
   });
 
   test("the record names who gave each value and what it was built from", async ({ app }) => {
-    const result = await execute(app, TicketStart, { text: "x", kind: "bug" }, { record: true });
+    const result = await execute(
+      app,
+      TicketStart,
+      { text: "x", kind: "bug" },
+      { includeRecord: true },
+    );
 
     expect(result.output).toEqual({ text: "a bug" });
     expect(result.record?.scope).toEqual(

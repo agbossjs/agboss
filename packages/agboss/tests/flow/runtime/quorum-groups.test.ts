@@ -126,7 +126,7 @@ describe("AC7: groups with priority", () => {
       mockLlm(CriticPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
       mockLlm(FastPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
-      const result = await execute(app, DealPanelWorkflowStart, ACME, { record: true });
+      const result = await execute(app, DealPanelWorkflowStart, ACME, { includeRecord: true });
 
       expect(result).toFinishWith(NoQuorumPanelWorkflowFinish, ACME);
       expect(result.launches[0]?.branches).toMatchObject([

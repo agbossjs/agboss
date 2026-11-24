@@ -265,7 +265,7 @@ describe("#505 AC4: a kept record and its export carry the tree's calls, masked 
   );
 
   kept(
-    "AC4: the exported line (agboss records export) carries them masked too",
+    "AC4: the exported line (agboss executions export) carries them masked too",
     async ({ app }) => {
       gateway.receiptEmail = "bob@example.com";
       await execute(app, ChargeWorkflowStart, { text: "order-7 alice@example.com" });
