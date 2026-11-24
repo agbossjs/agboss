@@ -63,3 +63,37 @@ export function ensureBaselineSchema(database: DatabaseSync): void {
     throw error;
   }
 }
+
+/**
+ * The tables the baseline creates: what `checkedSchemaVersion` asks a file about — a file holding
+ * any of them is not new. A test creates the baseline and compares this list with the file's
+ * tables, so it cannot drift from the DDL above.
+ */
+export const BASELINE_TABLES: readonly string[] = [
+  "a2a_direct_messages",
+  "a2a_messages",
+  "a2a_tasks",
+  "checkpoint_writes",
+  "checkpoints",
+  "child_execution_queue",
+  "cost_ledger",
+  "cost_ledger_entries",
+  "cost_ledger_entries_pruned",
+  "cost_ledger_max_spend",
+  "execution_history",
+  "execution_ids",
+  "execution_lease_events",
+  "execution_leases",
+  "execution_tree_keys",
+  "fenced_effect_business_results",
+  "fenced_effect_marks",
+  "fenced_effect_results",
+  "mesh_requests",
+  "outbound_calls",
+  "pause_notices",
+  "paused_executions",
+  "pauses",
+  "rate_limit_pauses",
+  "rate_limit_slots",
+  "rate_limit_window_entries",
+];
