@@ -22,7 +22,11 @@ describe("#1317c: the scope of a runOnce", () => {
       inside = runOnceNameOf();
       cleared = outsideRunOnce(() => runOnceNameOf());
       // a promise the work leaves running reads the scope after it ended
-      left = new Promise((resolve) => setImmediate(() => { resolve(runOnceNameOf()); }));
+      left = new Promise((resolve) =>
+        setImmediate(() => {
+          resolve(runOnceNameOf());
+        }),
+      );
       await Promise.resolve();
     });
 

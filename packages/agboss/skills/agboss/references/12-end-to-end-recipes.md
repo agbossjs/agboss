@@ -1419,6 +1419,7 @@ import {
   type OpenRouterFields,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
+import type { LenderTenantContext } from "../contexts/lender.context.js";
 import { LoansBackupModelProvider } from "./loans-backup.model-provider.js";
 
 @ModelProvider({
@@ -1438,10 +1439,11 @@ import { LoansBackupModelProvider } from "./loans-backup.model-provider.js";
     jitter: true,
     retryOn: [ModelFailure.Timeout, ModelFailure.RateLimited, ModelFailure.ServerError],
   }),
-  rateLimitPolicy: RateLimitPolicy.of({
+  rateLimitPolicy: RateLimitPolicy.of<LenderTenantContext>({
     maxConcurrentCalls: 16,
     perMinute: { calls: 300 },
-    balancing: QueueBalancingStrategy.TenantWeighted, // enterprise lenders weigh more
+    balancing: QueueBalancingStrategy.TenantWeighted,
+    tenantWeight: (tenant) => (tenant.plan === "enterprise" ? 3 : 1), // enterprise lenders weigh more
   }),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
@@ -1976,7 +1978,7 @@ import { LoanWorkflowStart } from "../../../src/workflows/loan/loan.workflow-sta
 
 const test = testWith(LoansApplication);
 
-const LENDER = { tenant: { tenantId: "bank-a", weight: 3, plan: "enterprise", dailyBudgetUsd: 20 } } as const;
+const LENDER = { tenant: { tenantId: "bank-a", plan: "enterprise", dailyBudgetUsd: 20 } } as const;
 const APPLICATION = { text: "ID 000000018, income $90k, mail dana@example.com", amount: 15000 };
 const APPROVED = { isApproved: true, rate: 0.07, reason: "a good score" };
 

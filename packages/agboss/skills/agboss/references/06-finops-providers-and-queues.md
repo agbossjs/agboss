@@ -325,7 +325,8 @@ import { BackupModelProvider } from "./backup.model-provider.js";
   rateLimitPolicy: RateLimitPolicy.of({
     maxConcurrentCalls: 8, // for the whole application: every execution, tenant and instance
     perMinute: { calls: 120, tokens: 400_000 },
-    balancing: QueueBalancingStrategy.TenantWeighted, // a tenant gets up to its weight per round
+    balancing: QueueBalancingStrategy.TenantWeighted, // a tenant gets up to its weight per round…
+    tenantWeight: (tenant) => (tenant.tenantId === "acme" ? 3 : 1), // …the policy's own, from 1
   }),
   circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5, // 5 failed calls within a minute open it for 30 s
@@ -501,7 +502,7 @@ BedrockModelProvider (…) · serves /^bedrock\// · transport: BedrockModelProv
 
 | Policy                 | Its one duty                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retryPolicy`          | retries **this** call — `RetryPolicy.exponential({ … })`, `.fixed({ maxAttempts, delay, retryOn })`; omitted: no retries; the only place backoff is set. Only the listed `ModelFailure`s are retried (`Timeout`, `RateLimited`, `ServerError`, `NetworkError`); a 4xx is the answer. `Retry-After` is honoured; a wait between attempts holds no slot                                                                                                                                                                                     |
+| `retryPolicy`          | retries **this** call — `RetryPolicy.exponential({ … })`, `.fixed({ maxAttempts, delay, retryOn })`; omitted: no retries; the only place backoff is set. Only the listed `ModelFailure`s are retried (`Timeout`, `RateLimited`, `ServerError`, `NetworkError`); a 4xx is the answer. `Retry-After` is honoured; a wait between attempts holds no slot                                                                                                                                                                           |
 | `rateLimitPolicy`      | how many calls go out — `RateLimitPolicy.of({ maxConcurrentCalls?, perMinute?: { calls?, tokens? }, balancing? })`, at least one limit. Without it there is no limit. A call without room **waits** (never an error, never a cost): the tenant-fair queue → the 429 pause → the per-minute tokens → a slot → the per-minute calls. A 429 pauses the provider's whole queue for `Retry-After` on every instance and halves that instance's concurrency, which grows back by one a minute                                         |
 | `circuitBreakerPolicy` | `CircuitBreakerPolicy.fixed({ failureThreshold, failureWindow, openDuration, halfOpenProbes? })` or `.exponential({ …, initialOpenDuration, maxOpenDuration, jitter })` (optional): that many failed calls within `failureWindow` open it; after an open it is half-open (`halfOpenProbes` calls try the provider; a success closes it, a failure opens it again). Open, calls go to the provider's `fallback` or fail fast with `ModelCallError` `model.circuit-open`. An open or half-open breaker makes readiness `Degraded` |
 
@@ -516,12 +517,12 @@ the provider that answered.
 
 **Fairness between tenants** (`balancing`, `QueueBalancingStrategy`) — who gets a free slot:
 
-| Strategy                         | A free slot goes to                                                                                     |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `TenantRoundRobin` (the default) | the waiting tenants in turn, first in first out inside one                                              |
-| `TenantLeastInFlight`            | the waiting tenant with the fewest calls in flight                                                      |
-| `TenantWeighted`                 | round-robin, a tenant up to its `weight` slots per round (`tenant: { tenantId, weight: 3 }`, default 1) |
-| `Fifo`                           | one queue in arrival order                                                                              |
+| Strategy                         | A free slot goes to                                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `TenantRoundRobin` (the default) | the waiting tenants in turn, first in first out inside one                                                        |
+| `TenantLeastInFlight`            | the waiting tenant with the fewest calls in flight                                                                |
+| `TenantWeighted`                 | round-robin, a tenant up to `tenantWeight(tenant)` slots per round (the policy's own function, an integer from 1) |
+| `Fifo`                           | one queue in arrival order                                                                                        |
 
 The queue is per instance; the slots, windows, pause and breaker are shared through the
 application's `RateLimitRepository` (`SqliteRateLimitRepository` or your own, reference 09). Every
@@ -666,7 +667,7 @@ const app = await createApp(BillingApplication, { env: "prod" });
 const result = await app.execute(
   InvoiceWorkflowStart,
   { text: "Invoice 3 hours of consulting to Acme Ltd, Israel" },
-  { tenant: { tenantId: "acme", weight: 3, dailyBudgetUsd: 5 } }, // weight: TenantWeighted's share
+  { tenant: { tenantId: "acme", dailyBudgetUsd: 5 } },
 );
 
 // every result carries its spend: total, calls, by category, model and caller, and every call in order

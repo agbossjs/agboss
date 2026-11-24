@@ -10,7 +10,6 @@ import { describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { withDecisionSpend } from "../../../src/finops/failed-decision.js";
 import { createArbiterModels } from "../../../src/flow/runtime/launch/arbiter-call.js";
-import type { ModelGateway } from "../../../src/llm/gateway.js";
 import { ModelKindError } from "../../../src/llm/decision-errors.js";
 import { Decision } from "../../../src/llm/decisions.js";
 import { usd } from "../../../src/units/index.js";
@@ -44,7 +43,7 @@ describe("#1283: a decision of the injected ArbiterModel", () => {
     const decide = vi.fn(outcome);
     return {
       decide,
-      gateway: { decide, chatModel: vi.fn() } as unknown as ModelGateway,
+      gateway: { decide, chatModel: vi.fn() } as never,
       chatDefaults: { temperature: 0 },
     };
   };
@@ -147,7 +146,7 @@ describe("#1283: a chat call of the injected ArbiterModel", () => {
       invoke,
       chatModel,
       deps: {
-        gateway: { chatModel, decide: vi.fn() } as unknown as ModelGateway,
+        gateway: { chatModel, decide: vi.fn() } as never,
         chatDefaults: { temperature: 0 },
       },
     };

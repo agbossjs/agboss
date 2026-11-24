@@ -46,7 +46,7 @@ const recordOf = (
     workflow: { name: more.workflow ?? "desk", version: "1", startedVersion: "1" },
     status: more.status ?? ExecutionHistoryStatus.Finished,
     startedAt,
-  }) as unknown as ExecutionHistoryRecord;
+  }) as ExecutionHistoryRecord;
 
 /** The error a call rejects with, when it does. */
 const rejection = async (call: Promise<unknown>): Promise<unknown> =>
@@ -57,7 +57,7 @@ const rejection = async (call: Promise<unknown>): Promise<unknown> =>
 
 describe("#1324e: an application with a tenantContext refuses a call that names no tenant", () => {
   const needing: readonly [string, (app: AnyTenantApp) => Promise<unknown>][] = [
-    ["execute", (app) => app.execute(DeskWorkflowStart, { text: "hi" } as never)],
+    ["execute", (app) => app.execute(DeskWorkflowStart, { text: "hi" }, {} as never)],
     ["resume", (app) => app.resume({ pauseId: "p", decision: {} })],
     ["cancel", (app) => app.cancel("thread-1")],
     ["extendPause", (app) => app.extendPause({ pauseId: "p", expiresIn: 1000 as never })],

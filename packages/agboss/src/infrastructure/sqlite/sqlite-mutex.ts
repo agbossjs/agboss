@@ -90,17 +90,14 @@ export class SqliteMutex<TScope = unknown> {
     const ended = this.#endedHold();
     if (ended !== undefined) return Promise.reject(ended);
     if (this.#active === undefined || this.isInside) return work();
-    return new Promise((resolveWork, rejectWork) => {
+    // an async arrow runs `work` synchronously at the call, and settles with whatever it threw,
+    // as it threw it
+    const run = async (): Promise<Awaited<TValue>> => work() as Awaited<TValue>;
+    return new Promise((resolveWork) => {
       this.#queue.push({
         isHold: false,
         start: () => {
-          try {
-            resolveWork(work() as Awaited<TValue>);
-          } catch (error) {
-            // whatever the operation threw, as it threw it
-            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
-            rejectWork(error);
-          }
+          resolveWork(run());
           return undefined;
         },
       });

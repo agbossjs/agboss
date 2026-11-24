@@ -64,7 +64,7 @@ export const FENCE: unique symbol = Symbol("agboss.fence");
 
 /** The fence of `context`'s current step (internal). */
 export const fenceOf = (context: ExecutionContext): ExecutionFence =>
-  (context as unknown as { readonly [FENCE]: ExecutionFence })[FENCE];
+  (context as ExecutionContext & { readonly [FENCE]: ExecutionFence })[FENCE];
 
 /** The frame's lease, held now; no lease, or one yielded meanwhile → why it is unavailable. */
 function heldLeaseOf(frameOf: FrameOf, consumer: string, member: string): FrameLease {
