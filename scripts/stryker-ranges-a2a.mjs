@@ -130,6 +130,8 @@ export function streamShard() {
       // #1311b: a transport stream's chunks as they come
       "src/models/transport/transport-chunks.ts",
       "src/graph/agent-loop/chunk-counter.ts",
+      // #1399: the same for a call of any other component, and a fallback's share of it
+      "src/finops/charged-call.ts",
     ],
   };
 }

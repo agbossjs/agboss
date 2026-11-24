@@ -3,6 +3,7 @@ import { copyOfResult, type RagSearchResultDto } from "./dto.js";
 import { recordUsage, type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import type { RerankerHandler, RerankResult } from "./types.js";
+import { chargedCall, reportToFrame } from "../finops/charged-call.js";
 
 /** The core's LLM reranker: a code reranker whose `rerank` always answers with a promise. */
 export interface ModelRerankerHandler extends RerankerHandler {
@@ -132,7 +133,15 @@ export function modelRerankerOf(
         new SystemMessage(RERANKER_SYSTEM),
         new HumanMessage(rerankPromptOf(reading?.query ?? query, read, topK, maxCandidateLength)),
       ];
-      const response = await binding.model.invoke(messages, { signal });
+      const spec = {
+        caller: `reranker:${name}`,
+        settings: binding.settings,
+        sent: messages,
+        sink: reportToFrame,
+      };
+      const response = await chargedCall(spec, (callbacks) =>
+        binding.model.invoke(messages, { signal, callbacks }),
+      );
       const usage = [recordUsage(`reranker:${name}`, binding.settings, response)];
       const ranking = rankingOf(response.text, candidates.length);
       if (ranking === undefined)

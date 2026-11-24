@@ -131,7 +131,7 @@ describe("#1366: the summary's model call", () => {
     expect(recorded).toHaveBeenCalledWith(out.usage);
     const [messages, options] = invoke.mock.calls[0] ?? [];
     expect(messages.map((m: { text: string }) => m.text)).toEqual(["Summarise.", "input"]);
-    expect(options).toEqual({ callbacks: ["cb"], runName: "memory:notes" });
+    expect(options).toEqual({ callbacks: ["cb", expect.anything()], runName: "memory:notes" });
   });
 
   it("a summary cut at its limit is asked once more, shorter: both calls recorded, both spent", async () => {

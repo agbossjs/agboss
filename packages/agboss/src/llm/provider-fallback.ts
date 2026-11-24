@@ -35,6 +35,7 @@ export function withFallback(primary: BaseChatModel, parts: FallbackParts): Base
       chatModel: () => chatOf(fallback, { ...settings, model, price: undefined }),
       model,
       cost: fallback.options.cost,
+      provider: fallback.options.name,
     },
   });
 }

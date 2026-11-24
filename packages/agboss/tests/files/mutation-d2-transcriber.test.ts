@@ -56,7 +56,7 @@ describe("#1269: transcribed", () => {
     expect(result.usage?.caller).toBe("files:transcriber");
     expect(result.usage?.model).toBe("vision-1");
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.options).toEqual({ signal: OPTIONS.signal });
+    expect(calls[0]?.options).toEqual({ signal: OPTIONS.signal, callbacks: expect.anything() });
     expect(calls[0]?.messages[0]?.content).toBe(TRANSCRIBER_SYSTEM);
     expect(calls[0]?.messages[1]?.content).toEqual([
       { type: "text", text: "Transcribe this file." },

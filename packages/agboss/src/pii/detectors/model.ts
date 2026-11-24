@@ -7,6 +7,7 @@ import { piiDetectionInstructions } from "../../prompts/pii.js";
 import { SILENT_LOG, type FrameworkLog } from "../../infrastructure/logger.js";
 import { PiiKind } from "../kinds.js";
 import type { ModelDetection, ModelFoundRange } from "../runtime-policy.js";
+import { chargedCall, reportToFrame } from "../../finops/charged-call.js";
 
 /**
  * A policy's model detection (`model`, #120 AC3): names, street addresses and the other
@@ -94,7 +95,10 @@ export function modelDetectionOf(
       new SystemMessage(piiDetectionInstructions(kinds.map((kind) => kind.id))),
       new HumanMessage({ content: text }),
     ];
-    const response = await binding.model.invoke(messages);
+    const spec = { caller, settings: binding.settings, sent: messages, sink: reportToFrame };
+    const response = await chargedCall(spec, (callbacks) =>
+      binding.model.invoke(messages, { callbacks }),
+    );
     const usage: UsageRecord[] = [recordUsage(caller, binding.settings, response)];
     const answer = parsedAnswer(response.content);
     if (answer === undefined)

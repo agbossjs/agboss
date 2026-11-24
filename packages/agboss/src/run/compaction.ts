@@ -1,7 +1,7 @@
 import { budgetLeftAfter, isBudgetLeftUsed } from "../finops/cost-report.js";
 import { type Usd } from "../units/index.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import { HumanMessage, SystemMessage, type AIMessage } from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
 import { observedCompaction } from "./compaction-events.js";
 import { isMemoryError, memoryError } from "../memory/memory-error.js";
 import { CUSTOM_COMPACTION, CompactionStrategy } from "../memory/memory.decorator.js";
@@ -13,7 +13,7 @@ import { isCutAtLimit } from "../models/finish-reason.js";
 import { revealedText, type PiiTokenMap } from "../pii/tokens.js";
 import { SHORTER_SUMMARY_REQUEST } from "../prompts/compaction.js";
 import type { Summary, Turn } from "../turns/index.js";
-import { maskedTextOf, storedCompaction } from "./compaction-parts.js";
+import { callerOf, maskedTextOf, storedCompaction, summaryAnswer } from "./compaction-parts.js";
 import { summaryInputTextOf } from "./compaction-input.js";
 
 export { summaryInputTextOf, type SummaryInputParts } from "./compaction-input.js";
@@ -69,8 +69,6 @@ const asTurns = (turns: readonly Turn[]): string =>
   toTurns(turns)
     .map((turn) => `${turn.start}\n${turn.finish}`)
     .join("\n\n");
-
-const callerOf = (compaction: ModelCompactionInUse): string => `memory:${compaction.name}`;
 
 /**
  * The turns due: those older than the window, once `turnsBetweenCompactions` have gathered —
@@ -128,10 +126,7 @@ async function summaryCall(
   run: CompactionRun,
 ): Promise<{ readonly answer: AIMessage; readonly usage: UsageRecord }> {
   try {
-    const answer = await binding.model.invoke(
-      [new SystemMessage(compaction.prompt), new HumanMessage(input)],
-      { callbacks: run.callbacks, runName: callerOf(compaction) },
-    );
+    const answer = await summaryAnswer(binding, compaction, input, run);
     const usage = recordUsage(callerOf(compaction), binding.settings, answer);
     await run.record([usage]);
     return { answer, usage };

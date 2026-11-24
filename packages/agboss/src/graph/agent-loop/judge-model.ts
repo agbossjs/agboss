@@ -10,6 +10,7 @@ import type { JudgeBinding } from "../../llm/registry.js";
 import type { AgentJudge } from "./deps.js";
 import type { ModelReadingMask } from "../../pii/model-boundary.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
+import { chargedCall } from "../../finops/charged-call.js";
 
 /** A judge's reading (#708), loaded on its first use: only an agent with PII policies needs it. */
 async function judgeReadingOf(mask: ModelReadingMask) {
@@ -56,7 +57,14 @@ function invokeOf(
     const reading = mask === undefined ? undefined : await judgeReadingOf(mask);
     const sent = reading === undefined ? input : await reading.input(input);
     spent.push(...(reading?.usage ?? []));
-    const response = await model.invoke(typeof sent === "string" ? sent : [...sent]);
+    const asked = typeof sent === "string" ? sent : [...sent];
+    const spec = {
+      caller: judgeCaller(judge),
+      settings,
+      sent: asked,
+      sink: (records: readonly UsageRecord[]) => spent.push(...records),
+    };
+    const response = await chargedCall(spec, (callbacks) => model.invoke(asked, { callbacks }));
     spent.push(recordUsage(judgeCaller(judge), settings, response));
     return reading === undefined ? response.text : reading.revealed(response.text);
   };

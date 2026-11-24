@@ -53,7 +53,7 @@ const chunkOf = (content: string): AIMessageChunk => new AIMessageChunk({ conten
 describe("streamedAnswer", () => {
   it("tells each non-empty token to the run, joins the chunks, and notes that text went out", async () => {
     const tokens = new Tokens();
-    const told: Told = { text: false };
+    const told: Told = { text: false, chars: 0 };
     const { model } = modelOf([chunkOf("Hel"), chunkOf(""), chunkOf("lo")]);
 
     const answer = await streamedAnswer(model, MESSAGES, managerOf(tokens), undefined, told);
@@ -65,7 +65,7 @@ describe("streamedAnswer", () => {
 
   it("an answer of empty chunks told no text", async () => {
     const tokens = new Tokens();
-    const told: Told = { text: false };
+    const told: Told = { text: false, chars: 0 };
     const { model } = modelOf([chunkOf("")]);
 
     await streamedAnswer(model, MESSAGES, managerOf(tokens), undefined, told);
@@ -75,7 +75,7 @@ describe("streamedAnswer", () => {
   });
 
   it("works without a run manager", async () => {
-    const told: Told = { text: false };
+    const told: Told = { text: false, chars: 0 };
     const { model } = modelOf([chunkOf("x")]);
 
     const answer = await streamedAnswer(model, MESSAGES, undefined, undefined, told);
@@ -88,7 +88,7 @@ describe("streamedAnswer", () => {
     const controller = new AbortController();
     const { model, seen } = modelOf([chunkOf("x")]);
 
-    await streamedAnswer(model, MESSAGES, undefined, controller.signal, { text: false });
+    await streamedAnswer(model, MESSAGES, undefined, controller.signal, { text: false, chars: 0 });
     controller.abort();
 
     expect(seen).toHaveLength(1);
@@ -99,7 +99,7 @@ describe("streamedAnswer", () => {
   it("a call without a signal has none", async () => {
     const { model, seen } = modelOf([chunkOf("x")]);
 
-    await streamedAnswer(model, MESSAGES, undefined, undefined, { text: false });
+    await streamedAnswer(model, MESSAGES, undefined, undefined, { text: false, chars: 0 });
 
     expect(seen[0]?.signal).toBeUndefined();
   });
@@ -131,7 +131,7 @@ describe("markedChunk", () => {
       response_metadata: { finish_reason: "stop" },
     });
 
-    const marked = markedChunk(answer, "backup/m", cost);
+    const marked = markedChunk(answer, { provider: "backup-provider", model: "backup/m", cost });
 
     expect(marked).toBeInstanceOf(AIMessageChunk);
     expect(marked.content).toBe("text");
@@ -145,12 +145,19 @@ describe("markedChunk", () => {
     expect(marked.additional_kwargs).toEqual({ k: "v" });
     expect(marked.response_metadata).toMatchObject({
       finish_reason: "stop",
-      usage: { cost: 2, agboss_fallback: { model: "backup/m", priced: true } },
+      usage: {
+        cost: 2,
+        agboss_fallback: { provider: "backup-provider", model: "backup/m", priced: true },
+      },
     });
   });
 
   it("an answer without id, usage or calls has none of them after", () => {
-    const marked = markedChunk(chunkOf("t"), "backup/m", cost);
+    const marked = markedChunk(chunkOf("t"), {
+      provider: "backup-provider",
+      model: "backup/m",
+      cost,
+    });
 
     expect(marked.id).toBeUndefined();
     expect(marked.usage_metadata).toBeUndefined();

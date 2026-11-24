@@ -2,8 +2,8 @@ import type { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager
 import type { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { AIMessage, AIMessageChunk, type BaseMessage } from "@langchain/core/messages";
 import type { Runnable } from "@langchain/core/runnables";
-import type { ModelCost } from "./cost.js";
 import { markedFallbackMessage } from "./fallback.js";
+import type { EarlierShare, FallbackServer } from "./transport/stream-partial.js";
 import { EventStreamError } from "./calls/event-stream-guard.js";
 
 /** A streamed call of a fallback model's chat model (#1005). */
@@ -11,6 +11,8 @@ import { EventStreamError } from "./calls/event-stream-guard.js";
 /** Whether text of a call has gone out: a failed call that told text is a void one. */
 export interface Told {
   text: boolean;
+  /** The characters of text that came (#1399: what a failed provider is counted from). */
+  chars: number;
 }
 
 /**
@@ -44,6 +46,7 @@ export async function streamedAnswer(
   for await (const chunk of stream) {
     if (chunk.text !== "") {
       told.text = true;
+      told.chars += chunk.text.length;
       await runManager?.handleLLMNewToken(chunk.text);
     }
     answer = answer === undefined ? chunk : answer.concat(chunk);
@@ -55,8 +58,8 @@ export async function streamedAnswer(
 /** A fallback's streamed answer marked with the fallback's model and prices (the mark is made on a message). */
 export function markedChunk(
   answer: AIMessageChunk,
-  model: string,
-  cost: ModelCost | undefined,
+  server: FallbackServer,
+  earlier: readonly EarlierShare[] = [],
 ): AIMessageChunk {
   const whole = new AIMessage({
     content: answer.content,
@@ -66,7 +69,7 @@ export function markedChunk(
     response_metadata: answer.response_metadata,
     ...presentFields({ usage_metadata: answer.usage_metadata, id: answer.id }),
   });
-  const marked = markedFallbackMessage(whole, model, cost);
+  const marked = markedFallbackMessage(whole, server, earlier);
   return new AIMessageChunk({
     content: marked.content,
     // Stryker disable next-line ArrayDeclaration: a message always has its calls, the default is the type's

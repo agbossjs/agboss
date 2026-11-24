@@ -137,7 +137,8 @@ function fallbackRecordOf(
   reported: Usd | undefined,
   made: Pick<UsageRecord, "servedBy" | keyof TokenUsage>,
 ): UsageRecord {
-  const base = { caller, model: fallback.model, ...made };
+  const provider = fallback.provider === undefined ? {} : { provider: fallback.provider };
+  const base = { caller, model: fallback.model, ...made, ...provider };
   if (reported !== undefined) {
     const costSource = fallback.priced ? CostSource.PriceTable : CostSource.Api;
     return { ...base, costUsd: reported, costSource };

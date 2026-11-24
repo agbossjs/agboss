@@ -23,7 +23,7 @@ import { toolBindingOf } from "../../flow/runtime/answer-tools.js";
 import type { AttemptStream } from "../../run/stream/agent-stream.js";
 import { StreamDiscardReason } from "../../run/types.js";
 import { answering, attemptOf } from "./answer-stream.js";
-import { ChunkCounter, partialSpendOf, withChunkCounter } from "./chunk-counter.js";
+import { ChunkCounter, earlierSpendOf, partialSpendOf, withChunkCounter } from "./chunk-counter.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -134,7 +134,7 @@ async function observedCall(
   request: MaskedRequest,
   config: RunnableConfig | undefined,
   attempt: AttemptStream | undefined,
-): Promise<{ readonly response: AIMessageChunk; readonly usageRecord: UsageRecord }> {
+): Promise<{ readonly response: AIMessageChunk; readonly records: readonly UsageRecord[] }> {
   const { name, binding } = deps.agent;
   const modelName = binding.settings.model;
   // what the model was sent, masked: the conversation without the instructions
@@ -170,7 +170,9 @@ async function observedCall(
     costUsd: usageRecord.costUsd,
   };
   await reportNodeEvent((base) => deps.observer?.onModelEnd({ ...base, ...ended }));
-  return { response, usageRecord };
+  // what providers that failed before a fallback answered billed is recorded under them (#1399)
+  const earlier = earlierSpendOf(deps, request.messages, response);
+  return { response, records: [...earlier, usageRecord] };
 }
 
 /** The agent's `maxModelCalls` per visit: the call about to start is over it. */
@@ -207,10 +209,10 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
         ? undefined
         : { ...state.piiTokens, ...request.tokens };
     const attempt = attemptOf(config, deps, turn, tokens);
-    const { response, usageRecord } = await observedCall(state, deps, request, config, attempt);
+    const { response, records } = await observedCall(state, deps, request, config, attempt);
     // counted at once (#338) and in the ledger (#727): the branches running beside this one, and
     // the tree's steps on other instances, see it at their next check
-    const spent = deps.budgets.tally([...request.usage, usageRecord], state.flowPath);
+    const spent = deps.budgets.tally([...request.usage, ...records], state.flowPath);
     const outgoing = await outgoingMove(withCallIds(response, state), request, state, deps, spent);
     const pii = { piiTokens: request.tokens, piiMasked: request.cache };
     if (outgoing.kind === "invalid") {

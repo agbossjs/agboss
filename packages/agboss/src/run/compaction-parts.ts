@@ -1,3 +1,7 @@
+import { HumanMessage, SystemMessage, type AIMessage } from "@langchain/core/messages";
+import { chargedCall } from "../finops/charged-call.js";
+import type { ModelBinding } from "../llm/registry.js";
+import type { ModelCompactionInUse } from "../memory/plan.js";
 import { type Usd } from "../units/index.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { DetectionMode } from "../pii/runtime-policy.js";
@@ -78,4 +82,28 @@ export async function storedCompaction<TName extends string>(
     summaries: write.summaries,
     ...(write.isQueue ? { summaryQueueLength: write.summaryQueueLength } : {}),
   };
+}
+
+/** The caller a compaction's spend is recorded under. */
+export const callerOf = (compaction: ModelCompactionInUse): string => `memory:${compaction.name}`;
+
+/**
+ * One call of a compaction's model (#1399): its answer, with what it spent when it fails mid-way, and
+ * what a provider that failed before a fallback answered billed, recorded at once.
+ */
+export async function summaryAnswer(
+  binding: ModelBinding,
+  compaction: ModelCompactionInUse,
+  input: string,
+  run: Pick<CompactionRun, "callbacks" | "record">,
+): Promise<AIMessage> {
+  const caller = callerOf(compaction);
+  const messages = [new SystemMessage(compaction.prompt), new HumanMessage(input)];
+  const sink = (records: readonly UsageRecord[]): void => void run.record(records);
+  const spec = { caller, settings: binding.settings, sent: messages, sink };
+  return chargedCall(
+    spec,
+    (callbacks) => binding.model.invoke(messages, { callbacks, runName: caller }),
+    run.callbacks,
+  );
 }

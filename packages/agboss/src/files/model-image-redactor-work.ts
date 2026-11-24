@@ -15,6 +15,7 @@ import {
   RegionsAnswerError,
   type Region,
 } from "./redaction-regions.js";
+import { chargedCall, reportToFrame } from "../finops/charged-call.js";
 
 /**
  * What the built-in image redactor does (#899 §6), loaded with its first redaction: the image is turned
@@ -120,17 +121,23 @@ async function regionsAsked(
   const mediaType = MEDIA_TYPES[image.format];
   let response;
   try {
-    response = await binding.model.invoke(
-      [
-        new SystemMessage(REDACTOR_SYSTEM),
-        new HumanMessage({
-          content: contentOf(
-            `Kinds to find: ${kinds.join(", ") || "none"}.\nExact values to find: ${JSON.stringify(options.values)}.`,
-            [{ kind: "image", mediaType, data: image.data.toString("base64") }],
-          ),
-        }),
-      ],
-      { signal: options.signal },
+    const messages = [
+      new SystemMessage(REDACTOR_SYSTEM),
+      new HumanMessage({
+        content: contentOf(
+          `Kinds to find: ${kinds.join(", ") || "none"}.\nExact values to find: ${JSON.stringify(options.values)}.`,
+          [{ kind: "image", mediaType, data: image.data.toString("base64") }],
+        ),
+      }),
+    ];
+    const spec = {
+      caller: "files:redactor",
+      settings: binding.settings,
+      sent: messages,
+      sink: reportToFrame,
+    };
+    response = await chargedCall(spec, (callbacks) =>
+      binding.model.invoke(messages, { signal: options.signal, callbacks }),
     );
   } catch (cause) {
     throw new FileRedactionFailedError({ agent, reason: "the redaction model call failed", cause });

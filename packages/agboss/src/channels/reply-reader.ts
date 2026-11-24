@@ -18,6 +18,7 @@ import { UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";
+import { chargedCall, reportToFrame } from "../finops/charged-call.js";
 
 /**
  * Reading a free-text reply to a pause (#267 PR 3): the pause's role's interpreter gets the pause's
@@ -100,9 +101,13 @@ export async function readByModel(
     throw new TypeError(`${caller}: ${site.settings.model} cannot call tools`);
   const tools = replyToolsOf(interpreter.answer, interpreter.approves);
   const request = await maskedRequestOf(interpreter, input, site.pii);
-  const reply = await chat
-    .bindTools([...tools.definitions], ONE_CALL)
-    .invoke([...request.messages], { callbacks: [...site.callbacks] });
+  const spec = { caller, settings: site.settings, sent: request.messages, sink: reportToFrame };
+  const bound = chat.bindTools([...tools.definitions], ONE_CALL);
+  const reply = await chargedCall(
+    spec,
+    (callbacks) => bound.invoke([...request.messages], { callbacks }),
+    [...site.callbacks],
+  );
   const message = reply instanceof AIMessage ? reply : new AIMessage({ content: reply.content });
   const usage = [...request.usage, recordUsage(caller, site.settings, message)];
   const revealed = revealFromModel(message, { ...site.pii.known, ...request.tokens });

@@ -15,6 +15,7 @@ import { routerCaller, type RouteOutcome } from "../../../routers/index.js";
 import { contentWithPieces, type FilePiece } from "../../../files/file-pieces.js";
 import { decisionStateWith } from "../../../files/decision-parts.js";
 import { withSortedKeys } from "../json.js";
+import { chargedCall, reportToFrame } from "../../../finops/charged-call.js";
 
 /**
  * How a model router decides the `OnDemand` routes of a parallel launch (#273 S23): one model
@@ -186,7 +187,9 @@ async function decideOnChatModel(
       new SystemMessage(`${voice.system}\n\n${request.instructions}`),
       new HumanMessage({ content: contentWithPieces(request.input, request.pieces ?? []) }),
     ];
-    const reply = await chat.bindTools([answerToolOf(request, voice)]).invoke(messages);
+    const spec = { caller, settings, sent: messages, sink: reportToFrame };
+    const bound = chat.bindTools([answerToolOf(request, voice)]);
+    const reply = await chargedCall(spec, (callbacks) => bound.invoke(messages, { callbacks }));
     const message = reply instanceof AIMessage ? reply : new AIMessage({ content: reply.content });
     usage = recordUsage(caller, settings, message);
     return decidedOf(request, answersOf(message, request, voice.tool.name), usage);

@@ -71,8 +71,13 @@ describe("#1005 AC4: a fallback model's answer streams like the primary's", () =
       step: { agent: "stream-1005-agent", attempt: 1 },
     });
     expect(done.output).toEqual({ text: "from backup" });
-    expect(done.spend.byModel).toEqual({ "backup-stream/model": 0.0002 }); // the backup's model and prices
-    expect(done.spend.trace).toHaveLength(1);
+    // the backup's model and prices, and the primary's share: what it streamed before it died (#1399)
+    expect(done.spend.byModel).toEqual({
+      "backup-stream/model": 0.0002,
+      "stream/model": expect.any(Number),
+    });
+    expect(done.spend.byModel["stream/model"]).toBeGreaterThan(0);
+    expect(done.spend.trace).toHaveLength(2);
     await app.close();
   });
 

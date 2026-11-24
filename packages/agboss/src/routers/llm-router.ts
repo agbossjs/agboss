@@ -8,6 +8,7 @@ import { callFailed, decided, failed, unknownOption } from "./outcome.js";
 import { llmRouterPrompt } from "./prompts.js";
 import { routerCaller, type RouteOption, type RouteOutcome, type RouterEngine } from "./types.js";
 import type { UsageRecord } from "../finops/usage.js";
+import { chargedCall, reportToFrame } from "../finops/charged-call.js";
 
 export interface LlmRouterDeps {
   readonly name: string;
@@ -49,7 +50,10 @@ export function createLlmRouter(deps: LlmRouterDeps): RouterEngine {
               ? request.input
               : mergeTextWithContent(`${request.instructions}\n\n`, request.input),
         });
-        const response = await deps.model.invoke(prompt);
+        const spec = { caller, settings: deps.settings, sent: prompt, sink: reportToFrame };
+        const response = await chargedCall(spec, (callbacks) =>
+          deps.model.invoke(prompt, { callbacks }),
+        );
         const usage = recordUsage(caller, deps.settings, response);
         const allowed = new Set(request.options.map((option) => option.name));
         return outcomeOf(readRouterDecision(response.text, allowed), usage);

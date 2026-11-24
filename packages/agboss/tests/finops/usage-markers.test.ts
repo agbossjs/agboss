@@ -32,21 +32,29 @@ describe("#1356: the fallback's mark", () => {
     const of = (mark: unknown) => fallbackMarkOf({ usage: { [FALLBACK_MARK]: mark } });
 
     expect(of({ model: "backup/m", priced: true })).toEqual({
+      provider: undefined,
+      earlier: [],
       model: "backup/m",
       priced: true,
       unpriced: false,
     });
     expect(of({ model: "backup/m", priced: false })).toEqual({
+      provider: undefined,
+      earlier: [],
       model: "backup/m",
       priced: false,
       unpriced: false,
     });
     expect(of({ model: "backup/m" })).toEqual({
+      provider: undefined,
+      earlier: [],
       model: "backup/m",
       priced: false,
       unpriced: false,
     });
     expect(of({ model: "backup/m", priced: "true" })).toEqual({
+      provider: undefined,
+      earlier: [],
       model: "backup/m",
       priced: false,
       unpriced: false,

@@ -1,7 +1,7 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { Callbacks } from "@langchain/core/callbacks/manager";
 import type { BaseMessage } from "@langchain/core/messages";
-import { partialUsageRecordOf } from "../../finops/partial-usage.js";
+import { earlierUsageRecordsOf, partialUsageRecordsOf } from "../../finops/partial-usage.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { AgentLoopDeps } from "./deps.js";
 
@@ -35,7 +35,7 @@ export function withChunkCounter(
 }
 
 /** The characters a request sends: what the prompt of the call is counted from. */
-function requestChars(messages: readonly BaseMessage[]): number {
+export function requestChars(messages: readonly { readonly content: unknown }[]): number {
   return messages.reduce(
     (sum, message) =>
       sum +
@@ -58,9 +58,24 @@ export function partialSpendOf(
   counter: ChunkCounter,
 ): readonly UsageRecord[] {
   const { name, binding } = deps.agent;
-  const partial = partialUsageRecordOf(name, binding.settings, error, {
+  const partial = partialUsageRecordsOf(name, binding.settings, error, {
     requestChars: requestChars(messages),
     answerChars: counter.chars,
   });
-  return partial === undefined ? [] : deps.budgets.tally([partial], path);
+  return partial.length === 0 ? [] : deps.budgets.tally(partial, path);
+}
+
+/** What the providers that failed before a fallback answered billed for the call (#1399). */
+export function earlierSpendOf(
+  deps: AgentLoopDeps,
+  messages: readonly BaseMessage[],
+  response: { readonly response_metadata: Record<string, unknown> },
+): readonly UsageRecord[] {
+  const { name, binding } = deps.agent;
+  return earlierUsageRecordsOf(
+    name,
+    binding.settings,
+    response.response_metadata,
+    requestChars(messages),
+  );
 }

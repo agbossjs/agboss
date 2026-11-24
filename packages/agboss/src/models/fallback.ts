@@ -1,7 +1,17 @@
 import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { costOf, extractTokenUsage } from "../finops/usage.js";
 import { FALLBACK_MARK, isRecord } from "../finops/fallback-mark.js";
-import { priceOf, type ModelCost } from "./cost.js";
+import { priceOf } from "./cost.js";
+import type { EarlierShare, FallbackServer } from "./transport/stream-partial.js";
+
+/** The mark: who served, whether its table priced it, what providers before it spent (#1399). */
+const markOf = (server: FallbackServer, earlier: readonly EarlierShare[], isPriced: boolean) => ({
+  provider: server.provider,
+  model: server.model,
+  ...(earlier.length === 0 ? {} : { earlier }),
+  priced: isPriced,
+  ...(server.cost === undefined ? { unpriced: true } : {}),
+});
 
 /**
  * A fallback's answer (#202, moved to the chat model by #385): marked in its `usage` with the
@@ -10,10 +20,11 @@ import { priceOf, type ModelCost } from "./cost.js";
  */
 export function markedFallbackMessage(
   message: BaseMessage,
-  model: string,
-  cost: ModelCost | undefined,
+  server: FallbackServer,
+  earlier: readonly EarlierShare[] = [],
 ): BaseMessage {
   if (!(message instanceof AIMessage)) return message;
+  const { model, cost } = server;
   const metadata = message.response_metadata;
   const usage = isRecord(metadata.usage) ? metadata.usage : {};
   const price = cost === undefined ? undefined : priceOf(cost, model);
@@ -21,11 +32,7 @@ export function markedFallbackMessage(
   const marked = {
     ...usage,
     ...priced,
-    [FALLBACK_MARK]: {
-      model,
-      priced: price !== undefined,
-      ...(cost === undefined ? { unpriced: true } : {}),
-    },
+    [FALLBACK_MARK]: markOf(server, earlier, price !== undefined),
   };
   return new AIMessage({
     content: message.content,

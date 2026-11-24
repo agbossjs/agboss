@@ -11,6 +11,11 @@ import type { Runnable } from "@langchain/core/runnables";
 import { ModelCallError, type CircuitBreaker } from "./circuit-breaker.js";
 import type { ModelCost } from "./cost.js";
 import { markedFallbackMessage } from "./fallback.js";
+import {
+  partialSpendOf,
+  withFailoverTrace,
+  type EarlierShare,
+} from "./transport/stream-partial.js";
 import { ModelProviderError } from "./model-provider.decorator.js";
 import { markedChunk, streamedAnswer } from "./fallback-stream.js";
 import { discardStreamedText } from "./stream-discard.js";
@@ -21,6 +26,8 @@ export interface FallbackTarget {
   /** The fallback's model for the primary's (`circuitBreakerPolicy.fallbackModels`). */
   readonly model: string;
   readonly cost: ModelCost | undefined;
+  /** The fallback provider's `name`: the call it answers is recorded under it (#1399). */
+  readonly provider: string;
 }
 
 /** What a primary chat model with a fallback is made of. */
@@ -89,7 +96,7 @@ export class FallbackChatModel extends BaseChatModel {
   private async viaFallback(messages: BaseMessage[], signal?: AbortSignal): Promise<BaseMessage> {
     const { fallback } = this.parts;
     const answer = await this.callOf(fallback.chatModel(), messages, signal);
-    return markedFallbackMessage(answer, fallback.model, fallback.cost);
+    return markedFallbackMessage(answer, fallback);
   }
 
   private async answerOf(messages: BaseMessage[], signal?: AbortSignal): Promise<BaseMessage> {
@@ -110,16 +117,28 @@ export class FallbackChatModel extends BaseChatModel {
     return { generations: [{ text: message.text, message }] };
   }
 
-  /** The fallback's streamed answer, marked as the fallback's (accounted under its model and prices). */
+  /**
+   * The fallback's streamed answer, marked as the fallback's (accounted under its provider, model and
+   * prices), with what the providers before it spent. When it fails mid-way, its error says who was
+   * serving and what the earlier ones had spent (#1399): the spend is recorded under them, not the primary.
+   */
   private async streamedViaFallback(
     messages: BaseMessage[],
     runManager: CallbackManagerForLLMRun | undefined,
     signal: AbortSignal | undefined,
+    earlier: readonly EarlierShare[] = [],
   ): Promise<AIMessageChunk> {
     const { fallback } = this.parts;
     const model = this.boundOf(fallback.chatModel());
-    const answer = await streamedAnswer(model, messages, runManager, signal, { text: false });
-    return markedChunk(answer, fallback.model, fallback.cost);
+    try {
+      const answer = await streamedAnswer(model, messages, runManager, signal, {
+        text: false,
+        chars: 0,
+      });
+      return markedChunk(answer, fallback, earlier);
+    } catch (error) {
+      throw withFailoverTrace(error, { server: fallback, earlier });
+    }
   }
 
   /**
@@ -133,7 +152,7 @@ export class FallbackChatModel extends BaseChatModel {
     runManager?: CallbackManagerForLLMRun,
   ): AsyncGenerator<ChatGenerationChunk> {
     const { signal } = options;
-    const told = { text: false };
+    const told = { text: false, chars: 0 };
     const answered = async (): Promise<AIMessageChunk> => {
       if (await this.parts.breaker.isOpen()) {
         return this.streamedViaFallback(messages, runManager, signal);
@@ -153,7 +172,12 @@ export class FallbackChatModel extends BaseChatModel {
           signal?.aborted !== true && (isCircuitOpen(error) || (await this.parts.breaker.isOpen()));
         if (!opened) throw error;
         if (told.text) await discardStreamedText(runManager, errorText(error));
-        return this.streamedViaFallback(messages, runManager, signal);
+        // the primary billed what it streamed before it died: its share, recorded under it (#1399)
+        const share: EarlierShare = {
+          reported: partialSpendOf(error),
+          chars: told.chars,
+        };
+        return this.streamedViaFallback(messages, runManager, signal, told.text ? [share] : []);
       }
     };
     const message = await answered();

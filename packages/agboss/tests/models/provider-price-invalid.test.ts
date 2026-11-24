@@ -170,6 +170,8 @@ describe("#1385: at run time a bad price throws before any cost is recorded", ()
       usage_metadata: { input_tokens: 100, output_tokens: 1000, total_tokens: 1100 },
     });
 
-    expect(() => markedFallbackMessage(message, "m", bad)).toThrow(/\[model\.price-invalid\]/);
+    expect(() => markedFallbackMessage(message, { provider: "p", model: "m", cost: bad })).toThrow(
+      /\[model\.price-invalid\]/,
+    );
   });
 });
