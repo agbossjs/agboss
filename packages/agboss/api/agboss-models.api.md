@@ -5,6 +5,7 @@
 ```ts
 
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { inspect } from 'node:util';
 
 // @public
 export interface AGBossErrorOptions {

@@ -4,6 +4,8 @@
 
 ```ts
 
+import { inspect } from 'node:util';
+
 // @public
 export function Router(options: ModelRouterOptions): ModelRouterDecorator;
 

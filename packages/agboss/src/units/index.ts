@@ -18,6 +18,17 @@ export type Bytes = Brand<number, "Bytes">;
 export type Milliseconds = Brand<number, "Milliseconds">;
 
 /**
+ * How long something is kept, beyond a duration (#1318): `Ttl.Forever` is never swept, `Ttl.None` is not kept
+ * at all. `env.ttl("HISTORY_TTL")` reads a duration, `forever` and, when it allows `none`, `none`.
+ */
+export enum Ttl {
+  /** Kept for ever: no sweep deletes it. */
+  Forever = "forever",
+  /** Not kept: nothing is written. */
+  None = "none",
+}
+
+/**
  * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
  * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
  */

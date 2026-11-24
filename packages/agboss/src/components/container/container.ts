@@ -1,4 +1,6 @@
 import { InjectionToken, tokenName, type Class, type Token } from "../injection.js";
+import { isEnvContract, resolveEnv } from "../../environments/define-env.js";
+import type { EnvContract } from "../../environments/env-ref.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
 import { replyInterpreterOf } from "../../channels/channel-role.decorator.js";
@@ -86,6 +88,8 @@ export interface ContainerOptions {
   readonly decorate?: (cls: Class, instance: unknown) => unknown;
   /** The application this container belongs to: its providers, defaults and instances, shared. */
   readonly application?: ApplicationContainer;
+  /** The values of a `defineEnv` dictionary a class asks for (#1324); default: this process's variables. */
+  readonly envOf?: (contract: EnvContract) => unknown;
 }
 
 /** What the container is built from: the providers of every workflow, the core values, defaults. */
@@ -166,7 +170,13 @@ export function createContainer(
     options.onCreate?.(instance);
     return decorated;
   };
+  const envValues = new Map<EnvContract, unknown>();
   const resolve = (token: Token, dependant = "the app"): unknown => {
+    if (isEnvContract(token)) {
+      if (!envValues.has(token))
+        envValues.set(token, options.envOf?.(token) ?? resolveEnv(token, process.env));
+      return envValues.get(token);
+    }
     const registration = registrationOf(registrations, token, dependant);
     if (registration.kind === "class") return instanceOf(registration.cls);
     const { value } = registration;

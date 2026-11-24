@@ -1,3 +1,5 @@
+import type { EnvContract, InferEnv } from "../environments/env-ref.js";
+
 /** A named value to inject (config objects, functions); classes are their own tokens. */
 export class InjectionToken<T> {
   declare readonly __type: T;
@@ -7,7 +9,8 @@ export class InjectionToken<T> {
 /** Any class. `never[]` parameters: we only need the instance type. */
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
 
-export type Token = Class | InjectionToken<unknown>;
+/** What `deps` takes: a class, a named value, or a `defineEnv` dictionary (its resolved values, #1324). */
+export type Token = Class | InjectionToken<unknown> | EnvContract;
 
 /** What a token gives the constructor: a token's value type, or a class's instance type. */
 export type Resolved<T> =
@@ -15,13 +18,18 @@ export type Resolved<T> =
     ? V
     : T extends abstract new (...args: never[]) => infer I
       ? I
-      : never;
+      : T extends EnvContract
+        ? InferEnv<T>
+        : never;
 
 /** Constructor parameters for a `deps` list — the compiler checks count, order and types. */
 export type ResolvedAll<D extends readonly Token[]> = { -readonly [K in keyof D]: Resolved<D[K]> };
 
-export const tokenName = (token: Token): string =>
-  token instanceof InjectionToken ? token.description : token.name || "(anonymous class)";
+export const tokenName = (token: Token): string => {
+  if (token instanceof InjectionToken) return token.description;
+  if (typeof token === "function") return token.name || "(anonymous class)";
+  return `defineEnv({ ${Object.keys(token).join(", ")} })`;
+};
 
 /** Module-private: only `provide()` can build a `ValueProvider` or a `ClassProvider`, so a raw literal is a type error. */
 const valueProviderBrand: unique symbol = Symbol("ValueProvider");

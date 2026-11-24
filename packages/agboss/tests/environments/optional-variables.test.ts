@@ -34,9 +34,10 @@ const resolved = (processEnv: NodeJS.ProcessEnv): Readonly<Record<string, unknow
 
 describe("#266 S90: optional environment variables", () => {
   it("each reader is typed as its value or undefined", () => {
-    expectTypeOf(env.optional("REGION")).toEqualTypeOf<string | undefined>();
-    expectTypeOf(env.integer.optional("PORT")).toEqualTypeOf<number | undefined>();
-    expectTypeOf(env.flag.optional("DEBUG")).toEqualTypeOf<boolean | undefined>();
+    // the plain type an old environment file reads, and the `EnvRef` `defineEnv` reads (#1324)
+    expectTypeOf(env.optional("REGION")).toExtend<string | undefined>();
+    expectTypeOf(env.integer.optional("PORT")).toExtend<number | undefined>();
+    expectTypeOf(env.flag.optional("DEBUG")).toExtend<boolean | undefined>();
     expect(resolved({})).toEqual({ region: undefined, port: undefined, debug: undefined });
   });
 

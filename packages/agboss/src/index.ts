@@ -49,3 +49,26 @@ export {
   SqliteSchemaTooNewError,
   type SqliteSchemaTooNewErrorOptions,
 } from "./infrastructure/sqlite/sqlite-schema-version.js";
+export { Ttl } from "./units/index.js";
+// `defineEnv` (#1324): the one reader of the process's variables
+export {
+  bearer,
+  configureEnv,
+  defineEnv,
+  type BearerAuth,
+  type EnvContract,
+  type EnvOptions,
+  type EnvOverrides,
+  type EnvReader,
+  type EnvReaders,
+  type EnvRef,
+  type EnvSpec,
+  type EnvTtlOptions,
+  type EnvValue,
+  type InferEnv,
+  type InferEnvValue,
+  type OptionalSecretRef,
+  type ReservedEnvKey,
+  type SecretReader,
+  type SecretRef,
+} from "./environments/index.js";

@@ -5,6 +5,7 @@
 ```ts
 
 import type { IncomingMessage } from 'node:http';
+import { inspect } from 'node:util';
 import type { ServerResponse } from 'node:http';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 

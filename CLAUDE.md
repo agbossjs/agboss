@@ -2156,6 +2156,20 @@ export class AppEnvironment {
 }
 ```
 
+**`defineEnv` (#1324b, the additive step of the new form):** `export const appEnv = defineEnv({ region: env("REGION"),
+port: env.integer("PORT", { default: 8080 }), deadline: env.duration("DEADLINE"), history: env.ttl("HISTORY_TTL", {
+allowNone: true }), maxFile: env.bytes("MAX_FILE"), budget: env.usd("DAILY_BUDGET"), apiKey: secret("API_KEY"), token:
+secret.optional("TOKEN") })` is the one reader of the process's variables — `env` is `env.text`; the readers are
+`env.text`, `.integer`, `.number`, `.boolean` (the old `.flag` stays until the flip), `.duration` (`30d`, `24h`, `15m`, `10s`),
+`.ttl` (a duration or `forever`; `none` only with `{ allowNone: true }` → `Ttl.Forever` / `Ttl.None`, exported from the root
+and `/units`), `.bytes` (`64kb`, `10mb`) and `.usd`, each with `{ default }` and `.optional("VAR")`. It returns a frozen,
+method-free, prototype-less dictionary (a key `then`, `__proto__`, `constructor` or `prototype` fails to compile and at
+definition) of references — `appEnv.apiKey` is a `SecretRef` that a component option takes — and a dependency token:
+`deps: [appEnv]` injects `InferEnv<typeof appEnv>`, resolved once per container (every missing or unparsable variable at
+once, named, never its value; a secret is a `Secret` read with `.reveal()`). `configureEnv(appEnv, { region: "us" })`
+gives overrides tied to one dictionary, `bearer(appEnv.apiKey)` an `Authorization: Bearer` source, and
+`ApplicationContext.profiles` lists the profiles the instance runs with. The old environment files still work beside it.
+
 Each environment is a plain object typed by it (a missing field does not compile), in
 `<name>.environment.ts` — the file name is the environment's: `env("X")` (`env.integer`, `env.flag`,
 `{ default }`; `env.optional("X")` — unset is `undefined`, for an optional field) reads a process variable at start, `secret("X")` a `Secret` (no default, a literal

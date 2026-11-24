@@ -105,8 +105,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * 1,460 at #1325a (the root was 1,449): the error families — `LimitError`, `StepError`, `Result`, … —
  * are values of the root by contract, each family a type, a namespace and a constructor in one module
  * under the line limit: 9 modules (the families of the stores entry load only with it).
+ * 1,465 at #1324b (the root was 1,461): `defineEnv`, the typed `env` readers and their parsers are root values by
+ * contract and the container resolves a `defineEnv` token: 3 modules.
  */
-const MODULE_BUDGET = 1_460;
+const MODULE_BUDGET = 1_465;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

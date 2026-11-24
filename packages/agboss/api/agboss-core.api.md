@@ -615,8 +615,8 @@ export interface ScoreQuestion {
     readonly type: "score";
 }
 
-// @public (undocumented)
-export type Token = Class | InjectionToken<unknown>;
+// @public
+export type Token = Class | InjectionToken<unknown> | EnvContract;
 
 // @public
 export function Tool<In extends DtoClass, Out extends DtoClass, const D extends readonly Token[] = []>(options: ToolOptions<In, Out, D>): <C extends new (...args: ResolvedAll<D>) => ToolHandler<InstanceType<In>, InstanceType<Out>>>(value: C) => C;
@@ -676,7 +676,6 @@ export class WorkflowSettings {
 // src/components/bind-tool.ts - (ae-undocumented) Missing documentation for "BindTool".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "description".
-// src/components/injection.ts - (ae-undocumented) Missing documentation for "Token".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "[valueProviderBrand]".

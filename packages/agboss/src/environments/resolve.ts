@@ -68,7 +68,8 @@ const FLAGS: Readonly<Record<string, boolean>> = {
 };
 
 /** A set variable as its kind's value; undefined when it does not parse. */
-function parsed(reference: VariableReference, raw: string): string | number | boolean | undefined {
+function parsed(reference: VariableReference, raw: string): unknown {
+  if (reference.parser !== undefined) return reference.parser(raw);
   if (reference.kind === VariableKind.Text) return raw;
   if (reference.kind === VariableKind.Flag) return FLAGS[raw.toLowerCase()];
   return /^-?\d+$/.test(raw) ? Number(raw) : undefined;
@@ -124,7 +125,7 @@ function resolvedValue(
   const result = parsed(value, raw);
   if (result === undefined)
     problems.invalid.push(
-      `${variable} is not ${value.kind === VariableKind.Integer ? "an integer" : "a flag (true, false, 1, 0)"} (${problems.where(path)})`,
+      `${variable} is not ${value.expected ?? (value.kind === VariableKind.Integer ? "an integer" : "a flag (true, false, 1, 0)")} (${problems.where(path)})`,
     );
   return result;
 }

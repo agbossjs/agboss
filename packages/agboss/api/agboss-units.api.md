@@ -64,6 +64,12 @@ export const seconds: (amount: number) => Milliseconds;
 export const tb: (amount: number) => Bytes;
 
 // @public
+export enum Ttl {
+    Forever = "forever",
+    None = "none"
+}
+
+// @public
 export class UnitError extends RangeError {
     constructor(options: PlainErrorOptions);
     // (undocumented)

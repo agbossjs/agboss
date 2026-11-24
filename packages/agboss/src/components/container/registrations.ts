@@ -7,6 +7,7 @@ import {
   type Provider,
   type Token,
 } from "../injection.js";
+import { isEnvContract } from "../../environments/define-env.js";
 import { ComponentError } from "../metadata.js";
 
 /**
@@ -119,6 +120,7 @@ export class Registrations {
    * listed implementations → `[di.ambiguous-implementation]`, naming `dependant`.
    */
   find(token: Token, dependant: string): Registration | undefined {
+    if (isEnvContract(token)) return undefined;
     if (this.#values.has(token)) return { kind: "value", value: this.#values.get(token) };
     const tokenClass = this.#tokenClasses.get(token);
     if (tokenClass !== undefined) return this.#resolvedClass(tokenClass);

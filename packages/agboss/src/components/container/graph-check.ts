@@ -1,4 +1,5 @@
-import { InjectionToken, tokenName, type Class, type Token } from "../injection.js";
+import { tokenName, type Class, type Token } from "../injection.js";
+import { isEnvContract } from "../../environments/define-env.js";
 import { ComponentError } from "../metadata.js";
 import { depsOf } from "./container.js";
 import { Registrations, type ProviderModule, type Registration } from "./registrations.js";
@@ -31,7 +32,7 @@ export function dependencyTree(cls: Class, modules: readonly ProviderModule[]): 
  * application's container creates it — never an `InjectionToken`, and never a workflow's service.
  */
 const ownRegistrationOf = (dep: Token, isUnderStore: boolean): Registration | undefined =>
-  isUnderStore && !(dep instanceof InjectionToken) ? { kind: "class", cls: dep } : undefined;
+  isUnderStore && typeof dep === "function" ? { kind: "class", cls: dep } : undefined;
 
 /** What `dep` of `dependant` resolves to; nothing → the error that says why. */
 function registrationOf(
@@ -70,6 +71,7 @@ export function checkGraph(
       throw new ComponentError({ message: `Dependency cycle: ${path.join(" → ")}` });
     const isStore = isUnderStore || infrastructureContractOf(cls) !== undefined;
     for (const dep of depsOf(cls)) {
+      if (isEnvContract(dep)) continue;
       const found = registrationOf(registrations, dep, tokenName(cls), isStore);
       if (found.kind === "class") visit(found.cls, path, isStore);
     }

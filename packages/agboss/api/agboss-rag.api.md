@@ -4,6 +4,8 @@
 
 ```ts
 
+import { inspect } from 'node:util';
+
 // @public
 export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> {
     // (undocumented)

@@ -4,6 +4,8 @@
 
 ```ts
 
+import { inspect } from 'node:util';
+
 // @public
 export type ExecutionId = string & {
     readonly __brand: "ExecutionId";

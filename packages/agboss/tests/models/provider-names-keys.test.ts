@@ -14,7 +14,7 @@ import {
   SecretResolution,
 } from "../../src/environments/resolve.js";
 import { Secret, secret } from "../../src/environments/secret.js";
-import { env } from "../../src/environments/variables.js";
+import { env } from "../../src/environments/env-readers.js";
 import { EmptyEnvironment, GraphRuleError } from "../../src/index.js";
 import {
   DecisionsModelProvider,

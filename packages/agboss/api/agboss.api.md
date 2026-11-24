@@ -700,6 +700,7 @@ export abstract class ApplicationContext {
     abstract readonly host: HostContext;
     abstract readonly instanceId: string;
     abstract readonly name: string;
+    abstract readonly profiles: readonly string[];
     abstract readonly startedAt: Date;
     abstract readonly version: string;
 }
@@ -850,6 +851,17 @@ export class AutoRejectChannel {
 export interface AwaitReplyOutcome {
     // (undocumented)
     readonly kind: ChannelOutcomeKind.AwaitReply;
+}
+
+// @public (undocumented)
+export const bearer: (secret: SecretRef) => BearerAuth;
+
+// @public
+export interface BearerAuth {
+    // (undocumented)
+    readonly kind: "bearer";
+    // (undocumented)
+    readonly secret: SecretRef;
 }
 
 // @public
@@ -1965,6 +1977,9 @@ export interface ConfigSnapshot {
 }
 
 // @public
+export const configureEnv: <TContract extends EnvContract>(contract: TContract, values: Readonly<Partial<InferEnv<TContract>>>) => EnvOverrides<TContract>;
+
+// @public
 export class ConsoleLogger extends Logger {
     // (undocumented)
     write(entry: LogEntry): void;
@@ -2301,6 +2316,11 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
 }
 
 // @public
+export function defineEnv<const TSpec extends EnvSpec>(spec: {
+    readonly [TKey in keyof TSpec]: TKey extends ReservedEnvKey ? never : TSpec[TKey];
+}): EnvContract<TSpec>;
+
+// @public
 export class DepthLimitExceededError extends LimitExceededError {
     constructor(options: DepthLimitExceededErrorOptions);
     // (undocumented)
@@ -2451,7 +2471,12 @@ export interface EndEvent<U> extends NodeEvent {
 type EntryOf<TName extends string> = TName extends keyof ThisWorkflowOutputs ? ThisWorkflowOutputs[TName] : MissingGeneratedTypes;
 
 // @public
-export const env: EnvironmentVariableReader;
+export const env: EnvReaders;
+
+// @public
+export type EnvContract<TSpec extends EnvSpec = EnvSpec> = TSpec & {
+    readonly [envContractBrand]: TSpec;
+};
 
 // @public
 export interface Environment {
@@ -2511,22 +2536,71 @@ export interface EnvironmentFieldOptions {
 export type EnvironmentFields = Readonly<Record<string, EnvironmentField>>;
 
 // @public
-export interface EnvironmentValueOptions<TValue> {
+export interface EnvOptions<TValue> {
     // (undocumented)
     readonly default?: TValue;
 }
 
 // @public
-export interface EnvironmentValueReader<TValue> {
-    (variable: string, options?: EnvironmentValueOptions<TValue>): TValue;
-    optional(variable: string): TValue | undefined;
+export interface EnvOverrides<TContract extends EnvContract> {
+    // (undocumented)
+    readonly contract: TContract;
+    // (undocumented)
+    readonly values: Readonly<Partial<Record<keyof TContract & string, unknown>>>;
 }
 
 // @public
-export interface EnvironmentVariableReader extends EnvironmentValueReader<string> {
-    readonly flag: EnvironmentValueReader<boolean>;
-    readonly integer: EnvironmentValueReader<number>;
+export interface EnvReader<TValue, TPlain = unknown> {
+    // (undocumented)
+    (variable: string, options?: EnvOptions<TValue>): EnvValue<TValue, TPlain>;
+    optional(variable: string): EnvValue<TValue | undefined, TPlain>;
 }
+
+// @public
+export interface EnvReaders extends EnvReader<string, string> {
+    // (undocumented)
+    readonly boolean: EnvReader<boolean, boolean>;
+    readonly bytes: EnvReader<Bytes>;
+    readonly duration: EnvReader<Milliseconds>;
+    readonly flag: EnvReader<boolean, boolean>;
+    // (undocumented)
+    readonly integer: EnvReader<number, number>;
+    // (undocumented)
+    readonly number: EnvReader<number>;
+    // (undocumented)
+    readonly text: EnvReader<string, string>;
+    readonly ttl: {
+        (variable: string, options?: EnvTtlOptions & {
+            readonly allowNone?: false;
+        }): EnvRef<Milliseconds | Ttl.Forever>;
+        (variable: string, options: EnvTtlOptions & {
+            readonly allowNone: true;
+        }): EnvRef<Milliseconds | Ttl>;
+        optional(variable: string, options?: EnvTtlOptions): EnvRef<Milliseconds | Ttl | undefined>;
+    };
+    readonly usd: EnvReader<Usd>;
+}
+
+// @public
+export interface EnvRef<T> {
+    // (undocumented)
+    readonly [envRefBrand]: T;
+    readonly variable: string;
+}
+
+// @public
+export type EnvSpec = Readonly<Record<string, EnvRef<unknown> | SecretRef | OptionalSecretRef>>;
+
+// @public
+export interface EnvTtlOptions {
+    // (undocumented)
+    readonly allowNone?: boolean;
+    // (undocumented)
+    readonly default?: Milliseconds | Ttl;
+}
+
+// @public
+export type EnvValue<TValue, TPlain> = TPlain & EnvRef<TValue>;
 
 // @public
 export type ErrorClass<TError extends Error = Error> = abstract new (...args: never[]) => TError;
@@ -4522,6 +4596,16 @@ export interface IncompatibleResumeErrorOptions extends IncompatibleResume {
 export type IncompatibleResumePolicy = (resume: IncompatibleResume) => ResumeDecision;
 
 // @public
+export type InferEnv<TContract> = TContract extends {
+    readonly [envContractBrand]: infer TSpec;
+} ? {
+    readonly [TKey in keyof TSpec]: InferEnvValue<TSpec[TKey]>;
+} : never;
+
+// @public
+export type InferEnvValue<TRef> = TRef extends SecretRef ? Secret : TRef extends OptionalSecretRef ? Secret | undefined : TRef extends EnvRef<infer TValue> ? TValue : never;
+
+// @public
 export function Injectable<const D extends readonly Token[] = []>(options?: InjectableOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
 
 // @public
@@ -6360,6 +6444,14 @@ export function onWorkflow<const TClass extends Class>(source: TClass & KindChec
 
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
+
+// @public
+export interface OptionalSecretRef {
+    // (undocumented)
+    readonly [optionalSecretRefBrand]: true;
+    // (undocumented)
+    readonly variable: string;
+}
 
 // @public
 export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInnerShape> {
@@ -8285,7 +8377,10 @@ export interface ReplyResumeRequest {
 }
 
 // @public
-type Resolved<T> = T extends InjectionToken<infer V> ? V : T extends abstract new (...args: never[]) => infer I ? I : never;
+export type ReservedEnvKey = "then" | "__proto__" | "constructor" | "prototype";
+
+// @public
+type Resolved<T> = T extends InjectionToken<infer V> ? V : T extends abstract new (...args: never[]) => infer I ? I : T extends EnvContract ? InferEnv<T> : never;
 
 // @public
 type ResolvedAll<D extends readonly Token[]> = {
@@ -8716,12 +8811,28 @@ export class Secret {
 }
 
 // @public
-export const secret: (variable: string) => Secret;
+export const secret: SecretReader;
 
 // @public
 export type SecretFieldOf<TEnvironment> = unknown extends TEnvironment ? string : {
     [TField in keyof TEnvironment & string]-?: NonNullable<TEnvironment[TField]> extends Secret ? TField : never;
 }[keyof TEnvironment & string];
+
+// @public
+export interface SecretReader {
+    // (undocumented)
+    (variable: string): Secret & SecretRef;
+    // (undocumented)
+    optional(variable: string): OptionalSecretRef;
+}
+
+// @public
+export interface SecretRef {
+    // (undocumented)
+    readonly [secretRefBrand]: true;
+    // (undocumented)
+    readonly variable: string;
+}
 
 // @public
 export interface ServiceSpend {
@@ -9888,8 +9999,8 @@ export function toExternalTask<const TClass extends Class>(target: TClass & Targ
 // @public
 export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead>;
 
-// @public (undocumented)
-export type Token = Class | InjectionToken<unknown>;
+// @public
+export type Token = Class | InjectionToken<unknown> | EnvContract;
 
 // @public
 export enum TokenLimit {
@@ -10164,6 +10275,12 @@ export interface Transitions<THead extends PathHead> {
 
 // @public
 export type TryOutcome<T, E> = [T] extends [never] ? Result<never, E> : T extends PromiseLike<infer U> ? Promise<Result<U, E>> : Result<T, E>;
+
+// @public
+export enum Ttl {
+    Forever = "forever",
+    None = "none"
+}
 
 // @public (undocumented)
 export interface Turn {
@@ -11016,7 +11133,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/guardrail-handler.ts - (ae-undocumented) Missing documentation for "files".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "__type".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "description".
-// src/components/injection.ts - (ae-undocumented) Missing documentation for "Token".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "provide".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "useValue".
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
@@ -11340,6 +11456,24 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "tool".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "arguments".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "summary".
+// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "contract".
+// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "values".
+// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "kind".
+// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "secret".
+// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "bearer".
+// src/environments/env-readers.ts - (ae-undocumented) Missing documentation for "default".
+// src/environments/env-readers.ts - (ae-undocumented) Missing documentation for "__call".
+// src/environments/env-readers.ts - (ae-undocumented) Missing documentation for "default".
+// src/environments/env-readers.ts - (ae-undocumented) Missing documentation for "allowNone".
+// src/environments/env-readers.ts - (ae-undocumented) Missing documentation for "text".
+// src/environments/env-readers.ts - (ae-undocumented) Missing documentation for "integer".
+// src/environments/env-readers.ts - (ae-undocumented) Missing documentation for "number".
+// src/environments/env-readers.ts - (ae-undocumented) Missing documentation for "boolean".
+// src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "[envRefBrand]".
+// src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "[secretRefBrand]".
+// src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "variable".
+// src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "[optionalSecretRefBrand]".
+// src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "variable".
 // src/environments/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/environments/errors.ts - (ae-undocumented) Missing documentation for "message".
 // src/environments/errors.ts - (ae-undocumented) Missing documentation for "cause".
@@ -11350,7 +11484,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "toString".
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "toJSON".
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "[inspect.custom]".
-// src/environments/variables.ts - (ae-undocumented) Missing documentation for "default".
+// src/environments/secret.ts - (ae-undocumented) Missing documentation for "__call".
+// src/environments/secret.ts - (ae-undocumented) Missing documentation for "optional".
 // src/eval/compare-profiles.ts - (ae-undocumented) Missing documentation for "tasks".
 // src/eval/compare-profiles.ts - (ae-undocumented) Missing documentation for "profiles".
 // src/eval/compare-profiles.ts - (ae-undocumented) Missing documentation for "tasks".

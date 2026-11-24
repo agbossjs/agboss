@@ -9,6 +9,7 @@ import { AgentSkill } from '@a2a-js/sdk';
 import { Artifact } from '@a2a-js/sdk';
 import type { DatabaseSync } from 'node:sqlite';
 import type { IncomingMessage } from 'node:http';
+import { inspect } from 'node:util';
 import { Message } from '@a2a-js/sdk';
 import { Part } from '@a2a-js/sdk';
 import type { ServerResponse } from 'node:http';
