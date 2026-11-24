@@ -2,6 +2,7 @@ import { startComponents, stopComponents } from "../components/container/lifecyc
 import type { Class } from "../components/injection.js";
 import { namedEnvironmentFor } from "../environments/load.js";
 import type { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
+import { resolvedStorageOf } from "../storage/storage-assembly.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { applicationOf } from "./assemble.js";
 import { environmentOwnerOf, type BuildApplicationOptions } from "./create-app.js";
@@ -41,7 +42,8 @@ export async function openExecutionHistory(
   };
   const clock = clockOf(assembled.modules, { onCreate });
   const contexts = contextsOf(assembled, { ...options, ...environment }, {}, clock);
-  const sources = { modules: assembled.modules, clock, contexts };
+  const storage = resolvedStorageOf(assembled.storage, processEnv);
+  const sources = { modules: assembled.modules, clock, contexts, storage };
   const shared = applicationContainerOf(sources, { onCreate });
   const { executionHistory } = resolveInfrastructure(shared, { application: shared, onCreate });
   await startComponents(created);

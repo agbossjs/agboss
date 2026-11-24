@@ -148,21 +148,23 @@ npm test
   launches venue-buyer-agent and flight-buyer-agent side by side; each calls `place-purchase-tool`,
   whose `@Tool({ channel: PurchaseApprovalChannel })` names a role
   (`answerer: PauseAnswerer.ThreadOwner`) implemented by `TerminalPurchaseApprovalChannel`, listed
-  in `@Application({ providers })`: it prints each question once, with its pause's id, and waits
+  in `@Application({ channels })`: it prints each question once, with its pause's id, and waits
   (`ChannelOutcome.awaitReply()`). The execution rests with two pauses in `result.pending`; every
   store of the application is SQLite, so they wait across processes. `npm run answer -- <pauseId…>
   [--decline]` answers waiting pauses from another process — two at once, or a second press that
-  gets `PauseClosedError`. In the tests, `testWith(FlowPatternsApplication, { instances: 2, env:
-  "instances" })` pauses on one instance and resumes both pauses on the other
-  ([Several instances](Several-instances)): the `instances` environment puts the SQLite stores in one
-  fresh file, since `:memory:` is one database per connection.
+  gets `PauseClosedError`. In the tests, `testWith(FlowPatternsApplication, { instances: 2 })`
+  pauses on one instance and resumes both pauses on the other ([Several instances](Several-instances)):
+  the test sets `AGBOSS_SQLITE_PATH` to one fresh file for the instances' SQLite storage, since
+  `:memory:` is one database per connection.
 
 ### Real runs of flow-patterns (#346)
 
 The `dev` environment calls real models: `openRouterApiKey: secret("OPENROUTER_API_KEY")` and
 `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` for the built-in OpenRouter providers,
-`PII_PSEUDONYM_KEY` for the application's PII key, and the SQLite stores in
-`.agboss/flow-patterns.sqlite`; `test` has neither key — the tests script every model. A run is traced
+while the rows and the keys are the application's `@DatabaseStorage` (`src/storage/`, read through
+`defineEnv`): `SqliteDriver` on `.agboss/flow-patterns.sqlite` (`AGBOSS_SQLITE_PATH`),
+`AGBOSS_IDEMPOTENCY_SECRET` for the business-key fingerprints of the credit desk's charge and
+`PII_PSEUDONYM_KEY` for the PII key (`examples/flow-patterns/.env.example`); `test` has neither key — the tests script every model. A run is traced
 only when its application is given a `tracerProvider` (`LangfuseTracer` from `@agboss/langfuse`;
 `scripts/langfuse.sh up` writes the Langfuse keys to the repo's `.env`). The example's `README.md` walks through the manual checks it serves — #263 M1 (the
 vendor screening's children in Langfuse), #264 M1 (the topic research, `maxDepth: 3`,
@@ -170,7 +172,7 @@ vendor screening's children in Langfuse), #264 M1 (the topic research, `maxDepth
 
 ```bash
 cd examples/flow-patterns
-set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, PII_PSEUDONYM_KEY
+set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, AGBOSS_IDEMPOTENCY_SECRET, PII_PSEUDONYM_KEY
 npx agboss run --start vendor-screening-workflow-start \
   --input '{"text":"check these vendors: Acme, Globex, a vendor that does not exist"}'
 npx agboss run --start topic-research-workflow-start \

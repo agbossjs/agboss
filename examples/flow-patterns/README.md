@@ -42,8 +42,8 @@ npm test                              # scripted models only: no key, no network
 
 The tests never call a model. The desk runs for real offline — its model provider
 (`src/model-providers/harness.model-provider.ts`) looks the `#<id>` order up, then quotes the tool.
-The `offline` environment keeps the stores in memory and reads only the PII key, which the desk's PII
-policy needs outside tests (any value: it only makes tokens):
+The desk's `DeskDatabaseStorage` (`src/storage/`) keeps its stores in SQLite and reads the PII key, which the
+desk's PII policy needs outside tests (any value: it only makes tokens):
 
 ```bash
 PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts --env offline \
@@ -77,11 +77,11 @@ step's checkpoint is saved, another instance continues the execution from the la
 runs that step again — with the same `executionContext.step.idempotencyKey`
 (`<executionId>:charge-card-action:1`) under the next lease token. The charge is an **idempotent write**
 (#500): `ChargeCardAction` calls the application's `Idempotency.runOnce({ name: "charge", key,
-fingerprint: { customerId, total }, ttl, execute: (database) => … })` with
+fingerprint: { customerId, total }, ttl, execute: () => … })` with
 the key `credit:<applicationId>` — keyed by the credit application (#508), not the step, so a second execution for the
 same application, on another thread, gets the first receipt too, and the same application with another
 total is `IdempotencyError.KeyConflict`, nothing charged —, and the write — `PaymentLedgerRepository.recordCharge`,
-one synchronous `INSERT` into `payment_charges` on the `DatabaseSync` it is given — runs in one
+one `INSERT` into `payment_charges` through its connection's `requireTransaction()` (#1317c) — runs in one
 `BEGIN IMMEDIATE` transaction of the application's SQLite file with the checks:
 
 | In the transaction, in order | What happens                                                                                      |
@@ -105,7 +105,8 @@ shows multi-worker lease takeover, zombie-worker fencing and saga compensation.
 
 A real run uses the `dev` environment (`src/environments/`): models
 through OpenRouter, and every store — budgets, records, pauses, checkpoints, leases — in SQLite at
-`.agboss/flow-patterns.sqlite` (git-ignored), so a paused run waits across processes.
+`.agboss/flow-patterns.sqlite` (git-ignored; `FlowPatternsDatabaseStorage` in `src/storage/`, its path
+`AGBOSS_SQLITE_PATH`), so a paused run waits across processes.
 
 ## Real runs
 
@@ -115,10 +116,12 @@ Once, in the repo root:
 scripts/langfuse.sh up                # local Langfuse at http://localhost:3000; writes its keys to .env
 ```
 
-Add the model key and the PII key to the same `.env` (repo root):
+Add the model key and the application's keys to the same `.env` (repo root; `examples/flow-patterns/.env.example`
+lists them, and `agboss check` reads none):
 
 ```bash
 OPENROUTER_API_KEY=sk-or-...
+AGBOSS_IDEMPOTENCY_SECRET=any-long-random-text # the business-key fingerprints of the credit desk's charge: required by `dev`
 PII_PSEUDONYM_KEY=any-long-random-text # the application's PII key: required by `dev`
 # OPENROUTER_BASE_URL=...             # optional: a proxy or a local OpenAI-compatible server
 ```
@@ -127,7 +130,7 @@ Then, in every terminal you run from:
 
 ```bash
 cd examples/flow-patterns
-set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, PII_PSEUDONYM_KEY
+set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, AGBOSS_IDEMPOTENCY_SECRET, PII_PSEUDONYM_KEY
 ```
 
 A run is traced only when its application is given a `tracerProvider` (`LangfuseTracer` from

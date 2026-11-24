@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   ExecutionFencedError,
-  FencedEffectRepository,
   IdempotencyError,
   SqliteFencedEffectRepository,
+  provide,
 } from "@agboss/core";
+import { DATABASE_SETTINGS } from "@agboss/core/stores";
 import { testUnit } from "@agboss/core/testing";
 import { ChargeCardAction } from "../../../src/credit/actions/charge-card.action.js";
 import { OrderIntakeAgent } from "../../../src/credit/agents/order-intake/order-intake.agent.js";
@@ -19,10 +20,13 @@ import { OrderIntakeAgent } from "../../../src/credit/agents/order-intake/order-
 const order = (customerId: string, total: number, applicationId = `app-${customerId}`) => ({
   order: { producer: OrderIntakeAgent, value: { applicationId, customerId, total } },
 });
-// the action injects Idempotency: the store is the one the application lists, SQLite's
+// the action injects Idempotency: the store is the one the application's storage lists, SQLite's,
+// on the settings its `SqliteDriver` resolves to
 const onFile = {
-  environment: { sqlitePath: ":memory:" },
-  services: [SqliteFencedEffectRepository],
+  services: [
+    SqliteFencedEffectRepository,
+    provide(DATABASE_SETTINGS, { kind: "sqlite", path: ":memory:" }),
+  ],
 };
 const runner = () => testUnit(ChargeCardAction, onFile);
 

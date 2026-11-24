@@ -6,6 +6,9 @@ export default defineConfig({
   // here the core is a workspace link, the preset works on it as on a package from npm (#497)
   test: agbossVitest({
     include: ["tests/**/*.test.ts"],
+    // every store of a test in memory: the storage's path (`src/storage/`) is a variable, and the
+    // tests' value is `:memory:`; the keys (idempotency, PII) are `testWith`'s own, none is set here
+    env: { AGBOSS_SQLITE_PATH: ":memory:" },
     // a test that asserts nothing proves nothing (#180)
     expect: { requireAssertions: true },
     // a module graph per file (#717): with one per worker (`isolate: false`, #440) a coverage run

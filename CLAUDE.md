@@ -421,8 +421,8 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
 export class DeskWorkflow {}
 ```
 
-```ts file=src/desk/config/budget.config.ts
-// config/budget.config.ts — every budget of the application, one template: what it limits, how much
+```ts file=src/desk/budgets/application.budgets.ts
+// budgets/application.budgets.ts — every budget of the application, one template: what it limits, how much
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
 
@@ -464,7 +464,7 @@ budget's name, scope key and period, never by a workflow, so workflows sharing o
 // the built-in in-memory defaults and the built-in OpenRouter + Decisions model providers), budgets,
 // the defaults of every workflow and the environment contract (`environments/` next to this file)
 import { Application } from "@agboss/core";
-import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./config/budget.config.js";
+import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./budgets/application.budgets.js";
 import { DeskWorkflow } from "./desk.workflow.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 
@@ -2743,7 +2743,7 @@ const readiness: HealthReport = await app.checkReadiness();
   and its other nodes between them —, which would end a run with `StepsLimitExceededError` before
   the loop's `.onError(VisitsLimitExceededError, …)` does; not when a side path takes the steps
   limit); a node's `maxVisits`. **Money is `@Budget` components** (#261), all in `@Application({ budgets })`
-  (`config/budget.config.ts`): `@Budget({ name, scope, period?, workflow?, deps? })` +
+  (`src/budgets/`): `@Budget({ name, scope, period?, workflow?, deps? })` +
   `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`) — `BudgetScope.Execution` (a
   workflow's own `workflow: X`, or the default), `Tenant` and `Application` per
   `BudgetPeriod.Day | Week | Month`; every workflow, a tenant and the application covered at assembly

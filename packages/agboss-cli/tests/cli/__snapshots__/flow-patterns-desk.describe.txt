@@ -2,6 +2,8 @@ desk-application 1.0.0 (src/desk.application.ts)
 workflows
   desk-workflow 1.0.0
     start desk-workflow-start (DeskQuestionDto)
+storage
+  database: desk-database-storage → sqlite (AGBOSS_SQLITE_PATH) (sqlite)
 implementations
   Clock → SystemClock (built-in default: none listed)
   IdGenerator → RandomIdGenerator (built-in default: none listed)
@@ -9,19 +11,19 @@ implementations
   BaseCheckpointSaver → SqliteCheckpointSaver (listed in @Application providers)
   ExecutionRecordRepository → SqliteExecutionRecordRepository (listed in @Application providers)
   CostLedgerRepository → SqliteCostLedgerRepository (listed in @Application providers)
-  PausedExecutionRepository → InMemoryPausedExecutionRepository (built-in default: none listed)
-  ExecutionLeaseRepository → InMemoryExecutionLeaseRepository (built-in default: none listed)
-  ExecutionTreeRepository → InMemoryExecutionTreeRepository (built-in default: none listed)
-  RateLimitRepository → InMemoryRateLimitRepository (built-in default: none listed)
-  MeshRequestRepository → InMemoryMeshRequestRepository (built-in default: none listed)
-  A2ATaskRepository → InMemoryA2ATaskRepository (built-in default: none listed)
+  PausedExecutionRepository → SqlitePausedExecutionRepository (listed in @Application providers)
+  ExecutionLeaseRepository → SqliteExecutionLeaseRepository (listed in @Application providers)
+  ExecutionTreeRepository → SqliteExecutionTreeRepository (listed in @Application providers)
+  RateLimitRepository → SqliteRateLimitRepository (listed in @Application providers)
+  MeshRequestRepository → SqliteMeshRequestRepository (listed in @Application providers)
+  A2ATaskRepository → SqliteA2ATaskRepository (listed in @Application providers)
   FileRepository → InlineFileRepository (built-in default: none listed)
-  A2ADirectMessageRepository → InMemoryA2ADirectMessageRepository (built-in default: none listed)
+  A2ADirectMessageRepository → SqliteA2ADirectMessageRepository (listed in @Application providers)
   ExecutionHistoryRepository → SqliteExecutionHistoryRepository (listed in @Application providers)
-  ChildExecutionQueueRepository → InMemoryChildExecutionQueueRepository (built-in default: none listed)
-  FencedEffectRepository → InMemoryFencedEffectRepository (built-in default: none listed)
-  ExecutionAuditLogRepository → InMemoryExecutionAuditLogRepository (built-in default: none listed)
-  OutboundCallRepository → InMemoryOutboundCallRepository (built-in default: none listed)
+  ChildExecutionQueueRepository → SqliteChildExecutionQueueRepository (listed in @Application providers)
+  FencedEffectRepository → SqliteFencedEffectRepository (listed in @Application providers)
+  ExecutionAuditLogRepository → SqliteExecutionAuditLogRepository (listed in @Application providers)
+  OutboundCallRepository → SqliteOutboundCallRepository (listed in @Application providers)
   FileTranscriber → ModelFileTranscriber (built-in default: none listed)
   FileRedactor → ModelImageRedactor (built-in default: none listed)
 model providers
@@ -37,14 +39,11 @@ channels none
 environment dev
   openRouterApiKey = <missing OPENROUTER_API_KEY>
   openRouterBaseUrl = <unset OPENROUTER_BASE_URL, optional>
-  sqlitePath = ".agboss/flow-patterns.sqlite"
-  piiPseudonymKey = <missing PII_PSEUDONYM_KEY>
-  idempotencyKey = <missing IDEMPOTENCY_KEY>
 
 desk-workflow 1.0.0 · config <hash>
 guardrails
-  no-credentials-guardrail — input · decidedBy: code · refusal: "Please never send passwords or card codes to the help desk." · on desk-agent
-  no-promises-guardrail — output · decidedBy: code · refusal: "We will follow up with a confirmed delivery date." · on desk-agent
+  no-credentials-guardrail — input · code · refusal: "Please never send passwords or card codes to the help desk." · on desk-agent
+  no-promises-guardrail — output · code · refusal: "We will follow up with a confirmed delivery date." · on desk-agent
 tool interceptors
   desk-audit-tool-interceptor — before, after · on desk-agent: order-status-tool, close-account-tool, search-shipping-policy-tool
 pii policies

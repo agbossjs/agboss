@@ -229,7 +229,7 @@ import { AppEnvironment } from "./environments/app.environment.js";
 import { JobScout } from "./job-scout.workflow.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
-// config/budget.config.ts in a project: the whole application, a tenant per day, every execution
+// budgets/application.budgets.ts in a project: the whole application, a tenant per day, every execution
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
   maxSpend(): Usd {
@@ -1549,7 +1549,7 @@ Every model call is a usage record (caller, model, tokens, USD) in the run's `sp
 the execution (the application's `CostLedgerRepository`, in memory unless one is listed).
 
 **Money limits are `@Budget` components** (#261), all of them in `@Application({ budgets })`
-(written in `config/budget.config.ts`), one template — `@Budget({ name, scope, period?, workflow?,
+(written in `src/budgets/`), one template — `@Budget({ name, scope, period?, workflow?,
 deps? })` on a class that `implements BudgetHandler`, one method `maxSpend(): Usd | Promise<Usd>`:
 
 - `BudgetScope.Execution` — one full pass of `app.execute`: a workflow's own (`workflow: X`, at
@@ -1591,7 +1591,7 @@ export class ShopTenantContext extends TenantContext {
 -->
 
 ```ts
-// config/budget.config.ts — the tenant's own amount, from its server-side data
+// budgets/tenant-own.budget.ts — the tenant's own amount, from its server-side data
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
 

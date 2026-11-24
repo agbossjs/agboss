@@ -66,6 +66,7 @@ export function moduleOf(workflow: Class): WorkflowMeta {
   if (cached !== undefined) return cached;
   const { options, source } = workflowDeclarationOf(workflow);
   const module: WorkflowMeta = withoutUndefined({
+    type: workflow,
     name: options.name,
     version: options.version,
     source,

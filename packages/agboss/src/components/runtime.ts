@@ -31,6 +31,7 @@ import { channelNameOf, questionRoleOf } from "../channels/discovery.js";
 import type { ChannelQuestionRoleOptions } from "../channels/channel-role.decorator.js";
 import type { ToolClasses } from "./assemble-checks.js";
 import { IDEMPOTENCY_OUTSIDE_APPLICATION, Idempotency } from "../app/idempotency.js";
+import { standaloneStorageEntriesOf } from "../storage/standalone-storage.js";
 
 /** What a workflow creates per run of the app: the container, tool instances, knowledge sources. */
 
@@ -127,7 +128,10 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
   ]);
   for (const [token, instance] of serverInstances.get(bundle) ?? []) core.set(token, instance);
   // #890: no application's container (`agboss check`, a workflow on its own) has no fenced-effect store
-  if (services.container === undefined) core.set(Idempotency, IDEMPOTENCY_OUTSIDE_APPLICATION);
+  if (services.container === undefined) {
+    core.set(Idempotency, IDEMPOTENCY_OUTSIDE_APPLICATION);
+    for (const [token, settings] of standaloneStorageEntriesOf(bundle)) core.set(token, settings);
+  }
   const container: Container = createContainer(
     { modules: providerModulesOf(bundle), core },
     {

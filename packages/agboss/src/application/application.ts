@@ -271,10 +271,11 @@ function withShelfProviders(options: ApplicationOptions): ApplicationOptions {
 
 /**
  * The options as everything downstream reads them: `storage` becomes the stores in `providers`, the
- * shelves and `services` join them — one list.
+ * shelves and `services` join them — one list. The storage's step is the last: it remembers the
+ * options it was given, so a step after it would hide them from the storage rules.
  */
 export const declaredOptionsOf = (options: ApplicationOptions): ApplicationOptions =>
-  withServices(withStorageProviders(withShelfProviders(options)));
+  withStorageProviders(withServices(withShelfProviders(options)));
 
 export function Application<TEnvironment>(options: ApplicationOptions<TEnvironment>) {
   const source = callerFile();

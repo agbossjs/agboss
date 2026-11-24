@@ -80,6 +80,8 @@ export interface AgentMeta
  * graph is the analysed flow, kept apart. Built once per workflow class (`moduleOf`).
  */
 export interface WorkflowMeta {
+  /** The `@Workflow` class: how the application that lists it is found (`agboss check`'s container). */
+  readonly type?: Class;
   readonly name: string;
   readonly version: string;
   /** The file the workflow is declared in. */

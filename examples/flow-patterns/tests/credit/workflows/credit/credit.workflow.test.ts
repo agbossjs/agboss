@@ -3,12 +3,10 @@ import {
   AgentAnswerInvalidError,
   BudgetExceededError,
   ExecutionLeaseLostError,
-  ExecutionLeaseRepository,
 } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
 import { TenantDailyBudget } from "../../../../src/budgets/application.budgets.js";
 import { replyWith, replyWithInvalidAnswer, routeTo, testWith } from "@agboss/core/testing";
-import { DeskMetricsObserver } from "../../../../src/desk/observers/desk-metrics.observer.js";
 import {
   CrashAfterChargeAction,
   crash,
@@ -229,7 +227,6 @@ test("an answer that does not fit the agent's DTO is sent back; the third fails 
 instancesFilePerTest();
 const instances = testWith(FlowPatternsApplication, {
   instances: 2,
-  env: "instances",
   services: [MortalExecutionLeaseRepository, CrashAfterChargeAction, EndsSeenObserver],
 });
 

@@ -157,7 +157,7 @@ holds from its type**, not guess it from the name.
   Jev) reports each call's exact cost (`costSource: "api"`); otherwise tokens × its price table
   (`ModelCost.fromPrices`, `costSource: "price-table"`). A call with neither fails.
 - **Money limits are `@Budget` components** (#261), every one listed in
-  `@Application({ budgets })` and written in `config/budget.config.ts`: `@Budget({ name, scope,
+  `@Application({ budgets })` and written in `src/budgets/`: `@Budget({ name, scope,
 period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`, no
   parameters — the data come through the constructor: `ExecutionContext`, the project's tenant
   context, a billing service; never the request body). `BudgetScope.Execution` — one full pass of

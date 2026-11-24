@@ -1,4 +1,3 @@
-import type { DatabaseSync } from "node:sqlite";
 import {
   Action,
   Idempotency,
@@ -23,7 +22,7 @@ import { PaymentLedgerRepository } from "../repositories/payment-ledger.reposito
  * customer or total is refused (`IdempotencyError.KeyConflict`) and charges nothing; an instance
  * that lost the lease is refused (`ExecutionError.Fenced`, a hand-over) and writes nothing. It
  * injects the application's `Idempotency` (#890, #1317), never the store: the store is the one the
- * application lists (`SqliteFencedEffectRepository`), whose transaction is a `DatabaseSync`.
+ * application's storage lists (`SqliteFencedEffectRepository`); the repository writes through its connection's `requireTransaction()` (#1317c).
  */
 @Action({
   name: "charge-card-action",
@@ -48,8 +47,7 @@ export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
       key: `credit:${applicationId}`,
       fingerprint: { customerId, total },
       ttl: hours(24),
-      execute: (database: DatabaseSync) =>
-        this.paymentLedgerRepository.recordCharge(database, { customerId, total }),
+      execute: () => this.paymentLedgerRepository.recordCharge({ customerId, total }),
     });
     return { chargeId: result.chargeId };
   }

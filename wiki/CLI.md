@@ -12,7 +12,7 @@ cd support-desk && cp .env.example .env && npx agboss chat
 `agboss create <project>` writes **an application and its first workflow** (#268 AC8): the
 application `src/support-desk.application.ts` (`support-desk-application`; its path is
 `"agboss": { "application" }` in the project's `package.json`), beside it what every workflow shares —
-`environments/` (the contract, `dev`, `staging`, `test`), `config/budget.config.ts`,
+`environments/` (the contract, `dev`, `staging`, `test`), `budgets/` (`application-daily.budget.ts`, …),
 `model-providers/openrouter.model-provider.ts`, `guardrails/prompt-injection.guardrail.ts` (listed in
 `@Application({ guardrails })`, its model `defaults.guardrail.model`) and `services/api.service.ts` —
 and the first workflow `support-desk-workflow` in `src/support-desk/`.

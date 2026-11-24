@@ -12,11 +12,13 @@ import { applicationIdempotencyKeysOf } from "../../src/application/idempotency-
 import { applicationPiiKeyOf } from "../../src/application/application-pii.js";
 import { describedApplicationOf } from "../../src/describe/application.js";
 import { Application } from "../../src/application/application.js";
+import { openExecutionHistory } from "../../src/application/execution-history-store.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import {
   ClusterStorage,
   DatabaseStorage,
+  Injectable,
   InMemoryDatabaseStorage,
   InMemoryObjectDriver,
   LocalDiskDriver,
@@ -78,6 +80,24 @@ const violationsOf = async (application: new () => unknown): Promise<readonly st
 };
 
 describe("storage components", () => {
+  it("the execution history of an application with a storage opens on its driver's file", async () => {
+    @Application({
+      name: "history-storage-application",
+      version: "1.0.0",
+      environment: EmptyEnvironment,
+      workflows: [NoteWorkflow],
+      budgets: TEST_BUDGETS,
+      storage: FileDatabaseStorage,
+      retention: { executionRecords: days(30) },
+    })
+    class HistoryStorageApplication {}
+
+    const opened = await openExecutionHistory(HistoryStorageApplication);
+
+    expect(opened.isKept).toBe(true);
+    await opened.close();
+  });
+
   it("assemble into the drivers' stores, before the application's own providers", async () => {
     const assembled = await applicationOf(StorageFileApplication);
 
@@ -160,6 +180,24 @@ describe("storage components", () => {
 });
 
 describe("storage rules", () => {
+  it("a service and a channel listed beside the storage are no conflict", async () => {
+    @Injectable()
+    class MetricsService {}
+
+    @Application({
+      name: "services-storage-application",
+      version: "1.0.0",
+      environment: SqliteTestEnvironment,
+      workflows: [NoteWorkflow],
+      budgets: TEST_BUDGETS,
+      storage: FileDatabaseStorage,
+      services: [MetricsService],
+    })
+    class ServicesApplication {}
+
+    expect(await violationsOf(ServicesApplication)).toEqual([]);
+  });
+
   it("a store class listed beside the storage is [storage.providers-conflict]", async () => {
     @Application({
       name: "conflict-storage-application",

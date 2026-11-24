@@ -37,7 +37,7 @@ import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, Emp
 import { usd, type Usd } from "@agboss/core/units";
 import { JobScout } from "./job-scout.workflow.js";
 
-// config/budget.config.ts in a project: the whole application, a tenant per day, every execution
+// budgets/application.budgets.ts in a project: the whole application, a tenant per day, every execution
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
   maxSpend(): Usd {

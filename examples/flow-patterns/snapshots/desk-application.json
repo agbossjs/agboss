@@ -42,33 +42,33 @@
         },
         {
           "contract": "PausedExecutionRepository",
-          "implementation": "InMemoryPausedExecutionRepository",
-          "reason": "default"
+          "implementation": "SqlitePausedExecutionRepository",
+          "reason": "listed"
         },
         {
           "contract": "ExecutionLeaseRepository",
-          "implementation": "InMemoryExecutionLeaseRepository",
-          "reason": "default"
+          "implementation": "SqliteExecutionLeaseRepository",
+          "reason": "listed"
         },
         {
           "contract": "ExecutionTreeRepository",
-          "implementation": "InMemoryExecutionTreeRepository",
-          "reason": "default"
+          "implementation": "SqliteExecutionTreeRepository",
+          "reason": "listed"
         },
         {
           "contract": "RateLimitRepository",
-          "implementation": "InMemoryRateLimitRepository",
-          "reason": "default"
+          "implementation": "SqliteRateLimitRepository",
+          "reason": "listed"
         },
         {
           "contract": "MeshRequestRepository",
-          "implementation": "InMemoryMeshRequestRepository",
-          "reason": "default"
+          "implementation": "SqliteMeshRequestRepository",
+          "reason": "listed"
         },
         {
           "contract": "A2ATaskRepository",
-          "implementation": "InMemoryA2ATaskRepository",
-          "reason": "default"
+          "implementation": "SqliteA2ATaskRepository",
+          "reason": "listed"
         },
         {
           "contract": "FileRepository",
@@ -77,8 +77,8 @@
         },
         {
           "contract": "A2ADirectMessageRepository",
-          "implementation": "InMemoryA2ADirectMessageRepository",
-          "reason": "default"
+          "implementation": "SqliteA2ADirectMessageRepository",
+          "reason": "listed"
         },
         {
           "contract": "ExecutionHistoryRepository",
@@ -87,23 +87,23 @@
         },
         {
           "contract": "ChildExecutionQueueRepository",
-          "implementation": "InMemoryChildExecutionQueueRepository",
-          "reason": "default"
+          "implementation": "SqliteChildExecutionQueueRepository",
+          "reason": "listed"
         },
         {
           "contract": "FencedEffectRepository",
-          "implementation": "InMemoryFencedEffectRepository",
-          "reason": "default"
+          "implementation": "SqliteFencedEffectRepository",
+          "reason": "listed"
         },
         {
           "contract": "ExecutionAuditLogRepository",
-          "implementation": "InMemoryExecutionAuditLogRepository",
-          "reason": "default"
+          "implementation": "SqliteExecutionAuditLogRepository",
+          "reason": "listed"
         },
         {
           "contract": "OutboundCallRepository",
-          "implementation": "InMemoryOutboundCallRepository",
-          "reason": "default"
+          "implementation": "SqliteOutboundCallRepository",
+          "reason": "listed"
         },
         {
           "contract": "FileTranscriber",
@@ -114,6 +114,14 @@
           "contract": "FileRedactor",
           "implementation": "ModelImageRedactor",
           "reason": "default"
+        }
+      ],
+      "storage": [
+        {
+          "role": "database",
+          "name": "desk-database-storage",
+          "backend": "sqlite",
+          "describes": "sqlite (AGBOSS_SQLITE_PATH)"
         }
       ],
       "modelProviders": [
@@ -234,9 +242,7 @@
         "name": "dev",
         "fields": {
           "openRouterApiKey": "<missing OPENROUTER_API_KEY>",
-          "openRouterBaseUrl": "<unset OPENROUTER_BASE_URL, optional>",
-          "sqlitePath": "\".agboss/flow-patterns.sqlite\"",
-          "piiPseudonymKey": "<missing PII_PSEUDONYM_KEY>"
+          "openRouterBaseUrl": "<unset OPENROUTER_BASE_URL, optional>"
         }
       }
     },
@@ -245,7 +251,7 @@
         "name": "desk-workflow",
         "version": "1.0.0",
         "profile": "base",
-        "config": "64e40f35",
+        "config": "3ccacb54",
         "piiPolicies": [
           {
             "name": "customer-id-pii-policy",
@@ -339,7 +345,7 @@
           "least": 1,
           "most": 1
         },
-        "configHash": "64e40f3509479bf2f270508bd16b4878650424b595bdca9fc24254a3a64631f4",
+        "configHash": "3ccacb54e627615247c41a2c1ef9a643fb9c55a5a4fd4ee1caec2a4abc3f1a75",
         "starts": [
           "desk-workflow-start"
         ],

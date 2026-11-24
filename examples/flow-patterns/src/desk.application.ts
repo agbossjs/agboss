@@ -1,10 +1,4 @@
-import {
-  Application,
-  SqliteCheckpointSaver,
-  SqliteCostLedgerRepository,
-  SqliteExecutionHistoryRepository,
-  SqliteExecutionRecordRepository,
-} from "@agboss/core";
+import { Application } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 import {
   ApplicationDailyBudget,
@@ -17,6 +11,7 @@ import { OrderDeskHealthCheck } from "./desk/health-checks/order-desk.health-che
 import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
 import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
 import { AppEnvironment } from "./environments/app.environment.js";
+import { DeskDatabaseStorage } from "./storage/desk.database-storage.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
 
 /**
@@ -32,21 +27,15 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   name: "desk-application",
   version: "1.0.0",
   environment: AppEnvironment,
-  piiKeyField: "piiPseudonymKey",
   workflows: [DeskWorkflow],
   endpoints: [DeskA2AExpose], // served over A2A: `helpline-workflow` calls it
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
   maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)
   retention: { executionRecords: hours(24 * 30) }, // each execution kept 30 days (#401): records export, eval cases
-  providers: [
-    DeskMetricsService, // the observer's
-    HarnessModelProvider,
-    SqliteCostLedgerRepository,
-    SqliteExecutionRecordRepository,
-    SqliteCheckpointSaver,
-    SqliteExecutionHistoryRepository, // the kept executions (#401)
-  ],
+  storage: DeskDatabaseStorage, // SQLite, the kept executions (#401) too
+  services: [DeskMetricsService], // the observer's
+  providers: [HarnessModelProvider],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })
 export class DeskApplication {}

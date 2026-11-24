@@ -115,7 +115,7 @@ export class ExchangeRate {
 Money limits are `@Budget` components (#261): one template for every budget — the decorator says
 what it limits, `maxSpend()` how much, its data through the constructor like any component's. Every
 budget of the application is listed in `@Application({ budgets })`, written in
-`config/budget.config.ts`; `name` ends with `-budget`, the class with `Budget`.
+`src/budgets/` (`application.budgets.ts`); `name` ends with `-budget`, the class with `Budget`.
 
 **Tokens and shared budgets (#1318).** A budget limits dollars, tokens or both: `maxSpend` and `maxTokens` in
 `@Budget({ … })` (constants, or `env.usd(…)` / `env.integer(…)` read when the application starts, no class body needed), or a
@@ -131,7 +131,7 @@ the period — never by a workflow — so five workflows that attach one budget 
 signed run report `spend.totalTokens`, charged even when the remote run cost nothing.
 
 ```ts
-// config/budget.config.ts
+// budgets/application.budgets.ts
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
 
@@ -196,7 +196,7 @@ export class ScreeningWorkflow {}
 -->
 
 ```ts
-// config/budget.config.ts — the tenant's own daily amount, from its context (its fields: Context-And-Authorization)
+// budgets/tenant-own.budget.ts — the tenant's own daily amount, from its context (its fields: Context-And-Authorization)
 @Budget({
   name: "tenant-daily-budget",
   scope: BudgetScope.Tenant,

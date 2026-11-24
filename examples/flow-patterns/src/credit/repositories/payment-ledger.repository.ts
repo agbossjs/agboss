@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import type { DatabaseSync } from "node:sqlite";
 import { Injectable } from "@agboss/core";
 import { SqliteConnection } from "@agboss/core/stores";
 
@@ -36,10 +35,11 @@ function chargeRowOf(row: Record<string, unknown> | undefined): PaymentChargeRow
 
 /**
  * The offline payment provider's ledger, in the application's SQLite file — a stand-in for a real
- * provider's books. `recordCharge` writes one row on the database a fenced effect gives it
- * (`SqliteFencedEffectRepository`, #500): synchronously, inside the effect's transaction, so the
- * row and the effect's stored receipt commit together and a step run again replays the receipt
- * instead of charging twice. The ledger keeps no idempotency key and no fencing table of its own.
+ * provider's books. `recordCharge` writes one row through its connection's `requireTransaction()`
+ * (#1317c), inside the `runOnce` of a fenced effect (`SqliteFencedEffectRepository`, #500): the row
+ * and the effect's stored receipt commit together, an error rolls both back, and a step run again
+ * replays the receipt instead of charging twice. The ledger keeps no idempotency key and no
+ * fencing table of its own.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class PaymentLedgerRepository {
@@ -48,8 +48,9 @@ export class PaymentLedgerRepository {
   }
 
   /** One charge, written in the effect's transaction; its receipt names the customer and its number. */
-  recordCharge(database: DatabaseSync, order: PaymentOrder): Charge {
-    const { lastInsertRowid } = database
+  recordCharge(order: PaymentOrder): Charge {
+    const { lastInsertRowid } = this.sqliteConnection
+      .requireTransaction()
       .prepare("INSERT INTO payment_charges (customer_id, total) VALUES (?, ?)")
       .run(order.customerId, order.total);
     return { chargeId: `charge-${order.customerId}-${String(lastInsertRowid)}` };
