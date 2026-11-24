@@ -144,7 +144,7 @@ function writeNode(
       const targets = routeTargetsOf(options, form).map((target) => `typeof ${names.ref(target)}`);
       const route = targets.length === 0 ? "never" : [...new Set(targets)].sort().join(" | ");
       tables.routes.set(name, route);
-      const hasAlways = onDemandRoutesOf(options).length < options.routes.length;
+      const hasAlways = onDemandRoutesOf(options).length < routesOf(options).length;
       // a code router's `route()` returns it; a model router's scripted `routeTo(…)` gives it (#262)
       tables.routerAnswers.set(name, routerAnswerText(route, form, hasAlways));
       return;

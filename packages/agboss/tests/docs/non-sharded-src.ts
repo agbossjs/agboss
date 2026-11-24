@@ -517,6 +517,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/question-options.ts",
     "src/flow/quorum-types.ts",
     "src/flow/registry.ts",
+    "src/flow/target-ref.ts",
     "src/flow/this-workflow-types.ts",
     "src/flow/this-workflow.ts",
   ]),

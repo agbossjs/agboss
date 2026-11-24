@@ -1,7 +1,7 @@
 import type { PromptLoader } from "../../components/prompt-render.js";
 import { NodeKind } from "../ast.js";
 import { declarationOf, type Declared } from "../decorators/declaration.js";
-import { isCodeRouter, type ModelRouterOptions } from "../decorators/router.js";
+import { isCodeRouter, routesOf, type ModelRouterOptions } from "../decorators/router.js";
 import type { RuntimeGraph } from "./graph-model.js";
 
 /**
@@ -43,7 +43,7 @@ export async function loadRouter(
   const label = `@Router "${options.name}"`;
   const variables = options.promptVariables ?? {};
   const routes = await Promise.all(
-    options.routes.map(async (route) => {
+    routesOf(options).map(async (route) => {
       const option = declarationOf(route.target)?.options.name ?? route.target.name;
       const owner = { label: `${label} route "${option}"`, source, variables };
       return { option, condition: await loader.load({ ...owner, options: route }) };

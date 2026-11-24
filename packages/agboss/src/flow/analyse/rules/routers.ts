@@ -57,7 +57,7 @@ export function routeSetViolations(
   inFlow: readonly string[],
   call: RouteListing,
 ): readonly RuleViolation[] {
-  const declared = declaration.options.routes.map((route) => targetLabel(route.target));
+  const declared = routesOf(declaration.options).map((route) => targetLabel(route.target));
   const notDeclared = missingFrom(inFlow, declared);
   const notInFlow = missingFrom(declared, inFlow);
   const found: RuleViolation[] = duplicates(inFlow).map((target) => {
@@ -99,7 +99,7 @@ function declarationRules(
 ): readonly RuleViolation[] {
   const { options } = declaration;
   const found: RuleViolation[] = duplicates(
-    options.routes.map((route) => targetLabel(route.target)),
+    routesOf(options).map((route) => targetLabel(route.target)),
   ).map((target) => {
     const message = `${router.name}: @Router({ routes }) lists ${target} twice — list each target once`;
     return violation("router.duplicate-route", message, [router.name]);

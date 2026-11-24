@@ -810,7 +810,8 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths
   end with `Dto` (`[dto.name]`) and never hold themselves through `@Nested` / `@List`, directly or
   via other DTOs (`[dto.cyclic]`, naming the component and `A → B → A`; #1080); a path ends in a finish; a router's `chooseOne` lists exactly its
-  routes (`[router.routes-mismatch]`); a node on a cycle has `maxVisits`. No field reads an outdated
+  routes (`[router.routes-mismatch]`; a route's `target` is a class or a thunk `() => Class` for one
+  declared below the router, #1271); a node on a cycle has `maxVisits`. No field reads an outdated
   value — one built from an older version of what was renewed since (`[input.outdated-on-path]`,
   #271; a loop of classes built from each other needs nothing written: a new value outdates what was built from the old one); a node reads the earlier versions of a value as
   `historyOf(OfferDraftDto, { maxPrevious: 2 })` — `{ current, previous }` (no tags). At run time the scope holds

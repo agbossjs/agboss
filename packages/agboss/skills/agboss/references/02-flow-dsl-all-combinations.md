@@ -197,7 +197,10 @@ export class TicketWorkflow {}
 
 `.toRouter(R).chooseOne(…)` lists one `route(…)` per route of the `@Router` — exactly those
 (`[router.routes-mismatch]`). A model router reads its `input` and picks by meaning; a code router's
-`route(input)` returns a target, typed by its `routes`. A **text agent** (no `output`) leads only to a
+`route(input)` returns a target, typed by its `routes`. A route's `target` is a class or a thunk of one,
+`{ target: () => NoOrderWorkflowFinish }`: write the thunk when the class is declared below the router
+or in a module that imports it back (a plain class there is a `ReferenceError`, the temporal dead zone);
+`Route<R>` is the same type either way. A **text agent** (no `output`) leads only to a
 finish whose output is `WorkflowFinishTextDto` (`[flow.text-agent-target]`).
 
 ```ts file=src/credit/dto/credit-order.dto.ts

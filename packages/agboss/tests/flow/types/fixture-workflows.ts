@@ -19,6 +19,7 @@ export const FIXTURE_WORKFLOWS: readonly string[] = [
   "expiry-public.fixture.ts",
   "history.fixture.ts",
   "launch.fixture.ts",
+  "lazy-router.fixture.ts",
   "list-pauses.fixture.ts",
   "markers.fixture.ts",
   "offer.fixture.ts",

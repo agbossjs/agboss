@@ -3,6 +3,7 @@ import type { RouterDeclaration } from "../../decorators/declaration.js";
 import {
   isCodeRouter,
   onDemandRoutesOf,
+  routesOf,
   SpawnPolicy,
   type AnyRouterRoute,
 } from "../../decorators/router.js";
@@ -57,7 +58,7 @@ export function launchViolations(
   declaration: RouterDeclaration,
 ): readonly RuleViolation[] {
   const { options } = declaration;
-  const found = isCodeRouter(options) ? [] : modelRouteViolations(routerName, options.routes);
+  const found = isCodeRouter(options) ? [] : modelRouteViolations(routerName, routesOf(options));
   const isStated = found.every((problem) => problem.code !== "router.spawn-required");
   if (!isStated || onDemandRoutesOf(options).length > 0) return found;
   const message = `${routerName}: every route is spawn: SpawnPolicy.Always, so it decides nothing — set spawn: SpawnPolicy.OnDemand on the routes it chooses, or launch them with .toParallelAgents(…) without a router`;

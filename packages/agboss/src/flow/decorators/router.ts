@@ -3,6 +3,7 @@ import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import type { UncompactedTurns } from "../../compaction/compaction.decorator.js";
 import { NodeKind } from "../ast.js";
+import { resolveTarget, type TargetRef } from "../target-ref.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
 /** Who decides a router's route (#280): its model, or its class's `route(input)`. */
@@ -39,8 +40,11 @@ export enum FailurePolicy {
  * explicit `spawn: SpawnPolicy.OnDemand` one is decided by the model.
  */
 export interface ChosenRouterRoute {
-  /** An agent, an action, another router or a finish — the same targets as `chooseOne(route(…))`. */
-  readonly target: Class;
+  /**
+   * An agent, an action, another router or a finish — the same targets as `chooseOne(route(…))`;
+   * `() => Finish` for a class declared below this one (the temporal dead zone, #1271).
+   */
+  readonly target: TargetRef;
   /** A route to a finish is worded as a stop instruction ("Stop and send the answer: …"). */
   readonly prompt: string;
   readonly spawn?: SpawnPolicy.OnDemand;
@@ -49,7 +53,7 @@ export interface ChosenRouterRoute {
 
 /** A route the framework launches itself (`spawn: SpawnPolicy.Always`): no model sees it. */
 export interface AlwaysRouterRoute {
-  readonly target: Class;
+  readonly target: TargetRef;
   readonly spawn: SpawnPolicy.Always;
   readonly failure?: FailurePolicy;
   readonly prompt?: never;
@@ -60,7 +64,7 @@ export type RouterRoute = ChosenRouterRoute | AlwaysRouterRoute;
 
 /** One route of a code router (`DecidedBy.Code`): its `route()` says when; no prompt; `OnDemand` by default. */
 export interface CodeRouterRoute {
-  readonly target: Class;
+  readonly target: TargetRef;
   readonly spawn?: SpawnPolicy;
   readonly failure?: FailurePolicy;
   readonly prompt?: never;
@@ -176,11 +180,20 @@ export function Router(options: RouterOptions): <TClass extends Class>(value: TC
 export const isCodeRouter = (options: RouterOptions): options is CodeRouterOptions =>
   options.decidedBy === DecidedBy.Code;
 
-/** A route of either kind. */
-export type AnyRouterRoute = RouterRoute | CodeRouterRoute;
+/** A route of either kind, its target a class (a `() => Target` thunk resolved). */
+export interface AnyRouterRoute {
+  readonly target: Class;
+  readonly prompt?: string | undefined;
+  readonly spawn?: SpawnPolicy | undefined;
+  readonly failure?: FailurePolicy | undefined;
+}
 
-/** The routes of a router of either kind. */
-export const routesOf = (options: RouterOptions): readonly AnyRouterRoute[] => options.routes;
+/**
+ * The routes of a router of either kind, each target resolved to its class (#1271b): read at
+ * assembly and run time, once every module has run, never while a decorator is evaluated.
+ */
+export const routesOf = (options: RouterOptions): readonly AnyRouterRoute[] =>
+  options.routes.map((route) => ({ ...route, target: resolveTarget(route.target) }));
 
 /**
  * A route's spawn policy in a launch (#273, #280): as written, else the kind's default — `Always`

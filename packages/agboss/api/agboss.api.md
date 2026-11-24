@@ -698,7 +698,7 @@ export interface AlwaysRouterRoute {
     // (undocumented)
     readonly spawn: SpawnPolicy.Always;
     // (undocumented)
-    readonly target: Class;
+    readonly target: TargetRef;
 }
 
 // @public
@@ -1697,7 +1697,7 @@ export interface ChosenRouterRoute {
     readonly prompt: string;
     // (undocumented)
     readonly spawn?: SpawnPolicy.OnDemand;
-    readonly target: Class;
+    readonly target: TargetRef;
 }
 
 // @public (undocumented)
@@ -1899,7 +1899,7 @@ export interface CodeRouterRoute {
     // (undocumented)
     readonly spawn?: SpawnPolicy;
     // (undocumented)
-    readonly target: Class;
+    readonly target: TargetRef;
 }
 
 // @public
@@ -9973,6 +9973,9 @@ export interface TargetChannelOptions<D extends readonly Token[] = readonly Toke
 
 // @public
 type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = KindCheck<TClass, TKind, TLabel> extends infer TResult ? unknown extends TResult ? InputCheck<InstanceType<TClass>> : TResult : never;
+
+// @public
+export type TargetRef<TClass extends Class = Class> = TClass | (() => TClass);
 
 // @public
 export abstract class TenantContext {
