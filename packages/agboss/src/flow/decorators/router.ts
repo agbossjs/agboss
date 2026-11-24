@@ -1,3 +1,4 @@
+import type { PromptVariables } from "../../components/prompt-variables.js";
 import type { PromptValue } from "../../components/prompt-source.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
@@ -95,7 +96,7 @@ export interface ModelRouterOptions {
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt. */
-  readonly promptVariables?: Readonly<Record<string, string>>;
+  readonly promptVariables?: PromptVariables;
   readonly deps?: never;
   /** Guardrails added to the inherited ones (`@Application` → `@Workflow`): `@InputGuardrail` / `@OutputGuardrail` classes. */
   readonly guardrails?: readonly Class[];

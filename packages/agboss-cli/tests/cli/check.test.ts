@@ -102,9 +102,10 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
     expect(call.stdout.trimEnd().split("\n")).toEqual([
       "types: .agboss/types.d.ts",
       `${BAD_PROMPTS} prompt.unknown-variable @Router "main-router" prompt:2 {{bords}} — known: boards`,
-      `${TYPO}:4 prompt.unknown-variable {{knownPlace}} — known: boards, boardCount`,
+      `${TYPO}:4 prompt.unknown-variable {{knownPlace}} — known: boards, boardCount, spare`,
+      `${BAD_PROMPTS} prompt.unused-variable @Agent "scout-agent": promptVariables.spare is not used — no {{spare}} in its prompt`,
     ]);
-    expect(call.stderr).toMatch(/^agboss check: 2 problem\(s\) in /);
+    expect(call.stderr).toMatch(/^agboss check: 3 problem\(s\) in /);
   });
 
   it("--prompts is still accepted (prompts are always checked); --json carries the line", async () => {
@@ -119,7 +120,7 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
       file: TYPO,
       line: 4,
       code: "prompt.unknown-variable",
-      message: "{{knownPlace}} — known: boards, boardCount",
+      message: "{{knownPlace}} — known: boards, boardCount, spare",
     });
   });
 

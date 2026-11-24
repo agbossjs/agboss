@@ -16,6 +16,7 @@ import type { ExecutionTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { Class } from "../components/injection.js";
+import type { AssembledReplyInterpreter } from "../channels/discovery.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { ExecutionOrigin } from "../mesh/mesh-envelope.js";
 
@@ -37,6 +38,8 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
   readonly ownFileRedactor?: Class | undefined;
   /** Its application's own `FileTranscriber` (#899): part of its `configHash` (#1269). */
   readonly ownFileTranscriber?: Class | undefined;
+  /** Its reply interpreters (#267): a model one's rendered instructions are part of its prompt version (#1347c). */
+  readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
 }
 
 /**

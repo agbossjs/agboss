@@ -1,3 +1,4 @@
+import type { PromptVariables } from "../components/prompt-variables.js";
 import type { PromptSource } from "../components/prompt-source.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
@@ -36,6 +37,8 @@ export type SummaryMaxTokens = number | TokenLimit.ModelMax;
 export interface SummariserOptions {
   /** How to summarise: a file next to the class, `inline(…)`, or a list of them. None → the built-in prompt. */
   readonly prompt?: PromptSource;
+  /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
+  readonly promptVariables?: PromptVariables;
   /** The `@ModelProvider` class that serves the summarising model; left out, the workflow's, else the application's (#1313). */
   readonly modelProvider?: Class;
   /** The chat model, or a role of the provider (`"fast"`); left out, the provider's default. */

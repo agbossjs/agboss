@@ -253,7 +253,7 @@ export async function assembledOf(
   return {
     ...base,
     ...componentModelOf(resolver, `replyInterpreters.${options.name}`, own),
-    instructions: await loader.load({ label, options, source }),
+    instructions: await loader.load({ label, options, source, variables: options.promptVariables }),
   };
 }
 

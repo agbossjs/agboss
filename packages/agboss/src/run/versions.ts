@@ -18,6 +18,7 @@ import { stripFunctions } from "./strip-functions.js";
 import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js";
 import { guardrailSnapshot, toolInterceptorSnapshot } from "./policy-snapshots.js";
 import { transportSnapshot } from "./transport-snapshot.js";
+import { guardrailModels, guardrailPrompts, interpreterPrompts } from "./prompt-snapshot.js";
 import { fileProcessorSnapshot } from "./file-snapshot.js";
 import { handedDownSnapshot } from "./pii-snapshot.js";
 import type { Class } from "../components/injection.js";
@@ -78,6 +79,7 @@ export type SnapshotSource<TName extends string = string> = Pick<
   | "modelProviders"
   | "ownFileRedactor"
   | "ownFileTranscriber"
+  | "replyInterpreters"
 > & {
   readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
   readonly pii?: FingerprintDeps["pii"];
@@ -121,6 +123,8 @@ const ownSnapshot = <TName extends string>(
   frame: framePrompts(deps.graph, deps.memories, modelGuardrailsOf(deps.guardrails)),
   // the compactions (#120 PR 3): only a workflow that has one, so the others keep their hash
   ...memorySnapshot(deps.memories),
+  // the reply interpreters' instructions (#1347c): only a workflow that has a model one
+  ...interpreterPrompts(deps.replyInterpreters),
   // the guardrails (#120): only a workflow that has one, so the others keep their hash
   ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
   // the tool interceptors (#384): only a workflow that has one, so the others keep their hash
@@ -197,16 +201,6 @@ const framePrompts = (
   ...(guardrails.length === 0 ? {} : { guardrailFrame: guardrailPromptTexts }),
 });
 
-/** The guardrails' questions (#120) in the prompt version; the key `guards` keeps the versions of workflows without them. */
-const guardrailPrompts = (guardrails: readonly LoadedModelGuardrail[]): object => ({
-  guards: guardrails.map(({ name, side, prompt, threshold }) => ({
-    name,
-    side,
-    prompt,
-    threshold,
-  })),
-});
-
 /** The compactions that write summaries (their prompt is not `""`). */
 const summarisingOf = (compactions: AssembledMemories | undefined) =>
   (compactions?.memories ?? []).filter((c) => c.prompt !== "");
@@ -218,12 +212,6 @@ function compactionPrompts(compactions: AssembledMemories | undefined): object {
     ? {}
     : { compactions: summarising.map(({ name, prompt }) => ({ name, prompt })) };
 }
-
-/** The guardrails' models in the model version, only where there is one. */
-const guardrailModels = (guardrails: readonly LoadedModelGuardrail[]): object =>
-  guardrails.length === 0
-    ? {}
-    : { guardrails: guardrails.map(({ name, model }) => ({ name, model })) };
 
 /** Prompt and model versions of the current configuration — stored with every Turn. */
 export function executionVersions<TName extends string>(
@@ -248,6 +236,7 @@ export function executionVersions<TName extends string>(
       // model arbiters (#279): only a workflow that has one
       ...(arbiterTexts(deps.graph).length === 0 ? {} : { arbiters: arbiterTexts(deps.graph) }),
       ...guardrailPrompts(guardrails),
+      ...interpreterPrompts(deps.replyInterpreters),
     }),
     modelVersion: versionOf({
       defaults: deps.config.defaults,

@@ -46,6 +46,7 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
     readonly modelProviders?: readonly ModelProviderType[] | undefined;
     readonly ownFileRedactor?: Class | undefined;
     readonly ownFileTranscriber?: Class | undefined;
+    readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
     readonly tracing?: ExecutionTracing | undefined;
     // (undocumented)
     readonly turns: TurnRecords;

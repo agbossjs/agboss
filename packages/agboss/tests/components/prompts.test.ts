@@ -14,7 +14,7 @@ import { execute } from "../helpers/flow.js";
 import { Templated, workflowWith, type FlowPrompts } from "./prompts/flows.js";
 
 const AGENT_KNOWN = "known: boards, boardCount";
-const ROUTER_KNOWN = "known: boards";
+const ROUTER_KNOWN = "known: boards, boardCount";
 
 /** The problem lines of the PromptError assembly fails with. */
 async function problemsOf(application: Class): Promise<string[]> {

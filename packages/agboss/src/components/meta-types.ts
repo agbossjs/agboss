@@ -1,3 +1,4 @@
+import type { PromptVariables } from "./prompt-variables.js";
 import type { PromptValue } from "./prompt-source.js";
 import type { AgentSettings, AgentsConfig } from "../config/types.js";
 import type { ModelFiles } from "../files/model-files.js";
@@ -64,7 +65,7 @@ export interface AgentMeta
   readonly temperature?: number;
   readonly maxTokens?: AgentSettings["maxTokens"];
   /** `{{key}}` in agent prompts is replaced with the value (assembly fails on unknown keys). */
-  readonly promptVariables?: Readonly<Record<string, string>>;
+  readonly promptVariables?: PromptVariables;
   readonly cache?: AgentSettings["cache"];
   /** Tool calls per call of the agent (`agents.<name>.limits.toolCalls`); default 20. */
   readonly maxToolCalls?: number;
@@ -105,7 +106,7 @@ export interface WorkflowMeta {
   readonly providers?: readonly Provider[];
   /** `@Workflow({ services })` (#1324): scoped to the workflow's own container. */
   readonly services?: readonly Provider[];
-  readonly promptVariables?: Readonly<Record<string, string>>;
+  readonly promptVariables?: PromptVariables;
   /** The workflow's and its application's `modelProvider` (#1313), the levels over a component's own. */
   readonly modelCascade?: ModelCascade;
 }

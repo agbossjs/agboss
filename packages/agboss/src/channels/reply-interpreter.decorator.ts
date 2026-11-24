@@ -1,3 +1,4 @@
+import type { PromptVariables } from "../components/prompt-variables.js";
 import type { PromptValue } from "../components/prompt-source.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
@@ -34,6 +35,8 @@ export interface ModelReplyInterpreterOptions {
   /** How to read a reply; static — the question and the reply come in the input message. */
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
+  /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
+  readonly promptVariables?: PromptVariables;
   readonly deps?: never;
 }
 
@@ -49,6 +52,7 @@ export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = re
   readonly modelProvider?: never;
   readonly prompt?: never;
   readonly promptUrls?: never;
+  readonly promptVariables?: never;
 }
 
 /** `@ReplyInterpreter` options: a union discriminated by `decidedBy`. */

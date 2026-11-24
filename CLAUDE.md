@@ -1246,7 +1246,7 @@ export const quorumPaths = [
   `prompt` (inline) or `promptUrls` (files next to the component) plus `promptVariables` — `prompt` also takes a file path (`"./x.prompt.md"`; a string starting with `./`, `../` or `/` is a file), `inline("…")` / `` inline`…` `` or a list of them (#1347a, `PromptSource`; `file()` goes with #1347b) — normalised
   at load — no BOM, `\n` line breaks, no blank lines at the edges, NFC; parts joined with one blank
   line — and sent and fingerprinted as normalised;
-  `{{variables}}` are checked at assembly (`[prompt.unknown-variable]`). What a node reads comes in
+  `{{variables}}` are checked at assembly (`[prompt.unknown-variable]`); `promptVariables` is `Record<string, string | EnvRef<string>>` on `@Application`, `@Workflow` and every prompt-bearing component (the nearest wins; an `env(…)` reference is read once at assembly, from `createApp`'s `processEnv`): a `SecretRef` anywhere is `[prompt.secret-in-instructions]` (fails closed, a secret never reaches a model), a component's key no `{{key}}` of its prompt uses is `[prompt.unused-variable]`, a model reply interpreter's rendered instructions are in `promptVersion` (#1347c). What a node reads comes in
   its input message (`### field (from producer)`), never as `{{input.…}}` in instructions
   (`[prompt.input-in-instructions]`).
 - **`deps`, one contract for every kind** (`@Injectable`, `@Tool`, `@Rag`, `@Judge`,

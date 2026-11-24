@@ -388,7 +388,7 @@ export interface PromptProblem {
 }
 
 // @public
-export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions";
+export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions" | "prompt.secret-in-instructions" | "prompt.invalid-variable" | "prompt.unused-variable";
 
 // @public
 export function provide<T>(token: InjectionToken<T>, cls: Class<NoInfer<T>>): ClassProvider<T>;

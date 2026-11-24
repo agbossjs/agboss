@@ -535,7 +535,7 @@ export interface AgentOptions {
     readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
-    readonly promptVariables?: Readonly<Record<string, string>>;
+    readonly promptVariables?: PromptVariables;
     // (undocumented)
     readonly rag?: readonly AgentRag[];
     // (undocumented)
@@ -774,6 +774,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly observers?: readonly Class<ExecutionObserver>[];
     readonly piiKeyField?: SecretFieldOf<TEnvironment>;
     readonly piiPolicies?: readonly Class[];
+    readonly promptVariables?: PromptVariables;
     readonly providers?: readonly Provider[];
     readonly retention?: RetentionOptions;
     readonly services?: readonly ServiceEntry[];
@@ -1739,6 +1740,8 @@ export interface CodeChannelInterpreterOptions<TDeps extends readonly Token[] = 
     readonly prompt?: never;
     // (undocumented)
     readonly promptUrls?: never;
+    // (undocumented)
+    readonly promptVariables?: never;
 }
 
 // @public
@@ -1757,6 +1760,8 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
     readonly prompt?: never;
     // (undocumented)
     readonly promptUrls?: never;
+    // (undocumented)
+    readonly promptVariables?: never;
     readonly refusal?: string;
     // (undocumented)
     readonly threshold?: never;
@@ -1795,6 +1800,8 @@ export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = re
     readonly prompt?: never;
     // (undocumented)
     readonly promptUrls?: never;
+    // (undocumented)
+    readonly promptVariables?: never;
 }
 
 // @public
@@ -4269,6 +4276,7 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
     readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
+    readonly promptVariables?: PromptVariables;
     // (undocumented)
     readonly refusal?: never;
     readonly threshold: number;
@@ -4390,6 +4398,7 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
     readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
+    readonly promptVariables?: PromptVariables;
     readonly refusal: string;
     readonly threshold: number;
 }
@@ -6027,6 +6036,7 @@ export interface ModelChannelInterpreterOptions {
     readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
+    readonly promptVariables?: PromptVariables;
 }
 
 // @public
@@ -6173,6 +6183,7 @@ export interface ModelReplyInterpreterOptions {
     readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
+    readonly promptVariables?: PromptVariables;
 }
 
 // @public
@@ -6199,7 +6210,7 @@ export interface ModelRouterOptions {
     readonly prompt?: PromptValue;
     // (undocumented)
     readonly promptUrls?: readonly string[];
-    readonly promptVariables?: Readonly<Record<string, string>>;
+    readonly promptVariables?: PromptVariables;
     // (undocumented)
     readonly routes: readonly [RouterRoute, ...RouterRoute[]];
 }
@@ -7955,13 +7966,16 @@ export interface PromptProblem {
 }
 
 // @public
-export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions";
+export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions" | "prompt.secret-in-instructions" | "prompt.invalid-variable" | "prompt.unused-variable";
 
 // @public
 export type PromptSource = PromptPart | readonly [PromptPart, ...PromptPart[]];
 
 // @public
 export type PromptValue = string | InlinePrompt | readonly (string | InlinePrompt)[];
+
+// @public
+export type PromptVariables = Readonly<Record<string, string | EnvRef<string>>>;
 
 // @public
 export function provide<T>(token: InjectionToken<T>, cls: Class<NoInfer<T>>): ClassProvider<T>;
@@ -9616,6 +9630,7 @@ export interface SummariserOptions {
     readonly model?: string;
     readonly modelProvider?: Class;
     readonly prompt?: PromptSource;
+    readonly promptVariables?: PromptVariables;
     readonly summaryMaxTokens?: SummaryMaxTokens;
 }
 
@@ -10673,7 +10688,7 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly modelProvider?: Class;
     readonly name: TName;
     readonly piiPolicies?: readonly Class[];
-    readonly promptVariables?: Readonly<Record<string, string>>;
+    readonly promptVariables?: PromptVariables;
     readonly providers?: readonly Provider[];
     readonly services?: readonly ServiceEntry[];
     readonly toolInterceptors?: readonly Class[];
@@ -10986,6 +11001,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "model".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "promptVariables".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/channel-outcome.ts - (ae-undocumented) Missing documentation for "decision".
@@ -11093,6 +11109,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "promptUrls".
+// src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "promptVariables".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "decision".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "kind".
@@ -11147,6 +11164,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "decidedBy".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "promptUrls".
+// src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "promptVariables".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "model".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "threshold".

@@ -97,7 +97,12 @@ export async function loadedGuardrailOf(
   if (guardrailModelOf(meta, defaultModel) === undefined && !hasProvider) return [];
   const own = { model: meta.model, fallback: defaultModel, provider: meta.modelProvider };
   const label = `@${meta.side === GuardrailSide.Input ? "Input" : "Output"}Guardrail "${meta.name}"`;
-  const prompt = await loader.load({ label, options: meta, source: meta.source });
+  const prompt = await loader.load({
+    label,
+    options: meta,
+    source: meta.source,
+    ...(meta.promptVariables === undefined ? {} : { variables: meta.promptVariables }),
+  });
   return [
     {
       ...baseOf(cls, meta),

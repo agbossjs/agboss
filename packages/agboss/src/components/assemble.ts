@@ -38,6 +38,7 @@ import {
   rememberDefaultsLevels,
   type DefaultsLevels,
 } from "../config/defaults.js";
+import type { PromptVariables } from "./prompt-variables.js";
 import { judgeClassesOf, judgePartsOf, judgeSettingsOf, type JudgeClass } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
 import { memoriesFor, policyPartsOf, type CompactionConfigPart } from "./policy-parts.js";
@@ -70,6 +71,8 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   /** `@Application({ a2aFiles, exposes })`: the limits and types the agents' files start from (#899). */
   readonly a2aFiles?: A2AFileOptions;
   readonly exposes?: readonly Class[];
+  /** `@Application({ promptVariables })`: under every workflow's and component's own (#1347c). */
+  readonly promptVariables?: PromptVariables;
 };
 
 function configOf(
@@ -189,9 +192,10 @@ export async function workflowOf(
   application: readonly ProviderModule[] = [],
   owner?: WorkflowOwner,
   contexts: readonly Token[] = [],
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<AssembledWorkflow> {
   const { bundle, graph, agents } = graphedModule(workflow, owner);
-  const loader = new PromptLoader(bundle.promptVariables ?? {});
+  const loader = PromptLoader.of(bundle, owner, env);
   const resolver = resolverOf(bundle, agents);
   const routers = await loadRouters(graph, loader, bundle.defaults.router?.model, resolver);
   const tools = toolClassesOf(bundle, agents, graph);

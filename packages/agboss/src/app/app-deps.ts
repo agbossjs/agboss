@@ -222,11 +222,15 @@ const traceRouteOf = (workflow: string, parts: WorkflowDepsParts) => ({
  * the components' `onInit` → `onStart` run at the end (a failing one stops the start, MCP and
  * tracing are closed); with it the application runs them once for all its workflows.
  */
-/** What of the application's providers is in `configHash`: transport providers (#385), its own file redactor and transcriber (#1269). */
+/** What of the application's providers is in `configHash`: transport providers (#385), its own file redactor and transcriber (#1269); and its reply interpreters' instructions (#1347c). */
 const hashedProvidersOf = (
   bundle: AssembledWorkflow,
-): Pick<AppDeps, "modelProviders" | "ownFileRedactor" | "ownFileTranscriber"> => ({
+): Pick<
+  AppDeps,
+  "modelProviders" | "ownFileRedactor" | "ownFileTranscriber" | "replyInterpreters"
+> => ({
   modelProviders: bundle.modelProviders,
+  replyInterpreters: bundle.replyInterpreters,
   ownFileRedactor: bundle.ownFileRedactor,
   ownFileTranscriber: bundle.ownFileTranscriber,
 });

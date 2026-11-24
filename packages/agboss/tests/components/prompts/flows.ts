@@ -30,7 +30,6 @@ export function workflowWith(prompts: FlowPrompts): {
     model: "test/alpha",
     price,
     ...(prompts.agent ?? { prompt: "You scout {{boards}}." }),
-    promptVariables: { boardCount: "2" },
   })
   class Scout {}
 
@@ -62,7 +61,7 @@ export function workflowWith(prompts: FlowPrompts): {
           route(NoAnswer),
         ),
     ],
-    promptVariables: { boards: "LinkedIn, AllJobs" },
+    promptVariables: { boards: "LinkedIn, AllJobs", boardCount: "2" },
   })
   class Prompts {}
 

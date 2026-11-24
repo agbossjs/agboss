@@ -1,4 +1,5 @@
 import type { Secret } from "../environments/secret.js";
+import type { PromptVariables } from "../components/prompt-variables.js";
 import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, Provider, ServiceEntry } from "../components/injection.js";
@@ -39,6 +40,12 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * instance for every workflow, like a class a workflow lists.
    */
   readonly providers?: readonly Provider[];
+  /**
+   * Static `{{key}}` values of every prompt of the application (#1347c): texts or `defineEnv` references
+   * (`appEnv.companyName`), read once at assembly. A workflow's own `promptVariables`, and a component's,
+   * win over them. A secret reference is `[prompt.secret-in-instructions]`: a secret never reaches a model.
+   */
+  readonly promptVariables?: PromptVariables;
   /**
    * The `@Channel({ target })` classes of the application's pause targets (#1307): the transport of
    * each `@ToolApproval` and `@ExternalTask`, created by the container like a provider. Several

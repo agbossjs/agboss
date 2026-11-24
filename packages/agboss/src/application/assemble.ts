@@ -30,6 +30,7 @@ import { checkObservers } from "../components/observer-checks.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { decoratedHealthChecksOf } from "../health/health-check.js";
 import { DEFAULT_MAX_MESH_HOPS } from "../mesh/mesh-defaults.js";
+import type { ApplicationAssembly } from "./assembly-options.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
 import {
   FencedEffectSettings,
@@ -117,11 +118,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields 
 /** The default shutdown timeout (#265 S51): under the usual 30 s grace period and the 30 s lease. */
 const SHUTDOWN_TIMEOUT: Milliseconds = seconds(25);
 
-/** How the workflows are assembled: a profile on top of each (`profiles/<workflow>/<profile>.yaml`). */
-export interface ApplicationAssembly {
-  readonly profile?: string | undefined;
-  readonly profileRoot?: string | undefined;
-}
+export type { ApplicationAssembly } from "./assembly-options.js";
 
 /**
  * The application's own module: its providers, budgets, observers and health checks (the container
@@ -159,7 +156,7 @@ async function assembleWorkflows(
   const contexts = contextTokensOf(declaredContextsOf(owner));
   for (const workflow of workflows) {
     try {
-      const bundle = await workflowOf(workflow, modules, owner, contexts);
+      const bundle = await workflowOf(workflow, modules, owner, contexts, assembly.processEnv);
       assembled.push(await withProfile(bundle, assembly.profile, assembly.profileRoot));
     } catch (error) {
       if (!(error instanceof GraphRuleError)) throw error;

@@ -45,7 +45,7 @@ export class ChatWorkflowFinish {}
   maxSteps: 12, // visits of agents and routers in one run
   guardrails: [PromptInjectionGuardrail], // over the application's (#120)
   memory: ConversationMemory, // its ttl, the recent turns its agents and routers see in full, and what is older (#1303)
-  promptVariables: { boards: "acme (Acme)" },
+  promptVariables: { boards: "acme (Acme)" }, // over the application's `promptVariables`; a component's own win
 })
 export class JobScout {} // no money limits, no model providers: the application's
 ```

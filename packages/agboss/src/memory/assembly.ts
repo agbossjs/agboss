@@ -94,6 +94,9 @@ async function loaded(cls: Class, loader: PromptLoader): Promise<LoadedMemory[]>
             label: `@Memory "${meta.name}"`,
             options: { prompt: meta.compaction?.prompt },
             source: meta.source,
+            ...(meta.compaction?.promptVariables === undefined
+              ? {}
+              : { variables: meta.compaction.promptVariables }),
           })
         : builtInPromptOf(strategy);
   return [

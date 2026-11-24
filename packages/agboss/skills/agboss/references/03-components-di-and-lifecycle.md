@@ -737,7 +737,7 @@ export class AuditToolInterceptor {
 - **Units** (`@agboss/core/units`): `seconds()`, `minutes()`, `hours()` for every timeout, deadline and
   retention; `usd()` for money (`Usd`); `kilobytes()` for sizes. A bare number does not compile.
 - **Prompts**: `prompt` inline or `promptUrls` (files next to the component); `prompt` also takes a file path (`"./support.prompt.md"`, `../`, `/`), `inline("…")` / `` inline`…` `` (the tagged form drops the common indentation) or a list of them, read in order and joined with one blank line (#1347a; the bare text and `promptUrls` forms go in #1347b), `{{variables}}` from
-  `promptVariables` checked at assembly (`[prompt.unknown-variable]`). What a node reads arrives in its
+  `promptVariables` (texts or `defineEnv` references; `@Application` → `@Workflow` → the component, nearest wins) checked at assembly (`[prompt.unknown-variable]`). What a node reads arrives in its
   input message (`### message (from desk-workflow-start)`) — never write `{{input.…}}` in a prompt
   (`[prompt.input-in-instructions]`).
 - **Memory**: a `@Memory` class named by `memory` on `@Workflow`, `@Agent` or `@Router` — its `ttl`, its
@@ -1003,6 +1003,8 @@ export class SeatWorkflow {}
 | `[environment.contract-value]`             | a default value in the contract class → move it to `<name>.environment.ts`                                                          |
 | `[environment.missing-field]`              | a listed implementation reads a field the contract lacks (`sqlitePath`) → declare it                                                |
 | `[prompt.input-in-instructions]`           | `{{input.message}}` in a prompt → delete it: the input message carries the field                                                    |
+| `[prompt.secret-in-instructions]`          | a `secret(…)` in any `promptVariables` → a text or an `env(…)`: a secret never reaches a model                                      |
+| `[prompt.unused-variable]`                 | a component's `promptVariables.tone` no `{{tone}}` uses → delete it                                                                 |
 | `[prompt.unknown-variable]`                | `{{tone}}` without `promptVariables: { tone }` → add it                                                                             |
 | `[judge.wrong-output]`                     | the judge's `output` is not the agent's `output` shape → make them the same                                                         |
 | `[memory.uncompacted-turns-invalid]`       | `uncompactedTurns: -1` or a fraction → a whole number from 0, or `TurnLimit.All`                                                    |

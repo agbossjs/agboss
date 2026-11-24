@@ -1,3 +1,4 @@
+import type { PromptVariables } from "../../components/prompt-variables.js";
 import type { PromptValue } from "../../components/prompt-source.js";
 import type { ModelFiles } from "../../files/model-files.js";
 import { callerFile } from "../../components/call-site.js";
@@ -32,7 +33,7 @@ export interface AgentOptions {
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt (the same bytes in every execution). */
-  readonly promptVariables?: Readonly<Record<string, string>>;
+  readonly promptVariables?: PromptVariables;
   /**
    * A model name, or a role the provider maps (`"fast"`, `models` of `@ModelProvider`); left out, the
    * provider's `model`, else its `models.default` (#1313).

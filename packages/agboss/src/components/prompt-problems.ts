@@ -6,7 +6,10 @@ export type PromptProblemCode =
   | "prompt.unknown-variable"
   | "prompt.missing-file"
   | "prompt.path-as-text"
-  | "prompt.input-in-instructions";
+  | "prompt.input-in-instructions"
+  | "prompt.secret-in-instructions"
+  | "prompt.invalid-variable"
+  | "prompt.unused-variable";
 
 /** One problem in a prompt: its code and where it is (`file:line …`). */
 export interface PromptProblem {
@@ -95,4 +98,21 @@ export function pathAsText(owner: string, prompt: string | undefined): PromptPro
       message: `${owner}: prompt "${text}" is a file path, not prompt text — use prompt: "./${text}"`,
     },
   ];
+}
+
+/** Keys a component sets in `promptVariables` that none of its prompt texts uses (`{{key}}`). */
+export function unusedVariables(
+  where: string,
+  keys: readonly string[],
+  texts: readonly string[],
+): PromptProblem[] {
+  const used = new Set(
+    texts.flatMap((text) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map((match) => match[1])),
+  );
+  return keys
+    .filter((key) => !used.has(key))
+    .map((key) => ({
+      code: "prompt.unused-variable",
+      message: `${where}: promptVariables.${key} is not used — no {{${key}}} in its prompt`,
+    }));
 }

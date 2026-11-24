@@ -10,8 +10,10 @@ import {
   pathAsText,
   PromptError,
   unknownVariables,
+  unusedVariables,
   type PromptProblem,
 } from "./prompt-problems.js";
+import { resolvedPromptVariables, type ResolvedPromptVariables } from "./prompt-variables.js";
 
 const BOM = /^\uFEFF/;
 const LINE_BREAK = /\r\n?/g;
@@ -46,8 +48,25 @@ export interface PromptOwner {
   readonly label: string;
   readonly options: PromptOptions | undefined;
   readonly source: string | undefined;
-  /** The owner's own variables, over the loader's (the workflow's). */
-  readonly variables?: Readonly<Record<string, unknown>>;
+  /** The owner's own variables (`promptVariables`: texts or `env(…)` references), over the loader's. */
+  readonly variables?: Readonly<Record<string, unknown>> | undefined;
+  /** What the variables' problems name when one owner loads several texts (a router's routes); default `label`. */
+  readonly variablesLabel?: string;
+}
+
+/** The variables of one owner across its loads: which keys its texts use. */
+interface VariableUse {
+  readonly where: string;
+  readonly keys: readonly string[];
+  readonly texts: string[];
+}
+
+/** What a loader reads variables with: the application's level, and the process environment. */
+export interface PromptLoaderOptions {
+  /** `@Application({ promptVariables })`: under the workflow's. */
+  readonly application?: Readonly<Record<string, unknown>> | undefined;
+  /** Where `env(…)` references are read from; default `process.env`. */
+  readonly env?: NodeJS.ProcessEnv | undefined;
 }
 
 interface Segment {
@@ -65,31 +84,92 @@ const isMissing = (error: unknown): boolean =>
  */
 export class PromptLoader {
   readonly #problems: PromptProblem[] = [];
-  readonly #variables: Readonly<Record<string, unknown>>;
+  readonly #variables: ResolvedPromptVariables;
+  readonly #env: NodeJS.ProcessEnv;
+  /** Whether a level above a component has a problem: nothing is rendered then. */
+  readonly #isBroken: boolean;
+  readonly #uses = new Map<object, VariableUse>();
 
-  constructor(variables: Readonly<Record<string, unknown>> = {}) {
-    this.#variables = variables;
+  /**
+   * `variables` are the workflow's `promptVariables` over `options.application`'s; every
+   * `env(…)` reference is read from `options.env` here, a secret reference is a problem
+   * (`prompt.secret-in-instructions`) and no text is rendered while any variable has a problem.
+   */
+  constructor(
+    variables: Readonly<Record<string, unknown>> = {},
+    options: PromptLoaderOptions = {},
+  ) {
+    this.#env = options.env ?? process.env;
+    const application = resolvedPromptVariables(
+      "@Application promptVariables",
+      options.application,
+      this.#env,
+      this.#problems,
+    );
+    const workflow = resolvedPromptVariables(
+      "@Workflow promptVariables",
+      variables,
+      this.#env,
+      this.#problems,
+    );
+    this.#variables = { ...application, ...workflow };
+    this.#isBroken = this.#problems.length > 0;
   }
 
   /** The owner's prompt as its static text; problems are kept for `throwIfAny`. */
   async load(owner: PromptOwner): Promise<string> {
-    const variables = { ...this.#variables, ...(owner.variables ?? {}) };
+    const before = this.#problems.length;
+    const own = resolvedPromptVariables(
+      `${owner.variablesLabel ?? owner.label} promptVariables`,
+      owner.variables,
+      this.#env,
+      this.#problems,
+    );
+    const variables = { ...this.#variables, ...own };
     const known = Object.keys(variables);
     const segments = await this.#segments(owner);
-    const before = this.#problems.length;
+    this.#noteUse(owner, segments);
     segments.forEach((segment) => {
       this.#problems.push(...inputInInstructions(segment.where, segment.text));
       this.#problems.push(...unknownVariables(segment.where, segment.text, known));
     });
     const template = joinPromptParts(segments.map((segment) => segment.text));
-    if (this.#problems.length > before) return template;
+    if (this.#isBroken || this.#problems.length > before) return template;
     const unknown = (key: string) =>
       new ComponentError({ message: `${owner.label}: unknown prompt variable {{${key}}}` });
     return normalisePromptText(renderTemplate(template, variables, unknown));
   }
 
-  /** Throws `PromptError` with every problem found so far. */
+  /** The loader of a workflow's prompts: its `promptVariables` over its application's (`owner`). */
+  static of(
+    workflow: { readonly promptVariables?: Readonly<Record<string, unknown>> | undefined },
+    owner: { readonly promptVariables?: Readonly<Record<string, unknown>> | undefined } | undefined,
+    env: NodeJS.ProcessEnv,
+  ): PromptLoader {
+    return new PromptLoader(workflow.promptVariables ?? {}, {
+      application: owner?.promptVariables,
+      env,
+    });
+  }
+
+  /** Remembers which keys of an owner's own variables its texts use; checked in `throwIfAny`. */
+  #noteUse(owner: PromptOwner, segments: readonly Segment[]): void {
+    const { variables } = owner;
+    if (variables === undefined || Object.keys(variables).length === 0) return;
+    const use = this.#uses.get(variables) ?? {
+      where: owner.variablesLabel ?? owner.label,
+      keys: Object.keys(variables),
+      texts: [],
+    };
+    use.texts.push(...segments.map((segment) => segment.text));
+    this.#uses.set(variables, use);
+  }
+
+  /** Throws `PromptError` with every problem found so far, the component keys no prompt uses included. */
   throwIfAny(): void {
+    for (const use of this.#uses.values())
+      this.#problems.push(...unusedVariables(use.where, use.keys, use.texts));
+    this.#uses.clear();
     if (this.#problems.length > 0) throw new PromptError({ problems: this.#problems });
   }
 

@@ -65,6 +65,13 @@ declaration order:
 An absent `optional` field is `### field` and `none`. A field in the instructions as `{{input.…}}`
 fails assembly (`[prompt.input-in-instructions]`) — it would change the static part each run.
 
+`{{key}}` values come from `promptVariables` — on `@Application`, `@Workflow` and the component (`@Agent`,
+`@Router`, the guardrails, a `@Memory` compaction, a reply interpreter); the nearest level wins. A value
+is a text or a `defineEnv` reference (`appEnv.companyName`), read once when the application is assembled.
+A `secret(…)` is never a value: it fails assembly with `[prompt.secret-in-instructions]`, so a secret
+cannot reach a prompt or a model. A key of a component no `{{key}}` of its prompt uses is
+`[prompt.unused-variable]` (also in `agboss check --prompts`).
+
 ## Answers
 
 - An agent **without `output`** is a text agent: its last turn without tool calls is its answer.

@@ -1,3 +1,4 @@
+import type { PromptVariables } from "../../components/prompt-variables.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, Provider, ServiceEntry } from "../../components/injection.js";
@@ -144,8 +145,8 @@ export interface WorkflowOptions<
    * an agent's or a router's own `memory` wins. Left out, the workflow is stateless across runs.
    */
   readonly memory?: Class;
-  /** Static `{{key}}` values of every prompt of the workflow. */
-  readonly promptVariables?: Readonly<Record<string, string>>;
+  /** Static `{{key}}` values of every prompt of the workflow, over the application's; a component's own win. */
+  readonly promptVariables?: PromptVariables;
 }
 
 /** The flow is recorded as plain data: each path's source and steps, never the builder objects. */

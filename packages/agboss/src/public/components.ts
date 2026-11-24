@@ -146,6 +146,7 @@ export {
   type PromptSource,
   type PromptValue,
 } from "../components/prompt-source.js";
+export type { PromptVariables } from "../components/prompt-variables.js";
 export {
   ChannelRole,
   PauseAnswerer,

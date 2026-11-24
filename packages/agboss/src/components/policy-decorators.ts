@@ -1,3 +1,4 @@
+import type { PromptVariables } from "./prompt-variables.js";
 import type { PromptValue } from "./prompt-source.js";
 import { callerFile } from "./call-site.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
@@ -44,6 +45,8 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
+  /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
+  readonly promptVariables?: PromptVariables;
   /**
    * A decision model or a chat model: a vendor name, or a role of its provider (`"fast"`). Left
    * out: `defaults.guardrail.model`, else the default model of its provider (#1313).
@@ -69,6 +72,8 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
+  /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
+  readonly promptVariables?: PromptVariables;
   /**
    * A decision model or a chat model: a vendor name, or a role of its provider (`"fast"`). Left
    * out: `defaults.guardrail.model`, else the default model of its provider (#1313).
@@ -95,6 +100,7 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
   readonly decidedBy: DecidedBy.Code;
   readonly prompt?: never;
   readonly promptUrls?: never;
+  readonly promptVariables?: never;
   readonly model?: never;
   readonly modelProvider?: never;
   readonly threshold?: never;

@@ -16,14 +16,14 @@ import {
   TestChat,
 } from "../../../../agboss/tests/fixtures/test-flow/test.flow.js";
 
-// `agboss check` fixture (#199): a {{typo}} in the agent's prompt file and one in the router's prompt
+// `agboss check` fixture (#199): a {{typo}} in the agent's prompt file and one in the router's prompt, and an unused key (#1347c)
 
 @Agent({
   name: "scout-agent",
   description: "Scouts job boards",
   model: "test/alpha",
   promptUrls: ["./typo.prompt.md"],
-  promptVariables: { boardCount: "2" },
+  promptVariables: { boardCount: "2", spare: "unused" },
 })
 export class Scout {}
 

@@ -51,7 +51,12 @@ export async function loadRouter(
   const routes = await Promise.all(
     routesOf(options).map(async (route) => {
       const option = declarationOf(route.target)?.options.name ?? route.target.name;
-      const owner = { label: `${label} route "${option}"`, source, variables };
+      const owner = {
+        label: `${label} route "${option}"`,
+        variablesLabel: label,
+        source,
+        variables,
+      };
       return { option, condition: await loader.load({ ...owner, options: route }) };
     }),
   );
