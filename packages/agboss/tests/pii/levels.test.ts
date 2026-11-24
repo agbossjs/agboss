@@ -66,8 +66,8 @@ class UnusedRefusalPiiPolicy implements PiiRefusal {
 class NamesPiiPolicy {}
 
 @PiiPolicy({
-  name: "badly-named",
-  description: "Its name lacks the kind",
+  name: "Badly_Named",
+  description: "Its name is not kebab-case",
   rules: [pii(PiiKind.Jwt, PiiAction.replaceWithKind())],
   pseudonymKey: KEY,
 })
@@ -183,8 +183,8 @@ describe("#120: a policy's own rules", () => {
     expect(codesOf(NamesPiiPolicy)).toEqual(["pii.conflicting-rules", "pii.kind-needs-model"]);
   });
 
-  it("[name.kind-suffix] and [pii.not-a-policy]", () => {
-    expect(codesOf(BadlyNamedPolicy)).toEqual(["name.kind-suffix"]);
+  it("[name.not-kebab-case] and [pii.not-a-policy]", () => {
+    expect(codesOf(BadlyNamedPolicy)).toEqual(["name.not-kebab-case"]);
     expect(codesOf(NotAPolicy)).toEqual(["pii.not-a-policy"]);
   });
 });

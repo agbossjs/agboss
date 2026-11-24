@@ -8,15 +8,16 @@ import type { RateLimitPolicy } from "./policies/rate-limit-policy.js";
 import { Reasoning } from "./reasoning.js";
 import type { RetryPolicy } from "./retry-policy.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
+import { resolvedName } from "../flow/names.js";
 
 /** An HTTP provider: an OpenAI-compatible server at `baseUrl`, the key in the environment. */
 export interface HttpModelProviderOptions {
   /**
    * Identifies the provider (logs, overrides, the keys of its shared state) — never its base URL;
-   * kebab-case ending with `-model-provider` (`[name.kind-suffix]`).
+   * kebab-case; the class name in kebab-case when left out (`OpenRouter` → `open-router`).
    */
-  readonly name: string;
-  readonly description: string;
+  readonly name?: string;
+  readonly description?: string;
   /** Model names this provider serves; exactly one provider must serve each model. */
   readonly serves: readonly RegExp[];
   /**
@@ -63,10 +64,10 @@ export interface HttpModelProviderOptions {
 export interface TransportModelProviderOptions<D extends readonly Token[] = readonly Token[]> {
   /**
    * Identifies the provider (logs, overrides, the keys of its shared state) — never its base URL;
-   * kebab-case ending with `-model-provider` (`[name.kind-suffix]`).
+   * kebab-case; the class name in kebab-case when left out (`OpenRouter` → `open-router`).
    */
-  readonly name: string;
-  readonly description: string;
+  readonly name?: string;
+  readonly description?: string;
   /** Model names this provider serves; exactly one provider must serve each model. */
   readonly serves: readonly RegExp[];
   /**
@@ -100,6 +101,8 @@ export type ModelProviderOptions = HttpModelProviderOptions | TransportModelProv
 
 /** A provider's options as kept: a transport's unset `reasoning` / `promptCaching` filled in (off). */
 export type KeptModelProviderOptions = ModelProviderOptions & {
+  /** Given, or the class name in kebab-case. */
+  readonly name: string;
   readonly reasoning: Reasoning;
   readonly promptCaching: PromptCaching;
 };
@@ -132,9 +135,10 @@ export class ModelProviderError extends AGBossError {
 }
 
 /** The options as kept: a transport's unset reasoning and caching are off. */
-const keptOf = (options: ModelProviderOptions): KeptModelProviderOptions =>
+const keptOf = (options: ModelProviderOptions, name: string): KeptModelProviderOptions =>
   Object.freeze({
     ...options,
+    name,
     reasoning: options.reasoning ?? Reasoning.off(),
     promptCaching: options.promptCaching ?? PromptCaching.off(),
   });
@@ -154,11 +158,12 @@ export function ModelProvider<const D extends readonly Token[] = []>(
 export function ModelProvider(options: ModelProviderOptions) {
   if (options.serves.length === 0) {
     throw new ModelProviderError({
-      message: `@ModelProvider "${options.name}": serves needs at least one pattern`,
+      message: `@ModelProvider${options.name === undefined ? "" : ` "${options.name}"`}: serves needs at least one pattern`,
     });
   }
   return <C extends ModelProviderType>(value: C): C => {
-    providers.set(value, keptOf(options));
+    const name = resolvedName(options.name, value);
+    providers.set(value, keptOf(options, name));
     return value;
   };
 }

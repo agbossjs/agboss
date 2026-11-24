@@ -34,7 +34,7 @@ export type A2AAgentConfig<
   TOut extends DtoClass = DtoClass,
   D extends readonly Token[] = [],
 > = {
-  /** `billing-desk-a2a-agent` — kebab-case, ending with `-a2a-agent` (`[name.kind-suffix]`). */
+  /** `billing-desk` — kebab-case (`[name.not-kebab-case]`). */
   readonly name: string;
   /** The agent's base URL; its card is read from `<url>/.well-known/agent-card.json`. */
   readonly url: string;

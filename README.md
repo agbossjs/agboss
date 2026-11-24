@@ -163,7 +163,7 @@ default, `TenantLeastInFlight`, `TenantWeighted` by `tenant.weight`, `Fifo`), an
 provider's whole queue for `Retry-After` on every instance, then halves this instance's
 concurrency and grows it back by one a minute; `circuitBreakerPolicy` stops calling a provider that
 is down — its state in `RateLimitRepository` as well. Without `rateLimitPolicy` there is no limit:
-set it per your provider plan. A provider's `name` ends with `-model-provider`; its key is a
+set it per your provider plan. A provider's `name` is optional (kebab-case; the class name by default); its key is a
 `Secret` field of the application's environment (`apiKey: "openRouterApiKey"`):
 
 ```ts file=src/model-providers/openrouter.model-provider.ts
@@ -2174,7 +2174,7 @@ export class NoLegalAdviceGuardrail {}
 They are listed in `guardrails` of `@Application`, `@Workflow`, `@Agent` and `@Router`: the lists
 add up, `excludeGuardrails` removes an inherited one for an agent or a router. A model router takes
 the input guardrails; a code router calls no model and takes none. Assembly checks them all at once:
-`-guardrail` names, one refusal (both → `[guardrail.refusal-twice]`; neither does not compile, and
+kebab-case names, one refusal (both → `[guardrail.refusal-twice]`; neither does not compile, and
 is `[guardrail.missing-refusal]` at assembly), a question (`[guardrail.no-prompt]`), a threshold in
 (0, 1] (`[guardrail.threshold-invalid]`), `[guardrail.exclude-not-inherited]`,
 `[guardrail.not-a-guardrail]`, `[guardrail.output-on-router]`, `[guardrail.no-model-call]`.

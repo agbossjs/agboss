@@ -172,8 +172,8 @@ own, and there is no `xray` option.
 Every code below is a `RuleCode`, reported by `npx agboss check`, `createApp` and `testWith` before
 any model call. "→" separates the code that fails from the code that passes.
 
-`[name.kind-suffix]` checks every component's `name` (`"support"` on `@Agent` — name it
-`"support-agent"`) and, for the `@Application` and each `@Budget`, its class name as well
+`[name.kind-suffix]` checks the `name` of every persisted component (`"support"` on `@Agent` — name it
+`"support-agent"`; the other components' names are optional and only `[name.not-kebab-case]`-checked) and, for the `@Application` and each `@Budget`, its class name as well
 (`class DailyLimit — name it DailyLimitBudget`, `class Desk — name it DeskApplication`); other
 classes follow the same convention (`SupportAgent`) without a check.
 
@@ -190,7 +190,8 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[graph.next-after-workflow-finish]` | something follows a finish                                                                                    | `.toFinish(F)` `.toAction(A)` → end at the finish; move `A` before it                                                             |
 | `[graph.choose-from-non-router]`     | `.chooseOne(…)` after a step that is not a router                                                             | `.toAgent(X).chooseOne(…)` → `.toRouter(R).chooseOne(…)`, or `oneOf` + `.switch(…)`                                               |
 | `[graph.cycle-without-max-visits]`   | a cycle where no agent or router has `maxVisits`                                                              | a review loop → `@Agent({ …, maxVisits: 3 })` on one node of the cycle                                                            |
-| `[name.kind-suffix]`                 | a component's `name` (or its class name) does not end with its kind                                           | `@Agent({ name: "support" })` → `name: "support-agent"` (`-tool`, `-router`, `-rag`, `-model-provider`, …)                        |
+| `[name.not-kebab-case]`              | a non-persisted component's `name` is not kebab-case                                                          | `name: "crm-check"`, or leave `name` out: the class name in kebab-case                                                            |
+| `[name.kind-suffix]`                 | a persisted component's `name` (or its class name) does not end with its kind                                 | `@Agent({ name: "support" })` → `name: "support-agent"` (`-router`, `-action`, `-workflow`, …)                                    |
 | `[dto.name]`                         | a DTO class on a path does not end with `Dto`                                                                 | `class Ticket` → `class TicketDto`                                                                                                |
 | `[dto.duplicate-name]`               | two DTO classes share a name across the project's workflows                                                   | two `BookingDto` in two folders → `FlightBookingDto`, `HotelBookingDto`                                                           |
 | `[dto.cyclic]`                       | a DTO holds itself through `@Nested` or `@ListOf`, directly or via other DTOs (a component's input or output) | `PingDto → PongDto → PingDto` → break the cycle with an id field or a flat list; a DTO used twice is fine                         |

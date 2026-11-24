@@ -514,7 +514,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
   hearing every pause of every workflow with the same guarantees. It gets `pauseKey`, never the
   answering `pauseId` of a channel pause unless `allowAnswering: true` (a trusted component: it holds
   the right to answer every channel pause); asks and answers are masked. Rules:
-  `[name.kind-suffix]`, `[pause-listener.duplicate-name]`, `[pause-listener.not-a-handler]`.
+  `[name.not-kebab-case]`, `[pause-listener.duplicate-name]`, `[pause-listener.not-a-handler]`.
 - **A model interpreter** (`DecidedBy.Model`, a chat model) gets the role's answer tool, its
   `overrideArguments` described by the approved tool's input with every field optional — "ok but
   only up to $500" is `{ approved: true, overrideArguments: { amountUsd: 500 } }`, laid over the
@@ -607,7 +607,7 @@ priceUsd })` (typed by the role's ask); `agboss describe` prints `asked at <agen
 days: [Weekday.Sunday, …], hours: [{ from: "09:00", to: "18:00" }], breaks?, holidays? })` is the built-in
   grid (DST-safe: working time is the real elapsed time of the instants whose local time is in `hours` and in no
   `break`; `"24:00"` ends the date; no overnight interval — write two); a `@WorkingCalendar({ name:
-"…-working-calendar", deps })` class listed in `providers` implements `addWorkingTime({ from, amount, tenantId,
+"holidays", deps })` class listed in `providers` implements `addWorkingTime({ from, amount, tenantId,
 role })` and may read the application's own data. The deadline is computed **once**, when the pause opens
   (before the channel is asked), into `expiresAt` / `remindAt`; a calendar changed later never moves an open
   pause — extend it. Reminder: both working → `calendar.add(askedAt, expiresIn − remindBefore)`; a working

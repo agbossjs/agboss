@@ -30,8 +30,8 @@ describe("#940 AC5: the listener's types", () => {
     expectTypeOf<PauseListenerClosedEvent["answeredBy"]>().toEqualTypeOf<string | undefined>();
   });
 
-  it("the options: a name, its dependencies and the trust to answer", () => {
-    expectTypeOf<PauseListenerOptions["name"]>().toEqualTypeOf<string>();
+  it("the options: an optional name, its dependencies and the trust to answer", () => {
+    expectTypeOf<PauseListenerOptions["name"]>().toEqualTypeOf<string | undefined>();
     expectTypeOf<PauseListenerOptions["allowAnswering"]>().toEqualTypeOf<boolean | undefined>();
   });
 

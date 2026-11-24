@@ -1,5 +1,6 @@
 import type { ResolvedAll, Token } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
+import { resolvedName } from "../flow/names.js";
 import type { Secret } from "../environments/secret.js";
 import type { AnyPiiAction, MaskingPiiAction } from "./actions.js";
 import type { PiiKind, PiiTarget } from "./kinds.js";
@@ -70,9 +71,9 @@ export type PiiRefusalShape<TInstance> = TInstance extends { readonly refusal: u
 export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
   /** What the policy does to the files an agent's model reads (#899 §5); `PiiFileAction.Mask` when left out. */
   readonly files?: PiiFileAction;
-  /** Ends with `-pii-policy` (`contact-pii-policy`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`Contact` → `contact`). */
+  readonly name?: string;
+  readonly description?: string;
   readonly rules: readonly [PiiRule, ...PiiRule[]];
   /** A chat model that finds names, street addresses and the other kinds without a format. */
   readonly detectWithModel?: string;
@@ -90,8 +91,9 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
 export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly Token[]> {
   /** What the policy does to the files an agent's model reads (#899 §5); `PiiFileAction.Mask` when left out. */
   readonly files?: PiiFileAction;
-  /** Ends with `-pii-policy` (`employee-id-pii-policy`). */
-  readonly name: string;
+  /** Kebab-case; the class name in kebab-case when left out (`EmployeeId` → `employee-id`). */
+  readonly name?: string;
+  readonly description?: string;
   /** What happens to every range `findMatches` gives. */
   readonly action: MaskingPiiAction;
   readonly deps?: D;
@@ -100,11 +102,15 @@ export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly To
 
 /** What `@PiiPolicy` recorded for a declarative policy. */
 export type DeclarativePiiPolicyMeta = DeclarativePiiPolicyOptions & {
+  readonly name: string;
   readonly deps: readonly Token[];
 };
 
 /** What `@PiiPolicy` recorded for a project's own detector. */
-export type CustomPiiPolicyMeta = CustomPiiPolicyOptions & { readonly deps: readonly Token[] };
+export type CustomPiiPolicyMeta = CustomPiiPolicyOptions & {
+  readonly name: string;
+  readonly deps: readonly Token[];
+};
 
 /** What `@PiiPolicy` recorded. */
 export type PiiPolicyMeta = DeclarativePiiPolicyMeta | CustomPiiPolicyMeta;
@@ -125,7 +131,7 @@ export function PiiPolicy(
   return (value) => {
     recordComponent(value, {
       kind: "pii-policy",
-      meta: { ...options, deps: options.deps ?? [] },
+      meta: { ...options, name: resolvedName(options.name, value), deps: options.deps ?? [] },
     });
     return value;
   };

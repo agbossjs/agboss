@@ -406,7 +406,7 @@ export class SupportApplication {}
   (the default with a `target.application`; a card without it is `A2AMeshUnsupportedError`, nothing
   sent) or `IfSupported`. The envelope (call chain, budget and deadline left, signed only with an
   `audience` — the target application) goes in `message.metadata`; a loop is refused before sending.
-- Names: `name` ends with `-a2a-agent`, the class with `A2AAgent` (`[name.kind-suffix]`). Its file is
+- Names: `name` is kebab-case (`[name.not-kebab-case]`; no suffix needed). Its file is
   `a2a/<name>.a2a-agent.ts`.
 - `call.onEvent` gets each event of the remote task while the call waits (`A2AStreamEvent`).
 - The remote's cost: `price` per call, and — from a trusted peer (below) — its signed run report;
@@ -460,7 +460,7 @@ await service.connectStdio(); // serves until stdin closes
 ```
 
 Over A2A — an `@A2AExpose({ name, version, description, exports, skills?, provider?, security? })`
-(`-a2a-expose`, a `…A2AExpose` class; its `exports` starts of the application's workflows,
+(a kebab-case `name`, no suffix needed; its `exports` starts of the application's workflows,
 `[application.expose-unknown-start]`) listed in `@Application({ exposes })` (else `a2aHttpListener`
 throws `[application.expose-unlisted]`) is an **A2A v1.0 agent** (#808,
 https://a2a-protocol.org/v1.0.0/specification/): its Agent Card at
@@ -890,7 +890,7 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 | the start fails: `search_issues: tool not found on the server` | the `tools` key must be the server's exact tool name                                                 |
 | the start fails: `… input: …` schema differences               | make the input DTO match the server tool's input schema                                              |
 | `MCP server "issues" needs env variable ISSUES_MCP_TOKEN`      | set the variable; the decorator only names it                                                        |
-| `[name.kind-suffix]` on an `@McpTool`                          | name it `<what>-tool`                                                                                |
+| `[tool.name-invalid]` on an `@McpTool`                         | letters, digits, `_` and `-` only (no `-tool` suffix needed)                                         |
 | `[tool.duplicate-name]`                                        | two tools a model sees share a name (local, MCP, `search-<rag>-tool`, `answer-<dto>`)                |
 | `A2ATaskInterruptedError` (`input-required`)                   | the remote task waits for input: use `send` and `reply(taskId, …)`, or answer it remotely            |
 | `A2AProtocolError … declares A2A 0.3`                          | the agent speaks A2A v0.3 only: 0.1.1 calls v1.0 agents                                              |

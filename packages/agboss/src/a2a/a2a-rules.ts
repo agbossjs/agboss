@@ -5,7 +5,7 @@ import { moduleOf } from "../components/module.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { hasKindSuffix, kindSuffixProblem, NameKind } from "../flow/names.js";
+import { hasKindSuffix, kebabNameProblem, NameKind } from "../flow/names.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { A2AAgentMeta } from "./a2a-decorator.js";
@@ -14,27 +14,13 @@ import type { A2AAgentMeta } from "./a2a-decorator.js";
  * The declared contracts of an application at assembly (#398 PR 3). Its `exposes` are `@A2AExpose`
  * or `@McpExpose` classes (`[application.not-an-expose]`), each name once
  * (`[application.duplicate-expose]`); an `@A2AExpose` exports `@WorkflowStart`s of the application's
- * workflows (`[application.expose-unknown-start]`). Names: `-a2a-agent` on a `…A2AAgent` class, `-a2a-expose` on a
- * `…A2AExpose` class (`[name.kind-suffix]`).
+ * workflows (`[application.expose-unknown-start]`). Names: kebab-case (`[name.not-kebab-case]`).
  */
 
-/** `[name.kind-suffix]` for a contract's `name` and its class name. */
-function contractNameViolations(
-  name: string,
-  cls: Class,
-  kind: NameKind,
-  classSuffix: string,
-  where: string,
-): RuleViolation[] {
-  const found: RuleViolation[] = [];
-  const problem = kindSuffixProblem(name, kind);
-  if (problem !== undefined) found.push(violation(problem.code, problem.message, [where]));
-  const className = cls.name;
-  if (className.length <= classSuffix.length || !className.endsWith(classSuffix)) {
-    const message = `class ${className} — name it ${className}${classSuffix}`;
-    found.push(violation("name.kind-suffix", message, [where]));
-  }
-  return found;
+/** `[name.not-kebab-case]` for a contract's `name`. */
+function contractNameViolations(name: string, decorator: string, where: string): RuleViolation[] {
+  const problem = kebabNameProblem(name, decorator);
+  return problem === undefined ? [] : [violation(problem.code, problem.message, [where])];
 }
 
 /** The starts of the application's workflows and their children, by class. */
@@ -66,9 +52,7 @@ function exposeViolations(options: ApplicationOptions): RuleViolation[] {
     }
     seen.add(meta.meta.name);
     if (meta.kind === "mcp-expose") return found;
-    found.push(
-      ...contractNameViolations(meta.meta.name, expose, NameKind.A2AExpose, "A2AExpose", where),
-    );
+    found.push(...contractNameViolations(meta.meta.name, "@A2AExpose", where));
     if (meta.meta.description.trim() === "") {
       const message = `${meta.meta.name} has no description — the Agent Card's description says what the agent does for a caller that finds it`;
       found.push(violation("a2a.expose-description-required", message, [where]));
@@ -172,7 +156,7 @@ function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
     const { name } = meta.meta;
     // #809: the target is optional — a foreign agent has no application, one skill needs no name
     return [
-      ...contractNameViolations(name, cls, NameKind.A2AAgent, "A2AAgent", where),
+      ...contractNameViolations(name, "@A2AAgent", where),
       ...targetFinishesViolations(meta.meta, where),
       ...priceViolations(meta.meta, where),
     ];

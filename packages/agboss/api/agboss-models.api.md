@@ -184,8 +184,8 @@ export interface HttpModelProviderOptions {
     // (undocumented)
     readonly deps?: never;
     // (undocumented)
-    readonly description: string;
-    readonly name: string;
+    readonly description?: string;
+    readonly name?: string;
     readonly promptCaching: PromptCaching;
     readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning: Reasoning;
@@ -960,8 +960,8 @@ export interface TransportModelProviderOptions<D extends readonly Token[] = read
     readonly cost: ModelCost;
     readonly deps?: D;
     // (undocumented)
-    readonly description: string;
-    readonly name: string;
+    readonly description?: string;
+    readonly name?: string;
     readonly promptCaching?: PromptCaching;
     readonly rateLimitPolicy?: RateLimitPolicy;
     readonly reasoning?: Reasoning;

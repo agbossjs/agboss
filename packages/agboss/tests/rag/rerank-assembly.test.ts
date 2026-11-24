@@ -34,7 +34,7 @@ class Empty implements RagConnector {
 @Reranker({ name: "docs-reranker", description: "On the default model" })
 class DefaultModelReranker extends ModelReranker {}
 
-@Reranker({ name: "docs-ranker", description: "Wrong suffix", model: "local/llama" })
+@Reranker({ name: "Docs_Ranker", description: "Not kebab-case", model: "local/llama" })
 class BadNameReranker extends ModelReranker {}
 
 @Reranker({ name: "jev-reranker", description: "A decision model", model: "typesafe/jev-1.13" })
@@ -96,9 +96,9 @@ describe("#703: reranking at assembly", () => {
     );
   });
 
-  it("[rag.not-a-reranker], [name.kind-suffix], [reranker.decision-model], [reranker.missing-handler]", async () => {
+  it("[rag.not-a-reranker], [name.not-kebab-case], [reranker.decision-model], [reranker.missing-handler]", async () => {
     expect(await codesOf(workflowReading(NotAReranker))).toEqual(["rag.not-a-reranker"]);
-    expect(await codesOf(workflowReading(BadNameReranker))).toEqual(["name.kind-suffix"]);
+    expect(await codesOf(workflowReading(BadNameReranker))).toEqual(["name.not-kebab-case"]);
     expect(await codesOf(workflowReading(DecisionReranker))).toEqual(["reranker.decision-model"]);
     expect(await codesOf(workflowReading(NoHandlerReranker))).toEqual(["reranker.missing-handler"]);
   });

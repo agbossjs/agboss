@@ -82,7 +82,7 @@ describe("#384: testToolInterceptor", () => {
       testToolInterceptor(StampToolInterceptor).beforeToolCall(JobSearchTool, { city: "Haifa" }),
     ).toThrow(TestSetupError);
 
-    @ToolInterceptor({ name: "short", description: "Lacks its suffix" })
+    @ToolInterceptor({ name: "Short_One", description: "Not kebab-case" })
     class Short {
       beforeToolCall(): ToolCallDecision {
         return ToolCallDecision.allow();

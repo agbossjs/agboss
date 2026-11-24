@@ -221,7 +221,7 @@ A child workflow cannot be a quorum branch: a quorum launches agents only, so th
 
 ## Arbiters
 
-`@Arbiter` (`arbiters/<name>.arbiter.ts`, a `name` ending with `-arbiter`) decides **whether an
+`@Arbiter` (`arbiters/<name>.arbiter.ts`, an optional kebab-case `name`) decides **whether an
 arriving answer counts** — once per answer; it is not a router and never chooses where to go. How it
 decides is declared with `decidedBy`; nothing is inferred from its members:
 
@@ -253,7 +253,7 @@ launch.
 | `[arbiter.duplicate-agent]` | two criteria / methods for one agent class |
 | `[arbiter.answer-method-on-model]` | `@OnAnswer` on a `DecidedBy.Model` arbiter |
 | `[arbiter.method-name]` | the method judging `CompanyCheckAgent` is not named `fromCompanyCheck` |
-| `[name.kind-suffix]` | an arbiter's `name` without `-arbiter` |
+| `[name.not-kebab-case]` | an arbiter's `name` is not kebab-case |
 
 ## Describe
 

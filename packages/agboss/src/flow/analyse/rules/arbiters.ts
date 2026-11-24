@@ -7,7 +7,7 @@ import {
   isCodeArbiter,
   type ArbiterDeclaration,
 } from "../../decorators/arbiter.js";
-import { kindSuffixProblem, NameKind } from "../../names.js";
+import { kebabNameProblem } from "../../names.js";
 import type { ComponentName } from "../../registry.js";
 import type { FlowLaunch } from "../flow-graph.js";
 import { launchLabel } from "../join-groups.js";
@@ -125,7 +125,7 @@ function oneArbiter(
   const { name } = declaration.options;
   const isCode = isCodeArbiter(declaration.options);
   const judging: Judging = { name, isCode, launch, judged: judgedBy(arbiter, declaration) };
-  const suffix = kindSuffixProblem(name, NameKind.Arbiter);
+  const suffix = kebabNameProblem(name, "@Arbiter");
   const methods = answerMethodsOf(arbiter);
   const misplaced =
     isCode || methods.length === 0

@@ -1,5 +1,6 @@
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
+import { kebabNameProblem } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { PiiActionKind, actionText, isSameAction, type AnyPiiAction } from "./actions.js";
 import { isPiiGroup, MODEL_ONLY_KINDS, type PiiKind } from "./kinds.js";
@@ -62,13 +63,8 @@ function modelViolations(cls: Class, meta: DeclarativePiiPolicyMeta): RuleViolat
 }
 
 function ownViolations(cls: Class, meta: PiiPolicyMeta): RuleViolation[] {
-  const name = meta.name.endsWith("-pii-policy")
-    ? []
-    : [
-        violation("name.kind-suffix", `${meta.name}: a PII policy's name ends with -pii-policy`, [
-          cls.name,
-        ]),
-      ];
+  const problem = kebabNameProblem(meta.name, "a PII policy");
+  const name = problem === undefined ? [] : [violation(problem.code, problem.message, [cls.name])];
   const files =
     meta.files === undefined || Object.values(PiiFileAction).includes(meta.files)
       ? []

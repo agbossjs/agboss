@@ -95,7 +95,7 @@ async function byCode(arbiter: ArbiterClass, site: JudgedAnswer, deps: ArbiterDe
 
 async function byModel(
   arbiter: ArbiterClass,
-  options: ModelArbiterOptions,
+  options: ModelArbiterOptions & { readonly name: string },
   site: JudgedAnswer,
   spent: readonly UsageRecord[],
   deps: ArbiterDeps,

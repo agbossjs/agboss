@@ -74,9 +74,9 @@ the money limits ([FinOps](FinOps)).
 
 ## Names
 
-A tool's `name` is named like every component (#268 AC9): kebab-case ending with `-tool` —
-`search-issues-tool`, `@McpTool` too (`[name.kind-suffix]` at assembly, with the name to use:
-`"search_issues" on @Tool — name it "search-issues-tool"`). A knowledge base's tool is
+A tool's `name` is what the model calls (#268 AC9, #1343a): letters, digits, `_` and `-`, at most 64
+characters (`[tool.name-invalid]`, `[tool.name-too-long]`); no `-tool` suffix is needed (`search-issues`,
+`search_issues`), `@McpTool` too. A knowledge base's tool is
 `search-<rag name>-tool` (`search-jobs-rag-tool` for `jobs-rag`, [Knowledge bases](Knowledge-bases)).
 The tools an MCP server offers keep the server's own names (`read_text_file`, declared in
 `@McpServer({ tools })`) — a model never sees them, only the `@McpTool` calling them. Every name a
@@ -221,8 +221,8 @@ A `@ToolInterceptor` (#384) wraps an agent's calls to its own `@Tool`s and `@Mcp
 of the arguments against the tenant, an audit, a rewrite of a result — without touching the tools.
 Its class implements `BeforeToolCall`, `AfterToolCall` or both: two one-method interfaces, so a
 class never writes an empty second method. A class with neither does not compile (and is
-`[tool-interceptor.missing-handler]` at assembly); its `name` ends with `-tool-interceptor`
-(`[name.kind-suffix]`); its `deps` are injected by the container like any component's.
+`[tool-interceptor.missing-handler]` at assembly); its `name` is optional (kebab-case,
+the class name by default); its `deps` are injected by the container like any component's.
 
 <!-- snippet-context
 import { TenantContext } from "@agboss/core";

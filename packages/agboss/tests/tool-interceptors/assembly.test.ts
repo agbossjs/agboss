@@ -2,7 +2,7 @@
  * #384 — tool interceptors at assembly, in `agboss describe` and in `configHash`: the chains of the
  * four levels with their excludes, `[tool-interceptor.not-an-interceptor]`,
  * `[tool-interceptor.exclude-not-inherited]`, `[tool-interceptor.missing-handler]`,
- * `[name.kind-suffix]`, a class without either method does not compile.
+ * `[name.not-kebab-case]`, a class without either method does not compile.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -125,7 +125,7 @@ async function codesOf(application: object): Promise<string[]> {
 @ToolInterceptor({ name: "idle-tool-interceptor", description: "Does nothing" })
 class IdleToolInterceptor {}
 
-@ToolInterceptor({ name: "badly-named", description: "Its name lacks the suffix" })
+@ToolInterceptor({ name: "Badly_Named", description: "Its name is not kebab-case" })
 class BadlyNamedInterceptor {
   beforeToolCall(): ToolCallDecision {
     return ToolCallDecision.allow();
@@ -152,7 +152,7 @@ class ExcludingTool implements ToolHandler<JobQuery, JobList> {
 }
 
 describe("#384: the assembly rules", () => {
-  it("[tool-interceptor.missing-handler] and [name.kind-suffix]", async () => {
+  it("[tool-interceptor.missing-handler] and [name.not-kebab-case]", async () => {
     @Agent({
       name: "bad-agent",
       description: "a",
@@ -164,7 +164,7 @@ describe("#384: the assembly rules", () => {
 
     expect(await codesOf(appWith(BadAgent))).toEqual([
       "tool-interceptor.missing-handler",
-      "name.kind-suffix",
+      "name.not-kebab-case",
     ]);
   });
 

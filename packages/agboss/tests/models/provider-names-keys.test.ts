@@ -2,7 +2,7 @@
  * #266 S73 c, decided for PR 2: (1) a provider's key is a `Secret` field of the application's typed
  * environment (`apiKey: "openRouterApiKey"`, `secret("OPENROUTER_API_KEY")`), never a process
  * variable read by the provider; (2) a provider's `name` ends with `-model-provider`
- * (`[name.kind-suffix]`), the built-ins' too.
+ * (`[name.not-kebab-case]`), the built-ins' too.
  */
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -30,7 +30,7 @@ import { LocalWorkflow } from "./fixtures/resolution.workflow.js";
 import { KEYS } from "./gateway.js";
 import { httpOptionsOf, LocalModelProvider, TestOpenRouterProvider } from "./providers.fixture.js";
 
-@ModelProvider({ ...httpOptionsOf(LocalModelProvider), name: "local" })
+@ModelProvider({ ...httpOptionsOf(LocalModelProvider), name: "Local_Server" })
 class LocalServer extends OpenAiCompatibleProvider {
   override readonly requestFields: NoRequestFields = {};
 }
@@ -45,8 +45,8 @@ class LocalServer extends OpenAiCompatibleProvider {
 })
 class BadlyNamedProviderApplication {}
 
-describe("#266 S73 c: provider names take the kind suffix", () => {
-  it("a listed provider whose name lacks -model-provider fails the assembly", async () => {
+describe("#266 S73 c: provider names are kebab-case", () => {
+  it("a listed provider whose name is not kebab-case fails the assembly", async () => {
     const error: unknown = await applicationOf(BadlyNamedProviderApplication).catch(
       (thrown: unknown) => thrown,
     );
@@ -54,8 +54,8 @@ describe("#266 S73 c: provider names take the kind suffix", () => {
     expect(error).toBeInstanceOf(GraphRuleError);
     expect(error instanceof GraphRuleError ? error.violations : []).toEqual([
       expect.objectContaining({
-        code: "name.kind-suffix",
-        message: '"local" on @ModelProvider — name it "local-model-provider"',
+        code: "name.not-kebab-case",
+        message: '"Local_Server" on @ModelProvider — a name is kebab-case: "local-server"',
       }),
     ]);
   });

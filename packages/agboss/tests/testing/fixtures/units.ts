@@ -256,9 +256,9 @@ export class StaffIdPiiPolicy implements PiiPolicyHandler {
   }
 }
 
-/** A name without the kind suffix: `[name.kind-suffix]`. */
+/** A name that is not kebab-case: `[name.not-kebab-case]`. */
 @PiiPolicy({
-  name: "contact-policy",
+  name: "Contact_Policy",
   description: "Misnamed",
   rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
 })

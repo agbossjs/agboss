@@ -74,7 +74,7 @@ function elementsOf(agents: readonly AgentMeta[], graph: RuntimeGraph): GuardedE
 const baseOf = (cls: Class, meta: GuardrailMeta): LoadedGuardrailBase => ({
   type: cls,
   name: meta.name,
-  description: meta.description,
+  ...(meta.description === undefined ? {} : { description: meta.description }),
   side: meta.side,
   ...(meta.refusal === undefined ? {} : { refusal: meta.refusal }),
 });

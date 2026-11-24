@@ -30,7 +30,7 @@ class OtherQueueCheck extends Handler {}
 @HealthCheck({ name: "third-health-check", timeout: seconds(1) })
 class ThirdCheck extends Handler {}
 
-@HealthCheck({ name: "queue-probe", timeout: seconds(1) })
+@HealthCheck({ name: "Queue_Probe", timeout: seconds(1) })
 class MisnamedCheck extends Handler {}
 
 const over = (MAX_TIMEOUT + 1) as Milliseconds;
@@ -62,8 +62,8 @@ describe("#1366: healthCheckRuleViolations", () => {
         nodes: [APP],
       },
       {
-        code: "name.kind-suffix",
-        message: '"queue-probe" on @HealthCheck — name it "queue-probe-health-check"',
+        code: "name.not-kebab-case",
+        message: '"Queue_Probe" on @HealthCheck — a name is kebab-case: "queue-probe"',
         nodes: [APP],
       },
     ]);

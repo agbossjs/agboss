@@ -248,13 +248,13 @@ describe("#940 AC5: the assembly rules", () => {
     return applicationOf(RuledApplication);
   };
 
-  it("AC5: [name.kind-suffix] a name that does not end with -pause-listener", async () => {
-    @PauseListener({ name: "ledger" })
+  it("AC5: [name.not-kebab-case] a name that is not kebab-case", async () => {
+    @PauseListener({ name: "Ledger_Listener" })
     class BadName implements PauseListenerHandler {
       onPauseOpened = (): Promise<void> => Promise.resolve();
       onPauseClosed = (): Promise<void> => Promise.resolve();
     }
-    await expect(apply(BadName)).rejects.toThrow(/\[name\.kind-suffix\]/);
+    await expect(apply(BadName)).rejects.toThrow(/\[name\.not-kebab-case\]/);
   });
 
   it("AC5: [pause-listener.duplicate-name] two classes with one name", async () => {

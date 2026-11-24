@@ -310,9 +310,9 @@ listed in `job-scout.application.ts`; `agboss create` generates the same.
   declared without a default, `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` with
   `openRouterBaseUrl?: string` in the contract: unset, it is `undefined` and the provider uses its
   decorator's `baseUrl` — the default is written once, in the decorator (#266 S87).
-- **The name ends with `-model-provider`** (`[name.kind-suffix] "local" on @ModelProvider — name it
-  "local-model-provider"`, at the application's assembly) — the built-ins are
-  `openrouter-model-provider` and `decisions-model-provider`. The name keys the provider's shared
+- **The name is optional and kebab-case** (`[name.not-kebab-case] "Local_Server" on @ModelProvider — a name is
+  kebab-case: "local-server"`, at the application's assembly; left out, it is the class name in kebab-case) — the
+  built-ins are `openrouter-model-provider` and `decisions-model-provider`. The name keys the provider's shared
   state (its slots, windows, pause and breaker in `RateLimitRepository`) and appears in logs and
   `agboss describe`.
 

@@ -1,6 +1,7 @@
 import { AGBossError } from "../core/errors.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
+import { resolvedName } from "../flow/names.js";
 import type { Milliseconds } from "../units/index.js";
 
 /**
@@ -29,8 +30,8 @@ export interface WorkingCalendarHandler {
 
 /** `@WorkingCalendar` options. */
 export interface WorkingCalendarOptions<TDeps extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-working-calendar` (`tenant-holidays-working-calendar`). */
-  readonly name: string;
+  /** Kebab-case; the class name in kebab-case when left out (`TenantHolidays` → `tenant-holidays`). */
+  readonly name?: string;
   readonly description?: string;
   /** The constructor's dependencies, in order (compiler-checked), injected by the container. */
   readonly deps?: TDeps;
@@ -44,7 +45,7 @@ export interface WorkingCalendarMeta {
 }
 
 /**
- * `@WorkingCalendar({ name, deps? })` on a class that `implements WorkingCalendarHandler`: listed in
+ * `@WorkingCalendar({ name?, deps? })` on a class that `implements WorkingCalendarHandler`: listed in
  * `@Application({ providers })`, named by `@Application({ workingCalendar })` or a role's
  * `workingCalendar`; created by the application's container at start, one instance.
  */
@@ -54,7 +55,8 @@ export function WorkingCalendar<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => WorkingCalendarHandler>(
     value: TClass,
   ): TClass => {
-    const { name, description } = options;
+    const { description } = options;
+    const name = resolvedName(options.name, value);
     const meta = { name, deps: options.deps ?? [] };
     recordComponent(value, {
       kind: "working-calendar",

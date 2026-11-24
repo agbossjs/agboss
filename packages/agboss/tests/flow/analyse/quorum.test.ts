@@ -341,7 +341,7 @@ class MethodOnModelArbiter {
 }
 
 @Arbiter({
-  name: "badly-named",
+  name: "Badly_Named",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: "Judge.",
@@ -372,7 +372,7 @@ const scored = (arbiter: unknown) => [
 /** The arbiter violations of a launch of the three scores, messages without the workflow's name. */
 const arbiterErrorsOf = (arbiter: unknown) =>
   errorsOf(scored(arbiter))
-    .filter((found) => found.code.startsWith("arbiter.") || found.code === "name.kind-suffix")
+    .filter((found) => found.code.startsWith("arbiter.") || found.code === "name.not-kebab-case")
     .map(({ code, message }) => ({ code, message }));
 
 const LAUNCH =
@@ -426,7 +426,7 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
     expect(codesOf(flow)).toEqual(["arbiter.unknown-agent"]); // the arbiter also judges auditor-agent
   });
 
-  it("the arbiter must be decorated, and named -arbiter", () => {
+  it("the arbiter must be decorated, and named in kebab-case", () => {
     expect(arbiterErrorsOf(UndecoratedArbiter)).toEqual([
       {
         code: "arbiter.not-an-arbiter",
@@ -436,8 +436,8 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
     ]);
     expect(arbiterErrorsOf(BadlyNamedArbiter)).toEqual([
       {
-        code: "name.kind-suffix",
-        message: '"badly-named" on @Arbiter — name it "badly-named-arbiter"',
+        code: "name.not-kebab-case",
+        message: '"Badly_Named" on @Arbiter — a name is kebab-case: "badly-named"',
       },
     ]);
   });

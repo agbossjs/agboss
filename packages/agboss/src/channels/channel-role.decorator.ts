@@ -5,6 +5,7 @@ import type { DtoClass } from "../dto/types.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import type { InputOf, OutputOf } from "../flow/generated-types.js";
 import { NodeKind } from "../flow/ast.js";
+import { resolvedName } from "../flow/names.js";
 import { declared, recordDeclaration } from "../flow/decorators/declaration.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
@@ -204,9 +205,9 @@ export function channelRoleOf(cls: Class): FoundChannelRole | undefined {
 
 /** `@ReplyInterpreter({ decidedBy: DecidedBy.Model })`: one answer tool on a chat model. */
 export interface ModelReplyInterpreterOptions {
-  /** Kebab-case, ends with `-reply-interpreter` (`refund-reply-interpreter`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`Refund` → `refund`). */
+  readonly name?: string;
+  readonly description?: string;
   readonly decidedBy: DecidedBy.Model;
   /**
    * A chat model (one answer tool), or — for an approval role only — a decision model (one
@@ -222,9 +223,9 @@ export interface ModelReplyInterpreterOptions {
 
 /** `@ReplyInterpreter({ decidedBy: DecidedBy.Code })`: the class's `interpret(input)`. */
 export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = readonly Token[]> {
-  /** Kebab-case, ends with `-reply-interpreter` (`refund-reply-interpreter`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`Refund` → `refund`). */
+  readonly name?: string;
+  readonly description?: string;
   readonly decidedBy: DecidedBy.Code;
   /** Constructor dependencies, in order; compiler-checked. */
   readonly deps?: TDeps;
@@ -238,7 +239,8 @@ export type ReplyInterpreterOptions = ModelReplyInterpreterOptions | CodeReplyIn
 
 /** What `@ReplyInterpreter` recorded on a class: its options and the file it is declared in. */
 export interface ReplyInterpreterDeclaration {
-  readonly options: ReplyInterpreterOptions;
+  /** The options, with `name` resolved: given, or the class name in kebab-case. */
+  readonly options: ReplyInterpreterOptions & { readonly name: string };
   readonly source?: string;
 }
 
@@ -325,7 +327,8 @@ export function ReplyInterpreter(
 ): <TClass extends Class>(value: TClass) => TClass {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
-    interpreters.set(value, source === undefined ? { options } : { options, source });
+    const named = { ...options, name: resolvedName(options.name, value) };
+    interpreters.set(value, source === undefined ? { options: named } : { options: named, source });
     return value;
   };
 }

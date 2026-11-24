@@ -3,6 +3,7 @@ import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import { METADATA_KEY } from "../../polyfills/symbol-metadata.js";
 import type { NodeKind } from "../ast.js";
+import { resolvedName } from "../names.js";
 import type { KindCheck, KindLabel } from "../builder-types.js";
 import type { ProducerOutputOf } from "../generated-types.js";
 import { FlowSyntaxError } from "../launch-step.js";
@@ -25,8 +26,9 @@ export interface ArbiterCriterion {
 
 /** `@Arbiter({ decidedBy: DecidedBy.Model })`: one decision per answer, by its agent's criterion. */
 export interface ModelArbiterOptions {
-  /** Ends with `-arbiter` (`valid-score-arbiter`). */
-  readonly name: string;
+  /** Kebab-case; the class name in kebab-case when left out (`ValidScore` → `valid-score`). */
+  readonly name?: string;
+  readonly description?: string;
   readonly decidedBy: DecidedBy.Model;
   /** A decision model (Jev, …) or a chat model. */
   readonly model: string;
@@ -39,8 +41,9 @@ export interface ModelArbiterOptions {
 
 /** `@Arbiter({ decidedBy: DecidedBy.Code })`: one `@OnAnswer(Agent)` method per agent. */
 export interface CodeArbiterOptions<TDeps extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-arbiter` (`good-score-arbiter`). */
-  readonly name: string;
+  /** Kebab-case; the class name in kebab-case when left out (`GoodScore` → `good-score`). */
+  readonly name?: string;
+  readonly description?: string;
   readonly decidedBy: DecidedBy.Code;
   /** Constructor dependencies, in order (`[ExecutionContext]` for the copy / item); compiler-checked. */
   readonly deps?: TDeps;
@@ -60,7 +63,8 @@ export interface AnswerMethod {
 
 /** What `@Arbiter` recorded on a class: its options and the file it is declared in. */
 export interface ArbiterDeclaration {
-  readonly options: ArbiterOptions;
+  /** The options, with `name` resolved: given, or the class name in kebab-case. */
+  readonly options: ArbiterOptions & { readonly name: string };
   readonly source?: string;
 }
 
@@ -83,7 +87,8 @@ export function Arbiter<const TDeps extends readonly Token[] = []>(
 export function Arbiter(options: ArbiterOptions): <TClass extends Class>(value: TClass) => TClass {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
-    arbiters.set(value, source === undefined ? { options } : { options, source });
+    const named = { ...options, name: resolvedName(options.name, value) };
+    arbiters.set(value, source === undefined ? { options: named } : { options: named, source });
     return value;
   };
 }

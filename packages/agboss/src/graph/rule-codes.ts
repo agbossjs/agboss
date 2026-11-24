@@ -121,6 +121,7 @@ export type RuleCode =
   | "application.duplicate-expose"
   | "application.expose-unknown-start"
   | "name.kind-suffix"
+  | "name.not-kebab-case"
   | "dto.name"
   | "dto.duplicate-name"
   // a DTO that holds itself through @Nested / @ListOf (#1080)

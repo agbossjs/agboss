@@ -1,7 +1,7 @@
 import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kebabNameProblem, resolvedName } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { Milliseconds } from "../units/index.js";
 
@@ -121,8 +121,9 @@ export interface HealthCheckHandler {
 
 /** `@HealthCheck` options. */
 export interface HealthCheckOptions<TDeps extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-health-check` (`crm-health-check`), unique in the application. */
-  readonly name: string;
+  /** Kebab-case, unique in the application; the class name in kebab-case when left out (`CrmHealthCheck` → `crm-health-check`). */
+  readonly name?: string;
+  readonly description?: string;
   /** How long `check()` may take (`seconds(2)`): past it the check is `Unhealthy`, timed out; at most 24 hours (`[limits.timeout-invalid]`, #1141). */
   readonly timeout: Milliseconds;
   /** The constructor's dependencies, in order (compiler-checked), injected by the container. */
@@ -132,12 +133,13 @@ export interface HealthCheckOptions<TDeps extends readonly Token[] = readonly To
 /** What `@HealthCheck` records about a class. */
 export interface HealthCheckMeta {
   readonly name: string;
+  readonly description?: string;
   readonly timeout: Milliseconds;
   readonly deps: readonly Token[];
 }
 
 /**
- * A project's own readiness check: `@HealthCheck({ name, timeout, deps? })` on a class that
+ * A project's own readiness check: `@HealthCheck({ name?, timeout, deps? })` on a class that
  * `implements HealthCheckHandler`, created by the application's container like any component and
  * listed only in `@Application({ healthChecks })`. `app.checkReadiness()` runs every one under its
  * own `timeout` on the application's `Clock`; one that throws or passes it is `Unhealthy` in the
@@ -149,10 +151,12 @@ export function HealthCheck<const TDeps extends readonly Token[] = []>(
   return <TClass extends new (...args: ResolvedAll<TDeps>) => HealthCheckHandler>(
     value: TClass,
   ): TClass => {
-    const { name, timeout } = options;
+    const { description, timeout } = options;
+    const name = resolvedName(options.name, value);
+    const meta = { name, timeout, deps: options.deps ?? [] };
     recordComponent(value, {
       kind: "health-check",
-      meta: { name, timeout, deps: options.deps ?? [] },
+      meta: description === undefined ? meta : { ...meta, description },
     });
     return value;
   };
@@ -184,7 +188,7 @@ function listedViolations(application: string, cls: Class): RuleViolation[] {
       ),
     ];
   }
-  const problem = kindSuffixProblem(meta.name, NameKind.HealthCheck);
+  const problem = kebabNameProblem(meta.name, "@HealthCheck");
   const tooLong = timerProblemOf("timeout", meta.timeout, MAX_TIMEOUT);
   return [
     ...(problem === undefined ? [] : [violation(problem.code, problem.message, [application])]),
@@ -217,7 +221,7 @@ function duplicateViolations(application: string, checks: readonly Class[]): Rul
 /**
  * The rules of `@Application({ healthChecks })`, at assembly with the application's other rules:
  * every listed class is a `@HealthCheck` (`[health.not-a-health-check]`), its `name` ends with
- * `-health-check` (`[name.kind-suffix]`) and is the only one of its name (`[health.duplicate-name]`).
+ * kebab-case (`[name.not-kebab-case]`) and is the only one of its name (`[health.duplicate-name]`).
  */
 export function healthCheckRuleViolations(options: HealthCheckList): RuleViolation[] {
   const checks = options.healthChecks ?? [];

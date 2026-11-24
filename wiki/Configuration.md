@@ -233,7 +233,7 @@ A `@Compaction` class (`compactions/*.compaction.ts`): its `strategy` (`SummaryQ
 `app.checkReadiness()` runs besides the framework's own (the stores, the model providers' breakers,
 the recovery loop) — the only place they are listed; each has its own `timeout`
 ([Health checks](Health-checks)). `[health.not-a-health-check]`, `[health.duplicate-name]` and
-`[name.kind-suffix]` (`-health-check`) at assembly.
+`[name.not-kebab-case]` at assembly.
 
 <<<<<<< HEAD
 ## `workingCalendar` — the calendar of working-time deadlines (#944)
@@ -267,7 +267,7 @@ export class TenantHolidaysCalendar implements WorkingCalendarHandler {
 }
 ```
 
-A `@WorkingCalendar` class (its `name` ends with `-working-calendar`, `[name.kind-suffix]`) is listed in
+A `@WorkingCalendar` class (its `name` is optional and kebab-case, `[name.not-kebab-case]`) is listed in
 `providers`, created once by the application's container, and called in the asking step's frame — its
 `ExecutionContext` (tenant, fields) — under the tool timeout; an extension calls it in the pause's frame.
 `WorkingTimeRequest` is `{ from, amount, tenantId, channel }`: the pause's `askedAt` (an extension: now) on the

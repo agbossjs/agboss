@@ -12,7 +12,7 @@ import { DecidedBy } from "../flow/decorators/router.js";
 export interface LoadedGuardrailBase {
   readonly type: Class;
   readonly name: string;
-  readonly description: string;
+  readonly description?: string;
   readonly side: GuardrailSide;
   /** Its fixed refusal; absent → the class's `refusal()`. */
   readonly refusal?: string;

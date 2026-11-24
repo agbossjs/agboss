@@ -1,9 +1,11 @@
 import type { DtoClass } from "../dto/types.js";
 
 /**
- * Name rules (#272 → Names, #270 → DTOs): every component `name` is kebab-case and ends with its
- * kind (`main-router`, `draft-agent`, `chat-workflow-start`, `order-status-tool`); every DTO class
- * ends with `Dto`. Pure checks — the analyser (PR 2) reports them, all at once, at assembly.
+ * Name rules (#272 → Names, #270 → DTOs, #1343a): the name of a persisted component (workflow,
+ * agent, action, router, …) is kebab-case and ends with its kind (`main-router`, `draft-agent`);
+ * every other component's `name` is optional, defaults to its class name in kebab-case and is only
+ * checked to be kebab-case; every DTO class ends with `Dto`. Pure checks — the analyser reports
+ * them, all at once, at assembly.
  */
 
 /** What a named component is; each value is the suffix its `name` ends with. */
@@ -14,18 +16,9 @@ export enum NameKind {
   Agent = "agent",
   Action = "action",
   Router = "router",
-  Tool = "tool",
   Application = "application",
   Budget = "budget",
-  Arbiter = "arbiter",
-  ModelProvider = "model-provider",
-  ReplyInterpreter = "reply-interpreter",
-  HealthCheck = "health-check",
-  PauseListener = "pause-listener",
-  WorkingCalendar = "working-calendar",
   EvalSuite = "eval-suite",
-  A2AAgent = "a2a-agent",
-  A2AExpose = "a2a-expose",
   /** A question role (#659): `@ChannelRole({ ask, answer })` — its step's node. */
   Question = "question",
 }
@@ -38,23 +31,14 @@ const DECORATORS: Readonly<Record<NameKind, string>> = {
   [NameKind.Agent]: "@Agent",
   [NameKind.Action]: "@Action",
   [NameKind.Router]: "@Router",
-  [NameKind.Tool]: "@Tool",
   [NameKind.Application]: "@Application",
   [NameKind.Budget]: "@Budget",
-  [NameKind.Arbiter]: "@Arbiter",
-  [NameKind.ModelProvider]: "@ModelProvider",
-  [NameKind.ReplyInterpreter]: "@ReplyInterpreter",
-  [NameKind.HealthCheck]: "@HealthCheck",
-  [NameKind.PauseListener]: "@PauseListener",
-  [NameKind.WorkingCalendar]: "@WorkingCalendar",
   [NameKind.EvalSuite]: "@EvalSuite",
-  [NameKind.A2AAgent]: "@A2AAgent",
-  [NameKind.A2AExpose]: "@A2AExpose",
   [NameKind.Question]: "@ChannelRole",
 };
 
 /** The stable codes of the name rules. */
-export type NameRuleCode = "name.kind-suffix" | "dto.name";
+export type NameRuleCode = "name.kind-suffix" | "name.not-kebab-case" | "dto.name";
 
 /** A broken name rule: its code and what to do (the analyser prefixes `[code]`). */
 export interface NameProblem {
@@ -100,6 +84,24 @@ export function kindSuffixProblem(name: string, kind: NameKind): NameProblem | u
     code: "name.kind-suffix",
     message: `"${name}" on ${DECORATORS[kind]} — name it "${suggestedName(name, kind)}"`,
   };
+}
+
+/**
+ * The name of a component whose `name` is optional (#1343a): the one given, else the class name in
+ * kebab-case (`CrmHealthCheck` → `crm-health-check`).
+ */
+export function resolvedName(explicit: string | undefined, cls: { readonly name: string }): string {
+  return explicit ?? toKebabCase(cls.name);
+}
+
+/** `[name.not-kebab-case] "Crm_Check" on @HealthCheck — a name is kebab-case: "crm-check"`, or nothing. */
+export function kebabNameProblem(name: string, decorator: string): NameProblem | undefined {
+  if (isKebabCase(name)) return undefined;
+  const message =
+    name === ""
+      ? `${decorator} has no name — a class name gives none, so pass name: "kebab-case"`
+      : `"${name}" on ${decorator} — a name is kebab-case: "${toKebabCase(name)}"`;
+  return { code: "name.not-kebab-case", message };
 }
 
 /** The name of a class as a message shows it. */

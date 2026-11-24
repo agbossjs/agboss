@@ -1,6 +1,6 @@
 /**
  * #268 AC9: a project's tool is named like every component — kebab-case ending with `-tool`
- * (`[name.kind-suffix]`), `@McpTool` too; every name a model sees fits the providers' limit,
+ * (no suffix, #1343a), `@McpTool` too; every name a model sees fits the providers' limit,
  * `[a-zA-Z0-9_-]` up to 64 characters (`[tool.name-too-long]`, `[tool.name-invalid]`); a knowledge
  * base's tool is `search-<rag name>-tool`. All found at assembly, at once, before any model call.
  */
@@ -70,17 +70,13 @@ const violationsOf = async (
 };
 
 describe("#268 AC9: tool names", () => {
-  it("a tool not in kebab-case ending with -tool, and a name a model refuses — all at once", async () => {
+  it("a tool needs no -tool suffix; a name a model refuses is reported, all at once", async () => {
     const reader = agentWith({
       tools: [OrderStatus, LongTool],
       rag: [{ use: DottedRag, mode: RagMode.Tool }],
     });
 
     expect(await violationsOf(workflowWith("names-workflow", {}, reader))).toEqual([
-      {
-        code: "name.kind-suffix",
-        message: 'OrderStatus: "order_status" on @Tool — name it "order-status-tool"',
-      },
       {
         code: "tool.name-too-long",
         message: `LongTool: the tool name ${LONG} has 65 characters (at most 64) — give it a shorter name`,

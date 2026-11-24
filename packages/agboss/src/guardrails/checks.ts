@@ -5,10 +5,11 @@ import {
   type GuardrailMeta,
   type ModelGuardrailMeta,
 } from "../components/policy-decorators.js";
+import { kebabNameProblem } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 
 /**
- * The assembly checks of a guardrail class (#120): its name ends with `-guardrail`, it has a
+ * The assembly checks of a guardrail class (#120): its name is kebab-case, it has a
  * question (`prompt` / `promptUrls`), a threshold in (0, 1], one refusal — the decorator's text or
  * the class's `refusal()` (`implements GuardrailRefusal`), never both and never neither — and a
  * model: its own or `defaults.guardrail.model` of the workflow (or its application). A guardrail
@@ -16,8 +17,6 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
  * guardrail (`DecidedBy.Code`, #383) has no question, threshold or model — its class's `check(text)`
  * decides (`[guardrail.missing-handler]` without one); its forbidden options do not compile.
  */
-
-const SUFFIX = "-guardrail";
 
 const hasRefusalMethod = (cls: Class): boolean =>
   typeof (cls.prototype as { readonly refusal?: unknown } | undefined)?.refusal === "function";
@@ -45,13 +44,8 @@ function refusalViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
 }
 
 function nameViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
-  return meta.name.endsWith(SUFFIX)
-    ? []
-    : [
-        violation("name.kind-suffix", `${meta.name}: a guardrail's name ends with ${SUFFIX}`, [
-          cls.name,
-        ]),
-      ];
+  const problem = kebabNameProblem(meta.name, "a guardrail");
+  return problem === undefined ? [] : [violation(problem.code, problem.message, [cls.name])];
 }
 
 /** A code guardrail's class has its `check(text)` (`implements GuardrailHandler`). */

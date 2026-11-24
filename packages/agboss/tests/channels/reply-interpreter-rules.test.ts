@@ -1,7 +1,7 @@
 /**
  * #267 PR 3: reply interpreters are checked at assembly, all problems at once —
  * `[reply-interpreter.not-an-interpreter]` (a `replyInterpreter` without `@ReplyInterpreter`),
- * `[name.kind-suffix]` (`-reply-interpreter`), `[reply-interpreter.no-interpret-method]` (a code
+ * `[name.not-kebab-case]`, `[reply-interpreter.no-interpret-method]` (a code
  * one without `interpret`); a decision model reads any role's reply (every role is an approval,
  * #647). A model interpreter's call is traced under the pause's execution: the trace's
  * callbacks see it.
@@ -35,7 +35,7 @@ class WireRequestDto {
 class PlainReader {}
 
 @ReplyInterpreter({
-  name: "wire-reader",
+  name: "Wire_Reader",
   description: "Reads wire replies",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
@@ -82,7 +82,7 @@ describe("#267 PR 3: reply interpreters at assembly", () => {
 
     expect(found).toEqual([
       { code: "reply-interpreter.not-an-interpreter", nodes: ["plain-approval-channel"] },
-      { code: "name.kind-suffix", nodes: ["wire-reader"] },
+      { code: "name.not-kebab-case", nodes: ["Wire_Reader"] },
       { code: "reply-interpreter.no-interpret-method", nodes: ["wire-code-reply-interpreter"] },
     ]);
   });

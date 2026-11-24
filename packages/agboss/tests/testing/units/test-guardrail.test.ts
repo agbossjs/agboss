@@ -44,9 +44,9 @@ describe("testGuardrail", () => {
     await expect(check("Can I sue?")).rejects.toBeInstanceOf(GuardFailedError);
   });
 
-  it("its rules are checked first: a name without -guardrail is a GraphRuleError", () => {
+  it("its rules are checked first: a name that is not kebab-case is a GraphRuleError", () => {
     @InputGuardrail({
-      name: "legal",
+      name: "Legal_One",
       description: "Misnamed",
       prompt: "Legal?",
       threshold: 0.5,
@@ -55,6 +55,6 @@ describe("testGuardrail", () => {
     class Misnamed {}
 
     expect(() => testGuardrail(Misnamed)).toThrow(GraphRuleError);
-    expect(() => testGuardrail(Misnamed)).toThrow("[name.kind-suffix]");
+    expect(() => testGuardrail(Misnamed)).toThrow("[name.not-kebab-case]");
   });
 });

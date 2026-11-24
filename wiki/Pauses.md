@@ -191,7 +191,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   the error's message — and `cause` when an error is behind it), and the pause stays `Pending`: ask
   for a clearer answer, or answer with a `decision`. A `reply` for a role without `replyInterpreter` is
   `ReplyInterpreterMissingError` (`pause.no-reply-interpreter`), the pause untouched.
-- Assembly checks, all at once with the channel rules: `[name.kind-suffix]` (`-reply-interpreter`),
+- Assembly checks, all at once with the channel rules: `[name.not-kebab-case]`,
   `[reply-interpreter.not-an-interpreter]` (a `replyInterpreter` class without `@ReplyInterpreter`),
   `[reply-interpreter.no-interpret-method]`, `[channel.shared-interpreter]` (one class in two roles).
 
@@ -779,8 +779,8 @@ List it in `@Application({ providers })`: the container creates it at start (its
 (`executionId` is the child's) — and, with the optional `onPauseAnswerNotTaken`, the answers never
 applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExecutionId`,
 `executionId`, `threadId`, `workflow`, `step`, `kind`, `channel`, `answerer`, the masked `ask`,
-`askedAt`, `expiresAt` — and `deliveryId`. Assembly rules: `[name.kind-suffix]`
-(`-pause-listener`), `[pause-listener.duplicate-name]`, `[pause-listener.not-a-handler]`;
+`askedAt`, `expiresAt` — and `deliveryId`. Assembly rules: `[name.not-kebab-case]`,
+`[pause-listener.duplicate-name]`, `[pause-listener.not-a-handler]`;
 `agboss describe` lists the listeners.
 
 - **A correlation key, never the right to answer** — a `PauseAnswerer.Channel` pause's id is the

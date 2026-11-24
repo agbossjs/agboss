@@ -1,17 +1,16 @@
 import type { Class } from "../components/injection.js";
 import type { AgentMeta } from "../components/meta-types.js";
+import { kebabNameProblem } from "../flow/names.js";
 import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
 import { toolInterceptorMetaOf, type ToolInterceptorMeta } from "./decorator.js";
 import { effectiveToolInterceptors } from "./levels.js";
 
 /**
- * A workflow's tool interceptors as assembled (#384): each listed class checked — its name ends with
- * `-tool-interceptor`, its class has `beforeToolCall`, `afterToolCall` or both
+ * A workflow's tool interceptors as assembled (#384): each listed class checked — its name is
+ * kebab-case, its class has `beforeToolCall`, `afterToolCall` or both
  * (`[tool-interceptor.missing-handler]`) — and each agent's chain per tool, outer first. Any rule
  * broken fails the assembly, all at once.
  */
-
-const SUFFIX = "-tool-interceptor";
 
 /** Which of the two methods an interceptor's class has. */
 export interface ToolInterceptorHooks {
@@ -23,7 +22,7 @@ export interface ToolInterceptorHooks {
 export interface LoadedToolInterceptor {
   readonly type: Class;
   readonly name: string;
-  readonly description: string;
+  readonly description?: string;
   readonly hooks: ToolInterceptorHooks;
 }
 
@@ -49,15 +48,11 @@ export const hooksOf = (cls: Class): ToolInterceptorHooks => ({
   after: hasMethod(cls, "afterToolCall"),
 });
 
-/** Every rule one interceptor class breaks: its name's suffix, its methods. */
+/** Every rule one interceptor class breaks: its name, its methods. */
 export function toolInterceptorViolations(cls: Class, meta: ToolInterceptorMeta): RuleViolation[] {
   const found: RuleViolation[] = [];
-  if (!meta.name.endsWith(SUFFIX))
-    found.push(
-      violation("name.kind-suffix", `${meta.name}: a tool interceptor's name ends with ${SUFFIX}`, [
-        cls.name,
-      ]),
-    );
+  const problem = kebabNameProblem(meta.name, "a tool interceptor");
+  if (problem !== undefined) found.push(violation(problem.code, problem.message, [cls.name]));
   const hooks = hooksOf(cls);
   if (!hooks.before && !hooks.after)
     found.push(
@@ -74,7 +69,12 @@ export function toolInterceptorViolations(cls: Class, meta: ToolInterceptorMeta)
 export function loadedToolInterceptorOf(cls: Class): LoadedToolInterceptor | undefined {
   const meta = toolInterceptorMetaOf(cls);
   if (meta === undefined) return undefined;
-  return { type: cls, name: meta.name, description: meta.description, hooks: hooksOf(cls) };
+  return {
+    type: cls,
+    name: meta.name,
+    ...(meta.description === undefined ? {} : { description: meta.description }),
+    hooks: hooksOf(cls),
+  };
 }
 
 /** The workflow's tool interceptors over its application's; a broken rule fails the assembly. */

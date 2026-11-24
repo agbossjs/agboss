@@ -2,7 +2,7 @@ import { EnvironmentError, EnvironmentErrorCode } from "../environments/errors.j
 import { isResolvedSecret, Secret, variableOfSecret } from "../environments/secret.js";
 import { VariableReference } from "../environments/variables.js";
 import type { Environment } from "../flow/generated-types.js";
-import { isHttpProvider, type ModelProviderOptions } from "./model-provider.decorator.js";
+import { isHttpProvider, type KeptModelProviderOptions } from "./model-provider.decorator.js";
 
 /**
  * What a provider reads from the application's typed environment (#266 S73 c): its key — `apiKey`
@@ -31,7 +31,7 @@ const secretValueOf = (value: Secret, env: NodeJS.ProcessEnv): string | undefine
   isResolvedSecret(value) ? value.reveal() : variableIn(env, variableOfSecret(value));
 
 /** Why a key cannot be read: the field is unset, or it is not a `Secret`. */
-function missingKey(options: ModelProviderOptions, field: string, value: unknown): never {
+function missingKey(options: KeptModelProviderOptions, field: string, value: unknown): never {
   const why =
     value === undefined
       ? `the environment has no ${field}`
@@ -44,7 +44,7 @@ function missingKey(options: ModelProviderOptions, field: string, value: unknown
 
 /** The provider's key; `undefined` for one without a key, or a missing one when not `required`. */
 export function providerKeyOf(
-  options: ModelProviderOptions,
+  options: KeptModelProviderOptions,
   source: ProviderSettingSource,
   required: boolean,
 ): string | undefined {
@@ -70,7 +70,7 @@ function textValueOf(value: unknown, env: NodeJS.ProcessEnv): string | undefined
  * `baseUrl` — so an application whose environment does not declare the field uses the default.
  */
 export function providerBaseUrlOf(
-  options: ModelProviderOptions,
+  options: KeptModelProviderOptions,
   source: ProviderSettingSource,
 ): string {
   if (!isHttpProvider(options)) return ""; // a transport provider (#385) has no base URL

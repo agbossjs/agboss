@@ -6,7 +6,7 @@ import { depsOf } from "../components/container/container.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kebabNameProblem, kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { environmentRuleViolations, readingClassesOf } from "../environments/contract.js";
@@ -127,11 +127,11 @@ export const listedClassesOf = (options: ApplicationOptions): readonly Class[] =
     .flatMap((workflow) => createdClassesOf(providersOf(moduleOf(workflow)))),
 ];
 
-/** A listed `@ModelProvider`'s `name` ends with `-model-provider` (#266 S73 c). */
+/** A listed `@ModelProvider`'s `name` is kebab-case (#266 S73 c). */
 function modelProviderNameViolations(options: ApplicationOptions): RuleViolation[] {
   return listedModelProvidersOf(options.providers).flatMap((cls) => {
     const { name } = modelProviderOf(cls);
-    const problem = kindSuffixProblem(name, NameKind.ModelProvider);
+    const problem = kebabNameProblem(name, "@ModelProvider");
     return problem === undefined ? [] : [violation(problem.code, problem.message, [options.name])];
   });
 }

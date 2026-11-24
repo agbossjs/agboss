@@ -1,5 +1,6 @@
 import { recordComponent } from "../components/metadata.js";
 import type { ResolvedAll, Token } from "../components/injection.js";
+import { resolvedName } from "../flow/names.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import { DEFAULT_RERANKER_MODEL, type ModelReranker, type RerankerHandler } from "./types.js";
 
@@ -12,9 +13,9 @@ import { DEFAULT_RERANKER_MODEL, type ModelReranker, type RerankerHandler } from
 
 /** The core's LLM reranker on `model` (`DecidedBy.Model`, the default). */
 export interface ModelRerankerMeta {
-  /** `docs-reranker` — kebab-case ending with `-reranker` (`[name.kind-suffix]`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`Docs` → `docs`). */
+  readonly name?: string;
+  readonly description?: string;
   readonly decidedBy?: DecidedBy.Model;
   /** A chat model of the application's providers; default `DEFAULT_RERANKER_MODEL`. */
   readonly model?: string;
@@ -23,9 +24,9 @@ export interface ModelRerankerMeta {
 
 /** Your own reranker: the class's `rerank()` (`DecidedBy.Code`), its services through `deps`. */
 export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> {
-  /** `docs-reranker` — kebab-case ending with `-reranker` (`[name.kind-suffix]`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`Docs` → `docs`). */
+  readonly name?: string;
+  readonly description?: string;
   readonly decidedBy: DecidedBy.Code;
   readonly model?: never;
   readonly deps?: D;
@@ -37,7 +38,7 @@ export type RerankerMeta = ModelRerankerMeta | CodeRerankerMeta;
 /** A `@Reranker`'s options as recorded: its `deps` always set (none for a model one). */
 export type RecordedRerankerMeta = (
   Omit<ModelRerankerMeta, "deps"> | Omit<CodeRerankerMeta, "deps">
-) & { readonly deps: readonly Token[] };
+) & { readonly name: string; readonly deps: readonly Token[] };
 
 /** Whether a reranker is decided by its class's code. */
 export const isCodeReranker = (meta: RerankerMeta): meta is CodeRerankerMeta =>
@@ -58,7 +59,10 @@ export function Reranker<const D extends readonly Token[] = []>(
 export function Reranker(options: RerankerMeta) {
   return <C extends abstract new (...args: never[]) => object>(value: C): C => {
     const deps: readonly Token[] = isCodeReranker(options) ? (options.deps ?? []) : [];
-    recordComponent(value, { kind: "reranker", meta: { ...options, deps } });
+    recordComponent(value, {
+      kind: "reranker",
+      meta: { ...options, name: resolvedName(options.name, value), deps },
+    });
     return value;
   };
 }

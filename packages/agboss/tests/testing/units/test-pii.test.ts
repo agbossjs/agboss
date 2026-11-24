@@ -59,7 +59,7 @@ describe("testPii", () => {
     expect(spend.byCaller).toEqual({ "pii:name-pii-policy": 0.001 });
   });
 
-  it("the policies' own rules are checked first: a name without -pii-policy", () => {
+  it("the policies' own rules are checked first: a name that is not kebab-case", () => {
     expect(() => testPii([MisnamedPolicy])).toThrow(GraphRuleError);
   });
 

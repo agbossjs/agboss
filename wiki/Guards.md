@@ -62,7 +62,7 @@ export class NoLegalAdviceGuardrail {}
 
 | Option               | What it is                                                                                         |
 | -------------------- | -------------------------------------------------------------------------------------------------- |
-| `name`               | ends with `-guardrail` (`[name.kind-suffix]`)                                                      |
+| `name`               | optional: kebab-case (`[name.not-kebab-case]`), the class name by default                          |
 | `prompt`, `promptUrls` | the question — yes blocks; inline and / or files next to the class (`[guardrail.no-prompt]` without) |
 | `model`              | a decision model or a chat model; absent → `defaults.guardrail.model` of the workflow or its application — never `defaults.router.model`, no built-in (`[guardrail.no-model]`) |
 | `threshold`          | blocks at P(yes) ≥ threshold, above 0 and at most 1 (`[guardrail.threshold-invalid]`)              |
@@ -268,7 +268,7 @@ A `@PiiPolicy` says which personal data the models never see as is, and what hap
 (#120). Two forms, one decorator:
 
 - **declarative** — `@PiiPolicy({ name, description, rules: [pii(Kind | Group, Action)],
-  detectWithModel?, pseudonymKey? })`, `name` ending with `-pii-policy`; without a
+  detectWithModel?, pseudonymKey? })`, `name?` (kebab-case, the class name by default); without a
   `pseudonymKey` its tokens use the application's;
 - **a project's own detector** (S59, S61) — `@PiiPolicy({ name, action, deps? })` +
   `implements PiiPolicyHandler`: `findMatches(text)` returns `PiiMatch { start, end }` ranges (or a

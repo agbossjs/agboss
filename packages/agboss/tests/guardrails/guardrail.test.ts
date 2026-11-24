@@ -34,7 +34,7 @@ import {
 const JEV = "typesafe/jev-1.13";
 
 @InputGuardrail({
-  name: "rude",
+  name: "Rude_One",
   description: "Misnamed",
   prompt: "Is it rude?",
   model: JEV,
@@ -83,8 +83,8 @@ const codesOf = (classes: readonly Class[], defaultModel?: string): string[] =>
   guardrailViolations(classes, defaultModel).map((item) => item.code);
 
 describe("#120 AC1, AC2: a guardrail's own rules", () => {
-  it("[name.kind-suffix]: the name ends with -guardrail", () => {
-    expect(codesOf([MisnamedGuardrail])).toEqual(["name.kind-suffix"]);
+  it("[name.not-kebab-case]: the name is kebab-case", () => {
+    expect(codesOf([MisnamedGuardrail])).toEqual(["name.not-kebab-case"]);
   });
 
   it("[guardrail.refusal-twice] and [guardrail.missing-refusal]: one refusal, never both, never neither", () => {
@@ -283,7 +283,7 @@ describe("#120: the application's assembly reports every guardrail rule at once"
       "guardrail.exclude-not-inherited",
       "guardrail.output-on-router",
       "guardrail.no-model",
-      "name.kind-suffix",
+      "name.not-kebab-case",
     ]);
   });
 });

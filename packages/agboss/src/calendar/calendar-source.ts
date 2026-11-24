@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kebabNameProblem } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { PauseCalendar } from "./calendar-call.js";
 import {
@@ -79,7 +79,7 @@ export function workingCalendarViolations(
 
 /**
  * The rules of the `@WorkingCalendar` classes an application lists (#944), like a listener's: a name
- * ending `-working-calendar` (`[name.kind-suffix]`) and one class per name
+ * that is kebab-case (`[name.not-kebab-case]`) and one class per name
  * (`[working-calendar.duplicate-name]`) — the name is what a `WorkingCalendarError` says.
  */
 export function workingCalendarNameViolations(
@@ -92,7 +92,7 @@ export function workingCalendarNameViolations(
     const name = workingCalendarOf(cls)?.name;
     if (name === undefined) continue;
     byName.set(name, [...(byName.get(name) ?? []), cls]);
-    const problem = kindSuffixProblem(name, NameKind.WorkingCalendar);
+    const problem = kebabNameProblem(name, "@WorkingCalendar");
     if (problem !== undefined) found.push(violation(problem.code, problem.message, [application]));
   }
   for (const [name, classes] of byName) {

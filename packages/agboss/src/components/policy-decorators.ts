@@ -3,6 +3,7 @@ import type { Class, ResolvedAll, Token } from "./injection.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import type { GuardrailHandler } from "./guardrail-handler.js";
 import { componentOf, recordComponent } from "./metadata.js";
+import { resolvedName } from "../flow/names.js";
 
 /**
  * Guardrails (#120): safety checks at the model boundary of agents and model routers — they block,
@@ -31,9 +32,9 @@ export interface GuardrailRefusal {
 
 /** A model guardrail with a fixed refusal. */
 export interface GuardrailTextOptions<D extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-guardrail` (`legal-advice-guardrail`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`LegalAdvice` → `legal-advice`). */
+  readonly name?: string;
+  readonly description?: string;
   /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
   readonly deps?: D;
   /** Who decides (#383): its model — the default when absent. */
@@ -51,9 +52,9 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
 
 /** A model guardrail whose class computes its refusal (`implements GuardrailRefusal`). */
 export interface GuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-guardrail` (`legal-advice-guardrail`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`LegalAdvice` → `legal-advice`). */
+  readonly name?: string;
+  readonly description?: string;
   /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
   readonly deps?: D;
   /** Who decides (#383): its model — the default when absent. */
@@ -70,9 +71,9 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
 
 /** A code guardrail with a fixed refusal (`implements GuardrailHandler`). */
 export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-guardrail` (`legal-advice-guardrail`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`LegalAdvice` → `legal-advice`). */
+  readonly name?: string;
+  readonly description?: string;
   /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
   readonly deps?: D;
   readonly decidedBy: DecidedBy.Code;
@@ -86,9 +87,9 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
 
 /** A code guardrail whose class computes its refusal too (`implements GuardrailHandler, GuardrailRefusal`). */
 export interface CodeGuardrailComputedOptions<D extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-guardrail` (`legal-advice-guardrail`). */
-  readonly name: string;
-  readonly description: string;
+  /** Kebab-case; the class name in kebab-case when left out (`LegalAdvice` → `legal-advice`). */
+  readonly name?: string;
+  readonly description?: string;
   /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
   readonly deps?: D;
   readonly decidedBy: DecidedBy.Code;
@@ -111,6 +112,8 @@ export type GuardrailOptions = ModelGuardrailOptions | CodeGuardrailOptions;
 
 /** What `@InputGuardrail` / `@OutputGuardrail` recorded: the options, the side, the file. */
 export type GuardrailMeta = GuardrailOptions & {
+  /** Given, or the class name in kebab-case. */
+  readonly name: string;
   readonly side: GuardrailSide;
   readonly deps: readonly Token[];
   readonly source?: string;
@@ -133,7 +136,12 @@ export type GuardrailDecorator<D extends readonly Token[], T> = <
 const guardrailDecorator =
   (side: GuardrailSide, options: GuardrailOptions, source: string | undefined) =>
   <C extends Class>(value: C): C => {
-    const meta: GuardrailMeta = { ...options, side, deps: options.deps ?? [] };
+    const meta: GuardrailMeta = {
+      ...options,
+      name: resolvedName(options.name, value),
+      side,
+      deps: options.deps ?? [],
+    };
     recordComponent(value, {
       kind: "guardrail",
       meta: source === undefined ? meta : { ...meta, source },

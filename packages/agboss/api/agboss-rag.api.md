@@ -11,10 +11,10 @@ export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]>
     // (undocumented)
     readonly deps?: D;
     // (undocumented)
-    readonly description: string;
+    readonly description?: string;
     // (undocumented)
     readonly model?: never;
-    readonly name: string;
+    readonly name?: string;
 }
 
 // @public
@@ -37,9 +37,9 @@ export interface ModelRerankerMeta {
     // (undocumented)
     readonly deps?: never;
     // (undocumented)
-    readonly description: string;
+    readonly description?: string;
     readonly model?: string;
-    readonly name: string;
+    readonly name?: string;
 }
 
 // @public

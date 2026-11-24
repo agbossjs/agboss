@@ -9,7 +9,7 @@ import type { PromptLoader } from "../components/prompt-render.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
 import type { DtoClass } from "../dto/types.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kebabNameProblem } from "../flow/names.js";
 import { isDecisionModel } from "../models/decision-models.js";
 import {
   channelRoleOf,
@@ -186,7 +186,7 @@ function declarationViolations({
   declaration,
 }: InterpretedRole): RuleViolation[] {
   const { options } = declaration;
-  const suffix = kindSuffixProblem(options.name, NameKind.ReplyInterpreter);
+  const suffix = kebabNameProblem(options.name, "@ReplyInterpreter");
   const found =
     suffix === undefined ? [] : [violation(suffix.code, suffix.message, [options.name])];
   if (isCodeReplyInterpreter(options)) {

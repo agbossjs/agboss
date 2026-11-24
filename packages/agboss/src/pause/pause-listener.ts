@@ -1,7 +1,7 @@
 import type { Class, Provider, ResolvedAll, Token } from "../components/injection.js";
 import { isClassProvider } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kebabNameProblem, resolvedName } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type {
   PauseListenerAnswerNotTakenEvent,
@@ -37,8 +37,8 @@ export interface PauseListenerHandler {
 
 /** `@PauseListener` options. */
 export interface PauseListenerOptions<TDeps extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-pause-listener` (`backoffice-pause-listener`), unique in the application. */
-  readonly name: string;
+  /** Kebab-case, unique in the application; the class name in kebab-case when left out (`BackofficeListener` → `backoffice-listener`). */
+  readonly name?: string;
   readonly description?: string;
   /** The constructor's dependencies, in order (compiler-checked), injected by the container. */
   readonly deps?: TDeps;
@@ -59,14 +59,15 @@ export interface PauseListenerMeta {
   readonly allowAnswering: boolean;
 }
 
-/** `@PauseListener({ name, deps?, allowAnswering? })` on a class that `implements PauseListenerHandler`. */
+/** `@PauseListener({ name?, deps?, allowAnswering? })` on a class that `implements PauseListenerHandler`. */
 export function PauseListener<const TDeps extends readonly Token[] = []>(
   options: PauseListenerOptions<TDeps>,
 ) {
   return <TClass extends new (...args: ResolvedAll<TDeps>) => PauseListenerHandler>(
     value: TClass,
   ): TClass => {
-    const { name, description, allowAnswering = false } = options;
+    const { description, allowAnswering = false } = options;
+    const name = resolvedName(options.name, value);
     const meta = { name, deps: options.deps ?? [], allowAnswering };
     recordComponent(value, {
       kind: "pause-listener",
@@ -100,8 +101,8 @@ const isHandler = (cls: Class): boolean => {
 };
 
 /**
- * The rules of the listeners an application lists: a name ending `-pause-listener`
- * (`[name.kind-suffix]`), one class per name (`[pause-listener.duplicate-name]`) and both
+ * The rules of the listeners an application lists: a kebab-case name
+ * (`[name.not-kebab-case]`), one class per name (`[pause-listener.duplicate-name]`) and both
  * `onPauseOpened` and `onPauseClosed` (`[pause-listener.not-a-handler]`).
  */
 export function pauseListenerRuleViolations(
@@ -114,7 +115,7 @@ export function pauseListenerRuleViolations(
   for (const cls of listeners) {
     const name = pauseListenerOf(cls)?.name ?? "";
     byName.set(name, [...(byName.get(name) ?? []), cls]);
-    const problem = kindSuffixProblem(name, NameKind.PauseListener);
+    const problem = kebabNameProblem(name, "@PauseListener");
     if (problem !== undefined) found.push(violation(problem.code, problem.message, [application]));
     if (!isHandler(cls)) {
       const message = `${classNameOf(cls)} (@PauseListener "${name}") must implement onPauseOpened(event) and onPauseClosed(event)`;

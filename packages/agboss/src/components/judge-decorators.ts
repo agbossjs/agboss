@@ -5,6 +5,7 @@ import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import type { FileContent } from "../files/file-bytes.js";
 import type { ListWrapper, OneOfWrapper, ValueOf, VariantOf } from "../flow/dto-wrappers.js";
 import { DecidedBy } from "../flow/decorators/router.js";
+import { resolvedName } from "../flow/names.js";
 import { recordComponent } from "./metadata.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 
@@ -233,7 +234,14 @@ export type JudgedValueOf<TShape extends JudgeReplyShape> =
 export type JudgeOptions<
   TReply extends JudgeReplyShape,
   D extends readonly Token[],
-> = JudgeMeta<TReply> & {
+> = (JudgeMeta<TReply> extends infer TMeta
+  ? TMeta extends unknown
+    ? Omit<TMeta, "name"> & {
+        /** Unique in the workflow; kebab-case; the class name in kebab-case when left out (`JobReport` → `job-report`). */
+        readonly name?: string;
+      }
+    : never
+  : never) & {
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
 };
@@ -249,7 +257,11 @@ export function Judge<const TReply extends JudgeReplyShape, const D extends read
   return <C extends new (...args: ResolvedAll<D>) => JudgeHandler<JudgedValueOf<TReply>>>(
     value: C,
   ): C => {
-    recordComponent(value, { kind: "judge", meta: { ...options, deps: options.deps ?? [] } });
+    const name = resolvedName(options.name, value);
+    recordComponent(value, {
+      kind: "judge",
+      meta: { ...options, name, deps: options.deps ?? [] },
+    });
     return value;
   };
 }

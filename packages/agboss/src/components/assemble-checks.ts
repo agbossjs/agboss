@@ -23,7 +23,6 @@ import {
 import type { Token } from "./injection.js";
 import { CORE_TOKENS, rememberServers } from "./runtime.js";
 import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { MAX_TOOL_NAME_LENGTH } from "../flow/analyse/rules/models.js";
 import { toolExpiryViolations } from "./tool-expiry-rules.js";
 
@@ -97,8 +96,8 @@ function modelNameViolations(name: string, owner: string): RuleViolation[] {
 }
 
 /**
- * The names of a workflow's tools (#268 AC9): a project's `@Tool` / `@McpTool` is kebab-case and ends
- * with `-tool` (`[name.kind-suffix]`); every name a model sees — a knowledge base's
+ * The names of a workflow's tools (#268 AC9, #1343a): every name a model sees — a project's `@Tool` /
+ * `@McpTool`'s (no `-tool` suffix needed), a knowledge base's
  * `search-<name>-tool` too — fits the providers' `[a-zA-Z0-9_-]`, at most 64 characters. All at once.
  */
 export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): RuleViolation[] {
@@ -112,13 +111,7 @@ export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): 
       name: requireComponent(cls, "mcp-tool", "workflowOf").meta.name,
     })),
   ];
-  const own = named.flatMap(({ cls, name }) => {
-    const problem = kindSuffixProblem(name, NameKind.Tool);
-    const owner = tokenName(cls);
-    return problem === undefined
-      ? modelNameViolations(name, owner)
-      : [violation(problem.code, `${owner}: ${problem.message}`, [owner])];
-  });
+  const own = named.flatMap(({ cls, name }) => modelNameViolations(name, tokenName(cls)));
   const searches = rags.flatMap((cls) =>
     modelNameViolations(searchToolName(ragMeta(cls)), tokenName(cls)),
   );

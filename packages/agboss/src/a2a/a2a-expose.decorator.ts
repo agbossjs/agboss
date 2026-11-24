@@ -30,7 +30,7 @@ export interface A2AExposedSkillOptions {
 
 /** `@A2AExpose({ name, version, description, exports, skills?, defaultSkill?, provider?, security?, cardFileFields? })` (#398 PR 3, #808, #860, #904). */
 export interface A2AExposeOptions {
-  /** `billing-a2a-expose` — kebab-case, ending with `-a2a-expose` (`[name.kind-suffix]`): the card's `name`. */
+  /** `billing` — kebab-case (`[name.not-kebab-case]`): the card's `name`. */
   readonly name: string;
   /** The contract's version: the card's `version`, in `describe --json` and federation checks. */
   readonly version: string;

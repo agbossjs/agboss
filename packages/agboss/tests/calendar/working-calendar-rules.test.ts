@@ -4,7 +4,7 @@
  * working reminder before a plain deadline is refused on the role and on every override site
  * (`[channel.remind-before-working-without-working-expiry]`); `[channel.remind-before-invalid]`
  * compares the working amounts when both are working; a working step no longer than the role's
- * working reminder warns; `[name.kind-suffix]`, `[working-calendar.invalid]` for a class that is no
+ * working reminder warns; `[name.not-kebab-case]`, `[working-calendar.invalid]` for a class that is no
  * listed `@WorkingCalendar`.
  */
 import { describe, expect, it } from "vitest";
@@ -174,8 +174,8 @@ describe("#944: a custom calendar class", () => {
     expect(listed?.message).toContain("providers");
   });
 
-  it("[name.kind-suffix]: a name that does not end with -working-calendar", async () => {
-    @WorkingCalendar({ name: "holidays-calendar" })
+  it("[name.not-kebab-case]: a name that is not kebab-case", async () => {
+    @WorkingCalendar({ name: "Holidays_Calendar" })
     class Misnamed implements WorkingCalendarHandler {
       addWorkingTime(): Date {
         return new Date(0);
@@ -189,8 +189,8 @@ describe("#944: a custom calendar class", () => {
 
     const found = await violationsOf(application);
 
-    expect(found).toEqual([expect.objectContaining({ code: "name.kind-suffix" })]);
-    expect(found[0]?.message).toContain("holidays-calendar-working-calendar");
+    expect(found).toEqual([expect.objectContaining({ code: "name.not-kebab-case" })]);
+    expect(found[0]?.message).toContain("holidays-calendar");
   });
 
   it("a listed @WorkingCalendar class with its dependencies assembles (the container creates it)", async () => {

@@ -2,7 +2,7 @@ import { priceOf } from "./cost.js";
 import {
   modelProviderOf,
   servesModel,
-  type ModelProviderOptions,
+  type KeptModelProviderOptions,
 } from "./model-provider.decorator.js";
 import type { ModelProblem } from "./problems.js";
 import type { ModelUse } from "./uses.js";
@@ -15,7 +15,7 @@ import type { ModelUse } from "./uses.js";
  */
 export function fallbackProblems(
   use: ModelUse,
-  provider: ModelProviderOptions,
+  provider: KeptModelProviderOptions,
 ): readonly ModelProblem[] {
   const { fallback, fallbackModels = {} } = provider.circuitBreakerPolicy;
   if (fallback === undefined) return [];

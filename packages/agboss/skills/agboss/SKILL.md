@@ -52,9 +52,11 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `Clock`: `infrastructure/json.logger.ts`), `config/<name>.config.ts`, `scripts/<name>.ts` (run by `npm run`),
    `http/server.ts`, `environments/*.environment.ts`,
    `<app>.application.ts`), and `tests/` mirrors `src/` symmetrically (`tests/tools/<name>.tool.test.ts`,
-   `tests/workflows/<workflow-name>/<workflow-name>.workflow.test.ts`, …). A component's `name` is in
-   kebab-case ending with its kind (`billing-agent`, `refund-tool`, `desk-router`, `chat-workflow-start`,
-   `desk-workflow`) — `[name.kind-suffix]`; the class is that name in PascalCase (`BillingAgent`,
+   `tests/workflows/<workflow-name>/<workflow-name>.workflow.test.ts`, …). A persisted component's `name` is in
+   kebab-case ending with its kind (`billing-agent`, `desk-router`, `chat-workflow-start`,
+   `desk-workflow`) — `[name.kind-suffix]`; the `name` of every other component (`@HealthCheck`, `@Judge`,
+   `@InputGuardrail`, `@ToolInterceptor`, `@PiiPolicy`, `@ModelProvider`, …) is optional — kebab-case, the
+   class name by default — and a tool's name needs no `-tool` suffix; the class is that name in PascalCase (`BillingAgent`,
    `DeskWorkflow`), and for an `@Application` and a `@Budget` the same rule checks the class name too
    (a `@Budget` class `DailyLimit` fails: `name it DailyLimitBudget`). Every `*Dto` class is its own
    file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`). Every custom error is an

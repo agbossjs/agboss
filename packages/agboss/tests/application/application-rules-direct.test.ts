@@ -82,7 +82,7 @@ class ShopModelProvider {
   }
 }
 
-@ModelProvider(transport("shop-provider"))
+@ModelProvider(transport("Shop_Provider"))
 class MisnamedModelProvider {
   complete() {
     return Promise.resolve(answer("never"));
@@ -212,8 +212,8 @@ describe("#1366: applicationRuleViolations", () => {
 
     expect(found(ShopApplication, given)).toEqual([
       {
-        code: "name.kind-suffix",
-        message: '"shop-provider" on @ModelProvider — name it "shop-provider-model-provider"',
+        code: "name.not-kebab-case",
+        message: '"Shop_Provider" on @ModelProvider — a name is kebab-case: "shop-provider"',
         nodes: ["shop-application"],
       },
     ]);

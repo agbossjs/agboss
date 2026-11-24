@@ -1,5 +1,6 @@
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
+import { kebabNameProblem } from "../flow/names.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
 import { isDecisionModel } from "../models/decision-models.js";
@@ -12,8 +13,6 @@ import { DEFAULT_RERANKER_MODEL, type RagRerank } from "./types.js";
  * one has `rerank()` (`[reranker.missing-handler]`), a model one is on a chat model
  * (`[reranker.decision-model]`).
  */
-
-const SUFFIX = "-reranker";
 
 const isCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1;
 
@@ -33,10 +32,9 @@ function rerankerViolations(rag: string, by: Class): RuleViolation[] {
   const { meta } = found;
   const where = [meta.name];
   const problems: RuleViolation[] = [];
-  if (!meta.name.endsWith(SUFFIX))
-    problems.push(
-      violation("name.kind-suffix", `${meta.name}: a reranker's name ends with ${SUFFIX}`, where),
-    );
+  const nameProblem = kebabNameProblem(meta.name, "a reranker");
+  if (nameProblem !== undefined)
+    problems.push(violation(nameProblem.code, nameProblem.message, where));
   if (meta.decidedBy === DecidedBy.Code) {
     const rerank: unknown = Reflect.get(by.prototype as object, "rerank");
     if (typeof rerank !== "function")

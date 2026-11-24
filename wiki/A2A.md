@@ -762,8 +762,7 @@ export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAn
   A client built by hand states the contract: `new A2AClient({ url, contract: { application?, skill?,
   input, output } })` (`A2AClientContract`, #809); without its DTOs, `execute` throws
   `[a2a.no-contract]` (`send` needs none).
-- Names: `-a2a-agent` on a `…A2AAgent` class (`[name.kind-suffix]`, both checked, like `@Application`
-  and `@Budget`); `target` is optional (#809: a foreign agent has no application) and names a
+- Names: kebab-case, no suffix needed (`[name.not-kebab-case]`); `target` is optional (#809: a foreign agent has no application) and names a
   `skill` (was `start`). Files: `a2a/<name>.a2a-agent.ts`.
 - **The price**: the calling tool's spend records the larger of `price` and the spend a
   trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`;
@@ -810,7 +809,7 @@ export class BillingA2AExpose {}
 export class BillingApplication {}
 ```
 
-- `[name.kind-suffix]` (`-a2a-expose`, a `…A2AExpose` class), `[application.expose-unknown-start]`
+- `[name.not-kebab-case]`, `[application.expose-unknown-start]`
   (an export that is no start of the application's workflows), `[application.not-an-expose]`,
   `[application.duplicate-expose]` at assembly.
 - With one export a message may leave its skill out; with several it names one in

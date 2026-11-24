@@ -19,7 +19,7 @@ Multi-agent project on LangGraph + LangChain (TypeScript). Built with a three-ph
   The built-ins are OpenRouter: their key is the `Secret` field `openRouterApiKey` of the
   application's environment (`secret("OPENROUTER_API_KEY")`; a provider's `apiKey` names its field),
   the base URL optionally its text field `openRouterBaseUrl` (`baseUrlField`;
-  `env.optional("OPENROUTER_BASE_URL")` — unset → the decorator's `baseUrl`, no repeated default). Provider names end with `-model-provider` (`[name.kind-suffix]`).
+  `env.optional("OPENROUTER_BASE_URL")` — unset → the decorator's `baseUrl`, no repeated default). A provider's `name` is optional: kebab-case, the class name in kebab-case by default (`[name.not-kebab-case]`; #1343a).
   A **transport** provider (#385) `implements ModelProviderHandler` with `complete(request)` in
   place of `baseUrl` / `baseUrlField` / `apiKey` (both modes → a compile error and
   `[model-provider.both-modes]`; no `circuitBreakerPolicy` — a JS project or a cast — is
@@ -1987,8 +1987,8 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   `A2AOperation` (`SendMessage` with a `taskId` is a resume), `publicUrl` on `a2aHttpListener`,
   `retention.a2aTasks` / `a2aMessages` / `a2aFiles`; `A2AStatus`, `A2AEvent`, `A2AExecutionRequest`
   and `A2AExecutionResponse` are gone.
-- **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name` (`-pii-policy`),
-  `description`, `rules: [pii(kind or group, action)]`, `detectWithModel?`, `pseudonymKey?` — or a
+- **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name?` (kebab-case, default: the class name),
+  `description?`, `rules: [pii(kind or group, action)]`, `detectWithModel?`, `pseudonymKey?` — or a
   project's own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
   (`findMatches(text)` → `PiiMatch { start, end }`). Only the kinds a rule names are found (formats
   validated: Luhn, IBAN, Israeli ID, SSN rules; names and addresses by `detectWithModel`); a kind
@@ -2686,7 +2686,7 @@ ModelProvider | Project | StepSlots, status, reason?, duration }`) — the proje
   is free, #332) and every `@HealthCheck` of `@Application({ healthChecks })` — at once, each under
   its timeout (stores and providers `seconds(2)`) on the `Clock`. A check that throws or times out
   is that component's `Unhealthy` (`reason`: the error's message, `timed out after 2 s`); neither
-  call rejects. `@HealthCheck({ name, timeout, deps? })` (`-health-check`, `[name.kind-suffix]`;
+  call rejects. `@HealthCheck({ name?, timeout, deps? })` (`[name.not-kebab-case]`;
   `[health.not-a-health-check]`, `[health.duplicate-name]`) + `implements HealthCheckHandler`,
   created by the container; `check()` returns `HealthCheckResult.healthy()` / `.degraded({ reason
 })` / `.unhealthy({ reason })` (branded: a plain object does not compile). The probes load on first
@@ -2942,7 +2942,7 @@ timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `execution
   `testReplyInterpreter(Role, { model })` (#644: the role's `@ReplyInterpreter` on `{ ask, reply }` → `{ isUnderstood: true, answer }` | `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it), `testToolInterceptor(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
   `.afterToolCall(Tool, input, output)`), `testJudge(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testGuardrail(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
 probability, refusal? }`
-  and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first: `-pii-policy`);
+  and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,
 executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'
   decorators), else the default tenant; with a held lease (`executionContext.fence`: token 1, the

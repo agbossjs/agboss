@@ -1,7 +1,7 @@
 /**
  * #300: the assembly rules of `@Application({ healthChecks })` — every listed class is a
  * `@HealthCheck` (`[health.not-a-health-check]`), its name ends with `-health-check`
- * (`[name.kind-suffix]`) and is unique (`[health.duplicate-name]`) — all at once, before any model
+ * (`[name.not-kebab-case]`) and is unique (`[health.duplicate-name]`) — all at once, before any model
  * call; and a `HealthCheckResult` is built only by its builders.
  */
 import { describe, expect, it } from "vitest";
@@ -46,7 +46,7 @@ class SecondQueueHealthCheck implements HealthCheckHandler {
   }
 }
 
-@HealthCheck({ name: "queue-probe", timeout: seconds(1) })
+@HealthCheck({ name: "Queue_Probe", timeout: seconds(1) })
 class MisnamedHealthCheck implements HealthCheckHandler {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
@@ -78,7 +78,7 @@ class CheckedApplication {}
 describe("#300: the health checks' assembly rules", () => {
   it("fails with every violation at once: undecorated, misnamed, a name twice", async () => {
     expect(await violationsOf(CheckedApplication)).toEqual([
-      '[name.kind-suffix] "queue-probe" on @HealthCheck — name it "queue-probe-health-check"',
+      '[name.not-kebab-case] "Queue_Probe" on @HealthCheck — a name is kebab-case: "queue-probe"',
       "[health.not-a-health-check] UndecoratedHealthCheck in checked-application's healthChecks has no @HealthCheck({ name, timeout }) decorator",
       '[health.duplicate-name] "queue-health-check" names QueueHealthCheck and SecondQueueHealthCheck in checked-application\'s healthChecks — give each its own name',
     ]);

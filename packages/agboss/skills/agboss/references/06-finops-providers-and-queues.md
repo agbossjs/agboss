@@ -206,7 +206,7 @@ serve them, in `@Application({ providers })` (never a workflow's: `[di.infrastru
 - Every model of the application must resolve to exactly one listed provider by `serves`, for its
   purpose (chat or decision): `[model.unserved]`, `[model.ambiguous-provider]` — one model through two
   providers is two model strings. `npx agboss describe` prints `model: … → <provider>`.
-- A provider's `name` ends with `-model-provider` (`[name.kind-suffix]`).
+- A provider's `name` is optional: kebab-case, the class name in kebab-case by default (`[name.not-kebab-case]`).
 
 ```ts file=src/environments/app.environment.ts
 import type { Secret } from "@agboss/core";

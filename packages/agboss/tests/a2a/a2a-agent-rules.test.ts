@@ -29,7 +29,7 @@ describe("#1366: the providers the A2A agent rules read", () => {
     expect(contractRuleViolations(options(Plain, Peer))).toEqual([]);
   });
 
-  it("an @A2AAgent whose class name has no A2AAgent suffix is told its name", () => {
+  it("an @A2AAgent needs no class-name suffix (#1343a)", () => {
     vi.mocked(componentOf).mockReturnValue({
       kind: "a2a-agent",
       meta: { name: "peer", target: {} },
@@ -37,6 +37,6 @@ describe("#1366: the providers the A2A agent rules read", () => {
 
     const found = contractRuleViolations(options(Peer));
 
-    expect(found.map((item) => item.message)).toContain("class Peer — name it PeerA2AAgent");
+    expect(found).toEqual([]);
   });
 });

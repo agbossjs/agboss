@@ -1084,7 +1084,7 @@ it("looks the order up in the book it is given", async () => {
   `TestSetupError`), no requests. `CompactionStrategy.None` writes nothing: a `TestSetupError`. No
   PII policies apply. It checks the request and the plumbing — whether a fact survives compaction is
   an eval case ([Testing suites and comparisons](Testing-Suites-And-Comparisons)).
-- **`testGuardrail`** (#120 PR 2) checks the guardrail's own rules first (`-guardrail`, one refusal, a
+- **`testGuardrail`** (#120 PR 2) checks the guardrail's own rules first (kebab-case name, one refusal, a
   question, a threshold — a `GraphRuleError`), then asks its model on the text under its heading
   (`element` names the agent or router, default `test-agent`): `model: decideWith({ blocks: 0.9 })`
   (`{ cost }` for its spend, `guardrail:<name>`), unscripted it passes; a model that does not answer
@@ -1092,8 +1092,8 @@ it("looks the order up in the book it is given", async () => {
   — the decorator's text or the class's `refusal()`, computed in the step's frame (`executionContext`
   / `execution` as given) — never a thrown `GuardrailBlockedError`. A guardrail without its own
   `model` decides on a decision model, as `defaults.guardrail.model` does.
-- **`testPii`** checks the policies' own rules first (`[name.kind-suffix]` — a name ends with
-  `-pii-policy` —, `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
+- **`testPii`** checks the policies' own rules first (`[name.not-kebab-case]`,
+  `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
   `mask(text)` gives what a model would read — tokens made with a fixed test key and kept across
   calls, as an execution's `piiTokens` are; a block rule rejects with `PiiRefusedError` — and
   `reveal(text)` what its answer becomes; a `detectWithModel` policy answers from `model`

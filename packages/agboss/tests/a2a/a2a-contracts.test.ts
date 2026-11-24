@@ -47,7 +47,7 @@ describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
 describe("#398 PR 3: the contracts at assembly", () => {
   it("names, exports and targets are checked, every violation at once", async () => {
     @A2AExpose({
-      name: "shop-expose",
+      name: "Shop_Expose",
       version: "1.0.0",
       description: "A shop",
       exports: [QuoteWorkflowStart, Object],
@@ -55,7 +55,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
     class ShopExpose {}
 
     @A2AAgent({
-      name: "billing-desk",
+      name: "Billing_Desk",
       url: "http://billing.invalid",
       input: WorkflowStartTextDto,
       output: WorkflowFinishTextDto,
@@ -81,18 +81,17 @@ describe("#398 PR 3: the contracts at assembly", () => {
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     const message = await built.catch((error: unknown) => String(error));
     expect(message).toContain(
-      '[name.kind-suffix] "shop-expose" on @A2AExpose — name it "shop-expose-a2a-expose"',
+      '[name.not-kebab-case] "Shop_Expose" on @A2AExpose — a name is kebab-case: "shop-expose"',
     );
-    expect(message).toContain("[name.kind-suffix] class ShopExpose — name it ShopExposeA2AExpose");
-    expect(message).toContain("[application.expose-unknown-start] shop-expose exports Object");
+    expect(message).not.toContain("name.kind-suffix");
+    expect(message).toContain("[application.expose-unknown-start] Shop_Expose exports Object");
     expect(message).toContain("[application.not-an-expose] NotAnExpose");
     expect(message).toContain(
       "[application.duplicate-expose] broken-application exposes two contracts named shop-a2a-expose",
     );
     expect(message).toContain(
-      '[name.kind-suffix] "billing-desk" on @A2AAgent — name it "billing-desk-a2a-agent"',
+      '[name.not-kebab-case] "Billing_Desk" on @A2AAgent — a name is kebab-case: "billing-desk"',
     );
-    expect(message).toContain("[name.kind-suffix] class BillingDesk — name it BillingDeskA2AAgent");
     // #809: a target is optional (a foreign agent has none): no [a2a.target-required]
     expect(message).not.toContain("a2a.target-required");
   });
