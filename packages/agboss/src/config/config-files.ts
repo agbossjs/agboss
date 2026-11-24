@@ -6,7 +6,6 @@ import { lazyLoad } from "../infrastructure/clock.js";
 import { isConfigOverlay } from "./define-config.js";
 import type { ConfigSpec, PromptOverride } from "./overlay-types.js";
 import { invalidProfile as invalid, ProfileError, ProfileErrorReason } from "./profile-error.js";
-import { yamlSpecOf } from "./yaml-profile.js";
 import { BASE_PROFILE, type SelectedProfiles } from "./profile-names.js";
 
 /**
@@ -128,7 +127,8 @@ function promptTextsOf(file: string, spec: ConfigSpec): LoadedProfile["promptTex
 export async function loadedProfileOf(entry: ConfigFile): Promise<LoadedProfile> {
   const spec =
     entry.kind === ConfigFileKind.Yaml
-      ? yamlSpecOf(entry.file)
+      ? // the YAML parser (72 modules) loads with the first .config.yaml, not with the root entry
+        (await import("./yaml-profile.js")).yamlSpecOf(entry.file)
       : await typeScriptSpecOf(entry.file);
   return { name: entry.name, file: entry.file, spec, promptTexts: promptTextsOf(entry.file, spec) };
 }
