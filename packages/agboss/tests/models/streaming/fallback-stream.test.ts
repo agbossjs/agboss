@@ -109,6 +109,7 @@ describe("streamedAnswer", () => {
 
     const failure = await streamedAnswer(model, MESSAGES, undefined, undefined, {
       text: false,
+      chars: 0,
     }).catch((error: unknown) => error);
 
     expect(failure).toBeInstanceOf(EventStreamError);
