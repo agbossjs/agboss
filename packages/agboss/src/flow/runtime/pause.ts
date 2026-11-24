@@ -98,7 +98,7 @@ export class PauseWithdrawnError extends AGBossError {
 /**
  * A channel's `send` threw (not cancelled): the failure of the step that asked, never a tool error
  * the model reads. Internal — the agent loop rethrows it as its `AgentFailedError`, the channel's
- * error as `cause`, so `.onError` / `.onJoinError` match it by class and cause chain (#273 S21).
+ * error as `cause`, so `.onError` match it by class and cause chain (#273 S21).
  */
 export class ChannelSendError extends Error {
   override name = "ChannelSendError";

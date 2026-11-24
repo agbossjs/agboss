@@ -200,7 +200,7 @@ export class ScreeningFailedWorkflowFinish {}
       .returns(listOf(CompanyDto))
       .toParallelAgents(CompanyAuditAgent, { maxConcurrency: 3, maxItems: 50 })
       .join()
-      .onJoinError(
+      .onError(
         LimitExceededError,
         toAction(NotifyOperatorAction)
           .returns(ScreeningFailedDto)

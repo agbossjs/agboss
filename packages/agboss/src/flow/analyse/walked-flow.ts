@@ -45,7 +45,7 @@ export interface SwitchSite extends BranchSite<SwitchStep> {
   readonly returned?: OneOfWrapper;
 }
 
-/** One `.onJoinError(E, …)` and the launch whose join it follows (#273). */
+/** One `.onError(E, …)` and the launch whose join it follows (#273). */
 export interface JoinErrorSite {
   readonly node: ComponentName;
   readonly launch: FlowLaunch;

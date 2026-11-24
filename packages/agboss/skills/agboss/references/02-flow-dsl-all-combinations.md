@@ -32,7 +32,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | side-path starters `toAction` `toAgent` `toRouter` `toExternalTask` `toWorkflow` `toFinish` | the first step of a side path (functions, not methods)                                                                                                     | as for the steps                                                                                             |
 | `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)`                  | a launch: each listed target runs once, a repeat is a copy                                                                                                 | `[launch.join-required]`, `[launch.branch-continued]`                                                        |
 | `.returns(listOf(XDto)).toParallelAgents(X, { maxItems })`                                  | one run per item of the list                                                                                                                               | `[launch.max-items-required]`, `[launch.item-not-read]`, `[launch.max-items-without-list]`                   |
-| `.join()` → `.onJoinError(E, …)` → `.returns(…)`                                            | where a launch's values meet; a failed branch's side path                                                                                                  | `[flow.returns-mismatch]`, `[launch.branch-outdates-sibling]`                                                |
+| `.join()` → `.onError(E, …)` → `.returns(…)`                                                | where a launch's values meet; a failed branch's side path                                                                                                  | `[flow.returns-mismatch]`, `[launch.branch-outdates-sibling]`                                                |
 | `.acceptedBy(X)` / `.acceptedBy(anyOf(X, Y))` → `.joinQuorum({ min, max, deadline })`       | count the accepted answers instead of waiting for all                                                                                                      | `[flow.quorum-impossible]`, `[flow.quorum-return-not-optional]`, `[arbiter.*]`                               |
 | `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                              | the first complete group (by priority) continues its own path                                                                                              | `[flow.quorum-impossible]`, `[flow.returns-mismatch]`                                                        |
 | `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                     | a child workflow: one, chosen by a router, or one per item                                                                                                 | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
@@ -971,7 +971,7 @@ import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js
       .returns(SectionNotesDto)
       .toParallelAgents(StyleCriticAgent, FactCheckerAgent, FactCheckerAgent, { maxConcurrency: 2 })
       .join()
-      .onJoinError(
+      .onError(
         StepFailedError, // a branch failed (FailFast): the others were cancelled
         toFinish(ReviewIncompleteWorkflowFinish),
       )
@@ -1183,7 +1183,7 @@ export class SupportLaunchWorkflow {}
 Launch rules:
 
 - A launch is always followed by `.join()` (`[launch.join-required]`, a compile error too); after the
-  join `.onJoinError(E, …)` — never `.onError` — then `.returns(…)`, then exactly one `.to…(…)`: a
+  join `.onError(E, …)` (the join's own handler; not offered between a launch and its join) — then `.returns(…)`, then exactly one `.to…(…)`: a
   second launch never follows a join directly (put a step between, as `section-notes-action` above).
 - Per item: one target right after `.returns(listOf(ItemDto))`, `{ maxItems }` required
   (`[launch.max-items-required]`) and only there (`[launch.max-items-without-list]`); the target
@@ -1433,7 +1433,7 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
       .acceptedBy(ScoreRangeArbiter) // AND, in path order: the cheap check first
       .acceptedBy(anyOf(HasReasonArbiter, ReasonedScoreArbiter)) // the model only when the code rejects
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) }) // two accepted answers are enough
-      .onJoinError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish))
+      .onError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish))
       .returns(listOf(PanelScoreDto)) // one output class from several agents: a list, in counting order
       .toAgent(PanelVerdictAgent)
       .returns(PanelVerdictDto)
@@ -1444,7 +1444,7 @@ export class PanelWorkflow {}
 ```
 
 Groups — the first complete group, by priority (1 is the highest), continues **its own** path; nothing
-follows the groups but `.onJoinError(…)`:
+follows the groups but `.onError(…)`:
 
 ```ts file=src/deal/dto/deal.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -1605,7 +1605,7 @@ import { DealWorkflowStart } from "./deal.workflow-start.js";
           .toFinish(DealScreenedWorkflowFinish),
         { deadline: minutes(1) },
       )
-      .onJoinError(QuorumNotReachedError, toFinish(DealUnreviewedWorkflowFinish)),
+      .onError(QuorumNotReachedError, toFinish(DealUnreviewedWorkflowFinish)),
   ],
 })
 export class DealWorkflow {}
@@ -1623,7 +1623,7 @@ Quorum rules:
   never complete, is `[flow.quorum-impossible]`.
 - At run time each answer is `BranchVerdict.Counted`, `Rejected` or `Surplus`; once the quorum is
   decided the rest is cancelled (`BranchStatus.Cancelled`). A quorum not reached is
-  `QuorumNotReachedError` into `.onJoinError(…)`; an arbiter that throws is `ArbiterError`. The time
+  `QuorumNotReachedError` into `.onError(…)`; an arbiter that throws is `ArbiterError`. The time
   a branch waits for a tree slot does not count against the `deadline`.
 
 ## 6. Child workflows
@@ -2100,7 +2100,7 @@ Child rules:
   start with a required field of the item's type (per item) or of the chain's current value. None →
   `[graph.no-matching-start]`; two → `[graph.ambiguous-start]` (fix: make one start's input a
   subclass, `class QuickVendorDto extends VendorDto {}`). Both are compile errors too.
-- **Errors**: `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`; `.onJoinError(E, …)`
+- **Errors**: `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`; `.onError(E, …)`
   right after a per-item join. An uncaught error of the child — its step, its `maxSteps`, a node's
   `maxVisits` — is the parent's `ChildExecutionFailedError` (a `StepFailedError`: `cause`,
   `childExecutionId`, `itemIndex`, `workflow`), so its handler may be an agent. An exhausted budget,
@@ -2304,7 +2304,7 @@ export class TopicResearchWorkflow {}
 - A launch by code or data past `maxDepth` does not start: the parent's step fails with
   `ChildExecutionFailedError` caused by `DepthLimitExceededError` — take it with
   `.onError(LimitExceededError, …)` (actions and finishes only) right after the launch, or
-  `.onJoinError(…)` after a per-item join.
+  `.onError(…)` after a per-item join.
 - `@Workflow({ maxConcurrentExecutions })` (default 10, a whole number from 1,
   `[limits.max-concurrent-executions-invalid]`) is how many executions of the tree work at once; a
   child's own larger cap is never reached (`[limits.child-concurrency-above-parent]`, a warning).
@@ -2317,12 +2317,12 @@ optionally its commit point, `committedBy: CommitAction` — once that succeeds 
 undo is an ordinary `@Action` (code, never a model call) that reads only what the path holds **right
 after** its action.
 
-- **Explicit where a path can say it.** A side path (`.onError` / `.onJoinError`) entered after an
+- **Explicit where a path can say it.** A side path (`.onError`) entered after an
   undoable action succeeded must reach its finish through the undo, newest first — `npx agboss check`
   proves it (`[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`). The record of the
   undo is `CompensationReason.SidePath`.
 - **Automatic where no path can say it.** A failed join undoes its finished undoable branches before
-  `.onJoinError` runs (`JoinFailed`); an execution that ends without a finish — an uncaught failure
+  `.onError` runs (`JoinFailed`); an execution that ends without a finish — an uncaught failure
   or limit (`ExecutionFailed`), a cancel or a `FailFast` abort (`ExecutionCancelled`) — undoes its
   open actions, newest first, before it ends. Each automatic undo runs in its own frame (its key is
   the undone step's key + `:compensation`), on a clean-up signal bounded by
@@ -2727,7 +2727,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
       .returns(TripRequestDto)
       .toParallelActions(BookFlightAction, BookHotelAction)
       .join()
-      .onJoinError(
+      .onError(
         BookingFailedError, // the hotel failed: the finished flight is cancelled before this path runs
         toFinish(TripNotBookedWorkflowFinish),
       )
@@ -2779,7 +2779,7 @@ path, and so is an error _caused_ by `E` (an action's own exception is the `caus
 | ↳↳ `ActionFailedError` (`step.action`)                                                          | an action threw (the original as `cause`)                                      | yes                                |
 | ↳↳ `RouterFailedError` (`step.router`) ↳ `RouterDecisionError` (`step.router.invalid-decision`) | `route()` threw / the model failed; an answer outside the routes               | yes                                |
 | ↳↳ `GuardFailedError` (`step.guard`)                                                            | a guardrail's model did not answer (fails closed)                              | yes                                |
-| ↳↳ `ArbiterError` (`step.arbiter`), `QuorumNotReachedError` (`step.quorum`)                     | an arbiter threw; too few counted answers (`.onJoinError`)                     | yes                                |
+| ↳↳ `ArbiterError` (`step.arbiter`), `QuorumNotReachedError` (`step.quorum`)                     | an arbiter threw; too few counted answers (`.onError`)                         | yes                                |
 | ↳↳ `ChildExecutionFailedError` (`step.child`)                                                   | a child's uncaught error (its `cause`)                                         | yes, unless the cause is a limit   |
 | ↳ `GuardrailBlockedError` (`guardrail.blocked`)                                                 | a guardrail said yes; `refusal` is the text to send instead                    | yes                                |
 | ↳ `PiiRefusedError` (`pii.refused`)                                                             | a `blockWithRefusal()` PII rule matched                                        | yes                                |
@@ -2816,7 +2816,7 @@ leads only to actions and finishes (`[graph.limit-handler-uses-model]`): nothing
 
 - `onStart(A).returns(B).toFinish(C)` on one line — one call per line, always.
 - `.onError` after `.returns(…)`: it goes right after the step that throws, before its `.returns`.
-- `.onError` after a join, or `.onJoinError` after a single step — the other one does not compile.
+- `.onError` is not offered between a launch and its `.join*()`; after the join it is the join's own handler and stands before `.returns(…)`.
 - Continuing a shared node inline in two places (`[flow.shared-node-inline]`) — give it its own path.
 - A model router after an agent that already knows the outcome: return `oneOf(…)` and `switch`.
 - `executionContext.depth` read by a prompt — no model sees it; a domain level is an input field.

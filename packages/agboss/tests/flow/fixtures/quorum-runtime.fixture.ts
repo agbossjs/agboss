@@ -56,7 +56,7 @@ import {
 
 /**
  * #279 PR 2 — quorums at run time, one application per workflow: any two of three; a quorum with an
- * arbiter, `max` and a deadline; one without `.onJoinError`; a model arbiter, a chain and `anyOf`;
+ * arbiter, `max` and a deadline; one without `.onError`; a model arbiter, a chain and `anyOf`;
  * a per-item and a copies launch with code arbiters reading `ExecutionContext`; groups with priority.
  */
 
@@ -87,8 +87,8 @@ export class QuickPanelWorkflow {}
       .toParallelAgents(...PANEL)
       .acceptedBy(InRangeArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-      .onJoinError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
-      .onJoinError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
+      .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
+      .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
       .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
       .returns(ScoreReviewDto)
@@ -123,7 +123,7 @@ export class StrictPanelWorkflow {}
       .toParallelAgents(...PANEL)
       .acceptedBy(PanelModelArbiter)
       .joinQuorum({ min: 2, max: 3 })
-      .onJoinError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
+      .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
       .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
       .returns(ScoreReviewDto)
@@ -211,7 +211,7 @@ export class ItemPanelWorkflow {}
       .toParallelAgents(SkillsPanelAgent, SkillsPanelAgent, SkillsPanelAgent)
       .acceptedBy(CopyArbiter)
       .joinQuorum({ min: 2, max: 3 })
-      .onJoinError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
+      .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
       .returns(listOf(ScoreDto))
       .toAgent(PanelSummaryAgent)
       .returns(ScoreReviewDto)
@@ -262,7 +262,7 @@ export class RecoveryPanelWorkflow {}
           .toFinish(QuickRejectPanelWorkflowFinish),
         { deadline: seconds(60) },
       )
-      .onJoinError(QuorumNotReachedError, toFinish(NoQuorumPanelWorkflowFinish)),
+      .onError(QuorumNotReachedError, toFinish(NoQuorumPanelWorkflowFinish)),
   ],
 })
 export class DealPanelWorkflow {}

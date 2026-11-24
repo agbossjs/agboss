@@ -622,8 +622,8 @@ role })` and may read the application's own data. The deadline is computed **onc
   quorum decides — an expired branch did not vote, never fails the launch, whatever its
   `FailurePolicy`; `QuorumNotReachedError.expired` lists the node ids that expired. In a plain
   `.join()` an expired branch follows its `FailurePolicy`: `Skip` drops it, `FailFast` fails the
-  launch with its `PauseExpiredError` for `.onJoinError(…)`, and the branches still waiting are
-  withdrawn. The side path of `.onJoinError(…)` reads the answers already settled as `optional(XDto)`
+  launch with its `PauseExpiredError` for `.onError(…)`, and the branches still waiting are
+  withdrawn. The side path of `.onError(…)` reads the answers already settled as `optional(XDto)`
   inputs of its first step (a per-item list stays a list); each branch that had answered hears
   `onPauseJoinFailed(event)` (`ChannelPauseJoinFailedEvent`: `launch`, `errorCode`, `at`) on its channel
   and on listeners (`PauseListenerJoinFailedEvent`), once per pause, "the parallel step this answer

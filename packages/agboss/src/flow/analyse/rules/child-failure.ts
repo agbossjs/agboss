@@ -9,7 +9,7 @@ import type { AnalysisContext } from "./context.js";
 
 /**
  * A per-item child (#263) that cannot fail softly: no finish of the child is reachable from one of
- * its `.onError` / `.onJoinError` side paths, so one failed item cancels all the others (FailFast) →
+ * its `.onError` side paths, so one failed item cancels all the others (FailFast) →
  * the warning `[graph.child-without-failure-finish]` (an error under `--strict`). It goes away only
  * by adding such a path to the child; there is no flag to silence it.
  */

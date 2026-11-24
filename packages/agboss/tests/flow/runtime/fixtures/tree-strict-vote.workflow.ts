@@ -27,7 +27,7 @@ import {
 } from "./tree-vote.workflow.js";
 
 /**
- * #264 PR 2 (AC9) — the vote of `tree-vote.workflow.ts` with no `.onJoinError(…)`: a quorum not
+ * #264 PR 2 (AC9) — the vote of `tree-vote.workflow.ts` with no `.onError(…)`: a quorum not
  * reached fails the tree, so the test reads `QuorumNotReachedError`'s reason — the effective
  * deadline, the ticket's plus the time in the tree's queue.
  */

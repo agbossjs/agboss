@@ -121,13 +121,10 @@ const launched = onStart(HeldBranchWorkflowStart)
   .join();
 
 describe("#683: no side path takes the held branch's failure with the booking open", () => {
-  it("the join's .onJoinError owes the booking: the launched refund never undid it", () => {
+  it("the join's .onError owes the booking: the launched refund never undid it", () => {
     const flow = [
       launched
-        .onJoinError(
-          BudgetExceededError,
-          toAction(TellOrderAction).toFinish(HeldBranchWorkflowFinish),
-        )
+        .onError(BudgetExceededError, toAction(TellOrderAction).toFinish(HeldBranchWorkflowFinish))
         .toFinish(HeldBranchWorkflowFinish),
     ];
 
@@ -136,9 +133,7 @@ describe("#683: no side path takes the held branch's failure with the booking op
 
   it("nor can the side path refund with the same class: it is the launch's branch", () => {
     const side = toAction(RefundOrderAction).toFinish(HeldBranchWorkflowFinish);
-    const flow = [
-      launched.onJoinError(BudgetExceededError, side).toFinish(HeldBranchWorkflowFinish),
-    ];
+    const flow = [launched.onError(BudgetExceededError, side).toFinish(HeldBranchWorkflowFinish)];
 
     expect(brokenRules(flow)).toEqual(expect.arrayContaining(["launch.branch-continued"]));
   });

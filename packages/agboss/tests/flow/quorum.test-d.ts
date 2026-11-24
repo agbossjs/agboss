@@ -76,15 +76,15 @@ describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
     expectTypeOf(scores().acceptedBy(ValidScoreArbiter)).toHaveProperty("joinQuorumGroups");
   });
 
-  it("AC4: .onJoinError right after the quorum, .onError does not compile", () => {
+  it("AC4: .onError right after the quorum, .onJoinError does not compile", () => {
     const joined = scores().joinQuorum({ min: 2 });
     joined
-      .onJoinError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
+      .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
       .returns(listOf(ScoreDto))
       .toAgent(ScoreSummaryAgent);
-    // @ts-expect-error — .onError does not follow a join: .onJoinError(E, …)
-    joined.onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish));
-    expectTypeOf(joined).toHaveProperty("onJoinError");
+    // @ts-expect-error — the join's handler is `.onError`: `.onJoinError` is gone (#1281)
+    joined.onJoinError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish));
+    expectTypeOf(joined).toHaveProperty("onError");
   });
 });
 
@@ -158,8 +158,8 @@ describe("#279 AC7 / AC13: groups name their values and continue their own path"
     const joined = deal().joinQuorumGroups(fastGroup());
     // @ts-expect-error — no common continuation after .joinQuorumGroups(…)
     joined.toAgent(FullReviewAgent);
-    joined.onJoinError(StepFailedError, toFinish(QuickRejectWorkflowFinish));
-    expectTypeOf(joined).toHaveProperty("onJoinError");
+    joined.onError(StepFailedError, toFinish(QuickRejectWorkflowFinish));
+    expectTypeOf(joined).toHaveProperty("onError");
   });
 });
 

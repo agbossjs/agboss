@@ -108,7 +108,7 @@ describe("S22: the StepFailedError family", () => {
     expect(inside).toMatchObject({ nodeId: "critic-agent#2", visitNumber: 3, itemIndex: 4 });
   });
 
-  it("StepFailedError has its own code: .onJoinError(StepFailedError, …) takes exactly what Skip drops", () => {
+  it("StepFailedError has its own code: .onError(StepFailedError, …) takes exactly what Skip drops", () => {
     const step = { nodeId: "main-router", visitNumber: 1 };
     const errors: readonly Error[] = [
       new AgentFailedError({ agent: "writer-agent", usage: [], cause: "boom" }),

@@ -352,7 +352,7 @@ export class SumAction {
       .returns(listOf(CountDto))
       .toParallelWorkflows(ThisWorkflow, { maxItems: 2 })
       .join()
-      .onJoinError(
+      .onError(
         LimitExceededError,
         toAction(SplitStoppedAction)
           .returns(CountStoppedDto)

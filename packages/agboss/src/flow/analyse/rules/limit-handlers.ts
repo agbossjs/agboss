@@ -7,7 +7,7 @@ import { launchLabel } from "../join-groups.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
- * No model call after a limit (#263, #272): an `.onError` / `.onJoinError` side path that can catch
+ * No model call after a limit (#263, #272): an `.onError` side path that can catch
  * a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`,
  * …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past
  * the limit (its actions run whatever the budgets, #634: the reaction to the limit; their spend
@@ -72,7 +72,7 @@ function limitHandlers(context: AnalysisContext): readonly LimitHandler[] {
   const joins = context.walked.joinErrorHandlers.map(({ node, launch, handler }) => ({
     site: `the join of ${launchLabel(launch)}`,
     node,
-    call: "onJoinError",
+    call: "onError",
     error: handler.error,
     entered: targetsOf(
       edges,

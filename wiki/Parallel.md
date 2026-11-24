@@ -12,7 +12,7 @@ count and — with groups — which combination wins and where the execution goe
 > A runnable example: `examples/flow-patterns/src/panel`.
 
 > **A failed join's undo (#340).** When a launch fails, the join first undoes its finished
-> branches that declare `@Action({ compensateWith })`, newest first, before `.onJoinError` runs or
+> branches that declare `@Action({ compensateWith })`, newest first, before `.onError` runs or
 > the branch's error fails the execution (`CompensationReason.JoinFailed`) — the join's values never
 > reach the side path, so no path could undo them. Quorums launch agents only: nothing of theirs is
 > undone. [Rollback → A failed join undoes its finished branches](Rollback#a-failed-join-undoes-its-finished-branches).
@@ -169,7 +169,7 @@ export const quorumPaths = [
 
 Options are always an object: `.joinQuorum(2)` does not compile and the untyped builder refuses it.
 `.acceptedBy(…).join()` does not compile; nothing follows `.joinQuorumGroups(…)` but
-`.onJoinError(E, <side path>)`. A quorum follows `.toParallelAgents(…)` only — arbiters judge
+`.onError(E, <side path>)`. A quorum follows `.toParallelAgents(…)` only — arbiters judge
 agents' answers.
 
 ## Groups
@@ -181,7 +181,7 @@ agents' answers.
 - Every group continues its own path: `group(…).priority(n).returns(…).toAgent / .toAction /
   .toRouter / .toWorkflow / .toFinish(…)`; a group without a continuation does not compile (and is
   `[graph.dead-end]` for the untyped builder). A node reached from two groups (or a group and a
-  route, or `.onJoinError`) has its own path, by the general rules — `onAgent(FullReviewAgent)…`.
+  route, or `.onError`) has its own path, by the general rules — `onAgent(FullReviewAgent)…`.
   `.joinQuorumGroups` counts as one nesting level (`[flow.path-too-deep]`).
 
 ## What `.returns(…)` may promise
@@ -214,7 +214,7 @@ A branch whose pause expired ends `BranchStatus.Expired` (`step.pause-expired` i
 `Cancelled` or `Skipped`. In a quorum it did not vote and is no failure whatever the `FailurePolicy`; the quorum's
 deadline binds its pauses, so the tree wakes by itself at it, and `QuorumNotReachedError.expired` names the
 branches that expired. In a plain `.join()` it follows the `FailurePolicy`: `Skip` drops it, `FailFast` fails the
-launch with its `PauseExpiredError`; the `.onJoinError(…)` side path reads the answers already settled as
+launch with its `PauseExpiredError`; the `.onError(…)` side path reads the answers already settled as
 `optional(…)` inputs (see [Pauses](Pauses#expiry-in-parallel-launches-945)).
 
 A child workflow cannot be a quorum branch: a quorum launches agents only, so the pause that the quorum's deadline binds is always an agent's own (an approval or a question it asks in its tool loop).
@@ -286,7 +286,7 @@ every branch and deciding at the join:
    (`acceptedSequence` — never listed or finish order) go into the path scope; for groups the winning
    group's agents' answers, on that group's own path. Not reached → **`QuorumNotReachedError`**
    (`step.quorum`, a `StepFailedError` naming the launching step, with `min` and `counted`) into
-   `.onJoinError(QuorumNotReachedError, …)`, else the execution fails with it.
+   `.onError(QuorumNotReachedError, …)`, else the execution fails with it.
 
 | What happens in a branch | Its record |
 | --- | --- |
@@ -295,9 +295,9 @@ every branch and deciding at the join:
 | accepted after the quorum was decided | `Finished`, `Surplus` |
 | still running (or checked) when the quorum was decided | `Cancelled` |
 | its own step failed (`StepFailedError`) | `Skipped` — under a quorum it only leaves its place empty |
-| an arbiter threw, returned no boolean, or its model did not answer | `Failed` with `ArbiterError` (`step.arbiter`): the launch fails, `.onJoinError(ArbiterError, …)` takes it |
+| an arbiter threw, returned no boolean, or its model did not answer | `Failed` with `ArbiterError` (`step.arbiter`): the launch fails, `.onError(ArbiterError, …)` takes it |
 | a limit, `app.cancel` | as for every launch (#273 S21): the launch fails / the execution is cancelled |
-| a budget exhausted by any branch's call (#338) | its calls in flight aborted at once, `Failed` with `BudgetExceededError`: the launch fails before the quorum is decided, `.onJoinError(BudgetExceededError, …)` takes it ([FinOps → At run time](FinOps#at-run-time)) |
+| a budget exhausted by any branch's call (#338) | its calls in flight aborted at once, `Failed` with `BudgetExceededError`: the launch fails before the quorum is decided, `.onError(BudgetExceededError, …)` takes it ([FinOps → At run time](FinOps#at-run-time)) |
 
 Every branch's spend counts — a cancelled or surplus branch's too. Each branch's calls are counted
 the moment they are made (#338), so an arbiter's check before its model call sees the siblings'

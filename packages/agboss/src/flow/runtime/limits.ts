@@ -31,7 +31,7 @@ import { plainRecordOf, type ComponentRecord } from "./records.js";
 
 /**
  * The side path an execution is on (#656), as the budgets' two exemptions read it: entered when an
- * `.onError` / `.onJoinError` takes a failure, it is the one visit it leads to — and, step by step,
+ * `.onError` takes a failure, it is the one visit it leads to — and, step by step,
  * the visit each of its visits leads to. Every visit of a node writes it anew — the next visit
  * when the visit was on it and goes on to one node, else none —, so it ends at a finish and at a
  * launch (its branches and whatever follows its join are off it), and a visit off it never takes
@@ -58,7 +58,7 @@ export const sidePathOf = (
 const isLimit = (error: ErrorRecord): boolean => error.lineage.includes(LimitExceededError.code);
 
 /**
- * The side path an `.onError` / `.onJoinError` takes the failure into, to `to`: after a limit when
+ * The side path an `.onError` takes the failure into, to `to`: after a limit when
  * the failure is one or the failed visit was on such a side path (its reaction's own error); it owes
  * the undos of every entry open now.
  */

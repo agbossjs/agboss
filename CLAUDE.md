@@ -555,8 +555,8 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   `.toParallelActions(…)` — each listed target runs once (a repeat is a copy), targets of that kind
   only; with one target right after `.returns(listOf(XDto))` it runs once per item (`{ maxItems }`
   required, `[launch.max-items-required]`; the target reads an `XDto` field, `[launch.item-not-read]`).
-  A launch is followed by `.join()` (else it does not compile), then `.onJoinError(E, side path)`
-  (never `.onError`), then `.join().returns(…)`: one value per class the branches give —
+  A launch is followed by `.join()` (else it does not compile; `.onError` is not offered between a
+  launch and its join), then the join's `.onError(E, side path)`, then `.join().returns(…)`: one value per class the branches give —
   `listOf(XDto)` for copies, two agents with one `output` and per-item runs, `optional(XDto)` for a
   router route that is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip` — checked against the generated
   `JoinOutputs`; actions without `output` give nothing, so `.join()` goes on with `.to…(…)`. A branch
@@ -571,10 +571,10 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   copy is `critic-agent#2` in `result.path`, traces and events (`step.copyNumber` from 1, a per-item
   run's `step.itemIndex` from 0; every run of one launch is one visit of its node, so all share its
   `visitNumber` and `maxVisits` counts launches); the join's lists keep listed / item order. A failed branch aborts
-  its siblings (`FailFast`) and the join takes `.onJoinError(E, …)` (class and cause chain) or fails
+  its siblings (`FailFast`) and the join takes `.onError(E, …)` (class and cause chain) or fails
   the execution with the branch's error; `FailurePolicy.Skip` drops only a `StepFailedError`, a
   limit in a `Skip` branch fails the launch, and `app.cancel` cancels the whole execution — never a
-  branch outcome, never taken by `.onJoinError` (S21). A model router before a
+  branch outcome, never taken by `.onError` (S21). A model router before a
   launch decides its `OnDemand` routes in one call — a `Decision.noul` per route on a decision
   model, one answer tool with a boolean per route on a chat model (tests: `decideWith({ "<target
 name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S23).
@@ -592,8 +592,8 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   finishes' outputs — `.returns(XDto)` for one class, `.returns(oneOf(…)).switch(caseOf(…)…)` with one
   case per class (two finishes of one class are one case; a case counts as read), and
   `.join().returns(listOf(oneOf(…)))` after a per-item launch (S53: one polymorphic list). Errors:
-  `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`, `.onJoinError(E, …)` right after
-  the join (the other does not compile). A per-item child with no finish reachable from one of its
+  `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`, and right after the join (the
+  join's own handler, before its `.returns(…)`). A per-item child with no finish reachable from one of its
   `.onError` side paths warns `[graph.child-without-failure-finish]` (an error under `--strict`).
   Any side path that can catch a `LimitExceededError` (the class, a subclass, a parent such as
   `AGBossError`) leads only to actions and finishes — `[graph.limit-handler-uses-model]`. A child
@@ -678,7 +678,7 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   (`[graph.recursion-without-exit]`). A launch decided by code or data past `maxDepth` does not start:
   `ChildExecutionFailedError` caused by `DepthLimitExceededError` (`limit.depth`: `workflow`,
   `maxDepth`, `depth`; a refused child record with an empty path) — `.onError(LimitExceededError, …)`
-  right after the launch, `.onJoinError(…)` after a per-item join. Only direct recursion
+  right after the launch, `.onError(…)` after a per-item join. Only direct recursion
   (`[graph.mutual-recursion]`, also for a class undefined by a circular import). Each level has its own
   `maxSteps`; the root's budgets count the tree. `agboss describe`: `recursive: ThisWorkflow, maxDepth
 3, on the last level: researcher-agent → TopicReportDto only`, a list's producers `this-workflow ×0–5`.
@@ -717,7 +717,7 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
   `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups(group(A, B)
 .priority(1).returns(…).to…(…), …, { deadline })`, where every group continues its own path (1
-  is the highest priority; nothing follows the groups but `.onJoinError(E, …)`). `@Arbiter`
+  is the highest priority; nothing follows the groups but `.onError(E, …)`). `@Arbiter`
   classes (`arbiters/*.arbiter.ts`, `-arbiter`) decide whether an answer counts, attached with
   `.acceptedBy(X)` between the launch and the quorum (`.acceptedBy(…).join()` does not compile):
   several `.acceptedBy(…)` are an AND in path order, `.acceptedBy(anyOf(A, B))` stops at the first
@@ -741,7 +741,7 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   launch's ticket (a pause counts as time); after a resume or a crash the quorum is rebuilt from the
   finished branches' records and an expired deadline cancels the rest without running them. The
   join decides from the records only: the counted answers (the winning group's own path), or
-  `QuorumNotReachedError` (`step.quorum`) into `.onJoinError(…)`; an arbiter that throws or whose
+  `QuorumNotReachedError` (`step.quorum`) into `.onError(…)`; an arbiter that throws or whose
   model does not answer is `ArbiterError` (`step.arbiter`), both `StepFailedError`s. A model
   arbiter makes one decision per answer under `arbiter:<name>` (tests: `mockLlm(Arbiter)
 .thenReturn(decideWith({ counts: 0.9 }))`; a code arbiter is created by the container).
@@ -755,14 +755,14 @@ waiting"`) and its recovery sweep starts at most its free slots' worth of recove
   #649), `@Action` (code, no model: `execute(input)`; its execution through `deps: [ExecutionContext]`;
   `compensateWith: UndoAction` / `committedBy: CommitAction`, #339 — checked at assembly: the
   undo reads only what the path holds right after the action, `[action.invalid-compensator-input]`;
-  an `.onError` / `.onJoinError` side path after it reaches a finish only through its undo, newest
+  an `.onError` side path after it reaches a finish only through its undo, newest
   first, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`; with `committedBy` every
   path from it runs the committer or the undo, `[flow.uncommitted-action]`; `committedBy` without
   `compensateWith` has no effect, `[action.committer-without-compensator]`; `agboss describe`
   prints both. At run time (#340) each success opens a record in the execution's `compensations`
   (with a snapshot of what its undo reads) — committed by its committer or a finish (a child's own
   finish commits the child's), closed by its undo on a side path (`CompensationReason.SidePath`);
-  a failed join undoes its finished undoable branches before `.onJoinError` or the failure
+  a failed join undoes its finished undoable branches before `.onError` or the failure
   (`JoinFailed`, newest first, after awaiting the launch's running branches), each in its own frame
   — key `<step key>:compensation`, `step.compensates`, a clean-up `signal` bounded by
   `@Application({ compensationTimeout })` (default `seconds(15)`) and a lost lease, no slot, no

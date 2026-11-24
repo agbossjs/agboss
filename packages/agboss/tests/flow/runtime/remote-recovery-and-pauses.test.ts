@@ -1,7 +1,7 @@
 /**
  * #333 PR 4 (AC2, AC3, AC4, S7, S9):
  * - AC2: while a parent awaits remote children, it yields its root lease in
- *   `ExecutionLeaseRepository` and reclaims it before `.join()` / `.onJoinError()`.
+ *   `ExecutionLeaseRepository` and reclaims it before `.join()` / `.onError()`.
  * - AC3: a remote child (`ChildPlacement.AnyInstance`) that pauses interrupts its parent's node
  *   with `{ waitingForChild: { …, remote: true } }`, surfaces in `result.pending` with its
  *   `childExecutionId` and `itemIndex`, resumes on any instance via `app.resume`, and populates

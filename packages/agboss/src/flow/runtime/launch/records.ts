@@ -6,7 +6,7 @@ import type { NodeValue } from "../scope.js";
  * What a parallel launch keeps in the execution's state (#273 S20): the launch in flight — its id
  * and the branches it dispatched, each a ticket — and one outcome record per branch that ended. A
  * branch's error is a record, never an exception through LangGraph, so the join always runs and can
- * take it into `.onJoinError(…)`. Everything is plain JSON: it survives a serialising checkpointer.
+ * take it into `.onError(…)`. Everything is plain JSON: it survives a serialising checkpointer.
  */
 
 /** How a branch of a launch ended. */

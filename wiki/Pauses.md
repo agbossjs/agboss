@@ -569,11 +569,11 @@ the whole tree's. A per-item launch whose children each pause gives each child's
 entry (its `step.itemIndex` the child's item).
 
 **`FailFast` drops paused siblings** (#273 S21): a branch that fails cancels its launch, and its paused
-siblings' pauses are withdrawn — the tree goes on to the join (its `.onJoinError(…)`, else the
+siblings' pauses are withdrawn — the tree goes on to the join (its `.onError(…)`, else the
 execution fails with the branch's error) instead of waiting for answers nobody needs. The join
 runs in the pass that takes the withdrawal, and it still gets the error object the branch threw:
-`.onJoinError(E, …)` matches by class and cause chain as always — `.onJoinError(PaymentDeclinedError,
-…)` and `.onJoinError(StepFailedError, …)` both take an agent that failed with a domain error, and
+`.onError(E, …)` matches by class and cause chain as always — `.onError(PaymentDeclinedError,
+…)` and `.onError(StepFailedError, …)` both take an agent that failed with a domain error, and
 without a handler the execution rejects with that same `AgentFailedError`. A channel whose `send`
 throws (not cancelled) fails the asking agent's step: `AgentFailedError`, the channel's error as its
 `cause` — never a tool error the model reads. A join's
@@ -582,7 +582,7 @@ throws (not cancelled) fails the asking agent's step: `AgentFailedError`, the ch
 **A pause inside a child is its branch's** (#337): a pause records the launch branches it waits
 under — its own step and every step that launched one of its executions — so a `FailFast` failure
 withdraws a sibling **child's** pause under `.toParallelWorkflows(…)` too, at any depth, and the
-execution fails (or takes its `.onJoinError(…)`) in the same call instead of resting paused.
+execution fails (or takes its `.onError(…)`) in the same call instead of resting paused.
 
 **A decided quorum drops its waiting branches** (#337, [Parallel → Quorums](Parallel#pause-resume-recovery)):
 once a `.joinQuorum(…)` / `.joinQuorumGroups(…)` is decided — `max` counted, a group won, the
@@ -797,7 +797,7 @@ it and the pause's own and the run's): at it the tree wakes by itself — no ans
 decides. The branch ends `BranchStatus.Expired`: it did not vote, never fails the launch, whatever its
 `FailurePolicy`; `QuorumNotReachedError.expired` names the branches that expired. In a plain `.join()` an expired
 branch follows its `FailurePolicy`: `Skip` drops it, `FailFast` fails the launch with the branch's
-`PauseExpiredError` for `.onJoinError(PauseExpiredError, …)` and withdraws the branches still waiting. The side
+`PauseExpiredError` for `.onError(PauseExpiredError, …)` and withdraws the branches still waiting. The side
 path reads the answers already settled — each branch output as an `optional(XDto)` input of its first step —
 so it continues or escalates without asking anyone again. Each branch that had answered hears
 `onPauseJoinFailed` (`ChannelPauseJoinFailedEvent`: `launch`, `errorCode`, `at`; a listener's

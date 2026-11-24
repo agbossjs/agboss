@@ -136,7 +136,7 @@ export const ExecutionState = Annotation.Root({
   child: Annotation<ChildIdentityRecord | null>({ reducer: replace, default: () => null }),
   /** Every child execution that ended, as a nested record (`result.children`). */
   children: Annotation<EndedChildRecord[]>({ reducer: append, default: () => [] }),
-  /** Every failure an `.onError` / `.onJoinError` side path took (`toHaveHandledError`). */
+  /** Every failure an `.onError` side path took (`toHaveHandledError`). */
   handledErrors: Annotation<HandledErrorRecord[]>({ reducer: append, default: () => [] }),
   /** The side path the next visit is on (#656): what the budgets' exemptions read; `null` off one. */
   sidePath: Annotation<SidePathRecord | null>({ reducer: replace, default: () => null }),

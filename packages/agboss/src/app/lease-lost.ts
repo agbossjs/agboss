@@ -14,7 +14,7 @@ export interface ExecutionLeaseLostErrorOptions {
  * The instance lost the lease of the tree it was moving (#265, Q58): the lease expired — the holder
  * was frozen or cut off longer than the lease, or its store never confirmed a renewal (#335) — and
  * another instance took it or may take it now, and continues the tree. Not a failure of the
- * execution: it reaches neither `.onError`, `onError` nor the record; only the moving call rejects.
+ * execution: it reaches neither `.onError` nor the record; only the moving call rejects.
  */
 export class ExecutionLeaseLostError extends AGBossError {
   static override readonly code: string = "execution.lease-lost";

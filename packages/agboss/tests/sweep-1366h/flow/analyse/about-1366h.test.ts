@@ -725,7 +725,7 @@ describe("#1366: a cycle that only the join's error path closes", () => {
           .returns(PlanDto)
           .toParallelAgents(PlanResearcherAgent, CriticAgent)
           .join()
-          .onJoinError(
+          .onError(
             StepFailedError,
             toAction(RetryNoteAction).returns(LeftDto).toAgent(RetryPlannerAgent),
           )

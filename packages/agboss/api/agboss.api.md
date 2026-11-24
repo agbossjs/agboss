@@ -3977,7 +3977,7 @@ type GroupsCheck<TKey extends string, TArgs extends readonly unknown[]> = {
 
 // @public
 export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
-    onJoinError<const TPath extends SidePath>(error: ErrorClass, path: TPath): GroupsJoined<WithClaims<THead, ClaimsOf<TPath>>>;
+    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): GroupsJoined<WithClaims<THead, ClaimsOf<TPath>>>;
 };
 
 // @public
@@ -4829,7 +4829,7 @@ export interface JoinErrorHandler {
 // @public
 export interface JoinErrorHandling<TKey extends string, THead extends PathHead> {
     // (undocumented)
-    onJoinError<const TPath extends SidePath>(error: ErrorClass, path: TPath): Joined<TKey, WithClaims<THead, ClaimsOf<TPath>>>;
+    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): Joined<TKey, WithClaims<THead, ClaimsOf<TPath>>>;
 }
 
 // @public (undocumented)
@@ -4852,7 +4852,7 @@ export interface JoinStep {
     // (undocumented)
     readonly kind: StepKind.Join;
     // (undocumented)
-    readonly onJoinError: readonly JoinErrorHandler[];
+    readonly onError: readonly JoinErrorHandler[];
     readonly quorum?: Quorum;
     readonly returns: readonly ReturnedValue[];
 }
@@ -8037,7 +8037,7 @@ export interface QuorumGroupsOptions {
 
 // @public
 export type QuorumJoined<TKey extends string, THead extends PathHead, TWhole extends boolean> = {
-    onJoinError<const TPath extends SidePath>(error: ErrorClass, path: TPath): QuorumJoined<TKey, WithClaims<THead, ClaimsOf<TPath>>, TWhole>;
+    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): QuorumJoined<TKey, WithClaims<THead, ClaimsOf<TPath>>, TWhole>;
 } & QuorumContinuation<QuorumOutput<JoinOutputOf<TKey>, TWhole>, TKey, THead>;
 
 // @public
@@ -9747,7 +9747,7 @@ interface ThisWorkflowJoinClaim<TValue> {
 // @public
 interface ThisWorkflowJoined<THead extends PathHead> {
     // (undocumented)
-    onJoinError<const TPath extends SidePath>(error: ErrorClass, path: TPath): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;
+    onError<const TPath extends SidePath>(error: ErrorClass, path: TPath): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;
     // (undocumented)
     returns<const TShape extends ReturnedShape>(value: TShape, ...options: ReturnsArguments<TShape, ThisWorkflowJoinValues>): AfterReturns<ThisWorkflowJoinValues, never, [
     ValueOf<TShape>
@@ -11496,7 +11496,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "deadline".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Quorum".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "onJoinError".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Step".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "steps".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "source".
@@ -11681,7 +11681,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/handlers.ts - (ae-undocumented) Missing documentation for "route".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "maxItems".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "join".
-// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "onJoinError".
+// src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelAgents".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelActions".
 // src/flow/launch-types.ts - (ae-undocumented) Missing documentation for "toParallelAgents".
@@ -11853,7 +11853,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "takesAbout".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "canLaunch".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "returns".
-// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "onJoinError".
+// src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "returns".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "join".
 // src/flow/this-workflow-types.ts - (ae-undocumented) Missing documentation for "StepNotGiven".

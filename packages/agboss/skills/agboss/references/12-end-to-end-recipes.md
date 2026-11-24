@@ -846,7 +846,7 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
       .toParallelAgents(PriceReviewAgent, RiskReviewAgent, TermsReviewAgent)
       .acceptedBy(anyOf(ReviewRangeArbiter, ReviewGroundedArbiter)) // the model only when the code rejects
       .joinQuorum({ min: 2, max: 3, deadline: minutes(2) })
-      .onJoinError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
+      .onError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
       .returns(listOf(PurchaseReviewDto))
       .toAgent(PurchaseAgent) // its tool pauses for the buyer
       .returns(PurchaseSummaryDto)

@@ -62,7 +62,7 @@ function codesOf(sidePath: ReturnType<typeof toAction>): readonly string[] {
       .returns(PlanDto)
       .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
       .join()
-      .onJoinError(PauseExpiredError, sidePath)
+      .onError(PauseExpiredError, sidePath)
       .returns(ResearchDto)
       .returns(listOf(CritiqueDto))
       .toAgent(ArticleWriterAgent)
@@ -91,7 +91,7 @@ describe("V3.6: the settled answers on the error path", () => {
     expect(codesOf(side)).toContain("input.missing-on-path");
   });
 
-  it(".onJoinError(PauseExpiredError, toFinish(F)) reading none of them: no [flow.unused-output]", () => {
+  it(".onError(PauseExpiredError, toFinish(F)) reading none of them: no [flow.unused-output]", () => {
     expect(codesOf(toFinish(ArticleDraftWorkflowFinish))).not.toContain("flow.unused-output");
   });
 });

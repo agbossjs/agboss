@@ -14,7 +14,7 @@ import {
  * (`ExecutionLeaseLostError`), or stopped and interrupted it (`ApplicationStoppingError`, the
  * shutdown timeout passed), or an external system fenced one of its writes (`ExecutionFencedError`,
  * #471 — found anywhere in the error's cause chain). Another instance continues the tree: it reaches
- * neither `.onError`, `onError` nor the record (which stays `running`), and the tree keeps its keys.
+ * neither `.onError` nor the record (which stays `running`), and the tree keeps its keys.
  */
 export const isHandedOver = (error: unknown): boolean =>
   error instanceof ExecutionLeaseLostError ||

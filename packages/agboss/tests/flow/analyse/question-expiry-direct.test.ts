@@ -77,7 +77,7 @@ describe("#1366: the mentions of a question", () => {
         { kind: StepKind.OnError, path: sub(ask(hours(3))) },
         {
           kind: StepKind.Join,
-          onJoinError: [{ path: sub(ask(hours(4))) }],
+          onError: [{ path: sub(ask(hours(4))) }],
         },
         { kind: StepKind.Launch },
       ),

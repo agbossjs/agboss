@@ -74,7 +74,7 @@ export class JoinLimitWorkflowStart {}
       .returns(OrderDto)
       .toParallelActions(ChargeOrderAction, NoteOrderAction)
       .join()
-      .onJoinError(BudgetExceededError, launchedAfterLimit)
+      .onError(BudgetExceededError, launchedAfterLimit)
       .returns(OrderNoteDto)
       .toFinish(LimitNotedWorkflowFinish),
   ],

@@ -69,7 +69,7 @@ export function subPathsOf(step: Exclude<Step, ToStep | LaunchStep>): readonly S
       return [step.path];
     case StepKind.Join:
       return [
-        ...step.onJoinError.map((handler) => handler.path),
+        ...step.onError.map((handler) => handler.path),
         ...(step.quorum?.kind === QuorumKind.Groups
           ? step.quorum.groups.map((group) => group.path)
           : []),

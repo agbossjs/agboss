@@ -243,7 +243,7 @@ export class ChecksFailedWorkflowFinish {
       .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemCheckWorkflow, { maxConcurrency: 2, maxItems: 10 })
       .join()
-      .onJoinError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
+      .onError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
       .returns(listOf(ItemResultDto))
       .toFinish(ChecksSummaryWorkflowFinish),
   ],
@@ -553,7 +553,7 @@ export class ReviewsSummaryWorkflowFinish {
       .returns(listOf(ItemDto))
       .toParallelWorkflows(ItemReviewWorkflow, { maxConcurrency: 2, maxItems: 10 })
       .join()
-      .onJoinError(
+      .onError(
         ChildExecutionFailedError,
         toAgent(ReviewRescueAgent)
           .returns(SummaryDto)

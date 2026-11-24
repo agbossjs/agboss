@@ -10,7 +10,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
 /**
  * A failed join undoes its finished branches automatically (#340): the flight and the hotel are
  * booked at once, each with `compensateWith` and no `committedBy` — the finish commits them. When
- * one booking fails, the other, finished one is cancelled before the `.onJoinError` side path runs
+ * one booking fails, the other, finished one is cancelled before the `.onError` side path runs
  * (`CompensationReason.JoinFailed`): no path could say it, the join's values never reach it.
  */
 @Workflow({
@@ -21,7 +21,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
       .returns(TripRequestDto)
       .toParallelActions(BookFlightAction, BookHotelAction)
       .join()
-      .onJoinError(
+      .onError(
         BookingFailedError, // the hotel failed: the finished flight is cancelled before this path runs
         toFinish(TripNotBookedWorkflowFinish),
       )

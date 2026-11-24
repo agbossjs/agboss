@@ -17,7 +17,7 @@ import { Integer, ListOf, Text } from "../../../src/dto/index.js";
  * #264 S112 — `ThisWorkflow` typed per path: three recursive workflows whose finishes give other
  * classes than the research of recursion.fixture.ts (`TeamChartDto | OrgChartFailedDto`), each typed
  * by its own `ThisWorkflowOutputs` entry. `org-chart-workflow`: a per-item launch with its
- * `.onJoinError(…)`; `org-drill-workflow`: `route(ThisWorkflow)` and `.toWorkflow(ThisWorkflow)`
+ * `.onError(…)`; `org-drill-workflow`: `route(ThisWorkflow)` and `.toWorkflow(ThisWorkflow)`
  * continued on the own path `onWorkflow(ThisWorkflow)…`; `org-retry-workflow`: the side-path starter
  * `.onError(E, toWorkflow(ThisWorkflow)…)`.
  */
@@ -127,7 +127,7 @@ export class OrgChartFailedWorkflowFinish {}
           .returns(listOf(OrgUnitDto))
           .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 2, maxItems: 4 })
           .join()
-          .onJoinError(
+          .onError(
             LimitExceededError,
             toAction(MarkUnitFailedAction)
               .returns(OrgChartFailedDto)

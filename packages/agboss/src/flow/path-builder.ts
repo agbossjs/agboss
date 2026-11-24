@@ -63,7 +63,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return new PathBuilder(this.start, this.source, [...this.steps, step]);
   }
 
-  /** The join with a new handler or value: `.onJoinError(…)` and `.returns(…)` extend it. */
+  /** The join with a new handler or value: `.onError(…)` and `.returns(…)` extend it. */
   private withJoin(join: JoinStep): PathBuilder<TSource> {
     return this.withLast(Object.freeze(join));
   }
@@ -129,8 +129,20 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.then({ kind: StepKind.ChooseOne, routes: routes.map((path) => path.asRoute()) });
   }
 
+  /**
+   * `.onError(E, side path)`: after a step it handles that step's failure; right after a join
+   * (`.join()`, `.joinQuorum(…)`, `.joinQuorumGroups(…)`), before its `.returns(…)`, it handles the
+   * join's failure (#1281).
+   */
   onError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.OnError, error, path: path.asSidePath() });
+    const { last } = this;
+    if (last?.kind !== StepKind.Join) {
+      return this.then({ kind: StepKind.OnError, error, path: path.asSidePath() });
+    }
+    if (last.returns.length > 0)
+      throw syntaxError(".onError(E, …) stands right after .join(), before its .returns(…)");
+    const handler = Object.freeze({ error, path: path.asSidePath() });
+    return this.withJoin({ ...last, onError: Object.freeze([...last.onError, handler]) });
   }
 
   toParallelAgents(...args: readonly unknown[]): PathBuilder<TSource> {
@@ -150,7 +162,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.then({
       kind: StepKind.Join,
       returns: Object.freeze([]),
-      onJoinError: Object.freeze([]),
+      onError: Object.freeze([]),
     });
   }
 
@@ -166,7 +178,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.then({
       kind: StepKind.Join,
       returns: Object.freeze([]),
-      onJoinError: Object.freeze([]),
+      onError: Object.freeze([]),
       quorum: countQuorumOf(options),
     });
   }
@@ -178,7 +190,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.then({
       kind: StepKind.Join,
       returns: Object.freeze([]),
-      onJoinError: Object.freeze([]),
+      onError: Object.freeze([]),
       quorum: groupsQuorumOf(args, asGroup),
     });
   }
@@ -189,14 +201,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
       throw syntaxError(".priority(n) stands right after group(…)");
     const start = { ...this.start, priority: priorityOf(priority) };
     return new PathBuilder(start, this.source, this.steps);
-  }
-
-  onJoinError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
-    const { last } = this;
-    if (last?.kind !== StepKind.Join || last.returns.length > 0)
-      throw syntaxError(".onJoinError(E, …) stands right after .join(), before its .returns(…)");
-    const handler = Object.freeze({ error, path: path.asSidePath() });
-    return this.withJoin({ ...last, onJoinError: Object.freeze([...last.onJoinError, handler]) });
   }
 
   private launch(targetKind: LaunchTargetKind, args: readonly unknown[]): PathBuilder<TSource> {

@@ -294,10 +294,9 @@ on its cost, its tenant's and the application's. All violations at once, before 
   | --- | --- |
   | a start, a finish | it spends nothing: an execution whose last action overspends ends at its finish, its spend counted |
   | an undo (`compensateWith`) | it gives money back: a failure for the budget runs the open undos ([Rollback](Rollback)), with no budget check — and so does the undo action a side path runs to close an entry that was open when the side path was entered (`.onError(DeclinedError, toAction(RefundAction)…)`) |
-  | an action of the side path that took a limit (`.onError(BudgetExceededError, toAction(NotifyAction)…)`, `.onJoinError(…)`), and the actions it leads to step by step | it is the application's reaction to the limit — that path reaches only actions and finishes (`[graph.limit-handler-uses-model]`); what it spends still counts |
+  | an action of the side path that took a limit (`.onError(BudgetExceededError, toAction(NotifyAction)…)`, `.onError(…)`), and the actions it leads to step by step | it is the application's reaction to the limit — that path reaches only actions and finishes (`[graph.limit-handler-uses-model]`); what it spends still counts |
 
-  Both exemptions hold **only on that side path** (#656): it is the visit the `.onError` /
-  `.onJoinError` leads to and, one visit after another, the visit each leads to — a record in the
+  Both exemptions hold **only on that side path** (#656): it is the visit the `.onError` leads to and, one visit after another, the visit each leads to — a record in the
   execution's checkpointed state, so the visit run again after a resume or a takeover reads it as
   the first run did. A finish or a launch ends it: the branches a side path launches, and whatever
   follows their join, are held back. An undo action reached any other way — a step of the main path
@@ -323,7 +322,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
   spend so far. The branches fail with that error and the launch with it — the same for
   `.toParallelAgents`, `.toParallelActions` (the action's `executionContext.signal`),
   `.toParallelWorkflows` (the children's model and tool calls) and quorums — into
-  `.onJoinError(BudgetExceededError, toAction(…)… | toFinish(…))`, a side path without a model
+  `.onError(BudgetExceededError, toAction(…)… | toFinish(…))`, a side path without a model
   (`[graph.limit-handler-uses-model]`), else the execution fails. A branch that started after the
   budget was exhausted is not aborted: it stops at its own check before it runs — an action's branch
   too (#634), so a branch listed after the one that spent the last of the budget never runs.
@@ -333,7 +332,7 @@ onStart(ReviewWorkflowStart)
   .returns(DraftDto)
   .toParallelAgents(StyleAgent, FactsAgent, LegalAgent)
   .join()
-  .onJoinError(
+  .onError(
     BudgetExceededError, // a branch's call exhausted a budget: the others were stopped at once
     toAction(NotifyEditorAction)
       .toFinish(ReviewStoppedWorkflowFinish),
@@ -377,7 +376,7 @@ BudgetExceededError {
   an execution that ends without a finish — an exhausted budget among the reasons
   ([Rollback](Rollback#an-execution-that-ends-without-a-finish)) — take no budget check, so an
   exhausted budget never leaves a booking in place. What their services cost (`SpendRecorder`) is
-  spend under `action:<undo name>`: in the join's update when its `.onJoinError` takes the failure;
+  spend under `action:<undo name>`: in the join's update when its `.onError` takes the failure;
   otherwise — the join fails the execution, a child or a root ends without a finish, a late undo
   — written to the ledger's counters at once, since no state of the execution will hold it (#340
   PR 3). A child's undo spend is then in the ledger only, not in its parent's `result.spend`.

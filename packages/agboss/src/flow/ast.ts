@@ -37,7 +37,7 @@ export enum StepKind {
    * branches launched at once.
    */
   Launch = "launch",
-  /** `.join()` after a launch, with its `.onJoinError(…)` handlers and `.returns(…)` values. */
+  /** `.join()` after a launch, with its `.onError(…)` handlers and `.returns(…)` values. */
   Join = "join",
 }
 
@@ -164,7 +164,7 @@ export interface LaunchStep {
   readonly placement?: ChildPlacement;
 }
 
-/** `.onJoinError(ErrorClass, toAction(X)…)`: the side path a failed launch takes. */
+/** `.onError(ErrorClass, toAction(X)…)`: the side path a failed launch takes. */
 export interface JoinErrorHandler {
   readonly error: ErrorClass;
   readonly path: SubPath;
@@ -221,7 +221,7 @@ export interface JoinStep {
   readonly kind: StepKind.Join;
   /** `.join().returns(A).returns(listOf(B))`: one value per class the branches give. */
   readonly returns: readonly ReturnedValue[];
-  readonly onJoinError: readonly JoinErrorHandler[];
+  readonly onError: readonly JoinErrorHandler[];
   /** `.joinQuorum(…)` / `.joinQuorumGroups(…)`; absent for `.join()`. */
   readonly quorum?: Quorum;
 }

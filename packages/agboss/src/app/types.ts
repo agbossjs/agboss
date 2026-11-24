@@ -263,7 +263,7 @@ export interface ExecutionOutput<TOutput = unknown> {
    * children — nested records, never in the thread's conversation history.
    */
   readonly children: readonly ChildExecutionRecord[];
-  /** The failures an `.onError` / `.onJoinError` side path took, in order (`toHaveHandledError`). */
+  /** The failures an `.onError` side path took, in order (`toHaveHandledError`). */
   readonly handledErrors: readonly HandledErrorRecord[];
   /**
    * The undo actions that ran (#340), in the order they ended: on a side path

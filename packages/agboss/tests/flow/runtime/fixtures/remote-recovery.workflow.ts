@@ -102,7 +102,7 @@ export class RemoteHoldItemsWorkflowStart {}
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .onJoinError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
+      .onError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
       .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],

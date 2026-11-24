@@ -24,7 +24,7 @@ import type { ThisWorkflow } from "./this-workflow.js";
  * workflow, so what it gives cannot be one generated entry: a `.returns(…)` after a `ThisWorkflow`
  * step, or after its per-item join, is not checked where it is written — it is recorded as a claim
  * in the path's head (`claims`), carried through every sub-path into `.switch(…)` / `.chooseOne(…)`
- * / `.onError(…)` / `.onJoinError(…)`, and `@Workflow({ name, flow })` checks the claims of its flow
+ * / `.onError(…)`, and `@Workflow({ name, flow })` checks the claims of its flow
  * against its own entry, `ThisWorkflowOutputs[name]`: the launch's input problems (`input`), the
  * finishes' outputs (`output`) and the join of a per-item launch (`join`). A wrong class is a compile
  * error on `flow`.
@@ -92,9 +92,9 @@ export interface ThisWorkflowReturning<THead extends PathHead> {
   >;
 }
 
-/** After the join of `.toParallelWorkflows(ThisWorkflow, …)`: its `.onJoinError(…)`, its values. */
+/** After the join of `.toParallelWorkflows(ThisWorkflow, …)`: its `.onError(…)`, its values. */
 export interface ThisWorkflowJoined<THead extends PathHead> {
-  onJoinError<const TPath extends SidePath>(
+  onError<const TPath extends SidePath>(
     error: ErrorClass,
     path: TPath,
   ): ThisWorkflowJoined<WithClaims<THead, ClaimsOf<TPath>>>;

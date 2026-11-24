@@ -41,7 +41,7 @@ export enum EdgeKind {
   /** `.join()….to…(Y)`: from the launching step past its branches, with their values (#273). */
   Join = "join",
   /**
-   * `.join().onJoinError(E, toAction(X)…)`: the launch failed; the launching step's values, and
+   * `.join().onError(E, toAction(X)…)`: the launch failed; the launching step's values, and
    * each branch output the launch gives as an optional value (a list stays a list, #945).
    */
   JoinError = "join-error",

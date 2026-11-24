@@ -48,7 +48,7 @@ export const executionSignalOf = (config: RunnableConfig | undefined, runId: str
 
 /**
  * A hand-over and a cancel of the execution (S21): thrown as they are — never recorded, never
- * `Skip`ped, never taken by `.onJoinError(…)`. A fenced write behind the branch's `error` (#471) is a
+ * `Skip`ped, never taken by `.onError(…)`. A fenced write behind the branch's `error` (#471) is a
  * hand-over too, and wins over the signal's reason.
  */
 export function passThroughStops(
@@ -92,7 +92,7 @@ export const branchRecordOf = (
  * The errors of failed branches across the passes of one process (#267 AC10): a `FailFast`
  * failure withdraws its paused siblings, and the join runs in the next pass — a new graph, a new
  * registry — so the error the branch threw is kept here, as it was thrown, for the join to route
- * (`.onJoinError`) and rethrow. One per workflow of an application instance; a launch's entries go
+ * (`.onError`) and rethrow. One per workflow of an application instance; a launch's entries go
  * with its join, an execution's with its tree. Another instance has the branch's record only.
  */
 export class BranchErrors {

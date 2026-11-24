@@ -35,7 +35,7 @@ import { ReviewWorkflowStart } from "./review.workflow-start.js";
       .returns(EditorialPlanDto)
       .toParallelAgents(StyleCriticAgent, FactCheckerAgent, FactCheckerAgent, { maxConcurrency: 2 })
       .join()
-      .onJoinError(StepFailedError, toFinish(ReviewIncompleteWorkflowFinish))
+      .onError(StepFailedError, toFinish(ReviewIncompleteWorkflowFinish))
       .returns(StyleNotesDto)
       .returns(listOf(FactCheckDto))
       .toFinish(ReviewWorkflowFinish),

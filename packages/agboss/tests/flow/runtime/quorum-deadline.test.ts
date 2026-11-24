@@ -93,7 +93,7 @@ describe("AC2: between min and max, the deadline", () => {
   );
 
   checked(
-    "the deadline with min not reached: QuorumNotReachedError into .onJoinError",
+    "the deadline with min not reached: QuorumNotReachedError into .onError",
     async ({ app, mockLlm, clock }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(7));
       mockLlm(RisksPanelAgent).thenReturn(cancelledWhileWaiting(60));

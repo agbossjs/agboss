@@ -91,7 +91,7 @@ describe("a reviewer per section, then the critics side by side", () => {
     expect(mockLlm(SectionReviewerAgent).requests).toHaveLength(20);
   });
 
-  test("a critic that fails takes .onJoinError(StepFailedError, …): the plan, unreviewed", async ({
+  test("a critic that fails takes .onError(StepFailedError, …): the plan, unreviewed", async ({
     app,
     mockLlm,
   }) => {

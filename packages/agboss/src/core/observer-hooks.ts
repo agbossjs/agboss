@@ -149,13 +149,13 @@ export interface OnLaunchItemsTruncated {
  * by which arbiters, surplus, or none when cancelled) and the winning group.
  */
 export interface OnQuorumDecided {
-  /** Called once per quorum join, before the execution goes on (or into `.onJoinError`). */
+  /** Called once per quorum join, before the execution goes on (or into `.onError`). */
   onQuorumDecided(event: QuorumDecidedEvent): HookResult;
 }
 
 /**
  * An automatic undo action starts (#340): a failed join undoing its finished branches — once per
- * undo action, newest first, before `.onJoinError`.
+ * undo action, newest first, before `.onError`.
  */
 export interface OnCompensationStart {
   /** Called before each automatic undo action runs, in its frame. */

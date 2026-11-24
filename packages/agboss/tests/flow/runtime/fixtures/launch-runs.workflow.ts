@@ -31,7 +31,7 @@ import {
 /**
  * #273 PR 2 — launches over time: one inside a loop (each pass its own launch id and records), a
  * per-item agent that pauses for an approval in one branch (the others go on), and a per-item agent
- * whose `maxVisits` a launch passes (the limit fails the launch into `.onJoinError(…)`).
+ * whose `maxVisits` a launch passes (the limit fails the launch into `.onError(…)`).
  */
 
 // ── a launch inside a loop ──
@@ -237,7 +237,7 @@ export class TiredLoopRouter {
       .returns(PlanDto)
       .toParallelAgents(TiredCriticAgent, TiredCriticAgent)
       .join()
-      .onJoinError(VisitsLimitExceededError, toFinish(TiredWorkflowFinish))
+      .onError(VisitsLimitExceededError, toFinish(TiredWorkflowFinish))
       .returns(listOf(CritiqueDto))
       .toRouter(TiredLoopRouter)
       .chooseOne(route(TiredPlannerAgent), route(CritiquesWorkflowFinish)),

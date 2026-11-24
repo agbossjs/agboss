@@ -107,24 +107,21 @@ describe("AC5: a model arbiter judges each answer by its agent's criterion", () 
     },
   );
 
-  model(
-    "its model does not answer: ArbiterError, taken by .onJoinError",
-    async ({ app, mockLlm }) => {
-      mockLlm(SkillsPanelAgent).thenReturn(score(7));
-      mockLlm(RisksPanelAgent).thenReturn(score(6));
-      mockLlm(HirePanelAgent).thenReturn(score(9));
-      mockLlm(PanelModelArbiter).thenReturnAlways(failWith(ModelFailure.Timeout));
+  model("its model does not answer: ArbiterError, taken by .onError", async ({ app, mockLlm }) => {
+    mockLlm(SkillsPanelAgent).thenReturn(score(7));
+    mockLlm(RisksPanelAgent).thenReturn(score(6));
+    mockLlm(HirePanelAgent).thenReturn(score(9));
+    mockLlm(PanelModelArbiter).thenReturnAlways(failWith(ModelFailure.Timeout));
 
-      const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
+    const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
 
-      expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
-      expect(result.record?.lastError).toMatchObject({
-        code: "step.arbiter",
-        lineage: ["step.arbiter", "step.failed", "step", "agboss"],
-        details: { arbiter: "panel-model-arbiter" },
-      });
-    },
-  );
+    expect(result).toFinishWith(PanelUnjudgedWorkflowFinish, ANNA);
+    expect(result.record?.lastError).toMatchObject({
+      code: "step.arbiter",
+      lineage: ["step.arbiter", "step.failed", "step", "agboss"],
+      details: { arbiter: "panel-model-arbiter" },
+    });
+  });
 });
 
 describe("AC5: a model arbiter on a chat model", () => {

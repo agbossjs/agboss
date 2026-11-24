@@ -246,7 +246,7 @@ export class ShortFraudAgent {}
 })
 export class QuorumExpiryShortWorkflowStart {}
 
-/** Own deadlines (30 minutes) earlier than the quorum's hour; no `.onJoinError`: the launch fails. */
+/** Own deadlines (30 minutes) earlier than the quorum's hour; no `.onError`: the launch fails. */
 @Workflow({
   name: "quorum-expiry-short-workflow",
   version: "1.0.0",
@@ -358,7 +358,7 @@ export class PlainExpiryWorkflow {}
 })
 export class PlainExpiryHandledWorkflowStart {}
 
-/** The same join with `.onJoinError(PauseExpiredError, …)`. */
+/** The same join with `.onError(PauseExpiredError, …)`. */
 @Workflow({
   name: "plain-expiry-handled-workflow",
   version: "1.0.0",
@@ -367,7 +367,7 @@ export class PlainExpiryHandledWorkflowStart {}
       .returns(RefundRequestDto)
       .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
       .join()
-      .onJoinError(PauseExpiredError, toFinish(PlainExpiryEscalatedWorkflowFinish))
+      .onError(PauseExpiredError, toFinish(PlainExpiryEscalatedWorkflowFinish))
       .returns(listOf(RefundScoreDto))
       .toFinish(QuorumExpiryWorkflowFinish),
   ],

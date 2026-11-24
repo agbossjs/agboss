@@ -24,7 +24,7 @@ export enum SlotStatus {
   Current = "current",
   Outdated = "outdated",
   /**
-   * A value the path may or may not hold (#945): a branch's output on a `.onJoinError(…)` side path —
+   * A value the path may or may not hold (#945): a branch's output on a `.onError(…)` side path —
    * its branch may have answered or not. One state, never an enumeration of the present / absent
    * subsets. A field reads it only as `optional(XDto)`.
    */

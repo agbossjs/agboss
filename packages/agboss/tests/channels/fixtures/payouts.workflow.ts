@@ -25,7 +25,7 @@ import {
 } from "./pauses.workflow.js";
 
 /**
- * #267 AC10 with `.onJoinError(…)`: a payout confirms the order with the customer (a pause) while
+ * #267 AC10 with `.onError(…)`: a payout confirms the order with the customer (a pause) while
  * its refund branch fails — the finance desk refuses the card with a domain error — so the paused
  * branch is withdrawn and the join routes the branch's error by its class and cause chain: to its
  * own handler, or to `StepFailedError`'s.
@@ -104,7 +104,7 @@ const providers = [
       .returns(RefundRequestDto)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
-      .onJoinError(PaymentDeclinedError, toFinish(PayoutDeclinedWorkflowFinish))
+      .onError(PaymentDeclinedError, toFinish(PayoutDeclinedWorkflowFinish))
       .returns(OrderConfirmationDto)
       .returns(RefundDoneDto)
       .toFinish(PayoutWorkflowFinish),
@@ -132,7 +132,7 @@ export class PayoutsApplication {}
       .returns(RefundRequestDto)
       .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
       .join()
-      .onJoinError(StepFailedError, toFinish(PayoutDeclinedWorkflowFinish))
+      .onError(StepFailedError, toFinish(PayoutDeclinedWorkflowFinish))
       .returns(OrderConfirmationDto)
       .returns(RefundDoneDto)
       .toFinish(PayoutWorkflowFinish),

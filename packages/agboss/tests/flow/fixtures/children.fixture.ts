@@ -219,7 +219,7 @@ export class ScreeningStoppedWorkflowFinish {}
       .returns(listOf(CompanyDto)) // each element enters company-review-workflow-start
       .toParallelWorkflows(CompanyReviewWorkflow, { maxConcurrency: 3, maxItems: 50 })
       .join()
-      .onJoinError(
+      .onError(
         LimitExceededError,
         toAction(NotifyReviewStoppedAction)
           .toFinish(ScreeningStoppedWorkflowFinish),

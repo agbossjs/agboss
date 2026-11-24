@@ -133,7 +133,7 @@ function joinWrites(
 }
 
 /**
- * The settled answers of a failed launch on its `.onJoinError(…)` side path (#945): each branch
+ * The settled answers of a failed launch on its `.onError(…)` side path (#945): each branch
  * output is one optional slot (it may have answered or not) — never one scope per subset —, a
  * list the finished items' list. A slot the scope holds already stays as it is.
  */

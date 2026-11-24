@@ -205,7 +205,7 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
     siblings' spend while they run; a tally that exhausts a budget aborts the in-flight model and
     tool calls of every branch through `executionContext.signal` (an aborted call's partial cost is
     unknown and not recorded), the branches fail with that `BudgetExceededError` and the launch
-    with it, into a code-only `.onJoinError(BudgetExceededError, …)`. Other instances see the spend
+    with it, into a code-only `.onError(BudgetExceededError, …)`. Other instances see the spend
     through the ledger only. A call that exhausts a budget runs none of the tools its move asks for.
   - `maxSteps` is checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a hand-set
     `maxSteps`, or the default (agents + routers) × 3 cannot hold the worst case of a per-item

@@ -225,7 +225,7 @@ describe("#1366: a side path of a join error reads a settled answer", () => {
         .returns(PlanDto)
         .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
         .join()
-        .onJoinError(
+        .onError(
           PauseExpiredError,
           toAction(SettledRequiredAction)
             .returns(ScreeningFailedDto)

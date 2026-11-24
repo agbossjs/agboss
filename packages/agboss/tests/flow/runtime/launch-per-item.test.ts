@@ -59,7 +59,7 @@ describe("AC2: an agent per item", () => {
   });
 
   screening(
-    "a limit reached in a branch fails the launch into .onJoinError(LimitExceededError, …)",
+    "a limit reached in a branch fails the launch into .onError(LimitExceededError, …)",
     async ({ app, mockLlm }) => {
       const names = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
       mockLlm(ScreeningAgent).thenReturn(companies(...names));

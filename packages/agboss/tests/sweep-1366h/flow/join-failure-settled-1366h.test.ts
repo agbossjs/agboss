@@ -1,5 +1,5 @@
 /**
- * #1366: a failed launch with an `.onJoinError` side path starts it with the answers already settled — the
+ * #1366: a failed launch with an `.onError` side path starts it with the answers already settled — the
  * finished branches' values, one write per group that has a shape, none for the branches whose undo ran in
  * this join (by the launch's own compensations only) — and with the config only when there is one; the
  * failing branch's node is the launcher when the record is of no ticketed branch; a branch with no error

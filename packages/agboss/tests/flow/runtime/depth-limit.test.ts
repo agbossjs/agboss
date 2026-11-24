@@ -19,7 +19,7 @@ import {
  * #264 AC6 — the hard stop: a recursion launched by code past `maxDepth` does not start; the level
  * above gets `ChildExecutionFailedError` caused by `DepthLimitExceededError`, which
  * `.onError(LimitExceededError, …)` right after `.toWorkflow(ThisWorkflow)` takes — and
- * `.onJoinError(LimitExceededError, …)` after a per-item launch's join.
+ * `.onError(LimitExceededError, …)` after a per-item launch's join.
  */
 
 const test = testWith(RecursionApplication);
@@ -91,7 +91,7 @@ describe("AC6: .toWorkflow(ThisWorkflow) by code past maxDepth", () => {
 
 describe("AC6: .toParallelWorkflows(ThisWorkflow) by code past maxDepth", () => {
   real(
-    "each level-2 child's launch is refused; its .onJoinError finishes it",
+    "each level-2 child's launch is refused; its .onError finishes it",
     async ({ app, mockAction }) => {
       const result = await execute(app, SplitWorkflowStart, { left: 5 });
 

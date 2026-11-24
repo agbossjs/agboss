@@ -722,6 +722,8 @@ describe("#273: parallel launches and their joins", () => {
     launched.toAgent(ArticleWriterAgent);
     // @ts-expect-error — nor by .returns(…)
     launched.returns(ResearchDto);
+    // @ts-expect-error — `.onError` is the join's handler: it is not offered between a launch and its join (#1281)
+    launched.onError(StepFailedError, toFinish(ScreeningFailedWorkflowFinish));
     const flow: readonly FlowPath[] = [
       // @ts-expect-error — a path that stops at a launch is not a path
       onStart(OfferWorkflowStart)
@@ -755,18 +757,18 @@ describe("#273: parallel launches and their joins", () => {
     joined.returns(CritiqueDto);
     // @ts-expect-error — every value is named before the next step
     joined.returns(ResearchDto).toAgent(ArticleWriterAgent);
-    // @ts-expect-error — .onError does not follow a join: .onJoinError(E, …)
-    joined.onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish));
+    // @ts-expect-error — the join's handler is `.onError`: `.onJoinError` is gone (#1281)
+    joined.onJoinError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish));
     // @ts-expect-error — no launch right after a join's values
     joined.returns(ResearchDto).returns(listOf(CritiqueDto)).toParallelAgents(CriticAgent);
-    expectTypeOf(joined).toHaveProperty("onJoinError");
+    expectTypeOf(joined).toHaveProperty("onError");
   });
 
   it("AC2: per-item needs an XDto field — one run per item, the join a list", () => {
     screened()
       .toParallelAgents(CompanyAuditAgent, { maxConcurrency: 3, maxItems: 50 })
       .join()
-      .onJoinError(LimitExceededError, toAction(NotifyOperatorAction))
+      .onError(LimitExceededError, toAction(NotifyOperatorAction))
       .returns(listOf(CompanyCheckDto))
       .toAgent(RankerAgent);
     const audited = screened().toParallelAgents(CompanyAuditAgent, { maxItems: 50 }).join();
@@ -839,23 +841,22 @@ describe("#263: child workflows", () => {
     >();
   });
 
-  it("AC12: onError / onJoinError placement — .onError right after .toWorkflow(W), .onJoinError after the join", () => {
+  it("AC12: onError placement — right after .toWorkflow(W) and after the join, not between a launch and its join", () => {
     picked()
       .toWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
       .returns(REVIEWED)
       .switch(graded(), rejected(), failed());
     const single = picked().toWorkflow(CompanyReviewWorkflow);
-    // @ts-expect-error — .onJoinError follows a join, not .toWorkflow(W)
-    single.onJoinError(StepFailedError, toFinish(ReviewErrorWorkflowFinish));
+    single.onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish));
     const joined = found().toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 }).join();
-    // @ts-expect-error — .onError does not follow a join: .onJoinError(E, …)
-    joined.onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish));
+    // @ts-expect-error — the join's handler is `.onError`: `.onJoinError` is gone (#1281)
+    joined.onJoinError(StepFailedError, toFinish(ReviewErrorWorkflowFinish));
     joined
-      .onJoinError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
+      .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
       .returns(listOf(REVIEWED))
       .toAgent(ReviewRankerAgent);
-    expectTypeOf(joined).toHaveProperty("onJoinError");
+    expectTypeOf(joined).toHaveProperty("onError");
   });
 
   it("AC5 / AC17: per item only, maxItems required; the join gives the list of the child's classes", () => {

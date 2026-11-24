@@ -29,7 +29,7 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
       .acceptedBy(InRangeArbiter)
       .acceptedBy(ReasonedScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-      .onJoinError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish))
+      .onError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish))
       .returns(listOf(ScoreDto))
       .toAgent(ScoreSummaryAgent)
       .returns(PanelReviewDto)

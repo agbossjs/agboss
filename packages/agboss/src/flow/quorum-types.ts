@@ -85,17 +85,17 @@ export type QuorumContinuation<TOutput, TKey extends string, THead extends PathH
     ? Transitions<THead>
     : Returning<QuorumValues<TKey>, ValuesLeft<TOutput>, THead>;
 
-/** After `.joinQuorum(…)`: its `.onJoinError(…)`, then its counted answers named with `.returns(…)`. */
+/** After `.joinQuorum(…)`: its `.onError(…)`, then its counted answers named with `.returns(…)`. */
 export type QuorumJoined<TKey extends string, THead extends PathHead, TWhole extends boolean> = {
-  onJoinError<const TPath extends SidePath>(
+  onError<const TPath extends SidePath>(
     error: ErrorClass,
     path: TPath,
   ): QuorumJoined<TKey, WithClaims<THead, ClaimsOf<TPath>>, TWhole>;
 } & QuorumContinuation<QuorumOutput<JoinOutputOf<TKey>, TWhole>, TKey, THead>;
 
-/** After `.joinQuorumGroups(…)`: only `.onJoinError(…)` — each group continued its own path. */
+/** After `.joinQuorumGroups(…)`: only `.onError(…)` — each group continued its own path. */
 export type GroupsJoined<THead extends PathHead> = BuiltPath<THead> & {
-  onJoinError<const TPath extends SidePath>(
+  onError<const TPath extends SidePath>(
     error: ErrorClass,
     path: TPath,
   ): GroupsJoined<WithClaims<THead, ClaimsOf<TPath>>>;

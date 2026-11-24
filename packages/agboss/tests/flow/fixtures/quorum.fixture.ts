@@ -125,7 +125,7 @@ export class ValidScoreArbiter {}
       .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
       .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-      .onJoinError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
+      .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
       .returns(listOf(ScoreDto))
       .toAgent(ScoreSummaryAgent)
       .returns(ScoreReviewDto)
@@ -246,7 +246,7 @@ export class DueDiligenceArbiter {}
           .toFinish(QuickRejectWorkflowFinish),
         { deadline: minutes(1) },
       )
-      .onJoinError(StepFailedError, toAction(NotifyReviewerAction)),
+      .onError(StepFailedError, toAction(NotifyReviewerAction)),
 
     onAgent(FullReviewAgent)
       .returns(DueDiligenceReportDto)

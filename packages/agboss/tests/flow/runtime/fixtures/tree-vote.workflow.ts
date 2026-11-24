@@ -101,7 +101,7 @@ export class NotVotedWorkflowFinish {
       .returns(TaskDto)
       .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
       .joinQuorum({ min: 2, deadline: seconds(30) })
-      .onJoinError(QuorumNotReachedError, toFinish(NotVotedWorkflowFinish))
+      .onError(QuorumNotReachedError, toFinish(NotVotedWorkflowFinish))
       .returns(listOf(VoteDto))
       .toFinish(VotedWorkflowFinish),
   ],

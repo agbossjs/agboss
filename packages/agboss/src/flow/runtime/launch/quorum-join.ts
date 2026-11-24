@@ -28,7 +28,7 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * The join of a quorum (#279 S26): the outcome rebuilt from the branches' records only — the counted
  * answers in counting order, the winning group — reported once (a trace entry "quorum decided" and
  * `onQuorumDecided`), then either the way on (the join's edge, or the winning group's own path) with
- * the counted answers only, or `QuorumNotReachedError` into `.onJoinError(…)`, else the execution
+ * the counted answers only, or `QuorumNotReachedError` into `.onError(…)`, else the execution
  * fails with it.
  */
 
@@ -132,7 +132,7 @@ function reasonOf(site: QuorumJoinSite): string {
     : "min can no longer be reached";
 }
 
-/** A quorum not reached: `.onJoinError(QuorumNotReachedError, …)`, else the execution fails. */
+/** A quorum not reached: `.onError(QuorumNotReachedError, …)`, else the execution fails. */
 export function quorumNotReached(
   site: QuorumJoinSite,
   decision: QuorumDecision,

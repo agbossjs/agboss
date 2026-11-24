@@ -110,7 +110,7 @@ export function withChildPauses(
   }));
 }
 
-/** A failure an `.onError` / `.onJoinError` side path took (#263 `toHaveHandledError`). */
+/** A failure an `.onError` side path took (#263 `toHaveHandledError`). */
 export interface HandledErrorRecord {
   /** The failure, as a plain record (its class line and its causes). */
   readonly error: ErrorRecord;

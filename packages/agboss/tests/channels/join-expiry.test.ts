@@ -1,6 +1,6 @@
 /**
  * #945 AC4 — a plain three-way (here four-way) `.join()` under `FailFast`: one approver's pause
- * expires; the other answers already given reach the `.onJoinError` path as optional values,
+ * expires; the other answers already given reach the `.onError` path as optional values,
  * nobody is asked again; the approvers who answered are told the launch failed (`joinFailed`),
  * the one still waiting is withdrawn.
  */
@@ -41,7 +41,7 @@ beforeEach(() => {
 /** The answer to the pause the nth ask of the desk opened. */
 const answerTo = (index: number) => ({ pauseId: je.sent[index]?.pauseId ?? "", decision: approve });
 
-describe("AC4: the settled answers reach the .onJoinError path", () => {
+describe("AC4: the settled answers reach the .onError path", () => {
   test("AC4: legal and finance approved, the CFO's approval expired: the CEO is shown both, nobody is asked again, the COO is withdrawn", async ({
     app,
     clock,

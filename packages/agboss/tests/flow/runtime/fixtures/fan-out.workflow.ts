@@ -164,7 +164,7 @@ export class FanOutLog implements OnLaunchItemsTruncated {
   }
 }
 
-/** Two at a time, at most four items; an item's failure takes `.onJoinError(…)`. */
+/** Two at a time, at most four items; an item's failure takes `.onError(…)`. */
 @Workflow({
   name: "fan-out-workflow",
   version: "1.0.0",
@@ -173,9 +173,9 @@ export class FanOutLog implements OnLaunchItemsTruncated {
       .returns(listOf(ItemDto))
       .toParallelActions(ProcessItemAction, { maxConcurrency: 2, maxItems: 4 })
       .join()
-      .onJoinError(ItemFailedError, toFinish(ItemsFailedWorkflowFinish))
+      .onError(ItemFailedError, toFinish(ItemsFailedWorkflowFinish))
       // never taken: a cancel of the execution stops it whole (S21)
-      .onJoinError(ExecutionCancelledError, toFinish(ItemsFailedWorkflowFinish))
+      .onError(ExecutionCancelledError, toFinish(ItemsFailedWorkflowFinish))
       .returns(listOf(ItemResultDto))
       .toFinish(SummaryWorkflowFinish),
   ],

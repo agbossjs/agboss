@@ -379,7 +379,7 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
     );
   });
 
-  it("two .onJoinError handlers of one class on a join", () => {
+  it("two .onError handlers of one class on a join", () => {
     const side = () =>
       toAction(NotifyOperatorAction)
         .returns(ScreeningFailedDto)
@@ -388,8 +388,8 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
       screened()
         .toParallelAgents(CompanyAuditAgent, { maxItems: 3 })
         .join()
-        .onJoinError(LimitExceededError, side())
-        .onJoinError(LimitExceededError, side())
+        .onError(LimitExceededError, side())
+        .onError(LimitExceededError, side())
         .returns(listOf(CompanyCheckDto))
         .toAgent(RankerAgent)
         .returns(RankingDto)
@@ -397,7 +397,7 @@ describe("#273 AC4: a launch is joined, and its branches end at the join", () =>
     ];
     expect(errorsOf(flow)).toContainEqual({
       code: "flow.duplicate-error-handler",
-      message: `launch-case-${String(count)}-workflow: the join of screening-agent → toParallelAgents(company-audit-agent) has 2 handlers for LimitExceededError — one .onJoinError(LimitExceededError, …) per class on a join`,
+      message: `launch-case-${String(count)}-workflow: the join of screening-agent → toParallelAgents(company-audit-agent) has 2 handlers for LimitExceededError — one .onError(LimitExceededError, …) per class on a join`,
     });
   });
 

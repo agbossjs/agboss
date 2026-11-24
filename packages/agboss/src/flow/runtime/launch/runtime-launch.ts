@@ -10,7 +10,7 @@ import {
 /**
  * A parallel launch as the runtime runs it (#273 S20): the launching node, its branch nodes, the
  * values the launching step writes before the branches start, the join's way on and its
- * `.onJoinError(…)` side paths, and the LangGraph node that joins it. A node launches from one
+ * `.onError(…)` side paths, and the LangGraph node that joins it. A node launches from one
  * place, or from several `caseOf(…)` branches — then each variant has its own launch. A quorum join
  * (#279) has its quorum; `.joinQuorumGroups(…)` one way on per group.
  */
@@ -40,7 +40,7 @@ export interface RuntimeLaunch {
   readonly quorum?: Quorum;
   /** `.joinQuorumGroups(…)`: the groups in listed order, each with its own way on. */
   readonly groups: readonly RuntimeGroup[];
-  /** `.onJoinError(E, …)`: the side paths a failed launch takes. */
+  /** `.onError(E, …)`: the side paths a failed launch takes. */
   readonly joinErrors: readonly FlowEdge[];
 }
 

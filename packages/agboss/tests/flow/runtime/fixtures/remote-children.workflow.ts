@@ -198,7 +198,7 @@ export class RemoteChecksFailedWorkflowFinish {
         placement: ChildPlacement.AnyInstance,
       })
       .join()
-      .onJoinError(ChildExecutionFailedError, toFinish(RemoteChecksFailedWorkflowFinish))
+      .onError(ChildExecutionFailedError, toFinish(RemoteChecksFailedWorkflowFinish))
       .returns(listOf(ItemResultDto))
       .toFinish(RemoteChecksWorkflowFinish),
   ],

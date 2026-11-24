@@ -142,14 +142,14 @@ describe("#263 AC12: limit handler uses model", () => {
     );
   });
 
-  it("the join's .onJoinError(LimitExceededError, …) leading to an agent", () => {
+  it("the join's .onError(LimitExceededError, …) leading to an agent", () => {
     const joined = onStart(JobOfferWorkflowStart)
       .returns(WorkflowStartTextDto)
       .toAgent(CompanyFinderAgent)
       .returns(listOf(CompanyDto))
       .toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 })
       .join()
-      .onJoinError(LimitExceededError, apology())
+      .onError(LimitExceededError, apology())
       .returns(listOf(REVIEWED))
       .toAgent(ReviewRankerAgent)
       .returns(GradedShortlistDto)
@@ -158,7 +158,7 @@ describe("#263 AC12: limit handler uses model", () => {
       {
         code: "graph.limit-handler-uses-model",
         message:
-          "the join of company-finder-agent → toParallelWorkflows(company-review-workflow): .onJoinError(LimitExceededError, …) can catch a limit and reaches apology-agent — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)",
+          "the join of company-finder-agent → toParallelWorkflows(company-review-workflow): .onError(LimitExceededError, …) can catch a limit and reaches apology-agent — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)",
       },
     ]);
   });

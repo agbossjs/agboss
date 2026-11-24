@@ -157,7 +157,7 @@ describe("#264 S112: .toParallelWorkflows(ThisWorkflow, …).join().returns(list
     });
   });
 
-  it("a ThisWorkflow launch in an .onJoinError side path is checked too", () => {
+  it("a ThisWorkflow launch in an .onError side path is checked too", () => {
     Workflow({
       name: "org-chart-workflow",
       version: "1.0.0",
@@ -170,7 +170,7 @@ describe("#264 S112: .toParallelWorkflows(ThisWorkflow, …).join().returns(list
             .returns(listOf(OrgUnitDto))
             .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 2, maxItems: 4 })
             .join()
-            .onJoinError(
+            .onError(
               LimitExceededError,
               toWorkflow(ThisWorkflow).returns(ResearchReportDto).toFinish(TeamChartWorkflowFinish),
             )

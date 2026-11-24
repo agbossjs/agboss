@@ -72,7 +72,7 @@ function allSteps(steps: readonly Step[]): readonly Step[] {
       case StepKind.OnError:
         return [step, ...allSteps(step.path.steps)];
       case StepKind.Join:
-        return [step, ...step.onJoinError.flatMap((handler) => allSteps(handler.path.steps))];
+        return [step, ...step.onError.flatMap((handler) => allSteps(handler.path.steps))];
       default:
         return [step];
     }

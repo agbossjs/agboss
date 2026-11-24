@@ -3,7 +3,7 @@
  * live tally (`BudgetMeter.tally`) counts every call as it is made, so a branch sees its siblings'
  * spend while they run; a tally that exhausts a budget aborts the in-flight calls of every branch
  * through their `executionContext.signal`; the launch fails with `BudgetExceededError` — into a
- * code-only `.onJoinError(…)`, else the execution fails —, its spend counted once.
+ * code-only `.onError(…)`, else the execution fails —, its spend counted once.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { BranchStatus, BudgetExceededError } from "../../src/index.js";
@@ -163,7 +163,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
 
 describe("AC2: the launch fails with BudgetExceededError", () => {
   testWith(ParallelBudgetApplication, SPENDER_FIRST)(
-    "into .onJoinError(BudgetExceededError, toAction(…).toFinish(…)): code only, no model after it",
+    "into .onError(BudgetExceededError, toAction(…).toFinish(…)): code only, no model after it",
     async ({ app, mockLlm, mockAction }) => {
       mockLlm(SpenderAgent).thenReturn(hold, spend(0.06));
       mockLlm(WaiterAgent).thenReturn(wait);

@@ -29,7 +29,7 @@ declare const pathValue: unique symbol;
  * Every head carries `claims`: what the path promised of `ThisWorkflow` so far (#264 S112, S114) —
  * a `ThisWorkflowStepClaim` per `.returns(…)` after a `ThisWorkflow` step, a `ThisWorkflowJoinClaim`
  * per `.returns(…)` after its per-item join, those of its sub-paths added by `.switch(…)`,
- * `.chooseOne(…)`, `.onError(…)`, `.onJoinError(…)` and `.joinQuorumGroups(…)`. `never` for none;
+ * `.chooseOne(…)`, `.onError(…)` and `.joinQuorumGroups(…)`. `never` for none;
  * `@Workflow({ name, flow })` checks them against its own `ThisWorkflowOutputs` entry.
  */
 export interface SourceHead<TClaims = never> {
@@ -79,7 +79,7 @@ export type BuiltPath<THead extends PathHead> = (THead extends SourceHead<unknow
 export type RoutePath = BuiltPath<RouteHead<unknown>>;
 /** Any case of `.switch(…)`. */
 export type CasePath = BuiltPath<CaseHead<unknown, unknown>>;
-/** Any side path of `.onError(…)` / `.onJoinError(…)`. */
+/** Any side path of `.onError(…)`. */
 export type SidePath = BuiltPath<SideHead<unknown>>;
 
 /** The `ThisWorkflow` claims a path carries (`never` for a path built without the typed builder). */

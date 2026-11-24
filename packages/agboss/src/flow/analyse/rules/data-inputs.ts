@@ -88,7 +88,7 @@ function missingViolation(
     missing.slot.status === SlotStatus.Outdated
       ? `${field.label} has no current ${inner} on the path ${path} — the latest one is outdated; renew it on that path before ${node}`
       : missing.slot.status === SlotStatus.Maybe
-        ? `${field.label} reads ${inner}, which its branch may not have answered on the path ${path} — a side path of .onJoinError(…) reads the settled answers as optional(${inner})`
+        ? `${field.label} reads ${inner}, which its branch may not have answered on the path ${path} — a side path of .onError(…) reads the settled answers as optional(${inner})`
         : `${field.label} is not produced on the path ${path}${quorumHint(context, node, field, missing.state)}`;
   return violation("input.missing-on-path", message, [node]);
 }

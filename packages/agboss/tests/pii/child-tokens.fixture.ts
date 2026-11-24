@@ -303,7 +303,7 @@ export class FailedListRecoveredFinish {}
       .returns(listOf(WorkflowStartTextDto))
       .toParallelWorkflows(FailingNotifyWorkflow, { maxConcurrency: 1, maxItems: 1 })
       .join()
-      .onJoinError(
+      .onError(
         ChildExecutionFailedError,
         toAgent(ListRecoveryAgent).toFinish(FailedListRecoveredFinish),
       )

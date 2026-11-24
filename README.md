@@ -7,7 +7,7 @@
 [![CI](https://github.com/agbossjs/agboss/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agbossjs/agboss/badges/coverage.json)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 
-**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework with static verification for complex multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time structural Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` / `.onJoinError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and child work-stealing (`ChildPlacement.AnyInstance`), signed Agent Mesh envelopes (`@A2AExpose`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
+**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework with static verification for complex multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time structural Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and child work-stealing (`ChildPlacement.AnyInstance`), signed Agent Mesh envelopes (`@A2AExpose`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
 
 > **Current release (`v0.1.1`):** [`@agboss/core@0.1.1`](https://www.npmjs.com/package/@agboss/core) (production runtime) and [`@agboss/cli@0.1.1`](https://www.npmjs.com/package/@agboss/cli) (CLI & static workflow compiler) are publicly published on `registry.npmjs.org` under the official `agboss` npm organization.
 
@@ -437,7 +437,7 @@ CriticAgent, CriticAgent, { maxConcurrency: 3 })` or `.toParallelActions(…)`, 
 checked against the generated `JoinOutputs`; one agent after `.returns(listOf(CompanyDto))` runs once
 per item (`{ maxItems }` required; a longer list is truncated, never an error — `result.launches`
 says `{ items, taken }`). At most `maxConcurrency` branches run at once, a new one starting as
-another ends; a failed branch cancels the others and the join takes `.onJoinError(E, …)`
+another ends; a failed branch cancels the others and the join takes `.onError(E, …)`
 ([Wiki → Workflow](https://github.com/agbossjs/agboss/wiki/Workflow)).
 
 Not every answer is always needed: a **quorum** (#279) counts them — `.joinQuorum({ min: 2, max: 3,
@@ -450,7 +450,7 @@ answer a quorum may leave out is `optional(XDto)` in `.returns(…)` — the com
 say so on the quorum. At run time the quorum is decided as answers arrive: once `max` answers are
 counted (or a group has won, or the quorum can no longer be reached) the other branches are
 cancelled; the deadline runs on the application's `Clock`; not reached → `QuorumNotReachedError`
-into `.onJoinError(…)`; a failing arbiter is `ArbiterError`. `result.launches` and `onQuorumDecided`
+into `.onError(…)`; a failing arbiter is `ArbiterError`. `result.launches` and `onQuorumDecided`
 show each answer as counted, rejected (and by which arbiter), surplus or cancelled, and the winning
 group; `agboss generate arbiter` writes a code arbiter for a launch
 ([Wiki → Parallel](https://github.com/agbossjs/agboss/wiki/Parallel)).

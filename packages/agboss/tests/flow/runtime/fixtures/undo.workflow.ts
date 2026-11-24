@@ -275,7 +275,7 @@ export class SeatConfirmedWorkflowFinish {}
       .returns(UndoRequestDto)
       .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
       .join()
-      .onJoinError(UndoDeskError, toFinish(NotReservedWorkflowFinish))
+      .onError(UndoDeskError, toFinish(NotReservedWorkflowFinish))
       .returns(SeatDto)
       .returns(RoomDto)
       .toFinish(ReservedWorkflowFinish),

@@ -190,7 +190,7 @@ describe("#1366: a join's handler", () => {
     expect(rules(joined(LimitExceededError, [["M", NodeKind.Agent]]))).toEqual([
       {
         code: "graph.limit-handler-uses-model",
-        message: `the join of L → toParallelAgents(B1, B2): .onJoinError(LimitExceededError, …) can catch a limit and reaches M${TAIL}`,
+        message: `the join of L → toParallelAgents(B1, B2): .onError(LimitExceededError, …) can catch a limit and reaches M${TAIL}`,
         nodes: ["L", "M"],
       },
     ]);

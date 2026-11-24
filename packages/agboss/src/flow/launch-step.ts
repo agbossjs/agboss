@@ -15,7 +15,7 @@ import { FlowSyntaxError } from "./flow-syntax-error.js";
 /**
  * The launch step of the path builder (#273): `.toParallelAgents(A, B, …, { maxConcurrency,
  * maxItems })` — and `.toParallelWorkflows(W, …)`, one child per item (#263) — read from its arguments, and the order a launch imposes on the steps around it — a
- * launch is followed by `.join()`, a join by its `.onJoinError(…)`, `.returns(…)` and one `.to…(…)`.
+ * launch is followed by `.join()`, a join by its `.onError(…)`, `.returns(…)` and one `.to…(…)`.
  * The typed builder makes the wrong forms compile errors; these checks hold for untyped code.
  */
 
@@ -122,16 +122,14 @@ export function launchStepOf(
 }
 
 /**
- * What may follow a join: `.onError(…)` is named, anything but a transition refused; nothing follows
+ * What may follow a join (its `.onError(…)` is the join's own, `PathBuilder.onError`): anything but a transition is refused; nothing follows
  * `.joinQuorumGroups(…)` — each group continues its own path (#279).
  */
 function afterJoinProblem(join: JoinStep, next: Step): string | undefined {
   if (join.quorum?.kind === QuorumKind.Groups)
-    return "nothing follows .joinQuorumGroups(…) but .onJoinError(…) — each group continues its own path";
+    return "nothing follows .joinQuorumGroups(…) but .onError(…) — each group continues its own path";
   if (next.kind === StepKind.To) return undefined;
-  return next.kind === StepKind.OnError
-    ? ".onError(…) does not follow a join — use .onJoinError(E, …) right after .join()"
-    : "after .join() the path goes on with .onJoinError(…), .returns(…) and one .to…(…)";
+  return "after .join() the path goes on with .onError(…), .returns(…) and one .to…(…)";
 }
 
 /** Why a join cannot follow the launch before it: a launch with arbiters needs a quorum (AC12). */

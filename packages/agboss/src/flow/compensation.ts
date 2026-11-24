@@ -33,9 +33,9 @@ export const COMPENSATION_TIMEOUT: Milliseconds = seconds(15);
 
 /** Why an undo action ran. */
 export enum CompensationReason {
-  /** An `.onError` / `.onJoinError` side path ran it, as `agboss check` requires. */
+  /** An `.onError` side path ran it, as `agboss check` requires. */
   SidePath = "side-path",
-  /** A join failed after some of its branches finished: their undo ran before `.onJoinError`. */
+  /** A join failed after some of its branches finished: their undo ran before `.onError`. */
   JoinFailed = "join-failed",
   /** The execution failed without a finish (an uncaught failure or limit). */
   ExecutionFailed = "execution-failed",
@@ -80,7 +80,7 @@ export interface CompensationFailedErrorOptions {
 /**
  * An automatic undo failed (#340 Q4): every other undo still ran, then the execution fails with
  * this error — `failures` are the undo actions that threw, `cause` the error that started the undo
- * (`toFailWith(Original)` matches through it). Never taken by `.onError` / `.onJoinError`.
+ * (`toFailWith(Original)` matches through it). Never taken by `.onError`.
  */
 export class CompensationFailedError extends AGBossError {
   /** `compensation.failed`. */
@@ -294,7 +294,7 @@ export interface FailedJoinUndo {
 }
 
 /**
- * A failed join undoes its finished undoable branches before `.onJoinError` or the failure (#340
+ * A failed join undoes its finished undoable branches before `.onError` or the failure (#340
  * Q3): the runtime is loaded only for a launch of an action that declares its undo.
  */
 export async function compensationsOfFailedJoin(site: JoinUnwindSite): Promise<FailedJoinUndo> {

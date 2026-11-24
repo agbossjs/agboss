@@ -9,7 +9,7 @@ import { launchLabel } from "./join-groups.js";
  * (node, open actions, side paths entered), so the first path found to a state is a shortest one.
  * An undoable action opens when it succeeds (any edge but its `.onError`), and closes when its
  * committing action succeeds or its undo action runs (whether the undo then succeeds or not — a
- * failed undo is the side path's own `.onError`). Entering an `.onError` / `.onJoinError` side path
+ * failed undo is the side path's own `.onError`). Entering an `.onError` side path
  * records the actions open there: they must be undone, newest first, before a finish. A join opens
  * the launch's undoable action branches; a failed join's finished branches are undone
  * automatically (#340), so its side path owes only what was open before the launch.
@@ -140,7 +140,7 @@ function sidePathLabel(edge: FlowEdge): string {
   const error = edge.error?.name ?? "Error";
   return edge.kind === EdgeKind.Error || edge.launch === undefined
     ? `.onError(${error}, …) side path after ${edge.from}`
-    : `.onJoinError(${error}, …) side path after the join of ${launchLabel(edge.launch)}`;
+    : `.onError(${error}, …) side path after the join of ${launchLabel(edge.launch)}`;
 }
 
 /** Leaving `state.node` along `edge`: what succeeded opens or commits, a side path owes the rest. */

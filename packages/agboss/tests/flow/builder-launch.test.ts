@@ -54,12 +54,12 @@ describe("#273: a launch and its join in the AST", () => {
     });
   });
 
-  it("the join keeps its values in order and its .onJoinError side paths", () => {
+  it("the join keeps its values in order and its .onError side paths", () => {
     const join = stepsOf(ScreeningWorkflow).find((step) => step.kind === StepKind.Join);
     expect(join).toEqual({
       kind: StepKind.Join,
       returns: [{ shape: listOf(CompanyCheckDto) }],
-      onJoinError: [
+      onError: [
         {
           error: LimitExceededError,
           path: {
@@ -93,7 +93,7 @@ describe("#273: a launch and its join in the AST", () => {
       StepKind.To,
     ]);
     expect(steps[3]).toMatchObject({ targetKind: NodeKind.Action, targets: expect.any(Array) });
-    expect(steps[4]).toEqual({ kind: StepKind.Join, returns: [], onJoinError: [] });
+    expect(steps[4]).toEqual({ kind: StepKind.Join, returns: [], onError: [] });
   });
 
   it("a router's launch follows .toRouter(R); its join's optional values are written as named", () => {
@@ -119,18 +119,18 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
     );
   });
 
-  it(".join() follows a launch, .onJoinError stands before the join's .returns", () => {
+  it(".join() follows a launch, .onError stands before the join's .returns", () => {
     expect(() => onAgent(PlannerAgent).join()).toThrow(".join() follows a parallel launch");
     const valued = launched().join().returns(ResearchDto);
     expect(() =>
-      valued.onJoinError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
-    ).toThrow(".onJoinError(E, …) stands right after .join(), before its .returns(…)");
+      valued.onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
+    ).toThrow(".onError(E, …) stands right after .join(), before its .returns(…)");
   });
 
-  it(".onError after a join, and a second launch right after a join, are refused", () => {
+  it(".onError between a launch and its join, and a second launch right after a join, are refused", () => {
     expect(() =>
-      launched().join().onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
-    ).toThrow("use .onJoinError(E, …) right after .join()");
+      launched().onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
+    ).toThrow("a parallel launch is followed by .join()");
     expect(() => launched().join().returns(ResearchDto).toParallelAgents(CriticAgent)).toThrow(
       "after .join() the path goes on with",
     );
@@ -178,7 +178,7 @@ describe("#273: describe prints launches and joins in the grammar", () => {
       "  .returns(listOf(CompanyDto))",
       "  .toParallelAgents(CompanyAuditAgent, { maxConcurrency: 3, maxItems: 50 })",
       "  .join()",
-      "  .onJoinError(LimitExceededError, toAction(NotifyOperatorAction)",
+      "  .onError(LimitExceededError, toAction(NotifyOperatorAction)",
       "    .returns(ScreeningFailedDto)",
       "    .toFinish(ScreeningFailedWorkflowFinish))",
       "  .returns(listOf(CompanyCheckDto))",

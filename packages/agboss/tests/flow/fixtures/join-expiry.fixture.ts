@@ -39,7 +39,7 @@ import { onStart, toAction } from "./paths.js";
 
 /**
  * #945 AC4 — legal, finance, the CFO and the COO approve in a plain four-way `.join()` (FailFast);
- * the CFO's approval expires. `.onJoinError(PauseExpiredError, …)` escalates to the CEO from the
+ * the CFO's approval expires. `.onError(PauseExpiredError, …)` escalates to the CEO from the
  * answers already settled; the approvers who answered are told the launch failed, the one still
  * waiting is withdrawn. What happened is in `je`, reset per test.
  */
@@ -272,7 +272,7 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
         CooApproverAgent,
       )
       .join()
-      .onJoinError(
+      .onError(
         PauseExpiredError,
         toAction(EscalateToCeoAction)
           .returns(EscalationDto)

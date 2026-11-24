@@ -142,7 +142,7 @@ class Printer {
     this.line(depth, ")");
   }
 
-  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onJoinError(…)`, its `.returns(…)`. */
+  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onError(…)`, its `.returns(…)`. */
   private join(step: JoinStep, depth: number): void {
     const { quorum } = step;
     if (isGroupsQuorum(quorum)) this.groups(quorum, depth);
@@ -151,8 +151,8 @@ class Printer {
         depth,
         quorum === undefined ? ".join()" : `.joinQuorum(${countQuorumOptions(quorum)})`,
       );
-    for (const handler of step.onJoinError)
-      this.sidePath(handler.error.name, handler.path.steps, depth, "onJoinError");
+    for (const handler of step.onError)
+      this.sidePath(handler.error.name, handler.path.steps, depth, "onError");
     for (const value of step.returns) this.line(depth, returnsLine(value));
   }
 

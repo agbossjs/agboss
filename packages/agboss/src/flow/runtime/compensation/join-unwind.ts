@@ -20,7 +20,7 @@ import { markUndone, withUndoneMarks, type UndoneMarks } from "./unwinding-marks
 
 /**
  * The automatic undo of a failed join (#340 Q3, `CompensationReason.JoinFailed`): before its
- * `.onJoinError` side path runs — or the branch's error fails the execution — the launch's
+ * `.onError` side path runs — or the branch's error fails the execution — the launch's
  * finished undoable branches are undone, newest first. It first awaits the launch's branches whose
  * bodies still run (#340 Q-A, up to `compensationTimeout`), so one that returns meanwhile is undone
  * too; the entries are the state's and the instance registry's. An undo that fails does not stop

@@ -17,7 +17,7 @@ import { arbiterPromptHashOf } from "../flow/runtime/model-component-keys.js";
 /**
  * The flow of a workflow as data (#268 S92 / S93, `agboss describe --json`): every edge as the
  * analyser built it — `.to…` steps, `caseOf(…)` cases, `route(…)` routes, launches and joins with
- * what each puts on the path and what it is `about` —, the `.onError` / `.onJoinError` table, and
+ * what each puts on the path and what it is `about` —, the `.onError` table, and
  * every launch with its quorum and arbiter tree, each arbiter with its hashes.
  */
 
@@ -41,12 +41,12 @@ export interface EdgeSnapshot {
   readonly group?: readonly string[];
 }
 
-/** One row of the `.onError` / `.onJoinError` table: where, which class, the side path's first node. */
+/** One row of the `.onError` table: where, which class, the side path's first node. */
 export interface ErrorHandlerSnapshot {
   readonly at: string;
   readonly error: string;
   readonly by: string;
-  /** `error` for `.onError(…)`, `join-error` for `.onJoinError(…)`. */
+  /** `error` for a step's `.onError(…)`, `join-error` for a join's `.onError(…)`. */
   readonly kind: EdgeKind;
 }
 

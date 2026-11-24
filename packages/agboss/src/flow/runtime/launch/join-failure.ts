@@ -23,7 +23,7 @@ export const failureRecordOf = (record: BranchOutcomeRecord): ErrorRecord =>
   record.error ?? { name: "Error", code: "Error", lineage: [], message: "failed" };
 
 /**
- * A failed launch: its `.onJoinError(…)` side path, else the branch's error. The side path starts
+ * A failed launch: its `.onError(…)` side path, else the branch's error. The side path starts
  * with the answers already settled (#945): the branches that finished, read from the checkpointed
  * records, each as the value of its class — a branch whose undo ran in this failed join is left out.
  */
@@ -89,7 +89,7 @@ async function settledValues(
 
 /**
  * A launch with a failed branch: its finished undoable branches undone first (#340), newest first,
- * then its `.onJoinError(…)` side path, else the branch's error.
+ * then its `.onError(…)` side path, else the branch's error.
  */
 export async function failedJoined(
   launch: RuntimeLaunch,

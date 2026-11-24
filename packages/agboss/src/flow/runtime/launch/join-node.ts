@@ -24,7 +24,7 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * It reads only its own launch's records (a launch inside a loop never sees an earlier pass's),
  * drops them, records the launch for `result.launches`, and goes on — on the main path with the
  * branches' values written into the scope at once (one outdating cascade), or, when a branch
- * failed, into the most specific `.onJoinError(E, …)` by the error's class and cause chain. No
+ * failed, into the most specific `.onError(E, …)` by the error's class and cause chain. No
  * handler: the execution fails with the branch's error as it was thrown. A quorum join (#279)
  * decides from the records (`quorum-join.ts`) and writes only the counted answers.
  */

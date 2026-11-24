@@ -107,7 +107,7 @@ describe("AC3: min unreachable fails at once", () => {
   );
 });
 
-describe("AC4: without .onJoinError the execution fails", () => {
+describe("AC4: without .onError the execution fails", () => {
   strict("QuorumNotReachedError names the launching step", async ({ app, mockLlm }) => {
     mockLlm(SkillsPanelAgent).thenReturn(score(0));
     mockLlm(RisksPanelAgent).thenReturn(score(7));

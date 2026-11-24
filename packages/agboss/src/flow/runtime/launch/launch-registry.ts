@@ -19,7 +19,7 @@ import {
  * `maxConcurrency` (a sliding window: a branch takes a slot when it starts and frees it when it ends,
  * fails, is cancelled or pauses), the `AbortController` a `FailFast` failure aborts, the spend of
  * the branches that ended (so a later branch checks the money limits against it) and the errors
- * themselves (thrown as they are when no `.onJoinError(…)` takes them), and — for a quorum (#279
+ * themselves (thrown as they are when no `.onError(…)` takes them), and — for a quorum (#279
  * S26) — its state, rebuilt from the finished branches' records when the entry is made anew. In-process
  * is enough: only the tree's lease holder moves a tree (Q58); after a crash or a resume the entry is
  * made anew. Next to the launches, the trees' concurrency caps of the pass (#264 S27,

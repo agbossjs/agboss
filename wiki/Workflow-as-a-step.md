@@ -148,7 +148,7 @@ export const perItemPaths = [
     .returns(listOf(VendorDto))
     .toParallelWorkflows(VendorCheckWorkflow, { maxConcurrency: 3, maxItems: 50 })
     .join()
-    .onJoinError(
+    .onError(
       LimitExceededError, // a limit: only actions and finishes after it
       toAction(NotifyOperatorAction)
         .toFinish(ScreeningStoppedWorkflowFinish),
@@ -270,10 +270,10 @@ children
 | --- | --- |
 | One child, one way in | `.onError(E, path)` right after `.toWorkflow(W)` |
 | One child, own path | `.onError(E, path)` right after `onWorkflow(W)` |
-| Per item | `.onJoinError(E, path)` right after the join — `.onError` there does not compile, nor `.onJoinError` after `.toWorkflow(W)` |
+| Per item | `.onError(E, path)` right after the join (before its `.returns(…)`); not between the launch and its join |
 | Soft failure | an error the child catches itself, ending at a failure finish (`VendorCheckFailedDto` above), is one more ordinary result class for the parent — the way to skip a failed item and go on |
 | No soft failure | a per-item child with no finish reachable from one of its `.onError` side paths warns `[graph.child-without-failure-finish]` — one failed item would cancel the others (FailFast); an error under `agboss check --strict`; no flag silences it |
-| After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError` / `.onJoinError`, not only a child's |
+| After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError`, not only a child's |
 
 ### At run time: whose limit it is (S25)
 
@@ -283,7 +283,7 @@ An uncaught error of the child fails it, and the parent's step fails with
 (`component`, `nodeId`, `visitNumber`). The child's **own limits** are failures of the child and
 wrapped the same way: its `maxSteps` (`StepsLimitExceededError` in `cause`), the `maxVisits` of its
 nodes. So `.onError(StepFailedError, …)`, `.onError(ChildExecutionFailedError, …)` and
-`.onJoinError(…)` at the parent take them, and their side path may lead to an agent — the parent's
+`.onError(…)` at the parent take them, and their side path may lead to an agent — the parent's
 steps and the tree's money are not spent. A handler naming the cause (`.onError(ItemFailedError,
 …)`, `.onError(StepsLimitExceededError, …)`) catches it through the cause chain; naming a limit, it
 leads only to actions and finishes.
@@ -293,10 +293,10 @@ cancellation (`ExecutionCancelledError`) stop the whole execution as they are �
 never takes them. Every call of the tree is counted the moment it is made (#338): when one child's
 call exhausts a budget, the model and tool calls in flight of its sibling children (and of every
 other branch of the tree) are aborted at once, those children fail with that `BudgetExceededError`
-and their spend so far, and the join takes `.onJoinError(BudgetExceededError, …)`
+and their spend so far, and the join takes `.onError(BudgetExceededError, …)`
 ([FinOps → At run time](FinOps#at-run-time)). Per item, FailFast holds: the running children are cancelled (their spend stays
 counted, their observers get `onExecutionError` with `ExecutionCancelledError`), no new one starts,
-and the join takes `.onJoinError(…)` against the parent's scope **as it was before the launch** —
+and the join takes `.onError(…)` against the parent's scope **as it was before the launch** —
 the children that finished first are in `result.children` / `result.record.children` and the
 traces, never in the side path's scope. There is no `FailurePolicy.Skip` for children: skipping a
 failed item is the child catching its error and ending at a failure finish.
@@ -304,7 +304,7 @@ failed item is the child catching its error and ending at a failure finish.
 ## A child as an error handler (S85)
 
 `toWorkflow(W)` is a side-path starter beside `toAction` / `toAgent` / `toRouter` / `toFinish`, in
-`.onError` and `.onJoinError`: a failure is handled by a whole workflow, entered through its one
+`.onError`: a failure is handled by a whole workflow, entered through its one
 start (or the start the path's value fits), its result continued like after `.toWorkflow(W)`. A
 side path that can catch a limit stays actions and finishes only
 (`[graph.limit-handler-uses-model]`).
@@ -423,7 +423,7 @@ registry, never from the last state the parent saw; the undone records go into t
 with the error, so a later pass never undoes them again; its `onExecutionError` lists them
 (`compensations`). If one of its undo actions fails, its error is `CompensationFailedError`, which
 passes the boundary as it is — never `ChildExecutionFailedError`, like a cancel or an exhausted
-budget — so no `.onError` / `.onJoinError` of the parent takes it; the parent, getting it uncaught,
+budget — so no `.onError` of the parent takes it; the parent, getting it uncaught,
 undoes its own open actions in turn. [Rollback](Rollback#an-execution-that-ends-without-a-finish).
 
 **The application's rules.** A child need not be listed in `@Application({ workflows })`: the
@@ -507,7 +507,7 @@ export const anyInstancePaths = [
       placement: ChildPlacement.AnyInstance, // default ChildPlacement.ParentInstance
     })
     .join()
-    .onJoinError(ChildExecutionFailedError, toFinish(ScreeningFailedWorkflowFinish))
+    .onError(ChildExecutionFailedError, toFinish(ScreeningFailedWorkflowFinish))
     .returns(listOf(SupplierScoreDto))
     .toAgent(SupplierRankerAgent)
     .returns(SupplierRankingDto)
@@ -701,7 +701,7 @@ path with no branch at all — an action whose list of subtopics comes back empt
 `onExecutionStart` — and fails the launching step with `ChildExecutionFailedError` caused by
 `DepthLimitExceededError` (`limit.depth`; `workflow`, `maxDepth`, `depth`: `topic-research-workflow
 went 5 levels deep; its maxDepth is 4`). It is a child's own limit (S25): `.onError(LimitExceededError,
-…)` right after `.toWorkflow(ThisWorkflow)`, or `.onJoinError(LimitExceededError, …)` after a per-item
+…)` right after `.toWorkflow(ThisWorkflow)`, or `.onError(LimitExceededError, …)` after a per-item
 launch's join, takes it — leading only to actions and finishes (`[graph.limit-handler-uses-model]`).
 The refused launch is a failed child record with an empty path.
 
@@ -743,7 +743,7 @@ A `.returns(…)` right after a `ThisWorkflow` launch — `.toWorkflow(ThisWorkf
 `onWorkflow(ThisWorkflow)`, the side-path starter `toWorkflow(ThisWorkflow)`, or the `.join()` of
 `.toParallelWorkflows(ThisWorkflow, …)` — is not checked where it is written: the path's type
 carries it as a claim through every sub-path (`caseOf`, `route`, `.switch`, `.chooseOne`,
-`.onError`, `.onJoinError`) up to `@Workflow({ name, flow })`, which checks every claim of its flow
+`.onError`) up to `@Workflow({ name, flow })`, which checks every claim of its flow
 against its own entry. A wrong class is a compile error on `flow` (`a .returns(…) after
 ThisWorkflow is not what org-chart-workflow gives — see ThisWorkflowOutputs["org-chart-workflow"]["output"]`);
 the project code is the same as for any child. Several recursive workflows with different finishes

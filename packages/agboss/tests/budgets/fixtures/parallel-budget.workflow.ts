@@ -33,7 +33,7 @@ import { onStart, toAction, toFinish } from "../../helpers/flow.js";
  * #338 — a budget crossed inside a parallel launch. Two branches: the spender waits until the
  * waiter's tool runs (`hold-for-waiter-tool`), then answers with a costly call; the waiter's tool pays a
  * service and waits on its call's `executionContext.signal` until it is aborted. The same pair as
- * agents (`toParallelAgents`, with and without `.onJoinError`, and under a quorum) and as per-item
+ * agents (`toParallelAgents`, with and without `.onError`, and under a quorum) and as per-item
  * child workflows (`toParallelWorkflows`); one application per budget that is tight.
  */
 
@@ -201,7 +201,7 @@ const onBudget = toAction(NoteBudgetStopAction)
   .returns(NoteDto)
   .toFinish(BudgetStoppedWorkflowFinish);
 
-/** Both branches at once; an exhausted budget takes `.onJoinError(…)`. */
+/** Both branches at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
   name: "parallel-budget-workflow",
   version: "1.0.0",
@@ -210,7 +210,7 @@ const onBudget = toAction(NoteBudgetStopAction)
       .returns(WorkflowStartTextDto)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .join()
-      .onJoinError(BudgetExceededError, onBudget)
+      .onError(BudgetExceededError, onBudget)
       .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],
@@ -241,7 +241,7 @@ export class UnhandledBudgetWorkflow {}
       .returns(WorkflowStartTextDto)
       .toParallelAgents(SpenderAgent, WaiterAgent)
       .joinQuorum({ min: 2 })
-      .onJoinError(BudgetExceededError, onBudget)
+      .onError(BudgetExceededError, onBudget)
       .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],
@@ -288,7 +288,7 @@ export class TaskWorkflow {}
 })
 export class TasksWorkflowStart {}
 
-/** One child per task, all at once; an exhausted budget takes `.onJoinError(…)`. */
+/** One child per task, all at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
   name: "tasks-budget-workflow",
   version: "1.0.0",
@@ -297,7 +297,7 @@ export class TasksWorkflowStart {}
       .returns(listOf(TaskDto))
       .toParallelWorkflows(TaskWorkflow, { maxItems: 4 })
       .join()
-      .onJoinError(BudgetExceededError, onBudget)
+      .onError(BudgetExceededError, onBudget)
       .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],
@@ -340,7 +340,7 @@ export class TaskAction {
   }
 }
 
-/** One action per task, all at once; an exhausted budget takes `.onJoinError(…)`. */
+/** One action per task, all at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
   name: "task-actions-budget-workflow",
   version: "1.0.0",
@@ -349,7 +349,7 @@ export class TaskAction {
       .returns(listOf(TaskDto))
       .toParallelActions(TaskAction, { maxItems: 4 })
       .join()
-      .onJoinError(BudgetExceededError, onBudget)
+      .onError(BudgetExceededError, onBudget)
       .returns(listOf(NoteDto))
       .toFinish(NotesWorkflowFinish),
   ],

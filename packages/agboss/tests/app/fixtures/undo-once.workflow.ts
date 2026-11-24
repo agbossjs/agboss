@@ -126,7 +126,7 @@ export class OnceJoinSideFailedWorkflowFinish {}
       .returns(ItemDto)
       .toParallelActions(PaidBookingAction, GatedItemAction)
       .join()
-      .onJoinError(StepFailedError, toFinish(OnceJoinSideFailedWorkflowFinish))
+      .onError(StepFailedError, toFinish(OnceJoinSideFailedWorkflowFinish))
       .returns(BookingDto)
       .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)

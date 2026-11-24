@@ -1,7 +1,7 @@
 /**
  * #1366: the direction of a cycle when its classes are linked by a join's error path and by an
  * `{ about }` edge — the producers of a cycle are its nodes and the branches of the launches it
- * can leave by `.onJoinError`; a write about a class it does not read still ties it into the cycle
+ * can leave by `.onError`; a write about a class it does not read still ties it into the cycle
  * it closes, so the one `{ about }` that directs the cycle is enough.
  */
 import { describe, expect, it } from "vitest";
@@ -81,7 +81,7 @@ describe("#1366: a cycle that only the join's error path closes", () => {
           .returns(PlanDto)
           .toParallelAgents(LeftNoteAgent, CriticAgent)
           .join()
-          .onJoinError(
+          .onError(
             StepFailedError,
             toAction(RetryNoteAction).returns(LeftDto).toAgent(RetryPlannerAgent),
           )

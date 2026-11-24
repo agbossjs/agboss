@@ -149,7 +149,7 @@ export function walkLaunch(walker: LaunchRecorder, step: LaunchStep, cursor: Cur
 /** Walks a side path; whether it reached a node of its own. */
 export type SideWalk = (steps: readonly Step[], cursor: Cursor) => boolean;
 
-/** A join: its `.onJoinError(…)` side paths, then the edge of the next `.to…(…)` (#273). */
+/** A join: its `.onError(…)` side paths, then the edge of the next `.to…(…)` (#273). */
 export function walkJoin(
   walker: LaunchRecorder,
   step: JoinStep,
@@ -158,7 +158,7 @@ export function walkJoin(
 ): Cursor {
   const { current, launch } = cursor;
   if (current === undefined || launch === undefined) return cursor;
-  for (const handler of step.onJoinError) {
+  for (const handler of step.onError) {
     walker.joinErrorHandlers.push({ node: current, launch, handler });
     const inner: Cursor = {
       ...cursor,
@@ -168,7 +168,7 @@ export function walkJoin(
       depth: cursor.depth + 1,
     };
     if (walkSide(handler.path.steps, inner)) continue;
-    const message = `${current}: .onJoinError(${handler.error.name}, …) leads nowhere — start it with toAction(…) or toFinish(…)`;
+    const message = `${current}: .onError(${handler.error.name}, …) leads nowhere — start it with toAction(…) or toFinish(…)`;
     walker.violations.push(violation("graph.dead-end", message, [current]));
   }
   const { quorum } = step;

@@ -104,7 +104,7 @@ export interface StepFailedErrorOptions extends PaidStepErrorOptions, StepCoordi
  * a cancellation or a lost lease. It names the step (`component`, `nodeId`, `visitNumber`,
  * `itemIndex`), so `result`, the trace and the observers say which one failed; `FailurePolicy.Skip`
  * drops only these (S21). Its own code `step.failed` (lineage `[step.agent, step.failed, step]`)
- * makes `.onError(StepFailedError)` / `.onJoinError(StepFailedError)` take exactly these. Subclasses by kind of node: `AgentFailedError`, `RouterFailedError`,
+ * makes `.onError(StepFailedError)` take exactly these. Subclasses by kind of node: `AgentFailedError`, `RouterFailedError`,
  * `ActionFailedError`, `GuardFailedError`.
  */
 export class StepFailedError extends PaidStepError {

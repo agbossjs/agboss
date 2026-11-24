@@ -16,7 +16,7 @@ import type { ThisWorkflowLaunched, ThisWorkflowName, WithClaims } from "./this-
  * `.returns(…)` — checked against its generated `JoinOutputs` entry, keyed by the launch as written
  * (`toParallelAgents(researcher-agent, critic-agent, critic-agent)`, a router's launch prefixed by
  * its name, a per-item launch suffixed ` per item`). A join whose actions give nothing goes on with
- * `.to…(…)` at once, and nothing but `.onJoinError(…)` stands between a join and its values.
+ * `.to…(…)` at once, and nothing but `.onError(…)` stands between a join and its values.
  */
 
 /** `{ maxConcurrency, maxItems }` — the last argument of a parallel launch. */
@@ -114,9 +114,9 @@ export type LaunchCount<
   TPerItem extends boolean,
 > = TPerItem extends true ? number : TTargets["length"];
 
-/** `.onJoinError(E, toAction(X)…)` right after `.join()`: a failed branch, a limit in a branch. */
+/** `.onError(E, toAction(X)…)` right after `.join()`: a failed branch, a limit in a branch. */
 export interface JoinErrorHandling<TKey extends string, THead extends PathHead> {
-  onJoinError<const TPath extends SidePath>(
+  onError<const TPath extends SidePath>(
     error: ErrorClass,
     path: TPath,
   ): Joined<TKey, WithClaims<THead, ClaimsOf<TPath>>>;

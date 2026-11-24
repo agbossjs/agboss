@@ -17,7 +17,7 @@ export interface Cursor {
   /** A launch waiting for its join, then a join waiting for its `.to…(…)` (#273). */
   readonly launch?: FlowLaunch;
   readonly join?: JoinEdge;
-  /** A `.onJoinError(…)` side path's first edge (#945): what the launch's branches give. */
+  /** A `.onError(…)` side path's first edge (#945): what the launch's branches give. */
   readonly settled?: readonly JoinGroup[];
 }
 

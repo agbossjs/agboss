@@ -3,7 +3,7 @@
  * whom, with the masked answer), withdrawn (a decided quorum, a `FailFast` sibling), cancelled
  * (`app.cancel`, the tree's end) — at least once, in the pause's execution frame, under its tool's
  * `timeout`; never for a pause it decided at once or never sent. A hook that throws or hangs is
- * retried and logged and changes nothing else: the join, `.onJoinError` and `app.cancel` go on.
+ * retried and logged and changes nothing else: the join, `.onError` and `app.cancel` go on.
  * Notices are delivered after the change that wrote them, never awaited by it.
  */
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
@@ -364,7 +364,7 @@ describe("#940 AC4: a failing receiver changes nothing else", () => {
   });
 
   testWith(PayoutsApplication)(
-    "AC4: .onJoinError goes on: the failed branch's handler finishes the execution",
+    "AC4: .onError goes on: the failed branch's handler finishes the execution",
     async ({ app, clock, mockLlm }) => {
       hooks.closeFailure = new Error("the customer's app is offline");
       hooks.refusals = new Map([["7", new PaymentDeclinedError("the card was declined")]]);

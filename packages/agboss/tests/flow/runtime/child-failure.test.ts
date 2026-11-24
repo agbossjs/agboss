@@ -118,7 +118,7 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
 });
 
 describe("AC9: the side path sees the scope before the launch, and the settled answers (#945)", () => {
-  test("onJoinError sees the scope before the launch and the finished items; finished children in the record", async ({
+  test("onError sees the scope before the launch and the finished items; finished children in the record", async ({
     app,
   }) => {
     const items = [item("quick"), item("bad", 30, "fail")];
