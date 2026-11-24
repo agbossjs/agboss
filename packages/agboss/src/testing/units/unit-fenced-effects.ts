@@ -24,7 +24,7 @@ import type { TestFenceOptions } from "../fence.js";
  * runner's own, and — for every fenced-effect store the runner's container creates, the SQLite one
  * too — the runner's lease in the lease store of that store's backend (#825: `static store`): the
  * fence's token, held until its `trustedUntil`, released when the options say it was lost. So
- * `testAction` / `testTool` run a component's `runOnce` as a step of a held lease does.
+ * `testUnit` / `testUnit` run a component's `runOnce` as a step of a held lease does.
  * The same for the calls that leave the system (#505): `OutboundCalls` over the in-memory
  * outbound-call store, its lease held the same way.
  */

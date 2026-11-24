@@ -151,7 +151,7 @@ export class SqliteConnection implements OnDestroy {
       // Stryker disable next-line StringLiteral: equivalent: the environment has the one field, so there is one issue and nothing to join
       const problems = parsed.error.issues.map((issue) => issue.message).join("; ");
       throw new Error(
-        `the SQLite implementations need sqlitePath: string in the environment — ${problems}; set it in the environment's file, or in a unit test pass it: testAction(X, { environment: { sqlitePath: ":memory:" } })`,
+        `the SQLite implementations need sqlitePath: string in the environment — ${problems}; set it in the environment's file, or in a unit test pass it: testUnit(X, { environment: { sqlitePath: ":memory:" } })`,
       );
     }
     this.path = parsed.data.sqlitePath;

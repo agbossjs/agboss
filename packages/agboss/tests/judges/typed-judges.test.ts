@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { JudgeVerdict, QualityGateError, type JudgeInput } from "../../src/index.js";
 import { isVariant, PlainTextDto, type VariantOf } from "../../src/dto/index.js";
-import { replyWith, testJudge, testWith, type ModelRequest } from "../../src/testing/index.js";
+import { replyWith, testUnit, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { TaskStart } from "./fixtures/judged.workflow.js";
@@ -178,7 +178,7 @@ describe("a oneOf judge", () => {
   });
 
   it("on its own: each variant with its class, narrowed by isVariant", async () => {
-    const runJudge = testJudge(FairDecisionJudge);
+    const runJudge = testUnit(FairDecisionJudge);
 
     const offer = await runJudge({
       variant: OfferDto,
@@ -200,7 +200,7 @@ describe("a oneOf judge", () => {
   });
 
   it("a variant with another class's value does not compile", async () => {
-    const runJudge = testJudge(FairDecisionJudge);
+    const runJudge = testUnit(FairDecisionJudge);
 
     // @ts-expect-error -- variant OfferDto with a RefusalDto value
     const wrong = runJudge({ variant: OfferDto, output: { why: "x" }, task: "t", attempt: 0 });
@@ -236,7 +236,7 @@ describe("a list judge", () => {
   });
 
   it("on its own: variant is the list's one class; another class does not compile", async () => {
-    const runJudge = testJudge(JobsJudge);
+    const runJudge = testUnit(JobsJudge);
 
     const { output } = await runJudge({ variant: JobDto, output: [JOB], task: "t", attempt: 0 });
     // @ts-expect-error -- a list of JobDto has variant JobDto, not JobReportDto
@@ -267,13 +267,13 @@ describe("a list-of-oneOf judge", () => {
     expect(variants[2]).toBe(RefusalDto);
   });
 
-  it("on its own: testJudge takes each item as { variant, value }", async () => {
+  it("on its own: testUnit takes each item as { variant, value }", async () => {
     const items: readonly VariantOf<OfferDto | RefusalDto>[] = [
       { variant: OfferDto, value: { salary: 1 } },
       { variant: RefusalDto, value: { why: "no TypeScript" } },
     ];
 
-    const { output } = await testJudge(DecisionsJudge)({
+    const { output } = await testUnit(DecisionsJudge)({
       output: items,
       task: "the panel",
       attempt: 0,
@@ -283,7 +283,7 @@ describe("a list-of-oneOf judge", () => {
   });
 
   it("an item of a wrong pair, or a plain value, does not compile", async () => {
-    const runJudge = testJudge(DecisionsJudge);
+    const runJudge = testUnit(DecisionsJudge);
     const task = { task: "t", attempt: 0 } as const;
 
     // @ts-expect-error -- variant RefusalDto with an OfferDto value
@@ -298,7 +298,7 @@ describe("a list-of-oneOf judge", () => {
 
 describe("a text judge", () => {
   it("has variant PlainTextDto, the class of its { text } reply", async () => {
-    const runJudge = testJudge(TextJudge);
+    const runJudge = testUnit(TextJudge);
 
     const { output } = await runJudge({
       variant: PlainTextDto,

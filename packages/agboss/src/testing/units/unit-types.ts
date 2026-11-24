@@ -3,14 +3,14 @@ import type { Environment } from "../../flow/generated-types.js";
 import type { Milliseconds } from "../../units/index.js";
 import type { VirtualClock } from "../clock.js";
 import type { TurnFor } from "../script-types.js";
-import type { Override } from "./override.js";
+import type { ServiceEntry } from "../../components/injection.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { TestContextOptions } from "../execution-context.js";
 
 /**
  * What every unit runner of `@agboss/core/testing` takes (#262 S55, S62, S89): the component is created
- * by a container of its own — its `deps` resolved, the classes in `overrides` replaced — on an
+ * by a container of its own — its `deps` resolved, the `services` in place of the real ones — on an
  * application context with `environment` and a `VirtualClock`; its calls run for the tenant and with
  * the execution values given — `tenantContext` / `tenant`, `executionContext` / `execution`, as
  * `testExecutionContext` takes them, checked by the classes' field decorators — else the default
@@ -20,8 +20,12 @@ export interface UnitOptions<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 > extends Omit<TestContextOptions<TExecution, TTenant>, "application"> {
-  /** Classes replaced by classes: `[override(SearchClient, FakeSearchClient)]`. */
-  readonly overrides?: readonly Override[];
+  /**
+   * What the unit's container creates or holds instead of the real ones (#1324): a fake class that
+   * `extends` the real service or names its port (`@Injectable({ injectAs: SearchClient })`) —
+   * `services: [FakeSearchClient]` — and values, `provide(API_URL, "http://fake")`.
+   */
+  readonly services?: readonly ServiceEntry[];
   /**
    * The application's environment values (`applicationContext.environment`) the unit reads — only
    * those (#644): `{ sqlitePath: ":memory:" }` for a SQLite store, never a `Secret` it does not read;

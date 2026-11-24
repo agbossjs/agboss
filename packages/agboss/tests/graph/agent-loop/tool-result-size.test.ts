@@ -9,9 +9,8 @@ import { applicationOf } from "../../../src/application/assemble.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
 import { GraphRuleError } from "../../../src/index.js";
 import { truncatedResultMarker } from "../../../src/prompts/agents.js";
-import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
+import { callTool, replyWith, testUnit, testWith } from "../../../src/testing/index.js";
 import type { ModelScript } from "../../../src/testing/model-script.js";
-import { testTool } from "../../../src/testing/units/test-tool.js";
 import { execute } from "../../helpers/flow.js";
 import {
   BoundedPageApplication,
@@ -156,8 +155,8 @@ describe("#336 AC3: tool results bounded by maxResultSize", () => {
 });
 
 describe("#336 AC3: the bound's settings", () => {
-  it("testTool(…).run returns the full output: the bound is the model's", async () => {
-    const run = testTool(FetchPageTool);
+  it("testUnit(…).run returns the full output: the bound is the model's", async () => {
+    const run = testUnit(FetchPageTool);
 
     const { output } = await run({ url: "https://example.com" });
 

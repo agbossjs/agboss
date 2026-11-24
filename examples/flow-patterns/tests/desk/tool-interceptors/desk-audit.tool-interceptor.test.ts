@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { ToolCallDecision } from "@agboss/core";
-import { testToolInterceptor } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { DeskAuditToolInterceptor } from "../../../src/desk/tool-interceptors/desk-audit.tool-interceptor.js";
 import { CloseAccountTool } from "../../../src/desk/tools/close-account.tool.js";
 import { OrderStatusTool } from "../../../src/desk/tools/order-status.tool.js";
 
 /** An extension point alone, on its own container (#262 S55): the unit runner. */
 
-describe("testToolInterceptor: the decision and the output, per tool", () => {
-  const interceptor = testToolInterceptor(DeskAuditToolInterceptor);
+describe("testUnit: the decision and the output, per tool", () => {
+  const interceptor = testUnit(DeskAuditToolInterceptor);
 
   it("blocks a closure, answers for an archived order, allows the rest", async () => {
     const closure = await interceptor.beforeToolCall(CloseAccountTool, { customerId: "c-1" });

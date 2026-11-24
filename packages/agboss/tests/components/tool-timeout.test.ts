@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { Tool } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
-import { testTool } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 
 class Query {
@@ -28,7 +28,7 @@ describe("#268 AC11: a tool's timeout has units", () => {
     // @ts-expect-error — a bare number is not a duration
     Tool({ ...options, timeout: 5000 });
 
-    const { output } = await testTool(QuickTool)({ query: "x" });
+    const { output } = await testUnit(QuickTool)({ query: "x" });
 
     expect(output).toEqual({ query: "x" });
   });

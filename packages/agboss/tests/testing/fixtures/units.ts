@@ -1,6 +1,6 @@
 /**
- * #262 PR 3 — components for the unit runners (`testTool`, `testJudge`, `testPii`, `testRag`,
- * `testGuardrail`): each injects what the runner gives (`ExecutionContext`, `SpendRecorder`,
+ * #262 PR 3 — components for the unit runners (`testUnit`, `testUnit`, `testUnit`, `testUnit`,
+ * `testUnit`): each injects what the runner gives (`ExecutionContext`, `SpendRecorder`,
  * `JudgeModel`, `ApplicationContext`) and a service the tests replace with `override(…)`.
  */
 import { RagScope } from "../../../src/rag/types.js";

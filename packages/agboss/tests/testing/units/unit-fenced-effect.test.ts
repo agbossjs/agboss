@@ -1,5 +1,5 @@
 /**
- * #500 — the fenced effect in a unit runner: `testAction` / `testTool` give the component the
+ * #500 — the fenced effect in a unit runner: `testUnit` / `testUnit` give the component the
  * built-in in-memory store on the runner's held lease (token 1, or the `fence` option's), so a
  * step's effect runs, replays on a second call of one runner, and is refused once the lease is lost
  * or past its confirmation.
@@ -20,7 +20,7 @@ import {
 } from "../../../src/index.js";
 import { effectKeyOf } from "../../../src/stores/index.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
-import { testAction } from "../../../src/testing/index.js";
+import { testUnit } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
 import {
   book,
@@ -34,7 +34,7 @@ const order = { message: { value: { text: "order-1" } } } as never;
 
 describe("#500: a unit runner's fenced effect", () => {
   it("runs on the runner's held lease (token 1), then replays the receipt on the same step", async () => {
-    const run = testAction(ChargeOrderAction);
+    const run = testUnit(ChargeOrderAction);
 
     const first = await run(order);
     const second = await run(order);
@@ -49,7 +49,7 @@ describe("#500: a unit runner's fenced effect", () => {
   });
 
   it("runs under the fence option's token", async () => {
-    const run = testAction(ChargeOrderAction, { fence: { token: 4 } });
+    const run = testUnit(ChargeOrderAction, { fence: { token: 4 } });
 
     const { output } = await run(order);
 
@@ -58,14 +58,14 @@ describe("#500: a unit runner's fenced effect", () => {
   });
 
   it("a lost lease (isLost) refuses the effect: nothing charged", async () => {
-    const run = testAction(ChargeOrderAction, { fence: { isLost: true } });
+    const run = testUnit(ChargeOrderAction, { fence: { isLost: true } });
 
     await expect(run(order)).rejects.toBeInstanceOf(ExecutionFencedError);
     expect(book.charges).toEqual([]);
   });
 
   it("past the lease's confirmation on the runner's clock the effect is refused", async () => {
-    const run = testAction(ChargeOrderAction);
+    const run = testUnit(ChargeOrderAction);
     await run.clock.advance(seconds(30));
 
     await expect(run(order)).rejects.toBeInstanceOf(ExecutionFencedError);
@@ -153,7 +153,7 @@ class OwnStoreChargeAction {
 
 describe("#825: the runner finds a store's lease store by its backend", () => {
   it("a project's store on the in-memory backend: its lease held there, its effect runs", async () => {
-    const run = testAction(OwnStoreChargeAction);
+    const run = testUnit(OwnStoreChargeAction);
 
     await expect(run(order)).resolves.toMatchObject({ output: undefined });
   });
@@ -164,7 +164,7 @@ describe("#500: a store whose lease store the runner cannot find", () => {
     ["declares no backend", UnleasedChargeAction],
     ["is on a backend of no lease store the runner has", MisdeclaredChargeAction],
   ])("%s: the runner holds no lease for it, so its effect is refused", async (_case, action) => {
-    const run = testAction(action);
+    const run = testUnit(action);
 
     await expect(run(order)).rejects.toBeInstanceOf(ExecutionFencedError);
   });

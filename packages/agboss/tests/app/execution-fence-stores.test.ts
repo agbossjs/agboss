@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect } from "vitest";
 import { ExecutionFencedError } from "../../src/index.js";
-import { override, testWith } from "../../src/testing/index.js";
+import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { resetRecovery, seen as recovery } from "../infrastructure/fixtures/recovery.workflow.js";
 import { sqliteFilePerTest } from "../infrastructure/sqlite/fixtures/sqlite.workflow.js";
@@ -34,7 +34,7 @@ import { instance, rejectionOf, settle, takenOver } from "./fixtures/fence-takeo
 
 sqliteFilePerTest();
 const folder = mkdtempSync(join(tmpdir(), "agboss-fence-ledger-"));
-const sqliteLedger = [override(ArtifactLedger, SqliteArtifactLedger)];
+const sqliteLedger = [SqliteArtifactLedger];
 
 beforeEach(() => {
   resetFence();
@@ -52,7 +52,7 @@ afterAll(() => {
 });
 
 describe("#471 AC2: one transaction — the fence and the idempotency key", () => {
-  const test = testWith(FenceSqliteApplication, { overrides: sqliteLedger });
+  const test = testWith(FenceSqliteApplication, { services: sqliteLedger });
 
   test("a release writes its row and raises the scope's mark; the same key again is deduplicated", async ({
     app,
@@ -82,7 +82,7 @@ describe.each([
   { name: "AGBoss's SQLite stores", application: FenceSqliteApplication },
   { name: "a project's own lease store", application: FenceOwnLeasesApplication },
 ])("#471 AC3 / AC5: a stalled writer over $name", ({ application }) => {
-  const two = testWith(application, { instances: 2, overrides: sqliteLedger });
+  const two = testWith(application, { instances: 2, services: sqliteLedger });
 
   two(
     "its write after the takeover is refused in the ledger's transaction; one row, B's",

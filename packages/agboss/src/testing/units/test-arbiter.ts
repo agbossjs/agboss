@@ -33,13 +33,13 @@ const nameOfAgent = (agent: Class): string => declarationOf(agent)?.options.name
  * throws, returns no boolean or whose model does not answer rejects with `ArbiterError` (the
  * original as its cause) — never a rejection, as in a quorum.
  */
-export function testArbiter<
+export function arbiterUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(arbiter: Class, options: UnitModelOptions<unknown, TExecution, TTenant> = {}): ArbiterRunner {
   const declaration = arbiterOf(arbiter);
   if (declaration === undefined)
-    throw new TestSetupError({ message: `testArbiter(${arbiter.name}): not an @Arbiter` });
+    throw new TestSetupError({ message: `testUnit(${arbiter.name}): not an @Arbiter` });
   const { name } = declaration.options;
   const site = new UnitSite(options);
   if (!isCodeArbiter(declaration.options))

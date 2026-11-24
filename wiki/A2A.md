@@ -458,7 +458,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 `testWith`'s `a2aServer({ expose, authenticator, base? })` serves the test's `app` through
 `a2aHttpListener` on `127.0.0.1:0` and returns `{ url }` (`A2ATestServer`); the loopback is open
 for it (no `allowNetwork` needed) and the server is closed at the test's end. The authenticator comes
-from the test app's container, so `override(ApiKeyDirectory, FixedApiKeyDirectory)` and `mockOf`
+from the test app's container, so `FixedApiKeyDirectory` and `mockOf`
 reach it.
 
 ```ts no-check: ShopApplication and its workflow are not written out on this page
@@ -470,7 +470,7 @@ class FixedApiKeyDirectory extends ApiKeyDirectory {
   }
 }
 
-const test = testWith(ShopApplication, { overrides: [override(ApiKeyDirectory, FixedApiKeyDirectory)] });
+const test = testWith(ShopApplication, { services: [FixedApiKeyDirectory] });
 
 test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
   const { url } = await a2aServer({ expose: ShopA2AExpose, authenticator: ShopHttpAuthenticator });

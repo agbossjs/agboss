@@ -33,13 +33,7 @@ import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { ChargeOrderAction } from "./fixtures/outbound-call.workflow.js";
 import { REDACTED } from "../../src/app/outbound-call-errors.js";
-import {
-  override,
-  testAction,
-  testWith,
-  type TestApp,
-  type VirtualClock,
-} from "../../src/testing/index.js";
+import { testUnit, testWith, type TestApp, type VirtualClock } from "../../src/testing/index.js";
 import { hours, kilobytes, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, RecordingLogger, recordingLog, resetLogged } from "../helpers/log.js";
@@ -70,9 +64,9 @@ import { passLive } from "../helpers/live-time.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
-const overrides = [override(Logger, RecordingLogger)];
-const test = testWith(BusinessKeyApplication, { overrides });
-const two = testWith(BusinessKeyApplication, { instances: 2, overrides });
+const services = [RecordingLogger];
+const test = testWith(BusinessKeyApplication, { services });
+const two = testWith(BusinessKeyApplication, { instances: 2, services });
 const charge = { orderId: "42", amountUsd: 10 };
 
 /** Until `count` outbound charges of the business-key fixture are frozen. */
@@ -383,11 +377,8 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
 
 describe("#508 re-review LOW/MEDIUM6: a AttemptSuperseded attempt is logged on the instance's log", () => {
   it("with no audit log (a unit runner): the error is logged all the same, naming the newer attempt", async () => {
-    const run = testAction(ChargeOrderAction, {
-      overrides: [
-        override(OutboundCallRepository, SupersedingOutboundCallRepository),
-        override(Logger, RecordingLogger),
-      ],
+    const run = testUnit(ChargeOrderAction, {
+      services: [SupersedingOutboundCallRepository, RecordingLogger],
     });
 
     // #795: the step fails with OutboundCallError.Superseded — and the log says it all the same

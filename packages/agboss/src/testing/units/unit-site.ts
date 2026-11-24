@@ -1,6 +1,6 @@
 import { type Container } from "../../components/container/container.js";
 import type { Class } from "../../components/injection.js";
-import { unitContainer } from "./unit-container.js";
+import { unitContainer, type UnitContainerExtras } from "./unit-container.js";
 import { NO_ENVIRONMENT_VALUES, unitEnvironmentOf } from "../../environments/resolve.js";
 import { CostReport, type UsageRecord } from "../../finops/usage.js";
 import { applicationContextOf } from "../../flow/context/application-context.js";
@@ -117,7 +117,7 @@ export class UnitSite {
   /** Who the unit's calls are made for (`ownerId`); default none. */
   readonly #ownerId: string | undefined;
 
-  constructor(options: UnitOptions) {
+  constructor(options: UnitOptions, extra: UnitContainerExtras = {}) {
     this.contexts = unitContexts(this.clock, options);
     this.#tenant = tenantFieldsOf(this.contexts.tenantContext, options.tenant);
     this.#execution = executionFieldsOf(this.contexts.executionContext, options.execution);
@@ -134,6 +134,7 @@ export class UnitSite {
       options,
       this.#fencedEffects,
       () => this.gateway,
+      extra,
     );
   }
 

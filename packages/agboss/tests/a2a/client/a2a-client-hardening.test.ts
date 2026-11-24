@@ -42,7 +42,7 @@ import {
 import { A2ACallerRejectedError } from "../../../src/a2a/a2a-caller.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Tool } from "../../../src/index.js";
-import { testTool } from "../../../src/testing/index.js";
+import { testUnit } from "../../../src/testing/index.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { callerOf } from "./fixtures/caller.js";
 import { AGENT_URL, scripts, SdkAgent, urlOf, workingThen } from "./support/sdk-agent.js";
@@ -423,7 +423,7 @@ describe("the mesh refused where it cannot ride", () => {
       }
     }
 
-    await expect(testTool(SignTool)({ text: "x" })).rejects.toBeInstanceOf(A2AMeshUnsupportedError);
+    await expect(testUnit(SignTool)({ text: "x" })).rejects.toBeInstanceOf(A2AMeshUnsupportedError);
     expect(card.capabilities?.extensions.some((each) => each.uri === A2A_MESH_EXTENSION)).toBe(
       true,
     );

@@ -11,7 +11,7 @@ import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Action, ExecutionContext } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
 import { isThreadId } from "../../src/run/thread.js";
-import { testAction } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 
 /** "order:🧾42" cut one code unit into the emoji, as a slice by length does. */
 const CUT = "order:\u{1F9FE}42".slice(0, 7);
@@ -40,7 +40,7 @@ describe("a business key with a lone surrogate", () => {
   });
 
   it("effectKeyOf refuses it with IdempotencyError.InvalidKey, the key not in the message", async () => {
-    const run = testAction(CutKeyAction);
+    const run = testUnit(CutKeyAction);
 
     const error: unknown = await run({ message: { value: { text: "x" } } }).catch(
       (thrown: unknown) => thrown,

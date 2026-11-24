@@ -20,7 +20,7 @@ import {
   type Produced,
 } from "../../src/index.js";
 import { type EffectKey } from "../../src/stores/index.js";
-import { override, testAction } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { IDEMPOTENCY_OUTSIDE_APPLICATION } from "../../src/app/idempotency.js";
 import { hours } from "../../src/units/index.js";
@@ -34,7 +34,7 @@ const worked: string[] = [];
 /** The keys a test's replacement of the in-memory store was called with. */
 const replaced: string[] = [];
 
-/** A test's replacement of the listed store, by its own class (`override(Store, …)`). */
+/** A test's replacement of the listed store, by its own class (`services: [Store]`). */
 @Injectable({
   deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
@@ -78,7 +78,7 @@ describe("#890 AC2: Idempotency.runOnce, the service an application injects", ()
   const order = { message: { value: { text: "order-1" } } } as never;
 
   it("AC2: runs the work once per key on the store the container gives, then replays its result", async () => {
-    const run = testAction(FencedReceiptAction);
+    const run = testUnit(FencedReceiptAction);
     worked.length = 0;
 
     const first = await run(order);
@@ -126,10 +126,10 @@ describe("#890 AC2: a workflow on its own (eval, replay, Studio) runs Idempotenc
 });
 
 describe("#890 AC2: a test's replacement of the listed store reaches Idempotency", () => {
-  it("AC2: override(InMemoryFencedEffectRepository, …) is what Idempotency runs on", async () => {
+  it("AC2: a services entry extending InMemoryFencedEffectRepository is what Idempotency runs on", async () => {
     replaced.length = 0;
-    const run = testAction(FencedReceiptAction, {
-      overrides: [override(InMemoryFencedEffectRepository, RecordingFencedEffectRepository)],
+    const run = testUnit(FencedReceiptAction, {
+      services: [RecordingFencedEffectRepository],
     });
 
     await run({ message: { value: { text: "order-2" } } } as never);

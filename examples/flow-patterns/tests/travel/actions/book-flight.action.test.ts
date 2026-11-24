@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Injectable, OutboundCallError } from "@agboss/core";
-import { override, testAction } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 import { BookFlightAction } from "../../../src/travel/actions/book-flight.action.js";
 import {
@@ -63,8 +63,8 @@ const REQUEST = {
 };
 
 const runner = () =>
-  testAction(BookFlightAction, {
-    overrides: [override(BookingDeskService, FakeBookingDeskService)],
+  testUnit(BookFlightAction, {
+    services: [FakeBookingDeskService],
   });
 
 /** A runner whose first booking was left pending: frozen at the airline until its timeout. */
@@ -86,7 +86,7 @@ beforeEach(() => {
   airline.lookup = undefined;
 });
 
-it("testAction: an undoable action, its service overridden", async () => {
+it("testUnit: an undoable action, its service overridden", async () => {
   const { output } = await runner()(REQUEST);
 
   expect(output.bookingId).toContain("Lisbon");

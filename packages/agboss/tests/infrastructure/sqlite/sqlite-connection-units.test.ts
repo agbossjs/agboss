@@ -274,7 +274,7 @@ describe("#1366: the connection of an instance", () => {
     "an environment that does not name the file (%j) is refused, saying what is missing",
     (environment, why) => {
       expect(() => connect(environment)).toThrow(
-        `the SQLite implementations need sqlitePath: string in the environment — ${why}; set it in the environment's file, or in a unit test pass it: testAction(X, { environment: { sqlitePath: ":memory:" } })`,
+        `the SQLite implementations need sqlitePath: string in the environment — ${why}; set it in the environment's file, or in a unit test pass it: testUnit(X, { environment: { sqlitePath: ":memory:" } })`,
       );
     },
   );

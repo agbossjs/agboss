@@ -1,12 +1,12 @@
 /**
- * #703 — reranking in the test kit: `testRag(R)` reranks as an agent's search does (a code reranker
+ * #703 — reranking in the test kit: `testUnit(R)` reranks as an agent's search does (a code reranker
  * from its container, a model one on `model: replyWith(…)`, unscripted the retrieval's order), and
  * `mockLlm(Reranker)` scripts a model reranker in `testWith`; a code reranker has no script, named.
  */
 import { describe, expect } from "vitest";
 import type { Class } from "../../src/index.js";
 import type { RagQueryDto } from "../../src/rag/index.js";
-import { callTool, replyWith, testRag, testWith } from "../../src/testing/index.js";
+import { callTool, replyWith, testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
   ANSWER,
@@ -20,12 +20,12 @@ import {
 
 const test = testWith(rerankApplication());
 
-describe("#703: testRag reranks", () => {
+describe("#703: testUnit reranks", () => {
   test("a model reranker on its script; unscripted, the retrieval's order", async () => {
-    const scripted = await testRag(ModelRankedRag, { model: replyWith('{"ranking":[27]}') })(
+    const scripted = await testUnit(ModelRankedRag, { model: replyWith('{"ranking":[27]}') })(
       "on-call",
     );
-    const unscripted = await testRag(ModelRankedRag)("on-call");
+    const unscripted = await testUnit(ModelRankedRag)("on-call");
 
     expect(scripted.output.map((r) => r.source)).toEqual([
       ANSWER.source,
@@ -40,7 +40,7 @@ describe("#703: testRag reranks", () => {
   });
 
   test("a code reranker from its container, its cost in the spend", async () => {
-    const { output, spend } = await testRag(KeywordRankedRag)("on-call");
+    const { output, spend } = await testUnit(KeywordRankedRag)("on-call");
 
     expect(output[0]?.source).toBe(ANSWER.source);
     expect(spend.byCategory.rag).toBeCloseTo(0.0005, 10);

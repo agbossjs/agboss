@@ -147,7 +147,7 @@ export class GroundedAnswerJudge {}
 - `model` and `modelProvider` are as on any model judge: the role of its provider when left out.
 - The execution's budgets are checked **before each model call** of a judge: once a judge's call spends them, the
   next judge makes none and the run stops with `BudgetExceededError`.
-- In `testJudge` and in `testWith` a declarative judge nobody scripted **passes** (`replyWith` /
+- In `testUnit` and in `testWith` a declarative judge nobody scripted **passes** (`replyWith` /
   `decideWith({ verdict: … })` script it); it is still asked, so `mockLlm(Judge).requests` shows what it read.
 
 ## A code judge: no model
@@ -187,7 +187,7 @@ export class OneSentenceJudge implements JudgeHandler<PlainTextDto> {
 ```
 
 In tests a code judge has no script — `mockLlm(OneSentenceJudge)` fails, naming why ("a code judge
-calls no model — mockOf() the services its judge() uses"); `testJudge(OneSentenceJudge)` runs it with
+calls no model — mockOf() the services its judge() uses"); `testUnit(OneSentenceJudge)` runs it with
 no `model` (one is a `TestSetupError`) and no spend.
 
 ## A judge of a DTO answer
@@ -409,7 +409,7 @@ export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
 }
 ```
 
-`testJudge(LookedUpJudge)({ variant: PlainTextDto, output, task, attempt })` runs it with no calls
+`testUnit(LookedUpJudge)({ variant: PlainTextDto, output, task, attempt })` runs it with no calls
 (`toolCalls` defaults to `[]`); pass `toolCalls: [record]` to judge a trajectory. Each verdict is in
 the agent step's `result.record.steps[i].judgeVerdicts` (`judge`, `attempt`, `passed`, `reason?`,
 `metrics?`).
@@ -494,6 +494,6 @@ masked.
 In tests, script a chat judge like an agent — `mockLlm(CorrectnessJudge).thenReturn(replyWith("PASS"))`
 — and a decision judge with its answers by question id:
 `mockLlm(GroundedJudge).thenReturn(decideWith({ grounded: 0.9, quality: 2 }))`. On its own,
-`testJudge(AnswerGroundedJudge, …)({ variant: JobReportDto, output, task, attempt })` takes `output` as
+`testUnit(AnswerGroundedJudge, …)({ variant: JobReportDto, output, task, attempt })` takes `output` as
 a plain object of the judge's DTO, typed by the judge — a `variant` with another class's value
 (`{ variant: OfferDto, output: { why } }`) does not compile ([Testing](Testing#unit-runners--one-component-on-its-own)).

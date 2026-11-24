@@ -1,11 +1,11 @@
-import { testTool } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { describe, expect, it } from "vitest";
 import { {{pascal}}Tool } from "./{{kebab}}.tool.js";
 
 describe("{{kebab}}-tool", () => {
   it("answers a query", async () => {
     // the tool on its own container, in the frame of a tool call: no `new`, no workflow
-    const run{{pascal}} = testTool({{pascal}}Tool);
+    const run{{pascal}} = testUnit({{pascal}}Tool);
 
     const { output } = await run{{pascal}}({ query: "example" });
 

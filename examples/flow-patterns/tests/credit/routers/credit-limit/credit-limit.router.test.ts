@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { testRouter } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { ChargeCardAction } from "../../../../src/credit/actions/charge-card.action.js";
 import { ApprovalAgent } from "../../../../src/credit/agents/approval/approval.agent.js";
 import { OrderIntakeAgent } from "../../../../src/credit/agents/order-intake/order-intake.agent.js";
@@ -10,8 +10,8 @@ import { CreditLimitRouter } from "../../../../src/credit/routers/credit-limit/c
  * input fields as `{ producer, value }` records.
  */
 
-describe("testRouter: a code router decides at no cost", () => {
-  const runRouter = testRouter(CreditLimitRouter);
+describe("testUnit: a code router decides at no cost", () => {
+  const runRouter = testUnit(CreditLimitRouter);
   const order = (total: number) => ({
     order: {
       producer: OrderIntakeAgent,

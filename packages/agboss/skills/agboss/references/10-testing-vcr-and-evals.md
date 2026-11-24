@@ -4,16 +4,16 @@ Read this before writing any test. Tests never call a real model or the network:
 application runs under `testWith(App)` with scripted models, and one component runs alone under its
 unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 
-| You test…                                                                                                     | Use                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                                                                 |
-| a race between parallel branches                                                                              | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                                                       |
-| time: timeouts, retries, retention, leases                                                                    | the `clock` fixture: `await clock.advance(seconds(31))`                                                                                                             |
-| a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                                          |
-| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction` |
-| real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                                                          |
-| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>`                   |
-| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                                              |
+| You test…                                                                                                     | Use                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                                               |
+| a race between parallel branches                                                                              | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                                     |
+| time: timeouts, retries, retention, leases                                                                    | the `clock` fixture: `await clock.advance(seconds(31))`                                                                                           |
+| a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                        |
+| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testUnit`                                                                                                                       |
+| real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                                        |
+| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>` |
+| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                            |
 
 `vitest.config.ts` wraps its `test` options in `agbossVitest()` from `@agboss/core/testing/vitest`: AGBoss loaded
 through vite, in the test's module graph (so `testWith(App)` loads the application next to its workflows, with
@@ -587,7 +587,7 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   (`test.no-matching-script`). Turns: `replyWith(text)`, `replyWith(Dto, value, { cost: usd(…) })`,
   `callTool(Tool, args)`, `routeTo(Target)` (a model router), `decideWith({ question: p })` (decision
   models: judges, guardrails `{ blocks }`, model arbiters `{ counts }`), `failWith(ModelFailure.Timeout)`,
-  `waitFor(seconds(31))` (the next turn after that long on the clock), and the model's invalid turns
+  `waitFor(seconds(31))` (the next turn after that long on the clock), `streamWith(["a", "b"])` (a streamed text, chunk by chunk) and `failStreamAfter(["a"], ModelFailure.Timeout)` (a stream that breaks after its chunks), and the model's invalid turns
   for a validation retry, no cast needed: `callToolWithInvalidArguments(Tool, { orderId: 7 })` (its
   input check refuses them) and `callToolWithTruncatedArguments(Tool, { orderId: "7" })` (cut JSON,
   `finish_reason: "length"`) — the tool never runs, the call is `ToolCallStatus.InvalidArguments`,
@@ -601,7 +601,7 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue([…])` the services its
   `compact()` uses.
 - **Replacing a class**: `mockOf(Service).method.mockResolvedValue(…)` (any component or service, a
-  budget's `maxSpend` too); `testWith(App, { overrides: [override(Base, Replacement)] })` creates a
+  budget's `maxSpend` too); `testWith(App, { services: [Replacement] })` creates a
   class instead of another — no instances, no `new`.
 - **A profile**: `testWith(App, { profile: "low-thinking" })` runs every workflow of the application,
   the child workflows too, on `src/config/low-thinking.config.ts|yaml` next to the application file
@@ -649,7 +649,7 @@ partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
 The `a2aServer` fixture (#387, an `A2AServerFixture`) serves the test's `app` through
 `a2aHttpListener` (its `@A2AExpose`, listed in `@Application({ exposes })`, #398 PR 3) on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
 url, headers })`. The app is built first and the authenticator taken from its container (so
-`override(…)` and `mockOf` reach its services); the loopback is open for the test without
+`services` and `mockOf` reach its services); the loopback is open for the test without
 `allowNetwork`, its `publicUrl` is its own address, and the server closes when the test ends. It
 serves A2A v1.0 (#808): the Agent Card at `<url>/.well-known/agent-card.json` and JSON-RPC 2.0 at
 `POST <url>` — any A2A client calls it, here a plain `fetch` of `SendMessage`. A refused caller is
@@ -751,7 +751,7 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   `toHaveScriptedToolCalls([…])`: the model's calls exactly, in order.
 - A judge reads the visit's calls — every attempt's, real values — as `input.toolCalls`;
   `toolCallsOf(Tool, toolCalls)` gives one tool's calls typed by its input and output
-  (`TypedToolCall`: narrowed by `status`). `testJudge` takes `toolCalls` optionally — `[]` when not
+  (`TypedToolCall`: narrowed by `status`). `testUnit` takes `toolCalls` optionally — `[]` when not
   given.
 - A model call whose arguments are no JSON (truncated — the provider's `invalid_tool_calls`) is an
   `InvalidArguments` call: the model reads why and tries again, the step's `validationAttempts`
@@ -1193,12 +1193,15 @@ it("complete() maps the request to the SDK, with the execution's tenant", async 
 
 ## One component: the unit runners
 
-Each runner builds the component's own container (its `deps`, `overrides`, an `environment`) and
+One runner, `testUnit(Class)`, for every kind below (a list of `@PiiPolicy` classes is the policies one
+element lists); it builds the component's own container (its `deps`, `services` — fake classes that
+`extends` the real ones or name a port with `injectAs`, and `provide(TOKEN, value)` —, an `environment`) and
 runs every call in the frame of its step, so `ExecutionContext`, `SpendRecorder` and `JudgeModel`
 work as in a run. Every call returns `{ output, spend }`; `run.clock` is its `VirtualClock`.
 
-A service has no runner: its test creates it by hand (as `agboss create`'s
-`tests/services/api.service.test.ts` does) and mirrors its module like any other:
+`testDto(Dto)` is `{ validate, mask, jsonSchema }` of a DTO; `testService(Class)` runs a multi-method
+service — `.service`, `.run(work)` in a step's frame, `.get(token)`, `.mockService(Dependency)`, `.start()` / `.stop()` for its hooks.
+A service test mirrors its module like any other:
 
 ```ts file=tests/rental/services/fleet.service.test.ts
 import { expect, it } from "vitest";
@@ -1218,7 +1221,7 @@ A component's test mirrors its module — the tool's in `tests/screening/tools/`
 
 ```ts file=tests/screening/tools/candidate-archive.tool.test.ts
 import { Injectable } from "@agboss/core";
-import { override, testTool } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 import { expect, it } from "vitest";
 import { CandidateArchiveService } from "../../../src/screening/services/candidate-archive.service.js";
@@ -1231,9 +1234,9 @@ export class FirstTimeArchiveService extends CandidateArchiveService {
   }
 }
 
-it("testTool: input and output validated, a service replaced by a class", async () => {
-  const runTool = testTool(CandidateArchiveTool, {
-    overrides: [override(CandidateArchiveService, FirstTimeArchiveService)],
+it("testUnit: input and output validated, a service replaced by a class", async () => {
+  const runTool = testUnit(CandidateArchiveTool, {
+    services: [FirstTimeArchiveService],
   });
 
   const { output, spend } = await runTool({ name: "Dana" }, { timeout: seconds(1) });
@@ -1246,7 +1249,7 @@ it("testTool: input and output validated, a service replaced by a class", async 
 The other runners, the same way:
 
 <!-- snippet-context
-import { decideWith, testAction, testArbiter, testGuardrail, testJudge, testPii, testRag, testRouter } from "@agboss/core/testing";
+import { decideWith, testUnit } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 import { SaveHireAction } from "./src/screening/actions/save-hire.action.js";
 import { CultureAgent } from "./src/screening/agents/culture/culture.agent.js";
@@ -1264,8 +1267,8 @@ import { RejectedWorkflowFinish } from "./src/screening/workflows/screening/reje
 -->
 
 ```ts
-it("testAction: input fields are { producer, value } records", async () => {
-  const runAction = testAction(SaveHireAction);
+it("testUnit: input fields are { producer, value } records", async () => {
+  const runAction = testUnit(SaveHireAction);
 
   const { output } = await runAction({
     verdict: { producer: VerdictAgent, value: { decision: "hire", reason: "strong" } },
@@ -1274,8 +1277,8 @@ it("testAction: input fields are { producer, value } records", async () => {
   expect(output.hireId).toMatch(/^hire-strong-/u);
 });
 
-it("testRouter: a code router at no cost", async () => {
-  const runRouter = testRouter(HireRouter);
+it("testUnit: a code router at no cost", async () => {
+  const runRouter = testUnit(HireRouter);
 
   const { output } = await runRouter({
     verdict: { producer: VerdictAgent, value: { decision: "reject", reason: "junior" } },
@@ -1284,23 +1287,23 @@ it("testRouter: a code router at no cost", async () => {
   expect(output).toBe(RejectedWorkflowFinish);
 });
 
-it("testArbiter: the agent and its answer", async () => {
-  const runArbiter = testArbiter(HasNotesArbiter);
+it("testUnit: the agent and its answer", async () => {
+  const runArbiter = testUnit(HasNotesArbiter);
 
   expect((await runArbiter(SkillsAgent, { score: 8, notes: "senior" })).output).toBe(true);
   expect((await runArbiter(CultureAgent, { score: 6, notes: "" })).output).toBe(false);
 });
 
-it("testRag: retrieve with topK", async () => {
-  const runRag = testRag(HiringPolicyRag);
+it("testUnit: retrieve with topK", async () => {
+  const runRag = testUnit(HiringPolicyRag);
 
   const { output } = await runRag("the bar", { topK: 1 });
 
   expect(output[0]?.source).toBe("policy.md#bar");
 });
 
-it("testJudge: the output as a plain object of its DTO", async () => {
-  const runJudge = testJudge(ReasonedVerdictJudge, { model: decideWith({ reasoned: 0.2 }) });
+it("testUnit: the output as a plain object of its DTO", async () => {
+  const runJudge = testUnit(ReasonedVerdictJudge, { model: decideWith({ reasoned: 0.2 }) });
 
   const { output } = await runJudge({
     variant: VerdictDto,
@@ -1313,8 +1316,8 @@ it("testJudge: the output as a plain object of its DTO", async () => {
   // `toolCalls` — the visit's tool calls the judge reads — is optional here: `[]` when not given
 });
 
-it("testJudge of a code judge: no model script, no spend", async () => {
-  const runJudge = testJudge(ShortReasonJudge); // a `model` here is a TestSetupError
+it("testUnit of a code judge: no model script, no spend", async () => {
+  const runJudge = testUnit(ShortReasonJudge); // a `model` here is a TestSetupError
 
   const { output, spend } = await runJudge({
     variant: VerdictDto,
@@ -1327,16 +1330,16 @@ it("testJudge of a code judge: no model script, no spend", async () => {
   expect(spend.totalUsd).toBe(0);
 });
 
-it("testGuardrail: a block is an output, not a throw", async () => {
-  const check = testGuardrail(BiasGuardrail, { model: decideWith({ blocks: 0.9 }) });
+it("testUnit: a block is an output, not a throw", async () => {
+  const check = testUnit(BiasGuardrail, { model: decideWith({ blocks: 0.9 }) });
 
   const { output } = await check("Reject: too old for the team", { element: "verdict-agent" });
 
   expect(output).toEqual({ isBlocked: true, probability: 0.9, refusal: "The verdict was withheld for review." });
 });
 
-it("testPii: what a model reads, and what its answer becomes", async () => {
-  const contacts = testPii([ContactPiiPolicy]);
+it("testUnit: what a model reads, and what its answer becomes", async () => {
+  const contacts = testUnit([ContactPiiPolicy]);
 
   const { output: masked } = await contacts.mask("Mail dana@example.com");
 
@@ -1344,7 +1347,7 @@ it("testPii: what a model reads, and what its answer becomes", async () => {
 });
 ```
 
-`testToolInterceptor(Interceptor, options)` (#384) — a `ToolInterceptorRunner` — runs a `@ToolInterceptor` in the frame of a call
+`testUnit(Interceptor, options)` (#384) — a `ToolInterceptorRunner` — runs a `@ToolInterceptor` in the frame of a call
 to a tool: `beforeToolCall(Tool, input)` gives the decision (compare it with `toEqual`),
 `afterToolCall(Tool, input, output)` the output the model would read, validated against the tool's
 output DTO. A method the class does not have is a `TestSetupError`.
@@ -1352,7 +1355,7 @@ output DTO. A method the class does not have is a `TestSetupError`.
 <!-- snippet-context
 import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type ToolCallContext } from "@agboss/core";
 import { List, Text } from "@agboss/core/dto";
-import { testToolInterceptor } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 export class CityTenantContext extends TenantContext {
   @List(Text)
@@ -1385,8 +1388,8 @@ export class CityScopeToolInterceptor {
 -->
 
 ```ts
-it("testToolInterceptor: the decision for the tenant given", async () => {
-  const scope = testToolInterceptor(CityScopeToolInterceptor, {
+it("testUnit: the decision for the tenant given", async () => {
+  const scope = testUnit(CityScopeToolInterceptor, {
     tenantContext: CityTenantContext,
     tenant: { tenantId: "acme", allowedCities: ["Haifa"] },
   });
@@ -1397,7 +1400,7 @@ it("testToolInterceptor: the decision for the tenant given", async () => {
 });
 ```
 
-`testCompaction(Memory, options)` (#395) — a `CompactionRunner` — runs one `@Memory`'s compaction on a
+`testUnit(Memory, options)` (#395) — a `CompactionRunner` — runs one `@Memory`'s compaction on a
 `CompactionInput` (`previousSummaries`, `turnsToCompact`) and gives a `CompactionResult`:
 `summaries` (what readers see next — a `SummaryQueue` the latest `summaryQueueLength`, a
 `SingleSummary` the new one) and `requests` (each model call's `instructions` and `input`, two when
@@ -1407,7 +1410,7 @@ survives compaction is an eval case.
 
 <!-- snippet-context
 import { CompactionStrategy, Memory, Ttl, inline } from "@agboss/core";
-import { replyWith, testCompaction } from "@agboss/core/testing";
+import { replyWith, testUnit } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 @Memory({
   name: "conversation-memory",
@@ -1426,8 +1429,8 @@ export class ConversationMemory {}
 -->
 
 ```ts
-it("testCompaction: the turns reach the model, the summary joins the queue", async () => {
-  const compact = testCompaction(ConversationMemory, { model: replyWith("Dana: no calls before 9.") });
+it("testUnit: the turns reach the model, the summary joins the queue", async () => {
+  const compact = testUnit(ConversationMemory, { model: replyWith("Dana: no calls before 9.") });
 
   const { output } = await compact({
     previousSummaries: ["Dana asked about order 7."],
@@ -1441,8 +1444,8 @@ it("testCompaction: the turns reach the model, the summary joins the queue", asy
 });
 ```
 
-- `testRouter` of a model router answers from `model: routeTo(Target)` (or `decideWith(…)` before a
-  launch); `testArbiter` of a model arbiter from `model: decideWith({ counts: 0.9 })`.
+- `testUnit` of a model router answers from `model: routeTo(Target)` (or `decideWith(…)` before a
+  launch); `testUnit` of a model arbiter from `model: decideWith({ counts: 0.9 })`.
 - The context levels: `{ tenantContext, tenant, executionContext, execution }` on any runner (checked
   by the classes' decorators); a class created by hand (a budget's `maxSpend()`) takes
   `testExecutionContext({ … })`.
@@ -1520,9 +1523,9 @@ snapshot among them checks that a changed export got a new version
 
 **Loop 1 — the harness, $0, every commit (`npm test`).**
 
-1. The unit runners first, one component on its own: `testTool`, `testAction`, `testRouter`,
-   `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testPii`, `testToolInterceptor`,
-   `testCompaction` (below).
+1. The unit runners first, one component on its own: `testUnit`,
+   `testUnit`,
+   `testUnit` (below).
 2. Then the whole application: `testWith(App)` with `mockLlm(X).thenReturn(…)` scripts, or a
    recorded cassette (VCR) for real answers replayed with no key or network.
 3. Assert the path and the finish (`toFollowPath`, `toFinishWith`) and **trajectory invariants**

@@ -14,7 +14,7 @@ import {
   type ToolCallRecord,
 } from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
-import { callTool, replyWith, testJudge, testWith } from "../../src/testing/index.js";
+import { callTool, replyWith, testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
   ClerkAgent,
@@ -219,17 +219,17 @@ const LOOKUP: ToolCallRecord = {
   endedAt: "2026-01-05T09:00:00.000Z",
 };
 
-describe("testJudge", () => {
+describe("testUnit", () => {
   const reply = { variant: PlainTextDto, output: { text: "Shipped." }, task: "t", attempt: 0 };
 
   it("takes no toolCalls: the judge reads none", async () => {
-    const { output } = await testJudge(LookedUpJudge)(reply);
+    const { output } = await testUnit(LookedUpJudge)(reply);
 
     expect(output).toEqual(JudgeVerdict.failed("Look the order up first."));
   });
 
   it("passes the toolCalls it is given", async () => {
-    const { output } = await testJudge(LookedUpJudge)({ ...reply, toolCalls: [LOOKUP] });
+    const { output } = await testUnit(LookedUpJudge)({ ...reply, toolCalls: [LOOKUP] });
 
     expect(output).toEqual(JudgeVerdict.passed({ metrics: { lookups: 1 } }));
   });

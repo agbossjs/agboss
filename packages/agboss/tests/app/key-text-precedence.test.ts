@@ -12,7 +12,7 @@ import { DtoValidationError } from "../../src/dto/errors.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
 import { Action, ExecutionContext } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
-import { testAction, testWith } from "../../src/testing/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { seededProperties } from "../helpers/property-seed.js";
 import { ChatStart, DeskApplication } from "../testing/fixtures/desk.workflow.js";
@@ -185,7 +185,7 @@ describe("#547 acceptance: every entry point names the same rule for a text brea
     "%s → %s",
     async ([, expected, text], { app }) => {
       const businessKey = await rejectionOf(
-        testAction(PrecedenceChargeAction)({ message: { value: { text } } }),
+        testUnit(PrecedenceChargeAction)({ message: { value: { text } } }),
       );
       const executed = await rejectionOf(
         execute(app, ChatStart, { text: "hi" }, { threadId: text }),

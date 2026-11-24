@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
-import { testCompaction } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { CaseNotesMemory } from "../../../../src/desk/memories/case-notes/case-notes.memory.js";
 
-it("testCompaction: a custom compaction runs its own code, no model request", async () => {
-  const compact = testCompaction(CaseNotesMemory);
+it("testUnit: a custom compaction runs its own code, no model request", async () => {
+  const compact = testUnit(CaseNotesMemory);
 
   const { output } = await compact({
     previousSummaries: [],

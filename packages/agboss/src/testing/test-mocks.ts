@@ -1,5 +1,5 @@
 import type { Mocked } from "vitest";
-import type { Class } from "../components/injection.js";
+import type { Class, Token } from "../components/injection.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import { NodeKind } from "../flow/ast.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
@@ -17,7 +17,7 @@ import { ToolScripts, type ToolScript } from "./tool-script.js";
  * set after the first app was built would not reach it: a setup error.
  */
 export class TestMocks {
-  readonly #overrides = new Map<Class, unknown>();
+  readonly #overrides: Map<Token, unknown>;
   readonly #tools: ToolScripts;
   /** Every action call of the test (one more observer of each instance). */
   readonly actions: ActionCallRecorder;
@@ -27,7 +27,9 @@ export class TestMocks {
     book: ScriptBook,
     private readonly nodes: readonly RuntimeNode[],
     private readonly used: ReadonlySet<Class>,
+    values: ReadonlyMap<Token, unknown> = new Map(),
   ) {
+    this.#overrides = new Map(values);
     this.#tools = new ToolScripts((script) => {
       book.expect(script);
     });

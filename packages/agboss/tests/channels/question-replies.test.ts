@@ -7,9 +7,8 @@
 import { describe, expect } from "vitest";
 import { UninterpretableReplyError } from "../../src/index.js";
 import { ReplyInterpreterNotUnderstoodDto } from "../../src/dto/index.js";
-import { ChannelOf } from "../../src/channels/channel-handler.js";
 import { PauseStatus, PausedExecutionRepository } from "../../src/index.js";
-import { override, replyWith, testWith } from "../../src/testing/index.js";
+import { replyWith, testWith } from "../../src/testing/index.js";
 import {
   BudgetOwnerReplyInterpreter,
   OwnerPurchaseWorkflowFinish,
@@ -115,14 +114,14 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
 });
 
 /** A channel whose transport is down. */
-class DownChannel extends ChannelOf<SpendingLimitQuestion> {
+class DownChannel extends SpendingLimitQuestion {
   send(): never {
     throw new Error("inbox unreachable");
   }
 }
 
 const down = testWith(QuestionsApplication, {
-  overrides: [override(SpendingLimitQuestion, DownChannel)],
+  services: [DownChannel],
 });
 
 describe("#659 AC2: a send that throws is the step's failure", () => {

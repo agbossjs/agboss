@@ -1,13 +1,9 @@
-import {
-  executionControlOf,
-  rememberExecutionControl,
-  type ExecutionControl,
-} from "../app/execution-control.js";
+import { rememberExecutionControl } from "../app/execution-control.js";
 import { LeaseGate, rememberLeaseGate } from "./leases.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { BuiltApplication } from "../application/create-app.js";
 import type { App, ExecutionOutput } from "../app/types.js";
-import type { Class } from "../components/injection.js";
+import type { Class, Resolved, Token } from "../components/injection.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { VirtualClock } from "./clock.js";
 import type { TestEnvironment } from "./environment.js";
@@ -24,7 +20,8 @@ import {
 import { toolNameOf } from "./script.js";
 import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
 import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
-import { definedOf, lazyLoad } from "../infrastructure/clock.js";
+import { lazyLoad } from "../infrastructure/clock.js";
+import { forwardedControlOf, resolvingOf } from "./test-app-parts.js";
 
 /**
  * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
@@ -60,6 +57,12 @@ export interface TestApp extends Pick<
    * nothing; the first `execute` builds it otherwise. A second call does nothing.
    */
   ready(): Promise<void>;
+  /**
+   * What the app's container gives for a token (#1328): a class's instance, the value of an
+   * `InjectionToken`, or the resolved values of a `defineEnv` dictionary — `app.get(appEnv).region`.
+   * The app must be built (`await app.ready()` or an execute).
+   */
+  get<TToken extends Token>(token: TToken): Resolved<TToken>;
   agent(agent: Class): AgentSlice;
   router(router: Class): RouterSlice;
   tool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>): ToolSlice<TInput, TOutput>;
@@ -163,17 +166,6 @@ const probesOf = (
   listPauses: (query) => checked(environment, async () => (await probed()).app.listPauses(query)),
 });
 
-/** The built app's execution control (#807), reached once the app is built. */
-function forwardedControlOf(readyApp: () => App): ExecutionControl {
-  const control = (): ExecutionControl =>
-    definedOf(executionControlOf(readyApp()), "a built application has its execution control");
-  return {
-    cancelExecution: (request) => control().cancelExecution(request),
-    executionStateOf: (tree) => control().executionStateOf(tree),
-    claimExecutionId: (identity) => control().claimExecutionId(identity),
-  };
-}
-
 /** The config of each workflow of the application, as assembled (a profile applied), by name. */
 const settingsOf = (environment: TestEnvironment): TestApp["settings"] =>
   Object.fromEntries(
@@ -233,7 +225,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
       checked(environment, async () => {
         await built();
       }),
-    resolve: (token) => readyApp().resolve(token),
+    ...resolvingOf(readyApp),
     close: async (options) => {
       closed = true;
       if (building !== undefined) await (await building).app.close(options);

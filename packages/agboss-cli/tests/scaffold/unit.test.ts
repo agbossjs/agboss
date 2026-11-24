@@ -212,7 +212,7 @@ describe("#280 AC11: generated code follows the conventions", () => {
     });
 
     // its test runs it on its own container (#262): no `new`
-    expect(test?.content).toContain("testTool(SearchOrdersTool)");
+    expect(test?.content).toContain("testUnit(SearchOrdersTool)");
     expect(test?.content).not.toMatch(/\bnew SearchOrdersTool\b/u);
     expect(apiTool?.content).toContain("deps: [ExecutionContext, ApiService],");
     expect(apiTool?.content).toContain("private readonly apiService: ApiService,");

@@ -1,5 +1,5 @@
 /**
- * #644 (3): `testReplyInterpreter(Role)` — a role's `@ReplyInterpreter` on its own, as
+ * #644 (3): `testUnit(Role)` — a role's `@ReplyInterpreter` on its own, as
  * `app.resume({ pauseId, reply })` runs it: the question and the reply in, the role's validated
  * answer or why the reply is not understood out, never a paused execution.
  */
@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { ChannelOf } from "../../../src/channels/channel-handler.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import { ReplyInterpreterNotUnderstoodDto } from "../../../src/dto/standard/framework.js";
-import { replyWith, testReplyInterpreter } from "../../../src/testing/index.js";
+import { replyWith, testUnit } from "../../../src/testing/index.js";
 import { TestSetupError } from "../../../src/testing/errors.js";
 import { usd } from "../../../src/units/index.js";
 import {
@@ -19,9 +19,9 @@ import {
 
 const ask = { item: "desk", priceUsd: 700 };
 
-describe("#644: testReplyInterpreter — a code interpreter", () => {
+describe("#644: testUnit — a code interpreter", () => {
   it("understood: the role's answer, nothing spent", async () => {
-    const read = testReplyInterpreter(SpendingLimitQuestion);
+    const read = testUnit(SpendingLimitQuestion);
 
     const { output, spend } = await read({ ask, reply: "sure, up to 500" });
 
@@ -30,7 +30,7 @@ describe("#644: testReplyInterpreter — a code interpreter", () => {
   });
 
   it("not understood: the interpreter's reason — the pause would stay pending", async () => {
-    const read = testReplyInterpreter(SpendingLimitQuestion);
+    const read = testUnit(SpendingLimitQuestion);
 
     const { output } = await read({ ask, reply: "🤷" });
 
@@ -38,7 +38,7 @@ describe("#644: testReplyInterpreter — a code interpreter", () => {
   });
 
   it("a code interpreter calls no model: a model script is a mistake in the test", async () => {
-    const read = testReplyInterpreter(SpendingLimitQuestion, {
+    const read = testUnit(SpendingLimitQuestion, {
       model: replyWith(SpendingLimitAnswerDto, { approved: true, limitUsd: 1 }),
     });
 
@@ -46,9 +46,9 @@ describe("#644: testReplyInterpreter — a code interpreter", () => {
   });
 });
 
-describe("#644: testReplyInterpreter — a chat-model interpreter", () => {
+describe("#644: testUnit — a chat-model interpreter", () => {
   it("its answer tool: the answer, validated, its spend under reply-interpreter:<name>", async () => {
-    const read = testReplyInterpreter(BudgetOwnerQuestion, {
+    const read = testUnit(BudgetOwnerQuestion, {
       model: replyWith(
         SpendingLimitAnswerDto,
         { approved: true, limitUsd: 800 },
@@ -63,10 +63,10 @@ describe("#644: testReplyInterpreter — a chat-model interpreter", () => {
   });
 
   it("its not-understood tool, or an answer the role refuses: not understood", async () => {
-    const shrug = testReplyInterpreter(BudgetOwnerQuestion, {
+    const shrug = testUnit(BudgetOwnerQuestion, {
       model: replyWith(ReplyInterpreterNotUnderstoodDto, { reason: "a shrug" }),
     });
-    const invalid = testReplyInterpreter(BudgetOwnerQuestion, {
+    const invalid = testUnit(BudgetOwnerQuestion, {
       model: replyWith(SpendingLimitAnswerDto, { approved: true, limitUsd: -1 }),
     });
 
@@ -83,7 +83,7 @@ describe("#644: testReplyInterpreter — a chat-model interpreter", () => {
   });
 });
 
-describe("#644: testReplyInterpreter — what it refuses", () => {
+describe("#644: testUnit — what it refuses", () => {
   it("a role without an interpreter, or a class that is no role", async () => {
     @ChannelRole({
       name: "typed-only-question",
@@ -97,11 +97,9 @@ describe("#644: testReplyInterpreter — what it refuses", () => {
       readonly kind = "plain";
     }
 
-    await expect(
-      testReplyInterpreter(TypedOnlyQuestion)({ ask, reply: "x" } as never),
-    ).rejects.toThrow(/names no replyInterpreter/);
-    await expect(testReplyInterpreter(NotARole)({ ask, reply: "x" } as never)).rejects.toThrow(
-      /not a @ChannelRole/,
+    await expect(testUnit(TypedOnlyQuestion)({ ask, reply: "x" } as never)).rejects.toThrow(
+      /names no replyInterpreter/,
     );
+    expect(() => testUnit(NotARole)).toThrow(/not a component it runs/);
   });
 });

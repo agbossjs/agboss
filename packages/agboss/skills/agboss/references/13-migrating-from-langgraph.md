@@ -852,7 +852,7 @@ class, and a code component is tested alone with its unit runner:
 ```ts file=tests/support/workflows/support/support.workflow.test.ts
 import { expect, it } from "vitest";
 import { ExecutionStatus } from "@agboss/core";
-import { callTool, replyWith, routeTo, testRouter, testWith } from "@agboss/core/testing";
+import { callTool, replyWith, routeTo, testUnit, testWith } from "@agboss/core/testing";
 import { SupportApplication } from "../../../../src/support.application.js";
 import { IssueRefundAction } from "../../../../src/support/actions/issue-refund.action.js";
 import { OrderResearcherAgent } from "../../../../src/support/agents/order-researcher/order-researcher.agent.js";
@@ -934,7 +934,7 @@ test("a large refund pauses for sign-off and is issued after app.resume", async 
 });
 
 it("the size router decides by code, at no cost", async () => {
-  const runRouter = testRouter(RefundSizeRouter);
+  const runRouter = testUnit(RefundSizeRouter);
 
   const { output } = await runRouter({
     draft: { producer: ReplyWriterAgent, value: { text: "Full refund.", refundCents: 25_000 } },

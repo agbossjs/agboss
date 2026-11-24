@@ -1,14 +1,16 @@
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
-import type { AppDepsOptions, BuildOptions } from "../app/app-deps.js";
+import type { BuildOptions } from "../app/app-deps.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import { buildApplication, type BuiltApplication } from "../application/create-app.js";
 import type { EnvironmentSelection } from "../environments/load.js";
-import type { Class } from "../components/injection.js";
+import type { Class, ServiceEntry } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { CLOSE_TIMEOUT, closedWithin } from "./bounded-close.js";
 import { VirtualClock } from "./clock.js";
 import { SkewedClock } from "./clock-skew.js";
+import { onlyWorkflows } from "./only-workflows.js";
+import { branchSchedulerOf } from "./branch-scheduler.js";
 import { testInstancesOf, type TestInstanceOptions } from "./instances.js";
 import { StoreClock, StoreTimeSource, type Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
@@ -24,20 +26,10 @@ import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { vcrGatewayOverProviders, type VcrConfig } from "./vcr.js";
 import { testKeyedEnvironmentOf, testPiiKeyOf, type TestKeyedEnvironment } from "./pii-parts.js";
-import { schedulerOf } from "./concurrency/schedulers.js";
-import { replacementsOf, type Override } from "./units/override.js";
+import { bindingsOf } from "./services.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
 import { TEST_DEFAULT_PROFILE, type ProfileSelection } from "../config/profile-names.js";
 import { TEST_IDEMPOTENCY_KEYS } from "../application/idempotency-key.js";
-
-/** The app option of a test's branch schedule: none for `TestConcurrency.Real`. */
-function branchSchedulerOf(
-  concurrency: TestConcurrency | undefined,
-  book: ScriptBook,
-): Pick<AppDepsOptions, "branchScheduler"> {
-  const branchScheduler = schedulerOf(concurrency, book);
-  return branchScheduler === undefined ? {} : { branchScheduler };
-}
 
 /**
  * What `testWith` takes besides the application. `env` names the environment (default `test`: a
@@ -67,10 +59,19 @@ export interface TestWithOptions extends EnvironmentSelection {
    */
   readonly concurrency?: TestConcurrency;
   /**
-   * Classes the application's container creates instead of others (#262, #267 S104):
-   * `[override(RefundApprovalRole, AutoApproveChannel)]` — the same `override(…)` as the unit runners.
+   * What the application's container creates or holds instead of the real ones (#1324, #1328): a
+   * fake class that `extends` the real service or names its port (`@Injectable({ injectAs })`), a
+   * channel for a pause target (`AutoApproveChannel.for(Target)`), and values
+   * (`provide(TOKEN, value)`) — the same `services` as the unit runners take.
    */
-  readonly overrides?: readonly Override[];
+  readonly services?: readonly ServiceEntry[];
+  /**
+   * The workflows the test runs (#996, #1328): `only: [CreditWorkflow]` assembles the application with
+   * these workflows and the child workflows they launch — a large application's siblings stay out of
+   * the test (their models, tools and stores are never built). A class that is not a workflow of the
+   * application is a setup error. Default: every workflow.
+   */
+  readonly only?: readonly Class[];
   /**
    * The profiles layered on the application, its child workflows too (#895, #1318): as
    * `createApp(App, { profile })` applies them — `src/config/<name>.config.ts|yaml` next to the
@@ -138,7 +139,8 @@ export class TestEnvironment {
     this.#nodes = workflows.flatMap((workflow) => [...workflow.graph.nodes.values()]);
     this.#used = usedComponentsOf(assembled);
     this.#targets = new ModelTargets(assembled, this.#nodes);
-    this.mocks = new TestMocks(this.book, this.#nodes, this.#used);
+    const bindings = bindingsOf(options.services);
+    this.mocks = new TestMocks(this.book, this.#nodes, this.#used, bindings.values);
     for (const node of this.#nodes) {
       const key = scriptKeyOf(node);
       if (key !== undefined) this.book.name(key, node.component.name);
@@ -164,7 +166,7 @@ export class TestEnvironment {
           }
         : { gateway: createScriptedGateway(this.book, this.clock) }),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
-      container: { ...this.mocks.container, replacements: replacementsOf(options.overrides) },
+      container: { ...this.mocks.container, replacements: bindings.replacements },
       ...branchSchedulerOf(options.concurrency, this.book),
     };
   }
@@ -184,8 +186,10 @@ export class TestEnvironment {
       },
       "testWith",
     );
-    const environment = await testKeyedEnvironmentOf(assembled, options, testEnv());
-    return new TestEnvironment(assembled, options, environment);
+    const restricted =
+      options.only === undefined ? assembled : onlyWorkflows(assembled, options.only);
+    const environment = await testKeyedEnvironmentOf(restricted, options, testEnv());
+    return new TestEnvironment(restricted, options, environment);
   }
 
   /**

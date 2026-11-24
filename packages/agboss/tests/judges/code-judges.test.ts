@@ -2,7 +2,7 @@
  * #396 PR 1 — `@Judge({ })`: a judge decided by its `judge(input)` alone,
  * in an agent's quality gate beside a model judge (its services and the execution through `deps`,
  * no model call, no spend), refused at assembly with a model (`[judge.model-on-code-judge]`) or an
- * injected `JudgeModel`, and run by `testJudge` without a model script.
+ * injected `JudgeModel`, and run by `testUnit` without a model script.
  */
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
@@ -19,7 +19,7 @@ import {
   Workflow,
   type JudgeHandler,
 } from "../../src/index.js";
-import { replyWith, testJudge, testWith } from "../../src/testing/index.js";
+import { replyWith, testUnit, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -145,9 +145,9 @@ describe("#396: [judge.model-on-code-judge] at assembly", () => {
   });
 });
 
-describe("#396: testJudge on a code judge", () => {
+describe("#396: testUnit on a code judge", () => {
   it("runs judge(input) alone in the execution's frame: its verdict, no spend", async () => {
-    const run = testJudge(NoBannedWordsJudge, { tenant: { tenantId: "acme" } });
+    const run = testUnit(NoBannedWordsJudge, { tenant: { tenantId: "acme" } });
 
     const passed = await run({
       variant: PlainTextDto,
@@ -168,17 +168,17 @@ describe("#396: testJudge on a code judge", () => {
   });
 
   it("a model script for a code judge is a mistake in the test", () => {
-    expect(() => testJudge(NoBannedWordsJudge, { model: replyWith("PASS") })).toThrow(
+    expect(() => testUnit(NoBannedWordsJudge, { model: replyWith("PASS") })).toThrow(
       /no-banned-words-judge injects no JudgeModel \(it is decided by code\) — it calls no model; leave out model/u,
     );
   });
 
   it("the same assembly rules: a code judge with a model is refused", () => {
-    expect(() => testJudge(NamedModelJudge)).toThrow(/^\[judge\.model-on-code-judge\]/u);
+    expect(() => testUnit(NamedModelJudge)).toThrow(/^\[judge\.model-on-code-judge\]/u);
   });
 
   it("a model reached through a service is refused, naming the judge and the call", async () => {
-    const run = testJudge(SecondOpinionJudge);
+    const run = testUnit(SecondOpinionJudge);
 
     const { output } = await run({
       variant: PlainTextDto,

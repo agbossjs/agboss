@@ -23,15 +23,14 @@ import type { ToolInstance } from "./test-tool.js";
 import { callTimeoutOf, UnitSite, type UnitFrame } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-types.js";
 
-const toolMetaOf = (tool: Class): ToolMeta =>
-  requireComponent(tool, "tool", "testToolInterceptor").meta;
+const toolMetaOf = (tool: Class): ToolMeta => requireComponent(tool, "tool", "testUnit").meta;
 
 /** The interceptor's name, its rules checked (`-tool-interceptor`, a method). */
 function checkedNameOf(interceptor: Class): string {
   const meta = toolInterceptorMetaOf(interceptor);
   if (meta === undefined)
     throw new TestSetupError({
-      message: `testToolInterceptor(${interceptor.name}): not a @ToolInterceptor`,
+      message: `testUnit(${interceptor.name}): not a @ToolInterceptor`,
     });
   throwIfViolated(toolInterceptorViolations(interceptor, meta));
   return meta.name;
@@ -91,7 +90,7 @@ interface Runnable {
 const needs = (interceptor: Class, has: boolean, phase: string): void => {
   if (!has)
     throw new TestSetupError({
-      message: `testToolInterceptor(${interceptor.name}): it has no ${phase} hook — add @BeforeTool(Tool) / @AfterTool(Tool), beforeAnyTool(call) or afterAnyTool(call)`,
+      message: `testUnit(${interceptor.name}): it has no ${phase} hook — add @BeforeTool(Tool) / @AfterTool(Tool), beforeAnyTool(call) or afterAnyTool(call)`,
     });
 };
 
@@ -161,7 +160,7 @@ async function rewrite(
  * class has no hook for at all is a mistake in the test (`TestSetupError`); one it has hooks for
  * but not for this tool passes the call through (`allow()`, the output unchanged).
  */
-export function testToolInterceptor<
+export function interceptorUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(interceptor: Class, options: UnitOptions<TExecution, TTenant> = {}): ToolInterceptorRunner {

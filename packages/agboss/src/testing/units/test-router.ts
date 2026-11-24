@@ -35,7 +35,7 @@ type UnitRouter =
 function routerOf(router: Class): UnitRouter {
   const declaration = declarationOf(router);
   if (declaration?.kind !== NodeKind.Router)
-    throw new TestSetupError({ message: `testRouter(${router.name}): not a @Router` });
+    throw new TestSetupError({ message: `testUnit(${router.name}): not a @Router` });
   const { options } = declaration;
   return isCodeRouter(options) ? { options } : { options, model: { ...declaration, options } };
 }
@@ -49,7 +49,7 @@ function routerOf(router: Class): UnitRouter {
  * `model` — `routeTo(X)` after `.chooseOne(…)`, `decideWith(…)` / `routeTo(…)` for the `OnDemand`
  * routes of a launch — its spend as `router:<name>`.
  */
-export function testRouter<
+export function routerUnit<
   TRouter extends Class,
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,

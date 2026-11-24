@@ -31,14 +31,14 @@ export interface RagRunner extends UnitClock {
  * signal that aborts after `timeout` on the runner's clock — and gives its results as `output`, its
  * reported cost and tokens as `spend` (`rag:<name>`, as an agent's search is billed).
  */
-export function testRag<
+export function ragUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(
   rag: Class<RagSource<never, never>>,
   options: UnitModelOptions<unknown, TExecution, TTenant> = {},
 ): RagRunner {
-  const { meta } = requireComponent(rag, "rag", "testRag");
+  const { meta } = requireComponent(rag, "rag", "testUnit");
   checkRags([rag]); // as assembly does
   const site = new UnitSite(options);
   const found = meta.reranker === undefined ? undefined : componentOf(meta.reranker);
@@ -51,7 +51,7 @@ export function testRag<
     const runtime = ragRuntimeOf(source as object);
     const frame = { component: rag, caller, ...callTimeoutOf(call.timeout) };
     return site.run(frame, async ({ signal, spent }) => {
-      if (runtime === undefined) throw new TypeError(`testRag: ${rag.name} is no RagSource`);
+      if (runtime === undefined) throw new TypeError(`testUnit: ${rag.name} is no RagSource`);
       const retrieval = await runtime.retrieve(query, {
         topK: call.topK ?? meta.topK,
         signal,

@@ -100,8 +100,8 @@ npm test
   (`SearchShippingPolicyTool`), and the workflow a `PiiPolicyHandler` detector
   (`<customer-id:…>` in what the model reads); the application lists an observer, a `@HealthCheck`
   (`app.checkReadiness()`) and `maxConcurrentSteps: 16`. Each unit runner runs on the patterns' own components in the test that mirrors the
-  component (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …) — `testAction` with an `override`, `testRouter`,
-  `testArbiter`, `testRag`, `testPii`, and `testJudge` on the tool calls of a scripted visit.
+  component (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …) — `testUnit` with `services`,
+  `testUnit` on the tool calls of a scripted visit.
 - **`src/helpline/`** — two applications over [A2A](A2A) (#398): `desk-application` serves
   `desk-workflow-start` (`@A2AExpose` in `@Application({ exposes })`; its `@HttpAuthenticator` takes the
   tenant from an `x-tenant-id` header, for callers on the same host only), and the helpline's

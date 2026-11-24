@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { Tool } from "../../src/index.js";
 import { toolOf } from "../../src/components/runtime.js";
 import { Text } from "../../src/dto/index.js";
-import { testTool } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 
 class Query {
   @Text({ prompt: "what to look up" })
@@ -35,13 +35,13 @@ class AsyncLookup {
 
 describe("#1294: execute returns the output or a promise of it", () => {
   it("a synchronous tool runs and its output is validated", async () => {
-    const run = testTool(SyncLookup);
+    const run = testUnit(SyncLookup);
 
     expect((await run({ query: "ab" })).output).toEqual({ found: "AB" });
   });
 
   it("an asynchronous tool runs the same way", async () => {
-    const run = testTool(AsyncLookup);
+    const run = testUnit(AsyncLookup);
 
     expect((await run({ query: "ab" })).output).toEqual({ found: "ab" });
   });

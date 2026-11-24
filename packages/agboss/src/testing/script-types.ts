@@ -27,6 +27,8 @@ import type {
   ReplyTurn,
   RouteTurn,
   ScriptedTurn,
+  StreamFailureTurn,
+  StreamTurn,
   ToolCallTurn,
   ToolCallsTurn,
   WaitTurn,
@@ -110,6 +112,8 @@ export type InvalidAnswerFor<TOutput> = [TOutput] extends [NoOutput]
  */
 export type AgentTurnFor<TSelf> =
   | ReplyTurn
+  | StreamTurn
+  | StreamFailureTurn
   | ToolCallTurn<AgentToolNamesOf<TSelf>>
   | ToolCallsTurn<AgentToolNamesOf<TSelf>>
   | InvalidToolCallTurn<AgentToolNamesOf<TSelf>>

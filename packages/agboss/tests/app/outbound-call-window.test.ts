@@ -20,7 +20,7 @@ import { type EffectKey } from "../../src/stores/index.js";
 import { type OutboundCallIntent } from "../../src/stores/index.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
-import { override, testAction } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { hours, seconds } from "../../src/units/index.js";
 import { settle } from "./fixtures/fence-takeover.js";
 import { gateway, PaymentGateway, resetGateway } from "./fixtures/payment-gateway.js";
@@ -109,7 +109,7 @@ class ChargeOnceAction {
 }
 
 const order = { message: { value: { text: "order-1" } } } as never;
-const gated = { overrides: [override(OutboundCallRepository, GatedOutboundCallRepository)] };
+const gated = { services: [GatedOutboundCallRepository] };
 
 beforeEach(() => {
   resetGateway();
@@ -123,7 +123,7 @@ afterEach(() => {
 
 describe("#508: the window between recording an intent and sending it", () => {
   it("a second call of the key arriving between the save and the send is joined, never sent", async () => {
-    const run = testAction(ChargeInWindowAction, gated);
+    const run = testUnit(ChargeInWindowAction, gated);
 
     await run(order);
 
@@ -132,7 +132,7 @@ describe("#508: the window between recording an intent and sending it", () => {
   });
 
   it("a step aborted in the window — after its intent is recorded, before its send — sends nothing", async () => {
-    const run = testAction(ChargeOnceAction, gated);
+    const run = testUnit(ChargeOnceAction, gated);
     window.isArmed = true;
     const reached = reachedWindow();
     const call = run(order, { timeout: seconds(1) });

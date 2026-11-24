@@ -668,7 +668,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 ```
 
 - `mockOf(Implementation).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` decides
-  at once; `testWith(App, { overrides: [override(RefundApprovalChannel, AutoApproveChannel)] })`
+  at once; `testWith(App, { services: [AutoApproveChannel.for(RefundApprovalChannel)] })`
   replaces the role's implementation for the whole test.
 - A model reply interpreter is scripted by its input: `mockLlm(Interpreter).when({ reply: "ok" })
 .thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true }))`; one on a decision model

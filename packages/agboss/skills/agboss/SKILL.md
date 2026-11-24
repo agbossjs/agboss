@@ -116,7 +116,7 @@ npm test                                                           # scripted mo
 ## Testing and evals: cheapest check first
 
 - **Loop 0** (static, $0): `npx agboss check` and `npx agboss describe`. **Loop 1** (every commit,
-  $0): the unit runners (`testTool`, `testJudge`, …) first, then `testWith(App)` with scripted models
+  $0): the unit runners (`testUnit`, …) first, then `testWith(App)` with scripted models
   or a recorded cassette — reference 10. Assert the path, the finish and trajectory invariants
   through `result.toolCalls` (`ToolCallRecord`, `ToolCallStatus`, `toolCallsOf`): which tools ran,
   with what, how each ended — never the position of a step. `result.record.steps`
@@ -243,21 +243,21 @@ answer the rest — then read only the files it names; after changing code, `gra
 
 ## Where to read next
 
-| Task                                                                                                                                                                                                                                  | Read                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Designing a workflow: which primitive, how to split it, its DTOs, files and images                                                                                                                                                    | `references/01-composition-and-architecture.md`   |
-| Writing `*.workflow.ts` paths: branches, loops, parallel launches, quorums, `.onError`                                                                                                                                                | `references/02-flow-dsl-all-combinations.md`      |
-| A component class: decorators, DI, lifecycle hooks, contexts, environments, `app.*`, a `@ToolInterceptor` around tool calls                                                                                                           | `references/03-components-di-and-lifecycle.md`    |
-| Connecting MCP servers, exposing a workflow over MCP, calling or serving A2A agents                                                                                                                                                   | `references/04-mcp-and-a2a.md`                    |
-| Human approvals, pauses, channels, `app.resume`                                                                                                                                                                                       | `references/05-channels-and-human-in-the-loop.md` |
-| Budgets, model providers, retries, rate limits, circuit breakers                                                                                                                                                                      | `references/06-finops-providers-and-queues.md`    |
-| Input / output guardrails, PII masking                                                                                                                                                                                                | `references/07-guardrails-pii-and-security.md`    |
-| Execution records, observers, OpenTelemetry traces (`tracerProvider`, `@agboss/langfuse`)                                                                                                                                             | `references/08-observability-and-tracing.md`      |
-| SQLite stores, recovery, graceful shutdown, health probes, rolling deploys                                                                                                                                                            | `references/09-persistence-k8s-and-deploy.md`     |
-| Tests: `testWith`, unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), races, VCR cassettes, `@EvalSuite`, code judges | `references/10-testing-vcr-and-evals.md`          |
-| A CLI command, LangGraph Studio, a `[rule.code]` error                                                                                                                                                                                | `references/11-cli-studio-and-error-catalog.md`   |
-| A whole feature or application from scratch                                                                                                                                                                                           | `references/12-end-to-end-recipes.md`             |
-| Migrating a LangGraph graph (`StateAnnotation`, `addConditionalEdges`, `Command`, `Send`, `interrupt`) to AGBoss                                                                                                                      | `references/13-migrating-from-langgraph.md`       |
+| Task                                                                                                                        | Read                                              |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Designing a workflow: which primitive, how to split it, its DTOs, files and images                                          | `references/01-composition-and-architecture.md`   |
+| Writing `*.workflow.ts` paths: branches, loops, parallel launches, quorums, `.onError`                                      | `references/02-flow-dsl-all-combinations.md`      |
+| A component class: decorators, DI, lifecycle hooks, contexts, environments, `app.*`, a `@ToolInterceptor` around tool calls | `references/03-components-di-and-lifecycle.md`    |
+| Connecting MCP servers, exposing a workflow over MCP, calling or serving A2A agents                                         | `references/04-mcp-and-a2a.md`                    |
+| Human approvals, pauses, channels, `app.resume`                                                                             | `references/05-channels-and-human-in-the-loop.md` |
+| Budgets, model providers, retries, rate limits, circuit breakers                                                            | `references/06-finops-providers-and-queues.md`    |
+| Input / output guardrails, PII masking                                                                                      | `references/07-guardrails-pii-and-security.md`    |
+| Execution records, observers, OpenTelemetry traces (`tracerProvider`, `@agboss/langfuse`)                                   | `references/08-observability-and-tracing.md`      |
+| SQLite stores, recovery, graceful shutdown, health probes, rolling deploys                                                  | `references/09-persistence-k8s-and-deploy.md`     |
+| Tests: `testWith`, unit runners (`testUnit`), races, VCR cassettes, `@EvalSuite`, code judges                               | `references/10-testing-vcr-and-evals.md`          |
+| A CLI command, LangGraph Studio, a `[rule.code]` error                                                                      | `references/11-cli-studio-and-error-catalog.md`   |
+| A whole feature or application from scratch                                                                                 | `references/12-end-to-end-recipes.md`             |
+| Migrating a LangGraph graph (`StateAnnotation`, `addConditionalEdges`, `Command`, `Send`, `interrupt`) to AGBoss            | `references/13-migrating-from-langgraph.md`       |
 
 Put this project's own rules in the root `AGENTS.md`, never in this folder: `npx agboss check`
 replaces it on every `@agboss/core` upgrade.

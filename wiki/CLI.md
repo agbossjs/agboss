@@ -30,7 +30,7 @@ agboss c support-desk --yes --agents "triage-agent:Sorts requests,answerer-agent
 ```
 
 The skeleton runs at once: tools return a marked placeholder (`TODO`), prompts are drafted from the roles,
-every tool has a test (`testTool(XTool)`) and the workflow has one on `testWith`
+every tool has a test (`testUnit(XTool)`) and the workflow has one on `testWith`
 (`src/<project>/<project>.workflow.test.ts`: the main router and the first agent by script, in the
 application — it runs offline, [Testing](Testing)). Files follow the
 [conventions](Components#file-conventions): `*.agent.ts` + `*.prompt.md`, `*.tool.ts` +

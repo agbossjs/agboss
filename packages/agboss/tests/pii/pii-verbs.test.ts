@@ -14,7 +14,7 @@ import { piiPolicyMetaOf, policyViolations } from "../../src/pii/policy-checks.j
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { DetectionMode, runtimePolicyOf } from "../../src/pii/runtime-policy.js";
 import type { DeclarativePiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
-import { replyWith, testPii } from "../../src/testing/index.js";
+import { replyWith, testUnit } from "../../src/testing/index.js";
 import { fakeChatFactory } from "../helpers.js";
 
 describe("#1301: PiiAction's verbs", () => {
@@ -205,14 +205,14 @@ describe("#1301: [pii.duplicate-target] — one rule per kind or group in a poli
 
   it("a kind and its group are two targets: the kind rule beats the group's", async () => {
     expect(codesOf([PiiGroup.Contact.mask(), PiiKind.Email.tokenize()])).toEqual([]);
-    const { output } = await testPii([
+    const { output } = await testUnit([
       policyOf([PiiGroup.Contact.mask(), PiiKind.Email.mask({ keepDomain: true })]),
     ]).mask("dana@acme.com, +1 415 555 0100");
     expect(output).toBe("d•••@acme.com, <phone>");
   });
 
-  it("testPii refuses a policy that names a target twice", () => {
-    expect(() => testPii([policyOf([PiiKind.Jwt.mask(), PiiKind.Jwt.tokenize()])])).toThrow(
+  it("testUnit refuses a policy that names a target twice", () => {
+    expect(() => testUnit([policyOf([PiiKind.Jwt.mask(), PiiKind.Jwt.tokenize()])])).toThrow(
       /pii\.duplicate-target/u,
     );
   });
@@ -307,8 +307,8 @@ describe("#1301: a detection model's kind is read with PiiKind.fromId — none f
     expect(warnings).toEqual([]);
   });
 
-  it("through testPii the same: a model's unknown kind never passes", async () => {
-    const pii = testPii([NamesPiiPolicy], {
+  it("through testUnit the same: a model's unknown kind never passes", async () => {
+    const pii = testUnit([NamesPiiPolicy], {
       model: replyWith('{"found":[{"kind":"nickname","text":"Dee"}]}'),
     });
     expect((await pii.mask("ask Dee")).output).toBe("ask <pii>");

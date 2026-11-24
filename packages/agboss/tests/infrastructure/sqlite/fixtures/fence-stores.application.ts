@@ -21,6 +21,7 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
 import {
+  ArtifactLedger,
   ledger,
   ReleaseWorkflow,
   Staged,
@@ -90,7 +91,7 @@ export function externalRows(): readonly LedgerRow[] {
  * The ledger in SQLite: one transaction raises the scope's mark (`incoming >= highest`) and writes
  * the artifact once by its key; a token below the mark is refused (`ExecutionFencedError`).
  */
-@Injectable()
+@Injectable({ injectAs: ArtifactLedger })
 export class SqliteArtifactLedger {
   readonly #database = new DatabaseSync(external.path, { timeout: 5000 });
 

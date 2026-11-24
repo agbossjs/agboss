@@ -1572,7 +1572,7 @@ export class SeenJobsRepository {
   and PII masking. One that throws, decides nothing or gives a wrong output
   fails the step (`AgentFailedError`, its error the `cause`). Never on answer tools, knowledge-base
   search tools or a tool called on its own. `agboss describe` prints `tool interceptors`, `--json`
-  each agent's chains by tool, `configHash` covers them; `testToolInterceptor(I, options)` →
+  each agent's chains by tool, `configHash` covers them; `testUnit(I, options)` →
   `beforeToolCall(Tool, input)` / `afterToolCall(Tool, input, output)` → `{ output, spend }` (a phase with no hook at all: `TestSetupError`).
 - **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
@@ -1746,7 +1746,7 @@ IdempotencyRunEventOutcome` — `Ran` / `Replayed` / `Joined` / `Refused` —, `
   `[memory.uncompacted-turns-invalid]`, `[memory.conflicting-compaction]` at assembly; `agboss describe`:
   `strategy: custom (GraphMemory.compact())`, the class in `configHash`. Tests:
   `mockLlm(ConversationMemory).thenReturn(replyWith("…"))` (`{ truncated: true }` = cut at the limit) —
-  unscripted, a fixed summary; `testCompaction(Memory)` runs one compaction on its own.
+  unscripted, a fixed summary; `testUnit(Memory)` runs one compaction on its own.
 
 ```ts
 import { Agent, CompactionStrategy, Memory, Ttl, TurnLimit, inline } from "@agboss/core";
@@ -2081,7 +2081,7 @@ export class OrderAgent {}
   `threshold` 1), levels, `excludeGuardrails` and events (a pass `probability` 0); a `check` that
   throws or returns no verdict fails closed (`GuardFailedError`, its error the `cause`);
   `[guardrail.missing-handler]` without `check`; `agboss describe` prints `code`;
-  `testGuardrail(G)` takes no `model`.
+  `testUnit(G)` takes no `model`.
 
 <!-- snippet-context
 import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
@@ -2228,7 +2228,7 @@ text agent with a DTO judge, a `oneOf` variant it does not cover, a list agent w
 value or the other way round) fails assembly with `[judge.wrong-output]`. Verdicts are built only with
 `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason, { metrics? })`; a failed one's
 `reason` goes back to the agent for its retry, and when retries are spent the run throws
-`QualityGateError` (`rejections: [{ judge, reason }]`). `testJudge(Judge, …)({ variant, output,
+`QualityGateError` (`rejections: [{ judge, reason }]`). `testUnit(Judge, …)({ variant, output,
 task, attempt })` takes `output` as a plain object, typed by the judge (a `variant` with another
 class's value does not compile). A judge's own model is a chat
 model (`judgeModel.invoke`, `deps: [JudgeModel]`) or a **decision model**
@@ -2240,7 +2240,7 @@ judges (#396):** a `@Judge` with no `JudgeModel` in its `deps` (no `DecidedBy`; 
 compile only with `JudgeModel` in `deps` — then a hybrid, `model` left out = its provider's default role) decides by its `judge(input)` alone — no model call, cost 0, its services and the
 execution through `deps`; a `model` without `JudgeModel` is `[judge.model-on-code-judge]` at
 assembly (a `JudgeModel` reached through a service throws it when called); `WorkflowFinishTextDto extends PlainTextDto`, so one `PlainTextDto` judge serves a text agent and a text finish; it works in an agent's
-quality gate beside model judges, `mockLlm(CodeJudge)` names why it has no script, `testJudge(J)`
+quality gate beside model judges, `mockLlm(CodeJudge)` names why it has no script, `testUnit(J)`
 takes no `model` (one is a `TestSetupError`). A model judge whose model has its judged agent's vendor prefix (`openai` of
 `openai/gpt-6`; a suite's judge: any agent of its start's workflow) warns `[judge.same-model-family]`
 (an error under `--strict`, #396 PR 5). **Eval suites (#396 PR 1, `@agboss/core/eval`):**
@@ -2726,7 +2726,7 @@ const readiness: HealthReport = await app.checkReadiness();
   per-item child's index —, `executionOf(W)`, the nearest execution of `W` from this one up). Every read gives the current step (an `AsyncLocalStorage` frame per node visit and per
   tool call, closed when it ends); outside an execution or after its step ended a read throws
   `ExecutionContextUnavailableError` (`context.unavailable`). No input, no metadata in it: domain
-  data come through `input`. Units: a unit runner (`testTool`, `testAction`, …, Testing below)
+  data come through `input`. Units: a unit runner (`testUnit`, …, Testing below)
   runs the component in its step's frame; a class created by hand takes `testExecutionContext()` —
   with `{ tenantContext, tenant, executionContext, execution, application: { environment } }` for
   the levels. Framework code reads the
@@ -2928,8 +2928,8 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   Under `CI` a mode that would call real models (`RECORD`, `RECORD_STALE`, `AUTO` with no cassette;
   `vcr.mode` or `AGBOSS_VCR_MODE`) fails the test app's start, `[vcr.record-in-ci]`, unless
   `AGBOSS_VCR_RECORD_IN_CI=1` (#839).
-- Replacing a class in the application (#267 S104): `testWith(App, { overrides:
-[override(RefundApprovalRole, AutoApproveChannel)] })` — the same `override(Class, Replacement)`
+- Replacing a class in the application (#267 S104): `testWith(App, { services:
+[AutoApproveChannel.for(RefundApprovalRole)] })` — the same `Replacement`
   as the unit runners, a class created instead of another over any listed one; a channel role's
   replacement need not extend it, but its `send` must fit the role's `ChannelAsk` →
   `ChannelOutcome` (else it does not compile). There is no `channels` option.
@@ -2941,16 +2941,16 @@ step(CheckAgent, { company: { name: "Acme" } })])` — completions in that order
   on every run; a step waiting at its gate is cancelled at once by a `FailFast`, a decided quorum or
   `app.cancel`; no branch can move and the next step is not waiting → `test.unreachable-step` at
   once; a step never reached fails the test at its end.
-- Units — one component on its own container (#262 S55, S62, S89), no `new`: `testTool(Tool, {
-overrides: [override(SearchClient, FakeSearchClient)], environment })` → `await run(input, {
+- Units — one component on its own container (#262 S55, S62, S89), no `new`: `testUnit(Tool, {
+services: [FakeSearchClient], environment })` → `await run(input, {
 timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `executionContext.signal`
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
-  `testAction`, `testRouter` (a code router's `route()`, or a model router with `model: routeTo(X)`
-  / `decideWith(…)`), `testArbiter(A)(Agent, answer)`, `testRag(R)(query, { topK })`,
-  `testReplyInterpreter(Role, { model })` (#644: the role's `@ReplyInterpreter` on `{ ask, reply }` → `{ isUnderstood: true, answer }` | `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it), `testToolInterceptor(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
-  `.afterToolCall(Tool, input, output)`), `testJudge(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testGuardrail(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
+  `testUnit` (a code router's `route()`, or a model router with `model: routeTo(X)`
+  / `decideWith(…)`), `testUnit(A)(Agent, answer)`, `testUnit(R)(query, { topK })`,
+  `testUnit(Role, { model })` (#644: the role's `@ReplyInterpreter` on `{ ask, reply }` → `{ isUnderstood: true, answer }` | `{ isUnderstood: false, reason }`, as `app.resume({ reply })` reads it), `testUnit(I)` (#384: `.beforeToolCall(Tool, input)` → the `ToolCallDecision`,
+  `.afterToolCall(Tool, input, output)`), `testUnit(J, { model: decideWith(…) | replyWith(…) })` (`{ variant, reply, task, attempt }`, its `reply` a plain object of the judge's DTO), `testUnit(G, { model: decideWith({ blocks: 0.9 }) })(text, { element })` → `{ isBlocked,
 probability, refusal? }`
-  and `testPii([Policies])` → `mask(text)` / `reveal(text)` (rules checked first);
+  and `testUnit([Policies])` → `mask(text)` / `reveal(text)` (rules checked first);
   `run.clock` is the runner's `VirtualClock`; the calls run for `{ tenantContext, tenant,
 executionContext, execution }` as `testExecutionContext` takes them (checked by the classes'
   decorators), else the default tenant; with a held lease (`executionContext.fence`: token 1, the

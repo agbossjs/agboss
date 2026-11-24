@@ -12,7 +12,7 @@ import { OutboundCallRepository, Workflow, WorkflowStart } from "../../src/index
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { testAction, testWith } from "../../src/testing/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -83,7 +83,7 @@ describe("#505 AC4: a child workflow's outbound call is stored masked", () => {
 
 describe("#505: no mask where policies exist — fail closed", () => {
   it("AC4: a frame without a mask while the application lists policies: refused, nothing recorded or sent", async () => {
-    const run = testAction(UnmaskedChargeAction);
+    const run = testUnit(UnmaskedChargeAction);
 
     const refused = run({ message: { value: { text: "order-1" } } });
 
@@ -212,7 +212,7 @@ describe("#505 AC4: masked when written — the store holds no raw personal data
 
 describe("#505: what reconcile and a replay get", () => {
   it("reconcile gets the stored, masked request and the key; send got the real request", async () => {
-    const run = testAction(ChargeOrderAction);
+    const run = testUnit(ChargeOrderAction);
     gateway.gates.after = 1;
     const first = run({ message: { value: { text: "order-7 alice@example.com" } } } as never, {
       timeout: seconds(1),

@@ -17,6 +17,8 @@ import type {
   ReplyTurn,
   RouteTurn,
   ScriptedAnswer,
+  StreamFailureTurn,
+  StreamTurn,
   ToolCallTurn,
   ToolCallsTurn,
   WaitTurn,
@@ -151,6 +153,27 @@ export const decideWith = (
 
 /** The model call fails: `failWith(ModelFailure.Timeout)`. */
 export const failWith = (failure: ModelFailure): FailureTurn => ({ kind: "failure", failure });
+
+/**
+ * An agent's model answers with text a streaming call hears chunk by chunk (#1311):
+ * `streamWith(["3 jobs ", "found"], { cost })` — the answer is the chunks joined, so a call that
+ * does not stream gets the same text as `replyWith("3 jobs found")`. Empty chunks are skipped.
+ */
+export const streamWith = (chunks: readonly string[], details: AnswerDetails = {}): StreamTurn => ({
+  kind: "stream",
+  chunks,
+  details,
+});
+
+/**
+ * The model's stream breaks after its chunks (#1311): `failStreamAfter(["3 jo"], ModelFailure.Timeout)`
+ * — a streaming call hears the chunks, then fails as `failWith(failure)` does; a call that does not
+ * stream fails at once, without them.
+ */
+export const failStreamAfter = (
+  chunks: readonly string[],
+  failure: ModelFailure,
+): StreamFailureTurn => ({ kind: "stream-failure", chunks, failure });
 
 /**
  * The next turn answers only after this long on the test's clock:

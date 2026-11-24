@@ -66,7 +66,7 @@ function bindingOf(site: UnitSite, name: string, model: string): JudgeBinding {
  * verdict is `output`, the model calls `spend` (`judge:<name>`). A declarative judge (#1290) has its model answer the verdict: script it with `replyWith('{"passed":true,"reason":""}')`, or `decideWith({ verdict: 0.9 })` on a decision model; unscripted it passes. A code judge (no `JudgeModel` in its `deps`)
  * runs its `judge(input)` alone — no `model` script (one is a `TestSetupError`), no spend.
  */
-export function testJudge<
+export function judgeUnit<
   TJudge extends Class<object>,
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
@@ -74,11 +74,11 @@ export function testJudge<
   judge: TJudge,
   options: UnitModelOptions<unknown, TExecution, TTenant> = {},
 ): JudgeRunner<JudgeOutputOf<TJudge>> {
-  requireComponent(judge, "judge", "testJudge");
-  const { meta } = checkedJudgeOf(`testJudge(${judge.name})`, judge);
+  requireComponent(judge, "judge", "testUnit");
+  const { meta } = checkedJudgeOf(`testUnit(${judge.name})`, judge);
   if (isCodeJudge(meta) && options.model !== undefined)
     throw new TestSetupError({
-      message: `testJudge(${judge.name}): ${meta.name} injects no JudgeModel (it is decided by code) — it calls no model; leave out model`,
+      message: `testUnit(${judge.name}): ${meta.name} injects no JudgeModel (it is decided by code) — it calls no model; leave out model`,
     });
   const site = new UnitSite(options);
   site.scriptModel(judgeKeyOf(meta.name), judge.name, options.model);

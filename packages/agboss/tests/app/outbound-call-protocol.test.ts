@@ -27,7 +27,7 @@ import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execu
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
-import { testAction, VirtualClock } from "../../src/testing/index.js";
+import { testUnit, VirtualClock } from "../../src/testing/index.js";
 import { hours, seconds } from "../../src/units/index.js";
 import { ChargeOrderAction, resetRuns, runs } from "./fixtures/outbound-call.workflow.js";
 import {
@@ -53,7 +53,7 @@ const KEY = "Tz-xwZPgI5lI-vQYcp_J-q74VIDlA6P2PbD1NRV-wYY";
 
 /** A runner whose first run's call is left pending: frozen at the provider, its timeout fired. */
 async function leftPending(side: "before" | "after") {
-  const run = testAction(ChargeOrderAction);
+  const run = testUnit(ChargeOrderAction);
   gateway.gates[side] = 1;
   const first = run(order, { timeout: seconds(1) });
   first.catch(() => undefined);
@@ -64,7 +64,7 @@ async function leftPending(side: "before" | "after") {
 
 describe("#505: send and replay in one step", () => {
   it("sends once, then a second run of the step replays the stored result: nothing sent", async () => {
-    const run = testAction(ChargeOrderAction);
+    const run = testUnit(ChargeOrderAction);
 
     const first = await run(order);
     const second = await run(order);
@@ -78,7 +78,7 @@ describe("#505: send and replay in one step", () => {
 describe("#505: the provider answers with an error, then a retry", () => {
   it("the error is rethrown; the step run again sends attempt 2 with the same key, no reconcile", async () => {
     gateway.failNext = 1;
-    const run = testAction(ChargeOrderAction);
+    const run = testUnit(ChargeOrderAction);
 
     await expect(run(order)).rejects.toBeInstanceOf(PaymentDeclinedError);
     const retry = await run(order);
@@ -166,7 +166,7 @@ describe("#505: an intent left pending, reconciled", () => {
 
 describe("#505: the lease before the network", () => {
   it("a renewal that fails right before the call: nothing sent, the intent pending for the next holder", async () => {
-    const failing = testAction(ChargeOrderAction, { fence: { renewNowFails: true } });
+    const failing = testUnit(ChargeOrderAction, { fence: { renewNowFails: true } });
 
     await expect(failing(order)).rejects.toBeInstanceOf(ExecutionLeaseLostError);
 
@@ -174,7 +174,7 @@ describe("#505: the lease before the network", () => {
   });
 
   it("a lost lease: refused before anything is recorded or sent", async () => {
-    const lost = testAction(ChargeOrderAction, { fence: { isLost: true } });
+    const lost = testUnit(ChargeOrderAction, { fence: { isLost: true } });
 
     await expect(lost(order)).rejects.toBeInstanceOf(ExecutionFencedError);
     expect(gateway.calls).toEqual([]);
@@ -220,7 +220,7 @@ class TwiceAtOnceAction {
 
 describe("#505: what the protocol refuses", () => {
   it("one key sent twice at once in a step: the second joins the first, the provider called once", async () => {
-    const run = testAction(TwiceAtOnceAction);
+    const run = testUnit(TwiceAtOnceAction);
 
     await run(order);
 
@@ -232,7 +232,7 @@ describe("#505: what the protocol refuses", () => {
   });
 
   it("a joined call gets the first call's error, the provider called once", async () => {
-    const run = testAction(TwiceAtOnceAction);
+    const run = testUnit(TwiceAtOnceAction);
     gateway.failNext = 1;
 
     await expect(run(order)).rejects.toBeInstanceOf(PaymentDeclinedError);

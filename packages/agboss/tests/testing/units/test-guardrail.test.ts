@@ -1,13 +1,13 @@
-/** #120 PR 2: `testGuardrail` — one guardrail on one text, its model scripted, in a step's frame. */
+/** #120 PR 2: `testUnit` — one guardrail on one text, its model scripted, in a step's frame. */
 import { describe, expect, it } from "vitest";
 import { GuardFailedError, GraphRuleError, InputGuardrail } from "../../../src/index.js";
-import { decideWith, failWith, ModelFailure, testGuardrail } from "../../../src/testing/index.js";
+import { decideWith, failWith, ModelFailure, testUnit } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { LegalAdviceGuardrail } from "../fixtures/units.js";
 
-describe("testGuardrail", () => {
+describe("testUnit", () => {
   it("P(yes) at the threshold blocks: the class's refusal, computed in the step's frame", async () => {
-    const check = testGuardrail(LegalAdviceGuardrail, {
+    const check = testUnit(LegalAdviceGuardrail, {
       model: decideWith({ blocks: 0.8 }, { cost: usd(0.0001) }),
     });
 
@@ -23,7 +23,7 @@ describe("testGuardrail", () => {
   });
 
   it("below the threshold it passes, with no refusal", async () => {
-    const check = testGuardrail(LegalAdviceGuardrail, { model: decideWith({ blocks: 0.79 }) });
+    const check = testUnit(LegalAdviceGuardrail, { model: decideWith({ blocks: 0.79 }) });
 
     const { output } = await check("Where is my order?");
 
@@ -31,13 +31,13 @@ describe("testGuardrail", () => {
   });
 
   it("unscripted, a guardrail passes: content checks are not what most tests are about", async () => {
-    const check = testGuardrail(LegalAdviceGuardrail);
+    const check = testUnit(LegalAdviceGuardrail);
 
     expect((await check("anything")).output).toEqual({ isBlocked: false, probability: 0 });
   });
 
   it("a model that does not answer fails closed: GuardFailedError", async () => {
-    const check = testGuardrail(LegalAdviceGuardrail, {
+    const check = testUnit(LegalAdviceGuardrail, {
       model: failWith(ModelFailure.Timeout),
     });
 
@@ -54,7 +54,7 @@ describe("testGuardrail", () => {
     })
     class Misnamed {}
 
-    expect(() => testGuardrail(Misnamed)).toThrow(GraphRuleError);
-    expect(() => testGuardrail(Misnamed)).toThrow("[name.not-kebab-case]");
+    expect(() => testUnit(Misnamed)).toThrow(GraphRuleError);
+    expect(() => testUnit(Misnamed)).toThrow("[name.not-kebab-case]");
   });
 });

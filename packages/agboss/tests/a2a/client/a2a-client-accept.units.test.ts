@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { A2AAgent, A2AClient } from "../../../src/a2a/index.js";
 import { Tool } from "../../../src/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { testTool } from "../../../src/testing/index.js";
+import { testUnit } from "../../../src/testing/index.js";
 import { AGENT_URL, scripts, SdkAgent } from "./support/sdk-agent.js";
 
 class PlainReplyDto {
@@ -653,7 +653,7 @@ describe("accept: which way a message goes", () => {
       }
     }
 
-    const run = testTool(UnitAskTool)({ text: "hi" });
+    const run = testUnit(UnitAskTool)({ text: "hi" });
 
     // a step of no application has no Idempotency to record into: refused, never sent unrecorded
     await expect(run).rejects.toThrow(/\[a2a\.outside-application\] unit-a2a-agent/u);

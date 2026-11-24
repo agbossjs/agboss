@@ -11,6 +11,6 @@ describe("#895: workflowOf and toolOf are internal", () => {
   });
 
   it("the replacements stay in /testing", () => {
-    for (const name of ["testWith", "testTool"]) expect(testing).toHaveProperty(name);
+    for (const name of ["testWith", "testUnit"]) expect(testing).toHaveProperty(name);
   });
 });

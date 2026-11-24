@@ -19,7 +19,7 @@ import { hours, seconds } from "../../src/units/index.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { StoreClock } from "../../src/infrastructure/clock.js";
-import { override, testAction } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import {
   gateway,
   isDeclined,
@@ -131,7 +131,7 @@ class HandedOverTwiceAction {
 
 describe("#928: a joined call never shares a handed-over error (sharedOf)", () => {
   it("the first call's hand-over is not the joiner's answer: it makes the call itself", async () => {
-    const run = testAction(HandedOverTwiceAction);
+    const run = testUnit(HandedOverTwiceAction);
 
     await run({});
 
@@ -144,8 +144,8 @@ describe("#928: a joined call never shares a handed-over error (sharedOf)", () =
 describe("#928: isAnswered only after fencedEnd resolves", () => {
   it("a definite failure whose markFailed did not get through is not the joined call's answer", async () => {
     gateway.failNext = 1;
-    const run = testAction(DeclinedTwiceAction, {
-      overrides: [override(OutboundCallRepository, DownOnFailedStore)],
+    const run = testUnit(DeclinedTwiceAction, {
+      services: [DownOnFailedStore],
     });
 
     await run({});
@@ -167,8 +167,8 @@ describe("#928: isAnswered only after fencedEnd resolves", () => {
   it("a definite failure written and answered is shared with the joined call", async () => {
     store.failMarkFailed = false;
     gateway.failNext = 1;
-    const run = testAction(DeclinedTwiceAction, {
-      overrides: [override(OutboundCallRepository, DownOnFailedStore)],
+    const run = testUnit(DeclinedTwiceAction, {
+      services: [DownOnFailedStore],
     });
 
     await run({});

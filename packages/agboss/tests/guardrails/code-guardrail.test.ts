@@ -1,5 +1,5 @@
 /**
- * #383 — code guardrails at assembly, in `agboss describe`, in `configHash` and in `testGuardrail`:
+ * #383 — code guardrails at assembly, in `agboss describe`, in `configHash` and in `testUnit`:
  * `[guardrail.missing-handler]`, a code guardrail's model options do not compile and it needs no
  * model, the refusal rules as for a model guardrail, `decidedBy: code` printed, its entry hashed.
  */
@@ -18,7 +18,7 @@ import { describeWorkflow } from "../../src/describe/describe-workflow.js";
 import { guardrailViolations } from "../../src/guardrails/checks.js";
 import { configSnapshot } from "../../src/run/versions.js";
 import { versionOf } from "../../src/turns/index.js";
-import { decideWith, testGuardrail } from "../../src/testing/index.js";
+import { decideWith, testUnit } from "../../src/testing/index.js";
 import {
   BrokenGuardrail,
   CardNumberGuardrail,
@@ -155,9 +155,9 @@ describe("#383: describe and configHash", () => {
   });
 });
 
-describe("#383: testGuardrail on a code guardrail", () => {
+describe("#383: testUnit on a code guardrail", () => {
   it("blocked: probability 1 and the class's refusal, computed in the step's frame", async () => {
-    const check = testGuardrail(CardNumberGuardrail, {
+    const check = testUnit(CardNumberGuardrail, {
       executionContext: ShopExecutionContext,
       execution: { locale: "en" },
     });
@@ -173,7 +173,7 @@ describe("#383: testGuardrail on a code guardrail", () => {
   });
 
   it("passed: probability 0, no refusal; its services from its own container", async () => {
-    const check = testGuardrail(TenantBlocklistGuardrail, {
+    const check = testUnit(TenantBlocklistGuardrail, {
       tenantContext: ShopTenantContext,
       tenant: { tenantId: "acme", shop: "toys" },
     });
@@ -187,12 +187,12 @@ describe("#383: testGuardrail on a code guardrail", () => {
   });
 
   it("a check that throws fails closed: GuardFailedError", async () => {
-    await expect(testGuardrail(BrokenGuardrail)("Hi")).rejects.toBeInstanceOf(GuardFailedError);
+    await expect(testUnit(BrokenGuardrail)("Hi")).rejects.toBeInstanceOf(GuardFailedError);
   });
 
   it("a model script for a code guardrail is a mistake in the test", () => {
-    expect(() =>
-      testGuardrail(CardNumberGuardrail, { model: decideWith({ blocks: 0.9 }) }),
-    ).toThrow("decided by code — it calls no model");
+    expect(() => testUnit(CardNumberGuardrail, { model: decideWith({ blocks: 0.9 }) })).toThrow(
+      "decided by code — it calls no model",
+    );
   });
 });

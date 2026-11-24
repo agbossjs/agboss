@@ -26,7 +26,7 @@ import { RagScopeError } from "../../src/rag/rag-source.js";
 import { testFrame } from "../helpers/frame.js";
 import type { BoundReranker } from "../../src/rag/rerank.js";
 import { inTenantFrame } from "../helpers/frame.js";
-import { testRag } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { starOf } from "../fixtures/test-flow/star.js";
 import { testDefaults } from "../helpers.js";
@@ -107,11 +107,11 @@ describe("#796: a knowledge base's scope is declared", () => {
     expect(await hashOf(RagScope.Shared)).not.toBe(await hashOf(RagScope.Tenant));
   });
 
-  it("testRag refuses a knowledge base without its scope, as assembly does", () => {
+  it("testUnit refuses a knowledge base without its scope, as assembly does", () => {
     @Rag({ name: "loose-rag", description: "No scope", topK: 1 } as never)
     class LooseRag extends Empty {}
 
-    expect(() => testRag(LooseRag)).toThrow(
+    expect(() => testUnit(LooseRag)).toThrow(
       /\[rag\.scope-required\]|loose-rag: declare whose content/u,
     );
   });

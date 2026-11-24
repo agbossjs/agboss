@@ -1925,7 +1925,7 @@ Unit tests — one component on its own container, each test beside the mirror o
 ```ts file=loans/tests/tools/credit-score.tool.test.ts
 import { expect, it } from "vitest";
 import { Injectable } from "@agboss/core";
-import { override, testTool } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 import { CreditBureauService } from "../../src/services/credit-bureau.service.js";
 import { CreditScoreTool } from "../../src/tools/credit-score.tool.js";
@@ -1938,7 +1938,7 @@ export class FixedCreditBureauService extends CreditBureauService {
 }
 
 it("the credit score tool records the bureau's cost", async () => {
-  const runTool = testTool(CreditScoreTool, { overrides: [override(CreditBureauService, FixedCreditBureauService)] });
+  const runTool = testUnit(CreditScoreTool, { services: [FixedCreditBureauService] });
 
   const { output, spend } = await runTool({ applicantId: "000000018" }, { timeout: seconds(1) });
 
@@ -1949,11 +1949,11 @@ it("the credit score tool records the bureau's cost", async () => {
 
 ```ts file=loans/tests/pii-policies/applicant.pii-policy.test.ts
 import { expect, it } from "vitest";
-import { testPii } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { ApplicantPiiPolicy } from "../../src/pii-policies/applicant.pii-policy.js";
 
 it("emails reach a model as tokens and come back revealed", async () => {
-  const applicant = testPii([ApplicantPiiPolicy]);
+  const applicant = testUnit([ApplicantPiiPolicy]);
 
   const { output: masked } = await applicant.mask("Write to dana@example.com");
 
@@ -1964,11 +1964,11 @@ it("emails reach a model as tokens and come back revealed", async () => {
 
 ```ts file=loans/tests/guardrails/out-of-scope/out-of-scope.guardrail.test.ts
 import { expect, it } from "vitest";
-import { decideWith, testGuardrail } from "@agboss/core/testing";
+import { decideWith, testUnit } from "@agboss/core/testing";
 import { OutOfScopeGuardrail } from "../../../src/guardrails/out-of-scope/out-of-scope.guardrail.js";
 
 it("an out-of-scope message is blocked with the refusal", async () => {
-  const check = testGuardrail(OutOfScopeGuardrail, { model: decideWith({ blocks: 0.95 }) });
+  const check = testUnit(OutOfScopeGuardrail, { model: decideWith({ blocks: 0.95 }) });
 
   const { output } = await check("Write me a poem", { element: "underwriter-agent" });
 

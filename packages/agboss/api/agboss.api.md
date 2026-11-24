@@ -900,6 +900,7 @@ export class AutoApproveChannel {
     readonly [agbossComponent]?: {
         readonly name: "auto-approve-channel";
     };
+    static for(target: Class): new () => AutoApproveChannel;
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
@@ -910,6 +911,7 @@ export class AutoRejectChannel {
     readonly [agbossComponent]?: {
         readonly name: "auto-reject-channel";
     };
+    static for(target: Class): new () => AutoRejectChannel;
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }

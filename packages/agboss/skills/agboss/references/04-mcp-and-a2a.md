@@ -686,13 +686,13 @@ pause that closed (cancelled, withdrawn, ended with its tree) is `-32004 a2a.pau
 Tests: the `a2aServer({ expose, authenticator })` fixture of `testWith` (an `A2AServerFixture`)
 serves the test's `app` on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new
 A2AClient({ url, headers })`; the loopback is open for it (no `allowNetwork`), it closes at the
-test's end, and `override(ApiKeyDirectory, …)` replaces the authenticator's services like any other
+test's end, and `services: [FixedApiKeyDirectory]` replaces the authenticator's services like any other
 (reference 10):
 
 ```ts file=tests/support/a2a/support.http-authenticator.test.ts
 import { expect } from "vitest";
 import { Injectable } from "@agboss/core";
-import { override, testWith } from "@agboss/core/testing";
+import { testWith } from "@agboss/core/testing";
 import { ApiKeyDirectory, type ApiKeyGrant } from "../../../src/support/services/api-key-directory.service.js";
 import { SupportHttpAuthenticator } from "../../../src/support/a2a/support.http-authenticator.js";
 import { SupportA2AExpose } from "../../../src/support/a2a/support.a2a-expose.js";
@@ -706,7 +706,7 @@ class NoKeysDirectory extends ApiKeyDirectory {
   }
 }
 
-const test = testWith(SupportApplication, { overrides: [override(ApiKeyDirectory, NoKeysDirectory)] });
+const test = testWith(SupportApplication, { services: [NoKeysDirectory] });
 
 test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
   const { url } = await a2aServer({ expose: SupportA2AExpose, authenticator: SupportHttpAuthenticator });

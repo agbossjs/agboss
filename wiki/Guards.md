@@ -227,9 +227,9 @@ other (`guardrails.<name>` in `[model.unserved]`).
 Under `testWith` an unscripted guardrail passes — content checks are not what most tests are about;
 `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (a chat-model
 guardrail is scripted the same way: P(yes) > 0.5 is `true`), and `mockLlm(G).requests` shows the
-masked text it read. On its own, `testGuardrail(G, options)(text, { element })` checks one text —
+masked text it read. On its own, `testUnit(G, options)(text, { element })` checks one text —
 its rules first, its refusal computed in a step's frame — and gives `{ isBlocked, probability,
-refusal? }` ([Testing](Testing)). A code guardrail is never scripted: `testGuardrail(G)` runs its
+refusal? }` ([Testing](Testing)). A code guardrail is never scripted: `testUnit(G)` runs its
 `check(text)` on its own container (a `model` option is a `TestSetupError`), `{ isBlocked: true,
 probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; under `testWith`, `mockLlm(G)`
 says it calls no model — `mockOf()` the services its `check` uses.

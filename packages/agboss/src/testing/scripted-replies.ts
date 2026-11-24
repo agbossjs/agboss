@@ -90,6 +90,11 @@ function textReply(turn: TurnOf<"reply">, settings: ResolvedModelSettings): AIMe
   });
 }
 
+/** A streamed text answer read whole: its chunks joined, as `textReply` of one reply. */
+function streamedReply(turn: TurnOf<"stream">, settings: ResolvedModelSettings): AIMessage {
+  return textReply({ kind: "reply", text: turn.chunks.join(""), details: turn.details }, settings);
+}
+
 /** An answer through the answer tool of its class (#272 S6): a list output as `items`. */
 function answerReply(
   site: ReplySite,
@@ -208,7 +213,10 @@ export function replyOf(site: ReplySite, call: ScriptedCall): AIMessage {
     case "answer":
     case "invalid-answer":
       return answerReply(site, turn);
+    case "stream":
+      return streamedReply(turn, site.settings);
     case "failure":
+    case "stream-failure":
       throw new ModelCallFailedError({ failure: turn.failure, component: site.script.label });
     case "decide":
       return decideReply(site, turn);

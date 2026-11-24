@@ -504,7 +504,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
   `optional`, `variant`) and the standard DTOs
 - `@agboss/core/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
 - `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
-- `@agboss/core/testing` — `testWith`, the 10 unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
+- `@agboss/core/testing` — `testWith`, the 10 unit runners (`testUnit`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
   `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers)
 - `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
 - `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`,
@@ -798,7 +798,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
 In tests, script a chat judge like an agent — `mockLlm(Judge).thenReturn(replyWith("PASS"))` — and a
 decision judge with its answers by question id (an option, P(yes), a level's index or text):
 `mockLlm(AnswerGroundedJudge).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`;
-on its own, `testJudge(AnswerGroundedJudge, …)({ variant, output, task, attempt })` takes `output` as a
+on its own, `testUnit(AnswerGroundedJudge, …)({ variant, output, task, attempt })` takes `output` as a
 plain object of its DTO, typed by the judge — another shape, or a `variant` with another class's
 value, does not compile.
 
@@ -929,8 +929,8 @@ Parallel branches run one at a time in a test, in listed / item order (`TestConc
 the default); `TestConcurrency.Real` runs them as production does, and
 `TestConcurrency.inOrder([step(A), step(B)])` makes them complete in that order — a race, a
 `FailFast` or a quorum gives the same result on every run. One component is tested on its own with
-a unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`,
-`testGuardrail`, `testPii` — its own container (`overrides` replace classes by classes), the
+a unit runner: `testUnit`,
+`testUnit` — its own container (`overrides` replace classes by classes), the
 `environment`, the frame of its step (`executionContext.signal` with a `timeout`, `SpendRecorder`),
 its model by script; each call gives `{ output, spend }`.
 
@@ -961,15 +961,7 @@ declare const candidate: never;
 
 ```ts
 import { expect, it } from "vitest";
-import {
-  decideWith,
-  override,
-  step,
-  TestConcurrency,
-  testJudge,
-  testTool,
-  testWith,
-} from "@agboss/core/testing";
+import { decideWith, override, step, TestConcurrency, testUnit, testWith } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 
 // the risks agent answers first, then the skills agent: the quorum counts them in that order
@@ -983,8 +975,8 @@ test("the first two answers are counted", async ({ app }) => {
 });
 
 it("searches the board it is given", async () => {
-  const runSearch = testTool(SearchJobsTool, {
-    overrides: [override(JobBoardService, FakeJobBoardService)],
+  const runSearch = testUnit(SearchJobsTool, {
+    services: [FakeJobBoardService],
   });
 
   const { output, spend } = await runSearch({ query: "TS" }, { timeout: seconds(1) });
@@ -994,7 +986,7 @@ it("searches the board it is given", async () => {
 });
 
 it("a grounded reply passes", async () => {
-  const runJudge = testJudge(GroundedJudge, { model: decideWith({ grounded: 0.9 }) });
+  const runJudge = testUnit(GroundedJudge, { model: decideWith({ grounded: 0.9 }) });
 
   const reply = { text: "Acme hires TS engineers [acme.example]" }; // a PlainTextDto, as an object
   const { output } = await runJudge({ variant: PlainTextDto, output: reply, task: "Find TS jobs", attempt: 0 });
@@ -1835,7 +1827,7 @@ is `[guardrail.missing-refusal]` at assembly), a question (`[guardrail.no-prompt
 `[guardrail.not-a-guardrail]`, `[guardrail.output-on-router]`, `[guardrail.no-model-call]`.
 `agboss describe` prints each one's side, threshold, model, refusal and the elements it guards. In
 tests, `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (an
-unscripted guardrail passes), and `testGuardrail(LegalAdviceGuardrail, { model: decideWith({ blocks:
+unscripted guardrail passes), and `testUnit(LegalAdviceGuardrail, { model: decideWith({ blocks:
 0.9 }), executionContext: ClinicExecutionContext, execution: { locale: "he" } })("Can I sue?")`
 gives `{ isBlocked, probability, refusal }`.
 

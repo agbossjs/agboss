@@ -4,8 +4,8 @@
  * `clock`), scripted model turns (`replyWith`, `callTool`, `routeTo`, `decideWith`, `failWith`,
  * `waitFor`, the invalid turns `callToolWithInvalidArguments`,
  * `callToolWithTruncatedArguments`, `replyWithInvalidAnswer`, bound to inputs with `when(…)`), the schedule of parallel branches
- * (`TestConcurrency`), the unit runners of single components (`testTool`, `testAction`,
- * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`, `testToolInterceptor`, `testCompaction`, `testReplyInterpreter`) and the matchers
+ * (`TestConcurrency`), the unit runners of single components (`testUnit`, `testUnit`,
+ * `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`) and the matchers
  * (register them with `setupFiles: ["@agboss/core/testing/setup"]`). Vitest is an optional peer
  * dependency.
  * Wiki → Testing.
@@ -26,6 +26,8 @@ export {
   routeTo,
   decideWith,
   failWith,
+  streamWith,
+  failStreamAfter,
   waitFor,
   ModelCallFailedError,
   type ModelCallFailedErrorOptions,
@@ -53,6 +55,8 @@ export type {
   RouteTurn,
   ScriptedAnswer,
   ScriptedTurn,
+  StreamFailureTurn,
+  StreamTurn,
   ToolCallTurn,
   ToolCallsTurn,
   WaitTurn,
@@ -103,7 +107,6 @@ export type { TestLeases } from "./leases.js";
 export type { TestFenceOptions } from "./fence.js";
 export { SequentialIdGenerator } from "./id-generator.js";
 export { TestConcurrency, step, type OrderedStep } from "./concurrency/test-concurrency.js";
-export { override, type Override } from "./units/override.js";
 export type {
   UnitCallOptions,
   UnitClock,
@@ -112,37 +115,37 @@ export type {
   UnitOptions,
   UnitRun,
 } from "./units/unit-types.js";
-export { testTool, type ToolInstance, type ToolRunner } from "./units/test-tool.js";
+export { testService, type ServiceRunner } from "./units/test-service.js";
+export { testDto, type DtoTestHarness } from "./test-dto.js";
+export {
+  testUnit,
+  type IsFlowNode,
+  type OtherUnitRunners,
+  type UnitRunnerOf,
+} from "./units/test-unit.js";
+export type { ToolInstance, ToolRunner } from "./units/test-tool.js";
 export type { ToolInputOf, ToolOutputOf } from "../tools/index.js";
-export {
-  testAction,
-  type ActionInputOf,
-  type ActionOutputOf,
-  type ActionRunner,
-} from "./units/test-action.js";
-export { testJudge, type JudgeRunner } from "./units/test-judge.js";
-export {
-  testReplyInterpreter,
-  type ReplyInterpreterReading,
-  type ReplyInterpreterRunner,
-  type ReplyInterpreterRunnerInput,
+export type { ActionInputOf, ActionOutputOf, ActionRunner } from "./units/test-action.js";
+export type { JudgeRunner } from "./units/test-judge.js";
+export type {
+  ReplyInterpreterReading,
+  ReplyInterpreterRunner,
+  ReplyInterpreterRunnerInput,
 } from "./units/test-reply-interpreter.js";
-export { testPii, type PiiRunner } from "./units/test-pii.js";
-export { testRouter, type RouterRunner } from "./units/test-router.js";
-export { testArbiter, type ArbiterRunner } from "./units/test-arbiter.js";
-export { testRag, type RagCallOptions, type RagRunner } from "./units/test-rag.js";
-export {
-  testGuardrail,
-  type GuardrailCallOptions,
-  type GuardrailCheck,
-  type GuardrailRunner,
+export type { PiiRunner } from "./units/test-pii.js";
+export type { RouterRunner } from "./units/test-router.js";
+export type { ArbiterRunner } from "./units/test-arbiter.js";
+export type { RagCallOptions, RagRunner } from "./units/test-rag.js";
+export type {
+  GuardrailCallOptions,
+  GuardrailCheck,
+  GuardrailRunner,
 } from "./units/test-guardrail.js";
-export { testToolInterceptor, type ToolInterceptorRunner } from "./units/test-tool-interceptor.js";
-export {
-  testCompaction,
-  type CompactionRequest,
-  type CompactionResult,
-  type CompactionRunner,
+export type { ToolInterceptorRunner } from "./units/test-tool-interceptor.js";
+export type {
+  CompactionRequest,
+  CompactionResult,
+  CompactionRunner,
 } from "./units/test-compaction.js";
 export {
   AppCloseTimeoutError,

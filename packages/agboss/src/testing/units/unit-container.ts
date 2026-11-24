@@ -13,16 +13,22 @@ import { LiveSpendRecorder, SpendRecorder } from "../../components/spend-recorde
 import type { RuntimeContexts } from "../../flow/context/runtime-contexts.js";
 import { Clock, StoreClock, StoreTimeSource } from "../../infrastructure/clock.js";
 import type { ModelGateway } from "../../llm/gateway.js";
-import { replacementsOf } from "./override.js";
+import { bindingsOf } from "../services.js";
 import { bindUnitRag } from "./unit-rag.js";
 import type { UnitFencedEffects } from "./unit-fenced-effects.js";
 import type { UnitOptions } from "./unit-types.js";
 
-/** What a unit runner's container is made of: the core values a component may depend on, the overrides. */
+/** What a unit runner's container is made of: the core values a component may depend on, the test's `services`. */
 const noRouterFactory = new UnavailableValue(
   (dependant) =>
     `${dependant} injects ROUTER_FACTORY, which a unit runner does not have — override the class that uses it`,
 );
+
+/** What a runner adds to its container: values in place of classes (mocks), a list of what it created. */
+export interface UnitContainerExtras {
+  readonly values?: ReadonlyMap<Token, unknown>;
+  readonly created?: unknown[];
+}
 
 export function unitContainer(
   clock: Clock,
@@ -30,6 +36,7 @@ export function unitContainer(
   options: UnitOptions,
   fencedEffects: UnitFencedEffects,
   gateway: () => ModelGateway,
+  extra: UnitContainerExtras = {},
 ): Container {
   const core = new Map<Token, unknown>([
     ...fencedEffects.core,
@@ -41,11 +48,14 @@ export function unitContainer(
     // the runner's stores decide by its clock (#533)
     [StoreClock, new StoreClock(StoreTimeSource.Test, clock)],
   ]);
+  const { replacements, values } = bindingsOf(options.services);
   const container: Container = createContainer(
     { modules: [], core, defaults: fencedEffects.defaults },
     {
-      replacements: replacementsOf(options.overrides),
+      replacements,
+      overrides: new Map([...values, ...(extra.values ?? [])]),
       onCreate: (instance) => {
+        extra.created?.push(instance);
         fencedEffects.onCreate(instance);
         // a `@Rag` source gets its pipeline: the scope, the reranker and the spend of an application
         bindUnitRag(instance, contexts, container, gateway);

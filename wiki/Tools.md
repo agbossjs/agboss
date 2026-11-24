@@ -156,7 +156,7 @@ export class FetchPageTool {
   `maxResultSize` (its context blocks and the tools without their own).
 - A bound that is not a whole number of bytes from 1 (`kilobytes(0)`, `kilobytes(0.1)`) fails
   assembly with `[tools.max-result-size-invalid]`, naming the tool or the workflow, all at once.
-- `testTool(…).run` returns the tool's full output — the bound is what a model reads, not what a
+- `testUnit(…).run` returns the tool's full output — the bound is what a model reads, not what a
   tool returns.
 
 ## Library and workflow tools
@@ -370,12 +370,12 @@ tool interceptors
 a workflow without one keeps its hash.
 
 **Tests**: on the whole application they run as in production; one on its own with
-`testToolInterceptor` ([Testing](Testing)):
+`testUnit` ([Testing](Testing)):
 
 <!-- snippet-context
 import { Tool, ToolCallDecision } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
-import { testToolInterceptor } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { JobScoutTenantContext, TenantScopeToolInterceptor } from "./src/scout/tenant-scope.tool-interceptor.js";
 import { expect, it } from "vitest";
 export class CityQuery {
@@ -396,7 +396,7 @@ export class CityJobsTool {
 
 ```ts
 it("a city outside the tenant's goes back to the model", async () => {
-  const scope = testToolInterceptor(TenantScopeToolInterceptor, {
+  const scope = testUnit(TenantScopeToolInterceptor, {
     tenantContext: JobScoutTenantContext,
     tenant: { tenantId: "acme", allowedCities: ["Haifa"] },
   });
@@ -592,7 +592,7 @@ export class RefundCardTool {
 
 ## Testing
 
-A tool is tested on its own with `testTool` (`@agboss/core/testing`, #262): its own container — its
+A tool is tested on its own with `testUnit` (`@agboss/core/testing`, #262): its own container — its
 `deps` resolved, `overrides` replacing classes by classes — and every call in the frame of a tool
 call, as the agent loop runs it: the input and output validated against the DTOs, the call's
 `executionContext.signal` aborting after `timeout` (default the tool's own `timeout`) on the runner's clock,
@@ -621,7 +621,7 @@ class CountIssues {
 -->
 
 ```ts
-import { override, testTool } from "@agboss/core/testing";
+import { override, testUnit } from "@agboss/core/testing";
 import { expect, test } from "vitest";
 
 @Injectable()
@@ -632,7 +632,7 @@ export class TwoIssuesApi extends IssuesApi {
 }
 
 test("counts the issues the API found", async () => {
-  const countIssues = testTool(CountIssues, { overrides: [override(IssuesApi, TwoIssuesApi)] });
+  const countIssues = testUnit(CountIssues, { services: [TwoIssuesApi] });
 
   const { output } = await countIssues({ query: "login" });
 

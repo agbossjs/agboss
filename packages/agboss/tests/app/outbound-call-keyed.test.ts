@@ -18,7 +18,7 @@ import {
   type Produced,
 } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
-import { testAction } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { hours, seconds } from "../../src/units/index.js";
 import { ChargeReceiptDto } from "./fixtures/outbound-call.workflow.js";
 import { gateway, letChargesGo, PaymentGateway, resetGateway } from "./fixtures/payment-gateway.js";
@@ -83,7 +83,7 @@ afterEach(letChargesGo);
 
 describe("#626: a call's fingerprint", () => {
   it("a step's key is stored with no fingerprint", async () => {
-    await testAction(KeyedChargeAction)(order);
+    await testUnit(KeyedChargeAction)(order);
 
     expect(next.found).toHaveLength(1);
     expect(next.found[0]).not.toHaveProperty("fingerprint");
@@ -91,7 +91,7 @@ describe("#626: a call's fingerprint", () => {
 
   it("the request's: another request under the business key is a conflict", async () => {
     next.key = "order:1";
-    const run = testAction(KeyedChargeAction);
+    const run = testUnit(KeyedChargeAction);
     await run(order);
     next.amountUsd = 12;
 
@@ -103,7 +103,7 @@ describe("#626: a call's fingerprint", () => {
 describe("#626: a business key's intent left pending under the caller's own lease", () => {
   it("its owner gone (the attempt timed out), the step run again reconciles it and sends it once", async () => {
     next.key = "order:1";
-    const run = testAction(KeyedChargeAction);
+    const run = testUnit(KeyedChargeAction);
     gateway.gates.before = 1;
     const first = run(order, { timeout: seconds(1) });
     first.catch(() => undefined);

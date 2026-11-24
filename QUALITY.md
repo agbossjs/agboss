@@ -140,7 +140,7 @@ holds from its type**, not guess it from the name.
   model providers) and injected; tests inject scripted models or fakes through the same gateway.
 - Prompts live in `src/prompts/` (agents, graph) and `src/routers/prompts.ts` (routers own their
   prompts to stay isolated). No prompt strings inside nodes.
-- Tools: `input` / `output` DTO classes (`*.dto.ts`), tested standalone (`testTool(Tool, { overrides })`, `@agboss/core/testing`)
+- Tools: `input` / `output` DTO classes (`*.dto.ts`), tested standalone (`testUnit(Tool, { overrides })`, `@agboss/core/testing`)
   before being wired into a graph. Agents run the framework's own loop (`src/graph/agent-loop/`) —
   no `createAgent`, no middlewares; side-effecting tools pass
   `executionContext.step.idempotencyKey` (`deps: [ExecutionContext]`) to the external service.

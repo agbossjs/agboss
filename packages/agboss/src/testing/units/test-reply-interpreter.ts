@@ -58,14 +58,14 @@ interface RoleInterpreter {
 async function interpreterOfRole(role: Class): Promise<RoleInterpreter> {
   const found = channelRoleOf(role);
   if (found === undefined)
-    throw new TestSetupError({ message: `testReplyInterpreter(${role.name}): not a @ChannelRole` });
+    throw new TestSetupError({ message: `testUnit(${role.name}): not a @ChannelRole` });
   const loader = new PromptLoader();
   const { interpreter, violations } = await roleInterpreterOf(found, loader);
   loader.throwIfAny();
   throwIfViolated(violations);
   if (interpreter === undefined)
     throw new TestSetupError({
-      message: `testReplyInterpreter(${role.name}): ${found.options.name} names no replyInterpreter — it is answered with a decision only`,
+      message: `testUnit(${role.name}): ${found.options.name} names no replyInterpreter — it is answered with a decision only`,
     });
   return { found, interpreter };
 }
@@ -110,7 +110,7 @@ function readingsOf<TRole extends Class>(
         {
           ask: input.ask,
           reply: input.reply,
-          label: `testReplyInterpreter(${role.name})`,
+          label: `testUnit(${role.name})`,
           validate: validatorOf(found),
           beforeModelCall: () => Promise.resolve(),
           callbacks: [],
@@ -128,13 +128,13 @@ function readingsOf<TRole extends Class>(
 }
 
 /**
- * `testReplyInterpreter(Role, options)`: the role's interpreter created by its own container (a code
+ * `testUnit(Role, options)`: the role's interpreter created by its own container (a code
  * one's `deps`, `overrides`, the `environment`), a model one answering from `model` —
  * `replyWith(AnswerDto, { … })` for its answer tool, `replyWith(ReplyInterpreterNotUnderstoodDto,
  * { reason })` for "not understood" (`{ cost }` its spend, `reply-interpreter:<name>`); its rules
  * checked first, as at assembly.
  */
-export function testReplyInterpreter<
+export function replyInterpreterUnit<
   TRole extends Class,
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
@@ -147,7 +147,7 @@ export function testReplyInterpreter<
     const { name, model } = assembled.interpreter;
     if (model === undefined && options.model !== undefined)
       throw new TestSetupError({
-        message: `testReplyInterpreter(${role.name}): ${name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+        message: `testUnit(${role.name}): ${name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
       });
     site.scriptModel(replyInterpreterKeyOf(name), name, options.model);
     return assembled;

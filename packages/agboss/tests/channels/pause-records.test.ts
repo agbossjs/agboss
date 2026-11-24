@@ -19,7 +19,7 @@ import {
   PauseStatus,
   UnknownPauseError,
 } from "../../src/index.js";
-import { callTool, override, replyWith, testWith, waitFor } from "../../src/testing/index.js";
+import { callTool, replyWith, testWith, waitFor } from "../../src/testing/index.js";
 import { TEST_START } from "../../src/testing/clock.js";
 import { hours, minutes, seconds } from "../../src/units/index.js";
 import {
@@ -172,7 +172,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
   );
 
   testWith(TreasuryApplication, {
-    overrides: [override(TransferApprovalChannel, AutoApproveChannel)],
+    services: [AutoApproveChannel.for(TransferApprovalChannel)],
   })(
     "a pause its channel decided at once: Decided, no responder, the channel's decision",
     async ({ app, mockLlm }) => {

@@ -30,7 +30,7 @@ interface RunnableTool {
   execute(input: object): unknown;
 }
 
-const toolMetaOf = (tool: Class): ToolMeta => requireComponent(tool, "tool", "testTool").meta;
+const toolMetaOf = (tool: Class): ToolMeta => requireComponent(tool, "tool", "testUnit").meta;
 
 /**
  * A `@Tool` on its own (#262 S55, S62): created by its own container (its `deps`,
@@ -41,7 +41,7 @@ const toolMetaOf = (tool: Class): ToolMeta => requireComponent(tool, "tool", "te
  * thrown: the tool's own error, `ToolTimeoutError`, or `DtoValidationError` for an input or output
  * that does not fit.
  */
-export function testTool<
+export function toolUnit<
   TTool extends Class<ToolInstance>,
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,

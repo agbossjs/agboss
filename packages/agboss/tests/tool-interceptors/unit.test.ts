@@ -1,5 +1,5 @@
 /**
- * #384 — `testToolInterceptor`: an interceptor on its own container, its rules checked first, each
+ * #384 — `testUnit`: an interceptor on its own container, its rules checked first, each
  * call in the frame of a call to the tool (the tenant given), `beforeToolCall` giving the decision,
  * `afterToolCall` the output validated against the tool's output DTO.
  */
@@ -10,7 +10,7 @@ import {
   ToolCallDecision,
   ToolInterceptor,
 } from "../../src/index.js";
-import { TestSetupError, testToolInterceptor } from "../../src/testing/index.js";
+import { TestSetupError, testUnit } from "../../src/testing/index.js";
 import {
   AuditToolInterceptor,
   JobScoutTenantContext,
@@ -22,8 +22,8 @@ import {
   interceptorLog,
 } from "./components.fixture.js";
 
-describe("#384: testToolInterceptor", () => {
-  const scope = testToolInterceptor(TenantScopeToolInterceptor, {
+describe("#384: testUnit", () => {
+  const scope = testUnit(TenantScopeToolInterceptor, {
     tenantContext: JobScoutTenantContext,
     tenant: { tenantId: "acme", allowedCities: ["Haifa"] },
   });
@@ -47,7 +47,7 @@ describe("#384: testToolInterceptor", () => {
   });
 
   it("afterToolCall gives the output the model would read, validated", async () => {
-    const stamp = testToolInterceptor(StampToolInterceptor);
+    const stamp = testUnit(StampToolInterceptor);
 
     const { output } = await stamp.afterToolCall(
       JobSearchTool,
@@ -56,7 +56,7 @@ describe("#384: testToolInterceptor", () => {
     );
 
     expect(output).toEqual({ listing: "Engineer (checked)" });
-    const moody = testToolInterceptor(MoodyToolInterceptor);
+    const moody = testUnit(MoodyToolInterceptor);
     await expect(
       moody.afterToolCall(PingTool, { mode: "shape" }, { text: "pong" }),
     ).rejects.toBeInstanceOf(DtoValidationError);
@@ -64,7 +64,7 @@ describe("#384: testToolInterceptor", () => {
 
   it("runs in the frame of a call to the tool", async () => {
     interceptorLog.length = 0;
-    const audit = testToolInterceptor(AuditToolInterceptor);
+    const audit = testUnit(AuditToolInterceptor);
 
     await audit.beforeToolCall(JobSearchTool, { city: "Haifa" });
 
@@ -73,7 +73,7 @@ describe("#384: testToolInterceptor", () => {
   });
 
   it("a misbehaving interceptor rejects as it does", async () => {
-    const moody = testToolInterceptor(MoodyToolInterceptor);
+    const moody = testUnit(MoodyToolInterceptor);
 
     await expect(moody.beforeToolCall(PingTool, { mode: "throw" })).rejects.toThrow(
       "the scope service is down",
@@ -85,7 +85,7 @@ describe("#384: testToolInterceptor", () => {
 
   it("a method the class does not have, a class that breaks a rule: set-up errors", () => {
     expect(() =>
-      testToolInterceptor(StampToolInterceptor).beforeToolCall(JobSearchTool, { city: "Haifa" }),
+      testUnit(StampToolInterceptor).beforeToolCall(JobSearchTool, { city: "Haifa" }),
     ).toThrow(TestSetupError);
 
     @ToolInterceptor({ name: "Short_One", description: "Not kebab-case" })
@@ -94,7 +94,7 @@ describe("#384: testToolInterceptor", () => {
         return ToolCallDecision.allow();
       }
     }
-    expect(() => testToolInterceptor(Short)).toThrow(GraphRuleError);
-    expect(() => testToolInterceptor(JobSearchTool as never)).toThrow(TestSetupError);
+    expect(() => testUnit(Short)).toThrow(GraphRuleError);
+    expect(() => testUnit(JobSearchTool as never)).toThrow(TestSetupError);
   });
 });

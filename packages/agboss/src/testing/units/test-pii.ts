@@ -34,7 +34,7 @@ function runtimePoliciesOf(site: UnitSite, policies: readonly Class[]): RuntimeP
   return policies.map((cls) => {
     const meta = piiPolicyMetaOf(cls);
     if (meta === undefined)
-      throw new TestSetupError({ message: `testPii: ${cls.name} is not a @PiiPolicy` });
+      throw new TestSetupError({ message: `testUnit: ${cls.name} is not a @PiiPolicy` });
     const model = isCustomPolicy(meta) ? undefined : meta.model;
     const detection = (name: string, id: string) => {
       const settings = unitChatSettings(id);
@@ -60,7 +60,7 @@ function runtimePoliciesOf(site: UnitSite, policies: readonly Class[]): RuntimeP
  * `deps`, `overrides`, the `environment`), tokens made with the fixed test key; a `model`
  * policy's model answers from `model` (`replyWith('{"found":[…]}')`, one turn per detection).
  */
-export function testPii<
+export function piiUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(
@@ -69,8 +69,8 @@ export function testPii<
 ): PiiRunner {
   const [first] = policies;
   if (first === undefined)
-    throw new TestSetupError({ message: "testPii([]): name the policies to apply" });
-  throwIfViolated([...policyViolations(policies), ...conflictViolations("testPii", policies)]);
+    throw new TestSetupError({ message: "testUnit([]): name the policies to apply" });
+  throwIfViolated([...policyViolations(policies), ...conflictViolations("testUnit", policies)]);
   const site = new UnitSite(options);
   for (const cls of policies) {
     const meta = piiPolicyMetaOf(cls);

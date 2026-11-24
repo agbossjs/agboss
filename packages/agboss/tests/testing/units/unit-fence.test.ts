@@ -1,17 +1,12 @@
 /**
- * #471 AC5 — the fence of a unit test's step: `testAction` / `testTool` (any unit runner) and
+ * #471 AC5 — the fence of a unit test's step: `testUnit` / `testUnit` (any unit runner) and
  * `testExecutionContext()` give a held lease by default — token 1, the execution's own scope, the
  * tenant given, confirmed for 30 s on the runner's clock — and the `fence` option sets each field
  * or makes its checks refuse (`isLost`, `renewNowFails`).
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExecutionFencedError, ExecutionLeaseLostError } from "../../../src/index.js";
-import {
-  testAction,
-  testExecutionContext,
-  testTool,
-  VirtualClock,
-} from "../../../src/testing/index.js";
+import { testUnit, testExecutionContext, VirtualClock } from "../../../src/testing/index.js";
 import { testFenceLeaseOf } from "../../../src/testing/fence.js";
 import { seconds } from "../../../src/units/index.js";
 import {
@@ -31,7 +26,7 @@ const message = { message: { value: { text: "v1" } } } as never;
 
 describe("#471 AC5: a unit runner's fence", () => {
   it("is held by default: token 1, the execution's scope of the default tenant", async () => {
-    const run = testAction(ReleaseAction);
+    const run = testUnit(ReleaseAction);
 
     const { output } = await run(message);
 
@@ -48,7 +43,7 @@ describe("#471 AC5: a unit runner's fence", () => {
   });
 
   it("takes the tenant given, and the token and lease execution of its option", async () => {
-    const run = testTool(StageTool, {
+    const run = testUnit(StageTool, {
       tenant: { tenantId: "acme:eu" },
       fence: { token: 7, leaseExecutionId: "root:1" },
     });
@@ -65,7 +60,7 @@ describe("#471 AC5: a unit runner's fence", () => {
   });
 
   it("isLost: assertHeld() throws ExecutionLeaseLostError, nothing is written", async () => {
-    const run = testAction(ReleaseAction, { fence: { isLost: true } });
+    const run = testUnit(ReleaseAction, { fence: { isLost: true } });
 
     await expect(run(message)).rejects.toThrow(ExecutionLeaseLostError);
     expect(ledger.rows).toEqual([]);
@@ -73,8 +68,8 @@ describe("#471 AC5: a unit runner's fence", () => {
 
   it("renewNowFails: only renewNow() rejects — the write is in, the webhook is not called", async () => {
     levers.confirmFirst = true;
-    const lost = testAction(ReleaseAction, { fence: { renewNowFails: true } });
-    const failed = testAction(ReleaseAction, {
+    const lost = testUnit(ReleaseAction, { fence: { renewNowFails: true } });
+    const failed = testUnit(ReleaseAction, {
       fence: { renewNowFails: new Error("store down") },
     });
 
@@ -88,7 +83,7 @@ describe("#471 AC5: a unit runner's fence", () => {
   it("renewNow() resolves by default: the step goes on to its webhook", async () => {
     levers.confirmFirst = true;
 
-    await testAction(ReleaseAction)(message);
+    await testUnit(ReleaseAction)(message);
 
     expect(seen.notified).toEqual(["test-execution:release-action:1"]);
   });
@@ -96,7 +91,7 @@ describe("#471 AC5: a unit runner's fence", () => {
   it("#831: renewNowFails: false is the default — renewNow() resolves", async () => {
     levers.confirmFirst = true;
 
-    await testAction(ReleaseAction, { fence: { renewNowFails: false } })(message);
+    await testUnit(ReleaseAction, { fence: { renewNowFails: false } })(message);
 
     expect(seen.notified).toEqual(["test-execution:release-action:1"]);
   });
@@ -104,7 +99,7 @@ describe("#471 AC5: a unit runner's fence", () => {
   it("a refused write is the step's ExecutionFencedError, as in an execution", async () => {
     ledger.highest.set("default:test-execution", 2);
 
-    await expect(testAction(ReleaseAction)(message)).rejects.toThrow(ExecutionFencedError);
+    await expect(testUnit(ReleaseAction)(message)).rejects.toThrow(ExecutionFencedError);
     expect(ledger.refused).toEqual([{ scopeKey: "default:test-execution", token: 1 }]);
   });
 });

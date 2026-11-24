@@ -729,7 +729,7 @@ same on every attempt, replay and holder.
   a lookup that does not lag or expire.
 - **Testing:** `testWith` runs the in-memory store; a crash before the answer is a `send` that waits
   on a gate, `leases.freeze(apps[0])` and `clock.advance` past the lease, then the other instance's
-  recovery (`instances: 2`). Unit runners (`testAction`, `testTool`) run `Idempotency` on the
+  recovery (`instances: 2`). Unit runners (`testUnit`) run `Idempotency` on the
   runner's held lease; a second run of one runner is the same step run again.
 
 - **On SQLite:** `SqliteOutboundCallRepository`, listed with `SqliteExecutionLeaseRepository` — its

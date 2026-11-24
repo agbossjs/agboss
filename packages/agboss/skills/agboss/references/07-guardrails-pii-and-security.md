@@ -465,11 +465,11 @@ import { LegalAdviceGuardrail } from "./src/clinic/guardrails/legal-advice/legal
 -->
 
 ```ts
-import { decideWith, testGuardrail, testPii } from "@agboss/core/testing";
+import { decideWith, testUnit } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 
 it("blocks a legal question with the refusal in the sender's language", async () => {
-  const check = testGuardrail(LegalAdviceGuardrail, {
+  const check = testUnit(LegalAdviceGuardrail, {
     model: decideWith({ blocks: 0.95 }),
     execution: { locale: "he" }, // the ClinicExecutionContext fields the refusal reads
     executionContext: ClinicExecutionContext,
@@ -481,7 +481,7 @@ it("blocks a legal question with the refusal in the sender's language", async ()
 });
 
 it("a model reads a token, its answer gets the address back", async () => {
-  const contacts = testPii([ContactPiiPolicy]);
+  const contacts = testUnit([ContactPiiPolicy]);
 
   const { output: masked } = await contacts.mask("Mail alice@example.com");
 
@@ -491,7 +491,7 @@ it("a model reads a token, its answer gets the address back", async () => {
 ```
 
 A code guardrail runs its `check(content)` on its own container — no `model` option (one is a
-`TestSetupError`): `testGuardrail(TenantBlocklistGuardrail, { tenant: { tenantId: "acme" } })("…")`
+`TestSetupError`): `testUnit(TenantBlocklistGuardrail, { tenant: { tenantId: "acme" } })("…")`
 → `{ isBlocked: true, probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; in
 `testWith(App)` it is not scripted (`mockLlm` of it names why) — `mockOf()` the services its `check`
 uses.

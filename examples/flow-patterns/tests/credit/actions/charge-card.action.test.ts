@@ -5,13 +5,13 @@ import {
   IdempotencyError,
   SqliteFencedEffectRepository,
 } from "@agboss/core";
-import { override, testAction } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { ChargeCardAction } from "../../../src/credit/actions/charge-card.action.js";
 import { OrderIntakeAgent } from "../../../src/credit/agents/order-intake/order-intake.agent.js";
 
 /**
  * #472, #500, #508: the charge is a fenced effect keyed by its credit application
- * (`credit:<applicationId>`). `testAction` runs every call as the same step of the same execution
+ * (`credit:<applicationId>`). `testUnit` runs every call as the same step of the same execution
  * under the runner's held lease, on one container and one SQLite connection: a second call for one
  * application is the step run again, another application a charge of its own.
  */
@@ -22,9 +22,9 @@ const order = (customerId: string, total: number, applicationId = `app-${custome
 // the action injects Idempotency: the store is the one the application lists, SQLite's
 const onFile = {
   environment: { sqlitePath: ":memory:" },
-  overrides: [override(FencedEffectRepository, SqliteFencedEffectRepository)],
+  services: [SqliteFencedEffectRepository],
 };
-const runner = () => testAction(ChargeCardAction, onFile);
+const runner = () => testUnit(ChargeCardAction, onFile);
 
 describe("#500, #508: one charge per credit application", () => {
   it("the step run again gets the charge it made", async () => {
@@ -68,7 +68,7 @@ describe("#500, #508: one charge per credit application", () => {
   });
 
   it("an instance that lost the lease is refused: ExecutionFencedError, nothing charged", async () => {
-    const lost = testAction(ChargeCardAction, { ...onFile, fence: { isLost: true } });
+    const lost = testUnit(ChargeCardAction, { ...onFile, fence: { isLost: true } });
 
     await expect(lost(order("c-1", 50))).rejects.toBeInstanceOf(ExecutionFencedError);
   });

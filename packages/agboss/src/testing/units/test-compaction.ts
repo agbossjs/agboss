@@ -57,16 +57,16 @@ export interface CompactionRunner extends UnitClock {
 function checkedMetaOf(compaction: Class, options: Pick<UnitModelOptions, "model">): MemoryMeta {
   const meta = memoryMetaOf(compaction);
   if (meta === undefined)
-    throw new TestSetupError({ message: `testCompaction(${compaction.name}): not a @Memory` });
+    throw new TestSetupError({ message: `testUnit(${compaction.name}): not a @Memory` });
   throwIfViolated(memoryViolations([compaction]));
   const mode = modeOf(compaction, meta);
   if (mode === WINDOW_ONLY)
     throw new TestSetupError({
-      message: `testCompaction(${compaction.name}): ${meta.name} has no compaction and no compact() — it writes no summaries`,
+      message: `testUnit(${compaction.name}): ${meta.name} has no compaction and no compact() — it writes no summaries`,
     });
   if (mode === CUSTOM_COMPACTION && options.model !== undefined)
     throw new TestSetupError({
-      message: `testCompaction(${compaction.name}): ${meta.name} compacts in code — its compact() calls no model; leave out model`,
+      message: `testUnit(${compaction.name}): ${meta.name} compacts in code — its compact() calls no model; leave out model`,
     });
   return meta;
 }
@@ -194,7 +194,7 @@ async function modelCompaction(
  * step's frame — no `model` (a `TestSetupError`), its answer checked as at run time. No PII
  * policies apply: the input is what the compaction reads.
  */
-export function testCompaction<
+export function compactionUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(

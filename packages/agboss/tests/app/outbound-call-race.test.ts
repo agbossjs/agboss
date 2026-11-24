@@ -19,7 +19,7 @@ import { type EffectKey } from "../../src/stores/index.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
-import { override, testAction } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { ChargeOrderAction, resetRuns, runs } from "./fixtures/outbound-call.workflow.js";
 import { gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
@@ -70,8 +70,8 @@ class RacedOutboundCallRepository extends InMemoryOutboundCallRepository {
 }
 
 const raced = () =>
-  testAction(ChargeOrderAction, {
-    overrides: [override(OutboundCallRepository, RacedOutboundCallRepository)],
+  testUnit(ChargeOrderAction, {
+    services: [RacedOutboundCallRepository],
   });
 
 /** A runner whose first run failed at the provider: its intent `Failed`, attempt 1. */

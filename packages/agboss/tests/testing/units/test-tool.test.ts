@@ -1,11 +1,11 @@
 /**
- * #262 PR 3 (S55, S62): `testTool` — one tool on its own, as an agent's tool call runs it: its
+ * #262 PR 3 (S55, S62): `testUnit` — one tool on its own, as an agent's tool call runs it: its
  * container (`overrides`), the frame of a tool call (`signal` with its timeout, `SpendRecorder`),
  * the input and the output validated.
  */
 import { describe, expect, it } from "vitest";
 import { DtoValidationError } from "../../../src/dto/index.js";
-import { override, testTool } from "../../../src/testing/index.js";
+import { testUnit } from "../../../src/testing/index.js";
 import { ToolTimeoutError } from "../../../src/tools/define-tool.js";
 import { seconds } from "../../../src/units/index.js";
 import {
@@ -19,10 +19,10 @@ import {
   SlowJobBoardService,
 } from "../fixtures/units.js";
 
-describe("testTool", () => {
+describe("testUnit", () => {
   it("runs the tool on its replaced service: output, spend and the call's step", async () => {
-    const runSearch = testTool(SearchJobsTool, {
-      overrides: [override(JobBoardService, FakeJobBoardService)],
+    const runSearch = testUnit(SearchJobsTool, {
+      services: [FakeJobBoardService],
     });
 
     const { output, spend } = await runSearch({ query: "TS" });
@@ -33,7 +33,7 @@ describe("testTool", () => {
   });
 
   it("the real service runs when nothing replaces it: its error rejects as thrown", async () => {
-    const runSearch = testTool(SearchJobsTool);
+    const runSearch = testUnit(SearchJobsTool);
 
     await expect(runSearch({ query: "TS" })).rejects.toThrow(
       "the real job board was called for TS",
@@ -41,8 +41,8 @@ describe("testTool", () => {
   });
 
   it("the call's signal aborts after its timeout on the runner's clock", async () => {
-    const runSearch = testTool(SearchJobsTool, {
-      overrides: [override(JobBoardService, SlowJobBoardService)],
+    const runSearch = testUnit(SearchJobsTool, {
+      services: [SlowJobBoardService],
     });
 
     const call = runSearch({ query: "TS" }, { timeout: seconds(1) });
@@ -53,8 +53,8 @@ describe("testTool", () => {
   });
 
   it("without a timeout the tool's own timeout applies", async () => {
-    const runSearch = testTool(SearchJobsTool, {
-      overrides: [override(JobBoardService, SlowJobBoardService)],
+    const runSearch = testUnit(SearchJobsTool, {
+      services: [SlowJobBoardService],
     });
 
     const call = runSearch({ query: "TS" });
@@ -65,8 +65,8 @@ describe("testTool", () => {
   });
 
   it("an input that does not fit the input DTO is refused before the tool runs", async () => {
-    const runSearch = testTool(SearchJobsTool, {
-      overrides: [override(JobBoardService, FakeJobBoardService)],
+    const runSearch = testUnit(SearchJobsTool, {
+      services: [FakeJobBoardService],
     });
 
     // @ts-expect-error — the input is typed by the tool's input DTO; the runtime check stays
@@ -74,18 +74,17 @@ describe("testTool", () => {
   });
 
   it("an output that does not fit the output DTO fails the call", async () => {
-    const runBroken = testTool(BrokenJobsTool);
+    const runBroken = testUnit(BrokenJobsTool);
 
     await expect(runBroken({ query: "TS" })).rejects.toBeInstanceOf(DtoValidationError);
   });
 
   it("a class that is no tool is a setup error", () => {
-    // @ts-expect-error — a class without run(input) is no tool
-    expect(() => testTool(JobBoardService)).toThrow("is not a @Tool component");
+    expect(() => testUnit(JobBoardService)).toThrow("not a component it runs");
   });
 
   it("the tenant level: the project's TenantContext subclass with its values", async () => {
-    const runReport = testTool(PlanReportTool, {
+    const runReport = testUnit(PlanReportTool, {
       tenantContext: ShopTenantContext,
       tenant: { tenantId: "acme", plan: "pro" },
       executionContext: ShopExecutionContext,
@@ -99,7 +98,7 @@ describe("testTool", () => {
 
   it("the execution level: its values are checked by the class's decorators", () => {
     expect(() =>
-      testTool(PlanReportTool, {
+      testUnit(PlanReportTool, {
         tenantContext: ShopTenantContext,
         tenant: { tenantId: "acme", plan: "pro" },
         executionContext: ShopExecutionContext,
@@ -111,7 +110,7 @@ describe("testTool", () => {
 
   it("a tenant value outside its Enum is refused, as app.execute refuses it", () => {
     expect(() =>
-      testTool(PlanReportTool, {
+      testUnit(PlanReportTool, {
         tenantContext: ShopTenantContext,
         // @ts-expect-error — the plan is free or pro
         tenant: { tenantId: "acme", plan: "gold" },

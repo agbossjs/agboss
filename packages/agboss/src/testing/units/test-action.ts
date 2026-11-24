@@ -32,12 +32,12 @@ interface ExecutableAction {
 function actionOptionsOf(action: Class) {
   const declaration = declarationOf(action);
   if (declaration?.kind !== NodeKind.Action)
-    throw new TestSetupError({ message: `testAction(${action.name}): not an @Action` });
+    throw new TestSetupError({ message: `testUnit(${action.name}): not an @Action` });
   return declaration.options;
 }
 
 /**
- * An `@Action` on its own (#262 S62, the shape of `testTool`): created by its own container (its
+ * An `@Action` on its own (#262 S62, the shape of `testUnit`): created by its own container (its
  * `deps`, `overrides`, the `environment`); each call runs `execute(input)` in the frame of its step
  * — `executionContext.signal` aborts after `timeout` on the runner's clock, `SpendRecorder`
  * records into the call's `spend` as `action:<name>` — and checks the result against its `output`
@@ -45,7 +45,7 @@ function actionOptionsOf(action: Class) {
  * fields as plain objects. A failure rejects as it was thrown (`OutputInvalidError` /
  * `DtoValidationError` for a result that does not fit).
  */
-export function testAction<
+export function actionUnit<
   TAction extends Class<ExecuteMethod>,
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,

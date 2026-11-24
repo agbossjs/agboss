@@ -33,7 +33,7 @@ import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import { keyedDigestOf } from "../../src/pii/tokens.js";
 import { stableJson } from "../../src/turns/index.js";
-import { override, testAction, testWith } from "../../src/testing/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { recordingLog } from "../helpers/log.js";
@@ -116,8 +116,8 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
 
 describe("#508 review 2, #795: a lost completion is OutboundCallError.Superseded, never a silent Sent", () => {
   it("a newer attempt took the intent over while this one was in flight: the step fails naming both attempts, the newer attempt's intent kept", async () => {
-    const run = testAction(ChargeOrderAction, {
-      overrides: [override(OutboundCallRepository, SupersedingOutboundCallRepository)],
+    const run = testUnit(ChargeOrderAction, {
+      services: [SupersedingOutboundCallRepository],
     });
 
     const failed = await run(order).catch((error: unknown) => error);
@@ -139,7 +139,7 @@ describe("#508 review 2, #795: a lost completion is OutboundCallError.Superseded
 
 describe("#508 review 3: a live owner is never reconciled, whatever the key", () => {
   it("a step-keyed attempt still sending (its step aborted, its client ignoring it): the step run again is in flight, nothing sent", async () => {
-    const run = testAction(ChargeOrderAction);
+    const run = testUnit(ChargeOrderAction);
     Object.assign(gateway.gates, { before: 1, ignoresAbort: true });
     const first = run(order, { timeout: seconds(1) });
     first.catch(() => undefined);
@@ -253,7 +253,7 @@ describe("#508 review 7: the key sent out is unambiguous", () => {
   });
 
   it("a name with a ':' — which would make two keys one string — is IdempotencyError.InvalidName", async () => {
-    const run = testAction(BadlyNamedAction);
+    const run = testUnit(BadlyNamedAction);
 
     await expect(run(order)).rejects.toFailWith(IdempotencyError.InvalidName, {});
   });

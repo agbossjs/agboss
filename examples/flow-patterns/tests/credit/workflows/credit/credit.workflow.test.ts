@@ -7,13 +7,7 @@ import {
 } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
 import { TenantDailyBudget } from "../../../../src/config/budget.config.js";
-import {
-  override,
-  replyWith,
-  replyWithInvalidAnswer,
-  routeTo,
-  testWith,
-} from "@agboss/core/testing";
+import { replyWith, replyWithInvalidAnswer, routeTo, testWith } from "@agboss/core/testing";
 import { DeskMetricsObserver } from "../../../../src/desk/observers/desk-metrics.observer.js";
 import {
   CrashAfterChargeAction,
@@ -236,11 +230,7 @@ instancesFilePerTest();
 const instances = testWith(FlowPatternsApplication, {
   instances: 2,
   env: "instances",
-  overrides: [
-    override(ExecutionLeaseRepository, MortalExecutionLeaseRepository),
-    override(ChargeCardAction, CrashAfterChargeAction),
-    override(DeskMetricsObserver, EndsSeenObserver),
-  ],
+  services: [MortalExecutionLeaseRepository, CrashAfterChargeAction, EndsSeenObserver],
 });
 
 describe("#472, #500 AC1: a crash after the charge, before its checkpoint", () => {

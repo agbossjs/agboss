@@ -47,7 +47,7 @@ function checkedMetaOf(guardrail: Class): GuardrailMeta {
   const meta = guardrailMetaOf(guardrail);
   if (meta === undefined)
     throw new TestSetupError({
-      message: `testGuardrail(${guardrail.name}): not an @InputGuardrail / @OutputGuardrail`,
+      message: `testUnit(${guardrail.name}): not an @InputGuardrail / @OutputGuardrail`,
     });
   throwIfViolated(guardrailViolations([guardrail], UNIT_DECISION_MODEL));
   return meta;
@@ -61,7 +61,7 @@ async function loadedOf(guardrail: Class): Promise<LoadedGuardrail> {
   loader.throwIfAny();
   if (loaded === undefined)
     throw new TestSetupError({
-      message: `testGuardrail(${guardrail.name}): could not be assembled`,
+      message: `testUnit(${guardrail.name}): could not be assembled`,
     });
   return loaded;
 }
@@ -74,7 +74,7 @@ function checkedScript(
 ): void {
   if (isCodeGuardrail(meta) && options.model !== undefined)
     throw new TestSetupError({
-      message: `testGuardrail(${guardrail.name}): ${meta.name} is decided by code — it calls no model; leave out model`,
+      message: `testUnit(${guardrail.name}): ${meta.name} is decided by code — it calls no model; leave out model`,
     });
 }
 
@@ -88,7 +88,7 @@ function checkedScript(
  * A model that does not answer rejects with `GuardFailedError`. A code guardrail (#383) runs its
  * class's `check(text)` instead — no `model` script (one is a `TestSetupError`), no spend.
  */
-export function testGuardrail<
+export function guardrailUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(guardrail: Class, options: UnitModelOptions<unknown, TExecution, TTenant> = {}): GuardrailRunner {

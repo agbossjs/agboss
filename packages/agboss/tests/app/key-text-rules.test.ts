@@ -12,7 +12,7 @@ import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
 import { Action, ExecutionContext } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
-import { testAction, testWith } from "../../src/testing/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { ChatStart, DeskApplication } from "../testing/fixtures/desk.workflow.js";
 import { ACCEPTED_KEYS, NFC_PAIRS, REFUSED_KEYS } from "./fixtures/key-texts.js";
@@ -36,7 +36,7 @@ class KeyedChargeAction {
 }
 
 const keyed = (businessKey: string) =>
-  testAction(KeyedChargeAction)({ message: { value: { text: businessKey } } }).then(
+  testUnit(KeyedChargeAction)({ message: { value: { text: businessKey } } }).then(
     (result) => result.output.text,
     (thrown: unknown) => thrown,
   );

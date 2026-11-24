@@ -528,7 +528,7 @@ export class DeskApplication {}
   in a workflow's `providers` → `[di.infrastructure-in-workflow]`; a class in `providers` without a
   decorator → `[di.undecorated-provider]`.
 - **In tests** a class is replaced by a class, never by an instance:
-  `testWith(App, { overrides: [override(CrmClientService, FakeCrmClientService)] })` or the same
+  `testWith(App, { services: [FakeCrmClientService] })` or the same
   option of a unit runner, where `FakeCrmClientService extends CrmClientService` (reference 10).
 - **The four hooks**, each optional, `implements OnInit, OnStart, OnStop, OnDestroy`:
   `onInit()` (dependencies first) → `onStart()` at start (a failure stops the start, naming the
@@ -726,7 +726,7 @@ export class AuditToolInterceptor {
   knowledge base's search tool or a tool called on its own (over MCP).
 - `agboss describe` prints `tool interceptors` (each one's methods and the agents' tools it
   intercepts), `describe --json` each agent's `toolInterceptors` by tool; `configHash` covers them.
-  Tests: `testToolInterceptor` (reference 10).
+  Tests: `testUnit` (reference 10).
 
 ## Settings and their units
 

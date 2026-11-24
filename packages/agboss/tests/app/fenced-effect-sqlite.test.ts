@@ -13,7 +13,7 @@ import {
   IdempotencyRunStatus,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
-import { override, testAction, testWith } from "../../src/testing/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -138,11 +138,11 @@ describe("#500: a unit runner's SQLite fenced effect", () => {
   // #890: the action injects FencedEffects — the SQLite store is the one the test lists
   const onFile = {
     environment: { sqlitePath: ":memory:" } as never,
-    overrides: [override(FencedEffectRepository, SqliteFencedEffectRepository)],
+    services: [SqliteFencedEffectRepository],
   };
 
   it("runs on the runner's held lease, then replays the receipt on the same step", async () => {
-    const run = testAction(SqliteChargeOrderAction, onFile);
+    const run = testUnit(SqliteChargeOrderAction, onFile);
 
     const first = await run(order);
     const second = await run(order);
@@ -156,10 +156,10 @@ describe("#500: a unit runner's SQLite fenced effect", () => {
   });
 
   it("runs under the fence option's token; a lost lease is refused", async () => {
-    const third = await testAction(SqliteChargeOrderAction, { ...onFile, fence: { token: 3 } })(
+    const third = await testUnit(SqliteChargeOrderAction, { ...onFile, fence: { token: 3 } })(
       order,
     );
-    const lost = testAction(SqliteChargeOrderAction, { ...onFile, fence: { isLost: true } })(order);
+    const lost = testUnit(SqliteChargeOrderAction, { ...onFile, fence: { isLost: true } })(order);
 
     expect(third.output).toEqual({ chargeId: "charge-order-1-3" });
     await expect(lost).rejects.toBeInstanceOf(ExecutionFencedError);

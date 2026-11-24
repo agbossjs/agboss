@@ -168,7 +168,7 @@ export class PlaybooksRag extends RagSource<never, ExecutionContext> {
 ```
 
 - A retrieval outside an execution (a search called by hand, no frame) is `context.unavailable` —
-  never the `default` tenant's documents. `testRag(R)` searches as its unit's tenant
+  never the `default` tenant's documents. `testUnit(R)` searches as its unit's tenant
   (`tenant: { tenantId }`, else `default`; `ownerId` for `RagScope.Owner`).
 - `agboss rag index --tenant <id> [--scope <id>]` builds that tenant's knowledge bases: `--tenant` is
   required when a target `@Rag` declares a scope other than `Shared` (`rag.tenant-required`), and an
@@ -262,7 +262,7 @@ export class RerankedDocs extends SqliteFtsRagSource {
 | `name`, `description`  | optional: the name is the class name in kebab-case                                                    |
 
 It works with any source and both ways of using it: `search` returns the reranked `topK`, the
-context block holds them; `testRag(R)` reranks the same way (`model: replyWith(…)` scripts a model
+context block holds them; `testUnit(R)` reranks the same way (`model: replyWith(…)` scripts a model
 reranker), and a scripted agent searches with `callTool(SearchCompanyDocsTool, { query })`.
 
 **The LLM reranker** is a class with no code: its model is its own `model`, else the default of its
