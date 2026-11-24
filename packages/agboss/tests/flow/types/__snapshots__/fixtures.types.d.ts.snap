@@ -9,7 +9,7 @@ import type { BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixt
 import type { BrokenOfferWorkflow } from "../tests/flow/fixtures/broken.fixture.js";
 import type { AskResumeWorkflowFinish, ChatApplication, ChatWorkflow, ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, NoReplyWorkflowFinish, ProfilerAgent, ScoutAgent } from "../tests/flow/fixtures/chat.fixture.js";
 import type { CompanyGradeDto, CompanyLinkDto, CompanyRejectedDto, CompanyReviewFailedDto, DeepDiveDto, GradedShortlistDto, JobOfferDto, PromisingCompanyDto } from "../tests/flow/fixtures/child-dtos.js";
-import type { CarDto, ChargeTripAction, ChargedTripWorkflow, ChargedTripWorkflowStart, ChildUndoApplication, CommitTripWorkflow, CommitTripWorkflowStart, ConfirmTripAction, MiddleTripWorkflow, MiddleTripWorkflowFinish, MiddleTripWorkflowStart, NestedChargedTripWorkflow, NestedChargedTripWorkflowStart, NestedQuorumTripWorkflow, NestedQuorumTripWorkflowStart, QuorumTripWorkflow, QuorumTripWorkflowStart, RefusedTripWorkflow, RefusedTripWorkflowStart, RemoteChargedTripWorkflow, RemoteChargedTripWorkflowStart, RemoteQuorumTripWorkflow, RemoteQuorumTripWorkflowStart, RemoteTripWorkflow, RemoteTripWorkflowFinish, RemoteTripWorkflowStart, ReserveCarAction, ReviewTripAction, TripBookedWorkflowFinish, TripChargedWorkflowFinish, TripChildWorkflow, TripChildWorkflowFinish, TripChildWorkflowStart, TripDto, TripRequestDto, TripRoomDto, TripSeatDto, TripSummaryDto } from "../tests/flow/fixtures/child-undo.fixture.js";
+import type { CarDto, ChargeTripAction, ChargedTripWorkflow, ChargedTripWorkflowStart, ChildUndoApplication, CommitTripWorkflow, CommitTripWorkflowStart, ConfirmTripAction, DeclinedTripWorkflow, DeclinedTripWorkflowStart, MiddleTripWorkflow, MiddleTripWorkflowFinish, MiddleTripWorkflowStart, NestedChargedTripWorkflow, NestedChargedTripWorkflowStart, NestedQuorumTripWorkflow, NestedQuorumTripWorkflowStart, QuorumTripWorkflow, QuorumTripWorkflowStart, RefusedTripWorkflow, RefusedTripWorkflowStart, RemoteChargedTripWorkflow, RemoteChargedTripWorkflowStart, RemoteQuorumTripWorkflow, RemoteQuorumTripWorkflowStart, RemoteTripWorkflow, RemoteTripWorkflowFinish, RemoteTripWorkflowStart, ReserveCarAction, ReviewTripAction, TripBookedWorkflowFinish, TripChargedWorkflowFinish, TripChildWorkflow, TripChildWorkflowFinish, TripChildWorkflowStart, TripDto, TripRequestDto, TripRoomDto, TripSeatDto, TripSummaryDto } from "../tests/flow/fixtures/child-undo.fixture.js";
 import type { CompanyFinderAgent, CompanyGradedWorkflowFinish, CompanyLinkReviewWorkflowStart, CompanyPickerAgent, CompanyRejectedWorkflowFinish, CompanyReviewApplication, CompanyReviewFailedWorkflowFinish, CompanyReviewWorkflow, CompanyReviewWorkflowStart, CompanyReviewerAgent, CompanyScreeningWorkflow, CompanyScreeningWorkflowStart, DeepDiveAgent, GradedShortlistWorkflowFinish, GraderAgent, JobOfferAgent, JobOfferWorkflow, JobOfferWorkflowFinish, JobOfferWorkflowStart, LinkOfferWorkflow, LinkOfferWorkflowStart, MarkReviewFailedAction, NoOfferFailedWorkflowFinish, NoOfferRejectedWorkflowFinish, NotifyReviewStoppedAction, PickedOfferWorkflowStart, ReviewErrorWorkflowFinish, ReviewRankerAgent, ScreeningStoppedWorkflowFinish } from "../tests/flow/fixtures/children.fixture.js";
 import type { AuditBedAction, BedAgent, BedRequestWorkflow, BedRequestWorkflowStart, BedsDto, BedsWorkflowFinish, BookBedTool, ClinicApplication, ClinicExecutionContext, ClinicTenantContext, FreeBedsTool } from "../tests/flow/fixtures/clinic.fixture.js";
 import type { BudgetApprovalWorkflow, BudgetApprovalWorkflowStart, BudgetOwnerExternalTask, BudgetOwnerInboxChannel, CommitteeApplication, CommitteeChildWorkflow, CommitteeChildWorkflowFinish, CommitteeChildWorkflowStart, CommitteeNoteAgent, CommitteeNotesWorkflow, CommitteeNotesWorkflowFinish, CommitteeNotesWorkflowStart, ContractCommitteeWorkflow, ContractCommitteeWorkflowStart, ContractDto, ContractGroupsWorkflow, ContractGroupsWorkflowStart, ContractRejectedWorkflowFinish, ContractSignedWorkflowFinish, DraftContractAction, FinanceDirectorExternalTask, FinanceInboxChannel, LegalInboxChannel, LegalSignOffExternalTask, LoadBudgetOwnersAction, OwnerAskDto, ReviewNotesAction, SecurityInboxChannel, SecuritySignOffExternalTask, SignAsFinanceAction, SignAsPanelAction, SignContractAction, SignOffDto, SignedDto } from "../tests/flow/fixtures/committee.fixture.js";
@@ -138,6 +138,7 @@ declare module "../src/flow/generated-types.js" {
       "deal-panel-workflow-start": DealDto;
       "deal-report-panel-agent": DueDiligenceReportDto;
       "deal-workflow-start": DealDto;
+      "declined-trip-workflow-start": TripRequestDto;
       "deep-dive-agent": DeepDiveDto;
       "deep-research-workflow": ResearchFailedDto | ResearchReportDto;
       "deep-research-workflow-start": ResearchTopicDto;
@@ -513,6 +514,8 @@ declare module "../src/flow/generated-types.js" {
       "deal-report-panel-workflow-finish": NoInput;
       "deal-room-opened-workflow-finish": NoInput;
       "deal-workflow-start": DealDto;
+      "declined-trip-workflow": TripRequestDto;
+      "declined-trip-workflow-start": TripRequestDto;
       "deep-dive-agent": { promising: Produced<PromisingCompanyDto, typeof CompanyReviewerAgent> };
       "deep-research-workflow": ResearchTopicDto;
       "deep-research-workflow-start": ResearchTopicDto;
@@ -1133,6 +1136,7 @@ declare module "../src/flow/generated-types.js" {
       "credit-workflow-start": { input: WorkflowStartTextDto; output: ChargeResultDto | CreditOrderDto | WorkflowStartTextDto; readonly finishes: "credit-workflow-finish" | "no-order-workflow-finish" | "order-held-workflow-finish" };
       "deal-panel-workflow-start": { input: DealDto; output: DealCritiqueDto | DealDto | DueDiligenceReportDto | FastScreenDto; readonly finishes: "deal-report-panel-workflow-finish" | "no-quorum-panel-workflow-finish" | "quick-reject-panel-workflow-finish" | "second-opinion-panel-workflow-finish" };
       "deal-workflow-start": { input: DealDto; output: AuditDto | DealDto | DueDiligenceReportDto | FastScreenDto; readonly finishes: "deal-room-opened-workflow-finish" | "due-diligence-report-workflow-finish" | "quick-reject-workflow-finish" | "reviewer-notified-workflow-finish" };
+      "declined-trip-workflow-start": { input: TripRequestDto; output: TripRequestDto | TripSummaryDto; readonly finishes: "trip-charged-workflow-finish" | "trip-not-reserved-workflow-finish" };
       "deep-research-workflow-start": { input: ResearchTopicDto; output: ResearchFailedDto | ResearchReportDto; readonly finishes: "research-failed-workflow-finish" | "research-report-workflow-finish" };
       "desk-workflow-start": { input: WorkflowStartTextDto; output: DeskAnswerDto | HandOverDto; readonly finishes: "desk-workflow-finish" | "hand-over-workflow-finish"; tenant: DeskTenantContext; execution: DeskExecutionContext };
       "edge-once-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto; readonly finishes: "purchase-workflow-finish" };
@@ -1774,6 +1778,12 @@ declare module "../tests/flow/fixtures/child-undo.fixture.js" {
   }
   interface ConfirmTripAction {
     readonly [agbossComponent]?: { readonly name: "confirm-trip-action"; readonly kind: NodeKind.Action };
+  }
+  interface DeclinedTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "declined-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface DeclinedTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "declined-trip-workflow-start"; readonly kind: NodeKind.Start };
   }
   interface MiddleTripWorkflow {
     readonly [agbossComponent]?: { readonly name: "middle-trip-workflow"; readonly kind: NodeKind.Workflow };

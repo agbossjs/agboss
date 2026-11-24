@@ -132,7 +132,7 @@ async function settled(
     recordRemote: (remote: ToolCallRemote) => remotes.push(remote),
   };
   const spec = {
-    execution: { tenant: { application } },
+    execution: { tenant: { application }, signal: new AbortController().signal },
     step: {},
     services: withoutServices
       ? {}

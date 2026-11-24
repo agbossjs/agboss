@@ -124,7 +124,10 @@ const resultMetaOf = (result: unknown): unknown =>
 
 const callerFor =
   (client: Client, audience: string | undefined): McpCaller =>
-  async (tool, args, signal) => {
+  async (tool, input, signal) => {
+    // the wire takes plain JSON: a validated input is a DTO class instance, which the SDK's record
+    // check refuses (what is sent is what the bodyHash binds)
+    const args = JSON.parse(JSON.stringify(input)) as Record<string, unknown>;
     // the arguments as sent are what the envelope's bodyHash binds (#398 PR 2), addressed to the
     // server's application when it declares one (PR 3)
     const mesh = outboundMeshOf(JSON.stringify(args), audience);

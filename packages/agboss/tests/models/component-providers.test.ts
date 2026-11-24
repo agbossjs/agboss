@@ -134,12 +134,23 @@ describe("#1313b: components take their provider's models through the cascade", 
   it("an arbiter that names no model takes the default of its cascade, or of its own provider", async () => {
     const inherited = await workflowOf(arbiterApplication());
     expect(inherited.arbiters).toEqual([
-      { name: "arb-arbiter", model: "alpha/mid", modelProvider: "alpha-models" },
+      {
+        name: "arb-arbiter",
+        model: "alpha/mid",
+        modelProvider: "alpha-models",
+        prompt: "Count it.",
+      },
     ]);
 
     const own = await workflowOf(arbiterApplication(BetaModels));
     expect(own.arbiters).toEqual([
-      { name: "arb-arbiter", model: "beta/only", modelProvider: "beta-models", unpriced: true },
+      {
+        name: "arb-arbiter",
+        model: "beta/only",
+        modelProvider: "beta-models",
+        prompt: "Count it.",
+        unpriced: true,
+      },
     ]);
   });
 

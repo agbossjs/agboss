@@ -29,8 +29,9 @@ describe("#1313h: tenantWeight on RateLimitPolicy", () => {
       tenantWeight: (tenant) => (tenant.tenantId === "big" ? 3 : 1),
     });
     const inTenant = (tenantId: string) =>
-      runInFrame({ execution: { tenant: { tenantId } } } as never, async () =>
-        ticketOf(undefined, policy.tenantWeight),
+      runInFrame(
+        { execution: { tenant: { tenantId }, signal: new AbortController().signal } } as never,
+        async () => ticketOf(undefined, policy.tenantWeight),
       );
 
     expect((await inTenant("big")).weight).toBe(3);
@@ -46,8 +47,11 @@ describe("#1313h: tenantWeight on RateLimitPolicy", () => {
         tenantWeight: () => weight,
       });
       await expect(
-        runInFrame({ execution: { tenant: { tenantId: "t" } } } as never, async () =>
-          ticketOf(undefined, policy.tenantWeight),
+        runInFrame(
+          {
+            execution: { tenant: { tenantId: "t" }, signal: new AbortController().signal },
+          } as never,
+          async () => ticketOf(undefined, policy.tenantWeight),
         ),
       ).rejects.toThrow(RateLimitPolicyError);
     }

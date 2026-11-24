@@ -344,7 +344,11 @@ describe("#810: the charges' identity and the record of an unmeshed call", () =>
       deadlineAt: NOW,
       recordRemote: (remote: ToolCallRemote) => remotes.push(remote),
     };
-    const spec = { execution: {}, step: {}, services: withMeshCall ? { meshCall } : {} } as never;
+    const spec = {
+      execution: { signal: new AbortController().signal },
+      step: {},
+      services: withMeshCall ? { meshCall } : {},
+    } as never;
     await runInFrame(spec, () => Promise.resolve(run()));
     return remotes;
   }

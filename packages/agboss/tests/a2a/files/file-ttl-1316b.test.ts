@@ -167,7 +167,11 @@ describe("#1316b: the tree's end marks its owner completed", () => {
     const stores = lifecycle();
     await stores.save("run-1");
     const parts = {
-      deps: { container: { get: () => stores.files }, config: { name: "file-review-workflow" } },
+      deps: {
+        container: { get: () => stores.files },
+        config: { name: "file-review-workflow" },
+        turns: { forgetStatusHistory: () => Promise.resolve() },
+      },
       trees: { deleteAllInTree: () => Promise.resolve() },
       clock: stores.clock,
     } as never;
