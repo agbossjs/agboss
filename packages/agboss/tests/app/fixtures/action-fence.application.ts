@@ -72,10 +72,10 @@ export class ActionStartGate {
 export class ChargeItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly result: { readonly value: ItemResultDto } }): Promise<ItemResultDto> {
+  execute(input: { readonly result: ItemResultDto }): Promise<ItemResultDto> {
     const { instanceId } = this.executionContext.tenant.application;
-    actionGate.charged.push(`${input.result.value.name} on ${instanceId}`);
-    return Promise.resolve(input.result.value);
+    actionGate.charged.push(`${input.result.name} on ${instanceId}`);
+    return Promise.resolve(input.result);
   }
 }
 

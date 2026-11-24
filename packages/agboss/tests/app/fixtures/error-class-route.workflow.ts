@@ -10,7 +10,7 @@ import {
   WorkflowStart,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -62,8 +62,8 @@ export function resetRoutes(): void {
 export class DeclinableChargeAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, outcome } = input.item;
     routeSeen.runs.push(`${name} on ${this.executionContext.tenant.application.instanceId}`);
     await routeSeen.gate.opened;
     const isFirst = routeSeen.runs.filter((run) => run.startsWith(`${name} on`)).length === 1;

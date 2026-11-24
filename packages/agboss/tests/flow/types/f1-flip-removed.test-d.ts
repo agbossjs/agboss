@@ -3,10 +3,24 @@ import * as builder from "../../../src/flow/builder.js";
 import { onAction, onAgent, onRouter, onWorkflow } from "../../../src/flow/builder.js";
 import { ChildPlacement } from "../../../src/flow/child-placement.js";
 import { StepKind } from "../../../src/flow/ast.js";
+import * as root from "../../../src/index.js";
+import * as wrappers from "../../../src/flow/dto-wrappers.js";
+import { listOf, oneOf, type InputOf } from "../../../src/index.js";
+import { ChangesRequestedDto, DraftApprovedDto } from "../fixtures/dtos.js";
 import { MainRouter } from "../fixtures/chat.fixture.js";
 import { ReviewerAgent } from "../fixtures/offer.fixture.js";
 import { ChargePaymentAction, PlannerAgent } from "../fixtures/launch.fixture.js";
 import { CompanyReviewWorkflow } from "../fixtures/children.fixture.js";
+// @ts-expect-error — Produced is gone: an input field is the DTO itself, Tracked<T, P>
+import type { Produced } from "../../../src/flow/dto-wrappers.js";
+// @ts-expect-error — ProducedValue is gone: there is no { producer, value } record
+import type { ProducedValue } from "../../../src/flow/dto-wrappers.js";
+// @ts-expect-error — Variant is gone: an action returns a plain object, told apart by its strict schema
+import type { Variant } from "../../../src/flow/dto-wrappers.js";
+// @ts-expect-error — PartialVariant is gone: match a class with expect.any(XDto)
+import type { PartialVariant } from "../../../src/flow/dto-wrappers.js";
+// @ts-expect-error — VariantOf is gone: a listOf(A, B) judge reads items that are instances of their classes
+import type { VariantOf } from "../../../src/flow/dto-wrappers.js";
 // @ts-expect-error — SpawnPolicy is gone: a router's route is { target, prompt } (model) or a class (code)
 import type { SpawnPolicy } from "../../../src/flow/decorators/router.js";
 // @ts-expect-error — FailurePolicy is gone: `.onError(E, skip())` on a branch
@@ -78,5 +92,39 @@ describe("F1: the old flow forms are gone", () => {
     expectTypeOf<SwitchStep>().toBeAny();
     expectTypeOf<RouterLaunches>().toBeAny();
     expectTypeOf<IsPerItem>().toBeAny();
+  });
+
+  it("Produced, ProducedValue, variant, isVariant, Variant, VariantOf are gone", () => {
+    expectTypeOf<Produced<unknown, unknown>>().toBeAny();
+    expectTypeOf<ProducedValue<unknown, unknown>>().toBeAny();
+    expectTypeOf<Variant<never>>().toBeAny();
+    expectTypeOf<PartialVariant<never>>().toBeAny();
+    expectTypeOf<VariantOf<unknown>>().toBeAny();
+    // @ts-expect-error — variant(XDto, value) is gone: return the plain object
+    expectTypeOf(root.variant).toBeAny();
+    // @ts-expect-error — isVariant(item, XDto) is gone: item instanceof XDto
+    expectTypeOf(root.isVariant).toBeAny();
+    // @ts-expect-error — variant is gone from the wrappers too
+    expectTypeOf(wrappers.variant).toBeAny();
+    // @ts-expect-error — isVariant is gone from the wrappers too
+    expectTypeOf(wrappers.isVariant).toBeAny();
+    // @ts-expect-error — withVariant is gone with the Produced record
+    expectTypeOf(wrappers.withVariant).toBeAny();
+  });
+
+  it("the list of a oneOf is gone: listOf(A, B)", () => {
+    const either = oneOf(ChangesRequestedDto, DraftApprovedDto);
+    // @ts-expect-error — listOf takes DTO classes, not a oneOf(…)
+    listOf(either);
+    expectTypeOf(listOf(ChangesRequestedDto, DraftApprovedDto).variants).not.toBeAny();
+  });
+
+  it("an input field is the DTO itself: no .value, no .producer", () => {
+    const draft = {} as InputOf<ReviewerAgent>["draft"];
+    // @ts-expect-error — .value is gone: the field is the DTO
+    expectTypeOf(draft.value).toBeAny();
+    // @ts-expect-error — .producer is gone: Metadata.createdBy(field)
+    expectTypeOf(draft.producer).toBeAny();
+    expectTypeOf(draft.text).toBeString();
   });
 });

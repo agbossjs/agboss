@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -95,8 +95,8 @@ export class WorkAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async execute(input: { readonly task: Produced<TaskDto, unknown> }): Promise<TaskDoneDto> {
-    const { name, outcome } = input.task.value;
+  async execute(input: { readonly task: Tracked<TaskDto> }): Promise<TaskDoneDto> {
+    const { name, outcome } = input.task;
     const isFirstHold = outcome === "hold" && !treeLog.events.includes(`start ${name}`);
     treeLog.events.push(`start ${name}`);
     treeLog.working += 1;
@@ -104,7 +104,7 @@ export class WorkAction {
     try {
       const { signal } = this.executionContext;
       if (isFirstHold) await untilStopped(signal);
-      const wait = input.task.value.seconds;
+      const wait = input.task.seconds;
       if (wait > 0) await this.clock.sleep(seconds(wait), signal);
       if (signal.aborted) {
         treeLog.events.push(`cancelled ${name}`);

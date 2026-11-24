@@ -6,7 +6,8 @@ import type {
   ToolCallApprovalDecisionDto,
 } from "../dto/standard/framework.js";
 
-export type { HistoryOf, Produced, VariantOf } from "./dto-wrappers.js";
+export type { HistoryOf } from "./dto-wrappers.js";
+export type { Tracked } from "./metadata.js";
 // the brand `.agboss/types.d.ts` puts on an `@Application` class (#1324e)
 export { agbossTenantContext } from "../app/tenant-args.js";
 /** The kinds a brand carries (`NodeKind.Agent`): the generated file imports it from here. */
@@ -19,7 +20,7 @@ export type { NodeKind };
  * merged into the class's instance type), so empty
  * classes become distinct types. Before generation a lookup gives `MissingGeneratedTypes`, which
  * names the fix. Until PR 4 exports this module from `@agboss/core`, the generator (`flow/types/`) augments
- * it here; it imports `Produced` and `HistoryOf` from here too, so the generated file names one module.
+ * it here; it imports `Tracked` and `HistoryOf` from here too, so the generated file names one module.
  */
 
 /**
@@ -68,7 +69,7 @@ export declare namespace AGBossTypes {
     readonly [notGenerated]?: never;
   }
 
-  /** Each node's input, path-sensitive (`Produced` fields; a plain DTO for tools). */
+  /** Each node's input, path-sensitive (`Tracked` DTOs; a plain DTO for tools). */
   export interface Inputs {
     readonly [notGenerated]?: never;
   }
@@ -159,7 +160,7 @@ export declare namespace AGBossTypes {
 
   /**
    * The output each `@Judge` judges, by the judge's `name` (#1290): `JudgeInput<Self>` reads it —
-   * the output's value as the judge gets it (`readonly VariantOf<A | B>[]` for a `listOf(oneOf(A, B))`).
+   * the output's value as the judge gets it (`readonly (A | B)[]` for a `listOf(A, B)`).
    */
   export interface JudgeOutputs {
     readonly [notGenerated]?: never;

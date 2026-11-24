@@ -12,12 +12,12 @@ import { Injectable } from "../../../../src/components/decorators.js";
 import type { Class } from "../../../../src/components/injection.js";
 import { List, Nested, Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Action } from "../../../../src/flow/decorators/action.js";
-import type { Produced } from "../../../../src/index.js";
+import type { Tracked } from "../../../../src/index.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import type { Bytes } from "../../../../src/units/index.js";
-import { oneOf, variant, type Variant } from "../../../../src/flow/dto-wrappers.js";
+import { oneOf } from "../../../../src/flow/dto-wrappers.js";
 import { onStart, toFinish } from "../../../helpers/flow.js";
 import {
   FileReviewFinish,
@@ -228,9 +228,9 @@ describe("fileTierSizeOf", () => {
 })
 class MixedAction {
   execute(_input: {
-    readonly request: Produced<ReviewRequestDto, unknown>;
-  }): Promise<Variant<typeof ReviewResultDto | typeof TextDto>> {
-    return Promise.resolve(variant(TextDto, { text: "no report" }));
+    readonly request: Tracked<ReviewRequestDto>;
+  }): Promise<ReviewResultDto | TextDto> {
+    return Promise.resolve({ text: "no report" });
   }
 }
 

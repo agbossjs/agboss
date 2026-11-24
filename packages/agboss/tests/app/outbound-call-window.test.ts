@@ -108,7 +108,7 @@ class ChargeOnceAction {
   }
 }
 
-const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
+const order = { message: { text: "order-1" } } as never;
 const gated = { services: [GatedOutboundCallRepository] };
 
 beforeEach(() => {

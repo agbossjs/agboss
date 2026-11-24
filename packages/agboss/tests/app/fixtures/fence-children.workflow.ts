@@ -11,7 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
@@ -77,10 +77,10 @@ export class ScopeRootAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowStartTextDto> {
-    recordScope(this.executionContext, `root ${input.message.value.text}`);
-    return Promise.resolve({ text: input.message.value.text });
+    recordScope(this.executionContext, `root ${input.message.text}`);
+    return Promise.resolve({ text: input.message.text });
   }
 }
 

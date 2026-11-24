@@ -18,8 +18,8 @@ export class EditorialPlanAction implements ActionHandler<EditorialPlanAction> {
   execute(input: InputOf<EditorialPlanAction>): Promise<OutputOf<EditorialPlanAction>> {
     const titles = (ready: boolean): string =>
       input.reviews
-        .filter((review) => review.value.ready === ready)
-        .map((review) => review.value.title)
+        .filter((review) => review.ready === ready)
+        .map((review) => review.title)
         .join(", ");
     return Promise.resolve({ rework: titles(false), ready: titles(true) });
   }

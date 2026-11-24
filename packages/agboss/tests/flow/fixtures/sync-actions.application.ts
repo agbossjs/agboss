@@ -4,7 +4,7 @@ import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { EmptyEnvironment, type Produced } from "../../../src/index.js";
+import { EmptyEnvironment, type Tracked } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "./budgets.js";
@@ -17,10 +17,8 @@ import { TEST_BUDGETS } from "./budgets.js";
   output: WorkflowFinishTextDto,
 })
 export class ShoutAction {
-  execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): WorkflowFinishTextDto {
-    return { text: input.message.value.text.toUpperCase() };
+  execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): WorkflowFinishTextDto {
+    return { text: input.message.text.toUpperCase() };
   }
 }
 

@@ -802,7 +802,7 @@ export class ChargeOrderAction {
   constructor(private readonly idempotency: Idempotency) {}
 
   async execute(input: { readonly order: { readonly value: ChargeDto } }): Promise<ChargeDto> {
-    const { orderId, amountUsd } = input.order.value;
+    const { orderId, amountUsd } = input.order;
     await this.idempotency.sendOnce({
       name: "charge",
       key: `order:${orderId}`,

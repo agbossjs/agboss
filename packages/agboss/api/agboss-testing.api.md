@@ -1398,9 +1398,9 @@ export interface UnitRun<TOutput> {
 }
 
 // @public
-export type UnitRunnerOf<TClass extends Class> = IsFlowNode<InstanceType<TClass>, NodeKind.Router> extends true ? FailClosed<RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>> : IsFlowNode<InstanceType<TClass>, NodeKind.Action> extends true ? ActionRunner<ActionInputOf<InstanceType<TClass>>, ActionOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
+export type UnitRunnerOf<TClass extends Class> = IsFlowNode<InstanceType<TClass>, NodeKind.Router> extends true ? FailClosed<RouterRunner<Untracked<RecordedInputOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>> : IsFlowNode<InstanceType<TClass>, NodeKind.Action> extends true ? ActionRunner<Untracked<ActionInputOf<InstanceType<TClass>>>, ActionOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     execute(input: never): unknown;
-} ? ToolRunner<ToolInputOf<InstanceType<TClass>>, ToolOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
+} ? ToolRunner<Untracked<ToolInputOf<InstanceType<TClass>>>, ToolOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     route(input: never): unknown;
 } ? FailClosed<RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     judge(input: never): unknown;
@@ -1436,7 +1436,7 @@ export interface UnsettledWorkErrorOptions {
 }
 
 // @public
-type ValuePartial<TField> = TField extends ProducedValue<infer TValue, unknown> ? DeepPartial<TValue> : DeepPartial<TField>;
+type ValuePartial<TField> = DeepPartial<WithoutTrack<TField>>;
 
 // @public
 export interface VcrConfig {

@@ -12,7 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../src/index.js";
@@ -104,10 +104,8 @@ export class OwnersStart {}
   output: OwnersDto,
 })
 class OwnersAction {
-  async execute(input: {
-    readonly answers: readonly Produced<OwnerDto, unknown>[];
-  }): Promise<OwnersDto> {
-    return { owners: input.answers.map((answer) => answer.value.owner).join("; ") };
+  async execute(input: { readonly answers: readonly Tracked<OwnerDto>[] }): Promise<OwnersDto> {
+    return { owners: input.answers.map((answer) => answer.owner).join("; ") };
   }
 }
 

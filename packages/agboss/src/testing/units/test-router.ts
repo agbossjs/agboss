@@ -11,6 +11,7 @@ import {
 import type { RouterAnswerOf } from "../../flow/generated-types.js";
 import type { ModelRouterDeclaration } from "../../flow/runtime/routers.js";
 import { TestSetupError } from "../errors.js";
+import type { Untracked } from "../../flow/metadata.js";
 import type { RecordedInputOf } from "../script-types.js";
 import { routerKeyOf } from "../scripted-gateway.js";
 import { checkedCodeAnswer, isLaunchScript, modelDecision } from "./router-unit.js";
@@ -56,14 +57,17 @@ export function routerUnit<
 >(
   router: TRouter,
   options: UnitModelOptions<InstanceType<TRouter>, TExecution, TTenant> = {},
-): RouterRunner<RecordedInputOf<InstanceType<TRouter>>, RouterAnswerOf<InstanceType<TRouter>>> {
+): RouterRunner<
+  Untracked<RecordedInputOf<InstanceType<TRouter>>>,
+  RouterAnswerOf<InstanceType<TRouter>>
+> {
   const unit = routerOf(router);
   const declared = unit.options;
   const site = new UnitSite(options);
   if (unit.model !== undefined)
     site.scriptModel(routerKeyOf(declared.name), router.name, options.model);
   const run = (
-    input: RecordedInputOf<InstanceType<TRouter>>,
+    input: Untracked<RecordedInputOf<InstanceType<TRouter>>>,
     call: UnitCallOptions = {},
   ): Promise<UnitRun<RouterAnswerOf<InstanceType<TRouter>>>> => {
     const caller = routerKeyOf(declared.name);

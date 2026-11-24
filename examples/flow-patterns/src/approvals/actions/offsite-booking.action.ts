@@ -15,8 +15,8 @@ import { VenueBookingDto } from "../dto/venue-booking.dto.js";
 })
 export class OffsiteBookingAction implements ActionHandler<OffsiteBookingAction> {
   execute(input: InputOf<OffsiteBookingAction>): Promise<OutputOf<OffsiteBookingAction>> {
-    const venue = input.venue.value;
-    const flights = input.flights.value;
+    const venue = input.venue;
+    const flights = input.flights;
     const venueLine = `venue ${venue.venue}: ${venue.isBooked ? "booked" : "declined"}`;
     const flightsLine = `flights ${flights.route}: ${flights.isBooked ? "booked" : "declined"}`;
     return Promise.resolve({ summary: `${venueLine}; ${flightsLine}` });

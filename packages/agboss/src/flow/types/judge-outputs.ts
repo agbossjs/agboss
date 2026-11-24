@@ -1,9 +1,7 @@
 import type { Class } from "../../components/injection.js";
 import type { JudgeOutputShape } from "../../components/judge-decorators.js";
 import { componentOf } from "../../components/metadata.js";
-import { sortedVariants } from "../analyse/labels.js";
-import { isWrapper, Wrapper } from "../dto-wrappers.js";
-import { TablesImport, type ImportTable } from "./imports.js";
+import type { ImportTable } from "./imports.js";
 import { valueText } from "./shapes.js";
 import type { TypeTable } from "./tables.js";
 
@@ -20,16 +18,9 @@ export function judgeComponentNameOf(cls: Class): string | undefined {
   return component?.kind === "judge" ? component.meta.name : undefined;
 }
 
-/**
- * The value a judge reads of an output shape: the shape's value, except a `listOf(oneOf(A, B))`, whose
- * items are `VariantOf<A | B>` — each with the class it validated as.
- */
-function judgedValueText(output: JudgeOutputShape, names: ImportTable): string {
-  if (typeof output === "function" || output.kind !== Wrapper.List || !isWrapper(output.element))
-    return valueText(output, names);
-  const variants = sortedVariants(output.element).map((dto) => names.dto(dto));
-  return `readonly ${names.use(TablesImport.VariantOf)}<${variants.join(" | ")}>[]`;
-}
+/** The value a judge reads of an output shape: the shape's value (a polymorphic list's items are the instances). */
+const judgedValueText = (output: JudgeOutputShape, names: ImportTable): string =>
+  valueText(output, names);
 
 /** Whether every class the judge's entry names is exported (tried on a table of its own). */
 function isTypable(judge: Class, output: JudgeOutputShape, names: ImportTable): boolean {

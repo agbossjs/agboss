@@ -56,8 +56,8 @@ export class DoneFinish {}
   output: DraftDto,
 })
 export class GaveUpAction {
-  async execute(input: { readonly draft?: { readonly value: DraftDto } }): Promise<DraftDto> {
-    return input.draft?.value ?? { text: "" };
+  async execute(input: { readonly draft?: DraftDto }): Promise<DraftDto> {
+    return input.draft ?? { text: "" };
   }
 }
 

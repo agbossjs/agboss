@@ -77,7 +77,7 @@ export interface ModelScript<TSelf = unknown> {
    * routers only; a call no script matches fails the test, naming its input.
    */
   when(partial: InputMatcherOf<TSelf>): WhenScript<TSelf>;
-  /** The node's input of every model call, in order (`Produced` records, as the node read it). */
+  /** The node's input of every model call, in order (tracked DTOs, as the node read it). */
   readonly inputs: readonly RecordedInputOf<TSelf>[];
   /** Every request, in order. */
   readonly requests: readonly ModelRequest[];

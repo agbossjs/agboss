@@ -32,7 +32,7 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
   ) {}
 
   async route(input: InputOf<CreditLimitRouter>): Promise<Route<CreditLimitRouter>> {
-    const { customerId, total } = input.order.value;
+    const { customerId, total } = input.order;
     const limit = await this.creditService.limitOf({
       customerId,
       requestKey: this.executionContext.step.idempotencyKey,

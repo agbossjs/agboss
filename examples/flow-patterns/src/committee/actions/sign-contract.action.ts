@@ -13,7 +13,7 @@ import { SignedContractDto } from "../dto/signed-contract.dto.js";
 export class SignContractAction implements ActionHandler<SignContractAction> {
   execute(input: InputOf<SignContractAction>): Promise<OutputOf<SignContractAction>> {
     return Promise.resolve({
-      title: input.contract.value.title,
+      title: input.contract.title,
       signedBy: String(input.signOffs.length),
     });
   }

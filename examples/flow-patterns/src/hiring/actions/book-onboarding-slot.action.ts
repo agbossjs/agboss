@@ -30,6 +30,6 @@ export class BookOnboardingSlotAction implements ActionHandler<BookOnboardingSlo
     input: InputOf<BookOnboardingSlotAction>,
   ): Promise<OutputOf<BookOnboardingSlotAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { slotId: await this.hrCalendarService.bookSlot(input.offer.value.offerId, key) };
+    return { slotId: await this.hrCalendarService.bookSlot(input.offer.offerId, key) };
   }
 }

@@ -4,7 +4,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
   Action,
 } from "../../../index.js";
 import type { Class } from "../../../components/injection.js";
@@ -74,9 +74,9 @@ export class FaultBatchWorkflowStart {}
 })
 export class FaultBatchAction {
   async execute(input: {
-    readonly payments: readonly Produced<FaultPaymentDto, unknown>[];
+    readonly payments: readonly Tracked<FaultPaymentDto>[];
   }): Promise<FaultBatchDto> {
-    return { orderIds: input.payments.map((payment) => payment.value.orderId) };
+    return { orderIds: input.payments.map((payment) => payment.orderId) };
   }
 }
 

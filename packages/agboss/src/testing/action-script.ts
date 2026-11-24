@@ -1,7 +1,7 @@
 import type { ExecutionObserver } from "../core/observer-hooks.js";
 import type { ActionEndEvent, ActionStartEvent } from "../core/observability.js";
 import type { DtoClass } from "../dto/types.js";
-import { variantClassOf } from "../flow/dto-wrappers.js";
+import { isDtoClass } from "../dto/metadata.js";
 import type { RecordedInput } from "./input-match.js";
 import type { ReturnedValue } from "./script-book.js";
 import type { RecordedInputOf } from "./script-types.js";
@@ -11,7 +11,7 @@ import type { RecordedInputOf } from "./script-types.js";
  * (an error handler's input too) and what it returned — for `inputs` and the call matchers.
  */
 export interface ActionScript<TSelf = unknown> {
-  /** The action's input of every call, in order (`Produced` records, as it read them). */
+  /** The action's input of every call, in order (tracked DTOs, as it read them). */
   readonly inputs: readonly RecordedInputOf<TSelf>[];
   /** How the test names the action (its class). */
   readonly label: string;
@@ -25,8 +25,16 @@ export class ActionCalls implements ActionScript {
   constructor(readonly label: string) {}
 }
 
-/** The class an action's result is: its `variant(…)`, else its declared output's (a list's element). */
-export type OutputClassOf = (action: string) => DtoClass | undefined;
+/** The class an action's result is: its declared output's (a list's element). */
+export type OutputClassOf = (action: string, value: unknown) => DtoClass | undefined;
+
+/** The DTO class a validated value is an instance of. */
+function classOfInstance(value: unknown): DtoClass | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const constructor = (Object.getPrototypeOf(value) as { constructor?: unknown } | null)
+    ?.constructor;
+  return isDtoClass(constructor) ? constructor : undefined;
+}
 
 /**
  * Records every action call of a test's applications by its `name` — registered as one more
@@ -55,9 +63,9 @@ export class ActionCallRecorder implements ExecutionObserver {
   onActionEnd(event: ActionEndEvent): void {
     const name = event.step.component.name;
     const update: unknown = event.output;
-    // a list result names its class on its elements (`variant(…)`), a single one on itself
+    // a validated result is an instance of its class (a list's first element for a list result)
     const first: unknown = Array.isArray(update) ? (update as readonly unknown[])[0] : update;
-    const dto = variantClassOf(first) ?? this.outputClassOf(name);
+    const dto = classOfInstance(first) ?? this.outputClassOf(name, first);
     if (dto !== undefined) this.callsOf(name).returned.push({ dto, value: event.output });
   }
 }

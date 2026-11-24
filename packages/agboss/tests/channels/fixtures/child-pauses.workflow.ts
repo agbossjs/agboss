@@ -5,7 +5,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../../src/index.js";
@@ -110,11 +110,11 @@ export class ChildBatchWorkflowStart {}
 })
 export class ChildBatchAction {
   async execute(input: {
-    readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
+    readonly refunds: readonly Tracked<RefundDoneDto>[];
   }): Promise<BatchSummaryDto> {
     return {
       text: input.refunds
-        .map((refund) => refund.value.orderId)
+        .map((refund) => refund.orderId)
         .join(", "),
     };
   }

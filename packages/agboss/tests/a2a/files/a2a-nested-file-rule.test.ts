@@ -149,7 +149,7 @@ describe("#1271: a list output of an exported finish never skips the file checks
 
   it("a oneOf variant of the items that holds a file: [a2a.nested-file-field], naming it", async () => {
     expect(
-      await codesOf(servedWithListOutput(listOf(oneOf(WorkflowStartTextDto, ReviewRequestDto)))),
+      await codesOf(servedWithListOutput(listOf(WorkflowStartTextDto, ReviewRequestDto))),
     ).toEqual(["a2a.nested-file-field"]);
   });
 

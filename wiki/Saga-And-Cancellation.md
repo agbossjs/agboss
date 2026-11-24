@@ -107,7 +107,7 @@ export class RefundPaymentAction implements ActionHandler<RefundPaymentAction> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   async execute(input: InputOf<RefundPaymentAction>): Promise<void> {
-    await fetch(`https://payments.example.com/refunds/${input.payment.value.paymentId}`, {
+    await fetch(`https://payments.example.com/refunds/${input.payment.paymentId}`, {
       method: "POST",
       headers: { "Idempotency-Key": this.executionContext.step.idempotencyKey },
     });

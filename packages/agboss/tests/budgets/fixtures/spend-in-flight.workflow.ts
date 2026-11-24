@@ -9,7 +9,7 @@ import {
   WorkflowStart,
   listOf,
   type Class,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { MemorySaver } from "@langchain/langgraph";
 import { Application } from "../../../src/application/application.js";
@@ -148,8 +148,8 @@ function paidStep(name: string, step: string, costOf: (item: string) => number, 
       private readonly executionContext: ExecutionContext,
     ) {}
 
-    async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemDto> {
-      const item = input.item.value;
+    async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemDto> {
+      const item = input.item;
       inFlight.ran.push(`${item.name}:${step}`);
       inFlight.where.set(
         `${item.name}:${step}`,
@@ -171,8 +171,8 @@ function doneOf(name: string) {
     output: ItemResultDto,
   })
   class Done {
-    execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-      return Promise.resolve({ name: input.item.value.name });
+    execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+      return Promise.resolve({ name: input.item.name });
     }
   }
   return Done;

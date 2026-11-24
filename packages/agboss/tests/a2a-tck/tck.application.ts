@@ -31,8 +31,8 @@ import { DecidedBy } from "../../src/flow/decorators/router.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
-import { oneOf, variant, type Variant } from "../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, type Produced } from "../../src/index.js";
+import { oneOf } from "../../src/flow/dto-wrappers.js";
+import { EmptyEnvironment, type Tracked } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toFinish, toExternalTask } from "../helpers/flow.js";
 import { HttpAuthResult, type HttpAuthRequest, HttpAuthenticator } from "../../src/index.js";
@@ -91,9 +91,7 @@ const TEXTS: Readonly<Record<string, string>> = {
 const TCK_FILE = { filename: "output.txt", mediaType: "text/plain" } as const;
 
 /** What a scenario answers with. */
-type TckAnswer = Variant<
-  typeof WorkflowFinishTextDto | typeof TckDataDto | typeof TckAskDto | typeof WorkflowFinishFileDto
->;
+type TckAnswer = WorkflowFinishTextDto | TckDataDto | TckAskDto | WorkflowFinishFileDto;
 
 /** A scenario's answer: a text, a data value, a file, or a question for its caller. */
 @Action({
@@ -109,30 +107,26 @@ export class TckScenarioAction {
     private readonly a2aFiles: Files,
   ) {}
 
-  async execute(_input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<TckAnswer> {
+  async execute(_input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<TckAnswer> {
     const scenario = this.tckExecutionContext.scenario ?? "complete-task";
     if (scenario === "artifact-file") {
       const bytes = new TextEncoder().encode("Generated file content");
       const file = await this.a2aFiles.save({ ...TCK_FILE, bytes });
-      return variant(WorkflowFinishFileDto, { file });
+      return { file };
     }
     if (scenario === "artifact-file-url") {
       const file = this.a2aFiles.fromUrl("https://example.com/output.txt", TCK_FILE);
-      return variant(WorkflowFinishFileDto, { file });
+      return { file };
     }
     return this.#answerOf(scenario);
   }
 
   #answerOf(scenario: string): Promise<TckAnswer> {
     if (scenario === "reject-task") return Promise.reject(new TckRejectedError("rejected"));
-    if (scenario === "artifact-data")
-      return Promise.resolve(variant(TckDataDto, { key: "value", count: 42 }));
-    if (scenario === "input-required")
-      return Promise.resolve(variant(TckAskDto, { ask: "the TCK's next message" }));
+    if (scenario === "artifact-data") return Promise.resolve({ key: "value", count: 42 });
+    if (scenario === "input-required") return Promise.resolve({ ask: "the TCK's next message" });
     const text = TEXTS[scenario] ?? "Hello from TCK";
-    return Promise.resolve(variant(WorkflowFinishTextDto, { text }));
+    return Promise.resolve({ text });
   }
 }
 
@@ -174,9 +168,7 @@ export class TckCallerChannel extends TckInputQuestion {
   output: WorkflowFinishTextDto,
 })
 export class TckAnsweredAction {
-  execute(_input: {
-    readonly reply: Produced<TckReplyDto, unknown>;
-  }): Promise<WorkflowFinishTextDto> {
+  execute(_input: { readonly reply: Tracked<TckReplyDto> }): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "Hello from TCK" });
   }
 }
@@ -253,7 +245,7 @@ export class TckAuthenticator {
 })
 export class TckMessageAction {
   execute(_input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "Direct message response" });
   }

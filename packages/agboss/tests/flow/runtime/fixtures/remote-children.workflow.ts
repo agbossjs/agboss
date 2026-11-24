@@ -9,7 +9,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -91,8 +91,8 @@ export class RemoteCheckAction {
     private readonly applicationContext: ApplicationContext,
   ) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, outcome } = input.item;
     const context = this.executionContext;
     remoteLog.readings.push({
       item: name,
@@ -164,11 +164,11 @@ export class RemoteItemsWorkflowStart {}
 })
 export class RemoteChecksAction {
   async execute(input: {
-    readonly results: readonly Produced<ItemResultDto, unknown>[];
+    readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
     return {
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     };
   }
@@ -188,9 +188,7 @@ export class RemoteChecksWorkflowFinish {}
   output: SummaryDto,
 })
 export class RemoteChecksFailedAction {
-  async execute(input: {
-    readonly items: readonly Produced<ItemDto, unknown>[];
-  }): Promise<SummaryDto> {
+  async execute(input: { readonly items: readonly Tracked<ItemDto>[] }): Promise<SummaryDto> {
     return { text: `failed on one of ${String(input.items.length)}` };
   }
 }

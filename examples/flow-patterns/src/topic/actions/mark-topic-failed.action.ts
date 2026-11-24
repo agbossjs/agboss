@@ -13,6 +13,6 @@ import { TopicDto } from "../dto/topic.dto.js";
 })
 export class MarkTopicFailedAction implements ActionHandler<MarkTopicFailedAction> {
   execute(input: InputOf<MarkTopicFailedAction>): Promise<OutputOf<MarkTopicFailedAction>> {
-    return Promise.resolve({ title: input.topic.value.title });
+    return Promise.resolve({ title: input.topic.title });
   }
 }

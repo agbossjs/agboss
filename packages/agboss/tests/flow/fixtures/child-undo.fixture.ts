@@ -10,7 +10,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -77,10 +77,10 @@ export class ReserveCarAction {
 })
 export class ConfirmTripAction {
   execute(input: {
-    readonly seat: Produced<TripSeatDto, unknown>;
-    readonly room: Produced<TripRoomDto, unknown>;
+    readonly seat: Tracked<TripSeatDto>;
+    readonly room: Tracked<TripRoomDto>;
   }): Promise<TripDto> {
-    return Promise.resolve({ tripId: `${input.seat.value.seatId}+${input.room.value.roomId}` });
+    return Promise.resolve({ tripId: `${input.seat.seatId}+${input.room.roomId}` });
   }
 }
 

@@ -73,10 +73,8 @@ export class TopicResearcherAgent {}
 })
 export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
   execute(input: InputOf<SplitTopicAction>): Promise<OutputOf<SplitTopicAction>> {
-    const { level } = input.topic.value;
-    return Promise.resolve(
-      input.tooBroad.value.subtopics.map((title) => ({ title, level: level + 1 })),
-    );
+    const { level } = input.topic;
+    return Promise.resolve(input.tooBroad.subtopics.map((title) => ({ title, level: level + 1 })));
   }
 }
 
@@ -85,7 +83,7 @@ export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
   description: "Merges the subtopics' results",
   prompt: inline("Merge the results."),
   model: "moonshotai/kimi-k2.6",
-  input: { topic: ResearchTopicDto, results: listOf(oneOf(ResearchReportDto, ResearchFailedDto)) },
+  input: { topic: ResearchTopicDto, results: listOf(ResearchReportDto, ResearchFailedDto) },
   output: ResearchReportDto,
 })
 export class ReportMergerAgent {}
@@ -98,7 +96,7 @@ export class ReportMergerAgent {}
 })
 export class FailTopicAction implements ActionHandler<FailTopicAction> {
   execute(input: InputOf<FailTopicAction>): Promise<OutputOf<FailTopicAction>> {
-    return Promise.resolve({ title: input.topic.value.title });
+    return Promise.resolve({ title: input.topic.title });
   }
 }
 
@@ -169,7 +167,7 @@ export class OutlineAgent {}
 })
 export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
   route(input: InputOf<OutlineDepthRouter>): Route<OutlineDepthRouter> {
-    return input.topic.value.level < 2 ? OutlineWorkflow : OutlineAgent;
+    return input.topic.level < 2 ? OutlineWorkflow : OutlineAgent;
   }
 }
 

@@ -18,7 +18,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { env } from "../../../../src/environments/index.js";
 import { hours, usd } from "../../../../src/units/index.js";
@@ -55,8 +55,8 @@ export class IsolatedProbeAction {
     private readonly spend: SpendRecorder,
   ) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name } = input.item;
     const where = {
       instanceId: this.application.instanceId,
       executionId: this.context.executionId,
@@ -112,11 +112,11 @@ export class IsolatedRecordAction {
   constructor(private readonly application: ApplicationContext) {}
 
   execute(input: {
-    readonly result: Produced<ItemResultDto, unknown>;
-    readonly decision: Produced<IsolatedDecisionDto, unknown>;
+    readonly result: Tracked<ItemResultDto>;
+    readonly decision: Tracked<IsolatedDecisionDto>;
   }): Promise<ItemResultDto> {
     log({ phase: "recorded", instanceId: this.application.instanceId });
-    return Promise.resolve({ name: input.result.value.name });
+    return Promise.resolve({ name: input.result.name });
   }
 }
 

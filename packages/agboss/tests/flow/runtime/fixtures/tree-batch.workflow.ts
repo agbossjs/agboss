@@ -3,7 +3,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
 } from "../../../../src/index.js";
 import { onStart, toWorkflow } from "../../../helpers/flow.js";
@@ -25,10 +25,8 @@ export class BatchWorkflowStart {}
   output: GroupDoneDto,
 })
 export class BatchDoneAction {
-  async execute(input: {
-    readonly done: readonly Produced<TaskDoneDto, unknown>[];
-  }): Promise<GroupDoneDto> {
-    const names = input.done.map((task) => task.value.name);
+  async execute(input: { readonly done: readonly Tracked<TaskDoneDto>[] }): Promise<GroupDoneDto> {
+    const names = input.done.map((task) => task.name);
     return { name: names.join(", ") };
   }
 }

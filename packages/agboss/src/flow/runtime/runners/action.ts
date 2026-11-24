@@ -3,12 +3,7 @@ import { strictMatchOf, validate } from "../../../dto/schema.js";
 import type { DtoClass } from "../../../dto/types.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { NodeKind } from "../../ast.js";
-import {
-  Wrapper,
-  variantClassOf,
-  type OneOfWrapper,
-  type OutputShape,
-} from "../../dto-wrappers.js";
+import { Wrapper, type OneOfWrapper, type OutputShape } from "../../dto-wrappers.js";
 import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
 import { stepNodeIdOf } from "../step-frame.js";
@@ -36,16 +31,14 @@ const isAction = (value: unknown): value is ActionInstance =>
   typeof value.execute === "function";
 
 /**
- * A `oneOf` value is of the class `variant(XDto, value)` names, else of the one class whose strict
- * schema accepts it (assembly guarantees at most one: `[dto.ambiguous-one-of]`, #1288).
+ * A `oneOf` value is of the one class whose strict schema accepts it (assembly guarantees at most one: `[dto.ambiguous-one-of]`, #1288).
  */
 function variantOf(
   node: string,
   oneOf: OneOfWrapper,
   value: unknown,
 ): { dto: DtoClass; value: unknown } {
-  const named = variantClassOf(value);
-  const dto = named ?? strictMatchOf(oneOf.variants, value);
+  const dto = strictMatchOf(oneOf.variants, value);
   if (dto === undefined || !oneOf.variants.includes(dto)) {
     const classes = oneOf.variants.map((variant) => variant.name).join(", ");
     throw new OutputInvalidError({
@@ -160,7 +153,7 @@ const failure = (node: string, error: unknown): unknown =>
 
 /**
  * An action: its instance from the container runs `execute(input)` with its fields from the scope;
- * the result is checked against its `output` (`variant(…)` for a `oneOf`); without `output` it gives
+ * the result is checked against its `output` (a `oneOf` result is told by its strict schema); without `output` it gives
  * nothing. What it throws fails the step as `ActionFailedError` (the original as the cause). It
  * runs only while its holder holds the tree (#662, as an automatic undo's action, #640): the
  * holder's own fence is checked right before `execute`, after the awaited `onActionStart`.

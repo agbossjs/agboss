@@ -11,7 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../../../src/index.js";
@@ -117,10 +117,10 @@ export class UnwindPausedWorkflowStart {}
 })
 export class SeatReservedAction {
   async execute(input: {
-    readonly seat: Produced<SeatDto, unknown>;
-    readonly reserved: Produced<ReservedDto, unknown>;
+    readonly seat: Tracked<SeatDto>;
+    readonly reserved: Tracked<ReservedDto>;
   }): Promise<ReservedDto> {
-    return { summary: `${input.seat.value.seatId} + ${input.reserved.value.summary}` };
+    return { summary: `${input.seat.seatId} + ${input.reserved.summary}` };
   }
 }
 

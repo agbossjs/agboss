@@ -17,7 +17,7 @@ import {
   WorkflowStart,
   type ArbiterEndEvent,
   type ArbiterStartEvent,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { ArbiterOutcome } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -71,9 +71,9 @@ class RotaStart {}
 })
 class RotaOwnersAction {
   async execute(input: {
-    readonly answers: readonly Produced<RotaAnswerDto, unknown>[];
+    readonly answers: readonly Tracked<RotaAnswerDto>[];
   }): Promise<RotaOwnersDto> {
-    return { owners: input.answers.map((answer) => answer.value.owner).join("; ") };
+    return { owners: input.answers.map((answer) => answer.owner).join("; ") };
   }
 }
 

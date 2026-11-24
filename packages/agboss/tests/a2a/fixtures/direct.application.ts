@@ -15,7 +15,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { EmptyEnvironment, type Produced, inline } from "../../../src/index.js";
+import { EmptyEnvironment, type Tracked, inline } from "../../../src/index.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -87,9 +87,9 @@ export class QuoteFileAction {
   constructor(private readonly a2aFiles: Files) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishFileDto> {
-    const bytes = new TextEncoder().encode(`quote for ${input.message.value.text}`);
+    const bytes = new TextEncoder().encode(`quote for ${input.message.text}`);
     return {
       file: await this.a2aFiles.save({ bytes, mediaType: "text/plain", filename: "quote.txt" }),
     };
@@ -132,7 +132,7 @@ export class QuoteFileWorkflow {}
 })
 export class AckAction {
   execute(_input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "acknowledged" });
   }

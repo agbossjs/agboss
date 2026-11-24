@@ -56,6 +56,11 @@ export type Untracked<T> = T extends readonly (infer TItem)[]
         ? { readonly [K in keyof T]: Untracked<T[K]> }
         : T;
 
+/** `T` without the brand `Tracked` adds: the plain data type of a value read from the scope. */
+export type WithoutTrack<T> = T extends { readonly [valueMetadata]: Class }
+  ? { [K in keyof T as K extends typeof valueMetadata ? never : K]: T[K] }
+  : T;
+
 const metadataOf = new WeakMap<object, ValueMetadata>();
 
 const isObject = (value: unknown): value is object =>

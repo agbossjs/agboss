@@ -8,7 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   type ExecutionEndEvent,
   type ExecutionCancelEvent,
   type ExecutionErrorEvent,
@@ -159,7 +159,7 @@ export class ReviewerAgent {}
 export class HoldReportAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly report: Produced<ReportDto, unknown> }): Promise<ReportDto> {
+  async execute(input: { readonly report: Tracked<ReportDto> }): Promise<ReportDto> {
     lostPassSeen.holds += 1;
     if (lostPassLevers.isHolding) {
       lostPassLevers.isHolding = false;
@@ -171,7 +171,7 @@ export class HoldReportAction {
         });
       });
     }
-    return input.report.value;
+    return input.report;
   }
 }
 
@@ -237,10 +237,10 @@ export class DrafterAgent {}
 })
 export class MergeReportAction {
   execute(input: {
-    readonly report: Produced<ReportDto, unknown>;
-    readonly check: Produced<CheckDto, unknown>;
+    readonly report: Tracked<ReportDto>;
+    readonly check: Tracked<CheckDto>;
   }): Promise<ReportDto> {
-    return Promise.resolve({ text: `${input.report.value.text}: ${input.check.value.verdict}` });
+    return Promise.resolve({ text: `${input.report.text}: ${input.check.verdict}` });
   }
 }
 

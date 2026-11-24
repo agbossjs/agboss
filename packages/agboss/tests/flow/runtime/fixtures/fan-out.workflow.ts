@@ -11,7 +11,7 @@ import {
   ExecutionCancelledError,
   WorkflowStart,
   type LaunchItemsTruncatedEvent,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd } from "../../../../src/units/index.js";
@@ -96,8 +96,8 @@ export class ProcessItemAction {
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, delay, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, delay, outcome } = input.item;
     const { step, signal } = this.executionContext;
     fanOut.keys.push(step.idempotencyKey);
     fanOut.items.push(step.itemIndex);
@@ -138,9 +138,9 @@ export class ItemsWorkflowStart {}
 })
 export class SummaryAction {
   async execute(input: {
-    readonly results: readonly Produced<ItemResultDto, unknown>[];
+    readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
-    const names = input.results.map((result) => result.value.name);
+    const names = input.results.map((result) => result.name);
     return { text: names.join(", ") };
   }
 }
@@ -160,9 +160,7 @@ export class SummaryWorkflowFinish {}
   output: SummaryDto,
 })
 export class ItemsFailedAction {
-  async execute(input: {
-    readonly items: readonly Produced<ItemDto, unknown>[];
-  }): Promise<SummaryDto> {
+  async execute(input: { readonly items: readonly Tracked<ItemDto>[] }): Promise<SummaryDto> {
     return { text: `failed on one of ${String(input.items.length)}` };
   }
 }
@@ -301,11 +299,9 @@ export class OneItemWorkflowStart {}
   output: SummaryDto,
 })
 export class StampsAction {
-  async execute(input: {
-    readonly stamps: readonly Produced<StampDto, unknown>[];
-  }): Promise<SummaryDto> {
-    const said = input.stamps.map(({ value }) =>
-      [value.nodeId, String(value.copyNumber), String(value.visitNumber)].join(" "),
+  async execute(input: { readonly stamps: readonly Tracked<StampDto>[] }): Promise<SummaryDto> {
+    const said = input.stamps.map((stamp) =>
+      [stamp.nodeId, String(stamp.copyNumber), String(stamp.visitNumber)].join(" "),
     );
     return { text: said.join("; ") };
   }

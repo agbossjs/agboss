@@ -10,7 +10,7 @@ import {
   WorkflowStart,
   type CompensationEndEvent,
   type CompensationStartEvent,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
@@ -110,9 +110,9 @@ export class ReleaseSeatAction {
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async execute(input: { readonly seat: Produced<SeatDto, unknown> }): Promise<void> {
+  async execute(input: { readonly seat: Tracked<SeatDto> }): Promise<void> {
     this.spendRecorder.record({ service: "seat-desk", cost: usd(0.001) });
-    await released(this.undoDesk, this.executionContext, input.seat.value.seatId);
+    await released(this.undoDesk, this.executionContext, input.seat.seatId);
   }
 }
 
@@ -128,8 +128,8 @@ export class ReleaseRoomAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async execute(input: { readonly room: Produced<RoomDto, unknown> }): Promise<void> {
-    await released(this.undoDesk, this.executionContext, input.room.value.roomId);
+  async execute(input: { readonly room: Tracked<RoomDto> }): Promise<void> {
+    await released(this.undoDesk, this.executionContext, input.room.roomId);
   }
 }
 
@@ -140,8 +140,8 @@ export class ReleaseRoomAction {
   output: SeatConfirmedDto,
 })
 export class ConfirmSeatAction {
-  execute(input: { readonly seat: Produced<SeatDto, unknown> }): Promise<SeatConfirmedDto> {
-    return Promise.resolve({ seatId: input.seat.value.seatId });
+  execute(input: { readonly seat: Tracked<SeatDto> }): Promise<SeatConfirmedDto> {
+    return Promise.resolve({ seatId: input.seat.seatId });
   }
 }
 
@@ -244,10 +244,10 @@ export class UndoPathWorkflowStart {}
 })
 export class ReservedAction {
   async execute(input: {
-    readonly seat: Produced<SeatDto, unknown>;
-    readonly room: Produced<RoomDto, unknown>;
+    readonly seat: Tracked<SeatDto>;
+    readonly room: Tracked<RoomDto>;
   }): Promise<ReservedDto> {
-    return { summary: `${input.seat.value.seatId} + ${input.room.value.roomId}` };
+    return { summary: `${input.seat.seatId} + ${input.room.roomId}` };
   }
 }
 

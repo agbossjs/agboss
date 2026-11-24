@@ -1,6 +1,7 @@
 import type { Class } from "../components/injection.js";
 import type { NodeKind } from "./ast.js";
-import type { HistoryOf, ProducedValue } from "./dto-wrappers.js";
+import type { HistoryOf } from "./dto-wrappers.js";
+import type { WithoutTrack } from "./metadata.js";
 import type {
   agbossDto,
   AGBossTypes,
@@ -27,12 +28,7 @@ export type FieldDto<TField> = [TField] extends [readonly unknown[]]
     ? PlainDto<TValue>
     : PlainDto<TField>;
 
-export type PlainDto<TValue> =
-  TValue extends ProducedValue<infer TDto, unknown>
-    ? TDto
-    : TValue extends undefined
-      ? never
-      : TValue;
+export type PlainDto<TValue> = TValue extends undefined ? never : WithoutTrack<TValue>;
 
 /** The DTOs a node's input reads (#1275c): one DTO, or one per field of a map; `never` for none. */
 export type ClaimedDtosOf<TInput> = TInput extends GeneratedTypeError

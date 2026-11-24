@@ -15,7 +15,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { hours } from "../../../../src/units/index.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
@@ -82,11 +82,11 @@ export class SqliteChargeOrderAction {
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
     const { token } = fenceOf(this.executionContext);
     await gate("before");
-    const order = input.message.value.text;
+    const order = input.message.text;
     const outcome = await this.idempotency
       .runOnce({
         name: "charge",

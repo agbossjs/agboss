@@ -14,7 +14,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -169,12 +169,10 @@ export class ParallelBudgetWorkflowStart {}
   output: NoteDto,
 })
 export class NotesAction {
-  async execute(input: {
-    readonly notes: readonly Produced<NoteDto, unknown>[];
-  }): Promise<NoteDto> {
+  async execute(input: { readonly notes: readonly Tracked<NoteDto>[] }): Promise<NoteDto> {
     return {
       text: input.notes
-        .map((note) => note.value.text)
+        .map((note) => note.text)
         .join("; "),
     };
   }
@@ -324,9 +322,9 @@ export class TaskAction {
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async execute(input: { readonly task: Produced<TaskDto, unknown> }): Promise<NoteDto> {
+  async execute(input: { readonly task: Tracked<TaskDto> }): Promise<NoteDto> {
     const { signal } = this.executionContext;
-    if (input.task.value.name === "spend") {
+    if (input.task.name === "spend") {
       await isWaiterRunning;
       this.spendRecorder.record({ service: "slow-api", cost: usd(0.03) });
       return { text: "spent" };

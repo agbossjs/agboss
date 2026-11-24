@@ -15,7 +15,7 @@ import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { oneOf, variant } from "../../../src/flow/dto-wrappers.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
@@ -186,7 +186,7 @@ export class PurchaseUnaskedWorkflowFinish {}
 })
 export class DraftQuestionAction implements ActionHandler<DraftQuestionAction> {
   execute({ message }: InputOf<DraftQuestionAction>): Promise<OutputOf<DraftQuestionAction>> {
-    const [item = "", price = "0"] = message.value.text.split(" for ");
+    const [item = "", price = "0"] = message.text.split(" for ");
     return Promise.resolve({ item, priceUsd: Number(price), requester: "alice" });
   }
 }
@@ -203,9 +203,9 @@ export class PlacePurchaseAction implements ActionHandler<PlacePurchaseAction> {
   constructor(private readonly questionInbox: QuestionInbox) {}
 
   execute(input: InputOf<PlacePurchaseAction>): Promise<OutputOf<PlacePurchaseAction>> {
-    const { item, priceUsd } = input.question.value;
-    const { approved, limitUsd } = input.answer.value;
-    this.questionInbox.placed.push(input.answer.value);
+    const { item, priceUsd } = input.question;
+    const { approved, limitUsd } = input.answer;
+    this.questionInbox.placed.push(input.answer);
     const within = approved && priceUsd <= limitUsd;
     const status = within
       ? `placed ${item} at ${String(priceUsd)} within ${String(limitUsd)}`
@@ -223,12 +223,10 @@ export class PlacePurchaseAction implements ActionHandler<PlacePurchaseAction> {
 })
 export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
   execute({ question, answer }: InputOf<CheckLimitAction>): Promise<OutputOf<CheckLimitAction>> {
-    if (answer.value.limitUsd >= question.value.priceUsd)
-      return Promise.resolve(
-        variant(PurchasePlacedDto, { status: `placed within ${String(answer.value.limitUsd)}` }),
-      );
-    const { item, priceUsd, requester } = question.value;
-    return Promise.resolve(variant(PurchaseQuestionDto, { item, priceUsd, requester }));
+    if (answer.limitUsd >= question.priceUsd)
+      return Promise.resolve({ status: `placed within ${String(answer.limitUsd)}` });
+    const { item, priceUsd, requester } = question;
+    return Promise.resolve({ item, priceUsd, requester });
   }
 }
 

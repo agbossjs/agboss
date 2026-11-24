@@ -38,8 +38,8 @@ class NoteWorkflowStart {}
   output: WorkflowFinishTextDto,
 })
 class EchoNoteAction {
-  execute(input: { readonly note: { readonly value: NoteDto } }): Promise<WorkflowFinishTextDto> {
-    return Promise.resolve({ text: input.note.value.text });
+  execute(input: { readonly note: NoteDto }): Promise<WorkflowFinishTextDto> {
+    return Promise.resolve({ text: input.note.text });
   }
 }
 

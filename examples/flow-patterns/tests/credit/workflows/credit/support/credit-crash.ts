@@ -129,7 +129,7 @@ export class CrashAfterChargeAction extends ChargeCardAction {
       instanceId: this.applicationContext.instanceId,
       idempotencyKey: this.context.step.idempotencyKey,
       chargeId: charge.chargeId,
-      ledger: this.ledger.chargesOf(input.order.value.customerId),
+      ledger: this.ledger.chargesOf(input.order.customerId),
     });
     if (crash.charges.length === 1) {
       const released = new Promise<void>((resolve) => {

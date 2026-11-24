@@ -58,7 +58,7 @@ describe("#1288a: variadic listOf", () => {
   });
 
   it("reads the wrapped form the same way until the flow flip removes it", () => {
-    expect(listOf(oneOf(ScoreDto, RejectedDto)).variants).toEqual([ScoreDto, RejectedDto]);
+    expect(listOf(ScoreDto, RejectedDto).variants).toEqual([ScoreDto, RejectedDto]);
   });
 });
 

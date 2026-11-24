@@ -13,7 +13,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import type { Produced } from "../../../src/index.js";
+import type { Tracked } from "../../../src/index.js";
 import { FencedEffectRepository } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -33,7 +33,7 @@ import { PriceLookupTool, QuoteWorkflow } from "./direct.application.js";
 import { inline } from "../../../src/index.js";
 
 interface Message {
-  readonly message: Produced<WorkflowStartTextDto, unknown>;
+  readonly message: Tracked<WorkflowStartTextDto>;
 }
 
 /** A service two hops from the effect store: what a tool injects. */

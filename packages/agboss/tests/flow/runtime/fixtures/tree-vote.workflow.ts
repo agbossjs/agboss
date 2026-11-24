@@ -9,7 +9,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../../../src/index.js";
@@ -76,9 +76,9 @@ export class VoteWorkflowStart {}
   output: VotedDto,
 })
 export class VotedAction {
-  async execute(input: { readonly task: Produced<TaskDto, unknown> }): Promise<VotedDto> {
-    treeLog.events.push(`voted ${input.task.value.name}`);
-    return { name: input.task.value.name };
+  async execute(input: { readonly task: Tracked<TaskDto> }): Promise<VotedDto> {
+    treeLog.events.push(`voted ${input.task.name}`);
+    return { name: input.task.name };
   }
 }
 
@@ -96,9 +96,9 @@ export class VotedWorkflowFinish {}
   output: NotVotedDto,
 })
 export class NotVotedAction {
-  async execute(input: { readonly task: Produced<TaskDto, unknown> }): Promise<NotVotedDto> {
-    treeLog.events.push(`not voted ${input.task.value.name}`);
-    return { name: input.task.value.name };
+  async execute(input: { readonly task: Tracked<TaskDto> }): Promise<NotVotedDto> {
+    treeLog.events.push(`not voted ${input.task.name}`);
+    return { name: input.task.name };
   }
 }
 
@@ -136,8 +136,8 @@ export class VoteWorkflow {}
   routes: [TaskWorkflow, VoteWorkflow],
 })
 export class TaskKindRouter {
-  route(input: { readonly task: Produced<TaskDto, unknown> }): unknown {
-    return input.task.value.seconds > 0 ? TaskWorkflow : VoteWorkflow;
+  route(input: { readonly task: Tracked<TaskDto> }): unknown {
+    return input.task.seconds > 0 ? TaskWorkflow : VoteWorkflow;
   }
 }
 
@@ -182,12 +182,12 @@ export class VotingWorkflowStart {}
 @Action({
   name: "voting-done-action",
   description: "Every item done",
-  input: { results: listOf(oneOf(NotVotedDto, TaskDoneDto, VotedDto)) },
+  input: { results: listOf(NotVotedDto, TaskDoneDto, VotedDto) },
   output: GroupDoneDto,
 })
 export class VotingDoneAction {
   async execute(input: {
-    readonly results: readonly Produced<unknown, unknown>[];
+    readonly results: readonly Tracked<NotVotedDto | TaskDoneDto | VotedDto>[];
   }): Promise<GroupDoneDto> {
     return { name: `${String(input.results.length)} done` };
   }

@@ -5,7 +5,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
   Action,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
@@ -71,9 +71,9 @@ export class FanStart {}
 })
 class FanAction {
   async execute(input: {
-    readonly answers: readonly Produced<WorkflowFinishTextDto, unknown>[];
+    readonly answers: readonly Tracked<WorkflowFinishTextDto>[];
   }): Promise<WorkflowFinishTextDto> {
-    return { text: input.answers.map((answer) => answer.value.text).join(" | ") };
+    return { text: input.answers.map((answer) => answer.text).join(" | ") };
   }
 }
 

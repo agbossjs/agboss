@@ -7,10 +7,9 @@ import {
   ExecutionContext,
   oneOf,
   Tool,
-  variant,
   Workflow,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -113,13 +112,13 @@ export class HoldDepthWorkflowStart {}
 export class HoldDepthAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly count: Produced<CountDto, unknown> }): Promise<unknown> {
-    const { left } = input.count.value;
+  execute(input: { readonly count: Tracked<CountDto> }): Promise<unknown> {
+    const { left } = input.count;
     const { depth, signal } = this.executionContext;
     recursionLog.readings.push({ at: "hold-depth-action", title: "", depth, level: left });
-    if (left > 0) return Promise.resolve(variant(CountDto, { left: left - 1 }));
+    if (left > 0) return Promise.resolve({ left: left - 1 });
     holds.count += 1;
-    if (holds.count > 1) return Promise.resolve(variant(CountDoneDto, { depth }));
+    if (holds.count > 1) return Promise.resolve({ depth });
     return new Promise((_resolve, reject) => {
       signal.addEventListener("abort", () => {
         reject(new Error("stopped"));

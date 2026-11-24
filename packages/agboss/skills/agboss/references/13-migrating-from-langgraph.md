@@ -669,7 +669,7 @@ export class IssueRefundAction implements ActionHandler<IssueRefundAction> {
 
   async execute(input: InputOf<IssueRefundAction>): Promise<OutputOf<IssueRefundAction>> {
     const key: string = this.executionContext.step.idempotencyKey; // a retry after a crash is one refund
-    return { refundId: await this.refundApiService.issue(input.request.value.orderId, input.draft.value.refundCents, key) };
+    return { refundId: await this.refundApiService.issue(input.request.orderId, input.draft.refundCents, key) };
   }
 }
 ```
@@ -692,7 +692,7 @@ const REFUND_SIGN_OFF_CENTS = 10_000;
 })
 export class RefundSizeRouter implements RouterHandler<RefundSizeRouter> {
   route(input: InputOf<RefundSizeRouter>): Route<RefundSizeRouter> {
-    return input.draft.value.refundCents > REFUND_SIGN_OFF_CENTS ? RefundSignOffAgent : IssueRefundAction;
+    return input.draft.refundCents > REFUND_SIGN_OFF_CENTS ? RefundSignOffAgent : IssueRefundAction;
   }
 }
 ```
@@ -949,7 +949,7 @@ it("the size router decides by code, at no cost", async () => {
   const runRouter = testUnit(RefundSizeRouter);
 
   const { output } = await runRouter({
-    draft: { producer: ReplyWriterAgent, value: { text: "Full refund.", refundCents: 25_000 } },
+    draft: { text: "Full refund.", refundCents: 25_000 },
   });
 
   expect(output).toBe(RefundSignOffAgent);

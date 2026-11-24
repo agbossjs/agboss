@@ -418,7 +418,7 @@ export class TreasuryBatchWorkflowStart {}
 export class SplitRequestsAction implements ActionHandler<SplitRequestsAction> {
   execute(input: InputOf<SplitRequestsAction>): Promise<OutputOf<SplitRequestsAction>> {
     return Promise.resolve(
-      input.message.value.text
+      input.message.text
         .split("\n")
         .map((text) => ({ text })),
     );

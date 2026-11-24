@@ -20,7 +20,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ExecutionStartEvent,
-  type Produced,
+  type Tracked,
 } from "../../../../../src/index.js";
 import type { Milliseconds } from "../../../../../src/units/index.js";
 import { usd } from "../../../../../src/units/index.js";
@@ -149,9 +149,9 @@ export class PeerAnswerAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishTextDto> {
-    const { text } = input.message.value;
+    const { text } = input.message;
     peer.runs.push(text);
     // a call of the peer's own that a further hop refused as a loop: its run fails with that limit
     if (text === DOWNSTREAM_LOOP)
@@ -171,9 +171,9 @@ export class PeerAnswerAction {
 })
 export class PeerSignOffAction {
   execute(input: {
-    readonly answer: Produced<WorkflowFinishTextDto, unknown>;
+    readonly answer: Tracked<WorkflowFinishTextDto>;
   }): Promise<WorkflowFinishTextDto> {
-    return Promise.resolve(input.answer.value);
+    return Promise.resolve(input.answer);
   }
 }
 

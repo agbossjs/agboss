@@ -8,13 +8,16 @@ import {
   type InputFields,
 } from "../../flow/decorators/declaration.js";
 import type { ExecuteMethod } from "../../flow/decorators/action.js";
+import { Metadata, type Untracked } from "../../flow/metadata.js";
+import { hydrated } from "../../dto/hydrate.js";
 import { hydratedForShape } from "../../flow/runtime/shape-hydration.js";
 import { checkedActionValue } from "../../flow/runtime/runners/action.js";
+import { Wrapper } from "../../flow/dto-wrappers.js";
 import { TestSetupError } from "../errors.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitOptions, UnitRun } from "./unit-types.js";
 
-/** An action's input as `execute` takes it: its fields, plain objects (`Produced` records). */
+/** An action's input as `execute` takes it: its fields, tracked DTOs. */
 export type ActionInputOf<TAction> = TAction extends { execute(input: infer TInput): unknown }
   ? TInput
   : never;
@@ -41,27 +44,59 @@ function actionOptionsOf(action: Class) {
   return declaration.options;
 }
 
-/** A field's value, or the `value` of the `Produced` record(s) a test wraps it in, hydrated by the field's shape. */
-function hydratedField(shape: InputFieldShape, value: unknown): unknown {
-  const produced = (item: unknown): item is { readonly value: unknown } =>
-    typeof item === "object" && item !== null && "producer" in item && "value" in item;
-  if (produced(value)) return { ...value, value: hydratedForShape(shape, value.value) };
-  if (Array.isArray(value) && value.every(produced)) {
-    return value.map((item) => ({
-      ...item,
-      value: (hydratedForShape(shape, [item.value]) as readonly unknown[])[0],
-    }));
-  }
-  return hydratedForShape(shape, value);
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null;
+
+/**
+ * A DTO a test gives, as the flow hands it over: tracked. One that `Metadata.with(…)` already
+ * tracked keeps its facts; a plain one gets the default (the action under test as its creator, the
+ * field as its slot), so `Metadata.of(input.x)` is defined inside the handler.
+ */
+function trackedItem(value: unknown, site: TrackSite, index?: number): unknown {
+  if (!isRecord(value) || Metadata.has(value)) return value;
+  return Metadata.with(value, {
+    createdBy: site.component,
+    slot: site.field,
+    ...(index === undefined ? {} : { itemIndex: index }),
+  });
 }
 
-/** The input's fields as the flow hands them over: instances of their classes (#1288). */
-function hydratedInputOf(shapes: InputFields | undefined, input: unknown): unknown {
+interface TrackSite {
+  readonly component: Class;
+  readonly field: string;
+}
+
+/** A field's value hydrated by the field's shape (#1288) and tracked, as its step hands it over. */
+function hydratedField(shape: InputFieldShape, value: unknown, site: TrackSite): unknown {
+  if (typeof shape !== "function" && shape.kind === Wrapper.History) {
+    if (!isRecord(value) || !Array.isArray(value.previous)) return value;
+    const version = (item: unknown, index?: number): unknown =>
+      trackedItem(typeof item === "object" ? hydrated(shape.dto, item) : item, site, index);
+    return {
+      current: version(value.current),
+      previous: (value.previous as readonly unknown[]).map((item, index) => version(item, index)),
+    };
+  }
+  const hydratedValue = hydratedForShape(shape, value);
+  return Array.isArray(hydratedValue)
+    ? (hydratedValue as readonly unknown[]).map((item, index) => trackedItem(item, site, index))
+    : trackedItem(hydratedValue, site);
+}
+
+/** The input's fields as the flow hands them over: instances of their classes (#1288), tracked. */
+function hydratedInputOf(
+  shapes: InputFields | undefined,
+  input: unknown,
+  component: Class,
+): unknown {
   if (shapes === undefined || typeof input !== "object" || input === null) return input;
   return Object.fromEntries(
     Object.entries(input).map(([key, value]) => {
       const shape = shapes[key];
-      return [key, shape === undefined ? value : hydratedField(shape, value)];
+      return [
+        key,
+        shape === undefined ? value : hydratedField(shape, value, { component, field: key }),
+      ];
     }),
   );
 }
@@ -71,8 +106,8 @@ function hydratedInputOf(shapes: InputFields | undefined, input: unknown): unkno
  * `deps`, `overrides`, the `environment`); each call runs `execute(input)` in the frame of its step
  * — `executionContext.signal` aborts after `timeout` on the runner's clock, `SpendRecorder`
  * records into the call's `spend` as `action:<name>` — and checks the result against its `output`
- * (`variant(XDto, value)` for a `oneOf`), as the flow does. The input is what `execute` takes: its
- * fields as plain objects. A failure rejects as it was thrown (`OutputInvalidError` /
+ * as the flow does. The input is what `execute` takes, plain (`Untracked`): its
+ * fields as DTOs, tracked by default. A failure rejects as it was thrown (`OutputInvalidError` /
  * `DtoValidationError` for a result that does not fit).
  */
 export function actionUnit<
@@ -82,18 +117,21 @@ export function actionUnit<
 >(
   action: TAction,
   options: UnitOptions<TExecution, TTenant> = {},
-): ActionRunner<ActionInputOf<InstanceType<TAction>>, ActionOutputOf<InstanceType<TAction>>> {
+): ActionRunner<
+  Untracked<ActionInputOf<InstanceType<TAction>>>,
+  ActionOutputOf<InstanceType<TAction>>
+> {
   const { name, output, input: shapes } = actionOptionsOf(action);
   const site = new UnitSite(options);
   const run = async (
-    input: ActionInputOf<InstanceType<TAction>>,
+    input: Untracked<ActionInputOf<InstanceType<TAction>>>,
     call: UnitCallOptions = {},
   ): Promise<UnitRun<ActionOutputOf<InstanceType<TAction>>>> => {
     const frame = { component: action, caller: `action:${name}`, ...callTimeoutOf(call.timeout) };
     // the container creates the class itself: an instance of the action, `execute` included
     const instance = site.instanceOf(action) as ExecutableAction;
     return site.run(frame, async () => {
-      const result = await instance.execute(hydratedInputOf(shapes, input));
+      const result = await instance.execute(hydratedInputOf(shapes, input, action));
       if (output !== undefined) checkedActionValue(name, output, result);
       return result as ActionOutputOf<InstanceType<TAction>>;
     });

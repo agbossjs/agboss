@@ -3,7 +3,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
 } from "../../../src/index.js";
 import { onStart, toAction, toWorkflow, toFinish } from "../../helpers/flow.js";
@@ -78,11 +78,11 @@ export class PaidItemsWorkflowStart {}
 })
 export class PaidItemsAction {
   async execute(input: {
-    readonly notes: readonly Produced<OrderNoteDto, unknown>[];
+    readonly notes: readonly Tracked<OrderNoteDto>[];
   }): Promise<OrderNoteDto> {
     return {
       note: input.notes
-        .map((note) => note.value.note)
+        .map((note) => note.note)
         .join("; "),
     };
   }

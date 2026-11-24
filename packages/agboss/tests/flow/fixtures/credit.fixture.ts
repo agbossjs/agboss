@@ -71,7 +71,7 @@ export class ApprovalAgent {}
 })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
-    return Promise.resolve({ chargeId: `charge-${input.order.value.customerId}` });
+    return Promise.resolve({ chargeId: `charge-${input.order.customerId}` });
   }
 }
 
@@ -122,8 +122,8 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
       visitNumber: step.visitNumber,
       key: step.idempotencyKey,
     });
-    const limit = await this.creditService.limitOf(input.order.value.customerId);
-    return input.order.value.total > limit ? ApprovalAgent : ChargeCardAction;
+    const limit = await this.creditService.limitOf(input.order.customerId);
+    return input.order.total > limit ? ApprovalAgent : ChargeCardAction;
   }
 }
 

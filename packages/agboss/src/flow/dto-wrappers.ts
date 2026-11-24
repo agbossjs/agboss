@@ -2,8 +2,7 @@ import type { DtoClass } from "../dto/types.js";
 
 /**
  * The type wrappers of #270 — `optional(XDto)`, `listOf(XDto)`, `oneOf(ADto, BDto, …)` — with
- * `historyOf(XDto, { maxPrevious })` for an input that reads the earlier versions too (#299, S56), and the
- * variant helpers `variant(XDto, value)` / `isVariant(item, XDto)`. Each wrapper is a frozen
+ * `historyOf(XDto, { maxPrevious })` for an input that reads the earlier versions too (#299, S56). Each wrapper is a frozen
  * descriptor the analyser and the runtime read, typed so the builder and `InputOf` can read it too.
  */
 
@@ -66,7 +65,7 @@ export interface HistoryOptions {
 
 /**
  * `historyOf(XDto, { maxPrevious })` (#299, S56) — an input field that reads the current `XDto` and the
- * earlier versions of it in this execution: `HistoryOf<Produced<XDto, P>>` in `InputOf`.
+ * earlier versions of it in this execution: `HistoryOf<Tracked<XDto, P>>` in `InputOf`.
  */
 export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
   readonly kind: Wrapper.History;
@@ -108,22 +107,12 @@ export function optional<const TInner extends OptionalInnerShape>(
 
 /**
  * `listOf(VendorDto)` — a list of one class; `listOf(ScoreDto, RejectedDto, …)` — a polymorphic list,
- * each item one of the classes (#1288). The old `listOf(oneOf(…))` form is read as the same list
- * until the flow flip removes it.
+ * each item one of the classes (#1288).
  */
 export function listOf<const TVariants extends readonly [DtoClass, ...DtoClass[]]>(
   ...variants: TVariants
-): ListWrapper<ListElementOf<TVariants>>;
-export function listOf<const TElement extends OneOfWrapper>(
-  element: TElement,
-): ListWrapper<TElement>;
-export function listOf(
-  ...given: readonly [DtoClass, ...DtoClass[]] | readonly [OneOfWrapper]
-): ListWrapper {
-  const [first] = given;
-  return typeof first === "function"
-    ? listOfVariants(given as readonly [DtoClass, ...DtoClass[]])
-    : listOfElement(first);
+): ListWrapper<ListElementOf<TVariants>> {
+  return listOfVariants(variants) as ListWrapper<ListElementOf<TVariants>>;
 }
 
 /** The list of one class, or of the several a `oneOf(…)` names. */
@@ -188,102 +177,3 @@ export function isValueShape(value: unknown): value is ValueShape {
 /** Whether a value is what a step can give: a value shape or a `oneOf(…)`. */
 export const isReturnedShape = (value: unknown): value is ReturnedShape =>
   isValueShape(value) || (isWrapper(value) && value.kind === Wrapper.OneOf);
-
-/** The key the class of a `oneOf` value is kept under (non-enumerable, never serialized). */
-const variantClass: unique symbol = Symbol("agboss.variant");
-
-/** A value of one class of a `oneOf` output, as `variant(XDto, value)` returns it. */
-export type Variant<TDto extends DtoClass> = InstanceType<TDto> & {
-  readonly [variantClass]: TDto;
-};
-
-/**
- * A value read from the path scope: who produced it and the value (#270, Q19). Distributes over a
- * union value, so `isVariant` narrows `Produced<A | B, P>` in both branches.
- */
-export type Produced<TValue, TProducer> = TValue extends unknown
-  ? ProducedValue<TValue, TProducer>
-  : never;
-
-export interface ProducedValue<TValue, TProducer> {
-  readonly producer: TProducer;
-  readonly value: TValue;
-}
-
-/** Some fields of a `oneOf` value with its class: an element matcher in a test's `when(…)` (#262). */
-export type PartialVariant<TDto extends DtoClass> = Partial<InstanceType<TDto>> & {
-  readonly [variantClass]: TDto;
-};
-
-/** An action's `oneOf` result: names the class it returns; the runtime never guesses it by shape. */
-export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
-/**
- * In a test (#262): an element of a `listOf(oneOf(…))` input matched by its class and the fields
- * given — `when({ scores: [variant(CompanyScoreDto, { score: 9 })] })`.
- */
-export function variant<TDto extends DtoClass>(
-  dto: TDto,
-  value: Partial<InstanceType<TDto>>,
-): PartialVariant<TDto>;
-export function variant<TDto extends DtoClass>(
-  dto: TDto,
-  value: Partial<InstanceType<TDto>>,
-): Variant<TDto> | PartialVariant<TDto> {
-  const result: Partial<InstanceType<TDto>> = { ...value };
-  Object.defineProperty(result, variantClass, { value: dto, enumerable: false });
-  // marked just above; a full value (the first overload) is a Variant, a partial one a PartialVariant
-  return result as PartialVariant<TDto>;
-}
-
-/** The class `variant(XDto, value)` marked a value with; undefined for a plain value. */
-export function variantClassOf(value: unknown): DtoClass | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const marked: unknown = Reflect.get(value, variantClass);
-  return typeof marked === "function" ? (marked as DtoClass) : undefined;
-}
-
-/** The class a `oneOf` value carries: on the `Produced` record, else on its value. */
-function variantOf(item: ProducedValue<unknown, unknown>): unknown {
-  const own: unknown = Reflect.get(item, variantClass);
-  if (own !== undefined) return own;
-  const { value } = item;
-  return typeof value === "object" && value !== null ? Reflect.get(value, variantClass) : undefined;
-}
-
-/**
- * One item of a `listOf(oneOf(A, B))` answer as a judge reads it (#262 S125): the class it validated
- * as (from the answer tool the agent used) and its value — `{ variant: typeof A; value: A } | …`.
- */
-export type VariantOf<TValue> = TValue extends unknown
-  ? { readonly variant: DtoClass<TValue>; readonly value: TValue }
-  : never;
-
-/** Narrows a `Produced` value (or a list element) of a `oneOf` to one of its classes. */
-export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(
-  item: TItem,
-  dto: TDto,
-): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
-/**
- * Narrows what carries its class as `variant` (#262 S125) — a judge's input (`reply`) or a
- * `VariantOf` item (`value`) — to one class: `variant === dto`, the class's identity.
- */
-export function isVariant<TItem extends { readonly variant: DtoClass }, TDto extends DtoClass>(
-  item: TItem,
-  dto: TDto,
-): item is Extract<TItem, { readonly variant: DtoClass<InstanceType<TDto>> }>;
-export function isVariant(
-  item: ProducedValue<unknown, unknown> | { readonly variant: DtoClass },
-  dto: DtoClass,
-): boolean {
-  return "variant" in item ? item.variant === dto : variantOf(item) === dto;
-}
-
-/** Marks a `Produced` record with its value's class (the runtime does it for a `oneOf` value). */
-export function withVariant<TItem extends ProducedValue<unknown, unknown>>(
-  item: TItem,
-  dto: DtoClass,
-): TItem {
-  const copy: TItem = { ...item };
-  Object.defineProperty(copy, variantClass, { value: dto, enumerable: false });
-  return copy;
-}

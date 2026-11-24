@@ -41,7 +41,7 @@ export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   ) {}
 
   async execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
-    const { applicationId, customerId, total } = input.order.value;
+    const { applicationId, customerId, total } = input.order;
     const { result } = await this.idempotency.runOnce({
       name: "charge",
       key: `credit:${applicationId}`,

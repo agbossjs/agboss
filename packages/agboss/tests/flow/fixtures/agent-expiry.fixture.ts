@@ -9,7 +9,7 @@ import {
   Tool,
   type ChannelAsk,
   listOf,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../src/index.js";
 import {
@@ -179,8 +179,8 @@ export class ExpiryRefundAgent {}
 })
 export class EscalateRefundAction implements ActionHandler<EscalateRefundAction> {
   execute({ request }: InputOf<EscalateRefundAction>): Promise<OutputOf<EscalateRefundAction>> {
-    expiry.recorded.push(`escalated ${request.value.orderId}`);
-    return Promise.resolve({ text: `escalated ${request.value.orderId}` });
+    expiry.recorded.push(`escalated ${request.orderId}`);
+    return Promise.resolve({ text: `escalated ${request.orderId}` });
   }
 }
 
@@ -252,9 +252,9 @@ export class AgentBatchSummaryDto {
 })
 export class AgentBatchAction {
   async execute(input: {
-    readonly refunds: readonly Produced<AgentRefundDoneDto, unknown>[];
+    readonly refunds: readonly Tracked<AgentRefundDoneDto>[];
   }): Promise<AgentBatchSummaryDto> {
-    const texts = input.refunds.map((refund) => refund.value.text);
+    const texts = input.refunds.map((refund) => refund.text);
     return { text: texts.join(", ") };
   }
 }
@@ -327,9 +327,9 @@ export class AgentGatedWorkflowStart {}
 })
 export class AgentGatedAction {
   async execute(input: {
-    readonly refund: Produced<AgentRefundDoneDto, unknown>;
+    readonly refund: Tracked<AgentRefundDoneDto>;
   }): Promise<AgentRefundDoneDto> {
-    return { text: input.refund.value.text };
+    return { text: input.refund.text };
   }
 }
 

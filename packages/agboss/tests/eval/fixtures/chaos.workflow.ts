@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../src/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -57,8 +57,8 @@ export class ChaosDesk {
 export class ReleaseAction {
   constructor(private readonly chaosDesk: ChaosDesk) {}
 
-  execute(input: { readonly reservation: Produced<ReservationDto, unknown> }): Promise<void> {
-    this.chaosDesk.release(input.reservation.value.reservationId);
+  execute(input: { readonly reservation: Tracked<ReservationDto> }): Promise<void> {
+    this.chaosDesk.release(input.reservation.reservationId);
     return Promise.resolve();
   }
 }

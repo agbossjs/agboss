@@ -5349,16 +5349,6 @@ type IsSeveral<TOutput> = TOutput extends readonly unknown[] ? number extends TO
 type IsUnion<TValue, TAll = TValue> = TValue extends unknown ? [TAll] extends [TValue] ? false : true : never;
 
 // @public
-export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
-
-// @public
-export function isVariant<TItem extends {
-    readonly variant: DtoClass;
-}, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, {
-    readonly variant: DtoClass<InstanceType<TDto>>;
-}>;
-
-// @public
 type ItemsCheck<TValue> = [LastValue<TValue>] extends [never] ? {
     readonly __error: "forEachItem(step, …) runs once per item — the step before it gives a list";
 } : [LastValue<TValue>] extends [readonly unknown[]] ? unknown : {
@@ -5423,9 +5413,9 @@ interface JudgedBase {
 }
 
 // @public
-export type JudgedOutput<TOutput> = TOutput extends readonly VariantOf<unknown>[] ? JudgedBase & {
+export type JudgedOutput<TOutput> = TOutput extends readonly (infer TItem)[] ? IsUnion<TItem> extends true ? JudgedBase & {
     readonly output: TOutput;
-} : TOutput extends readonly (infer TItem)[] ? JudgedBase & {
+} : JudgedBase & {
     readonly variant: DtoClass<TItem>;
     readonly output: TOutput;
 } : TOutput extends unknown ? JudgedBase & {
@@ -5434,7 +5424,7 @@ export type JudgedOutput<TOutput> = TOutput extends readonly VariantOf<unknown>[
 } : never;
 
 // @public
-export type JudgedValueOf<TShape extends JudgeOutputShape> = TShape extends ListWrapper<OneOfWrapper<infer TVariants>> ? readonly VariantOf<InstanceType<TVariants[number]>>[] : ValueOf<TShape>;
+export type JudgedValueOf<TShape extends JudgeOutputShape> = ValueOf<TShape>;
 
 // @public
 export interface JudgeEndEvent extends NodeEvent {
@@ -5841,9 +5831,6 @@ export type ListElementShape = DtoClass | OneOfWrapper;
 
 // @public
 export function listOf<const TVariants extends readonly [DtoClass, ...DtoClass[]]>(...variants: TVariants): ListWrapper<ListElementOf<TVariants>>;
-
-// @public (undocumented)
-export function listOf<const TElement extends OneOfWrapper>(element: TElement): ListWrapper<TElement>;
 
 // @public
 export interface ListWrapper<TElement extends ListElementShape = ListElementShape> {
@@ -7308,11 +7295,6 @@ export interface ParallelOptions {
 export type ParallelTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question | NodeKind.Router;
 
 // @public
-export type PartialVariant<TDto extends DtoClass> = Partial<InstanceType<TDto>> & {
-    readonly [variantClass]: TDto;
-};
-
-// @public
 export interface PassedJudgeVerdict {
     readonly [judgeVerdict]: true;
     readonly metrics?: JudgeMetrics;
@@ -8329,7 +8311,7 @@ export interface PiiTargetDescriptor {
 }
 
 // @public (undocumented)
-type PlainDto<TValue> = TValue extends ProducedValue<infer TDto, unknown> ? TDto : TValue extends undefined ? never : TValue;
+type PlainDto<TValue> = TValue extends undefined ? never : WithoutTrack<TValue>;
 
 // @public
 export interface PlainErrorOptions {
@@ -8348,17 +8330,6 @@ export interface PreviousLeaseHolder {
     readonly holderInstanceId: string;
     // (undocumented)
     readonly token: number;
-}
-
-// @public
-export type Produced<TValue, TProducer> = TValue extends unknown ? ProducedValue<TValue, TProducer> : never;
-
-// @public (undocumented)
-export interface ProducedValue<TValue, TProducer> {
-    // (undocumented)
-    readonly producer: TProducer;
-    // (undocumented)
-    readonly value: TValue;
 }
 
 // @public
@@ -11105,17 +11076,6 @@ export interface ValuesOutdatedEvent extends NodeEvent {
 }
 
 // @public
-export type Variant<TDto extends DtoClass> = InstanceType<TDto> & {
-    readonly [variantClass]: TDto;
-};
-
-// @public
-export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
-
-// @public
-export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
-
-// @public
 interface VariantCommon extends Pick<AGBossErrorOptions, "location" | "secondarySpans" | "notes" | "help" | "suggestionPatch"> {
     // (undocumented)
     readonly cause?: unknown;
@@ -11135,12 +11095,6 @@ type VariantConstructors<TVariants extends Readonly<Record<string, AGBossError>>
 
 // @public
 type VariantFacts<TVariant extends AGBossError> = Omit<TVariant, keyof AGBossError | "kind" | "spend" | "usage">;
-
-// @public
-export type VariantOf<TValue> = TValue extends unknown ? {
-    readonly variant: DtoClass<TValue>;
-    readonly value: TValue;
-} : never;
 
 // @public
 type VariantOptions<TVariant extends AGBossError> = VariantFacts<TVariant> & PaidFacts<TVariant> & VariantCommon;
@@ -11215,6 +11169,13 @@ export enum Weekday {
 
 // @public
 type WithFinishes<TInstance, THead extends PathHead> = true extends IsUnion<FinishesOf<TInstance>> ? FinishHandling<TInstance, THead, FinishesOf<TInstance>> : unknown;
+
+// @public
+export type WithoutTrack<T> = T extends {
+    readonly [valueMetadata]: Class;
+} ? {
+    [K in keyof T as K extends typeof valueMetadata ? never : K]: T[K];
+} : T;
 
 // @public (undocumented)
 export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow>): (value: Class) => void;
@@ -12431,11 +12392,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "current".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "previous".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "optional".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "listOf".
 // src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "oneOf".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "ProducedValue".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "producer".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "value".
 // src/flow/flow-syntax-error.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/flow-syntax-error.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[noOutput]".

@@ -1,4 +1,4 @@
-import { Workflow, WorkflowFinish, WorkflowStart, Action, type Produced } from "../../../index.js";
+import { Workflow, WorkflowFinish, WorkflowStart, Action, type Tracked } from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
 import { ChannelOf } from "../../../channels/channel-handler.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
@@ -45,9 +45,9 @@ export class FaultApprovalDto {
 })
 export class FaultAskAction {
   execute(input: {
-    readonly reservation: Produced<FaultReservationDto, unknown>;
+    readonly reservation: Tracked<FaultReservationDto>;
   }): Promise<FaultApprovalAskDto> {
-    return Promise.resolve({ orderId: input.reservation.value.orderId });
+    return Promise.resolve({ orderId: input.reservation.orderId });
   }
 }
 
@@ -57,8 +57,8 @@ export class FaultAskAction {
   input: { approval: FaultApprovalDto },
 })
 export class FaultApprovedAction {
-  execute(input: { readonly approval: Produced<FaultApprovalDto, unknown> }): Promise<void> {
-    if (input.approval.value.approved) return Promise.resolve();
+  execute(input: { readonly approval: Tracked<FaultApprovalDto> }): Promise<void> {
+    if (input.approval.approved) return Promise.resolve();
     return Promise.reject(new FaultChargeDeclinedError("the order was not approved"));
   }
 }

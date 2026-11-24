@@ -11,7 +11,7 @@ import {
 } from "../../src/index.js";
 import type { JudgeInput } from "../../src/index.js";
 import { Integer, PlainTextDto, Text } from "../../src/dto/index.js";
-import { isVariant, listOf, oneOf, type VariantOf } from "../../src/index.js";
+import { listOf, oneOf } from "../../src/index.js";
 
 /**
  * #200 D4: compile-time checks of an agent's slots. Each `@ts-expect-error` below is a negative type
@@ -118,35 +118,20 @@ class ReasonDto {
 }
 
 describe("#262 S125: a oneOf judge reads its variant", () => {
-  it("a listOf(oneOf(…)) judge reads VariantOf items, never bare values", () => {
+  it("a listOf(A, B) judge reads each item as an instance of its class", () => {
     @Judge({
       name: "items-judge",
       model: "test/judge",
-      output: listOf(oneOf(SalaryDto, ReasonDto)),
+      output: listOf(SalaryDto, ReasonDto),
       deps: [JudgeModel],
     })
     class Items {
-      judge({
-        output,
-      }: JudgeInput<readonly VariantOf<SalaryDto | ReasonDto>[]>): Promise<JudgeVerdict> {
-        const paid = output.some((item) => isVariant(item, SalaryDto) && item.value.salary > 0);
+      judge({ output }: JudgeInput<readonly (SalaryDto | ReasonDto)[]>): Promise<JudgeVerdict> {
+        const paid = output.some((item) => item instanceof SalaryDto && item.salary > 0);
         return Promise.resolve(paid ? JudgeVerdict.passed() : JudgeVerdict.failed("unpaid"));
       }
     }
 
-    // @ts-expect-error -- the items of a listOf(oneOf(…)) reply are { variant, value }
-    @Judge({
-      name: "bare-items-judge",
-      model: "test/judge",
-      output: listOf(oneOf(SalaryDto, ReasonDto)),
-      deps: [JudgeModel],
-    })
-    class BareItems {
-      judge(_input: JudgeInput<readonly (SalaryDto | ReasonDto)[]>): Promise<JudgeVerdict> {
-        return Promise.resolve(JudgeVerdict.passed());
-      }
-    }
-
-    expect([Items.name, BareItems.name]).toEqual(["Items", "BareItems"]);
+    expect(Items.name).toBe("Items");
   });
 });

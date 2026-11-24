@@ -9,7 +9,7 @@ import {
 import { TablesImport, type ImportTable } from "./imports.js";
 import {
   outputText,
-  producedText,
+  trackedText,
   propertyName,
   startInputText,
   startOutputText,
@@ -22,7 +22,7 @@ import { Wrapper } from "../dto-wrappers.js";
  * The types of the decorated classes no workflow's graph reaches (#1324g): a component under test
  * (`testUnit(Action)`), a tool-only application's router. `.agboss/types.d.ts` types every decorated
  * class of the project's `src/`, so `InputOf<Self>` / `OutputOf<Self>` of a handler compiles before
- * any workflow names it. With no path there is no producer: each field is `Produced<Dto, never>`.
+ * any workflow names it. With no path there is no producer: each field is `Tracked<Dto, never>`.
  * A class a workflow does reach keeps its path-sensitive entry from `tables.ts`.
  */
 
@@ -35,13 +35,13 @@ export interface StandaloneTables {
   readonly routerAnswers: Map<string, string>;
 }
 
-/** `{ field: Produced<Dto, never>; … }`; `NoInput` for a class that reads nothing. */
+/** `{ field: Tracked<Dto, never>; … }`; `NoInput` for a class that reads nothing. */
 function inputText(fields: InputFields, names: ImportTable): string {
   const entries = Object.entries(fields);
   if (entries.length === 0) return names.use(TablesImport.NoInput);
   const members = entries.map(([name, shape]) => {
     const isOptional = typeof shape !== "function" && shape.kind === Wrapper.Optional;
-    const text = producedText(shape, "never", names);
+    const text = trackedText(shape, "never", names);
     return isOptional
       ? `${propertyName(name)}?: ${text} | undefined`
       : `${propertyName(name)}: ${text}`;

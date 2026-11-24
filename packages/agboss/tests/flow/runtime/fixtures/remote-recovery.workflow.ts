@@ -7,7 +7,7 @@ import {
   listOf,
   Workflow,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -61,13 +61,13 @@ export function resetRemoteRecoverySeen(): void {
 export class RemotePrepItemAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemDto> {
-    const { name, outcome } = input.item.value;
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemDto> {
+    const { name, outcome } = input.item;
     if (outcome === "fail") return Promise.reject(new Error(`failed: ${name}`));
     remoteRecoverySeen.prepRuns.push(name);
     if (name === "hold" && remoteRecoverySeen.holdInstanceId === undefined)
       remoteRecoverySeen.holdInstanceId = this.applicationContext.instanceId;
-    return Promise.resolve(input.item.value);
+    return Promise.resolve(input.item);
   }
 }
 

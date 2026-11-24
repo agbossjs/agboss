@@ -12,7 +12,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
@@ -297,9 +297,9 @@ const ranOn = (name: string, applicationContext: ApplicationContext): void => {
 export class WindowAskAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
-  execute(input: { readonly order: Produced<WindowOrderDto, unknown> }): Promise<WindowOrderDto> {
+  execute(input: { readonly order: Tracked<WindowOrderDto> }): Promise<WindowOrderDto> {
     ranOn("ask", this.applicationContext);
-    return Promise.resolve({ orderId: input.order.value.orderId });
+    return Promise.resolve({ orderId: input.order.orderId });
   }
 }
 
@@ -314,11 +314,11 @@ export class WindowAskAgainAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   execute(input: {
-    readonly approval: Produced<WindowApprovalDto, unknown>;
-    readonly order: Produced<WindowOrderDto, unknown>;
+    readonly approval: Tracked<WindowApprovalDto>;
+    readonly order: Tracked<WindowOrderDto>;
   }): Promise<WindowOrderDto> {
     ranOn("ask-again", this.applicationContext);
-    return Promise.resolve({ orderId: input.order.value.orderId });
+    return Promise.resolve({ orderId: input.order.orderId });
   }
 }
 
@@ -333,13 +333,13 @@ export class WindowApprovedAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   execute(input: {
-    readonly approval: Produced<WindowApprovalDto, unknown>;
-    readonly order: Produced<WindowOrderDto, unknown>;
+    readonly approval: Tracked<WindowApprovalDto>;
+    readonly order: Tracked<WindowOrderDto>;
   }): Promise<WindowReceiptDto> {
     ranOn("approved", this.applicationContext);
     pausesWindow.onApproved?.(this.applicationContext.instanceId);
-    const verdict = input.approval.value.approved ? "approved" : "refused";
-    return Promise.resolve({ text: `${input.order.value.orderId} ${verdict}` });
+    const verdict = input.approval.approved ? "approved" : "refused";
+    return Promise.resolve({ text: `${input.order.orderId} ${verdict}` });
   }
 }
 
@@ -353,11 +353,9 @@ export class WindowApprovedAction {
 export class WindowChargeAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
-  execute(input: {
-    readonly receipt: Produced<WindowReceiptDto, unknown>;
-  }): Promise<WindowReceiptDto> {
+  execute(input: { readonly receipt: Tracked<WindowReceiptDto> }): Promise<WindowReceiptDto> {
     ranOn("charge", this.applicationContext);
-    return Promise.resolve({ text: `${input.receipt.value.text}, charged` });
+    return Promise.resolve({ text: `${input.receipt.text}, charged` });
   }
 }
 

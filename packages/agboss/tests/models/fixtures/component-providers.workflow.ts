@@ -14,7 +14,7 @@ import {
   WorkflowStart,
   listOf,
   type Class,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
@@ -205,7 +205,7 @@ export function arbiterApplication(modelProvider?: Class): Class {
     output: WorkflowFinishTextDto,
   })
   class ArbAction {
-    async execute(i: { readonly answers: readonly Produced<AnswerDto, unknown>[] }) {
+    async execute(i: { readonly answers: readonly Tracked<AnswerDto>[] }) {
       return { text: String(i.answers.length) };
     }
   }

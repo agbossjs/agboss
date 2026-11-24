@@ -14,9 +14,9 @@ import { TopicDto } from "../dto/topic.dto.js";
 })
 export class SubtopicsAction implements ActionHandler<SubtopicsAction> {
   execute(input: InputOf<SubtopicsAction>): Promise<OutputOf<SubtopicsAction>> {
-    const { level } = input.topic.value;
+    const { level } = input.topic;
     const limit: number = level < 1 ? 5 : 3;
-    const subtopics: TopicDto[] = input.tooBroad.value.subtopics
+    const subtopics: TopicDto[] = input.tooBroad.subtopics
       .slice(0, limit)
       .map((title: string): TopicDto => ({ title, level: level + 1 })); // the domain level (Q52)
     return Promise.resolve(subtopics);

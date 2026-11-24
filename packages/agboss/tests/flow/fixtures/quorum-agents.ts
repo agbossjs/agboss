@@ -262,7 +262,7 @@ export class FullReviewAgent {}
 })
 export class OpenDealRoomAction implements ActionHandler<OpenDealRoomAction> {
   async execute(input: InputOf<OpenDealRoomAction>): Promise<void> {
-    await Promise.resolve(input.audit.value.passed);
+    await Promise.resolve(input.audit.passed);
   }
 }
 
@@ -273,7 +273,7 @@ export class OpenDealRoomAction implements ActionHandler<OpenDealRoomAction> {
 })
 export class NotifyReviewerAction implements ActionHandler<NotifyReviewerAction> {
   async execute(input: InputOf<NotifyReviewerAction>): Promise<void> {
-    await Promise.resolve(input.deal.value.name);
+    await Promise.resolve(input.deal.name);
   }
 }
 

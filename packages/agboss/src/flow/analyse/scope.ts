@@ -84,7 +84,7 @@ const listSlot = (list: ListWrapper): SlotKey =>
     : key(`list:oneOf(${sortedVariants(list.element).map(dtoLabel).join(",")})`);
 
 /**
- * The one slot a value fills: `XDto` → `XDto`; `listOf(XDto)` → `list:XDto`; `listOf(oneOf(A, B))`
+ * The one slot a value fills: `XDto` → `XDto`; `listOf(XDto)` → `list:XDto`; `listOf(A, B)`
  * → `list:oneOf(ADto,BDto)` — the polymorphic list as a whole; its slices are separate writes (`slices.ts`).
  */
 export function slotOfValue(shape: DtoClass | ListWrapper): SlotKey {

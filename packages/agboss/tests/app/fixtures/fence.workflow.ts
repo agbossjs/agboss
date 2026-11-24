@@ -14,7 +14,7 @@ import {
   type ToolEndEvent,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Observer,
   inline,
 } from "../../../src/index.js";
@@ -243,14 +243,8 @@ export class ReleaseAction {
     private readonly artifactLedger: ArtifactLedger,
   ) {}
 
-  async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ReceiptDto> {
-    const staged = await release(
-      this.executionContext,
-      this.artifactLedger,
-      input.message.value.text,
-    );
+  async execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ReceiptDto> {
+    const staged = await release(this.executionContext, this.artifactLedger, input.message.text);
     return { text: staged };
   }
 }

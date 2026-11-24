@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { DtoValidationError } from "../../src/dto/errors.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import { Action, ExecutionContext, type Produced } from "../../src/index.js";
+import { Action, ExecutionContext, type Tracked } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
 import { testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -167,9 +167,9 @@ describe("#547 acceptance: the rule named is the precedence's first one the text
 class PrecedenceChargeAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly message: Produced<WorkflowStartTextDto, unknown> }) {
+  execute(input: { readonly message: Tracked<WorkflowStartTextDto> }) {
     const key = effectKeyOf(this.executionContext, "charge", {
-      businessKey: input.message.value.text,
+      businessKey: input.message.text,
     });
     return Promise.resolve({ text: key.businessKey ?? "" });
   }
@@ -188,7 +188,7 @@ describe("#547 acceptance: every entry point names the same rule for a text brea
     "%s → %s",
     async ([, expected, text], { app }) => {
       const businessKey = await rejectionOf(
-        testUnit(PrecedenceChargeAction)({ message: { producer: "test", value: { text } } }),
+        testUnit(PrecedenceChargeAction)({ message: { text } }),
       );
       const executed = await rejectionOf(
         execute(app, ChatStart, { text: "hi" }, { threadId: text }),

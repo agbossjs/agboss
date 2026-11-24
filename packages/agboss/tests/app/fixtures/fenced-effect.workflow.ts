@@ -12,7 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { effectKeyOf } from "../../../src/stores/index.js";
 import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
@@ -117,7 +117,7 @@ export class ChargeOrderAction {
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
     const made = effectKeyOf(this.executionContext, "charge");
     // the largest result is the key's own (#1317): the lever of a test that pads the receipts
@@ -126,7 +126,7 @@ export class ChargeOrderAction {
         ? made
         : effectKeyForTesting(made, { maxResultSize: charging.maxResultSize });
     await gate("before");
-    const order = input.message.value.text;
+    const order = input.message.text;
     const outcome = await this.fencedEffects
       .runOnce(key, (): Receipt => {
         const chargeId = `charge-${order}-${String(key.token)}${"x".repeat(charging.padding)}`;
@@ -161,10 +161,10 @@ export class DoubleChargeAction {
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
     const key = effectKeyOf(this.executionContext, "charge");
-    const order = input.message.value.text;
+    const order = input.message.text;
     const charge = (): Receipt => {
       onEffectCommit(() => book.charges.push({ order, token: key.token, chargeId: order }));
       return { chargeId: order };

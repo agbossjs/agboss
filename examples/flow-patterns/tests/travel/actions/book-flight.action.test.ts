@@ -8,7 +8,6 @@ import {
   FlightBookingState,
   type FlightLookup,
 } from "../../../src/travel/services/booking-desk.service.js";
-import { TripWorkflowStart } from "../../../src/travel/workflows/trip/trip.workflow-start.js";
 
 /**
  * #505 — the flight booking is a call that leaves the system: its intent is recorded before the
@@ -59,7 +58,7 @@ class FakeBookingDeskService extends BookingDeskService {
 }
 
 const REQUEST = {
-  request: { producer: TripWorkflowStart, value: { destination: "Lisbon", nights: 3 } },
+  request: { destination: "Lisbon", nights: 3 },
 };
 
 const runner = () =>

@@ -12,7 +12,7 @@ import {
   type ActionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionRejectedEvent,
-  type Produced,
+  type Tracked,
   Observer,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
@@ -55,7 +55,7 @@ export class EchoObserver {
 }
 
 interface Message {
-  readonly message: Produced<WorkflowStartTextDto, unknown>;
+  readonly message: Tracked<WorkflowStartTextDto>;
 }
 
 @Action({
@@ -72,7 +72,7 @@ export class KeyedEffectAction {
     // the key's text is what this fixture is about: its work is the same whatever the key (#825)
     await this.idempotency.runOnce({
       name: "charge",
-      key: input.message.value.text,
+      key: input.message.text,
       withoutFingerprint: true,
       ttl: hours(24),
       execute: () => {
@@ -97,7 +97,7 @@ export class HandKeyedSendAction {
   async execute(input: Message): Promise<WorkflowFinishTextDto> {
     await this.idempotency.sendOnce({
       name: "charge",
-      key: input.message.value.text,
+      key: input.message.text,
       target: "payments",
       operation: "charge",
       request: { amountUsd: 10 },

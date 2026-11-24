@@ -59,7 +59,7 @@ export class EchoAction {
   execute(input: {
     readonly message: { readonly value: WorkflowStartTextDto };
   }): Promise<WorkflowFinishTextDto> {
-    return Promise.resolve({ text: `echo: ${input.message.value.text}` });
+    return Promise.resolve({ text: `echo: ${input.message.text}` });
   }
 }
 
@@ -71,7 +71,7 @@ export class EchoAction {
 })
 export class ScreenAction {
   execute(input: { readonly company: { readonly value: CompanyDto } }): Promise<CompanyScoreDto> {
-    return Promise.resolve({ score: `${input.company.value.name}: fits` });
+    return Promise.resolve({ score: `${input.company.name}: fits` });
   }
 }
 
@@ -85,7 +85,7 @@ export class RankAction {
   execute(input: {
     readonly companies: readonly { readonly value: CompanyDto }[];
   }): Promise<CompanyScoreDto> {
-    const names = input.companies.map((company) => company.value.name);
+    const names = input.companies.map((company) => company.name);
     return Promise.resolve({ score: names.join(" > ") });
   }
 }
@@ -101,8 +101,8 @@ export class CriteriaAction {
     readonly company: { readonly value: CompanyDto };
     readonly request?: { readonly value: SearchRequestDto };
   }): Promise<CompanyScoreDto> {
-    const criteria = input.request?.value.criteria ?? "anything";
-    return Promise.resolve({ score: `${input.company.value.name} for ${criteria}` });
+    const criteria = input.request?.criteria ?? "anything";
+    return Promise.resolve({ score: `${input.company.name} for ${criteria}` });
   }
 }
 

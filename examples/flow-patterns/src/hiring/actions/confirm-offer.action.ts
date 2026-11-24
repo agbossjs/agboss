@@ -23,7 +23,7 @@ export class ConfirmOfferAction implements ActionHandler<ConfirmOfferAction> {
   ) {}
 
   async execute(input: InputOf<ConfirmOfferAction>): Promise<OutputOf<ConfirmOfferAction>> {
-    const { offerId } = input.offer.value;
+    const { offerId } = input.offer;
     await this.atsClientService.confirmOffer(offerId, this.executionContext.step.idempotencyKey);
     return { offerId };
   }

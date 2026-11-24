@@ -1,13 +1,8 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { FlowPath } from "../../../src/flow/ast.js";
 import { onAgent, onStart, toAction, toAgent, toFinish } from "../../../src/flow/builder.js";
-import {
-  historyOf,
-  oneOf,
-  optional,
-  type HistoryOf,
-  type Produced,
-} from "../../../src/flow/dto-wrappers.js";
+import { historyOf, oneOf, optional, type HistoryOf } from "../../../src/flow/dto-wrappers.js";
+import { Metadata, type Tracked } from "../../../src/flow/metadata.js";
 import type {
   AGBossTypes,
   InputOf,
@@ -161,15 +156,15 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     >();
   });
 
-  it("AC3: from(Dto, tag) does not exist; historyOf is HistoryOf<Produced<…>> in InputOf (AC4)", () => {
+  it("AC3: from(Dto, tag) does not exist; historyOf is HistoryOf<Tracked<…>> in InputOf (AC4)", () => {
     expectTypeOf<typeof import("../../../src/index.js")>().not.toHaveProperty("from");
     expectTypeOf<typeof import("../../../src/index.js")>().not.toHaveProperty("about");
     expectTypeOf<typeof import("../../../src/dto/index.js")>().not.toHaveProperty("about");
     expectTypeOf<InputOf<ReviewDraftAction>>().toEqualTypeOf<{
-      draft: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>>;
+      draft: HistoryOf<Tracked<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>>;
     }>();
     expectTypeOf<InputOf<DraftHistoryAction>["drafts"]["previous"]>().toEqualTypeOf<
-      readonly Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>[]
+      readonly Tracked<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>[]
     >();
     expectTypeOf(historyOf(OfferDraftDto, { maxPrevious: 2 }).maxPrevious).toEqualTypeOf<
       number | undefined
@@ -201,12 +196,12 @@ describe("S39: DTO brands tell two DTOs of the same shape apart", () => {
   });
 });
 
-describe("#270 AC8: Produced P is the producer union", () => {
+describe("#270 AC8: Tracked P is the producer union", () => {
   it("a field one of two producers can bring", () => {
     expectTypeOf<InputOf<ReviewerAgent>>().toEqualTypeOf<{
-      draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>;
+      draft: Tracked<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>;
     }>();
-    expectTypeOf<InputOf<FastAnswerAgent>["order"]["producer"]>().not.toBeNever();
+    expectTypeOf(Metadata.createdBy({} as InputOf<FastAnswerAgent>["order"])).not.toBeNever();
   });
 });
 
@@ -214,7 +209,7 @@ describe("#270 AC13: InputOf is path-sensitive — optional fields narrow withou
   it("an optional field some paths bring", () => {
     const input = {} as InputOf<ExpertAnswerAgent>;
     if (input.loyalty !== undefined) {
-      expectTypeOf(input.loyalty.value).toEqualTypeOf<LoyaltyOfferDto>();
+      expectTypeOf(input.loyalty).toExtend<LoyaltyOfferDto>();
     } else {
       expectTypeOf(input.loyalty).toEqualTypeOf<undefined>();
     }
@@ -223,15 +218,15 @@ describe("#270 AC13: InputOf is path-sensitive — optional fields narrow withou
   it("two fields of which every path brings exactly one", () => {
     const input = {} as InputOf<SupportAction>;
     if (input.fast === undefined) {
-      expectTypeOf(input.expert.value).toEqualTypeOf<ExpertDraftDto>();
+      expectTypeOf(input.expert).toExtend<ExpertDraftDto>();
     } else {
-      expectTypeOf(input.fast.value).toEqualTypeOf<FastDraftDto>();
+      expectTypeOf(input.fast).toExtend<FastDraftDto>();
     }
   });
 
-  it("a list field is an array of Produced elements", () => {
+  it("a list field is an array of Tracked elements", () => {
     expectTypeOf<InputOf<BatchRankAgent>>().toEqualTypeOf<{
-      companies: readonly Produced<CompanyDto, typeof CompanyBatchWorkflowStart>[];
+      companies: readonly Tracked<CompanyDto, typeof CompanyBatchWorkflowStart>[];
     }>();
   });
 });

@@ -14,7 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../src/index.js";
@@ -72,9 +72,9 @@ class OwnersStart {}
 })
 class OwnersAction {
   async execute(input: {
-    readonly answers: readonly Produced<OwnerAnswerDto, unknown>[];
+    readonly answers: readonly Tracked<OwnerAnswerDto>[];
   }): Promise<OwnersDto> {
-    return { owners: input.answers.map((answer) => answer.value.owner).join("; ") };
+    return { owners: input.answers.map((answer) => answer.owner).join("; ") };
   }
 }
 

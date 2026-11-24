@@ -34,7 +34,7 @@ export interface ChildEntry {
 /** `critic-agent#2` → `critic-agent`. */
 const nodeOfId = (nodeId: string): string => nodeId.replace(/#\d+$/, "");
 
-/** The value a start's field takes from one record (a `listOf(oneOf(…))` element's value). */
+/** The value a start's field takes from one record (a `listOf(…)` element's value). */
 function fieldValueOf(record: ScopeValueRecord): unknown {
   if (!Array.isArray(record.value) || !record.slot.startsWith("list:oneOf(")) return record.value;
   return (record.value as readonly VariantElement[]).map((element) => element.value);

@@ -25,7 +25,7 @@ export class BookingDto {
 })
 export class ConfirmAction {
   execute(input: { readonly booking: { readonly value: HotelBookingDto } }): Promise<BookingDto> {
-    return Promise.resolve({ confirmation: input.booking.value.room });
+    return Promise.resolve({ confirmation: input.booking.room });
   }
 }
 

@@ -171,7 +171,7 @@ export class MailOfferAction implements ActionHandler<MailOfferAction> {
 
   async execute(input: InputOf<MailOfferAction>): Promise<OutputOf<MailOfferAction>> {
     const key: string = this.executionContext.step.idempotencyKey; // a resend after a crash is one send
-    const messageId: string = await this.offerMailerService.send(input.request.value.candidate, input.letter.value.text, key);
+    const messageId: string = await this.offerMailerService.send(input.request.candidate, input.letter.text, key);
     return { messageId };
   }
 }
@@ -219,7 +219,7 @@ const SIGN_OFF_SALARY = 200_000;
 })
 export class OfferSizeRouter implements RouterHandler<OfferSizeRouter> {
   route(input: InputOf<OfferSizeRouter>): Route<OfferSizeRouter> {
-    return input.request.value.salary > SIGN_OFF_SALARY ? OfferForSignOffWorkflowFinish : MailOfferAction;
+    return input.request.salary > SIGN_OFF_SALARY ? OfferForSignOffWorkflowFinish : MailOfferAction;
   }
 }
 ```
@@ -525,7 +525,7 @@ import { SupplierDto } from "../dto/supplier.dto.js";
 @Action({ name: "mark-supplier-unchecked-action", description: "Records a failed check", input: { supplier: SupplierDto }, output: SupplierUncheckedDto })
 export class MarkSupplierUncheckedAction implements ActionHandler<MarkSupplierUncheckedAction> {
   execute(input: InputOf<MarkSupplierUncheckedAction>): Promise<OutputOf<MarkSupplierUncheckedAction>> {
-    return Promise.resolve({ name: input.supplier.value.name });
+    return Promise.resolve({ name: input.supplier.name });
   }
 }
 ```
@@ -662,7 +662,7 @@ import { SupplierUncheckedDto } from "../../dto/supplier-unchecked.dto.js";
   description: "Picks the best checked supplier",
   prompt: inline("Pick the best scored supplier and its price; ignore the unchecked ones."),
   model: "moonshotai/kimi-k2.6",
-  input: { checks: listOf(oneOf(SupplierScoreDto, SupplierUncheckedDto)) },
+  input: { checks: listOf(SupplierScoreDto, SupplierUncheckedDto) },
   output: SupplierShortlistDto,
 })
 export class SupplierShortlistAgent {}
@@ -1690,7 +1690,7 @@ export class ReleaseFundsAction implements ActionHandler<ReleaseFundsAction> {
   ) {}
 
   async execute(input: InputOf<ReleaseFundsAction>): Promise<void> {
-    await this.fundsLedgerService.release(input.reservation.value.reservationId, this.executionContext.step.idempotencyKey);
+    await this.fundsLedgerService.release(input.reservation.reservationId, this.executionContext.step.idempotencyKey);
   }
 }
 ```
@@ -1719,7 +1719,7 @@ export class ReserveFundsAction implements ActionHandler<ReserveFundsAction> {
 
   async execute(input: InputOf<ReserveFundsAction>): Promise<OutputOf<ReserveFundsAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { reservationId: await this.fundsLedgerService.reserve(input.application.value.amount, key) };
+    return { reservationId: await this.fundsLedgerService.reserve(input.application.amount, key) };
   }
 }
 ```
@@ -1747,7 +1747,7 @@ export class SendLoanOfferAction implements ActionHandler<SendLoanOfferAction> {
 
   async execute(input: InputOf<SendLoanOfferAction>): Promise<OutputOf<SendLoanOfferAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { offerId: await this.fundsLedgerService.sendOffer(input.reservation.value.reservationId, key) };
+    return { offerId: await this.fundsLedgerService.sendOffer(input.reservation.reservationId, key) };
   }
 }
 ```

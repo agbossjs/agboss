@@ -72,7 +72,7 @@ export class TopicsWorkflowFinish {}
 })
 export class TopicsRouter implements RouterHandler<TopicsRouter> {
   route(input: InputOf<TopicsRouter>): Route<TopicsRouter> {
-    return input.intent.value.isRefund ? RefundTopicAgent : DeliveryTopicAgent;
+    return input.intent.isRefund ? RefundTopicAgent : DeliveryTopicAgent;
   }
 }
 

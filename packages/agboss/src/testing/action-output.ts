@@ -1,22 +1,29 @@
-import type { DtoClass } from "../dto/types.js";
+import { strictMatchOf } from "../dto/schema.js";
 import { NodeKind } from "../flow/ast.js";
-import { Wrapper } from "../flow/dto-wrappers.js";
+import { Wrapper, type OutputShape } from "../flow/dto-wrappers.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import type { OutputClassOf } from "./action-script.js";
 
 /**
  * The class each action of the application returns (for `mockAction(A)` / `toHaveReturned`): its
- * declared `output` — a list's element; a `oneOf` result names its own class with `variant(…)`.
+ * declared `output` — a list's element; a `oneOf` (or a polymorphic list) result is the one class
+ * whose strict schema accepts the value (assembly guarantees at most one, `[dto.ambiguous-one-of]`).
  */
 export function actionOutputClassOf(nodes: readonly RuntimeNode[]): OutputClassOf {
-  const classes = new Map<string, DtoClass>();
+  const outputs = new Map<string, OutputShape>();
   for (const node of nodes) {
     const { declaration } = node;
     if (declaration.kind !== NodeKind.Action) continue;
     const { output } = declaration.options;
-    if (typeof output === "function") classes.set(node.id, output);
-    else if (output?.kind === Wrapper.List && typeof output.element === "function")
-      classes.set(node.id, output.element);
+    if (output !== undefined) outputs.set(node.id, output);
   }
-  return (action) => classes.get(action);
+  return (action, value) => {
+    const output = outputs.get(action);
+    if (output === undefined) return undefined;
+    if (typeof output === "function") return output;
+    if (output.kind === Wrapper.OneOf) return strictMatchOf(output.variants, value);
+    return output.variants.length === 1
+      ? output.variants[0]
+      : strictMatchOf(output.variants, value);
+  };
 }

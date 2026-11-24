@@ -3,7 +3,7 @@ import {
   ApplicationContext,
   ExecutionContext,
   Idempotency,
-  type Produced,
+  type Tracked,
 } from "../../../index.js";
 import { FAULT_BUSINESS_ROWS, type FaultBusinessRows } from "../fault-stores.js";
 import { hours } from "../../../units/index.js";
@@ -48,10 +48,8 @@ export class FaultReleaseAction {
     private readonly faultPodLink: FaultPodLink,
   ) {}
 
-  async execute(input: {
-    readonly reservation: Produced<FaultReservationDto, unknown>;
-  }): Promise<void> {
-    const { orderId } = input.reservation.value;
+  async execute(input: { readonly reservation: Tracked<FaultReservationDto> }): Promise<void> {
+    const { orderId } = input.reservation;
     const where = whereOf(this.applicationContext, this.executionContext);
     await this.faultPodLink.atStep(
       FaultStepPoint.Release,
@@ -77,10 +75,8 @@ export class FaultReserveAction {
     private readonly faultPodLink: FaultPodLink,
   ) {}
 
-  async execute(input: {
-    readonly order: Produced<FaultOrderDto, unknown>;
-  }): Promise<FaultReservationDto> {
-    const { orderId, decline } = input.order.value;
+  async execute(input: { readonly order: Tracked<FaultOrderDto> }): Promise<FaultReservationDto> {
+    const { orderId, decline } = input.order;
     const where = whereOf(this.applicationContext, this.executionContext);
     await this.faultPodLink.atStep(
       FaultStepPoint.Reserve,
@@ -118,9 +114,9 @@ export class FaultChargeAction {
   ) {}
 
   async execute(input: {
-    readonly reservation: Produced<FaultReservationDto, unknown>;
+    readonly reservation: Tracked<FaultReservationDto>;
   }): Promise<FaultChargeDto> {
-    const { orderId, decline } = input.reservation.value;
+    const { orderId, decline } = input.reservation;
     const { signal } = this.executionContext;
     const where = { ...whereOf(this.applicationContext, this.executionContext), orderId };
     await this.faultPodLink.atStep(FaultStepPoint.ChargeBefore, where, signal);

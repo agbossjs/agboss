@@ -1,5 +1,4 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { variant } from "../../src/flow/dto-wrappers.js";
 import {
   decideWith,
   failWith,
@@ -135,7 +134,6 @@ describe("#262 AC6: when(…) takes PartialValues<InputOf<Node>>", () => {
     mockLlm(ScoutAgent).when({ profile: { producer: ProfilerAgent } });
     // @ts-expect-error — a list field is matched by a list
     mockLlm(BatchRankAgent).when({ companies: { name: "Acme" } });
-    expect(variant(CompanyDto, { name: "Acme" })).toBeDefined();
   });
 });
 

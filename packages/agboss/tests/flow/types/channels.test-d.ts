@@ -121,9 +121,7 @@ describe("#659 AC6: a question role's ask and answer type its channel and its in
 
   it("the step's input and output: the ask in, the answer out", () => {
     expectTypeOf<OutputOf<SpendingLimitQuestion>>().toEqualTypeOf<SpendingLimitAnswerDto>();
-    expectTypeOf<
-      InputOf<SpendingLimitQuestion>["ask"]["value"]
-    >().toEqualTypeOf<PurchaseQuestionDto>();
+    expectTypeOf<InputOf<SpendingLimitQuestion>["ask"]>().toExtend<PurchaseQuestionDto>();
   });
 
   it("#802 AC4: the step's input field is ask, as the role's option says; question is no field", () => {

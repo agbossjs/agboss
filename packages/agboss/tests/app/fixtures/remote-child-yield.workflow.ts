@@ -16,7 +16,7 @@ import {
   type ChannelAsk,
   type ExecutionEndEvent,
   type ExecutionStartEvent,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -105,8 +105,8 @@ async function passGate(executionContext: ExecutionContext, name: string): Promi
 export class GatedItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, outcome } = input.item;
     await passGate(this.executionContext, name);
     // #520: an item to fail fails its child once past the gate
     if (outcome === "fail") throw new Error(`item ${name} failed`);
@@ -127,10 +127,8 @@ export class GatedItemAction {
 export class GatedResultAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: {
-    readonly result: Produced<ItemResultDto, unknown>;
-  }): Promise<ItemResultDto> {
-    const { name } = input.result.value;
+  async execute(input: { readonly result: Tracked<ItemResultDto> }): Promise<ItemResultDto> {
+    const { name } = input.result;
     await passGate(this.executionContext, name);
     return { name };
   }

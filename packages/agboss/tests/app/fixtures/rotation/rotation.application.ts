@@ -12,7 +12,7 @@ import {
   env,
   type IdempotencyRunStatus,
   type OutboundCallSendStatus,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { hours, seconds } from "../../../../src/units/index.js";
@@ -69,8 +69,8 @@ export class BookOrderAction {
     private readonly connection: SqliteConnection,
   ) {}
 
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
-    const { orderId, amountUsd } = input.order.value;
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
+    const { orderId, amountUsd } = input.order;
     const outcome = await this.idempotency.runOnce({
       name: "book",
       key: `order:${orderId}`,
@@ -102,8 +102,8 @@ export class ChargeOrderAction {
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
-    const { orderId, amountUsd } = input.order.value;
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
+    const { orderId, amountUsd } = input.order;
     const outcome = await this.idempotency.sendOnce({
       name: "charge",
       key: `order:${orderId}`,

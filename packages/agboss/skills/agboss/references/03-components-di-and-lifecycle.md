@@ -580,11 +580,10 @@ Injected like any dependency, read only while a step runs (outside → `Executio
 ## Judges in short
 
 - `@Judge({ output })` must match the agent's `output` (`[judge.wrong-output]` otherwise): a DTO,
-  `oneOf(A, B)`, `listOf(X)`, `listOf(oneOf(A, B))`, or `PlainTextDto` for a text agent.
+  `oneOf(A, B)`, `listOf(X)`, `listOf(A, B)`, or `PlainTextDto` for a text agent.
 - `JudgeInput<Self>` (or `JudgeInput<PlainTextDto>`, the output directly) is `{ variant, output, task, attempt }`; for a `oneOf` output narrow with
-  `isVariant(input, OfferDto)` (`input.variant` is the class the answer validated as); a
-  `listOf(oneOf(…))` output's items are `VariantOf<A | B>` (`{ variant, value }`, narrowed with
-  `isVariant(item, A)`).
+  `input.output instanceof OfferDto` (`input.variant` is the class the answer validated as); a
+  `listOf(A, B)` output's items are instances of their classes (`item instanceof A`).
 - A judge that only asks its model is an empty class: `@Judge({ output, prompt: "./criterion.prompt.md" | inline(…), threshold?, model?, modelProvider? })`
   (`threshold` in `(0, 1]`: the model scores, the answer passes at `score >= threshold`; else pass or fail). No `judge()`, no `deps`; the
   budgets are checked before each of its model calls; in tests an unscripted one passes. `[judge.zero-retries]` warns for an agent with judges and no `maxRetries`.
@@ -592,7 +591,7 @@ Injected like any dependency, read only while a step runs (outside → `Executio
   `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
 
 <!-- snippet-context
-import { Judge, JudgeModel, JudgeVerdict, isVariant, oneOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { Judge, JudgeModel, JudgeVerdict, oneOf, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { Integer, Text } from "@agboss/core/dto";
 class OfferDto {
   @Integer({ prompt: "the salary offered" })
@@ -608,7 +607,7 @@ class RefusalDto {
 @Judge({ name: "offer-range-judge", model: "moonshotai/kimi-k2.6", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class OfferRangeJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
-    if (!isVariant(input, OfferDto)) return Promise.resolve(JudgeVerdict.passed());
+    if (!(input.output instanceof OfferDto)) return Promise.resolve(JudgeVerdict.passed());
     return Promise.resolve(
       input.output.salary > 0 // narrowed: input.output is an OfferDto here
         ? JudgeVerdict.passed()
@@ -906,7 +905,7 @@ export class ReleaseSeatAction implements ActionHandler<ReleaseSeatAction> {
 
   async execute(input: InputOf<ReleaseSeatAction>): Promise<void> {
     // on a side path its own step's key; automatic: the undone step's key + ":compensation"
-    await this.airlineService.release(input.hold.value.holdId, this.executionContext.step.idempotencyKey);
+    await this.airlineService.release(input.hold.holdId, this.executionContext.step.idempotencyKey);
   }
 }
 ```
@@ -920,7 +919,7 @@ import { TicketIssuedDto } from "../dto/ticket-issued.dto.js";
 @Action({ name: "issue-ticket-action", description: "Issues the ticket", input: { hold: SeatHoldDto }, output: TicketIssuedDto })
 export class IssueTicketAction implements ActionHandler<IssueTicketAction> {
   execute(input: InputOf<IssueTicketAction>): Promise<OutputOf<IssueTicketAction>> {
-    return Promise.resolve({ ticketNumber: `T-${input.hold.value.holdId}` });
+    return Promise.resolve({ ticketNumber: `T-${input.hold.holdId}` });
   }
 }
 ```
@@ -950,7 +949,7 @@ export class HoldSeatAction implements ActionHandler<HoldSeatAction> {
 
   async execute(input: InputOf<HoldSeatAction>): Promise<OutputOf<HoldSeatAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { holdId: await this.airlineService.hold(input.request.value.request, key) };
+    return { holdId: await this.airlineService.hold(input.request.request, key) };
   }
 }
 ```

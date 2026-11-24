@@ -30,7 +30,7 @@ import {
 
 beforeEach(resetFencedEffect);
 
-const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
+const order = { message: { text: "order-1" } } as never;
 
 describe("#500: a unit runner's fenced effect", () => {
   it("runs on the runner's held lease (token 1), then replays the receipt on the same step", async () => {

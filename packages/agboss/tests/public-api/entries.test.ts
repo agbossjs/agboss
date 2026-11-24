@@ -91,7 +91,6 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
       "WorkflowStart",
       "onAction",
       "onAgent",
-      "isVariant",
       "listOf",
       "oneOf",
       "optional",
@@ -101,16 +100,22 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
       "toAgent",
       "toFinish",
       "toRouter",
-      "variant",
     ];
 
     expect(Object.keys(root)).toEqual(expect.arrayContaining(expected));
   });
 
   it("agboss/dto no longer re-exports the wrappers: the root entry is their one import path (#1288)", () => {
-    for (const name of ["listOf", "oneOf", "optional", "historyOf", "variant", "isVariant"]) {
+    for (const name of ["listOf", "oneOf", "optional", "historyOf"]) {
       expect(name in dto).toBe(false);
       expect(name in root).toBe(true);
+    }
+  });
+
+  it("variant and isVariant are gone from every entry (F1, #1288)", () => {
+    for (const name of ["variant", "isVariant"]) {
+      expect(name in dto).toBe(false);
+      expect(name in root).toBe(false);
     }
   });
 

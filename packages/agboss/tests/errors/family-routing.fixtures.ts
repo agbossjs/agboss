@@ -74,8 +74,8 @@ const THROWN: Readonly<Record<string, (() => Error) | undefined>> = {
   output: OutDto,
 })
 export class ThrowingAction {
-  execute({ ask }: { readonly ask: { readonly value: AskDto } }): Promise<OutDto> {
-    const { fail } = ask.value;
+  execute({ ask }: { readonly ask: AskDto }): Promise<OutDto> {
+    const { fail } = ask;
     const make = THROWN[fail];
     if (make !== undefined) throw make();
     return Promise.resolve({ fail });

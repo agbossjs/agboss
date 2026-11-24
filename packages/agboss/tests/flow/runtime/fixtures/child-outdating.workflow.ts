@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -56,8 +56,8 @@ export class PickedWorkflowFinish {}
   routes: [ItemPickerAgent, PickedWorkflowFinish],
 })
 export class PickAgainRouter {
-  route(input: { readonly result: Produced<ItemResultDto, unknown> }): unknown {
-    return input.result.value.name === "retry" ? ItemPickerAgent : PickedWorkflowFinish;
+  route(input: { readonly result: Tracked<ItemResultDto> }): unknown {
+    return input.result.name === "retry" ? ItemPickerAgent : PickedWorkflowFinish;
   }
 }
 

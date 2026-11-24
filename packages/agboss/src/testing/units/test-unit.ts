@@ -11,6 +11,7 @@ import type { JudgeOutputOf } from "../../components/judge-decorators.js";
 import type { RagSource } from "../../rag/rag-source.js";
 import type { ToolInputOf, ToolOutputOf } from "../../tools/index.js";
 import { TestSetupError } from "../errors.js";
+import type { Untracked } from "../../flow/metadata.js";
 import type { RecordedInputOf } from "../script-types.js";
 import {
   actionUnit,
@@ -68,13 +69,22 @@ export type FailClosed<TRunner, TGenerated> = [TGenerated] extends [never]
 export type UnitRunnerOf<TClass extends Class> =
   IsFlowNode<InstanceType<TClass>, NodeKind.Router> extends true
     ? FailClosed<
-        RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>>,
+        RouterRunner<
+          Untracked<RecordedInputOf<InstanceType<TClass>>>,
+          RouterAnswerOf<InstanceType<TClass>>
+        >,
         RouterAnswerOf<InstanceType<TClass>>
       >
     : IsFlowNode<InstanceType<TClass>, NodeKind.Action> extends true
-      ? ActionRunner<ActionInputOf<InstanceType<TClass>>, ActionOutputOf<InstanceType<TClass>>>
+      ? ActionRunner<
+          Untracked<ActionInputOf<InstanceType<TClass>>>,
+          ActionOutputOf<InstanceType<TClass>>
+        >
       : InstanceType<TClass> extends { execute(input: never): unknown }
-        ? ToolRunner<ToolInputOf<InstanceType<TClass>>, ToolOutputOf<InstanceType<TClass>>>
+        ? ToolRunner<
+            Untracked<ToolInputOf<InstanceType<TClass>>>,
+            ToolOutputOf<InstanceType<TClass>>
+          >
         : InstanceType<TClass> extends { route(input: never): unknown }
           ? FailClosed<
               RouterRunner<

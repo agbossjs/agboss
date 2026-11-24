@@ -42,9 +42,7 @@ describe("a business key with a lone surrogate", () => {
   it("effectKeyOf refuses it with IdempotencyError.InvalidKey, the key not in the message", async () => {
     const run = testUnit(CutKeyAction);
 
-    const error: unknown = await run({ message: { producer: "test", value: { text: "x" } } }).catch(
-      (thrown: unknown) => thrown,
-    );
+    const error: unknown = await run({ message: { text: "x" } }).catch((thrown: unknown) => thrown);
 
     expect(error).toBeInstanceOf(IdempotencyError.InvalidKey);
     expect((error as Error).message).not.toContain("order:");

@@ -16,7 +16,7 @@ export interface WorkflowFinishOptions {
   /** Ends with `-workflow-finish` (`chat-workflow-finish`). */
   readonly name: string;
   readonly description: string;
-  /** One DTO, or a list of them (`listOf(ItemDto)`, `listOf(oneOf(A, B))`) after a join. */
+  /** One DTO, or a list of them (`listOf(ItemDto)`, `listOf(A, B)`) after a join. */
   readonly output: DtoClass | ListWrapper;
 }
 

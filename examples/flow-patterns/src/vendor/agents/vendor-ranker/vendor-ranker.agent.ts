@@ -1,4 +1,4 @@
-import { Agent, listOf, oneOf } from "@agboss/core";
+import { Agent, listOf } from "@agboss/core";
 import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
 import { VendorRankingDto } from "../../dto/vendor-ranking.dto.js";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
@@ -11,7 +11,7 @@ import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
   prompt: "./vendor-ranker.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
-    checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)),
+    checks: listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto),
   },
   output: VendorRankingDto,
 })

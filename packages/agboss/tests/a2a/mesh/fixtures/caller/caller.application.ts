@@ -17,7 +17,7 @@ import {
   WorkflowStart,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type Produced,
+  type Tracked,
 } from "../../../../../src/index.js";
 import { usd } from "../../../../../src/units/index.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../../../src/budgets/budget.js";
@@ -195,10 +195,10 @@ export class AskPeerAction {
   constructor(private readonly peerA2AAgent: PeerA2AAgent) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishTextDto> {
     try {
-      const answer = await this.peerA2AAgent.execute({ text: input.message.value.text });
+      const answer = await this.peerA2AAgent.execute({ text: input.message.text });
       caller.answers.push(answer.text);
       await frozenAfterCall();
       return answer;

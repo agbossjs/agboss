@@ -41,7 +41,7 @@ and ends at a finish (or at a node that has its own path). Write **one call per 
 | `@Action({ compensateWith, committedBy })`                                                  | the action's undo and its commit point; side paths must run the undo                                                                                                                                                                              | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
 The wrappers (`agboss`, also re-exported by `@agboss/core/dto`): `listOf(XDto)`, `oneOf(A, B)`,
-`optional(XDto)`, `historyOf(XDto, { maxPrevious })` (an input only), `variant(XDto, value)` (tests).
+`optional(XDto)`, `historyOf(XDto, { maxPrevious })` (an input only).
 
 Placement rules that hold everywhere:
 
@@ -55,7 +55,7 @@ Placement rules that hold everywhere:
 ## 1. A straight path, a start with several fields
 
 A start's input is a DTO, a `listOf(…)` or a map of fields; `onStart(S)` gives each field. A node reads its `input` fields from the scope by class — never by position. An action
-gets each field as `{ producer, value }`.
+gets each field as the DTO itself (tracked: `Metadata.createdBy(field)` is the class that gave it).
 
 ```ts file=src/ticket/dto/ticket.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -144,7 +144,7 @@ export class FileTicketAction implements ActionHandler<FileTicketAction> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: InputOf<FileTicketAction>): Promise<OutputOf<FileTicketAction>> {
-    const { queue } = input.triage.value; // { producer, value }: the value and who made it
+    const { queue } = input.triage; // the DTO itself; Metadata.createdBy(input.triage) is who made it
     return Promise.resolve({ ticketId: `${queue}-${this.executionContext.step.idempotencyKey}` });
   }
 }
@@ -312,8 +312,8 @@ export class ChargeOrderAction implements ActionHandler<ChargeOrderAction> {
 
   execute(input: InputOf<ChargeOrderAction>): Promise<OutputOf<ChargeOrderAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    const approvedBy: string = input.approval?.value.approvedBy ?? "auto";
-    return Promise.resolve({ chargeId: `${input.order.value.customerId}:${approvedBy}:${key}` });
+    const approvedBy: string = input.approval?.approvedBy ?? "auto";
+    return Promise.resolve({ chargeId: `${input.order.customerId}:${approvedBy}:${key}` });
   }
 }
 ```
@@ -382,7 +382,7 @@ const APPROVAL_LIMIT = 1000;
 })
 export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
   route(input: InputOf<CreditLimitRouter>): Route<CreditLimitRouter> {
-    return input.order.value.total > APPROVAL_LIMIT ? CreditApprovalAgent : ChargeOrderAction;
+    return input.order.total > APPROVAL_LIMIT ? CreditApprovalAgent : ChargeOrderAction;
   }
 }
 ```
@@ -586,7 +586,7 @@ export class SendOfferAction implements ActionHandler<SendOfferAction> {
 
   execute(input: InputOf<SendOfferAction>): Promise<OutputOf<SendOfferAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return Promise.resolve({ offerId: `${String(input.draft.value.text.length)}:${key}` });
+    return Promise.resolve({ offerId: `${String(input.draft.text.length)}:${key}` });
   }
 }
 ```
@@ -603,7 +603,7 @@ import { CandidateShortlistDto } from "../dto/candidate-shortlist.dto.js";
 })
 export class NotifyRecruiterAction implements ActionHandler<NotifyRecruiterAction> {
   async execute(input: InputOf<NotifyRecruiterAction>): Promise<void> {
-    await Promise.resolve(input.shortlist.value.candidate);
+    await Promise.resolve(input.shortlist.candidate);
   }
 }
 ```
@@ -853,8 +853,8 @@ import { SectionReviewDto } from "../dto/section-review.dto.js";
 })
 export class SectionNotesAction implements ActionHandler<SectionNotesAction> {
   execute(input: InputOf<SectionNotesAction>): Promise<OutputOf<SectionNotesAction>> {
-    // a list field is one { producer, value } per item
-    return Promise.resolve({ notes: input.sections.map((review) => review.value.notes).join("\n") });
+    // a list field is one DTO per item
+    return Promise.resolve({ notes: input.sections.map((review) => review.notes).join("\n") });
   }
 }
 ```
@@ -875,8 +875,8 @@ import { StyleNotesDto } from "../dto/style-notes.dto.js";
 })
 export class ReviewSummaryAction implements ActionHandler<ReviewSummaryAction> {
   execute(input: InputOf<ReviewSummaryAction>): Promise<OutputOf<ReviewSummaryAction>> {
-    const isSupported: boolean = input.facts.every((check) => check.value.isSupported);
-    const plan: string = [input.style.value.notes, input.sections.value.notes, `facts ok: ${String(isSupported)}`].join("\n");
+    const isSupported: boolean = input.facts.every((check) => check.isSupported);
+    const plan: string = [input.style.notes, input.sections.notes, `facts ok: ${String(isSupported)}`].join("\n");
     return Promise.resolve({ plan });
   }
 }
@@ -890,7 +890,7 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 @Action({ name: "archive-article-action", description: "Archives the article", input: { article: WorkflowStartTextDto } })
 export class ArchiveArticleAction implements ActionHandler<ArchiveArticleAction> {
   async execute(input: InputOf<ArchiveArticleAction>): Promise<void> {
-    await Promise.resolve(input.article.value.text.length);
+    await Promise.resolve(input.article.text.length);
   }
 }
 ```
@@ -903,7 +903,7 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 @Action({ name: "index-article-action", description: "Indexes the article for search", input: { article: WorkflowStartTextDto } })
 export class IndexArticleAction implements ActionHandler<IndexArticleAction> {
   async execute(input: InputOf<IndexArticleAction>): Promise<void> {
-    await Promise.resolve(input.article.value.text.length);
+    await Promise.resolve(input.article.text.length);
   }
 }
 ```
@@ -1719,7 +1719,7 @@ import { VendorDto } from "../dto/vendor.dto.js";
 })
 export class MarkVendorFailedAction implements ActionHandler<MarkVendorFailedAction> {
   execute(input: InputOf<MarkVendorFailedAction>): Promise<OutputOf<MarkVendorFailedAction>> {
-    return Promise.resolve({ name: input.vendor.value.name });
+    return Promise.resolve({ name: input.vendor.name });
   }
 }
 ```
@@ -1831,7 +1831,7 @@ import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
   description: "Ranks the checked vendors",
   prompt: inline("Rank the scored vendors; mention the rejected and failed ones."),
   model: "moonshotai/kimi-k2.6",
-  input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) },
+  input: { checks: listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto) },
   output: VendorRankingDto,
 })
 export class VendorRankerAgent {}
@@ -1996,7 +1996,7 @@ import { PaymentRequestDto } from "../dto/payment-request.dto.js";
 @Action({ name: "charge-card-action", description: "Charges the card", input: { payment: PaymentRequestDto }, output: PaymentDoneDto })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
-    return Promise.resolve({ receipt: `card:${input.payment.value.paymentId}` });
+    return Promise.resolve({ receipt: `card:${input.payment.paymentId}` });
   }
 }
 ```
@@ -2010,7 +2010,7 @@ import { PaymentRequestDto } from "../dto/payment-request.dto.js";
 @Action({ name: "send-invoice-action", description: "Sends an invoice instead", input: { payment: PaymentRequestDto }, output: PaymentDoneDto })
 export class SendInvoiceAction implements ActionHandler<SendInvoiceAction> {
   execute(input: InputOf<SendInvoiceAction>): Promise<OutputOf<SendInvoiceAction>> {
-    return Promise.resolve({ receipt: `invoice:${input.payment.value.paymentId}` });
+    return Promise.resolve({ receipt: `invoice:${input.payment.paymentId}` });
   }
 }
 ```
@@ -2188,7 +2188,7 @@ import { TopicDto } from "../dto/topic.dto.js";
 @Action({ name: "split-topic-action", description: "Splits a broad topic in three", input: { topic: TopicDto }, output: listOf(TopicDto) })
 export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
   execute(input: InputOf<SplitTopicAction>): Promise<OutputOf<SplitTopicAction>> {
-    const { topic, level } = input.topic.value;
+    const { topic, level } = input.topic;
     return Promise.resolve(["history", "state", "outlook"].map((part) => ({ topic: `${topic}: ${part}`, level: level + 1 })));
   }
 }
@@ -2205,7 +2205,7 @@ import { TopicDto } from "../../dto/topic.dto.js";
   description: "Merges the subtopics' reports",
   prompt: inline("Merge the reports into one; note the subtopics that failed."),
   model: "moonshotai/kimi-k2.6",
-  input: { topic: TopicDto, parts: listOf(oneOf(TopicReportDto, TopicFailedDto)) },
+  input: { topic: TopicDto, parts: listOf(TopicReportDto, TopicFailedDto) },
   output: TopicReportDto,
 })
 export class TopicMergeAgent {}
@@ -2220,7 +2220,7 @@ import { TopicDto } from "../dto/topic.dto.js";
 @Action({ name: "mark-topic-failed-action", description: "Records a failed topic", input: { topic: TopicDto }, output: TopicFailedDto })
 export class MarkTopicFailedAction implements ActionHandler<MarkTopicFailedAction> {
   execute(input: InputOf<MarkTopicFailedAction>): Promise<OutputOf<MarkTopicFailedAction>> {
-    return Promise.resolve({ topic: input.topic.value.topic });
+    return Promise.resolve({ topic: input.topic.topic });
   }
 }
 ```
@@ -2379,7 +2379,7 @@ export class ReleaseStockAction implements ActionHandler<ReleaseStockAction> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   async execute(input: InputOf<ReleaseStockAction>): Promise<void> {
-    await Promise.resolve(`${input.reservation.value.reservationId}:${this.executionContext.step.idempotencyKey}`);
+    await Promise.resolve(`${input.reservation.reservationId}:${this.executionContext.step.idempotencyKey}`);
   }
 }
 ```
@@ -2394,7 +2394,7 @@ export class RefundCardAction implements ActionHandler<RefundCardAction> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   async execute(input: InputOf<RefundCardAction>): Promise<void> {
-    await Promise.resolve(`${input.payment.value.paymentId}:${this.executionContext.step.idempotencyKey}`);
+    await Promise.resolve(`${input.payment.paymentId}:${this.executionContext.step.idempotencyKey}`);
   }
 }
 ```
@@ -2407,7 +2407,7 @@ import { OrderShippedDto } from "../dto/order-shipped.dto.js";
 @Action({ name: "confirm-order-action", description: "Confirms the order: nothing is undone after it", input: { shipped: OrderShippedDto } })
 export class ConfirmOrderAction implements ActionHandler<ConfirmOrderAction> {
   async execute(input: InputOf<ConfirmOrderAction>): Promise<void> {
-    await Promise.resolve(input.shipped.value.trackingNumber);
+    await Promise.resolve(input.shipped.trackingNumber);
   }
 }
 ```
@@ -2429,7 +2429,7 @@ import { ReleaseStockAction } from "./release-stock.action.js";
 })
 export class ReserveStockAction implements ActionHandler<ReserveStockAction> {
   execute(input: InputOf<ReserveStockAction>): Promise<OutputOf<ReserveStockAction>> {
-    return Promise.resolve({ reservationId: `reservation-${input.order.value.orderId}` });
+    return Promise.resolve({ reservationId: `reservation-${input.order.orderId}` });
   }
 }
 ```
@@ -2452,7 +2452,7 @@ import { RefundCardAction } from "./refund-card.action.js";
 })
 export class ChargeOrderCardAction implements ActionHandler<ChargeOrderCardAction> {
   execute(input: InputOf<ChargeOrderCardAction>): Promise<OutputOf<ChargeOrderCardAction>> {
-    return Promise.resolve({ paymentId: `payment-${input.order.value.orderId}` });
+    return Promise.resolve({ paymentId: `payment-${input.order.orderId}` });
   }
 }
 ```
@@ -2466,7 +2466,7 @@ import { OrderShippedDto } from "../dto/order-shipped.dto.js";
 @Action({ name: "ship-order-action", description: "Hands the order to the carrier", input: { order: OrderRequestDto }, output: OrderShippedDto })
 export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
   execute(input: InputOf<ShipOrderAction>): Promise<OutputOf<ShipOrderAction>> {
-    return Promise.resolve({ trackingNumber: `track-${input.order.value.orderId}` });
+    return Promise.resolve({ trackingNumber: `track-${input.order.orderId}` });
   }
 }
 ```
@@ -2479,7 +2479,7 @@ import { OrderRequestDto } from "../dto/order-request.dto.js";
 @Action({ name: "notify-finance-action", description: "Tells finance a refund failed", input: { order: OrderRequestDto } })
 export class NotifyFinanceAction implements ActionHandler<NotifyFinanceAction> {
   async execute(input: InputOf<NotifyFinanceAction>): Promise<void> {
-    await Promise.resolve(input.order.value.orderId);
+    await Promise.resolve(input.order.orderId);
   }
 }
 ```
@@ -2608,7 +2608,7 @@ import { FlightBookingDto } from "../dto/flight-booking.dto.js";
 @Action({ name: "cancel-flight-action", description: "Cancels the flight", input: { flight: FlightBookingDto } })
 export class CancelFlightAction implements ActionHandler<CancelFlightAction> {
   async execute(input: InputOf<CancelFlightAction>): Promise<void> {
-    await Promise.resolve(input.flight.value.bookingId);
+    await Promise.resolve(input.flight.bookingId);
   }
 }
 ```
@@ -2621,7 +2621,7 @@ import { HotelBookingDto } from "../dto/hotel-booking.dto.js";
 @Action({ name: "cancel-hotel-action", description: "Cancels the hotel", input: { hotel: HotelBookingDto } })
 export class CancelHotelAction implements ActionHandler<CancelHotelAction> {
   async execute(input: InputOf<CancelHotelAction>): Promise<void> {
-    await Promise.resolve(input.hotel.value.bookingId);
+    await Promise.resolve(input.hotel.bookingId);
   }
 }
 ```
@@ -2636,7 +2636,7 @@ import { CancelFlightAction } from "./cancel-flight.action.js";
 @Action({ name: "book-flight-action", description: "Books the flight", input: { request: TripRequestDto }, output: FlightBookingDto, compensateWith: CancelFlightAction })
 export class BookFlightAction implements ActionHandler<BookFlightAction> {
   execute(input: InputOf<BookFlightAction>): Promise<OutputOf<BookFlightAction>> {
-    return Promise.resolve({ bookingId: `flight-${input.request.value.destination}` });
+    return Promise.resolve({ bookingId: `flight-${input.request.destination}` });
   }
 }
 ```
@@ -2651,7 +2651,7 @@ import { CancelHotelAction } from "./cancel-hotel.action.js";
 @Action({ name: "book-hotel-action", description: "Books the hotel", input: { request: TripRequestDto }, output: HotelBookingDto, compensateWith: CancelHotelAction })
 export class BookHotelAction implements ActionHandler<BookHotelAction> {
   execute(input: InputOf<BookHotelAction>): Promise<OutputOf<BookHotelAction>> {
-    return Promise.resolve({ bookingId: `hotel-${input.request.value.destination}` });
+    return Promise.resolve({ bookingId: `hotel-${input.request.destination}` });
   }
 }
 ```
@@ -2692,7 +2692,7 @@ import { TripBookedDto } from "../dto/trip-booked.dto.js";
 export class TripBookedAction implements ActionHandler<TripBookedAction> {
   execute(input: InputOf<TripBookedAction>): Promise<OutputOf<TripBookedAction>> {
     return Promise.resolve({
-      summary: `${input.flight.value.bookingId} + ${input.hotel.value.bookingId}`,
+      summary: `${input.flight.bookingId} + ${input.hotel.bookingId}`,
     });
   }
 }

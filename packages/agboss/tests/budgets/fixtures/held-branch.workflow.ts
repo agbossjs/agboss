@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -67,10 +67,10 @@ export class HeldBranchWorkflow {}
 export class SplitOrderAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<readonly OrderDto[]> {
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<readonly OrderDto[]> {
     paidSteps.ran.push("split");
     this.spendRecorder.record({ service: "order-api", cost: usd(paidSteps.charge) });
-    const { orderId } = input.order.value;
+    const { orderId } = input.order;
     return Promise.resolve([{ orderId: `${orderId}-a` }, { orderId: `${orderId}-b` }]);
   }
 }

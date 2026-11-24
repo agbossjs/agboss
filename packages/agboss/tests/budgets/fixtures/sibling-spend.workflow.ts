@@ -10,7 +10,7 @@ import {
   WorkflowStart,
   listOf,
   type ExecutionStartEvent,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
@@ -127,8 +127,8 @@ export class SiblingPayAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemDto> {
-    const item = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemDto> {
+    const item = input.item;
     if (item.name !== "a") return item;
     await siblingSpend.queuing;
     siblingSpend.ran.push("a:sibling-pay");
@@ -150,10 +150,10 @@ function grandPayOf(step: string) {
   class GrandPay {
     constructor(private readonly spendRecorder: SpendRecorder) {}
 
-    execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemDto> {
-      siblingSpend.ran.push(`${input.item.value.name}:grand-${step}`);
+    execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemDto> {
+      siblingSpend.ran.push(`${input.item.name}:grand-${step}`);
       this.spendRecorder.record({ service: "pay-api", cost: usd(50) });
-      return Promise.resolve(input.item.value);
+      return Promise.resolve(input.item);
     }
   }
   return GrandPay;
@@ -169,8 +169,8 @@ const GrandTwo = grandPayOf("two");
   output: ItemResultDto,
 })
 class GrandDoneAction {
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    return Promise.resolve({ name: input.item.value.name });
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    return Promise.resolve({ name: input.item.name });
   }
 }
 

@@ -23,7 +23,7 @@ every shape an agent's `output` has:
 | `JobReportDto`        | `output: JobReportDto`                 | the validated `JobReportDto`                        | `JobReportDto`                        |
 | `oneOf(A, B)`         | `output: oneOf(A, B)` (or `A`, or `B`) | the variant's value, `A` or `B`                     | `A` or `B` — the class it answered as |
 | `listOf(JobDto)`      | `output: listOf(JobDto)`               | the items, `readonly JobDto[]`                      | `JobDto`                              |
-| `listOf(oneOf(A, B))` | `output: listOf(oneOf(A, B))`          | each item `{ variant, value }`, `readonly VariantOf<A \| B>[]` | — (each item has its own)  |
+| `listOf(A, B)`        | `output: listOf(A, B)`                 | the items, `readonly (A \| B)[]`, each an instance of its class | — (tell items apart by `instanceof`) |
 | `PlainTextDto`        | a text agent (no `output`)             | `{ text }` — its reply                              | `PlainTextDto`                        |
 
 `judge(input)` gets what it judges as data (`JudgeInput<Self>`: `variant`, `output`, `task` — the
@@ -254,9 +254,9 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
 agent used — never guessed from the answer's shape, never compared by name. For a
 `oneOf(OfferDto, RefusalDto)` judge `JudgeInput<OfferDto | RefusalDto>` is a discriminated union —
 `{ variant: typeof OfferDto; output: OfferDto; … } | { variant: typeof RefusalDto; output: RefusalDto; … }` —
-and `isVariant(input, OfferDto)` narrows `output` to `OfferDto` (the other branch to `RefusalDto`).
+and `input.output instanceof OfferDto` narrows `output` to `OfferDto` (the other branch to `RefusalDto`).
 `input.variant === OfferDto` is true at run time too, but TypeScript narrows an object only on a
-literal discriminant, never on a class, so `isVariant` is the way to narrow:
+literal discriminant, never on a class, so `instanceof` is the way to narrow:
 
 <!-- snippet-context
 import { Integer, Text } from "@agboss/core/dto";
@@ -272,12 +272,12 @@ export class RefusalDto {
 
 ```ts
 import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { isVariant, oneOf } from "@agboss/core";
+import { oneOf } from "@agboss/core";
 
 @Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
-    if (isVariant(input, OfferDto)) {
+    if (input.output instanceof OfferDto) {
       // the agent answered through answer-offer-dto: input.output is an OfferDto
       return Promise.resolve(
         input.output.salary > 0
@@ -297,9 +297,8 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
 
 A judge of one class has `variant` as that class (a subclass the agent answered with, when its
 `output` extends the judge's `output`), a text judge `PlainTextDto`, a `listOf(XDto)` judge the
-list's one class. A `listOf(oneOf(A, B))` judge has no `variant` of its own: its `output` is
-`readonly VariantOf<A | B>[]` — each item `{ variant, value }` (`VariantOf` from `@agboss/core/dto`), as
-the answer's items are kept — narrowed by `isVariant(item, A)`:
+list's one class. A `listOf(A, B)` judge has no `variant` of its own: its `output` is
+`readonly (A | B)[]` — each item an instance of the class it validated as — narrowed by `item instanceof A`:
 
 <!-- snippet-context
 import { Integer, Text } from "@agboss/core/dto";
@@ -315,21 +314,21 @@ export class RefusalDto {
 
 ```ts
 import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { isVariant, listOf, oneOf, type VariantOf } from "@agboss/core";
+import { listOf } from "@agboss/core";
 
-type Decisions = readonly VariantOf<OfferDto | RefusalDto>[];
+type Decisions = readonly (OfferDto | RefusalDto)[];
 
 @Judge({
   name: "decisions-judge",
   model: "typesafe/jev-1.13",
-  output: listOf(oneOf(OfferDto, RefusalDto)),
+  output: listOf(OfferDto, RefusalDto),
 },
   deps: [JudgeModel],
 )
 export class DecisionsJudge implements JudgeHandler<Decisions> {
   judge({ output }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
     const salaries: readonly number[] = output.flatMap((decision) =>
-      isVariant(decision, OfferDto) ? [decision.value.salary] : [],
+      decision instanceof OfferDto ? [decision.salary] : [],
     );
     return Promise.resolve(
       salaries.length <= 1

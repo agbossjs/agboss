@@ -24,7 +24,7 @@ import { seconds } from "../../src/units/index.js";
 import { ChargeOrderAction, resetRuns, runs } from "./fixtures/outbound-call.workflow.js";
 import { gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
 
-const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
+const order = { message: { text: "order-1" } } as never;
 
 /** What the rival does between this call's read and its move, and how many reads it acts on. */
 enum RivalMove {

@@ -17,6 +17,6 @@ export class SendOfferAction implements ActionHandler<SendOfferAction> {
   constructor(private readonly mailer: OfferMailer) {}
 
   async execute(input: InputOf<SendOfferAction>): Promise<OutputOf<SendOfferAction>> {
-    return { delivered: await this.mailer.send(input.draft.value.text) };
+    return { delivered: await this.mailer.send(input.draft.text) };
   }
 }

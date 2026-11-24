@@ -382,9 +382,9 @@ describe("#508 re-review LOW/MEDIUM6: a AttemptSuperseded attempt is logged on t
     });
 
     // #795: the step fails with OutboundCallError.Superseded — and the log says it all the same
-    await expect(
-      run({ message: { producer: "test", value: { text: "order-1" } } }),
-    ).rejects.toThrow(/attempt 1 was answered after attempt 2/u);
+    await expect(run({ message: { text: "order-1" } })).rejects.toThrow(
+      /attempt 1 was answered after attempt 2/u,
+    );
 
     expect(logged).toEqual([
       expect.objectContaining({

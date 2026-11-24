@@ -1,5 +1,5 @@
 import { Text } from "../../../src/dto/index.js";
-import { Action, WorkflowFinish, type Produced } from "../../../src/index.js";
+import { Action, WorkflowFinish, type Tracked } from "../../../src/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 
 /**
@@ -49,8 +49,8 @@ export class TripBookingDesk {
 export class FreeSeatAction {
   constructor(private readonly tripBookingDesk: TripBookingDesk) {}
 
-  async execute(input: { readonly seat: Produced<TripSeatDto, unknown> }): Promise<void> {
-    await this.tripBookingDesk.release(input.seat.value.seatId);
+  async execute(input: { readonly seat: Tracked<TripSeatDto> }): Promise<void> {
+    await this.tripBookingDesk.release(input.seat.seatId);
   }
 }
 
@@ -63,8 +63,8 @@ export class FreeSeatAction {
 export class FreeRoomAction {
   constructor(private readonly tripBookingDesk: TripBookingDesk) {}
 
-  async execute(input: { readonly room: Produced<TripRoomDto, unknown> }): Promise<void> {
-    await this.tripBookingDesk.release(input.room.value.roomId);
+  async execute(input: { readonly room: Tracked<TripRoomDto> }): Promise<void> {
+    await this.tripBookingDesk.release(input.room.roomId);
   }
 }
 

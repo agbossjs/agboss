@@ -8,6 +8,7 @@ import {
   type RouterOptions,
 } from "../../flow/decorators/router.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
+import { Metadata } from "../../flow/metadata.js";
 import { prettyJson } from "../../flow/runtime/json.js";
 import { RouterDecisionError, routerFailureOf } from "../../flow/runtime/router-error.js";
 import {
@@ -79,30 +80,33 @@ export function checkedCodeAnswer(options: RouterOptions, answer: unknown): unkn
   });
 }
 
-/** Who produced a value: its class's `name` (the step reads `{ producer: Class, value }`). */
-const producerName = (producer: unknown): string =>
-  typeof producer === "function" ? nameOf(producer as Class) : String(producer);
-
-const isProduced = (
-  value: unknown,
-): value is { readonly producer: unknown; readonly value: unknown } =>
-  typeof value === "object" && value !== null && "producer" in value && "value" in value;
+/** Who produced a value, when it is tracked (a test gives it `Metadata.with(…)`): its class's `name`. */
+const producerNameOf = (value: unknown): string | undefined => {
+  const producer =
+    typeof value === "object" && value !== null ? Metadata.createdBy(value) : undefined;
+  return producer === undefined ? undefined : nameOf(producer);
+};
 
 /** A list element or an earlier version as the message shows it: `{ producer, value }`, by name. */
-const shownOf = (item: unknown): unknown =>
-  isProduced(item) ? { producer: producerName(item.producer), value: item.value } : item;
+const shownOf = (item: unknown): unknown => {
+  const producer = producerNameOf(item);
+  return producer === undefined ? item : { producer, value: item };
+};
 
 /** One input field's section of the message, as the step writes it (`### field (from producer)`). */
 function fieldText(field: string, value: unknown): string {
   if (value === undefined) return `### ${field}\nnone`;
   if (Array.isArray(value)) return `### ${field}\n${prettyJson(value.map(shownOf))}`;
-  if (typeof value === "object" && value !== null && "current" in value) {
-    const history = value as HistoryOf<unknown>;
+  if (isRecord(value) && "current" in value && Array.isArray(value.previous)) {
+    const history: HistoryOf<unknown> = {
+      current: value.current,
+      previous: value.previous as readonly unknown[],
+    };
     const earlier = prettyJson(history.previous.map(shownOf));
     return `${fieldText(field, history.current)}\n\n### ${field}, earlier versions (oldest first)\n${earlier}`;
   }
-  if (isProduced(value))
-    return `### ${field} (from ${producerName(value.producer)})\n${prettyJson(value.value)}`;
+  const producer = producerNameOf(value);
+  if (producer !== undefined) return `### ${field} (from ${producer})\n${prettyJson(value)}`;
   return `### ${field}\n${prettyJson(value)}`;
 }
 

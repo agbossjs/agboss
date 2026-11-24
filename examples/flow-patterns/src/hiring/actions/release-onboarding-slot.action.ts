@@ -17,7 +17,7 @@ export class ReleaseOnboardingSlotAction implements ActionHandler<ReleaseOnboard
 
   async execute(input: InputOf<ReleaseOnboardingSlotAction>): Promise<void> {
     await this.hrCalendarService.releaseSlot(
-      input.slot.value.slotId,
+      input.slot.slotId,
       this.executionContext.step.idempotencyKey,
     );
   }

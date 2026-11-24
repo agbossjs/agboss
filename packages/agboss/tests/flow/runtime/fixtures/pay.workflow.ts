@@ -52,8 +52,8 @@ export class ApologyDto {
   output: ReceiptDto,
 })
 export class ChargeAction {
-  execute(input: { readonly order: { readonly value: OrderDto } }): Promise<ReceiptDto> {
-    const { id, outcome } = input.order.value;
+  execute(input: { readonly order: OrderDto }): Promise<ReceiptDto> {
+    const { id, outcome } = input.order;
     if (outcome === "decline") return Promise.reject(new CardDeclinedError(`card for ${id}`));
     if (outcome === "fail") return Promise.reject(new PaymentError(`payment for ${id}`));
     if (outcome === "crash") return Promise.reject(new Error("the ledger is down"));

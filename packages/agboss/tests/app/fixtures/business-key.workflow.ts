@@ -18,7 +18,7 @@ import {
   WorkflowStart,
   type IdempotencyRunStatus,
   type OutboundCallSendStatus,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../src/index.js";
 import { hours, minutes } from "../../../src/units/index.js";
@@ -121,10 +121,8 @@ export class ChargeOrderTool {
 export class ChargeOrderAction {
   constructor(private readonly idempotency: Idempotency) {}
 
-  execute(input: {
-    readonly request: Produced<ChargeRequestDto, unknown>;
-  }): Promise<ChargeResultDto> {
-    return chargedOnce(this.idempotency, input.request.value);
+  execute(input: { readonly request: Tracked<ChargeRequestDto> }): Promise<ChargeResultDto> {
+    return chargedOnce(this.idempotency, input.request);
   }
 }
 
@@ -201,11 +199,9 @@ export class SendChargeAction {
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
-  execute(input: {
-    readonly request: Produced<ChargeRequestDto, unknown>;
-  }): Promise<ChargeResultDto> {
+  execute(input: { readonly request: Tracked<ChargeRequestDto> }): Promise<ChargeResultDto> {
     const { idempotency, paymentGateway } = this;
-    return sentOnce({ idempotency, paymentGateway }, input.request.value);
+    return sentOnce({ idempotency, paymentGateway }, input.request);
   }
 }
 
@@ -316,11 +312,11 @@ export class SendChargesStart {}
 })
 export class ChargesSentAction {
   async execute(input: {
-    readonly results: readonly Produced<ChargeResultDto, unknown>[];
+    readonly results: readonly Tracked<ChargeResultDto>[];
   }): Promise<ChargeSummaryDto> {
     return {
       chargeIds: input.results
-        .map((result) => result.value.chargeId)
+        .map((result) => result.chargeId)
         .join(", "),
     };
   }

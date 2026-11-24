@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { Metadata } from "../../../src/flow/metadata.js";
 import { analyseWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { inputMessageOf } from "../../../src/flow/runtime/input-message.js";
 import {
@@ -27,11 +28,9 @@ import {
 
 const test = testWith(HistoryOfferApplication);
 
-/** A version as a history holds it: who wrote it and the draft. */
-const version = (producer: typeof FirstDraftAgent | typeof DraftEditorAgent, text: string) => ({
-  producer,
-  value: { text },
-});
+/** A version as a history holds it: the draft, tracked by who wrote it. */
+const version = (producer: typeof FirstDraftAgent | typeof DraftEditorAgent, text: string) =>
+  Metadata.with({ text }, { createdBy: producer });
 
 describe("#299 AC4: historyOf at run time", () => {
   beforeEach(resetReviews);
@@ -60,6 +59,12 @@ describe("#299 AC4: historyOf at run time", () => {
         current: version(DraftEditorAgent, "v4"),
         previous: [version(DraftEditorAgent, "v2"), version(DraftEditorAgent, "v3")],
       },
+    ]);
+    expect(reviews.map((review) => Metadata.createdBy(review.draft.current))).toEqual([
+      FirstDraftAgent,
+      DraftEditorAgent,
+      DraftEditorAgent,
+      DraftEditorAgent,
     ]);
     expect(result).toFinishWith(DraftHistoryWorkflowFinish, { changes: "v1 → v2 → v3 → v4" });
   });

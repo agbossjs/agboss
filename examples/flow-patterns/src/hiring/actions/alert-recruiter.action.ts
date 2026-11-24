@@ -13,7 +13,7 @@ export class AlertRecruiterAction implements ActionHandler<AlertRecruiterAction>
   constructor(private readonly recruiterDeskService: RecruiterDeskService) {}
 
   async execute(input: InputOf<AlertRecruiterAction>): Promise<void> {
-    const { offerId } = input.offer.value;
+    const { offerId } = input.offer;
     await this.recruiterDeskService.alert(
       `Offer ${offerId} could not be withdrawn: withdraw it by hand`,
     );

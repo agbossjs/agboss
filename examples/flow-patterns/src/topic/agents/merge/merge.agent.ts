@@ -1,4 +1,4 @@
-import { Agent, listOf, oneOf } from "@agboss/core";
+import { Agent, listOf } from "@agboss/core";
 import { TopicFailedDto } from "../../dto/topic-failed.dto.js";
 import { TopicReportDto } from "../../dto/topic-report.dto.js";
 import { TopicDto } from "../../dto/topic.dto.js";
@@ -11,7 +11,7 @@ import { TopicDto } from "../../dto/topic.dto.js";
   model: "moonshotai/kimi-k2.6",
   input: {
     topic: TopicDto, // the start's input: the execution's own topic, never a subtopic
-    results: listOf(oneOf(TopicReportDto, TopicFailedDto)), // the children's results, one per subtopic
+    results: listOf(TopicReportDto, TopicFailedDto), // the children's results, one per subtopic
   },
   output: TopicReportDto,
 })

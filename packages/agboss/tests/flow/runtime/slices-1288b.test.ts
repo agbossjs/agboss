@@ -42,8 +42,8 @@ class SlicesStart {}
   output: listOf(PassedDto, RejectedDto),
 })
 class CheckAction {
-  execute(input: { readonly run: { readonly value: RunDto } }): unknown[] {
-    return Array.from(input.run.value.kinds).map((kind, index) =>
+  execute(input: { readonly run: RunDto }): unknown[] {
+    return Array.from(input.run.kinds).map((kind, index) =>
       kind === "p" ? { score: index } : { reason: `r${String(index)}` },
     );
   }
@@ -56,15 +56,15 @@ class CheckAction {
   output: SummaryDto,
 })
 class CountAction {
-  // values arrive as `Produced` records until the flow flip: `.value` is the DTO
+  // values arrive as the DTOs themselves, tracked
   execute(input: {
-    readonly passed: readonly { readonly value: PassedDto }[];
-    readonly rejected: readonly { readonly value: RejectedDto }[];
+    readonly passed: readonly PassedDto[];
+    readonly rejected: readonly RejectedDto[];
   }): SummaryDto {
     const classes =
-      input.passed.every((item) => item.value instanceof PassedDto) &&
-      input.rejected.every((item) => item.value instanceof RejectedDto);
-    const scores = input.passed.map((item) => item.value.score).join(",");
+      input.passed.every((item) => item instanceof PassedDto) &&
+      input.rejected.every((item) => item instanceof RejectedDto);
+    const scores = input.passed.map((item) => item.score).join(",");
     return { text: `${scores}|${String(input.rejected.length)}|${String(classes)}` };
   }
 }

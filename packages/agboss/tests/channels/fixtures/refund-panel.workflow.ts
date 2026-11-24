@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../../src/index.js";
@@ -85,12 +85,12 @@ export class FraudAgent {}
 
 /** What a panel's finish reads: the counted scores. */
 interface RefundScoresInput {
-  readonly scores: readonly Produced<RefundScoreDto, unknown>[];
+  readonly scores: readonly Tracked<RefundScoreDto>[];
 }
 
 const scoresOf = (input: RefundScoresInput): BatchSummaryDto => ({
   text: input.scores
-    .map((score) => String(score.value.score))
+    .map((score) => String(score.score))
     .join(", "),
 });
 

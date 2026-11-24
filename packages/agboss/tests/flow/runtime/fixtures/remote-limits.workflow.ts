@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -68,13 +68,13 @@ export class RemoteSpenderAgent {}
   output: SummaryDto,
 })
 export class RemoteHoldAction {
-  async execute(input: { readonly result: Produced<ItemResultDto, unknown> }): Promise<SummaryDto> {
+  async execute(input: { readonly result: Tracked<ItemResultDto> }): Promise<SummaryDto> {
     const { gate } = remoteLog;
     if (gate !== undefined) {
       remoteLog.waiting += 1;
       await gate;
     }
-    return { text: input.result.value.name };
+    return { text: input.result.name };
   }
 }
 

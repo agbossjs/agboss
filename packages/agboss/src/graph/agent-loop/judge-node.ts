@@ -9,6 +9,7 @@ import type {
 import { PlainTextDto } from "../../dto/standard/framework.js";
 import type { DtoClass } from "../../dto/types.js";
 import { isWrapper, Wrapper } from "../../flow/dto-wrappers.js";
+import { hydratedIfDto as asInstance } from "../../dto/hydrate.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { AgentFailedError, QualityGateError, type JudgeRejection } from "../errors.js";
 import type { AsyncNode } from "../types.js";
@@ -52,7 +53,7 @@ function classAt(classes: readonly DtoClass[], index: number): DtoClass {
   return dto;
 }
 
-/** The items of a list answer as values: a `listOf(oneOf(…))` answer keeps `{ variant, value }`. */
+/** The items of a list answer as values: a `listOf(…)` answer keeps `{ variant, value }`. */
 function itemValuesOf(deps: AgentLoopDeps, value: unknown): readonly unknown[] {
   const items: readonly unknown[] = Array.isArray(value) ? value : [];
   if (!deps.agent.answerTools.hasVariants) return items;
@@ -77,8 +78,8 @@ function listClassOf(deps: AgentLoopDeps, output: JudgeOutputShape): DtoClass {
 /**
  * What a judge reads (#262 S115, S125), in the shape of its `output`: the validated answer and the
  * class it validated as — a text agent's text as a `PlainTextDto`; one value with its answer
- * tool's class; a list with its one class, or, for a `listOf(oneOf(…))` judge, each item as
- * `{ variant, value }`. Each judge gets its own copy, so no judge changes the answer the step gives.
+ * tool's class; a list with its one class, or, for a `listOf(A, B, …)` judge, each item an
+ * instance of its class. Each judge gets its own copy, so no judge changes the answer the step gives.
  */
 function judgedInputOf(
   state: AgentLoopStateType,
@@ -100,17 +101,20 @@ function judgedInputOf(
   if (!deps.agent.answerTools.isList) {
     const [variant] = classes;
     if (variant === undefined) throw new TypeError(`${deps.agent.name}: an answer without a class`);
-    return { ...base, variant, output: value };
+    return { ...base, variant, output: asInstance(variant, value) };
   }
   const items = itemValuesOf(deps, value);
   const { output } = judge;
   const judgesVariants =
     typeof output !== "function" && output.kind === Wrapper.List && isWrapper(output.element);
-  if (!judgesVariants) return { ...base, variant: listClassOf(deps, output), output: items };
-  // a `listOf(oneOf(…))` judge: each item with its own class (`VariantOf`)
+  if (!judgesVariants) {
+    const variant = listClassOf(deps, output);
+    return { ...base, variant, output: items.map((item) => asInstance(variant, item)) };
+  }
+  // a `listOf(A, B, …)` judge: each item an instance of the class it validated as
   return {
     ...base,
-    output: items.map((item, index) => ({ variant: classAt(classes, index), value: item })),
+    output: items.map((item, index) => asInstance(classAt(classes, index), item)),
   };
 }
 

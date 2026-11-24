@@ -29,7 +29,7 @@ import {
   type PauseListenerOpenedEvent,
   type ExecutionResumeEvent,
   type ExecutionPauseEvent,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../../src/index.js";
@@ -502,11 +502,11 @@ export class BatchSummaryDto {
 })
 export class BatchAction {
   async execute(input: {
-    readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
+    readonly refunds: readonly Tracked<RefundDoneDto>[];
   }): Promise<BatchSummaryDto> {
     return {
       text: input.refunds
-        .map((refund) => refund.value.orderId)
+        .map((refund) => refund.orderId)
         .join(", "),
     };
   }
@@ -567,10 +567,10 @@ export class AuditCheckAgent {}
 })
 export class AuditAction {
   async execute(input: {
-    readonly refund: Produced<RefundDoneDto, unknown>;
-    readonly check: Produced<BatchSummaryDto, unknown>;
+    readonly refund: Tracked<RefundDoneDto>;
+    readonly check: Tracked<BatchSummaryDto>;
   }): Promise<BatchSummaryDto> {
-    return { text: `${input.refund.value.orderId}: ${input.check.value.text}` };
+    return { text: `${input.refund.orderId}: ${input.check.text}` };
   }
 }
 

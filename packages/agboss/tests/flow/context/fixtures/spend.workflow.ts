@@ -105,10 +105,10 @@ export class ShipAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  execute(input: { readonly result: { readonly value: ResultDto } }): Promise<ResultDto> {
+  execute(input: { readonly result: ResultDto }): Promise<ResultDto> {
     spendSeen.actionSignalAborted.push(this.executionContext.signal.aborted);
     this.spendRecorder.record({ service: "courier-api", cost: usd(0.003) });
-    return Promise.resolve(input.result.value);
+    return Promise.resolve(input.result);
   }
 }
 

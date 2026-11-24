@@ -104,7 +104,7 @@ export class OpenTicketAction implements ActionHandler<OpenTicketAction> {
 
   execute(input: InputOf<OpenTicketAction>): Promise<OutputOf<OpenTicketAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return Promise.resolve({ ticketId: `${String(input.answer.value.text.length)}:${key}` });
+    return Promise.resolve({ ticketId: `${String(input.answer.text.length)}:${key}` });
   }
 }
 ```

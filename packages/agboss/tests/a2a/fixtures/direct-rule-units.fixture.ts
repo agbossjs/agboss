@@ -13,13 +13,13 @@ import { InjectionToken, type Class } from "../../../src/components/injection.js
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import type { Produced } from "../../../src/index.js";
+import type { Tracked } from "../../../src/index.js";
 import { TckInputQuestion } from "../../a2a-tck/tck.application.js";
 import { LedgerReadTool } from "./direct-rules.fixture.js";
 import { inline } from "../../../src/index.js";
 
 interface Message {
-  readonly message: Produced<WorkflowStartTextDto, unknown>;
+  readonly message: Tracked<WorkflowStartTextDto>;
 }
 
 /** A tool the run pauses before: it reads only. */

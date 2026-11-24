@@ -64,7 +64,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `AGBossError` subclass in `errors/<name>.error.ts` ending with `Error`.
 3. **The flow is paths, written one call per line.** `@Workflow({ flow: [onStart(S) … .toFinish(F)] })`;
    what the step before gives (its declared `output`, a start's `input`) is on the path (its scope), and a later node reads its
-   `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
+   `input` fields from that scope — as the DTOs themselves (`input.order.orderId`; `Metadata.createdBy(input.order)` tells who made it), never by
    position. Every path ends in a finish.
 4. **Data are DTO classes, values are plain objects.** One field decorator per field (`@Text`,
    `@Integer`, `@Bool`, `@Enum`, `@List`, `@Nested`, …) from `@agboss/core/dto`; a value is

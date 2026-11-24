@@ -121,7 +121,7 @@ async function decide(
       );
     last = produced;
     if (outcomeOf(produced) !== ToolCallOutcome.Allow) return produced;
-    current = decisionInputOf(produced)?.value ?? current;
+    current = decisionInputOf(produced) ?? current;
   }
   return last;
 }

@@ -256,7 +256,7 @@ export class RecordExtensionAction implements ActionHandler<RecordExtensionActio
     order,
     decision,
   }: InputOf<RecordExtensionAction>): Promise<OutputOf<RecordExtensionAction>> {
-    const status = `${order.value.orderId}: ${decision.value.approved ? "approved" : "refused"}`;
+    const status = `${order.orderId}: ${decision.approved ? "approved" : "refused"}`;
     told.recorded.push(status);
     return Promise.resolve({ status });
   }

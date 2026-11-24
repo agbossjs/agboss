@@ -115,8 +115,8 @@ const answerOf = (answer: Answer): unknown => {
   routes: [LeftAction, RightAction],
 })
 export class AskRouter {
-  route(input: { readonly ask: { readonly value: AskDto } }): unknown {
-    return answerOf(input.ask.value.answer);
+  route(input: { readonly ask: AskDto }): unknown {
+    return answerOf(input.ask.answer);
   }
 }
 

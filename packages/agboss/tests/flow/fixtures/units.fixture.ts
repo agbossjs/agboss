@@ -9,7 +9,7 @@ import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { oneOf, variant } from "../../../src/flow/dto-wrappers.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -71,12 +71,12 @@ export class PriceQuoteAction implements ActionHandler<PriceQuoteAction> {
   ) {}
 
   async execute(input: InputOf<PriceQuoteAction>): Promise<OutputOf<PriceQuoteAction>> {
-    const { product, quantity } = input.request.value;
+    const { product, quantity } = input.request;
     const price = await this.priceListService.priceOf(product);
     this.spendRecorder.record({ service: "price-list", cost: usd(0.001) });
-    if (price === undefined) return variant(QuoteRefusedDto, { reason: `no price for ${product}` });
+    if (price === undefined) return { reason: `no price for ${product}` };
     const pricedBy = this.executionContext.step.nodeId;
-    return variant(QuoteDto, { cents: price * quantity, pricedBy });
+    return { cents: price * quantity, pricedBy };
   }
 }
 
@@ -116,8 +116,8 @@ export class QuoteSizeRouter implements RouterHandler<QuoteSizeRouter> {
   constructor(private readonly priceListService: PriceListService) {}
 
   async route(input: InputOf<QuoteSizeRouter>): Promise<Route<QuoteSizeRouter>> {
-    const price = await this.priceListService.priceOf(input.request.value.product);
-    return (price ?? 0) * input.request.value.quantity > 10_000
+    const price = await this.priceListService.priceOf(input.request.product);
+    return (price ?? 0) * input.request.quantity > 10_000
       ? ManualQuoteWorkflowFinish
       : PriceQuoteAction;
   }

@@ -105,8 +105,8 @@ export class Searcher {}
   input: { search: SearchInDto },
 })
 export class Shortlist {
-  execute(input: { readonly search: { readonly value: SearchInDto } }): Promise<void> {
-    seen.actions.push(input.search.value);
+  execute(input: { readonly search: SearchInDto }): Promise<void> {
+    seen.actions.push(input.search);
     return Promise.resolve();
   }
 }

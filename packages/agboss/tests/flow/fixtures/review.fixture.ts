@@ -142,7 +142,7 @@ export class PolishAgent {}
 })
 export class CritiqueAction implements ActionHandler<CritiqueAction> {
   execute(input: InputOf<CritiqueAction>): Promise<OutputOf<CritiqueAction>> {
-    return Promise.resolve([{ remark: `shorter than ${String(input.draft.value.text.length)}` }]);
+    return Promise.resolve([{ remark: `shorter than ${String(input.draft.text.length)}` }]);
   }
 }
 

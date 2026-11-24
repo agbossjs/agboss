@@ -18,7 +18,7 @@ const isFileDto = (dto: DtoClass): boolean => dto === FileDto || dto.prototype i
 const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value)) : {};
 
-/** An element of a `listOf(oneOf(…))` value; its `variant` is only compared with the DTO names. */
+/** An element of a `listOf(…)` value; its `variant` is only compared with the DTO names. */
 const isVariantElement = (
   element: unknown,
 ): element is { readonly variant: unknown; readonly value: unknown } =>

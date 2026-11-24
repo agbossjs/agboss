@@ -23,7 +23,7 @@ import {
 
 beforeEach(resetFence);
 
-const message = { message: { producer: "test", value: { text: "v1" } } } as never;
+const message = { message: { text: "v1" } } as never;
 
 describe("#471 AC5: a unit runner's fence", () => {
   it("is held by default: token 1, the execution's scope of the default tenant", async () => {

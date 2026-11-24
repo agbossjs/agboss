@@ -217,7 +217,7 @@ class WideWorkflow {}
   input: {
     shortlist: ShortlistDto,
   },
-  output: listOf(oneOf(ProfileDto, ResumeMissingDto)),
+  output: listOf(ProfileDto, ResumeMissingDto),
 })
 class ScreenAgent {}
 
@@ -225,7 +225,7 @@ class ScreenAgent {}
   name: "file-profiles-action",
   description: "Files the profiles found",
   input: {
-    results: listOf(oneOf(ResumeMissingDto, ProfileDto)),
+    results: listOf(ResumeMissingDto, ProfileDto),
   },
 })
 class FileProfilesAction {
@@ -325,7 +325,7 @@ describe("#270 AC4: the path scope", () => {
     );
   });
 
-  it("#299 AC1 (S53): a listOf(oneOf(…)) reaches a field of the whole list, in any order of classes", () => {
+  it("#299 AC1 (S53): a listOf(…) reaches a field of the whole list, in any order of classes", () => {
     expect(inputShapesOf(analyseWorkflow(ScreenWorkflow), "file-profiles-action")).toEqual([
       [present("results", "screen-agent")],
     ]);

@@ -273,7 +273,7 @@ export class SaveHireAction implements ActionHandler<SaveHireAction> {
 
   async execute(input: InputOf<SaveHireAction>): Promise<OutputOf<SaveHireAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { hireId: await this.hiringStoreService.save(input.verdict.value.reason, key) };
+    return { hireId: await this.hiringStoreService.save(input.verdict.reason, key) };
   }
 }
 ```
@@ -293,7 +293,7 @@ import { RejectedWorkflowFinish } from "../../workflows/screening/rejected.workf
 })
 export class HireRouter implements RouterHandler<HireRouter> {
   route(input: InputOf<HireRouter>): Route<HireRouter> {
-    return input.verdict.value.decision === "hire" ? SaveHireAction : RejectedWorkflowFinish;
+    return input.verdict.decision === "hire" ? SaveHireAction : RejectedWorkflowFinish;
   }
 }
 ```
@@ -879,7 +879,7 @@ export class CancelCarAction implements ActionHandler<CancelCarAction> {
   ) {}
 
   async execute(input: InputOf<CancelCarAction>): Promise<void> {
-    await this.fleetService.cancel(input.reservation.value.reservationId, this.executionContext.step.idempotencyKey);
+    await this.fleetService.cancel(input.reservation.reservationId, this.executionContext.step.idempotencyKey);
   }
 }
 ```
@@ -907,7 +907,7 @@ export class ReserveCarAction implements ActionHandler<ReserveCarAction> {
 
   async execute(input: InputOf<ReserveCarAction>): Promise<OutputOf<ReserveCarAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { reservationId: await this.fleetService.reserve(input.request.value.customer, key) };
+    return { reservationId: await this.fleetService.reserve(input.request.customer, key) };
   }
 }
 ```
@@ -923,7 +923,7 @@ export class ChargeDepositAction implements ActionHandler<ChargeDepositAction> {
   constructor(private readonly fleetService: FleetService) {}
 
   async execute(input: InputOf<ChargeDepositAction>): Promise<OutputOf<ChargeDepositAction>> {
-    return { depositId: await this.fleetService.chargeDeposit(input.request.value.customer) };
+    return { depositId: await this.fleetService.chargeDeposit(input.request.customer) };
   }
 }
 ```
@@ -1267,11 +1267,11 @@ import { RejectedWorkflowFinish } from "./src/screening/workflows/screening/reje
 -->
 
 ```ts
-it("testUnit: input fields are { producer, value } records", async () => {
+it("testUnit: input fields are plain DTOs", async () => {
   const runAction = testUnit(SaveHireAction);
 
   const { output } = await runAction({
-    verdict: { producer: VerdictAgent, value: { decision: "hire", reason: "strong" } },
+    verdict: { decision: "hire", reason: "strong" },
   });
 
   expect(output.hireId).toMatch(/^hire-strong-/u);
@@ -1281,7 +1281,7 @@ it("testUnit: a code router at no cost", async () => {
   const runRouter = testUnit(HireRouter);
 
   const { output } = await runRouter({
-    verdict: { producer: VerdictAgent, value: { decision: "reject", reason: "junior" } },
+    verdict: { decision: "reject", reason: "junior" },
   });
 
   expect(output).toBe(RejectedWorkflowFinish);

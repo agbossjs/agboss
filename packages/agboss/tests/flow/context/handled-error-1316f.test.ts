@@ -49,9 +49,9 @@ class HandledStart {}
 })
 class PlainAction {
   constructor(private readonly reader: Reader) {}
-  execute(input: { readonly job: { readonly value: JobDto } }): JobDto {
+  execute(input: { readonly job: JobDto }): JobDto {
     this.reader.note("plain");
-    return input.job.value;
+    return input.job;
   }
 }
 

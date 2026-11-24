@@ -14,7 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { OutboundMasking } from "../../../src/app/outbound-masking.js";
 import { hours, seconds } from "../../../src/units/index.js";
@@ -54,10 +54,8 @@ export class ChildChargeAction {
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
-  async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ChargedDto> {
-    const [orderId = "", email = ""] = input.message.value.text.split(" ");
+  async execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ChargedDto> {
+    const [orderId = "", email = ""] = input.message.text.split(" ");
     const outcome = await this.idempotency.sendOnce({
       name: "charge",
       target: "payments",

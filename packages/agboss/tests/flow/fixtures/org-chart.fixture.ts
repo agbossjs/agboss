@@ -77,8 +77,8 @@ export class OrgMapperAgent {}
 })
 export class SplitUnitAction implements ActionHandler<SplitUnitAction> {
   execute(input: InputOf<SplitUnitAction>): Promise<OutputOf<SplitUnitAction>> {
-    const { level } = input.unit.value;
-    return Promise.resolve(input.split.value.units.map((name) => ({ name, level: level + 1 })));
+    const { level } = input.unit;
+    return Promise.resolve(input.split.units.map((name) => ({ name, level: level + 1 })));
   }
 }
 
@@ -87,7 +87,7 @@ export class SplitUnitAction implements ActionHandler<SplitUnitAction> {
   description: "Merges the sub-units' charts",
   prompt: inline("Merge the charts."),
   model: "moonshotai/kimi-k2.6",
-  input: { unit: OrgUnitDto, charts: listOf(oneOf(TeamChartDto, OrgChartFailedDto)) },
+  input: { unit: OrgUnitDto, charts: listOf(TeamChartDto, OrgChartFailedDto) },
   output: TeamChartDto,
 })
 export class ChartMergerAgent {}
@@ -100,7 +100,7 @@ export class ChartMergerAgent {}
 })
 export class MarkUnitFailedAction implements ActionHandler<MarkUnitFailedAction> {
   execute(input: InputOf<MarkUnitFailedAction>): Promise<OutputOf<MarkUnitFailedAction>> {
-    return Promise.resolve({ name: input.unit.value.name });
+    return Promise.resolve({ name: input.unit.name });
   }
 }
 
@@ -172,7 +172,7 @@ export class UnitPickerAgent {}
 })
 export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
   route(input: InputOf<OrgDepthRouter>): Route<OrgDepthRouter> {
-    return input.unit.value.level < 1 ? OrgDrillWorkflow : UnitPickerAgent;
+    return input.unit.level < 1 ? OrgDrillWorkflow : UnitPickerAgent;
   }
 }
 

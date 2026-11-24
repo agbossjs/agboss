@@ -10,6 +10,12 @@ import type {
 import { isCodeJudge } from "../../components/judge-decorators.js";
 import { checkedJudgeOf, loadedCriterionOf } from "../../components/judge-parts.js";
 import type { Class } from "../../components/injection.js";
+import { hydrated } from "../../dto/hydrate.js";
+import { strictMatchOf } from "../../dto/schema.js";
+import type { DtoClass } from "../../dto/types.js";
+import { isDtoClass } from "../../dto/metadata.js";
+import { hydratedForShape } from "../../flow/runtime/shape-hydration.js";
+import { Wrapper } from "../../flow/dto-wrappers.js";
 import { DEFAULT_MODEL_ALIAS } from "../../models/model-cascade.js";
 import { requireComponent } from "../../components/metadata.js";
 import { TestSetupError } from "../errors.js";
@@ -38,11 +44,32 @@ export type JudgeRunnerInput<TOutput> =
 
 /**
  * One judge on an agent's output: `await runJudge({ output, task, attempt })` → `{ output, spend }` —
- * the input's `output` a plain object of the judge's `output`, passed to it as given;
+ * the input's `output` a plain object of the judge's `output`, passed to it as an instance of its class;
  * `toolCalls` the visit's tool calls it reads (#395), `[]` when not given.
  */
 export interface JudgeRunner<TOutput> extends UnitClock {
   (input: JudgeRunnerInput<TOutput>, options?: UnitCallOptions): Promise<UnitRun<JudgeVerdict>>;
+}
+
+/**
+ * The output a unit test gives, as the flow hands it to a judge: instances of their classes — by the
+ * `variant` the input names, else (a polymorphic list) by each item's strict schema.
+ */
+function hydratedOutput(
+  shape: unknown,
+  given: { readonly variant?: unknown; readonly output?: unknown },
+) {
+  const { variant, output } = given;
+  // a value that does not fit the class the input names stays as given (the judge reads what it was told)
+  const asClass = (dto: DtoClass, value: unknown): unknown =>
+    strictMatchOf([dto], value) === dto ? hydrated(dto, value) : value;
+  if (isDtoClass(variant))
+    return Array.isArray(output)
+      ? (output as readonly unknown[]).map((item) => asClass(variant, item))
+      : asClass(variant, output);
+  const isList =
+    typeof shape === "object" && shape !== null && "kind" in shape && shape.kind === Wrapper.List;
+  return isList ? hydratedForShape(shape as never, output) : output;
 }
 
 /** The judge's own model on the runner's scripts: a decision model decides, a chat model replies. */
@@ -97,6 +124,10 @@ export function judgeUnit<
     // the judge reads the trajectory it would read at run time: none given → none (#395)
     const input = {
       ...given,
+      output: hydratedOutput(
+        meta.output,
+        given as { readonly variant?: unknown; readonly output?: unknown },
+      ),
       toolCalls: given.toolCalls ?? [],
       files: given.files ?? [],
     } as never;

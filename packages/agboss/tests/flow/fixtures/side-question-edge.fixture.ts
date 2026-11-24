@@ -94,7 +94,7 @@ export class FailFirstPlaceAction implements ActionHandler<FailFirstPlaceAction>
     this.edgeCalls.calls += 1;
     if (this.edgeCalls.calls === 1) return Promise.reject(new Error("the first place fails"));
     return Promise.resolve({
-      status: `placed ${asked.value.item} within ${String(answer.value.limitUsd)}`,
+      status: `placed ${asked.item} within ${String(answer.limitUsd)}`,
     });
   }
 }

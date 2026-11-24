@@ -191,7 +191,7 @@ describe("the per-item children end at the summary when none fails", () => {
 
     expect(result).toFinishWith(ChecksSummaryWorkflowFinish, { text: "a, b, c" });
     expect(childLog.mostInFlight).toBe(2);
-    // AC6: each value arrives as Produced<ItemResultDto, typeof ItemCheckWorkflow>
+    // AC6: each value arrives as Tracked<ItemResultDto, typeof ItemCheckWorkflow>
     expect(childLog.producers).toEqual([ItemCheckWorkflow, ItemCheckWorkflow, ItemCheckWorkflow]);
   });
 });

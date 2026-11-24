@@ -13,7 +13,7 @@ import {
   WorkflowStart,
   type OutboundCallEvent,
   type OutboundCallSendStatus,
-  type Produced,
+  type Tracked,
   Observer,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -107,10 +107,10 @@ export class ChargeOrderAction {
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
     await frozenWhen("freezeBefore");
-    const [orderId = "", email] = input.message.value.text.split(" ");
+    const [orderId = "", email] = input.message.text.split(" ");
     const contact = email === undefined ? {} : { email };
     const request: ChargeRequest = { orderId, amountUsd: 10, ...contact };
     const outcome = await this.idempotency.sendOnce({
@@ -146,9 +146,9 @@ export class ChargeAndNotifyAction {
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
-    const request: ChargeRequest = { orderId: input.message.value.text, amountUsd: 10 };
+    const request: ChargeRequest = { orderId: input.message.text, amountUsd: 10 };
     const charged = await this.idempotency.sendOnce({
       name: "charge",
       target: "payments",

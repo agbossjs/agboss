@@ -11,7 +11,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Observer,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
@@ -92,8 +92,8 @@ export class CancelFenceObserver {
 export class ReleaseReservationAction {
   constructor(private readonly idempotency: Idempotency) {}
 
-  async execute(input: { readonly reservation: Produced<ReservationDto, unknown> }): Promise<void> {
-    const { reservationId } = input.reservation.value;
+  async execute(input: { readonly reservation: Tracked<ReservationDto> }): Promise<void> {
+    const { reservationId } = input.reservation;
     await this.idempotency.runOnce({
       name: "release",
       ttl: hours(24),
@@ -113,11 +113,9 @@ export class ReleaseReservationAction {
   compensateWith: ReleaseReservationAction,
 })
 export class ReserveOrderAction {
-  execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ReservationDto> {
-    seen.reserved.push(input.message.value.text);
-    return Promise.resolve({ reservationId: `reservation-${input.message.value.text}` });
+  execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ReservationDto> {
+    seen.reserved.push(input.message.text);
+    return Promise.resolve({ reservationId: `reservation-${input.message.text}` });
   }
 }
 
@@ -143,8 +141,8 @@ async function charged(write: () => Promise<ReceiptDto>): Promise<ReceiptDto> {
 export class ChargeReservationAction {
   constructor(private readonly idempotency: Idempotency) {}
 
-  execute(input: { readonly reservation: Produced<ReservationDto, unknown> }): Promise<ReceiptDto> {
-    const { reservationId } = input.reservation.value;
+  execute(input: { readonly reservation: Tracked<ReservationDto> }): Promise<ReceiptDto> {
+    const { reservationId } = input.reservation;
     return charged(async () => {
       const outcome = await this.idempotency.runOnce({
         name: "charge",
@@ -169,8 +167,8 @@ export class ChargeReservationAction {
 export class PayReservationAction {
   constructor(private readonly idempotency: Idempotency) {}
 
-  execute(input: { readonly reservation: Produced<ReservationDto, unknown> }): Promise<ReceiptDto> {
-    const { reservationId } = input.reservation.value;
+  execute(input: { readonly reservation: Tracked<ReservationDto> }): Promise<ReceiptDto> {
+    const { reservationId } = input.reservation;
     return charged(async () => {
       const outcome = await this.idempotency.sendOnce({
         name: "pay",
@@ -200,10 +198,8 @@ export class PayReservationAction {
 export class ChargeTextAction {
   constructor(private readonly idempotency: Idempotency) {}
 
-  execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ReceiptDto> {
-    const { text } = input.message.value;
+  execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ReceiptDto> {
+    const { text } = input.message;
     return charged(async () => {
       const outcome = await this.idempotency.runOnce({
         name: "charge",

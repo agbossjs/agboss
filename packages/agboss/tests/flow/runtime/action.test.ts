@@ -19,9 +19,7 @@ beforeEach(() => {
 });
 
 describe("#272: an @Action runs execute(input) with its fields from the path scope", () => {
-  test("its variant(XDto, value) picks the case; the finish tells the variants apart", async ({
-    app,
-  }) => {
+  test("its plain object picks the case; the finish tells the variants apart", async ({ app }) => {
     const bug = await execute(app, TicketStart, { text: "it crashes", kind: "bug" });
     const question = await execute(app, TicketStart, { text: "how?", kind: "question" });
 

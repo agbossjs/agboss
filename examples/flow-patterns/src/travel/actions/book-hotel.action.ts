@@ -25,7 +25,7 @@ export class BookHotelAction implements ActionHandler<BookHotelAction> {
   ) {}
 
   async execute(input: InputOf<BookHotelAction>): Promise<OutputOf<BookHotelAction>> {
-    const { destination, nights } = input.request.value;
+    const { destination, nights } = input.request;
     const key: string = this.executionContext.step.idempotencyKey;
     return { bookingId: await this.bookingDeskService.bookHotel(destination, nights, key) };
   }

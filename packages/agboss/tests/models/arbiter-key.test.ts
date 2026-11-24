@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../src/index.js";
@@ -58,7 +58,7 @@ class AnsStart {}
   output: OutDto,
 })
 class AnsAction {
-  async execute(i: { readonly answers: readonly Produced<AnsDto, unknown>[] }): Promise<OutDto> {
+  async execute(i: { readonly answers: readonly Tracked<AnsDto>[] }): Promise<OutDto> {
     return { o: String(i.answers.length) };
   }
 }

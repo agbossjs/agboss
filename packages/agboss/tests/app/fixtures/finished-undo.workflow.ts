@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -45,9 +45,9 @@ export function resetUndo(): void {
 export class CancelBookingAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly booking: Produced<BookingDto, unknown> }): Promise<void> {
+  execute(input: { readonly booking: Tracked<BookingDto> }): Promise<void> {
     const { instanceId } = this.executionContext.tenant.application;
-    undoSeen.cancelled.push(`${input.booking.value.bookingId} on ${instanceId}`);
+    undoSeen.cancelled.push(`${input.booking.bookingId} on ${instanceId}`);
     return Promise.resolve();
   }
 }
@@ -63,9 +63,9 @@ export class CancelBookingAction {
 export class BookItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<BookingDto> {
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<BookingDto> {
     const { instanceId } = this.executionContext.tenant.application;
-    const bookingId = `booking-${input.item.value.name}`;
+    const bookingId = `booking-${input.item.name}`;
     undoSeen.booked.push(`${bookingId} on ${instanceId}`);
     return Promise.resolve({ bookingId });
   }
@@ -78,7 +78,7 @@ export class BookItemAction {
   input: { booking: BookingDto },
 })
 export class ConfirmBookingAction {
-  execute(_input: { readonly booking: Produced<BookingDto, unknown> }): Promise<void> {
+  execute(_input: { readonly booking: Tracked<BookingDto> }): Promise<void> {
     return Promise.resolve();
   }
 }

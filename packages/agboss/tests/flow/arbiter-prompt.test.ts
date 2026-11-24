@@ -17,7 +17,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../src/index.js";
 import type { PromptSource } from "../../src/components/prompt-source.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -68,7 +68,7 @@ function workflowWith(prompt: PromptSource) {
     output: OutDto,
   })
   class AnsAction {
-    execute(i: { readonly answers: readonly Produced<AnsDto, unknown>[] }): Promise<OutDto> {
+    execute(i: { readonly answers: readonly Tracked<AnsDto>[] }): Promise<OutDto> {
       return Promise.resolve({ o: String(i.answers.length) });
     }
   }

@@ -3,7 +3,6 @@ import { IdempotencyError, SqliteFencedEffectRepository, provide } from "@agboss
 import { DATABASE_SETTINGS } from "@agboss/core/stores";
 import { testUnit } from "@agboss/core/testing";
 import { ChargeCardAction } from "../../../src/credit/actions/charge-card.action.js";
-import { OrderIntakeAgent } from "../../../src/credit/agents/order-intake/order-intake.agent.js";
 
 /**
  * #472, #500, #508: the charge is a fenced effect keyed by its credit application
@@ -13,7 +12,7 @@ import { OrderIntakeAgent } from "../../../src/credit/agents/order-intake/order-
  */
 
 const order = (customerId: string, total: number, applicationId = `app-${customerId}`) => ({
-  order: { producer: OrderIntakeAgent, value: { applicationId, customerId, total } },
+  order: { applicationId, customerId, total },
 });
 // the action injects Idempotency: the store is the one the application's storage lists, SQLite's,
 // on the settings its `SqliteDriver` resolves to

@@ -81,9 +81,7 @@ export class ParallelPanelWorkflow {}
 })
 export class ParallelPanelRouter implements RouterHandler<ParallelPanelRouter> {
   route(input: InputOf<ParallelPanelRouter>): RouterAnswerOf<ParallelPanelRouter> {
-    return input.plan.value.outline.length > 40
-      ? [PlanResearcherAgent, CriticAgent]
-      : [CriticAgent];
+    return input.plan.outline.length > 40 ? [PlanResearcherAgent, CriticAgent] : [CriticAgent];
   }
 }
 

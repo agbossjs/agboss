@@ -3,11 +3,10 @@ import {
   Action,
   EmptyEnvironment,
   oneOf,
-  variant,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { onStart, toAction } from "../../../helpers/flow.js";
@@ -34,11 +33,11 @@ export class OtherDto {
   output: oneOf(BugDto, QuestionDto, OtherDto),
 })
 export class SortAction {
-  execute(input: { readonly ticket: Produced<TicketDto, unknown> }): Promise<unknown> {
-    const { text, kind } = input.ticket.value;
-    if (kind === "bug") return Promise.resolve(variant(BugDto, { summary: text }));
-    if (kind === "question") return Promise.resolve(variant(QuestionDto, { question: text }));
-    return Promise.resolve(variant(OtherDto, { note: text, marker: "x" as const }));
+  execute(input: { readonly ticket: Tracked<TicketDto> }): Promise<unknown> {
+    const { text, kind } = input.ticket;
+    if (kind === "bug") return Promise.resolve({ summary: text });
+    if (kind === "question") return Promise.resolve({ question: text });
+    return Promise.resolve({ note: text, marker: "x" as const });
   }
 }
 

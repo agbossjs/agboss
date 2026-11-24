@@ -142,7 +142,7 @@ export class ListWorkflowFinish {}
 export class RecordListedAction implements ActionHandler<RecordListedAction> {
   execute({ order, decision }: InputOf<RecordListedAction>): Promise<OutputOf<RecordListedAction>> {
     return Promise.resolve({
-      status: `${order.value.orderId}: ${decision.value.approved ? "approved" : "refused"}`,
+      status: `${order.orderId}: ${decision.approved ? "approved" : "refused"}`,
     });
   }
 }

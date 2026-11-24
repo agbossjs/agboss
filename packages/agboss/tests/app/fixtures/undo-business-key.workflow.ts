@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -35,8 +35,8 @@ export const keyedUndoSeen = { booked: [] as string[], sent: [] as string[] };
 export class KeyedRefundAction {
   constructor(private readonly idempotency: Idempotency) {}
 
-  async execute(input: { readonly booking: Produced<BookingDto, unknown> }): Promise<void> {
-    const { bookingId } = input.booking.value;
+  async execute(input: { readonly booking: Tracked<BookingDto> }): Promise<void> {
+    const { bookingId } = input.booking;
     const businessKey = `refund:${bookingId}`;
     await this.idempotency.runOnce({
       name: "book-refund",
@@ -73,8 +73,8 @@ export class KeyedRefundAction {
   compensateWith: KeyedRefundAction,
 })
 export class KeyedBookingAction {
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<BookingDto> {
-    return Promise.resolve({ bookingId: `booking-${input.item.value.name}` });
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<BookingDto> {
+    return Promise.resolve({ bookingId: `booking-${input.item.name}` });
   }
 }
 

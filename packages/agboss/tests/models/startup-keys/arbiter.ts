@@ -6,7 +6,7 @@ import {
   WorkflowStart,
   listOf,
   type Class,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../../src/index.js";
@@ -49,7 +49,7 @@ export function arbiterWorkflow(model: string): Class {
   })
   class AnsAction {
     async execute(i: {
-      readonly answers: readonly Produced<AnswerDto, unknown>[];
+      readonly answers: readonly Tracked<AnswerDto>[];
     }): Promise<WorkflowFinishTextDto> {
       return { text: String(i.answers.length) };
     }

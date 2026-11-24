@@ -8,7 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -52,7 +52,7 @@ export function resetSeen(): void {
 }
 
 interface Message {
-  readonly message: Produced<WorkflowStartTextDto, unknown>;
+  readonly message: Tracked<WorkflowStartTextDto>;
 }
 
 /** No `Idempotency` before its timeout; after it, it writes through the framework and to its own store. */
@@ -78,7 +78,7 @@ export class UnguardedAction {
     try {
       await this.idempotency.runOnce({
         name: "late",
-        key: input.message.value.text,
+        key: input.message.text,
         withoutFingerprint: true,
         ttl: hours(24),
         execute: () => {
@@ -109,7 +109,7 @@ export class GuardedAction {
     seen.entered += 1;
     await this.idempotency.runOnce({
       name: "charge",
-      key: input.message.value.text,
+      key: input.message.text,
       withoutFingerprint: true,
       ttl: hours(24),
       execute: async () => {
@@ -143,7 +143,7 @@ export class MixedAction {
     const attempt = seen.entered;
     await this.idempotency.runOnce({
       name: "charge",
-      key: input.message.value.text,
+      key: input.message.text,
       withoutFingerprint: true,
       ttl: hours(24),
       execute: () => {

@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds } from "../../../../src/units/index.js";
@@ -34,9 +34,9 @@ export const otherLog = { ranOn: [] as string[] };
 export class OtherWorkerAction {
   constructor(private readonly application: ApplicationContext) {}
 
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
     otherLog.ranOn.push(this.application.instanceId);
-    return Promise.resolve({ name: input.item.value.name });
+    return Promise.resolve({ name: input.item.name });
   }
 }
 

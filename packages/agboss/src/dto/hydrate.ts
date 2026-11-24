@@ -1,5 +1,5 @@
 import { ValidationError } from "../core/error-families/effect-errors.js";
-import { isOpen, registerDto } from "./metadata.js";
+import { isDtoClass, isOpen, registerDto } from "./metadata.js";
 import { isDtoOrPlainObject } from "./plain.js";
 import type { DtoClass, FieldSpec } from "./types.js";
 
@@ -52,6 +52,10 @@ export function hydrated(dto: DtoClass, value: unknown): unknown {
   }
   return copy;
 }
+
+/** A value as an instance of its class when the class is a registered DTO; any other class leaves it as it is. */
+export const hydratedIfDto = (dto: DtoClass, value: unknown): unknown =>
+  isDtoClass(dto) ? hydrated(dto, value) : value;
 
 /** Sets the class's prototype on a value zod has just built (fresh, owned by the parse). */
 export function hydrateInPlace(dto: DtoClass, value: Record<string, unknown>): void {

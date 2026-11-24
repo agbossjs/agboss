@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
@@ -58,8 +58,8 @@ export class StrictVoteWorkflow {}
   routes: [TaskWorkflow, StrictVoteWorkflow],
 })
 export class StrictTaskKindRouter {
-  route(input: { readonly task: Produced<TaskDto, unknown> }): unknown {
-    return input.task.value.seconds > 0 ? TaskWorkflow : StrictVoteWorkflow;
+  route(input: { readonly task: Tracked<TaskDto> }): unknown {
+    return input.task.seconds > 0 ? TaskWorkflow : StrictVoteWorkflow;
   }
 }
 
@@ -94,12 +94,12 @@ export class StrictVotingWorkflowStart {}
 @Action({
   name: "strict-voting-done-action",
   description: "Every item done",
-  input: { results: listOf(oneOf(TaskDoneDto, VotedDto)) },
+  input: { results: listOf(TaskDoneDto, VotedDto) },
   output: GroupDoneDto,
 })
 export class StrictVotingDoneAction {
   async execute(input: {
-    readonly results: readonly Produced<unknown, unknown>[];
+    readonly results: readonly Tracked<TaskDoneDto | VotedDto>[];
   }): Promise<GroupDoneDto> {
     return { name: `${String(input.results.length)} done` };
   }

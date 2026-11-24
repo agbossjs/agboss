@@ -225,7 +225,7 @@ export class CheckoutWorkflowStart {}
 })
 export class ChargePaymentAction implements ActionHandler<ChargePaymentAction> {
   execute(input: InputOf<ChargePaymentAction>): Promise<OutputOf<ChargePaymentAction>> {
-    return Promise.resolve({ paymentId: input.message.value.text, amount: 1 });
+    return Promise.resolve({ paymentId: input.message.text, amount: 1 });
   }
 }
 
@@ -238,7 +238,7 @@ export class ChargePaymentAction implements ActionHandler<ChargePaymentAction> {
 })
 export class SendReceiptAction implements ActionHandler<SendReceiptAction> {
   async execute(input: InputOf<SendReceiptAction>): Promise<void> {
-    await Promise.resolve(input.payment.value.paymentId);
+    await Promise.resolve(input.payment.paymentId);
   }
 }
 
@@ -251,7 +251,7 @@ export class SendReceiptAction implements ActionHandler<SendReceiptAction> {
 })
 export class UpdateCrmAction implements ActionHandler<UpdateCrmAction> {
   async execute(input: InputOf<UpdateCrmAction>): Promise<void> {
-    await Promise.resolve(input.payment.value.paymentId);
+    await Promise.resolve(input.payment.paymentId);
   }
 }
 
@@ -264,7 +264,7 @@ export class UpdateCrmAction implements ActionHandler<UpdateCrmAction> {
 })
 export class ReserveGoodsAction implements ActionHandler<ReserveGoodsAction> {
   async execute(input: InputOf<ReserveGoodsAction>): Promise<void> {
-    await Promise.resolve(input.payment.value.paymentId);
+    await Promise.resolve(input.payment.paymentId);
   }
 }
 
@@ -410,7 +410,7 @@ export class OffersWorkflowStart {}
 })
 export class OffersRouter implements RouterHandler<OffersRouter> {
   route(input: InputOf<OffersRouter>): RouterAnswerOf<OffersRouter> {
-    return input.message.value.text.includes("loyal") ? [LoyaltyOfferAgent] : [];
+    return input.message.text.includes("loyal") ? [LoyaltyOfferAgent] : [];
   }
 }
 

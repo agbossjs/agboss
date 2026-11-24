@@ -11,7 +11,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -102,12 +102,12 @@ export class ThirdAgent {}
 })
 export class SummariseAction {
   execute(input: {
-    readonly first: Produced<FirstDto, unknown>;
-    readonly second: Produced<SecondDto, unknown> | undefined;
-    readonly third: Produced<ThirdDto, unknown>;
+    readonly first: Tracked<FirstDto>;
+    readonly second: Tracked<SecondDto> | undefined;
+    readonly third: Tracked<ThirdDto>;
   }): SummaryDto {
     const { first, second, third } = input;
-    return { text: [first.value.text, second?.value.text ?? "-", third.value.text].join("+") };
+    return { text: [first.text, second?.text ?? "-", third.text].join("+") };
   }
 }
 
@@ -216,8 +216,8 @@ export class ChosenBAction {
   routes: [ChosenAAction, () => ChosenBAction],
 })
 export class ChooserRouter {
-  route(input: { readonly message: Produced<WorkflowStartTextDto, unknown> }): unknown {
-    const words = input.message.value.text.split(" ");
+  route(input: { readonly message: Tracked<WorkflowStartTextDto> }): unknown {
+    const words = input.message.text.split(" ");
     return [
       ...(words.includes("a") ? [ChosenAAction] : []),
       ...(words.includes("b") ? [ChosenBAction] : []),
@@ -233,14 +233,12 @@ export class ChooserRouter {
 })
 export class ChosenSummaryAction {
   execute(input: {
-    readonly first: Produced<FirstDto, unknown>;
-    readonly a: Produced<ChosenADto, unknown> | undefined;
-    readonly b: Produced<ChosenBDto, unknown> | undefined;
+    readonly first: Tracked<FirstDto>;
+    readonly a: Tracked<ChosenADto> | undefined;
+    readonly b: Tracked<ChosenBDto> | undefined;
   }): SummaryDto {
     return {
-      text: [input.first.value.text, input.a?.value.text ?? "-", input.b?.value.text ?? "-"].join(
-        "+",
-      ),
+      text: [input.first.text, input.a?.text ?? "-", input.b?.text ?? "-"].join("+"),
     };
   }
 }

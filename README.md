@@ -458,7 +458,7 @@ outputs", runnable and testable on its own. Its start is chosen by the class of 
 start, else the one taking the chain's current value; `[graph.no-matching-start]` /
 `[graph.ambiguous-start]` otherwise), its scope starts with that input only, and its result is
 branched by class — `.toOneOf([…])` over its `oneOf(CompanyScoreDto, CompanyRejectedDto)`, one
-case per finish output class. `.forEachItem(toWorkflow(CompanyCheckWorkflow), { takeFirst: 50, maxConcurrency: 3 })` runs one child per item, joined into `listOf(oneOf(…))`; a child
+case per finish output class. `.forEachItem(toWorkflow(CompanyCheckWorkflow), { takeFirst: 50, maxConcurrency: 3 })` runs one child per item, joined into `listOf(…)`; a child
 reached from two places has its own path `onWorkflow(W).onError(…).toOneOf([…])`.
 At run time each child is an execution of its own — its id, steps and `maxSteps`, no history —
 inside its parent's checkpoint and budgets; an uncaught failure of its own fails the parent's step
@@ -820,10 +820,9 @@ has — a DTO class, `oneOf(A, B)` (the output is `A | B`), `listOf(XDto)` (a `r
 the validated answer object, never a serialized string, and `variant`, the class it validated as
 (#262 S125): the class of the answer tool the agent used, never guessed from the answer's shape. For
 a `oneOf(A, B)` judge `JudgeInput<A | B>` is a discriminated union on `variant`, and
-`isVariant(input, A)` narrows `output` to `A`; a single DTO, `listOf(XDto)` or `PlainTextDto` judge
-has `variant` as that one class; a `listOf(oneOf(A, B))` judge reads
-`output: readonly VariantOf<A | B>[]` — each item `{ variant, value }`, narrowed by
-`isVariant(item, A)`. An agent whose `output` its judge does not judge
+`input.output instanceof A` narrows `output` to `A`; a single DTO, `listOf(XDto)` or `PlainTextDto` judge
+has `variant` as that one class; a `listOf(A, B)` judge reads
+`output: readonly (A | B)[]` — each item an instance of its class (`item instanceof A`). An agent whose `output` its judge does not judge
 fails assembly with `[judge.wrong-output]`: a text agent with a DTO judge, a DTO agent with another
 class, a `oneOf` variant the judge does not cover, a list agent with a judge of one value or the
 other way round. A verdict is built with `JudgeVerdict.passed({ metrics? })` or
@@ -940,12 +939,12 @@ export class RefusalDto {
 
 ```ts
 import { Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { isVariant, oneOf } from "@agboss/core";
+import { oneOf } from "@agboss/core";
 
 @Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
-    if (isVariant(input, OfferDto)) {
+    if (input.output instanceof OfferDto) {
       // input.variant is OfferDto, the class of the answer tool; input.output is an OfferDto
       return Promise.resolve(
         input.output.salary > 0
@@ -995,7 +994,7 @@ not compile), `routeTo(…)` a target of the router's routes — exactly one aft
 `OnDemand` targets it launches before `.inParallel([…])` (`routeTo()` only with an `Always`
 route). `when(…)` binds turns to the node's input values, at any depth: a deep partial of each
 field's `value` (the producer is not compared), `undefined` for an absent field, a `listOf` field by
-length and position, a `oneOf` element as `variant(XDto, { … })`; a call no script matches fails the
+length and position, the class of a polymorphic element as `expect.any(XDto)`; a call no script matches fails the
 test, naming its input. A script is an expectation: a `thenReturn` turn no call took, or a `when(…)`
 nothing matched, fails a test whose body passed (`thenReturnAlways` never does).
 `waitFor(seconds(31))` before a turn makes the call take that long on the test's clock. A model
@@ -1643,7 +1642,7 @@ export class ChargeOrderAction {
   ) {}
 
   async execute(input: { order: { value: OrderDto } }): Promise<ChargeReceiptDto> {
-    const { orderId } = input.order.value;
+    const { orderId } = input.order;
     const { result } = await this.idempotency.runOnce({
       name: "charge",
       ttl: hours(24),

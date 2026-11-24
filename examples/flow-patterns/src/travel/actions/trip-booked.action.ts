@@ -11,8 +11,8 @@ import { TripBookedDto, TripFlightDto, TripHotelDto } from "../dto/trip.dto.js";
 export class TripBookedAction implements ActionHandler<TripBookedAction> {
   execute(input: InputOf<TripBookedAction>): Promise<OutputOf<TripBookedAction>> {
     return Promise.resolve({
-      flightBookingId: input.flight.value.bookingId,
-      hotelBookingId: input.hotel.value.bookingId,
+      flightBookingId: input.flight.bookingId,
+      hotelBookingId: input.hotel.bookingId,
     });
   }
 }

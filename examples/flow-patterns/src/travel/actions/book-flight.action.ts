@@ -44,7 +44,7 @@ export class BookFlightAction implements ActionHandler<BookFlightAction> {
   ) {}
 
   async execute(input: InputOf<BookFlightAction>): Promise<OutputOf<BookFlightAction>> {
-    const { destination } = input.request.value;
+    const { destination } = input.request;
     const { result } = await this.idempotency.sendOnce({
       name: "book-flight",
       target: "airline",

@@ -51,10 +51,10 @@ describe("the review loop", () => {
     // (historyOf: { current, previous })
     expect(mockLlm(EditorAgent).lastRequest.input).toContain("add the salary");
     const [first, second] = mockLlm(ReviewerAgent).inputs;
-    expect(first?.draft).toMatchObject({ current: { value: { text: "v1: Ada, engineer" } } });
+    expect(first?.draft).toMatchObject({ current: { text: "v1: Ada, engineer" } });
     expect(second?.draft).toMatchObject({
-      current: { value: { text: "v2: Ada, engineer, $150k" } },
-      previous: [{ value: { text: "v1: Ada, engineer" } }],
+      current: { text: "v2: Ada, engineer, $150k" },
+      previous: [{ text: "v1: Ada, engineer" }],
     });
   });
 

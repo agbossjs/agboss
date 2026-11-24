@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type IdempotencyRunStatus,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { effectKeyOf, type EffectKey } from "../../../../src/stores/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -63,8 +63,8 @@ export class BookChargeAction {
     private readonly fencedEffects: InMemoryFencedEffectRepository,
   ) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
-    const { orderId, amountUsd } = input.order.value;
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
+    const { orderId, amountUsd } = input.order;
     const key = effectKeyOf(this.executionContext, "book", {
       businessKey: `order:${orderId}`,
       fingerprint: { kind: "charge", amountUsd },
@@ -86,8 +86,8 @@ export class BookRefundAction {
     private readonly fencedEffects: InMemoryFencedEffectRepository,
   ) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
-    const { orderId, amountUsd } = input.order.value;
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
+    const { orderId, amountUsd } = input.order;
     const key = effectKeyOf(this.executionContext, "book", {
       businessKey: `order:${orderId}`,
       fingerprint: { kind: "refund", amountUsd },
@@ -109,12 +109,12 @@ export class BookEventAction {
     private readonly fencedEffects: InMemoryFencedEffectRepository,
   ) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
     const key = effectKeyOf(this.executionContext, "book", {
-      businessKey: `event:${input.order.value.orderId}`,
+      businessKey: `event:${input.order.orderId}`,
       withoutFingerprint: true,
     });
-    return booked(this.fencedEffects, key, `event-${String(input.order.value.amountUsd)}`);
+    return booked(this.fencedEffects, key, `event-${String(input.order.amountUsd)}`);
   }
 }
 
@@ -135,8 +135,8 @@ export class BookUnsaidChargeAction {
     private readonly fencedEffects: InMemoryFencedEffectRepository,
   ) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
-    const key = unsaidKeyOf(this.executionContext, input.order.value.orderId);
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
+    const key = unsaidKeyOf(this.executionContext, input.order.orderId);
     return booked(this.fencedEffects, key, "charge");
   }
 }
@@ -154,8 +154,8 @@ export class BookUnsaidRefundAction {
     private readonly fencedEffects: InMemoryFencedEffectRepository,
   ) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
-    const key = unsaidKeyOf(this.executionContext, input.order.value.orderId);
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
+    const key = unsaidKeyOf(this.executionContext, input.order.orderId);
     return booked(this.fencedEffects, key, "refund");
   }
 }

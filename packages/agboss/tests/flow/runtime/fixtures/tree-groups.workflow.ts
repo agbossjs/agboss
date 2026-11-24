@@ -4,7 +4,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import {
@@ -28,8 +28,8 @@ import {
   output: listOf(TaskDto),
 })
 export class GroupTasksAction {
-  execute(input: { readonly group: Produced<GroupDto, unknown> }): Promise<TaskDto[]> {
-    return Promise.resolve(input.group.value.tasks);
+  execute(input: { readonly group: Tracked<GroupDto> }): Promise<TaskDto[]> {
+    return Promise.resolve(input.group.tasks);
   }
 }
 
@@ -40,8 +40,8 @@ export class GroupTasksAction {
   output: GroupDoneDto,
 })
 export class CloseGroupAction {
-  execute(input: { readonly group: Produced<GroupDto, unknown> }): Promise<GroupDoneDto> {
-    const { name } = input.group.value;
+  execute(input: { readonly group: Tracked<GroupDto> }): Promise<GroupDoneDto> {
+    const { name } = input.group;
     treeLog.events.push(`close ${name}`);
     return Promise.resolve({ name });
   }
@@ -90,10 +90,8 @@ export class GroupsWorkflowStart {}
   output: GroupDoneDto,
 })
 export class GroupsDoneAction {
-  async execute(input: {
-    readonly done: readonly Produced<GroupDoneDto, unknown>[];
-  }): Promise<GroupDoneDto> {
-    const names = input.done.map((group) => group.value.name);
+  async execute(input: { readonly done: readonly Tracked<GroupDoneDto>[] }): Promise<GroupDoneDto> {
+    const names = input.done.map((group) => group.name);
     return { name: names.join(", ") };
   }
 }

@@ -13,7 +13,7 @@ import {
   WorkflowStart,
   type ExecutionLease,
   type OnDestroy,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -104,11 +104,9 @@ export class SlowAction {
     readonly teardown: Teardown,
   ) {}
 
-  async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ReceiptDto> {
+  async execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ReceiptDto> {
     await slowBody("action", this.executionContext.signal);
-    return { text: `done: ${input.message.value.text}` };
+    return { text: `done: ${input.message.text}` };
   }
 }
 

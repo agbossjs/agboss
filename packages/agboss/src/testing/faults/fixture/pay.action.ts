@@ -6,7 +6,7 @@ import {
   OutboundRecovery,
   Reconciliation,
   type OutboundCallLookup,
-  type Produced,
+  type Tracked,
 } from "../../../index.js";
 import { hours, type Milliseconds, seconds } from "../../../units/index.js";
 import { FaultPayment, REFUSED_ANSWER } from "../pod-protocol.js";
@@ -109,11 +109,11 @@ export class FaultPayAction {
   ) {}
 
   async execute(input: {
-    readonly charge: Produced<FaultChargeDto, unknown>;
-    readonly order: Produced<FaultOrderDto, unknown>;
+    readonly charge: Tracked<FaultChargeDto>;
+    readonly order: Tracked<FaultOrderDto>;
   }): Promise<FaultPaymentDto> {
-    const { orderId, chargeId } = input.charge.value;
-    const payment = input.order.value.payment as FaultPayment;
+    const { orderId, chargeId } = input.charge;
+    const payment = input.order.payment as FaultPayment;
     const { signal } = this.executionContext;
     const where = { ...whereOf(this.applicationContext, this.executionContext), orderId };
     await this.faultPodLink.atStep(FaultStepPoint.PayBefore, where, signal);

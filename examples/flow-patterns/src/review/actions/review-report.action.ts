@@ -17,10 +17,10 @@ import { StyleNotesDto } from "../dto/style-notes.dto.js";
 })
 export class ReviewReportAction implements ActionHandler<ReviewReportAction> {
   execute(input: InputOf<ReviewReportAction>): Promise<OutputOf<ReviewReportAction>> {
-    const claims = input.facts.filter((fact) => fact.value.claim !== "none").length;
+    const claims = input.facts.filter((fact) => fact.claim !== "none").length;
     return Promise.resolve({
-      rework: input.plan.value.rework,
-      style: input.style.value.notes,
+      rework: input.plan.rework,
+      style: input.style.notes,
       claims,
     });
   }

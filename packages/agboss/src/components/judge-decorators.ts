@@ -5,7 +5,8 @@ import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decis
 import type { DtoClass } from "../dto/types.js";
 import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import type { FileContent } from "../files/file-bytes.js";
-import type { ListWrapper, OneOfWrapper, ValueOf, VariantOf } from "../flow/dto-wrappers.js";
+import type { IsUnion } from "../flow/builder-types.js";
+import type { ListWrapper, OneOfWrapper, ValueOf } from "../flow/dto-wrappers.js";
 import type {
   AGBossTypes,
   GeneratedEntry,
@@ -23,7 +24,7 @@ import type { Class, ResolvedAll, Token } from "./injection.js";
 /**
  * What a judge judges (#262 S115) — every shape an agent's `output` can have: one DTO class,
  * `oneOf(A, B)` (the output is `A | B`, told apart by `variant`), `listOf(XDto)` (a `readonly` list),
- * `listOf(oneOf(A, B))` (a `readonly` list of `VariantOf<A | B>`) or `PlainTextDto` for a text
+ * `listOf(A, B)` (a `readonly` list of `A | B`, each item an instance of its class) or `PlainTextDto` for a text
  * agent's reply (`{ text }`). The agent's output has the same shape and
  * every class it may answer with is one of the judge's, else `[judge.wrong-output]`.
  */
@@ -130,10 +131,11 @@ export abstract class JudgeModel {
  * `AGBossTypes.JudgeOutputs`), or the output value it judges (`JudgeInput<PlainTextDto>`, for a
  * library with no generated types).
  *
- * For a `oneOf(A, B)` output a discriminated union on `variant`: `isVariant(input, A)` narrows
- * `output` to `A`. A single DTO, `listOf(XDto)` or `PlainTextDto` judge has `variant` as that one
- * class; a `listOf(oneOf(A, B))` judge reads `output: readonly VariantOf<A | B>[]`, each item with its
- * own `variant`, and has no `variant` of its own.
+ * For a `oneOf(A, B)` output a discriminated union on `variant`: `input.variant === A` tells which
+ * class `output` is (`input.output instanceof A` narrows it). A single DTO, `listOf(XDto)` or
+ * `PlainTextDto` judge has `variant` as that one class; a `listOf(A, B)` judge reads
+ * `output: readonly (A | B)[]`, each item an instance of its class (`item instanceof A`), and has no
+ * `variant` of its own.
  */
 export type JudgeInput<T> = JudgedOutput<JudgeOutputValueOf<T>>;
 
@@ -164,13 +166,13 @@ export type JudgeOutputValueOf<T> = [NameOf<InstanceOrSelf<T>>] extends [never]
  * run's task, the retry count and the visit's trajectory — `toolCalls` and `files`. One interface for
  * a code judge's `judge(input)` and a declarative judge's model alike.
  */
-export type JudgedOutput<TOutput> = TOutput extends readonly VariantOf<unknown>[]
-  ? JudgedBase & { readonly output: TOutput }
-  : TOutput extends readonly (infer TItem)[]
-    ? JudgedBase & { readonly variant: DtoClass<TItem>; readonly output: TOutput }
-    : TOutput extends unknown
-      ? JudgedBase & { readonly variant: DtoClass<TOutput>; readonly output: TOutput }
-      : never;
+export type JudgedOutput<TOutput> = TOutput extends readonly (infer TItem)[]
+  ? IsUnion<TItem> extends true
+    ? JudgedBase & { readonly output: TOutput }
+    : JudgedBase & { readonly variant: DtoClass<TItem>; readonly output: TOutput }
+  : TOutput extends unknown
+    ? JudgedBase & { readonly variant: DtoClass<TOutput>; readonly output: TOutput }
+    : never;
 
 export interface JudgedBase {
   readonly task: string;
@@ -253,7 +255,8 @@ export interface JudgeHandler<TOutput> {
 }
 
 /** Any judge's input as the agent's loop builds it (internal): one class, or items of several. */
-export type AnyJudgeInput = JudgedOutput<unknown> | JudgedOutput<readonly VariantOf<unknown>[]>;
+export type AnyJudgeInput =
+  JudgedOutput<unknown> | (JudgedBase & { readonly output: readonly unknown[] });
 
 /** A judge's instance as the agent's loop calls it (internal), whatever output it judges. */
 export interface RunnableJudge {
@@ -273,14 +276,8 @@ export interface JudgeInstance {
   readonly declared?: { readonly prompt: string; readonly threshold?: number };
 }
 
-/**
- * The value a judge of an `output` shape reads: the shape's value (`ValueOf`), except a
- * `listOf(oneOf(A, B))`, whose items are `VariantOf<A | B>` — each with the class it validated as.
- */
-export type JudgedValueOf<TShape extends JudgeOutputShape> =
-  TShape extends ListWrapper<OneOfWrapper<infer TVariants>>
-    ? readonly VariantOf<InstanceType<TVariants[number]>>[]
-    : ValueOf<TShape>;
+/** The value a judge of an `output` shape reads: the shape's value (`ValueOf`). */
+export type JudgedValueOf<TShape extends JudgeOutputShape> = ValueOf<TShape>;
 
 /**
  * The output a judge class judges: the value its `judge(input)` reads as `output`, or — for a judge

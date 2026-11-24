@@ -94,7 +94,7 @@ export class GraderAgent {}
 })
 export class MarkReviewFailedAction implements ActionHandler<MarkReviewFailedAction> {
   execute(input: InputOf<MarkReviewFailedAction>): Promise<OutputOf<MarkReviewFailedAction>> {
-    return Promise.resolve({ reason: `the review failed after: ${input.promising.value.reason}` });
+    return Promise.resolve({ reason: `the review failed after: ${input.promising.reason}` });
   }
 }
 
@@ -183,7 +183,7 @@ export class NotifyReviewStoppedAction implements ActionHandler<NotifyReviewStop
   description: "Ranks the reviewed companies",
   prompt: inline("Rank the companies."),
   model: "moonshotai/kimi-k2.6",
-  input: { reviews: listOf(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto)) },
+  input: { reviews: listOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto) },
   output: GradedShortlistDto,
 })
 export class ReviewRankerAgent {}

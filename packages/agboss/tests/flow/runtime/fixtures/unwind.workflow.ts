@@ -11,7 +11,7 @@ import {
   type CompensationEndEvent,
   type ExecutionCancelEvent,
   type ExecutionErrorEvent,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { ExecutionCancelledError } from "../../../../src/core/errors.js";
@@ -66,8 +66,8 @@ export class WaitAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async execute(input: { readonly request: Produced<UndoRequestDto, unknown> }): Promise<void> {
-    await this.unwindGate.wait(input.request.value.guest, this.executionContext.signal);
+  async execute(input: { readonly request: Tracked<UndoRequestDto> }): Promise<void> {
+    await this.unwindGate.wait(input.request.guest, this.executionContext.signal);
   }
 }
 
@@ -79,10 +79,10 @@ export class WaitAction {
 })
 export class SeatAndRoomAction {
   async execute(input: {
-    readonly seat: Produced<SeatConfirmedDto, unknown>;
-    readonly room: Produced<RoomDto, unknown>;
+    readonly seat: Tracked<SeatConfirmedDto>;
+    readonly room: Tracked<RoomDto>;
   }): Promise<ReservedDto> {
-    return { summary: `${input.seat.value.seatId} + ${input.room.value.roomId}` };
+    return { summary: `${input.seat.seatId} + ${input.room.roomId}` };
   }
 }
 
@@ -209,12 +209,10 @@ export class UnwindManyWorkflowStart {}
   output: ReservedDto,
 })
 export class RoomsReservedAction {
-  async execute(input: {
-    readonly rooms: readonly Produced<RoomDto, unknown>[];
-  }): Promise<ReservedDto> {
+  async execute(input: { readonly rooms: readonly Tracked<RoomDto>[] }): Promise<ReservedDto> {
     return {
       summary: input.rooms
-        .map((room) => room.value.roomId)
+        .map((room) => room.roomId)
         .join(", "),
     };
   }

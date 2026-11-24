@@ -24,8 +24,8 @@ import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { oneOf, variant, type Variant } from "../../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, type Produced } from "../../../src/index.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
+import { EmptyEnvironment, type Tracked } from "../../../src/index.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -83,10 +83,10 @@ export class FileReviewAction {
   constructor(private readonly a2aFiles: Files) {}
 
   async execute(input: {
-    readonly request: Produced<ReviewRequestDto, unknown>;
-  }): Promise<Variant<typeof ReviewResultDto | typeof ReviewAskDto>> {
-    const { document, note, pages } = input.request.value;
-    if (note === "ask") return variant(ReviewAskDto, { ask: "may I keep it?", document });
+    readonly request: Tracked<ReviewRequestDto>;
+  }): Promise<ReviewResultDto | ReviewAskDto> {
+    const { document, note, pages } = input.request;
+    if (note === "ask") return { ask: "may I keep it?", document };
     const bytes = await this.a2aFiles.read(document);
     for (const page of pages ?? []) await this.a2aFiles.read(page);
     const text = reportOf(bytes, `${String((pages ?? []).length)} more pages`);
@@ -95,7 +95,7 @@ export class FileReviewAction {
       mediaType: "text/plain",
       filename: "report.txt",
     });
-    return variant(ReviewResultDto, { report, verdict: "ok" });
+    return { report, verdict: "ok" };
   }
 }
 
@@ -110,11 +110,11 @@ export class FileAnsweredAction {
   constructor(private readonly a2aFiles: Files) {}
 
   async execute(input: {
-    readonly ask: Produced<ReviewAskDto, unknown>;
-    readonly reply: Produced<ReviewReplyDto, unknown>;
+    readonly ask: Tracked<ReviewAskDto>;
+    readonly reply: Tracked<ReviewReplyDto>;
   }): Promise<WorkflowFinishFileDto> {
-    await this.a2aFiles.read(input.ask.value.document);
-    return { file: input.ask.value.document };
+    await this.a2aFiles.read(input.ask.document);
+    return { file: input.ask.document };
   }
 }
 
@@ -223,12 +223,10 @@ export class StoredFileReviewWorkflow {}
 export class FileSummaryAction {
   constructor(private readonly a2aFiles: Files) {}
 
-  async execute(input: {
-    readonly request: Produced<ReviewRequestDto, unknown>;
-  }): Promise<ReviewResultDto> {
-    const bytes = await this.a2aFiles.read(input.request.value.document);
+  async execute(input: { readonly request: Tracked<ReviewRequestDto> }): Promise<ReviewResultDto> {
+    const bytes = await this.a2aFiles.read(input.request.document);
     const report = await this.a2aFiles.save({
-      bytes: new TextEncoder().encode(reportOf(bytes, input.request.value.note ?? "")),
+      bytes: new TextEncoder().encode(reportOf(bytes, input.request.note ?? "")),
       mediaType: "text/plain",
       filename: "report.txt",
     });

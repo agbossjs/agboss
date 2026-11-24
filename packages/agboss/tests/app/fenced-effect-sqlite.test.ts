@@ -133,7 +133,7 @@ describe(
 );
 
 describe("#500: a unit runner's SQLite fenced effect", () => {
-  const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
+  const order = { message: { text: "order-1" } } as never;
   // the SQLite stores read sqlitePath only; the fixtures' generated Environment is another shape
   // #890: the action injects FencedEffects — the SQLite store is the one the test lists
   const onFile = {

@@ -28,16 +28,14 @@ import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import type { WorkflowStartOptions } from "../../src/flow/decorators/workflow-start.js";
 import {
   historyOf,
-  isVariant,
   listOf,
   oneOf,
   optional,
-  variant,
-  type Produced,
   type HistoryOf,
   type HistoryOptions,
   type ValueOf,
 } from "../../src/flow/dto-wrappers.js";
+import type { Tracked } from "../../src/flow/metadata.js";
 import { agbossComponent, type NodeKind } from "../../src/flow/generated-types.js";
 import type {
   InputOf,
@@ -495,7 +493,7 @@ describe("AC16: a shared options const keeps its exact types", () => {
 describe("#270 AC12 / AC23: handlers take InputOf<Self>", () => {
   it("handlers take InputOf<Self>", () => {
     expectTypeOf<InputOf<SendOfferAction>>().toEqualTypeOf<{
-      draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>;
+      draft: Tracked<OfferDraftDto, typeof DraftAgent | typeof EditorAgent>;
     }>();
     expectTypeOf<ActionHandler<SendOfferAction>["execute"]>().returns.toEqualTypeOf<
       OfferSentDto | Promise<OfferSentDto>
@@ -538,20 +536,6 @@ describe("#270 AC12 / AC23: handlers take InputOf<Self>", () => {
     @Action({ name: "empty-action", description: "Bad" })
     class EmptyAction {}
     expectTypeOf(EmptyAction).toBeConstructibleWith();
-  });
-});
-
-describe("#270 AC2: variant / isVariant", () => {
-  it("variant names a class; isVariant narrows a Produced value", () => {
-    const item = {} as Produced<ChangesRequestedDto | DraftApprovedDto, typeof ReviewerAgent>;
-    if (isVariant(item, ChangesRequestedDto)) {
-      expectTypeOf(item.value).toEqualTypeOf<ChangesRequestedDto>();
-    } else {
-      expectTypeOf(item.value).toEqualTypeOf<DraftApprovedDto>();
-    }
-    // @ts-expect-error — the value must fit the class it names
-    variant(ChangesRequestedDto, { delivered: true });
-    expectTypeOf(variant(UnrelatedDto, { anything: "x" }).anything).toEqualTypeOf<string>();
   });
 });
 
@@ -619,7 +603,7 @@ describe("#280 AC6, AC9: the execution context through the constructor, no ctx a
 describe("#280 AC1, AC2: code routers — options by decidedBy, route(input) typed by the flow", () => {
   it("router input types only; route(input) typed by InputOf", () => {
     expectTypeOf<InputOf<CreditLimitRouter>>().toEqualTypeOf<{
-      order: Produced<CreditOrderDto, typeof OrderIntakeAgent>;
+      order: Tracked<CreditOrderDto, typeof OrderIntakeAgent>;
     }>();
     expectTypeOf<Parameters<RouterHandler<CreditLimitRouter>["route"]>>().toEqualTypeOf<
       [InputOf<CreditLimitRouter>]
@@ -847,7 +831,7 @@ describe("#273: parallel launches and their joins", () => {
       readonly (typeof LoyaltyOfferAgent)[]
     >();
     expectTypeOf<InputOf<AnswerAgent>["order"]>().toEqualTypeOf<
-      Produced<OrderStatusDto, typeof OrderLookupAgent>
+      Tracked<OrderStatusDto, typeof OrderLookupAgent>
     >();
     expectTypeOf<ProducerOutputOf<AnswerAgent>>().toEqualTypeOf<HelpDeskReplyDto>();
   });

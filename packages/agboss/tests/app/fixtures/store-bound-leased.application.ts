@@ -9,7 +9,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -63,9 +63,9 @@ export class TakeSlotAction {
   constructor(private readonly rateLimits: RateLimitRepository) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<SlotReceiptDto> {
-    const key = input.message.value.text;
+    const key = input.message.text;
     const slot = await this.rateLimits.acquire(key, 1, seconds(60));
     return { key: slot?.key ?? "none" };
   }

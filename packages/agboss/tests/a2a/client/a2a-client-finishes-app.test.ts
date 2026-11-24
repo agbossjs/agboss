@@ -22,7 +22,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -67,8 +67,8 @@ class AnswersA2AAgent extends A2AClient<WorkflowStartTextDto, AnswerDto> {
 class AskPeerAction {
   constructor(private readonly peer: AnswersA2AAgent) {}
 
-  execute(input: { readonly question: Produced<WorkflowStartTextDto, unknown> }) {
-    return this.peer.execute({ text: input.question.value.text });
+  execute(input: { readonly question: Tracked<WorkflowStartTextDto> }) {
+    return this.peer.execute({ text: input.question.text });
   }
 }
 

@@ -948,7 +948,7 @@ export class DeskWorkflowFinish {}
 export class RecordDeskAction implements ActionHandler<RecordDeskAction> {
   execute({ order, decision }: InputOf<RecordDeskAction>): Promise<OutputOf<RecordDeskAction>> {
     return Promise.resolve({
-      status: `${order.value.orderId}: ${decision.value.approved ? "refunded" : "refused"}`,
+      status: `${order.orderId}: ${decision.approved ? "refunded" : "refused"}`,
     });
   }
 }
@@ -965,7 +965,7 @@ export class RecordEscalatedDeskAction implements ActionHandler<RecordEscalatedD
     decision,
   }: InputOf<RecordEscalatedDeskAction>): Promise<OutputOf<RecordEscalatedDeskAction>> {
     return Promise.resolve({
-      status: `${order.value.orderId}: the director ${decision.value.approved ? "refunded" : "refused"}`,
+      status: `${order.orderId}: the director ${decision.approved ? "refunded" : "refused"}`,
     });
   }
 }

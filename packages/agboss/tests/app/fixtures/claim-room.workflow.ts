@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -72,8 +72,8 @@ function atItemGate(item: string, signal: AbortSignal): Promise<void> {
 export class ClaimRoomHoldAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name } = input.item;
     roomLog.atWork.add(name);
     roomLog.most = Math.max(roomLog.most, roomLog.atWork.size);
     try {
@@ -127,11 +127,11 @@ export class ClaimRoomBatchWorkflowStart {}
 })
 export class ClaimRoomBatchAction {
   async execute(input: {
-    readonly results: readonly Produced<ItemResultDto, unknown>[];
+    readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
     return {
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     };
   }

@@ -242,7 +242,7 @@ describe("#1366: what a judge reads of the answer", () => {
   });
 
   it("a list of several classes whose judge names no one class is refused", async () => {
-    const { judge } = judgeOf("j", listOf(oneOf(ADto, BDto)));
+    const { judge } = judgeOf("j", listOf(ADto, BDto));
     const tools = { ...many, hasVariants: false };
     const asked = judgeOf("k", oneOf(ADto, BDto));
 
@@ -268,7 +268,7 @@ describe("#1366: what a judge reads of the answer", () => {
   });
 
   it("a judge of a list of several classes reads each item with its own class", async () => {
-    const { judge, asked } = judgeOf("j", listOf(oneOf(ADto, BDto)));
+    const { judge, asked } = judgeOf("j", listOf(ADto, BDto));
     const tools = { ...many, hasVariants: true };
 
     await nodeOf([judge], tools)(
@@ -285,15 +285,12 @@ describe("#1366: what a judge reads of the answer", () => {
     );
 
     const [input] = asked as { output: unknown }[];
-    expect(input?.output).toEqual([
-      { variant: ADto, value: { n: 1 } },
-      { variant: BDto, value: { n: 2 } },
-    ]);
+    expect(input?.output).toEqual([{ n: 1 }, { n: 2 }]);
     expect(Object.keys(input ?? {})).not.toContain("variant");
   });
 
   it("an item with no answer tool of its class is refused, naming its index", async () => {
-    const { judge } = judgeOf("j", listOf(oneOf(ADto, BDto)));
+    const { judge } = judgeOf("j", listOf(ADto, BDto));
     const tools = { ...many, hasVariants: true };
 
     await expect(

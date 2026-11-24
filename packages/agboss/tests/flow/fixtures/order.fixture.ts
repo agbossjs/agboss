@@ -29,7 +29,7 @@ export class OrderWorkflowStart {}
 })
 export class ReserveStockAction implements ActionHandler<ReserveStockAction> {
   execute(input: InputOf<ReserveStockAction>): Promise<OutputOf<ReserveStockAction>> {
-    return Promise.resolve({ reservationId: `reservation-${input.order.value.orderId}` });
+    return Promise.resolve({ reservationId: `reservation-${input.order.orderId}` });
   }
 }
 
@@ -43,7 +43,7 @@ export class ReserveStockAction implements ActionHandler<ReserveStockAction> {
 })
 export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
   execute(input: InputOf<ShipOrderAction>): Promise<OutputOf<ShipOrderAction>> {
-    return Promise.resolve({ trackingNumber: `track-${input.order.value.orderId}` });
+    return Promise.resolve({ trackingNumber: `track-${input.order.orderId}` });
   }
 }
 
@@ -56,7 +56,7 @@ export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
 })
 export class RefundCardAction implements ActionHandler<RefundCardAction> {
   async execute(input: InputOf<RefundCardAction>): Promise<void> {
-    await Promise.resolve(input.order.value.orderId);
+    await Promise.resolve(input.order.orderId);
   }
 }
 
@@ -69,7 +69,7 @@ export class RefundCardAction implements ActionHandler<RefundCardAction> {
 })
 export class NotifyFinanceTeamAction implements ActionHandler<NotifyFinanceTeamAction> {
   async execute(input: InputOf<NotifyFinanceTeamAction>): Promise<void> {
-    await Promise.resolve(input.order.value.orderId);
+    await Promise.resolve(input.order.orderId);
   }
 }
 
@@ -82,7 +82,7 @@ export class NotifyFinanceTeamAction implements ActionHandler<NotifyFinanceTeamA
 })
 export class ReleaseStockAction implements ActionHandler<ReleaseStockAction> {
   async execute(input: InputOf<ReleaseStockAction>): Promise<void> {
-    await Promise.resolve(input.reservation.value.reservationId);
+    await Promise.resolve(input.reservation.reservationId);
   }
 }
 
@@ -103,7 +103,7 @@ export class OrderFailedWorkflowFinish {}
 })
 export class OrderAction {
   async execute(input: InputOf<OrderAction>): Promise<OutputOf<OrderAction>> {
-    return { trackingNumber: input.shipped.value.trackingNumber };
+    return { trackingNumber: input.shipped.trackingNumber };
   }
 }
 

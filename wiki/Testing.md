@@ -337,7 +337,7 @@ mockLlm(Writer).thenReturn(replyWith("A summary."));
   `when({ review: undefined })` for the first visit of a loop, `when({ review: { status: … } })` for
   the next.
 - A `listOf` field is compared by length and position (`when({ companies: [] })` is an empty list);
-  a `oneOf` element may be `variant(CompanyScoreDto, { score: 9 })` to match its class too. A
+  an element of a polymorphic list may be matched by its class with `expect.any(CompanyScoreDto)`. A
   `historyOf` field takes `{ current?, previous? }`. Vitest's asymmetric matchers
   (`expect.stringContaining(…)`) work anywhere.
 - A call no script matches fails the test, naming its input: `test.no-matching-script` —
@@ -576,7 +576,7 @@ const test = testWith(RefundApplication, {
 ## `mockAction(A)` and `mockTool(T)`
 
 `mockAction(A)` (#262) watches an action — it still runs as written: `.inputs` is its input of every
-call (`Produced` records, as it read them), and the call matchers below check what it — or an error
+call (tracked DTOs, as it read them), and the call matchers below check what it — or an error
 handler on a side path — received and returned. `mockTool(T).thenFail(ToolFailure.Timeout)` makes
 the tool's next call fail as a real timeout would (the agent's model reads `timed out after 30000
 ms`), and `mockTool(T).thenReturn(output, …)` makes it return the output without running `execute`
@@ -1045,7 +1045,7 @@ after `timeout` on the runner's `VirtualClock` (`run.clock`), `SpendRecorder` an
 model calls into the call's `spend`. A component that calls a model answers from `model` — one turn
 per call, a list for several (`replyWith`, `decideWith`, `routeTo`, `failWith`, typed like
 `mockLlm(X).thenReturn(…)`). DTO values are plain objects; a step's input fields are
-`{ producer, value }` records, the producer its class. Every call gives `{ output, spend }`; a
+plain DTOs (tracked by default: `Metadata.with(dto, { createdBy: Producer })` states a producer). Every call gives `{ output, spend }`; a
 failure rejects as the component threw it.
 
 | Runner                                  | A call                                                     | `output`                                    |
@@ -1091,8 +1091,8 @@ it("looks the order up in the book it is given", async () => {
 - **`testUnit`** runs `execute` as an agent's tool call runs it: the input validated against its input
   DTO (`DtoValidationError`), the call's `step.callId`, its timeout (`ToolTimeoutError` — move
   `runStatus.clock` past it), the output validated; `SpendRecorder` records as `tool:<name>`.
-- **`testUnit`** takes what `execute` takes — `{ order: { producer: OrderIntakeAgent, value: { … } } }`
-  — and checks the result against its `output` (`variant(XDto, value)` for a `oneOf`), spend as
+- **`testUnit`** takes what `execute` takes — `{ order: { … } }`, DTOs as plain objects (tracked by default; `Metadata.with(dto, { createdBy: … })` states a producer)
+  — and checks the result against its `output`, spend as
   `action:<name>`.
 - **`testUnit`**: a code router's `route(input)` on its container, at no cost; a model router's
   texts loaded (`prompt`, the route prompts, checked like at assembly) and its input
@@ -1109,7 +1109,7 @@ it("looks the order up in the book it is given", async () => {
 - **`testUnit`**: `reply` is a plain object of the judge's `reply` (`JudgeHandler<TReply>`: a
   `JobReportDto`, `OfferDto | RefusalDto`, `{ text }` for `PlainTextDto`), and `variant` the class it
   stands for (#262 S125: `JobReportDto`, `OfferDto` or `RefusalDto`, `PlainTextDto`; for a
-  `listOf(oneOf(A, B))` judge no `variant`, each item `{ variant, value }`), passed to it as given —
+  `listOf(A, B)` judge no `variant`, each item `{ variant, value }`), passed to it as given —
   another shape, or a `variant` with another class's value (`{ variant: OfferDto, reply: { why } }`),
   does not compile (#262 S115, S125); the injected `JudgeModel` is the judge's own model
   answering from `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the

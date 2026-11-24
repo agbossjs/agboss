@@ -598,7 +598,7 @@ name>": 0.9 })`); all no launches none of them (`[]` is an answer, S23).
   chosen start's required fields; its optional ones may be missing); its result is one of its
   finishes' outputs — one class continues the path, several are a `oneOf(…)` and `.onFinish(F, …)` per finish or `.toOneOf([…])` with one
   branch per class (two finishes of one class are one branch), and
-  after a per-item launch the join gives `listOf(oneOf(…))` (S53: one polymorphic list). Errors:
+  after a per-item launch the join gives `listOf(…)` (S53: one polymorphic list). Errors:
   `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`, and right after the join (the
   join's own handler). A per-item child with no finish reachable from one of its
   `.onError` side paths warns `[graph.child-without-failure-finish]` (an error under `--strict`).
@@ -1047,7 +1047,7 @@ export class VendorCheckFailedWorkflowFinish {}
 export class VendorScreeningWorkflowStart {}
 @Agent({ name: "vendor-finder-agent", description: "Finds vendors", prompt: inline("Find them."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(VendorDto) })
 export class VendorFinderAgent {}
-@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: inline("Rank."), model: "moonshotai/kimi-k2.6", input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) }, output: VendorRankingDto })
+@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: inline("Rank."), model: "moonshotai/kimi-k2.6", input: { checks: listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto) }, output: VendorRankingDto })
 export class VendorRankerAgent {}
 @WorkflowFinish({ name: "vendor-ranking-workflow-finish", description: "The ranking", output: VendorRankingDto })
 export class VendorRankingWorkflowFinish {}
@@ -1533,7 +1533,7 @@ export class SeenJobsRepository {
 - **Data are DTO classes** (`@agboss/core/dto`): `@Text`, `@Integer`, `@Bool`, `@Enum`,
   `@List`, `@Nested`, …; plain data, no methods; on paths wrapped as `listOf(Dto)`,
   `oneOf(A, B)`, `optional(Dto)`, `historyOf(Dto, { maxPrevious })` (an input: the current value and the
-  earlier versions), `variant(Dto, value)`. Standard ones: `WorkflowStartTextDto`,
+  earlier versions). Standard ones: `WorkflowStartTextDto`,
   `WorkflowFinishTextDto`, `ToolCallApprovalDecisionDto`, `RagSearchResultDto`, `PlainTextDto`
   (Wiki → Standard-DTOs). zod stays inside the framework.
 - **Tool names** (#268 AC9): a project's `@Tool` is named like every component —
@@ -2223,12 +2223,12 @@ Environments has more.
 `judge({ variant, output, task, attempt }: JudgeInput<Self>)` gets the validated answer object —
 `JudgeInput<T>` takes the judge class (its `output` is read from the generated `AGBossTypes.JudgeOutputs`) or the output type (`JudgeInput<PlainTextDto>`);
 `output` is a DTO class, `oneOf(A, B)` (`A | B`), `listOf(XDto)` (`readonly XDto[]`),
-`listOf(oneOf(A, B))` (`readonly VariantOf<A | B>[]`, each item `{ variant, value }`) or
+`listOf(A, B)` (`readonly (A | B)[]`, each item an instance of its class) or
 `PlainTextDto` for a text agent (`{ text }`) — the shapes of `output`. `variant` (#262 S125) is the
 class the answer validated as, from the answer tool the agent used (never guessed from its shape):
-`JudgeInput<A | B>` is a discriminated union on it, narrowed by `isVariant(input, A)` (an item by
-`isVariant(item, A)`); a single DTO, `listOf(XDto)` or `PlainTextDto` judge has that one class; a
-`listOf(oneOf(…))` judge has none of its own, only its items'. an agent whose `output` its judge does not judge (a
+`JudgeInput<A | B>` is a discriminated union on it (`input.variant === A`; `input.output instanceof A`
+narrows `output`; an item of a list by `item instanceof A`); a single DTO, `listOf(XDto)` or `PlainTextDto` judge has that one class; a
+`listOf(…)` judge has none of its own, only its items'. an agent whose `output` its judge does not judge (a
 text agent with a DTO judge, a `oneOf` variant it does not cover, a list agent with a judge of one
 value or the other way round) fails assembly with `[judge.wrong-output]`. Verdicts are built only with
 `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason, { metrics? })`; a failed one's
@@ -2902,7 +2902,7 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   input values (agents, model routers and chat-model reply interpreters — `{ ask, reply }`, #267; a
   decision-model interpreter answers `decideWith({ approved: 0.9 })`;
   `undefined` = absent, lists by length and position,
-  `variant(XDto, { … })` for a `oneOf` element); a call no script matches fails naming its input
+  `expect.any(XDto)` for the class of a polymorphic element); a call no script matches fails naming its input
   (`test.no-matching-script`). A script is an expectation: an unused `thenReturn` turn or `when(…)`
   fails a passing test at its end (`test.unused-script`; never `thenReturnAlways`) — a test that
   failed reports its own failure. Matchers by class: `toFollowPath`, `toFinishWith`,

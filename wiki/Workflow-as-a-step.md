@@ -81,7 +81,7 @@ export class LinkContractWorkflowStart {}
 export class VendorFinderAgent {}
 @Agent({ name: "vendor-picker-agent", description: "Picks the vendor", prompt: "Pick one.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: VendorDto })
 export class VendorPickerAgent {}
-@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) }, output: VendorRankingDto })
+@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto) }, output: VendorRankingDto })
 export class VendorRankerAgent {}
 @Agent({ name: "contract-agent", description: "Writes the contract", prompt: "Write it.", model: "moonshotai/kimi-k2.6", input: { score: VendorScoreDto }, output: ContractDto })
 export class ContractAgent {}
@@ -232,9 +232,9 @@ children
   `AGBossTypes.ProducerOutputs`). Two finishes with one output class are one branch. A `.toOneOf([…])` branch counts as
   reading `XDto` (`[flow.unused-output]` never fires on a branch that ends in a finish).
 - After a per-item launch the join gives **one polymorphic list**:
-  `listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))`,
+  `listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)`,
   derived from the child's finishes;
-  a node reads it as that `listOf(oneOf(…))` field (#299 S53: no filtered `listOf(VendorScoreDto)` slot).
+  a node reads it as that `listOf(…)` field (#299 S53: no filtered `listOf(VendorScoreDto)` slot).
 
 ## Errors
 
@@ -586,7 +586,7 @@ export class ResearcherAgent {}
   description: "Merges the subtopics' results",
   prompt: "Merge the reports into one report on the topic.",
   model: "moonshotai/kimi-k2.6",
-  input: { topic: TopicDto, results: listOf(oneOf(TopicReportDto, TopicFailedDto)) },
+  input: { topic: TopicDto, results: listOf(TopicReportDto, TopicFailedDto) },
   output: TopicReportDto,
 })
 export class MergeAgent {}
@@ -598,8 +598,8 @@ export class MergeAgent {}
 })
 export class SubtopicsAction implements ActionHandler<SubtopicsAction> {
   execute(input: InputOf<SubtopicsAction>): Promise<OutputOf<SubtopicsAction>> {
-    const { level } = input.topic.value;
-    return Promise.resolve(input.tooBroad.value.subtopics.map((title) => ({ title, level: level + 1 })));
+    const { level } = input.topic;
+    return Promise.resolve(input.tooBroad.subtopics.map((title) => ({ title, level: level + 1 })));
   }
 }
 @Action({
@@ -610,7 +610,7 @@ export class SubtopicsAction implements ActionHandler<SubtopicsAction> {
 })
 export class MarkTopicFailedAction implements ActionHandler<MarkTopicFailedAction> {
   execute(input: InputOf<MarkTopicFailedAction>): Promise<OutputOf<MarkTopicFailedAction>> {
-    return Promise.resolve({ title: input.topic.value.title });
+    return Promise.resolve({ title: input.topic.title });
   }
 }
 @WorkflowFinish({ name: "topic-report-workflow-finish", description: "The report", output: TopicReportDto })

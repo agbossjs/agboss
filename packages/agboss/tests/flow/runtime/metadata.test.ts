@@ -94,7 +94,7 @@ describe("#1274a: the scope records what a node reads", () => {
     ...extra,
   });
 
-  it("a field's value tells its creator, visit and parents; the wrapper stays as it was", () => {
+  it("a field's value tells its creator, visit and parents", () => {
     const view: ScopeView = {
       scope: { NoteDto: edit },
       outdatedValues: [
@@ -103,13 +103,12 @@ describe("#1274a: the scope records what a node reads", () => {
     };
 
     const { fields } = readInput(graph, { fields: [field("NoteDto", "note")] as never }, view);
-    const item = fields.note as { producer: unknown; value: object };
+    const item = fields.note as object;
 
-    expect(item.producer).toBe(EditorAgent);
-    expect(Metadata.createdBy(item.value)).toBe(EditorAgent);
-    expect(Metadata.of(item.value)).toMatchObject({ valueId: edit.valueId, visitNumber: 3 });
-    expect(Metadata.ancestors(item.value).map((each) => each.createdBy)).toEqual([WriterAgent]);
-    expect(item.value).toEqual({ text: "edit" });
+    expect(Metadata.createdBy(item)).toBe(EditorAgent);
+    expect(Metadata.of(item)).toMatchObject({ valueId: edit.valueId, visitNumber: 3 });
+    expect(Metadata.ancestors(item).map((each) => each.createdBy)).toEqual([WriterAgent]);
+    expect(item).toEqual({ text: "edit" });
   });
 
   it("a list's elements know their place and their own producer", () => {
@@ -124,10 +123,10 @@ describe("#1274a: the scope records what a node reads", () => {
       { fields: [field("list:NoteDto", "notes", { isList: true })] as never },
       view,
     );
-    const items = fields.notes as { value: object }[];
+    const items = fields.notes as object[];
 
-    expect(items.map((each) => Metadata.of(each.value)?.itemIndex)).toEqual([0, 1]);
-    expect(items.map((each) => Metadata.createdBy(each.value))).toEqual([WriterAgent, EditorAgent]);
+    expect(items.map((each) => Metadata.of(each)?.itemIndex)).toEqual([0, 1]);
+    expect(items.map((each) => Metadata.createdBy(each))).toEqual([WriterAgent, EditorAgent]);
   });
 
   it("one object in two slots is never given two sets of facts", () => {
@@ -141,10 +140,10 @@ describe("#1274a: the scope records what a node reads", () => {
       { fields: [field("A", "a"), field("B", "b")] as never },
       view,
     );
-    const [first, second] = [fields.a, fields.b] as { value: object }[];
+    const [first, second] = [fields.a, fields.b] as object[];
 
-    expect(Metadata.createdBy(first?.value ?? {})).toBe(WriterAgent);
-    expect(Metadata.createdBy(second?.value ?? {})).toBe(EditorAgent);
-    expect(second?.value).toEqual(shared);
+    expect(Metadata.createdBy(first ?? {})).toBe(WriterAgent);
+    expect(Metadata.createdBy(second ?? {})).toBe(EditorAgent);
+    expect(second).toEqual(shared);
   });
 });

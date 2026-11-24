@@ -380,7 +380,7 @@ describe("#1366: a oneOf field beside two lists of its classes", () => {
     @WorkflowStart({
       name: "lists-1366h-workflow-start",
       description: "Two lists of one of two classes",
-      input: { first: listOf(either), second: listOf(either) },
+      input: { first: listOf(...either.variants), second: listOf(...either.variants) },
     })
     class ListsStart {}
     const reader = agentOf("either-lists-1366h-agent", { either });

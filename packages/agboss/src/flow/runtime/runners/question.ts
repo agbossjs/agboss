@@ -18,10 +18,6 @@ import { expiryFailureOf, PauseExpirySignal } from "../pause-expiry-failure.js";
 import { ComponentKind } from "../records.js";
 import type { ExecutionStateType } from "../state.js";
 
-/** The question's value: the field reads it as `{ producer, value }`, like every input field. */
-const questionOf = (field: unknown): unknown =>
-  typeof field === "object" && field !== null && "value" in field ? field.value : field;
-
 /** How a question step fails: its channel's `send`, an invalid decision, an expired pause (#941). */
 async function failedAsking(
   error: unknown,
@@ -73,7 +69,7 @@ export function questionRunner(
     if (pause === undefined || channelOf === undefined || frame === undefined)
       throw new TypeError(`${node.id}: a question is asked only inside its application`);
     // the question as the channel, the records and the events see it: `sensitive` fields masked
-    const ask = pauseInputOf(redactedDto(role.ask, questionOf(input.fields.ask)));
+    const ask = pauseInputOf(redactedDto(role.ask, input.fields.ask));
     const onSend = (): Promise<void> =>
       reportNodeEvent((base) =>
         deps.observer?.onChannelStart({ ...base, name: role.name, input: ask }),

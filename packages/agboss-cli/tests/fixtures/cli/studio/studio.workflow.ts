@@ -44,7 +44,7 @@ export class StudioItemWorkflowStart {}
 })
 export class CheckItemAction {
   execute(input: { readonly item: { readonly value: StudioItemDto } }): Promise<StudioResultDto> {
-    return Promise.resolve({ name: input.item.value.name });
+    return Promise.resolve({ name: input.item.name });
   }
 }
 
@@ -86,7 +86,7 @@ export class SummaryAction {
   }): Promise<StudioSummaryDto> {
     return Promise.resolve({
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     });
   }

@@ -99,10 +99,8 @@ class NoteWorkflowFinish {}
   output: WorkflowFinishTextDto,
 })
 class NoteAction {
-  execute(input: {
-    readonly text: { readonly value: WorkflowStartTextDto };
-  }): Promise<WorkflowFinishTextDto> {
-    return Promise.resolve({ text: input.text.value.text });
+  execute(input: { readonly text: WorkflowStartTextDto }): Promise<WorkflowFinishTextDto> {
+    return Promise.resolve({ text: input.text.text });
   }
 }
 

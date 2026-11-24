@@ -228,8 +228,7 @@ export class JoinExpiryApprovedWorkflowFinish {}
 export class JoinExpiryEscalatedWorkflowFinish {}
 
 /** The approval an optional input holds, when its branch answered. */
-const approvedOf = (decision: { readonly value: { readonly approved: boolean } } | undefined) =>
-  decision?.value.approved;
+const approvedOf = (decision: { readonly approved: boolean } | undefined) => decision?.approved;
 
 /** The CEO is told what the approvers already said. */
 @Action({

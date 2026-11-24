@@ -17,7 +17,7 @@ import {
   type ChannelAsk,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type Produced,
+  type Tracked,
   type QuorumDecidedEvent,
   Action,
   inline,
@@ -84,14 +84,14 @@ export class QuorumExpiryLog {
 
 /** What a finish reads: the counted scores. */
 interface ScoresInput {
-  readonly scores: readonly Produced<RefundScoreDto, unknown>[];
+  readonly scores: readonly Tracked<RefundScoreDto>[];
 }
 
 const record = (input: ScoresInput): RefundDoneDto => {
-  qe.finished.push(input.scores.map((score) => String(score.value.score)));
+  qe.finished.push(input.scores.map((score) => String(score.score)));
   return {
     orderId: input.scores
-      .map((score) => String(score.value.score))
+      .map((score) => String(score.score))
       .join(","),
   };
 };

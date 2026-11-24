@@ -105,7 +105,7 @@ export class MessageWorkflowStart {}
 })
 export class EchoAction {
   execute(input) {
-    return Promise.resolve({ text: input.message.value.text });
+    return Promise.resolve({ text: input.message.text });
   }
 }
 

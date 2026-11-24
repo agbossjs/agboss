@@ -6,7 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../../src/index.js";
@@ -72,10 +72,10 @@ export class PayoutRefundAgent {}
 })
 export class PayoutAction {
   async execute(input: {
-    readonly confirmation: Produced<OrderConfirmationDto, unknown>;
-    readonly refund: Produced<RefundDoneDto, unknown>;
+    readonly confirmation: Tracked<OrderConfirmationDto>;
+    readonly refund: Tracked<RefundDoneDto>;
   }): Promise<BatchSummaryDto> {
-    return { text: `paid ${input.refund.value.orderId}` };
+    return { text: `paid ${input.refund.orderId}` };
   }
 }
 
@@ -93,10 +93,8 @@ export class PayoutWorkflowFinish {}
   output: BatchSummaryDto,
 })
 export class PayoutDeclinedAction {
-  async execute(input: {
-    readonly request: Produced<RefundRequestDto, unknown>;
-  }): Promise<BatchSummaryDto> {
-    return { text: `declined ${input.request.value.orderId}` };
+  async execute(input: { readonly request: Tracked<RefundRequestDto> }): Promise<BatchSummaryDto> {
+    return { text: `declined ${input.request.orderId}` };
   }
 }
 

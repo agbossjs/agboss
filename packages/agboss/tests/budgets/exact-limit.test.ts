@@ -13,7 +13,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { isApplicationSpendExhausted } from "../../src/budgets/application-spend.js";
@@ -125,10 +125,10 @@ class DailyApplicationBudget implements BudgetHandler {
 })
 class DimesAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
     for (let call = 0; call < 8; call += 1)
       this.spendRecorder.record({ service: "search", cost: usd(0.1) });
-    return Promise.resolve({ name: input.item.value.name });
+    return Promise.resolve({ name: input.item.name });
   }
 }
 @WorkflowStart({ name: "dimes-workflow-start", description: "An item", input: ItemDto })

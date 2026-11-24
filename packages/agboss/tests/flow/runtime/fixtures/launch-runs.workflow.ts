@@ -11,7 +11,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   Action,
   inline,
 } from "../../../../src/index.js";
@@ -73,9 +73,9 @@ export class LoopCriticAgent {}
 })
 export class CritiquesAction {
   async execute(input: {
-    readonly critiques: readonly Produced<CritiqueDto, unknown>[];
+    readonly critiques: readonly Tracked<CritiqueDto>[];
   }): Promise<SummaryDto> {
-    const remarks = input.critiques.map((critique) => critique.value.remark);
+    const remarks = input.critiques.map((critique) => critique.remark);
     return { text: remarks.join(", ") };
   }
 }
@@ -97,8 +97,8 @@ export class CritiquesWorkflowFinish {}
   routes: [LoopPlannerAgent, CritiquesAction],
 })
 export class PlanLoopRouter {
-  route(input: { readonly critiques: readonly Produced<CritiqueDto, unknown>[] }): unknown {
-    const redo = input.critiques.some((critique) => critique.value.remark === "redo");
+  route(input: { readonly critiques: readonly Tracked<CritiqueDto>[] }): unknown {
+    const redo = input.critiques.some((critique) => critique.remark === "redo");
     return redo ? LoopPlannerAgent : CritiquesAction;
   }
 }
@@ -230,8 +230,8 @@ export class TiredWorkflowFinish {}
   routes: [TiredPlannerAgent, CritiquesAction],
 })
 export class TiredLoopRouter {
-  route(input: { readonly critiques: readonly Produced<CritiqueDto, unknown>[] }): unknown {
-    const redo = input.critiques.some((critique) => critique.value.remark === "redo");
+  route(input: { readonly critiques: readonly Tracked<CritiqueDto>[] }): unknown {
+    const redo = input.critiques.some((critique) => critique.remark === "redo");
     return redo ? TiredPlannerAgent : CritiquesAction;
   }
 }

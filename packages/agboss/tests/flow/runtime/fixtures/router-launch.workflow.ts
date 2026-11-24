@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../../src/index.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
@@ -121,8 +121,8 @@ export class StrictWorkflowStart {}
   routes: [RefundPolicyAgent, LoyaltyOfferAgent],
 })
 export class StrictRouter {
-  route(input: { readonly message: Produced<WorkflowStartTextDto, unknown> }): unknown {
-    switch (input.message.value.text) {
+  route(input: { readonly message: Tracked<WorkflowStartTextDto> }): unknown {
+    switch (input.message.text) {
       case "both":
         return [LoyaltyOfferAgent, RefundPolicyAgent];
       case "one":

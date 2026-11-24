@@ -89,7 +89,7 @@ export class BrokenAgent {}
 })
 export class NotifyRecruiterAction implements ActionHandler<NotifyRecruiterAction> {
   async execute(input: InputOf<NotifyRecruiterAction>): Promise<void> {
-    await Promise.resolve(input.draft.value.text);
+    await Promise.resolve(input.draft.text);
   }
 }
 
@@ -103,7 +103,7 @@ export class NotifyRecruiterAction implements ActionHandler<NotifyRecruiterActio
 })
 export class SendOfferAction implements ActionHandler<SendOfferAction> {
   execute(input: InputOf<SendOfferAction>): Promise<OutputOf<SendOfferAction>> {
-    return Promise.resolve({ delivered: input.draft.value.text.length > 0 });
+    return Promise.resolve({ delivered: input.draft.text.length > 0 });
   }
 }
 

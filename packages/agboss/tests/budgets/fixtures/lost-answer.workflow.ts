@@ -7,7 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -75,13 +75,13 @@ export class PayThriceAction {
     private readonly clock: Clock,
   ) {}
 
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<OrderDto> {
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<OrderDto> {
     for (const cost of [60, 25, 1]) {
       this.spendRecorder.record({ service: "order-api", cost: usd(cost) });
       await this.clock.sleep(seconds(1));
     }
     lostAnswer.log.push("paid");
-    return input.order.value;
+    return input.order;
   }
 }
 
@@ -95,7 +95,7 @@ export class PayThriceAction {
 export class WorkAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<OrderDto> {
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<OrderDto> {
     const { signal } = this.executionContext;
     await new Promise<void>((resolve, reject) => {
       lostAnswer.release = resolve;
@@ -111,7 +111,7 @@ export class WorkAction {
       );
     });
     lostAnswer.log.push("worked");
-    return input.order.value;
+    return input.order;
   }
 }
 
@@ -125,10 +125,8 @@ export class LostAnswerWorkflowStart {}
   output: OrderDto,
 })
 export class LostAnswerAction {
-  async execute(input: {
-    readonly results: readonly Produced<OrderDto, unknown>[];
-  }): Promise<OrderDto> {
-    const ids = input.results.map((result) => result.value.orderId);
+  async execute(input: { readonly results: readonly Tracked<OrderDto>[] }): Promise<OrderDto> {
+    const ids = input.results.map((result) => result.orderId);
     return { orderId: ids.join(",") };
   }
 }

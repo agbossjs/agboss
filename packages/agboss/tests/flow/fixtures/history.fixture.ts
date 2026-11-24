@@ -4,7 +4,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { historyOf, oneOf, variant } from "../../../src/flow/dto-wrappers.js";
+import { historyOf, oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
@@ -59,11 +59,11 @@ export class ReviewDraftAction implements ActionHandler<ReviewDraftAction> {
   execute(input: InputOf<ReviewDraftAction>): Promise<OutputOf<ReviewDraftAction>> {
     reviews.push(input);
     const { current, previous } = input.draft;
-    return Promise.resolve(
-      previous.length >= 2 && current.value.text.endsWith("v4")
-        ? variant(DraftApprovedDto, {})
-        : variant(ChangesRequestedDto, { notes: `after ${String(previous.length)} versions` }),
-    );
+    const verdict: ChangesRequestedDto | DraftApprovedDto =
+      previous.length >= 2 && current.text.endsWith("v4")
+        ? {}
+        : { notes: `after ${String(previous.length)} versions` };
+    return Promise.resolve(verdict);
   }
 }
 
@@ -95,7 +95,7 @@ export class DraftHistoryAction {
     const { current, previous } = input.drafts;
     return {
       changes: [...previous, current]
-        .map((draft) => draft.value.text)
+        .map((draft) => draft.text)
         .join(" → "),
     };
   }

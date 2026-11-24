@@ -13,7 +13,7 @@ class RejectedDto {
 test("#1288a: listOf(A) is a list of A, listOf(A, B) a list of the union", () => {
   const one = listOf(ScoreDto);
   const many = listOf(ScoreDto, RejectedDto);
-  const wrapped = listOf(oneOf(ScoreDto, RejectedDto));
+  const wrapped = listOf(ScoreDto, RejectedDto);
 
   expectTypeOf<ValueOf<typeof one>>().toEqualTypeOf<readonly ScoreDto[]>();
   expectTypeOf<ValueOf<typeof many>>().toEqualTypeOf<readonly (ScoreDto | RejectedDto)[]>();

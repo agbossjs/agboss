@@ -3,7 +3,7 @@ import type { ValueWrite } from "../analyse/flow-graph.js";
 import { slotOfField, slotOfWrite } from "../analyse/scope.js";
 import { NodeKind } from "../ast.js";
 import { isFieldMap } from "../decorators/declaration.js";
-import { Wrapper, withVariant, type HistoryOf, type ProducedValue } from "../dto-wrappers.js";
+import { Wrapper, type HistoryOf } from "../dto-wrappers.js";
 import { trackValue } from "../metadata.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import { metadataOf } from "./scope-metadata.js";
@@ -19,7 +19,7 @@ import {
 /**
  * The path scope at run time (#270 → path scope, #271 S11): a node's outgoing edge writes each value
  * into its one slot (a write replaces the slot's value), and a node reads its `input` fields from
- * their slots, each rebuilt into `{ producer, value }` with the producer's class. A
+ * their slots, each value the DTO itself, tracked: its producer is read with `Metadata`. A
  * `historyOf(XDto)` field also reads the earlier versions of its slot from `outdatedValues` (#299
  * S56).
  */
@@ -104,30 +104,24 @@ export function recordsOfWrites(
   return Object.fromEntries(records.map((record) => [record.slot, record]));
 }
 
-/** A node's input as its handler or its model reads it: `Produced` fields, and what was read. */
+/** A node's input as its handler or its model reads it: its fields (tracked DTOs), and what was read. */
 export interface ReadInput {
   readonly fields: Readonly<Record<string, unknown>>;
   /** The `valueId`s read (the `builtFrom` of what the node writes). */
   readonly read: readonly string[];
 }
 
-/** Rebuilds one value of a slot into `{ producer, value }` (with its class for a `oneOf`). */
-function produced(
+/** One value of a slot as the DTO itself, with where it came from recorded (`Metadata`, #1274). */
+function tracked(
   graph: RuntimeGraph,
   view: ScopeView,
   record: ScopeValueRecord,
   producer: string,
   value: unknown,
-  variant?: string,
   index?: number,
-) {
+): unknown {
   const meta = metadataOf(graph, view, record, producer, index);
-  const item: ProducedValue<unknown, unknown> = {
-    producer: graph.nodes.get(producer)?.component,
-    value: meta === undefined ? value : trackValue(value, meta),
-  };
-  const dto = variant === undefined ? undefined : graph.dtos.get(variant);
-  return dto === undefined ? item : withVariant(item, dto);
+  return meta === undefined ? value : trackValue(value, meta);
 }
 
 /** The earlier versions of a `historyOf` field's slot, oldest first, at most its `maxPrevious`. */
@@ -155,15 +149,7 @@ function fieldValue(
     variant?: string,
     index?: number,
   ) =>
-    produced(
-      graph,
-      view,
-      from,
-      producer,
-      hydratedValue(graph, field.shape, value, variant),
-      variant,
-      index,
-    );
+    tracked(graph, view, from, producer, hydratedValue(graph, field.shape, value, variant), index);
   if (field.history !== undefined) {
     const history: HistoryOf<unknown> = {
       current: read(record, record.producer, record.value, record.variant),

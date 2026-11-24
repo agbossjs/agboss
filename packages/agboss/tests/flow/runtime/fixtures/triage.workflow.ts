@@ -3,13 +3,13 @@ import {
   Action,
   oneOf,
   optional,
-  variant,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { onAction, onStart, toAction } from "../../../helpers/flow.js";
+import { Metadata } from "../../../../src/flow/metadata.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -37,7 +37,7 @@ export class ReportDto {
   text!: string;
 }
 
-/** A `oneOf` output is a plain value of one of the classes (or `variant(XDto, value)`); "unmarked" fits none. */
+/** A `oneOf` output is a plain value of one of the classes (or `value`); "unmarked" fits none. */
 @Action({
   name: "classify-action",
   description: "Classifies the ticket",
@@ -45,10 +45,10 @@ export class ReportDto {
   output: oneOf(BugDto, QuestionDto),
 })
 export class ClassifyAction {
-  execute(input: { readonly ticket: Produced<TicketDto, unknown> }): Promise<unknown> {
-    const { text, kind } = input.ticket.value;
-    if (kind === "bug") return Promise.resolve(variant(BugDto, { summary: text }));
-    if (kind === "question") return Promise.resolve(variant(QuestionDto, { question: text }));
+  execute(input: { readonly ticket: Tracked<TicketDto> }): Promise<unknown> {
+    const { text, kind } = input.ticket;
+    if (kind === "bug") return Promise.resolve({ summary: text });
+    if (kind === "question") return Promise.resolve({ question: text });
     return Promise.resolve({ note: text });
   }
 }
@@ -65,11 +65,14 @@ export const reported: { producer: string; bug: boolean }[] = [];
 })
 export class ReportFinishAction {
   async execute(input: {
-    readonly bug?: Produced<BugDto, typeof ClassifyAction>;
-    readonly question?: Produced<QuestionDto, typeof ClassifyAction>;
+    readonly bug?: Tracked<BugDto, typeof ClassifyAction>;
+    readonly question?: Tracked<QuestionDto, typeof ClassifyAction>;
   }): Promise<ReportDto> {
     const read = input.bug ?? input.question;
-    reported.push({ producer: read?.producer.name ?? "", bug: input.bug !== undefined });
+    reported.push({
+      producer: read === undefined ? "" : Metadata.createdBy(read).name,
+      bug: input.bug !== undefined,
+    });
     return { text: input.bug === undefined ? "a question" : "a bug" };
   }
 }

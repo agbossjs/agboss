@@ -1,6 +1,6 @@
 /**
  * #1269 (mutation shard files-pii): the files an agent's input holds — `filesOfValue` for one value of a
- * DTO and `inputFilesOf` for a node's fields: single fields, lists, `listOf(oneOf(…))`, pass-through.
+ * DTO and `inputFilesOf` for a node's fields: single fields, lists, `listOf(…)`, pass-through.
  */
 import { describe, expect, it } from "vitest";
 import { FileDto } from "../../src/dto/standard/file.js";
@@ -178,8 +178,8 @@ describe("inputFilesOf: lists", () => {
   });
 });
 
-describe("inputFilesOf: listOf(oneOf(…))", () => {
-  const field = fieldOf("mixed", listOf(oneOf(FileDto, LetterDto)));
+describe("inputFilesOf: listOf(…)", () => {
+  const field = fieldOf("mixed", listOf(FileDto, LetterDto));
 
   it("its slot is the polymorphic list's", () => {
     expect(field.slot.startsWith("list:oneOf(")).toBe(true);

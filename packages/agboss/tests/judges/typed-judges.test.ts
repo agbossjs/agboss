@@ -4,14 +4,13 @@
  * output its judge does not judge fails assembly with `[judge.wrong-output]`; a failed verdict's
  * `reason` goes back to the agent for its retry. PR 5 (S125): `input.variant` is the class the answer
  * validated as — from the answer tool the agent used — and `JudgeInput<A | B>` a discriminated union
- * on it; a `listOf(oneOf(A, B))` judge reads each item as `VariantOf<A | B>`.
+ * on it; a `listOf(A, B)` judge reads each item as an instance of its class.
  */
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { JudgeVerdict, QualityGateError, type JudgeInput } from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
-import { isVariant, type VariantOf } from "../../src/index.js";
 import { replyWith, testUnit, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
 import { execute } from "../helpers/flow.js";
@@ -66,11 +65,11 @@ const REPORT: JobReportDto = { jobs: [JOB] };
 const seenOf = (calls: readonly (readonly unknown[])[]): readonly unknown[] =>
   calls.map(([variant]) => variant);
 
-/** S125: `isVariant` narrows a oneOf judge's input; reading `reply` before it does not compile. */
+/** S125: `instanceof` narrows a oneOf judge's output; reading it before does not compile. */
 const salaryOf = (input: JudgeInput<OfferDto | RefusalDto>): number | undefined => {
   // @ts-expect-error -- not narrowed yet: the reply may be a RefusalDto
   const unnarrowed: number = input.output.salary;
-  return isVariant(input, OfferDto) ? input.output.salary : unnarrowed;
+  return input.output instanceof OfferDto ? input.output.salary : unnarrowed;
 };
 
 describe("a DTO judge", () => {
@@ -178,7 +177,7 @@ describe("a oneOf judge", () => {
     expect(textsOf(retry).at(-1)).toContain("[fair-decision-judge] a refusal says why");
   });
 
-  it("on its own: each variant with its class, narrowed by isVariant", async () => {
+  it("on its own: each variant with its class, narrowed by instanceof", async () => {
     const runJudge = testUnit(FairDecisionJudge);
 
     const offer = await runJudge({
@@ -208,8 +207,8 @@ describe("a oneOf judge", () => {
     // @ts-expect-error -- a oneOf judge's input names its variant
     const missing = runJudge({ output: { salary: 1 }, task: "t", attempt: 0 });
 
-    // given as is: the judge reads the variant it was told
-    await expect(wrong).resolves.toMatchObject({ output: { passed: false } });
+    // given as is: a value that is no OfferDto stays plain, so the judge reads it as the refusal
+    await expect(wrong).resolves.toMatchObject({ output: { passed: true } });
     await expect(missing).rejects.toThrow(TypeError);
   });
 });
@@ -268,10 +267,10 @@ describe("a list-of-oneOf judge", () => {
     expect(variants[2]).toBe(RefusalDto);
   });
 
-  it("on its own: testUnit takes each item as { variant, value }", async () => {
-    const items: readonly VariantOf<OfferDto | RefusalDto>[] = [
-      { variant: OfferDto, value: { salary: 1 } },
-      { variant: RefusalDto, value: { why: "no TypeScript" } },
+  it("on its own: testUnit takes each item as an instance of its class", async () => {
+    const items: readonly (OfferDto | RefusalDto)[] = [
+      Object.assign(new OfferDto(), { salary: 1 }),
+      Object.assign(new RefusalDto(), { why: "no TypeScript" }),
     ];
 
     const { output } = await testUnit(DecisionsJudge)({
@@ -283,17 +282,14 @@ describe("a list-of-oneOf judge", () => {
     expect(output).toEqual(JudgeVerdict.passed({ metrics: { offers: 1 } }));
   });
 
-  it("an item of a wrong pair, or a plain value, does not compile", async () => {
+  it("an item that is no decision does not compile", async () => {
     const runJudge = testUnit(DecisionsJudge);
     const task = { task: "t", attempt: 0 } as const;
 
-    // @ts-expect-error -- variant RefusalDto with an OfferDto value
-    const wrong = runJudge({ output: [{ variant: RefusalDto, value: { salary: 1 } }], ...task });
-    // @ts-expect-error -- each item names its class: { variant, value }, never the value alone
-    const plain = runJudge({ output: [{ salary: 1 }], ...task });
+    // @ts-expect-error -- an item is an OfferDto or a RefusalDto
+    const stranger = runJudge({ output: [{ unrelated: 1 }], ...task });
 
-    await expect(wrong).resolves.toMatchObject({ output: { passed: true } });
-    await expect(plain).resolves.toMatchObject({ output: { passed: true } });
+    await expect(stranger).resolves.toMatchObject({ output: { passed: true } });
   });
 });
 

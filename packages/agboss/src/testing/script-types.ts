@@ -4,7 +4,8 @@ import type {
 } from "../dto/standard/framework.js";
 import type { DtoClass } from "../dto/types.js";
 import type { NodeKind } from "../flow/ast.js";
-import type { HistoryOf, ProducedValue } from "../flow/dto-wrappers.js";
+import type { HistoryOf } from "../flow/dto-wrappers.js";
+import type { WithoutTrack } from "../flow/metadata.js";
 import type {
   AgentToolNamesOf,
   GeneratedTypeError,
@@ -52,8 +53,7 @@ export type DeepPartial<TValue> = TValue extends readonly (infer TElement)[]
     : TValue;
 
 /** One value read from the path, as a matcher writes it: its value only (`producer` is not compared). */
-export type ValuePartial<TField> =
-  TField extends ProducedValue<infer TValue, unknown> ? DeepPartial<TValue> : DeepPartial<TField>;
+export type ValuePartial<TField> = DeepPartial<WithoutTrack<TField>>;
 
 /** One input field as a matcher writes it: `undefined` = absent, a list by position. */
 export type FieldPartial<TField> = TField extends undefined
@@ -68,10 +68,10 @@ export type FieldPartial<TField> = TField extends undefined
       : ValuePartial<TField>;
 
 /**
- * A matcher over a node's input values (#262 S-scripts): a deep partial of each field's `value` —
- * `Produced<V, P>` unwrapped, a plain field taken as it is. A key left out is not checked; a key
- * given as `undefined` matches only an absent field; a `listOf` field is compared by length and
- * position, a `oneOf` element may be `variant(XDto, { … })` to match its class.
+ * A matcher over a node's input values (#262 S-scripts): a deep partial of each field's DTO
+ * (`Tracked<V, P>` taken as `V`). A key left out is not checked; a key given as `undefined`
+ * matches only an absent field; a `listOf` field is compared by length and position, an element of
+ * a polymorphic list may be matched by its class with `expect.any(XDto)`.
  */
 export type PartialValues<TInput> = TInput extends GeneratedTypeError
   ? never

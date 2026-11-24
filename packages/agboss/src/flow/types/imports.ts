@@ -19,9 +19,8 @@ export enum TablesImport {
   TenantContextBrand = "agbossTenantContext",
   NoInput = "NoInput",
   NoOutput = "NoOutput",
-  Produced = "Produced",
+  Tracked = "Tracked",
   HistoryOf = "HistoryOf",
-  VariantOf = "VariantOf",
 }
 
 /** A class the generated file mentions and the module it is imported from. */

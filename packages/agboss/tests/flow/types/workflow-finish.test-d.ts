@@ -38,7 +38,7 @@ describe("#1271: @WorkflowFinish is a pure boundary port", () => {
     expectTypeOf({
       name: "c-workflow-finish",
       description: "many of several",
-      output: listOf(oneOf(CompanyDto, CompanyScoreDto)),
+      output: listOf(CompanyDto, CompanyScoreDto),
     }).toExtend<WorkflowFinishOptions>();
   });
 

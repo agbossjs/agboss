@@ -1,12 +1,10 @@
-import { isVariant, variantClassOf, type ProducedValue } from "../flow/dto-wrappers.js";
-
 /**
  * The run-time side of `PartialValues<InputOf<X>>` (#262): whether a node's input — its fields as
- * the node read them, `Produced` records — matches a partial over values. `when(…)`,
+ * the node read them, tracked DTOs — matches a partial over values. `when(…)`,
  * `toHaveBeenCalledWith(…)` and the failure messages share it.
  */
 
-/** A node's input as it read it: field → `Produced` record(s), or a plain value. */
+/** A node's input as it read it: field → tracked DTO(s), or a plain value. */
 export type RecordedInput = Readonly<Record<string, unknown>>;
 
 /** Vitest's `expect.any(…)`, `expect.objectContaining(…)`: they match by themselves. */
@@ -22,10 +20,6 @@ const isAsymmetric = (value: unknown): value is AsymmetricMatcher =>
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-/** A value read from the path: `{ producer, value }` and nothing else. */
-const isProduced = (value: unknown): value is ProducedValue<unknown, unknown> =>
-  isRecord(value) && Object.keys(value).length === 2 && "producer" in value && "value" in value;
 
 /** A `historyOf` field: `{ current, previous }`. */
 const isHistory = (
@@ -48,13 +42,8 @@ export function matchesPartial(actual: unknown, expected: unknown): boolean {
   return Object.is(actual, expected);
 }
 
-/** One value: a `Produced` record by its value (and by its class, given as `variant(…)`). */
-function matchesValue(actual: unknown, expected: unknown): boolean {
-  if (!isProduced(actual)) return matchesPartial(actual, expected);
-  const dto = variantClassOf(expected);
-  if (dto !== undefined && !isVariant(actual, dto)) return false;
-  return matchesPartial(actual.value, expected);
-}
+/** One value: a tracked DTO by its fields. */
+const matchesValue = matchesPartial;
 
 function matchesList(actual: readonly unknown[], expected: unknown): boolean {
   if (!Array.isArray(expected) || actual.length !== expected.length) return false;
@@ -80,15 +69,6 @@ function matchesField(actual: unknown, expected: unknown): boolean {
 export const matchesInput = (actual: RecordedInput, expected: RecordedInput): boolean =>
   Object.entries(expected).every(([key, item]) => matchesField(actual[key], item));
 
-/** The values of an input, without producers — for messages. */
-function valuesOf(value: unknown): unknown {
-  if (isProduced(value)) return valuesOf(value.value);
-  if (Array.isArray(value)) return value.map(valuesOf);
-  if (isRecord(value))
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, valuesOf(item)]));
-  return value;
-}
-
 /** An input as a message names it: its values as JSON. */
 export const inputText = (input: RecordedInput | undefined): string =>
-  input === undefined ? "(no input: not a step of a workflow)" : JSON.stringify(valuesOf(input));
+  input === undefined ? "(no input: not a step of a workflow)" : JSON.stringify(input);

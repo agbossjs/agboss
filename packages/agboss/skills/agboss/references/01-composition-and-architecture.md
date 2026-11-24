@@ -142,7 +142,7 @@ export class SaveShortlistAction implements ActionHandler<SaveShortlistAction> {
   ) {}
 
   async execute(input: InputOf<SaveShortlistAction>): Promise<OutputOf<SaveShortlistAction>> {
-    const { jobs } = input.shortlist.value; // a field of the scope: { producer, value }
+    const { jobs } = input.shortlist; // a field of the scope: the DTO itself, tracked
     const key: string = this.executionContext.step.idempotencyKey; // the same on a retried step
     const shortlistId: string = await this.shortlistStoreService.save(jobs, key);
     return { shortlistId, count: jobs.length, top: jobs[0] }; // a plain object, never `new`
@@ -205,7 +205,7 @@ const MAX_SAVED_JOBS = 10;
 })
 export class ShortlistSizeRouter implements RouterHandler<ShortlistSizeRouter> {
   route(input: InputOf<ShortlistSizeRouter>): Route<ShortlistSizeRouter> {
-    return input.shortlist.value.jobs.length > MAX_SAVED_JOBS
+    return input.shortlist.jobs.length > MAX_SAVED_JOBS
       ? TooManyJobsWorkflowFinish
       : SaveShortlistAction;
   }
@@ -322,7 +322,7 @@ What this shows:
 - **The scope, not arguments.** `SaveShortlistAction` and `ShortlistSizeRouter` read `shortlist`
   because the step's `oneOf(ShortlistDto, NoMatchDto)` output and the `.toOneOf([…])` branch that reads it put a `ShortlistDto`
   on that path; a field no path brings is `[input.missing-on-path]`. Each input field arrives as
-  `{ producer, value }` — `input.shortlist.value.jobs`.
+  the DTO itself — `input.shortlist.jobs`; `Metadata.createdBy(input.shortlist)` is the class that gave it.
 - **A marker class for an outcome.** `NoMatchDto` has no fields: the class is the answer, and the
   `switch` routes on it. `oneOf` outputs become one answer tool per class for the model.
 - **Finishes are pure boundary ports.** A `@WorkflowFinish({ name, description, output })` is an empty class: it hands back
@@ -459,7 +459,7 @@ export class ReadDocumentTool {
 ## Pitfalls
 
 - `new ShortlistDto()` or `Object.assign(new X(), …)` in project code — values are object literals.
-- Reading an input by position or as the bare value: it is `input.<field>.value`.
+- Reading an input by position: it is `input.<field>`, the DTO itself (`Metadata.createdBy(input.<field>)` is who made it).
 - A model router directly after an agent that already knows the outcome: an extra call, an extra
   failure mode — return `oneOf(…)` and `switch`.
 - One workflow per "screen" of a UI: a workflow is a process; a conversation continues it with the

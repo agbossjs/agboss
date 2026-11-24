@@ -5,7 +5,7 @@ import {
   type CompensationStartEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { usd } from "../../../src/units/index.js";
 import { OrderDeclinedError, OrderDto, OrderNoteDto, paidSteps } from "./paid-steps.dto.js";
@@ -42,11 +42,11 @@ export function resetExemptions(): void {
 export class CheckOrderAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<OrderDto> {
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<OrderDto> {
     paidSteps.ran.push("check");
     this.spendRecorder.record({ service: "order-api", cost: usd(paidSteps.charge) });
     if (exemptions.declines) return Promise.reject(new OrderDeclinedError("declined"));
-    return Promise.resolve(input.order.value);
+    return Promise.resolve(input.order);
   }
 }
 

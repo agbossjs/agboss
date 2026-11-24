@@ -213,7 +213,7 @@ export class ExpiryWorkflowFinish {}
 })
 export class RecordExpiryAction implements ActionHandler<RecordExpiryAction> {
   execute({ order, decision }: InputOf<RecordExpiryAction>): Promise<OutputOf<RecordExpiryAction>> {
-    const status = `${order.value.orderId}: ${decision.value.approved ? "approved" : "refused"}${decision.value.comment === undefined ? "" : ` (${decision.value.comment})`}`;
+    const status = `${order.orderId}: ${decision.approved ? "approved" : "refused"}${decision.comment === undefined ? "" : ` (${decision.comment})`}`;
     expiry.recorded.push(status);
     return Promise.resolve({ status });
   }
@@ -231,7 +231,7 @@ export class RecordEscalatedAction implements ActionHandler<RecordEscalatedActio
     order,
     decision,
   }: InputOf<RecordEscalatedAction>): Promise<OutputOf<RecordEscalatedAction>> {
-    const status = `${order.value.orderId}: escalated, ${decision.value.approved ? "approved" : "refused"}`;
+    const status = `${order.orderId}: escalated, ${decision.approved ? "approved" : "refused"}`;
     expiry.recorded.push(status);
     return Promise.resolve({ status });
   }
@@ -288,10 +288,10 @@ export class SlowEscalationAction implements ActionHandler<SlowEscalationAction>
   constructor(private readonly clock: Clock) {}
 
   async execute({ order }: InputOf<SlowEscalationAction>): Promise<OutputOf<SlowEscalationAction>> {
-    expiry.slowStarted.push(order.value.orderId);
+    expiry.slowStarted.push(order.orderId);
     await this.clock.sleep(seconds(30));
-    expiry.slowEnded.push(order.value.orderId);
-    return { status: `${order.value.orderId}: escalated slowly` };
+    expiry.slowEnded.push(order.orderId);
+    return { status: `${order.orderId}: escalated slowly` };
   }
 }
 

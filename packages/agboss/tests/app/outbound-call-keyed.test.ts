@@ -15,7 +15,7 @@ import {
   OutboundCallRepository,
   OutboundRecovery,
   type OutboundCallRecord,
-  type Produced,
+  type Tracked,
 } from "../../src/index.js";
 import { effectKeyOf } from "../../src/stores/index.js";
 import { testUnit } from "../../src/testing/index.js";
@@ -47,9 +47,9 @@ class KeyedChargeAction {
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
-    const orderId = input.message.value.text;
+    const orderId = input.message.text;
     const outcome = await this.idempotency.sendOnce({
       name: "charge",
       ...(next.key === undefined ? {} : { key: next.key }),
@@ -72,7 +72,7 @@ class KeyedChargeAction {
   }
 }
 
-const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
+const order = { message: { text: "order-1" } } as never;
 
 beforeEach(() => {
   resetGateway();

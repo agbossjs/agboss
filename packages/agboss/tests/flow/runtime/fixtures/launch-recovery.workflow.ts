@@ -3,7 +3,7 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   Workflow,
-  type Produced,
+  type Tracked,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -45,8 +45,8 @@ export function resetRecoveryRuns(): void {
 export class RecoverableItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name } = input.item.value;
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name } = input.item;
     recoveryRuns.runs.push(name);
     const isFirstHold =
       name === "hold" && recoveryRuns.runs.filter((run) => run === name).length === 1;

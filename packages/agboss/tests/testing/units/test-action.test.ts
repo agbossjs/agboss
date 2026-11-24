@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { testUnit } from "../../../src/testing/index.js";
-import { variant } from "../../../src/flow/dto-wrappers.js";
 import { seconds } from "../../../src/units/index.js";
 import type { Environment } from "../../../src/flow/generated-types.js";
 
@@ -40,7 +39,7 @@ describe("testUnit", () => {
 
     const { output, spend } = await runQuote(request("pen", 3));
 
-    expect(output).toEqual(variant(QuoteDto, { cents: 750, pricedBy: "price-quote-action" }));
+    expect(output).toEqual({ cents: 750, pricedBy: "price-quote-action" });
     expect(spend.byCaller).toEqual({ "action:price-quote-action": 0.001 });
   });
 
@@ -51,7 +50,7 @@ describe("testUnit", () => {
 
     const { output } = await runQuote(request("desk", 1));
 
-    expect(output).toEqual(variant(QuoteRefusedDto, { reason: "no price for desk" }));
+    expect(output).toEqual({ reason: "no price for desk" });
   });
 
   it("what the action throws rejects as it was thrown: the real service ran", async () => {
@@ -87,7 +86,7 @@ describe("testUnit", () => {
 
     const { output } = await runQuote(request("pen", 2));
 
-    expect(output).toEqual(variant(QuoteDto, { cents: 500, pricedBy: "price-quote-action" }));
+    expect(output).toEqual({ cents: 500, pricedBy: "price-quote-action" });
   });
 
   it("#644 (4): without it, the error says how to pass it to the runner", async () => {

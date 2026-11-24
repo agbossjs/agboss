@@ -17,7 +17,7 @@ import {
   StoreClock,
   type IdempotencyRunOutcome,
   type FencedEffectWork,
-  type Produced,
+  type Tracked,
 } from "../../src/index.js";
 import { type EffectKey } from "../../src/stores/index.js";
 import { testUnit } from "../../src/testing/index.js";
@@ -58,9 +58,9 @@ class FencedReceiptAction {
   constructor(private readonly idempotency: Idempotency) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
-    const order = input.message.value.text;
+    const order = input.message.text;
     const { result } = await this.idempotency.runOnce({
       name: "receipt",
       ttl: hours(24),
@@ -74,7 +74,7 @@ class FencedReceiptAction {
 }
 
 describe("#890 AC2: Idempotency.runOnce, the service an application injects", () => {
-  const order = { message: { producer: "test", value: { text: "order-1" } } } as never;
+  const order = { message: { text: "order-1" } } as never;
 
   it("AC2: runs the work once per key on the store the container gives, then replays its result", async () => {
     const run = testUnit(FencedReceiptAction);
@@ -131,7 +131,7 @@ describe("#890 AC2: a test's replacement of the listed store reaches Idempotency
       services: [RecordingFencedEffectRepository],
     });
 
-    await run({ message: { producer: "test", value: { text: "order-2" } } });
+    await run({ message: { text: "order-2" } });
 
     expect(replaced).toEqual(["receipt"]);
   });

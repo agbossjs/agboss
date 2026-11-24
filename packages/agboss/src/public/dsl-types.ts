@@ -26,7 +26,6 @@ export {
   type ListElementShape,
   type OneOfVariants,
   type OptionalInnerShape,
-  type PartialVariant,
   type ReturnedShape,
   type Wrapper,
 } from "../flow/dto-wrappers.js";

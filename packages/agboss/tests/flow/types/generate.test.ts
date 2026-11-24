@@ -145,7 +145,7 @@ describe("S4: InputOf is an exact union up to 32 input shapes, flat above", () =
     expect(MAX_EXACT_INPUT_SHAPES).toBe(32);
     expect(five.split("\n        | ").length - 1).toBe(32);
     expect(text).toContain(
-      '      "six-parts-agent": { first?: Produced<FirstPartDto, typeof SixPartsWorkflowStart>; second?: ',
+      '      "six-parts-agent": { first?: Tracked<FirstPartDto, typeof SixPartsWorkflowStart>; second?: ',
     );
     expect(generated.notes).toEqual([
       "six-parts-agent: 64 input shapes — InputOf is flat (no narrowing between fields)",
@@ -229,8 +229,8 @@ describe("#1324g: every decorated class is typed, a workflow reaches it or not",
     const { text, errors } = generateFlowTypes({ ...request, workflows: [], components });
 
     expect(errors).toEqual([]);
-    expect(text).toContain('"charge-card-action": { order: Produced<CreditOrderDto, never>;');
-    expect(text).toContain("approval?: Produced<CreditApprovalDto, never> | undefined }");
+    expect(text).toContain('"charge-card-action": { order: Tracked<CreditOrderDto, never>;');
+    expect(text).toContain("approval?: Tracked<CreditApprovalDto, never> | undefined }");
     expect(text).toContain('"charge-card-action": ChargeResultDto;');
     expect(text).toContain('"credit-workflow-finish": ChargeResultDto;');
     expect(text).toContain(
@@ -248,7 +248,7 @@ describe("#1324g: every decorated class is typed, a workflow reaches it or not",
     const withComponents = generateFlowTypes({ ...request, components }).text;
 
     expect(withComponents).toBe(generateFlowTypes(request).text);
-    expect(withComponents).not.toContain("Produced<CreditOrderDto, never>");
+    expect(withComponents).not.toContain("Tracked<CreditOrderDto, never>");
   });
 
   it("a class under a name a workflow's component has is left out, never overwriting it", async () => {

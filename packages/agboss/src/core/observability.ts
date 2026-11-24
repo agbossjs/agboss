@@ -103,7 +103,7 @@ export interface GuardrailOutcome {
 /** A guardrail decided: `output` is its outcome (a blocked one then fails the execution). */
 export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 
-/** An `@Action` starts with its input fields (`Produced` values). */
+/** An `@Action` starts with its input fields (tracked DTOs). */
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
 /** An action finished: `output` is what its `execute` returned. */
 export type ActionEndEvent = EndEvent<unknown>;

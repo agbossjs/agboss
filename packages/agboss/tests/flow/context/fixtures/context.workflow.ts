@@ -151,7 +151,7 @@ export class OtherWorkflow {}
 export class PublishAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly draft: { readonly value: DraftDto } }): Promise<DraftDto> {
+  execute(input: { readonly draft: DraftDto }): Promise<DraftDto> {
     const context = this.executionContext;
     seen.actionSteps.push(context.step);
     seen.workflows.push(context.workflow);
@@ -164,7 +164,7 @@ export class PublishAction {
       rootIsSelf: context.root === context,
       depth: context.depth,
     });
-    return Promise.resolve(input.draft.value);
+    return Promise.resolve(input.draft);
   }
 }
 

@@ -7,7 +7,7 @@ import { slotOfWrite } from "../analyse/scope.js";
 import type { InputShape, ProjectedField } from "../analyse/projection.js";
 import type { ComponentName } from "../registry.js";
 import { TablesImport, type ImportTable } from "./imports.js";
-import { producedText, propertyName } from "./shapes.js";
+import { trackedText, propertyName } from "./shapes.js";
 import type { AnalysedWorkflow } from "./tables.js";
 
 /**
@@ -38,7 +38,7 @@ export interface InputEntry {
   readonly note?: string;
 }
 
-/** Writes a component's class by its name (the producers of `Produced<T, P>`). */
+/** Writes a component's class by its name (the producers of `Tracked<T, P>`). */
 export type ComponentOf = (name: ComponentName) => Class;
 
 /** Rules an input's type reports besides `input.*`: an unread item, a child's start (#263). */
@@ -89,7 +89,7 @@ function fieldText(
     writer.componentOf,
   );
   const optional = present.length === projected.length ? "" : "?";
-  return `${key}${optional}: ${producedText(field.shape, producers, writer.names)}`;
+  return `${key}${optional}: ${trackedText(field.shape, producers, writer.names)}`;
 }
 
 /** An object over shapes: one shape gives an exact member, all of them the flat type. */
@@ -106,7 +106,7 @@ function objectText(writer: ShapeWriter, shapes: readonly InputShape[]): string 
 
 /**
  * The shapes grouped by which fields are present: one member of `InputOf` per combination of
- * values; within it a field's producers are the union over its scopes (`Produced<T, A | B>`).
+ * values; within it a field's producers are the union over its scopes (`Tracked<T, A | B>`).
  */
 function byPresence(shapes: readonly InputShape[]): readonly (readonly InputShape[])[] {
   const groups = new Map<string, InputShape[]>();

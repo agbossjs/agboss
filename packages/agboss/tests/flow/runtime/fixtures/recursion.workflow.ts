@@ -14,8 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
-  variant,
+  type Tracked,
   inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -108,14 +107,14 @@ export class SubtopicsAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: {
-    readonly topic: Produced<TopicDto, unknown>;
-    readonly tooBroad: Produced<TopicTooBroadDto, unknown>;
+    readonly topic: Tracked<TopicDto>;
+    readonly tooBroad: Tracked<TopicTooBroadDto>;
   }): Promise<TopicDto[]> {
-    const { title, level } = input.topic.value;
+    const { title, level } = input.topic;
     const depth = this.executionContext.depth;
     recursionLog.readings.push({ at: "subtopics-action", title, depth, level });
     return Promise.resolve(
-      input.tooBroad.value.subtopics.map((subtopic) => ({ title: subtopic, level: level + 1 })),
+      input.tooBroad.subtopics.map((subtopic) => ({ title: subtopic, level: level + 1 })),
     );
   }
 }
@@ -127,7 +126,7 @@ export class SubtopicsAction {
   model: "moonshotai/kimi-k2.6",
   input: {
     topic: TopicDto,
-    results: listOf(oneOf(TopicReportDto, TopicFailedDto)),
+    results: listOf(TopicReportDto, TopicFailedDto),
   },
   output: TopicReportDto,
 })
@@ -143,8 +142,8 @@ export class MergeAgent {}
 export class MarkTopicFailedAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly topic: Produced<TopicDto, unknown> }): Promise<TopicFailedDto> {
-    const { title, level } = input.topic.value;
+  execute(input: { readonly topic: Tracked<TopicDto> }): Promise<TopicFailedDto> {
+    const { title, level } = input.topic;
     const depth = this.executionContext.depth;
     recursionLog.readings.push({ at: "mark-topic-failed-action", title, depth, level });
     return Promise.resolve({ title });
@@ -219,13 +218,11 @@ export class CountdownWorkflowStart {}
 export class CountdownAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly count: Produced<CountDto, unknown> }): Promise<unknown> {
-    const { left } = input.count.value;
+  execute(input: { readonly count: Tracked<CountDto> }): Promise<unknown> {
+    const { left } = input.count;
     const depth = this.executionContext.depth;
     recursionLog.readings.push({ at: "countdown-action", title: String(left), depth, level: left });
-    return Promise.resolve(
-      left > 0 ? variant(CountDto, { left: left - 1 }) : variant(CountDoneDto, { depth }),
-    );
+    return Promise.resolve(left > 0 ? { left: left - 1 } : { depth });
   }
 }
 
@@ -299,8 +296,8 @@ export class SplitWorkflowStart {}
   output: listOf(CountDto),
 })
 export class SplitAction {
-  execute(input: { readonly count: Produced<CountDto, unknown> }): Promise<CountDto[]> {
-    const { left } = input.count.value;
+  execute(input: { readonly count: Tracked<CountDto> }): Promise<CountDto[]> {
+    const { left } = input.count;
     return Promise.resolve(left > 0 ? [{ left: left - 1 }, { left: left - 1 }] : []);
   }
 }
@@ -323,7 +320,7 @@ export class SplitStoppedAction {
 @Action({
   name: "sum-action",
   description: "Sums up the halves",
-  input: { halves: listOf(oneOf(CountDoneDto, CountStoppedDto)) },
+  input: { halves: listOf(CountDoneDto, CountStoppedDto) },
   output: CountDoneDto,
   deps: [ExecutionContext],
 })

@@ -12,7 +12,7 @@ import {
 } from "../../../src/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { Integer, List, PlainTextDto, Text, type DtoClass } from "../../../src/dto/index.js";
-import { isVariant, listOf, oneOf, type VariantOf } from "../../../src/index.js";
+import { listOf, oneOf } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { onStart, toFinish, toAgent } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -128,8 +128,8 @@ export class RefusalDto {
 }
 
 /**
- * Judges both variants (S125): `variant` is the class the answer validated as; `isVariant(input,
- * OfferDto)` narrows `reply` to `OfferDto`, the other branch to `RefusalDto`.
+ * Judges both variants (S125): `variant` is the class the answer validated as; `output instanceof
+ * OfferDto` narrows `output` to `OfferDto`, the other branch to `RefusalDto`.
  */
 @Judge({
   name: "fair-decision-judge",
@@ -142,7 +142,7 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
 
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
     this.variantLog.seen(input.variant);
-    if (isVariant(input, OfferDto)) {
+    if (input.output instanceof OfferDto) {
       const { salary } = input.output;
       return Promise.resolve(
         salary > 0
@@ -380,23 +380,24 @@ export class ListJudgeWorkflow {}
 })
 export class ListJudgeApplication {}
 
-/** The reply of a list of decisions: each item its class and its value (S125). */
-type Decisions = readonly VariantOf<OfferDto | RefusalDto>[];
+/** The reply of a list of decisions: each item an instance of its class (S125). */
+type Decisions = readonly (OfferDto | RefusalDto)[];
 
-/** Judges a list of decisions, each an offer or a refusal: each item carries its `variant`. */
+/** Judges a list of decisions, each an offer or a refusal: each item is an instance of its class. */
 @Judge({
   name: "decisions-judge",
   model: "local/judge",
-  output: listOf(oneOf(OfferDto, RefusalDto)),
+  output: listOf(OfferDto, RefusalDto),
   deps: [VariantLog, JudgeModel],
 })
 export class DecisionsJudge implements JudgeHandler<Decisions> {
   constructor(private readonly variantLog: VariantLog) {}
 
   judge({ output }: JudgeInput<Decisions>): Promise<JudgeVerdict> {
-    for (const decision of output) this.variantLog.seen(decision.variant);
+    for (const decision of output)
+      this.variantLog.seen(decision instanceof OfferDto ? OfferDto : RefusalDto);
     const salaries: readonly number[] = output.flatMap((decision) =>
-      isVariant(decision, OfferDto) ? [decision.value.salary] : [],
+      decision instanceof OfferDto ? [decision.salary] : [],
     );
     return Promise.resolve(
       salaries.length <= 1
@@ -411,7 +412,7 @@ export class DecisionsJudge implements JudgeHandler<Decisions> {
   prompt: inline("Decide on each candidate."),
   description: "Offers or refuses, per candidate",
   model: "local/llama",
-  output: listOf(oneOf(OfferDto, RefusalDto)),
+  output: listOf(OfferDto, RefusalDto),
   judges: [DecisionsJudge],
   executionLimits: { maxRetries: 1 },
 })
@@ -422,7 +423,7 @@ export class PanelScreenerAgent {}
   prompt: inline("Summarize."),
   description: "Summarizes the decisions",
   model: "local/llama",
-  input: { decisions: listOf(oneOf(OfferDto, RefusalDto)) },
+  input: { decisions: listOf(OfferDto, RefusalDto) },
 })
 export class DecisionsSummaryAgent {}
 

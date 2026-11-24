@@ -3,7 +3,6 @@ import {
   Action,
   EmptyEnvironment,
   oneOf,
-  variant,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -68,11 +67,11 @@ export class KycStart {}
   output: oneOf(KycOkDto, KycFraudDto, KycLapsedDto),
 })
 export class KycCheckAction {
-  execute(input: { readonly request: { readonly value: KycRequestDto } }): Promise<unknown> {
-    const { customer, found } = input.request.value;
-    if (found === "ok") return Promise.resolve(variant(KycOkDto, { customer }));
-    if (found === "fraud") return Promise.resolve(variant(KycFraudDto, { why: customer }));
-    return Promise.resolve(variant(KycLapsedDto, { what: customer }));
+  execute(input: { readonly request: KycRequestDto }): Promise<unknown> {
+    const { customer, found } = input.request;
+    if (found === "ok") return Promise.resolve({ customer });
+    if (found === "fraud") return Promise.resolve({ why: customer });
+    return Promise.resolve({ what: customer });
   }
 }
 

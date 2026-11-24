@@ -20,10 +20,11 @@ import {
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionStartEvent,
-  type Produced,
+  type Tracked,
   inline,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
+import { Metadata } from "../../../../src/flow/metadata.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd, type Usd } from "../../../../src/units/index.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../../src/budgets/budget.js";
@@ -128,8 +129,8 @@ export class CheckItemAction {
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, delay, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, delay, outcome } = input.item;
     this.read(name);
     childLog.events.push(`start ${name}`);
     childLog.inFlight += 1;
@@ -215,12 +216,12 @@ export class CheckItemsWorkflowStart {}
 })
 export class ChecksSummaryAction {
   async execute(input: {
-    readonly results: readonly Produced<ItemResultDto, unknown>[];
+    readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
-    childLog.producers.push(...input.results.map((result) => result.producer));
+    childLog.producers.push(...input.results.map((result) => Metadata.createdBy(result)));
     return {
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     };
   }
@@ -241,9 +242,7 @@ export class ChecksSummaryWorkflowFinish {}
   output: SummaryDto,
 })
 export class ChecksFailedAction {
-  async execute(input: {
-    readonly items: readonly Produced<ItemDto, unknown>[];
-  }): Promise<SummaryDto> {
+  async execute(input: { readonly items: readonly Tracked<ItemDto>[] }): Promise<SummaryDto> {
     return { text: `failed on one of ${String(input.items.length)}` };
   }
 }
@@ -295,8 +294,8 @@ export class OneCheckedWorkflowFinish {}
   output: SummaryDto,
 })
 export class OneFailedAction {
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<SummaryDto> {
-    return { text: `could not check ${input.item.value.name}` };
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<SummaryDto> {
+    return { text: `could not check ${input.item.name}` };
   }
 }
 
@@ -399,8 +398,8 @@ export class DeepCheckItemsWorkflow {}
   output: ItemResultDto,
 })
 export class FallbackCheckAction {
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    return Promise.resolve({ name: `${input.item.value.name} (fallback)` });
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    return Promise.resolve({ name: `${input.item.name} (fallback)` });
   }
 }
 
@@ -551,11 +550,11 @@ export class ReviewsWorkflowFinish {}
 })
 export class ReviewsSummaryAction {
   async execute(input: {
-    readonly results: readonly Produced<ItemResultDto, unknown>[];
+    readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
     return {
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     };
   }
@@ -602,8 +601,8 @@ export class ReviewOneWorkflowStart {}
   output: SummaryDto,
 })
 export class ReviewStoppedAction {
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<SummaryDto> {
-    return { text: `stopped on ${input.item.value.name}` };
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<SummaryDto> {
+    return { text: `stopped on ${input.item.name}` };
   }
 }
 

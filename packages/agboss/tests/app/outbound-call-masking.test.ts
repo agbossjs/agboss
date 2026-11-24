@@ -85,7 +85,7 @@ describe("#505: no mask where policies exist — fail closed", () => {
   it("AC4: a frame without a mask while the application lists policies: refused, nothing recorded or sent", async () => {
     const run = testUnit(UnmaskedChargeAction);
 
-    const refused = run({ message: { producer: "test", value: { text: "order-1" } } });
+    const refused = run({ message: { text: "order-1" } });
 
     await expect(refused).rejects.toBeInstanceOf(OutboundCallError.Unmasked);
     await expect(refused).rejects.toMatchObject({ code: "outbound-call.unmasked", call: "charge" });
@@ -215,7 +215,7 @@ describe("#505: what reconcile and a replay get", () => {
     const run = testUnit(ChargeOrderAction);
     gateway.gates.after = 1;
     const first = run(
-      { message: { producer: "test", value: { text: "order-7 alice@example.com" } } },
+      { message: { text: "order-7 alice@example.com" } },
       {
         timeout: seconds(1),
       },
@@ -225,7 +225,7 @@ describe("#505: what reconcile and a replay get", () => {
     await expect(first).rejects.toThrow();
 
     await run({
-      message: { producer: "test", value: { text: "order-7 alice@example.com" } },
+      message: { text: "order-7 alice@example.com" },
     });
 
     expect(gateway.storedRequests).toEqual([

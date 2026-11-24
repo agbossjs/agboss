@@ -1,7 +1,7 @@
 /**
  * What an execution keeps of its data, as plain JSON (#270 S5, #271 S11): one record per slot of
  * the path scope, keyed by the slot (`OfferDraftDto`, `list:CompanyScoreDto`).
- * A record is rebuilt into `Produced<T, P>` on read from the registries (producer by `name`, variant
+ * A record is rebuilt into a tracked DTO on read from the registries (producer by `name`, variant
  * by DTO class name), so it survives a serialising checkpointer.
  */
 
@@ -75,7 +75,7 @@ export const plainRecordOf = ({
   schemaHash,
 }: ComponentRecord): ComponentRecord => ({ name, kind, promptHash, schemaHash });
 
-/** One element of a `listOf(oneOf(…))` value: its class and the value (#271 S11, 2026-10-17). */
+/** One element of a `listOf(…)` value: its class and the value (#271 S11, 2026-10-17). */
 export interface VariantElement {
   readonly variant: string;
   readonly value: unknown;
@@ -95,7 +95,7 @@ export interface ScopeValueRecord {
   readonly elementProducers?: readonly string[];
   /** The DTO class name of a `oneOf` value. */
   readonly variant?: string;
-  /** The value; a list slot holds an array (of `VariantElement`s for `listOf(oneOf(…))`). */
+  /** The value; a list slot holds an array (of `VariantElement`s for `listOf(…)`). */
   readonly value: unknown;
   /**
    * The `valueId`s the producer read when it built the value (#271 rule 3): its `input` fields, or

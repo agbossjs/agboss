@@ -220,11 +220,9 @@ export class ContractGroupsWorkflowStart {}
   output: ContractDto,
 })
 export class DraftContractAction {
-  async execute(input: {
-    readonly message: { readonly value: WorkflowStartTextDto };
-  }): Promise<ContractDto> {
+  async execute(input: { readonly message: WorkflowStartTextDto }): Promise<ContractDto> {
     await Promise.resolve();
-    return { title: input.message.value.text };
+    return { title: input.message.text };
   }
 }
 
@@ -325,10 +323,10 @@ export class ContractCommitteeWorkflow {}
 })
 export class LoadBudgetOwnersAction {
   async execute(input: {
-    readonly message: { readonly value: WorkflowStartTextDto };
+    readonly message: WorkflowStartTextDto;
   }): Promise<readonly OwnerAskDto[]> {
     await Promise.resolve();
-    return input.message.value.text
+    return input.message.text
       .split(",")
       .map((owner) => ({ owner: owner.trim() }));
   }
