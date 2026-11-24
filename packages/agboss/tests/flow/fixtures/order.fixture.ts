@@ -123,8 +123,7 @@ export const orderPaths = [
       toAction(RefundCardAction)
         .onError(
           PaymentProviderError,
-          toAction(NotifyFinanceTeamAction)
-            .toFinish(OrderFailedWorkflowFinish),
+          toAction(NotifyFinanceTeamAction).toFinish(OrderFailedWorkflowFinish),
         )
         .toAction(ReleaseStockAction)
         .toFinish(OrderFailedWorkflowFinish),

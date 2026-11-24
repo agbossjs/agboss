@@ -116,10 +116,7 @@ describe("#279 AC7 / AC13, #1284: groups continue their own path", () => {
       .joinQuorumGroups({ deadline: seconds(60) })
       .onError(StepFailedError, toFinish(QuickRejectWorkflowFinish))
       .onGroup([LegalAgent, DealCriticAgent], { priority: 1 }, toAgent(FullReviewAgent))
-      .onGroup(
-        [AuditorAgent],
-        toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish),
-      )
+      .onGroup([AuditorAgent], toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish))
       .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish));
     expectTypeOf(groups).toHaveProperty("onGroup");
     expectTypeOf(deal()).toHaveProperty("joinQuorumGroups");

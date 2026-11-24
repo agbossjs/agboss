@@ -242,7 +242,7 @@ describe("#1347c: [prompt.unused-variable]", () => {
 
     await loader.load({
       label: '@Agent "a"',
-      options: { prompt: [join(dir, "p.md")] },
+      options: { prompt: [`/${join(dir, "p.md")}`] },
       source: join(dir, "a.agent.ts"),
       variables: { tone: "dry" },
     });

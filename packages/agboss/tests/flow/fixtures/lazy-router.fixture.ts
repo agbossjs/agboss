@@ -64,18 +64,13 @@ export class LazyOrderFinish {}
 /** What the router decides on, by its generated table: the same type with or without a thunk. */
 export type LazyDeskRoute = Route<LazyDeskRouter>;
 
-const desk = onStart(LazyWorkflowStart)
-  .toRouter(LazyDeskRouter);
+const desk = onStart(LazyWorkflowStart).toRouter(LazyDeskRouter);
 
 @Workflow({
   name: "lazy-workflow",
   version: "1.0.0",
   flow: [
-    desk.chooseOne(
-      route(LazyIntakeAgent)
-        .toFinish(LazyOrderFinish),
-      route(LazyNoOrderFinish),
-    ),
+    desk.chooseOne(route(LazyIntakeAgent).toFinish(LazyOrderFinish), route(LazyNoOrderFinish)),
   ],
 })
 export class LazyWorkflow {}

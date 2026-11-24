@@ -97,12 +97,9 @@ export class TopicsRouter implements RouterHandler<TopicsRouter> {
     onStart(TopicsWorkflowStart)
       .toRouter(TopicsRouter)
       .chooseOne(
-        route(OrderTopicAgent)
-          .toFinish(TopicsWorkflowFinish),
-        route(RefundTopicAgent)
-          .toFinish(TopicsWorkflowFinish),
-        route(DeliveryTopicAgent)
-          .toFinish(TopicsWorkflowFinish),
+        route(OrderTopicAgent).toFinish(TopicsWorkflowFinish),
+        route(RefundTopicAgent).toFinish(TopicsWorkflowFinish),
+        route(DeliveryTopicAgent).toFinish(TopicsWorkflowFinish),
       ),
   ],
 })

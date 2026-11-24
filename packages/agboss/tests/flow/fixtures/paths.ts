@@ -40,24 +40,15 @@ export const caseOf = (dto: DtoClass): PathBuilder => subPathFrom({ kind: "case"
 /** A side path of `.onError(E, …)` with nothing in it yet. */
 export const side = (): PathBuilder => subPathFrom({ kind: "side" });
 
-export const toAction = (target: Class): PathBuilder =>
-  side()
-    .toAction(target);
+export const toAction = (target: Class): PathBuilder => side().toAction(target);
 
-export const toAgent = (target: Class): PathBuilder =>
-  side()
-    .toAgent(target);
+export const toAgent = (target: Class): PathBuilder => side().toAgent(target);
 
-export const toFinish = (target: Class): PathBuilder =>
-  side()
-    .toFinish(target);
+export const toFinish = (target: Class): PathBuilder => side().toFinish(target);
 
 /** The side path `.onError(E, toExternalTask(Q)…)` (#910). */
 export const toExternalTask = (target: Class, options?: unknown): PathBuilder =>
-  side()
-    .toExternalTask(target, options);
+  side().toExternalTask(target, options);
 
 /** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
-export const toWorkflow = (target: Class): PathBuilder =>
-  side()
-    .toWorkflow(target);
+export const toWorkflow = (target: Class): PathBuilder => side().toWorkflow(target);

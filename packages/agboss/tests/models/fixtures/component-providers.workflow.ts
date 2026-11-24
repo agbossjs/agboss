@@ -54,7 +54,9 @@ export class BetaModels {}
   model: "bad/big",
   cost: {
     kind: "from-prices",
-    prices: { "bad/big": { inputPerMillion: usd(1), outputPerMillion: -1 as ReturnType<typeof usd> } },
+    prices: {
+      "bad/big": { inputPerMillion: usd(1), outputPerMillion: -1 as ReturnType<typeof usd> },
+    },
   },
 })
 export class BadPricedModels {}
@@ -78,7 +80,11 @@ export function componentsApplication(levels: ComponentLevels): Class {
   const { componentProvider } = levels;
   const own = componentProvider === undefined ? {} : { modelProvider: componentProvider };
 
-  @WorkflowStart({ name: "lv-workflow-start", description: "A message", input: WorkflowStartTextDto })
+  @WorkflowStart({
+    name: "lv-workflow-start",
+    description: "A message",
+    input: WorkflowStartTextDto,
+  })
   class LvStart {}
 
   @InputGuardrail({
@@ -117,7 +123,11 @@ export function componentsApplication(levels: ComponentLevels): Class {
   @WorkflowFinish({ name: "lv-workflow-finish", description: "The answer", output: AnswerDto })
   class LvFinish {}
 
-  @WorkflowFinish({ name: "lv-stop-workflow-finish", description: "Stopped", output: WorkflowStartTextDto })
+  @WorkflowFinish({
+    name: "lv-stop-workflow-finish",
+    description: "Stopped",
+    output: WorkflowStartTextDto,
+  })
   class LvStop {}
 
   @Router({
@@ -137,10 +147,11 @@ export function componentsApplication(levels: ComponentLevels): Class {
   @Workflow({
     name: "lv-workflow",
     version: "1.0.0",
-    flow: [onStart(LvStart)
-      .toRouter(LvRouter)
-      .chooseOne(route(LvAgent)
-        .toFinish(LvFinish), route(LvStop))],
+    flow: [
+      onStart(LvStart)
+        .toRouter(LvRouter)
+        .chooseOne(route(LvAgent).toFinish(LvFinish), route(LvStop)),
+    ],
     piiPolicies: [LvPii],
     ...(levels.workflowProvider === undefined ? {} : { modelProvider: levels.workflowProvider }),
     ...(levels.workflowModel === undefined
@@ -166,7 +177,11 @@ export function componentsApplication(levels: ComponentLevels): Class {
 
 /** A model arbiter that names no model, accepting two copies of an agent. */
 export function arbiterApplication(modelProvider?: Class): Class {
-  @WorkflowStart({ name: "arb-workflow-start", description: "A message", input: WorkflowStartTextDto })
+  @WorkflowStart({
+    name: "arb-workflow-start",
+    description: "A message",
+    input: WorkflowStartTextDto,
+  })
   class ArbStart {}
 
   @Agent({
@@ -199,7 +214,11 @@ export function arbiterApplication(modelProvider?: Class): Class {
   })
   class ArbArbiter {}
 
-  @WorkflowFinish({ name: "arb-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
+  @WorkflowFinish({
+    name: "arb-workflow-finish",
+    description: "The answer",
+    output: WorkflowFinishTextDto,
+  })
   class ArbFinish {}
 
   @Workflow({

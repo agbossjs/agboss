@@ -88,18 +88,13 @@ export class PublisherAgent {}
 export class StoryWorkflowFinish {}
 
 export const storyPaths = [
-  onStart(StoryWorkflowStart)
-    .toAgent(ResearcherAgent)
-    .toAgent(StoryWriterAgent),
+  onStart(StoryWorkflowStart).toAgent(ResearcherAgent).toAgent(StoryWriterAgent),
 
   onAgent(StoryWriterAgent)
     .toAgent(StoryReviewerAgent)
     .switch(
-      caseOf(DraftChangesDto)
-        .toAgent(StoryWriterAgent),
-      caseOf(ApprovalDto)
-        .toAgent(PublisherAgent)
-        .toFinish(StoryWorkflowFinish),
+      caseOf(DraftChangesDto).toAgent(StoryWriterAgent),
+      caseOf(ApprovalDto).toAgent(PublisherAgent).toFinish(StoryWorkflowFinish),
     ),
 ] as const;
 
@@ -175,8 +170,7 @@ export class CritiqueRouter {}
   name: "polish-workflow",
   version: "1.0.0",
   flow: [
-    onStart(StoryWorkflowStart)
-      .toAgent(PolishAgent),
+    onStart(StoryWorkflowStart).toAgent(PolishAgent),
     onAgent(PolishAgent)
       .toAction(CritiqueAction)
       .toRouter(CritiqueRouter)

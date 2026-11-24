@@ -45,14 +45,13 @@ export function groupQuorumGroupsOf(
   nodeOf: NodeLookup,
 ): readonly JoinGroup[] {
   const listed = new Set(targets);
-  return joinGroupsOf(launch, nodeOf)
-    .flatMap((group) => {
-      const producers = group.producers.filter((producer) => listed.has(producer));
-      if (producers.length === 0) return [];
-      const { shape } = group;
-      if (shape === undefined || group.isSeveral) return [{ ...group, producers }];
-      return [{ ...group, producers, shape: required(shape) }];
-    });
+  return joinGroupsOf(launch, nodeOf).flatMap((group) => {
+    const producers = group.producers.filter((producer) => listed.has(producer));
+    if (producers.length === 0) return [];
+    const { shape } = group;
+    if (shape === undefined || group.isSeveral) return [{ ...group, producers }];
+    return [{ ...group, producers, shape: required(shape) }];
+  });
 }
 
 /** A group's targets by name, as listed; an undecorated class keeps its class name. */

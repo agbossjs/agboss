@@ -524,7 +524,7 @@ export interface AgentOptions {
     // (undocumented)
     readonly price?: Price;
     // (undocumented)
-    readonly prompt?: PromptValue;
+    readonly prompt?: PromptSource;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly promptVariables?: PromptVariables;
@@ -1290,10 +1290,10 @@ export const ChannelInterpretation: {
 };
 
 // @public
-export function ChannelInterpreter(options: ModelChannelInterpreterOptions): ChannelInterpreterDecorator<[]>;
+export function ChannelInterpreter<const TDeps extends readonly Token[] = []>(options?: CodeChannelInterpreterOptions<TDeps>): ChannelInterpreterDecorator<TDeps>;
 
 // @public
-export function ChannelInterpreter<const TDeps extends readonly Token[] = []>(options?: CodeChannelInterpreterOptions<TDeps>): ChannelInterpreterDecorator<TDeps>;
+export function ChannelInterpreter(options: ModelChannelInterpreterOptions): ChannelInterpreterDecorator<[]>;
 
 // @public
 export type ChannelInterpreterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => object>(value: TClass) => TClass;
@@ -1796,6 +1796,8 @@ export interface CodeChannelInterpreterOptions<TDeps extends readonly Token[] = 
     readonly description?: string;
     // (undocumented)
     readonly model?: never;
+    // (undocumented)
+    readonly modelProvider?: never;
     // (undocumented)
     readonly name?: string;
     // (undocumented)
@@ -2619,20 +2621,7 @@ export interface DecisionResumeRequest {
 export type DecisionState = string | Readonly<Record<string, unknown>> | readonly (string | DecisionImage)[];
 
 // @public
-export type DeclarativeJudgeClass<C extends Class> = C & ("judge" extends keyof InstanceType<C> ? never : unknown);
-
-// @public
-export interface DeclarativeJudgeOptions<TOutput extends JudgeOutputShape = JudgeOutputShape> {
-    readonly deps?: never;
-    // (undocumented)
-    readonly description?: string;
-    readonly model?: string;
-    readonly modelProvider?: Class;
-    readonly name?: string;
-    readonly output: TOutput;
-    readonly prompt: PromptSource;
-    readonly threshold?: number;
-}
+type DeclarativeJudgeClass<C extends Class> = C & ("judge" extends keyof InstanceType<C> ? never : unknown);
 
 // @public
 export interface DeclarativeMemoryOptions extends MemoryBaseOptions {
@@ -3881,7 +3870,7 @@ export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly T
 }
 
 // @public
-export type ExtraRuleCode = A2AEndpointRuleCode | EvalRuleCode | FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+type ExtraRuleCode = A2AEndpointRuleCode | EvalRuleCode | FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export interface FailedHealthCheckResult {
@@ -4299,6 +4288,16 @@ declare namespace FlowTypes {
         Resolved,
         ResolvedAll,
         GuardrailDecorator,
+        ModelGuardrailInstance,
+        ExtraRuleCode,
+        PauseTargetRuleCode,
+        PiiRuleCode,
+        PauseTargetHooks,
+        DeclarativeJudgeClass,
+        HybridJudgeModelOptions,
+        JudgedBase,
+        JudgeMethod,
+        RagRerankerBase,
         ComponentSource,
         StartSource,
         ArbitrableKind,
@@ -4516,7 +4515,7 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
     readonly model?: string;
     readonly modelProvider?: Class;
     readonly name?: string;
-    readonly prompt?: PromptValue;
+    readonly prompt?: PromptSource;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly promptVariables?: PromptVariables;
@@ -4637,7 +4636,7 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
     readonly model?: string;
     readonly modelProvider?: Class;
     readonly name?: string;
-    readonly prompt?: PromptValue;
+    readonly prompt?: PromptSource;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly promptVariables?: PromptVariables;
@@ -4934,7 +4933,7 @@ Extract<TDeps[number], typeof ArbiterModel>
 };
 
 // @public
-export type HybridJudgeModelOptions<TDeps extends readonly Token[]> = [
+type HybridJudgeModelOptions<TDeps extends readonly Token[]> = [
 Extract<TDeps[number], typeof JudgeModel>
 ] extends [never] ? {
     readonly model?: never;
@@ -5509,32 +5508,31 @@ export type JsonValue<T> = T extends JsonPrimitive ? T : T extends (...args: nev
 } : never;
 
 // @public
-export function Judge<const TOutput extends JudgeOutputShape>(options: DeclarativeJudgeOptions<TOutput>): <C extends Class>(value: DeclarativeJudgeClass<C>) => C;
+export function Judge<const TOutput extends JudgeOutputShape>(options: ModelJudgeOptions<TOutput>): <C extends Class>(value: DeclarativeJudgeClass<C>) => C;
 
 // @public (undocumented)
 export function Judge<const TOutput extends JudgeOutputShape, const TDeps extends readonly Token[] = []>(options: CodeJudgeOptions<TOutput, TDeps> & HybridJudgeModelOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => JudgeMethod<TOutput>>(value: C) => C;
 
-// @public
-export type JudgedInput<TOutput> = JudgedOutput<TOutput> & {
-    readonly toolCalls: readonly ToolCallRecord[];
+// @public (undocumented)
+interface JudgedBase {
+    // (undocumented)
+    readonly attempt: number;
     readonly files: readonly FileContent[];
-};
+    // (undocumented)
+    readonly task: string;
+    // (undocumented)
+    readonly toolCalls: readonly ToolCallRecord[];
+}
 
 // @public
-export type JudgedOutput<TOutput> = TOutput extends readonly VariantOf<unknown>[] ? {
+export type JudgedOutput<TOutput> = TOutput extends readonly VariantOf<unknown>[] ? JudgedBase & {
     readonly output: TOutput;
-    readonly task: string;
-    readonly attempt: number;
-} : TOutput extends readonly (infer TItem)[] ? {
+} : TOutput extends readonly (infer TItem)[] ? JudgedBase & {
     readonly variant: DtoClass<TItem>;
     readonly output: TOutput;
-    readonly task: string;
-    readonly attempt: number;
-} : TOutput extends unknown ? {
+} : TOutput extends unknown ? JudgedBase & {
     readonly variant: DtoClass<TOutput>;
     readonly output: TOutput;
-    readonly task: string;
-    readonly attempt: number;
 } : never;
 
 // @public
@@ -5556,10 +5554,10 @@ export interface JudgeHandler<TOutput> {
 }
 
 // @public
-export type JudgeInput<T> = JudgedInput<JudgeOutputValueOf<T>>;
+export type JudgeInput<T> = JudgedOutput<JudgeOutputValueOf<T>>;
 
 // @public
-export interface JudgeMethod<TOutput extends JudgeOutputShape> {
+interface JudgeMethod<TOutput extends JudgeOutputShape> {
     // (undocumented)
     judge(input: JudgedOutput<JudgedValueOf<TOutput>>): JudgeVerdict | Promise<JudgeVerdict>;
 }
@@ -6311,7 +6309,7 @@ export interface ModelArbiterOptions {
     readonly model?: string;
     readonly modelProvider?: Class;
     readonly name?: string;
-    readonly prompt: string;
+    readonly prompt: PromptSource;
 }
 
 // @public
@@ -6353,9 +6351,10 @@ export interface ModelChannelInterpreterOptions {
     readonly deps?: never;
     // (undocumented)
     readonly description?: string;
-    readonly model: string;
+    readonly model?: string;
+    readonly modelProvider?: Class;
     readonly name?: string;
-    readonly prompt?: PromptValue;
+    readonly prompt?: PromptSource;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly promptVariables?: PromptVariables;
@@ -6452,7 +6451,7 @@ export class ModelFileTranscriber extends FileTranscriber {
 }
 
 // @public
-export type ModelGuardrailInstance = object & {
+type ModelGuardrailInstance = object & {
     readonly check?: never;
 };
 
@@ -6461,6 +6460,19 @@ export class ModelImageRedactor extends FileRedactor {
     redact(): Promise<RedactionResult>;
     // (undocumented)
     supports(mediaType: string): boolean;
+}
+
+// @public
+export interface ModelJudgeOptions<TOutput extends JudgeOutputShape = JudgeOutputShape> {
+    readonly deps?: never;
+    // (undocumented)
+    readonly description?: string;
+    readonly model?: string;
+    readonly modelProvider?: Class;
+    readonly name?: string;
+    readonly output: TOutput;
+    readonly prompt: PromptSource;
+    readonly threshold?: number;
 }
 
 // @public
@@ -6513,7 +6525,7 @@ export interface ModelReplyInterpreterOptions {
     readonly model?: string;
     readonly modelProvider?: Class;
     readonly name?: string;
-    readonly prompt?: PromptValue;
+    readonly prompt?: PromptSource;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly promptVariables?: PromptVariables;
@@ -6540,7 +6552,7 @@ export interface ModelRouterOptions {
     readonly modelProvider?: Class;
     readonly name: string;
     readonly piiPolicies?: readonly Class[];
-    readonly prompt?: PromptValue;
+    readonly prompt?: PromptSource;
     // (undocumented)
     readonly promptUrls?: readonly string[];
     readonly promptVariables?: PromptVariables;
@@ -7554,7 +7566,7 @@ export type PauseError = PauseError.NotPaused | PauseError.UnknownPause | PauseE
 
 // @public
 export namespace PauseError {
-    export type ChannelInterpreterMissing = ErrorVariant<PauseErrorKind.ChannelInterpreterMissing, "pause.no-reply-interpreter"> & {
+    export type ChannelInterpreterMissing = ErrorVariant<PauseErrorKind.ChannelInterpreterMissing, "pause.channel-interpreter-missing"> & {
         readonly channel: string;
     };
     export type Closed = ErrorVariant<PauseErrorKind.Closed, "pause.closed"> & {
@@ -7949,7 +7961,7 @@ export interface PauseTargetBaseOptions<TDeps extends readonly Token[] = readonl
 }
 
 // @public
-export interface PauseTargetHooks {
+interface PauseTargetHooks {
     // (undocumented)
     readonly assign?: (ctx: never) => readonly string[] | undefined | Promise<readonly string[] | undefined>;
     // (undocumented)
@@ -7963,7 +7975,7 @@ export interface PauseTargetHooks {
 }
 
 // @public
-export type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "pause.setting-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
+type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "pause.setting-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
 
 // @public
 export interface PauseToolCallSummary {
@@ -8267,7 +8279,7 @@ export interface PiiRule {
 }
 
 // @public
-export type PiiRuleCode = "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.duplicate-target" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "pii.secret-required";
+type PiiRuleCode = "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.duplicate-target" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "pii.secret-required";
 
 // @public
 export type PiiTarget = PiiKind | PiiGroup;
@@ -8403,13 +8415,10 @@ export interface PromptProblem {
 }
 
 // @public
-export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions" | "prompt.secret-in-instructions" | "prompt.invalid-variable" | "prompt.unused-variable";
+export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.bare-text" | "prompt.input-in-instructions" | "prompt.secret-in-instructions" | "prompt.invalid-variable" | "prompt.unused-variable";
 
 // @public
 export type PromptSource = PromptPart | readonly [PromptPart, ...PromptPart[]];
-
-// @public
-export type PromptValue = string | InlinePrompt | readonly (string | InlinePrompt)[];
 
 // @public
 export type PromptVariables = Readonly<Record<string, string | EnvRef<string>>>;
@@ -8593,6 +8602,16 @@ export interface QuorumShortfall {
 export type RagEndEvent = EndEvent<RagRetrieval>;
 
 // @public
+interface RagRerankerBase {
+    readonly candidates: number;
+    // (undocumented)
+    readonly description?: string;
+    readonly maxCandidateLength?: number;
+    readonly name?: string;
+    readonly onFailure?: RerankFailurePolicy;
+}
+
+// @public
 export type RagStartEvent = StartEvent<string>;
 
 // @public
@@ -8764,7 +8783,7 @@ export interface ReplyInterpreterHandler<TSelf> {
 export class ReplyInterpreterMissingError extends AGBossError {
     constructor(options: MessageErrorOptions);
     // (undocumented)
-    static readonly code: "pause.no-reply-interpreter";
+    static readonly code: "pause.channel-interpreter-missing";
     // (undocumented)
     readonly code: typeof ReplyInterpreterMissingError.code;
     // (undocumented)
@@ -10623,7 +10642,7 @@ export type ToolInputOf<TTool> = TTool extends {
 } ? TInput : never;
 
 // @public
-export function ToolInterceptor<const D extends readonly Token[] = []>(options: {
+export function ToolInterceptor<const D extends readonly Token[] = []>(options?: {
     readonly name?: string;
     readonly description?: string;
     readonly deps?: D;
@@ -11572,6 +11591,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "name".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "description".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "model".
+// src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "modelProvider".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/channels/channel-interpreter.ts - (ae-undocumented) Missing documentation for "promptVariables".
@@ -11720,6 +11740,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/injection.ts - (ae-undocumented) Missing documentation for "[valueProviderBrand]".
 // src/components/judge-declaration.ts - (ae-undocumented) Missing documentation for "description".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "description".
+// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "JudgedBase".
+// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "task".
+// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "attempt".
+// src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "toolCalls".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "passed".
 // src/components/judge-decorators.ts - (ae-undocumented) Missing documentation for "judge".
@@ -13143,6 +13167,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/public/turn-deprecated.ts - (ae-undocumented) Missing documentation for "TernOutcome".
 // src/public/turn-deprecated.ts - (ae-undocumented) Missing documentation for "TernStatus".
 // src/public/turn-deprecated.ts - (ae-undocumented) Missing documentation for "TernStep".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "description".
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "input".

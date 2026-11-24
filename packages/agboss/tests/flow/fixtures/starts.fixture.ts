@@ -64,9 +64,7 @@ export const startsPaths = [
   onStart(CompanyCheckWorkflowStart)
     .toAgent(CompanyCheckAgent)
     .toFinish(CompanyScoreWorkflowFinish),
-  onStart(CompanyBatchWorkflowStart)
-    .toAgent(BatchRankAgent)
-    .toFinish(CompanyScoreWorkflowFinish),
+  onStart(CompanyBatchWorkflowStart).toAgent(BatchRankAgent).toFinish(CompanyScoreWorkflowFinish),
 ] as const;
 
 @Workflow({

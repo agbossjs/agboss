@@ -81,7 +81,9 @@ export class TopicResearchWorkflowStart {}
 @Agent({
   name: "researcher-agent",
   description: "Researches one topic, or says it is too broad and lists its subtopics",
-  prompt: inline("Research the topic: report on it, or say it is too broad and list its subtopics."),
+  prompt: inline(
+    "Research the topic: report on it, or say it is too broad and list its subtopics.",
+  ),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto },
   output: oneOf(TopicReportDto, TopicTooBroadDto),
@@ -164,8 +166,7 @@ export class TopicFailedWorkflowFinish {}
       .toAgent(ResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction))
       .switch(
-        caseOf(TopicReportDto)
-          .toFinish(TopicReportWorkflowFinish),
+        caseOf(TopicReportDto).toFinish(TopicReportWorkflowFinish),
         caseOf(TopicTooBroadDto)
           .toAction(SubtopicsAction)
           .toParallelWorkflows(() => TopicResearchWorkflow, { maxConcurrency: 3, maxItems: 5 })
@@ -174,8 +175,7 @@ export class TopicFailedWorkflowFinish {}
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
           .toFinish(TopicReportWorkflowFinish),
       ),
-    onAction(MarkTopicFailedAction)
-      .toFinish(TopicFailedWorkflowFinish),
+    onAction(MarkTopicFailedAction).toFinish(TopicFailedWorkflowFinish),
   ],
   maxDepth: 3,
   maxSteps: 4,
@@ -254,17 +254,13 @@ const countdownPath = (from: typeof CountdownWorkflowStart, self: () => Class) =
         .toWorkflow(self)
         .onError(
           LimitExceededError,
-          toAction(DepthStoppedAction)
-            .toFinish(CountStoppedWorkflowFinish),
+          toAction(DepthStoppedAction).toFinish(CountStoppedWorkflowFinish),
         )
         .switch(
-          caseOf(CountDoneDto)
-            .toFinish(CountDoneWorkflowFinish),
-          caseOf(CountStoppedDto)
-            .toFinish(CountStoppedWorkflowFinish),
+          caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
+          caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
         ),
-      caseOf(CountDoneDto)
-        .toFinish(CountDoneWorkflowFinish),
+      caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
     );
 
 @Workflow({
@@ -343,8 +339,7 @@ export class SumAction {
       .join()
       .onError(
         LimitExceededError,
-        toAction(SplitStoppedAction)
-          .toFinish(CountStoppedWorkflowFinish),
+        toAction(SplitStoppedAction).toFinish(CountStoppedWorkflowFinish),
       )
       .toAction(SumAction)
       .toFinish(CountDoneWorkflowFinish),
@@ -401,10 +396,8 @@ export class ChainDoneWorkflowFinish {}
     onStart(ChainWorkflowStart)
       .toRouter(LinkRouter)
       .chooseOne(
-        route(() => ChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
+        route(() => ChainWorkflow).toFinish(ChainDoneWorkflowFinish),
+        route(LinkAgent).toFinish(ChainDoneWorkflowFinish),
       ),
   ],
   maxDepth: 2,
@@ -436,10 +429,8 @@ export class DeeperRouter {
     onStart(CodeChainWorkflowStart)
       .toRouter(DeeperRouter)
       .chooseOne(
-        route(() => CodeChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
+        route(() => CodeChainWorkflow).toFinish(ChainDoneWorkflowFinish),
+        route(LinkAgent).toFinish(ChainDoneWorkflowFinish),
       ),
   ],
   maxDepth: 2,

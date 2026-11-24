@@ -111,22 +111,14 @@ const child = { name: "mail-child-workflow", defaults: { tools: { maxToolCalls: 
 @Workflow({
   ...child,
   version: "1.0.0",
-  flow: [
-    onStart(MailChildStart)
-      .toAgent(ChildMailerV1)
-      .toFinish(MailChildFinish),
-  ],
+  flow: [onStart(MailChildStart).toAgent(ChildMailerV1).toFinish(MailChildFinish)],
 })
 export class MailChildV1 {}
 
 @Workflow({
   ...child,
   version: "2.0.0",
-  flow: [
-    onStart(MailChildStart)
-      .toAgent(ChildMailerV2)
-      .toFinish(MailChildFinish),
-  ],
+  flow: [onStart(MailChildStart).toAgent(ChildMailerV2).toFinish(MailChildFinish)],
 })
 export class MailChildV2 {}
 
@@ -134,11 +126,7 @@ export class MailChildV2 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(MailParentStart)
-      .toWorkflow(MailChildV1)
-      .toFinish(MailParentFinish),
-  ],
+  flow: [onStart(MailParentStart).toWorkflow(MailChildV1).toFinish(MailParentFinish)],
 })
 export class MailParentV1 {}
 
@@ -146,11 +134,7 @@ export class MailParentV1 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(MailParentStart)
-      .toWorkflow(MailChildV2)
-      .toFinish(MailParentFinish),
-  ],
+  flow: [onStart(MailParentStart).toWorkflow(MailChildV2).toFinish(MailParentFinish)],
 })
 export class MailParentV2 {}
 
@@ -158,11 +142,7 @@ export class MailParentV2 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(MailParentStart)
-      .toWorkflow(MailChildV2)
-      .toFinish(MailParentFinish),
-  ],
+  flow: [onStart(MailParentStart).toWorkflow(MailChildV2).toFinish(MailParentFinish)],
 })
 export class MailParentV2Migrating {
   settings(): WorkflowSettings {

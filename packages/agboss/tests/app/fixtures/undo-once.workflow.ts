@@ -131,9 +131,7 @@ export class OnceLocalWorkflowFinish {}
   name: "once-local-workflow",
   version: "1.0.0",
   flow: [
-    onStart(OnceLocalWorkflowStart)
-      .toWorkflow(OnceRootWorkflow)
-      .toFinish(OnceLocalWorkflowFinish),
+    onStart(OnceLocalWorkflowStart).toWorkflow(OnceRootWorkflow).toFinish(OnceLocalWorkflowFinish),
   ],
 })
 export class OnceLocalWorkflow {}
@@ -182,10 +180,7 @@ export class OnceBudgetRouter {
       .toAction(PaidBookingAction)
       .toAction(OverspendAction)
       .toRouter(OnceBudgetRouter)
-      .chooseOne(
-        route(ConfirmBookingAction)
-          .toFinish(OnceBudgetWorkflowFinish),
-      ),
+      .chooseOne(route(ConfirmBookingAction).toFinish(OnceBudgetWorkflowFinish)),
   ],
 })
 export class OnceBudgetWorkflow {}
@@ -253,8 +248,7 @@ export class OnceLevelWorkflowFinish {}
         caseOf(ItemDto)
           .toWorkflow(() => OnceLevelWorkflow)
           .toFinish(OnceLevelWorkflowFinish),
-        caseOf(ItemResultDto)
-          .toFinish(OnceLevelWorkflowFinish),
+        caseOf(ItemResultDto).toFinish(OnceLevelWorkflowFinish),
       ),
   ],
   maxDepth: 2,

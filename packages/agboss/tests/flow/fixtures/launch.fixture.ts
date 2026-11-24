@@ -196,8 +196,7 @@ export class ScreeningFailedWorkflowFinish {}
       .join()
       .onError(
         LimitExceededError,
-        toAction(NotifyOperatorAction)
-          .toFinish(ScreeningFailedWorkflowFinish),
+        toAction(NotifyOperatorAction).toFinish(ScreeningFailedWorkflowFinish),
       )
       .toAgent(RankerAgent)
       .toFinish(RankingWorkflowFinish),

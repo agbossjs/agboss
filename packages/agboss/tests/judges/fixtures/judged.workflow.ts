@@ -86,11 +86,7 @@ export const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
 @Workflow({
   name: "judged-desk-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TaskStart)
-      .toAgent(Writer)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(TaskStart).toAgent(Writer).toFinish(Reply)],
   defaults: DEFAULTS,
   memory: Window4Memory,
   providers: [provide(RUBRIC, "Is the reply grounded in the task? Answer PASS or FAIL: <why>.")],
@@ -127,11 +123,7 @@ export class Careless {}
 @Workflow({
   name: "modelless-desk-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TaskStart)
-      .toAgent(Careless)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(TaskStart).toAgent(Careless).toFinish(Reply)],
   defaults: DEFAULTS,
   memory: Window4Memory,
 })

@@ -107,8 +107,7 @@ export class NowhereMemory {}
   flow: [
     onStart(ResolutionStart)
       .toRouter(NowhereRouter)
-      .chooseOne(route(NowhereAgent)
-        .toFinish(ResolutionFinish)),
+      .chooseOne(route(NowhereAgent).toFinish(ResolutionFinish)),
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
@@ -142,9 +141,7 @@ export class LocalStart {}
 @Workflow({
   name: "local-workflow",
   version: "1.0.0",
-  flow: [onStart(LocalStart)
-    .toAgent(LocalAgent)
-    .toFinish(ResolutionFinish)],
+  flow: [onStart(LocalStart).toAgent(LocalAgent).toFinish(ResolutionFinish)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },
@@ -192,9 +189,7 @@ export class NotInfrastructure {}
 @Workflow({
   name: "misplaced-provider-workflow",
   version: "1.0.0",
-  flow: [onStart(LocalStart)
-    .toAgent(LocalAgent)
-    .toFinish(ResolutionFinish)],
+  flow: [onStart(LocalStart).toAgent(LocalAgent).toFinish(ResolutionFinish)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },

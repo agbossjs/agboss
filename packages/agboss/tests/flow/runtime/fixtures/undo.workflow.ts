@@ -319,11 +319,7 @@ export class UndoUnhandledWorkflow {}
         UndoDeskError,
         toAction(ReleaseRoomAction)
           .toAction(ReleaseSeatAction)
-          .onError(
-            UndoDeskError,
-            toAction(NotifyDeskAction)
-              .toFinish(NotReservedWorkflowFinish),
-          )
+          .onError(UndoDeskError, toAction(NotifyDeskAction).toFinish(NotReservedWorkflowFinish))
           .toFinish(NotReservedWorkflowFinish),
       )
       .toAction(ConfirmSeatAction)

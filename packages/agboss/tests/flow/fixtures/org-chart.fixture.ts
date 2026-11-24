@@ -125,16 +125,14 @@ export class OrgChartFailedWorkflowFinish {}
     onStart(OrgChartWorkflowStart)
       .toAgent(OrgMapperAgent)
       .switch(
-        caseOf(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
+        caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
         caseOf(OrgSplitDto)
           .toAction(SplitUnitAction)
           .toParallelWorkflows(() => OrgChartWorkflow, { maxConcurrency: 2, maxItems: 4 })
           .join()
           .onError(
             LimitExceededError,
-            toAction(MarkUnitFailedAction)
-              .toFinish(OrgChartFailedWorkflowFinish),
+            toAction(MarkUnitFailedAction).toFinish(OrgChartFailedWorkflowFinish),
           )
           .toAgent(ChartMergerAgent)
           .toFinish(TeamChartWorkflowFinish),
@@ -183,25 +181,19 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
       .toRouter(OrgDepthRouter)
       .chooseOne(
         route(() => OrgDrillWorkflow),
-        route(UnitPickerAgent)
-          .switch(
-            caseOf(TeamChartDto)
-              .toFinish(TeamChartWorkflowFinish),
-            caseOf(OrgUnitDto)
-              .toWorkflow(() => OrgDrillWorkflow),
-          ),
+        route(UnitPickerAgent).switch(
+          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
+          caseOf(OrgUnitDto).toWorkflow(() => OrgDrillWorkflow),
+        ),
       ),
     onWorkflow(() => OrgDrillWorkflow)
       .onError(
         StepFailedError,
-        toAction(MarkUnitFailedAction)
-          .toFinish(OrgChartFailedWorkflowFinish),
+        toAction(MarkUnitFailedAction).toFinish(OrgChartFailedWorkflowFinish),
       )
       .switch(
-        caseOf(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
-        caseOf(OrgChartFailedDto)
-          .toFinish(OrgChartFailedWorkflowFinish),
+        caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
+        caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
       ),
   ],
   maxDepth: 3,
@@ -233,13 +225,10 @@ export class UnitCharterAgent {}
       .toAgent(UnitCharterAgent)
       .onError(
         StepFailedError,
-        toWorkflow(() => OrgRetryWorkflow)
-          .switch(
-            caseOf(TeamChartDto)
-              .toFinish(TeamChartWorkflowFinish),
-            caseOf(OrgChartFailedDto)
-              .toFinish(OrgChartFailedWorkflowFinish),
-          ),
+        toWorkflow(() => OrgRetryWorkflow).switch(
+          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
+          caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
+        ),
       )
       .toFinish(TeamChartWorkflowFinish),
   ],

@@ -116,8 +116,7 @@ export async function reportQuorum(
 /** The deadline that passed: the ticket's, moved by the time in the tree's queue (#264). */
 function deadlinePassed(deadlineAt: number, queuedFor: number): string {
   if (queuedFor === 0) return "the deadline passed";
-  const effective = new Date(deadlineAt + queuedFor)
-    .toISOString();
+  const effective = new Date(deadlineAt + queuedFor).toISOString();
   const queued = `${String(queuedFor / 1000)} s in the tree's queue`;
   return `the deadline passed (${effective}: the ticket's deadline plus ${queued})`;
 }

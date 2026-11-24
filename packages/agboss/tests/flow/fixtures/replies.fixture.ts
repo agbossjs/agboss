@@ -365,11 +365,7 @@ export class TreasuryWorkflowFinish {}
 @Workflow({
   name: "treasury-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TreasuryWorkflowStart)
-      .toAgent(TreasurerAgent)
-      .toFinish(TreasuryWorkflowFinish),
-  ],
+  flow: [onStart(TreasuryWorkflowStart).toAgent(TreasurerAgent).toFinish(TreasuryWorkflowFinish)],
   defaults: { tools: { maxToolCalls: 3 } },
   memory: Window2Memory,
   providers: [ExpenseButtonCodes],
@@ -417,11 +413,7 @@ export class TreasuryBatchWorkflowStart {}
 })
 export class SplitRequestsAction implements ActionHandler<SplitRequestsAction> {
   execute(input: InputOf<SplitRequestsAction>): Promise<OutputOf<SplitRequestsAction>> {
-    return Promise.resolve(
-      input.message.value.text
-        .split("\n")
-        .map((text) => ({ text })),
-    );
+    return Promise.resolve(input.message.value.text.split("\n").map((text) => ({ text })));
   }
 }
 

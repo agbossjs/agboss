@@ -64,8 +64,7 @@ export class OrderRouter {}
     onStart(RoutedChargeWorkflowStart)
       .toRouter(OrderRouter)
       .chooseOne(
-        route(ChargeOrderAction)
-          .toFinish(ChargedWorkflowFinish),
+        route(ChargeOrderAction).toFinish(ChargedWorkflowFinish),
         route(NotChargedWorkflowFinish),
       ),
   ],

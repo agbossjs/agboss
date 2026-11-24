@@ -6,9 +6,6 @@ import { ProbeWorkflowFinish, ProbeWorkflowStart } from "../parts.js";
 @Workflow({
   name: "twin-probe-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ProbeWorkflowStart)
-      .toFinish(ProbeWorkflowFinish),
-  ],
+  flow: [onStart(ProbeWorkflowStart).toFinish(ProbeWorkflowFinish)],
 })
 export class TwinProbeWorkflow {}

@@ -1,13 +1,6 @@
 import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
 import { Text } from "../../../../src/dto/index.js";
-import {
-  Agent,
-  listOf,
-  Tool,
-  Workflow,
-  WorkflowStart,
-  inline,
-} from "../../../../src/index.js";
+import { Agent, listOf, Tool, Workflow, WorkflowStart, inline } from "../../../../src/index.js";
 import { onStart } from "../../../helpers/flow.js";
 import { BatchDoneWorkflowFinish, BatchDoneAction } from "./tree-batch.workflow.js";
 import { TaskDoneDto, TaskDoneWorkflowFinish, TaskDto } from "./tree-task.workflow.js";
@@ -50,9 +43,7 @@ export class TaskCheckWorkflowStart {}
   name: "task-check-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TaskCheckWorkflowStart)
-      .toAgent(TaskCheckerAgent)
-      .toFinish(TaskDoneWorkflowFinish),
+    onStart(TaskCheckWorkflowStart).toAgent(TaskCheckerAgent).toFinish(TaskDoneWorkflowFinish),
   ],
 })
 export class TaskCheckWorkflow {}

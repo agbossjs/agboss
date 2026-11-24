@@ -457,9 +457,7 @@ export class ReleaseWorkflow {}
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    onStart(AgentReleaseWorkflowStart)
-      .toAgent(ReleaseAgent)
-      .toFinish(AgentReleaseWorkflowFinish),
+    onStart(AgentReleaseWorkflowStart).toAgent(ReleaseAgent).toFinish(AgentReleaseWorkflowFinish),
   ],
   providers: [ArtifactLedger],
 })

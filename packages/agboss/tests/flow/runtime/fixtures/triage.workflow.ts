@@ -88,13 +88,10 @@ export class TicketStart {}
     onStart(TicketStart)
       .toAction(ClassifyAction)
       .switch(
-        caseOf(BugDto)
-          .toAction(ReportFinishAction),
-        caseOf(QuestionDto)
-          .toAction(ReportFinishAction),
+        caseOf(BugDto).toAction(ReportFinishAction),
+        caseOf(QuestionDto).toAction(ReportFinishAction),
       ),
-    onAction(ReportFinishAction)
-      .toFinish(ReportFinish),
+    onAction(ReportFinishAction).toFinish(ReportFinish),
   ],
 })
 export class TriageWorkflow {}

@@ -131,11 +131,7 @@ export class RefundWorkflowFinish {}
 @Workflow({
   name: "card-refunds-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(RefundWorkflowStart)
-      .toAgent(RefundClerkAgent)
-      .toFinish(RefundWorkflowFinish),
-  ],
+  flow: [onStart(RefundWorkflowStart).toAgent(RefundClerkAgent).toFinish(RefundWorkflowFinish)],
   defaults: { router: { model: "typesafe/jev-test" } },
   memory: Window2Memory,
   providers: [RefundDesk],

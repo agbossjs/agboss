@@ -77,10 +77,8 @@ export const testPaths: readonly FlowPath[] = [
   onStart(TestChat)
     .toRouter(TestMain)
     .chooseOne(
-      route(Alpha)
-        .toFinish(TestAnswer),
-      route(Beta)
-        .toFinish(TestAnswer),
+      route(Alpha).toFinish(TestAnswer),
+      route(Beta).toFinish(TestAnswer),
       route(NoAnswer),
     ),
 ];

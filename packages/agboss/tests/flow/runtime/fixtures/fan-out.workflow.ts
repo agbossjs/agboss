@@ -194,8 +194,7 @@ export class FanOutLog {
       .onError(ExecutionCancelledError, toAction(ItemsFailedAction))
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
-    onAction(ItemsFailedAction)
-      .toFinish(ItemsFailedWorkflowFinish),
+    onAction(ItemsFailedAction).toFinish(ItemsFailedWorkflowFinish),
   ],
 })
 export class FanOutWorkflow {}

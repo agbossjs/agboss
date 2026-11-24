@@ -107,17 +107,12 @@ export class PlanLoopRouter {
   name: "plan-loop-workflow",
   version: "1.0.0",
   flow: [
-    onStart(PlanLoopWorkflowStart)
-      .toAgent(LoopPlannerAgent),
+    onStart(PlanLoopWorkflowStart).toAgent(LoopPlannerAgent),
     onAgent(LoopPlannerAgent)
       .toParallelAgents(LoopCriticAgent, LoopCriticAgent)
       .join()
       .toRouter(PlanLoopRouter)
-      .chooseOne(
-        route(LoopPlannerAgent),
-        route(CritiquesAction)
-          .toFinish(CritiquesWorkflowFinish),
-      ),
+      .chooseOne(route(LoopPlannerAgent), route(CritiquesAction).toFinish(CritiquesWorkflowFinish)),
   ],
 })
 export class PlanLoopWorkflow {}
@@ -240,8 +235,7 @@ export class TiredLoopRouter {
   name: "tired-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TiredWorkflowStart)
-      .toAgent(TiredPlannerAgent),
+    onStart(TiredWorkflowStart).toAgent(TiredPlannerAgent),
     onAgent(TiredPlannerAgent)
       .toParallelAgents(TiredCriticAgent, TiredCriticAgent)
       .join()
@@ -249,8 +243,7 @@ export class TiredLoopRouter {
       .toRouter(TiredLoopRouter)
       .chooseOne(
         route(TiredPlannerAgent),
-        route(CritiquesAction)
-          .toFinish(CritiquesWorkflowFinish),
+        route(CritiquesAction).toFinish(CritiquesWorkflowFinish),
       ),
   ],
 })

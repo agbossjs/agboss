@@ -91,9 +91,7 @@ interface ScoresInput {
 const record = (input: ScoresInput): RefundDoneDto => {
   qe.finished.push(input.scores.map((score) => String(score.value.score)));
   return {
-    orderId: input.scores
-      .map((score) => String(score.value.score))
-      .join(","),
+    orderId: input.scores.map((score) => String(score.value.score)).join(","),
   };
 };
 
@@ -317,14 +315,12 @@ export class QuorumExpiryGroupsWorkflowStart {}
       .onGroup(
         [PolicyAgent, RiskAgent, FraudAgent],
         { priority: 1 },
-        toAction(QuorumExpiryAction)
-          .toFinish(QuorumExpiryWorkflowFinish),
+        toAction(QuorumExpiryAction).toFinish(QuorumExpiryWorkflowFinish),
       )
       .onGroup(
         [QuickScoreAgent],
         { priority: 2 },
-        toAction(QuorumExpirySecondAction)
-          .toFinish(QuorumExpirySecondWorkflowFinish),
+        toAction(QuorumExpirySecondAction).toFinish(QuorumExpirySecondWorkflowFinish),
       ),
   ],
 })

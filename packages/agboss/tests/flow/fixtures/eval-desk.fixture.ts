@@ -191,10 +191,8 @@ export class HandOverWorkflowFinish {}
     onStart(DeskWorkflowStart)
       .toAgent(DeskAgent)
       .switch(
-        caseOf(DeskAnswerDto)
-          .toFinish(DeskWorkflowFinish),
-        caseOf(HandOverDto)
-          .toFinish(HandOverWorkflowFinish),
+        caseOf(DeskAnswerDto).toFinish(DeskWorkflowFinish),
+        caseOf(HandOverDto).toFinish(HandOverWorkflowFinish),
       ),
   ],
   memory: Window5Memory,

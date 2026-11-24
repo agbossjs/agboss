@@ -34,10 +34,6 @@ export class HiddenWorkflowFinish {}
 @Workflow({
   name: "hidden-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(HiddenWorkflowStart)
-      .toAgent(HiddenAgent)
-      .toFinish(HiddenWorkflowFinish),
-  ],
+  flow: [onStart(HiddenWorkflowStart).toAgent(HiddenAgent).toFinish(HiddenWorkflowFinish)],
 })
 export class HiddenWorkflow {}

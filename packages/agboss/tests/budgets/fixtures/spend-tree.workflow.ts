@@ -44,11 +44,7 @@ export class SpendItemWorkflowFinish {}
 @Workflow({
   name: "spend-item-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(SpendItemWorkflowStart)
-      .toAction(PayItemAction)
-      .toFinish(SpendItemWorkflowFinish),
-  ],
+  flow: [onStart(SpendItemWorkflowStart).toAction(PayItemAction).toFinish(SpendItemWorkflowFinish)],
 })
 export class SpendItemWorkflow {}
 
@@ -108,8 +104,7 @@ export class SpendTreeWorkflowFinish {}
           .toWorkflow(() => SpendTreeWorkflow)
           .toAction(PayCloseAction)
           .toFinish(SpendTreeWorkflowFinish),
-        caseOf(SpendNoteDto)
-          .toFinish(SpendTreeWorkflowFinish),
+        caseOf(SpendNoteDto).toFinish(SpendTreeWorkflowFinish),
       ),
   ],
   maxDepth: 3,
@@ -150,8 +145,7 @@ export class RemoteSpendTreeWorkflowFinish {}
           .toWorkflow(() => RemoteSpendTreeWorkflow)
           .toAction(PayCloseAction)
           .toFinish(RemoteSpendTreeWorkflowFinish),
-        caseOf(SpendNoteDto)
-          .toFinish(RemoteSpendTreeWorkflowFinish),
+        caseOf(SpendNoteDto).toFinish(RemoteSpendTreeWorkflowFinish),
       ),
   ],
   maxDepth: 3,

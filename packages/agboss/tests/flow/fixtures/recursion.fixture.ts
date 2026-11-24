@@ -117,8 +117,7 @@ export class ResearchFailedWorkflowFinish {}
       .toAgent(TopicResearcherAgent)
       .onError(StepFailedError, toAction(FailTopicAction))
       .switch(
-        caseOf(ResearchReportDto)
-          .toFinish(ResearchReportWorkflowFinish),
+        caseOf(ResearchReportDto).toFinish(ResearchReportWorkflowFinish),
         caseOf(ResearchTooBroadDto)
           .toAction(SplitTopicAction)
           .toParallelWorkflows(() => DeepResearchWorkflow, { maxConcurrency: 3, maxItems: 5 })
@@ -127,8 +126,7 @@ export class ResearchFailedWorkflowFinish {}
           .onError(StepFailedError, toAction(FailTopicAction))
           .toFinish(ResearchReportWorkflowFinish),
       ),
-    onAction(FailTopicAction)
-      .toFinish(ResearchFailedWorkflowFinish),
+    onAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
   ],
   maxDepth: 4,
 })
@@ -173,18 +171,14 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
     onStart(OutlineWorkflowStart)
       .toRouter(OutlineDepthRouter)
       .chooseOne(
-        route(() => OutlineWorkflow)
-          .switch(
-            caseOf(ResearchReportDto)
-              .toFinish(ResearchReportWorkflowFinish),
-            caseOf(ResearchFailedDto)
-              .toFinish(ResearchFailedWorkflowFinish),
-          ),
+        route(() => OutlineWorkflow).switch(
+          caseOf(ResearchReportDto).toFinish(ResearchReportWorkflowFinish),
+          caseOf(ResearchFailedDto).toFinish(ResearchFailedWorkflowFinish),
+        ),
         route(OutlineAgent)
           .onError(
             StepFailedError,
-            toAction(FailTopicAction)
-              .toFinish(ResearchFailedWorkflowFinish),
+            toAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
           )
           .toFinish(ResearchReportWorkflowFinish),
       ),

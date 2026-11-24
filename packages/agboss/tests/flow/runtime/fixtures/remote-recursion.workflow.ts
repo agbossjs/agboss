@@ -50,17 +50,13 @@ export class RemoteCountdownWorkflowStart {}
           .toWorkflow(() => RemoteCountdownWorkflow)
           .onError(
             LimitExceededError,
-            toAction(DepthStoppedAction)
-              .toFinish(CountStoppedWorkflowFinish),
+            toAction(DepthStoppedAction).toFinish(CountStoppedWorkflowFinish),
           )
           .switch(
-            caseOf(CountDoneDto)
-              .toFinish(CountDoneWorkflowFinish),
-            caseOf(CountStoppedDto)
-              .toFinish(CountStoppedWorkflowFinish),
+            caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
+            caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
           ),
-        caseOf(CountDoneDto)
-          .toFinish(CountDoneWorkflowFinish),
+        caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
       ),
   ],
   maxDepth: 3,
@@ -97,10 +93,8 @@ export class RemoteDeeperRouter {
     onStart(RemoteChainWorkflowStart)
       .toRouter(RemoteDeeperRouter)
       .chooseOne(
-        route(() => RemoteChainWorkflow)
-          .toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent)
-          .toFinish(ChainDoneWorkflowFinish),
+        route(() => RemoteChainWorkflow).toFinish(ChainDoneWorkflowFinish),
+        route(LinkAgent).toFinish(ChainDoneWorkflowFinish),
       ),
   ],
   maxDepth: 2,

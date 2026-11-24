@@ -117,11 +117,7 @@ export class AnswerWorkflowFinish {}
 @Workflow({
   name: "lookup-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(AskWorkflowStart)
-      .toAgent(LookupAgent)
-      .toFinish(AnswerWorkflowFinish),
-  ],
+  flow: [onStart(AskWorkflowStart).toAgent(LookupAgent).toFinish(AnswerWorkflowFinish)],
 })
 export class LookupWorkflow {}
 

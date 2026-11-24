@@ -83,7 +83,7 @@ function workflowWith(prompt: PromptSource) {
     flow: [
       onStart(AnsStart)
         .toParallelAgents(AnsAgent, AnsAgent)
-        .acceptedBy(AnsArbiter)
+        .arbitratedBy(AnsArbiter)
         .joinQuorum({ min: 2 })
         .toAction(AnsAction)
         .toFinish(AnsFinish),

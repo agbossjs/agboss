@@ -72,9 +72,7 @@ export class QuestionInbox {
   description: "Reads the owner's limit",
   decidedBy: DecidedBy.Code,
 })
-export class SpendingLimitReplyInterpreter
-  implements ReplyInterpreterHandler<SpendingLimitReplyInterpreter>
-{
+export class SpendingLimitReplyInterpreter implements ReplyInterpreterHandler<SpendingLimitReplyInterpreter> {
   interpret(
     input: InputOf<SpendingLimitReplyInterpreter>,
   ): ReplyInterpretation<OutputOf<SpendingLimitReplyInterpreter>> {
@@ -273,10 +271,8 @@ export class OwnerPurchaseWorkflowFinish {}
     onExternalTask(BudgetOwnerQuestion)
       .toAction(CheckLimitAction)
       .switch(
-        caseOf(PurchasePlacedDto)
-          .toFinish(OwnerPurchaseWorkflowFinish),
-        caseOf(PurchaseQuestionDto)
-          .toExternalTask(BudgetOwnerQuestion),
+        caseOf(PurchasePlacedDto).toFinish(OwnerPurchaseWorkflowFinish),
+        caseOf(PurchaseQuestionDto).toExternalTask(BudgetOwnerQuestion),
       ),
   ],
   providers: [QuestionInbox],

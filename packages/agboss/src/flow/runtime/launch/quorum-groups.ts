@@ -55,9 +55,7 @@ export function isGroupsDecided(
   pending: ReadonlyMap<string, number>,
 ): boolean {
   if ([...pending.values()].every((count) => count === 0)) return true;
-  const ranks = groups
-    .filter((group) => isComplete(group, counts))
-    .map(rankOf);
+  const ranks = groups.filter((group) => isComplete(group, counts)).map(rankOf);
   if (ranks.length === 0) return !groups.some((group) => canComplete(group, counts, pending));
   const best = Math.min(...ranks);
   return !groups.some((group) => rankOf(group) < best && canComplete(group, counts, pending));

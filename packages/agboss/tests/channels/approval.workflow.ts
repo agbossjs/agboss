@@ -138,8 +138,7 @@ const defaults = {
 
 class NoLimits implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .build();
+    return WorkflowSettings.builder().build();
   }
 }
 
@@ -147,11 +146,7 @@ class NoLimits implements WorkflowDefinition {
 @Workflow({
   name: "refunds-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Clerk)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
   defaults,
   memory: Window2Memory,
   providers: [ApprovalDesk],

@@ -44,7 +44,11 @@ export type QuorumJoined<THead extends PathHead> = {
 /** What `.onGroup(…)` takes: one or more classes of the launch, then its optional options and the group's own path. */
 export interface OnGroup<TNext> {
   onGroup(targets: readonly [Class, ...Class[]], path: SidePath): TNext;
-  onGroup(targets: readonly [Class, ...Class[]], options: QuorumGroupOptions, path: SidePath): TNext;
+  onGroup(
+    targets: readonly [Class, ...Class[]],
+    options: QuorumGroupOptions,
+    path: SidePath,
+  ): TNext;
 }
 
 /** After the first `.onGroup(…)`: a path (each group continued its own), more groups; `.onError(…)` is no more. */

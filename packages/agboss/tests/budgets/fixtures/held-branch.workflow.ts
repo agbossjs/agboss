@@ -122,9 +122,7 @@ export class HeldAnyWorkflowFinish {}
   name: "held-any-workflow",
   version: "1.0.0",
   flow: [
-    onStart(HeldAnyWorkflowStart)
-      .toWorkflow(HeldBranchWorkflow)
-      .toFinish(HeldAnyWorkflowFinish),
+    onStart(HeldAnyWorkflowStart).toWorkflow(HeldBranchWorkflow).toFinish(HeldAnyWorkflowFinish),
   ],
 })
 export class HeldAnyWorkflow {}

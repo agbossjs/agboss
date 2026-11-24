@@ -128,10 +128,6 @@ export class TaskDoneWorkflowFinish {}
 @Workflow({
   name: "task-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TaskWorkflowStart)
-      .toAction(WorkAction)
-      .toFinish(TaskDoneWorkflowFinish),
-  ],
+  flow: [onStart(TaskWorkflowStart).toAction(WorkAction).toFinish(TaskDoneWorkflowFinish)],
 })
 export class TaskWorkflow {}

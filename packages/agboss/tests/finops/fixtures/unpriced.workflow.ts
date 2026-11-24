@@ -80,9 +80,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 @Workflow({
   name: "unpriced-workflow",
   version: "1.0.0",
-  flow: [onStart(UnpricedStart)
-    .toAgent(FreeAgent)
-    .toFinish(UnpricedFinish)],
+  flow: [onStart(UnpricedStart).toAgent(FreeAgent).toFinish(UnpricedFinish)],
   defaults,
   memory: Window1Memory,
 })
@@ -91,9 +89,7 @@ export class UnpricedWorkflow {}
 @Workflow({
   name: "paid-workflow",
   version: "1.0.0",
-  flow: [onStart(PaidStart)
-    .toAgent(PaidAgent)
-    .toFinish(PaidFinish)],
+  flow: [onStart(PaidStart).toAgent(PaidAgent).toFinish(PaidFinish)],
   defaults,
   memory: Window1Memory,
 })

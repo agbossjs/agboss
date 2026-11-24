@@ -235,11 +235,7 @@ export class CashierFinish {}
 @Workflow({
   name: "cashier-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(CashierStart)
-      .toAgent(CashierAgent)
-      .toFinish(CashierFinish),
-  ],
+  flow: [onStart(CashierStart).toAgent(CashierAgent).toFinish(CashierFinish)],
   defaults: { models: { temperature: 0 } },
   providers: [PaymentGateway],
 })
@@ -262,11 +258,7 @@ export class OrderChargedFinish {}
 @Workflow({
   name: "charge-order-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChargeOrderStart)
-      .toAction(ChargeOrderAction)
-      .toFinish(OrderChargedFinish),
-  ],
+  flow: [onStart(ChargeOrderStart).toAction(ChargeOrderAction).toFinish(OrderChargedFinish)],
 })
 export class ChargeOrderWorkflow {}
 
@@ -287,11 +279,7 @@ export class ChargeSentFinish {}
 @Workflow({
   name: "send-charge-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(SendChargeStart)
-      .toAction(SendChargeAction)
-      .toFinish(ChargeSentFinish),
-  ],
+  flow: [onStart(SendChargeStart).toAction(SendChargeAction).toFinish(ChargeSentFinish)],
   providers: [PaymentGateway],
 })
 export class SendChargeWorkflow {}
@@ -319,9 +307,7 @@ export class ChargesSentAction {
     readonly results: readonly Produced<ChargeResultDto, unknown>[];
   }): Promise<ChargeSummaryDto> {
     return {
-      chargeIds: input.results
-        .map((result) => result.value.chargeId)
-        .join(", "),
+      chargeIds: input.results.map((result) => result.value.chargeId).join(", "),
     };
   }
 }

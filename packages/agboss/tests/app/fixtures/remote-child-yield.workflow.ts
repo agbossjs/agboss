@@ -193,9 +193,7 @@ export class YieldCheckedWorkflowFinish {}
   name: "yield-check-workflow",
   version: "1.0.0",
   flow: [
-    onStart(YieldCheckWorkflowStart)
-      .toAction(GatedItemAction)
-      .toFinish(YieldCheckedWorkflowFinish),
+    onStart(YieldCheckWorkflowStart).toAction(GatedItemAction).toFinish(YieldCheckedWorkflowFinish),
   ],
 })
 export class YieldCheckWorkflow {}
@@ -245,9 +243,7 @@ export class YieldOneWorkflowFinish {}
   name: "yield-one-workflow",
   version: "1.0.0",
   flow: [
-    onStart(YieldOneWorkflowStart)
-      .toWorkflow(YieldCheckWorkflow)
-      .toFinish(YieldOneWorkflowFinish),
+    onStart(YieldOneWorkflowStart).toWorkflow(YieldCheckWorkflow).toFinish(YieldOneWorkflowFinish),
   ],
 })
 export class YieldOneWorkflow {}

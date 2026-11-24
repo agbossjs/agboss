@@ -39,9 +39,7 @@ export class NoteChildWorkflowFinish {}
   name: "note-child-workflow",
   version: "1.0.0",
   flow: [
-    onStart(NoteChildWorkflowStart)
-      .toAction(NoteOrderAction)
-      .toFinish(NoteChildWorkflowFinish),
+    onStart(NoteChildWorkflowStart).toAction(NoteOrderAction).toFinish(NoteChildWorkflowFinish),
   ],
 })
 export class NoteChildWorkflow {}
@@ -81,9 +79,7 @@ export class PaidItemsAction {
     readonly notes: readonly Produced<OrderNoteDto, unknown>[];
   }): Promise<OrderNoteDto> {
     return {
-      note: input.notes
-        .map((note) => note.value.note)
-        .join("; "),
+      note: input.notes.map((note) => note.value.note).join("; "),
     };
   }
 }
@@ -126,8 +122,7 @@ export class PaidLevelWorkflowFinish {}
         caseOf(OrderDto)
           .toWorkflow(() => PaidLevelWorkflow)
           .toFinish(PaidLevelWorkflowFinish),
-        caseOf(OrderNoteDto)
-          .toFinish(PaidLevelWorkflowFinish),
+        caseOf(OrderNoteDto).toFinish(PaidLevelWorkflowFinish),
       ),
   ],
   maxDepth: 2,

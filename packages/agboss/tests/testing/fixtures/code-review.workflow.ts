@@ -92,8 +92,7 @@ export class Unused {}
   name: "code-review-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TaskStart)
-      .toAgent(Coder),
+    onStart(TaskStart).toAgent(Coder),
     onAgent(Coder)
       .toAgent(Reviewer) // the review is about this code (#271)
       .toRouter(ReviewGate)

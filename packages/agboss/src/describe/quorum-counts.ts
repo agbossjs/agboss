@@ -47,8 +47,7 @@ export function quorumCounts(
       edge.kind === EdgeKind.Join &&
       edge.join?.quorum !== undefined &&
       field.isList &&
-      reachableFrom([edge.to], edges)
-        .has(node),
+      reachableFrom([edge.to], edges).has(node),
   );
   for (const edge of feeding)
     for (const [producer, range] of rangesOf(edge, field.slot))

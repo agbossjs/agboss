@@ -128,10 +128,8 @@ export class AskRouter {
       .toRouter(AskRouter)
       .onError(LedgerDownError, toFinish(HeldWorkflowFinish))
       .chooseOne(
-        route(LeftAction)
-          .toFinish(DoneWorkflowFinish),
-        route(RightAction)
-          .toFinish(DoneWorkflowFinish),
+        route(LeftAction).toFinish(DoneWorkflowFinish),
+        route(RightAction).toFinish(DoneWorkflowFinish),
       ),
   ],
 })
@@ -155,10 +153,8 @@ export class AskApplication {}
       .toRouter(AskRouter)
       .onError(RouterFailedError, toFinish(RefusedWorkflowFinish))
       .chooseOne(
-        route(LeftAction)
-          .toFinish(DoneWorkflowFinish),
-        route(RightAction)
-          .toFinish(DoneWorkflowFinish),
+        route(LeftAction).toFinish(DoneWorkflowFinish),
+        route(RightAction).toFinish(DoneWorkflowFinish),
       ),
   ],
 })

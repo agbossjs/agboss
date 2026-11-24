@@ -173,9 +173,7 @@ export class NotesAction {
     readonly notes: readonly Produced<NoteDto, unknown>[];
   }): Promise<NoteDto> {
     return {
-      text: input.notes
-        .map((note) => note.value.text)
-        .join("; "),
+      text: input.notes.map((note) => note.value.text).join("; "),
     };
   }
 }
@@ -207,8 +205,7 @@ export class NoteBudgetStopAction {
 })
 export class BudgetStoppedWorkflowFinish {}
 
-const onBudget = toAction(NoteBudgetStopAction)
-  .toFinish(BudgetStoppedWorkflowFinish);
+const onBudget = toAction(NoteBudgetStopAction).toFinish(BudgetStoppedWorkflowFinish);
 
 /** Both branches at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
@@ -277,11 +274,7 @@ export class TaskDoneWorkflowFinish {}
 @Workflow({
   name: "task-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TaskWorkflowStart)
-      .toAgent(TaskAgent)
-      .toFinish(TaskDoneWorkflowFinish),
-  ],
+  flow: [onStart(TaskWorkflowStart).toAgent(TaskAgent).toFinish(TaskDoneWorkflowFinish)],
 })
 export class TaskWorkflow {}
 

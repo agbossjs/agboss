@@ -71,9 +71,7 @@ const errorsOf = (flow: Flow) =>
     code,
     message: message.replace(/^quorum-case-\d+-workflow: /, ""),
   }));
-const codesOf = (flow: Flow): readonly string[] =>
-  errorsOf(flow)
-    .map((found) => found.code);
+const codesOf = (flow: Flow): readonly string[] => errorsOf(flow).map((found) => found.code);
 
 @Agent({
   name: "skills-reader-agent",
@@ -91,23 +89,26 @@ class SkillsReaderAgent {}
 
 /** The fit launch, its quorum and the values it names. */
 const fitLaunch = () =>
-  onStart(FitReviewWorkflowStart)
-    .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent);
+  onStart(FitReviewWorkflowStart).toParallelAgents(
+    SkillsScoreAgent,
+    CultureScoreAgent,
+    SalaryFitAgent,
+  );
 const searched = () =>
   onStart(CompanySearchWorkflowStart)
     .toAgent(BoardSearchAgent)
     .toParallelAgents(CompanyVetAgent, { maxItems: 50 });
 const shortlisted = (joined: ReturnType<typeof searched>) =>
-  joined
-    .toAgent(CompanyShortlistAgent)
-    .toFinish(CompanyShortlistWorkflowFinish);
+  joined.toAgent(CompanyShortlistAgent).toFinish(CompanyShortlistWorkflowFinish);
 
 const dealLaunch = () =>
-  onStart(DealWorkflowStart)
-    .toParallelAgents(LegalAgent, DealCriticAgent, DealCriticAgent, FastScreenAgent);
-const reviewPath = () =>
-  onAgent(FullReviewAgent)
-    .toFinish(DueDiligenceReportWorkflowFinish);
+  onStart(DealWorkflowStart).toParallelAgents(
+    LegalAgent,
+    DealCriticAgent,
+    DealCriticAgent,
+    FastScreenAgent,
+  );
+const reviewPath = () => onAgent(FullReviewAgent).toFinish(DueDiligenceReportWorkflowFinish);
 
 describe("#279: the issue's quorums pass the analyser", () => {
   it.each([
@@ -116,8 +117,7 @@ describe("#279: the issue's quorums pass the analyser", () => {
     CompanySearchWorkflow,
     DueDiligenceWorkflow,
   ])("%o has no violation", (workflow) => {
-    expect(checkWorkflow(workflow).errors)
-      .toEqual([]);
+    expect(checkWorkflow(workflow).errors).toEqual([]);
   });
 });
 
@@ -129,14 +129,13 @@ describe("#279 AC14: what the counted answers give after .joinQuorum({ min })", 
         .toAgent(SkillsReaderAgent)
         .toFinish(FitSummaryWorkflowFinish),
     ];
-    expect(errorsOf(flow))
-      .toEqual([
-        {
-          code: "input.missing-on-path",
-          message:
-            "skills-reader-agent.skills (SkillsScoreDto) is not produced on the path fit-review-workflow-start → skills-reader-agent (skills-score-agent may be left out of the quorum) — make it optional(SkillsScoreDto) or listOf(SkillsScoreDto)",
-        },
-      ]);
+    expect(errorsOf(flow)).toEqual([
+      {
+        code: "input.missing-on-path",
+        message:
+          "skills-reader-agent.skills (SkillsScoreDto) is not produced on the path fit-review-workflow-start → skills-reader-agent (skills-score-agent may be left out of the quorum) — make it optional(SkillsScoreDto) or listOf(SkillsScoreDto)",
+      },
+    ]);
   });
 
   it("with min equal to the agents launched a required value is allowed", () => {
@@ -146,8 +145,7 @@ describe("#279 AC14: what the counted answers give after .joinQuorum({ min })", 
         .toAgent(SkillsReaderAgent)
         .toFinish(FitSummaryWorkflowFinish),
     ];
-    expect(codesOf(flow))
-      .toEqual([]);
+    expect(codesOf(flow)).toEqual([]);
   });
 });
 
@@ -159,14 +157,13 @@ describe("#279 AC8: only counted answers enter the scope — what a consumer may
         .toAgent(SkillsReaderAgent)
         .toFinish(FitSummaryWorkflowFinish),
     ];
-    expect(errorsOf(flow))
-      .toEqual([
-        {
-          code: "input.missing-on-path",
-          message:
-            "skills-reader-agent.skills (SkillsScoreDto) is not produced on the path fit-review-workflow-start → skills-reader-agent (skills-score-agent may be left out of the quorum) — make it optional(SkillsScoreDto) or listOf(SkillsScoreDto)",
-        },
-      ]);
+    expect(errorsOf(flow)).toEqual([
+      {
+        code: "input.missing-on-path",
+        message:
+          "skills-reader-agent.skills (SkillsScoreDto) is not produced on the path fit-review-workflow-start → skills-reader-agent (skills-score-agent may be left out of the quorum) — make it optional(SkillsScoreDto) or listOf(SkillsScoreDto)",
+      },
+    ]);
   });
 
   it("a counted answer nobody reads is flow.unused-output", () => {
@@ -177,8 +174,7 @@ describe("#279 AC8: only counted answers enter the scope — what a consumer may
         .toAgent(FitSummaryAgent)
         .toFinish(FitSummaryWorkflowFinish),
     ];
-    expect(codesOf(flow))
-      .toContain("flow.unused-output");
+    expect(codesOf(flow)).toContain("flow.unused-output");
   });
 });
 
@@ -190,25 +186,18 @@ describe("#279: an impossible quorum fails assembly", () => {
         .toAgent(FitSummaryAgent)
         .toFinish(FitSummaryWorkflowFinish),
     ];
-    expect(errorsOf(flow))
-      .toEqual([
-        {
-          code: "flow.quorum-impossible",
-          message:
-            "fit-review-workflow-start → toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ min: 4 }) needs 4 counted answers, but the launch runs 3 agents — lower min, or launch more",
-        },
-      ]);
+    expect(errorsOf(flow)).toEqual([
+      {
+        code: "flow.quorum-impossible",
+        message:
+          "fit-review-workflow-start → toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ min: 4 }) needs 4 counted answers, but the launch runs 3 agents — lower min, or launch more",
+      },
+    ]);
   });
 
   it("per item: min above maxItems", () => {
-    const flow = [
-      shortlisted(
-        searched()
-          .joinQuorum({ min: 60 }),
-      ),
-    ];
-    expect(codesOf(flow))
-      .toEqual(["flow.quorum-impossible"]);
+    const flow = [shortlisted(searched().joinQuorum({ min: 60 }))];
+    expect(codesOf(flow)).toEqual(["flow.quorum-impossible"]);
   });
 
   it("a group listing an agent not launched, or more copies than launched", () => {
@@ -220,45 +209,29 @@ describe("#279: an impossible quorum fails assembly", () => {
         .onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish)),
       reviewPath(),
     ];
-    const impossible = errorsOf(flow)
-      .filter((found) => found.code === "flow.quorum-impossible");
-    expect(impossible.map((found) => found.message.replace(/^.*: \.onGroup/, ".onGroup")))
-      .toEqual([
-        ".onGroup([auditor-agent], …) lists auditor-agent, which the launch does not run — it can never complete; list targets of the launch",
-        ".onGroup([deal-critic-agent, deal-critic-agent, deal-critic-agent], …) needs 3 counted deal-critic-agent answers, but the launch runs 2 — it can never complete",
-      ]);
+    const impossible = errorsOf(flow).filter((found) => found.code === "flow.quorum-impossible");
+    expect(impossible.map((found) => found.message.replace(/^.*: \.onGroup/, ".onGroup"))).toEqual([
+      ".onGroup([auditor-agent], …) lists auditor-agent, which the launch does not run — it can never complete; list targets of the launch",
+      ".onGroup([deal-critic-agent, deal-critic-agent, deal-critic-agent], …) needs 3 counted deal-critic-agent answers, but the launch runs 2 — it can never complete",
+    ]);
   });
 });
 
 describe("#279 AC7 / AC13: groups continue their own paths, shapes from the launch", () => {
   it("a group without a continuation leads nowhere", () => {
-    const flow = [
-      dealLaunch()
-        .joinQuorumGroups()
-        .onGroup([FastScreenAgent], side()),
-    ];
-    expect(codesOf(flow))
-      .toContain("graph.dead-end");
+    const flow = [dealLaunch().joinQuorumGroups().onGroup([FastScreenAgent], side())];
+    expect(codesOf(flow)).toContain("graph.dead-end");
   });
 
   it("a join of groups without a group leads nowhere", () => {
-    const flow = [
-      dealLaunch()
-        .joinQuorumGroups({ deadline: minutes(1) }),
-    ];
-    expect(
-      errorsOf(flow)
-        .map((found) => found.message.replace(/^[^:]*: /, "")),
-    )
-      .toContain(
-        ".joinQuorumGroups(…) has no .onGroup(…) — continue each group with .onGroup([targets], subPath)",
-      );
+    const flow = [dealLaunch().joinQuorumGroups({ deadline: minutes(1) })];
+    expect(errorsOf(flow).map((found) => found.message.replace(/^[^:]*: /, ""))).toContain(
+      ".joinQuorumGroups(…) has no .onGroup(…) — continue each group with .onGroup([targets], subPath)",
+    );
   });
 
   it("a node reached from two groups is continued once — its own path", () => {
-    const toReview = () =>
-      toAgent(FullReviewAgent)
-        .toFinish(DueDiligenceReportWorkflowFinish);
+    const toReview = () => toAgent(FullReviewAgent).toFinish(DueDiligenceReportWorkflowFinish);
     const flow = [
       dealLaunch()
         .joinQuorumGroups()
@@ -266,8 +239,7 @@ describe("#279 AC7 / AC13: groups continue their own paths, shapes from the laun
         .onGroup([DealCriticAgent, DealCriticAgent], toReview())
         .onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish)),
     ];
-    expect(codesOf(flow))
-      .toContain("flow.continuation-twice");
+    expect(codesOf(flow)).toContain("flow.continuation-twice");
   });
 });
 
@@ -348,34 +320,28 @@ const LAUNCH =
 
 describe("#279 AC5: a model arbiter covers every agent of its launch by a criterion", () => {
   it("unhandled agent, agent not in the launch, two criteria for one agent", () => {
-    expect(arbiterErrorsOf(PartialScoreArbiter))
-      .toEqual([
-        {
-          code: "arbiter.duplicate-target",
-          message:
-            "partial-score-arbiter has 2 criteria for ScoreBAgent — one criterion per target class",
-        },
-        {
-          code: "arbiter.unhandled-target",
-          message: `partial-score-arbiter has no criterion for ScoreCAgent for this launch (${LAUNCH}) — add one — its prompt never stands in; a target that needs no real check gets "Any non-empty answer"`,
-        },
-        {
-          code: "arbiter.unknown-target",
-          message: `partial-score-arbiter has a criterion for LegalAgent, but ${LAUNCH} does not launch LegalAgent — remove it`,
-        },
-      ]);
+    expect(arbiterErrorsOf(PartialScoreArbiter)).toEqual([
+      {
+        code: "arbiter.duplicate-target",
+        message:
+          "partial-score-arbiter has 2 criteria for ScoreBAgent — one criterion per target class",
+      },
+      {
+        code: "arbiter.unhandled-target",
+        message: `partial-score-arbiter has no criterion for ScoreCAgent for this launch (${LAUNCH}) — add one — its prompt never stands in; a target that needs no real check gets "Any non-empty answer"`,
+      },
+      {
+        code: "arbiter.unknown-target",
+        message: `partial-score-arbiter has a criterion for LegalAgent, but ${LAUNCH} does not launch LegalAgent — remove it`,
+      },
+    ]);
   });
 
   it("a criterion covers every item of a per-item launch", () => {
     const flow = [
-      shortlisted(
-        searched()
-          .arbitratedBy(ConvincingReasonArbiter)
-          .joinQuorum({ min: 5 }),
-      ),
+      shortlisted(searched().arbitratedBy(ConvincingReasonArbiter).joinQuorum({ min: 5 })),
     ];
-    expect(codesOf(flow))
-      .toEqual([]);
+    expect(codesOf(flow)).toEqual([]);
   });
 
   it("a criterion covers every copy of a repeated agent", () => {
@@ -385,62 +351,54 @@ describe("#279 AC5: a model arbiter covers every agent of its launch by a criter
         .joinQuorumGroups()
         .onGroup(
           [LegalAgent, DealCriticAgent],
-          toAgent(FullReviewAgent)
-            .toFinish(DueDiligenceReportWorkflowFinish),
+          toAgent(FullReviewAgent).toFinish(DueDiligenceReportWorkflowFinish),
         )
         .onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish)),
     ];
-    expect(codesOf(flow))
-      .toEqual(["arbiter.unknown-target"]); // the arbiter also judges auditor-agent
+    expect(codesOf(flow)).toEqual(["arbiter.unknown-target"]); // the arbiter also judges auditor-agent
   });
 
   it("the arbiter must be decorated, and named in kebab-case", () => {
-    expect(arbiterErrorsOf(UndecoratedArbiter))
-      .toEqual([
-        {
-          code: "arbiter.not-an-arbiter",
-          message:
-            ".arbitratedBy(UndecoratedArbiter): UndecoratedArbiter has no @Arbiter decorator — decorate it with @Arbiter({ … })",
-        },
-      ]);
-    expect(arbiterErrorsOf(BadlyNamedArbiter))
-      .toEqual([
-        {
-          code: "name.not-kebab-case",
-          message: '"Badly_Named" on @Arbiter — a name is kebab-case: "badly-named"',
-        },
-      ]);
+    expect(arbiterErrorsOf(UndecoratedArbiter)).toEqual([
+      {
+        code: "arbiter.not-an-arbiter",
+        message:
+          ".arbitratedBy(UndecoratedArbiter): UndecoratedArbiter has no @Arbiter decorator — decorate it with @Arbiter({ … })",
+      },
+    ]);
+    expect(arbiterErrorsOf(BadlyNamedArbiter)).toEqual([
+      {
+        code: "name.not-kebab-case",
+        message: '"Badly_Named" on @Arbiter — a name is kebab-case: "badly-named"',
+      },
+    ]);
   });
 
   it("a good arbiter adds nothing", () => {
-    expect(arbiterErrorsOf(ValidScoreArbiter))
-      .toEqual([]);
+    expect(arbiterErrorsOf(ValidScoreArbiter)).toEqual([]);
   });
 });
 
 describe("#279 AC6: a code arbiter has one @Arbitrate(Agent) method per agent", () => {
   it("unhandled target, two methods for one class", () => {
-    expect(arbiterErrorsOf(TwoMethodsArbiter))
-      .toHaveLength(2);
-    expect(arbiterErrorsOf(TwoMethodsArbiter))
-      .toEqual(
-        expect.arrayContaining([
-          {
-            code: "arbiter.unhandled-target",
-            message: `two-methods-arbiter has no @Arbitrate(ScoreCAgent) method for this launch (${LAUNCH}) — add the method`,
-          },
-          {
-            code: "arbiter.duplicate-target",
-            message:
-              "two-methods-arbiter has 2 @Arbitrate(ScoreAAgent) methods (fromScoreA, checkScoreA) — one method per target class; share a rule through a private method",
-          },
-        ]),
-      );
+    expect(arbiterErrorsOf(TwoMethodsArbiter)).toHaveLength(2);
+    expect(arbiterErrorsOf(TwoMethodsArbiter)).toEqual(
+      expect.arrayContaining([
+        {
+          code: "arbiter.unhandled-target",
+          message: `two-methods-arbiter has no @Arbitrate(ScoreCAgent) method for this launch (${LAUNCH}) — add the method`,
+        },
+        {
+          code: "arbiter.duplicate-target",
+          message:
+            "two-methods-arbiter has 2 @Arbitrate(ScoreAAgent) methods (fromScoreA, checkScoreA) — one method per target class; share a rule through a private method",
+        },
+      ]),
+    );
   });
 
   it("a variadic @Arbitrate(A, B, C) method covers every target it names", () => {
-    expect(arbiterErrorsOf(OneMethodArbiter))
-      .toEqual([]);
+    expect(arbiterErrorsOf(OneMethodArbiter)).toEqual([]);
   });
 });
 
@@ -457,11 +415,7 @@ describe("#1282: an arbiter of an .inParallel([…]) or .forEachItem(…) launch
   it("judges the branches of .inParallel([…]) as it does those of .toParallelAgents(…)", () => {
     const flow = parallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)]);
 
-    expect(
-      errorsOf(flow)
-        .filter(({ code }) => code.startsWith("arbiter.")),
-    )
-      .toEqual([]);
+    expect(errorsOf(flow).filter(({ code }) => code.startsWith("arbiter."))).toEqual([]);
   });
 
   it("a target of the launch the arbiter has no criterion for is unhandled; one it names and the launch lacks is unknown", () => {
@@ -471,21 +425,16 @@ describe("#1282: an arbiter of an .inParallel([…]) or .forEachItem(…) launch
       errorsOf(flow)
         .filter(({ code }) => code.startsWith("arbiter."))
         .map(({ code }) => code),
-    )
-      .toEqual(["arbiter.unknown-target"]);
+    ).toEqual(["arbiter.unknown-target"]);
   });
 
   it("a void @Action branch gives the arbiter nothing to judge", () => {
     const flow = parallel([toAgent(ScoreAAgent), toAction(OpenDealRoomAction)]);
 
-    expect(
-      errorsOf(flow)
-        .filter(({ code }) => code === "arbiter.branch-has-no-output"),
-    )
-      .toEqual([
-        expect.objectContaining({
-          message: expect.stringContaining("an @Action without an output") as unknown,
-        }),
-      ]);
+    expect(errorsOf(flow).filter(({ code }) => code === "arbiter.branch-has-no-output")).toEqual([
+      expect.objectContaining({
+        message: expect.stringContaining("an @Action without an output") as unknown,
+      }),
+    ]);
   });
 });

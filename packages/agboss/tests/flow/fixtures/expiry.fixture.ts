@@ -309,11 +309,7 @@ export class SlowExpiryWorkflowStart {}
   flow: [
     onStart(SlowExpiryWorkflowStart)
       .toExternalTask(ManagerQuestion, { expiresIn: seconds(3) })
-      .onError(
-        PauseExpiredError,
-        toAction(SlowEscalationAction)
-          .toFinish(ExpiryWorkflowFinish),
-      )
+      .onError(PauseExpiredError, toAction(SlowEscalationAction).toFinish(ExpiryWorkflowFinish))
       .toAction(RecordExpiryAction)
       .toFinish(ExpiryWorkflowFinish),
   ],

@@ -116,11 +116,7 @@ export class NotVotedWorkflowFinish {}
     onStart(VoteWorkflowStart)
       .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
       .joinQuorum({ min: 2, deadline: seconds(30) })
-      .onError(
-        QuorumNotReachedError,
-        toAction(NotVotedAction)
-          .toFinish(NotVotedWorkflowFinish),
-      )
+      .onError(QuorumNotReachedError, toAction(NotVotedAction).toFinish(NotVotedWorkflowFinish))
       .toAction(VotedAction)
       .toFinish(VotedWorkflowFinish),
   ],
@@ -161,15 +157,11 @@ export class MixedNotVotedWorkflowFinish {}
     onStart(MixedWorkflowStart)
       .toRouter(TaskKindRouter)
       .chooseOne(
-        route(TaskWorkflow)
-          .toFinish(TaskDoneWorkflowFinish),
-        route(VoteWorkflow)
-          .switch(
-            caseOf(NotVotedDto)
-              .toFinish(MixedNotVotedWorkflowFinish),
-            caseOf(VotedDto)
-              .toFinish(MixedVotedWorkflowFinish),
-          ),
+        route(TaskWorkflow).toFinish(TaskDoneWorkflowFinish),
+        route(VoteWorkflow).switch(
+          caseOf(NotVotedDto).toFinish(MixedNotVotedWorkflowFinish),
+          caseOf(VotedDto).toFinish(MixedVotedWorkflowFinish),
+        ),
       ),
   ],
 })

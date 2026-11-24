@@ -171,11 +171,7 @@ export class OpenAuthenticator {
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(QuoteWorkflowStart)
-      .toAgent(QuoteDeskAgent)
-      .toFinish(QuoteWorkflowFinish),
-  ],
+  flow: [onStart(QuoteWorkflowStart).toAgent(QuoteDeskAgent).toFinish(QuoteWorkflowFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [BillingDeskA2AAgent, WeatherA2AAgent, OracleA2AAgent, OpenAuthenticator],
 })
@@ -184,21 +180,14 @@ export class QuoteWorkflow {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(RefundWorkflowStart)
-      .toFinish(RefundWorkflowFinish),
-  ],
+  flow: [onStart(RefundWorkflowStart).toFinish(RefundWorkflowFinish)],
 })
 export class RefundWorkflow {}
 
 @Workflow({
   name: "kb-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(KbWorkflowStart)
-      .toAgent(KbDeskAgent)
-      .toFinish(KbWorkflowFinish),
-  ],
+  flow: [onStart(KbWorkflowStart).toAgent(KbDeskAgent).toFinish(KbWorkflowFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
 })
 export class KbWorkflow {}

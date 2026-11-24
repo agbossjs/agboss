@@ -171,11 +171,7 @@ export class ToolWorkflowFinish {}
 @Workflow({
   name: "slow-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(SlowWorkflowStart)
-      .toAction(SlowAction)
-      .toFinish(SlowWorkflowFinish),
-  ],
+  flow: [onStart(SlowWorkflowStart).toAction(SlowAction).toFinish(SlowWorkflowFinish)],
   providers: [Teardown],
 })
 export class SlowWorkflow {}
@@ -184,11 +180,7 @@ export class SlowWorkflow {}
   name: "tool-workflow",
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 } },
-  flow: [
-    onStart(ToolWorkflowStart)
-      .toAgent(WorkerAgent)
-      .toFinish(ToolWorkflowFinish),
-  ],
+  flow: [onStart(ToolWorkflowStart).toAgent(WorkerAgent).toFinish(ToolWorkflowFinish)],
   providers: [Teardown],
 })
 export class ToolWorkflow {}

@@ -110,19 +110,14 @@ const defaults = {
 @Workflow({
   name: "remote-desk-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(AskStart)
-      .toAgent(Desk)
-      .toFinish(DeskAnswer),
-  ],
+  flow: [onStart(AskStart).toAgent(Desk).toFinish(DeskAnswer)],
   defaults,
   memory: Window2Memory,
   providers: [SingleTenantAuthenticator],
 })
 export class RemoteDesk implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder()
-      .build();
+    return WorkflowSettings.builder().build();
   }
 }
 

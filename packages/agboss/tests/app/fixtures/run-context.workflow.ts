@@ -176,12 +176,7 @@ const defaults = {
   defaults,
   memory: Window1Memory,
   providers: [Pay],
-  flow: [
-    onStart(Start)
-      .toAgent(Clerk)
-      .toAction(Pay)
-      .toFinish(Finish),
-  ],
+  flow: [onStart(Start).toAgent(Clerk).toAction(Pay).toFinish(Finish)],
 })
 export class Checkout {}
 

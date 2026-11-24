@@ -91,8 +91,8 @@ export class PtLimitChannelInterpreter {
   ): ChannelInterpretation<OutputOf<PtLimitChannelInterpreter>> {
     return input.reply.length > 0
       ? ChannelInterpretation.understood({
-        limitUsd: 100,
-      } satisfies OutputOf<PtLimitChannelInterpreter>)
+          limitUsd: 100,
+        } satisfies OutputOf<PtLimitChannelInterpreter>)
       : ChannelInterpretation.notUnderstood("empty");
   }
 }
@@ -190,9 +190,7 @@ export class PtPayoutWorkflowFinish {}
 @Workflow({
   name: "pt-payout-workflow",
   version: "1.0.0",
-  flow: [onStart(PtPayoutWorkflowStart)
-    .toAgent(PtPayerAgent)
-    .toFinish(PtPayoutWorkflowFinish)],
+  flow: [onStart(PtPayoutWorkflowStart).toAgent(PtPayerAgent).toFinish(PtPayoutWorkflowFinish)],
 })
 export class PtPayoutWorkflow {}
 

@@ -9,11 +9,7 @@ import { SettingsEnvironment } from "../app/environments/app.environment.js";
 @Workflow({
   name: "untested-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(ChatStart)
-      .toAgent(Clerk)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
   defaults: settingsDefaults,
   providers: [ApiClient],
 })

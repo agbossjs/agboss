@@ -60,11 +60,7 @@ export class DecisionJudged {}
 @Workflow({
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TaskStart)
-      .toAgent(ChatJudged)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(TaskStart).toAgent(ChatJudged).toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class ChatDeciderDesk {}
@@ -82,11 +78,7 @@ export class ChatDeciderDeskApplication {}
 @Workflow({
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(TaskStart)
-      .toAgent(DecisionJudged)
-      .toFinish(Reply),
-  ],
+  flow: [onStart(TaskStart).toAgent(DecisionJudged).toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class DecisionChatterDesk {}
@@ -116,7 +108,12 @@ export class AskDto {
 })
 export class Intake {}
 
-@Agent({ name: "coder-agent", prompt: inline("Code."), description: "Writes code", model: "local/llama" })
+@Agent({
+  name: "coder-agent",
+  prompt: inline("Code."),
+  description: "Writes code",
+  model: "local/llama",
+})
 export class Coder {}
 
 @WorkflowFinish({ name: "as-is-workflow-finish", description: "The ask, as is", output: AskDto })
@@ -144,11 +141,7 @@ export class Triage {}
     onStart(TaskStart)
       .toAgent(Intake)
       .toRouter(Triage)
-      .chooseOne(
-        route(Coder)
-          .toFinish(Reply),
-        route(AsIs),
-      ),
+      .chooseOne(route(Coder).toFinish(Reply), route(AsIs)),
   ],
   defaults: DEFAULTS,
 })

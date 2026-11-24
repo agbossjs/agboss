@@ -127,13 +127,10 @@ export const quotePaths = [
   onStart(QuoteWorkflowStart)
     .toRouter(QuoteSizeRouter)
     .chooseOne(
-      route(PriceQuoteAction)
-        .switch(
-          caseOf(QuoteDto)
-            .toFinish(QuoteWorkflowFinish),
-          caseOf(QuoteRefusedDto)
-            .toFinish(QuoteRefusedWorkflowFinish),
-        ),
+      route(PriceQuoteAction).switch(
+        caseOf(QuoteDto).toFinish(QuoteWorkflowFinish),
+        caseOf(QuoteRefusedDto).toFinish(QuoteRefusedWorkflowFinish),
+      ),
       route(ManualQuoteWorkflowFinish),
     ),
 ] as const;

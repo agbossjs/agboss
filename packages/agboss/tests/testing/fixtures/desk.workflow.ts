@@ -100,8 +100,7 @@ export const NOTES_DIR = tmpdir();
 
 const FILESYSTEM_SERVER = join(
   dirname(
-    createRequire(import.meta.url)
-      .resolve("@modelcontextprotocol/server-filesystem/package.json"),
+    createRequire(import.meta.url).resolve("@modelcontextprotocol/server-filesystem/package.json"),
   ),
   "dist",
   "index.js",
@@ -137,7 +136,8 @@ export class NoteText {
 
 const notePath = (title: string): string => join(NOTES_DIR, `${title}.md`);
 
-@Tool({ name: "save-note-tool",
+@Tool({
+  name: "save-note-tool",
   description: "Saves a note",
   channel: TerminalUserChannel,
   input: Note,
@@ -153,7 +153,8 @@ export class SaveNote {
   }
 }
 
-@Tool({ name: "read-note-tool",
+@Tool({
+  name: "read-note-tool",
   description: "Reads a note",
   input: NoteRef,
   output: NoteText,
@@ -233,13 +234,7 @@ export class MainRouter {}
   flow: [
     onStart(ChatStart)
       .toRouter(MainRouter)
-      .chooseOne(
-        route(Support)
-          .toFinish(Reply),
-        route(Writer)
-          .toFinish(Reply),
-        route(NoReply),
-      ),
+      .chooseOne(route(Support).toFinish(Reply), route(Writer).toFinish(Reply), route(NoReply)),
   ],
   defaults: {
     models: {

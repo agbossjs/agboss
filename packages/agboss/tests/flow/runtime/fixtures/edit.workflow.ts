@@ -88,11 +88,8 @@ export class GateRouter {}
   name: "edit-workflow",
   version: "1.0.0",
   flow: [
-    onStart(EditStart)
-      .toAgent(EditorAgent),
-    onAgent(EditorAgent)
-      .toRouter(GateRouter)
-      .chooseOne(route(EditorAgent), route(DoneFinish)),
+    onStart(EditStart).toAgent(EditorAgent),
+    onAgent(EditorAgent).toRouter(GateRouter).chooseOne(route(EditorAgent), route(DoneFinish)),
   ],
 })
 export class EditWorkflow {}
@@ -129,14 +126,9 @@ export class PatientGateRouter {}
   name: "patient-edit-workflow",
   version: "1.0.0",
   flow: [
-    onStart(EditStart)
-      .toAgent(PatientEditorAgent),
+    onStart(EditStart).toAgent(PatientEditorAgent),
     onAgent(PatientEditorAgent)
-      .onError(
-        VisitsLimitExceededError,
-        toAction(GaveUpAction)
-          .toFinish(GaveUpFinish),
-      )
+      .onError(VisitsLimitExceededError, toAction(GaveUpAction).toFinish(GaveUpFinish))
       .toRouter(PatientGateRouter)
       .chooseOne(route(PatientEditorAgent), route(DoneFinish)),
   ],
@@ -153,11 +145,8 @@ export class PatientEditWorkflow {}
 export class PatientEditApplication {}
 
 const editPaths = [
-  onStart(EditStart)
-    .toAgent(EditorAgent),
-  onAgent(EditorAgent)
-    .toRouter(GateRouter)
-    .chooseOne(route(EditorAgent), route(DoneFinish)),
+  onStart(EditStart).toAgent(EditorAgent),
+  onAgent(EditorAgent).toRouter(GateRouter).chooseOne(route(EditorAgent), route(DoneFinish)),
 ];
 
 /** The loop with 3 steps per execution (`@Workflow({ maxSteps })`). */
