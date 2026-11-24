@@ -560,13 +560,15 @@ What `onStream` hears depends on the provider kind:
   `{ usage: TokenUsage, cost?, finishReason? }` (#1311), what `complete()`'s answer holds beside its
   text. Each chunk is a `StreamEventKind.TextDelta`; the call's usage, cost and budgets are a plain
   call's. `result` must settle when the stream ends, fails or is aborted — after a failure, with
-  what the call used so far (the provider's rate-limit window counts it); one that never settles
+  what the call used so far (the provider's rate-limit window counts it, and so do the cost ledger
+  and every budget: a stream that fails mid-way is charged what it used — the provider's usage, else
+  counted from the chunks that came, unpriced tokens when it has no price); one that never settles
   within the provider's `timeout` is a `ModelFailure.Timeout`. A `result` that settles to anything
   but `{ usage: { inputTokens, outputTokens }, … }` fails the call as the project's bug, never as
   a call of zero tokens.
-- **A fallback model** streams like the primary. A primary that dies mid-stream with its breaker
-  open is answered by the fallback from the start, after a `StreamEventKind.Discarded` event
-  (`StreamDiscardReason.StreamBroken`).
+- **A fallback model** streams like the primary. A primary that dies with its breaker open is
+  answered by the fallback from the start inside the same stream: before any text transparently,
+  after text with a `StreamEventKind.Discarded` event (`StreamDiscardReason.StreamBroken`) first.
 - `agboss run` prints the answer from the result when nothing streamed.
 
 ## Fail fast: settings must fit their models

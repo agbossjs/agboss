@@ -238,6 +238,54 @@ describe("AttemptStream: a held attempt", () => {
     expect(told(heard)).toEqual(["a", "b"]);
   });
 
+  it("#1311b: released with the answer's masked text, it goes out as that text and never as the held tokens", () => {
+    const { sink, heard } = sinkOf();
+    const attempt = new AgentStream(sink, SITE, true).begin(1);
+
+    attempt.push("mail ann@");
+    attempt.push("example.com");
+    attempt.release("mail <email>");
+
+    expect(told(heard)).toEqual(["mail <email>"]);
+    expect(told(heard).join("")).not.toContain("example.com");
+  });
+
+  it("#1311b: a masked text released twice goes out once; an empty one says nothing", () => {
+    const { sink, heard } = sinkOf();
+    const attempt = new AgentStream(sink, SITE, true).begin(1);
+    attempt.push("x");
+    attempt.release("masked");
+    attempt.release("masked");
+    const { sink: quiet, heard: silence } = sinkOf();
+    const empty = new AgentStream(quiet, SITE, true).begin(1);
+    empty.push("x");
+    empty.release("");
+
+    expect(told(heard)).toEqual(["masked"]);
+    expect(silence).toEqual([]);
+  });
+
+  it("#1311b: a retracted held attempt releases nothing, even a masked text", () => {
+    const { sink, heard } = sinkOf();
+    const attempt = new AgentStream(sink, SITE, true).begin(1);
+    attempt.push("secret");
+    attempt.discard(StreamDiscardReason.JudgeRejected);
+
+    attempt.release("masked");
+
+    expect(heard).toEqual([]);
+  });
+
+  it("#1311b: an attempt that is not held already went out: a text at its release adds nothing", () => {
+    const { sink, heard } = sinkOf();
+    const attempt = new AgentStream(sink, SITE, false).begin(1);
+    attempt.push("shown");
+
+    attempt.release("masked");
+
+    expect(told(heard)).toEqual(["shown"]);
+  });
+
   it("a rejected held attempt leaves no trace: no text, no retraction", () => {
     const { sink, heard } = sinkOf();
     const attempt = new AgentStream(sink, SITE, true).begin(1);

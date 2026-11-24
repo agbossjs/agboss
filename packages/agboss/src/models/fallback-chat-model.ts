@@ -124,8 +124,8 @@ export class FallbackChatModel extends BaseChatModel {
 
   /**
    * The streamed call (#1005): the primary's tokens, or — its breaker open — the fallback's. A
-   * primary that dies after text went out and opens its breaker is answered by the fallback from
-   * the start, after a `StreamEventKind.Discarded` event: the text streamed so far is void.
+   * primary that dies and opens its breaker is answered by the fallback from the start: before any text
+   * it is transparent, after text went out a `StreamEventKind.Discarded` event says it is void.
    */
   override async *_streamResponseChunks(
     messages: BaseMessage[],
@@ -147,7 +147,10 @@ export class FallbackChatModel extends BaseChatModel {
           told,
         );
       } catch (error) {
-        const opened = isCircuitOpen(error) || (told.text && (await this.parts.breaker.isOpen()));
+        // a failure that opened the breaker is answered by the fallback, whether text went out or
+        // not (#1311b): before any text it is transparent, after it the text is retracted below
+        const opened =
+          signal?.aborted !== true && (isCircuitOpen(error) || (await this.parts.breaker.isOpen()));
         if (!opened) throw error;
         if (told.text) await discardStreamedText(runManager, errorText(error));
         return this.streamedViaFallback(messages, runManager, signal);

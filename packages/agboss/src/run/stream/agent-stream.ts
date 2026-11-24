@@ -19,6 +19,7 @@ export type StepSite = Omit<StreamStep, "attempt">;
 export class AttemptStream {
   #emitted = false;
   #discarded = false;
+  #released = false;
   readonly #held: string[] = [];
   readonly #tokens: PiiTokenMap | undefined;
   #unmask: Unmasker | undefined;
@@ -42,6 +43,7 @@ export class AttemptStream {
   restart(reason: StreamDiscardReason): void {
     this.discard(reason);
     this.#discarded = false;
+    this.#released = false;
     this.#emitted = false;
     this.#unmask = this.#tokens === undefined ? undefined : new Unmasker(this.#tokens);
     this.#trim = new Trimmer();
@@ -77,11 +79,21 @@ export class AttemptStream {
     if (this.#emitted) this.sink.emit({ kind: StreamEventKind.Discarded, step: this.step, reason });
   }
 
-  /** The held text, now that the visit's checks passed (a retracted attempt holds none). */
-  release(): void {
-    for (const token of this.#held.splice(0)) {
+  /**
+   * The held text, now that the visit's checks passed (a retracted attempt holds none). `finalText` is
+   * the answer as the checks read it — masked by the agent's PII policies: a held attempt goes out as
+   * that one text, never as the model's own tokens revealed (#1311b). Only a held attempt has anything to
+   * replace: what is not held has gone out already.
+   */
+  release(finalText?: string): void {
+    if (this.#released) return;
+    this.#released = true;
+    const held = this.#held.splice(0);
+    const parts = this.isHeld && finalText !== undefined && !this.#discarded ? [finalText] : held;
+    for (const part of parts) {
+      if (part === "") continue;
       this.#emitted = true;
-      this.sink.emit({ kind: StreamEventKind.TextDelta, delta: token, step: this.step });
+      this.sink.emit({ kind: StreamEventKind.TextDelta, delta: part, step: this.step });
     }
   }
 }
@@ -121,9 +133,9 @@ export class AgentStream {
     this.#last?.discard(StreamDiscardReason.Failed);
   }
 
-  /** The visit's checks passed: a held answer goes out now. */
-  release(): void {
-    this.#last?.release();
+  /** The visit's checks passed: a held answer goes out now, as `finalText` when the checks read one. */
+  release(finalText?: string): void {
+    this.#last?.release(finalText);
   }
 }
 

@@ -125,6 +125,8 @@ export function streamShard() {
       // #1399: what a stream that failed mid-way had spent — the record, the error's carrier, the counter
       "src/finops/partial-usage.ts",
       "src/models/transport/stream-partial.ts",
+      // #1311b: a transport stream's chunks as they come
+      "src/models/transport/transport-chunks.ts",
       "src/graph/agent-loop/chunk-counter.ts",
     ],
   };

@@ -4,14 +4,15 @@ import {
   type BindToolsInput,
   type LangSmithParams,
 } from "@langchain/core/language_models/chat_models";
-import type { BaseMessage } from "@langchain/core/messages";
-import type { ChatResult } from "@langchain/core/outputs";
+import { AIMessage, AIMessageChunk, type BaseMessage } from "@langchain/core/messages";
+import { ChatGenerationChunk, type ChatResult } from "@langchain/core/outputs";
 import { TokenLimit, type ResolvedModelSettings } from "../../config/types.js";
 import { runModelCall, type ResilienceOptions } from "../calls/attempt-runner.js";
 import { systemClock } from "../../infrastructure/clock.js";
 import type { PromptCaching } from "../prompt-caching.js";
 import type { Reasoning } from "../reasoning.js";
 import { aiMessageOf, providerMessagesOf, toolDefinitionsOf } from "./messages.js";
+import { chunksOf } from "./transport-chunks.js";
 import { transportCarrier, type TransportCall } from "./transport-carrier.js";
 import { transportStreamCarrier, type TransportStreamCall } from "./transport-stream.js";
 import type {
@@ -90,7 +91,7 @@ export class TransportChatModel extends BaseChatModel {
     stream: TransportStreamCall,
     messages: readonly BaseMessage[],
     signal: AbortSignal | undefined,
-    runManager: CallbackManagerForLLMRun | undefined,
+    onText: (text: string) => Promise<void>,
   ): Promise<ModelProviderResponse> {
     const { resilience, provider } = this.parts;
     const limits = {
@@ -101,9 +102,19 @@ export class TransportChatModel extends BaseChatModel {
     };
     const carrier = transportStreamCarrier(stream, this.requestOf(messages), signal, limits);
     const answer = await runModelCall(resilience, carrier, signal);
-    return await answer.consume(async (text) => {
-      if (text !== "") await runManager?.handleLLMNewToken(text);
-    });
+    return await answer.consume(onText);
+  }
+
+  /** The answer of `complete(request)` through the attempt runner. */
+  private async completed(
+    messages: readonly BaseMessage[],
+    signal: AbortSignal | undefined,
+  ): Promise<AIMessage> {
+    const { resilience, settings, provider } = this.parts;
+    const { complete } = await this.parts.calls();
+    const carrier = transportCarrier(complete, this.requestOf(messages), signal, provider);
+    const response: unknown = await runModelCall(resilience, carrier, signal);
+    return aiMessageOf(response, settings.model, provider);
   }
 
   async _generate(
@@ -111,18 +122,80 @@ export class TransportChatModel extends BaseChatModel {
     options: this["ParsedCallOptions"],
     runManager?: CallbackManagerForLLMRun,
   ): Promise<ChatResult> {
-    const { resilience, settings, provider } = this.parts;
-    const { complete, stream } = await this.parts.calls();
+    const { settings, provider } = this.parts;
+    const { stream } = await this.parts.calls();
     // a text stream carries no tool call: a call with tools bound is answered by `complete`
     if (stream !== undefined && this.tools.length === 0) {
-      const response = await this.streamed(stream, messages, options.signal, runManager);
+      const response = await this.streamed(stream, messages, options.signal, async (text) => {
+        if (text !== "") await runManager?.handleLLMNewToken(text);
+      });
       const message = aiMessageOf(response, settings.model, provider);
       return { generations: [{ text: message.text, message }] };
     }
-    const carrier = transportCarrier(complete, this.requestOf(messages), options.signal, provider);
-    const response: unknown = await runModelCall(resilience, carrier, options.signal);
-    const message = aiMessageOf(response, settings.model, provider);
+    const message = await this.completed(messages, options.signal);
     if (message.text !== "") await runManager?.handleLLMNewToken(message.text);
     return { generations: [{ text: message.text, message }] };
+  }
+
+  /** The message as a chunk with `content` as its text: its tool calls, usage, cost and finish reason. */
+  private chunkOf(message: AIMessage, content: string): ChatGenerationChunk {
+    const { tool_calls, usage_metadata, response_metadata } = message;
+    const chunk = new AIMessageChunk({
+      content,
+      tool_calls,
+      response_metadata,
+      ...(usage_metadata === undefined ? {} : { usage_metadata }),
+    });
+    return new ChatGenerationChunk({ message: chunk, text: content });
+  }
+
+  /**
+   * The call's text as it comes (#1311b), so a caller that streams the model (`model.stream`, a
+   * fallback's `streamedAnswer`) hears each chunk live, not the whole answer at the end. A call with
+   * tools bound is answered whole by `complete`, as `_generate` answers it. The last chunk carries
+   * the usage, cost and finish reason, no text: the chunks add up to the answer.
+   */
+  override async *_streamResponseChunks(
+    messages: BaseMessage[],
+    options: this["ParsedCallOptions"],
+    runManager?: CallbackManagerForLLMRun,
+  ): AsyncGenerator<ChatGenerationChunk> {
+    const { settings, provider } = this.parts;
+    const { stream } = await this.parts.calls();
+    if (stream === undefined || this.tools.length > 0) {
+      const message = await this.completed(messages, options.signal);
+      await runManager?.handleLLMNewToken(message.text);
+      yield this.chunkOf(message, message.text);
+      return;
+    }
+    const controller = new AbortController();
+    const signal =
+      options.signal === undefined
+        ? controller.signal
+        : AbortSignal.any([options.signal, controller.signal]);
+    const reading = chunksOf(
+      (onText) => this.streamed(stream, messages, signal, onText),
+      () => {
+        controller.abort();
+      },
+    );
+    try {
+      for await (const next of reading) {
+        if (typeof next !== "string") {
+          yield this.chunkOf(aiMessageOf(next, settings.model, provider), "");
+        } else if (next !== "") {
+          const chunk = new ChatGenerationChunk({
+            message: new AIMessageChunk({ content: next }),
+            text: next,
+          });
+          await runManager?.handleLLMNewToken(next, undefined, undefined, undefined, undefined, {
+            chunk,
+          });
+          yield chunk;
+        }
+      }
+    } finally {
+      await reading.return(undefined);
+    }
   }
 }
