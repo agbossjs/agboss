@@ -85,12 +85,12 @@ total is `IdempotencyError.KeyConflict`, nothing charged —, and the write — 
 one `INSERT` into `payment_charges` through its connection's `requireTransaction()` (#1317c) — runs in one
 `BEGIN IMMEDIATE` transaction of the application's SQLite file with the checks:
 
-| In the transaction, in order | What happens                                                                                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| the step's lease             | not the current holder's (its epoch, released, expired) → `ExecutionFencedError`, nothing written |
-| the scope's high-water mark  | a token below it → `ExecutionFencedError`, before any key is read                                 |
-| the application's key        | written before → the stored receipt (another total: the conflict), the charge not made again      |
-| the write                    | the charge row and its receipt, committed together                                                |
+| In the transaction, in order | What happens                                                                                       |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| the step's lease             | not the current holder's (its epoch, released, expired) → `ExecutionError.Fenced`, nothing written |
+| the scope's high-water mark  | a token below it → `ExecutionError.Fenced`, before any key is read                                 |
+| the application's key        | written before → the stored receipt (another total: the conflict), the charge not made again       |
+| the write                    | the charge row and its receipt, committed together                                                 |
 
 The ledger has no idempotency key and no fencing table of its own (`src/credit/sql/payment-charges.sql`).
 `tests/credit/workflows/credit/credit.workflow.test.ts` kills the instance after the charge and before

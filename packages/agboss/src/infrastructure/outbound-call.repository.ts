@@ -47,7 +47,7 @@ export type {
  * Infrastructure (#505): the intents of calls that leave the system, one per key. Every write and
  * the lookup by key are **fenced** like a fenced effect (#500) — in one transaction, the lease the
  * key names (its epoch, held, not expired) and the scope's high-water mark are checked first, so a
- * zombie can neither read, record nor complete an intent: `ExecutionFencedError`, a hand-over.
+ * zombie can neither read, record nor complete an intent: `ExecutionError.Fenced`, a hand-over.
  * Listed only in `@Application({ providers })`; the built-in default is in memory
  * (`InMemoryOutboundCallRepository`), `SqliteOutboundCallRepository` keeps them in the application's
  * SQLite file. A store reads the leases of the lease store of its database, so the two are listed

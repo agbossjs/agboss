@@ -9,6 +9,8 @@ import { unwindingDeps } from "./tree-unwind.js";
 import type { ExecutionOutput } from "./types.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { cancelledOutputOf } from "./cancelled-output.js";
+import { isPause } from "./lease-stopped.js";
+import { parkedOutputOf } from "./parked-output.js";
 
 /**
  * One pass of a tree (`tree-moves.ts`), observed and settled while its lease is held; a cancel
@@ -43,6 +45,9 @@ export function observedPass(
       return await maskedRecordOf(result, deps);
     } catch (error) {
       if (!(error instanceof ExecutionCancelledError)) throw error;
+      // an operator's pause parks the tree (#1341c): nothing undone, no record ended — the pass
+      // returns the paused output and the drain writes the rest (`passesOf`)
+      if (isPause(error)) return parkedOutputOf(deps, state, error);
       // a cancel is an outcome, not a failure (#1341): its undo ran before this error, and the
       // call resolves cancelled — an undo that failed is `CompensationFailedError`, thrown on
       return cancelledOutputOf(deps, state, { cause: error, compensations: undo.compensations });

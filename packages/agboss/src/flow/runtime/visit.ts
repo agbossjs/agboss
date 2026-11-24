@@ -18,6 +18,7 @@ import type { Class } from "../../components/injection.js";
 import type { StepEntries } from "./step-entries.js";
 import { LimitExceededError } from "../../graph/limits.js";
 import type { Clock } from "../../infrastructure/clock.js";
+import type { Milliseconds } from "../../units/index.js";
 import { reportOutdating } from "./outdating-report.js";
 import type { RuntimeProvenance } from "./provenance.js";
 import { startedVersionOf, stepFrameOf, type StepFrameDeps, inTreeSlot } from "./step-frame.js";
@@ -147,6 +148,19 @@ function visitFrameOf(
     services: {
       ...services,
       input: () => readInput(deps.graph, node, state).fields,
+      // the cleanups of an interrupted step are bounded by `shutdownTimeout` (#1341b)
+      ...(deps.compensation?.interruptTimeout === undefined
+        ? {}
+        : {
+            interruptBound: {
+              timeout: deps.compensation.interruptTimeout,
+              sleep: (delay: number, signal?: AbortSignal) =>
+                extractRunContext(config, state.runId).clock.sleep(
+                  delay as Milliseconds,
+                  signal,
+                ),
+            },
+          }),
       // an `onInterrupted` cleanup that threw: told to the observers, the rest still run
       interruptCleanupFailed: (reason: InterruptReason, error: unknown) =>
         deps.observer?.onInterruptCleanupError({

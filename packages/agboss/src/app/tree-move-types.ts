@@ -84,4 +84,15 @@ export interface TreeMoves {
    * the pass that takes them. Nothing to do when no pause is due or the tree is not resting.
    */
   expired(interrupted: InterruptedRun, call: TreeCall, onTaken?: () => void): Promise<void>;
+  /**
+   * `app.unpause` (#1341c): the tree's lease (waiting for a holder that is still parking), then the
+   * freeze lifted — a tree parked at a step boundary continues from its checkpoint
+   * (`ResumeReason.Unpaused`), one that rests at a business pause keeps waiting for it and takes what
+   * was decided or due meanwhile.
+   */
+  unpaused(
+    state: TreeState,
+    call: TreeCall,
+    command: { readonly ownerId?: string | undefined; readonly reason?: string | undefined },
+  ): Promise<ExecutionOutput>;
 }

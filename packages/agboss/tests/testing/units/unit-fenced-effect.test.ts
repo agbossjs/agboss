@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 /**
  * #500 — the fenced effect in a unit runner: `testUnit` / `testUnit` give the component the
  * built-in in-memory store on the runner's held lease (token 1, or the `fence` option's), so a
@@ -12,7 +13,6 @@ import {
   Clock,
   StoreClock,
   ExecutionContext,
-  ExecutionFencedError,
   ExecutionLeaseRepository,
   IdempotencyRunStatus,
   InMemoryFencedEffectRepository,
@@ -60,7 +60,7 @@ describe("#500: a unit runner's fenced effect", () => {
   it("a lost lease (isLost) refuses the effect: nothing charged", async () => {
     const run = testUnit(ChargeOrderAction, { fence: { isLost: true } });
 
-    await expect(run(order)).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(run(order)).rejects.toBeInstanceOf(ExecutionError.Fenced);
     expect(book.charges).toEqual([]);
   });
 
@@ -68,7 +68,7 @@ describe("#500: a unit runner's fenced effect", () => {
     const run = testUnit(ChargeOrderAction);
     await run.clock.advance(seconds(30));
 
-    await expect(run(order)).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(run(order)).rejects.toBeInstanceOf(ExecutionError.Fenced);
     expect(book.charges).toEqual([]);
   });
 });
@@ -166,6 +166,6 @@ describe("#500: a store whose lease store the runner cannot find", () => {
   ])("%s: the runner holds no lease for it, so its effect is refused", async (_case, action) => {
     const run = testUnit(action);
 
-    await expect(run(order)).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(run(order)).rejects.toBeInstanceOf(ExecutionError.Fenced);
   });
 });

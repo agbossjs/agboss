@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 /**
  * #626 — what the SQLite fencing stores do beyond the published contracts, each found by a mutant
  * that lived: they are SQLite implementations (never reused by a later app of a test); each
@@ -10,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
-import { ExecutionFencedError } from "../../../src/app/lease-lost.js";
+import {} from "../../../src/app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import {
   isSqliteImplementation,
@@ -138,7 +139,7 @@ describe("#626: the SQLite fencing stores beyond their contracts", () => {
 
     const refused = stores.effects.runOnce(keyOf(again, "other"), () => "r1");
 
-    await expect(refused).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(refused).rejects.toBeInstanceOf(ExecutionError.Fenced);
     await expect(refused).rejects.toMatchObject({ token: 1, observedToken: 2 });
   });
 });

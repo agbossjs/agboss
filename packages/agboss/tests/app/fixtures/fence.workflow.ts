@@ -1,10 +1,11 @@
+import { fencedRefusalOf } from "../../../src/app/lease-lost.js";
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   Agent,
   EmptyEnvironment,
   ExecutionContext,
-  ExecutionFencedError,
   Injectable,
   Tool,
   ToolCallDecision,
@@ -28,7 +29,7 @@ import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js"
 /**
  * #471 — a release that stages an artifact in an external ledger, fenced by the step's lease: the
  * ledger keeps the highest token of each lease scope (`fence.scopeKey`) and the idempotency keys it
- * wrote, refuses a token below the highest (`ExecutionFencedError`) and writes a key once. The
+ * wrote, refuses a token below the highest (`ExecutionError.Fenced`) and writes a key once. The
  * test's levers freeze the first release inside the TOCTOU window — after `fence.assertHeld()`,
  * before the ledger's write — and make a step throw a fenced error wrapped in other errors.
  */
@@ -149,7 +150,7 @@ export class ArtifactLedger {
     const highest = ledger.highest.get(row.scopeKey) ?? 0;
     if (row.token < highest) {
       ledger.refused.push({ scopeKey: row.scopeKey, token: row.token });
-      throw ExecutionFencedError.of({
+      throw fencedRefusalOf({
         scopeKey: row.scopeKey,
         token: row.token,
         observedToken: highest,
@@ -457,7 +458,9 @@ export class ReleaseWorkflow {}
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    onStart(AgentReleaseWorkflowStart).toAgent(ReleaseAgent).toFinish(AgentReleaseWorkflowFinish),
+    onStart(AgentReleaseWorkflowStart)
+      .toAgent(ReleaseAgent)
+      .toFinish(AgentReleaseWorkflowFinish),
   ],
   providers: [ArtifactLedger],
 })

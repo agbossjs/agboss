@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #533 item 3 — the in-memory fenced-effect store and the contract's base class at their edges: the
  * transactions of one scope wait for each other even when a write is asynchronous, and each scope's
@@ -10,7 +11,7 @@ import { IdempotencyError } from "../../src/core/error-families/effect-errors.js
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { storeMismatch } from "../../src/infrastructure/idempotency-errors.js";
 import { describe, expect, it } from "vitest";
-import { ExecutionCancelFencedError, ExecutionFencedError } from "../../src/app/lease-lost.js";
+import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
@@ -226,7 +227,10 @@ describe("#533: the base class's entry checks", () => {
       effects.runOnce(keyOf(lease, "charge1"), () => ({ receipt: "ran" })),
     ]);
 
-    expect(refused).toMatchObject({ status: "rejected", reason: expect.any(ExecutionFencedError) });
+    expect(refused).toMatchObject({
+      status: "rejected",
+      reason: expect.any(ExecutionError.Fenced),
+    });
     expect(ran).toMatchObject({ status: "fulfilled", value: { status: IdempotencyRunStatus.Ran } });
   });
 

@@ -76,6 +76,7 @@ function leaseOf() {
     enterStep: () => Promise.resolve(() => undefined),
     afterEachRenewal: () => undefined,
     whenCancelFound: () => undefined,
+    stopAfterStep: () => undefined,
     yieldWhile: (wait) => wait(),
     release,
   };
@@ -92,6 +93,12 @@ function partsOf(lease?: HeldExecutionLease) {
     hold: () => Promise.reject(new Error("not held here")),
     requestCancel: () => Promise.resolve(),
     isCancelRequested: () => Promise.resolve(false),
+    requestStop: () => Promise.resolve(),
+    stopOf: () => Promise.resolve(undefined),
+    markedOf: () => Promise.resolve({ isCancelRequested: false }),
+    requestPause: () => Promise.resolve(),
+    unpause: () => Promise.resolve(),
+    pauseOf: () => Promise.resolve({}),
   };
   const deps: Partial<AppDeps> = {
     log,

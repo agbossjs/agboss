@@ -1,3 +1,5 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #533 item 3 — the held lease, move by move, on the in-memory lease store with its timers held at
  * a closed gate (no background renewal or expiry: each move is the test's): what a lost or released
@@ -18,11 +20,7 @@ import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { nodeEventOf } from "../../src/flow/observers/execution-event.js";
-import {
-  ExecutionFencedError,
-  ExecutionLeaseLostError,
-  type ExecutionLease,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, type ExecutionLease } from "../../src/index.js";
 import {
   ExecutionAuditEventKind,
   HandOverSite,
@@ -131,8 +129,8 @@ function heldWait(): { readonly wait: () => Promise<void>; readonly end: () => v
   };
 }
 
-const fencedAt = (token: number): ExecutionFencedError =>
-  ExecutionFencedError.of({ scopeKey: SCOPE, token, observedToken: token + 1 });
+const fencedAt = (token: number): ExecutionError.Fenced =>
+  fencedRefusalOf({ scopeKey: SCOPE, token, observedToken: token + 1 });
 
 /** Whether `promise` has settled after the event loop ran a few turns. */
 async function isSettled(promise: Promise<unknown>): Promise<boolean> {

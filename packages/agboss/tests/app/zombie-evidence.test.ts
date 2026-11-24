@@ -8,7 +8,6 @@
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionError,
-  ExecutionFencedError,
   ExecutionAuditEventKind,
   HandOverReason,
   HandOverSite,
@@ -89,7 +88,7 @@ describe("#501 AC2: a zombie handed over at a step leaves evidence; one that nev
       const error = await rejectionOf(call);
       const rows = await instance(apps, 1).auditLogOf({ tenantId: "default", rootExecutionId });
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(rows.map((row) => row.kind)).toEqual([
         ExecutionAuditEventKind.Takeover,
         ExecutionAuditEventKind.HandedOver,

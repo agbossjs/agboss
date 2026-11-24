@@ -89,7 +89,7 @@ export interface NewStatusTransition {
 
 /** What a record write may say about the change it makes: the default is read from its statuses. */
 export type StatusContext = Partial<
-  Pick<NewStatusTransition, "trigger" | "reason" | "actor" | "leaseToken">
+  Pick<NewStatusTransition, "toStatus" | "trigger" | "reason" | "actor" | "leaseToken">
 >;
 
 const ENDING: readonly (ThreadStatus | undefined)[] = [
@@ -138,7 +138,8 @@ export function recordTransitionOf(
     made.status === ThreadStatus.Running && wasPaused ? StatusTrigger.Resume : made.trigger;
   return {
     ...thread,
-    toStatus: made.status,
+    // a command may name the status its write makes (an operator's pause: `ExternallyPaused`)
+    toStatus: context?.toStatus ?? made.status,
     trigger: context?.trigger ?? own,
     ...detailsOf(context),
   };

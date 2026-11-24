@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { systemClock } from "../../infrastructure/clock.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import type { FencedEffectWork } from "../../infrastructure/fenced-effect.repository.js";
@@ -102,7 +103,7 @@ async function attempt(
     .runOnce(keyOf(lease), writingThroughHandOver({ first, second }, lease, seen, how))
     .then(
       () => "landed",
-      (error: unknown) => (error instanceof ExecutionFencedError ? "refused" : error),
+      (error: unknown) => (error instanceof ExecutionError.Fenced ? "refused" : error),
     );
   await seen.handOver;
 

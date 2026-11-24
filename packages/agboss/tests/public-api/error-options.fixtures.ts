@@ -21,6 +21,15 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.ApplicationStoppingError, { message }),
   fx(root.DuplicateExecutionIdError, { generator: "SequentialIds" }),
   fx(root.ExecutionCancelledError, { message }),
+  fx(root.ExecutionStoppedError, { message }),
+  fx(root.ExecutionStopFencedError, {
+    scopeKey: "acme:root-1",
+    tenantId: "acme",
+    rootExecutionId: "root-1",
+    leaseExecutionId: "child-1",
+    token: 2,
+    effect: "charge",
+  }),
   fx(root.InvalidMintedIdError, {
     generator: "G",
     method: "newThreadId",
@@ -40,13 +49,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     operation: "runOnce",
     source: root.StoreOutcomeSource.Command,
     timeout: seconds(10),
-  }),
-  fx(root.ExecutionFencedError, {
-    scopeKey: "acme:root-1",
-    tenantId: "acme",
-    leaseExecutionId: "root-1",
-    token: 2,
-    observedToken: 3,
   }),
   fx(root.ExecutionCancelFencedError, {
     scopeKey: "acme:root-1",

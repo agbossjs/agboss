@@ -1,3 +1,5 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #471 AC1 — the lease scope of a step's fence: a root and its `CurrentProcess` child share the
  * root's lease, a `ChildPlacement.AnyWorker` child fences with its own; an ancestor's fence and a
@@ -6,7 +8,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { scopeKeyOf, scopeOfKey } from "../../src/app/lease-lost.js";
-import { ExecutionContextUnavailableError, ExecutionFencedError } from "../../src/index.js";
+import { ExecutionContextUnavailableError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -107,14 +109,12 @@ describe("#471: scopeKey", () => {
     expect(scopeOfKey("no-colon")).toBeUndefined();
     expect(scopeOfKey("a:b:c")).toBeUndefined();
     expect(scopeOfKey("%E0%A4%A:x")).toBeUndefined();
-    expect(() => ExecutionFencedError.of({ scopeKey: "a:b:c", token: 1 })).toThrow(
-      /is not a scope key/,
-    );
+    expect(() => fencedRefusalOf({ scopeKey: "a:b:c", token: 1 })).toThrow(/is not a scope key/);
   });
 
   it("#890 AC3: the constructor takes every fact as is and never throws, a malformed scope key too", () => {
     const build = () =>
-      new ExecutionFencedError({
+      new ExecutionError.Fenced({
         scopeKey: "a:b:c",
         tenantId: "a",
         leaseExecutionId: "b",
@@ -130,8 +130,8 @@ describe("#471: scopeKey", () => {
     });
   });
 
-  it("an ExecutionFencedError built from a scope key names its tenant, execution and tokens", () => {
-    const error = ExecutionFencedError.of({
+  it("an ExecutionError.Fenced built from a scope key names its tenant, execution and tokens", () => {
+    const error = fencedRefusalOf({
       scopeKey: scopeKeyOf("acme:eu", "root:1"),
       token: 1,
       observedToken: 3,
@@ -141,12 +141,11 @@ describe("#471: scopeKey", () => {
       code: "execution.lease-lost.fenced",
       tenantId: "acme:eu",
       leaseExecutionId: "root:1",
-      rootExecutionId: "root:1",
       token: 1,
       observedToken: 3,
     });
     expect(error.message).toMatch(/token 1 was refused: the external system saw token 3/);
-    expect(ExecutionFencedError.of({ scopeKey: "a:b", token: 2 }).message).toMatch(
+    expect(fencedRefusalOf({ scopeKey: "a:b", token: 2 }).message).toMatch(
       /named no newer token — the lease is over/,
     );
   });

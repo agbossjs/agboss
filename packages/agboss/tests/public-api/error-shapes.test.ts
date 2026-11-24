@@ -1,3 +1,5 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #890 AC3 (API review G8, A-runtime Part 9): the errors of 0.1.1 have one shape — an options bag for
  * two facts or more, its keys the error's own fields (`effect` on a fenced effect's, `call` on an
@@ -11,7 +13,6 @@ import {
 import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
 import {
-  ExecutionFencedError,
   InvalidMintedIdError,
   KeyTextRule,
   QuestionFailedError,
@@ -88,13 +89,13 @@ describe("#890 AC3: an options bag, its keys the error's fields", () => {
   });
 });
 
-describe("#890 AC3: ExecutionFencedError.of validates, the constructor does not throw", () => {
+describe("#890 AC3: ExecutionError.Fenced.of validates, the constructor does not throw", () => {
   it("AC3: of reads the scope key; a malformed one is refused there", () => {
-    expect(ExecutionFencedError.of({ scopeKey: "acme:root-1", token: 2 })).toMatchObject({
+    expect(fencedRefusalOf({ scopeKey: "acme:root-1", token: 2 })).toMatchObject({
       tenantId: "acme",
       leaseExecutionId: "root-1",
       token: 2,
     });
-    expect(() => ExecutionFencedError.of({ scopeKey: "no-scope", token: 2 })).toThrow(TypeError);
+    expect(() => fencedRefusalOf({ scopeKey: "no-scope", token: 2 })).toThrow(TypeError);
   });
 });

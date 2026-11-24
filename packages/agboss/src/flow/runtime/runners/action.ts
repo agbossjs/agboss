@@ -189,7 +189,7 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
       deps.clock,
     ).catch((error: unknown) => {
       // a failure under a lease lost meanwhile is a hand-over, not the action's (#1318e); a zombie's
-      // write refused by a newer token is already that signal, as ExecutionFencedError: it stays
+      // write refused by a newer token is already that signal, as ExecutionError.Fenced: it stays
       // the fenced error (the evidence and audit rows say fenced), never the plain lease-lost one
       if (!(
         error instanceof StepError.ActionOutcomeUnknown ||

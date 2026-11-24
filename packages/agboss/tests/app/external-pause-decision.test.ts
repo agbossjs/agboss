@@ -1,10 +1,11 @@
 /**
  * #1341c: a channel's decision that arrives while the root is paused from outside is recorded and
  * not resumed — the pause is `Resolved`, the run stays paused, the decision is not lost — and once the
- * freeze is lifted the sweep's wake takes it: the run resumes exactly once with that decision.
+ * freeze is lifted by `app.unpause` the run resumes exactly once with that decision.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { ExecutionLeaseRepository, PauseStatus } from "../../src/index.js";
+import { PauseStatus } from "../../src/index.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 import { InterruptMode } from "../../src/app/interrupt-types.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { testWith } from "../../src/testing/index.js";
@@ -36,12 +37,14 @@ describe("#1341c: a channel decision on a root paused from outside", () => {
         { threadId: "frozen", ownerId: "alice" },
       );
       const store = app.resolve(PausedExecutionRepository);
-      const leases = app.resolve(ExecutionLeaseRepository);
-      const tree = { tenantId: "default", rootExecutionId: paused.executionId };
       const [pause] = (
         await store.findPageByTenantId("default", { statuses: [PauseStatus.Pending] }, 10)
       ).pauses;
-      await leases.requestPause(tree, { mode: InterruptMode.Immediate, reason: "freeze" });
+      await app.pause("frozen", {
+        mode: InterruptMode.Immediate,
+        reason: "freeze",
+        ownerId: "alice",
+      });
       told.ownerDecides = approve;
 
       await app.reassignPause(
@@ -59,9 +62,11 @@ describe("#1341c: a channel decision on a root paused from outside", () => {
       );
       expect(resolved.pauses).toHaveLength(1);
 
-      await leases.unpause(tree);
+      // the unpause lifts the freeze and takes the decision that was recorded meanwhile, at once
+      const lifted = await app.unpause("frozen", { ownerId: "alice" });
       await clock.advance(seconds(40));
       await until(() => told.recorded.length === 1);
+      expect(lifted.status).not.toBe(ExecutionStatus.Paused);
       await clock.advance(seconds(40));
 
       expect(told.recorded).toEqual(["o-1: approved"]);

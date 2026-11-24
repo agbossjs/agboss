@@ -206,6 +206,15 @@ export interface FrameServices {
    * the remaining cleanups still run. Absent where no observer is (a unit runner): nothing is reported.
    */
   readonly interruptCleanupFailed?: (reason: InterruptReason, error: unknown) => Promise<void>;
+  /**
+   * The bound of a step's `onInterrupted` cleanups, all together (#1341b: `executionLimits.shutdownTimeout`):
+   * past it the step goes on — the lease is released, the undo starts — and the cleanup left is
+   * reported as failed (`onInterruptCleanupError`) and not run. `sleep` is the clock's.
+   */
+  readonly interruptBound?: {
+    readonly timeout: number;
+    readonly sleep: (delay: number, signal?: AbortSignal) => Promise<void>;
+  };
   /** A tool call's mesh services (#398 PR 2): what its remote calls claim and report. */
   readonly meshCall?: MeshCallServices;
   /**
@@ -261,8 +270,23 @@ export async function runInFrame<TResult>(
   // before the lease is released or an undo starts: awaited, newest first (#1341b)
   const interrupted = async (error?: unknown): Promise<void> => {
     const reason = interruptReasonOf(error, signal);
-    if (reason !== undefined)
-      await interrupts.run(reason, services.interruptCleanupFailed ?? noReport);
+    if (reason === undefined) return;
+    const report = services.interruptCleanupFailed ?? noReport;
+    const { interruptBound: bound } = services;
+    if (bound === undefined) return interrupts.run(reason, report);
+    // bounded: the cleanups and the bound's timer race; the one that lost is stopped
+    const over = new AbortController();
+    const ran = interrupts.run(reason, report, over.signal).then(() => "ran" as const);
+    const timer = bound.sleep(bound.timeout, over.signal).then(() => "timed-out" as const);
+    const first = await Promise.race([ran, timer]);
+    if (first === "ran") {
+      over.abort();
+      return;
+    }
+    over.abort();
+    await Promise.resolve(
+      report(reason, new Error("the onInterrupted cleanups did not finish within shutdownTimeout")),
+    ).catch(noReport);
   };
   return storage.run(frame, async () => {
     try {
@@ -321,11 +345,17 @@ export function inToolCallFrame<TResult>(
     : runInFrame(toolCallFrameOf(step, callId, withReport(step.services, services), signal), work);
 }
 
-/** A tool call's services, told of an `onInterrupted` cleanup failing as its step is (#1341b). */
-const withReport = (parent: FrameServices, own: FrameServices): FrameServices =>
-  parent.interruptCleanupFailed === undefined || own.interruptCleanupFailed !== undefined
-    ? own
-    : { ...own, interruptCleanupFailed: parent.interruptCleanupFailed };
+/** A tool call's services, told of an `onInterrupted` cleanup failing as its step is, and bound as it is (#1341b). */
+const withReport = (parent: FrameServices, own: FrameServices): FrameServices => ({
+  ...own,
+  ...(own.interruptCleanupFailed === undefined && parent.interruptCleanupFailed !== undefined
+    ? { interruptCleanupFailed: parent.interruptCleanupFailed }
+    : {}),
+  // its cleanups are bounded like the step's own (`shutdownTimeout`)
+  ...(own.interruptBound === undefined && parent.interruptBound !== undefined
+    ? { interruptBound: parent.interruptBound }
+    : {}),
+});
 
 /** Where an agent's loop is (#268 S93): its model call in the visit, the failed validations so far. */
 export interface LoopProgress {

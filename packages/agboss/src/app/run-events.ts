@@ -94,8 +94,14 @@ export async function observeLeg(
   // a pass that rests with answers already recorded is not a stop: the holder goes on (Q58)
   switch (result.status) {
     case ExecutionStatus.Paused:
-      if (result.pending.length > 0)
-        await observer.onExecutionPause({ ...event, pending: await shownPending(result.pending) });
+      // frozen from outside (#1341c): told even with no business pause open (a parked tree)
+      if (result.pending.length > 0 || result.isExternallyPaused)
+        await observer.onExecutionPause({
+          ...event,
+          pending: await shownPending(result.pending),
+          isExternallyPaused: result.isExternallyPaused,
+          ...(result.reason === undefined ? {} : { reason: result.reason }),
+        });
       break;
     case ExecutionStatus.Finished:
       await observer.onExecutionEnd({

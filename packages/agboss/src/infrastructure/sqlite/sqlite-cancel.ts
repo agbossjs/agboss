@@ -1,9 +1,10 @@
+import { fencedRefusalOf } from "../../app/lease-lost.js";
 import type { DatabaseSync } from "node:sqlite";
 import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { sqliteStatusLog, type NewStatusTransition } from "../../turns/index.js";
 import { z } from "zod";
 import { InterruptMode } from "../../app/interrupt-types.js";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { ExecutionStopFencedError } from "../../app/lease-stopped.js";
 import type { EffectKey } from "../effect-key.js";
 import { cancelTreeOf } from "../issued-keys.js";
@@ -70,7 +71,7 @@ export function checkSqliteCancel(database: DatabaseSync, key: EffectKey): void 
   } = FenceRow.parse(row);
   // a pause fenced the root lease through a token (#1341c): its holder at or below it is stale
   if (fenced !== null && key.leaseExecutionId === rootExecutionId && key.token <= fenced)
-    throw ExecutionFencedError.of({
+    throw fencedRefusalOf({
       scopeKey: key.scopeKey,
       token: key.token,
       observedToken: fenced,

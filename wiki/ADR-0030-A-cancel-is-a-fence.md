@@ -25,7 +25,7 @@ charge that had already left was a refund, not a prevention.
   new intent (`saveIfAbsent`) or a new attempt (`markPending`) is refused with
   `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`),
   nothing written or sent. What ends or reads an attempt claimed before — `markCompleted`,
-  `markFailed`, `findByKey` — is accepted. A stale token is still `ExecutionFencedError`, a
+  `markFailed`, `findByKey` — is accepted. A stale token is still `ExecutionError.Fenced`, a
   hand-over, before any cancel is looked at.
 - **An undo is never refused.** `effectKeyOf` sets `isCompensation` on the keys of a step that
   compensates another (keys are issued, so it cannot be forged), and `rootExecutionId` on every key,

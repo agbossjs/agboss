@@ -1,4 +1,5 @@
-import { ExecutionCancelFencedError, ExecutionFencedError } from "../app/lease-lost.js";
+import { fencedRefusalOf } from "../app/lease-lost.js";
+import { ExecutionCancelFencedError } from "../app/lease-lost.js";
 import { InjectionToken } from "../components/injection.js";
 import { InterruptMode } from "../app/interrupt-types.js";
 import { ExecutionStopFencedError } from "../app/lease-stopped.js";
@@ -105,7 +106,7 @@ export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey):
 function checkFence(row: ExecutionLeaseRow | undefined, key: EffectKey, root: string): void {
   const fenced = row?.fencedThroughToken;
   if (fenced === undefined || key.leaseExecutionId !== root || key.token > fenced) return;
-  throw ExecutionFencedError.of({
+  throw fencedRefusalOf({
     scopeKey: key.scopeKey,
     token: key.token,
     observedToken: fenced,

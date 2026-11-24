@@ -43,6 +43,14 @@ const pointCallsOf = (app: AnyTenantApp, need: Need): Partial<AnyTenantApp> => (
     need(TenantOperation.Stop, tenantIdOf(options));
     return app.stop(threadId, options);
   },
+  pause: async (threadId, options) => {
+    need(TenantOperation.Pause, tenantIdOf(options));
+    return app.pause(threadId, options);
+  },
+  unpause: async (threadId, options) => {
+    need(TenantOperation.Unpause, tenantIdOf(options));
+    return app.unpause(threadId, options);
+  },
   extendPause: async (request, options) => {
     need(TenantOperation.ExtendPause, tenantIdOf(options));
     return app.extendPause(request, options);

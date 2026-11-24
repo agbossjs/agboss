@@ -1,12 +1,13 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #500 AC2 — a zombie reaches the fenced effect: its lease stalled (`leases.freeze`), the other
- * instance took it over under token 2. The zombie's call is refused (`ExecutionFencedError`) before
+ * instance took it over under token 2. The zombie's call is refused (`ExecutionError.Fenced`) before
  * its key is looked up — nothing written, the new holder's receipt never returned — whether the new
  * holder wrote first or not yet. A hand-over (#471): no `.onError` side path, no failed record, no
  * `onExecutionError`; the zombie's call rejects with the fenced error itself.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionFencedError, IdempotencyRunStatus } from "../../src/index.js";
+import { IdempotencyRunStatus } from "../../src/index.js";
 import { testWith, type TestLeases, type VirtualClock } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";
@@ -73,7 +74,7 @@ describe("#500 AC2: a zombie's effect is refused", () => {
       leases.thaw(a);
       const error = await rejectionOf(call);
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(book.charges).toEqual([{ order: "order-7", token: 2, chargeId: "charge-order-7-2" }]);
       expect(book.runs).toEqual([
@@ -102,7 +103,7 @@ describe("#500 AC2: a zombie's effect is refused", () => {
       holder?.();
       const [end] = await ends(1);
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(book.runs).toEqual([
         { token: 1, status: "refused" },

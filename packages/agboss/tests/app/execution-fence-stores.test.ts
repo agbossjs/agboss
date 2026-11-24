@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #471 AC2, AC5 — fencing over real stores: the external ledger in SQLite (its own file, each
  * instance its own connection) checks `token >= highest` by `scopeKey` and the idempotency key in
@@ -8,7 +9,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionFencedError } from "../../src/index.js";
+import {} from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { resetRecovery, seen as recovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -72,7 +73,7 @@ describe("#471 AC2: one transaction — the fence and the idempotency key", () =
     const replay = new SqliteArtifactLedger().stage({ ...rows[0], token: 1 } as never);
     expect(replay).toBe(Staged.Deduplicated);
     expect(() => new SqliteArtifactLedger().stage({ ...rows[0], token: 0 } as never)).toThrow(
-      ExecutionFencedError,
+      ExecutionError.Fenced,
     );
     expect(externalRows()).toHaveLength(1);
   });
@@ -94,7 +95,7 @@ describe.each([
       leases.thaw(instance(apps, 0));
       const error = await rejectionOf(call);
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(externalRows().map((row) => row.token)).toEqual([2]);
       expect(ledger.refused.map((row) => row.token)).toEqual([1]);

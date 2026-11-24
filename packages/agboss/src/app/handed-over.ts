@@ -4,16 +4,12 @@ import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import { ExecutionError, isHandOverError } from "../core/error-families/run-errors.js";
-import {
-  ExecutionCancelFencedError,
-  ExecutionFencedError,
-  ExecutionLeaseLostError,
-} from "./lease-lost.js";
+import { ExecutionCancelFencedError, ExecutionLeaseLostError } from "./lease-lost.js";
 
 /**
  * Work that stopped without failing (#265): its instance lost the tree's lease
  * (`ExecutionLeaseLostError`), or stopped and interrupted it (`ApplicationStoppingError`, the
- * shutdown timeout passed), or an external system fenced one of its writes (`ExecutionFencedError`,
+ * shutdown timeout passed), or an external system fenced one of its writes (`ExecutionError.Fenced`,
  * #471 — found anywhere in the error's cause chain). Another instance continues the tree: it reaches
  * neither `.onError` nor the record (which stays `running`), and the tree keeps its keys.
  */
@@ -23,8 +19,8 @@ export const isHandedOver = (error: unknown): boolean =>
   isHandOverError(error) ||
   fencedErrorOf(error) !== undefined;
 
-/** A write an external system refused (#471): a store's `ExecutionFencedError`, or the family's (#1317c). */
-export type FencedRefusalError = ExecutionFencedError | ExecutionError.Fenced;
+/** A write an external system refused (#471): a store's `ExecutionError.Fenced`, or the family's (#1317c). */
+export type FencedRefusalError = ExecutionError.Fenced;
 
 /** The ways work is handed over: its lease lost, its instance stopping, a write of it fenced. */
 export type HandedOver = ExecutionLeaseLostError | ApplicationStoppingError | ExecutionError.Fenced;
@@ -46,7 +42,7 @@ export function handedOverReason(signal: AbortSignal | undefined): HandedOver | 
  * the family's, never rebuilt as another class.
  */
 export const fencedErrorOf = (error: unknown): FencedRefusalError | undefined =>
-  errorOfClass(error, ExecutionFencedError) ?? errorOfClass(error, ExecutionError.Fenced);
+  errorOfClass(error, ExecutionError.Fenced) ?? errorOfClass(error, ExecutionError.Fenced);
 
 /**
  * The `ExecutionCancelFencedError` behind `error` (#909): the error itself, or one in its `cause`

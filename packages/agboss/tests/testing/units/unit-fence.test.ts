@@ -6,11 +6,7 @@ import { fenceOf } from "../../../src/flow/context/execution-fence.js";
  * or makes its checks refuse (`isLost`, `renewNowFails`).
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  ExecutionError,
-  ExecutionFencedError,
-  ExecutionLeaseLostError,
-} from "../../../src/index.js";
+import { ExecutionError, ExecutionLeaseLostError } from "../../../src/index.js";
 import { testUnit, testExecutionContext, VirtualClock } from "../../../src/testing/index.js";
 import { testFenceLeaseOf } from "../../../src/testing/fence.js";
 import { seconds } from "../../../src/units/index.js";
@@ -101,10 +97,10 @@ describe("#471 AC5: a unit runner's fence", () => {
     expect(seen.notified).toEqual(["test-execution:release-action:1"]);
   });
 
-  it("a refused write is the step's ExecutionFencedError, as in an execution", async () => {
+  it("a refused write is the step's ExecutionError.Fenced, as in an execution", async () => {
     ledger.highest.set("default:test-execution", 2);
 
-    await expect(testUnit(ReleaseAction)(message)).rejects.toThrow(ExecutionFencedError);
+    await expect(testUnit(ReleaseAction)(message)).rejects.toThrow(ExecutionError.Fenced);
     expect(ledger.refused).toEqual([{ scopeKey: "default:test-execution", token: 1 }]);
   });
 });

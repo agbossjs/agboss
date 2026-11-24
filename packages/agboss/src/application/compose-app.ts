@@ -68,11 +68,15 @@ export interface InstanceSurface extends Pick<
 /** `cancel` and `stop`: each routed to the workflow its thread belongs to. */
 const threadCallsOf = (
   ofThread: (thread: string, tenantId?: string) => Promise<BuiltApp>,
-): Pick<AnyTenantApp, "cancel" | "stop"> => ({
+): Pick<AnyTenantApp, "cancel" | "stop" | "pause" | "unpause"> => ({
   cancel: async (threadId, options) =>
     (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
   stop: async (threadId, options) =>
     (await ofThread(threadId, options?.tenantId)).app.stop(threadId, options),
+  pause: async (threadId, options) =>
+    (await ofThread(threadId, options?.tenantId)).app.pause(threadId, options),
+  unpause: async (threadId, options) =>
+    (await ofThread(threadId, options?.tenantId)).app.unpause(threadId, options),
 });
 
 export function composeApp(

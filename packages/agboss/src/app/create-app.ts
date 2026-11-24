@@ -200,6 +200,15 @@ export async function buildApp(
     // a stop is a cancel that undoes nothing (#1341b): its twin, loaded on the first stop
     stop: async (threadId, options = {}) =>
       (await lazyLoad(import("./stop-thread.js"))).stopThread(cancelParts, threadId, options),
+    // a pause freezes the execution where it stands, an unpause continues it (#1341c)
+    pause: async (threadId, options = {}) =>
+      (await lazyLoad(import("./pause-thread.js"))).pauseThread(cancelParts, threadId, options),
+    unpause: async (threadId, options = {}) =>
+      (await lazyLoad(import("./unpause-thread.js"))).unpauseThread(
+        { ...cancelParts, moves },
+        threadId,
+        options,
+      ),
     resume: resumeOf(resuming),
     extendPause: extendPauseOf({ pauses, owned, clock, accepting, deps }),
     reassignPause: reassignPauseOf({ ...resends, owned, accepting }),

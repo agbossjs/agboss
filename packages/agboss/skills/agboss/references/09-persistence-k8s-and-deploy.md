@@ -353,7 +353,7 @@ Autoscaling.
   `runOnce({ name: "charge", ttl: hours(24), execute: (database: DatabaseSync) => … })` — on the listed
   `SqliteFencedEffectRepository` (listed with `SqliteExecutionLeaseRepository`; `execute` is
   synchronous) or the built-in in-memory store — the lease, the scope's mark and the step's key
-  checked in the write's transaction; a replay gets the stored result, a zombie `ExecutionFencedError`.
+  checked in the write's transaction; a replay gets the stored result, a zombie `ExecutionError.Fenced`.
   No fencing or idempotency table of your own.
 - **Calls that leave the system (#505).** `idempotency.sendOnce({ name: "charge", target, request,
 timeout, ttl, send, recovery })` records the intent first
@@ -377,6 +377,35 @@ Reconciliation…)` when the lookup reads the other system's own records, `Outbo
   one instance runs at once over every tree and tenant — a queue, never an error; readiness is
   `isBusy` (so not `isReady`) while every slot is taken, and the recovery sweep starts at most its free slots' worth.
 - **PII tokens** are the same on every instance only with `@Application({ piiKeyField })` (reference 07).
+
+## Stop, pause, unpause and cancel an execution
+
+Four operator commands, each on a thread, each durable on the tree's lease row (the database is the
+authority, whatever a coordination store says) and each idempotent — a repeat writes again, so a
+command that died half way is completed by the operator's retry. Precedence is `Cancel > Stop > Pause`.
+
+- `app.cancel(threadId, { reason })` aborts the run and undoes what it had undoable (`compensateWith`);
+  `execute` / `resume` resolve `ExecutionStatus.Cancelled`.
+- `app.stop(threadId, { reason, mode })` halts where it stands: nothing is undone;
+  `ExecutionStatus.Stopped`.
+- `app.pause(threadId, { reason, mode })` freezes the execution at a checkpoint; its call resolves
+  `ExecutionStatus.Paused` with `isExternallyPaused: true`; `app.unpause(threadId)` continues it from
+  that checkpoint (`ResumeReason.Unpaused`). A tree resting at a business pause (`@ExternalTask`,
+  `@ToolApproval`) is `dual_paused`: an answer is refused (`ExecutionError.ExternallyPaused`), a
+  deadline and a channel decision wait, until `app.unpause`.
+- `mode` is `InterruptMode.AfterStep` (default: the step in flight finishes and commits, none starts)
+  or `InterruptMode.Immediate` (the step in flight is aborted and the tree's token is fenced: its
+  late writes are refused with `ExecutionError.Fenced`; a pause's fence is never lowered, a cancel
+  after it unwinds on a lease at a higher token).
+- A step registers `executionContext.onInterrupted(cleanup)`: awaited, newest first, only when the
+  step is interrupted (told `InterruptReason.Paused | Stopped | Cancelled | TimedOut | HandedOver`),
+  bounded all together by `executionLimits.shutdownTimeout`; a failing cleanup is
+  `onInterruptCleanupError`, never `onExecutionError`.
+- `app.getStatusHistory(threadId)` lists the thread's status transitions (`running`, `pausing`,
+  `externally-paused`, `dual-paused`, `stopping`, `stopped`, `cancelling`, `cancelled`, …), each
+  written in the transaction of the change.
+- Returns: `{ state }` — `PauseRequestState` / `StopRequestState` (`Paused`/`Stopped` before the call
+  returned, `Pausing`/`Stopping` durable and winding down, `NotRunning`).
 
 ## A graceful stop
 

@@ -12,6 +12,9 @@ import type {
   TreeState,
 } from "./tree-move-types.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
+import { parkedAtRest } from "./parked-output.js";
+import { markedInterruptOf } from "./interrupt-requests.js";
+import { treeOf } from "./tree-ends.js";
 
 /** What the passes of a drain call back on: the announcement. */
 export interface DrainSteps {
@@ -46,6 +49,27 @@ export async function passesOf(
     // a cancel found at rest ends the tree: the passes stop with its cancelled output
     const cancelled = await requests.endIfCancelledAtRest(parts, state, { result, ...run.held });
     if (cancelled !== undefined) return cancelled;
+    // a tree parked by a pause that a cancel or a stop met meanwhile (its lease row's mark: a local
+    // cancel writes no key) is ended here, not left parked with its request unanswered
+    if (
+      result.status === ExecutionStatus.Paused &&
+      result.isExternallyPaused &&
+      (await markedInterruptOf(parts.leases, treeOf(state))) !== undefined
+    ) {
+      // the unwind runs on a lease taken anew — at a token above the pause's fence, which the
+      // parked holder's own token is under: the stale step stays fenced, the undo is not (#1341c)
+      await run.held.lease.release();
+      const ended = await requests.endHeld(parts, state);
+      if (ended instanceof Error) throw ended;
+      if (ended !== undefined) return ended;
+    }
+    // frozen from outside (#1341c): a parked tree, or a business rest the operator froze — nothing
+    // takes an answer or an expiry before `app.unpause`
+    const parked =
+      result.status === ExecutionStatus.Paused
+        ? await parkedAtRest(parts, state, result, run.held.lease)
+        : undefined;
+    if (parked !== undefined) return parked;
     const isPaused = result.status === ExecutionStatus.Paused;
     // a pass never rests on a due pause (#941, I6): the holder expires it before it lets go
     const next = isPaused ? await restedPassOf(parts, state, call, track) : undefined;

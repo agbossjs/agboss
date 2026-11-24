@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../../src/app/lease-lost.js";
 /**
  * #1366 (shard `cancel-x-runs`): how a branch that threw ends (`branch-end.ts`) — cancelled when its launch was
  * aborted or its pause withdrawn, a hand-over and a cancel of the execution passed through as they are, the
@@ -6,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { newRunContext } from "../../../src/core/run-context.js";
-import { ExecutionFencedError, ExecutionLeaseLostError } from "../../../src/app/lease-lost.js";
+import { ExecutionLeaseLostError } from "../../../src/app/lease-lost.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { PauseWithdrawnError } from "../../../src/flow/runtime/pause.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
@@ -144,7 +145,7 @@ describe("#1366: the stops that are no outcome of a branch", () => {
   it("a fenced write behind the branch's error is a hand-over: it is the one thrown, before the cancel the signal says", () => {
     const stop = new AbortController();
     stop.abort(new ExecutionCancelledError({ message: "cancelled" }));
-    const fenced = ExecutionFencedError.of({ scopeKey: "acme:root-1", token: 1, observedToken: 2 });
+    const fenced = fencedRefusalOf({ scopeKey: "acme:root-1", token: 1, observedToken: 2 });
 
     expect(() => {
       passThroughStops({ signal: stop.signal }, "exec-1", new Error("wrapped", { cause: fenced }));

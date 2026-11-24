@@ -260,7 +260,7 @@ export abstract class ExecutionLeaseRepository {
    * resolves, idempotent — a repeat only updates the reason —, changing no lease. With
    * `InterruptMode.Immediate` the row's `fencedThroughToken` becomes `GREATEST(itself, the row's
    * current token)`: from then on a write of the tree's root lease at that token or below is refused
-   * with `ExecutionFencedError`, in the transaction that checks the lease — a stale step in flight
+   * with `ExecutionError.Fenced`, in the transaction that checks the lease — a stale step in flight
    * is fenced, a lease taken at `token + 1` (an unpause, a cancel's unwind) is not. The fence only
    * ever rises and is never cleared on the same token. The thread's history row is written in the
    * same transaction, only when this call set the mark.

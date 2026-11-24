@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #501 PR 2 — the hand-over's record, unit by unit: `recordedHandOver` records once per error and
  * lease scope, at the first site with a frame and a lease that records (so the sites a hand-over is
@@ -15,7 +16,7 @@ import {
   type IdempotencyRunReport,
   type HandOverReport,
 } from "../../src/app/audit-log.js";
-import { ExecutionFencedError, ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
+import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { AuditLogReports, type AuditLogWriter } from "../../src/app/execution-leases.js";
 import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
@@ -148,7 +149,7 @@ const reportOf = (error: HandOverReport["error"]): HandOverReport => ({
 
 describe("#501: why a step was handed over, and the tokens its event names", () => {
   it("a fenced write: Fenced, the refused write's own scope and token and the token it met", () => {
-    const fenced = ExecutionFencedError.of({
+    const fenced = fencedRefusalOf({
       scopeKey: "acme:execution-9",
       token: 1,
       observedToken: 2,
@@ -167,7 +168,7 @@ describe("#501: why a step was handed over, and the tokens its event names", () 
   });
 
   it("a fenced write that does not say what it met has no observedToken", () => {
-    const fenced = ExecutionFencedError.of({ scopeKey: "acme:execution-9", token: 1 });
+    const fenced = fencedRefusalOf({ scopeKey: "acme:execution-9", token: 1 });
 
     expect(handOverEventOf(reportOf(fenced), HELD)).not.toHaveProperty("observedToken");
   });

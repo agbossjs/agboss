@@ -1,7 +1,8 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
@@ -83,7 +84,7 @@ const zombieRacingNewHolder = (): Case => ({
       );
       expect(rows).toHaveLength(1);
       if ("rejected" in old) {
-        expect(old.rejected).toBeInstanceOf(ExecutionFencedError);
+        expect(old.rejected).toBeInstanceOf(ExecutionError.Fenced);
         expect(rows).toEqual([`holder-${String(round)}`]);
         expect(holder).toMatchObject({
           status: IdempotencyRunStatus.Ran,

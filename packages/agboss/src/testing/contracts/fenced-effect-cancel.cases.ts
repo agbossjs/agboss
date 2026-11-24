@@ -1,6 +1,7 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
 import { ExecutionCancelledError } from "../../core/errors.js";
-import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
+import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
@@ -20,7 +21,7 @@ import {
  * (`ExecutionLeaseRepository.requestCancel`), a new effect of the tree is refused in the transaction
  * that checks its lease — `ExecutionCancelFencedError`, the work not run, nothing written. Not
  * refused: a result stored before (it replays), an undo's key (`isCompensation`), another tree's or
- * tenant's effect; a stale token is still `ExecutionFencedError`, the hand-over. A cancel asked
+ * tenant's effect; a stale token is still `ExecutionError.Fenced`, the hand-over. A cancel asked
  * while a write's transaction is open lands after it, or the write is refused — never the write
  * landing after the cancel answered.
  */
@@ -42,7 +43,7 @@ const writeRefused = (): Case => ({
 
     expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
     expect(refused).toBeInstanceOf(ExecutionCancelledError);
-    expect(refused).not.toBeInstanceOf(ExecutionFencedError);
+    expect(refused).not.toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({
       code: "execution.cancelled.fenced",
       tenantId: "default",

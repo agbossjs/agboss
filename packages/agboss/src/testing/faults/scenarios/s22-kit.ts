@@ -105,8 +105,8 @@ export async function lateWriteRefused(
   const end = callEnd(cluster, stuck.a, point, stuck.key);
   expectThat(
     cluster,
-    end === "ExecutionFencedError",
-    `a's late ${point} was to be refused (ExecutionFencedError); it was ${String(end)}`,
+    end === "ExecutionError.Fenced",
+    `a's late ${point} was to be refused (ExecutionError.Fenced); it was ${String(end)}`,
   );
 }
 

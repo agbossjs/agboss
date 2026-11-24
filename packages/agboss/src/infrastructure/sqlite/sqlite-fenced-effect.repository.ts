@@ -1,8 +1,9 @@
+import { fencedRefusalOf } from "../../app/lease-lost.js";
 import { trustedOf } from "./sqlite-transaction.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { Injectable } from "../../components/decorators.js";
 import { StoreClock } from "../clock.js";
 import { parsedStoredJson } from "../stored-step.js";
@@ -204,7 +205,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository {
 /**
  * The fencing checks of the SQLite stores (#500, #505), inside the caller's transaction: the key's
  * name is valid (#508), its lease is held, live (`expires_at > now`, #534) and its epoch, and no newer token wrote the scope — else
- * `ExecutionFencedError`, a hand-over.
+ * `ExecutionError.Fenced`, a hand-over.
  */
 export function checkSqliteFence(database: DatabaseSync, key: EffectKey, now: number): void {
   assertEffectName(key.name);
@@ -214,13 +215,12 @@ export function checkSqliteFence(database: DatabaseSync, key: EffectKey, now: nu
   const { scopeKey, token } = key;
   const lease = sqliteLeaseOf(database, key);
   const isHeld = lease?.released === 0 && lease.lease_epoch === token && lease.expires_at > now;
-  if (!isHeld)
-    throw ExecutionFencedError.of({ scopeKey, token, observedToken: lease?.lease_epoch });
+  if (!isHeld) throw fencedRefusalOf({ scopeKey, token, observedToken: lease?.lease_epoch });
   const mark = database
     .prepare("SELECT highest_token FROM fenced_effect_marks WHERE scope_key = ?")
     .get(scopeKey);
   const highest = mark === undefined ? 0 : MarkRow.parse(mark).highest_token;
-  if (token < highest) throw ExecutionFencedError.of({ scopeKey, token, observedToken: highest });
+  if (token < highest) throw fencedRefusalOf({ scopeKey, token, observedToken: highest });
 }
 
 /** The lease row of `(tenantId, leaseExecutionId)` on the file, if any. */

@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #626 (keys-and-calls shard) — the outbound call's runtime pieces on their own, where an end to
  * end run cannot reach a branch: who a replay names, how an error names a key, what a superseded
@@ -15,7 +16,7 @@ import {
 } from "../../src/app/outbound-call-endings.js";
 import { joinedOrMade } from "../../src/app/outbound-call-join.js";
 import { OutboundCallSendStatus } from "../../src/app/idempotency.js";
-import { ExecutionFencedError } from "../../src/app/lease-lost.js";
+import {} from "../../src/app/lease-lost.js";
 import {
   OutboundCallEventOutcome,
   OutboundCallLeaseState,
@@ -158,7 +159,7 @@ describe("#626: a superseded attempt tells the intent as it reads, naming the ne
 describe("#626: an attempt's fenced end", () => {
   it("a write the lease refused is logged as an answer after the hand-over, then thrown", async () => {
     const { run, entries } = endingRun(() => Promise.resolve(undefined));
-    const fenced = ExecutionFencedError.of({ scopeKey: "default:execution-1", token: 2 });
+    const fenced = fencedRefusalOf({ scopeKey: "default:execution-1", token: 2 });
 
     await expect(fencedEnd(run, 1, () => Promise.reject(fenced))).rejects.toBe(fenced);
 

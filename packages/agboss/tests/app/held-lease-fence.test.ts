@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
  * #471 — the held lease as `executionContext.fence` (internal now) reads it: its token and scope, `assertHeld()`
@@ -11,7 +12,6 @@ import { describe, expect, it } from "vitest";
 import { executionLeasesOf, type HeldExecutionLease } from "../../src/app/execution-leases.js";
 import { handedOverOf } from "../../src/app/handed-over.js";
 import {
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   type ExecutionLease,
   type ExecutionLeaseRepository,
@@ -217,7 +217,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       await clock.advance(seconds(31));
       const other = await executionLeasesOf(second, clock).hold(TREE);
 
-      const refusedNew = ExecutionFencedError.of({
+      const refusedNew = fencedRefusalOf({
         scopeKey: other.scopeKey,
         token: 3,
         observedToken: 4,
@@ -226,7 +226,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       expect(lease.signal.aborted).toBe(false);
       expect(other.signal.aborted).toBe(false);
 
-      const refused = ExecutionFencedError.of({
+      const refused = fencedRefusalOf({
         scopeKey: lease.scopeKey,
         token: 1,
         observedToken: 2,

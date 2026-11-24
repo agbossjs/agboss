@@ -315,7 +315,7 @@ One lease per execution tree, keyed by `(tenantId, rootExecutionId)` — the exe
 every instance, **its holder included**. At `now >= expiresAt` it is over: another instance's
 `acquire` takes it; the holder's `renew` and `yield` answer `false`, its `reclaim` nothing, its
 `fence.renewNow()` loses the lease, and every fenced write and outbound-call write at its token is
-refused (`ExecutionFencedError`) — even when no one took it yet. The holder takes the tree again
+refused (`ExecutionError.Fenced`) — even when no one took it yet. The holder takes the tree again
 only by `acquire`, at a new epoch, recorded as a takeover from itself. Every check of a lease draws
 the same line — `acquire`, the renewals, the fence of a write, `leaseStateOf` (#508) and the local
 fence (`now >= trustedUntil`) — so no lease is kept by one part of the system and given up by
@@ -382,7 +382,7 @@ idempotency key and the lease's fencing token — and the framework gives both:
 | `trustedUntil` | The `Clock` time up to which the store confirmed the lease (#335). |
 | `assertHeld()` | Synchronous, no I/O: lost, or `clock.now() >= trustedUntil` → expires the lease here first, then throws `ExecutionLeaseLostError`. |
 | `renewNow()` | A renewal in the store now: confirmed → the lease's after-renewal checks run (#360 — a cancel requested elsewhere is seen before an irreversible call); lost or any store error → the lease is aborted here and it rejects. |
-| `fencedError(observedToken?)` | The `ExecutionFencedError` a step throws when the external system refused it. |
+| `fencedError(observedToken?)` | The `ExecutionError.Fenced` a step throws when the external system refused it. |
 
 The external check, in one transaction with the idempotency key: `incoming >= highest` → accept and
 set `highest = incoming`; `incoming < highest` → refuse. SQLite (`BEGIN IMMEDIATE`, run in one
@@ -409,16 +409,16 @@ VALUES (:idempotency_key, :scope_key, :token, :artifact)
 ON CONFLICT (idempotency_key) DO NOTHING;
 ```
 
-A refused write throws `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
+A refused write throws `ExecutionError.Fenced` (`execution.lease-lost.fenced`, `extends
 ExecutionLeaseLostError`; `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken` —
-built by `fence.fencedError(highest)` in the step or `ExecutionFencedError.of({ scopeKey, token,
+built by `fence.fencedError(highest)` in the step or `fencedRefusalOf({ scopeKey, token,
 observedToken })` in a repository that has only what it wrote). It is a **hand-over**, wherever it
 is thrown and however it is wrapped (a `cause` chain, an `AggregateError`, a cycle): the runtime
 looks for it first — in a visit, a launch's branch, a child's exit, an undo, an agent's tool call
 (before `onToolEnd` and the spend tally) and a tool interceptor — aborts the holder's lease with it
 and rethrows it as it is: no `.onError` (a catch-all `.onError(Error, …)` too), no undo, nothing
 shown to the model, no failed record (it stays `running`), no `onExecutionError`; the moving call
-rejects with the `ExecutionFencedError` itself, also when the lease's own expiry aborted the signal a
+rejects with the `ExecutionError.Fenced` itself, also when the lease's own expiry aborted the signal a
 moment before. A business error still takes its `.onError`.
 
 - **Key the mark by `fence.scopeKey`**, never by a shared business row. Parallel `AnyWorker`
@@ -495,8 +495,8 @@ const { status, result } = await this.idempotency.runOnce({
 
 | Step | What happens |
 | --- | --- |
-| 1. the lease | The lease row of `(tenantId, leaseExecutionId)` in the **same database**: its `token` is not `key.token`, it was released, or it expired → `ExecutionFencedError({ scopeKey, token, observedToken: <its epoch> })`, nothing written. This refuses a zombie even when it reaches the write before the new holder. |
-| 2. the mark | `token < highest` for `scopeKey` → `ExecutionFencedError(observedToken: highest)`, before any key lookup; else `highest = max(highest, token)`. |
+| 1. the lease | The lease row of `(tenantId, leaseExecutionId)` in the **same database**: its `token` is not `key.token`, it was released, or it expired → `ExecutionError.Fenced({ scopeKey, token, observedToken: <its epoch> })`, nothing written. This refuses a zombie even when it reaches the write before the new holder. |
+| 2. the mark | `token < highest` for `scopeKey` → `ExecutionError.Fenced(observedToken: highest)`, before any key lookup; else `highest = max(highest, token)`. |
 | 3. the key | `(scopeKey, idempotencyKey, name)` found → `IdempotencyRunStatus.Replayed`, its stored result and the token it was written under; `execute` is not called. |
 | 4. the write | `execute(transaction)`, its result stored as JSON with its token and the `Clock`'s time → `Ran`. |
 
@@ -633,7 +633,7 @@ same on every attempt, replay and holder.
 
 - **Fenced like an idempotent write:** every read and write of an intent checks the key's lease and the
   scope's high-water mark first, in one transaction — a zombie can neither record an intent nor send
-  (`ExecutionFencedError`, a hand-over). A completion refused after the send (the lease was lost
+  (`ExecutionError.Fenced`, a hand-over). A completion refused after the send (the lease was lost
   meanwhile) is a hand-over too: the new holder finds the intent pending and recovers it.
 - **One sender per attempt:** every attempt has an **owner** — `attemptOwner`, a random id the
   caller mints when it claims the attempt (records the intent, or moves it on). A new attempt
@@ -1319,7 +1319,7 @@ cannot charge. What stays: a result stored **before** replays; the tree's own **
 step that compensates another, `isCompensation`) is never refused, so the unwinding can refund; a
 child's key is fenced by its **root's** cancel; the end of an attempt claimed before the cancel
 (`markCompleted`, `markFailed`) and every read are accepted. A stale token is still
-`ExecutionFencedError` — a hand-over first. The step that met the refusal stops the tree as
+`ExecutionError.Fenced` — a hand-over first. The step that met the refusal stops the tree as
 cancelled **at once** (not at the next renewal): it is told (`onIdempotencyRun` / `onOutboundCall`
 with outcome `cancelled`, and the audit log), the holder aborts its own pass, the open undos run
 under its lease and the moving call resolves cancelled. The guarantee is P7 on
@@ -1740,7 +1740,7 @@ timers (the background renewal and the local expiry, on the shared `VirtualClock
 `leases.thaw(apps[0])` lets them go, the held timers firing at once, as after `SIGCONT`. With a
 step frozen after `fence.assertHeld()` and before its write (inside the window), `await
 clock.advance(seconds(31))` twice lets `apps[1]`'s sweep take the tree over under token 2 and write;
-the woken step's token-1 write is refused and its call rejects with `ExecutionFencedError`. A frozen
+the woken step's token-1 write is refused and its call rejects with `ExecutionError.Fenced`. A frozen
 instance is resumed at the end of its test.
 
 The idempotent write is tested the same way (#500): a step frozen **before** its

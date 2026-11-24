@@ -1,6 +1,7 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
@@ -93,7 +94,7 @@ const lowerTokenRefused = (): Case => ({
       first.effects.runOnce(keyOf(old), writing(first.rows, "r3", count)),
     );
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({
       scopeKey: keyOf(old).scopeKey,
       token: 1,
@@ -156,7 +157,7 @@ const noLeaseRefused = (): Case => ({
       first.effects.runOnce(stranger, writing(first.rows, "r1", count)),
     );
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ token: 1, observedToken: undefined });
     expect(count.runs).toBe(0);
   },

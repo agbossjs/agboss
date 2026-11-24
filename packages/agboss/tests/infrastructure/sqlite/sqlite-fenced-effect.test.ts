@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 /**
  * #500 — what `SqliteFencedEffectRepository` does beyond the published contract: a work that
  * is asynchronous and writes through the connection's `requireTransaction()` (#1317c: a rejection
@@ -8,7 +9,7 @@ import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.j
 import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
-import { ExecutionFencedError } from "../../../src/app/lease-lost.js";
+import {} from "../../../src/app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
@@ -90,7 +91,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
 
     const refused = stores.effects.runOnce(keyOf(again), () => ({ receipt: "r1" }));
 
-    await expect(refused).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(refused).rejects.toBeInstanceOf(ExecutionError.Fenced);
     await expect(refused).rejects.toMatchObject({ token: 1, observedToken: 2 });
   });
 

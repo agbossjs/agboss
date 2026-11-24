@@ -21,6 +21,7 @@ import {
 } from "./interrupt-requests.js";
 import { InterruptMode } from "./interrupt-types.js";
 import { writeStopRequest } from "./stop-requests.js";
+import { ExecutionPausedError } from "./lease-stopped.js";
 import { treeOf, WITHOUT_RECOVERY_KEY } from "./tree-ends.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
@@ -113,18 +114,34 @@ export interface CancelWatch {
    * renewal. A no-op once aborted.
    */
   readonly abortNow: (cause?: Error) => void;
-  /** The lease whose next step an `AfterStep` stop refuses (`watchedBy`). */
-  readonly attach: (lease: Pick<HeldExecutionLease, "stopAfterStep">) => void;
+  /** The lease whose next step an `AfterStep` stop or pause refuses (`watchedBy`). */
+  readonly attach: (lease: Pick<HeldExecutionLease, "stopAfterStep" | "token">) => void;
 }
 
 export function cancelWatchOf(
   trees: ExecutionTreeRepository,
   state: TreeState,
-  leases?: Pick<ExecutionLeases, "isCancelRequested" | "stopOf">,
+  leases?: Pick<ExecutionLeases, "isCancelRequested" | "stopOf" | "pauseOf">,
 ): CancelWatch {
   const controller = new AbortController();
-  let held: Pick<HeldExecutionLease, "stopAfterStep"> | undefined;
+  let held: Pick<HeldExecutionLease, "stopAfterStep" | "token"> | undefined;
   const isRequested = (): Promise<boolean> => isCancelRequested(trees, treeOf(state));
+  // an operator's pause, from the lease row — the database is the authority (D6): `Immediate` is the
+  // fence on the holder's own token, `AfterStep` lets the step in flight finish and starts none
+  const pauseFound = async (): Promise<void> => {
+    const marks = await leases?.pauseOf(treeOf(state)).catch(() => undefined);
+    if (marks?.pause === undefined) return;
+    const { reason } = marks.pause;
+    const error = new ExecutionPausedError({
+      message: `thread "${state.threadId}" was paused`,
+      ...(reason === undefined ? {} : { details: { reason } }),
+    });
+    const token = held?.token;
+    const isImmediate =
+      token !== undefined && marks.fencedThroughToken !== undefined && marks.fencedThroughToken >= token;
+    if (isImmediate) controller.abort(error);
+    else held?.stopAfterStep(error);
+  };
   return {
     signal: controller.signal,
     isRequested,
@@ -142,7 +159,8 @@ export function cancelWatchOf(
     check: async () => {
       if (controller.signal.aborted) return;
       const request = await interruptOf(trees, treeOf(state), leases);
-      if (request === undefined) return;
+      // `Cancel > Stop > Pause` (#1341c): the operator's pause is looked for only when no cancel or stop is
+      if (request === undefined) return pauseFound();
       const error = interruptErrorOf(request, state.threadId);
       // a stop's mode is the lease row's (it escalates there; the key keeps the first one)
       const mode = await stopModeOf(request, leases, treeOf(state));

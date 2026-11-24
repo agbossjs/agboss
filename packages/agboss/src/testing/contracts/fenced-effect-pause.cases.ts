@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { InterruptMode } from "../../app/interrupt-types.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
@@ -17,7 +18,7 @@ import {
 /**
  * The pause's fence on the fenced effect (#1341c): once an `Immediate` pause is durable
  * (`ExecutionLeaseRepository.requestPause`), a write of the tree's root lease at the token it fenced
- * or below is refused — `ExecutionFencedError`, the hand-over of a stale holder: the work not run,
+ * or below is refused — `ExecutionError.Fenced`, the hand-over of a stale holder: the work not run,
  * nothing written — an undo's key too, whatever a cancel marked after it; the fence outlives
  * `unpause`. A write at a higher token (the lease taken again, `token + 1`) runs, its cancel's undo
  * included. An `AfterStep` pause fences nothing: the step in flight commits.
@@ -26,7 +27,7 @@ import {
 type Case = ContractCase<FencedEffectTarget>;
 
 const immediateFences = (): Case => ({
-  name: "#1341c: a write at the fenced token after an Immediate pause is refused — ExecutionFencedError, the work not run; an AfterStep pause fences nothing",
+  name: "#1341c: a write at the fenced token after an Immediate pause is refused — ExecutionError.Fenced, the work not run; an AfterStep pause fences nothing",
   isFencing: true,
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
@@ -40,7 +41,7 @@ const immediateFences = (): Case => ({
     );
 
     expect(ran.status).toBe(IdempotencyRunStatus.Ran);
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ token: lease.token, observedToken: lease.token });
     expect(count.runs).toBe(1);
     expect(await second.rows.committed()).toEqual(["a"]);
@@ -71,7 +72,7 @@ const fenceOutlivesUnpause = (): Case => ({
     });
     const ran = await first.effects.runOnce(undo, writing(first.rows, "refund", count));
 
-    expect(stale).toBeInstanceOf(ExecutionFencedError);
+    expect(stale).toBeInstanceOf(ExecutionError.Fenced);
     expect(ran.status).toBe(IdempotencyRunStatus.Ran);
     expect(await second.rows.committed()).toEqual(["refund"]);
   },

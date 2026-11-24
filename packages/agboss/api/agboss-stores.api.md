@@ -2300,7 +2300,7 @@ export interface SqliteTransactionStatement {
 }
 
 // @public
-export type StatusContext = Partial<Pick<NewStatusTransition, "trigger" | "reason" | "actor" | "leaseToken">>;
+export type StatusContext = Partial<Pick<NewStatusTransition, "toStatus" | "trigger" | "reason" | "actor" | "leaseToken">>;
 
 // @public
 export interface StepHandedOverRecord extends ExecutionAuditEventBase {

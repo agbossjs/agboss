@@ -108,6 +108,11 @@ const keyOf = (tree: ExecutionTree): string => `${tree.tenantId}\u0000${tree.roo
 export interface CompensationParts {
   /** `@Application({ compensationTimeout })`: each automatic undo's bound, and the wait before. */
   readonly timeout: Milliseconds;
+  /**
+   * `@Application({ executionLimits: { shutdownTimeout } })` (#1341b): the bound of one step's
+   * `onInterrupted` cleanups, all together.
+   */
+  readonly interruptTimeout?: Milliseconds | undefined;
   readonly registry: CompensationRegistry;
   /** Where an unwind reports what it could not do (a body still running, a late undo that failed). */
   readonly log?: FrameworkLog | undefined;

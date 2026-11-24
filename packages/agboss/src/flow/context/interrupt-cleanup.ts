@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ExecutionCancelledError } from "../../core/errors.js";
-import { ExecutionStoppedError } from "../../app/lease-stopped.js";
+import { ExecutionStoppedError, isPause } from "../../app/lease-stopped.js";
 import { isHandedOver } from "../../app/handed-over.js";
 import { InterruptReason } from "../../app/interrupt-types.js";
 
@@ -25,6 +25,8 @@ export interface InterruptCleanups {
   readonly run: (
     reason: InterruptReason,
     report: (reason: InterruptReason, error: unknown) => Promise<void> | void,
+    /** Aborted when the bound of the cleanups passed: the ones not started yet are not run. */
+    stop?: AbortSignal,
   ) => Promise<void>;
 }
 
@@ -37,9 +39,10 @@ export function interruptCleanups(): InterruptCleanups {
     add: (cleanup) => {
       kept.push({ cleanup, bound: AsyncLocalStorage.snapshot() });
     },
-    run: async (reason, report) => {
+    run: async (reason, report, stop) => {
       // newest first, each one once: a cleanup that registers another meanwhile is not run again
       for (const { cleanup, bound } of kept.splice(0).reverse()) {
+        if (stop?.aborted === true) return;
         try {
           await bound(() => cleanup(reason));
         } catch (error) {
@@ -56,6 +59,8 @@ export function interruptReasonOf(
   signal: AbortSignal,
 ): InterruptReason | undefined {
   const cause: unknown = error ?? (signal.aborted ? (signal.reason as unknown) : undefined);
+  // a pause is a stop that parks (#1341c): its steps are told `Paused`, never `Stopped`
+  if (isPause(cause)) return InterruptReason.Paused;
   if (cause instanceof ExecutionStoppedError) return InterruptReason.Stopped;
   if (cause instanceof ExecutionCancelledError) return InterruptReason.Cancelled;
   if (isHandedOver(cause)) return InterruptReason.HandedOver;

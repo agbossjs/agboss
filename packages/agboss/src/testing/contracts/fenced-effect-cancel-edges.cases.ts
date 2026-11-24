@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
+import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
@@ -52,7 +53,7 @@ const childRefusedByRoot = (): Case => ({
 });
 
 const staleTokenIsHandOver = (): Case => ({
-  name: "#909: a stale token after a cancel is ExecutionFencedError, not the cancel — a zombie is a hand-over first; the new holder's write is the cancel's",
+  name: "#909: a stale token after a cancel is ExecutionError.Fenced, not the cancel — a zombie is a hand-over first; the new holder's write is the cancel's",
   isFencing: true,
   run: async ({ first, second }) => {
     const old = await leaseOf(first);
@@ -68,7 +69,7 @@ const staleTokenIsHandOver = (): Case => ({
       second.effects.runOnce(keyOf(taken), writing(second.rows, "holder", count)),
     );
 
-    expect(zombie).toBeInstanceOf(ExecutionFencedError);
+    expect(zombie).toBeInstanceOf(ExecutionError.Fenced);
     expect(zombie).not.toBeInstanceOf(ExecutionCancelFencedError);
     expect(holder).toBeInstanceOf(ExecutionCancelFencedError);
     expect(count.runs).toBe(0);

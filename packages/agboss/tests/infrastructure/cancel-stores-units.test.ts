@@ -169,13 +169,18 @@ describe("#1356: the cancel mark and check of the SQLite stores", () => {
       released: 1,
       yielded: 0,
       cancel_requested_at: 7,
+      stop_requested_at: null,
+      stop_mode: null,
+      is_externally_paused: 0,
+      external_pause_reason: null,
+      fenced_through_token: null,
     });
   });
 
   it("marks the row a lease has, once: a repeat keeps the first time and no other column changes", () => {
     const connection = sqlite();
     connection.database.exec(
-      "INSERT INTO execution_leases VALUES ('t1', 'root', 'holder', 4, 99, 0, 1, NULL)",
+      "INSERT INTO execution_leases VALUES ('t1', 'root', 'holder', 4, 99, 0, 1, NULL, NULL, NULL, 0, NULL, NULL)",
     );
     const tree = { tenantId: "t1", rootExecutionId: "root" };
 
@@ -203,8 +208,8 @@ describe("#1356: the cancel mark and check of the SQLite stores", () => {
   it("refuses the key of a marked tree, the mark at 0 as well, and lets through the rest", () => {
     const connection = sqlite();
     connection.database.exec(
-      `INSERT INTO execution_leases VALUES ('t1', 'root', 'h', 1, 1, 0, 0, 0),
-         ('t1', 'free', 'h', 1, 1, 0, 0, NULL), ('t2', 'other', 'h', 1, 1, 0, 0, 5)`,
+      `INSERT INTO execution_leases VALUES ('t1', 'root', 'h', 1, 1, 0, 0, 0, NULL, NULL, 0, NULL, NULL),
+         ('t1', 'free', 'h', 1, 1, 0, 0, NULL, NULL, NULL, 0, NULL, NULL), ('t2', 'other', 'h', 1, 1, 0, 0, 5, NULL, NULL, 0, NULL, NULL)`,
     );
     const database = connection.database;
 

@@ -19,7 +19,7 @@ import { kilobytes, type Bytes } from "../units/index.js";
 /**
  * The fenced effect (#500): one protected write of a step, made exactly once per step on the
  * store's own database — a durable singleflight on the step's idempotency key. In one transaction
- * with the write: the lease the step runs under is checked (`ExecutionFencedError` when it is no
+ * with the write: the lease the step runs under is checked (`ExecutionError.Fenced` when it is no
  * longer the current one), then the scope's high-water mark (`token < highest` refused before any
  * key is looked up, so a zombie never reads the new holder's result), then the key — found, the
  * stored result comes back and the write does not run again. Wiki → Several-instances.
@@ -108,7 +108,7 @@ export abstract class FencedEffectRepository {
 
   /**
    * The write and its result in one transaction with the fencing checks; the stored result on a
-   * repeat. A refused lease or a lower token → `ExecutionFencedError` (a hand-over: nothing
+   * repeat. A refused lease or a lower token → `ExecutionError.Fenced` (a hand-over: nothing
    * written, no result); `work` throws → everything rolled back and the error rethrown as it is —
    * the next call runs it again. `work` may run more than once within one call (an aborted attempt
    * run again, as on MongoDB, #730): only the last attempt's writes are kept. Concurrent calls on one key of this instance share the first's
@@ -206,7 +206,7 @@ const LOGGED_OUTCOME: Readonly<Record<IdempotencyRunStatus, IdempotencyRunEventO
 
 /**
  * The call, told to the lease the step runs under (#501): how it went — ran, replayed, joined, or
- * refused (`ExecutionFencedError`) — as a row of the audit log and `onIdempotencyRun`, never its
+ * refused (`ExecutionError.Fenced`) — as a row of the audit log and `onIdempotencyRun`, never its
  * result; a failure of the write itself is no outcome. Nothing outside a step or under a lease that
  * does not record (a unit runner's).
  */

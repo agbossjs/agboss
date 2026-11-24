@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #906 AC2 (API review G8, completing #890), at compile time: the instance `code` of every error is
  * its class's literal, so `switch (error.code)` over a union of error instances narrows; the seven
@@ -16,7 +17,6 @@ import * as models from "../../src/models/index.js";
 import * as rag from "../../src/rag/index.js";
 import * as root from "../../src/index.js";
 import type {
-  ExecutionFencedError,
   LimitExceededError,
   PaidStepError,
   StepFailedError,
@@ -109,7 +109,7 @@ describe("#941: the pause deadline's errors", () => {
 type Failure =
   | IdempotencyError.KeyConflict
   | ThreadIdsExhaustedError
-  | ExecutionFencedError
+  | ExecutionError.Fenced
   | UnknownPauseError
   | StepFailedError;
 
@@ -124,7 +124,7 @@ describe("#906 AC2: switch (error.code) narrows over a union of instances", () =
           expectTypeOf(error).toEqualTypeOf<ThreadIdsExhaustedError>();
           return String(error.tries);
         case "execution.lease-lost.fenced":
-          expectTypeOf(error).toEqualTypeOf<ExecutionFencedError>();
+          expectTypeOf(error).toEqualTypeOf<ExecutionError.Fenced>();
           return error.scopeKey;
         case "pause.unknown-pause":
           expectTypeOf(error).toEqualTypeOf<UnknownPauseError>();

@@ -1,6 +1,7 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
@@ -127,7 +128,7 @@ const staleRefused = (): Case => ({
       first.effects.runOnce(businessKeyOf(old), writing(first.rows, "zombie", count)),
     );
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).not.toHaveProperty("result");
     expect(count.runs).toBe(1);
   },

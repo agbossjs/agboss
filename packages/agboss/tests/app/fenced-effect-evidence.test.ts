@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #501 PR 3 — the fenced effect (#500) in the audit log: every call of `runOnce` from a
  * step is a `FencedEffect` row and an `onIdempotencyRun` — ran, replayed, joined or refused, never its
@@ -7,7 +8,6 @@
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
-  ExecutionFencedError,
   ExecutionAuditEventKind,
   IdempotencyRunEventOutcome,
   HandOverReason,
@@ -131,7 +131,7 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
       const error = await rejectionOf(call);
       const rows = await rootOf(instance(apps, 1), ROOT);
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(shapeOf(rows)).toEqual([
         ExecutionAuditEventKind.Takeover,
         `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Ran}`,

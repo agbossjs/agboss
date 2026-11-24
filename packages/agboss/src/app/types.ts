@@ -1,4 +1,10 @@
-import type { StopOptions, StopOutput } from "./interrupt-types.js";
+import type {
+  PauseExecutionOptions,
+  PauseOutput,
+  StopOptions,
+  StopOutput,
+  UnpauseExecutionOptions,
+} from "./interrupt-types.js";
 import type { ThreadStatusTransition } from "../turns/index.js";
 import type { Class } from "../components/injection.js";
 import type {
@@ -319,6 +325,30 @@ export interface App<TApp = unknown> {
    * Idempotent, and `Cancel > Stop`. A thread the tenant does not have → `UnknownThreadError`.
    */
   stop(threadId: string, ...options: TenantPointArgs<TApp, StopOptions>): Promise<StopOutput>;
+  /**
+   * Pauses the thread's execution from outside (#1341c): nothing is undone, its checkpoint is kept, and
+   * its `execute` / `resume` resolves `ExecutionStatus.Paused` with `isExternallyPaused: true` —
+   * until `app.unpause`. `mode` is `InterruptMode.AfterStep` by default (the step in flight finishes
+   * and commits, none starts) or `Immediate` (the step in flight is aborted and the tree's token is
+   * fenced: its late writes are refused). One that rests at a business pause (`@ExternalTask`,
+   * `@ToolApproval`) is `dual_paused`: no answer, deadline or channel decision moves it before
+   * `app.unpause` (`app.resume` of an answer → `ExecutionError.ExternallyPaused`). The call returns
+   * `{ state }`: `Paused` (frozen before it returned), `Pausing` (durable; its holder parks) or
+   * `NotRunning`. Idempotent; `Cancel > Stop > Pause` (a thread being cancelled or stopped →
+   * `ExecutionError.AlreadyTerminal`). A thread the tenant does not have → `UnknownThreadError`.
+   */
+  pause(threadId: string, ...options: TenantPointArgs<TApp, PauseExecutionOptions>): Promise<PauseOutput>;
+  /**
+   * Lifts `app.pause` (#1341c): a tree parked at a step boundary continues from its last checkpoint
+   * (`onExecutionResume`, `ResumeReason.Unpaused`), one at a business pause waits for its answer
+   * again — taking at once what was decided or expired while frozen. Waits for a pause that is still
+   * parking. A thread not frozen from outside → `PauseError.NotPaused`; one that ended →
+   * `ExecutionError.AlreadyTerminal`.
+   */
+  unpause(
+    threadId: string,
+    ...options: TenantPointArgs<TApp, UnpauseExecutionOptions>
+  ): Promise<ExecutionOutput>;
   /**
    * Stops the app within the shutdown timeout (#261, #265, #367): no new executions, `onStop`, the
    * running ones awaited — interrupted a grace before its end, staying `running` for another instance —

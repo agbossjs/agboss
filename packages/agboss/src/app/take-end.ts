@@ -17,6 +17,8 @@ export async function endedAtTakeOf(
   parts: TreeMoveParts,
   state: TreeState,
   lease: HeldExecutionLease,
+  /** The take of `app.unpause`: the tree frozen from outside is the very thing being lifted. */
+  isUnpausing = false,
 ): Promise<ExecutionOutput | Error | undefined> {
   const { endedAtTake } = await lazyLoad(import("./cancel-requests.js"));
   const cancelled = await endedAtTake(parts, state, lease);
@@ -25,5 +27,5 @@ export async function endedAtTakeOf(
     const { endedUnwindingAtTake } = await lazyLoad(import("./unwinding-takeover.js"));
     return endedUnwindingAtTake(parts, state, lease);
   }
-  return frozenOutputOf(parts, state, lease);
+  return isUnpausing ? undefined : frozenOutputOf(parts, state, lease);
 }

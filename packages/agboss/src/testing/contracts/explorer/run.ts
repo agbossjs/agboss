@@ -149,7 +149,7 @@ export class ExplorerRun {
 
 /** Whether `error` is the fence's refusal: a hand-over, the answer a stale write gets. */
 export const isFenced = (error: unknown): boolean =>
-  error instanceof Error && error.name === "ExecutionFencedError";
+  error instanceof Error && error.name === "ExecutionError.Fenced";
 
 /** Whether `error` is the cancel's refusal (#909): the answer a new write of a cancelled tree gets. */
 export const isCancelFenced = (error: unknown): boolean =>

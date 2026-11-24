@@ -13,6 +13,8 @@ export enum TenantOperation {
   Resume = "resume",
   Cancel = "cancel",
   Stop = "stop",
+  Pause = "pause",
+  Unpause = "unpause",
   ExtendPause = "extendPause",
   ReassignPause = "reassignPause",
   GetExecution = "getExecution",

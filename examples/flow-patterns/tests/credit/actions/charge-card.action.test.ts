@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  ExecutionFencedError,
-  IdempotencyError,
-  SqliteFencedEffectRepository,
-  provide,
-} from "@agboss/core";
+import { IdempotencyError, SqliteFencedEffectRepository, provide } from "@agboss/core";
 import { DATABASE_SETTINGS } from "@agboss/core/stores";
 import { testUnit } from "@agboss/core/testing";
 import { ChargeCardAction } from "../../../src/credit/actions/charge-card.action.js";
@@ -71,9 +66,9 @@ describe("#500, #508: one charge per credit application", () => {
     expect(fresh.output).toEqual({ chargeId: "charge-c-3-1" });
   });
 
-  it("an instance that lost the lease is refused: ExecutionFencedError, nothing charged", async () => {
+  it("an instance that lost the lease is refused: ExecutionError.Fenced, nothing charged", async () => {
     const lost = testUnit(ChargeCardAction, { ...onFile, fence: { isLost: true } });
 
-    await expect(lost(order("c-1", 50))).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(lost(order("c-1", 50))).rejects.toBeInstanceOf(ExecutionError.Fenced);
   });
 });

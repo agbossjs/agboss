@@ -1,7 +1,8 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { ExecutionStoppedError } from "../../app/lease-stopped.js";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { ExecutionStopFencedError } from "../../app/lease-stopped.js";
 import { InterruptMode } from "../../app/interrupt-types.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
@@ -43,7 +44,7 @@ const immediateRefused = (): Case => ({
     expect(refused).toBeInstanceOf(ExecutionStopFencedError);
     expect(refused).toBeInstanceOf(ExecutionStoppedError);
     expect(refused).toBeInstanceOf(ExecutionCancelledError);
-    expect(refused).not.toBeInstanceOf(ExecutionFencedError);
+    expect(refused).not.toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ code: "execution.stopped.fenced", token: lease.token });
     expect(count.runs).toBe(0);
     expect(await second.rows.committed()).toEqual([]);

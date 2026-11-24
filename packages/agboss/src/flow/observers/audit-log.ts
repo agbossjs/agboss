@@ -55,7 +55,7 @@ export interface StepHandedOverEvent extends NodeEvent {
   readonly holderInstanceId: string;
   /** The token the step held — a refused write's own token. */
   readonly token: number;
-  /** The newer token the external system saw, when it said (`ExecutionFencedError.observedToken`). */
+  /** The newer token the external system saw, when it said (`ExecutionError.Fenced.observedToken`). */
   readonly observedToken?: number;
 }
 

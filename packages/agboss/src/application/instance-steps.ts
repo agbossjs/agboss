@@ -76,6 +76,7 @@ export async function instancePartsOf(
   const stepsAtStop = stepsAtStopOf(stepEntries, stopDeadlineOf(clock), log);
   const compensation = {
     timeout: assembled.compensationTimeout,
+    interruptTimeout: assembled.shutdownTimeout,
     registry: new CompensationRegistry(),
     log,
     trees,

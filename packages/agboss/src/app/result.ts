@@ -58,7 +58,12 @@ export function runResultOf(
     ...(withRecord ? { record: recordOf(run) } : {}),
   };
   if (run.status === ExecutionStatus.Paused)
-    return { ...base, status: ExecutionStatus.Paused, pending: run.pending.map(visiblePauseOf) };
+    return {
+      ...base,
+      status: ExecutionStatus.Paused,
+      pending: run.pending.map(visiblePauseOf),
+      isExternallyPaused: false,
+    };
   if (run.finish === undefined)
     throw new AGBossError(
       `execution ${run.runId} ended with no finish: its graph did not end — a framework bug`,

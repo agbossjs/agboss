@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * The skill matrix of #305 (AC1): the public names each skill file covers. Each name appears in
  * its file and is exported by an API report (`packages/agboss/api/*.api.md`) — a renamed or removed
@@ -267,7 +268,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["Clock", "ApplicationContext", "IdGenerator", "seconds", "hours"],
     ...["ExecutionHistoryRepository", "SqliteExecutionHistoryRepository", "ExecutionHistoryStatus"],
     "ExecutionHistoryRecord",
-    ...["ExecutionFencedError", "ExecutionContextUnavailableError"],
+    "ExecutionContextUnavailableError",
   ],
   "references/11-cli-studio-and-error-catalog.md": [
     ...["GraphRuleError", "RuleCode", "RuleViolation", "FlowSyntaxError", "AGBossError"],
@@ -299,7 +300,6 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ModelProviderFailureError", "ModelProvider"],
     "NotAWorkflowStartError",
     "ToolBlockedError",
-    "ExecutionFencedError",
   ],
   "references/12-end-to-end-recipes.md": [
     ...["createApp", "testWith", "Application", "Workflow", "historyOf", "listOf"],

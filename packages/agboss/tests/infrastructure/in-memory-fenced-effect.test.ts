@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { onEffectCommit } from "../../src/infrastructure/in-memory-effect-writes.js";
 /**
  * #500 — what the in-memory fenced-effect store and the contract's base class do beyond the
@@ -9,7 +10,7 @@ import { onEffectCommit } from "../../src/infrastructure/in-memory-effect-writes
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
-import { ExecutionFencedError } from "../../src/app/lease-lost.js";
+import {} from "../../src/app/lease-lost.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import {
@@ -49,6 +50,21 @@ const receipt = (text: string) => () => ({ receipt: text });
 
 /** A lease store of another database (what a listed SQLite one is to the in-memory store). */
 class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
+  requestStop(): Promise<void> {
+    return Promise.resolve();
+  }
+  stopOf(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+  requestPause(): Promise<void> {
+    return Promise.resolve();
+  }
+  unpause(): Promise<void> {
+    return Promise.resolve();
+  }
+  pauseOf(): Promise<Record<string, never>> {
+    return Promise.resolve({});
+  }
   ping(): Promise<void> {
     return Promise.resolve();
   }
@@ -98,7 +114,7 @@ describe("#500: the in-memory fenced-effect store", () => {
       .runOnce(keyOf(again), receipt("r1"))
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ token: 1, observedToken: 2 });
     expect(database.fencedEffectResults.size).toBe(0);
   });

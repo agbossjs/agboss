@@ -1,6 +1,6 @@
 import { errorRecordOf } from "../core/error-record.js";
 import { cancelFencedErrorOf } from "./handed-over.js";
-import { ExecutionFencedError } from "./lease-lost.js";
+import {} from "./lease-lost.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
 import { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
 import { parsedStoredJson } from "../infrastructure/stored-step.js";
@@ -100,7 +100,7 @@ export async function fencedEnd<TRequest, TResult>(
   try {
     return await write();
   } catch (error) {
-    if (error instanceof ExecutionFencedError || error instanceof ExecutionError.Fenced) {
+    if (error instanceof ExecutionError.Fenced || error instanceof ExecutionError.Fenced) {
       const { name } = run.key;
       const { operation, target } = run.options;
       const text = `outbound call "${name}" (${operation} on ${target}) attempt ${String(attempt)} was answered after its lease was handed over: the answer is not stored and the new holder reconciles the intent — check ${target} if it was sent again`;

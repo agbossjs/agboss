@@ -1,6 +1,6 @@
 import { type Usd } from "../units/index.js";
 import { ExecutionCancelledError } from "../core/errors.js";
-import { ExecutionStoppedError } from "../app/lease-stopped.js";
+import { ExecutionStoppedError, isPause } from "../app/lease-stopped.js";
 import { handedOverOf, isHandedOver } from "../app/handed-over.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
@@ -75,7 +75,8 @@ export async function recordFailure(
   write: (ended: unknown) => Promise<unknown>,
   unwind?: RootUnwind,
 ): Promise<unknown> {
-  if (isHandedOver(error)) return error;
+  // an operator's pause parks the tree (#1341c): nothing undone, no record written — it stays `running` until the drain parks it
+  if (isHandedOver(error) || isPause(error)) return error;
   const ended = unwind === undefined ? error : await unwind(error);
   await write(ended);
   return ended;

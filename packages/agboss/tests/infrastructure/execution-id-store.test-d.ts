@@ -11,7 +11,10 @@ import {
 describe("#1198: ExecutionIdStore asks for the cancel mark as well as the ids", () => {
   it("is the id claim, the cancel request and the cancel read of a lease store", () => {
     expectTypeOf<ExecutionIdStore>().toEqualTypeOf<
-      Pick<ExecutionLeaseRepository, "claimExecutionId" | "requestCancel" | "isCancelRequested">
+      Pick<
+        ExecutionLeaseRepository,
+        "claimExecutionId" | "requestCancel" | "isCancelRequested" | "requestStop" | "stopOf"
+      >
     >();
     expectTypeOf(EXECUTION_ID_STORE).toEqualTypeOf<InjectionToken<ExecutionIdStore>>();
   });

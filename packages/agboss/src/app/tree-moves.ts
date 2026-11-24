@@ -31,6 +31,7 @@ import { isUnwinding } from "../flow/runtime/compensation/unwinding-marks.js";
 import { historyEndOf, historyRestOf, keepExecutionRecord } from "./execution-history.js";
 import { cancelCauseOf } from "./cancelled-output.js";
 import type { EndedTreeUndo } from "./tree-unwind.js";
+import { unpausedMove } from "./unpause-move.js";
 
 /** Cancel requests (#360), loaded with the first pass. */
 const cancelRequests = () => lazyLoad(import("./cancel-requests.js"));
@@ -134,6 +135,41 @@ class TreeMover implements TreeMoves {
     this.parts.deps.log.warn("execution.recovered", text, subject);
     await this.announce(ResumeReason.Recovered, recovery.resume, state);
     return this.drained(state, call, lease, recovery);
+  }
+
+  async unpaused(
+    state: TreeState,
+    call: TreeCall,
+    command: { readonly ownerId?: string | undefined; readonly reason?: string | undefined },
+  ): Promise<ExecutionOutput> {
+    const leaving = this.#resuming.enter(state.runId);
+    try {
+      const hooks = {
+        endedAtTake: (at: TreeState, lease: HeldExecutionLease) =>
+          endedAtTakeOf(this.parts, at, lease, true),
+        announce: async (
+          reason: ResumeReason,
+          resume: TreeResume | undefined,
+          at: TreeState,
+          unpauseReason?: string,
+        ) => {
+          if (reason !== ResumeReason.Unpaused) return this.announce(reason, resume, at);
+          const event = executionEventAt(at, this.parts.deps);
+          await this.parts.deps.observer.onExecutionResume({
+            ...event,
+            reason,
+            decision: undefined,
+            answeredBy: undefined,
+            ...(unpauseReason === undefined ? {} : { unpauseReason }),
+          });
+        },
+        drained: (at: TreeState, held: HeldExecutionLease, planned: PlannedPass) =>
+          this.drained(at, call, held, planned),
+      };
+      return await unpausedMove(this.parts, hooks, state, call, command);
+    } finally {
+      leaving();
+    }
   }
 
   async endIfEnding(interrupted: InterruptedRun): Promise<boolean> {

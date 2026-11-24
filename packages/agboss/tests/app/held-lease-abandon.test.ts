@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #928 AC1 (abandon) — a held lease handed over because a store call under it did not answer: its
  * signal aborts with the hand-over, its renewals stop, its token is no more a fenced holder's, its
@@ -15,7 +16,6 @@ import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { nodeEventOf } from "../../src/flow/observers/execution-event.js";
 import {
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   StoreCallTimeoutError,
   StoreOutcomeSource,
@@ -129,7 +129,7 @@ describe("#928 AC1: abandon", () => {
     await abandon();
     await passLive(clock, seconds(60));
     // a fenced write of the abandoned token: its holder is forgotten, nothing is stopped again
-    handedOverOf(ExecutionFencedError.of({ scopeKey: "acme:root-abandon", token: 1 }), undefined);
+    handedOverOf(fencedRefusalOf({ scopeKey: "acme:root-abandon", token: 1 }), undefined);
     await lease.release();
     await lease.release({ isRetired: true });
     await settled();

@@ -17,7 +17,7 @@ import {
 import type { FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import type { HandedOver } from "./handed-over.js";
-import { ExecutionFencedError } from "./lease-lost.js";
+import {} from "./lease-lost.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
 import type { AuditLogWriter } from "./execution-leases.js";
 
@@ -102,7 +102,7 @@ export interface HandOverReport {
 
 /** Why the step was handed over, and the scope and tokens its event names. */
 function causeOf(error: HandedOver, lease: HandedOverLease) {
-  if (error instanceof ExecutionFencedError || error instanceof ExecutionError.Fenced) {
+  if (error instanceof ExecutionError.Fenced || error instanceof ExecutionError.Fenced) {
     const { scopeKey, token, observedToken } = error;
     const observed = observedToken === undefined ? {} : { observedToken };
     return { reason: HandOverReason.Fenced, scopeKey, token, ...observed };

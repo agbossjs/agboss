@@ -334,7 +334,7 @@ export class TakeoverAlert {
 ## Hand-overs (#501)
 
 A step that stops without failing — its lease was lost (`ExecutionLeaseLostError`), an external
-system refused one of its writes (`ExecutionFencedError`) or the instance stopped past its shutdown
+system refused one of its writes (`ExecutionError.Fenced`) or the instance stopped past its shutdown
 timeout (`ApplicationStoppingError`) — reaches no `.onError`, no undo and no `onExecutionError`
 ([Several instances](Several-instances#fencing-external-writes-471)), but `onStepHandedOver` tells
 it: `StepHandedOverEvent` is a node event — the common fields and the `step` that stopped (its

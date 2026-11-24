@@ -60,8 +60,11 @@ export async function remoteInterrupt(
 ): Promise<InterruptSettlement> {
   const { deps, clock } = parts;
   const records = await deps.turns.lastTurns(thread.tenantId, thread.threadId, RECORDS);
+  // a root parked by an operator's `app.pause` (#1341c) rests `paused` with no paused run: ended here too
   const running = records.filter(
-    (record) => record.status === "running" && record.workflow === deps.config.name,
+    (record) =>
+      (record.status === "running" || record.status === "paused") &&
+      record.workflow === deps.config.name,
   );
   const request = {
     requestedAt: clock.now().toISOString(),

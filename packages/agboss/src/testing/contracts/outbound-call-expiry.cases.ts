@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { OutboundCallLeaseState } from "../../infrastructure/execution-audit-log.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractGroup } from "./define.js";
@@ -15,7 +16,7 @@ const stateAt = (stores: OutboundCallTarget, token: number) =>
 /**
  * The holder records its call's intent at `edge`, nobody having taken the lease: 1 ms before the
  * expiry it is recorded; at the expiry and after it the lease is over (#534) — refused
- * (`ExecutionFencedError`), nothing recorded.
+ * (`ExecutionError.Fenced`), nothing recorded.
  */
 const recordAt = (edge: ExpiryEdge): OutboundCallCase => {
   const isRecorded = edge === ExpiryEdge.Before;
@@ -32,7 +33,7 @@ const recordAt = (edge: ExpiryEdge): OutboundCallCase => {
         expect(await second.calls.findByKey(key)).toMatchObject({ token: 1 });
         return;
       }
-      expect(await rejectionOf(saving)).toBeInstanceOf(ExecutionFencedError);
+      expect(await rejectionOf(saving)).toBeInstanceOf(ExecutionError.Fenced);
       const next = await leaseOf(second, "execution-1", seconds(30));
       expect(await second.calls.findByKey(keyOf(next))).toBeUndefined();
     },

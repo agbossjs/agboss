@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #471 — the held lease at its edges: `renewNow()` while yielded, a wait that ends in a hand-over
  * or in an ordinary failure, `release()` after the lease was lost, while yielded (#516: the yielded
@@ -9,7 +10,6 @@ import { describe, expect, it } from "vitest";
 import { executionLeasesOf, type HeldExecutionLease } from "../../src/app/execution-leases.js";
 import { handedOverOf } from "../../src/app/handed-over.js";
 import {
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   type ExecutionLease,
   type ExecutionLeaseRepository,
@@ -203,7 +203,7 @@ describe.each(kinds)("#471: the held lease at its edges ($name)", (target) => {
       const lease = await heldOn(store, clock);
       // a fenced write found anywhere stops the holder of its token (#471)
       handedOverOf(
-        ExecutionFencedError.of({ scopeKey: lease.scopeKey, token: 1, observedToken: 2 }),
+        fencedRefusalOf({ scopeKey: lease.scopeKey, token: 1, observedToken: 2 }),
         undefined,
       );
       expect(lease.signal.aborted).toBe(true);

@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import { OutboundCallLeaseState } from "../../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
@@ -44,7 +45,7 @@ const INTENT_WRITES: readonly IntentWrite[] = [
 /**
  * The holder's fenced call on its intent at `edge`, nobody having taken the lease: 1 ms before the
  * expiry it goes through; at the expiry and after it the lease is over (#534) — refused
- * (`ExecutionFencedError`), and the intent stays as recorded: `Pending`, attempt 1, for whoever
+ * (`ExecutionError.Fenced`), and the intent stays as recorded: `Pending`, attempt 1, for whoever
  * reconciles it next. A late answer is never stored past the lease.
  */
 const intentWriteAt = (write: IntentWrite, edge: ExpiryEdge): OutboundCallCase => {
@@ -65,7 +66,7 @@ const intentWriteAt = (write: IntentWrite, edge: ExpiryEdge): OutboundCallCase =
         expect(outcome).toBeUndefined();
         return;
       }
-      expect(outcome).toBeInstanceOf(ExecutionFencedError);
+      expect(outcome).toBeInstanceOf(ExecutionError.Fenced);
       const next = await leaseOf(second, "execution-1", LEASE);
       expect(await second.calls.findByKey(keyOf(next))).toMatchObject({
         status: OutboundCallStatus.Pending,

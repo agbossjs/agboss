@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
@@ -16,7 +17,7 @@ import {
 /**
  * A fenced write by the lease's own holder at `edge`, nobody having taken the lease: 1 ms before
  * the expiry it runs; at the expiry and after it the lease is over for its holder too (#534) — the
- * write is refused (`ExecutionFencedError`, nothing run, nothing stored) and the key stays unseen
+ * write is refused (`ExecutionError.Fenced`, nothing run, nothing stored) and the key stays unseen
  * for the next holder.
  */
 const writeAt = (edge: ExpiryEdge): ContractCase<FencedEffectTarget> => {
@@ -36,7 +37,7 @@ const writeAt = (edge: ExpiryEdge): ContractCase<FencedEffectTarget> => {
         return;
       }
       const refused = await rejectionOf(outcome);
-      expect(refused).toBeInstanceOf(ExecutionFencedError);
+      expect(refused).toBeInstanceOf(ExecutionError.Fenced);
       expect(refused).toMatchObject({ token: 1 });
       expect(count.runs).toBe(0);
       expect(await second.rows.committed()).toEqual([]);
@@ -74,7 +75,7 @@ const replayAt = (edge: ExpiryEdge): ContractCase<FencedEffectTarget> => {
           status: IdempotencyRunStatus.Replayed,
           result: { receipt: "r1" },
         });
-      else expect(await rejectionOf(again)).toBeInstanceOf(ExecutionFencedError);
+      else expect(await rejectionOf(again)).toBeInstanceOf(ExecutionError.Fenced);
       expect(count.runs).toBe(1);
     },
   };

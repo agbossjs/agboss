@@ -1,7 +1,8 @@
+import { fencedRefusalOf } from "../app/lease-lost.js";
 import { storeMismatch } from "./idempotency-errors.js";
 import { IdempotencyError } from "../core/error-families/effect-errors.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
-import { ExecutionFencedError } from "../app/lease-lost.js";
+import {} from "../app/lease-lost.js";
 import { Injectable } from "../components/decorators.js";
 import { StoreClock, type Clock } from "./clock.js";
 import {
@@ -152,7 +153,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository {
 /**
  * The fencing checks of the in-memory stores (#500, #505): the key's name is valid (#508), its lease
  * is held, not expired and its epoch, and no newer token wrote the scope — else
- * `ExecutionFencedError`, a hand-over.
+ * `ExecutionError.Fenced`, a hand-over.
  */
 export function checkInMemoryFence(
   database: InMemoryDatabase,
@@ -166,9 +167,9 @@ export function checkInMemoryFence(
   const { scopeKey, token } = key;
   const row = database.executionLeases.get(treeKeyOf(key.tenantId, key.leaseExecutionId));
   if (!isInMemoryLeaseHeld(database, clock, key))
-    throw ExecutionFencedError.of({ scopeKey, token, observedToken: row?.lease.token });
+    throw fencedRefusalOf({ scopeKey, token, observedToken: row?.lease.token });
   const highest = database.fencedEffectMarks.get(scopeKey)?.highestToken ?? 0;
-  if (token < highest) throw ExecutionFencedError.of({ scopeKey, token, observedToken: highest });
+  if (token < highest) throw fencedRefusalOf({ scopeKey, token, observedToken: highest });
 }
 
 /**

@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
+import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import {
   OutboundCallStatus,
   type OutboundCallState,
@@ -50,7 +51,7 @@ const saveRefused: OutboundCallCase = {
     const refused = await rejectionOf(first.calls.saveIfAbsent(key, intentOf(key)));
 
     expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
-    expect(refused).not.toBeInstanceOf(ExecutionFencedError);
+    expect(refused).not.toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ code: "execution.cancelled.fenced", effect: "charge" });
     expect(await first.calls.findByKey(key)).toBeUndefined();
     expect(await listedOf(first)).toEqual([]);
@@ -143,7 +144,7 @@ const otherTreesUntouched: OutboundCallCase = {
 };
 
 const staleTokenIsHandOver: OutboundCallCase = {
-  name: "#909: a stale token after a cancel is ExecutionFencedError, not the cancel",
+  name: "#909: a stale token after a cancel is ExecutionError.Fenced, not the cancel",
   isFencing: true,
   run: async ({ first, second }) => {
     const old = await leaseOf(first);
@@ -155,7 +156,7 @@ const staleTokenIsHandOver: OutboundCallCase = {
     const zombie = await rejectionOf(first.calls.saveIfAbsent(key, intentOf(key)));
     const holder = await rejectionOf(second.calls.saveIfAbsent(keyOf(taken), intentOf(key)));
 
-    expect(zombie).toBeInstanceOf(ExecutionFencedError);
+    expect(zombie).toBeInstanceOf(ExecutionError.Fenced);
     expect(holder).toBeInstanceOf(ExecutionCancelFencedError);
   },
 };

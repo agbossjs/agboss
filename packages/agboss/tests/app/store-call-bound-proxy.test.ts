@@ -1,3 +1,5 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #928 AC1 — the bounded store, call by call: what a store's own timeout, a fencing refusal, a late
  * answer or a clock nobody moves does to a call under a lease and to one outside it; and what a
@@ -9,7 +11,6 @@ import { boundedStoreOf, type StoreCallParts } from "../../src/app/store-call-bo
 import type { FrameLease } from "../../src/flow/context/frame.js";
 import {
   ExecutionCancelFencedError,
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   StoreCallTimeoutError,
   StoreOutcomeSource,
@@ -111,8 +112,8 @@ describe("#928 AC1: what a store's own error becomes", () => {
     expect(await call).toBe(commandTimeout);
   });
 
-  it("AC1: ExecutionCancelFencedError and ExecutionFencedError pass through the proxy unchanged", async () => {
-    const fenced = ExecutionFencedError.of({ scopeKey: "acme:root-1", token: 1 });
+  it("AC1: ExecutionCancelFencedError and ExecutionError.Fenced pass through the proxy unchanged", async () => {
+    const fenced = fencedRefusalOf({ scopeKey: "acme:root-1", token: 1 });
     const cancel = ExecutionCancelFencedError.of({
       ...{ scopeKey: "acme:root-1", tenantId: "acme", leaseExecutionId: "root-1" },
       ...{ token: 1, name: "charge" },

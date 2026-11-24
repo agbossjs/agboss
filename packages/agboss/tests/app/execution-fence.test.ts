@@ -2,14 +2,13 @@ import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
  * #471 — `executionContext.fence` (internal now): the lease a step runs under, as an external system fences a
  * write with it. A write of an instance that lost the lease meets a newer token and is refused
- * (`ExecutionFencedError` from a store, `ExecutionError.Fenced` from `fence.fencedError()`), which is a hand-over — no `.onError`, no compensation, no failed record,
+ * (`ExecutionError.Fenced` from a store, `ExecutionError.Fenced` from `fence.fencedError()`), which is a hand-over — no `.onError`, no compensation, no failed record,
  * no `onExecutionError` — and the moving call rejects with the fenced error itself.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionContextUnavailableError,
   ExecutionError,
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   ResumeReason,
 } from "../../src/index.js";
@@ -106,7 +105,7 @@ describe("#471 AC1: the fence of a step", () => {
 
 describe("#471 AC3: a stalled writer is refused after another instance took the lease over", () => {
   two(
-    "A passes assertHeld(), stalls in the window, B takes the lease (token 2) and writes; A's write is refused: its call rejects with the ExecutionFencedError",
+    "A passes assertHeld(), stalls in the window, B takes the lease (token 2) and writes; A's write is refused: its call rejects with the ExecutionError.Fenced",
     async ({ apps, clock, leases }) => {
       const { call } = await takenOver(apps, clock, leases);
       expect(seen.fences.map((each) => each.token)).toEqual([1, 2]);
@@ -119,7 +118,7 @@ describe("#471 AC3: a stalled writer is refused after another instance took the 
       await settle();
       const error = await rejectionOf(call);
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(ledger.rows).toHaveLength(1);
       expect(ledger.rows[0]?.token).toBe(2);
@@ -161,7 +160,6 @@ describe("#471 AC6: a fenced error is a hand-over wherever it is found", () => {
       );
 
       expect(error).toBeInstanceOf(ExecutionError.Fenced);
-      expect(error).not.toBeInstanceOf(ExecutionFencedError);
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(recovery.errors).toEqual([]);
       expect(recovery.ends).toEqual([]);

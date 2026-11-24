@@ -19,6 +19,29 @@ export class ExecutionStoppedError extends ExecutionCancelledError {
 }
 
 /**
+ * The run was frozen from outside (#1341c): `app.pause` parks it at its next step boundary (or at once,
+ * `Immediate`). It is the abort reason of a pause in flight and rides every path a stop does — nothing
+ * is undone, the lease stays held — but it ends in no record: the pass that met it parks the tree (its
+ * record `paused`, its checkpoint kept) and its call resolves `ExecutionStatus.Paused` with
+ * `isExternallyPaused`. `app.execute` and `app.resume` never reject with it.
+ */
+export class ExecutionPausedError extends ExecutionStoppedError {
+  static override readonly code: string = "execution.paused";
+  override name = "ExecutionPausedError";
+
+  constructor(options: ExecutionCancelledErrorOptions = {}) {
+    super({ message: "the execution was paused", ...options });
+  }
+}
+
+/** Whether `error` is a pause (or caused by one): the end that parks the tree instead of ending it. */
+export function isPause(error: unknown): boolean {
+  for (let current: unknown = error; current instanceof Error; current = current.cause)
+    if (current instanceof ExecutionPausedError) return true;
+  return false;
+}
+
+/**
  * A fenced write or an outbound call was refused because its tree's `Immediate` stop is durable
  * (#1341b): nothing was written or sent. Like the cancel's refusal it is no hand-over — the lease is
  * held and the tree winds down as stopped, nothing undone; a store builds it with

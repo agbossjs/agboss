@@ -197,6 +197,10 @@ export interface ExecutionEndEvent extends ExecutionEvent {
  */
 export interface ExecutionPauseEvent extends ExecutionEvent {
   readonly pending: readonly PendingPause[];
+  /** An operator's `app.pause` froze it (#1341c): nothing but `app.unpause` moves it, an open pause included. */
+  readonly isExternallyPaused: boolean;
+  /** Why the operator paused it, when they said. */
+  readonly reason?: string | undefined;
 }
 
 /** Why an execution continues (#265 S30). */
@@ -213,6 +217,8 @@ export enum ResumeReason {
    * `PauseExpiredError`, or goes on with the answer the channel decided on expiry.
    */
   Expired = "expired",
+  /** `app.unpause` lifted an operator's freeze (#1341c): the tree continues from its last checkpoint. */
+  Unpaused = "unpaused",
 }
 
 /**
@@ -230,6 +236,11 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
    * owner for a `ThreadOwner` one (`undefined` for an unowned thread, or a recovery that takes none).
    */
   readonly answeredBy: string | undefined;
+  /**
+   * Why the operator unpaused it (`ResumeReason.Unpaused`, #1341c), when they said; never the
+   * `reason` of this event, which is a `ResumeReason`.
+   */
+  readonly unpauseReason?: string | undefined;
 }
 
 /**
@@ -292,6 +303,10 @@ export enum ExecutionOperation {
   Cancel = "cancel",
   /** `app.stop` (#1341b). */
   Stop = "stop",
+  /** `app.pause` (#1341c). */
+  Pause = "pause",
+  /** `app.unpause` (#1341c). */
+  Unpause = "unpause",
 }
 
 /**

@@ -76,9 +76,16 @@ export interface PausedExecutionOutput extends ExecutionOutputBase {
    * `PauseAnswerer.Channel` pause comes without its `pauseId`.
    */
   readonly pending: readonly PendingPause[];
+  /**
+   * An operator's `app.pause` froze it (#1341c): `pending` may be empty (it was parked at a step
+   * boundary) or list the business pauses that wait too (`dual_paused`); nothing but `app.unpause`
+   * moves it.
+   */
+  readonly isExternallyPaused: boolean;
+  /** Why the operator paused it, when they said (only with `isExternallyPaused`). */
+  readonly reason?: string | undefined;
   readonly finish?: undefined;
   readonly output?: undefined;
-  readonly reason?: undefined;
 }
 
 /** The execution was stopped (#1341): halted where it stood, its partial results kept, nothing undone. */

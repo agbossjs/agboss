@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #500 AC1, AC2 on SQLite — the order charged through `SqliteFencedEffectRepository` on one file
  * shared by two instances (each its own connection): a crash before the checkpoint charges once,
@@ -7,7 +8,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   FencedEffectRepository,
   IdempotencyRunStatus,
@@ -121,7 +121,7 @@ describe(
         holder?.();
         const [end] = await ends(1);
 
-        expect(error).toBeInstanceOf(ExecutionFencedError);
+        expect(error).toBeInstanceOf(ExecutionError.Fenced);
         expect(error).toMatchObject({ token: 1, observedToken: 2 });
         expect(afterZombie).toEqual([]);
         expect(charges()).toEqual(["charge-order-7-2"]);
@@ -162,6 +162,6 @@ describe("#500: a unit runner's SQLite fenced effect", () => {
     const lost = testUnit(SqliteChargeOrderAction, { ...onFile, fence: { isLost: true } })(order);
 
     expect(third.output).toEqual({ chargeId: "charge-order-1-3" });
-    await expect(lost).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(lost).rejects.toBeInstanceOf(ExecutionError.Fenced);
   });
 });

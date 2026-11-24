@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
 import type { ExecutionHistoryRecord } from "../../../src/infrastructure/execution-history.repository.js";
 import {
@@ -234,14 +235,14 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       operation: StoreHoldPoint.OutboundMarkPending,
       key: "root-1",
       input: key(1),
-      error: { name: "ExecutionFencedError", message: "fenced" },
+      error: { name: "ExecutionError.Fenced", message: "fenced" },
     });
     operation(history, {
       process: "a",
       operation: StoreHoldPoint.FencedEffectWrite,
       key: "root-1",
       input: key(1),
-      error: { name: "ExecutionFencedError", message: "fenced" },
+      error: { name: "ExecutionError.Fenced", message: "fenced" },
     });
     operation(history, {
       process: "c",
@@ -286,7 +287,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       operation: StoreHoldPoint.FencedEffectWrite,
       key: "root-1",
       input: key(9),
-      error: { name: "ExecutionFencedError", message: "fenced" },
+      error: { name: "ExecutionError.Fenced", message: "fenced" },
     });
     expect(invariantsOf(run)).toEqual([FaultInvariant.OneOwner]);
     expect(violationsOf(run).map((found) => found.message)).toEqual([

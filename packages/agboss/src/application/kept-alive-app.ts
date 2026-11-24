@@ -16,6 +16,8 @@ export const keptAlive = (tenanted: boolean, app: AnyTenantApp): AnyTenantApp =>
     resume: (request, options) => keepingAlive(() => app.resume(request, options)),
     cancel: (threadId, options) => keepingAlive(() => app.cancel(threadId, options)),
     stop: (threadId, options) => keepingAlive(() => app.stop(threadId, options)),
+    pause: (threadId, options) => keepingAlive(() => app.pause(threadId, options)),
+    unpause: (threadId, options) => keepingAlive(() => app.unpause(threadId, options)),
     extendPause: (request, options) => keepingAlive(() => app.extendPause(request, options)),
     reassignPause: (request, options) => keepingAlive(() => app.reassignPause(request, options)),
     close: (options) => keepingAlive(() => app.close(options)),

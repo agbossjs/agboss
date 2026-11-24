@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../../src/app/lease-lost.js";
 /**
  * #633 (undo shard) — one automatic undo (`undone`, `undo.ts`) on its own, on a site of its own:
  * an entry with no undo action to run, an undo action that is no action, the observers around it
@@ -7,11 +8,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Action, ExecutionCancelledError } from "../../../src/index.js";
-import {
-  ExecutionFencedError,
-  ExecutionLeaseLostError,
-  scopeKeyOf,
-} from "../../../src/app/lease-lost.js";
+import { ExecutionLeaseLostError, scopeKeyOf } from "../../../src/app/lease-lost.js";
 import {
   CompensationEntryStatus,
   CompensationReason,
@@ -228,7 +225,7 @@ describe("#633: the undo's events and its record", () => {
   });
 
   it("a fenced write of the undo: a hand-over, thrown as it is — never a failed undo", async () => {
-    const fenced = ExecutionFencedError.of({
+    const fenced = fencedRefusalOf({
       scopeKey: scopeKeyOf("acme", "root-1"),
       token: 1,
       observedToken: 2,

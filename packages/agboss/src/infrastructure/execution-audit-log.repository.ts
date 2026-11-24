@@ -87,7 +87,7 @@ export enum IdempotencyRunEventOutcome {
   Replayed = "replayed",
   /** The call joined one in flight on the same key (`IdempotencyRunStatus.Joined`). */
   Joined = "joined",
-  /** The lease or the scope's mark refused the call (`ExecutionFencedError`): nothing written. */
+  /** The lease or the scope's mark refused the call (`ExecutionError.Fenced`): nothing written. */
   Refused = "refused",
   /** Its tree's cancel is durable (#909, `ExecutionCancelFencedError`): the write did not run. */
   Cancelled = "cancelled",
@@ -115,7 +115,7 @@ export enum LeaseTakeoverReason {
 export enum HandOverReason {
   /** Its lease expired or another instance took it (`ExecutionLeaseLostError`). */
   LeaseLost = "lease-lost",
-  /** An external system refused one of its writes (`ExecutionFencedError`, #471). */
+  /** An external system refused one of its writes (`ExecutionError.Fenced`, #471). */
   Fenced = "fenced",
   /** The instance stopped past its shutdown timeout (`ApplicationStoppingError`). */
   ApplicationStopping = "application-stopping",

@@ -37,7 +37,7 @@ const causes = new WeakMap<object, Error>();
 export const cancelCauseOf = (output: ExecutionOutput): Error | undefined => causes.get(output);
 
 /** The tree's checkpoint; one that cannot be read is a warning and an empty one. */
-async function checkpointOf(deps: AppDeps, state: TreeState): Promise<RecordedState> {
+export async function checkpointOf(deps: AppDeps, state: TreeState): Promise<RecordedState> {
   try {
     return await checkpointStateOf(deps, state);
   } catch (error) {

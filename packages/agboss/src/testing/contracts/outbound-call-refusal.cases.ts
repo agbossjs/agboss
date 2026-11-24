@@ -1,7 +1,8 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { hours, seconds } from "../../units/index.js";
@@ -17,7 +18,7 @@ import {
 
 /**
  * The outbound-call contract's refusals (#505 AC5): every fenced method of a stale token, a
- * released or an expired lease is refused with `ExecutionFencedError` and changes nothing; the
+ * released or an expired lease is refused with `ExecutionError.Fenced` and changes nothing; the
  * listings by tree and by status; the retention cutoff, which never removes a pending intent.
  */
 
@@ -66,7 +67,7 @@ const staleTokenRefused = ([method, call]: (typeof FENCED_CALLS)[number]): Outbo
 
     const refused = await rejectionOf(call(first, keyOf(old)));
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ token: 1, observedToken: 2 });
     expect(await second.calls.findByKey(keyOf(taken))).toMatchObject({
       status: OutboundCallStatus.Pending,
@@ -88,7 +89,7 @@ const releasedRefused: OutboundCallCase = {
       first.calls.saveIfAbsent(keyOf(lease), intentOf(keyOf(lease))),
     );
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(await listedOf(first)).toEqual([]);
   },
 };
@@ -102,7 +103,7 @@ const expiredRefused: OutboundCallCase = {
 
     const refused = await rejectionOf(first.calls.findByKey(keyOf(lease)));
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
   },
 };
 

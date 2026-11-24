@@ -310,7 +310,7 @@ await session.withTransaction(async () => {
   await leases.updateOne(id, [{ $set: { checkedAt: "$$NOW", checks: { $add: [{ $ifNull: ["$checks", 0] }, 1] } } }], { session });
   const lease = await leases.findOne(id, { session });
   if (!lease || lease.released || lease.token !== token || lease.expiresAt <= lease.checkedAt)
-    throw ExecutionFencedError.of({ scopeKey, token, observedToken: lease?.token });
+    throw fencedRefusalOf({ scopeKey, token, observedToken: lease?.token });
   // …the mark ($max), a business key's lock, the stored result by effectKeyIdentityOf(key), the work, the result
 });
 ```

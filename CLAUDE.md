@@ -1284,7 +1284,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   `reclaim` — #516: a yielded lease stays its holder's, renewed, refused to others until it expires —,
   `retire` — #520: a release for good, the work under it over; no `acquire` of the key gets it again —,
   `claimExecutionId` — #591: every execution id handed out, kept once, never removed —,
-  `requestPause(tree, { mode, reason? }, transition?)` / `unpause` / `pauseOf` — #1341c: an operator's external pause on the same row and its `fencedThroughToken` (`GREATEST`, never cleared on the same token; an `Immediate` pause refuses writes of the root lease at that token or below with `ExecutionFencedError`); `markedOf(tree)` reads every mark in one read; `requestStop(tree, mode, transition?)` / `stopOf(tree)` — #1341b: the stop's durable mark beside the cancel's, on the same row, `InterruptMode.AfterStep` escalating to `Immediate`, an `Immediate` one fencing new writes with `ExecutionStopFencedError` unless a cancel is marked too (`Cancel > Stop`); `requestCancel(tree, transition?)` — #909: the tree's durable cancel mark (#1341d: with a `transition`, the thread's `thread_status_transitions` row is written in the mark's own transaction — `ExecutionRecordRepository.append` / `complete` / `completeIfStatus` write theirs in theirs, `app.getStatusHistory(threadId)` reads them, `statusHistory` / `forgetStatusHistory`), the fence the fencing stores of its backend read, permanent and on the tree's own lease row (#1117: a seed row before the first `acquire`, never lifted by a retention); on Redis, which writes no mark of its own, a delegation to the durable lease store under `EXECUTION_ID_STORE`, #1152 and #1198),
+  `requestPause(tree, { mode, reason? }, transition?)` / `unpause` / `pauseOf` — #1341c: an operator's external pause on the same row and its `fencedThroughToken` (`GREATEST`, never cleared on the same token; an `Immediate` pause refuses writes of the root lease at that token or below with `ExecutionError.Fenced`); `markedOf(tree)` reads every mark in one read; `requestStop(tree, mode, transition?)` / `stopOf(tree)` — #1341b: the stop's durable mark beside the cancel's, on the same row, `InterruptMode.AfterStep` escalating to `Immediate`, an `Immediate` one fencing new writes with `ExecutionStopFencedError` unless a cancel is marked too (`Cancel > Stop`); `requestCancel(tree, transition?)` — #909: the tree's durable cancel mark (#1341d: with a `transition`, the thread's `thread_status_transitions` row is written in the mark's own transaction — `ExecutionRecordRepository.append` / `complete` / `completeIfStatus` write theirs in theirs, `app.getStatusHistory(threadId)` reads them, `statusHistory` / `forgetStatusHistory`), the fence the fencing stores of its backend read, permanent and on the tree's own lease row (#1117: a seed row before the first `acquire`, never lifted by a retention); on Redis, which writes no mark of its own, a delegation to the durable lease store under `EXECUTION_ID_STORE`, #1152 and #1198),
   `ExecutionTreeRepository` (`saveIfAbsent` / `findById` — the shared state of one request, removed
   when its tree ends), `RateLimitRepository` (slots as leases, windows and pauses — a provider's
   rate limit, 429 pause and circuit breaker, #266), `MeshRequestRepository` (the answers of trusted
@@ -2386,7 +2386,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`, nothing written or sent) — after the
   lease and mark checks and, for an effect, after the key's lookup: a stored result replays, an undo's key (`isCompensation`, set by
   `effectKeyOf` from `step.compensates`) is never refused, a child's key is fenced by its root's cancel (`rootExecutionId`,
-  `cancelTreeOf(key)`), a stale token is still `ExecutionFencedError`; `markCompleted`/`markFailed`/`findByKey` are accepted. The
+  `cancelTreeOf(key)`), a stale token is still `ExecutionError.Fenced`; `markCompleted`/`markFailed`/`findByKey` are accepted. The
   step that met it stops the tree as cancelled at once (`lease.cancelFound`, audit outcome `cancelled`), not at the next renewal.
   The options are named like the
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
@@ -2497,7 +2497,7 @@ StoreTime }`) — with `StoreTimeSource.Database` a networked store's database c
   low-level `ExecutionFence` (`scopeKey`, `token`, `trustedUntil`, `assertHeld()`, `renewNow()`,
   `fencedError(observedToken)` → `ExecutionError.Fenced`) is a type of `@agboss/core/stores`; the framework and the
   tests read it with `fenceOf(context)` (`flow/context/execution-fence.ts`, internal). A write refused
-  because the lease moved is `ExecutionError.Fenced` / `ExecutionFencedError` (`execution.lease-lost.fenced`, `extends
+  because the lease moved is `ExecutionError.Fenced` / `ExecutionError.Fenced` (`execution.lease-lost.fenced`, `extends
 ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `observedToken`),
   found anywhere in a cause chain or an `AggregateError` and a hand-over at every site — no
   `.onError`, no undo, no `onToolEnd`, nothing to the model, the record stays `running`, no

@@ -14,7 +14,6 @@ import {
   ApplicationStoppingError,
   ExecutionCancelFencedError,
   ExecutionError,
-  ExecutionFencedError,
   ExecutionLeaseLostError,
 } from "../../src/index.js";
 import { isHandedOver } from "../../src/app/handed-over.js";
@@ -61,10 +60,9 @@ describe("#1325a: a family's errors take the side path of the nearest class", ()
 describe("#1325a: a hand-over reaches no .onError, not even the family's", () => {
   test("LeaseLost and Fenced reject the call: no side path, no finish", async ({ app }) => {
     await expect(run(app, "lease-lost")).rejects.toBeInstanceOf(ExecutionError.LeaseLost);
-    // the family's refusal itself, never rebuilt as the legacy ExecutionFencedError around it
+    // the family's refusal itself, never rebuilt as the legacy ExecutionError.Fenced around it
     const fenced: unknown = await run(app, "fenced").catch((error: unknown) => error);
     expect(fenced).toBeInstanceOf(ExecutionError.Fenced);
-    expect(fenced).not.toBeInstanceOf(ExecutionFencedError);
   });
 
   test("the kinds that are a hand-over, and only they, are handed over", () => {
@@ -89,7 +87,7 @@ describe("#1325a: a hand-over reaches no .onError, not even the family's", () =>
 describe("#1325a: the legacy hand-overs and the family's are guarded alike while both coexist", () => {
   const legacy = [
     new ExecutionLeaseLostError({ rootExecutionId: "r" }),
-    new ExecutionFencedError({
+    new ExecutionError.Fenced({
       scopeKey: "t:r",
       token: 1,
       tenantId: "t",

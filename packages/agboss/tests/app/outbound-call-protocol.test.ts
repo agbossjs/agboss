@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { SilentLogger } from "../../src/infrastructure/logger.js";
 /**
@@ -12,7 +13,6 @@ import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   Action,
   ExecutionContextUnavailableError,
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   Idempotency,
   InMemoryFencedEffectRepository,
@@ -176,7 +176,7 @@ describe("#505: the lease before the network", () => {
   it("a lost lease: refused before anything is recorded or sent", async () => {
     const lost = testUnit(ChargeOrderAction, { fence: { isLost: true } });
 
-    await expect(lost(order)).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(lost(order)).rejects.toBeInstanceOf(ExecutionError.Fenced);
     expect(gateway.calls).toEqual([]);
   });
 });
