@@ -11,8 +11,6 @@ import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 export interface ToolMeta {
   readonly name: string;
   readonly description: string;
-  readonly prompt?: string;
-  readonly promptUrls?: readonly string[];
   readonly channel?: Class;
   /** The `@ToolApproval` it was given as `approval` (#1307); `channel` holds the same class. */
   readonly approval?: Class;

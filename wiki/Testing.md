@@ -1080,7 +1080,7 @@ it("looks the order up in the book it is given", async () => {
   — and checks the result against its `output` (`variant(XDto, value)` for a `oneOf`), spend as
   `action:<name>`.
 - **`testUnit`**: a code router's `route(input)` on its container, at no cost; a model router's
-  texts loaded (`prompt`, `promptUrls`, the route prompts, checked like at assembly) and its input
+  texts loaded (`prompt`, the route prompts, checked like at assembly) and its input
   message built from the fields, its model answering from `model` — `routeTo(X)` after
   `.chooseOne(…)`, `decideWith({ "<target>": 0.9 })` / `routeTo(…)` for the `OnDemand` routes of a
   launch; a target outside its routes is `RouterDecisionError`, a failed call `RouterFailedError`.

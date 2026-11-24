@@ -96,7 +96,6 @@ export interface ModelRouterOptions {
   readonly modelProvider?: Class;
   /** How to choose: inline, and / or files next to the router (read at assembly). */
   readonly prompt?: PromptSource;
-  readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt. */
   readonly promptVariables?: PromptVariables;
   readonly deps?: never;
@@ -132,7 +131,6 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
   readonly model?: never;
   readonly modelProvider?: never;
   readonly prompt?: never;
-  readonly promptUrls?: never;
   readonly promptVariables?: never;
   /** A code router reads no thread memory. */
   readonly memory?: never;

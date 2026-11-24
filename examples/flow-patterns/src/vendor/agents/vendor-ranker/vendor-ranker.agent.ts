@@ -8,7 +8,7 @@ import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 @Agent({
   name: "vendor-ranker-agent",
   description: "Ranks the checked vendors",
-  promptUrls: ["./vendor-ranker.prompt.md"],
+  prompt: "./vendor-ranker.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)),

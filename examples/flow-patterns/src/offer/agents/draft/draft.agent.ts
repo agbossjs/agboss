@@ -6,7 +6,7 @@ import { ShortlistDto } from "../../dto/shortlist.dto.js";
 @Agent({
   name: "draft-agent",
   description: "Drafts the offer",
-  promptUrls: ["./draft.prompt.md"],
+  prompt: "./draft.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,

@@ -137,7 +137,7 @@ export class OwnerRefundTool {
 
 @Agent({
   name: "gated-clerk-agent",
-  promptUrls: ["./clerk.prompt.md"],
+  prompt: "./clerk.prompt.md",
   description: "Refunds orders",
   model: "test/clerk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
@@ -147,7 +147,7 @@ export class GatedClerkAgent {}
 
 @Agent({
   name: "owner-clerk-agent",
-  promptUrls: ["./clerk.prompt.md"],
+  prompt: "./clerk.prompt.md",
   description: "Refunds orders the owner confirms",
   model: "test/clerk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },

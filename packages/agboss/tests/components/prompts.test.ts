@@ -28,7 +28,7 @@ async function problemsOf(application: Class): Promise<string[]> {
 
 describe("#199 AC1: every prompt is read and checked at assembly", () => {
   it("a {{typo}} in an agent's prompt file fails createApp naming the file, line and known variables", async () => {
-    const { application } = workflowWith({ agent: { promptUrls: ["./typo.prompt.md"] } });
+    const { application } = workflowWith({ agent: { prompt: "./typo.prompt.md" } });
 
     await expect(createApp(application)).rejects.toThrow(
       `[prompt.unknown-variable] tests/components/prompts/typo.prompt.md:4 {{knownPlace}} — ${AGENT_KNOWN}`,
@@ -51,11 +51,11 @@ describe("#199 AC1: every prompt is read and checked at assembly", () => {
     );
   });
 
-  it("a missing promptUrls file fails at assembly, not on the agent's first call", async () => {
-    const { application } = workflowWith({ agent: { promptUrls: ["./nowhere.prompt.md"] } });
+  it("a missing prompt file fails at assembly, not on the agent's first call", async () => {
+    const { application } = workflowWith({ agent: { prompt: "./nowhere.prompt.md" } });
 
     expect(await problemsOf(application)).toEqual([
-      '[prompt.missing-file] tests/components/prompts/nowhere.prompt.md (promptUrls of @Agent "scout-agent") does not exist',
+      '[prompt.missing-file] tests/components/prompts/nowhere.prompt.md (prompt of @Agent "scout-agent") does not exist',
     ]);
   });
 
@@ -85,7 +85,7 @@ describe("#199 AC1: every prompt is read and checked at assembly", () => {
 
   it("all problems of all prompts are reported at once", async () => {
     const { application } = workflowWith({
-      agent: { promptUrls: ["./typo.prompt.md", "./nowhere.prompt.md"] },
+      agent: { prompt: ["./typo.prompt.md", "./nowhere.prompt.md"] },
       router: "{{bords}}",
       route: "{{bord}}",
     });
@@ -95,7 +95,7 @@ describe("#199 AC1: every prompt is read and checked at assembly", () => {
     expect([...problems].sort()).toEqual(
       [
         `[prompt.unknown-variable] tests/components/prompts/typo.prompt.md:4 {{knownPlace}} — ${AGENT_KNOWN}`,
-        '[prompt.missing-file] tests/components/prompts/nowhere.prompt.md (promptUrls of @Agent "scout-agent") does not exist',
+        '[prompt.missing-file] tests/components/prompts/nowhere.prompt.md (prompt of @Agent "scout-agent") does not exist',
         `[prompt.unknown-variable] @Router "main-router" prompt:1 {{bords}} — ${ROUTER_KNOWN}`,
         `[prompt.unknown-variable] @Router "main-router" route "scout-agent" prompt:1 {{bord}} — ${ROUTER_KNOWN}`,
       ].sort(),
@@ -149,7 +149,7 @@ describe("#199 AC2: the prompt version hashes the prompts' rendered text", () =>
       writeFile(join(moved, "scout.prompt.md"), text),
     ]);
     const versionIn = (dir: string) =>
-      promptVersionWith({ agent: { promptUrls: [join(dir, "scout.prompt.md")] } });
+      promptVersionWith({ agent: { prompt: join(dir, "scout.prompt.md") as `/${string}` } });
 
     const before = await versionIn(here);
     const elsewhere = await versionIn(moved);

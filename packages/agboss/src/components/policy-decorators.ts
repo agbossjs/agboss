@@ -41,7 +41,6 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
   readonly deps?: D;
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
   readonly prompt?: PromptSource;
-  readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
   readonly promptVariables?: PromptVariables;
   /**
@@ -66,7 +65,6 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
   readonly deps?: D;
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
   readonly prompt?: PromptSource;
-  readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
   readonly promptVariables?: PromptVariables;
   /**
@@ -93,7 +91,6 @@ export interface CodeGuardrailTextOptions<D extends readonly Token[] = readonly 
   /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
   readonly deps?: D;
   readonly prompt?: never;
-  readonly promptUrls?: never;
   readonly promptVariables?: never;
   readonly model?: never;
   readonly modelProvider?: never;
@@ -128,9 +125,8 @@ export type ModelGuardrailMeta = GuardrailMeta & ModelGuardrailOptions;
 
 /** Whether a guardrail is decided by its class's `check(content)`: it sets no question, threshold or model. */
 export const isCodeGuardrail = (options: GuardrailOptions): options is CodeGuardrailOptions => {
-  const { prompt, promptUrls, threshold, model, modelProvider }: Partial<GuardrailTextOptions> =
-    options;
-  return [prompt, promptUrls, threshold, model, modelProvider].every((set) => set === undefined);
+  const { prompt, threshold, model, modelProvider }: Partial<GuardrailTextOptions> = options;
+  return [prompt, threshold, model, modelProvider].every((set) => set === undefined);
 };
 
 /** The class decorator of a guardrail: its constructor takes its `deps`, its instance is `T`. */

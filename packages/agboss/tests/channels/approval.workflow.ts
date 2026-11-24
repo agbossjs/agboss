@@ -108,7 +108,7 @@ export class Refund {
 
 @Agent({
   name: "clerk-agent",
-  promptUrls: ["./clerk.prompt.md"],
+  prompt: "./clerk.prompt.md",
   description: "Refunds orders",
   model: "test/clerk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },

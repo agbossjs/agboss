@@ -313,7 +313,7 @@ import { OrderStatus } from "../tools/order-status.tool.js";
 @Agent({
   name: "support-agent",
   description: "Answers questions about orders",
-  promptUrls: ["./support.prompt.md"],
+  prompt: "./support.prompt.md",
   model: "moonshotai/kimi-k2.6",
   tools: [OrderStatus],
 })
@@ -1249,7 +1249,7 @@ export const quorumPaths = [
   on the decorator line, `implements` is documentation (#120 PR 4): every contract is a
   function-typed property (strict variance), so a method with a narrower parameter fails on
   `@Tool`, `@Rag`, `@Judge`, `@PiiPolicy`, `@ModelProvider`, … Prompts are
-  `prompt` (inline) or `promptUrls` (files next to the component) plus `promptVariables` — `prompt` also takes a file path (`"./x.prompt.md"`; a string starting with `./`, `../` or `/` is a file), `inline("…")` / `` inline`…` `` or a list of them (#1347a, `PromptSource`; `file()` goes with #1347b) — normalised
+  `prompt` (a file path, `inline("…")` or a list) plus `promptVariables` — `prompt` also takes a file path (`"./x.prompt.md"`; a string starting with `./`, `../` or `/` is a file), `inline("…")` / `` inline`…` `` or a list of them (#1347a, `PromptSource`; `file()` goes with #1347b) — normalised
   at load — no BOM, `\n` line breaks, no blank lines at the edges, NFC; parts joined with one blank
   line — and sent and fingerprinted as normalised;
   `{{variables}}` are checked at assembly (`[prompt.unknown-variable]`); `promptVariables` is `Record<string, string | EnvRef<string>>` on `@Application`, `@Workflow` and every prompt-bearing component (the nearest wins; an `env(…)` reference is read once at assembly, from `createApp`'s `processEnv`): a `SecretRef` anywhere is `[prompt.secret-in-instructions]` (fails closed, a secret never reaches a model), a component's key no `{{key}}` of its prompt uses is `[prompt.unused-variable]`, a model reply interpreter's rendered instructions are in `promptVersion` (#1347c). What a node reads comes in
@@ -1625,7 +1625,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   refused, never dropped) — a reply interpreter may change approved arguments within the call's DTO; put money limits
   in a guardrail or the action (a tool interceptor's `@BeforeTool` / `beforeAnyTool` sees the corrected call before the tool runs);
   `PauseAnswerRecord.asked` keeps the call as asked beside the decision), one
-  call per move (`parallel_tool_calls: false`), static `prompt` / `promptUrls`; for an approval
+  call per move (`parallel_tool_calls: false`), static `prompt`; for an approval
   role a decision model too — approve / refuse only, one `Decision.boolean("approved")`, P(yes) > 0.5,
   no `reason` / `overrideArguments` (#267 S124); the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as
@@ -2058,7 +2058,7 @@ export class OrderAgent {}
 ```
 
 - **Guardrails (#120 PR 2)** block (safety); judges correct (quality). `@InputGuardrail` /
-  `@OutputGuardrail({ name?, description?, prompt | promptUrls, model?, modelProvider?, threshold, refusal?, deps? })`
+  `@OutputGuardrail({ name?, description?, prompt, model?, modelProvider?, threshold, refusal?, deps? })`
   (`guardrails/*.guardrail.ts`, `-guardrail`): a yes / no question on a decision model (one
   `Decision.boolean`) or a chat model (one answer tool), `model` else `defaults.guardrail.model`, else the default model of its provider (`modelProvider` of the guardrail, its workflow, its application; none anywhere:
   `[model.missing-provider]`), never the router's; P(yes) ≥ `threshold` fails the execution with
@@ -2079,7 +2079,7 @@ export class OrderAgent {}
   over the application's. Spend `guardrail:<name>` (category `guardrails`); events `onGuardrailStart`
   (`side`, `component` — a `ComponentRecord` —, `text`) / `onGuardrailEnd` (`isBlocked`, `probability`). Tests:
   `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes. **Code
-  guardrails (#383):** a guardrail that sets no `prompt` / `promptUrls` / `model` / `threshold` (`@InputGuardrail()`; a
+  guardrails (#383):** a guardrail that sets no `prompt` / `model` / `threshold` (`@InputGuardrail()`; a
   `model` or a `prompt` without `threshold` does not compile, `decidedBy` is gone) decides by the
   class's `check(content)` (`GuardrailContent`: masked `text` with the text of text files appended, `files` — `[]` when none —, `component` — a `ComponentRecord` —, `side`) returning
   `GuardrailVerdict.passed()` / `.blocked(refusal?)` (the refusal of this call, thread-safe; else the decorator's text, else `refusal(content)`, else it fails closed) (nominal: a plain object does not compile) — no model

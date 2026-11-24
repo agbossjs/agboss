@@ -67,9 +67,7 @@ export class ItemReportWorkflowFinish {}
   name: "item-report-workflow",
   version: "1.0.0",
   flow: [
-    onStart(ItemReportWorkflowStart)
-      .toAgent(ItemReporterAgent)
-      .toFinish(ItemReportWorkflowFinish),
+    onStart(ItemReportWorkflowStart).toAgent(ItemReporterAgent).toFinish(ItemReportWorkflowFinish),
   ],
 })
 export class ItemReportWorkflow {}

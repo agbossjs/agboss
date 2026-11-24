@@ -72,7 +72,7 @@ function addTool(registry: ToolRegistry, exported: ExportedTool): void {
   const tool = adapt(instance, meta);
   registry.tools.push({
     name: meta.name,
-    description: meta.description || (meta.prompt ?? ""),
+    description: meta.description,
     inputSchema: objectSchema(meta.input),
     outputSchema: objectSchema(meta.output),
   });

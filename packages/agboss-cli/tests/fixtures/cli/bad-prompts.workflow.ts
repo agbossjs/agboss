@@ -23,7 +23,7 @@ import {
   name: "scout-agent",
   description: "Scouts job boards",
   model: "test/alpha",
-  promptUrls: ["./typo.prompt.md"],
+  prompt: "./typo.prompt.md",
   promptVariables: { boardCount: "2", spare: "unused" },
 })
 export class Scout {}
@@ -48,13 +48,7 @@ export class Main {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    onStart(TestChat)
-      .toRouter(Main)
-      .chooseOne(
-        route(Scout)
-          .toFinish(TestAnswer),
-        route(NoAnswer),
-      ),
+    onStart(TestChat).toRouter(Main).chooseOne(route(Scout).toFinish(TestAnswer), route(NoAnswer)),
   ],
   promptVariables: { boards: "LinkedIn, AllJobs" },
 })

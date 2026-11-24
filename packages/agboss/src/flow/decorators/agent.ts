@@ -22,7 +22,6 @@ export interface AgentOptions {
   readonly name: string;
   readonly description: string;
   readonly prompt?: PromptSource;
-  readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt (the same bytes in every execution). */
   readonly promptVariables?: PromptVariables;
   /**

@@ -8,7 +8,7 @@ import type { AnalysisContext, LoadedModule } from "./context.js";
 /**
  * Shared agent options (#272 AC16): two classes of one agent spread one const declared as a static
  * object literal in an `*.options.ts` file. A decorator records its options as written, so a spread
- * keeps the const's own objects (`input`, `output`, `promptUrls`, …); the analyser finds the const by
+ * keeps the const's own objects (`input`, `output`, `prompt`, …); the analyser finds the const by
  * those objects among the loaded modules' exports. `[agent.dynamic-options]` when the const comes
  * from another file, when an `*.options.ts` file exports a function (options built by a call), or
  * when an action or a router spreads one (`*.options.ts` is for agents only).

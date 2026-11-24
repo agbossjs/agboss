@@ -13,7 +13,7 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 @Agent({
   name: "reviewer-agent",
   description: "Reviews the draft",
-  promptUrls: ["./reviewer.prompt.md"],
+  prompt: "./reviewer.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: historyOf(OfferDraftDto, { maxPrevious: 1 }),

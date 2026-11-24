@@ -205,7 +205,7 @@ Tasks are kept `@A2AEndpoint({ ttl: { tasks } })` after they end, a direct reply
 
 ## Agents
 
-From `@Agent` classes: `model`, `description` (shown to routers), `prompt` / `promptUrls` /
+From `@Agent` classes: `model`, `description` (shown to routers), `prompt` /
 `promptVariables`, `tools` (class references — a missing one does not compile), `executionLimits` (`maxVisits`, `maxModelCalls`, `maxToolCalls`, `maxRetries`),
 `memory`, `judges`, `rag`, `input` / `output`,
 `price`, and any `defaults.models` field as an override.

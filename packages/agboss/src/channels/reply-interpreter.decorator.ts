@@ -11,7 +11,7 @@ import { resolvedName } from "../flow/names.js";
  * answer — named on the role (`@ChannelRole({ replyInterpreter })`), one interpreter per role. It gets
  * the pause's original question and the reply (`{ ask, reply }`); what it returns is validated like
  * any decision. `DecidedBy.Model` — its chat model answers through one answer tool, a decision model
- * (an approval role's only, `[reply-interpreter.decision-model]` for a question role) through one `Decision.boolean("approved")` (static `prompt` / `promptUrls`;
+ * (an approval role's only, `[reply-interpreter.decision-model]` for a question role) through one `Decision.boolean("approved")` (static `prompt`;
  * `ask` and `reply` come in the input message); `DecidedBy.Code` — the class's `interpret(input)`
  * (`implements ReplyInterpreterHandler<Self>`), returning a `ReplyInterpretation`. Code downstream
  * decides by types, never by text.
@@ -34,7 +34,6 @@ export interface ModelReplyInterpreterOptions {
   readonly modelProvider?: Class;
   /** How to read a reply; static — the question and the reply come in the input message. */
   readonly prompt?: PromptSource;
-  readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
   readonly promptVariables?: PromptVariables;
   readonly deps?: never;
@@ -51,7 +50,6 @@ export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = re
   readonly model?: never;
   readonly modelProvider?: never;
   readonly prompt?: never;
-  readonly promptUrls?: never;
   readonly promptVariables?: never;
 }
 

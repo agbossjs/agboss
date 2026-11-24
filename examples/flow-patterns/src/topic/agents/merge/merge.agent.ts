@@ -7,7 +7,7 @@ import { TopicDto } from "../../dto/topic.dto.js";
 @Agent({
   name: "merge-agent",
   description: "Merges the subtopics' reports into one report on the topic",
-  promptUrls: ["./merge.prompt.md"],
+  prompt: "./merge.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     topic: TopicDto, // the start's input: the execution's own topic, never a subtopic

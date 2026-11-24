@@ -61,8 +61,6 @@ export interface ToolOptions<
 > {
   readonly name: string;
   readonly description: string;
-  readonly prompt?: string;
-  readonly promptUrls?: readonly string[];
   readonly channel?: Class;
   /**
    * The `@ToolApproval` this tool's calls wait for (#1307): the new name of `channel`; one of the

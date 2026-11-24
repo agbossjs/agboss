@@ -66,7 +66,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 
 @Agent({
   name: "cashier-agent",
-  promptUrls: ["./cashier.prompt.md"],
+  prompt: "./cashier.prompt.md",
   description: "Takes payments",
   model: "test/cashier",
   price,
@@ -123,7 +123,7 @@ export class DraftDto {
 
 @Agent({
   name: "drafter-agent",
-  promptUrls: ["./cashier.prompt.md"],
+  prompt: "./cashier.prompt.md",
   description: "Drafts",
   model: "test/drafter",
   price,
@@ -134,7 +134,7 @@ export class Drafter {}
 
 @Agent({
   name: "editor-agent",
-  promptUrls: ["./cashier.prompt.md"],
+  prompt: "./cashier.prompt.md",
   description: "Edits",
   model: "test/editor",
   price,

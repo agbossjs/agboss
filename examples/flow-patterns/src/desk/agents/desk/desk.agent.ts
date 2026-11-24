@@ -16,7 +16,7 @@ import { SearchShippingPolicyTool } from "../../tools/search-shipping-policy.too
 @Agent({
   name: "desk-agent",
   description: "Answers questions about orders",
-  promptUrls: ["./desk.prompt.md"],
+  prompt: "./desk.prompt.md",
   model: "harness/desk",
   input: { question: DeskQuestionDto },
   tools: [OrderStatusTool, CloseAccountTool, SearchShippingPolicyTool],

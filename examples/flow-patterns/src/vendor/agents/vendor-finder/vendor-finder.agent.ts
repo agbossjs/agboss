@@ -6,7 +6,7 @@ import { VendorDto } from "../../dto/vendor.dto.js";
 @Agent({
   name: "vendor-finder-agent",
   description: "Finds the vendors to check",
-  promptUrls: ["./vendor-finder.prompt.md"],
+  prompt: "./vendor-finder.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     request: WorkflowStartTextDto,

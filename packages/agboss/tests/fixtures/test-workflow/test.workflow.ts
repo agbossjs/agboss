@@ -56,7 +56,7 @@ export class Clock {
   model: "test/researcher",
   price,
   tools: [Clock],
-  promptUrls: ["./researcher.prompt.md"],
+  prompt: "./researcher.prompt.md",
 })
 export class Researcher {}
 
@@ -66,7 +66,7 @@ export class Researcher {}
   model: "test/coder",
   price,
   reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
-  promptUrls: ["./coder.prompt.md"],
+  prompt: "./coder.prompt.md",
 })
 export class Coder {}
 

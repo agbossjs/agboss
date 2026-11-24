@@ -29,7 +29,7 @@ import { unitRouterDeps } from "./unit-models.js";
 /**
  * How a unit runner decides like a router (#262 S89): a code router's answer checked against its
  * routes as its step checks it, a model router's request built as its step builds it — its texts
- * loaded (`prompt`, `promptUrls`, the route prompts), its input message from the given fields —
+ * loaded (`prompt`, the route prompts), its input message from the given fields —
  * and answered from the runner's scripts.
  */
 

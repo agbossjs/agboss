@@ -81,7 +81,7 @@ export class NoDiagnosisGuardrail {}
 
 A guardrail decided by code (#383) is the same component without a model: set no `prompt`, `threshold` or `model` and give the
 class a `check(content)` (the `GuardrailHandler` shape; no `implements` needed; `GuardrailContent`: `text`, `files`, `component` — its `ComponentRecord` — and `side`), which returns
-`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked(refusal?)` — no `prompt`, `promptUrls`, `model` or
+`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked(refusal?)` — no `prompt`, `model` or
 `threshold` (they do not compile), no model call, cost 0. Its refusal is the one `blocked(refusal)` gives (per call, thread-safe: never stash it on the
 instance), else the decorator's text, else the class's `refusal(content)`; none of the three fails
 closed:
@@ -506,7 +506,7 @@ asserts it. A policy's `secret` or the storage's `piiSecret` whose variable is u
 | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `[model.missing-provider]`                                          | no `model`, no `defaults.guardrail.model` and no `modelProvider` in the cascade → set one (the router's model is not used) |
 | `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | a model guardrail with neither / any guardrail with both a `refusal` text and a `refusal(content)` method                  |
-| `[guardrail.no-prompt]`                                             | no question → `prompt` or `promptUrls`                                                                                     |
+| `[guardrail.no-prompt]`                                             | no question → `prompt`                                                                                     |
 | `[guardrail.missing-handler]`                                       | a guardrail with no `prompt`, `threshold` or `model` whose class has no `check(content)`                                   |
 | `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                                                                    |
 | `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                                                          |

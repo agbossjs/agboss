@@ -35,7 +35,7 @@ export class HandbookFromApi extends RagSource {
   }
 }
 
-const prompt = "../components/fixture/greeter.prompt.md";
+const prompt = "../components/fixture/greeter.prompt.md" as const;
 const base = {
   version: "1.0.0",
   defaults: testDefaults,
@@ -66,7 +66,7 @@ export function bundleWith(use: Class, reading: Reading): Class {
     model: "test/alpha",
     price: testConfig.agents.alpha.price,
     ...(reading === "tool" ? { tools: [SearchHandbook] } : { rag: [use] }),
-    promptUrls: [prompt],
+    prompt,
     promptVariables: { language: "English" },
   })
   class Helper {}

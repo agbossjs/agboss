@@ -1,7 +1,7 @@
 /**
  * #120 PR 4 — prompts are normalised at load and the normalised text is sent (and fingerprinted):
  * no BOM, line breaks as `\n`, no blank lines at the edges, Unicode NFC; indentation, spaces and
- * tabs inside a line and blank lines between paragraphs kept; `promptUrls` parts joined with one
+ * tabs inside a line and blank lines between paragraphs kept; file parts joined with one
  * blank line. Guardrails' and compactions' prompts load through the same loader.
  */
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { normalisePromptText, PromptLoader } from "../../src/components/prompt-render.js";
-import { inline } from "../../src/components/prompt-source.js";
+import { inline, type PromptSource } from "../../src/components/prompt-source.js";
 
 const dir = mkdtempSync(join(tmpdir(), "agboss-120-prompts-"));
 const source = join(dir, "owner.ts");
@@ -17,10 +17,15 @@ writeFileSync(join(dir, "first.prompt.md"), "﻿\r\n\r\nFirst part,\r\n  indente
 writeFileSync(join(dir, "second.prompt.md"), "\n\tSecond part.\n\n\nStill second.\n");
 writeFileSync(join(dir, "blank.prompt.md"), "\n  \n\t\n");
 
-const load = (prompt: string | undefined, promptUrls: readonly string[] = []): Promise<string> =>
+const load = (prompt: string | undefined, files: readonly string[] = []): Promise<string> =>
   new PromptLoader().load({
     label: '@Guardrail "test-guardrail"',
-    options: { ...(prompt === undefined ? {} : { prompt: inline(prompt) }), promptUrls },
+    options: {
+      prompt: [
+        ...(prompt === undefined ? [] : [inline(prompt)]),
+        ...files.map((file) => `./${file}`),
+      ] as unknown as PromptSource,
+    },
     source,
   });
 

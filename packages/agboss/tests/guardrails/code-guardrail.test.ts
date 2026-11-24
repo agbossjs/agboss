@@ -73,8 +73,8 @@ describe("#383: a code guardrail's own rules", () => {
     InputGuardrail({ ...code, model: "x" });
     // @ts-expect-error -- a prompt with no threshold is no code guardrail
     InputGuardrail({ ...code, prompt: "?" });
-    // @ts-expect-error -- promptUrls with no threshold is no code guardrail
-    OutputGuardrail({ ...code, promptUrls: ["./d.md"] });
+    // @ts-expect-error -- promptUrls is gone: a prompt is a path, inline(…) or a list
+    OutputGuardrail({ ...code, threshold: 0.5, promptUrls: ["./d.md"] });
     // @ts-expect-error -- decidedBy is removed: a guardrail with no question is a code guardrail
     InputGuardrail({ ...code, decidedBy: "code" });
 

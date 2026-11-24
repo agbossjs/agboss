@@ -10,7 +10,7 @@ import { TopicDto } from "../../dto/topic.dto.js";
 @Agent({
   name: "researcher-agent",
   description: "Researches one topic, or says it is too broad and lists its subtopics",
-  promptUrls: ["./researcher.prompt.md"],
+  prompt: "./researcher.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     topic: TopicDto,

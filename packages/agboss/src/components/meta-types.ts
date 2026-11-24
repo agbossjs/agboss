@@ -48,7 +48,6 @@ export interface AgentMeta
   readonly name: string;
   readonly description: string;
   readonly prompt?: PromptSource;
-  readonly promptUrls?: readonly string[];
   readonly model?: string;
   /** The `@ModelProvider` class its model is served from (#1313); left out: its workflow's, its application's. */
   readonly modelProvider?: Class;

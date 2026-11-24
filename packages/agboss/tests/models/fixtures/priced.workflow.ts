@@ -19,7 +19,7 @@ export class SummaryDto {
 /** Priced by its provider's table (local/llama), no price of its own. */
 @Agent({
   name: "summariser-agent",
-  promptUrls: ["./summariser.prompt.md"],
+  prompt: "./summariser.prompt.md",
   description: "Summarises the task",
   model: "local/llama",
   input: { task: WorkflowStartTextDto },
@@ -30,7 +30,7 @@ export class Summariser {}
 /** Priced by its provider's replyWith (OpenRouter's usage.cost). */
 @Agent({
   name: "writer-agent",
-  promptUrls: ["./writer.prompt.md"],
+  prompt: "./writer.prompt.md",
   description: "Writes the replyWith",
   model: "moonshotai/kimi-k2.6",
   reasoning: Reasoning.off(),

@@ -96,7 +96,7 @@ export class ReadFile {
   price: testConfig.agents.alpha.price,
   reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
   tools: [GreetTool, ReadFile],
-  promptUrls: ["./greeter.prompt.md"],
+  prompt: "./greeter.prompt.md",
   promptVariables: { language: "Hebrew" },
 })
 export class GreeterAgent {}

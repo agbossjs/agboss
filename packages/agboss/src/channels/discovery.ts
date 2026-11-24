@@ -157,7 +157,7 @@ export interface AssembledReplyInterpreter {
   readonly modelProvider?: string;
   /** The provider has no `cost`: its calls are `CostSource.Unpriced` (#1313). */
   readonly unpriced?: true;
-  /** A model interpreter's instructions (`prompt` / `promptUrls`, static); `""` for a code one. */
+  /** A model interpreter's instructions (`prompt`, static); `""` for a code one. */
   readonly instructions: string;
 }
 

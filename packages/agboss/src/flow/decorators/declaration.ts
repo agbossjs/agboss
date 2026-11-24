@@ -35,7 +35,7 @@ export const isFieldMap = <TFields extends InputFields>(
   input: DtoClass | ListWrapper | TFields,
 ): input is TFields => typeof input !== "function" && !isWrapper(input);
 
-/** A declaration of one kind: the options as written and the declaring file (`promptUrls`, …). */
+/** A declaration of one kind: the options as written and the declaring file (a `prompt` path is read next to it). */
 export interface Declared<TKind extends NodeKind, TOptions> {
   readonly kind: TKind;
   readonly options: TOptions;

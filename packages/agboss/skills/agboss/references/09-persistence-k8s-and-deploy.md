@@ -753,7 +753,7 @@ file (`sqlitePath: join(mkdtempSync(join(tmpdir(), "app-")), "stores.sqlite")`) 
   whose instance died is taken over by a live worker once its 30 s lease expires — automatically,
   only when the child queue and the leases are shared stores (`SqliteChildExecutionQueueRepository`
   and `SqliteExecutionLeaseRepository` on one file, or your own over a shared database).
-- Missing non-TypeScript assets in `dist/`: `tsc` does not copy `*.prompt.md` (`promptUrls`) or
+- Missing non-TypeScript assets in `dist/`: `tsc` does not copy `*.prompt.md` (a `prompt` path) or
   `sql/*.sql` files, so a compiled `node dist/…` in a container fails at start with
   `[prompt.missing-file]` — make the project's build copy every non-`.ts` file of `src/` next to its
   compiled module, and run that build in the image.

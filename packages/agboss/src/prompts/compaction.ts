@@ -1,6 +1,6 @@
 /**
  * The texts of compaction (#120 PR 3): the built-in prompt of each strategy that writes summaries
- * (a `@Compaction` without `prompt` / `promptUrls` gets its strategy's), the headings of what the
+ * (a `@Compaction` without `prompt` gets its strategy's), the headings of what the
  * compaction model reads, and the one "shorter" retry of a summary cut at `summaryMaxTokens`. Part of
  * the prompt version of a workflow that compacts.
  */

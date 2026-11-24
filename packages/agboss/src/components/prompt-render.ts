@@ -178,15 +178,9 @@ export class PromptLoader {
     const { options, source, label } = owner;
     if (options === undefined) return [];
     const pieces = promptPiecesOf(options.prompt);
-    const urls = (options.promptUrls ?? []).map((url) => ({
-      kind: "file" as const,
-      path: url,
-      via: "promptUrls",
-    }));
-    const all = [
-      ...pieces.map((piece) => (piece.kind === "file" ? { ...piece, via: "prompt" } : piece)),
-      ...urls,
-    ];
+    const all = pieces.map((piece) =>
+      piece.kind === "file" ? { ...piece, via: "prompt" } : piece,
+    );
     const segments = await Promise.all(
       all.map(async (piece): Promise<Segment | undefined> => {
         if (piece.kind === "bare") {

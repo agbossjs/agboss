@@ -57,7 +57,7 @@ export class ApiSettings {
   model: "test/clerk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [ApiSettings],
-  promptUrls: ["./clerk.prompt.md"],
+  prompt: "./clerk.prompt.md",
 })
 export class Clerk {}
 

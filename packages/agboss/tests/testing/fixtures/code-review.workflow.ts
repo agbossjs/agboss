@@ -34,7 +34,7 @@ export class ReviewDto {
 
 @Agent({
   name: "coder-agent",
-  promptUrls: ["./coder.prompt.md"],
+  prompt: "./coder.prompt.md",
   description: "Writes the code",
   model: "test/coder",
   price,
@@ -45,7 +45,7 @@ export class Coder {}
 
 @Agent({
   name: "reviewer-agent",
-  promptUrls: ["./reviewer.prompt.md"],
+  prompt: "./reviewer.prompt.md",
   description: "Reviews the code",
   model: "test/reviewer",
   price,

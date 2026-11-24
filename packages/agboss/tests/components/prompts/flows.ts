@@ -10,7 +10,7 @@ import { EmptyEnvironment } from "../../../src/index.js";
 
 /** Prompts of one flow: the agent's (inline or files), the router's and its route's. */
 export interface FlowPrompts {
-  readonly agent?: { readonly prompt?: PromptSource; readonly promptUrls?: readonly string[] };
+  readonly agent?: { readonly prompt?: PromptSource };
   readonly router?: string;
   readonly route?: string;
 }
@@ -77,5 +77,5 @@ export function workflowWith(prompts: FlowPrompts): {
 export const Templated = workflowWith({
   router: "Pick who handles it; the boards are {{boards}}.",
   route: "Scouting {{boards}}",
-  agent: { promptUrls: ["./scout.prompt.md"] },
+  agent: { prompt: "./scout.prompt.md" },
 });

@@ -262,7 +262,7 @@ describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
       name: "file-prompt-router",
       description: "Routes by a prompt file",
       decidedBy: DecidedBy.Model,
-      promptUrls: ["./file-prompt.prompt.md"],
+      prompt: "./file-prompt.prompt.md",
       promptVariables: { team: "recruiting" },
       input: { draft: OfferDraftDto },
       routes: [{ target: EditorAgent, prompt: "The draft needs edits" }],
@@ -271,7 +271,7 @@ describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
 
     expect(declarationOf(FilePromptRouter)).toMatchObject({
       options: {
-        promptUrls: ["./file-prompt.prompt.md"],
+        prompt: "./file-prompt.prompt.md",
         promptVariables: { team: "recruiting" },
       },
       source: thisFile,

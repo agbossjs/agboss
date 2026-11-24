@@ -7,7 +7,7 @@ import { PlacePurchaseTool } from "../../tools/place-purchase.tool.js";
 @Agent({
   name: "flight-buyer-agent",
   description: "Books the flights",
-  promptUrls: ["./flight-buyer.prompt.md"],
+  prompt: "./flight-buyer.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     request: WorkflowStartTextDto,

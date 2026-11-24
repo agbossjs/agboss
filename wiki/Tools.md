@@ -184,7 +184,7 @@ declare class GreenhouseJobs { execute(input: object): Promise<object> }
 @Agent({
   name: "scout",
   description: "Finds jobs",
-  promptUrls: ["./scout.prompt.md"],
+  prompt: "./scout.prompt.md",
   model: "moonshotai/kimi-k2.6",
   tools: [GreenhouseJobs],
   executionLimits: { maxToolCalls: 4 },

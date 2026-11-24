@@ -23,7 +23,7 @@ import {
 
 /**
  * A workflow's guardrails as assembled (#120): each listed class checked, its question read
- * (`prompt` / `promptUrls`, like any prompt at assembly) and its model resolved — its own, else
+ * (`prompt`, like any prompt at assembly) and its model resolved — its own, else
  * the workflow's `defaults.guardrail.model` — and every agent's and model router's guardrails by
  * side; a code guardrail (#383) has neither question nor model. Any rule broken fails the
  * assembly, all at once.

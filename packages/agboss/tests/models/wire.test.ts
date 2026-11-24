@@ -168,7 +168,7 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
       name: "writer-agent",
       description: "Writes",
       model: "local/llama",
-      promptUrls: [join(dir, "writer.prompt.md")],
+      prompt: join(dir, "writer.prompt.md") as `/${string}`,
     })
     class Writer {}
     @Workflow({

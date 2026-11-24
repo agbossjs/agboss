@@ -78,7 +78,6 @@ export interface ModelChannelInterpreterOptions {
   readonly modelProvider?: Class;
   /** How to read a reply; static — the question and the reply come in the input message. */
   readonly prompt?: PromptSource;
-  readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
   readonly promptVariables?: PromptVariables;
   readonly deps?: never;
@@ -93,7 +92,6 @@ export interface CodeChannelInterpreterOptions<TDeps extends readonly Token[] = 
   readonly model?: never;
   readonly modelProvider?: never;
   readonly prompt?: never;
-  readonly promptUrls?: never;
   readonly promptVariables?: never;
 }
 
@@ -125,7 +123,6 @@ export function ChannelInterpreter(
     // a model one has a `prompt` (or names its model or provider); a class with `interpret` decides by code
     const isModel =
       options.prompt !== undefined ||
-      options.promptUrls !== undefined ||
       options.model !== undefined ||
       options.modelProvider !== undefined;
     const named = isModel

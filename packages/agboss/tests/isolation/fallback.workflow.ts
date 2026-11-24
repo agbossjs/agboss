@@ -81,7 +81,7 @@ export class Unmapped202 extends OpenAiCompatibleProvider {
 
 @Agent({
   name: "cashier-agent",
-  promptUrls: ["./cashier.prompt.md"],
+  prompt: "./cashier.prompt.md",
   description: "Answers",
   model: "primary/model",
 })

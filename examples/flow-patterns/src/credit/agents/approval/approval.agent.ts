@@ -6,7 +6,7 @@ import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 @Agent({
   name: "approval-agent",
   description: "Approves a large order",
-  promptUrls: ["./approval.prompt.md"],
+  prompt: "./approval.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     order: CreditOrderDto,

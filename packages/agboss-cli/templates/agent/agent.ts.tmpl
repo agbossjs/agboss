@@ -3,7 +3,7 @@ import { Agent } from "@agboss/core";
 @Agent({
   name: "{{kebab}}-agent",
   description: "{{description}}",
-  promptUrls: ["./{{kebab}}.prompt.md"],
+  prompt: "./{{kebab}}.prompt.md",
   model: "moonshotai/kimi-k2.6",
   maxTokens: 4000,
   tools: [{{tools}}],

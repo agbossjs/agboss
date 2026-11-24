@@ -137,7 +137,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   answer DTO: `ToolCallApprovalDecisionDto` for an `approves` role, `overrideArguments` checked by
   the tool's input). Code downstream decides by types, never by the text.
 - **`DecidedBy.Model`** — a chat model answers through one answer tool of the role's answer DTO; its
-  static `prompt` / `promptUrls` are its instructions, the question and the reply come in the input
+  static `prompt` are its instructions, the question and the reply come in the input
   message (`### ask` / `### reply`, #270 Q51). For an approval role (#648) the answer tool describes
   `overrideArguments` by the approved tool's input, every field optional: the fields the reply
   changes, laid over the call's own arguments (`ask.arguments`) before validation — "ok but only up

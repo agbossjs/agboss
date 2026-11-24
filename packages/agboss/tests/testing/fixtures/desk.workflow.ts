@@ -172,7 +172,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 
 @Agent({
   name: "support-agent",
-  promptUrls: ["./support.prompt.md"],
+  prompt: "./support.prompt.md",
   description: "Answers questions about orders and keeps notes",
   model: "test/support",
   price,
@@ -182,7 +182,7 @@ export class Support {}
 
 @Agent({
   name: "writer-agent",
-  promptUrls: ["./writer.prompt.md"],
+  prompt: "./writer.prompt.md",
   description: "Writes replies",
   model: "test/writer",
   price,

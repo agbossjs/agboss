@@ -32,10 +32,6 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
     readonly name: string;
     // (undocumented)
     readonly output: Out;
-    // (undocumented)
-    readonly prompt?: string;
-    // (undocumented)
-    readonly promptUrls?: readonly string[];
     readonly readOnly?: boolean;
     readonly timeout?: Milliseconds;
     readonly toolInterceptors?: readonly Class[];
@@ -47,8 +43,6 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "ToolOptions".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".
-// src/components/decorators.ts - (ae-undocumented) Missing documentation for "prompt".
-// src/components/decorators.ts - (ae-undocumented) Missing documentation for "promptUrls".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "channel".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "input".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "output".

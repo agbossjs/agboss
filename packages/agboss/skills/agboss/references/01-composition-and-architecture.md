@@ -467,6 +467,6 @@ export class ReadDocumentTool {
   `schemas/<name>.schema.ts`, and SQL DDL migrations in `sql/<name>.sql` (never inline SQL strings or
   string-interpolated queries in `.ts`).
 - Prompts and SQL missing from `dist/`: `tsc` copies only what it compiles, so a `*.prompt.md` named
-  in `promptUrls` or a `sql/*.sql` file is not there when a compiled `node dist/…` runs — the start
+  in a `prompt` path or a `sql/*.sql` file is not there when a compiled `node dist/…` runs — the start
   fails with `[prompt.missing-file]`. Make the project's build copy every non-`.ts` file of `src/`
   next to its compiled module (reference 09).

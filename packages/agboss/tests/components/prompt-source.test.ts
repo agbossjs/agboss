@@ -18,7 +18,7 @@ import { workflowWith, type FlowPrompts } from "./prompts/flows.js";
 
 const asPath = (file: string) => file as `/${string}`;
 
-/** #1347a: `PromptSource`, `inline()` and the loader's reading of files next to today's text and `promptUrls`. */
+/** #1347: `PromptSource`, `inline()` and the loader's reading of files. */
 
 describe("#1347a: inline()", () => {
   it("a call keeps the text as given", () => {
@@ -106,7 +106,7 @@ describe("#1347a: the loader reads parts in order", () => {
   });
 });
 
-describe("#1347a: the hash does not change: [inline(x), file] renders as prompt: x + promptUrls: [file]", () => {
+describe("#1347: the hash is that of the joined text: [inline(x), file] renders as inline(x + blank line + the file)", () => {
   async function versionOf(prompts: FlowPrompts): Promise<string> {
     const bundle = await workflowOf(workflowWith(prompts).workflow);
     return executionVersions({
@@ -121,7 +121,9 @@ describe("#1347a: the hash does not change: [inline(x), file] renders as prompt:
     const file = join(dir, "tone.prompt.md");
     await writeFile(file, "Speak plainly about {{boards}}.\n");
 
-    const old = await versionOf({ agent: { prompt: inline("You scout."), promptUrls: [file] } });
+    const old = await versionOf({
+      agent: { prompt: inline("You scout.\n\nSpeak plainly about {{boards}}.") },
+    });
     const next = await versionOf({ agent: { prompt: [inline("You scout."), asPath(file)] } });
 
     expect(next).toBe(old);

@@ -72,7 +72,7 @@ import { Agent } from "@agboss/core";
 @Agent({
   name: "scout-agent",
   description: "Finds jobs",
-  promptUrls: ["./scout.prompt.md"],
+  prompt: "./scout.prompt.md",
   model: "moonshotai/kimi-k2.6",
   tools: [GreenhouseJobs],
 })
@@ -1268,7 +1268,7 @@ they are — `app.resume({ pauseId, reply }, options)`, exactly one of `decision
 `@ChannelRole`, one interpreter per role: `[channel.shared-interpreter]`). The interpreter gets the
 pause's original question and the reply (`{ ask, reply }`); what it gives is validated like a
 decision. `DecidedBy.Model` — a chat model answers through one answer tool, its static `prompt` /
-`promptUrls` its instructions, the question and the reply in the input message. For an approval role
+`prompt` its instructions, the question and the reply in the input message. For an approval role
 (`approves`) the model may be a decision model (Jev, #267 S124): it reads approve / refuse only — one
 `Decision.boolean("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
 and no `overrideArguments`; a question role (#659), whose answer needs more than a yes / no, cannot

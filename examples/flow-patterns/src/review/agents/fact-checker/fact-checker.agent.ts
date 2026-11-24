@@ -6,7 +6,7 @@ import { FactCheckDto } from "../../dto/fact-check.dto.js";
 @Agent({
   name: "fact-checker-agent",
   description: "Raises a claim to verify",
-  promptUrls: ["./fact-checker.prompt.md"],
+  prompt: "./fact-checker.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: EditorialPlanDto,

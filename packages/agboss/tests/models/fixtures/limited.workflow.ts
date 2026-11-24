@@ -57,7 +57,7 @@ export class LimitedModelProvider extends OpenAiCompatibleProvider {
 
 @Agent({
   name: "limited-agent",
-  promptUrls: ["./limited.prompt.md"],
+  prompt: "./limited.prompt.md",
   description: "Answers on the limited provider",
   model: "limited/model",
 })

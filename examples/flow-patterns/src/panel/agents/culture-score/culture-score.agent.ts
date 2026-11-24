@@ -6,7 +6,7 @@ import { ScoreDto } from "../../dto/score.dto.js";
 @Agent({
   name: "culture-score-agent",
   description: "Scores the culture fit",
-  promptUrls: ["./culture-score.prompt.md"],
+  prompt: "./culture-score.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: { candidate: CandidateDto },
   output: ScoreDto,
