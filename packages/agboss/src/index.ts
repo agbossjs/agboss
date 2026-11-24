@@ -54,6 +54,17 @@ export {
   type SqliteSchemaTooNewErrorOptions,
 } from "./infrastructure/sqlite/sqlite-schema-version.js";
 export { Ttl } from "./units/index.js";
+// `defineConfig` (#1318): one profile, `src/config/<name>.config.ts`
+export { defineConfig, type ConfigOverlay } from "./config/define-config.js";
+export type {
+  ConfigSpec,
+  DeepPartial,
+  ModelProviderOverlay,
+  PromptOverride,
+  WorkflowConfig,
+  WorkflowOverlay,
+} from "./config/overlay-types.js";
+export type { ProfileSelection } from "./config/profile-names.js";
 // `defineEnv` (#1324): the one reader of the process's variables
 export {
   bearer,

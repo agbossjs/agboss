@@ -1,0 +1,8 @@
+workflows:
+  profile-boss-workflow:
+    version: 1.0.0-low-thinking
+  profile-kid-workflow:
+    version: 1.0.0-low-thinking
+    agents:
+      kid-agent:
+        thinking: low

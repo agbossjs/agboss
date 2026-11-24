@@ -5,7 +5,6 @@ import {
   type ApplicationStart,
   type ExecutionStreamEvent,
 } from "@agboss/core/internal";
-import "dotenv/config";
 import { createInterface } from "node:readline";
 import { styleText } from "node:util";
 import { askWith } from "./cli/ask.js";
@@ -96,7 +95,6 @@ export const handle: CommandHandler = async (context) => {
   const input = runInputOf(context, start);
   const app = await createAppWith(application, {
     profile: textOption(context.values, "profile"),
-    profileRoot: context.io.cwd,
     env: envOption(context),
     processEnv: context.io.env,
   });

@@ -801,9 +801,7 @@ export interface ApplicationStorageOptions {
 export interface AppOptions {
     readonly env?: string | undefined;
     readonly meterProvider?: MeterProvider;
-    readonly profile?: string | undefined;
-    // (undocumented)
-    readonly profileRoot?: string | undefined;
+    readonly profile?: ProfileSelection | undefined;
 }
 
 // @public
@@ -1922,7 +1920,6 @@ export interface CompareProfilesOptions {
     readonly environmentName?: string;
     readonly meterProvider?: MeterProvider;
     readonly processEnv?: NodeJS.ProcessEnv;
-    readonly profileRoot?: string;
     readonly profiles: readonly string[];
     readonly providerFetch?: typeof fetch;
     readonly start: Class;
@@ -2187,6 +2184,11 @@ export enum ConfigErrorKind {
 }
 
 // @public
+export type ConfigOverlay = Readonly<ConfigSpec> & {
+    readonly [overlayBrand]: true;
+};
+
+// @public
 export interface ConfigSnapshot {
     // (undocumented)
     readonly firstSeen: string;
@@ -2196,6 +2198,19 @@ export interface ConfigSnapshot {
     readonly snapshot: string;
     // (undocumented)
     readonly version: string;
+}
+
+// @public
+export interface ConfigSpec {
+    readonly channels?: ApplicationOptions["channels"];
+    readonly defaults?: DeepPartial<AgentsConfig["defaults"]>;
+    readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
+    readonly healthChecks?: ApplicationOptions["healthChecks"];
+    readonly modelProvider?: Class;
+    readonly modelProviders?: Readonly<Record<string, ModelProviderOverlay>>;
+    readonly observers?: ApplicationOptions["observers"];
+    readonly storage?: ApplicationOptions["storage"];
+    readonly workflows?: Readonly<Record<string, WorkflowConfig>>;
 }
 
 // @public
@@ -2591,6 +2606,14 @@ export interface DeclaredLimits {
     readonly maxSpend?: Usd | EnvRef<Usd>;
     readonly maxTokens?: number | EnvRef<number>;
 }
+
+// @public
+export type DeepPartial<TValue> = TValue extends readonly unknown[] ? TValue : TValue extends object ? {
+    readonly [TKey in keyof TValue]?: DeepPartial<TValue[TKey]>;
+} : TValue;
+
+// @public
+export function defineConfig(spec: ConfigSpec): ConfigOverlay;
 
 // @public
 export function defineEnv<const TSpec extends EnvSpec>(spec: {
@@ -6309,6 +6332,12 @@ export interface ModelKindErrorOptions {
 }
 
 // @public
+export interface ModelProviderOverlay {
+    readonly model?: string;
+    readonly models?: Readonly<Record<string, string>>;
+}
+
+// @public
 export interface ModelReplyInterpreterOptions {
     // (undocumented)
     readonly decidedBy: DecidedBy.Model;
@@ -8097,6 +8126,9 @@ export interface ProfileReport {
 }
 
 // @public
+export type ProfileSelection = string | readonly string[];
+
+// @public
 export class PromptError extends ComponentError {
     constructor(options: PromptErrorOptions);
     // (undocumented)
@@ -8122,6 +8154,11 @@ export type PromptFilePath = `./${string}` | `../${string}` | `/${string}`;
 
 // @public
 export type PromptInput = string;
+
+// @public
+export type PromptOverride = string | {
+    readonly inline: string;
+};
 
 // @public
 export type PromptPart = PromptFilePath | InlinePrompt;
@@ -10813,6 +10850,11 @@ export function Workflow<const TName extends string, const TFlow extends readonl
 export type WorkflowClass = Class;
 
 // @public
+export interface WorkflowConfig extends WorkflowOverlay {
+    readonly modelProvider?: Class;
+}
+
+// @public
 export interface WorkflowDefaults {
     readonly files?: FileDefaults;
     // (undocumented)
@@ -10907,6 +10949,15 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly toolInterceptors?: readonly Class[];
     // (undocumented)
     readonly version: string;
+}
+
+// @public
+export interface WorkflowOverlay {
+    readonly agents?: Readonly<Record<string, DeepPartial<AgentSettings>>>;
+    readonly compactions?: Readonly<Record<string, DeepPartial<CompactionSettings>>>;
+    readonly defaults?: DeepPartial<AgentsConfig["defaults"]>;
+    readonly prompts?: Readonly<Record<string, PromptOverride>>;
+    readonly version?: string;
 }
 
 // @public
@@ -11067,7 +11118,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "filename".
 // src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
 // src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "filename".
-// src/app/create-app.ts - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/execution-output.ts - (ae-undocumented) Missing documentation for "spend".
 // src/app/execution-output.ts - (ae-undocumented) Missing documentation for "status".
 // src/app/execution-output.ts - (ae-undocumented) Missing documentation for "output".

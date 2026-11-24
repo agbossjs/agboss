@@ -144,7 +144,11 @@ export const handle: CommandHandler = async (context) => {
     scope: scopeOptionOf("rag", textOption(context.values, "scope")),
   };
   const loaded = await loadCliApplication(context);
-  const assembled = await assembleApplication(context, loaded);
+  const assembled = await assembleApplication(
+    context,
+    loaded,
+    textOption(context.values, "profile"),
+  );
   const environment = await applicationEnvironment(context, assembled);
   const bases = selected(context, knowledgeBasesOf(assembled.workflows, environment));
   if (bases.length === 0) context.say(`No knowledge bases in "${assembled.name}".`);

@@ -4,7 +4,7 @@
  */
 import { ComponentError } from "../../src/components/metadata.js";
 import { PromptError } from "../../src/components/prompt-problems.js";
-import { ProfileError } from "../../src/config/profiles.js";
+import { ProfileError } from "../../src/config/profile-error.js";
 import { DtoError } from "../../src/dto/errors.js";
 import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";

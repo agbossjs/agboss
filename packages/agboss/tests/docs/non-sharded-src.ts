@@ -252,6 +252,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "the application's declaration, its other rules and its description: build-time checks and wiring; its rules on a limit, a price and a budget are sharded (assembly-rules, spend)",
     [
       "src/application/a2a-expiries.ts",
+      "src/application/effective-options.ts",
+      "src/application/env-overrides.ts",
+      "src/application/instance-contexts.ts",
       "src/application/create-listed.ts",
       "src/application/app-options.ts",
       "src/application/application-pii.ts",
@@ -336,6 +339,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ]),
   ...reviewed("the components' decorators, assembly and injection: wiring, no money decision", [
     "src/components/agent-settings.ts",
+    "src/components/profiled.ts",
     "src/components/assemble-checks.ts",
     "src/components/assemble-parts.ts",
     "src/components/assemble-tools.ts",
@@ -1027,7 +1031,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed("a polyfill", ["src/polyfills/**"]),
-  ...reviewed("a profile workflow: tooling", ["src/profile-workflow.ts"]),
   ...reviewed("the prompts: rendering of text", ["src/prompts/**"]),
   ...reviewed("the public entry points: exports", [
     "src/public/app.ts",

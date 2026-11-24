@@ -8,7 +8,7 @@
  */
 export { createStartComponents } from "./app/start-components.js";
 export { renderTemplate } from "./components/render-template.js";
-export { ProfileError } from "./config/profiles.js";
+export { ProfileError, ProfileErrorReason } from "./config/profile-error.js";
 export type { AGBossErrorOptions, ErrorDetails, MessageErrorOptions } from "./core/errors.js";
 export { backtraceModeOf } from "./core/diagnostics/backtrace.js";
 export {

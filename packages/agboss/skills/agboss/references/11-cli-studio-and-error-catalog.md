@@ -90,7 +90,8 @@ there is no `--workflow <path>`.
   `Did you mean "…"?`) or a suite whose start is not the execution's (`[eval.case-start-mismatch]`);
   3 for an unknown execution (`records.not-found`) or an application that keeps none
   (`records.not-kept`); 4 when the suite already has a case of that name.
-- `--profile <name>` applies `profiles/<workflow>/<name>.yaml`; `--env <name>` picks
+- `--profile <name>` layers `src/config/<name>.config.ts|yaml` over `base.config.*` (`a,b` or `a+b`: left to
+  right; default `dev`); `--env <name>` picks
   `environments/<name>.environment.ts` (default `dev`).
 
 ### Exit codes and the JSON envelope

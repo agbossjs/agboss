@@ -2,12 +2,7 @@ import type { AppOptions } from "../app/create-app.js";
 import { shownValueOf } from "../core/shown-value.js";
 
 /** The four options `createApp` takes (#834): a JavaScript caller's other keys are refused, never ignored. */
-const APP_OPTIONS: readonly (keyof AppOptions)[] = [
-  "env",
-  "profile",
-  "profileRoot",
-  "meterProvider",
-];
+const APP_OPTIONS: readonly (keyof AppOptions)[] = ["env", "profile", "meterProvider"];
 
 const REFUSED = "infrastructure and settings go in @Application({ … }), test seams in testWith";
 
@@ -38,7 +33,6 @@ export function productionOptionsOf(options: unknown): AppOptions {
   return {
     ...(given.env === undefined ? {} : { env: given.env }),
     ...(given.profile === undefined ? {} : { profile: given.profile }),
-    ...(given.profileRoot === undefined ? {} : { profileRoot: given.profileRoot }),
     ...(given.meterProvider === undefined ? {} : { meterProvider: given.meterProvider }),
   };
 }

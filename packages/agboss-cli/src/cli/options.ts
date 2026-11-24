@@ -40,8 +40,10 @@ export const PROFILE: OptionSpec = {
   name: "profile",
   type: "string",
   value: "<name>",
-  help: "apply profiles/<workflow>/<name>.yaml",
+  help: "layer src/config/<name>.config.ts|yaml over base (a,b or a+b: left to right; default dev)",
 };
+/** The two that choose what an application runs on: its profiles, its environment. */
+export const PROFILE_AND_ENV: readonly OptionSpec[] = [PROFILE, ENV];
 export const THREAD: OptionSpec = {
   name: "thread",
   type: "string",
@@ -111,5 +113,6 @@ export const RAG_INDEX_OPTIONS: readonly OptionSpec[] = [
   text("rag", "<name>", "only this knowledge base"),
   INDEX_TENANT,
   INDEX_SCOPE,
+  PROFILE,
   ENV,
 ];

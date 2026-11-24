@@ -6,7 +6,7 @@ import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { GraphRuleError, type RuleViolation } from "../graph/rule-error.js";
 import { containerProvidersOf } from "../models/resolution.js";
-import { withProfile } from "../profile-workflow.js";
+import * as P from "./effective-options.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { COMPENSATION_TIMEOUT } from "../flow/compensation.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -42,7 +42,7 @@ import { OutboundMasking } from "../app/outbound-masking.js";
  */
 
 /** An assembled application: what `createApp` and `testWith` build an app instance from. */
-export interface AssembledApplication extends AssembledKeyFields, StorageFields {
+export interface AssembledApplication extends AssembledKeyFields, StorageFields, P.ProfileFields {
   readonly application: Class;
   readonly name: string;
   readonly version: string;
@@ -132,15 +132,16 @@ async function assembleWorkflows(
   workflows: readonly Class[],
   modules: readonly ProviderModule[],
   assembly: ApplicationAssembly,
-  owner: ApplicationOptions,
+  profiles: P.AppliedProfiles,
 ): Promise<{ readonly assembled: AssembledWorkflow[]; readonly errors: GraphRuleError[] }> {
   const assembled: AssembledWorkflow[] = [];
   const errors: GraphRuleError[] = [];
+  const owner = profiles.options;
   const contexts = contextTokensOf(declaredContextsOf(owner));
   for (const workflow of workflows) {
     try {
-      const bundle = await workflowOf(workflow, modules, owner, contexts, assembly.processEnv);
-      assembled.push(await withProfile(bundle, assembly.profile, assembly.profileRoot));
+      const own = { ...owner, patch: profiles.patchOf(workflow) };
+      assembled.push(await workflowOf(workflow, modules, own, contexts, assembly.processEnv));
     } catch (error) {
       if (!(error instanceof GraphRuleError)) throw error;
       errors.push(error);
@@ -200,7 +201,8 @@ export async function applicationOf(
   assembly: ApplicationAssembly = {},
   where = "createApp",
 ): Promise<AssembledApplication> {
-  const { options, source } = requireApplication(application, where);
+  const applied = await P.appliedProfilesOf(requireApplication(application, where), assembly);
+  const { options, source } = applied;
   checkContextFields(options);
   checkObservers(options.observers ?? []);
   const own = applicationRuleViolations(application, options);
@@ -208,7 +210,8 @@ export async function applicationOf(
   const all = withChildWorkflows(options.workflows);
   const modules = [applicationModule(options), ...workflowModules(all)];
   const workflows = all.filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow);
-  const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, options);
+  const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, applied);
+  if (errors.length === 0) P.checkAppliedProfiles(applied, assembled);
   const keys = idempotencyKeyViolations(
     options,
     assembled,
@@ -226,6 +229,7 @@ export async function applicationOf(
     modules,
     ...listedOf(options),
     workflows: assembled,
+    ...P.profileFieldsOf(applied),
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     ...assembledRetentionsOf(retention),
     ...storageFieldsOf(options.storage),

@@ -1,5 +1,4 @@
 import { evaluate, goldenFile, goldenFromRecent, replay, saveGolden } from "@agboss/core/internal";
-import "dotenv/config";
 import {
   requiredText,
   textOption,
@@ -59,7 +58,7 @@ async function goldenCommand(context: CommandContext): Promise<CommandOutcome> {
   if (context.positionals[0] !== "add")
     throw usageError("golden", "usage.missing-argument", 'expected "agboss golden add …"');
   const name = requiredText(context.values, "name");
-  const deps = await depsFor(context, undefined);
+  const deps = await depsFor(context, textOption(context.values, "profile"));
   try {
     const fromLast = Number(requiredText(context.values, "from-last"));
     const set = await goldenFromRecent(deps.turns, deps.config.name, name, fromLast);

@@ -382,8 +382,10 @@ baseline, `eval.regressed`, #396).
 input to the chosen start, print the finish's output, ask in the terminal about each pause the
 thread's owner answers and continue it with `app.resume({ pauseId, decision })` ([Pauses](Pauses)),
 and close the app (components' `onStop`, MCP servers) at the end. `eval score`, `replay`, `golden`
-and `compare` assemble the application and work on the start's workflow — a `--profile` is that
-workflow's own (`profiles/<workflow>/<name>.yaml`).
+and `compare` assemble the application and work on the start's workflow — a `--profile` is a
+profile of the application (`src/config/<name>.config.ts|yaml`, layered `a,b` left to right over
+`base.config.*`; `compare` joins the layers of one entry with `+`). The project's `.env` is read from
+the folder of the `package.json` that holds the application, not the working directory.
 
 ### `agboss eval`: subcommands (#396)
 

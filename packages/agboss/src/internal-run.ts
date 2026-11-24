@@ -11,7 +11,6 @@ export {
   type WorkflowTools,
 } from "./workflow.js";
 export { loadWorkflow } from "./loader/load-workflow.js";
-export { withProfile } from "./profile-workflow.js";
 export { resumeAgent } from "./run/resume-agent.js";
 export { executeAgent } from "./run/run-agent.js";
 export type { AgentExecutionDeps, AgentExecutionOptions } from "./run/types.js";

@@ -92,7 +92,7 @@ without pass^k — and writes the run artifact (`kind: "agboss.eval-run"`, `sche
 same case of an earlier artifact (`CaseComparison`: `Regressed` = pass^k there and not now,
 `FlakyOnBaseline` quarantined, `Changed` = another `caseHash`, not compared; `New`, `Removed`,
 `Improved`, `Unchanged`), and with `--fail-on-regression` a regression is exit 5 (`quality`,
-`eval.regressed`); `--profile <name>` runs it on a profile; the case's history turns are kept
+`eval.regressed`); `--profile <name>` runs it on the application's profiles (`src/config/`); the case's history turns are kept
 `ExecutionRecordStatus.Written`, never scored by `eval score` nor saved by `golden add`; `agboss eval
 score` is the Jev scoring of recorded runs (the bare `agboss eval` before, which now lists both and
 exits 2); `agboss eval run … --html <file>` and `agboss eval show <run.json> [--html <file>]` (#397 PR 1)
@@ -193,7 +193,7 @@ repository (#489, Wiki → ADR-0025-Examples-live-in-agbossjs-agboss-examples): 
 `@agboss/core` whose `check`, `test` and `demo` scripts run offline at $0 in that repository's CI;
 before a release the maintainer runs every example there against the candidate with real models
 (`RELEASE_CHECKLIST.md` → Examples against the release candidate). Any run command takes
-`--profile <name>` (`profiles/<workflow>/<name>.yaml`) and `--thread <id>`.
+`--profile <name>` (`src/config/<name>.config.ts|yaml`, `a,b` layered left to right) and `--thread <id>`.
 
 In `examples/flow-patterns/` (#295, the zero-cost harness of the public surface, #419; scripted tests,
 no model key): `npm run check` (`agboss check --strict --cassettes` on its offline `src/desk.application.ts`
@@ -2256,7 +2256,7 @@ passed (a skipped one fails it, S2 Q6).
 ### Runs: context, limits, errors
 
 - `const app = await createApp(DeskApplication, { env })` (#261: always an `@Application`;
-  `createApp(Workflow)` does not compile; #834: its options are `env`, `profile`, `profileRoot` and
+  `createApp(Workflow)` does not compile; #834: its options are `env`, `profile` and
   `meterProvider` only — a JS caller's other key is refused; the seams — `processEnv`, `gateway`,
   `providerFetch`, MCP transports, the container's hooks — are the internal build path's,
   `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
@@ -3152,7 +3152,6 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
                     create` writes and for this repo's own config (so lint runs on the build)
     internal.ts     `@agboss/core/internal`: what the CLI is built on — not public, not for projects
   tests/            unit tests (helpers.ts = fakes; fixtures/ = test workflows); routers/ alone; smoke/ = real
-  schema/           profile.schema.json (YAML autocomplete)
 packages/agboss-cli/    the `agboss` command (#205, npm package `@agboss/cli`; depends on @agboss/core, same version)
   src/
     cli/            main.ts → run-cli.ts (argv → exit code 0/1/2 usage/3 project/4 conflict/5 quality, --json

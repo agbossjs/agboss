@@ -37,6 +37,7 @@ import type { ExecutionOptions, ExecutionOutput, WorkflowApp } from "./types.js"
 import { ExecutionOperation } from "../core/observability.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import { orphanEndsOf, type OrphanEnds } from "./orphan-tree.js";
+import type { ProfileSelection } from "../config/profile-names.js";
 import { expireRootOf, type ExpireRoot } from "./expire-root.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
@@ -50,7 +51,7 @@ import { checkedCallerId } from "../flow/context/context-values.js";
 export { NotAWorkflowStartError } from "./starts.js";
 
 /**
- * `createApp` options (#834): the environment, a profile on top of each workflow and where the
+ * `createApp` options (#834): the environment, the profiles layered on the application and where the
  * instance publishes its metrics — nothing else. Infrastructure is listed in
  * `@Application({ providers })`; every other setting is an `@Application` option, and the seams a
  * test or a tool replaces (models, MCP transports, the process environment) are on the internal
@@ -62,9 +63,13 @@ export interface AppOptions {
    * `dev`) — of an application that declares `@Application({ environment })`.
    */
   readonly env?: string | undefined;
-  /** `profiles/<workflow>/<profile>.yaml` under `profileRoot` (default: the working directory). */
-  readonly profile?: string | undefined;
-  readonly profileRoot?: string | undefined;
+  /**
+   * The profiles: `src/config/<name>.config.ts|yaml` next to the application file, layered left to
+   * right over `base.config.*` — `"prod"`, `"prod,economy"` (or `"prod+economy"`) or
+   * `["prod", "economy"]`. Default `"dev"`; a profile that is named and has no file fails, naming
+   * the ones that exist.
+   */
+  readonly profile?: ProfileSelection | undefined;
   /**
    * Where the instance publishes its metrics (#485, Wiki → Metrics): an OpenTelemetry
    * `MeterProvider` — an SDK one with a Prometheus or an OTLP exporter, or the global one

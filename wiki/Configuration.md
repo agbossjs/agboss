@@ -342,11 +342,46 @@ bounds), so no timer of the framework overflows.
 
 ## `createApp` options (#834)
 
-`createApp(App, { env, profile, profileRoot, meterProvider })` — nothing else: infrastructure is
+`createApp(App, { env, profile, meterProvider })` — nothing else: infrastructure is
 `@Application({ providers })`, settings are `@Application` options, and a `MeterProvider` is a
 runtime object, so it comes here. The seams a test or a tool replaces (the process environment, the
 model gateway, the providers' HTTP client, MCP transports) belong to the internal build path that
 `testWith` and the CLI use; a JavaScript caller's other key is refused, naming where it goes.
+
+## Profiles: `src/config/` (#1318)
+
+One folder, `src/config/` next to the file `@Application` is declared in (never `process.cwd()`), holds
+every profile: `<name>.config.ts` — `export default defineConfig({ … })` — or `<name>.config.yaml`
+(constants only: no `${ENV}`, no classes). `base.config.*` is the shared layer under every selection.
+`createApp(App, { profile })`, `testWith`, `studioOf` and every CLI command take the same selection:
+`"prod"`, `"prod,economy"` (or `"prod+economy"`) or `["prod", "economy"]`, layered left to right — a
+later profile wins per key, and within one profile `workflows."*"` applies before the workflow's own
+key. The default is `dev` (`createApp`, the CLI) and `test` (`testWith`): a default that has no file is
+no layer, a profile that was named and has none is a `ProfileError` listing the ones that exist, and
+`<name>.config.ts` together with `<name>.config.yaml` fails closed, as does a YAML that holds a
+`${…}`, a class, or a switch of a workflow's own feature (`memory`, `filePolicy`, `budget`).
+
+```ts
+// src/config/prod.config.ts
+import { configureEnv, defineConfig } from "@agboss/core";
+import { appEnv } from "./app.env.js";
+
+export default defineConfig({
+  env: configureEnv(appEnv, { region: "eu" }), // defineEnv stays the only reader of process.env
+  defaults: { models: { temperature: 0.2 } },
+  modelProviders: { "credit-chat-models": { models: { fast: "claude-haiku-4-5" } } },
+  workflows: {
+    "*": { version: "1.4.0-prod" },
+    "credit-workflow": { agents: { "order-intake-agent": { temperature: 0 } } },
+  },
+  modelProvider: ProdModels, // replaces @Application({ modelProvider }); also storage, channels, observers, healthChecks
+});
+```
+
+The overlay is applied while the workflow is assembled, before its models resolve through the
+cascade, so a role a profile names (`model: "fast"`) resolves like a declared one; the decorators'
+own options are never changed. The project's `.env` is read from the folder of the `package.json`
+that holds the application — one file, no `.env.<name>`.
 
 ## Environments
 

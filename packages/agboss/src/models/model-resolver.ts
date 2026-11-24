@@ -3,6 +3,7 @@ import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-err
 import {
   levelModelOf,
   modelNamedBy,
+  overlaidProvider,
   providerOptionsOf,
   referencedModelProvidersOf,
   type ModelCascade,
@@ -107,8 +108,9 @@ function resolvedUse<T extends ModelUseLike>(
       );
     return named;
   }
-  const options = providerOptionsOf(cls);
-  if (options === undefined) return named;
+  const declared = providerOptionsOf(cls);
+  if (declared === undefined) return named;
+  const options = overlaidProvider(declared, state.cascade.providerOverlays?.[declared.name]);
   state.reached.add(cls);
   const model = modelOf(state, options, cls, { model: named.model, isOmitted, key });
   if (model === undefined) return named;

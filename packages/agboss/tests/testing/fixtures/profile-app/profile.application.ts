@@ -4,15 +4,15 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-} from "../../../src/index.js";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { Application } from "../../../src/application/application.js";
-import { DecisionsModelProvider } from "../../../src/models/index.js";
-import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { LocalModelProvider } from "../../models/providers.fixture.js";
-import { onStart } from "../../helpers/flow.js";
+} from "../../../../src/index.js";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
+import { Application } from "../../../../src/application/application.js";
+import { DecisionsModelProvider } from "../../../../src/models/index.js";
+import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
+import { LocalModelProvider } from "../../../models/providers.fixture.js";
+import { onStart } from "../../../helpers/flow.js";
 
-/** The child's agent: `profiles/profile-kid-workflow/*.yaml` change its settings. */
+/** The child's agent: `config/*.config.yaml` change its settings (`workflows.profile-kid-workflow.agents`). */
 @Agent({ name: "kid-agent", description: "Answers", prompt: "Answer.", model: "local/llama" })
 export class Kid {}
 

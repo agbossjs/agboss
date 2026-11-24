@@ -34,7 +34,7 @@ function namesOf(report: string): { top: Set<string>; spaces: Map<string, string
 }
 
 describe("#895: the values that moved to /internal are not on the root", () => {
-  const moved = ["loadWorkflow", "executeAgent", "resumeAgent", "withProfile", "resolveTools"];
+  const moved = ["loadWorkflow", "executeAgent", "resumeAgent", "resolveTools"];
 
   it.each([...moved, "executionVersions", "workflowOf", "toolOf"])("%s", (name) => {
     expect(internal).toHaveProperty(name);

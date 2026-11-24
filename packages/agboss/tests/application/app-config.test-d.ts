@@ -44,11 +44,16 @@ describe("#834 AC1: one retention group", () => {
   });
 });
 
-describe("#834 AC4: createApp takes env, profile, profileRoot and meterProvider only", () => {
-  it("its options are those four", () => {
-    expectTypeOf<keyof AppOptions>().toEqualTypeOf<
-      "env" | "profile" | "profileRoot" | "meterProvider"
-    >();
+describe("#834 AC4: createApp takes env, profile and meterProvider only", () => {
+  it("its options are those three", () => {
+    expectTypeOf<keyof AppOptions>().toEqualTypeOf<"env" | "profile" | "meterProvider">();
+  });
+
+  it("#1318d1: profile is one name, a comma/plus list, or a list of names — profileRoot is gone", () => {
+    expectTypeOf<AppOptions["profile"]>().toEqualTypeOf<string | readonly string[] | undefined>();
+    // @ts-expect-error -- profiles live in src/config next to the application file, not under a root
+    const rooted: AppOptions = { profileRoot: "." };
+    expectTypeOf(rooted).toBeObject();
   });
 
   it("the seams are on the internal build path", () => {

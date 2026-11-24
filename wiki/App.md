@@ -78,7 +78,7 @@ import { JobScoutApplication } from "./job-scout.application.js";
 ```ts
 import { ExecutionStatus, createApp } from "@agboss/core";
 
-// optional: { env: "staging", profile: "scout-low-thinking" }
+// optional: { env: "staging", profile: "scout-low-thinking" } or { profile: "prod,economy" }
 const app = await createApp(JobScoutApplication);
 
 const first = await app.execute(ChatWorkflowStart, { text: "save the first job" });
@@ -528,7 +528,7 @@ default. Infrastructure is not an option: it is listed in `@Application({ provid
 | `clock`                   | the system clock (the built-in ledger's UTC day, the records' times)                              |
 | `newThreadId`, `newRunId` | random UUIDs                                                                                      |
 | `container`               | `overrides` (values instead of classes — test mocks), `onCreate`                                  |
-| `profile`, `profileRoot`  | none ([Profiles and comparisons](Profiles-and-comparisons))                                       |
+| `profile`                 | none ([Configuration → Profiles](Configuration#profiles-srcconfig-1318))                          |
 
 `@agboss/core/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, a test clock,
 deterministic ids — on the infrastructure the application lists.

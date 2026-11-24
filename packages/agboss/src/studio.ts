@@ -1,3 +1,4 @@
+import type { ProfileSelection } from "./config/profile-names.js";
 import { createAppDeps, type AppDeps, type AppDepsOptions } from "./app/app-deps.js";
 import type { ModelGateway } from "./llm/gateway.js";
 import { applicationOf } from "./application/assemble.js";
@@ -15,8 +16,10 @@ import { studioGraph } from "./graph/studio-graph.js";
  * `recursive: maxDepth N` (#264). The module `agboss studio` writes into `.agboss/` reads them by name.
  */
 
-/** How `agboss studio` builds the graphs: the environment (`--env`, default `dev`). */
+/** How `agboss studio` builds the graphs: the profiles (`--profile`) and the environment (`--env`, default `dev`). */
 export interface StudioOptions {
+  /** The profiles layered on the application, as `createApp`'s `profile`; default `dev`. */
+  readonly profile?: ProfileSelection | undefined;
   /** `environments/<env>.environment.ts` next to the application file; default `dev`. */
   readonly env?: string | undefined;
   /** The process environment the environment reads; default `process.env`. */
@@ -64,7 +67,7 @@ export async function studioOfWith(
   const processEnv = options.processEnv ?? process.env;
   const assembled = await applicationOf(
     application,
-    { withoutIdempotencyKeys: true },
+    { profile: options.profile, processEnv, withoutIdempotencyKeys: true },
     "agboss studio",
   );
   const environment = await namedEnvironmentFor(

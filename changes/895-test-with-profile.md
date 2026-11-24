@@ -3,11 +3,9 @@ section: Added
 issue: 895
 ---
 
-**`testWith(App, { profile, profileRoot })` runs a workflow under a profile** (#895): the same two
-options as `createApp(App, { profile, profileRoot })`, `profiles/<workflow>/<profile>.yaml` under
-`profileRoot` (default `process.cwd()`; in a monorepo
-`fileURLToPath(new URL("..", import.meta.url))`, never `.pathname`), applied to every workflow of the
-application, the child workflows too, with the models scripted. It replaces `withProfile` of
+**`testWith(App, { profile })` runs an application under a profile** (#895, profiles are
+`src/config/<name>.config.ts|yaml` since #1318): the same option as `createApp(App, { profile })`,
+applied to every workflow of the application, the child workflows too, with the models scripted. It replaces `withProfile` of
 `@agboss/core/internal` in a test. The new read-only `app.settings` (by workflow name) gives what
 the profile applied: `app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking`.
 

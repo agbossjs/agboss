@@ -1,0 +1,4 @@
+workflows:
+  profile-kid-workflow:
+    prompts:
+      kid-agent: "Key ${SECRET_KEY_NAME}"

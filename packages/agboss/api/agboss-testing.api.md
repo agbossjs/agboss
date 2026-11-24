@@ -910,6 +910,7 @@ export const studioOf: (application: Class, options?: StudioOptions) => Promise<
 export interface StudioOptions {
     readonly env?: string | undefined;
     readonly processEnv?: NodeJS.ProcessEnv;
+    readonly profile?: ProfileSelection | undefined;
 }
 
 // @public
@@ -1108,8 +1109,7 @@ export interface TestWithOptions extends EnvironmentSelection {
     readonly concurrency?: TestConcurrency;
     readonly instances?: number | readonly TestInstanceOptions[];
     readonly overrides?: readonly Override[];
-    readonly profile?: string | undefined;
-    readonly profileRoot?: string | undefined;
+    readonly profile?: ProfileSelection | undefined;
     readonly real?: readonly Class[];
     readonly vcr?: VcrConfig;
 }

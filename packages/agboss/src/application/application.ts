@@ -216,6 +216,8 @@ export type SecretFieldOf<TEnvironment> = unknown extends TEnvironment
 /** What `@Application` recorded: its options and the file it is declared in. */
 export interface ApplicationDeclaration {
   readonly options: ApplicationOptions;
+  /** The options as written, before the shelves, storage and services became providers (#1318: profiles replace them). */
+  readonly written: ApplicationOptions;
   readonly source?: string;
 }
 
@@ -239,17 +241,24 @@ function withShelfProviders(options: ApplicationOptions): ApplicationOptions {
   return { ...options, providers: [...listed, ...shelves.filter((cls) => !listed.includes(cls))] };
 }
 
+/**
+ * The options as everything downstream reads them: `storage` becomes the stores in `providers`, the
+ * shelves and `services` join them — one list.
+ */
+export const declaredOptionsOf = (options: ApplicationOptions): ApplicationOptions =>
+  withServices(withStorageProviders(withShelfProviders(options)));
+
 export function Application<TEnvironment>(options: ApplicationOptions<TEnvironment>) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
     // kept as the application's options: the contract's field types are a compile-time check only
-    // `storage` becomes the stores in `providers`: everything downstream reads one list
-    const declared = withServices(
-      withStorageProviders(withShelfProviders(options as ApplicationOptions)),
-    );
+    const written = options as ApplicationOptions;
+    const declared = declaredOptionsOf(written);
     applications.set(
       value,
-      source === undefined ? { options: declared } : { options: declared, source },
+      source === undefined
+        ? { options: declared, written }
+        : { options: declared, written, source },
     );
     // a child workflow belongs to its parents' application, listed or not (#263)
     for (const workflow of withChildWorkflows(options.workflows))

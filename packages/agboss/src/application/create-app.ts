@@ -1,20 +1,14 @@
-import type { AppDepsOptions, BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
+import type { BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
 import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import { startComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
-import {
-  APP_DEFAULT_ENVIRONMENT,
-  namedEnvironmentFor,
-  type EnvironmentOwner,
-} from "../environments/load.js";
+import { namedEnvironmentFor, type EnvironmentOwner } from "../environments/load.js";
+import { contextsOf } from "./instance-contexts.js";
 import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
-import { randomUUID } from "node:crypto";
-import { applicationContextOf } from "../flow/context/application-context.js";
-import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import { withEnvOverrides } from "./env-overrides.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
-import type { Clock } from "../infrastructure/clock.js";
 import { gatedInfrastructure } from "./lease-gate.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { instanceAppOf } from "./compose-app.js";
@@ -50,30 +44,6 @@ export interface BuiltApplication {
   readonly closed: Promise<void>;
   /** The instance's log (its `Logger`, stamped by its clock). */
   readonly log: FrameworkLog;
-}
-
-/**
-/**
- * The instance's context levels (#261): its one `ApplicationContext` — name, version, its id,
- * when it started (the framework's clock), the chosen environment and the host — and the context
- * classes the application declares.
- */
-export function contextsOf(
-  assembled: AssembledApplication,
-  options: AppDepsOptions,
-  seams: InstanceSeams,
-  clock: Clock,
-): RuntimeContexts {
-  const application = applicationContextOf({
-    name: assembled.name,
-    version: assembled.version,
-    instanceId: seams.instanceId ?? randomUUID(),
-    startedAt: clock.now(),
-    environmentName: options.environmentName ?? APP_DEFAULT_ENVIRONMENT,
-    environment: options.environment ?? NO_ENVIRONMENT_VALUES,
-  });
-  const { tenantContext, executionContext } = assembled;
-  return { application, tenantContext, executionContext };
 }
 
 /**
@@ -150,10 +120,18 @@ export const budgetsOf = (assembled: AssembledApplication): BudgetListing => {
  * infrastructure first, then every workflow's components), then `onInit` → `onStart` of every
  * component the container created — once, for all the workflows.
  */
-export async function buildApplication(
+export const buildApplication = (
   assembled: AssembledApplication,
   options: BuildOptions = {},
   seams: InstanceSeams = {},
+): Promise<BuiltApplication> =>
+  // the profiles' `configureEnv` values stand in for the process's, per defineEnv key
+  builtOn(assembled, withEnvOverrides(options, assembled.envOverrides), seams);
+
+async function builtOn(
+  assembled: AssembledApplication,
+  options: BuildOptions,
+  seams: InstanceSeams,
 ): Promise<BuiltApplication> {
   const created: unknown[] = [];
   const onCreate = (instance: unknown): void => {

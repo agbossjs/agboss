@@ -73,7 +73,6 @@ function buildOf(context: CommandContext, application: Class, chaos: ChaosOption
     env: envOption(context),
     profile: textOption(context.values, "profile"),
     processEnv: context.io.env,
-    profileRoot: context.io.cwd,
   });
 }
 

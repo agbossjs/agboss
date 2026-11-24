@@ -1,7 +1,11 @@
-/** How the workflows are assembled: a profile on top of each (`profiles/<workflow>/<profile>.yaml`). */
+import type { ProfileSelection } from "../config/profile-names.js";
+
+/** How an application is assembled: the profiles layered on it (`src/config/<name>.config.ts|yaml`). */
 export interface ApplicationAssembly {
-  readonly profile?: string | undefined;
-  readonly profileRoot?: string | undefined;
+  /** `"prod"`, `"prod,economy"` (or `+`), `["prod", "economy"]`: layered left to right over `base`. */
+  readonly profile?: ProfileSelection | undefined;
+  /** The profile when none is named: `dev` (`createApp`, the CLI), `test` (`testWith`). */
+  readonly defaultProfile?: string | undefined;
   /** Where prompt variables' `env(…)` references are read from (#1347c); default `process.env`. */
   readonly processEnv?: NodeJS.ProcessEnv | undefined;
   /**

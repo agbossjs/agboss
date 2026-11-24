@@ -4,7 +4,6 @@ import {
   executeWithoutInputCheck,
   type ApplicationStart,
 } from "@agboss/core/internal";
-import "dotenv/config";
 import { stdin } from "node:process";
 import { createInterface } from "node:readline";
 import { styleText } from "node:util";
@@ -114,7 +113,6 @@ async function converse(session: Session): Promise<void> {
 async function appOf(context: CommandContext, application: Class): Promise<App> {
   return createAppWith(application, {
     profile: textOption(context.values, "profile"),
-    profileRoot: context.io.cwd,
     env: envOption(context),
     processEnv: context.io.env,
   });

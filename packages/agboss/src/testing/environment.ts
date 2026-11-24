@@ -27,6 +27,7 @@ import { testKeyedEnvironmentOf, testPiiKeyOf, type TestKeyedEnvironment } from 
 import { schedulerOf } from "./concurrency/schedulers.js";
 import { replacementsOf, type Override } from "./units/override.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
+import { TEST_DEFAULT_PROFILE, type ProfileSelection } from "../config/profile-names.js";
 import { TEST_IDEMPOTENCY_KEYS } from "../application/idempotency-key.js";
 
 /** The app option of a test's branch schedule: none for `TestConcurrency.Real`. */
@@ -71,17 +72,12 @@ export interface TestWithOptions extends EnvironmentSelection {
    */
   readonly overrides?: readonly Override[];
   /**
-   * A profile on top of every workflow of the application, the child workflows too (#895): as
-   * `createApp(App, { profile })` applies it, `profiles/<workflow>/<profile>.yaml` under
-   * `profileRoot`, but with the models scripted and no keys. `app.settings` shows what it applied.
+   * The profiles layered on the application, its child workflows too (#895, #1318): as
+   * `createApp(App, { profile })` applies them — `src/config/<name>.config.ts|yaml` next to the
+   * application file, over `base.config.*` — but with the models scripted and no keys. Default
+   * `test`: a test never runs on dev's values. `app.settings` shows what they applied.
    */
-  readonly profile?: string | undefined;
-  /**
-   * Where `profiles/` is (default `process.cwd()`, as in `createApp`). In a monorepo give the
-   * package's directory: `fileURLToPath(new URL("..", import.meta.url))` from a test in `tests/` —
-   * never `.pathname`, which is not a path on Windows.
-   */
-  readonly profileRoot?: string | undefined;
+  readonly profile?: ProfileSelection | undefined;
 }
 
 /** The process env without tracing keys: tests never export traces. */
@@ -182,7 +178,11 @@ export class TestEnvironment {
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
     const assembled = await applicationOf(
       application,
-      { profile: options.profile, profileRoot: options.profileRoot, withoutIdempotencyKeys: true },
+      {
+        profile: options.profile,
+        defaultProfile: TEST_DEFAULT_PROFILE,
+        withoutIdempotencyKeys: true,
+      },
       "testWith",
     );
     const environment = await testKeyedEnvironmentOf(assembled, options, testEnv());

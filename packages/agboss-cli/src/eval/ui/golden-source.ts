@@ -30,6 +30,7 @@ async function historyOf(context: CommandContext) {
     const { application } = await loadCliApplication(context);
     return await openExecutionHistory(application, {
       env: envOption(context),
+      profile: textOption(context.values, "profile"),
       processEnv: context.io.env,
     });
   } catch (error) {

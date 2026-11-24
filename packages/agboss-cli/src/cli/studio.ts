@@ -2,7 +2,7 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { studioOf } from "@agboss/core/internal";
 import { loadCliApplication } from "./cli-application.js";
-import { requiredText, type CommandContext } from "./context.js";
+import { requiredText, textOption, type CommandContext } from "./context.js";
 import { envOption } from "./environment.js";
 import { usageError } from "./errors.js";
 import { writeStudioFiles, type StudioFiles } from "./studio-config.js";
@@ -27,7 +27,8 @@ export interface PreparedStudio extends StudioFiles {
 export async function prepareStudio(context: CommandContext): Promise<PreparedStudio> {
   const loaded = await loadCliApplication(context);
   const env = envOption(context);
-  const studio = await studioOf(loaded.application, { env, processEnv: context.io.env });
+  const profile = textOption(context.values, "profile");
+  const studio = await studioOf(loaded.application, { env, profile, processEnv: context.io.env });
   await studio.close();
   const workflows = studio.names;
   const files = await writeStudioFiles(context.io.cwd, {
@@ -35,6 +36,7 @@ export async function prepareStudio(context: CommandContext): Promise<PreparedSt
     application: loaded.application,
     workflows,
     env,
+    profile,
   });
   context.say(`studio: ${relative(context.io.cwd, files.config)} — ${workflows.join(", ")}`);
   return { ...files, application: studio.application, workflows };

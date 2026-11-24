@@ -95,6 +95,7 @@ export const handle: CommandHandler = async (context) => {
   const { application } = await loadCliApplication(context);
   const opened = await openExecutionHistory(application, {
     env: envOption(context),
+    profile: textOption(context.values, "profile"),
     processEnv: context.io.env,
   });
   try {

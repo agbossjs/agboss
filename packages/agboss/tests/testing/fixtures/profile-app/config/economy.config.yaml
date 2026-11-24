@@ -1,0 +1,10 @@
+defaults:
+  uncompactedTurns: 2
+workflows:
+  "*":
+    version: 1.0.0-economy
+  profile-kid-workflow:
+    agents:
+      kid-agent:
+        thinking: high
+        temperature: 0.2

@@ -132,7 +132,7 @@ export interface ApplicationStart {
 export const applicationWarningsOf: (assembled: AssembledApplication) => readonly AssemblyWarning[];
 
 // @public
-export interface AssembledApplication extends AssembledKeyFields, StorageFields {
+export interface AssembledApplication extends AssembledKeyFields, StorageFields, P.ProfileFields {
     readonly a2aFileRetention: Milliseconds;
     readonly a2aMessageRetention: Milliseconds;
     readonly a2aTaskRetention: Milliseconds;
@@ -342,9 +342,7 @@ export type ChildSnapshotSources = (workflow: Class) => SnapshotSource | undefin
 export function childSourcesIn(workflows: readonly SnapshotSource[]): ChildSnapshotSources;
 
 // @public
-export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly string[], options: AppDepsOptions & {
-    readonly profileRoot?: string;
-}, tasksOf: (base: AppDeps) => Promise<readonly string[]>): Promise<ProfileComparison>;
+export function compareBundleProfiles(bundleOf: (profile: string) => Promise<AssembledWorkflow>, names: readonly string[], options: AppDepsOptions, tasksOf: (base: AppDeps) => Promise<readonly string[]>): Promise<ProfileComparison>;
 
 // @public
 export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunReport, file: string): EvalRunComparison;
@@ -1367,7 +1365,7 @@ export interface OpenedExecutionHistory {
 }
 
 // @public
-export function openExecutionHistory(application: Class, options?: Pick<BuildApplicationOptions, "env" | "processEnv">): Promise<OpenedExecutionHistory>;
+export function openExecutionHistory(application: Class, options?: Pick<BuildApplicationOptions, "env" | "profile" | "processEnv">): Promise<OpenedExecutionHistory>;
 
 // @public
 export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus;
@@ -1389,13 +1387,23 @@ export interface ProcessVariable {
 
 // @public
 export class ProfileError extends AGBossError {
-    constructor(options: MessageErrorOptions);
+    constructor(options: ProfileErrorOptions);
     // (undocumented)
     static readonly code: "config.profile";
     // (undocumented)
     readonly code: typeof ProfileError.code;
     // (undocumented)
     name: string;
+    readonly reason: ProfileErrorReason;
+}
+
+// @public
+export enum ProfileErrorReason {
+    BadName = "bad-name",
+    Duplicate = "duplicate",
+    Forbidden = "forbidden",
+    Invalid = "invalid",
+    Unknown = "unknown"
 }
 
 // @public
@@ -1550,6 +1558,7 @@ export function studioOfWith(application: Class, options?: StudioOptions & {
 export interface StudioOptions {
     readonly env?: string | undefined;
     readonly processEnv?: NodeJS.ProcessEnv;
+    readonly profile?: ProfileSelection | undefined;
 }
 
 // @public
@@ -1582,9 +1591,6 @@ export const unmasked: EventMask;
 
 // @public
 export const versionOf: (value: unknown) => string;
-
-// @public
-export function withProfile(bundle: AssembledWorkflow, profile: string | undefined, root?: string): Promise<AssembledWorkflow>;
 
 // @public
 export function withReservedExecutionId<TOptions extends object>(options: TOptions, executionId: string): TOptions;
@@ -1751,9 +1757,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "workflow".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "name".
-// src/config/profiles.ts - (ae-undocumented) Missing documentation for "code".
-// src/config/profiles.ts - (ae-undocumented) Missing documentation for "code".
-// src/config/profiles.ts - (ae-undocumented) Missing documentation for "name".
+// src/config/profile-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/config/profile-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/config/profile-error.ts - (ae-undocumented) Missing documentation for "name".
 // src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "notes".
 // src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "help".

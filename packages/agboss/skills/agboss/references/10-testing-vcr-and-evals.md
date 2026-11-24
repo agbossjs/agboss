@@ -603,18 +603,16 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
 - **Replacing a class**: `mockOf(Service).method.mockResolvedValue(…)` (any component or service, a
   budget's `maxSpend` too); `testWith(App, { overrides: [override(Base, Replacement)] })` creates a
   class instead of another — no instances, no `new`.
-- **A profile**: `testWith(App, { profile: "low-thinking", profileRoot })` runs every workflow of the
-  application, the child workflows too, on `profiles/<workflow>/<profile>.yaml` under `profileRoot`,
-  as `createApp(App, { profile, profileRoot })` does, with the models still scripted. The test reads
-  what the profile applied from the read-only `app.settings` (by workflow name):
+- **A profile**: `testWith(App, { profile: "low-thinking" })` runs every workflow of the application,
+  the child workflows too, on `src/config/low-thinking.config.ts|yaml` next to the application file
+  (over `base.config.*`; several: `"a,b"`, `"a+b"` or `["a", "b"]`, layered left to right), as
+  `createApp(App, { profile })` does, with the models still scripted. Without a `profile` a test
+  runs on `test`, never dev's values (no `test.config.*` is no layer). The test reads what the
+  profiles applied from the read-only `app.settings` (by workflow name):
   `expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`, and
-  `.version` is the profile's. `profileRoot` defaults to `process.cwd()`; in a monorepo, or when the
-  tests run from the repository root, give the package directory:
-  `profileRoot: fileURLToPath(new URL("..", import.meta.url))` from a test in `tests/` — never
-  `.pathname`, which is no path on Windows. An unknown profile is a `ProfileError` listing the
-  profiles that exist (`base` is none), a model the profile switches to one no listed provider serves
-  fails the assembly with `[model.unserved]`, not the first call. Each workflow needs a file of that
-  profile (a child's too).
+  `.version` is the profile's. An unknown profile is a `ProfileError` listing the profiles that
+  exist, a model a profile switches to one no listed provider serves fails the assembly with
+  `[model.unserved]`, not the first call.
 - **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
   blocked except `allowNetwork: ["localhost"]`.
 - **A2A**: `const { url } = await a2aServer({ expose, authenticator })` serves the test's `app` through
@@ -1735,7 +1733,7 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   commit it.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
-- `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns
+- `--profile <name>` runs the suite on the application's profiles (`src/config/<name>.config.*`; `a,b` layers them); the case's `history` turns
   are kept `ExecutionRecordStatus.Written` — turns of their thread, never runs `npx agboss eval
 score` scores or `npx agboss golden add` saves.
 
@@ -1862,8 +1860,8 @@ npx agboss eval score --start screening-workflow-start --limit 50               
 npx agboss replay --start screening-workflow-start --version <prompt version>        # re-run a version
 ```
 
-- A golden set is `golden/<workflow>/<name>.yaml`; a profile (`profiles/<workflow>/<name>.yaml`)
-  overrides models and settings for a comparison; the agent's judges score each answer.
+- A golden set is `golden/<workflow>/<name>.yaml`; a profile (`src/config/<name>.config.*`; `a+b` layers
+  profiles in one `--profiles` entry) overrides models and settings for a comparison; the agent's judges score each answer.
 - `compare` judges each task's pair of answers in both orders — the baseline's first, then the
   other's: agreeing verdicts are a win or a loss, anything else a tie; a judge that picks the same
   position both times is following the position, not the answer — counted as a tie and in `flips`

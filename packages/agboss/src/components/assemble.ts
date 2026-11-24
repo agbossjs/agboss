@@ -1,5 +1,6 @@
 import { withAgentFiles } from "../files/assemble-files.js";
 import type { AgentsConfigOf } from "../config/types.js";
+import { patchedConfig, patchedPrompts, profiledBundle, type WorkflowPatch } from "./profiled.js";
 import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import { maxStepsOf as stepsLimitOf } from "../flow/analyse/steps.js";
@@ -57,6 +58,8 @@ type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
   readonly providers?: readonly Provider[];
   /** `@Application({ piiPolicies })`: every agent's and router's, before the workflow's own (#120). */
   readonly piiPolicies?: readonly Class[];
+  /** What the selected profiles (`src/config/`) change of this workflow: its owner as it sees it. */
+  readonly patch?: WorkflowPatch;
   /** `@Application({ workflows })`: the ways into a child, for the PII policies it inherits (#1150). */
   readonly workflows?: readonly Class[];
   /** `@Application({ guardrails })`: every agent's and model router's (#120). */
@@ -170,7 +173,8 @@ function graphOf(analysis: FlowAnalysis, workflow: Class, owner: WorkflowOwner |
 
 /** The workflow's module, its runtime graph and its agents: its paths analysed with the defaults it cascades. */
 function graphedModule(workflow: Class, owner: WorkflowOwner | undefined) {
-  const { bundle, analysis } = analysedModule(workflow, owner);
+  const { bundle: declared, analysis } = analysedModule(workflow, owner);
+  const bundle = profiledBundle(declared, owner?.patch);
   const graph = graphOf(analysis, workflow, owner);
   return { bundle, graph, agents: agentMetasOf(graph) };
 }
@@ -209,7 +213,7 @@ export async function workflowOf(
   const names = toolNames(tools, resultSizeViolations(bundle, tools));
   const files = { ...sources, pii: policies.assembled.pii };
   const plain = withAgentFiles(configOf(bundle, agents, names, judges, memories), files);
-  const config = cascadedConfigOf(plain, bundle, agents, resolver);
+  const config = cascadedConfigOf(patchedConfig(plain, owner?.patch), bundle, agents, resolver);
   validateAgentsConfig(config, [...names.values()]);
   return {
     config,
@@ -224,7 +228,7 @@ export async function workflowOf(
     ),
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,
     routers,
-    prompts: await promptsOf(agents, loader),
+    prompts: patchedPrompts(await promptsOf(agents, loader), owner?.patch),
     tools: toolBuilder(bundle, tools),
     ...(rags.length === 0 ? {} : ragParts(bundle, agents, rags)),
     ...judgePartsOf(bundle, judges),

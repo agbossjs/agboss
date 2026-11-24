@@ -14,6 +14,25 @@ import {
  * config: `model` is then the vendor's name and `modelProvider` the provider's `name`.
  */
 
+/** What a profile changes of one provider's model names. */
+export interface ProviderOverlay {
+  readonly model?: string | undefined;
+  readonly models?: Readonly<Record<string, string>> | undefined;
+}
+
+/** A provider's options with a profile's model names over its own (a driver provider only). */
+export function overlaidProvider(
+  options: KeptModelProviderOptions,
+  overlay: ProviderOverlay | undefined,
+): KeptModelProviderOptions {
+  if (overlay === undefined || !isDriverOptions(options)) return options;
+  return {
+    ...options,
+    ...(overlay.model === undefined ? {} : { model: overlay.model }),
+    models: { ...options.models, ...overlay.models },
+  };
+}
+
 /** The role a component that names no model asks its provider for: `models.default`, else `model`. */
 export const DEFAULT_MODEL_ALIAS = "default";
 
@@ -35,6 +54,12 @@ export interface ModelCascade {
    * role of its provider or a vendor name. A level's applies only when the provider the component
    * resolves to is that level's provider.
    */
+  /**
+   * What the selected profiles (`src/config/`) change of each provider, by its `name`: the model it
+   * serves and its role names. Applied to a provider's options as the cascade reads them — the
+   * decorator's own options are never touched.
+   */
+  readonly providerOverlays?: Readonly<Record<string, ProviderOverlay>> | undefined;
   readonly models?: {
     readonly workflow?: string | undefined;
     readonly application?: string | undefined;

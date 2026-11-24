@@ -4,7 +4,7 @@
  * checks the application's eval suites (Loop 0). The fixture's models answer through a transport
  * provider: no key, no network.
  */
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -394,12 +394,7 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
     expect(call.stderr).toContain("--fail-on-regression needs --baseline");
   });
 
-  it("--profile runs the suite on a profile of the workflow (profiles/<workflow>/<name>.yaml)", async () => {
-    mkdirSync(join(CWD, "profiles", "lookup-workflow"), { recursive: true });
-    writeFileSync(
-      join(CWD, "profiles", "lookup-workflow", "next.yaml"),
-      "profile: next\nversion: 1.0.0-next\n",
-    );
+  it("--profile runs the suite on a profile of the application (config/next.config.yaml next to it)", async () => {
     const call = await agboss(
       [...RUN, "--suite", "desk-eval-suite", "--profile", "next", "--json"],
       CWD,

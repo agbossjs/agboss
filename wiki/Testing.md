@@ -177,7 +177,7 @@ test("saving waits for approval; after it the agent's answer ends the turn", asy
 
 Components are referenced **by class** everywhere; strings only for data.
 
-## `testWith(Application, { real?, allowNetwork?, instances?, concurrency?, overrides?, profile?, profileRoot? })`
+## `testWith(Application, { real?, allowNetwork?, instances?, concurrency?, overrides?, profile? })`
 
 A Vitest `test` whose fixtures are:
 
@@ -219,17 +219,16 @@ it (`app.execute`, `app.resume`, a slice) throws it.
 
 ### A profile in a test
 
-`testWith(App, { profile: "scout-low-thinking", profileRoot })` runs every workflow of the
-application, the child workflows too, on `profiles/<workflow>/<profile>.yaml` under `profileRoot`,
-as `createApp(App, { profile, profileRoot })` does, with the models still scripted and no keys
-(#895). The read-only `app.settings` (by workflow name) is what the profile applied:
-`expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`; its `version`
-is the profile's. `profileRoot` defaults to `process.cwd()`; from a test in `tests/` of a package
-(a monorepo, or tests run from the repository root) use
-`profileRoot: fileURLToPath(new URL("..", import.meta.url))` — never `.pathname`, which is no path on
-Windows. An unknown profile is a `ProfileError` listing the profiles that exist (`base` means none),
-and a model the profile switches to one no listed provider serves fails the assembly with
-`[model.unserved]`, not the first call. See [Profiles](Profiles-and-comparisons#profiles-spring-boot-like).
+`testWith(App, { profile: "scout-low-thinking" })` runs every workflow of the application, the child
+workflows too, on the profiles of `src/config/` next to the application file
+(`scout-low-thinking.config.ts|yaml`, over `base.config.*`; several: `"a,b"`, `"a+b"` or `["a", "b"]`,
+layered left to right), as `createApp(App, { profile })` does, with the models still scripted and no
+keys (#895, #1318). Without a `profile` a test runs on `test` — never on dev's values — and no
+`test.config.*` is no layer. The read-only `app.settings` (by workflow name) is what the profiles
+applied: `expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`; its
+`version` is the profile's. An unknown profile is a `ProfileError` listing the profiles that exist,
+and a model a profile switches to one no listed provider serves fails the assembly with
+`[model.unserved]`, not the first call. See [Configuration](Configuration#profiles-srcconfig-1318).
 
 ## Scripted models
 
