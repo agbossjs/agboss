@@ -156,7 +156,8 @@ export const quorumPaths = [
 | `.joinQuorum({ min })` | `max` defaults to `min`: after `min` counted answers go on, cancel the rest |
 | `min` | how many **counted** answers are enough to go on |
 | `max` | after how many counted answers to stop waiting and cancel the rest |
-| `deadline` | how long the join waits — `seconds()`, `minutes()`, `hours()` (`@agboss/core/units`), never a bare number |
+| `deadline` | how long the join waits — `seconds()`, `minutes()`, `hours()` (`@agboss/core/units`), never a bare number; or working time, `workDays(5)` / `workHours(2)` / `workMin(30)`, with `calendar` (below) |
+| `calendar` | the `@WorkingCalendar` class that counts a working-time `deadline`; required with one (`[calendar.required-for-working-duration]`), refused beside a plain duration |
 | `.joinQuorumGroups({ deadline })` + `.onGroup([targets], { priority }?, subPath)` | go on when a group is complete, along **that group's own path**; `min` / `max` do not apply |
 | `.arbitratedBy(X)` | the one arbiter every answer passes before it counts — between the launch and the quorum; once per launch (no `anyOf`, no and / or of arbiters: the rule, and how it escalates from code to a model, lives in the class — `ArbiterModel`) |
 
@@ -234,7 +235,23 @@ onStart(ContractCommitteeWorkflowStart)
 
 The runnable version is `examples/flow-patterns/src/committee/`. A text `@Agent` branch (no `output`) gives
 its judge the reply as a `WorkflowFinishTextDto`, a `@Workflow` branch the output of its finishes.
-A working-time `deadline` (`workDays(…)` with a `calendar`) is not available on a quorum yet.
+
+### A deadline in working time
+
+`.joinQuorum({ min: 2, deadline: workDays(5), calendar: CorporateWorkingCalendar })` (and
+`.joinQuorumGroups({ deadline: workHours(4), calendar })`) waits five working days of that calendar, not
+120 hours: weekends, holidays and the calendar's time zone are the calendar's own arithmetic — the same
+`@WorkingCalendar` classes, `WorkingWeek.of(…)` grids and the same call a pause's `expiresIn: workHours(…)`
+uses. The calendar is the quorum's own (the application's `workingCalendar` serves pauses, not quorums); a
+`@WorkingCalendar` class used here is created by the workflow's container, so it needs no entry in
+`providers`. A working `deadline` without `calendar` is `[calendar.required-for-working-duration]`; a class
+that is no valid `@WorkingCalendar` is `[working-calendar.invalid]`. The calendar is asked once, when the
+launch is dispatched — from `Clock.now()`, for the execution's tenant, with no `target` and no
+`assignees` — and the instant it gives is the launch's `deadlineAt`, bounding the branches' pauses like
+any other deadline. A calendar that throws, times out or answers a bad date is
+`PauseError.WorkingCalendar`: no branch is dispatched, no pause is opened, the launching step's own output
+stays in the scope, and the join's `.onError(PauseError.WorkingCalendar, …)` handler takes it (without one
+the execution fails with the error).
 
 ## Arbiters
 
@@ -322,7 +339,7 @@ spend while they run.
 
 ### The deadline
 
-`deadline` (`seconds()`, `minutes()`, `hours()`) is turned into `deadlineAt` once, when the launch is
+`deadline` (`seconds()`, `minutes()`, `hours()`; or working time through the quorum's calendar, see above) is turned into `deadlineAt` once, when the launch is
 dispatched, from the application's `Clock`, and kept in the launch's ticket (the state and every
 branch's payload). A `Clock` sleep ends the quorum at that moment: `min` reached → go on (groups: the
 highest-priority complete group), else `QuorumNotReachedError` ("the deadline passed"). A pause

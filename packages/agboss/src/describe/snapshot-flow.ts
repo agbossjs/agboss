@@ -9,6 +9,9 @@ import {
   type FlowLaunch,
   type ValueWrite,
 } from "../flow/analyse/flow-graph.js";
+import { calendarNameOf } from "../calendar/calendar-source.js";
+import { isWorkingDuration } from "../units/index.js";
+import { amountOf } from "../units/working-time.js";
 import { shapeLabel } from "../flow/analyse/labels.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { ComponentKind } from "../flow/runtime/records.js";
@@ -65,8 +68,12 @@ export interface QuorumSnapshot {
   readonly kind: QuorumKind;
   readonly min?: number;
   readonly max?: number;
-  /** In milliseconds. */
+  /** In milliseconds; for working time (`isDeadlineWorking`) in its own unit: working ms, or working days. */
   readonly deadline?: number;
+  /** `true` when `deadline` is working time (#1306), counted by `calendar`. */
+  readonly isDeadlineWorking?: true;
+  /** The `@WorkingCalendar` class that counts a working `deadline`. */
+  readonly calendar?: string;
   readonly groups?: readonly { readonly targets: readonly string[]; readonly priority?: number }[];
 }
 
@@ -130,8 +137,21 @@ function arbiterSnapshotOf(
   };
 }
 
+/** The quorum's deadline, flagged when it is working time, with the calendar that counts it. */
+function deadlineOf(
+  quorum: Quorum,
+): Pick<QuorumSnapshot, "deadline" | "isDeadlineWorking" | "calendar"> {
+  const { deadline, calendar } = quorum;
+  if (deadline === undefined) return {};
+  return {
+    deadline: amountOf(deadline),
+    ...(isWorkingDuration(deadline) ? { isDeadlineWorking: true as const } : {}),
+    ...(calendar === undefined ? {} : { calendar: calendarNameOf(calendar) }),
+  };
+}
+
 function quorumOf(quorum: Quorum): QuorumSnapshot {
-  const deadline = quorum.deadline === undefined ? {} : { deadline: quorum.deadline };
+  const deadline = deadlineOf(quorum);
   if (quorum.kind === QuorumKind.Count)
     return {
       kind: quorum.kind,

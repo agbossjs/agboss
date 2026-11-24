@@ -147,7 +147,7 @@ class Printer {
 
   /** `.joinQuorumGroups({ deadline })`; its groups follow its `.onError(…)` as `.onGroup(…)` (#1284). */
   private groupsJoin(quorum: GroupsQuorum, depth: number): void {
-    this.line(depth, `.joinQuorumGroups(${groupsQuorumOptions(quorum) ?? ""})`);
+    this.line(depth, `.joinQuorumGroups(${groupsQuorumOptions(quorum, this.label) ?? ""})`);
   }
 
   /** `.onGroup([A, B], { priority: 1 }, toAgent(X)…)` of each group, in the order written. */
@@ -167,7 +167,7 @@ class Printer {
     else
       this.line(
         depth,
-        quorum === undefined ? ".join()" : `.joinQuorum(${countQuorumOptions(quorum)})`,
+        quorum === undefined ? ".join()" : `.joinQuorum(${countQuorumOptions(quorum, this.label)})`,
       );
     for (const handler of step.onError)
       this.sidePath(handler.error.name, handler.path.steps, depth, "onError");

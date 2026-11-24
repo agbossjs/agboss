@@ -35,8 +35,8 @@ export interface PauseCalendar {
 export interface CalendarSite {
   readonly calendar: PauseCalendar | undefined;
   readonly tenantId: string;
-  /** The pause's target (or channel) name: what a calendar sees as `target`. */
-  readonly role: string;
+  /** The pause's target (or channel) name: what a calendar sees as `target`; none for a quorum's deadline (#1306). */
+  readonly role?: string | undefined;
   /** Whom the pause is assigned to: what a dynamic calendar resolves its schedule for. */
   readonly assignees?: readonly string[] | undefined;
   readonly frame: FrameSpec;
@@ -70,7 +70,7 @@ const requestOf = (
   from: new Date(from),
   amount,
   tenantId: site.tenantId,
-  target: site.role,
+  ...(site.role === undefined ? {} : { target: site.role }),
   ...(site.assignees === undefined ? {} : { assignees: site.assignees }),
 });
 
@@ -123,7 +123,9 @@ function failed(
 /** The site's calendar; a working duration reaches a pause without one only past the assembly's rule. */
 function calendarOf(site: CalendarSite): PauseCalendar {
   if (site.calendar === undefined)
-    throw new TypeError(`channel ${site.role}: working time without a calendar`);
+    throw new TypeError(
+      `${site.role === undefined ? "a quorum" : `channel ${site.role}`}: working time without a calendar`,
+    );
   return site.calendar;
 }
 

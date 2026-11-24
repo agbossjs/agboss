@@ -49,7 +49,9 @@ import {
   GoodScoreArbiter,
   ValidScoreArbiter,
 } from "../fixtures/quorum.fixture.js";
-import { minutes } from "../../../src/units/index.js";
+import { minutes, seconds, workDays, workHours } from "../../../src/units/index.js";
+import { WorkingCalendar } from "../../../src/index.js";
+import { TEL_AVIV } from "../../calendar/helpers.js";
 import { onAgent, onStart, side, toAction, toAgent, toFinish } from "../fixtures/paths.js";
 import { inline } from "../../../src/index.js";
 
@@ -416,14 +418,15 @@ describe("#279 AC6: a code arbiter has one @Arbitrate(Agent) method per agent", 
 
 describe("#1283b: a code arbiter has a model only when it injects ArbiterModel", () => {
   it("model or modelProvider without ArbiterModel in deps is refused; with it, it passes", () => {
-    expect(arbiterErrorsOf(modelWithoutArbiterModel({ name: "no-model-arbiter", model: "fast" })))
-      .toEqual([
-        {
-          code: "arbiter.model-without-arbiter-model",
-          message:
-            "no-model-arbiter names model but does not inject ArbiterModel — add ArbiterModel to deps (a hybrid arbiter), or drop model (a code arbiter has no model)",
-        },
-      ]);
+    expect(
+      arbiterErrorsOf(modelWithoutArbiterModel({ name: "no-model-arbiter", model: "fast" })),
+    ).toEqual([
+      {
+        code: "arbiter.model-without-arbiter-model",
+        message:
+          "no-model-arbiter names model but does not inject ArbiterModel — add ArbiterModel to deps (a hybrid arbiter), or drop model (a code arbiter has no model)",
+      },
+    ]);
     expect(
       arbiterErrorsOf(
         modelWithoutArbiterModel({
@@ -433,14 +436,12 @@ describe("#1283b: a code arbiter has a model only when it injects ArbiterModel",
           deps: [],
         }),
       ).map(({ code }) => code),
-    )
-      .toEqual(["arbiter.model-without-arbiter-model"]);
+    ).toEqual(["arbiter.model-without-arbiter-model"]);
     expect(
       arbiterErrorsOf(
         modelWithoutArbiterModel({ name: "hybrid-arbiter", model: "fast", deps: [ArbiterModel] }),
       ).map(({ code }) => code),
-    )
-      .not.toContain("arbiter.model-without-arbiter-model");
+    ).not.toContain("arbiter.model-without-arbiter-model");
   });
 });
 
@@ -478,5 +479,65 @@ describe("#1282: an arbiter of an .inParallel([…]) or .forEachItem(…) launch
         message: expect.stringContaining("an @Action without an output") as unknown,
       }),
     ]);
+  });
+});
+
+describe("#1306: [calendar.required-for-working-duration]", () => {
+  @WorkingCalendar({ name: "quorum-office-working-calendar", week: TEL_AVIV })
+  class QuorumOfficeCalendar {}
+
+  class NotACalendar {
+    readonly name = "plain";
+  }
+
+  const withQuorum = (options: object) => [
+    fitLaunch()
+      .joinQuorum({ min: 1, ...options })
+      .toAgent(FitSummaryAgent)
+      .toFinish(FitSummaryWorkflowFinish),
+  ];
+
+  it("a working deadline without a calendar fails assembly, naming the join", () => {
+    expect(errorsOf(withQuorum({ deadline: workDays(5) }))).toEqual([
+      {
+        code: "calendar.required-for-working-duration",
+        message:
+          "fit-review-workflow-start → toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ deadline: 5 working days }) is working time and needs the calendar that counts it — add calendar: YourWorkingCalendar (a @WorkingCalendar class)",
+      },
+    ]);
+  });
+
+  it("with a @WorkingCalendar class it passes; the class need not be listed in providers", () => {
+    expect(errorsOf(withQuorum({ deadline: workDays(5), calendar: QuorumOfficeCalendar }))).toEqual(
+      [],
+    );
+  });
+
+  it("a plain deadline needs no calendar", () => {
+    expect(errorsOf(withQuorum({ deadline: seconds(30) }))).toEqual([]);
+  });
+
+  it("a calendar that is no @WorkingCalendar class is [working-calendar.invalid]", () => {
+    expect(codesOf(withQuorum({ deadline: workHours(2), calendar: NotACalendar }))).toEqual([
+      "working-calendar.invalid",
+    ]);
+  });
+
+  it("the same rule holds for .joinQuorumGroups(…)", () => {
+    const groups = (options: object) => [
+      onStart(FitReviewWorkflowStart)
+        .toParallelAgents(SkillsScoreAgent, CultureScoreAgent)
+        .joinQuorumGroups(options)
+        .onGroup([SkillsScoreAgent], toAgent(FitSummaryAgent).toFinish(FitSummaryWorkflowFinish))
+        .onGroup([CultureScoreAgent], toAgent(FitSummaryAgent).toFinish(FitSummaryWorkflowFinish)),
+    ];
+
+    const calendarCodes = (options: object) =>
+      codesOf(groups(options)).filter((code) => code.includes("calendar"));
+
+    expect(calendarCodes({ deadline: workHours(4) })).toEqual([
+      "calendar.required-for-working-duration",
+    ]);
+    expect(calendarCodes({ deadline: workHours(4), calendar: QuorumOfficeCalendar })).toEqual([]);
   });
 });

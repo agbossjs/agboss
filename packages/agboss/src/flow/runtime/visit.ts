@@ -6,13 +6,7 @@ import { runInFrame, type FrameServices } from "../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import { handledErrorFrame } from "./handled-error-frame.js";
 import { checkVisit, countsAsStep, sidePathAfter, type ExecutionLimits } from "./limits.js";
-import {
-  recordsOf,
-  reportingOf,
-  type GraphNode,
-  type NodeOutcome,
-  type NodeRunner,
-} from "./node-runner.js";
+import { recordsOf, reportingOf, type GraphNode, type NodeRunner } from "./node-runner.js";
 import {
   compensationsOfHeldVisit,
   compensationsOfVisit,
@@ -32,11 +26,9 @@ import { exitOf, visitWrite, type SpentOutcome, type VisitWrite } from "./visit-
 import { succeededStepsOf, type VisitAt } from "./visit-step.js";
 import { caught, visited } from "./visit-failure.js";
 import { itemBoundOf, type FlowEdge } from "../analyse/flow-graph.js";
-import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/launch-exit.js";
-import { itemsOverflowOf } from "./launch/items-limit.js";
+import { launchEdgeOf, launchFor, nextOfLaunch, type DeadlineSite } from "./launch/launch-exit.js";
+import { launchAttemptOf, type Launched } from "./launch/launch-attempt.js";
 import { reportTruncation } from "./launch/launch-report.js";
-import type { LaunchTicket } from "./launch/records.js";
-import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import { readInput } from "./scope.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 import { recordLostPasses } from "./lost-pass-records.js";
@@ -91,12 +83,6 @@ function withOwnCompensations(
   return { ...handled, usage, ...(compensations.length === 0 ? {} : { compensations }) };
 }
 
-/** A launch a visit took: its graph launch and the ticket of its branches (#273). */
-interface Launched {
-  readonly launch: RuntimeLaunch;
-  readonly ticket: LaunchTicket;
-}
-
 /** A visit that succeeded: its bookkeeping, its way out and what its write did to the scope. */
 interface Succeeded {
   readonly update: ExecutionStateUpdate;
@@ -104,44 +90,29 @@ interface Succeeded {
   readonly launched: Launched | undefined;
 }
 
-/** The launch a visit takes, with the ticket of its branches; none for a visit that launches nothing. */
-function launchedBy(
-  launch: RuntimeLaunch | undefined,
-  node: RuntimeNode,
-  outcome: NodeOutcome,
-  site: {
-    readonly state: ExecutionStateType;
-    readonly deps: VisitDeps;
-    readonly executionId: string;
-    readonly now: Date;
-  },
-  write: VisitWrite,
-): Launched | undefined {
-  if (launch === undefined) return undefined;
-  const { state, deps, executionId, now } = site;
-  const scope = write.scope ?? state.scope;
-  const visit = { graph: deps.graph, node, state, outcome, executionId, scope, now };
-  return { launch, ticket: launchTicketOf(visit, launch) };
-}
-
 /** Where a visit goes on: its launch's branches (or join), else its exit. */
 const nextOf = (launched: Launched | undefined, exit: FlowEdge | undefined): string =>
   launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket);
 
-function succeeded(
+async function succeeded(
   node: RuntimeNode,
   state: ExecutionStateType,
   outcome: SpentOutcome,
   deps: VisitDeps,
   at: VisitAt,
-): Succeeded {
+  calendar: Pick<DeadlineSite, "clock" | "interruption">,
+): Promise<Succeeded> {
   const launch = launchFor(node, outcome);
   const exit = launch === undefined ? exitOf(node, state, outcome, deps) : launchEdgeOf(launch);
   const write = visitWrite(node, state, exit, outcome, deps.provenance);
-  const dispatched = launchedBy(launch, node, outcome, { state, deps, ...at }, write);
-  // a list past `.forEachItem(…, { maxItems })` (#1280): no launch, the join's handler takes the limit
-  const overflow = dispatched && itemsOverflowOf(dispatched, node, state, deps);
-  const launched = overflow === undefined ? dispatched : undefined;
+  const site = {
+    state,
+    deps,
+    ...at,
+    calendar: { ...calendar, frame: at.frame, container: deps.container },
+  };
+  const dispatch = await launchAttemptOf(launch, node, outcome, site, write);
+  const launched = dispatch?.launched;
   const next = nextOf(launched, exit);
   const update = {
     ...visited(node, countsAsStep(state, node)),
@@ -149,7 +120,7 @@ function succeeded(
     next,
     ...sidePathAfter(state, node, launched === undefined ? next : undefined),
     ...(launched === undefined ? {} : { launch: launched.ticket }),
-    ...overflow,
+    ...dispatch?.stoppedBy,
     ...recordsOf(outcome),
     ...(outcome.fileTranscripts === undefined ? {} : { fileTranscripts: outcome.fileTranscripts }),
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
@@ -218,7 +189,8 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       });
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };
       const at = { executionId: frame.execution.executionId, now: clock.now(), frame, startedAt };
-      const { update, write, launched } = succeeded(node, state, spent, deps, at);
+      const calendar = { clock, interruption: config?.signal };
+      const { update, write, launched } = await succeeded(node, state, spent, deps, at, calendar);
       const outdatedSoFar = [...state.outdatedValues, ...write.outdated];
       const site = { observer: deps.observer, config, ...frame, outdatedSoFar };
       await reportOutdating(write.cascades, site);

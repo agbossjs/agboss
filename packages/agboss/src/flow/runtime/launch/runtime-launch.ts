@@ -1,3 +1,4 @@
+import type { Class } from "../../../components/injection.js";
 import type { ArbiterClass, Quorum } from "../../ast.js";
 import { componentModelOf, type ModelResolver } from "../../../models/model-resolver.js";
 import { arbiterOf, hasArbiterModel } from "../../decorators/arbiter.js";
@@ -106,6 +107,11 @@ export function launchesOf(edges: readonly FlowEdge[]): ReadonlyMap<string, Runt
 export function arbiterClassesOf(launches: readonly RuntimeLaunch[]): readonly ArbiterClass[] {
   const arbiters = launches.flatMap((launch) => launch.launch.arbitratedBy ?? []);
   return [...new Set(arbiters)];
+}
+
+/** Every `@WorkingCalendar` class of the graph's quorum deadlines (#1306), once each: the container creates them. */
+export function quorumCalendarClassesOf(launches: readonly RuntimeLaunch[]): readonly Class[] {
+  return [...new Set(launches.flatMap((launch) => launch.quorum?.calendar ?? []))];
 }
 
 /** A model arbiter by its `name` and `model` (#279): a model use of the workflow. */

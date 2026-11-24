@@ -1,4 +1,4 @@
-import type { Milliseconds } from "../units/index.js";
+import type { Milliseconds, WorkingDuration } from "../units/index.js";
 import type { Class } from "../components/injection.js";
 import type { ArbiterClass, ErrorClass } from "./ast.js";
 import type { BuiltPath, PathHead, SidePath, Transitions } from "./builder-types.js";
@@ -14,21 +14,26 @@ import type { BuiltPath, PathHead, SidePath, Transitions } from "./builder-types
  * `[input.missing-on-path]`.
  */
 
+/**
+ * How long a quorum join waits (#1306): a plain duration (`seconds()`, `minutes()`, `hours()` —
+ * never a bare number), or working time (`workDays()`, `workHours()`, `workMin()`) with the
+ * `@WorkingCalendar` class that counts it — `calendar` is required with working time and is
+ * refused beside a plain duration.
+ */
+export type QuorumDeadline =
+  | { readonly deadline?: Milliseconds | undefined; readonly calendar?: undefined }
+  | { readonly deadline: WorkingDuration; readonly calendar: Class };
+
 /** `.joinQuorum({ min, max, deadline })`: options are always an object (AC11). */
-export interface QuorumOptions {
+export type QuorumOptions = {
   /** How many counted answers are enough to go on. */
   readonly min: number;
   /** After how many counted answers to stop waiting and cancel the rest; `min` when absent. */
   readonly max?: number;
-  /** How long the join waits: `seconds()`, `minutes()`, `hours()` — never a bare number. */
-  readonly deadline?: Milliseconds;
-}
+} & QuorumDeadline;
 
 /** `.joinQuorumGroups({ deadline })`: `min` / `max` do not apply to groups. */
-export interface QuorumGroupsOptions {
-  /** How long the join waits: `seconds()`, `minutes()`, `hours()` — never a bare number. */
-  readonly deadline?: Milliseconds | undefined;
-}
+export type QuorumGroupsOptions = QuorumDeadline;
 
 /** `.onGroup([…], options, subPath)`: how the group ranks among the others. */
 export interface QuorumGroupOptions {

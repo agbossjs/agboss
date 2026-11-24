@@ -1411,6 +1411,8 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
 export class PanelWorkflow {}
 ```
 
+A quorum's `deadline` is `seconds()` / `minutes()` / `hours()`, or working time — `deadline: workDays(5), calendar: CorporateWorkingCalendar` (a `@WorkingCalendar` class; `[calendar.required-for-working-duration]` without it). The calendar is asked once at dispatch; if it fails, the join's `.onError(PauseError.WorkingCalendar, …)` takes it.
+
 Groups — `.joinQuorumGroups({ deadline })`, its `.onError(…)` right after it (never after a group), then
 one `.onGroup([targets], { priority }?, subPath)` per group (at least one): the first complete group, by
 priority (1 is the highest), continues **its own** path; nothing follows the groups but more `.onGroup(…)`s:

@@ -1,6 +1,7 @@
 import { MAX_DEADLINE, timerProblemOf } from "../units/timer-limits.js";
 import type { Class } from "../components/injection.js";
-import type { Milliseconds } from "../units/index.js";
+import { isWorkingDuration, type Milliseconds, type WorkingDuration } from "../units/index.js";
+import { MAX_SPAN_DAYS, MAX_SPAN_MS, spanText, type TimeSpan } from "../units/working-time.js";
 import {
   NodeKind,
   QuorumKind,
@@ -58,18 +59,58 @@ export function arbitratingLaunch(
 const isPositiveInteger = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value > 0;
 
-/** `{ deadline }`: a positive duration (`seconds()`, `minutes()`, `hours()`), when given. */
-function deadlineOf(options: object, call: string): Milliseconds | undefined {
-  const deadline: unknown = Reflect.get(options, "deadline");
-  if (deadline === undefined) return undefined;
+/** What a quorum's `{ deadline, calendar }` come to: a plain or working duration, and the calendar that counts a working one. */
+interface QuorumTime {
+  readonly deadline?: TimeSpan;
+  readonly calendar?: Class;
+}
+
+/** A working deadline's length: positive (the constructor guarantees it) and within the longest a deadline may be. */
+function workingProblemOf(deadline: WorkingDuration): string | undefined {
+  const largest = deadline.unit === "days" ? MAX_SPAN_DAYS : MAX_SPAN_MS;
+  return deadline.amount > largest
+    ? `deadline is ${spanText(deadline)}, above its largest of ${String(largest)} ${deadline.unit === "days" ? "working days" : "ms of working time"}`
+    : undefined;
+}
+
+/** A plain deadline: a positive duration within the timer's cap. */
+function plainDeadlineOf(deadline: unknown, call: string): Milliseconds {
   if (typeof deadline !== "number" || !Number.isFinite(deadline) || deadline <= 0)
     throw new FlowSyntaxError({
-      message: `${call}({ deadline }) takes a positive duration: seconds(30), minutes(2), hours(1)`,
+      message: `${call}({ deadline }) takes a positive duration: seconds(30), minutes(2), hours(1), workDays(5)`,
     });
   const tooLong = timerProblemOf("deadline", deadline, MAX_DEADLINE);
   if (tooLong !== undefined)
     throw new FlowSyntaxError({ message: `${call}({ deadline }): ${tooLong}` });
   return deadline as Milliseconds;
+}
+
+/** A working deadline, within its largest. */
+function workingDeadlineOf(deadline: WorkingDuration, call: string): WorkingDuration {
+  const problem = workingProblemOf(deadline);
+  if (problem !== undefined)
+    throw new FlowSyntaxError({ message: `${call}({ deadline }): ${problem}` });
+  return deadline;
+}
+
+/**
+ * `{ deadline, calendar }`: a positive duration (`seconds(30)`, `minutes(2)`, `hours(1)`), or working
+ * time (`workDays(5)`) with the `@WorkingCalendar` class that counts it (#1306). A working deadline
+ * without `calendar` passes here and fails assembly (`[calendar.required-for-working-duration]`);
+ * a `calendar` beside a plain deadline, or none, is a mistake of its own.
+ */
+function quorumTimeOf(options: object, call: string): QuorumTime {
+  const deadline: unknown = Reflect.get(options, "deadline");
+  const calendar: unknown = Reflect.get(options, "calendar");
+  if (calendar !== undefined && typeof calendar !== "function")
+    throw new FlowSyntaxError({ message: `${call}({ calendar }) takes a @WorkingCalendar class` });
+  const named = calendar === undefined ? {} : { calendar: calendar as Class };
+  if (isWorkingDuration(deadline)) return { deadline: workingDeadlineOf(deadline, call), ...named };
+  if (calendar !== undefined)
+    throw new FlowSyntaxError({
+      message: `${call}({ calendar }) counts working time: give deadline as workDays(…), workHours(…) or workMin(…), or leave calendar out`,
+    });
+  return deadline === undefined ? {} : { deadline: plainDeadlineOf(deadline, call) };
 }
 
 /** `.joinQuorum({ min, max, deadline })`: options are always an object (AC11). */
@@ -87,22 +128,21 @@ export function countQuorumOf(options: unknown): CountQuorum {
     throw new FlowSyntaxError({
       message: ".joinQuorum({ min, max }) takes an integer max of at least min",
     });
-  const deadline = deadlineOf(options, ".joinQuorum");
   return Object.freeze({
     kind: QuorumKind.Count,
     min,
     ...(max === undefined ? {} : { max }),
-    ...(deadline === undefined ? {} : { deadline }),
+    ...quorumTimeOf(options, ".joinQuorum"),
   });
 }
 
-/** `{ deadline }` of `.joinQuorumGroups(…)`: `min` / `max` do not apply to groups. */
-function groupsDeadlineOf(options: object): Milliseconds | undefined {
+/** `{ deadline, calendar }` of `.joinQuorumGroups(…)`: `min` / `max` do not apply to groups. */
+function groupsTimeOf(options: object): QuorumTime {
   if (Reflect.has(options, "min") || Reflect.has(options, "max"))
     throw new FlowSyntaxError({
       message: ".joinQuorumGroups({ deadline }) — min / max do not apply to groups",
     });
-  return deadlineOf(options, ".joinQuorumGroups");
+  return quorumTimeOf(options, ".joinQuorumGroups");
 }
 
 /** `.joinQuorumGroups({ deadline })` (#1284): the join of a launch whose groups follow as `.onGroup(…)`s. */
@@ -112,11 +152,10 @@ export function groupsQuorumOf(options: unknown): GroupsQuorum {
       message:
         ".joinQuorumGroups(…) takes its options as an object: .joinQuorumGroups({ deadline })",
     });
-  const deadline = groupsDeadlineOf(options ?? {});
   return Object.freeze({
     kind: QuorumKind.Groups,
     groups: Object.freeze([]),
-    ...(deadline === undefined ? {} : { deadline }),
+    ...groupsTimeOf(options ?? {}),
   });
 }
 

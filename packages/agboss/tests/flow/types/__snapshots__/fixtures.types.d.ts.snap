@@ -39,6 +39,7 @@ import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, Comp
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
 import type { ConfirmScoreTool, CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent, WaitTool } from "../tests/flow/fixtures/quorum-runtime-parts.js";
 import type { ArbitratedPanelApplication, ArbitratedPanelWorkflow, ChatPanelApplication, ChatPanelWorkflow, CheckedPanelApplication, CheckedPanelWorkflow, CopiesPanelApplication, CopiesPanelWorkflow, DealPanelApplication, DealPanelWorkflow, EachItemPanelApplication, EachItemPanelWorkflow, HybridPanelApplication, HybridPanelWorkflow, ItemPanelApplication, ItemPanelWorkflow, ModelPanelApplication, ModelPanelWorkflow, QuickPanelApplication, QuickPanelWorkflow, RecoveryPanelApplication, RecoveryPanelWorkflow, StrictPanelApplication, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
+import type { AuditApplication, AuditBrokenWorkflow, AuditBrokenWorkflowStart, AuditDaysWorkflow, AuditDaysWorkflowStart, AuditGroupsWorkflow, AuditGroupsWorkflowStart, AuditHoursWorkflow, AuditHoursWorkflowStart, AuditUnhandledWorkflow, AuditUnhandledWorkflowStart, AuditorExternalTask, AuditorInboxChannel, CounselExternalTask, CounselInboxChannel } from "../tests/flow/fixtures/quorum-working-deadline.fixture.js";
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
 import type { CardRefundsWorkflow, DoubledRefundsApplication, RefundApprovalChannel, RefundCardInputDto, RefundCardOutputDto, RefundCardTool, RefundClerkAgent, RefundWorkflowFinish, RefundWorkflowStart, RuleRefundsApplication, SlackRefundsApplication, UnprovidedRefundsApplication } from "../tests/flow/fixtures/refunds.fixture.js";
@@ -69,7 +70,13 @@ declare module "../src/flow/generated-types.js" {
       "article-writer-agent": ArticleDraftDto;
       "ask-workflow-start": AskDto;
       "audit-bed-action": NoOutput;
+      "audit-broken-workflow-start": WorkflowStartTextDto;
+      "audit-days-workflow-start": WorkflowStartTextDto;
+      "audit-groups-workflow-start": WorkflowStartTextDto;
+      "audit-hours-workflow-start": WorkflowStartTextDto;
+      "audit-unhandled-workflow-start": WorkflowStartTextDto;
       "auditor-agent": AuditDto;
+      "auditor-external-task": SignOffDto;
       "batch-rank-agent": CompanyScoreDto;
       "batch-summary-agent": NoOutput;
       "bed-agent": BedsDto;
@@ -112,6 +119,7 @@ declare module "../src/flow/generated-types.js" {
       "contract-committee-workflow-start": WorkflowStartTextDto;
       "contract-groups-workflow-start": WorkflowStartTextDto;
       "coo-approver-agent": CooDecisionDto;
+      "counsel-external-task": SignOffDto;
       "credit-workflow-start": WorkflowStartTextDto;
       "critic-agent": CritiqueDto;
       "critic-panel-agent": DealCritiqueDto;
@@ -354,7 +362,18 @@ declare module "../src/flow/generated-types.js" {
       "ask-resume-workflow-finish": NoInput;
       "ask-workflow-start": AskDto;
       "audit-bed-action": NoInput;
+      "audit-broken-workflow": WorkflowStartTextDto;
+      "audit-broken-workflow-start": WorkflowStartTextDto;
+      "audit-days-workflow": WorkflowStartTextDto;
+      "audit-days-workflow-start": WorkflowStartTextDto;
+      "audit-groups-workflow": WorkflowStartTextDto;
+      "audit-groups-workflow-start": WorkflowStartTextDto;
+      "audit-hours-workflow": WorkflowStartTextDto;
+      "audit-hours-workflow-start": WorkflowStartTextDto;
+      "audit-unhandled-workflow": WorkflowStartTextDto;
+      "audit-unhandled-workflow-start": WorkflowStartTextDto;
       "auditor-agent": { deal: Produced<DealDto, typeof DealWorkflowStart> };
+      "auditor-external-task": { ask: Produced<ContractDto, typeof DraftContractAction> };
       "batch-rank-agent": { companies: readonly Produced<CompanyDto, typeof CompanyBatchWorkflowStart>[] };
       "batch-summary-agent": { answers: readonly Produced<WorkflowFinishTextDto, typeof TreasuryWorkflow>[] };
       "bed-agent": { message: Produced<WorkflowStartTextDto, typeof BedRequestWorkflowStart> };
@@ -439,6 +458,7 @@ declare module "../src/flow/generated-types.js" {
       "contract-signed-workflow-finish": NoInput;
       "coo-approver-agent": { request: Produced<ApprovalRequestDto, typeof JoinExpiryWorkflowStart> };
       "copies-panel-workflow": CandidateDto;
+      "counsel-external-task": { ask: Produced<ContractDto, typeof DraftContractAction> };
       "credit-by-model-workflow": WorkflowStartTextDto;
       "credit-limit-by-model-router": { order: Produced<CreditOrderDto, typeof OrderIntakeAgent> };
       "credit-limit-router": { order: Produced<CreditOrderDto, typeof OrderIntakeAgent> };
@@ -467,7 +487,7 @@ declare module "../src/flow/generated-types.js" {
       "desk-workflow-finish": NoInput;
       "desk-workflow-start": WorkflowStartTextDto;
       "draft-agent": { shortlist: Produced<ShortlistDto, typeof OfferWorkflowStart> };
-      "draft-contract-action": { message: Produced<WorkflowStartTextDto, typeof CommitteeNotesWorkflowStart | typeof ContractCommitteeWorkflowStart | typeof ContractGroupsWorkflowStart> };
+      "draft-contract-action": { message: Produced<WorkflowStartTextDto, typeof AuditBrokenWorkflowStart | typeof AuditDaysWorkflowStart | typeof AuditGroupsWorkflowStart | typeof AuditHoursWorkflowStart | typeof AuditUnhandledWorkflowStart | typeof CommitteeNotesWorkflowStart | typeof ContractCommitteeWorkflowStart | typeof ContractGroupsWorkflowStart> };
       "draft-editor-agent": { draft: Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>; changes: Produced<ChangesRequestedDto, typeof ReviewDraftAction> };
       "draft-history-action": { drafts: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
       "draft-history-workflow-finish": NoInput;
@@ -767,7 +787,7 @@ declare module "../src/flow/generated-types.js" {
       "side-question-workflow-start": WorkflowStartTextDto;
       "sign-as-finance-action": { signOffs: readonly Produced<SignOffDto, typeof FinanceDirectorExternalTask>[] };
       "sign-as-panel-action": { signOffs: readonly Produced<SignOffDto, typeof LegalSignOffExternalTask | typeof SecuritySignOffExternalTask>[] };
-      "sign-contract-action": { signOffs: readonly Produced<SignOffDto, typeof BudgetOwnerExternalTask | typeof FinanceDirectorExternalTask | typeof LegalSignOffExternalTask | typeof SecuritySignOffExternalTask>[] };
+      "sign-contract-action": { signOffs: readonly Produced<SignOffDto, typeof AuditorExternalTask | typeof BudgetOwnerExternalTask | typeof CounselExternalTask | typeof FinanceDirectorExternalTask | typeof LegalSignOffExternalTask | typeof SecuritySignOffExternalTask>[] };
       "skills-panel-agent": { candidate: Produced<CandidateDto, typeof PanelItemsWorkflowStart | typeof PanelWorkflowStart> };
       "skills-score-agent": { candidate: Produced<CandidateDto, typeof FitReviewWorkflowStart> };
       "slow-escalation-action": { order: Produced<ExpiryOrderDto, typeof SlowExpiryWorkflowStart> };
@@ -831,6 +851,7 @@ declare module "../src/flow/generated-types.js" {
       "article-workflow-finish": ReviewDto;
       "ask-resume-workflow-finish": ResumeMissingDto;
       "audit-bed-action": NoOutput;
+      "auditor-external-task": SignOffDto;
       "beds-workflow-finish": BedsDto;
       "budget-owner-external-task": SignOffDto;
       "budget-owner-question": SpendingLimitAnswerDto;
@@ -849,6 +870,7 @@ declare module "../src/flow/generated-types.js" {
       "company-shortlist-workflow-finish": CompanyShortlistDto;
       "contract-rejected-workflow-finish": WorkflowStartTextDto;
       "contract-signed-workflow-finish": SignedDto;
+      "counsel-external-task": SignOffDto;
       "credit-workflow-finish": ChargeResultDto;
       "critique-action": readonly CritiqueDto[];
       "deal-report-panel-workflow-finish": DueDiligenceReportDto;
@@ -991,6 +1013,11 @@ declare module "../src/flow/generated-types.js" {
       "agent-gated-workflow-start": { input: AgentRefundDto; output: AgentRefundDoneDto; readonly finishes: "agent-gated-workflow-finish" };
       "article-workflow-start": { input: ArticleRequestDto; output: ReviewDto; readonly finishes: "article-workflow-finish" };
       "ask-workflow-start": { input: AskDto; output: WorkflowFinishTextDto; readonly finishes: "answer-workflow-finish" };
+      "audit-broken-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
+      "audit-days-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
+      "audit-groups-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
+      "audit-hours-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
+      "audit-unhandled-workflow-start": { input: WorkflowStartTextDto; output: SignedDto; readonly finishes: "contract-signed-workflow-finish" };
       "bed-request-workflow-start": { input: WorkflowStartTextDto; output: BedsDto; readonly finishes: "beds-workflow-finish"; tenant: ClinicTenantContext; execution: ClinicExecutionContext };
       "broken-review-workflow-start": { input: WorkflowStartTextDto; output: JobOfferDto; readonly finishes: "job-offer-workflow-finish" };
       "budget-approval-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
@@ -1116,8 +1143,10 @@ declare module "../src/flow/generated-types.js" {
     }
     interface ChannelRoles {
       "approver-question": { readonly ask: PurchaseQuestionDto; readonly answer: ApproverAnswerDto };
+      "auditor-external-task": { readonly ask: ContractDto; readonly answer: SignOffDto };
       "budget-owner-external-task": { readonly ask: OwnerAskDto; readonly answer: SignOffDto };
       "budget-owner-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
+      "counsel-external-task": { readonly ask: ContractDto; readonly answer: SignOffDto };
       "deposit-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: DepositReturnDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: DepositReturnDto } };
       "edge-once-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
       "edge-twice-question": { readonly ask: PurchaseQuestionDto; readonly answer: SpendingLimitAnswerDto };
@@ -1147,7 +1176,9 @@ declare module "../src/flow/generated-types.js" {
       "transfer-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: TransferRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: TransferRequestDto } };
     }
     interface PauseTargets {
+      "auditor-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
       "budget-owner-external-task": { readonly input: OwnerAskDto; readonly output: SignOffDto };
+      "counsel-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
       "finance-director-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
       "legal-sign-off-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
       "pt-any-tool-approval": { readonly input: PtLimitAskDto; readonly output: { readonly approved: boolean; readonly reason?: string; readonly overrideInput?: PtLimitAskDto } };
@@ -3088,6 +3119,54 @@ declare module "../tests/flow/fixtures/quorum-runtime.fixture.js" {
   }
   interface StrictPanelWorkflow {
     readonly [agbossComponent]?: { readonly name: "strict-panel-workflow"; readonly kind: NodeKind.Workflow };
+  }
+}
+
+declare module "../tests/flow/fixtures/quorum-working-deadline.fixture.js" {
+  interface AuditApplication {
+    readonly [agbossTenantContext]?: false;
+  }
+  interface AuditBrokenWorkflow {
+    readonly [agbossComponent]?: { readonly name: "audit-broken-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface AuditBrokenWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "audit-broken-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface AuditDaysWorkflow {
+    readonly [agbossComponent]?: { readonly name: "audit-days-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface AuditDaysWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "audit-days-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface AuditGroupsWorkflow {
+    readonly [agbossComponent]?: { readonly name: "audit-groups-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface AuditGroupsWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "audit-groups-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface AuditHoursWorkflow {
+    readonly [agbossComponent]?: { readonly name: "audit-hours-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface AuditHoursWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "audit-hours-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface AuditorExternalTask {
+    readonly [agbossComponent]?: { readonly name: "auditor-external-task"; readonly kind: NodeKind.Question };
+  }
+  interface AuditorInboxChannel {
+    readonly [agbossComponent]?: { readonly name: "auditor-inbox-channel" };
+  }
+  interface AuditUnhandledWorkflow {
+    readonly [agbossComponent]?: { readonly name: "audit-unhandled-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface AuditUnhandledWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "audit-unhandled-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface CounselExternalTask {
+    readonly [agbossComponent]?: { readonly name: "counsel-external-task"; readonly kind: NodeKind.Question };
+  }
+  interface CounselInboxChannel {
+    readonly [agbossComponent]?: { readonly name: "counsel-inbox-channel" };
   }
 }
 

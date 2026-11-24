@@ -1,3 +1,6 @@
+import { workingCalendarViolations } from "../../../calendar/calendar-source.js";
+import { isWorkingDuration } from "../../../units/index.js";
+import { spanText } from "../../../units/working-time.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { QuorumKind, type CountQuorum, type QuorumGroup } from "../../ast.js";
 import type { ComponentName } from "../../registry.js";
@@ -50,6 +53,28 @@ function groupViolations(launch: FlowLaunch, group: QuorumGroup): readonly RuleV
   });
 }
 
+/**
+ * `[calendar.required-for-working-duration]` (#1306): a quorum whose `deadline` is working time
+ * names the `@WorkingCalendar` class that counts it (`{ deadline: workDays(5), calendar: C }`), and
+ * that class is a valid one (`[working-calendar.invalid]`). The calendar of a quorum is the
+ * quorum's own — never the application's, which serves pauses.
+ */
+function calendarViolations(site: QuorumSite): readonly RuleViolation[] {
+  const { launch, quorum } = site;
+  if (!isWorkingDuration(quorum.deadline)) return [];
+  const label = `${launchLabel(launch)}: ${quorum.kind === QuorumKind.Count ? ".joinQuorum" : ".joinQuorumGroups"}({ deadline: ${spanText(quorum.deadline)} })`;
+  if (quorum.calendar === undefined)
+    return [
+      violation(
+        "calendar.required-for-working-duration",
+        `${label} is working time and needs the calendar that counts it — add calendar: YourWorkingCalendar (a @WorkingCalendar class)`,
+        [launch.launcher],
+      ),
+    ];
+  // the class is created by the quorum's workflow, so it needs no listing in providers
+  return workingCalendarViolations(label, quorum.calendar, [quorum.calendar]);
+}
+
 function impossibleQuorum(site: QuorumSite): readonly RuleViolation[] {
   const { launch, quorum } = site;
   return quorum.kind === QuorumKind.Count
@@ -61,6 +86,7 @@ export function quorumRules(context: AnalysisContext): readonly RuleViolation[] 
   const found = new Map<string, RuleViolation>();
   const all = [
     ...context.walked.quorumJoins.flatMap(impossibleQuorum),
+    ...context.walked.quorumJoins.flatMap(calendarViolations),
     ...context.walked.launches.flatMap((launch) => arbiterViolations(context, launch)),
   ];
   for (const problem of all) found.set(`${problem.code}|${problem.message}`, problem);

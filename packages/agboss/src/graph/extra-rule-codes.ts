@@ -34,9 +34,15 @@ export type PauseTargetRuleCode =
   | "channel-interpreter.not-an-interpreter"
   | "channel-interpreter.no-interpret-method";
 
-/** Codes of the parallel launches `.inParallel([…])` and `.forEachItem(…)` (#1279, #1280). */
+/**
+ * Codes of the parallel launches `.inParallel([…])` and `.forEachItem(…)` (#1279, #1280), and of a
+ * quorum join's working-time `deadline` (#1306).
+ */
 export type ParallelLaunchRuleCode =
-  "launch.skip-differs" | "launch.for-each-item-no-list" | "launch.max-items-handler-required";
+  | "launch.skip-differs"
+  | "launch.for-each-item-no-list"
+  | "launch.max-items-handler-required"
+  | "calendar.required-for-working-duration";
 
 /** A field of a context subclass that shadows one the framework sets (#1316f). */
 export type ContextRuleCode = "context.reserved-field";

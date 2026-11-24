@@ -66,6 +66,7 @@ export type {
   FixedArbitratedQuorums,
   GroupsJoined,
   GroupsJoining,
+  QuorumDeadline,
   QuorumGroupOptions,
   QuorumGroupsOptions,
   QuorumJoined,

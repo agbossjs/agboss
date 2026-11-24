@@ -740,6 +740,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the launch of a child step: wiring of the sharded unwinds, leases and budgets", [
     "src/flow/runtime/launch/join-node.ts",
+    "src/flow/runtime/launch/launch-attempt.ts",
     "src/flow/runtime/launch/join-notices.ts",
     "src/flow/runtime/launch/join-values.ts",
     "src/flow/runtime/launch/join-write.ts",

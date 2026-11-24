@@ -230,8 +230,10 @@ export interface CountQuorum {
   readonly min: number;
   /** After how many counted answers the rest is cancelled; `min` when absent. */
   readonly max?: number;
-  /** How long the join waits (`seconds()`, `minutes()`, `hours()`). */
-  readonly deadline?: Milliseconds;
+  /** How long the join waits: `seconds()`, `minutes()`, `hours()`, or working time (`workDays()`) counted by `calendar`. */
+  readonly deadline?: Milliseconds | WorkingDuration;
+  /** The `@WorkingCalendar` class that counts a working-time `deadline` (#1306); required with one. */
+  readonly calendar?: Class;
 }
 
 /**
@@ -251,7 +253,10 @@ export interface QuorumGroup {
 export interface GroupsQuorum {
   readonly kind: QuorumKind.Groups;
   readonly groups: readonly QuorumGroup[];
-  readonly deadline?: Milliseconds;
+  /** As `CountQuorum.deadline`: plain or working time. */
+  readonly deadline?: Milliseconds | WorkingDuration;
+  /** The `@WorkingCalendar` class that counts a working-time `deadline` (#1306). */
+  readonly calendar?: Class;
 }
 
 export type Quorum = CountQuorum | GroupsQuorum;

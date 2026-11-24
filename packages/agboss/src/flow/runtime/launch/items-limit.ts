@@ -17,6 +17,12 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * the join's `.onError(…)` handler — a required one (`[launch.max-items-handler-required]`).
  */
 
+/** Whether a launch's list passed its `maxItems`: nothing is dispatched then. */
+export function isItemsOverflow(launch: RuntimeLaunch, ticket: LaunchTicket): boolean {
+  const limit = launch.launch.maxItems;
+  return limit !== undefined && isStrictItems(launch.launch) && ticket.items > limit;
+}
+
 /** The way out of a launch whose list passed `maxItems`; undefined when it did not. */
 export function itemsOverflowOf(
   launched: { readonly launch: RuntimeLaunch; readonly ticket: LaunchTicket },
@@ -26,8 +32,7 @@ export function itemsOverflowOf(
 ): ExecutionStateUpdate | undefined {
   const { launch, ticket } = launched;
   const limit = launch.launch.maxItems;
-  if (limit === undefined || !isStrictItems(launch.launch) || ticket.items <= limit)
-    return undefined;
+  if (limit === undefined || !isItemsOverflow(launch, ticket)) return undefined;
   const error = new LimitError.Items({
     path: [...state.path, node.id],
     spentUsd: usd(0),
@@ -35,6 +40,20 @@ export function itemsOverflowOf(
     limit,
     actual: ticket.items,
   });
+  return joinErrorTaken({ launch, node, state, records }, error);
+}
+
+/** Where a launch's failure goes at dispatch: the update of the join's `.onError(…)` handler's side path. */
+export function joinErrorTaken(
+  site: {
+    readonly launch: RuntimeLaunch;
+    readonly node: RuntimeNode;
+    readonly state: ExecutionStateType;
+    readonly records: ComponentRecords;
+  },
+  error: Error,
+): ExecutionStateUpdate {
+  const { launch, node, state, records } = site;
   const record = errorRecordOf(error);
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw error;

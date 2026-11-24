@@ -22,7 +22,7 @@ import * as index from "../../src/index.js";
 import { Metadata, type Tracked } from "../../src/flow/metadata.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../src/graph/errors.js";
-import { seconds } from "../../src/units/index.js";
+import { seconds, workDays } from "../../src/units/index.js";
 import {
   AuditorAgent,
   CultureScoreAgent,
@@ -70,6 +70,10 @@ const deal = () =>
     },
   );
 
+class OfficeCalendar {
+  readonly name = "office";
+}
+
 describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
   it("options are always an object; .arbitratedBy(…).join() does not compile", () => {
     // @ts-expect-error — the number shorthand is gone: .joinQuorum({ min: 2 })
@@ -81,6 +85,11 @@ describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
     scores()
       .arbitratedBy(GoodScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) });
+    // @ts-expect-error — working time needs the calendar that counts it (#1306)
+    scores().joinQuorum({ min: 2, deadline: workDays(5) });
+    // @ts-expect-error — a calendar beside a plain duration counts nothing (#1306)
+    scores().joinQuorum({ min: 2, deadline: seconds(30), calendar: OfficeCalendar });
+    scores().joinQuorum({ min: 2, deadline: workDays(5), calendar: OfficeCalendar });
     // @ts-expect-error — one arbiter per launch: .arbitratedBy(A).arbitratedBy(B) does not compile (no anyOf, no and / or)
     scores().arbitratedBy(GoodScoreArbiter).arbitratedBy(ValidScoreArbiter);
     // @ts-expect-error — anyOf(…) is gone with .acceptedBy(…)
@@ -141,6 +150,9 @@ describe("#279 AC7 / AC13, #1284: groups continue their own path", () => {
     deal().joinQuorumGroups({ min: 1 });
     // @ts-expect-error — a bare number is no deadline
     deal().joinQuorumGroups({ deadline: 30 });
+    // @ts-expect-error — working time needs the calendar that counts it (#1306)
+    deal().joinQuorumGroups({ deadline: workDays(5) });
+    deal().joinQuorumGroups({ deadline: workDays(5), calendar: OfficeCalendar });
     const joined = joining.onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish));
     // @ts-expect-error — .onError(E, …) stands before the first .onGroup(…), never after one
     joined.onError(StepFailedError, toFinish(QuickRejectWorkflowFinish));

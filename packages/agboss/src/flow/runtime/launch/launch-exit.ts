@@ -1,3 +1,10 @@
+import { pauseCalendarOf } from "../../../calendar/calendar-source.js";
+import { workingTimeAfter, type CalendarSite } from "../../../calendar/calendar-call.js";
+import type { Quorum } from "../../ast.js";
+import type { Class } from "../../../components/injection.js";
+import type { FrameSpec } from "../../context/frame.js";
+import type { Clock } from "../../../infrastructure/clock.js";
+import { isWorkingDuration } from "../../../units/index.js";
 import type { FlowEdge } from "../../analyse/flow-graph.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { countsAsStep } from "../limits.js";
@@ -6,6 +13,7 @@ import type { ScopeRecords } from "../records.js";
 import type { ExecutionStateType } from "../state.js";
 import { visitNumberOf } from "../step-frame.js";
 import { deadlineAtOf } from "./deadline.js";
+import { isItemsOverflow } from "./items-limit.js";
 import { dispatchOf } from "./dispatch.js";
 import type { LaunchTicket } from "./records.js";
 import { NO_VARIANT, type RuntimeLaunch } from "./runtime-launch.js";
@@ -49,19 +57,54 @@ export interface LaunchingVisit {
   readonly scope: ScopeRecords;
   /** The moment of dispatch on the application's `Clock` (a quorum's `deadlineAt`, #279). */
   readonly now: Date;
+  /** What a working-time quorum deadline is counted with (#1306). */
+  readonly calendar: DeadlineSite;
 }
 
-/** A quorum's deadline from the moment of dispatch; none without one. */
-const deadlineOf = (launch: RuntimeLaunch, now: Date): number | undefined => {
-  const deadline = launch.quorum?.deadline;
-  return deadline === undefined ? undefined : deadlineAtOf(now, deadline);
-};
+/** Where a working-time deadline is asked of its calendar: the step's frame, the clock, the container. */
+export interface DeadlineSite {
+  readonly frame: FrameSpec;
+  readonly clock: Clock;
+  readonly container: { readonly get: <T>(token: Class<T>) => T };
+  /** The run's stop: a calendar cut off by it is no calendar failure. */
+  readonly interruption?: AbortSignal | undefined;
+}
 
-/** The ticket of the launch a visit takes: its branches, counted after the step's own visit. */
-export function launchTicketOf(visit: LaunchingVisit, launch: RuntimeLaunch): LaunchTicket {
+/**
+ * A quorum's deadline from the moment of dispatch, in epoch milliseconds; none without one. A plain
+ * duration is added to `now`; working time (`workDays(5)`) is asked of the quorum's `@WorkingCalendar`
+ * (#1306), by the same call a pause's deadline is — a calendar that fails is a `WorkingCalendarError`.
+ */
+export async function quorumDeadlineAt(
+  quorum: Quorum | undefined,
+  now: Date,
+  site: DeadlineSite,
+): Promise<number | undefined> {
+  const deadline = quorum?.deadline;
+  if (quorum === undefined || deadline === undefined) return undefined;
+  if (!isWorkingDuration(deadline)) return deadlineAtOf(now, deadline);
+  const { frame, clock, container, interruption } = site;
+  const calendarSite: CalendarSite = {
+    calendar: pauseCalendarOf(quorum.calendar, (cls) => container.get(cls)),
+    tenantId: frame.execution.tenant.tenantId,
+    frame,
+    clock,
+    interruption,
+  };
+  return (await workingTimeAfter(calendarSite, now, deadline)).getTime();
+}
+
+/**
+ * The ticket of the launch a visit takes: its branches, counted after the step's own visit. The
+ * quorum's deadline is asked of its calendar only when branches will run (a list past `maxItems`
+ * dispatches none); a calendar's failure is thrown as `WorkingCalendarError`.
+ */
+export async function launchTicketOf(
+  visit: LaunchingVisit,
+  launch: RuntimeLaunch,
+): Promise<LaunchTicket> {
   const { node, state, outcome } = visit;
   const isStep = countsAsStep(state, node);
-  const deadlineAt = deadlineOf(launch, visit.now);
   const ticket = dispatchOf({
     graph: visit.graph,
     launch,
@@ -73,5 +116,7 @@ export function launchTicketOf(visit: LaunchingVisit, launch: RuntimeLaunch): La
     steps: state.steps + (isStep ? 1 : 0),
     ...(outcome.launch === undefined ? {} : { chosen: outcome.launch }),
   });
+  if (isItemsOverflow(launch, ticket)) return ticket;
+  const deadlineAt = await quorumDeadlineAt(launch.quorum, visit.now, visit.calendar);
   return deadlineAt === undefined ? ticket : { ...ticket, deadlineAt };
 }

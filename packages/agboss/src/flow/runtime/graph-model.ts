@@ -18,7 +18,12 @@ import {
   type ValueShape,
 } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
-import { arbiterClassesOf, launchesOf, type RuntimeLaunch } from "./launch/runtime-launch.js";
+import {
+  arbiterClassesOf,
+  launchesOf,
+  quorumCalendarClassesOf,
+  type RuntimeLaunch,
+} from "./launch/runtime-launch.js";
 import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
 
@@ -116,7 +121,8 @@ const compensatorsOf = (nodes: Iterable<RuntimeNode>): readonly Class[] =>
 
 /**
  * The classes the container creates for a graph's code: actions, finishes with a handler, code
- * routers, code arbiters (#279) and the actions' undo actions (#340).
+ * routers, code arbiters (#279), the actions' undo actions (#340) and the calendars of working-time
+ * quorum deadlines (#1306).
  */
 export const codeClassesOf = (
   graph: Pick<RuntimeGraph, "nodes" | "launches">,
@@ -127,6 +133,7 @@ export const codeClassesOf = (
     const options = arbiterOf(arbiter)?.options;
     return options !== undefined && isCodeArbiter(options);
   }),
+  ...quorumCalendarClassesOf(graph.launches),
 ];
 
 const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
