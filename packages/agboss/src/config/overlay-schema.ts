@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { isVariableReference } from "../environments/define-env.js";
-import { AgentsConfigSchema, AgentSettingsSchema, CompactionSettingsSchema } from "./types.js";
+import {
+  AgentsConfigSchema,
+  AgentSettingsSchema,
+  CompactionSettingsSchema,
+  UncompactedTurnsSchema,
+} from "./types.js";
+import { Ttl } from "../units/index.js";
+import { isExpiresIn } from "../channels/channel-rules.js";
 
 /** Every field optional at every depth; unknown keys rejected (a typo surfaces with its path). */
 export function deepPartial(schema: z.ZodType): z.ZodType {
@@ -48,6 +55,30 @@ export const BudgetOverlaySchema = z
     message: "give maxSpend and/or maxTokens",
   });
 
+/** How long something is kept: milliseconds above 0, or `Ttl.Forever` (`"forever"`). */
+const keptFor = z.union([z.number().positive(), z.literal(Ttl.Forever)]);
+
+/** What a profile changes of one `@Memory`, by its name: its keep time, its window and its compaction pace. */
+export const MemoryOverlaySchema = z
+  .strictObject({
+    ttl: keptFor.optional(),
+    uncompactedTurns: UncompactedTurnsSchema.optional(),
+    turnsBetweenCompactions: z.number().int().positive().optional(),
+  })
+  .refine((one) => Object.keys(one).length > 0, {
+    message: "give ttl, uncompactedTurns and/or turnsBetweenCompactions",
+  });
+
+/** A deadline or a reminder: a plain duration in milliseconds, or working time (`.config.ts`), at least one second. */
+const timeSpan = z.custom<unknown>(isExpiresIn, "a duration of at least one second");
+
+/** What a profile changes of one `@ToolApproval` / `@ExternalTask`, by its name: how long its pauses wait. */
+export const PauseTargetOverlaySchema = z
+  .strictObject({ timeout: timeSpan.optional(), remindBefore: timeSpan.optional() })
+  .refine((one) => one.timeout !== undefined || one.remindBefore !== undefined, {
+    message: "give timeout and/or remindBefore",
+  });
+
 /** What a profile changes of one workflow's config: constants only. */
 export const WorkflowOverlaySchema = z.strictObject({
   /** The config version a profile's runs carry. */
@@ -80,6 +111,12 @@ export const ScalarOverlaySchema = z.strictObject({
   modelProviders: z.record(kebab, ModelProviderOverlaySchema).optional(),
   /** The limits of each `@Budget` that declares them, by its name. */
   budgets: z.record(kebab, BudgetOverlaySchema).optional(),
+  /** A `@Memory`'s keep time, window and compaction pace by its name. */
+  memories: z.record(kebab, MemoryOverlaySchema).optional(),
+  /** How long the pauses of a `@ToolApproval` wait, by its name. */
+  toolApprovals: z.record(kebab, PauseTargetOverlaySchema).optional(),
+  /** How long the pauses of an `@ExternalTask` wait, by its name. */
+  externalTasks: z.record(kebab, PauseTargetOverlaySchema).optional(),
   judges: z.record(kebab, ComponentModelOverlaySchema).optional(),
   arbiters: z.record(kebab, ComponentModelOverlaySchema).optional(),
   guardrails: z.record(kebab, ComponentModelOverlaySchema).optional(),

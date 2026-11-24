@@ -146,10 +146,13 @@ export async function memoriesFor(
   const { memoryPartsOf, compactionSettingsOf } = await lazyLoad(import("../memory/assembly.js"));
   const { bundle, agents, graph, loader } = sources;
   const memories = await memoryPartsOf(
-    { workflow: { name: bundle.name, memory: bundle.memory } },
+    {
+      workflow: { name: bundle.name, memory: bundle.memory },
+      overrides: bundle.memoryOverrides,
+    },
     agents,
     graph,
     loader,
   );
-  return { ...memories, settings: compactionSettingsOf(memories) };
+  return { ...memories, settings: compactionSettingsOf(memories, bundle.memoryOverrides) };
 }

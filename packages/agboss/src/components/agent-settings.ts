@@ -4,20 +4,22 @@ import { judgeNamesOf } from "./judge-parts.js";
 import type { AgentMeta } from "./meta-types.js";
 import { OMITTED_MODEL } from "../models/model-cascade.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";
-import { windowOfClass } from "../memory/memory.decorator.js";
+import { windowOfClass, type MemoryOverrides } from "../memory/memory.decorator.js";
 import { ragSettings } from "./rag.js";
 
 /** An agent's settings as the config holds them (tools by name). */
 export function agentSettings(
   agent: AgentMeta,
   names: ReadonlyMap<Class, string>,
+  memoryOverrides?: MemoryOverrides,
 ): AgentsConfigOf<string>["agents"][string] {
   const optional = {
     thinking: agent.thinking,
     temperature: agent.temperature,
     maxTokens: agent.maxTokens,
     cache: agent.cache,
-    uncompactedTurns: agent.memory === undefined ? undefined : windowOfClass(agent.memory),
+    uncompactedTurns:
+      agent.memory === undefined ? undefined : windowOfClass(agent.memory, memoryOverrides),
     maxModelCalls: agent.maxModelCalls,
     maxToolCalls: agent.maxToolCalls,
     maxRetries: agent.maxRetries,

@@ -5,18 +5,11 @@ import { APP_DEFAULT_PROFILE } from "../config/profile-names.js";
 import {
   checkOverlayUse,
   OverlayUse,
-  slotsOf,
   workflowPatchOf,
   type WorkflowPatch,
 } from "../config/workflow-overlay.js";
 import { workflowDeclarationOf } from "../components/module.js";
-import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import { declarationOf } from "../flow/decorators/declaration.js";
-import { NodeKind } from "../flow/ast.js";
-import { budgetOf } from "../budgets/budget.js";
-import { budgetsOfApplication } from "../budgets/budget-rules.js";
-import { BudgetOverlays, type BudgetOverlay } from "../budgets/budget-overlay.js";
-import { usd } from "../units/index.js";
+import type { BudgetOverlays } from "../budgets/budget-overlay.js";
 import type { Class } from "../components/injection.js";
 import type { EnvOverrides } from "../environments/define-env.js";
 import type { EnvContract } from "../environments/env-ref.js";
@@ -33,6 +26,10 @@ import {
   type ApplicationDeclaration,
   type ApplicationOptions,
 } from "./application.js";
+import type { PauseTargetOverrides } from "../channels/pause-targets.js";
+import { pauseOverridesOf } from "../config/pause-overrides.js";
+import { budgetOverlaysOf } from "./budget-profile.js";
+import { checkMemories, checkPauseTargets } from "./profile-checks.js";
 import { withIsolatedStorage } from "./isolated-storage.js";
 
 /**
@@ -63,63 +60,6 @@ async function effectiveOptionsOf(
   // the replaced lists go through the same step as the declared ones: a replaced `storage` replaces
   // its stores in `providers`, a replaced `channels` its channels
   return declaredOptionsOf({ ...written, ...folded.replacements, ...own });
-}
-
-/** A YAML limit is a number: the branded dollars a budget takes. */
-const limitOf = (overlay: BudgetOverlay): BudgetOverlay => ({
-  ...overlay,
-  ...(typeof overlay.maxSpend === "number" ? { maxSpend: usd(overlay.maxSpend) } : {}),
-});
-
-/** The `@Budget` each workflow gets from a profile in place of its own, by workflow class. */
-function budgetSlotsOf(folded: FoldedConfig, options: ApplicationOptions): Map<Class, Class> {
-  const slots = new Map<Class, Class>();
-  for (const workflow of withChildWorkflows(options.workflows)) {
-    const declaration = declarationOf(workflow);
-    if (declaration?.kind !== NodeKind.Workflow) continue;
-    const { budget } = slotsOf(folded, declaration.options.name);
-    if (budget !== undefined) slots.set(workflow, budget);
-  }
-  return slots;
-}
-
-/**
- * What the profiles change of the budgets: the limits they give, by budget name, and the `budget` they
- * attach to a workflow. Every limit name is a budget of the application (listed or attached, a slot's
- * included), and a budget that reads its limits in `limit()` takes none — a profile cannot make it
- * declare them. `undefined` when no profile changes a budget.
- */
-function budgetOverlaysOf(
-  folded: FoldedConfig,
-  options: ApplicationOptions,
-): BudgetOverlays | undefined {
-  const named = Object.entries(folded.budgets);
-  const slots = budgetSlotsOf(folded, options);
-  if (named.length === 0 && slots.size === 0) return undefined;
-  const slotted = new BudgetOverlays([], slots);
-  const metas = budgetsOfApplication({
-    budgets: options.budgets,
-    workflows: withChildWorkflows(options.workflows),
-    budgetOverlays: slotted,
-  }).flatMap((cls) => budgetOf(cls) ?? []);
-  const profiles = folded.profiles.join(",");
-  for (const [name] of named) {
-    const meta = metas.find((one) => one.name === name);
-    if (meta === undefined)
-      throw new ProfileError({
-        reason: ProfileErrorReason.Unknown,
-        message: `profile ${profiles}: budgets.${name}: no such budget in the application — it has: ${metas.map((one) => one.name).join(", ") || "none"}`,
-      });
-    if (meta.maxSpend === undefined && meta.maxTokens === undefined)
-      throw new ProfileError({
-        reason: ProfileErrorReason.Invalid,
-        message: `profile ${profiles}: budgets.${name}: ${name} reads its limits in limit(), a profile cannot set them — declare maxSpend / maxTokens in its @Budget`,
-      });
-  }
-  return new BudgetOverlays(
-    named.map(([name, overlay]) => [name, limitOf(overlay)] as const),
-    slots,
-  );
 }
 
 /** The providers the application's workflows can reach, by their `name`. */
@@ -159,6 +99,8 @@ export const withBudgetOverlays = (
 
 /** What an assembled application records of its profiles: their names and their `configureEnv` values. */
 export interface ProfileFields {
+  /** What the profiles change of the pause targets, by target name; every reader of a target's deadline sees it. */
+  readonly pauseOverrides?: PauseTargetOverrides | undefined;
   readonly profiles: readonly string[];
   readonly envOverrides: readonly EnvOverrides<EnvContract>[];
 }
@@ -209,6 +151,7 @@ export async function appliedProfilesOf(
 
 /** What an assembled application records of its profiles. */
 export const profileFieldsOf = ({ folded }: AppliedProfiles): ProfileFields => ({
+  pauseOverrides: pauseOverridesOf(folded),
   profiles: folded.profiles,
   envOverrides: folded.env,
 });
@@ -230,5 +173,7 @@ export function checkAppliedProfiles(
   assembled: readonly AssembledWorkflow[],
 ): void {
   checkOverlayUse(applied.folded, applied.use);
+  checkMemories(applied.folded, assembled);
+  checkPauseTargets(applied.folded, assembled);
   checkProviderOverlays(applied.folded, reachableProvidersOf(applied.options, assembled));
 }

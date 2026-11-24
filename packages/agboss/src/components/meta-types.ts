@@ -1,3 +1,5 @@
+import type { PauseTargetOverrides } from "../channels/pause-targets.js";
+import type { MemoryOverrides } from "../memory/memory.decorator.js";
 import type { PromptVariables } from "./prompt-variables.js";
 import type { PromptSource } from "./prompt-source.js";
 import type { AgentSettings, AgentsConfig } from "../config/types.js";
@@ -99,6 +101,10 @@ export interface WorkflowMeta {
   readonly excludeToolInterceptors?: readonly Class[];
   /** `@Memory` of every agent and model router (#1303); none: the workflow is stateless. */
   readonly memory?: Class;
+  /** What the selected profiles change of the memories, by memory name (the workflow reads them as changed). */
+  readonly memoryOverrides?: MemoryOverrides | undefined;
+  /** What the selected profiles change of the pause targets, by target name (the workflow's channels read them as changed). */
+  readonly pauseOverrides?: PauseTargetOverrides | undefined;
   readonly providers?: readonly Provider[];
   /** `@Workflow({ services })` (#1324): scoped to the workflow's own container. */
   readonly services?: readonly Provider[];

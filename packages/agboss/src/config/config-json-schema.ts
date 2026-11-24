@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AssembledApplication } from "../application/assemble.js";
 import {
+  MemoryOverlaySchema,
   ModelProviderOverlaySchema,
   ScalarOverlaySchema,
   WorkflowOverlaySchema,
@@ -64,10 +65,17 @@ export function configJsonSchemaOf(assembled: AssembledApplication): Schema {
     budgets: assembled.budgets,
     workflows: assembled.workflows.map((one) => one.graph.type),
   }).flatMap((cls) => budgetOf(cls) ?? []);
+  const memorySchema = json(MemoryOverlaySchema);
+  const memories = new Set(
+    assembled.workflows.flatMap((one) =>
+      (one.memories?.memories ?? []).map((memory) => memory.name),
+    ),
+  );
   return {
     ...base,
     properties: {
       ...props,
+      memories: objectOf(Object.fromEntries([...memories].map((name) => [name, memorySchema]))),
       workflows: objectOf({ "*": everyWorkflow, ...workflows }),
       modelProviders: objectOf(Object.fromEntries(providers.map((name) => [name, providerSchema]))),
       // a YAML file holds numbers; a budget that reads its limits in limit() has no entry

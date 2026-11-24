@@ -185,6 +185,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/storage/standalone-storage.ts"],
   ),
   ...reviewed(
+    "the checks that a profile's names (memories, toolApprovals, externalTasks) exist once the workflows are assembled (#1318c): a name nothing has is a ProfileError at start; the values themselves are applied by the assembly (the memory, the pause deadline) and the limits by the sharded budget rules; covered by tests/config/shelves.test.ts and pause-shelves.test.ts",
+    ["src/application/profile-checks.ts"],
+  ),
+  ...reviewed(
     "the variables a component names through defineEnv, found for `agboss check --env` (#1324): a walk of decorator options listing variable names, never a value; it decides nothing at run time; covered by tests/storage/referenced-variables.test.ts",
     ["src/application/referenced-variables.ts"],
   ),

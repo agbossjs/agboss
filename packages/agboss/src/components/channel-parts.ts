@@ -4,7 +4,12 @@ import { pauseCalendarOf } from "../calendar/calendar-source.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
 import type { PermitAnswer } from "../channels/pause-contexts.js";
-import { pauseTargetOf, PauseRespondent } from "../channels/pause-targets.js";
+import type { TimeSpan } from "../units/working-time.js";
+import {
+  pauseTargetOf,
+  PauseRespondent,
+  type PauseTargetOverlay,
+} from "../channels/pause-targets.js";
 import { channelRoleOf, PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { Class } from "./injection.js";
@@ -92,6 +97,15 @@ const isChannelless = (cls: Class, modules: readonly ProviderModule[]): boolean 
   pauseTargetOf(cls)?.options.respondent === PauseRespondent.Owner &&
   implementationsOf(cls, modules).length === 0;
 
+/** A target's deadline and reminder: a profile's over its own. */
+const pauseTimesOf = (
+  role: { readonly expiresIn?: TimeSpan; readonly remindBefore?: TimeSpan } | undefined,
+  changed: PauseTargetOverlay | undefined,
+) => ({
+  expiresIn: changed?.timeout ?? role?.expiresIn,
+  remindBefore: changed?.remindBefore ?? role?.remindBefore,
+});
+
 /** The workflow's channels by name (a role's name for a role), created by its container. */
 export function channelPartsOf(
   bundle: WorkflowMeta,
@@ -111,7 +125,10 @@ export function channelPartsOf(
             ? undefined
             : (container.get(cls) as ChannelSender);
           const permitAnswer = permitAnswerOf(cls, container);
-          const { expiresIn, remindBefore, workingCalendar } = channelRoleOf(cls)?.options ?? {};
+          const role = channelRoleOf(cls)?.options;
+          // a profile's deadline and reminder (`toolApprovals` / `externalTasks`) over the target's own
+          const { expiresIn, remindBefore } = pauseTimesOf(role, bundle.pauseOverrides?.get(name));
+          const workingCalendar = role?.workingCalendar;
           // a role's own calendar, else the application's: created by the application's container (#944)
           const calendar = pauseCalendarOf(workingCalendar ?? defaultCalendar, (one) =>
             container.get(one),

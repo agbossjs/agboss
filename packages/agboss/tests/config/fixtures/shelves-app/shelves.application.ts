@@ -6,6 +6,7 @@ import {
   DecidedBy,
   EmptyEnvironment,
   InputGuardrail,
+  Memory,
   Router,
   Workflow,
   WorkflowFinish,
@@ -15,7 +16,7 @@ import {
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../../../src/models/index.js";
-import { seconds, usd } from "../../../../src/units/index.js";
+import { hours, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart, route } from "../../../helpers/flow.js";
 
@@ -61,6 +62,25 @@ export class ShelfSlotBudget {}
 })
 export class ShelfListedBudget {}
 
+/** The memory of the workflow: kept a day, its readers see three turns in full. */
+@Memory({
+  name: "shelf-memory",
+  description: "Keeps the thread",
+  ttl: hours(24),
+  uncompactedTurns: 3,
+  turnsBetweenCompactions: 4,
+})
+export class ShelfMemory {}
+
+/** A memory only a profile gives the workflow. */
+@Memory({
+  name: "shelf-other-memory",
+  description: "Keeps the thread a week",
+  ttl: hours(168),
+  uncompactedTurns: 7,
+})
+export class ShelfOtherMemory {}
+
 @WorkflowStart({
   name: "shelf-workflow-start",
   description: "A question",
@@ -103,6 +123,7 @@ class ShelfGuardrail {}
   name: "shelf-workflow",
   version: "1.0.0",
   budget: ShelfAttachedBudget,
+  memory: ShelfMemory,
   guardrails: [ShelfGuardrail],
   flow: [
     onStart(ShelfStart).toRouter(ShelfRouter).chooseOne(route(ShelfAgent).toFinish(ShelfFinish)),

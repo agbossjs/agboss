@@ -2069,13 +2069,16 @@ export interface ConfigSpec {
     readonly channels?: ApplicationOptions["channels"];
     readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
     readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
+    readonly externalTasks?: Readonly<Record<string, PauseTargetOverlay>>;
     readonly guardrails?: Readonly<Record<string, ComponentModelConfig>>;
     readonly healthChecks?: ApplicationOptions["healthChecks"];
     readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
+    readonly memories?: Readonly<Record<string, MemoryOverlay>>;
     readonly modelProvider?: Class;
     readonly modelProviders?: Readonly<Record<string, ModelProviderOverlay>>;
     readonly piiPolicies?: Readonly<Record<string, ComponentModelConfig>>;
     readonly storage?: ApplicationOptions["storage"];
+    readonly toolApprovals?: Readonly<Record<string, PauseTargetOverlay>>;
     readonly workflows?: Readonly<Record<string, WorkflowConfig>>;
 }
 
@@ -5934,6 +5937,16 @@ export type MemoryCompaction = SummaryQueueCompaction | SingleSummaryCompaction;
 export type MemoryOptions = DeclarativeMemoryOptions | CodeMemoryOptions;
 
 // @public
+export interface MemoryOverlay {
+    // (undocumented)
+    readonly ttl?: Milliseconds | Ttl.Forever;
+    // (undocumented)
+    readonly turnsBetweenCompactions?: number;
+    // (undocumented)
+    readonly uncompactedTurns?: UncompactedTurns;
+}
+
+// @public
 export function Mesh(options: MeshOptions): <C extends Class>(value: C) => C;
 
 // @public
@@ -7811,6 +7824,12 @@ interface PauseTargetHooks {
     readonly permitTimeoutChange?: (ctx: never) => boolean | Promise<boolean>;
     // (undocumented)
     readonly resolveTimeout?: (ctx: never) => Milliseconds | WorkingDuration | undefined | Promise<Milliseconds | WorkingDuration | undefined>;
+}
+
+// @public
+export interface PauseTargetOverlay {
+    readonly remindBefore?: Milliseconds | WorkingDuration;
+    readonly timeout?: Milliseconds | WorkingDuration;
 }
 
 // @public
@@ -11095,7 +11114,6 @@ export type WorkflowClass = Class;
 // @public
 export interface WorkflowConfig extends Omit<WorkflowOverlay, "routers"> {
     readonly budget?: Class;
-    readonly filePolicy?: Class;
     readonly memory?: Class;
     readonly modelProvider?: Class;
     readonly routers?: Readonly<Record<string, ComponentModelConfig>>;
@@ -12953,6 +12971,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "compaction".
 // src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "Memory".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "ttl".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "uncompactedTurns".
+// src/memory/memory.decorator.ts - (ae-undocumented) Missing documentation for "turnsBetweenCompactions".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "executionId".
 // src/mesh/mesh-envelope.ts - (ae-undocumented) Missing documentation for "currency".

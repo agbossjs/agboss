@@ -1,4 +1,7 @@
 import type { Class } from "../components/injection.js";
+import type { MemoryOverrides } from "../memory/memory.decorator.js";
+import type { PauseTargetOverrides } from "../channels/pause-targets.js";
+import { pauseOverridesOf } from "./pause-overrides.js";
 import type { ComponentModelOverrides } from "../models/model-cascade.js";
 import { deepMerge } from "./deep-merge.js";
 import type { FoldedConfig, FoldedWorkflow, WorkflowSlots } from "./fold-config.js";
@@ -22,8 +25,12 @@ export class OverlayUse {
 /** What the folded profiles change of one workflow, ready to apply while it is assembled. */
 export interface WorkflowPatch {
   readonly modelProvider: Class | undefined;
-  /** The classes profiles give the workflow in place of its own `budget`, `memory` and `filePolicy`. */
+  /** The classes profiles give the workflow in place of its own `budget` and `memory`. */
   readonly slots: WorkflowSlots;
+  /** What the profiles change of the memories, by memory name: the workflow's memories are read as changed. */
+  readonly memoryOverrides: MemoryOverrides | undefined;
+  /** What the profiles change of the pause targets, by target name: the workflow's channels carry it. */
+  readonly pauseOverrides: PauseTargetOverrides | undefined;
   /** The models profiles change of single components: the shelves, and this workflow's routers. */
   readonly componentModels: ComponentModelOverrides;
   /** The providers' overlays: the model names the cascade resolves through. */
@@ -147,8 +154,7 @@ function promptsOf(
 export function slotsOf(folded: FoldedConfig, workflow: string): WorkflowSlots {
   const found: { -readonly [K in keyof WorkflowSlots]: WorkflowSlots[K] } = {};
   for (const overlay of overlaysOf(folded, workflow)) {
-    for (const key of ["budget", "memory", "filePolicy"] as const)
-      found[key] = overlay.slots[key] ?? found[key];
+    for (const key of ["budget", "memory"] as const) found[key] = overlay.slots[key] ?? found[key];
   }
   return found;
 }
@@ -174,6 +180,11 @@ export function workflowPatchOf(
   return {
     modelProvider: providers.at(-1),
     slots: slotsOf(folded, workflow),
+    pauseOverrides: pauseOverridesOf(folded),
+    memoryOverrides:
+      Object.keys(folded.memories).length === 0
+        ? undefined
+        : new Map(Object.entries(folded.memories)),
     componentModels,
     providers: folded.modelProviders,
     config: (config) => configOf(config, folded, use),

@@ -1,6 +1,13 @@
 import { withAgentFiles } from "../files/assemble-files.js";
 import type { AgentsConfigOf } from "../config/types.js";
-import { patchedConfig, patchedPrompts, profiledBundle, type WorkflowPatch } from "./profiled.js";
+import {
+  memoryOf,
+  patchedConfig,
+  patchedPrompts,
+  profiledBundle,
+  windowOf,
+  type WorkflowPatch,
+} from "./profiled.js";
 import { validateAgentsConfig } from "../config/types.js";
 import { analyseWorkflow, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import { maxStepsOf as stepsLimitOf } from "../flow/analyse/steps.js";
@@ -46,7 +53,7 @@ import {
 import { settingsOf } from "./workflow-settings.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { AssembledMemories } from "../memory/assembly.js";
-import { windowOfClass, workflowWindowOf } from "../memory/memory.decorator.js";
+import { workflowWindowOf } from "../memory/memory.decorator.js";
 
 /** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
 type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
@@ -82,7 +89,9 @@ function configOf(
     defaults: bundle.defaults,
     ...(Object.keys(memories.settings).length === 0 ? {} : { memories: memories.settings }),
     ...judgeSettingsOf(judges.classes),
-    agents: Object.fromEntries(agents.map((agent) => [agent.name, agentSettings(agent, names)])),
+    agents: Object.fromEntries(
+      agents.map((agent) => [agent.name, agentSettings(agent, names, bundle.memoryOverrides)]),
+    ),
   };
 }
 
@@ -119,7 +128,10 @@ function withApplicationDefaults(
   const defaults = cascadeDefaults(owner.defaults, options.defaults);
   return {
     ...bundle,
-    defaults: configDefaultsOf(defaults, workflowWindowOf(options.memory)),
+    defaults: configDefaultsOf(
+      defaults,
+      workflowWindowOf(memoryOf(options, owner.patch), owner.patch?.memoryOverrides),
+    ),
     modelCascade,
   };
 }
@@ -146,7 +158,7 @@ const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLe
     workflow: {
       name: options.name,
       defaults: options.defaults,
-      uncompactedTurns: options.memory === undefined ? undefined : windowOfClass(options.memory),
+      uncompactedTurns: windowOf(memoryOf(options, owner?.patch), owner?.patch),
     },
   };
 };

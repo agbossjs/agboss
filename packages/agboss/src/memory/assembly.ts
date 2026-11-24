@@ -18,11 +18,12 @@ import {
   CUSTOM_COMPACTION,
   CompactionStrategy,
   WINDOW_ONLY,
-  memoryMetaOf,
+  effectiveMemoryMetaOf,
   modeOf,
   windowOf,
   type MemoryMeta,
   type MemoryMode,
+  type MemoryOverrides,
   type UncompactedTurns,
 } from "./memory.decorator.js";
 import { effectiveMemories, type MemoryReaderElement } from "./levels.js";
@@ -68,6 +69,8 @@ export interface AssembledMemories {
 /** What the workflow sets. */
 export interface MemoryOwners {
   readonly workflow: { readonly name: string; readonly memory?: Class };
+  /** What the selected profiles change of the memories, by memory name. */
+  readonly overrides?: MemoryOverrides | undefined;
 }
 
 /** The readers of the graph: its agents and its model routers (a code router reads no memory). */
@@ -85,8 +88,12 @@ const builtInPromptOf = (strategy: CompactionStrategy): string =>
 
 const hasOwnPrompt = (meta: MemoryMeta): boolean => hasPrompt(meta.compaction?.prompt);
 
-async function loaded(cls: Class, loader: PromptLoader): Promise<LoadedMemory[]> {
-  const meta = memoryMetaOf(cls);
+async function loaded(
+  cls: Class,
+  loader: PromptLoader,
+  overrides?: MemoryOverrides,
+): Promise<LoadedMemory[]> {
+  const meta = effectiveMemoryMetaOf(cls, overrides);
   if (meta === undefined) return [];
   const mode = modeOf(cls, meta);
   const strategy = meta.compaction?.strategy;
@@ -156,10 +163,11 @@ function settingsOf(cls: Class, meta: MemoryMeta): CompactionSettings | undefine
 /** The config's `memories`: each memory that compacts, by name. */
 export const compactionSettingsOf = (
   assembled: AssembledMemories,
+  overrides?: MemoryOverrides,
 ): Record<string, CompactionSettings> =>
   Object.fromEntries(
     assembled.memories.flatMap((memory) => {
-      const meta = memoryMetaOf(memory.type);
+      const meta = effectiveMemoryMetaOf(memory.type, overrides);
       const settings = meta === undefined ? undefined : settingsOf(memory.type, meta);
       return settings === undefined ? [] : [[memory.name, settings] as const];
     }),
@@ -178,13 +186,15 @@ export async function memoryPartsOf(
   // the workflow's own memory is checked even when every reader sets its own
   const checked = own === undefined ? effective.classes : [...new Set([own, ...effective.classes])];
   throwIfViolated([...effective.violations, ...memoryViolations(checked)]);
-  const memories = (await Promise.all(effective.classes.map((cls) => loaded(cls, loader)))).flat();
+  const memories = (
+    await Promise.all(effective.classes.map((cls) => loaded(cls, loader, owners.overrides)))
+  ).flat();
   const nameOfClass = new Map(memories.map((memory) => [memory.type, memory.name]));
   const readers = new Map(
     elements.map((element): [string, MemoryReaderOf] => {
       const cls = effective.byElement.get(element.name);
       const memory = cls === undefined ? undefined : nameOfClass.get(cls);
-      const meta = cls === undefined ? undefined : memoryMetaOf(cls);
+      const meta = cls === undefined ? undefined : effectiveMemoryMetaOf(cls, owners.overrides);
       return [
         element.name,
         {
@@ -194,7 +204,7 @@ export async function memoryPartsOf(
       ];
     }),
   );
-  const ownMeta = own === undefined ? undefined : memoryMetaOf(own);
+  const ownMeta = own === undefined ? undefined : effectiveMemoryMetaOf(own, owners.overrides);
   return {
     memories,
     readers,

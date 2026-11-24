@@ -172,6 +172,26 @@ export const memoryMetaOf = (cls: Class): MemoryMeta | undefined => {
   return component?.kind === "memory" ? component.meta : undefined;
 };
 
+/** What a profile changes of one `@Memory` (`memories: { "<name>": { … } }`): its keep time and its window. */
+export interface MemoryOverlay {
+  readonly ttl?: Milliseconds | Ttl.Forever;
+  readonly uncompactedTurns?: UncompactedTurns;
+  readonly turnsBetweenCompactions?: number;
+}
+
+/** The overlays of the selected profiles by memory `name`, later profiles already folded in. */
+export type MemoryOverrides = ReadonlyMap<string, MemoryOverlay>;
+
+/** A class's `@Memory` options as the selected profiles leave them: the declared ones, the overlay on top. */
+export const effectiveMemoryMetaOf = (
+  cls: Class,
+  overrides: MemoryOverrides | undefined,
+): MemoryMeta | undefined => {
+  const meta = memoryMetaOf(cls);
+  const overlay = meta === undefined ? undefined : overrides?.get(meta.name);
+  return meta === undefined || overlay === undefined ? meta : { ...meta, ...overlay };
+};
+
 /** Whether a memory's class compacts in code: it has a `compact` method. */
 export const hasCompactMethod = (cls: Class): boolean =>
   typeof (Reflect.get(cls.prototype as object, "compact") as unknown) === "function";
@@ -181,13 +201,17 @@ export const windowOf = (meta: MemoryMeta): UncompactedTurns =>
   meta.uncompactedTurns ?? DEFAULT_UNCOMPACTED_TURNS;
 
 /** The workflow's window: its memory's; a workflow without `memory` is stateless — no earlier turn (#1303b, D8). */
-export const workflowWindowOf = (memory: Class | undefined): UncompactedTurns => {
-  const meta = memory === undefined ? undefined : memoryMetaOf(memory);
+export const workflowWindowOf = (
+  memory: Class | undefined,
+  overrides?: MemoryOverrides,
+): UncompactedTurns => {
+  const meta = memory === undefined ? undefined : effectiveMemoryMetaOf(memory, overrides);
   return meta === undefined ? 0 : windowOf(meta);
 };
 
 /** The window of a `@Memory` class. */
-export const windowOfClass = (memory: Class): UncompactedTurns => workflowWindowOf(memory);
+export const windowOfClass = (memory: Class, overrides?: MemoryOverrides): UncompactedTurns =>
+  workflowWindowOf(memory, overrides);
 
 /** What a memory does with the turns older than its window. */
 export const WINDOW_ONLY = "window" as const;

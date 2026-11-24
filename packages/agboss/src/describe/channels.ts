@@ -11,6 +11,7 @@ import {
   replyInterpreterOf,
   type StoredChannelRole,
 } from "../channels/channel-role.decorator.js";
+import type { PauseTargetOverlay } from "../channels/pause-targets.js";
 import { implementationsOf } from "../channels/channel-rules.js";
 import { channelUsesOf, type ChannelUse } from "../channels/discovery.js";
 import { dtoLabel } from "../flow/analyse/labels.js";
@@ -97,12 +98,24 @@ function timesOf(
   };
 }
 
+/** The role's options with a profile's deadline and reminder over the target's own. */
+const withProfile = (
+  declared: StoredChannelRole,
+  changed: PauseTargetOverlay | undefined,
+): StoredChannelRole => ({
+  ...declared,
+  ...(changed?.timeout === undefined ? {} : { expiresIn: changed.timeout }),
+  ...(changed?.remindBefore === undefined ? {} : { remindBefore: changed.remindBefore }),
+});
+
 function roleChannel(
   role: Class,
-  options: StoredChannelRole,
+  declared: StoredChannelRole,
+  changed: PauseTargetOverlay | undefined,
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
 ): DescribedChannel {
+  const options = withProfile(declared, changed);
   const [implementation] = implementationsOf(role, modules);
   const interpreter =
     options.replyInterpreter === undefined
@@ -160,7 +173,13 @@ export function describedChannelsOf(assembled: AssembledApplication): readonly D
   return [...byChannel].map(([channel, named]) => {
     const role = channelRoleOf(channel);
     return role?.role === channel
-      ? roleChannel(channel, role.options, named, assembled.modules)
+      ? roleChannel(
+          channel,
+          role.options,
+          assembled.pauseOverrides?.get(role.options.name),
+          named,
+          assembled.modules,
+        )
       : concreteChannel(channel, named);
   });
 }

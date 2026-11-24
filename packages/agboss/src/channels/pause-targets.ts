@@ -93,6 +93,17 @@ export interface ExternalTaskOptions<
   readonly maxVisits?: number;
 }
 
+/** What a profile changes of one pause target (`toolApprovals` / `externalTasks`, by its name): how long its pauses wait. */
+export interface PauseTargetOverlay {
+  /** How long a pause of the target waits for its answer. */
+  readonly timeout?: Milliseconds | WorkingDuration;
+  /** How long before its deadline the channel and the listeners are reminded. */
+  readonly remindBefore?: Milliseconds | WorkingDuration;
+}
+
+/** The overlays of the selected profiles by target `name`, the tool approvals' and the external tasks' together. */
+export type PauseTargetOverrides = ReadonlyMap<string, PauseTargetOverlay>;
+
 /** What a pause target recorded beside its role: its decorator and the options it was given. */
 export type PauseTargetDeclaration =
   | { readonly kind: "tool-approval"; readonly options: ToolApprovalOptions }

@@ -1,0 +1,3 @@
+externalTasks:
+  spending-limit-external-task:
+    timeout: 10

@@ -3,6 +3,8 @@ import type { EnvOverrides } from "../environments/define-env.js";
 import type { EnvContract } from "../environments/env-ref.js";
 import type { Class } from "../components/injection.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
+import type { MemoryOverlay } from "../memory/memory.decorator.js";
+import type { PauseTargetOverlay } from "../channels/pause-targets.js";
 import type { AgentSettings, AgentsConfig, CompactionSettings } from "./settings-types.js";
 
 /** Every field optional at every depth (lists stay whole: a list in a profile replaces the default one). */
@@ -53,8 +55,6 @@ export interface WorkflowConfig extends Omit<WorkflowOverlay, "routers"> {
   readonly budget?: Class;
   /** The `@Memory` of this workflow's agents and routers, instead of its `@Workflow({ memory })`. */
   readonly memory?: Class;
-  /** The `@FilePolicy` of this workflow's files, instead of its `@Workflow({ filePolicy })`. */
-  readonly filePolicy?: Class;
 }
 
 /** What a profile changes of one `@ModelProvider`, by its `name`. */
@@ -83,6 +83,16 @@ export interface ConfigSpec {
    * reader of the budget — the checks, the ledger, the mesh claims, `describe` — sees the same limits.
    */
   readonly budgets?: Readonly<Record<string, BudgetOverlay>>;
+  /**
+   * What each `@Memory` keeps, by its `name`: `ttl`, `uncompactedTurns` (its window) and
+   * `turnsBetweenCompactions`. Every workflow and agent that reads the memory sees the same values: its
+   * thread's keep time, its readers' windows, its compaction pace.
+   */
+  readonly memories?: Readonly<Record<string, MemoryOverlay>>;
+  /** How long the pauses of each `@ToolApproval` wait (`timeout`, `remindBefore`), by its `name`: the channel, the deadline and the listeners all see it. */
+  readonly toolApprovals?: Readonly<Record<string, PauseTargetOverlay>>;
+  /** The same for each `@ExternalTask`, by its `name`. */
+  readonly externalTasks?: Readonly<Record<string, PauseTargetOverlay>>;
   /** The model of each `@Judge` by its `name`. */
   readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
   /** The model of each model `@Arbiter` by its `name`. */

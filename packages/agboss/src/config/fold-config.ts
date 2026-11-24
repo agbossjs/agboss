@@ -6,6 +6,8 @@ import type { LoadedProfile } from "./config-files.js";
 import { deepMerge } from "./deep-merge.js";
 import { TYPESCRIPT_ONLY_WORKFLOW_KEYS } from "./define-config.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
+import type { MemoryOverlay } from "../memory/memory.decorator.js";
+import type { PauseTargetOverlay } from "../channels/pause-targets.js";
 import type { ComponentModelOverride } from "../models/model-cascade.js";
 import type {
   ComponentModelConfig,
@@ -20,16 +22,15 @@ export interface FoldedWorkflow {
   /** The models of its model routers, by node name (provider as a class or a name). */
   readonly routers: Readonly<Record<string, ComponentModelConfig>>;
   readonly modelProvider?: Class | undefined;
-  /** The classes it stands in for the workflow's own `budget`, `memory` and `filePolicy`. */
+  /** The classes it stands in for the workflow's own `budget` and `memory`. */
   readonly slots: WorkflowSlots;
   readonly prompts: Readonly<Record<string, string>>;
 }
 
-/** The classes a profile gives one workflow in place of its `@Workflow({ budget, memory, filePolicy })`. */
+/** The classes a profile gives one workflow in place of its `@Workflow({ budget, memory })`. */
 export interface WorkflowSlots {
   readonly budget?: Class | undefined;
   readonly memory?: Class | undefined;
-  readonly filePolicy?: Class | undefined;
 }
 
 /** The infrastructure classes of an application a profile replaces whole (the last profile that sets one wins). */
@@ -57,6 +58,11 @@ export interface FoldedConfig {
   readonly modelProviders: Readonly<Record<string, ModelProviderOverlay>>;
   /** The limits of each `@Budget` by its name, the profiles folded (a later one wins per limit). */
   readonly budgets: Readonly<Record<string, BudgetOverlay>>;
+  /** What each `@Memory` keeps by its name, the profiles folded (a later one wins per field). */
+  readonly memories: Readonly<Record<string, MemoryOverlay>>;
+  /** How long the pauses of each `@ToolApproval` / `@ExternalTask` wait, by name, the profiles folded. */
+  readonly toolApprovals: Readonly<Record<string, PauseTargetOverlay>>;
+  readonly externalTasks: Readonly<Record<string, PauseTargetOverlay>>;
   /** The model of each component by its use key (`judges.<name>`, `arbiters.<name>`, …), the profiles folded. */
   readonly componentModels: Readonly<Record<string, ComponentModelOverride>>;
   /** Each profile's workflow overlays in layering order: a later profile's wins, `"*"` before the workflow's own within one. */
@@ -70,6 +76,9 @@ export const unchangedConfig = (profiles: readonly string[]): FoldedConfig => ({
   env: [],
   modelProviders: {},
   budgets: {},
+  memories: {},
+  toolApprovals: {},
+  externalTasks: {},
   componentModels: {},
   layers: [],
   replacements: {},
@@ -123,6 +132,27 @@ function componentModelsOf(
   return found;
 }
 
+/** What each memory keeps, later profiles winning per field. */
+function memoriesOf(layers: readonly LoadedProfile[]): Readonly<Record<string, MemoryOverlay>> {
+  const found: Record<string, MemoryOverlay> = {};
+  for (const layer of layers)
+    for (const [name, one] of Object.entries(layer.spec.memories ?? {}))
+      found[name] = { ...found[name], ...one };
+  return found;
+}
+
+/** What a shelf of pause targets says, later profiles winning per field. */
+function pauseTargetsOf(
+  layers: readonly LoadedProfile[],
+  shelf: "toolApprovals" | "externalTasks",
+): Readonly<Record<string, PauseTargetOverlay>> {
+  const found: Record<string, PauseTargetOverlay> = {};
+  for (const layer of layers)
+    for (const [name, one] of Object.entries(layer.spec[shelf] ?? {}))
+      found[name] = { ...found[name], ...one };
+  return found;
+}
+
 /** The limits of each budget, later profiles winning per limit. */
 function budgetsOf(layers: readonly LoadedProfile[]): Readonly<Record<string, BudgetOverlay>> {
   const found: Record<string, BudgetOverlay> = {};
@@ -154,7 +184,7 @@ function layerOf(layer: LoadedProfile): FoldedLayer {
           overlay: constantsOf(one),
           routers: one.routers ?? {},
           modelProvider: one.modelProvider,
-          slots: { budget: one.budget, memory: one.memory, filePolicy: one.filePolicy },
+          slots: { budget: one.budget, memory: one.memory },
           prompts: layer.promptTexts[name] ?? {},
         },
       ]),
@@ -196,6 +226,9 @@ export function foldedConfigOf(
     ...(defaults === undefined ? {} : { defaults }),
     modelProviders: providersOf(layers),
     budgets: budgetsOf(layers),
+    memories: memoriesOf(layers),
+    toolApprovals: pauseTargetsOf(layers, "toolApprovals"),
+    externalTasks: pauseTargetsOf(layers, "externalTasks"),
     componentModels: componentModelsOf(layers),
     layers: layers.map(layerOf),
     replacements: replacementsOf(layers),

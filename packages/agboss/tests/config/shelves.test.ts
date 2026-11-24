@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { budgetsOf } from "../../src/application/create-app.js";
 import { configJsonSchemaOf } from "../../src/config/config-json-schema.js";
+import type { Class } from "../../src/components/injection.js";
 import { BudgetScope } from "../../src/index.js";
 import { budgetOf } from "../../src/budgets/budget.js";
 import { limitsOf as limitsOf2 } from "../../src/budgets/budget-spend.js";
@@ -15,11 +16,14 @@ import { standaloneBudgetsOf } from "../../src/application/application-container
 import { describedApplicationOf } from "../../src/describe/application.js";
 import { ProfileError, ProfileErrorReason } from "../../src/config/profile-error.js";
 import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
-import { usd } from "../../src/units/index.js";
+import { hours, usd } from "../../src/units/index.js";
+import { memoryMetaOf } from "../../src/memory/memory.decorator.js";
 import {
   ShelfApplication,
   ShelfAttachedBudget,
   ShelfListedBudget,
+  ShelfMemory,
+  ShelfOtherMemory,
   ShelfSlotBudget,
   ShelfWorkflow,
 } from "./fixtures/shelves-app/shelves.application.js";
@@ -217,7 +221,7 @@ describe("the budget class slot of a workflow", () => {
   it("replaces the declared budget on every path: the listing, the attached ones, the execution's, a run on its own, describe", async () => {
     const app = await assembled("slotted");
     const listing = budgetsOf(app);
-    const names = (classes: readonly (typeof ShelfSlotBudget)[] | undefined) =>
+    const names = (classes: readonly Class[] | undefined) =>
       (classes ?? []).map((cls) => budgetOf(cls)?.name);
     const standalone = standaloneBudgetsOf(firstOf(app));
     const execution = (from: typeof listing | undefined) =>
@@ -250,5 +254,71 @@ describe("the budget class slot of a workflow", () => {
     const error = await failure(assembled("wrong-slot"));
 
     expect(error.message).toMatch(/workflows\.shelf-workflow\.budget is no @Budget class/);
+  });
+});
+
+describe("the memories shelf and the memory class slot", () => {
+  const seenOf = async (profile?: string) => {
+    const workflow = firstOf(await assembled(profile));
+    return {
+      ttls: (workflow.memories?.memories ?? []).map((memory) => [memory.name, memory.ttl]),
+      threadTtl: workflow.memories?.threadTtl,
+      readerWindow: workflow.memories?.readers.get("shelf-agent")?.uncompactedTurns,
+      defaultWindow: workflow.config.defaults.uncompactedTurns,
+      settings: workflow.config.memories,
+    };
+  };
+
+  it("declared: a day, three turns", async () => {
+    expect(await seenOf()).toMatchObject({
+      ttls: [["shelf-memory", hours(24)]],
+      threadTtl: hours(24),
+      readerWindow: 3,
+      defaultWindow: 3,
+    });
+  });
+
+  it("gives every reader of the memory the profile's keep time and window", async () => {
+    expect(await seenOf("remember")).toMatchObject({
+      ttls: [["shelf-memory", hours(2)]],
+      threadTtl: hours(2),
+      readerWindow: 1,
+      defaultWindow: 1,
+    });
+  });
+
+  it("never changes the declared class, nor another assembly of it", async () => {
+    await assembled("remember");
+
+    expect(memoryMetaOf(ShelfMemory)).toMatchObject({ ttl: hours(24), uncompactedTurns: 3 });
+    expect((await seenOf()).threadTtl).toBe(hours(24));
+  });
+
+  it("a profile's memory class replaces the workflow's, its own overlay applying", async () => {
+    expect(await seenOf("memory-slot")).toMatchObject({
+      ttls: [["shelf-other-memory", hours(168)]],
+      threadTtl: hours(168),
+      readerWindow: 2,
+      defaultWindow: 2,
+    });
+    expect(memoryMetaOf(ShelfOtherMemory)?.uncompactedTurns).toBe(7);
+  });
+
+  it("refuses a memory no workflow reads, a class that is no @Memory and a bad value", async () => {
+    expect((await failure(assembled("ghost-memory"))).message).toMatch(
+      /memories\.ghost-memory: no such memory in use/,
+    );
+    expect((await failure(assembled("wrong-memory-slot"))).message).toMatch(
+      /workflows\.shelf-workflow\.memory is no @Memory class/,
+    );
+    expect((await failure(assembled("bad-memory"))).message).toMatch(/memories\.shelf-memory\.ttl/);
+  });
+
+  it("lists the memories in the editor schema", async () => {
+    const schema = configJsonSchemaOf(await assembled()) as {
+      properties: { memories: { properties: Record<string, unknown> } };
+    };
+
+    expect(Object.keys(schema.properties.memories.properties)).toEqual(["shelf-memory"]);
   });
 });
