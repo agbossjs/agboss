@@ -162,7 +162,6 @@ export type RuleCode =
   | "environment.missing-field"
   | "environment.conflicting-field"
   // guardrails (#120 PR 2), reported at each workflow's assembly
-  | "guardrail.no-model"
   | "guardrail.not-a-guardrail"
   | "guardrail.exclude-not-inherited"
   | "guardrail.missing-refusal"

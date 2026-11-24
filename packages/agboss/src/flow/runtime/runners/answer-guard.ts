@@ -1,4 +1,5 @@
 import { GuardrailSide } from "../../../components/policy-decorators.js";
+import { bareRecordOf, ComponentKind } from "../records.js";
 import type { AnswerFileReading } from "../../../files/file-runtime.js";
 import { fileMaskOf, type FileMask } from "../../../files/file-mask.js";
 import { guardedFilesOf } from "../../../files/guarded-files.js";
@@ -86,7 +87,7 @@ export async function guardedAnswer(
   });
   const checked = {
     text: masked.text,
-    element: name,
+    component: bareRecordOf(name, ComponentKind.Agent),
     side: GuardrailSide.Output,
     files: viewed.files,
   };

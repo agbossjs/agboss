@@ -9,7 +9,7 @@ import {
 import type { PromptLoader } from "../components/prompt-render.js";
 import type { AgentMeta } from "../components/meta-types.js";
 import { NodeKind } from "../flow/ast.js";
-import { DecidedBy, isCodeRouter } from "../flow/decorators/router.js";
+import { isCodeRouter } from "../flow/decorators/router.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { throwIfViolated } from "../graph/rule-error.js";
 import type { LoadedGuardrail, LoadedGuardrailBase } from "./loaded.js";
@@ -91,7 +91,7 @@ export async function loadedGuardrailOf(
 ): Promise<LoadedGuardrail[]> {
   const meta = guardrailMetaOf(cls);
   if (meta === undefined) return [];
-  if (isCodeGuardrail(meta)) return [{ ...baseOf(cls, meta), decidedBy: DecidedBy.Code }];
+  if (isCodeGuardrail(meta)) return [{ ...baseOf(cls, meta), kind: "code" }];
   // a provider in the cascade names the model nothing else does (#1313)
   const hasProvider = resolver?.isInherited === true || meta.modelProvider !== undefined;
   if (guardrailModelOf(meta, defaultModel) === undefined && !hasProvider) return [];
@@ -106,7 +106,7 @@ export async function loadedGuardrailOf(
   return [
     {
       ...baseOf(cls, meta),
-      decidedBy: DecidedBy.Model,
+      kind: "model",
       prompt,
       threshold: meta.threshold,
       ...componentModelOf(resolver, `guardrails.${meta.name}`, own),

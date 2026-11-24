@@ -1,4 +1,5 @@
 import type { GraphDeps } from "../../../graph/deps.js";
+import { bareRecordOf, ComponentKind } from "../records.js";
 import type { RouteRequest, RouterEngine } from "../../../routers/index.js";
 import type { RuntimeNode } from "../graph-model.js";
 import { formatMemory, readerMemoryOf } from "../history.js";
@@ -87,7 +88,8 @@ function guardedInput(
 ): Promise<GuardrailsPassed> {
   const guardrails = deps.guardrails?.inputOf(node.id) ?? [];
   if (guardrails.length === 0) return Promise.resolve({ usage: [], decisions: [] });
-  const checked = { text: masked.input, element: node.id, side: GuardrailSide.Input };
+  const component = bareRecordOf(node.id, ComponentKind.Router);
+  const checked = { text: masked.input, component, side: GuardrailSide.Input };
   return runGuardrails(guardrails, checked, deps.observer);
 }
 

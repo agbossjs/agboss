@@ -1,8 +1,9 @@
 import type { FileContent } from "../files/file-bytes.js";
+import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { GuardrailSide } from "./policy-decorators.js";
 
 /**
- * A code guardrail (#383): `@InputGuardrail` / `@OutputGuardrail({ decidedBy: DecidedBy.Code })`
+ * A code guardrail (#383): `@InputGuardrail` / `@OutputGuardrail` with no `prompt`, `threshold` or `model`
  * decides by its class's `check(content)` instead of a model — no model call, cost 0. The content is
  * what the guarded model reads (or what the agent answered), already masked by the element's PII
  * policies; `GuardrailVerdict.blocked(refusal?)` fails the execution with the same
@@ -57,7 +58,7 @@ export interface GuardrailContent {
   readonly text: string;
   readonly files: readonly FileContent[];
   /** The agent or router whose model it guards (or whose answer it checks). */
-  readonly component: string;
+  readonly component: ComponentRecord;
   /** Whether it checks what comes into the model, or what an agent answers. */
   readonly side: GuardrailSide;
 }

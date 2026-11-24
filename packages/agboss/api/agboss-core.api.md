@@ -226,7 +226,7 @@ export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 // @public
 export interface GuardrailInput {
     // (undocumented)
-    readonly element: string;
+    readonly component: ComponentRecord;
     readonly files?: readonly FileSummary[];
     // (undocumented)
     readonly side: GuardrailSide;
@@ -521,7 +521,7 @@ export class WorkflowSettings {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "tool".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "output".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "side".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "element".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "component".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "text".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "GuardrailStartEvent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "modelName".

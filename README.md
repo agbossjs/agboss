@@ -2117,7 +2117,7 @@ a model router's model reads — its input message, masked by that element's PII
 model is called; an `@OutputGuardrail` checks what an agent answers. Each asks its model one yes / no
 question — its `prompt` — a decision model through one `Decision.boolean`, a chat model through one
 answer tool; its `model` or `defaults.guardrail.model` (never `defaults.router`; none →
-`[guardrail.no-model]`). At P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
+`[model.missing-provider]`). At P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
 (`guardrail.blocked`): `refusal` is the text to send instead, `key` the setting that decided
 (`guardrails.<name>.threshold`). A model that does not answer fails closed (`GuardFailedError`).
 

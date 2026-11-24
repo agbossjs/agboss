@@ -8,7 +8,6 @@ import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js
 import type { DtoClass } from "../../src/dto/types.js";
 import { AnswerFiles } from "../../src/files/model-files.js";
 import {
-  DecidedBy,
   GuardrailVerdict,
   InputGuardrail,
   PiiAction,
@@ -136,7 +135,6 @@ class LeafDto {
   name: "files-test-input-guardrail",
   description: "Passes everything",
   refusal: "No.",
-  decidedBy: DecidedBy.Code,
 })
 class TextOnlyGuardrail {
   check(): GuardrailVerdict {

@@ -1494,7 +1494,7 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
   component's own field, merged field by field — the most specific level that sets a field wins,
   nothing set → the built-in. `defaults.router.model` is the model of `DecidedBy.Model` routers
   without their own (`[router.no-model]`), `defaults.guardrail.model` the guardrails' — separate, a
-  guardrail never takes the router's (`[guardrail.no-model]`); `agboss describe` shows each router's
+  guardrail never takes the router's (`[model.missing-provider]`); `agboss describe` shows each router's
   and agent's value and where it came from (`(own)`, `(desk-application)`, `(built-in)`).
 - **Components keep no state:** another instance may continue an execution after a pause, so a
   component reads the execution from `ExecutionContext`, data that outlive a step live in the graph
@@ -2043,10 +2043,10 @@ export class OrderAgent {}
 ```
 
 - **Guardrails (#120 PR 2)** block (safety); judges correct (quality). `@InputGuardrail` /
-  `@OutputGuardrail({ name, description, prompt | promptUrls, model?, threshold, refusal?, deps? })`
+  `@OutputGuardrail({ name?, description?, prompt | promptUrls, model?, modelProvider?, threshold, refusal?, deps? })`
   (`guardrails/*.guardrail.ts`, `-guardrail`): a yes / no question on a decision model (one
-  `Decision.boolean`) or a chat model (one answer tool), `model` else `defaults.guardrail.model`
-  (`[guardrail.no-model]`), never the router's; P(yes) ≥ `threshold` fails the execution with
+  `Decision.boolean`) or a chat model (one answer tool), `model` else `defaults.guardrail.model`, else the default model of its provider (`modelProvider` of the guardrail, its workflow, its application; none anywhere:
+  `[model.missing-provider]`), never the router's; P(yes) ≥ `threshold` fails the execution with
   `GuardrailBlockedError` (`guardrail.blocked`; `guard`, `refusal` — the text to send instead —,
   `key: guardrails.<name>.threshold`, `probability`, `threshold`). An input guardrail reads what an
   agent's or a model router's model reads of the visit — its input message, **masked** by that
@@ -2062,16 +2062,16 @@ export class OrderAgent {}
   input ones (an `@OutputGuardrail` on a router is `[guardrail.output-on-router]`), a code router
   none (its own list: `[guardrail.no-model-call]`); a child workflow gets its own workflow's lists
   over the application's. Spend `guardrail:<name>` (category `guardrails`); events `onGuardrailStart`
-  (`side`, `element`, `text`) / `onGuardrailEnd` (`isBlocked`, `probability`). Tests:
+  (`side`, `component` — a `ComponentRecord` —, `text`) / `onGuardrailEnd` (`isBlocked`, `probability`). Tests:
   `mockLlm(G).thenReturn(decideWith({ blocks: 0.9 }))` — unscripted, a guardrail passes. **Code
-  guardrails (#383):** `decidedBy: DecidedBy.Code` (absent = `DecidedBy.Model`; options
-  discriminated — `prompt` / `promptUrls` / `model` / `threshold` do not compile) decides by the
-  class's `check(content)` (`GuardrailContent`: masked `text` with the text of text files appended, `files` — `[]` when none —, `component`, `side`) returning
+  guardrails (#383):** a guardrail that sets no `prompt` / `promptUrls` / `model` / `threshold` (`@InputGuardrail()`; a
+  `model` or a `prompt` without `threshold` does not compile, `decidedBy` is gone) decides by the
+  class's `check(content)` (`GuardrailContent`: masked `text` with the text of text files appended, `files` — `[]` when none —, `component` — a `ComponentRecord` —, `side`) returning
   `GuardrailVerdict.passed()` / `.blocked(refusal?)` (the refusal of this call, thread-safe; else the decorator's text, else `refusal(content)`, else it fails closed) (nominal: a plain object does not compile) — no model
   call, cost 0, the same refusal (text or `refusal(content)`), `GuardrailBlockedError` (`probability` 1,
   `threshold` 1), levels, `excludeGuardrails` and events (a pass `probability` 0); a `check` that
   throws or returns no verdict fails closed (`GuardFailedError`, its error the `cause`);
-  `[guardrail.missing-handler]` without `check`; `agboss describe` prints `decidedBy: code`;
+  `[guardrail.missing-handler]` without `check`; `agboss describe` prints `code`;
   `testGuardrail(G)` takes no `model`.
 
 <!-- snippet-context

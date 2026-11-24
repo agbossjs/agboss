@@ -2,7 +2,7 @@
  * #261 PR 4 (AC12): the `defaults` cascade application → workflow → component, merged field by
  * field — the most specific level that sets a field wins; `defaults.router.model` and
  * `defaults.guardrail.model` are separate; no model anywhere → `[router.no-model]` /
- * `[guardrail.no-model]`; `agboss describe` shows where each value came from.
+ * `[model.missing-provider]`; `agboss describe` shows where each value came from.
  */
 import { Window1Memory, Window3Memory, Window7Memory } from "../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
@@ -294,9 +294,9 @@ describe("#261 AC12: router and guardrail models separate", () => {
     ]);
   });
 
-  it("no guardrail model anywhere → [guardrail.no-model], though defaults.router.model is set", async () => {
+  it("no guardrail model anywhere → [model.missing-provider], though defaults.router.model is set", async () => {
     expect(await violationsOf(RouterOnlyApplication)).toEqual([
-      "[guardrail.no-model] bare-workflow: prompt-injection-guardrail has no model — set model or defaults.guardrail.model",
+      "[model.missing-provider] bare-workflow: prompt-injection-guardrail has no model and no modelProvider — set model or defaults.guardrail.model, or modelProvider on it, its @Workflow or its @Application",
     ]);
   });
 

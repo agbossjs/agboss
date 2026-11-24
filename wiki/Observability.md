@@ -92,7 +92,7 @@ filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 | `onModelStart` / `onModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (model, usage, cost)                                  |
 | `onRagStart` / `onRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
 | `onActionStart` / `onActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |
-| `onGuardrailStart` / `onGuardrailEnd`     | `GuardrailStartEvent` (`input`: `side`, `element`, the masked `text`) / `GuardrailEndEvent` (`output`: `isBlocked`, `probability`) |
+| `onGuardrailStart` / `onGuardrailEnd`     | `GuardrailStartEvent` (`input`: `side`, `component` (a `ComponentRecord`), the masked `text`) / `GuardrailEndEvent` (`output`: `isBlocked`, `probability`) |
 | `onChannelStart` / `onChannelEnd`         | `ChannelStartEvent` / `ChannelEndEvent`                                                   |
 | `onJudgeStart` / `onJudgeEnd`             | `JudgeStartEvent` / `JudgeEndEvent` (`judge`, `agent`, `output`)                                                       |
 | `onValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |

@@ -4,7 +4,6 @@
  * its model about the files it was given.
  */
 import {
-  DecidedBy,
   GuardrailVerdict,
   InputGuardrail,
   Judge,
@@ -47,7 +46,6 @@ export const given: { texts: string[]; contents: GuardrailContent[] } = { texts:
 @InputGuardrail({
   name: "text-only-guardrail",
   description: "Blocks the word FORBIDDEN",
-  decidedBy: DecidedBy.Code,
   refusal: "Forbidden word.",
 })
 export class TextOnlyGuardrail {
@@ -61,7 +59,6 @@ export class TextOnlyGuardrail {
 @InputGuardrail({
   name: "content-guardrail",
   description: "Blocks a file whose bytes hold the word FORBIDDEN",
-  decidedBy: DecidedBy.Code,
   refusal: "Forbidden file.",
 })
 export class ContentGuardrail {

@@ -13,6 +13,7 @@ export {
   type CodeGuardrailTextOptions,
   type GuardrailComputedOptions,
   type GuardrailRefusal,
+  type ModelGuardrailInstance,
   type GuardrailTextOptions,
   type InjectableOptions,
   type ToolHandler,

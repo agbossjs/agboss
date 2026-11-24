@@ -4,8 +4,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  Agent,
   DecidedBy,
+  Agent,
   InputGuardrail,
   Injectable,
   OutputGuardrail,
@@ -100,8 +100,8 @@ describe("#120 AC1, AC2: a guardrail's own rules", () => {
     ]);
   });
 
-  it("[guardrail.no-model]: its own model or defaults.guardrail.model — no built-in", () => {
-    expect(codesOf([PromptInjectionGuardrail])).toEqual(["guardrail.no-model"]);
+  it("[model.missing-provider]: its own model or defaults.guardrail.model — no built-in", () => {
+    expect(codesOf([PromptInjectionGuardrail])).toEqual(["model.missing-provider"]);
     expect(codesOf([PromptInjectionGuardrail], JEV)).toEqual([]);
   });
 });
@@ -281,7 +281,7 @@ describe("#120: the application's assembly reports every guardrail rule at once"
     expect(error.violations.map((item) => item.code)).toEqual([
       "guardrail.exclude-not-inherited",
       "guardrail.output-on-router",
-      "guardrail.no-model",
+      "model.missing-provider",
       "name.not-kebab-case",
     ]);
   });

@@ -1,4 +1,5 @@
 import { lazyLoad } from "../infrastructure/clock.js";
+import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { GuardrailDecisionRecord } from "../flow/runtime/step-records.js";
 import { GuardrailSide } from "../components/policy-decorators.js";
@@ -128,7 +129,7 @@ async function guardedToolFiles(
   const seen = await guardedFilesOf(built.viewed, deps.agent.maxResultSize, fileMaskOf(set, {}));
   const checked = {
     text: "",
-    element: deps.agent.name,
+    component: bareRecordOf(deps.agent.name, ComponentKind.Agent),
     side: GuardrailSide.Input,
     files: seen.files,
   };

@@ -151,8 +151,8 @@ too.
 
 `{ model: "typesafe/jev-1.13" }` — separate from `defaults.router`: a guardrail never takes the
 router's model, and the framework has no built-in guardrail model. A guardrail's own `model` wins; a
-guardrail with no model anywhere fails assembly: `[guardrail.no-model] support-workflow:
-prompt-injection-guardrail has no model — set model or defaults.guardrail.model` (#261, #120).
+guardrail with no model anywhere fails assembly: `[model.missing-provider] support-workflow:
+prompt-injection-guardrail has no model and no modelProvider — set model or defaults.guardrail.model, or modelProvider on it, its @Workflow or its @Application` (#261, #120).
 
 ## Limits — `maxSteps`, `maxVisits`, `@Budget`, `maxConcurrentExecutions`, `maxConcurrentSteps`
 

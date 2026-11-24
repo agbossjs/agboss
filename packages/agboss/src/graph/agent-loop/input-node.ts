@@ -1,4 +1,5 @@
 import { lazyLoad } from "../../infrastructure/clock.js";
+import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import { HumanMessage } from "@langchain/core/messages";
 import { formatMemory } from "../../flow/runtime/history.js";
 import { gatherKnowledge } from "../nodes/knowledge.js";
@@ -93,7 +94,7 @@ async function guardedInput(
   );
   const checked = {
     text: masked.text,
-    element: deps.agent.name,
+    component: bareRecordOf(deps.agent.name, ComponentKind.Agent),
     side: GuardrailSide.Input,
     files: seen.files,
   };

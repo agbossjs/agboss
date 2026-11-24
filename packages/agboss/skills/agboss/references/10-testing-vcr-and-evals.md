@@ -1651,7 +1651,7 @@ export class ScreeningEvalSuite {}
   `EvalCascade.RunAll` runs every check whatever came before.
 - **pass@k high, pass^k low** (a case solved at least once in k runs, but not every time): do not
   grow the prompt. Propose moving the check into deterministic code — a `@ToolInterceptor`, a code
-  `@InputGuardrail` / `@OutputGuardrail` (`decidedBy: DecidedBy.Code`), `DecidedBy.Code` on a
+  `@InputGuardrail` / `@OutputGuardrail` with no `prompt`, `threshold` or `model` (a code guardrail), `DecidedBy.Code` on a
   `@Router` or an `@Arbiter`, or an `@Action`.
 - An eval judge judges the output of the finish the run ended at: its `output` is a finish's
   `output` the start reaches (one value, never a list) — else `[eval.judge-wrong-output]`. A case's

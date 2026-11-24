@@ -1,6 +1,5 @@
 import type { Class } from "../components/injection.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
-import { DecidedBy } from "../flow/decorators/router.js";
 
 /**
  * A guardrail as assembled (#120, #383): decided by its model — its question read, its model
@@ -20,7 +19,7 @@ export interface LoadedGuardrailBase {
 
 /** One guardrail ready to ask its model. */
 export interface LoadedModelGuardrail extends LoadedGuardrailBase {
-  readonly decidedBy: DecidedBy.Model;
+  readonly kind: "model";
   /** Its question, read and rendered: yes blocks. */
   readonly prompt: string;
   readonly threshold: number;
@@ -36,7 +35,7 @@ export interface LoadedModelGuardrail extends LoadedGuardrailBase {
 
 /** One guardrail its class decides (#383): `check(text)` on the container's instance. */
 export interface LoadedCodeGuardrail extends LoadedGuardrailBase {
-  readonly decidedBy: DecidedBy.Code;
+  readonly kind: "code";
 }
 
 /** One assembled guardrail: decided by its model or by its class. */
@@ -44,7 +43,7 @@ export type LoadedGuardrail = LoadedModelGuardrail | LoadedCodeGuardrail;
 
 /** Whether an assembled guardrail asks a model. */
 export const isModelGuardrail = (guardrail: LoadedGuardrail): guardrail is LoadedModelGuardrail =>
-  guardrail.decidedBy === DecidedBy.Model;
+  guardrail.kind === "model";
 
 /** The guardrails of a workflow that ask a model (their models are resolved and checked). */
 export const modelGuardrailsOf = (

@@ -9,7 +9,6 @@ import { Nested, Text } from "../../src/dto/index.js";
 import { schemaOf } from "../../src/dto/schema.js";
 import { CostSource } from "../../src/finops/cost-source.js";
 import type { UsageRecord } from "../../src/finops/usage.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
 import type { AgentLoopDeps, AgentDefinition } from "../../src/graph/agent-loop/deps.js";
 import type { ClosedResult } from "../../src/graph/agent-loop/tool-pii.js";
 import type { ToolTask } from "../../src/graph/agent-loop/state.js";
@@ -282,7 +281,7 @@ function guardrailOf(
       name: "the-guard",
       description: "d",
       side: GuardrailSide.Input,
-      decidedBy: DecidedBy.Code,
+      kind: "code",
     },
     decide: (checked, spent) => {
       asked.push(checked);
@@ -306,7 +305,7 @@ describe("taskFilesOf: the input guardrails on the files", () => {
     const files = await taskFilesOf(deps, scanTool, taskOf(), okOf({ file: PDF }));
 
     expect(asked).toMatchObject([
-      { text: "", element: "the-agent", side: "input", files: [{ pieces: [{}] }] },
+      { text: "", component: { name: "the-agent" }, side: "input", files: [{ pieces: [{}] }] },
     ]);
     expect(callersOf(files.usage)).toEqual(["transcriber", "guard"]);
     expect(files.decisions).toMatchObject([{ side: "input", isBlocked: false, probability: 0 }]);

@@ -1,4 +1,4 @@
-import { DecidedBy, GuardrailVerdict, InputGuardrail, type GuardrailContent } from "@agboss/core";
+import { GuardrailVerdict, InputGuardrail, type GuardrailContent } from "@agboss/core";
 
 const CREDENTIALS = /\b(password|passcode|cvv)\b/iu;
 
@@ -6,7 +6,6 @@ const CREDENTIALS = /\b(password|passcode|cvv)\b/iu;
 @InputGuardrail({
   name: "no-credentials-guardrail",
   description: "Blocks questions that carry credentials",
-  decidedBy: DecidedBy.Code,
   refusal: "Please never send passwords or card codes to the help desk.",
 })
 export class NoCredentialsGuardrail {

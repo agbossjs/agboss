@@ -22,8 +22,8 @@ import type { GuardrailDecision, GuardrailRuntimeParts } from "./runtime.js";
 
 const headingOf = (checked: GuardedText): string =>
   checked.side === GuardrailSide.Input
-    ? guardrailInputHeading(checked.element)
-    : guardrailOutputHeading(checked.element);
+    ? guardrailInputHeading(checked.component.name)
+    : guardrailOutputHeading(checked.component.name);
 
 /** The cost caller of a guardrail, also its script key in tests (`guardrailKeyOf`). */
 const guardrailCaller = (name: string): string => `guardrail:${name}`;

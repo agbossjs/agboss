@@ -69,11 +69,11 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     "interpret(): void",
   ),
   InputGuardrail: statefulClass(
-    '@InputGuardrail({ name: "length-guardrail", description: "d", decidedBy: DecidedBy.Code, refusal: "r" })',
+    '@InputGuardrail({ name: "length-guardrail", description: "d", refusal: "r" })',
     "check(): void",
   ),
   OutputGuardrail: statefulClass(
-    '@OutputGuardrail({ name: "answer-guardrail", description: "d", decidedBy: DecidedBy.Code, refusal: "r" })',
+    '@OutputGuardrail({ name: "answer-guardrail", description: "d", refusal: "r" })',
     "check(): void",
   ),
   ToolInterceptor: statefulClass(

@@ -109,7 +109,7 @@ export const pauseFor = (
 
 /**
  * The workflow's guardrails (#120): each on its own model or `defaults.guardrail.model` (resolved at
- * assembly — `[guardrail.no-model]` otherwise), its refusal class from the workflow's container.
+ * assembly — `[model.missing-provider]` otherwise), its refusal class from the workflow's container.
  */
 export const guardrailsFor = (
   bundle: AssembledWorkflow,

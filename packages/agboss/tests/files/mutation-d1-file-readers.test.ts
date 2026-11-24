@@ -20,7 +20,6 @@ import { oneOf } from "../../src/flow/dto-wrappers.js";
 import type { RuntimeGraph } from "../../src/flow/runtime/graph-model.js";
 import type { ElementGuardrails } from "../../src/guardrails/assembly.js";
 import type { LoadedGuardrail } from "../../src/guardrails/loaded.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
 
 class ScanDto {
   @Nested(FileDto, { prompt: "the scan" })
@@ -90,7 +89,7 @@ const guardrailOf = (name: string): LoadedGuardrail => ({
   name,
   description: "d",
   side: GuardrailSide.Input,
-  decidedBy: DecidedBy.Code,
+  kind: "code",
 });
 
 const guards = (input: string[], output: string[] = []): ElementGuardrails => ({

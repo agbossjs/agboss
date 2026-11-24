@@ -5,7 +5,6 @@
  */
 import {
   Agent,
-  DecidedBy,
   EmptyEnvironment,
   GuardrailVerdict,
   OutputGuardrail,
@@ -29,7 +28,6 @@ import { FlowJudge } from "./agents.fixture.js";
 @OutputGuardrail({
   name: "forbidden-word-guardrail",
   description: "Blocks answers with the forbidden word",
-  decidedBy: DecidedBy.Code,
   refusal: "Refused.",
 })
 export class ForbiddenWordGuardrail implements GuardrailHandler {

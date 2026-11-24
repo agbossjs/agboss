@@ -264,5 +264,6 @@ export {
   type CodeGuardrailTextOptions,
   type GuardrailComputedOptions,
   type GuardrailRefusal,
+  type ModelGuardrailInstance,
   type GuardrailTextOptions,
 } from "./policy-decorators.js";

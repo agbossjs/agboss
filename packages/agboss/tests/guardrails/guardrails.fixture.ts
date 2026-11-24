@@ -4,8 +4,8 @@
  * the model does (masked).
  */
 import {
-  Agent,
   DecidedBy,
+  Agent,
   ExecutionContext,
   InputGuardrail,
   Injectable,

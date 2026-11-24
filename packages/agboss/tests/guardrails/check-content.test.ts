@@ -5,13 +5,13 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  DecidedBy,
   GuardFailedError,
   GuardrailVerdict,
   InputGuardrail,
   type GuardrailContent,
 } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
+import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { GuardrailSide } from "../../src/components/policy-decorators.js";
 import { loadedGuardrailOf } from "../../src/guardrails/assembly.js";
 import { checkGuardrails, runtimeGuardrailOf } from "../../src/guardrails/runtime.js";
@@ -24,7 +24,6 @@ const seen: GuardrailContent[] = [];
 @InputGuardrail({
   name: "reasons-guardrail",
   description: "Blocks with a reason",
-  decidedBy: DecidedBy.Code,
 })
 class ReasonsGuardrail {
   async check(content: GuardrailContent): Promise<GuardrailVerdict> {
@@ -37,7 +36,6 @@ class ReasonsGuardrail {
 @InputGuardrail({
   name: "default-refusal-guardrail",
   description: "Blocks with the decorator's text",
-  decidedBy: DecidedBy.Code,
   refusal: "Blocked by policy.",
 })
 class DefaultRefusalGuardrail {
@@ -49,7 +47,6 @@ class DefaultRefusalGuardrail {
 @InputGuardrail({
   name: "computed-refusal-guardrail",
   description: "Blocks, the class words the refusal",
-  decidedBy: DecidedBy.Code,
 })
 class ComputedRefusalGuardrail {
   check(): GuardrailVerdict {
@@ -57,14 +54,13 @@ class ComputedRefusalGuardrail {
   }
 
   refusal(content: GuardrailContent): string {
-    return `no, ${content.component} (${content.side})`;
+    return `no, ${content.component.name} (${content.side})`;
   }
 }
 
 @InputGuardrail({
   name: "mute-guardrail",
   description: "Blocks, says nothing",
-  decidedBy: DecidedBy.Code,
 })
 class MuteGuardrail {
   check(): GuardrailVerdict {
@@ -87,7 +83,7 @@ const runtimeOf = async (cls: Class) => {
 
 const textOf = (text: string): GuardedText => ({
   text,
-  element: "writer-agent",
+  component: bareRecordOf("writer-agent", ComponentKind.Agent),
   side: GuardrailSide.Input,
 });
 
@@ -101,7 +97,7 @@ describe("#1289: check(content)", () => {
     expect(seen[0]).toEqual({
       text: "hello",
       files: [],
-      component: "writer-agent",
+      component: bareRecordOf("writer-agent", ComponentKind.Agent),
       side: GuardrailSide.Input,
     });
   });

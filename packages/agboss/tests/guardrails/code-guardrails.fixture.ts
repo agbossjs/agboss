@@ -4,8 +4,8 @@
  * code guardrail's `check(text)` reads the text as the model does (masked).
  */
 import {
-  Agent,
   DecidedBy,
+  Agent,
   ExecutionContext,
   GuardrailVerdict,
   InputGuardrail,
@@ -56,7 +56,6 @@ export class BlocklistService {
 @OutputGuardrail({
   name: "tenant-blocklist-guardrail",
   description: "Blocks replies containing words forbidden by the tenant",
-  decidedBy: DecidedBy.Code,
   refusal: "The response contained restricted terms.",
   deps: [ShopTenantContext, BlocklistService],
 })
@@ -79,7 +78,6 @@ export class TenantBlocklistGuardrail implements GuardrailHandler {
 @InputGuardrail({
   name: "card-number-guardrail",
   description: "Blocks messages that carry a card number",
-  decidedBy: DecidedBy.Code,
   deps: [ShopExecutionContext],
 })
 export class CardNumberGuardrail implements GuardrailHandler, GuardrailRefusal {
@@ -113,7 +111,6 @@ export class PromptInjectionGuardrail {}
 @InputGuardrail({
   name: "broken-guardrail",
   description: "Its blocklist is down",
-  decidedBy: DecidedBy.Code,
   refusal: "Not now.",
 })
 export class BrokenGuardrail implements GuardrailHandler {

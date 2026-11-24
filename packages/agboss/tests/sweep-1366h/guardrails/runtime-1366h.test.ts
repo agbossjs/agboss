@@ -5,9 +5,9 @@
  * the assembled ones by element and side; the observers hear each check with the sizes (not the bytes) of its files; a
  * block carries every decision made, the blocking one last.
  */
+import { bareRecordOf, ComponentKind } from "../../../src/flow/runtime/records.js";
 import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it, vi } from "vitest";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { GuardrailSide } from "../../../src/components/policy-decorators.js";
 import { carriedRecordsOf } from "../../../src/flow/runtime/carried-records.js";
 import { GuardrailBlockedError } from "../../../src/flow/runtime/errors.js";
@@ -80,14 +80,15 @@ const modelGuardrail = (overrides: object = {}) =>
   ({
     type: Object,
     name: "legal",
-    decidedBy: DecidedBy.Model,
+    kind: "model",
     model: "m",
     prompt: "is it legal advice?",
     threshold: 0.8,
     ...overrides,
   }) as never;
 
-const textOf = (side: GuardrailSide) => ({ side, element: "agent", text: "hello" }) as never;
+const textOf = (side: GuardrailSide) =>
+  ({ side, component: { name: "agent" }, text: "hello" }) as never;
 const YES = { [GUARDRAIL_QUESTION]: true };
 const NO = { [GUARDRAIL_QUESTION]: false };
 
@@ -136,7 +137,7 @@ describe("#1366: the refusal of a guardrail", () => {
     return runtimeGuardrailOf(modelGuardrail({ refusal }), parts).refusal({
       text: "",
       files: [],
-      component: "writer-agent",
+      component: bareRecordOf("writer-agent", ComponentKind.Agent),
       side: GuardrailSide.Input,
     });
   };
@@ -244,7 +245,7 @@ describe("#1366: what the observers hear of a check", () => {
     const heard = observerOf();
     const checked = {
       side: GuardrailSide.Input,
-      element: "agent",
+      component: { name: "agent" },
       text: "hello",
       files: [file("a.txt"), file(undefined)],
     } as never;
@@ -253,7 +254,7 @@ describe("#1366: what the observers hear of a check", () => {
 
     expect(heard.started[0]?.input).toStrictEqual({
       side: GuardrailSide.Input,
-      element: "agent",
+      component: { name: "agent" },
       text: "hello",
       files: [
         { mediaType: "text/plain", filename: "a.txt", sizeBytes: 5, sha256: "abc" },
@@ -272,7 +273,7 @@ describe("#1366: what the observers hear of a check", () => {
 
     expect(heard.started[0]?.input).toEqual({
       side: GuardrailSide.Output,
-      element: "agent",
+      component: { name: "agent" },
       text: "hello",
     });
   });

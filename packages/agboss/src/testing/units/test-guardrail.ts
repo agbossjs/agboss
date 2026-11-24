@@ -1,4 +1,5 @@
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import {
@@ -73,7 +74,7 @@ function checkedScript(
 ): void {
   if (isCodeGuardrail(meta) && options.model !== undefined)
     throw new TestSetupError({
-      message: `testGuardrail(${guardrail.name}): ${meta.name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+      message: `testGuardrail(${guardrail.name}): ${meta.name} is decided by code — it calls no model; leave out model`,
     });
 }
 
@@ -114,8 +115,8 @@ export function testGuardrail<
       ...callTimeoutOf(call.timeout),
     };
     return site.run(frame, async ({ spent }) => {
-      const element = call.element ?? "test-agent";
-      const checked = { text, element, side: loaded.side };
+      const component = bareRecordOf(call.element ?? "test-agent", ComponentKind.Agent);
+      const checked = { text, component, side: loaded.side };
       const used: UsageRecord[] = [];
       const outcome = await checkGuardrail(runtime, checked, used, undefined);
       spent.push(...used);

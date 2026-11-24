@@ -62,9 +62,9 @@ export class NoLegalAdviceGuardrail {}
 
 | Option               | What it is                                                                                         |
 | -------------------- | -------------------------------------------------------------------------------------------------- |
-| `name`               | optional: kebab-case (`[name.not-kebab-case]`), the class name by default                          |
+| `name`, `description` | optional: `name` is kebab-case (`[name.not-kebab-case]`), the class name by default                 |
 | `prompt`, `promptUrls` | the question — yes blocks; inline and / or files next to the class (`[guardrail.no-prompt]` without) |
-| `model`              | a decision model or a chat model; absent → `defaults.guardrail.model` of the workflow or its application — never `defaults.router.model`, no built-in (`[guardrail.no-model]`) |
+| `model`, `modelProvider` | a decision model or a chat model, or a role of its provider (`"fast"`); absent → `defaults.guardrail.model`, else the default model of its provider (`modelProvider` of the guardrail, its workflow, its application) — never `defaults.router.model`; none anywhere is `[model.missing-provider]` (`[model.missing]` when the provider has no default) |
 | `threshold`          | blocks at P(yes) ≥ threshold, above 0 and at most 1 (`[guardrail.threshold-invalid]`)              |
 | `refusal`            | the text sent instead; without it the class `implements GuardrailRefusal` — `refusal(): string \| Promise<string>`, its services and the execution through `deps` |
 | `deps`               | constructor dependencies, compiler-checked, injected by the container                             |
@@ -75,15 +75,15 @@ and both (a text and a `refusal()` method) is `[guardrail.refusal-twice]`.
 
 ### Decided by code
 
-`decidedBy` names who decides, as on `@Router`, `@Arbiter` and `@ReplyInterpreter` (#383):
-`DecidedBy.Model` — the default when absent, so every guardrail above is one — or `DecidedBy.Code`,
-the class's `check(content)` (`GuardrailContent`: `text`, `files`, `component`, `side`), which returns
-`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked(refusal?)` (the only way to build a verdict: a plain `{ isBlocked }` does not
-compile). The options are discriminated by it: a code guardrail takes no `prompt`, `promptUrls`,
-`model` or `threshold` (they do not compile) and needs no `defaults.guardrail.model`.
+A guardrail that sets no `prompt`, `threshold` or `model` is decided by code (#383): the class's
+`check(content)` (`GuardrailContent`: `text`, `files`, `component` — a `ComponentRecord` — and `side`;
+no `implements` needed) returns `GuardrailVerdict.passed()` or `GuardrailVerdict.blocked(refusal?)`
+(the only way to build a verdict: a plain `{ isBlocked }` does not compile). A model guardrail's
+class has no `check` and a code guardrail's options take no `prompt`, `promptUrls`, `model`,
+`modelProvider` or `threshold` (they do not compile); it needs no model and no `defaults.guardrail.model`.
 
 <!-- snippet-context
-import { DecidedBy, GuardrailVerdict, Injectable, OutputGuardrail, TenantContext, type GuardrailContent } from "@agboss/core";
+import { GuardrailVerdict, Injectable, OutputGuardrail, TenantContext, type GuardrailContent } from "@agboss/core";
 @Injectable()
 export class BlocklistService {
   containsBlockedTerms(tenantId: string, text: string): Promise<boolean> {
@@ -97,7 +97,6 @@ export class BlocklistService {
 @OutputGuardrail({
   name: "tenant-blocklist-guardrail",
   description: "Blocks replies containing words forbidden by the tenant",
-  decidedBy: DecidedBy.Code,
   refusal: "The response contained restricted terms.",
   deps: [TenantContext, BlocklistService],
 })
@@ -130,10 +129,10 @@ ones, a code router none). `GuardrailVerdict.blocked()` fails the execution with
 `GuardrailBlockedError` and its refusal — `probability` 1, `threshold` 1; a pass is `probability` 0
 in `onGuardrailEnd`. A `check` that throws (its error the `cause`) or returns no `GuardrailVerdict`
 fails closed: `GuardFailedError`. No model call, no spend, no `guardrail:<name>` line. A code
-guardrail whose class has no `check(text)` method is `[guardrail.missing-handler]` at assembly.
-`agboss describe` prints `tenant-blocklist-guardrail — output · decidedBy: code · refusal: "The
+guardrail whose class has no `check(content)` method is `[guardrail.missing-handler]` at assembly.
+`agboss describe` prints `tenant-blocklist-guardrail — output · code · refusal: "The
 response contained restricted terms." · on support-agent`, and `configHash` covers its name, side,
-`decidedBy` and refusal (a model guardrail's entry is unchanged).
+kind (code) and refusal (a model guardrail's entry is unchanged).
 
 ### Where they run
 
@@ -161,7 +160,7 @@ Guardrails of one element run in list order; the first that blocks fails the exe
 A model that does not answer (a failed call, an unreadable answer) **fails closed**:
 `GuardFailedError` (`step.guard`, a `StepFailedError`) — nothing passes unchecked. Each check costs
 `guardrail:<name>` (category `guards` in the spend), counted in the execution's budgets; observers
-get `onGuardrailStart` (`input: { side, element, text }`, the masked text) and `onGuardrailEnd`
+get `onGuardrailStart` (`input: { side, component, text }`, the masked text) and `onGuardrailEnd`
 (`update: { isBlocked, probability }`).
 
 ### Levels

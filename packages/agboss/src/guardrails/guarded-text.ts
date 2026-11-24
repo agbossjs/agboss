@@ -1,4 +1,5 @@
 import type { GuardrailSide } from "../components/policy-decorators.js";
+import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { FileContent } from "../files/file-bytes.js";
 import type { FilePiece } from "../files/file-pieces.js";
 
@@ -16,7 +17,8 @@ export interface GuardedFile {
  */
 export interface GuardedText {
   readonly text: string;
-  readonly element: string;
+  /** The agent or model router whose model it guards (or whose answer it checks). */
+  readonly component: ComponentRecord;
   readonly side: GuardrailSide;
   readonly files?: readonly GuardedFile[];
 }

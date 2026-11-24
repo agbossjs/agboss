@@ -12,7 +12,6 @@ import { piiPolicyMetaOf } from "../../pii/policy-checks.js";
 import { versionOf } from "../../turns/index.js";
 import type { ArbiterClass } from "../ast.js";
 import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
-import { DecidedBy } from "../decorators/router.js";
 import { agentMetasOf } from "./agents.js";
 import type { RuntimeGraph } from "./graph-model.js";
 import { describedShapeOf, dtoSchemaHashOf } from "./join-keys.js";
@@ -82,7 +81,7 @@ const arbiterRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
 
 const guardrailRecordsOf = (guardrails: AssembledGuardrails | undefined): ComponentRecord[] =>
   (guardrails?.guardrails ?? []).flatMap((guardrail) =>
-    guardrail.decidedBy === DecidedBy.Code
+    guardrail.kind === "code"
       ? []
       : [
           recordOf(

@@ -41,7 +41,7 @@ const messageOf = (error: unknown): string =>
 export const contentOf = (checked: GuardedText): GuardrailContent => ({
   text: (checked.files ?? []).length === 0 ? checked.text : textOfGuarded(checked),
   files: (checked.files ?? []).map((file) => file.content),
-  component: checked.element,
+  component: checked.component,
   side: checked.side,
 });
 

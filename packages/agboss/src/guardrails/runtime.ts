@@ -128,7 +128,7 @@ export async function checkGuardrail(
   }));
   const input = {
     side: checked.side,
-    element: checked.element,
+    component: checked.component,
     text: checked.text,
     ...(files.length === 0 ? {} : { files }),
   };

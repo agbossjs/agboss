@@ -15,7 +15,7 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
  * the class's `refusal(content)`, never both and never neither — and a
  * model: its own or `defaults.guardrail.model` of the workflow (or its application). A guardrail
  * never takes `defaults.router.model`, and the framework has no built-in guardrail model. A code
- * guardrail (`DecidedBy.Code`, #383) has no question, threshold or model — its class's `check(text)`
+ * guardrail (#383, no question, threshold or model) has no question, threshold or model — its class's `check(text)`
  * decides (`[guardrail.missing-handler]` without one); its forbidden options do not compile.
  */
 
@@ -54,7 +54,7 @@ function nameViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
 function handlerViolations(cls: Class, meta: GuardrailMeta): RuleViolation[] {
   const check: unknown = Reflect.get(cls.prototype as object, "check");
   if (typeof check === "function") return [];
-  const message = `${meta.name}: decided by code (DecidedBy.Code) but ${cls.name} has no check(content) method`;
+  const message = `${meta.name}: decided by code (it sets no prompt, threshold or model) but ${cls.name} has no check(content) method`;
   return [violation("guardrail.missing-handler", message, [cls.name])];
 }
 
@@ -96,8 +96,8 @@ function modelViolations(
   // a provider in the cascade names the model nothing else does (#1313)
   if (hasProvider || meta.modelProvider !== undefined) return [];
   const where = workflow === undefined ? "" : `${workflow}: `;
-  const message = `${where}${meta.name} has no model — set model or defaults.guardrail.model`;
-  return [violation("guardrail.no-model", message, [cls.name])];
+  const message = `${where}${meta.name} has no model and no modelProvider — set model or defaults.guardrail.model, or modelProvider on it, its @Workflow or its @Application`;
+  return [violation("model.missing-provider", message, [cls.name])];
 }
 
 /** Every rule the guardrail classes break, all at once; `workflow` names where a model is missing. */
