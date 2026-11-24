@@ -9,7 +9,6 @@ import { describe, expect, it } from "vitest";
 import { AGBossError } from "../../src/index.js";
 import { DtoError } from "../../src/dto/index.js";
 import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
-import { ReasoningError } from "../../src/models/index.js";
 import {
   CassetteChange,
   StaleCassetteError,
@@ -29,7 +28,6 @@ describe("#906 D1: the platform classes stay", () => {
     expect(error).not.toBeInstanceOf(RangeError);
     expect(error).toMatchObject({ code: "config.unit", cause });
     expect(() => usd(-1)).toThrow(ConfigError.Unit);
-    expect(new ReasoningError({ message: "m" }).code).toBe("config.reasoning");
   });
 
   it("an environment or DTO error takes its code as an option and keeps it as the instance's", () => {

@@ -63,7 +63,6 @@ export { ModelCost, type ModelPrice, type ModelPrices } from "./cost.js";
 export {
   Reasoning,
   ReasoningEffort,
-  ReasoningError,
   type ReasoningBudget,
   type ReasoningOnOptions,
 } from "./reasoning.js";
@@ -71,14 +70,12 @@ export {
   CachedPart,
   CacheRetention,
   PromptCaching,
-  PromptCachingError,
   type PromptCachingOnOptions,
   type PromptCachingOptions,
 } from "./prompt-caching.js";
 export {
   Backoff,
   RetryPolicy,
-  RetryPolicyError,
   TRANSIENT_FAILURES,
   type ExponentialRetryOptions,
   type FixedRetryOptions,
@@ -87,7 +84,6 @@ export { ModelFailure } from "./model-failure.js";
 export {
   BreakerBackoff,
   CircuitBreakerPolicy,
-  CircuitBreakerPolicyError,
   type ExponentialCircuitBreakerOptions,
   type FixedCircuitBreakerOptions,
 } from "./circuit-breaker-policy.js";
@@ -99,7 +95,6 @@ export {
 export {
   QueueBalancingStrategy,
   RateLimitPolicy,
-  RateLimitPolicyError,
   type PerMinuteLimits,
   type RateLimitOptions,
 } from "./policies/rate-limit-policy.js";

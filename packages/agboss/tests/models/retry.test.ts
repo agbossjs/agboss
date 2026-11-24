@@ -1,13 +1,8 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { usd } from "../../src/units/index.js";
 import { describe, expect, it, vi } from "vitest";
 import { recordUsage } from "../../src/finops/usage.js";
-import {
-  Backoff,
-  ModelFailure,
-  RateLimitPolicy,
-  RetryPolicy,
-  RetryPolicyError,
-} from "../../src/models/index.js";
+import { Backoff, ModelFailure, RateLimitPolicy, RetryPolicy } from "../../src/models/index.js";
 import { failureOfError, failureOfStatus, retryAfterOf } from "../../src/models/model-failure.js";
 import { resilientFetch, type ResilienceOptions } from "../../src/models/resilient-fetch.js";
 import { delayBefore } from "../../src/models/retry-policy.js";
@@ -211,7 +206,7 @@ describe("AC6: failures, waits and policies", () => {
 
   it("AC6: a policy with no attempts or an upside-down delay is refused", () => {
     expect(() => RetryPolicy.fixed({ maxAttempts: 0, delay: seconds(1), retryOn: [] })).toThrow(
-      RetryPolicyError,
+      ConfigError.RetryPolicy,
     );
     expect(() =>
       RetryPolicy.exponential({
@@ -221,7 +216,7 @@ describe("AC6: failures, waits and policies", () => {
         jitter: false,
         retryOn: [],
       }),
-    ).toThrow(RetryPolicyError);
+    ).toThrow(ConfigError.RetryPolicy);
   });
 });
 

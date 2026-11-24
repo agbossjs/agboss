@@ -1,9 +1,9 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   CachedPart,
   CacheRetention,
   PromptCaching,
-  PromptCachingError,
   Reasoning,
   toWireRequest,
 } from "../../src/models/index.js";
@@ -44,7 +44,7 @@ const everything = PromptCaching.on({
 describe("AC6: prompt caching — on({ retention?, cachedParts, key? }) | off()", () => {
   it("AC6: needs at least one cached part; the component's cache flag maps to an override", () => {
     expect(() => PromptCaching.on({ retention: CacheRetention.OneHour, cachedParts: [] })).toThrow(
-      PromptCachingError,
+      ConfigError.PromptCaching,
     );
     expect(promptCachingOfSetting(undefined)).toBeUndefined();
     expect(promptCachingOfSetting(true)).toBeUndefined();
@@ -142,6 +142,6 @@ describe("PromptCaching.on() defaults", () => {
       cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
     });
     expect(PromptCaching.on({ key: "job" })).toMatchObject({ kind: "on", key: "job" });
-    expect(() => PromptCaching.on({ cachedParts: [] })).toThrow(PromptCachingError);
+    expect(() => PromptCaching.on({ cachedParts: [] })).toThrow(ConfigError.PromptCaching);
   });
 });

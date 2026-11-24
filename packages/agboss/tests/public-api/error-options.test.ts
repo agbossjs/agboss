@@ -70,7 +70,8 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
     // after the rework's removals of errors; 108 once `PauseAnswererError` became
     // `PauseError.PermissionDenied`; 106 once `A2ACallerRejectedError` became
     // `A2AError.CallerRejected` and the A2A stores left the root entry (#1320)
-    expect(classes.size).toBeGreaterThanOrEqual(106);
+    // 104 once the five model-policy error classes folded into `ConfigError` (F2)
+    expect(classes.size).toBeGreaterThanOrEqual(104);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)

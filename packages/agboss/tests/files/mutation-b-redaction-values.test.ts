@@ -13,7 +13,7 @@ import {
 import type { AgentsConfigOf } from "../../src/config/types.js";
 import { env } from "../../src/environments/env-readers.js";
 import { secret } from "../../src/environments/secret.js";
-import { ModelProvider, OpenAiCompatibleDriver } from "../../src/models/index.js";
+import { ModelProvider, OpenAiCompatibleDriver, OpenRouterDriver } from "../../src/models/index.js";
 import {
   modelProviderOf,
   type ModelProviderType,
@@ -79,6 +79,66 @@ class P5 {}
   }),
 })
 class P6 {}
+// the same server and key, extra request fields that may send the call to another upstream
+@ModelProvider({
+  ...common,
+  name: "p7-model-provider",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "https://s.example/v1",
+    apiKey: secret("KEY_P"),
+    requestFields: { top_k: 40 },
+  }),
+})
+class P7 {}
+@ModelProvider({
+  ...common,
+  name: "p8-model-provider",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "https://s.example/v1",
+    apiKey: secret("KEY_P"),
+    requestFields: { top_k: 40 },
+  }),
+})
+class P8 {}
+@ModelProvider({
+  ...common,
+  name: "or1-model-provider",
+  driver: OpenRouterDriver({ apiKey: secret("KEY_P"), routing: { only: ["fireworks"] } }),
+})
+class Or1 {}
+@ModelProvider({
+  ...common,
+  name: "or2-model-provider",
+  driver: OpenRouterDriver({ apiKey: secret("KEY_P"), routing: { only: ["together"] } }),
+})
+class Or2 {}
+@ModelProvider({
+  ...common,
+  name: "or3-model-provider",
+  driver: OpenRouterDriver({ apiKey: secret("KEY_P"), routing: { only: ["fireworks"] } }),
+})
+class Or3 {}
+@ModelProvider({
+  ...common,
+  name: "fn-model-provider",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "https://s.example/v1",
+    apiKey: secret("KEY_P"),
+    requestFields: { pick: () => 1 },
+  }),
+})
+class Fn {}
+@ModelProvider({
+  ...common,
+  name: "fn2-model-provider",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "https://s.example/v1",
+    apiKey: secret("KEY_P"),
+    requestFields: { pick: () => 1 },
+  }),
+})
+class Fn2 {}
+
 // no key: nothing says whose credentials these are
 @ModelProvider({
   ...common,
@@ -87,7 +147,21 @@ class P6 {}
 })
 class Keyless {}
 
-const PROVIDERS: readonly ModelProviderType[] = [P1, P2, P3, P4, P5, P6, Keyless];
+const PROVIDERS: readonly ModelProviderType[] = [
+  P1,
+  P2,
+  P3,
+  P4,
+  P5,
+  P6,
+  P7,
+  P8,
+  Or1,
+  Or2,
+  Or3,
+  Fn,
+  Keyless,
+];
 const directory = directoryOf(PROVIDERS);
 
 /** The provider each test vendor's models go to, as a component's `modelProvider` says (`p1/a` → p1). */
@@ -179,6 +253,16 @@ describe("two providers are one only by the same server under the same key", () 
     expect(isSameProvider(used("p1/a", P1), used("p1/b", P6))).toBe(false);
   });
 
+  it("request fields and routing are part of the identity: any difference, or fields that cannot be compared, is not the same", () => {
+    expect(isSameProvider(used("p1/a", P1), used("p1/b", P7))).toBe(false); // extra fields on one side
+    expect(isSameProvider(used("p1/a", P7), used("p1/b", P8))).toBe(true); // deep-equal fields
+    expect(isSameProvider(used("a/a", Or1), used("a/b", Or2))).toBe(false); // another upstream pinned
+    expect(isSameProvider(used("a/a", Or1), used("a/b", Or3))).toBe(true);
+    expect(isSameProvider(used("p1/a", Fn), used("p1/b", Fn))).toBe(true); // the same class is itself
+    // a function in the fields on both sides (two classes): not comparable, not the same
+    expect(isSameProvider(used("p1/a", Fn), used("p1/b", Fn2))).toBe(false);
+  });
+
   it("the same class is the same provider, even with no key; two classes with none are not", () => {
     expect(isSameProvider(used("k/a", Keyless), used("k/b", Keyless))).toBe(true);
     expect(isSameProvider(used("k/a", Keyless), used("k/b", P2))).toBe(false);
@@ -194,7 +278,7 @@ describe("two providers are one only by the same server under the same key", () 
   it("providers that are no driver are never the same server, whatever fields they carry alike", () => {
     const transport = (type: ModelProviderType): RegisteredModelProvider => ({
       ...registeredOf(type),
-      options: { ...modelProviderOf(P1), driver: undefined },
+      options: (({ driver: _driver, ...rest }) => rest)(modelProviderOf(P1)),
     });
 
     expect(

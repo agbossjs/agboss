@@ -3,11 +3,11 @@
  * and what the breaker does with it: each open in a row longer, a probe at a time after an open, one
  * success closing it, one failure opening it again.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   BreakerBackoff,
   CircuitBreakerPolicy,
-  CircuitBreakerPolicyError,
   type FixedCircuitBreakerOptions,
 } from "../../src/models/index.js";
 import { openDurationOf } from "../../src/models/circuit-breaker-policy.js";
@@ -53,7 +53,7 @@ describe("#1313c: CircuitBreakerPolicy", () => {
       { ...base, openDuration: 999_999_999_999 as Milliseconds },
       { ...base, halfOpenProbes: 0 },
     ]) {
-      expect(() => CircuitBreakerPolicy.fixed(bad)).toThrow(CircuitBreakerPolicyError);
+      expect(() => CircuitBreakerPolicy.fixed(bad)).toThrow(ConfigError.CircuitBreakerPolicy);
     }
     expect(() =>
       CircuitBreakerPolicy.exponential({
@@ -61,7 +61,7 @@ describe("#1313c: CircuitBreakerPolicy", () => {
         initialOpenDuration: seconds(20),
         maxOpenDuration: seconds(10),
       }),
-    ).toThrow(CircuitBreakerPolicyError);
+    ).toThrow(ConfigError.CircuitBreakerPolicy);
   });
 
   it("an exponential open doubles from the initial one up to the maximum", () => {

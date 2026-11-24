@@ -75,17 +75,6 @@ export const CircuitBreakerPolicy: {
 };
 
 // @public
-export class CircuitBreakerPolicyError extends RangeError {
-    constructor(options: PlainErrorOptions);
-    // (undocumented)
-    static readonly code: "config.circuit-breaker-policy";
-    // (undocumented)
-    readonly code: "config.circuit-breaker-policy";
-    // (undocumented)
-    name: string;
-}
-
-// @public
 export interface CliInvocation {
     readonly args: readonly string[];
     readonly command: string;
@@ -330,6 +319,7 @@ export interface ModelDriver<TKind extends ModelKind = ModelKind> {
     readonly describes: string;
     readonly dialect: string;
     readonly kind: TKind;
+    readonly requestFields: Readonly<Record<string, unknown>>;
     readonly settings: ModelDriverSettings;
 }
 
@@ -741,17 +731,6 @@ export const PromptCaching: {
 };
 
 // @public
-export class PromptCachingError extends RangeError {
-    constructor(options: PlainErrorOptions);
-    // (undocumented)
-    static readonly code: "config.prompt-caching";
-    // (undocumented)
-    readonly code: "config.prompt-caching";
-    // (undocumented)
-    name: string;
-}
-
-// @public
 export interface PromptCachingOnOptions {
     readonly cachedParts?: readonly CachedPart[];
     readonly key?: string;
@@ -842,17 +821,6 @@ export const RateLimitPolicy: {
 };
 
 // @public
-export class RateLimitPolicyError extends RangeError {
-    constructor(options: PlainErrorOptions);
-    // (undocumented)
-    static readonly code: "config.rate-limit-policy";
-    // (undocumented)
-    readonly code: "config.rate-limit-policy";
-    // (undocumented)
-    name: string;
-}
-
-// @public
 export type Reasoning = {
     readonly kind: "model-decides";
 } | ({
@@ -886,17 +854,6 @@ export enum ReasoningEffort {
     Medium = "medium",
     // (undocumented)
     Minimal = "minimal"
-}
-
-// @public
-export class ReasoningError extends RangeError {
-    constructor(options: PlainErrorOptions);
-    // (undocumented)
-    static readonly code: "config.reasoning";
-    // (undocumented)
-    readonly code: "config.reasoning";
-    // (undocumented)
-    name: string;
 }
 
 // @public
@@ -948,17 +905,6 @@ export const RetryPolicy: {
     exponential(options: ExponentialRetryOptions): RetryPolicy;
     fixed(options: FixedRetryOptions): RetryPolicy;
 };
-
-// @public
-export class RetryPolicyError extends RangeError {
-    constructor(options: PlainErrorOptions);
-    // (undocumented)
-    static readonly code: "config.retry-policy";
-    // (undocumented)
-    readonly code: "config.retry-policy";
-    // (undocumented)
-    name: string;
-}
 
 // @public
 export interface RoutingProblem {
@@ -1130,9 +1076,6 @@ export interface WireTool {
 // src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "initialOpenDuration".
 // src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "maxOpenDuration".
 // src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "halfOpenProbes".
-// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker-policy.ts - (ae-undocumented) Missing documentation for "CircuitBreakerPolicy".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "message".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
@@ -1226,9 +1169,6 @@ export interface WireTool {
 // src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "maxConcurrentCalls".
 // src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "perMinute".
 // src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "balancing".
-// src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/policies/rate-limit-policy.ts - (ae-undocumented) Missing documentation for "RateLimitPolicy".
 // src/models/problems.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/problems.ts - (ae-undocumented) Missing documentation for "key".
@@ -1249,9 +1189,6 @@ export interface WireTool {
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "History".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "retention".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "cachedParts".
-// src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/prompt-caching.ts - (ae-undocumented) Missing documentation for "PromptCaching".
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "Minimal".
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "Low".
@@ -1261,9 +1198,6 @@ export interface WireTool {
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "tokens".
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "effort".
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "budget".
-// src/models/reasoning.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/reasoning.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/reasoning.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "Reasoning".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "Exponential".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "Fixed".
@@ -1273,9 +1207,6 @@ export interface WireTool {
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "maxAttempts".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "delay".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "retryOn".
-// src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "code".
-// src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "RetryPolicy".
 // src/models/transport/failure-error.ts - (ae-undocumented) Missing documentation for "cause".
 // src/models/transport/failure-error.ts - (ae-undocumented) Missing documentation for "code".

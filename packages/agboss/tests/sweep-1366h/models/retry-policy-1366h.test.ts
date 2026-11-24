@@ -3,12 +3,12 @@
  * both constructors), the longest wait and the wait before a retry of each backoff (jitter between half and the whole
  * of the grown wait), a `None` policy never retried, the failures a provider retries by default.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   Backoff,
   ModelFailure,
   RetryPolicy,
-  RetryPolicyError,
   TRANSIENT_FAILURES,
 } from "../../../src/models/index.js";
 import { delayBefore, isRetried, longestWaitOf } from "../../../src/models/retry-policy.js";
@@ -33,8 +33,8 @@ describe("#1366: the attempts a policy admits", () => {
   });
 
   it.each([0, -1, 1.5, Number.NaN])("%s attempts are refused by both constructors", (attempts) => {
-    expect(() => exponentialOf(attempts)).toThrow(RetryPolicyError);
-    expect(() => fixedOf(attempts)).toThrow(RetryPolicyError);
+    expect(() => exponentialOf(attempts)).toThrow(ConfigError.RetryPolicy);
+    expect(() => fixedOf(attempts)).toThrow(ConfigError.RetryPolicy);
   });
 
   it("the refusals of one class are told apart by the field they name", () => {
@@ -56,7 +56,7 @@ describe("#1366: the attempts a policy admits", () => {
         jitter: false,
         retryOn: [],
       }),
-    ).toThrow(RetryPolicyError);
+    ).toThrow(ConfigError.RetryPolicy);
   });
 
   it("a delay equal to the initial one is admitted", () => {

@@ -1,6 +1,6 @@
+import { ConfigError } from "../core/error-families/config-errors.js";
 import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { Milliseconds } from "../units/index.js";
-import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
 
 /** How long a breaker stays open: always the same, or longer for each open in a row. */
 export enum BreakerBackoff {
@@ -46,20 +46,9 @@ export type CircuitBreakerPolicy =
   | ({ readonly backoff: BreakerBackoff.Fixed } & FixedCircuitBreakerOptions)
   | ({ readonly backoff: BreakerBackoff.Exponential } & ExponentialCircuitBreakerOptions);
 
-/** A value out of range, as a `RangeError` (as `RetryPolicyError`); `code` is literal. */
-export class CircuitBreakerPolicyError extends RangeError {
-  static readonly code = "config.circuit-breaker-policy" as const;
-  readonly code = CircuitBreakerPolicyError.code;
-  override name = "CircuitBreakerPolicyError";
-
-  constructor(options: PlainErrorOptions) {
-    super(options.message, causeOptionOf(options.cause));
-  }
-}
-
 const checkCount = (field: string, value: number): void => {
   if (!Number.isInteger(value) || value < 1) {
-    throw new CircuitBreakerPolicyError({
+    throw new ConfigError.CircuitBreakerPolicy({
       message: `${field} must be an integer ≥ 1, got ${String(value)}`,
     });
   }
@@ -68,9 +57,9 @@ const checkCount = (field: string, value: number): void => {
 /** A duration here is a timer: positive, and at most `MAX_TIMEOUT`. */
 const checkDuration = (field: string, value: number): void => {
   const problem = timerProblemOf(field, value, MAX_TIMEOUT);
-  if (problem !== undefined) throw new CircuitBreakerPolicyError({ message: problem });
+  if (problem !== undefined) throw new ConfigError.CircuitBreakerPolicy({ message: problem });
   if (value <= 0) {
-    throw new CircuitBreakerPolicyError({
+    throw new ConfigError.CircuitBreakerPolicy({
       message: `${field} must be above 0, got ${String(value)}`,
     });
   }
@@ -93,7 +82,7 @@ export const CircuitBreakerPolicy = {
     checkDuration("initialOpenDuration", options.initialOpenDuration);
     checkDuration("maxOpenDuration", options.maxOpenDuration);
     if (options.maxOpenDuration < options.initialOpenDuration) {
-      throw new CircuitBreakerPolicyError({
+      throw new ConfigError.CircuitBreakerPolicy({
         message: "maxOpenDuration must not be shorter than initialOpenDuration",
       });
     }

@@ -61,14 +61,12 @@ describe("optionKeys", () => {
     expect(APPLICATION_KEYS.keys.has("executionLimits")).toBe(true);
     expect(APPLICATION_KEYS.moved.get("shutdownTimeout")).toBe("executionLimits");
     // the workflow's count limits are in the group: the flat 0.1.0 keys are gone, and say where they went
-    for (const key of ["maxSteps", "maxDepth", "maxConcurrentExecutions"])
-      expect(WORKFLOW_KEYS.keys.has(key)).toBe(false);
+    for (const key of ["maxSteps", "maxDepth"]) expect(WORKFLOW_KEYS.keys.has(key)).toBe(false);
     expect(WORKFLOW_KEYS.moved.get("maxSteps")).toBe("executionLimits");
     expect(WORKFLOW_KEYS.moved.get("maxDepth")).toBe("executionLimits");
-    expect(WORKFLOW_KEYS.renamed.get("maxConcurrentExecutions")).toEqual([
-      "executionLimits",
-      "maxConcurrency",
-    ]);
+    // 0.1.0's maxConcurrentExecutions has no alias: it is only an unknown key
+    expect(WORKFLOW_KEYS.keys.has("maxConcurrentExecutions")).toBe(false);
+    expect(WORKFLOW_KEYS.moved.has("maxConcurrentExecutions")).toBe(false);
   });
 });
 
@@ -168,9 +166,7 @@ describe("[decorator.unknown-option]: flow decorators", () => {
     expect(found).toContain(
       "Flow: maxDepth is not an option of @Workflow — move it into executionLimits: { maxDepth: … }",
     );
-    expect(found).toContain(
-      "Flow: maxConcurrentExecutions is not an option of @Workflow — move it into executionLimits: { maxConcurrency: … }",
-    );
+    expect(found).toContain("Flow: maxConcurrentExecutions is not an option of @Workflow");
     expect(found).toContain(
       "Flow: maxStep is not an option of @Workflow (in executionLimits) — did you mean maxSteps?",
     );

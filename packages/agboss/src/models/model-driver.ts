@@ -45,6 +45,12 @@ export interface ModelDriver<TKind extends ModelKind = ModelKind> {
   readonly dialect: string;
   /** Its connection settings; resolved with the process's variables when the application starts. */
   readonly settings: ModelDriverSettings;
+  /**
+   * Everything else the driver puts on the wire besides the connection: extra request fields, an
+   * OpenRouter routing, a decisions endpoint path. Part of a provider's identity: two drivers that
+   * differ here may send the call to different upstreams.
+   */
+  readonly requestFields: Readonly<Record<string, unknown>>;
   /** A line for `agboss describe`: where it points, never a secret. */
   readonly describes: string;
 }

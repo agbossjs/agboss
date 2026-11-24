@@ -18,6 +18,7 @@ export enum ConfigErrorKind {
   Unit = "unit",
   PromptCaching = "prompt-caching",
   RateLimitPolicy = "rate-limit-policy",
+  CircuitBreakerPolicy = "circuit-breaker-policy",
   Reasoning = "reasoning",
   RetryPolicy = "retry-policy",
   EvalCase = "eval-case",
@@ -46,6 +47,7 @@ export type ConfigError =
   | ConfigError.Unit
   | ConfigError.PromptCaching
   | ConfigError.RateLimitPolicy
+  | ConfigError.CircuitBreakerPolicy
   | ConfigError.Reasoning
   | ConfigError.RetryPolicy
   | ConfigError.EvalCase
@@ -96,6 +98,11 @@ export declare namespace ConfigError {
   export type Unit = ErrorVariant<ConfigErrorKind.Unit, "config.unit">;
   /** The prompt-caching policy is not valid. */
   export type PromptCaching = ErrorVariant<ConfigErrorKind.PromptCaching, "config.prompt-caching">;
+  /** The circuit-breaker policy is not valid. */
+  export type CircuitBreakerPolicy = ErrorVariant<
+    ConfigErrorKind.CircuitBreakerPolicy,
+    "config.circuit-breaker-policy"
+  >;
   /** The rate-limit policy is not valid. */
   export type RateLimitPolicy = ErrorVariant<
     ConfigErrorKind.RateLimitPolicy,
@@ -142,6 +149,7 @@ export const ConfigError: FamilyConstructor<
     Unit: ConfigError.Unit;
     PromptCaching: ConfigError.PromptCaching;
     RateLimitPolicy: ConfigError.RateLimitPolicy;
+    CircuitBreakerPolicy: ConfigError.CircuitBreakerPolicy;
     Reasoning: ConfigError.Reasoning;
     RetryPolicy: ConfigError.RetryPolicy;
     EvalCase: ConfigError.EvalCase;
@@ -172,6 +180,7 @@ export const ConfigError: FamilyConstructor<
     Unit: ["a unit value is not valid"],
     PromptCaching: ["the prompt-caching policy is not valid"],
     RateLimitPolicy: ["the rate-limit policy is not valid"],
+    CircuitBreakerPolicy: ["the circuit-breaker policy is not valid"],
     Reasoning: ["the reasoning setting is not valid"],
     RetryPolicy: ["the retry policy is not valid"],
     EvalCase: ["an eval case is not valid"],

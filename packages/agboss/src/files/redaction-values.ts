@@ -1,5 +1,6 @@
 import type { AgentsConfigOf } from "../config/types.js";
 import { isDriverOptions } from "../models/model-provider.decorator.js";
+import { Secret, variableOfSecret } from "../environments/secret.js";
 import type { DriverHeaders } from "../models/model-driver.js";
 import type { RegisteredModelProvider } from "../models/resolve.js";
 import type { ModelUse } from "../models/uses.js";
@@ -29,11 +30,47 @@ function isSameServerAndKey(a: RegisteredModelProvider, b: RegisteredModelProvid
   const [one, other] = [x.driver.settings, y.driver.settings];
   return (
     x.driver.dialect === y.driver.dialect &&
-    one.apiKey?.variable !== undefined &&
-    one.apiKey.variable === other.apiKey?.variable &&
+    one.apiKey !== undefined &&
+    other.apiKey !== undefined &&
+    variableOf(one.apiKey) === variableOf(other.apiKey) &&
     sameText(one.baseUrl, other.baseUrl) &&
-    sameHeaders(one.headers, other.headers)
+    sameHeaders(one.headers, other.headers) &&
+    sameFields(x.driver.requestFields, y.driver.requestFields)
   );
+}
+
+/**
+ * Whether two drivers' extra request fields are deep-equal (routing, extra fields, a path): fail-closed —
+ * a value that is no plain JSON (a function, a cycle, a class instance) on either side is "not the same".
+ */
+function sameFields(
+  a: Readonly<Record<string, unknown>>,
+  b: Readonly<Record<string, unknown>>,
+): boolean {
+  const [left, right] = [canonical(a), canonical(b)];
+  return left !== undefined && left === right;
+}
+
+/** A stable JSON text of plain data (keys sorted), or `undefined` when the value is not plain JSON. */
+function canonical(value: unknown): string | undefined {
+  try {
+    return JSON.stringify(plain(value));
+  } catch {
+    return undefined;
+  }
+}
+
+function plain(value: unknown): unknown {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) return value.map(plain);
+  if (typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype)
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([x], [y]) => (x < y ? -1 : 1))
+        .map(([key, item]) => [key, plain(item)]),
+    );
+  throw new TypeError("not plain data");
 }
 
 /** Two header sets are the same names with the same texts, or the same variables: another header may be another account. */
@@ -50,7 +87,11 @@ function sameHeaders(a: DriverHeaders | undefined, b: DriverHeaders | undefined)
 
 /** Two base URLs are the same text, or the same variable. */
 const sameText = (a: DriverHeaders[string], b: DriverHeaders[string]): boolean =>
-  typeof a === "string" || typeof b === "string" ? a === b : a.variable === b.variable;
+  typeof a === "string" || typeof b === "string" ? a === b : variableOf(a) === variableOf(b);
+
+/** The process variable a reference reads (`secret(…)` makes a `Secret`, `env(…)` a reference). */
+const variableOf = (reference: Exclude<DriverHeaders[string], string>): string =>
+  reference instanceof Secret ? variableOfSecret(reference) : reference.variable;
 
 /**
  * Whether the redaction model is "the same provider" as the agent's own, fail-closed (#899 §6): the same

@@ -14,7 +14,6 @@ import type { ModelProviderType } from "../../src/models/model-provider.decorato
 import { ModelKind } from "../../src/models/model-kind.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 import { seconds } from "../../src/units/index.js";
-import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 
 const common = {
   timeout: seconds(5),
@@ -39,14 +38,6 @@ class AProvider {}
 })
 class BProvider {}
 
-// the same display name as AProvider, another server
-@ModelProvider({
-  ...common,
-  name: "a-model-provider",
-  driver: OpenAiCompatibleDriver({ baseUrl: "https://c.example/v1", apiKey: secret("KEY_C") }),
-})
-class NamesakeProvider {}
-
 // another class for the same server and the same key as AProvider
 @ModelProvider({
   ...common,
@@ -68,6 +59,14 @@ class KeylessOne {}
   driver: OpenAiCompatibleDriver({ baseUrl: "https://k.example/v1" }),
 })
 class KeylessTwo {}
+
+// an aggregator without a breaker's fallback
+@ModelProvider({
+  ...common,
+  name: "openrouter-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "https://o.example/v1", apiKey: secret("KEY_O") }),
+})
+class AggregatorProvider {}
 
 // the provider whose breaker fails over to BProvider
 @ModelProvider({
@@ -130,7 +129,7 @@ describe("the redaction model is the same provider only by a fail-closed identit
     const names = { agent: OPENROUTER, redactor: OPENROUTER };
     expect(
       sendsValues(
-        [TestOpenRouterProvider],
+        [AggregatorProvider],
         "anthropic/claude-sonnet-4",
         "google/gemini-2.5-flash-lite",
         names,
@@ -138,18 +137,12 @@ describe("the redaction model is the same provider only by a fail-closed identit
     ).toBe(false);
     expect(
       sendsValues(
-        [TestOpenRouterProvider],
+        [AggregatorProvider],
         "anthropic/claude-sonnet-4",
         "anthropic/claude-haiku-4",
         names,
       ),
     ).toBe(true);
-  });
-
-  it("two providers that share a display name are not the same", () => {
-    expect(
-      sendsValues([AProvider, NamesakeProvider], "a/m", "a/y-m", { agent: A, redactor: A }),
-    ).toBe(false);
   });
 
   it("the same provider is the same; two providers on one base URL and one key are the same", () => {

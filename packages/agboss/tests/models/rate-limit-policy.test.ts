@@ -1,16 +1,14 @@
 /**
  * #1356 — a rate limit policy (#265, #266): at least one limit, each a whole number from 1, refused as a
- * `RateLimitPolicyError` that says which limit it was.
+ * `ConfigError.RateLimitPolicy` that says which limit it was.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import {
-  RateLimitPolicy,
-  RateLimitPolicyError,
-} from "../../src/models/policies/rate-limit-policy.js";
+import { RateLimitPolicy } from "../../src/models/policies/rate-limit-policy.js";
 
 describe("#1356: the limits of a rate limit policy", () => {
   it("is refused with no limit at all, saying what one needs", () => {
-    expect(() => RateLimitPolicy.of({})).toThrow(RateLimitPolicyError);
+    expect(() => RateLimitPolicy.of({})).toThrow(ConfigError.RateLimitPolicy);
     expect(() => RateLimitPolicy.of({})).toThrow(
       "a rate limit needs maxConcurrentCalls or perMinute.calls / perMinute.tokens",
     );
@@ -39,11 +37,13 @@ describe("#1356: the limits of a rate limit policy", () => {
       }
     })();
 
-    expect(error).toBeInstanceOf(RangeError);
-    expect(error).toBeInstanceOf(RateLimitPolicyError);
-    expect(error).toHaveProperty("name", "RateLimitPolicyError");
+    expect(error).toBeInstanceOf(ConfigError.RateLimitPolicy);
+    expect(error).toHaveProperty("name", "ConfigError.RateLimitPolicy");
     expect(error).toHaveProperty("code", "config.rate-limit-policy");
-    expect(new RateLimitPolicyError({ message: "x", cause: "why" })).toHaveProperty("cause", "why");
+    expect(new ConfigError.RateLimitPolicy({ message: "x", cause: "why" })).toHaveProperty(
+      "cause",
+      "why",
+    );
   });
 
   it("is a frozen policy of the limits it was given, round-robin by tenant unless told", () => {

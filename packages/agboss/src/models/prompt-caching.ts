@@ -1,4 +1,4 @@
-import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
 /** How long a cached prompt prefix lives. */
 export enum CacheRetention {
   FiveMinutes = "5m",
@@ -56,26 +56,12 @@ export const AUTO_PROMPT_CACHING: PromptCaching = Object.freeze({
 /** Whether `caching` is the provider's default (see `AUTO_PROMPT_CACHING`), not a setting made on purpose. */
 export const isAutoCaching = (caching: PromptCaching): boolean => caching === AUTO_PROMPT_CACHING;
 
-/**
- * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
- * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
- */
-export class PromptCachingError extends RangeError {
-  static readonly code = "config.prompt-caching" as const;
-  readonly code = PromptCachingError.code;
-  override name = "PromptCachingError";
-
-  constructor(options: PlainErrorOptions) {
-    super(options.message, causeOptionOf(options.cause));
-  }
-}
-
 export const PromptCaching = {
   /** Cache the prompt; defaults: `FiveMinutes`, `[SystemPrompt, Tools, History]`. Fails the startup check where the model cannot. */
   on(options: PromptCachingOnOptions = {}): PromptCaching {
     const cachedParts = options.cachedParts ?? DEFAULT_CACHED_PARTS;
     if (cachedParts.length === 0) {
-      throw new PromptCachingError({
+      throw new ConfigError.PromptCaching({
         message: "cachedParts needs at least one part (or use PromptCaching.off())",
       });
     }

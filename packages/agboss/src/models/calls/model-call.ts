@@ -1,3 +1,4 @@
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import { timeoutError, timeoutOn } from "../../infrastructure/clock.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -10,7 +11,7 @@ import type { Milliseconds } from "../../units/index.js";
 import type { ModelFailure } from "../model-failure.js";
 import { FREE_PASS } from "./gate-pass.js";
 import type { GateTicket } from "./gate-waiter.js";
-import { RateLimitPolicyError, type RateLimitPolicy } from "../policies/rate-limit-policy.js";
+import { type RateLimitPolicy } from "../policies/rate-limit-policy.js";
 import type { ProviderGate } from "./provider-gate.js";
 
 /**
@@ -86,7 +87,7 @@ export interface AttemptLimits {
 function weightOf(tenant: TenantContext, tenantWeight: RateLimitPolicy["tenantWeight"]): number {
   const weight = tenantWeight?.(tenant) ?? DEFAULT_TENANT_WEIGHT;
   if (!Number.isInteger(weight) || weight < 1)
-    throw new RateLimitPolicyError({
+    throw new ConfigError.RateLimitPolicy({
       message: `tenantWeight gave ${String(weight)} for tenant "${tenant.tenantId}": it must be an integer ≥ 1`,
     });
   return weight;

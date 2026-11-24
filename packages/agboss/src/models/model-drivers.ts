@@ -135,6 +135,7 @@ export function OpenAiCompatibleDriver(options: OpenAiCompatibleDriverOptions): 
     kind: ModelKind.Chat,
     dialect: "openai-compatible",
     settings,
+    requestFields,
     handler: new OpenAiCompatibleHandler(requestFields),
     describes: `openai-compatible ${describesUrl(settings.baseUrl)}`,
   });
@@ -151,6 +152,7 @@ export function OpenRouterDriver(options: OpenRouterDriverOptions): ChatModelDri
     kind: ModelKind.Chat,
     dialect: "openrouter",
     settings: { ...rest, baseUrl },
+    requestFields: { ...requestFields },
     handler: new OpenRouterHandler(requestFields),
     describes: `openrouter ${describesUrl(baseUrl)}`,
   });
@@ -163,6 +165,7 @@ export function DecisionsDriver(options: DecisionsDriverOptions): DecisionsModel
     kind: ModelKind.Decisions,
     dialect: "decisions",
     settings,
+    requestFields: { ...(path === undefined ? {} : { path }) },
     handler: new DecisionsHandler(path, knownModels),
     describes: `decisions ${describesUrl(settings.baseUrl)}`,
   });

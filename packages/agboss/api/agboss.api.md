@@ -1864,11 +1864,12 @@ interface ComponentSource {
 }
 
 // @public
-export type ConfigError = ConfigError.GraphRules | ConfigError.FlowSyntax | ConfigError.NotAWorkflowStart | ConfigError.WorkingCalendar | ConfigError.Component | ConfigError.Prompt | ConfigError.NoDefaultRouter | ConfigError.Environment | ConfigError.Profile | ConfigError.ModelProvider | ConfigError.ModelSettings | ConfigError.ModelKind | ConfigError.Dto | ConfigError.Unit | ConfigError.PromptCaching | ConfigError.RateLimitPolicy | ConfigError.Reasoning | ConfigError.RetryPolicy | ConfigError.EvalCase | ConfigError.RagIndex | ConfigError.WorkflowLoad | ConfigError.ApplicationLoad | ConfigError.Tool | ConfigError.Option;
+export type ConfigError = ConfigError.GraphRules | ConfigError.FlowSyntax | ConfigError.NotAWorkflowStart | ConfigError.WorkingCalendar | ConfigError.Component | ConfigError.Prompt | ConfigError.NoDefaultRouter | ConfigError.Environment | ConfigError.Profile | ConfigError.ModelProvider | ConfigError.ModelSettings | ConfigError.ModelKind | ConfigError.Dto | ConfigError.Unit | ConfigError.PromptCaching | ConfigError.RateLimitPolicy | ConfigError.CircuitBreakerPolicy | ConfigError.Reasoning | ConfigError.RetryPolicy | ConfigError.EvalCase | ConfigError.RagIndex | ConfigError.WorkflowLoad | ConfigError.ApplicationLoad | ConfigError.Tool | ConfigError.Option;
 
 // @public
 export namespace ConfigError {
     export type ApplicationLoad = ErrorVariant<ConfigErrorKind.ApplicationLoad, "config.application-load">;
+    export type CircuitBreakerPolicy = ErrorVariant<ConfigErrorKind.CircuitBreakerPolicy, "config.circuit-breaker-policy">;
     export type Component = ErrorVariant<ConfigErrorKind.Component, "config.component">;
     export type Dto = ErrorVariant<ConfigErrorKind.Dto, "config.dto">;
     export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment">;
@@ -1912,6 +1913,7 @@ export const ConfigError: FamilyConstructor<ConfigError, {
     Unit: ConfigError.Unit;
     PromptCaching: ConfigError.PromptCaching;
     RateLimitPolicy: ConfigError.RateLimitPolicy;
+    CircuitBreakerPolicy: ConfigError.CircuitBreakerPolicy;
     Reasoning: ConfigError.Reasoning;
     RetryPolicy: ConfigError.RetryPolicy;
     EvalCase: ConfigError.EvalCase;
@@ -1926,6 +1928,8 @@ export const ConfigError: FamilyConstructor<ConfigError, {
 export enum ConfigErrorKind {
     // (undocumented)
     ApplicationLoad = "application-load",
+    // (undocumented)
+    CircuitBreakerPolicy = "circuit-breaker-policy",
     // (undocumented)
     Component = "component",
     // (undocumented)
@@ -11586,6 +11590,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Unit".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "PromptCaching".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "RateLimitPolicy".
+// src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "CircuitBreakerPolicy".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "Reasoning".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "RetryPolicy".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "EvalCase".

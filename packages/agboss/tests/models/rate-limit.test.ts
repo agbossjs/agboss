@@ -5,15 +5,11 @@
  * #509: the execution path is loaded first (`warmUp`) — on a cold worker the first execution's lazy
  * imports took real time while `advanceUntil` spent its steps.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import {
-  ModelFailure,
-  RateLimitPolicy,
-  RateLimitPolicyError,
-  RetryPolicy,
-} from "../../src/models/index.js";
+import { ModelFailure, RateLimitPolicy, RetryPolicy } from "../../src/models/index.js";
 import { resilientFetch, type ResilienceOptions } from "../../src/models/resilient-fetch.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
@@ -132,11 +128,13 @@ describe("#266 AC3: one limit per provider for the whole application", () => {
   });
 
   it("a policy needs a limit, each a whole number ≥ 1", () => {
-    expect(() => RateLimitPolicy.of({})).toThrow(RateLimitPolicyError);
+    expect(() => RateLimitPolicy.of({})).toThrow(ConfigError.RateLimitPolicy);
     expect(() => RateLimitPolicy.of({ maxConcurrentCalls: 0 })).toThrow(
       "maxConcurrentCalls must be an integer ≥ 1, got 0",
     );
-    expect(() => RateLimitPolicy.of({ perMinute: { tokens: 1.5 } })).toThrow(RateLimitPolicyError);
+    expect(() => RateLimitPolicy.of({ perMinute: { tokens: 1.5 } })).toThrow(
+      ConfigError.RateLimitPolicy,
+    );
     expect(RateLimitPolicy.of({ perMinute: { calls: 500 } })).toMatchObject({
       maxConcurrentCalls: undefined,
       balancing: "tenant-round-robin",

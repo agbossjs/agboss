@@ -1,10 +1,10 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { ticketOf } from "../../src/models/calls/model-call.js";
 import { runInFrame, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
   QueueBalancingStrategy,
   RateLimitPolicy,
-  RateLimitPolicyError,
 } from "../../src/models/policies/rate-limit-policy.js";
 
 /** #1313h: a tenant's queue weight is the provider's `tenantWeight`, not a field of the tenant. */
@@ -16,9 +16,9 @@ describe("#1313h: tenantWeight on RateLimitPolicy", () => {
         maxConcurrentCalls: 2,
         balancing: QueueBalancingStrategy.TenantWeighted,
       }),
-    ).toThrow(RateLimitPolicyError);
+    ).toThrow(ConfigError.RateLimitPolicy);
     expect(() => RateLimitPolicy.of({ maxConcurrentCalls: 2, tenantWeight: () => 2 })).toThrow(
-      RateLimitPolicyError,
+      ConfigError.RateLimitPolicy,
     );
   });
 
@@ -53,7 +53,7 @@ describe("#1313h: tenantWeight on RateLimitPolicy", () => {
           } as never,
           async () => ticketOf(undefined, policy.tenantWeight),
         ),
-      ).rejects.toThrow(RateLimitPolicyError);
+      ).rejects.toThrow(ConfigError.RateLimitPolicy);
     }
   });
 });

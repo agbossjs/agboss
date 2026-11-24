@@ -143,6 +143,4 @@ export const WORKFLOW_KEYS = optionKeys<WorkflowOptions>()(
       "maxConcurrency",
     ]),
   },
-  // 0.1.0's name of the tree's cap: the same limit, in the group, under the name it has there
-  { maxConcurrentExecutions: ["executionLimits", "maxConcurrency"] },
 );
