@@ -58,12 +58,13 @@ AGBoss code follows, the same ones the framework's own gate runs:
 | Rule                                   | Files                              | Fails                                                                                 |
 | -------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
 | `agboss/no-component-state`            | `src/**/*.ts` but `*.test.ts`      | `this.x = …` outside the constructor of a component ([Components](Components))        |
-| `agboss/no-direct-time`                | `src/**/*.ts` but `*.test.ts`      | `Date.now()`, `new Date()`, `setTimeout`, … — inject `Clock` (`clock.now()`)          |
+| `agboss/no-direct-time`                | `src/**/*.ts` but `*.test.ts`      | `Date.now()`, `new Date()`, `process.hrtime`, `setTimeout`, … — inject `Clock` (`clock.now()`)          |
+| `agboss/no-process-env`                | `src/**/*.ts` but tests            | a raw `process.env` — read it with `defineEnv`; `processEnv: process.env` in an entry point is allowed (#1324) |
 | `agboss/no-internal-import`            | every `.ts` / `.js` file           | an import of `@agboss/core/internal` — the CLI's, no semver promise; `studioOf` is in `@agboss/core/testing` (#818) |
 | `@stylistic/newline-per-chained-call`  | `**/*.workflow.ts`                 | two calls of a chain on one line: `onStart(A)` / `.toAgent(B)` / `.toFinish(C)`         |
 
 The `agboss/…` rules come from the public entry `@agboss/core/eslint` of the framework (#388 S2):
-`agbossPlugin` and `FLOW_CHAIN_RULE` — the one-call-per-line rule with the framework's options
+`agbossPlugin` (its types `AGBossPlugin`, `AGBossRules`; `configs.recommended` holds the blocks above) and `FLOW_CHAIN_RULE` — the one-call-per-line rule with the framework's options
 (`ignoreChainWithDepth: 1`); the entry needs `@typescript-eslint/utils` (an optional peer of
 `@agboss/core`, installed with `typescript-eslint`), and the root import never loads it. The generated
 config, in short:
@@ -71,9 +72,7 @@ config, in short:
 ```js
 import { FLOW_CHAIN_RULE, agbossPlugin } from "@agboss/core/eslint";
 // …
-{ files: ["src/**/*.ts"], ignores: ["src/**/*.test.ts"], plugins: { agboss: agbossPlugin },
-  rules: { "agboss/no-component-state": "error", "agboss/no-direct-time": "error" } },
-{ files: ["**/*.{ts,mts,cts,js,mjs,cjs}"], plugins: { agboss: agbossPlugin }, rules: { "agboss/no-internal-import": "error" } },
+...agbossPlugin.configs.recommended, // the state, time, env and internal-import rules above
 { files: ["**/*.workflow.ts"], plugins: { "@stylistic": stylistic }, rules: FLOW_CHAIN_RULE },
 ```
 

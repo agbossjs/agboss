@@ -89,6 +89,7 @@ describe("#388 S2: the agboss/eslint entry", () => {
       "no-component-state",
       "no-direct-time",
       "no-internal-import",
+      "no-process-env",
     ]);
   });
 });

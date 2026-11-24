@@ -7,24 +7,28 @@
 import type { TSESLint } from '@typescript-eslint/utils';
 
 // @public
-export interface AgbossPlugin {
-    readonly meta: AgbossPluginMeta;
-    readonly rules: AgbossRules;
+export interface AGBossPlugin {
+    readonly configs: {
+        readonly recommended: readonly TSESLint.FlatConfig.Config[];
+    };
+    readonly meta: AGBossPluginMeta;
+    readonly rules: AGBossRules;
 }
 
 // @public
-export const agbossPlugin: AgbossPlugin;
+export const agbossPlugin: AGBossPlugin;
 
 // @public
-export interface AgbossPluginMeta {
+export interface AGBossPluginMeta {
     readonly name: string;
 }
 
 // @public
-export interface AgbossRules extends Readonly<Record<string, TSESLint.LooseRuleDefinition>> {
+export interface AGBossRules extends Readonly<Record<string, TSESLint.LooseRuleDefinition>> {
     readonly "no-component-state": TSESLint.RuleModule<ComponentStateMessageId>;
     readonly "no-direct-time": TSESLint.RuleModule<DirectTimeMessageId>;
     readonly "no-internal-import": TSESLint.RuleModule<InternalImportMessageId>;
+    readonly "no-process-env": TSESLint.RuleModule<ProcessEnvMessageId>;
 }
 
 // @public
@@ -38,6 +42,9 @@ export const FLOW_CHAIN_RULE: TSESLint.Linter.RulesRecord;
 
 // @public
 export type InternalImportMessageId = "internal";
+
+// @public
+export type ProcessEnvMessageId = "raw";
 
 // (No @packageDocumentation comment for this package)
 

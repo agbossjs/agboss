@@ -154,7 +154,7 @@ npm test                                                           # scripted mo
 ## The gate's rules
 
 AGBoss code follows these everywhere — the framework's own gate enforces them with lint
-(`agboss/no-component-state`, `agboss/no-direct-time`, `agboss/no-internal-import`,
+(`agboss/no-component-state`, `agboss/no-direct-time`, `agboss/no-process-env`, `agboss/no-internal-import`,
 `@stylistic/newline-per-chained-call`) and a
 suppression budget, and a project made by `npx agboss create` lints with the same rules (its
 `eslint.config.js`). Never work around them:

@@ -2,7 +2,7 @@
 // the application's one `Clock` (infrastructure, #261), so a test's `VirtualClock` moves deadlines,
 // 429 pauses, aging, leases and backoff with `clock.advance(…)` and nothing waits for real. Flags
 // the direct ways to read the time or start a timer — `Date.now()`, `new Date()` and `Date()`
-// without arguments, `performance.now()`, `setTimeout`, `setInterval`, `AbortSignal.timeout`,
+// without arguments, `performance.now()`, `process.hrtime`, `setTimeout`, `setInterval`, `AbortSignal.timeout`,
 // `Atomics.wait` (the blocking wait; its one site is `pauseThread` in the Clock's module) and
 // the `node:timers` modules — when they name the global (a local of the same name is not flagged).
 // On for the framework's sources (the real `Clock`, src/infrastructure/clock.ts, excepted) and for
@@ -18,6 +18,7 @@ const MEMBERS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["performance", new Set(["now"])],
   ["AbortSignal", new Set(["timeout"])],
   ["Atomics", new Set(["wait"])],
+  ["process", new Set(["hrtime"])],
   ["globalThis", new Set(["setTimeout", "setInterval"])],
 ]);
 
