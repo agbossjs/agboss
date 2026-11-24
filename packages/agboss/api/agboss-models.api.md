@@ -112,6 +112,7 @@ export interface CliInvocation {
     readonly command: string;
     readonly cwd?: string;
     readonly env?: Readonly<Record<string, string>>;
+    readonly inheritEnvironment?: true;
     readonly stdin?: string;
 }
 

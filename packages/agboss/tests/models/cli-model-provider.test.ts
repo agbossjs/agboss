@@ -63,14 +63,14 @@ describe("#1313g: CliModelProvider", () => {
     expect(pieces).toEqual(["a\n", "b\n"]);
   });
 
-  it("a non-zero exit is the provider's failure (a server error), with the CLI's stderr", async () => {
+  it("a non-zero exit is the provider's failure (a server error), its stderr kept apart", async () => {
     const cli = new Cli(node("console.error('boom'); process.exit(3)"));
 
     const failed = await cli.complete(requestOf()).catch((error: unknown) => error);
 
     expect(failed).toBeInstanceOf(ModelProviderFailureError);
     expect((failed as ModelProviderFailureError).failure).toBe(ModelFailure.ServerError);
-    expect(String((failed as Error).cause)).toContain("boom");
+    expect(((failed as Error).cause as { stderr?: string }).stderr).toContain("boom");
   });
 
   it("a command that cannot start is a ModelCallError, model.cli-failed", async () => {
@@ -130,5 +130,58 @@ describe("#1313g: CliModelProvider", () => {
     }
 
     await expect(new Checked(node("")).onInit()).rejects.toThrow("cli not installed");
+  });
+
+  it("complete runs the same per-line gate as stream, and ends the process at once", async () => {
+    class Strict extends Cli {
+      protected override parseStreamLine(line: string): string | undefined {
+        if (line.startsWith("init:"))
+          throw new ModelCallError({
+            code: "model.cli-failed",
+            provider: "cli",
+            message: "unsafe",
+          });
+        return line;
+      }
+    }
+    const script = "console.log('init:unsafe'); console.log(process.pid); setInterval(()=>{},1000)";
+    const cli = new Strict(node(script));
+
+    await expect(cli.complete(requestOf())).rejects.toThrow(ModelCallError);
+  });
+
+  it("the process gets a minimal environment, not the application's secrets", async () => {
+    process.env.APP_SECRET_FOR_TEST = "s3cret";
+    try {
+      const cli = new Cli(
+        node("console.log(JSON.stringify(process.env))", { env: { NEEDED: "1" } }),
+      );
+      const seen = JSON.parse((await cli.complete(requestOf())).text) as Record<string, string>;
+
+      expect(seen.APP_SECRET_FOR_TEST).toBeUndefined();
+      expect(seen.NEEDED).toBe("1");
+      expect(seen.PATH).toBeDefined();
+
+      const open = new Cli(
+        node("console.log(JSON.stringify(process.env))", { inheritEnvironment: true }),
+      );
+      const all = JSON.parse((await open.complete(requestOf())).text) as Record<string, string>;
+      expect(all.APP_SECRET_FOR_TEST).toBe("s3cret");
+    } finally {
+      delete process.env.APP_SECRET_FOR_TEST;
+    }
+  });
+
+  it("stderr is not in the error's messages; it is a separate, non-enumerable field", async () => {
+    const cli = new Cli(node("console.error('token=abc123'); process.exit(2)"));
+
+    const failed = (await cli.complete(requestOf()).catch((error: unknown) => error)) as Error;
+    const cause = failed.cause as Error & { stderr?: string };
+
+    expect(failed.message).not.toContain("abc123");
+    expect(cause.message).not.toContain("abc123");
+    expect(cause.message).toContain("exit code 2");
+    expect(cause.stderr).toContain("abc123");
+    expect(JSON.stringify(cause)).not.toContain("abc123");
   });
 });

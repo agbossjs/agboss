@@ -27,10 +27,19 @@ export interface CliInvocation {
   readonly command: string;
   /** Its arguments. */
   readonly args: readonly string[];
-  /** Added to the process's environment. */
+  /** Added to the process's minimal environment (see `inheritEnvironment`). */
   readonly env?: Readonly<Record<string, string>>;
   /** The working directory; default: the application's. */
   readonly cwd?: string;
+  /**
+   * Added to the process's environment. The process does not inherit the application's: it gets only
+   * `PATH`, `HOME`, `LANG`, `TMPDIR`, `SHELL`, `USER`, `LOGNAME` and `TERM` of it, plus this.
+   */
+  /**
+   * Opt in to the application's whole environment, secrets included. Default: off; name what the
+   * CLI needs in `env` instead.
+   */
+  readonly inheritEnvironment?: true;
   /** Written to the process's stdin, which is then closed. */
   readonly stdin?: string;
 }
@@ -39,6 +48,21 @@ export interface CliInvocation {
 export type CliResult = Omit<ModelProviderResponse, "toolCalls">;
 
 const STDERR_TAIL = 2000;
+const INHERITED = ["PATH", "HOME", "LANG", "TMPDIR", "SHELL", "USER", "LOGNAME", "TERM"];
+
+/** The process's environment: the allowlist of the application's, then the invocation's own. */
+function environmentOf(invocation: CliInvocation): NodeJS.ProcessEnv {
+  const base =
+    invocation.inheritEnvironment === true
+      ? process.env
+      : Object.fromEntries(
+          INHERITED.flatMap((name) => {
+            const value = process.env[name];
+            return value === undefined ? [] : [[name, value]];
+          }),
+        );
+  return { ...base, ...invocation.env };
+}
 const NO_USAGE: ModelProviderUsage = { inputTokens: 0, outputTokens: 0 };
 
 /** Ends the process and its children (a process group of its own, so `kill(-pid)` reaches them all). */
@@ -93,7 +117,7 @@ export abstract class CliModelProvider {
     const invocation = this.invocationOf(request);
     const child = spawn(invocation.command, [...invocation.args], {
       cwd: invocation.cwd,
-      env: { ...process.env, ...invocation.env },
+      env: environmentOf(invocation),
       detached: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -118,7 +142,10 @@ export abstract class CliModelProvider {
     const { lines, done, end } = this.#run(request);
     let stdout = "";
     try {
-      for await (const line of lines) stdout += `${line}\n`;
+      for await (const line of lines) {
+        this.parseStreamLine(line); // the same gate as a streamed call: a throw ends the process
+        stdout += `${line}\n`;
+      }
       await done;
     } finally {
       end();
@@ -171,7 +198,9 @@ function exitOf(
       else if (code === 0) resolve();
       else {
         const how = ended ?? `exit code ${String(code)}`;
-        const cause = new Error(`${command} ended with ${how}: ${stderr}`);
+        // the message never holds the CLI's stderr (it reaches logs): it is a field apart, not enumerable
+        const cause = new Error(`${command} ended with ${how}`);
+        Object.defineProperty(cause, "stderr", { value: stderr, enumerable: false });
         reject(new ModelProviderFailureError({ failure: ModelFailure.ServerError, cause }));
       }
     });
