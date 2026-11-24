@@ -14,10 +14,10 @@ import { stepNodeIdOf } from "../step-frame.js";
 import { ActionFailedError, OutputInvalidError, passesThrough } from "../errors.js";
 import { readInput, type NodeValue } from "../scope.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
-import { currentFrame } from "../../context/frame.js";
+import { currentFrame, runInFrame, type FrameSpec } from "../../context/frame.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
 import { stepCoordinatesOf } from "../../../graph/errors.js";
-import { timeoutOn, type Clock } from "../../../infrastructure/clock.js";
+import { timeoutOn, type Clock, type ClockTimeout } from "../../../infrastructure/clock.js";
 import type { Milliseconds } from "../../../units/index.js";
 import { ComponentKind } from "../records.js";
 
@@ -67,9 +67,15 @@ export function checkedActionValue(node: string, output: OutputShape, result: un
 }
 
 /**
- * The action's `execute`, sync or async: its result as a promise, a sync throw a rejection. With a
- * `timeout` the step fails with `StepError.ActionTimeout` when it runs past it (on the application's
- * clock); without one it waits as long as the action does.
+ * The action's `execute`, sync or async: its result as a promise, a sync throw a rejection. It runs
+ * in a frame of its own whose `executionContext.signal` is the execution's cancel, the lease's loss
+ * and — with a `timeout` — the timeout, so `execute` can stop (#1318e). Past the timeout (on the
+ * application's clock) the step fails and that frame is closed: the orphaned `execute` may still
+ * finish its own work, but any read of the framework's context through it — `Idempotency`,
+ * the fence — is refused. The failure is `StepError.ActionTimeout` for an action that went through
+ * `Idempotency` (a retry is safe: the key recognises the repeat), else
+ * `StepError.ActionOutcomeUnknown`: its effect may have happened, nothing retries or undoes it.
+ * Without a timeout it waits as long as the action does.
  */
 async function executed(
   run: () => unknown,
@@ -77,19 +83,57 @@ async function executed(
   timeout: Milliseconds | undefined,
   clock: Clock | undefined,
 ): Promise<unknown> {
+  const expired =
+    timeout === undefined || clock === undefined
+      ? undefined
+      : timeoutOn(clock, timeout, () => timedOut(node, timeout));
+  const guard = { isGuarded: false };
+  try {
+    return await inStepFrame(guard, expired, () => raced(run, expired));
+  } catch (error) {
+    if (expired?.signal.aborted === true && timeout !== undefined)
+      throw guard.isGuarded ? timedOut(node, timeout) : outcomeUnknown(node, timeout);
+    throw error;
+  } finally {
+    expired?.release();
+  }
+}
+
+/** `run`'s result against the timeout: it rejects with the timeout's error the moment it fires. */
+function raced(run: () => unknown, expired: ClockTimeout | undefined): Promise<unknown> {
   const result = Promise.resolve().then(run);
-  if (timeout === undefined || clock === undefined) return result;
-  const expired = timeoutOn(clock, timeout, () => timedOut(node, timeout));
+  if (expired === undefined) return result;
   const late = new Promise<never>((_resolve, reject) => {
     expired.signal.addEventListener("abort", () => {
-      reject(expired.signal.reason);
+      reject(expired.signal.reason as Error);
     });
   });
-  try {
-    return await Promise.race([result, late]);
-  } finally {
-    expired.release();
-  }
+  return Promise.race([result, late]);
+}
+
+/**
+ * `work` in a frame of the step whose `executionContext.signal` also aborts at the timeout and when
+ * the lease is lost, and which tells `guard` when the code reaches `Idempotency`; closed when `work`
+ * settles — at the timeout too, so the orphaned `execute` finds it closed.
+ */
+function inStepFrame(
+  guard: { isGuarded: boolean },
+  expired: ClockTimeout | undefined,
+  work: () => Promise<unknown>,
+): Promise<unknown> {
+  const parent = currentFrame();
+  if (parent === undefined) return work();
+  const signals = [parent.execution.signal, parent.execution.lease?.signal, expired?.signal];
+  const signal = AbortSignal.any(signals.filter((one) => one !== undefined));
+  const spec: FrameSpec = {
+    execution: Object.freeze({ ...parent.execution, signal }),
+    step: parent.step,
+    services: parent.services,
+    onIdempotencyUse: () => {
+      guard.isGuarded = true;
+    },
+  };
+  return runInFrame(spec, work);
 }
 
 const timedOut = (action: string, timeout: Milliseconds): StepError.ActionTimeout =>
@@ -100,9 +144,19 @@ const timedOut = (action: string, timeout: Milliseconds): StepError.ActionTimeou
     message: `Action "${action}" ran past its timeout of ${String(timeout)} ms`,
   });
 
+const outcomeUnknown = (action: string, timeout: Milliseconds): StepError.ActionOutcomeUnknown =>
+  new StepError.ActionOutcomeUnknown({
+    ...stepCoordinatesOf(action, ComponentKind.Action),
+    action,
+    timeout,
+    message: `Action "${action}" ran past its timeout of ${String(timeout)} ms and is not guarded by Idempotency: its effect may have happened — it is not retried or undone`,
+  });
+
 /** A failure of the action's code; a limit, a cancel or a pause passes as it is (S22). */
 const failure = (node: string, error: unknown): unknown =>
-  passesThrough(error) || error instanceof StepError.ActionTimeout
+  passesThrough(error) ||
+  error instanceof StepError.ActionTimeout ||
+  error instanceof StepError.ActionOutcomeUnknown
     ? error
     : new ActionFailedError({ action: node, cause: error });
 
@@ -136,8 +190,14 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
       timeout,
       deps.clock,
     ).catch((error: unknown) => {
+      // a failure under a lease lost meanwhile is a hand-over, not the action's (#1318e)
+      const isTimeout =
+        error instanceof StepError.ActionTimeout || error instanceof StepError.ActionOutcomeUnknown;
+      if (!isTimeout) currentFrame()?.execution.lease?.assertHeld();
       throw failure(node.id, error);
     });
+    // #1318e: the fence once more before the result is committed — the action may have run long
+    currentFrame()?.execution.lease?.assertHeld();
     await reportNodeEvent((base) => deps.observer?.onActionEnd({ ...base, name, output: result }));
     if (output === undefined) return { read: input.read };
     return { value: checkedActionValue(node.id, output, result), read: input.read };

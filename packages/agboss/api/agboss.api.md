@@ -9485,12 +9485,16 @@ export interface StepDescriptor extends StepRecord {
 }
 
 // @public
-export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionTimeout | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.Guardrail | StepError.ToolBlocked | StepError.ToolTimeout | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
+export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionTimeout | StepError.ActionOutcomeUnknown | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.Guardrail | StepError.ToolBlocked | StepError.ToolTimeout | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
 
 // @public
 export namespace StepError {
     export type Action = PaidErrorVariant<StepErrorKind.Action, "step.action"> & StepCoordinates & {
         readonly action: string;
+    };
+    export type ActionOutcomeUnknown = PaidErrorVariant<StepErrorKind.ActionOutcomeUnknown, "step.action.outcome-unknown"> & StepCoordinates & {
+        readonly action: string;
+        readonly timeout: Milliseconds;
     };
     export type ActionTimeout = PaidErrorVariant<StepErrorKind.ActionTimeout, "step.action.timeout"> & StepCoordinates & {
         readonly action: string;
@@ -9574,6 +9578,7 @@ export const StepError: FamilyConstructor<StepError, {
     QualityGate: StepError.QualityGate;
     Action: StepError.Action;
     ActionTimeout: StepError.ActionTimeout;
+    ActionOutcomeUnknown: StepError.ActionOutcomeUnknown;
     Router: StepError.Router;
     RouterDecision: StepError.RouterDecision;
     ExternalTask: StepError.ExternalTask;
@@ -9594,6 +9599,8 @@ export const StepError: FamilyConstructor<StepError, {
 export enum StepErrorKind {
     // (undocumented)
     Action = "action",
+    // (undocumented)
+    ActionOutcomeUnknown = "action-outcome-unknown",
     // (undocumented)
     ActionTimeout = "action-timeout",
     // (undocumented)
@@ -11596,6 +11603,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "QualityGate".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Action".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ActionTimeout".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ActionOutcomeUnknown".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Router".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "RouterDecision".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ExternalTask".

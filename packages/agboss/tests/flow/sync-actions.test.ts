@@ -25,12 +25,12 @@ describe("#1318e: @Action", () => {
     });
   });
 
-  test("a set timeout fails the hung step with StepError.ActionTimeout, on the test clock", async ({
+  test("a set timeout fails the hung unguarded step with StepError.ActionOutcomeUnknown, on the test clock", async ({
     app,
     clock,
   }) => {
     const pending = app.execute(HangStart, { text: "x" });
-    const failed = expect(pending).rejects.toBeInstanceOf(StepError.ActionTimeout);
+    const failed = expect(pending).rejects.toBeInstanceOf(StepError.ActionOutcomeUnknown);
     await clock.advance(seconds(6));
 
     await failed;

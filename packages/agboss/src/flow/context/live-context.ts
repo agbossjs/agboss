@@ -20,13 +20,23 @@ import { liveFenceOf } from "./execution-fence.js";
  * executions above a child (`ancestor-context.ts`).
  */
 
-/** The current frame for a read of `field` by `consumer`; none or closed → the error. */
+/**
+ * The consumer name `Idempotency` reads its step's context under (`runOnce`, `sendOnce`): a read by
+ * it tells the frame that the step's effect is guarded (#1318e).
+ */
+const IDEMPOTENCY_CONSUMER = "Idempotency";
+
+/**
+ * The current frame for a read of `field` by `consumer`; none or closed → the error. A frame closed
+ * at its action's timeout refuses here, so the orphaned `execute` reaches no framework store (#1318e).
+ */
 function frameFor(consumer: string, field: string): Frame {
   const frame = currentFrame();
   if (frame === undefined) throw ExecutionContextUnavailableError.outside({ consumer, field });
   if (frame.isClosed()) {
     throw ExecutionContextUnavailableError.ended(frame.step, frame.execution.executionId);
   }
+  if (consumer === IDEMPOTENCY_CONSUMER) frame.onIdempotencyUse?.();
   return frame;
 }
 

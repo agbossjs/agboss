@@ -31,8 +31,19 @@ export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]
    */
   readonly committedBy?: Class<ExecuteMethod>;
   /**
-   * How long `execute` may run; past it the step fails with `StepError.ActionTimeout`. An action has
-   * NO timeout by default (a tool's is 30 s): set one for a call that can hang on a socket.
+   * How long `execute` may run. An action has NO timeout by default (a tool's is 30 s): set one for
+   * a call that can hang on a socket.
+   *
+   * A timed-out action may STILL FINISH: the framework cannot stop your code, only stop waiting for
+   * it. So `execute` must honour `executionContext.signal` (inject `ExecutionContext`): it aborts at
+   * the timeout, on a cancel and when the lease is lost — pass it to `fetch` and to your client.
+   * Past the timeout the outcome is UNKNOWN, not failed:
+   * - an action that goes through `Idempotency` (`runOnce`, `sendOnce`) fails with
+   *   `StepError.ActionTimeout`; retrying it is safe, the key recognises the repeat;
+   * - any other fails with `StepError.ActionOutcomeUnknown`: its effect may have happened, so
+   *   nothing retries or undoes it — settle it in the flow's `.onError` or by an operator;
+   * - a write the orphaned `execute` then attempts through the framework (`Idempotency`, the fence)
+   *   is refused; a write to your own store is yours to guard with the signal and a key.
    */
   readonly timeout?: Milliseconds;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */

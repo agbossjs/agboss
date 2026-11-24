@@ -203,6 +203,11 @@ export interface FrameSpec {
   readonly execution: ExecutionFacts;
   readonly step: StepDescriptor;
   readonly services?: FrameServices;
+  /**
+   * Told when the step's code reaches `Idempotency` (`runOnce`, `sendOnce`) — an action's runner
+   * learns that its effect is guarded (#1318e): a timed-out guarded action may be retried.
+   */
+  readonly onIdempotencyUse?: (() => void) | undefined;
 }
 
 /** An open (or closed) frame. */

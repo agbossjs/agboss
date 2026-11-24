@@ -11,6 +11,7 @@ export enum StepErrorKind {
   QualityGate = "quality-gate",
   Action = "action",
   ActionTimeout = "action-timeout",
+  ActionOutcomeUnknown = "action-outcome-unknown",
   Router = "router",
   RouterDecision = "router-decision",
   ExternalTask = "external-task",
@@ -34,6 +35,7 @@ export type StepError =
   | StepError.QualityGate
   | StepError.Action
   | StepError.ActionTimeout
+  | StepError.ActionOutcomeUnknown
   | StepError.Router
   | StepError.RouterDecision
   | StepError.ExternalTask
@@ -72,6 +74,16 @@ export declare namespace StepError {
     StepCoordinates & { readonly action: string };
   /** An action ran past its timeout. */
   export type ActionTimeout = PaidErrorVariant<StepErrorKind.ActionTimeout, "step.action.timeout"> &
+    StepCoordinates & { readonly action: string; readonly timeout: Milliseconds };
+  /**
+   * An action ran past its timeout and is not guarded by `Idempotency`: it may still finish, so
+   * whether its effect happened is UNKNOWN. Never retried or undone by the framework — `action` names
+   * the step, for the flow's `.onError` or an operator to settle.
+   */
+  export type ActionOutcomeUnknown = PaidErrorVariant<
+    StepErrorKind.ActionOutcomeUnknown,
+    "step.action.outcome-unknown"
+  > &
     StepCoordinates & { readonly action: string; readonly timeout: Milliseconds };
   /** A router's model call or its `route()` failed. */
   export type Router = PaidErrorVariant<StepErrorKind.Router, "step.router"> &
@@ -151,6 +163,7 @@ export const StepError: FamilyConstructor<
     QualityGate: StepError.QualityGate;
     Action: StepError.Action;
     ActionTimeout: StepError.ActionTimeout;
+    ActionOutcomeUnknown: StepError.ActionOutcomeUnknown;
     Router: StepError.Router;
     RouterDecision: StepError.RouterDecision;
     ExternalTask: StepError.ExternalTask;
@@ -183,6 +196,10 @@ export const StepError: FamilyConstructor<
     ],
     Action: ["an action failed"],
     ActionTimeout: ["an action ran past its timeout", "step.action.timeout"],
+    ActionOutcomeUnknown: [
+      "an unguarded action ran past its timeout: its effect may have happened",
+      "step.action.outcome-unknown",
+    ],
     Router: ["a router's model call or its `route()` failed"],
     RouterDecision: ["a router answered outside its routes", "step.router.invalid-decision"],
     ExternalTask: ["an external task failed"],

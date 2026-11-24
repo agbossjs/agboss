@@ -1,0 +1,163 @@
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import {
+  Action,
+  ExecutionContext,
+  Idempotency,
+  InMemoryFencedEffectRepository,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  type Produced,
+} from "../../../src/index.js";
+import type { InMemoryFencedEffectTransaction } from "../../../src/stores/index.js";
+import { hours, seconds } from "../../../src/units/index.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { onStart } from "../../helpers/flow.js";
+import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
+
+/**
+ * #1318e: an @Action with a timeout whose `execute` keeps running past it. `seen` is what it did, and
+ * `release()` lets every hanging `execute` go on — the late completion the framework must not trust.
+ */
+export const seen = {
+  /** The effects of a guarded action's `runOnce`. */
+  effects: 0,
+  /** What an action did to its own store, outside the framework. */
+  ownWrites: 0,
+  /** How many times `execute` was entered. */
+  entered: 0,
+  signal: undefined as AbortSignal | undefined,
+  /** What a late `runOnce` of the orphaned unguarded action met. */
+  lateError: undefined as unknown,
+  lateRan: false,
+  release: (): void => undefined,
+  gate: Promise.resolve(),
+};
+
+export function resetSeen(): void {
+  seen.effects = 0;
+  seen.ownWrites = 0;
+  seen.entered = 0;
+  seen.signal = undefined;
+  seen.lateError = undefined;
+  seen.lateRan = false;
+  seen.gate = new Promise<void>((resolve) => {
+    seen.release = resolve;
+  });
+}
+
+interface Message {
+  readonly message: Produced<WorkflowStartTextDto, unknown>;
+}
+
+/** No `Idempotency` before its timeout; after it, it writes through the framework and to its own store. */
+@Action({
+  name: "unguarded-action",
+  description: "Hangs past its timeout, then writes",
+  input: { message: WorkflowStartTextDto },
+  output: WorkflowFinishTextDto,
+  timeout: seconds(5),
+  deps: [ExecutionContext, Idempotency],
+})
+export class UnguardedAction {
+  constructor(
+    private readonly context: ExecutionContext,
+    private readonly idempotency: Idempotency,
+  ) {}
+
+  async execute(input: Message): Promise<WorkflowFinishTextDto> {
+    seen.entered += 1;
+    seen.signal = this.context.signal;
+    await seen.gate;
+    seen.ownWrites += 1;
+    try {
+      await this.idempotency.runOnce({
+        name: "late",
+        key: input.message.value.text,
+        withoutFingerprint: true,
+        ttl: hours(24),
+        execute: () => {
+          seen.lateRan = true;
+          return { done: true };
+        },
+      });
+    } catch (error) {
+      seen.lateError = error;
+    }
+    return { text: "late" };
+  }
+}
+
+/** Every effect through `runOnce`: a retry under the same key is safe. */
+@Action({
+  name: "guarded-action",
+  description: "Charges once per key",
+  input: { message: WorkflowStartTextDto },
+  output: WorkflowFinishTextDto,
+  timeout: seconds(5),
+  deps: [Idempotency],
+})
+export class GuardedAction {
+  constructor(private readonly idempotency: Idempotency) {}
+
+  async execute(input: Message): Promise<WorkflowFinishTextDto> {
+    seen.entered += 1;
+    await this.idempotency.runOnce({
+      name: "charge",
+      key: input.message.value.text,
+      withoutFingerprint: true,
+      ttl: hours(24),
+      execute: async (transaction) => {
+        await seen.gate;
+        // the effect is part of the transaction: a refused or revoked one never applies it
+        (transaction as InMemoryFencedEffectTransaction).onCommit(() => {
+          seen.effects += 1;
+        });
+        return { done: true };
+      },
+    });
+    return { text: "charged" };
+  }
+}
+
+@WorkflowStart({
+  name: "unguarded-timeout-workflow-start",
+  description: "A key",
+  input: WorkflowStartTextDto,
+})
+export class UnguardedStart {}
+
+@WorkflowStart({
+  name: "guarded-timeout-workflow-start",
+  description: "A key",
+  input: WorkflowStartTextDto,
+})
+export class GuardedStart {}
+
+@WorkflowFinish({
+  name: "timeout-workflow-finish",
+  description: "Done",
+  output: WorkflowFinishTextDto,
+})
+export class TimeoutFinish {}
+
+@Workflow({
+  name: "action-timeout-workflow",
+  version: "1.0.0",
+  flow: [
+    onStart(UnguardedStart).toAction(UnguardedAction).toFinish(TimeoutFinish),
+    onStart(GuardedStart).toAction(GuardedAction).toFinish(TimeoutFinish),
+  ],
+})
+export class ActionTimeoutWorkflow {}
+
+@Application({
+  name: "action-timeout-application",
+  version: "1.0.0",
+  environment: IdempotencyKeyEnvironment,
+  workflows: [ActionTimeoutWorkflow],
+  providers: [InMemoryFencedEffectRepository],
+  budgets: TEST_BUDGETS,
+})
+export class ActionTimeoutApplication {}
