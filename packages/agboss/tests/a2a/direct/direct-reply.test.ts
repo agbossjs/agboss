@@ -14,7 +14,7 @@ import { DirectApplication, QuoteAgent, QuotesA2AExpose } from "../fixtures/dire
 import { errorInfoOf, errorOf, rpc, text, userMessage, type RpcAnswer } from "../server/rpc.js";
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: QuotesA2AExpose, authenticator: BearerAuthenticator };
 const QUOTE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-workflow-start" } };
 const ACK = { [A2A_SKILLS_EXTENSION]: { skill: "ack-workflow-start" } };
 

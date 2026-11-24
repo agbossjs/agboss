@@ -1,6 +1,6 @@
 /**
  * #812 AC5: what an application's A2A side says on its card, checked at assembly from the
- * declarations — `[a2a.expose-description-required]` (an error: a blank description),
+ * declarations — `[a2a.endpoint-description-required]` (an error: a blank description),
  * `[a2a.skill-tags]` and `[a2a.unpriced-foreign-peer]` (warnings).
  */
 import { describe, expect, it } from "vitest";
@@ -46,7 +46,7 @@ function applicationWith(
     workflows: [RefundWorkflow],
     providers,
     budgets: TEST_BUDGETS,
-    exposes: [CardA2AExpose],
+    endpoints: [CardA2AExpose],
   })
   class CardApplication {}
   return CardApplication;
@@ -59,13 +59,13 @@ const warningsOf = async (application: ReturnType<typeof applicationWith>): Prom
   );
 };
 
-describe("#812 AC5: [a2a.expose-description-required]", () => {
+describe("#812 AC5: [a2a.endpoint-description-required]", () => {
   it.each(["", "   "])("a blank description (%j) is refused at assembly", async (description) => {
     const built = applicationOf(applicationWith({ description }), { withoutIdempotencyKeys: true });
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     await expect(built).rejects.toThrow(
-      /\[a2a\.expose-description-required\] card-a2a-expose has no description/,
+      /\[a2a\.endpoint-description-required\] card-a2a-expose has no description/,
     );
   });
 

@@ -217,7 +217,7 @@ an offer whose steps declare their undo, `compensateWith` / `committedBy`, #339,
 bookings a failed join undoes automatically, #340, `src/desk/` the extension points — a custom
 compaction, code guardrails, a tool interceptor — on a transport model provider that answers by the
 request, and the operational contracts — a code judge on `toolCalls`, a `@Rag`, a `PiiPolicyHandler`,
-an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AExpose`, an `@HttpAuthenticator`) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
+an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AEndpoint`, an `@HttpAuthenticator`) to `src/helpline/`, its consumer through an `@A2AAgent` contract (`a2aServer` in
 `tests/desk/a2a/desk.a2a-expose.test.ts`, #398) that also reads policies through a stubbed `@McpServer` /
 `@Tool` (`mcpOf`), and an
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
@@ -1862,7 +1862,7 @@ candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePoli
   `report: false`, #844)
   and `agboss describe` lists every `@A2AAgent` (`a2a agents`: `mesh: required` / `mesh: not
 guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-admission.ts`):
-  the card declares the mesh extension (`params.idempotencyRetention` = `retention.a2aTasks`); a
+  the card declares the mesh extension (`params.idempotencyRetention` = the endpoint's `ttl.tasks`); a
   `SendMessage`'s envelope is read from the message as the SDK decodes it, before the
   authenticator — the audience first, against the application's own name whatever its mesh settings
   (fail closed), then a known issuer's signature, replay window and `meshBodyHashOf` of the decoded
@@ -1878,9 +1878,9 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   `tests/a2a/mesh/a2a-mesh-read-repair.test.ts`). What
   an application serves is an `@A2AExpose({ name: "-a2a-expose", version, description, exports:
 [Start], skills? })` (`a2a/*.a2a-expose.ts`) listed in
-  `@Application({ exposes })` with its `@McpEndpoint`s (`[application.expose-unknown-start]`,
-  `[application.not-an-expose]`) and served as an **A2A v1.0 agent** (#808) by
-  `a2aHttpListener(app, { expose, authenticator, publicUrl, base?, provider?, onError?, maxBodySize?, maxTaskDuration? })`
+  `@Application({ endpoints })` with its `@McpEndpoint`s (`[application.endpoint-unknown-start]`,
+  `[application.not-an-endpoint]`) and served as an **A2A v1.0 agent** (#808) by
+  `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base?, onError?, maxBodySize?, maxTaskDuration? })`
   (`[application.expose-unlisted]`) on the official SDK `@a2a-js/sdk` (exact pin; our own
   `A2ARequestHandler` over the app, never its `DefaultRequestHandler`): the Agent Card at
   `<base>/.well-known/agent-card.json` (one skill per exported start, `capabilities.streaming`, the
@@ -1902,18 +1902,18 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   the workflow's `@FilePolicy` (`maxFileSize`, `maxTotalFileSize`, `maxFiles`, `allowedMediaTypes`, `allowedOrigins`, `fetchTimeout`, `fetchPool`; #1316), a skill's own `filePolicy` only tightening it (`[a2a.skill-file-policy-exceeds-workflow]`), each file's bytes
   checked against its media type, a url fetched once at the admission — `https:` on
   `allowedOrigins`, manual redirects ≤ 3, no special-purpose address (embedded IPv4 checked as IPv4) and no userinfo, #904, never through a proxy nor `node:http(s)` — its own connection and its own HTTP/1.1 `GET` on it (#1138: the name resolved once by the guarded resolver, every answer checked → a raw `net` socket to the vetted address, with a `lookup` that answers only it → its remote address checked at `connect`, before any byte, else destroyed → `tls.connect` on that socket (SNI and certificate for the host) → the request written on it, `Connection: close`, the response read by hand (`a2a-file-http.ts`: strict head, `chunked` / `Content-Length` / close framing; #1244: HTTP's blanks only, no control byte, one `Location`, a lone `chunked` never beside a length, `Accept-Encoding: identity` and no other coding on a 2xx, at most 4 bodiless `1xx` sharing the head's 16 KiB, a 2xx to the close refused — its truncation cannot be told); **one TCP connection per request, to the vetted address only, ever**: no `ClientRequest`, agent or global agent is constructed or asked, so a replaced `ClientRequest` / agent / `http.globalAgent` or an interceptor makes no lookup and no connection for it, whatever its resolver's timing (a same-tick answer too), nothing is pooled or reused, and each redirect hop goes through the same steps; **0 bytes to a denied peer** — no TCP payload, no ClientHello, no request —; the TLS socket is destroyed on every failure, #1022; what stays outside: a patch of `net` / `tls` itself acts on its own — one that connects elsewhere is refused at the peer check with nothing sent, though its TCP connection was made —, pass-through wrappers (APM) of `net` / `tls` work and `ClientRequest` wrappers never see the request; a `net` patch that lies about `remoteAddress` cannot be detected; one OpenTelemetry `CLIENT` span per request (an error status with `error.type` on any failure, after a 2xx status too: `a2a.file-too-large`, `ABORT_ERR`, `ECONNRESET`, #1139), no propagation header, `url.full` without query or fragment, a no-op without an SDK and never in Langfuse's isolated provider, #1021), whatever `NODE_USE_ENV_PROXY` / `HTTPS_PROXY` / the global agent / a replaced `https.Agent` / `global-agent` / a patched `https.request` say, and the deadline settling the fetch on its own timer, #916 —, the policy's `fetchTimeout`, in its `fetchPool` (16 at once, 4 per tenant, 2 per owner, 8 waiting per owner; a policy with none shares the application's; an ownerless execution uses its tenant's share directly; over the pool `FileError.Unavailable` with `FileUnavailableReason.FetchBusy`, the wire's `a2a.file-fetch-busy`), the request's
-  end —; the card never asks for a file field in data, of the input or of a finish's output (#916) — `@A2AExpose({ cardFileFields })`, `A2ACardFileFields.Extension` (out of the data schemas, in the skills extension's `files` / `outputFiles` by finish) or `.Marker` (`x-agboss-file-part: { list, optional, mediaTypes }`, which the client's card check reads as it reads `files`), per skill too, #904; a finish with file fields answers with file parts; steps use `Files` (`read` / `save` /
+  end —; the card never asks for a file field in data, of the input or of a finish's output (#916) — `@A2AEndpoint({ cardFileFields })`, `A2ACardFileFields.Extension` (out of the data schemas, in the skills extension's `files` / `outputFiles` by finish) or `.Marker` (`x-agboss-file-part: { list, optional, mediaTypes }`, which the client's card check reads as it reads `files`), per skill too, #904; a finish with file fields answers with file parts; steps use `Files` (`read` / `save` /
   `fromUrl`); bytes ride inline with no `FileRepository` listed (`[a2a.inline-files-without-store]`
   above 64 KB, `[a2a.file-store-required]` above 256 KB) or in the store under the task
   (`InMemoryFileRepository`, `LocalDiskFileRepository`, `S3FileRepository`;
-  `fileContract`; `[a2a.file-store-not-shared]`), removed `retention.a2aFiles` after the task is over, never while it
+  `fileContract`; `[a2a.file-store-not-shared]`), removed by their `@FilePolicy({ ttl })` after the task is over, never while it
   waits; the client's `FileDto.fromBytes` / `.fromUrl` (the wire's `A2APart.fromFile`), `downloadFile`). One task = one root execution under the task's id (P1's reserved
   id) in `A2ATaskRepository`: the same `messageId` (per tenant and owner) again gets the same task,
   other content `-32602` — on every instance, as the store declares its `static store` backend (#824, #825): an
   application serving A2A on leases its instances share (any but `in-memory`) keeps its tasks on
   their backend or on a kind known to be shared — an allow-list, `postgres`, `mongodb`
   (`PostgresA2ATaskRepository`, `MongoA2ATaskRepository`; Redis keeps none) —, else `[a2a.task-store-not-shared]` at assembly;
-  **a direct reply (#860):** `@A2AExpose({ skills: { [start]: { reply: A2AReply.Message } }, defaultSkill? })`
+  **a direct reply (#860):** `@A2AEndpoint({ skills: [{ start, reply: A2AReply.Message }], defaultSkill? })`
   answers `SendMessage` with a `Message`, no task (its finish's parts, file parts too; `returnImmediately`
   ignored; `SendStreamingMessage` one frame, the message; `GetTask` / a follow-up naming it `-32001`; a
   message naming no skill runs `defaultSkill`) — a stateless workflow, checked on every node at assembly
@@ -1923,7 +1923,7 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
   `SqliteA2ADirectMessageRepository`, PostgreSQL / MongoDB ones; `a2aDirectMessageContract`) on its task
   store's backend (`[a2a.message-store-not-shared]`), its id claimed among the task store's messages in
   one atomic write (one `messageId`, one message across both modes: `-32602 a2a.message-id-reused`) — a
-  resend within `retention.a2aMessages` (default `minutes(15)`, the card's mesh
+  resend within the endpoint's `ttl.messages` (the card's mesh
   `messageIdempotencyRetention`) gets it, a concurrent one waits (polling on the `Clock`, bounded), the
   model called once; an attempt runs at most 25 s (and stops at the caller's disconnect) inside its row's
   30 s, is never recovered (`withoutRecovery`, `app/tree-control.ts`: an instance taking its lease over
@@ -1971,7 +1971,7 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   its kept message and gets its task, not `a2a.task-over` (#939). The 0.1.1 migration from the 0.1.0
   wire: `target.start` → `target.skill`, `cancel(threadId)` → `cancel(taskId)`, `A2ARoute` →
   `A2AOperation` (`SendMessage` with a `taskId` is a resume), `publicUrl` on `a2aHttpListener`,
-  `retention.a2aTasks` / `a2aMessages` / `a2aFiles`; `A2AStatus`, `A2AEvent`, `A2AExecutionRequest`
+  `@A2AEndpoint({ ttl })`; `A2AStatus`, `A2AEvent`, `A2AExecutionRequest`
   and `A2AExecutionResponse` are gone.
 - **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name?` (kebab-case, default: the class name),
   `description?`, `rules: [PiiKind.X.mask() | .mask(part) | .tokenize() | .block(refusal?), PiiGroup.Y.…]` (each target once, `[pii.duplicate-target]`), `model?`, `modelProvider?`, `secret?` + `previousSecret?` (#1301) — or a
@@ -2273,7 +2273,7 @@ passed (a skipped one fails it, S2 Q6).
   `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
   `AppDeps`, `createAppDeps`, `GraphDeps` and `ExecutionObserverManager` are internal too). How long
   each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords,
-auditLog, costLedgerEntries, fencedEffects, outboundCalls, a2aTasks, a2aFiles, a2aMessages } })` (#834,
+auditLog, costLedgerEntries, fencedEffects, outboundCalls } })` (#834,
   `RetentionOptions`; each a positive duration, the fencing ones above the lease, an unknown key
   refused — `[application.retention-invalid]`; `executionRecords` unset keeps nothing). `app.execute(Start, input, { threadId, ownerId, signal,
 tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededError`, `limit.deadline`,

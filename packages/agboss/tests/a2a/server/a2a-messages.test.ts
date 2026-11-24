@@ -27,7 +27,7 @@ import { data, errorInfoOf, errorOf, rpc, text, userMessage, type RpcAnswer } fr
 import { dataMessage } from "./sdk-client.js";
 
 const test = testWith(ServedPausesApplication);
-const listener = { expose: DeskA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: DeskA2AExpose, authenticator: BearerAuthenticator };
 const DESK = { [A2A_SKILLS_EXTENSION]: { skill: "desk-workflow-start" } };
 const AUDIT = { [A2A_SKILLS_EXTENSION]: { skill: "audit-workflow-start" } };
 
@@ -58,7 +58,7 @@ const keptTasks = async (app: {
   (
     await app
       .resolve(A2ATaskRepository)
-      .list({ tenantId: "default", ownerId: "dana", pageSize: 50 })
+      .list({ endpoint: "desk-a2a-expose", tenantId: "default", ownerId: "dana", pageSize: 50 })
   ).tasks;
 
 describe("#808: the skill and the input of a new message", () => {
@@ -371,10 +371,12 @@ describe("#808 (review): a follow-up resend whose first outcome was lost", () =>
     const decision = { decision: { approved: true } };
     // the first attempt kept its message, then the store failed before its outcome was kept
     await app.resolve(A2ATaskRepository).saveMessageIfAbsent({
+      endpoint: "desk-a2a-expose",
       tenantId: "default",
       ownerId: "dana",
       messageId: "m-2",
       requestHash: requestHashOf(
+        "desk-a2a-expose",
         "desk-workflow-start",
         dataMessage("m-2", decision, { taskId: paused.id }),
       ),

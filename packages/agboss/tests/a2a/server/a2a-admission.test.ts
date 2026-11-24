@@ -18,7 +18,7 @@ import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application
 import { post, rpc, rpcBody, text, userMessage } from "./rpc.js";
 
 const test = testWith(OrdersApplication);
-const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const READ_ONLY = { owner: "dana:read-only" };
 
 beforeEach(() => {

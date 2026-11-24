@@ -82,11 +82,16 @@ class Unsorted extends InMemoryA2ATaskRepository {
 
 /** Removes every task older than the cutoff, finished or not. */
 class SweepsUnfinished extends InMemoryA2ATaskRepository {
-  override deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void> {
+  override deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number> {
     const database = Reflect.get(this, "database") as InMemoryDatabase;
-    for (const [row, task] of database.a2aTasks)
-      if (task.statusAt < cutoff) database.a2aTasks.delete(row);
-    return Promise.resolve();
+    let removed = 0;
+    for (const [row, task] of database.a2aTasks) {
+      const cutoff = cutoffsByEndpoint.get(task.endpoint);
+      if (cutoff === undefined || task.statusAt >= cutoff) continue;
+      database.a2aTasks.delete(row);
+      removed += 1;
+    }
+    return Promise.resolve(removed);
   }
 }
 
@@ -125,11 +130,12 @@ class KeepsOrphans extends InMemoryA2ATaskRepository {
     super(rows);
   }
 
-  override async deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void> {
+  override async deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number> {
     const { a2aMessages: messages, a2aTasks: tasks } = this.rows;
     const orphans = [...messages].filter(([, message]) => !tasks.has(a2aTaskRowOf(message)));
-    await super.deleteTerminalByStatusAtBefore(cutoff);
+    const removed = await super.deleteExpired(cutoffsByEndpoint);
     for (const [row, message] of orphans) messages.set(row, message);
+    return removed;
   }
 }
 

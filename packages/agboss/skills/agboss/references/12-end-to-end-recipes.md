@@ -1193,15 +1193,17 @@ export class HelpdeskHttpAuthenticator {
 ```
 
 ```ts file=helpdesk/src/a2a/helpdesk.a2a-expose.ts
-import { A2AExpose } from "@agboss/core/a2a";
+import { A2AEndpoint } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 import { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-start.js";
 
 // what other applications may run here (#398 PR 3)
-@A2AExpose({
-  name: "helpdesk-a2a-expose",
+@A2AEndpoint({
+  name: "helpdesk",
   version: "1.0.0",
   description: "Answers billing tickets",
-  exports: [HelpdeskWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [HelpdeskWorkflowStart],
 })
 export class HelpdeskA2AExpose {}
 ```
@@ -1260,7 +1262,7 @@ import { HelpdeskWorkflow } from "./workflows/helpdesk/helpdesk.workflow.js";
   workflows: [HelpdeskWorkflow],
   services: [HelpdeskHttpAuthenticator], // an @HttpAuthenticator is a service: the listener resolves it
   budgets: [HelpdeskApplicationBudget, HelpdeskTenantBudget, HelpdeskExecutionBudget],
-  exposes: [HelpdeskA2AExpose],
+  endpoints: [HelpdeskA2AExpose],
 })
 export class HelpdeskApplication {}
 ```
@@ -1301,7 +1303,7 @@ console.log("\n", result.output?.text, result.spend.totalUsd); // the kept steps
 // /a2a/.well-known/agent-card.json, JSON-RPC at POST /a2a — each request's tenant from the authenticator
 // the application lists (reference 04)
 const listener = a2aHttpListener(app, {
-  expose: HelpdeskA2AExpose,
+  endpoint: HelpdeskA2AExpose,
   authenticator: HelpdeskHttpAuthenticator,
   publicUrl: "https://helpdesk.example",
   base: "/a2a",

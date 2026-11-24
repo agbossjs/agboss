@@ -57,11 +57,12 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
         const record = savedA2ATaskOf(task);
         this.connection.database
           .prepare(
-            `INSERT INTO a2a_tasks (tenant_id, task_id, owner_id, context_id, skill, state, status,
-              version, accepted_at, status_at, caller_peer, mesh_body_hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO a2a_tasks (endpoint, tenant_id, task_id, owner_id, context_id, skill, state,
+              status, version, accepted_at, status_at, caller_peer, mesh_body_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
+            record.endpoint,
             record.tenantId,
             record.taskId,
             ownerColumnOf(record.ownerId),
@@ -140,12 +141,12 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
     return answerOf(() => sqliteA2ATaskPageOf(this.connection.database, query));
   }
 
-  deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void> {
-    return answerOf(() => {
-      this.connection.transaction(() => {
-        sweepSqliteA2ATasks(this.connection.database, cutoff);
-      });
-    });
+  deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number> {
+    return answerOf(() =>
+      this.connection.transaction(() =>
+        sweepSqliteA2ATasks(this.connection.database, cutoffsByEndpoint),
+      ),
+    );
   }
 
   #task(key: A2ATaskKey): A2ATaskRecord | undefined {
@@ -164,8 +165,9 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
 
   #insertMessage(message: A2AMessageRecord): void {
     this.connection.database
-      .prepare("INSERT INTO a2a_messages VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .prepare("INSERT INTO a2a_messages VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
       .run(
+        message.endpoint,
         message.tenantId,
         ownerColumnOf(message.ownerId),
         message.messageId,

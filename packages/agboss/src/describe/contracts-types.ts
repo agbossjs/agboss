@@ -1,5 +1,5 @@
 import type { A2ACardFileFields } from "../a2a/files/a2a-file-options.js";
-import type { A2AReply } from "../a2a/a2a-expose.decorator.js";
+import type { A2AReply } from "../a2a/a2a-message-skill-rule.js";
 import type { JsonSchema } from "../dto/schema.js";
 
 /** The shapes of `describe --json`'s `application.contracts` (#398 PR 3; `contracts.ts`). */
@@ -10,7 +10,7 @@ export interface ContractDto {
   readonly schemaHash: string;
 }
 
-/** An `@A2AExpose` start. */
+/** An `@A2AEndpoint` start. */
 export interface A2AExportContract {
   readonly kind: "a2a";
   readonly expose: string;
@@ -21,9 +21,9 @@ export interface A2AExportContract {
   /** The start's input; `null` when it is a map of fields, not one DTO. */
   readonly input: ContractDto | null;
   readonly outputs: readonly (ContractDto & { readonly finish: string })[];
-  /** How it answers (#860): a task, or a direct message (`@A2AExpose({ skills: { [start]: { reply } } })`). */
+  /** How it answers (#860): a task, or a direct message (`@A2AEndpoint({ skills: [{ start, reply }] })`). */
   readonly reply: A2AReply;
-  /** How its card describes its file fields (#904, `@A2AExpose({ cardFileFields })`). */
+  /** How its card describes its file fields (#904, `@A2AEndpoint({ cardFileFields })`). */
   readonly cardFileFields: A2ACardFileFields;
 }
 

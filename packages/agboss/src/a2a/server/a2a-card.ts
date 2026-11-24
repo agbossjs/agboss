@@ -2,14 +2,14 @@ import { createHash } from "node:crypto";
 import { AgentCard, type AgentExtension, type SecurityScheme } from "@a2a-js/sdk";
 import { isoDurationOf } from "../../mesh/mesh-durations.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
-import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
+import { skillOptionsOf, type A2AEndpointMeta } from "../a2a-endpoint.decorator.js";
 import { HttpSecuritySchemeKind, type HttpSecurityScheme } from "../../http/http-security.js";
 import { cardSkillInputOf, cardSkillOutputsOf } from "./a2a-card-files.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
 
 /**
  * The Agent Card of a listener (#808, spec §4.4 and §8): served at
- * `<base>/.well-known/agent-card.json`, built once from the `@A2AExpose`, its skills and the
+ * `<base>/.well-known/agent-card.json`, built once from the `@A2AEndpoint`, its skills and the
  * listener's public URL — the JSON-RPC 1.0 binding only, streaming, no push notifications, the
  * skills extension with each skill's schemas, the mesh extension (#810: how long a `messageId` is
  * deduplicated, what makes the listener an AGBoss peer to a client), and the declared security
@@ -24,19 +24,19 @@ export const AGENT_CARD_PATH = "/.well-known/agent-card.json";
 
 /** What a card is built from. */
 export interface AgentCardSource {
-  readonly expose: A2AExposeOptions;
+  readonly expose: A2AEndpointMeta;
   readonly skills: readonly ServedSkill[];
   readonly application: string;
   /** Where the JSON-RPC endpoint is: `publicUrl` + `base`. */
   readonly url: string;
   /**
    * How long a `messageId` is deduplicated (#810): a finished task, with its messages, is kept this
-   * long (`@Application({ retention: { a2aTasks } })`); an unfinished one never goes.
+   * long (the endpoint's `ttl.tasks`); an unfinished one never goes.
    */
   readonly idempotencyRetention: number;
   /**
    * How long a direct-reply skill's `messageId` is deduplicated (#860): its reply is kept this long
-   * (`@Application({ retention: { a2aMessages } })`) — what a client's resend of one relies on.
+   * (the endpoint's `ttl.messages`) — what a client's resend of one relies on.
    */
   readonly messageIdempotencyRetention: number;
   /** When the card was made (the listener's first request): its `Last-Modified` (#811). */
@@ -182,8 +182,8 @@ export function agentCardOf(source: AgentCardSource): ServedAgentCard {
       id: skill.id,
       name: skill.id,
       description: skill.description,
-      tags: [...(expose.skills?.[skill.id]?.tags ?? [application])],
-      examples: [...(expose.skills?.[skill.id]?.examples ?? [])],
+      tags: [...(skillOptionsOf(expose, skill.id)?.tags ?? [application])],
+      examples: [...(skillOptionsOf(expose, skill.id)?.examples ?? [])],
       inputModes: inputModesOf(skill),
       outputModes: outputModesOf(skill),
       securityRequirements: [],

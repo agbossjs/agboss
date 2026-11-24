@@ -29,7 +29,7 @@ describe("#808 AC1: the Agent Card", () => {
     "at the well-known path: the required fields, one skill, streaming, security",
     async ({ a2aServer }) => {
       const { url } = await a2aServer({
-        expose: OrdersA2AExpose,
+        endpoint: OrdersA2AExpose,
         authenticator: BearerAuthenticator,
       });
 
@@ -79,11 +79,10 @@ describe("#808 AC1: the Agent Card", () => {
     "two skills, each with its JSON Schemas in the skills extension; tags, examples and provider as declared",
     async ({ a2aServer }) => {
       const { url } = await a2aServer({
-        expose: DeskA2AExpose,
+        endpoint: DeskA2AExpose,
         authenticator: BearerAuthenticator,
         base: "/a2a",
         publicUrl: "https://desk.example.test/",
-        provider: { organization: "Example Corp", url: "https://example.test" },
       });
 
       const { card } = await cardAt(url);
@@ -117,7 +116,7 @@ describe("#808 AC1: the Agent Card", () => {
 
   orders("an unchanged card is 304 with its entity tag", async ({ a2aServer }) => {
     const { url } = await a2aServer({
-      expose: OrdersA2AExpose,
+      endpoint: OrdersA2AExpose,
       authenticator: BearerAuthenticator,
     });
     const { response } = await cardAt(url);
@@ -135,7 +134,7 @@ describe("#808 AC1: the Agent Card", () => {
     "#811: the card says when it was made (Last-Modified, the TCK's CARD-CACHE-003), the same on every read",
     async ({ a2aServer, clock }) => {
       const { url } = await a2aServer({
-        expose: OrdersA2AExpose,
+        endpoint: OrdersA2AExpose,
         authenticator: BearerAuthenticator,
       });
       const madeAt = clock.now().toUTCString();
@@ -149,7 +148,7 @@ describe("#808 AC1: the Agent Card", () => {
 
   orders("the official SDK client discovers the agent by its card", async ({ a2aServer }) => {
     const { url } = await a2aServer({
-      expose: OrdersA2AExpose,
+      endpoint: OrdersA2AExpose,
       authenticator: BearerAuthenticator,
     });
 
@@ -162,7 +161,7 @@ describe("#808 AC1: the Agent Card", () => {
   orders(
     "a publicUrl that is no absolute http(s) URL stops the listener",
     async ({ a2aServer }) => {
-      const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
+      const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 
       await expect(a2aServer({ ...listener, publicUrl: "desk.example" })).rejects.toThrow(
         "[a2a.public-url-invalid]",
@@ -176,7 +175,7 @@ describe("#808 AC1: the Agent Card", () => {
 
   orders("any other route is 404", async ({ a2aServer }) => {
     const { url } = await a2aServer({
-      expose: OrdersA2AExpose,
+      endpoint: OrdersA2AExpose,
       authenticator: BearerAuthenticator,
     });
 

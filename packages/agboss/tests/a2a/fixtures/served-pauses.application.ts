@@ -22,6 +22,7 @@ import { BearerAuthenticator } from "./bearer-authenticator.js";
   name: "desk-a2a-expose",
   version: "2.1.0",
   description: "Refunds and confirms orders",
+  provider: { organization: "Example Corp", url: "https://example.test" },
   exports: [DeskWorkflowStart, AuditWorkflowStart],
   skills: { "audit-workflow-start": { tags: ["audit", "refunds"], examples: ["refund order 7"] } },
 })
@@ -40,7 +41,7 @@ export class DeskA2AExpose {}
     BearerAuthenticator,
   ],
   observers: [PauseLog],
-  exposes: [DeskA2AExpose],
+  endpoints: [DeskA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class ServedPausesApplication {}

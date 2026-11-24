@@ -20,7 +20,7 @@ import { DeskA2AExpose, ServedPausesApplication } from "../fixtures/served-pause
 import { errorInfoOf, errorOf, rpc, sseEvents, text, userMessage } from "./rpc.js";
 
 const test = testWith(ServedPausesApplication);
-const listener = { expose: DeskA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: DeskA2AExpose, authenticator: BearerAuthenticator };
 const DESK = { [A2A_SKILLS_EXTENSION]: { skill: "desk-workflow-start" } };
 const SECRET = "alice@example.com card 4242 4242 4242 4242 sk_live_abc123";
 

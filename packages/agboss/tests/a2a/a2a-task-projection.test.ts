@@ -44,6 +44,7 @@ beforeEach(resetRecovery);
 async function accepted(app: TestApp): Promise<A2ATaskRecord> {
   await app.ready();
   const save = await app.resolve(A2ATaskRepository).saveIfAbsent({
+    endpoint: "orders-a2a-expose",
     tenantId: "default",
     taskId: TASK,
     ownerId: undefined,
@@ -141,9 +142,12 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
         message: "the task failed: step.agent",
       });
       // what GetTask and ListTasks will serve carries no text of the error itself
-      const listed = await app
-        .resolve(A2ATaskRepository)
-        .list({ tenantId: "default", ownerId: undefined, pageSize: 10 });
+      const listed = await app.resolve(A2ATaskRepository).list({
+        endpoint: "orders-a2a-expose",
+        tenantId: "default",
+        ownerId: undefined,
+        pageSize: 10,
+      });
       expect(JSON.stringify(listed)).not.toMatch(/clerk-agent|script exhausted/u);
     },
   );
@@ -171,9 +175,12 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
 
     await execute(app, OrderWorkflowStart, { text: "go" }, { threadId: "ctx-1" });
 
-    const page = await app
-      .resolve(A2ATaskRepository)
-      .list({ tenantId: "default", ownerId: undefined, pageSize: 10 });
+    const page = await app.resolve(A2ATaskRepository).list({
+      endpoint: "orders-a2a-expose",
+      tenantId: "default",
+      ownerId: undefined,
+      pageSize: 10,
+    });
     expect(page.tasks).toEqual([]);
   });
 

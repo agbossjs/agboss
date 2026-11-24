@@ -607,7 +607,7 @@ function poolApplication(fetchPool: FileFetchPool) {
     environment: EmptyEnvironment,
     workflows: [PoolWorkflow],
     providers: [BearerAuthenticator, FileCallerChannel],
-    exposes: [FilesA2AExpose],
+    endpoints: [FilesA2AExpose],
     budgets: TEST_BUDGETS,
   })
   class PoolApplication {}
@@ -633,7 +633,7 @@ describe("#1256: over the wire", () => {
       };
       const { url } = await a2aServer(
         withFileTransport(
-          { expose: FilesA2AExpose, authenticator: BearerAuthenticator },
+          { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator },
           transport,
         ),
       );
@@ -670,7 +670,7 @@ describe("#1256: a tenant's share, over the wire", () => {
       };
       const { url } = await a2aServer(
         withFileTransport(
-          { expose: FilesA2AExpose, authenticator: BearerAuthenticator },
+          { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator },
           transport,
         ),
       );
@@ -708,7 +708,10 @@ describe("#1297: a tenant's share bounds the sum of its owners; an owner's share
       return answer;
     };
     const { url } = await a2aServer(
-      withFileTransport({ expose: FilesA2AExpose, authenticator: BearerAuthenticator }, transport),
+      withFileTransport(
+        { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator },
+        transport,
+      ),
     );
     const parts = [urlPart(`${FILE_ORIGIN}/a.pdf`, "application/pdf")];
     const send = (tenant: string | undefined, owner: string, id: string) =>

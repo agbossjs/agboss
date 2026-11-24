@@ -18,7 +18,7 @@ import type { ToolDefinition } from '@langchain/core/language_models/base';
 
 // @public
 export type A2AServerFixture = (options: Omit<A2AHttpListenerOptions, "publicUrl"> & {
-    readonly publicUrl?: string;
+    readonly publicUrl?: string | (() => string);
 }) => Promise<A2ATestServer>;
 
 // @public

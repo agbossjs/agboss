@@ -8,8 +8,8 @@
   allowedOrigins?, deps })`, listed in `providers` and injected into a `@Tool` or an `@Action`
   ([Components](Components)); `execute(input, call)` sends the input and returns the remote output,
   both validated by the contract's DTOs, `send(message, call)` an untyped call's `A2ATaskResult`.
-- **Serving a workflow** — an `@A2AExpose` listed in `@Application({ exposes })`, served by
-  `a2aHttpListener(app, { expose, authenticator, publicUrl, base? })` as an **A2A v1.0 agent**
+- **Serving a workflow** — an `@A2AEndpoint` listed in `@Application({ endpoints })`, served by
+  `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base? })` as an **A2A v1.0 agent**
   (#808, [the specification](https://a2a-protocol.org/v1.0.0/specification/)): its Agent Card at
   `<base>/.well-known/agent-card.json` and the JSON-RPC 2.0 binding at `POST <base>`. Any A2A v1.0
   client calls it — the official SDK `@a2a-js/sdk`, which the server is built on, or another
@@ -104,7 +104,7 @@ const app = await createApp(ShopApplication, { env: "prod" });
 
 createServer(
   a2aHttpListener(app, {
-    expose: ShopA2AExpose, // listed in @Application({ exposes })
+    endpoint: ShopA2AExpose, // listed in @Application({ endpoints })
     authenticator: ShopHttpAuthenticator, // the class: its instance is the container's
     publicUrl: "https://shop.example", // where callers reach it: the card's interface URL
     base: "/a2a",
@@ -115,15 +115,15 @@ createServer(
 
 The listener takes the authenticator's instance from the application's container when it is built: a
 class without `@HttpAuthenticator` stops it there —
-`[http.not-an-authenticator] … is not an @HttpAuthenticator` — and an expose the
-application does not list too: `[application.expose-unlisted]`; a `publicUrl` that is no absolute
+`[http.not-an-authenticator] … is not an @HttpAuthenticator` — and an endpoint the
+application does not list too: `[application.endpoint-unlisted]`; a `publicUrl` that is no absolute
 http(s) URL is `[a2a.public-url-invalid]`. `app` is an `A2AApp` (`execute`, `resume`, `cancel`,
 `resolve` of `App`): `createApp`'s app and `testWith`'s `app` both fit.
 
 **The Agent Card** (`GET <base>/.well-known/agent-card.json`, `ETag`, `Last-Modified` — when the
 listener built it, at its first request (#811) —, `Cache-Control: max-age=300`):
-the expose's `name`, `description` and `version`, the listener's `provider`; one skill per exported start (its id
-the start's name, its description the start's, `tags` from `@A2AExpose({ skills })`, default the
+the endpoint's `name`, `description`, `version` and `provider`; one skill per listed start (its id
+the start's name, its description the start's, `tags` from `@A2AEndpoint({ skills: [{ start, tags }] })`, default the
 application's name; `inputModes` `text/plain` for a `WorkflowStartTextDto` start, else
 `application/json`); `capabilities.streaming: true`, no push notifications; the skills extension
 `https://agboss.dev/a2a/skills/v1` (`A2A_SKILLS_EXTENSION`) whose `params.skills[id]` holds each
@@ -150,7 +150,7 @@ protocolVersion: "1.0" }`.
   the fields and the schema in the error's `metadata`); a file part is `-32005` unless the start's
   input holds files (below). Its `contextId` is the task's thread (the caller's own, or one minted).
 - **One task is one root execution**, under the task's id, kept in `A2ATaskRepository`
-  (`@Application({ retention: { a2aTasks } })`). The same `messageId` from the same tenant and owner
+  (its endpoint's `ttl.tasks`). The same `messageId` from the same tenant and owner
   gets the same task — never a second run, on any instance; with other content it is `-32602`. A
   task whose start was lost (a crash right after it was accepted) is started by the resend, under
   the same id, once.
@@ -230,7 +230,7 @@ what `Files.save` takes — the workflow's `filePolicy`, else the defaults — i
 (#904).
 
 **The card never asks for a file field in a data part** (#904; a finish's outputs too, #916):
-`@A2AExpose({ cardFileFields })`, per skill too (`skills: { [id]: { cardFileFields } }`, over the
+`@A2AEndpoint({ cardFileFields })`, per skill too (`skills: [{ start, cardFileFields }]`, over the
 expose's; an invalid value or a skill not exported is `[a2a.file-options-invalid]` /
 `[a2a.unknown-skill-option]`):
 
@@ -296,17 +296,21 @@ A skill may answer with a `Message` instead of a task — a quote, a lookup, a c
 nothing to pause for, nothing to follow up.
 
 ```ts no-check: the two starts and their workflows are not written out on this page
-import { A2AExpose, A2AReply } from "@agboss/core/a2a";
+import { A2AEndpoint, A2AReply } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 
-@A2AExpose({
-  name: "quotes-a2a-expose",
+@A2AEndpoint({
+  name: "quotes",
   version: "1.0.0",
   description: "Answers price questions at once; acknowledges orders as tasks",
-  exports: [QuoteWorkflowStart, OrderWorkflowStart],
-  skills: { "quote-workflow-start": { reply: A2AReply.Message } }, // default A2AReply.Task
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [
+    { start: QuoteWorkflowStart, reply: A2AReply.Message }, // default A2AReply.Task
+    OrderWorkflowStart,
+  ],
   defaultSkill: QuoteWorkflowStart, // a message that names no skill runs it
 })
-export class QuotesA2AExpose {}
+export class QuotesA2AEndpoint {}
 ```
 
 - **The answer.** `SendMessage` returns a `Message` (no `taskId`): the finish's output as a text
@@ -325,7 +329,7 @@ export class QuotesA2AExpose {}
 - **Once per `messageId`.** The reply is kept in the application's `A2ADirectMessageRepository`
   (in memory by default; `SqliteA2ADirectMessageRepository`, `PostgresA2ADirectMessageRepository`,
   `MongoA2ADirectMessageRepository`; your own passes `a2aDirectMessageContract`) for
-  `@Application({ retention: { a2aMessages } })` (default `minutes(15)`, published on the card as
+  the endpoint's `ttl.messages` (published on the card as
   the mesh extension's `messageIdempotencyRetention`): a resend gets the same message, a concurrent
   duplicate waits for it (the store read every 250 ms, bounded) — the model is called and charged
   once. A message's id is claimed among the A2A task store's messages in the same atomic write, so
@@ -342,7 +346,7 @@ export class QuotesA2AExpose {}
   attempt lost to a crash is taken over by exactly one resend or by the sweep, which removes its
   files. A failed attempt keeps nothing: a resend runs it again.
 - **A live attempt is never swept.** The sweep removes completed replies only, the oldest first,
-  once `retention.a2aMessages` passed since their message was accepted; an attempt in flight keeps
+  once the endpoint's `ttl.messages` passed since their reply was kept; an attempt in flight keeps
   its row, its id's claim and its reply to come however old its message is. A message taken over
   is accepted anew — its retention counts from the takeover — so a reply a takeover keeps is never
   thrown away under a waiting resend.
@@ -455,7 +459,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 
 ## 5. Testing — the `a2aServer` fixture
 
-`testWith`'s `a2aServer({ expose, authenticator, base? })` serves the test's `app` through
+`testWith`'s `a2aServer({ endpoint, authenticator, base? })` serves the test's `app` through
 `a2aHttpListener` on `127.0.0.1:0` and returns `{ url }` (`A2ATestServer`); the loopback is open
 for it (no `allowNetwork` needed) and the server is closed at the test's end. The authenticator comes
 from the test app's container, so `FixedApiKeyDirectory` and `mockOf`
@@ -473,7 +477,7 @@ class FixedApiKeyDirectory extends ApiKeyDirectory {
 const test = testWith(ShopApplication, { services: [FixedApiKeyDirectory] });
 
 test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
-  const { url } = await a2aServer({ expose: ShopA2AExpose, authenticator: ShopHttpAuthenticator });
+  const { url } = await a2aServer({ endpoint: ShopA2AExpose, authenticator: ShopHttpAuthenticator });
 
   // any A2A v1.0 client calls the listener; a plain JSON-RPC SendMessage is the smallest one
   const sent = await fetch(url, {
@@ -715,7 +719,7 @@ its operation are read, **before the authenticator and before anything runs**:
 5. The execution runs with the envelope's chain, and a trusted caller's origin
    (`executionContext.origin`), budget (`caller-budget` — a step's spend past it fails the remote
    execution with `limit.budget`) and deadline. The card declares the extension
-   (`params.idempotencyRetention` = `@Application({ retention: { a2aTasks } })`, how long a
+   (`params.idempotencyRetention` = the endpoint's `ttl.tasks`, how long a
    `messageId` is deduplicated) and the answer echoes it in `A2A-Extensions` when it was asked.
 6. **The run report**: a trusted task keeps its first message's `bodyHash`
    (`A2ATaskRecord.meshBodyHash`) and, once `COMPLETED`, carries the report the application signs
@@ -795,8 +799,8 @@ export class AskBillingTool {
   check; over MCP an error result with that code, on the A2A listener `401`, #810) — else any
   receiver could replay it to another application as its issuer's signed word.
 
-**The receiver** — an `@A2AExpose` (mirrors `@McpEndpoint`) names what it serves, listed with its
-`@McpEndpoint`s in `@Application({ exposes })`:
+**The receiver** — an `@A2AEndpoint` (mirrors `@McpEndpoint`) names what it serves, listed with its
+`@McpEndpoint`s in `@Application({ endpoints })`:
 
 <!-- snippet-context
 import { Application, EmptyEnvironment, WorkflowStart } from "@agboss/core";
@@ -807,33 +811,35 @@ export class BillingWorkflow {} // a @Workflow of its own
 -->
 
 ```ts
-import { A2AExpose } from "@agboss/core/a2a";
+import { A2AEndpoint } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 
-// a2a/billing.a2a-expose.ts
-@A2AExpose({
-  name: "billing-a2a-expose",
+// a2a/billing.a2a-endpoint.ts
+@A2AEndpoint({
+  name: "billing",
   version: "1.0.0",
   description: "Answers billing questions", // the Agent Card's description (#808)
-  exports: [BillingWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) }, // how long its finished tasks and replies are kept
+  skills: [BillingWorkflowStart],
 })
-export class BillingA2AExpose {}
+export class BillingA2AEndpoint {}
 
 @Application({
   name: "billing-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BillingWorkflow],
-  exposes: [BillingA2AExpose],
+  endpoints: [BillingA2AEndpoint],
 })
 export class BillingApplication {}
 ```
 
-- `[name.not-kebab-case]`, `[application.expose-unknown-start]`
-  (an export that is no start of the application's workflows), `[application.not-an-expose]`,
-  `[application.duplicate-expose]` at assembly.
+- `[name.not-kebab-case]`, `[application.endpoint-unknown-start]`
+  (an export that is no start of the application's workflows), `[application.not-an-endpoint]`,
+  `[application.duplicate-endpoint]` at assembly.
 - With one export a message may leave its skill out; with several it names one in
   `metadata["https://agboss.dev/a2a/skills/v1"].skill`, or the expose sets a `defaultSkill`.
-- `[a2a.expose-description-required]` (a blank `description`), and two warnings, errors under
+- `[a2a.endpoint-description-required]` (a blank `description`), and two warnings, errors under
   `--strict`: `[a2a.skill-tags]` (a skill with no `skills: { [start]: { tags } }`; the card says the
   application's name) and `[a2a.unpriced-foreign-peer]` (an `@A2AAgent` without `target.application`
   and without `price`: a foreign peer's spend is invisible to the budgets) (#812).
@@ -844,7 +850,7 @@ export class BillingApplication {}
 {
   "exports": [
     {
-      "kind": "a2a", "expose": "billing-a2a-expose", "version": "1.0.0",
+      "kind": "a2a", "expose": "billing", "version": "1.0.0",
       "skill": "billing-workflow-start", "workflow": "billing-workflow", "reply": "task", "cardFileFields": "extension",
       "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
       "outputs": [{ "finish": "billing-answer-workflow-finish", "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" }]
@@ -898,7 +904,7 @@ is checked against that application's exports — an `@A2AAgent`'s `target.appli
 | `[federation.unknown-finish]` | the consumer's `target.finishes` names a finish the export's start does not have (#916) |
 | `[federation.snapshot-schema]` | a file that is not an `agboss describe --json` output with `application.contracts` (or a path that does not exist) |
 | `[federation.duplicate-application]` | two snapshots of one application |
-| `[federation.version-not-bumped]` | the project's own earlier snapshot is among them, an `@A2AExpose` start's schema changed and its `version` did not — a warning, an error under `--strict` |
+| `[federation.version-not-bumped]` | the project's own earlier snapshot is among them, an `@A2AEndpoint` start's schema changed and its `version` did not — a warning, an error under `--strict` |
 
 The comparison is **structural**, never by hash: an equal `schemaHash` is only the fast path. Each
 difference is one reason, named by its field path — a field now required that the sender may leave

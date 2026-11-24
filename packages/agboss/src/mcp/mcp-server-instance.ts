@@ -21,7 +21,7 @@ import { admitMcpCall } from "./mcp-mesh-gate.js";
 
 /**
  * The `@McpEndpoint` options of `endpoint`, once it may be served: it is one, and a `Strict` mesh
- * lists it in `@Application({ exposes })` (an endpoint it does not list has no gate and is not served).
+ * lists it in `@Application({ endpoints })` (an endpoint it does not list has no gate and is not served).
  */
 export function servedEndpointOf(app: AnyTenantApp, endpoint: Class): McpEndpointOptions {
   const options = mcpServerOptionsOf(endpoint);
@@ -31,9 +31,9 @@ export function servedEndpointOf(app: AnyTenantApp, endpoint: Class): McpEndpoin
     });
   }
   const mesh = meshSettingsOf(app);
-  if (mesh?.inboundMode === MeshInboundMode.Strict && !mesh.exposes.includes(endpoint)) {
+  if (mesh?.inboundMode === MeshInboundMode.Strict && !mesh.endpoints.includes(endpoint)) {
     throw new ConfigError.Environment({
-      message: `[application.expose-unlisted] ${endpoint.name} is not in @Application({ exposes }): under a Strict @Mesh an endpoint is served only through the mesh's gate`,
+      message: `[application.endpoint-unlisted] ${endpoint.name} is not in @Application({ endpoints }): under a Strict @Mesh an endpoint is served only through the mesh's gate`,
     });
   }
   return options;

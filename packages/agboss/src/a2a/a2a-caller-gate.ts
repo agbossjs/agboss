@@ -172,7 +172,7 @@ export async function admitCaller(
 
 /** What the binding knows of its listener: its authenticator (if any), its endpoint, its origin. */
 export const listenerOf = (
-  options: { readonly expose: Class },
+  options: { readonly endpoint: Class },
   checked: { readonly authenticator: ListenerAuthenticator | undefined; readonly url: string },
 ): {
   readonly authenticator?: HttpAuthenticatorHandler;
@@ -180,6 +180,6 @@ export const listenerOf = (
   readonly origin: string;
 } => ({
   ...(checked.authenticator === undefined ? {} : { authenticator: checked.authenticator.instance }),
-  endpoint: options.expose,
+  endpoint: options.endpoint,
   origin: new URL(checked.url).origin,
 });

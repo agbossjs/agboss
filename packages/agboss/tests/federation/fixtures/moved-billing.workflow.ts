@@ -63,6 +63,6 @@ export class MovedBillingA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [MovedBillingWorkflow],
   budgets: TEST_BUDGETS,
-  exposes: [MovedBillingA2AExpose],
+  endpoints: [MovedBillingA2AExpose],
 })
 export class MovedBillingApplication {}

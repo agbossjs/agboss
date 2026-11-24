@@ -36,7 +36,7 @@ vi.mock("../../../src/a2a/server/a2a-admitted.js", async (original) => {
 });
 
 const test = testWith(OrdersApplication);
-const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 
 beforeEach(() => {
   resetRecovery();

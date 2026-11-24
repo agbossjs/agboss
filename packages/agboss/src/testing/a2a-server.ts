@@ -11,11 +11,13 @@ export interface A2ATestServer {
 }
 
 /**
- * `a2aServer({ expose, authenticator, base?, … })`: the listener of the test's app, on a free port
+ * `a2aServer({ endpoint, authenticator, base?, … })`: the listener of the test's app, on a free port
  * — its `publicUrl` that port's, unless given.
  */
 export type A2AServerFixture = (
-  options: Omit<A2AHttpListenerOptions, "publicUrl"> & { readonly publicUrl?: string },
+  options: Omit<A2AHttpListenerOptions, "publicUrl"> & {
+    readonly publicUrl?: string | (() => string);
+  },
 ) => Promise<A2ATestServer>;
 
 /** The servers one test started, closed at its end. */

@@ -39,7 +39,7 @@ export async function servePeer(
   peer.clock = clock;
   const app = await createApp(Peer, { env: "test" });
   const listener = a2aHttpListener(app, {
-    expose: PeerA2AExpose,
+    endpoint: PeerA2AExpose,
     authenticator: PeerAuthenticator,
     publicUrl: "http://peer.test",
     base: "/a2a",

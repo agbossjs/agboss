@@ -228,7 +228,7 @@ export class ShopMcpEndpoint {}
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow],
   budgets: TEST_BUDGETS,
-  exposes: [ShopA2AExpose, ShopMcpEndpoint],
+  endpoints: [ShopA2AExpose, ShopMcpEndpoint],
 })
 export class ShopApplication {}
 
@@ -239,6 +239,6 @@ export class ShopApplication {}
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow, KbWorkflow],
   budgets: TEST_BUDGETS,
-  exposes: [ShopA2AExpose, ShopMcpEndpoint],
+  endpoints: [ShopA2AExpose, ShopMcpEndpoint],
 })
 export class ShopKbApplication {}

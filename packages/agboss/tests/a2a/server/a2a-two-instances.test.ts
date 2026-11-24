@@ -32,7 +32,7 @@ import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application
 import { eventually, rpc, text, userMessage, type RpcAnswer } from "./rpc.js";
 
 const two = testWith(OrdersApplication, { instances: 2, allowNetwork: ["127.0.0.1"] });
-const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const done = replyWith(ReceiptDto, { text: "Done." });
 const goNow = (messageId: string) => ({
   message: userMessage(messageId, [text("go")]),

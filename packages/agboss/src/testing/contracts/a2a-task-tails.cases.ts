@@ -11,6 +11,8 @@ import type { ContractInstances } from "./instance-context.js";
 import {
   at,
   COMPLETED,
+  cutoffsOf,
+  ENDPOINT,
   keyOf,
   messageKeyOf,
   newTask,
@@ -28,6 +30,7 @@ const followUp = (
   savedAt: Date,
   tenantId = "default",
 ): A2AMessageRecord => ({
+  endpoint: ENDPOINT,
   tenantId,
   ownerId: "alice",
   messageId,
@@ -44,7 +47,7 @@ export const A2A_TASK_STATUS_KEY_CASES: readonly ContractCase<A2ATaskRepository>
       const future = { ...WORKING, futureField: { count: 1, tags: ["a"] } };
       const later = { ...COMPLETED, futureField: { count: 2, tags: [] } };
       const key = keyOf(newTask("t-1"));
-      const query = { tenantId: "default", ownerId: "alice", pageSize: 10 };
+      const query = { endpoint: ENDPOINT, tenantId: "default", ownerId: "alice", pageSize: 10 };
 
       await saved(first, newTask("t-1", { status: future }));
       expect((await second.findById(key))?.status).toEqual(future);
@@ -73,7 +76,7 @@ export const A2A_TASK_STATUS_KEY_CASES: readonly ContractCase<A2ATaskRepository>
         ],
       };
       const key = keyOf(newTask("t-1"));
-      const query = { tenantId: "default", ownerId: "alice", pageSize: 10 };
+      const query = { endpoint: ENDPOINT, tenantId: "default", ownerId: "alice", pageSize: 10 };
 
       await saved(first, newTask("t-1", { status: future }));
       expect((await second.findById(key))?.status).toEqual(future);
@@ -101,11 +104,11 @@ export const A2A_TASK_ORPHAN_CASES: readonly ContractCase<A2ATaskRepository>[] =
         expect(await first.saveMessageIfAbsent(message)).toBeUndefined();
       await first.saveReplyIfAbsent(orphan, { accepted: true });
 
-      await second.deleteTerminalByStatusAtBefore(at(5));
+      await second.deleteExpired(cutoffsOf(at(5)));
       // a message saved at the cutoff itself is kept, as a task that ended there is
       expect(await first.findByMessage(orphan)).toBeDefined();
 
-      await second.deleteTerminalByStatusAtBefore(at(6));
+      await second.deleteExpired(cutoffsOf(at(6)));
 
       expect(await first.findByMessage(orphan)).toBeUndefined();
       expect(await first.findByMessage(strayed)).toBeUndefined();
@@ -122,7 +125,7 @@ export const A2A_TASK_ORPHAN_CASES: readonly ContractCase<A2ATaskRepository>[] =
       const late = followUp("m-late", "t-1", at(25));
       expect(await first.saveMessageIfAbsent(late)).toBeUndefined();
 
-      await second.deleteTerminalByStatusAtBefore(at(20));
+      await second.deleteExpired(cutoffsOf(at(20)));
 
       expect(await first.findById(keyOf(newTask("t-1")))).toBeUndefined();
       expect(await first.findByMessage(late)).toBeUndefined();
@@ -135,7 +138,7 @@ export const A2A_TASK_ORPHAN_CASES: readonly ContractCase<A2ATaskRepository>[] =
       const claim = followUp("m-direct", DIRECT_MESSAGE_CLAIM, at(1));
       expect(await first.saveMessageIfAbsent(claim)).toBeUndefined();
 
-      await second.deleteTerminalByStatusAtBefore(at(60));
+      await second.deleteExpired(cutoffsOf(at(60)));
 
       expect(await first.findByMessage(claim)).toEqual(claim);
       expect(await second.saveMessageIfAbsent(claim)).toEqual(claim);
@@ -150,12 +153,12 @@ export const A2A_TASK_ORPHAN_CASES: readonly ContractCase<A2ATaskRepository>[] =
       // t-1 completes and is swept with its messages; a follow-up saved just after is left behind
       await saved(first, newTask("t-1"));
       await first.compareAndSetStatus(keyOf(newTask("t-1")), 1, COMPLETED, at(1));
-      await first.deleteTerminalByStatusAtBefore(at(2));
+      await first.deleteExpired(cutoffsOf(at(2)));
       const orphan = followUp("m-late", "t-1", at(3));
       expect(await first.saveMessageIfAbsent(orphan)).toBeUndefined();
       expect(await second.saveMessageIfAbsent(orphan)).toEqual(orphan);
 
-      await second.deleteTerminalByStatusAtBefore(at(4));
+      await second.deleteExpired(cutoffsOf(at(4)));
 
       expect(await first.findByMessage(orphan)).toBeUndefined();
       const resent = await second.saveIfAbsent(newTask("t-2", { messageId: "m-late" }));

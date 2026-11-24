@@ -21,7 +21,7 @@ import {
 import { sdkClientOf, textMessage } from "./sdk-client.js";
 
 const test = testWith(RemoteDeskApplication);
-const listener = { expose: RemoteDeskA2AExpose, authenticator: SingleTenantAuthenticator };
+const listener = { endpoint: RemoteDeskA2AExpose, authenticator: SingleTenantAuthenticator };
 
 const request = (messageId: string) => ({
   tenant: "",

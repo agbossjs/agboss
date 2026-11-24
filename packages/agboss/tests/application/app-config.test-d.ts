@@ -37,12 +37,7 @@ describe("#834 AC1: one retention group", () => {
   it("the group has exactly its fields, each a Milliseconds", () => {
     expectTypeOf<ApplicationOptions["retention"]>().toEqualTypeOf<RetentionOptions | undefined>();
     expectTypeOf<keyof RetentionOptions>().toEqualTypeOf<
-      | "pauseRecords"
-      | "executionRecords"
-      | "auditLog"
-      | "costLedgerEntries"
-      | "a2aTasks"
-      | "a2aMessages"
+      "pauseRecords" | "executionRecords" | "auditLog" | "costLedgerEntries"
     >();
     expectTypeOf<
       Required<RetentionOptions>[keyof RetentionOptions]

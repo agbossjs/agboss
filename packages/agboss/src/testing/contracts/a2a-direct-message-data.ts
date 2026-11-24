@@ -9,6 +9,9 @@ import {
 } from "../../infrastructure/a2a-direct-message.repository.js";
 import type { A2ATaskRepository } from "../../infrastructure/a2a-task.repository.js";
 import { NUL_TEXT } from "./nul-text.js";
+import { ENDPOINT } from "./a2a-task-data.js";
+
+export { cutoffsOf, ENDPOINT } from "./a2a-task-data.js";
 
 /** The data of the direct-message contract's cases (#860). */
 
@@ -29,6 +32,7 @@ export const newMessage = (
   messageId: string,
   overrides: Partial<NewA2ADirectMessage> = {},
 ): NewA2ADirectMessage => ({
+  endpoint: ENDPOINT,
   tenantId: "default",
   ownerId: "alice",
   messageId,

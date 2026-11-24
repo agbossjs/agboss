@@ -34,7 +34,7 @@ import type { McpSessionOptions } from "./mcp-service-helpers.js";
 
 /** `mcpHttpListener(app, { endpoint, publicUrl, authenticator?, base?, maxBodySize?, onError? })`. */
 export interface McpHttpListenerOptions {
-  /** The `@McpEndpoint` served, listed in `@Application({ exposes })` under a `@Mesh`. */
+  /** The `@McpEndpoint` served, listed in `@Application({ endpoints })` under a `@Mesh`. */
   readonly endpoint: Class;
   /**
    * Who calls (an `@HttpAuthenticator` listed in `@Application({ services })`). Optional only for an

@@ -112,6 +112,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
 
   it("an a2a task's status, and an a2a message's reply", async () => {
     const task = {
+      endpoint: "orders-a2a-expose",
       tenant_id: "default",
       task_id: "task-1",
       owner_id: "",
@@ -126,6 +127,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
       mesh_body_hash: null,
     };
     const message = {
+      endpoint: "orders-a2a-expose",
       tenant_id: "default",
       owner_id: "",
       message_id: "message-1",
@@ -141,6 +143,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
 
   it("an a2a direct message's reply", async () => {
     const row = {
+      endpoint: "orders-a2a-expose",
       tenant_id: "default",
       owner_id: "",
       message_id: "message-1",

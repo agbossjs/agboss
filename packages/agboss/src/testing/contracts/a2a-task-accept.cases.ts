@@ -7,7 +7,16 @@ import {
 } from "../../infrastructure/a2a-task.repository.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
-import { NINE, at, SUBMITTED, newTask, keyOf, messageKeyOf, saved } from "./a2a-task-data.js";
+import {
+  NINE,
+  at,
+  ENDPOINT,
+  SUBMITTED,
+  newTask,
+  keyOf,
+  messageKeyOf,
+  saved,
+} from "./a2a-task-data.js";
 
 type Instances = ContractInstances<A2ATaskRepository>;
 
@@ -18,6 +27,7 @@ export const A2A_TASK_ACCEPT_CASES: readonly ContractCase<A2ATaskRepository>[] =
       const save = await first.saveIfAbsent(newTask("t-1", { callerPeer: "orders-application" }));
 
       const expected: A2ATaskRecord = {
+        endpoint: ENDPOINT,
         tenantId: "default",
         taskId: "t-1",
         ownerId: "alice",
@@ -32,6 +42,7 @@ export const A2A_TASK_ACCEPT_CASES: readonly ContractCase<A2ATaskRepository>[] =
       expect(save).toEqual({ status: A2ATaskSaveStatus.Saved, task: expected });
       expect(await second.findById(keyOf(expected))).toEqual(expected);
       expect(await second.findByMessage(messageKeyOf(newTask("t-1")))).toEqual({
+        endpoint: ENDPOINT,
         tenantId: "default",
         ownerId: "alice",
         messageId: "m-t-1",
@@ -131,6 +142,7 @@ export const A2A_TASK_ACCEPT_CASES: readonly ContractCase<A2ATaskRepository>[] =
     run: async ({ first, second }: Instances): Promise<void> => {
       await saved(first, newTask("t-1"));
       const followUp: A2AMessageRecord = {
+        endpoint: ENDPOINT,
         tenantId: "default",
         ownerId: "alice",
         messageId: "m-2",

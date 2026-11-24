@@ -14,7 +14,7 @@ import { meshOf, type MeshMeta } from "./mesh.decorator.js";
 export function meshRuleViolations(
   application: string,
   mesh: Class | undefined,
-  exposes: readonly Class[] = [],
+  endpoints: readonly Class[] = [],
 ): RuleViolation[] {
   if (mesh === undefined) return [];
   const meta = meshOf(mesh);
@@ -25,7 +25,7 @@ export function meshRuleViolations(
   return [
     ...limitViolations(application, meta),
     ...replayViolations(application, meta),
-    ...peerViolations(application, meta, exposes),
+    ...peerViolations(application, meta, endpoints),
   ];
 }
 
@@ -70,7 +70,7 @@ function replayViolations(application: string, mesh: MeshMeta): RuleViolation[] 
 function peerViolations(
   application: string,
   mesh: MeshMeta,
-  exposes: readonly Class[],
+  endpoints: readonly Class[],
 ): RuleViolation[] {
   const problems: RuleViolation[] = [];
   const seen = new Set<string>();
@@ -85,8 +85,8 @@ function peerViolations(
       problems.push(violation("mesh.peer-without-keys", message, [application]));
     }
     for (const endpoint of peer.allowEndpoints ?? [])
-      if (!exposes.includes(endpoint)) {
-        const message = `${mesh.name}'s peer ${peer.application} may call ${endpoint.name}, which @Application({ exposes }) does not list`;
+      if (!endpoints.includes(endpoint)) {
+        const message = `${mesh.name}'s peer ${peer.application} may call ${endpoint.name}, which @Application({ endpoints }) does not list`;
         problems.push(violation("mesh.unknown-endpoint", message, [application]));
       }
   }

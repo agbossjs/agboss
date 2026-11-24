@@ -56,10 +56,8 @@ export const UNIT_MESH: MeshSettings = {
   ...MESH_DEFAULTS,
   clock: new VirtualClock(NINE),
   idempotencyRetention: 0,
-  a2aTaskRetention: 0,
-  a2aMessageRetention: 0,
   workflows: [],
-  exposes: [],
+  endpoints: [],
   contracts: () => Promise.reject(new Error("no contracts in a unit test")),
 };
 export const SUBMITTED: A2ATaskStatus = { state: A2ATaskState.Submitted, pendingPauses: [] };
@@ -129,6 +127,9 @@ export function scriptOf(overrides: Partial<Script> = {}): Script {
   };
 }
 
+/** The endpoint the unit parts serve. */
+export const UNIT_ENDPOINT = "unit-a2a-expose";
+
 let minted = 0;
 
 /** The parts over `tasks`, scripted by `script`. */
@@ -143,6 +144,7 @@ export function unitParts(
     return {};
   };
   const parts: Partial<A2AServerParts> = {
+    endpoint: UNIT_ENDPOINT,
     tasks,
     clock: new VirtualClock(NINE),
     runs: new LocalRuns(),
@@ -231,6 +233,7 @@ export async function savedTask(
   status: A2ATaskStatus = SUBMITTED,
 ): Promise<A2ATaskRecord> {
   const save = await tasks.saveIfAbsent({
+    endpoint: UNIT_ENDPOINT,
     tenantId: "acme",
     taskId: "task-1",
     ownerId: "dana",

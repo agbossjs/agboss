@@ -32,20 +32,10 @@ export interface MeshSettings {
   readonly peers: ReadonlyMap<string, MeshPeerRules>;
   readonly clock: Clock;
   readonly idempotencyRetention: number;
-  /**
-   * How long a finished A2A task is kept (`@Application({ retention: { a2aTasks } })`, #807): what an
-   * A2A listener deduplicates a `messageId` for, its card's mesh `idempotencyRetention` (#810).
-   */
-  readonly a2aTaskRetention: number;
-  /**
-   * How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860): what a listener
-   * deduplicates a direct-reply skill's `messageId` for, its card's mesh `messageIdempotencyRetention`.
-   */
-  readonly a2aMessageRetention: number;
   /** The application's workflows (#859: where an exported start's finishes are). */
   readonly workflows: readonly Class[];
-  /** `@Application({ exposes })` (#398 PR 3): the contracts a transport may serve. */
-  readonly exposes: readonly Class[];
+  /** `@Application({ endpoints })` (#398 PR 3): the contracts a transport may serve. */
+  readonly endpoints: readonly Class[];
   /**
    * The application's declared contracts (#808: what `describe --json` lists — each exported
    * start's input and finishes, every DTO's JSON Schema), read on first use: an A2A listener's
@@ -56,7 +46,7 @@ export interface MeshSettings {
 
 /** What a verified peer may do here: the endpoints it may call and whether its tenant is trusted. */
 export interface MeshPeerRules {
-  /** The `@A2AExpose` / `@McpEndpoint` classes it may call; `undefined` → any. */
+  /** The `@A2AEndpoint` / `@McpEndpoint` classes it may call; `undefined` → any. */
   readonly allowEndpoints: readonly Class[] | undefined;
   /** Whether its signed `tenantId` is the caller's tenant. */
   readonly propagateTenant: boolean;

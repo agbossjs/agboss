@@ -29,18 +29,18 @@ afterEach(async () => {
 });
 
 describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
-  it("an expose the application does not list: [application.expose-unlisted]", async () => {
+  it("an expose the application does not list: [application.endpoint-unlisted]", async () => {
     const app = await createTestAppWith(ShopApplication, offline(new ScriptBook()));
     apps.push(app);
 
     const built = () =>
       a2aHttpListener(app, {
-        expose: QuoteA2AExpose,
+        endpoint: QuoteA2AExpose,
         authenticator: OpenAuthenticator,
         publicUrl: "http://127.0.0.1",
       });
 
-    expect(built).toThrow(/^\[application\.expose-unlisted\] QuoteA2AExpose is not listed/);
+    expect(built).toThrow(/^\[application\.endpoint-unlisted\] QuoteA2AExpose is not listed/);
   });
 });
 
@@ -72,7 +72,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
       workflows: [QuoteWorkflow, RefundWorkflow],
       budgets: TEST_BUDGETS,
       providers: [BillingDesk],
-      exposes: [ShopExpose, NotAnExpose, ShopA2AExpose, ShopA2AExpose],
+      endpoints: [ShopExpose, NotAnExpose, ShopA2AExpose, ShopA2AExpose],
     })
     class BrokenApplication {}
 
@@ -81,13 +81,13 @@ describe("#398 PR 3: the contracts at assembly", () => {
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     const message = await built.catch((error: unknown) => String(error));
     expect(message).toContain(
-      '[name.not-kebab-case] "Shop_Expose" on @A2AExpose — a name is kebab-case: "shop-expose"',
+      '[name.not-kebab-case] "Shop_Expose" on @A2AEndpoint — a name is kebab-case: "shop-expose"',
     );
     expect(message).not.toContain("name.kind-suffix");
-    expect(message).toContain("[application.expose-unknown-start] Shop_Expose exports Object");
-    expect(message).toContain("[application.not-an-expose] NotAnExpose");
+    expect(message).toContain("[application.endpoint-unknown-start] Shop_Expose serves Object");
+    expect(message).toContain("[application.not-an-endpoint] NotAnExpose");
     expect(message).toContain(
-      "[application.duplicate-expose] broken-application exposes two contracts named shop-a2a-expose",
+      "[application.duplicate-endpoint] broken-application serves two contracts named shop-a2a-expose",
     );
     expect(message).toContain(
       '[name.not-kebab-case] "Billing_Desk" on @A2AAgent — a name is kebab-case: "billing-desk"',

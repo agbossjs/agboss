@@ -15,23 +15,24 @@ import {
   writeRejection,
   type ListenerAuthenticator,
 } from "./a2a-caller-gate.js";
-import { exportsOf } from "./a2a-exports.js";
-import { meshSettingsOf, type MeshSettings } from "../mesh/mesh-settings.js";
+import { endpointOf } from "./a2a-exports.js";
+import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import type { A2AHttpBinding } from "./server/a2a-jsonrpc-http.js";
 import type { ServedSkill } from "./server/a2a-skills.js";
 import type { A2ADirectParts } from "./server/a2a-server-parts.js";
-import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
+import { startsOfEndpoint, type A2AEndpointMeta } from "./a2a-endpoint.decorator.js";
 import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message.repository.js";
 import { interfaceUrlOf } from "./a2a-public-url.js";
+import { cardSourceOf, knownOf } from "./a2a-card-source.js";
 import { serverFilesOf } from "./files/a2a-server-files.js";
 
-/** `a2aHttpListener(app, { expose, authenticator, publicUrl, base?, provider?, onError?, maxBodySize?, maxTaskDuration? })` (#387, #808, #1316). */
+/** `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base?, onError?, maxBodySize?, maxTaskDuration? })` (#387, #808, #1316, #1320). */
 export interface A2AHttpListenerOptions {
   /**
-   * What it serves (#398 PR 3): an `@A2AExpose` listed in `@Application({ exposes })` — its
-   * exported starts are the agent's skills.
+   * What it serves (#398 PR 3): an `@A2AEndpoint` listed in `@Application({ endpoints })` — its
+   * skills are the agent's.
    */
-  readonly expose: Class;
+  readonly endpoint: Class;
   /**
    * Who calls (an `@HttpAuthenticator` listed in `@Application({ services })`): the listener takes
    * its instance from the application's container when it is created and asks it on every request.
@@ -40,8 +41,6 @@ export interface A2AHttpListenerOptions {
    * only signed peers call (`[http.authenticator-required-for-tenant-context]` otherwise).
    */
   readonly authenticator?: Class;
-  /** Who runs the agent: the card's `provider`. */
-  readonly provider?: { readonly organization: string; readonly url: string };
   /**
    * Told of an error the listener or the authenticator hit (an authenticator that threw, a request
    * that failed past its own answers) with the request: for the host's own logging; its text never
@@ -50,9 +49,10 @@ export interface A2AHttpListenerOptions {
   readonly onError?: (error: unknown, req: IncomingMessage) => void;
   /**
    * Where callers reach the listener, an absolute URL without the `base` (`https://billing.example`):
-   * the card's interface URL is `publicUrl` + `base`. An environment text field in practice.
+   * the card's interface URL is `publicUrl` + `base`. A function is asked once, when the listener
+   * first needs it — a server that listens on port 0 knows its port only then.
    */
-  readonly publicUrl: string;
+  readonly publicUrl: string | (() => string);
   /** The listener's path (`"/a2a"` → `POST /a2a`, the card at `/a2a/.well-known/agent-card.json`); default none. */
   readonly base?: string;
   /**
@@ -123,11 +123,11 @@ function builtAppOf(app: A2AApp) {
   return { mesh, control };
 }
 
-/** The options of an `@A2AExpose` (`exportsOf` checked it is one). */
-function exposeOptionsOf(expose: Class): A2AExposeOptions {
-  const meta = componentOf(expose);
-  if (meta?.kind !== "a2a-expose")
-    throw new ComponentError({ message: "[a2a.not-an-expose] not an @A2AExpose" });
+/** The options of an `@A2AEndpoint` (`skillStartsOf` checked it is one). */
+function endpointOptionsOf(endpoint: Class): A2AEndpointMeta {
+  const meta = componentOf(endpoint);
+  if (meta?.kind !== "a2a-endpoint")
+    throw new ComponentError({ message: "[a2a.not-an-endpoint] not an @A2AEndpoint" });
   return meta.meta;
 }
 
@@ -141,41 +141,27 @@ const directPartsOf = (
   defaultSkill: skills.find((skill) => skill.start === defaultSkill),
 });
 
-/** What the card says besides the expose and the skills: the application, the URL, the retention, who runs it. */
-function cardSourceOf(
-  mesh: MeshSettings,
-  options: A2AHttpListenerOptions,
-  checked: { readonly authenticator: ListenerAuthenticator | undefined; readonly url: string },
-) {
-  return {
-    application: mesh.application,
-    url: checked.url,
-    idempotencyRetention: mesh.a2aTaskRetention,
-    messageIdempotencyRetention: mesh.a2aMessageRetention,
-    schemes: checked.authenticator?.meta.schemes ?? [],
-    ...(options.provider === undefined ? {} : { provider: options.provider }),
-  };
-}
-
 /** Builds what the listener serves with, on its first request: the card, the handler, the stores. */
 async function bindingOf(
   app: A2AApp,
   options: A2AHttpListenerOptions,
   checked: {
     readonly authenticator: ListenerAuthenticator | undefined;
-    readonly exports: readonly Class[];
-    readonly url: string;
+    readonly endpoint: A2AEndpointMeta;
+    /** The interface URL, when `publicUrl` is a text (checked at the listener's creation). */
+    readonly url: string | undefined;
   },
 ): Promise<A2AHttpBinding> {
   const [{ servedSkillsOf }, { agentCardOf }, { A2AServerRequestHandler }, { LocalRuns }] =
     await serverModules();
   const { mesh, control } = builtAppOf(app);
-  const expose = exposeOptionsOf(options.expose);
+  const expose = endpointOptionsOf(options.endpoint);
+  const known = knownOf(options, checked);
   const sources = { contracts: await mesh.contracts(), workflows: mesh.workflows, expose };
-  const skills = servedSkillsOf(checked.exports, sources);
+  const skills = servedSkillsOf(startsOfEndpoint(expose), sources);
   const clock = app.resolve(Clock);
   const card = agentCardOf({
-    ...cardSourceOf(mesh, options, checked),
+    ...cardSourceOf(mesh, expose, known),
     expose,
     skills,
     madeAt: clock.now(),
@@ -183,6 +169,7 @@ async function bindingOf(
   const log = frameworkLogOf(app.resolve(Logger), clock);
   const parts = {
     app,
+    endpoint: expose.name,
     tasks: app.resolve(A2ATaskRepository),
     control,
     clock,
@@ -198,7 +185,7 @@ async function bindingOf(
   return {
     card,
     handler: new A2AServerRequestHandler(parts, card.card),
-    ...listenerOf(options, checked),
+    ...listenerOf(options, known),
     ...(options.onError === undefined ? {} : { onError: options.onError }),
     mesh,
     log: parts.log,
@@ -208,8 +195,8 @@ async function bindingOf(
 }
 
 /**
- * Serves an application's `@A2AExpose` as an A2A v1.0 agent (#387, #808), for
- * `http.createServer(a2aHttpListener(app, { expose, authenticator, publicUrl, base }))`: its Agent
+ * Serves an application's `@A2AEndpoint` as an A2A v1.0 agent (#387, #808), for
+ * `http.createServer(a2aHttpListener(app, { endpoint, authenticator, publicUrl, base }))`: its Agent
  * Card at `<base>/.well-known/agent-card.json` and the JSON-RPC binding at `POST <base>` —
  * `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`
  * (push methods `-32003`). Every request's caller is authenticated by the `authenticator` the
@@ -226,16 +213,21 @@ export function a2aHttpListener(
 ): (req: IncomingMessage, res: ServerResponse) => void {
   checkedListenerTimers(options);
   const authenticator = listenerAuthenticatorOf(app, options.authenticator);
-  const exports = exportsOf(app, options.expose);
-  const url = interfaceUrlOf(options.publicUrl, options.base ?? "");
+  const endpoint = endpointOf(app, options.endpoint);
+  const base = options.base ?? "";
+  // a text is checked now; a function when the first request needs it (a port known once it listens)
+  const url =
+    typeof options.publicUrl === "string" ? interfaceUrlOf(options.publicUrl, base) : undefined;
   const log = frameworkLogOf(app.resolve(Logger), app.resolve(Clock));
   let binding: Promise<A2AHttpBinding> | undefined;
   const http = () => lazyLoad(import("./server/a2a-jsonrpc-http.js"));
   const bound = (): Promise<A2AHttpBinding> => {
-    binding ??= bindingOf(app, options, { authenticator, exports, url }).catch((error: unknown) => {
-      binding = undefined; // built again by the next request
-      throw error;
-    });
+    binding ??= bindingOf(app, options, { authenticator, endpoint, url }).catch(
+      (error: unknown) => {
+        binding = undefined; // built again by the next request
+        throw error;
+      },
+    );
     return binding;
   };
   return (req, res) => {

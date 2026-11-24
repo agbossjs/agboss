@@ -190,18 +190,18 @@ A server a tool lists in its `deps` is connected when the application starts (no
 Both take `timeout?`, `costPerCall?`, `maxConcurrentCalls?` and `target?`. A used server that is
 unreachable, lacks an env variable or has a drifted contract stops startup (`McpError`). See [Mcp](Mcp).
 
-## `a2aHttpListener` — serving an `@A2AExpose` as an A2A v1.0 agent (#808)
+## `a2aHttpListener` — serving an `@A2AEndpoint` as an A2A v1.0 agent (#808)
 
 | Option             | What it is                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------- |
-| `expose`           | the `@A2AExpose` (listed in `@Application({ exposes })`): its exported starts are the skills      |
+| `endpoint`         | the `@A2AEndpoint` (listed in `@Application({ endpoints })`): its `skills` are the card's skills  |
 | `authenticator`   | the `@HttpAuthenticator` class (listed in `services`): who calls, per request                     |
-| `publicUrl`        | required: where callers reach the listener, an absolute http(s) URL — the card's interface URL    |
+| `publicUrl`        | required: where callers reach the listener, an absolute http(s) URL (or a function giving it, asked at the first request) — the card's interface URL |
 | `base?`            | its path (`"/a2a"`): JSON-RPC at `POST <base>`, the card at `<base>/.well-known/agent-card.json` |
 | `maxBodySize?`     | the largest request body read, default `kilobytes(1024)`; over it `413`, nothing run             |
 | `maxTaskDuration?` | every task's execution deadline (a task outlives its request)                                    |
 
-Tasks are kept `@Application({ retention: { a2aTasks } })` after they end (default `hours(24)`). See
+Tasks are kept `@A2AEndpoint({ ttl: { tasks } })` after they end, a direct reply `ttl: { messages }`. See
 [A2A](A2A#2-serving--a2ahttplistenerapp-options).
 
 ## Agents
@@ -296,8 +296,6 @@ export class ClaimsWorkflow {} // a @Workflow of its own
     executionRecords: hours(24 * 30), // each root execution's history (unset: nothing kept)
     auditLog: hours(24), // the audit log (default hours(24))
     costLedgerEntries: hours(24), // the cost ledger's entries (default hours(24))
-    a2aTasks: hours(24), // finished A2A tasks (default hours(24))
-    a2aMessages: minutes(15), // a direct A2A reply and its messageId (#860; default minutes(15))
   },
 })
 export class ClaimsApplication {}

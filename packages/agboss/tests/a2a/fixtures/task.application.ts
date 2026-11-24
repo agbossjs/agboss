@@ -27,7 +27,7 @@ export class OrdersA2AExpose {}
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
   providers: [StampedExecutionRecordRepository, BearerAuthenticator],
-  exposes: [OrdersA2AExpose],
+  endpoints: [OrdersA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class OrdersApplication {}

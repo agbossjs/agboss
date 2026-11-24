@@ -43,6 +43,7 @@ describe("#860: the direct-message store's parts", () => {
     const store = new SqliteA2ADirectMessageRepository(connection);
 
     const save = await store.saveIfAbsent({
+      endpoint: "quotes-a2a-expose",
       tenantId: "default",
       ownerId: "alice",
       messageId: "m-1",
@@ -63,6 +64,7 @@ describe("#860: the direct-message store's parts", () => {
 
 /** A row as the SQLite store writes it: in flight, no reply. */
 const row = (overrides: Record<string, unknown> = {}) => ({
+  endpoint: "quotes-a2a-expose",
   tenant_id: "default",
   owner_id: "alice",
   message_id: "m-1",
@@ -140,8 +142,8 @@ async function pagesRead(sizes: readonly number[], kind: "lost" | "old"): Promis
     Promise.resolve(kind === "lost" ? page() : []),
   );
   vi.spyOn(messages, "deleteIfInFlight").mockResolvedValue(false);
-  vi.spyOn(messages, "deleteByCreatedAtBefore").mockImplementation(() =>
-    Promise.resolve(kind === "old" ? page() : []),
+  vi.spyOn(messages, "deleteExpired").mockImplementation(() =>
+    Promise.resolve(kind === "old" ? page().length : 0),
   );
   const files = new InMemoryFileRepository(new InMemoryDatabase());
   vi.spyOn(files, "deleteByOwner").mockResolvedValue(undefined);
@@ -149,6 +151,7 @@ async function pagesRead(sizes: readonly number[], kind: "lost" | "old"): Promis
     messages,
     files,
     clock: new VirtualClock(NINE),
+    endpoint: "quotes-a2a-expose",
     retention: minutes(15),
   });
   await expiry.remove?.(NINE);
@@ -161,6 +164,7 @@ describe("#860: the sweep's pages", () => {
       messages: {} as A2ADirectMessageRepository,
       files: new InMemoryFileRepository(new InMemoryDatabase()),
       clock: new VirtualClock(NINE),
+      endpoint: "quotes-a2a-expose",
       retention: minutes(15),
     });
 

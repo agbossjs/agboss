@@ -301,7 +301,7 @@ export class TckA2AExpose {}
   executionContext: TckExecutionContext,
   workflows: [TckWorkflow, TckMessageWorkflow],
   providers: [TckCallerChannel, TckAuthenticator],
-  exposes: [TckA2AExpose],
+  endpoints: [TckA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class TckApplication {}

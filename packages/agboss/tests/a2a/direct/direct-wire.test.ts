@@ -13,7 +13,7 @@ import { rpc, sseEvents, text, userMessage } from "../server/rpc.js";
 import { sdkClientOf, textMessage } from "../server/sdk-client.js";
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: QuotesA2AExpose, authenticator: BearerAuthenticator };
 const QUOTE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-workflow-start" } };
 const FILE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-file-workflow-start" } };
 

@@ -77,7 +77,7 @@ const optionsOf = (over: Record<string, unknown>) => {
     workflows: [
       files === undefined ? FileReviewWorkflow : workflowWith(files as FilePolicyOptions),
     ],
-    exposes: [PlainExpose],
+    endpoints: [PlainExpose],
     ...rest,
   } as never;
 };
@@ -91,7 +91,7 @@ const outcomeOf = (over: Record<string, unknown>) =>
 
 describe("#1366 the nodes a violation names", () => {
   it("a workflow's policy names the application, a skill's the expose", () => {
-    const found = outcomeOf({ exposes: [BadSkillExpose], files: { maxFiles: 0 } });
+    const found = outcomeOf({ endpoints: [BadSkillExpose], files: { maxFiles: 0 } });
     expect(found.map(({ code, nodes }) => ({ code, nodes }))).toEqual([
       { code: "file-policy.invalid", nodes: ["rules-application"] },
       { code: "file-policy.invalid", nodes: ["rules-a2a-expose"] },
@@ -128,7 +128,7 @@ describe("#1366 tiers and absent options", () => {
   });
 
   it("no exposes listed: no files, no violation", () => {
-    expect(outcomeOf({ exposes: undefined, files: sized(1024) })).toEqual([]);
+    expect(outcomeOf({ endpoints: undefined, files: sized(1024) })).toEqual([]);
   });
 
   it("256 KB exactly needs no store; a store of one host is the same with every one-host backend", () => {
@@ -159,7 +159,7 @@ describe("#1366 inlineFilesWarningOf", () => {
   const sourcesOf = (total: number) => ({
     name: "rules-application",
     providers: [],
-    exposes: [PlainExpose],
+    endpoints: [PlainExpose],
     workflows: [workflowWith(sized(total))],
   });
 

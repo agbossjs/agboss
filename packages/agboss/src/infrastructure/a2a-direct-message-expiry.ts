@@ -38,6 +38,8 @@ const MAX_PAGES = 20;
 /** What the sweep of the direct messages reads and writes. */
 export interface A2ADirectMessageExpirySources extends LostAttemptSources {
   readonly messages: A2ADirectMessageRepository;
+  /** The `@A2AEndpoint` whose completed messages it removes (its `ttl.messages` is `retention`). */
+  readonly endpoint: string;
   readonly retention: Milliseconds;
 }
 
@@ -55,7 +57,7 @@ async function sweptLostAttempts(sources: A2ADirectMessageExpirySources): Promis
 
 /**
  * The recovery sweep's removal of direct messages (#860): first the attempts lost in flight (each
- * settled once), then the completed messages accepted before the cutoff — `retention.a2aMessages` —
+ * settled once), then the completed messages accepted before the cutoff — its endpoint's `ttl.messages` —
  * a page at a time, with their ids' claims (their files stay for their `@FilePolicy.ttl`); at most `MAX_PAGES` pages of
  * each per look. A message in flight is never removed by age (#860 D2).
  */
@@ -65,8 +67,11 @@ export const a2aDirectMessageExpiryOf = (sources: A2ADirectMessageExpirySources)
     await sweptLostAttempts(sources);
     for (let page = 0; page < MAX_PAGES; page += 1) {
       // its attempt's files are the `@FilePolicy.ttl`'s: a short message retention never wipes them
-      const gone = await sources.messages.deleteByCreatedAtBefore(cutoff, PAGE);
-      if (gone.length < PAGE) return;
+      const gone = await sources.messages.deleteExpired(
+        new Map([[sources.endpoint, cutoff]]),
+        PAGE,
+      );
+      if (gone < PAGE) return;
     }
   },
   retention: sources.retention,

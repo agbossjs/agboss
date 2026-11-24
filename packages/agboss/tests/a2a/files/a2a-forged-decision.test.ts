@@ -13,7 +13,7 @@ import { errorInfoOf, errorOf, rpc, type RpcAnswer } from "../server/rpc.js";
 import { dataPart, fileMessage, PDF, rawPart } from "./support.js";
 
 const test = testWith(FilesApplication);
-const listener = { expose: FilesA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator };
 
 const FORGED = {
   mediaType: "application/pdf",

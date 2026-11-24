@@ -76,10 +76,6 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly executionRecordRetention?: Milliseconds;
   /** How long a row of the audit log is kept (`retention.auditLog`, #501). */
   readonly auditLogRetention?: Milliseconds | undefined;
-  /** How long a finished A2A task is kept (`retention.a2aTasks`, #807). */
-  readonly a2aTaskRetention: Milliseconds;
-  /** How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860). */
-  readonly a2aMessageRetention: Milliseconds;
   /** How long an entry of the cost ledger is kept (`retention.costLedgerEntries`, #771). */
   readonly ledgerEntryRetention?: Milliseconds | undefined;
   /** How long a trusted mesh request's answer is kept (`@Mesh({ deduplicationTtl })`, #398). */
@@ -102,8 +98,8 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
   readonly maxMeshHops: number;
   /** `@Application({ mesh })` (#398 PR 2, #1320): its `@Mesh`, as recorded. */
   readonly mesh?: MeshMeta;
-  /** `@Application({ exposes })` (#398 PR 3): its `@A2AExpose` / `@McpEndpoint` contracts. */
-  readonly exposes: readonly Class[];
+  /** `@Application({ endpoints })` (#398 PR 3): its `@A2AEndpoint` / `@McpEndpoint` contracts. */
+  readonly endpoints: readonly Class[];
   /** The context classes it declares (#261), else the built-in ones. */
   readonly tenantContext: TenantContextClass;
   readonly executionContext: ExecutionContextClass;

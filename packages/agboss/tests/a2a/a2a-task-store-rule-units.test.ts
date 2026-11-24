@@ -2,7 +2,7 @@
  * #824 AC3 (mutation shard `a2a-server`): the rule's own texts and edges, from the declarations —
  * each refusal's full message (a listed store, a single-host one, an undeclared lease backend, one
  * no store of the core's names, a second database of one kind), the violation's node, every
- * `@A2AExpose` named; never a refusal for an application serving MCP only, with no exposes, or
+ * `@A2AExpose` named; never a refusal for an application serving MCP only, with no endpoints, or
  * with two lease stores (their ambiguity is reported, nothing thrown).
  */
 import { describe, expect, it } from "vitest";
@@ -57,10 +57,10 @@ class NotAnExpose {
 }
 
 /** The rule on declarations alone: an application's name, exposes and providers. */
-const ruleOf = (exposes: ApplicationOptions["exposes"], providers?: readonly Provider[]) =>
+const ruleOf = (endpoints: ApplicationOptions["endpoints"], providers?: readonly Provider[]) =>
   a2aTaskStoreViolations({
     name: "rule-application",
-    exposes,
+    endpoints,
     ...(providers === undefined ? {} : { providers }),
   } as ApplicationOptions);
 

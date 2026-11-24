@@ -17,7 +17,7 @@ import {
 } from "./a2a-task.repository.js";
 import { a2aMessageRowOf, a2aPageOf, a2aTaskRowOf, byNewestStatus } from "./a2a-task-pages.js";
 import { IN_MEMORY_DATABASE, type InMemoryDatabase } from "./in-memory-database.js";
-import { DIRECT_MESSAGE_CLAIM } from "./in-memory-a2a-direct-message.repository.js";
+import { DIRECT_MESSAGE_CLAIM, isBefore } from "./in-memory-a2a-direct-message.repository.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 
 /** A status kept as plain JSON, as the SQLite store keeps it: one comparison for both (L1). */
@@ -116,6 +116,7 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
     const matching = [...this.database.a2aTasks.values()]
       .filter(
         (task) =>
+          task.endpoint === query.endpoint &&
           task.tenantId === query.tenantId &&
           task.ownerId === query.ownerId &&
           (query.contextId === undefined || task.contextId === query.contextId) &&
@@ -126,11 +127,15 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
     return structuredClone(a2aPageOf(matching, query));
   }
 
-  deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void> {
+  deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number> {
     const { a2aTasks: tasks, a2aMessages: messages } = this.database;
     const gone = new Set<string>();
     for (const [row, task] of tasks) {
-      if (!isTerminalA2ATaskState(task.status.state) || task.statusAt >= cutoff) continue;
+      if (
+        !isTerminalA2ATaskState(task.status.state) ||
+        !isBefore(task.statusAt, cutoffsByEndpoint.get(task.endpoint))
+      )
+        continue;
       tasks.delete(row);
       gone.add(row);
     }
@@ -139,9 +144,11 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
       // a task's own messages go with it; one whose task is gone is an orphan (#960), swept by its age
       // a direct message's claim has no task by design (#860): never an orphan
       const isOrphan =
-        message.taskId !== DIRECT_MESSAGE_CLAIM && !tasks.has(task) && message.savedAt < cutoff;
+        message.taskId !== DIRECT_MESSAGE_CLAIM &&
+        !tasks.has(task) &&
+        isBefore(message.savedAt, cutoffsByEndpoint.get(message.endpoint));
       if (gone.has(task) || isOrphan) messages.delete(row);
     }
-    return Promise.resolve();
+    return Promise.resolve(gone.size);
   }
 }

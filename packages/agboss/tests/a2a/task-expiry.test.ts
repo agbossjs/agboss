@@ -17,7 +17,7 @@ import { ExpiryServedApplication, OwnerA2AExpose } from "./fixtures/expiry-serve
 import { data, errorInfoOf, errorOf, rpc, userMessage, type RpcAnswer } from "./server/rpc.js";
 
 const test = testWith(ExpiryServedApplication);
-const listener = { expose: OwnerA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: OwnerA2AExpose, authenticator: BearerAuthenticator };
 
 beforeEach(resetExpiry);
 

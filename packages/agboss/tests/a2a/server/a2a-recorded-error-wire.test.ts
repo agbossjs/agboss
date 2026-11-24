@@ -15,7 +15,7 @@ import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { data, rpc, userMessage } from "./rpc.js";
 
 const test = testWith(FamilyRouteServedApplication);
-const listener = { expose: FamilyRouteA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: FamilyRouteA2AExpose, authenticator: BearerAuthenticator };
 const send = (messageId: string, fail: string) => ({
   message: userMessage(messageId, [data({ fail })], {
     metadata: { "https://agboss.dev/a2a/skills/v1": { skill: "family-route-workflow-start" } },

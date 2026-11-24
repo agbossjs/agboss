@@ -63,6 +63,6 @@ export class CompatibleBillingA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [CompatibleBillingWorkflow],
   budgets: TEST_BUDGETS,
-  exposes: [CompatibleBillingA2AExpose],
+  endpoints: [CompatibleBillingA2AExpose],
 })
 export class CompatibleBillingApplication {}

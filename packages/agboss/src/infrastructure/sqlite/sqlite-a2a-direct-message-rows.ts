@@ -10,7 +10,7 @@ import { parsedStoredJson } from "../stored-step.js";
 /** The rows of `SqliteA2ADirectMessageRepository` (#860): its schema, and their records. */
 
 export const DIRECT_SCHEMA = `CREATE TABLE IF NOT EXISTS a2a_direct_messages (
-  tenant_id TEXT NOT NULL, owner_id TEXT NOT NULL, message_id TEXT NOT NULL,
+  endpoint TEXT NOT NULL, tenant_id TEXT NOT NULL, owner_id TEXT NOT NULL, message_id TEXT NOT NULL,
   request_hash TEXT NOT NULL, skill TEXT NOT NULL, context_id TEXT NOT NULL, state TEXT NOT NULL,
   attempt_id TEXT NOT NULL, calls_model INTEGER NOT NULL, created_at TEXT NOT NULL,
   started_at TEXT NOT NULL, expires_at TEXT NOT NULL, caller_peer TEXT, mesh_body_hash TEXT,
@@ -18,12 +18,14 @@ export const DIRECT_SCHEMA = `CREATE TABLE IF NOT EXISTS a2a_direct_messages (
   PRIMARY KEY (tenant_id, owner_id, message_id));
 CREATE INDEX IF NOT EXISTS a2a_direct_messages_in_flight
   ON a2a_direct_messages (state, expires_at);
-CREATE INDEX IF NOT EXISTS a2a_direct_messages_by_age ON a2a_direct_messages (created_at);`;
+CREATE INDEX IF NOT EXISTS a2a_direct_messages_by_endpoint
+  ON a2a_direct_messages (endpoint, completed_at);`;
 
 /** A time as the store writes it: `Date.toISOString()` text (no SQLite clock is read). */
 const { datetime: isoTime } = z.iso;
 
 const DirectRow = z.object({
+  endpoint: z.string(),
   tenant_id: z.string(),
   owner_id: z.string(),
   message_id: z.string(),
@@ -83,6 +85,7 @@ function replyOf(
 export const directMessageOf = (row: unknown): A2ADirectMessageRecord => {
   const parsed = DirectRow.parse(row);
   return {
+    endpoint: parsed.endpoint,
     tenantId: parsed.tenant_id,
     ownerId: parsed.owner_id === "" ? undefined : parsed.owner_id,
     messageId: parsed.message_id,
@@ -105,6 +108,7 @@ export const directMessageOf = (row: unknown): A2ADirectMessageRecord => {
 export const directColumnsOf = (
   message: A2ADirectMessageRecord,
 ): readonly (string | number | null)[] => [
+  message.endpoint,
   message.tenantId,
   ownerColumnOf(message.ownerId),
   message.messageId,
@@ -121,6 +125,7 @@ export const directColumnsOf = (
   message.meshBodyHash ?? null,
 ];
 
-export const INSERT_DIRECT = `INSERT INTO a2a_direct_messages (tenant_id, owner_id, message_id,
-  request_hash, skill, context_id, state, attempt_id, calls_model, created_at, started_at,
-  expires_at, caller_peer, mesh_body_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+export const INSERT_DIRECT = `INSERT INTO a2a_direct_messages (endpoint, tenant_id, owner_id,
+  message_id, request_hash, skill, context_id, state, attempt_id, calls_model, created_at,
+  started_at, expires_at, caller_peer, mesh_body_hash)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;

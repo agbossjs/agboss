@@ -85,7 +85,7 @@ function servedWith(
     environment: EmptyEnvironment,
     workflows: [NestedWorkflow],
     providers: [...providers],
-    exposes: [NestedExpose],
+    endpoints: [NestedExpose],
     budgets: TEST_BUDGETS,
   })
   class NestedApplication {}
@@ -124,7 +124,7 @@ function servedWithListOutput(item: ListWrapper) {
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [ListedWorkflow],
-    exposes: [ListedExpose],
+    endpoints: [ListedExpose],
     budgets: TEST_BUDGETS,
   })
   class ListedApplication {}

@@ -258,7 +258,7 @@ describe("#1366: which lease store a pairing is made with", () => {
 describe("#1366: a retention stays above the lease", () => {
   const lease = EXECUTION_LEASE;
 
-  it.each(["costLedgerEntries", "a2aMessages"])(
+  it.each(["costLedgerEntries"])(
     "%s at the lease or below is refused naming the lease's length; one ms above is not",
     (field) => {
       const [atLease] = retentionViolations("desk-app", { [field]: lease });
@@ -272,7 +272,7 @@ describe("#1366: a retention stays above the lease", () => {
     },
   );
 
-  it.each(["pauseRecords", "executionRecords", "auditLog", "a2aTasks"])(
+  it.each(["pauseRecords", "executionRecords", "auditLog"])(
     "%s is no row a fenced write relies on: a short one is fine",
     (field) => {
       expect(retentionViolations("desk-app", { [field]: 1 })).toEqual([]);
@@ -304,7 +304,7 @@ describe("#1366: a retention stays above the lease", () => {
     expect(retentionViolations("desk-app", { pauseRecord: 5 })).toEqual([
       {
         code: "application.retention-invalid",
-        message: `its retention.pauseRecord is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aMessages) — ${hint}`,
+        message: `its retention.pauseRecord is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries) — ${hint}`,
         nodes: ["desk-app"],
       },
     ]);

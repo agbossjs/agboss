@@ -146,6 +146,7 @@ export {
   type InvalidA2APageTokenErrorOptions,
   isTerminalA2ATaskState,
   type A2AMessageKey,
+  type A2AEndpointOwned,
   type A2AMessageRecord,
   type A2ATaskKey,
   type A2ATaskPage,

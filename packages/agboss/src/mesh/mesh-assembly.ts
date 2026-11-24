@@ -10,13 +10,13 @@ import { meshOf } from "./mesh.decorator.js";
  */
 export const meshOptionsOf = (options: {
   readonly mesh?: Class;
-  readonly exposes?: readonly Class[];
-}): Pick<AssembledApplication, "maxMeshHops" | "meshAnswerRetention" | "mesh" | "exposes"> => {
+  readonly endpoints?: readonly Class[];
+}): Pick<AssembledApplication, "maxMeshHops" | "meshAnswerRetention" | "mesh" | "endpoints"> => {
   const mesh = options.mesh === undefined ? undefined : meshOf(options.mesh);
   return {
     maxMeshHops: mesh?.maxHops ?? DEFAULT_MAX_MESH_HOPS,
     meshAnswerRetention: mesh?.deduplicationTtl ?? (DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds),
-    exposes: options.exposes ?? [],
+    endpoints: options.endpoints ?? [],
     ...(mesh === undefined ? {} : { mesh }),
   };
 };

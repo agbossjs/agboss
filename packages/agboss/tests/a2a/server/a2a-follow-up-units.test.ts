@@ -33,6 +33,7 @@ import {
   settle,
   unitParts,
   type Script,
+  UNIT_ENDPOINT,
 } from "./support/unit-parts.js";
 
 const INPUT_REQUIRED = { state: A2ATaskState.InputRequired, pendingPauses: [] };
@@ -173,8 +174,9 @@ describe("#824: a follow-up sent again", () => {
     const { parts, tasks } = await setUp(script);
     await refusalOf(followedUpTask(parts, callerOf(), decide("f-1")));
     await tasks.saveMessageIfAbsent({
+      endpoint: UNIT_ENDPOINT,
       ...keyOf("f-other"),
-      requestHash: requestHashOf("unit-workflow-start", decide("f-other")),
+      requestHash: requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", decide("f-other")),
       taskId: "task-9",
       savedAt: NINE,
     });
@@ -232,8 +234,9 @@ describe("#824: a follow-up sent again", () => {
     const { tasks, task } = await setUp(script);
     const message = decide("f-1");
     const record = {
+      endpoint: UNIT_ENDPOINT,
       ...keyOf("f-1"),
-      requestHash: requestHashOf("unit-workflow-start", message),
+      requestHash: requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", message),
       taskId: "task-1",
       savedAt: NINE,
     };
@@ -265,8 +268,9 @@ describe("#824: a follow-up sent again", () => {
     const { tasks, task } = await setUp(script);
     const message = decide("f-1");
     const record = {
+      endpoint: UNIT_ENDPOINT,
       ...keyOf("f-1"),
-      requestHash: requestHashOf("unit-workflow-start", message),
+      requestHash: requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", message),
       taskId: "task-1",
       savedAt: NINE,
     };
@@ -295,13 +299,14 @@ describe("#824: a follow-up sent again", () => {
     const script = scriptOf({ state: pausedOn("p-1") });
     const { tasks } = await setUp(script);
     const record: A2AMessageRecord = {
+      endpoint: UNIT_ENDPOINT,
       ...keyOf("f-1"),
       requestHash: "",
       taskId: "task-1",
       savedAt: NINE,
     };
     const message = decide("f-1");
-    const hash = requestHashOf("unit-workflow-start", message);
+    const hash = requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", message);
     const answeredElsewhere = Object.assign(Object.create(tasks) as InMemoryA2ATaskRepository, {
       saveMessageIfAbsent: () => Promise.resolve({ ...record, requestHash: hash }),
       findByMessage: () =>
@@ -318,8 +323,9 @@ describe("#824: a follow-up sent again", () => {
     const { tasks } = await setUp(script);
     const message = decide("f-1");
     const record = {
+      endpoint: UNIT_ENDPOINT,
       ...keyOf("f-1"),
-      requestHash: requestHashOf("unit-workflow-start", message),
+      requestHash: requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", message),
       taskId: "task-1",
       savedAt: NINE,
     };
@@ -340,8 +346,9 @@ describe("#824: a follow-up sent again", () => {
       const { tasks } = await setUp(script);
       const message = decide("f-1");
       await tasks.saveMessageIfAbsent({
+        endpoint: UNIT_ENDPOINT,
         ...keyOf("f-1"),
-        requestHash: requestHashOf("unit-workflow-start", message),
+        requestHash: requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", message),
         taskId: "task-1",
         savedAt: NINE,
       });
@@ -369,8 +376,9 @@ describe("#824: a follow-up sent again", () => {
     await savedTask(tasks, {}, { state: A2ATaskState.Completed, pendingPauses: [] });
     const message = decide("f-1");
     await tasks.saveMessageIfAbsent({
+      endpoint: UNIT_ENDPOINT,
       ...keyOf("f-1"),
-      requestHash: requestHashOf("unit-workflow-start", message),
+      requestHash: requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", message),
       taskId: "task-1",
       savedAt: NINE,
     });

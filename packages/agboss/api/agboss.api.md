@@ -34,7 +34,7 @@ export interface A2ADirectMessageKey {
 }
 
 // @public
-export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt {
+export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt, A2AEndpointOwned {
     readonly callerPeer?: string;
     readonly callsModel: boolean;
     readonly completedAt?: Date;
@@ -61,7 +61,7 @@ export interface A2ADirectMessageReply {
 // @public
 export abstract class A2ADirectMessageRepository {
     abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    abstract deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
     abstract deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
     abstract findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
     // (undocumented)
@@ -94,6 +94,12 @@ export enum A2ADirectMessageState {
 }
 
 // @public
+export interface A2AEndpointOwned {
+    // (undocumented)
+    readonly endpoint: string;
+}
+
+// @public
 export interface A2AMessageKey {
     // (undocumented)
     readonly messageId: string;
@@ -103,7 +109,7 @@ export interface A2AMessageKey {
 }
 
 // @public
-export interface A2AMessageRecord extends A2AMessageKey {
+export interface A2AMessageRecord extends A2AMessageKey, A2AEndpointOwned {
     readonly reply?: unknown;
     readonly requestHash: string;
     // (undocumented)
@@ -138,7 +144,7 @@ export interface A2ATaskPause {
 }
 
 // @public
-export interface A2ATaskQuery {
+export interface A2ATaskQuery extends A2AEndpointOwned {
     // (undocumented)
     readonly contextId?: string;
     // (undocumented)
@@ -153,7 +159,7 @@ export interface A2ATaskQuery {
 }
 
 // @public
-export interface A2ATaskRecord extends A2ATaskKey {
+export interface A2ATaskRecord extends A2ATaskKey, A2AEndpointOwned {
     readonly acceptedAt: Date;
     readonly callerPeer?: string;
     readonly contextId: string;
@@ -170,7 +176,7 @@ export interface A2ATaskRecord extends A2ATaskKey {
 // @public (undocumented)
 export abstract class A2ATaskRepository {
     abstract compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
-    abstract deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
     // (undocumented)
     abstract findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
@@ -754,9 +760,9 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly childClaimTimeout?: Milliseconds;
     readonly compensationTimeout?: Milliseconds;
     readonly defaults?: ApplicationDefaults;
+    readonly endpoints?: readonly Class[];
     readonly environment: Class<TEnvironment>;
     readonly executionContext?: ExecutionContextClass;
-    readonly exposes?: readonly Class[];
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
     readonly isolatedWorker?: IsolatedWorkerOptions;
@@ -3913,7 +3919,7 @@ export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly T
 }
 
 // @public
-export type ExtraRuleCode = FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+export type ExtraRuleCode = A2AEndpointRuleCode | FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export interface FailedHealthCheckResult {
@@ -5300,7 +5306,7 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
     // (undocumented)
     completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
     // (undocumented)
-    deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
     // (undocumented)
     deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
     // (undocumented)
@@ -5322,7 +5328,7 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
     // (undocumented)
     compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
-    deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
     // (undocumented)
     findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
@@ -8931,8 +8937,6 @@ export interface ResumeVersions {
 
 // @public
 export interface RetentionOptions {
-    readonly a2aMessages?: Milliseconds;
-    readonly a2aTasks?: Milliseconds;
     readonly auditLog?: Milliseconds;
     readonly costLedgerEntries?: Milliseconds;
     readonly executionRecords?: Milliseconds;
@@ -9146,7 +9150,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.endpoint-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-endpoint" | "application.duplicate-endpoint" | "application.endpoint-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -12691,6 +12695,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "taskId".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "endpoint".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "kind".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
@@ -12799,7 +12804,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
@@ -12809,7 +12814,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
 // src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "runInTransaction".

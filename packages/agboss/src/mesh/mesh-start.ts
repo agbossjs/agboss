@@ -75,10 +75,8 @@ export function meshSettingsFor(
     requests: () => app.resolve(MeshRequestRepository),
     isBaseTenantContext: assembled.tenantContext === TenantContext,
     idempotencyRetention: assembled.meshAnswerRetention,
-    a2aTaskRetention: assembled.a2aTaskRetention,
-    a2aMessageRetention: assembled.a2aMessageRetention,
     workflows: assembled.workflows.map((workflow) => workflow.graph.type),
-    exposes: assembled.exposes,
+    endpoints: assembled.endpoints,
     contracts: async () =>
       (await lazyLoad(import("../describe/contracts.js"))).contractsOf(assembled),
   };

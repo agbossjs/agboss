@@ -196,7 +196,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   const environment: Class = spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
-    exposes: [MeshA2AExpose],
+    endpoints: [MeshA2AExpose],
     version: "1.0.0",
     environment,
     workflows: [MeshWorkflow],

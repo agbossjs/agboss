@@ -73,6 +73,7 @@ async function pageOf(
   const statusAtAfter = statusAtAfterOf(params);
   try {
     return await parts.tasks.list({
+      endpoint: parts.endpoint,
       tenantId: caller.tenantId,
       ownerId: caller.ownerId,
       ...(params.contextId === "" ? {} : { contextId: params.contextId }),

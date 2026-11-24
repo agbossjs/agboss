@@ -66,9 +66,18 @@ export {
 } from "./a2a-caller.js";
 export { a2aHttpListener, type A2AHttpListenerOptions } from "./a2a-http.js";
 export {
-  A2AExpose,
+  A2AEndpoint,
   A2ACardFileFields,
   A2AReply,
+  type A2AEndpointOptions,
+  type A2AEndpointSkill,
+  type A2AEndpointSkillOptions,
+  type A2AEndpointTtl,
+  type A2ASkillEntry,
+} from "./a2a-endpoint.decorator.js";
+// the form of 0.1.0, recorded as an endpoint until the test sweep flips its users (#1320, F2)
+export {
+  A2AExpose,
   type A2AExposeOptions,
   type A2AExposedSkillOptions,
 } from "./a2a-expose.decorator.js";

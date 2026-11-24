@@ -24,6 +24,7 @@ import {
   filePolicyViolations,
 } from "../files/file-policy.js";
 import { workflowFilePolicyOf, workflowOfStart } from "../files/workflow-file-policy.js";
+import { cardFileFieldsSourceOf, skillMapOf, startsOfEndpoint } from "./a2a-endpoint.decorator.js";
 
 /**
  * Where an application's A2A files may live (#859), read from the declarations, fail closed: with
@@ -60,12 +61,12 @@ function fileStoreOf(providers: readonly Provider[]): {
 export interface FileTierSources {
   readonly name: string;
   readonly providers: readonly Provider[];
-  readonly exposes: readonly Class[];
+  readonly endpoints: readonly Class[];
   readonly workflows: readonly Class[];
 }
 
 const tierOf = (sources: FileTierSources): number =>
-  fileTierSizeOf(sources.exposes, sources.workflows);
+  fileTierSizeOf(sources.endpoints, sources.workflows);
 
 const kb = (bytes: number): string => `${String(Math.ceil(bytes / 1024))} KB`;
 
@@ -156,23 +157,30 @@ function optionsViolations(options: ApplicationOptions): RuleViolation[] {
         : [];
     return [...filePolicyViolations(`${name}'s filePolicy`, policy, [options.name]), ...unset];
   });
-  const skills = (options.exposes ?? []).flatMap((expose) => {
+  const skills = (options.endpoints ?? []).flatMap((expose) => {
     const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose") return [];
-    const files = Object.entries(meta.meta.skills ?? {}).flatMap(([skill, settings]) =>
+    if (meta?.kind !== "a2a-endpoint") return [];
+    const files = Object.entries(skillMapOf(meta.meta)).flatMap(([skill, settings]) =>
       skillPolicyViolations(
         meta.meta.name,
         skill,
         settings.filePolicy,
-        meta.meta.exports.find((start) => declarationOf(start)?.options.name === skill),
+        startsOfEndpoint(meta.meta).find((start) => declarationOf(start)?.options.name === skill),
         options.workflows,
       ),
     );
     // #904: how its card describes file fields
-    const exported = new Set(meta.meta.exports.map((start) => declarationOf(start)?.options.name));
+    const exported = new Set(
+      startsOfEndpoint(meta.meta).map((start) => declarationOf(start)?.options.name),
+    );
     return [
       ...files,
-      ...cardFileFieldsViolations(meta.meta.name, meta.meta, exported, options.name),
+      ...cardFileFieldsViolations(
+        meta.meta.name,
+        cardFileFieldsSourceOf(meta.meta),
+        exported,
+        options.name,
+      ),
     ];
   });
   return [...own, ...skills, ...policyRequiredViolations(options)];
@@ -186,7 +194,7 @@ export function a2aFileStoreViolations(options: ApplicationOptions): RuleViolati
   const sources: FileTierSources = {
     name: options.name,
     providers: options.providers ?? [],
-    exposes: options.exposes ?? [],
+    endpoints: options.endpoints ?? [],
     workflows: options.workflows,
   };
   const found = optionsViolations(options);

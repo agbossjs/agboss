@@ -8,6 +8,7 @@ import { listItemClassesOf, plainOutputClassOf } from "../../flow/finish-output.
 import { fileFieldsOf, inputClassOf } from "../../dto/standard/file.js";
 import { fileLimitsOf } from "../../files/file-policy.js";
 import { workflowFilePolicyOf, workflowOfStart } from "../../files/workflow-file-policy.js";
+import { skillOptionsOf, startsOfEndpoint } from "../a2a-endpoint.decorator.js";
 
 /**
  * How many bytes of files an application's A2A skills may keep at once (#859), read from the
@@ -68,16 +69,16 @@ function startSizeOf(
 }
 
 /** The most bytes of files any exported skill keeps: what the storage tier is chosen by. */
-export function fileTierSizeOf(exposes: readonly Class[], workflows: readonly Class[]): number {
-  const sizes = exposes.flatMap((expose) => {
+export function fileTierSizeOf(endpoints: readonly Class[], workflows: readonly Class[]): number {
+  const sizes = endpoints.flatMap((expose) => {
     const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose") return [];
-    return meta.meta.exports.map((start) => {
+    if (meta?.kind !== "a2a-endpoint") return [];
+    return startsOfEndpoint(meta.meta).map((start) => {
       // Stryker disable next-line StringLiteral: equivalent: a start with no declaration gets size 0 whatever its name
       const name = declarationOf(start)?.options.name ?? "";
       const limits = fileLimitsOf(
         workflowFilePolicyOf(workflowOfStart(start, workflows)),
-        meta.meta.skills?.[name]?.filePolicy,
+        skillOptionsOf(meta.meta, name)?.filePolicy,
       );
       return startSizeOf(start, workflows, limits);
     });

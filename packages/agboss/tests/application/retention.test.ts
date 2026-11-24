@@ -53,7 +53,6 @@ describe("#834 AC1: one retention group", () => {
       pauseRecordRetention: hours(24),
       auditLogRetention: hours(24),
       ledgerEntryRetention: hours(24),
-      a2aTaskRetention: hours(24),
       meshAnswerRetention: minutes(30),
     });
     expect(assembled.executionRecordRetention).toBeUndefined();
@@ -74,7 +73,7 @@ describe("#834 AC2: [application.retention-invalid]", () => {
     );
   });
 
-  it.each(["costLedgerEntries", "a2aMessages"])(
+  it.each(["costLedgerEntries"])(
     "%s at the lease fails assembly: a mark, an intent or an entry would go before a zombie's write",
     async (field) => {
       await expect(assembledWith({ [field]: seconds(30) })).rejects.toThrow(
@@ -91,7 +90,7 @@ describe("#834 AC2: [application.retention-invalid]", () => {
 
   it("a field it does not know is a typo, never a silent default", async () => {
     await expect(assembledWith({ ledgerEntries: hours(1) })).rejects.toThrow(
-      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, a2aTasks, a2aMessages)",
+      "[application.retention-invalid] its retention.ledgerEntries is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries)",
     );
   });
 
@@ -117,7 +116,6 @@ describe("#834 AC2: a retention set where it was before is refused, never droppe
     [{ executionRecordRetention: hours(720) }, "executionRecordRetention", "executionRecords"],
     [{ leaseEventRetention: hours(1) }, "leaseEventRetention", "auditLog"],
     [{ ledgerEntryRetention: hours(72) }, "ledgerEntryRetention", "costLedgerEntries"],
-    [{ a2a: { taskRetention: hours(1) } }, "a2a.taskRetention", "a2aTasks"],
   ])("%o: its %s is gone, naming retention.%s", async (others, where, now) => {
     await expect(assembledWith(undefined, others)).rejects.toThrow(
       `[application.retention-invalid] its ${where} is gone — @Application({ retention: { ${now} } }) sets it now`,
@@ -131,12 +129,6 @@ describe("#834 AC2: a retention set where it was before is refused, never droppe
       "[application.retention-invalid] its retention.leaseEvents is renamed: the audit log's rows are kept for retention.auditLog —",
     );
     await expect(assembly).rejects.not.toThrow(/leaseEvents is not a retention/);
-  });
-
-  it("an a2a option without its retention is gone too", async () => {
-    await expect(assembledWith(undefined, { a2a: {} })).rejects.toThrow(
-      "[application.retention-invalid] its a2a option is gone — how long A2A tasks are kept is @Application({ retention: { a2aTasks } })",
-    );
   });
 
   it("beyond a century is not a duration a cutoff can hold", async () => {
@@ -171,7 +163,6 @@ const RETENTION = {
   executionRecords: minutes(3),
   auditLog: minutes(4),
   costLedgerEntries: minutes(5),
-  a2aTasks: minutes(9),
 } as const satisfies RetentionOptions;
 
 @Application({
@@ -215,11 +206,6 @@ describe("#834 AC1: the recovery sweep removes each kind past its own retention"
         "meshAnswers",
         vi.spyOn(app.resolve(MeshRequestRepository), "deleteExpired"),
         DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds,
-      ],
-      [
-        "a2aTasks",
-        vi.spyOn(app.resolve(A2ATaskRepository), "deleteTerminalByStatusAtBefore"),
-        RETENTION.a2aTasks,
       ],
     ];
 

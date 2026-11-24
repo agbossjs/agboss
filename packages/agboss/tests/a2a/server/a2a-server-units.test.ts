@@ -51,6 +51,7 @@ async function storeWith(
 ) {
   const tasks = new InMemoryA2ATaskRepository(new InMemoryDatabase());
   const save = await tasks.saveIfAbsent({
+    endpoint: "unit-a2a-expose",
     ...KEY,
     ownerId: "dana",
     contextId: "ctx-1",
@@ -81,6 +82,7 @@ function partsOf(tasks: InMemoryA2ATaskRepository, control: ExecutionControl, no
   const warnings: string[] = [];
   const clock = new VirtualClock(now);
   const parts: Partial<A2AServerParts> = {
+    endpoint: "unit-a2a-expose",
     tasks,
     control,
     clock,

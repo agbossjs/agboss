@@ -157,7 +157,7 @@ describe("#860 AC2: a Message answer inside an execution", () => {
 });
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: QuotesA2AExpose, authenticator: BearerAuthenticator };
 
 describe("#860 AC2: A2AClient against an AGBoss direct-reply skill", () => {
   test("AC2: execute and send get the reply; a second call is another message, the model called again", async ({

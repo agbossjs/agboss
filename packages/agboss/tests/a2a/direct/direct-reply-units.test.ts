@@ -21,6 +21,7 @@ import {
   NO_MESH,
   refusalOf,
   settle,
+  UNIT_ENDPOINT,
 } from "../server/support/unit-parts.js";
 import {
   acceptedMessage,
@@ -33,7 +34,7 @@ import {
 } from "./support/direct-parts.js";
 
 const hello = (contextId = "ctx-7") => messageOf("m-1", ["hello"], { contextId });
-const helloHash = requestHashOf(DIRECT_SKILL.id, hello());
+const helloHash = requestHashOf(UNIT_ENDPOINT, DIRECT_SKILL.id, hello());
 const REPLY = { finish: "unit-workflow-finish", output: { total: 9 }, spentUsd: usd(0) };
 
 describe("#860: a new direct message", () => {

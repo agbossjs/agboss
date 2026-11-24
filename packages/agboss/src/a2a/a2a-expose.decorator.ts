@@ -1,67 +1,71 @@
 import type { Class } from "../components/injection.js";
 import { recordComponent } from "../components/metadata.js";
-
-// #860: how a skill answers, defined beside the assembly rule that reads it (the root import
-// loads the rule, never this decorator)
-export { A2AReply } from "./a2a-message-skill-rule.js";
-import type { A2AReply } from "./a2a-message-skill-rule.js";
-// #904: how the card describes file fields, beside the rule that checks it
-export { A2ACardFileFields } from "./files/a2a-file-options.js";
+import { declarationOf } from "../flow/decorators/declaration.js";
+import { hours, minutes } from "../units/index.js";
+import type {
+  A2AEndpointMeta,
+  A2AEndpointSkillOptions,
+  A2AEndpointTtl,
+  A2ASkillEntry,
+} from "./a2a-endpoint.decorator.js";
 import type { A2ACardFileFields } from "./files/a2a-file-options.js";
 
+// kept for the importers that still take them from here: the rules and the card read them
+export { A2AReply } from "./a2a-message-skill-rule.js";
+export { A2ACardFileFields } from "./files/a2a-file-options.js";
+
+/** The skill options of the old form, keyed by the start's name. */
+export type A2AExposedSkillOptions = A2AEndpointSkillOptions;
+
 /**
- * What the Agent Card says of one exported start (#808): its tags and examples; its files (#859);
- * how it answers (#860).
+ * `@A2AExpose`'s options (#398 PR 3, #808): the form of 0.1.0 — `exports` and a `skills` map by start name.
+ * `@A2AEndpoint` replaces it (#1320); this form stays only until the test sweep flips its users.
  */
-export interface A2AExposedSkillOptions {
-  /** Keywords of the skill; default the application's name. */
-  readonly tags?: readonly string[];
-  /** Example requests. */
-  readonly examples?: readonly string[];
-  /** A `@FilePolicy` that narrows its workflow's for this skill's files (#859, #1316): it may only tighten it. */
-  readonly filePolicy?: Class;
-  /** A task (`A2AReply.Task`, the default) or a direct message (`A2AReply.Message`, #860). */
-  readonly reply?: A2AReply;
-  /** How its card describes its file fields (#904), over the expose's `cardFileFields`. */
+export interface A2AExposeOptions {
+  readonly name: string;
+  readonly version: string;
+  readonly description: string;
+  readonly exports: readonly Class[];
+  readonly skills?: Readonly<Record<string, A2AEndpointSkillOptions>>;
+  readonly defaultSkill?: Class;
   readonly cardFileFields?: A2ACardFileFields;
+  readonly provider?: { readonly organization: string; readonly url: string };
+  /** How long it keeps what it serves; default `hours(24)` for tasks, `minutes(15)` for messages. */
+  readonly ttl?: A2AEndpointTtl;
 }
 
-/** `@A2AExpose({ name, version, description, exports, skills?, defaultSkill?, provider?, security?, cardFileFields? })` (#398 PR 3, #808, #860, #904). */
-export interface A2AExposeOptions {
-  /** `billing` — kebab-case (`[name.not-kebab-case]`): the card's `name`. */
-  readonly name: string;
-  /** The contract's version: the card's `version`, in `describe --json` and federation checks. */
-  readonly version: string;
-  /** What the agent does: the card's `description`. */
-  readonly description: string;
-  /** The workflow starts it serves (`@WorkflowStart` classes of the application's workflows): its skills. */
-  readonly exports: readonly Class[];
-  /** Per exported start's name: its tags and examples on the card, how it answers (#860). */
-  readonly skills?: Readonly<Record<string, A2AExposedSkillOptions>>;
-  /**
-   * The skill a message runs when it names none (#860) — a foreign caller that sends no
-   * `metadata[A2A_SKILLS_EXTENSION].skill` to an agent of several skills; one of `exports`
-   * (`[a2a.default-skill-unknown]`). Unset: with several skills a message must name one.
-   */
-  readonly defaultSkill?: Class;
-  /**
-   * How the card describes its skills' file fields (#904): out of the data `input` schema, in the
-   * skills extension's `files` (`A2ACardFileFields.Extension`, the default), or in it as
-   * `x-agboss-file-part` markers, never required (`A2ACardFileFields.Marker`); a skill may set its own.
-   */
-  readonly cardFileFields?: A2ACardFileFields;
+/** `@A2AExpose`'s options as an endpoint's: the old form's skills map folded into its entries. */
+function endpointMetaOf(options: A2AExposeOptions): A2AEndpointMeta {
+  const named = options.skills ?? {};
+  const matched = new Set<string>();
+  const skills = options.exports.map((start): A2ASkillEntry => {
+    const name = declarationOf(start)?.options.name;
+    const own = name === undefined ? undefined : named[name];
+    if (name === undefined || own === undefined) return start;
+    matched.add(name);
+    return { ...own, start };
+  });
+  const unmatched = Object.entries(named).filter(([name]) => !matched.has(name));
+  return {
+    name: options.name,
+    version: options.version,
+    description: options.description,
+    ttl: options.ttl ?? { tasks: hours(24), messages: minutes(15) },
+    skills,
+    ...(options.defaultSkill === undefined ? {} : { defaultSkill: options.defaultSkill }),
+    ...(options.cardFileFields === undefined ? {} : { cardFileFields: options.cardFileFields }),
+    ...(options.provider === undefined ? {} : { provider: options.provider }),
+    ...(unmatched.length === 0 ? {} : { unmatchedSkills: Object.fromEntries(unmatched) }),
+  };
 }
 
 /**
- * `@A2AExpose` (#398 PR 3, mirrors `@McpEndpoint`) — what an application serves over A2A v1.0 (#808):
- * its Agent Card's name, version and description, and the starts a caller may run — one skill each,
- * named by the start. Put it on an empty class, list it in `@Application({ exposes })` and serve it
- * with `a2aHttpListener(app, { expose, authenticator, publicUrl })`; `agboss describe --json` lists
- * it among the application's exported contracts.
+ * `@A2AExpose` — the form of 0.1.0, recorded as an `@A2AEndpoint`: its `exports` and `skills` map are
+ * the endpoint's `skills` list. Removed with the flip of its users (#1320, F2).
  */
 export function A2AExpose(options: A2AExposeOptions) {
   return <C extends Class>(target: C): C => {
-    recordComponent(target, { kind: "a2a-expose", meta: options });
+    recordComponent(target, { kind: "a2a-endpoint", meta: endpointMetaOf(options) });
     return target;
   };
 }

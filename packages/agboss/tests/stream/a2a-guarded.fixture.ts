@@ -55,8 +55,8 @@ export class WireA2AExpose {}
   workflows: [WireGuardedWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
-  exposes: [WireA2AExpose],
+  endpoints: [WireA2AExpose],
 })
 export class WireApplication {}
 
-export const wireListener = { expose: WireA2AExpose, authenticator: WireAuthenticator };
+export const wireListener = { endpoint: WireA2AExpose, authenticator: WireAuthenticator };

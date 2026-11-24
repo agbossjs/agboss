@@ -73,10 +73,8 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
       ...MESH_DEFAULTS,
       clock,
       idempotencyRetention: 1,
-      a2aTaskRetention: 1,
-      a2aMessageRetention: 1,
       workflows: [],
-      exposes: [OrdersA2AExpose, FlippedExpose],
+      endpoints: [OrdersA2AExpose, FlippedExpose],
       contracts: () => {
         built += 1;
         return Promise.reject(new Boom("contracts"));
@@ -97,7 +95,7 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
 
 const listenerOn = (host: Host, more: { publicUrl?: string; base?: string } = {}) =>
   a2aHttpListener(host.app, {
-    expose: OrdersA2AExpose,
+    endpoint: OrdersA2AExpose,
     authenticator: BearerAuthenticator,
     publicUrl: "https://desk.example",
     ...more,
@@ -148,7 +146,7 @@ describe("#1366: the listener's URL checks", () => {
     const host = hostOf({ mesh: true, control: true });
     const make = () =>
       a2aHttpListener(host.app, {
-        expose: OrdersA2AExpose,
+        endpoint: OrdersA2AExpose,
         authenticator: BearerAuthenticator,
         publicUrl: "https://desk.example",
         maxTaskDuration: 2_073_600_001 as never,
@@ -162,7 +160,7 @@ describe("#1366: the card's URL", () => {
 
   orders("is the publicUrl without trailing slashes plus the base", async ({ a2aServer }) => {
     const { url } = await a2aServer({
-      expose: OrdersA2AExpose,
+      endpoint: OrdersA2AExpose,
       authenticator: BearerAuthenticator,
       publicUrl: "https://desk.example///",
       base: "/a2a",
@@ -219,7 +217,7 @@ describe("#1366: a request the listener cannot serve", () => {
   it("an expose whose metadata is no longer an @A2AExpose's at the first request is refused as not-an-expose", async () => {
     const host = hostOf({ mesh: true, control: true });
     const listener = a2aHttpListener(host.app, {
-      expose: FlippedExpose,
+      endpoint: FlippedExpose,
       authenticator: BearerAuthenticator,
       publicUrl: "https://desk.example",
     });
@@ -230,7 +228,7 @@ describe("#1366: a request the listener cannot serve", () => {
     await until(() => out.seen.written, "the answer");
 
     expect(out.seen.status).toBe(503);
-    expect(host.logger.entries[0]?.message).toContain("[a2a.not-an-expose]");
+    expect(host.logger.entries[0]?.message).toContain("[a2a.not-an-endpoint]");
     expect(host.builds()).toBe(0);
   });
 

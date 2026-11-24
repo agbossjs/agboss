@@ -258,7 +258,7 @@ export interface A2ADirectMessageKey {
 }
 
 // @public
-export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt {
+export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt, A2AEndpointOwned {
     readonly callerPeer?: string;
     readonly callsModel: boolean;
     readonly completedAt?: Date;
@@ -285,7 +285,7 @@ export interface A2ADirectMessageReply {
 // @public
 export abstract class A2ADirectMessageRepository {
     abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    abstract deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
     abstract deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
     abstract findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
     // (undocumented)
@@ -322,6 +322,44 @@ export interface A2ADownloadOptions {
     readonly maxSize?: Bytes;
     // (undocumented)
     readonly signal?: AbortSignal;
+}
+
+// @public
+export function A2AEndpoint(options: A2AEndpointOptions): <C extends Class>(target: C) => C;
+
+// @public
+export interface A2AEndpointOptions {
+    readonly cardFileFields?: A2ACardFileFields;
+    readonly defaultSkill?: Class;
+    readonly description: string;
+    readonly name: string;
+    readonly provider?: {
+        readonly organization: string;
+        readonly url: string;
+    };
+    readonly skills: readonly A2ASkillEntry[];
+    readonly ttl: A2AEndpointTtl;
+    readonly version: string;
+}
+
+// @public
+export interface A2AEndpointSkill extends A2AEndpointSkillOptions {
+    readonly start: Class;
+}
+
+// @public
+export interface A2AEndpointSkillOptions {
+    readonly cardFileFields?: A2ACardFileFields;
+    readonly examples?: readonly string[];
+    readonly filePolicy?: Class;
+    readonly reply?: A2AReply;
+    readonly tags?: readonly string[];
+}
+
+// @public
+export interface A2AEndpointTtl {
+    readonly messages: Milliseconds;
+    readonly tasks: Milliseconds | Ttl.Forever;
 }
 
 // @public
@@ -393,22 +431,29 @@ export enum A2AErrorKind {
 export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: C) => C;
 
 // @public
-export interface A2AExposedSkillOptions {
-    readonly cardFileFields?: A2ACardFileFields;
-    readonly examples?: readonly string[];
-    readonly filePolicy?: Class;
-    readonly reply?: A2AReply;
-    readonly tags?: readonly string[];
-}
+export type A2AExposedSkillOptions = A2AEndpointSkillOptions;
 
 // @public
 export interface A2AExposeOptions {
+    // (undocumented)
     readonly cardFileFields?: A2ACardFileFields;
+    // (undocumented)
     readonly defaultSkill?: Class;
+    // (undocumented)
     readonly description: string;
+    // (undocumented)
     readonly exports: readonly Class[];
+    // (undocumented)
     readonly name: string;
-    readonly skills?: Readonly<Record<string, A2AExposedSkillOptions>>;
+    // (undocumented)
+    readonly provider?: {
+        readonly organization: string;
+        readonly url: string;
+    };
+    // (undocumented)
+    readonly skills?: Readonly<Record<string, A2AEndpointSkillOptions>>;
+    readonly ttl?: A2AEndpointTtl;
+    // (undocumented)
     readonly version: string;
 }
 
@@ -419,15 +464,11 @@ export function a2aHttpListener(app: A2AApp, options: A2AHttpListenerOptions): (
 export interface A2AHttpListenerOptions {
     readonly authenticator?: Class;
     readonly base?: string;
-    readonly expose: Class;
+    readonly endpoint: Class;
     readonly maxBodySize?: Bytes;
     readonly maxTaskDuration?: Milliseconds;
     readonly onError?: (error: unknown, req: IncomingMessage) => void;
-    readonly provider?: {
-        readonly organization: string;
-        readonly url: string;
-    };
-    readonly publicUrl: string;
+    readonly publicUrl: string | (() => string);
 }
 
 // @public
@@ -613,6 +654,9 @@ export enum A2AReply {
 }
 
 // @public
+export type A2ASkillEntry = Class | A2AEndpointSkill;
+
+// @public
 export type A2AStreamEvent = StreamResponse;
 
 // @public
@@ -788,7 +832,7 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
     // (undocumented)
     completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
     // (undocumented)
-    deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
     // (undocumented)
     deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
     // (undocumented)
@@ -818,7 +862,7 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
     // (undocumented)
     completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
     // (undocumented)
-    deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
     // (undocumented)
     deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
     // (undocumented)
@@ -841,7 +885,7 @@ export class SqliteA2ATaskRepository extends A2ATaskRepository {
     // (undocumented)
     compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
-    deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
     // (undocumented)
     findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
@@ -878,6 +922,14 @@ export { TaskState }
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "mesh".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "allowedOrigins".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "deps".
+// src/a2a/a2a-expose.decorator.ts - (ae-undocumented) Missing documentation for "name".
+// src/a2a/a2a-expose.decorator.ts - (ae-undocumented) Missing documentation for "version".
+// src/a2a/a2a-expose.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/a2a/a2a-expose.decorator.ts - (ae-undocumented) Missing documentation for "exports".
+// src/a2a/a2a-expose.decorator.ts - (ae-undocumented) Missing documentation for "skills".
+// src/a2a/a2a-expose.decorator.ts - (ae-undocumented) Missing documentation for "defaultSkill".
+// src/a2a/a2a-expose.decorator.ts - (ae-undocumented) Missing documentation for "cardFileFields".
+// src/a2a/a2a-expose.decorator.ts - (ae-undocumented) Missing documentation for "provider".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "reason".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "code".
@@ -1027,7 +1079,7 @@ export { TaskState }
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
@@ -1036,7 +1088,7 @@ export { TaskState }
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
@@ -1046,7 +1098,7 @@ export { TaskState }
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
 // src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 
 // (No @packageDocumentation comment for this package)
 

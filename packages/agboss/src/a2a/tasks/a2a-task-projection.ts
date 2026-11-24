@@ -39,7 +39,7 @@ export interface A2ATaskProjectionParts {
 
 /**
  * The A2A task projection (#807, design §4.1.3 step 7): a framework observer, registered when the
- * application exposes an `@A2AExpose`, that moves a root execution's task — the task whose id is
+ * application exposes an `@A2AEndpoint`, that moves a root execution's task — the task whose id is
  * the execution's reserved id, on the task's own context — with its events: start and resume →
  * `WORKING`, a rest at pauses → `INPUT_REQUIRED` (or `WORKING` with a message for channel-only
  * pauses), an end → `COMPLETED` with the finish's output, an error → `FAILED` with its code /

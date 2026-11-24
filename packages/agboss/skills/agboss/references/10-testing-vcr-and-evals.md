@@ -615,7 +615,7 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `[model.unserved]`, not the first call.
 - **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
   blocked except `allowNetwork: ["localhost"]`.
-- **A2A**: `const { url } = await a2aServer({ expose, authenticator })` serves the test's `app` through
+- **A2A**: `const { url } = await a2aServer({ endpoint, authenticator })` serves the test's `app` through
   `a2aHttpListener` on `127.0.0.1:0` (the authenticator from its container, the loopback open, closed at
   the test's end); call it with `new A2AClient({ url, headers })` (#387, reference 04).
 - **Matchers**: `toFollowPath([Start, …, Finish])`, `toFinishWith(Finish, output?)` (the whole output),
@@ -647,7 +647,7 @@ partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
 ### Serving the application over A2A: `a2aServer`
 
 The `a2aServer` fixture (#387, an `A2AServerFixture`) serves the test's `app` through
-`a2aHttpListener` (its `@A2AExpose`, listed in `@Application({ exposes })`, #398 PR 3) on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
+`a2aHttpListener` (its `@A2AEndpoint`, listed in `@Application({ endpoints })`, #398 PR 3) on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
 url, headers })`. The app is built first and the authenticator taken from its container (so
 `services` and `mockOf` reach its services); the loopback is open for the test without
 `allowNetwork`, its `publicUrl` is its own address, and the server closes when the test ends. It
@@ -669,7 +669,7 @@ const candidate = { name: "Dana", cv: "TypeScript, 6 years" };
 -->
 
 ```ts
-const screening = { expose: ScreeningA2AExpose, authenticator: ScreeningHttpAuthenticator };
+const screening = { endpoint: ScreeningA2AExpose, authenticator: ScreeningHttpAuthenticator };
 
 /** A JSON-RPC `SendMessage` of one data part: what any A2A v1.0 client sends. */
 const sendMessage = (url: string, data: object, headers: Record<string, string> = {}) =>

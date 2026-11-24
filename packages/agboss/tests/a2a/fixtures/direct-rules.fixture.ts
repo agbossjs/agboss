@@ -184,7 +184,7 @@ export function directRulesApplication(
     budgets: TEST_BUDGETS,
     providers: [...providers, ...(exported === TckWorkflowStart ? [TckCallerChannel] : [])],
     ...(exported === TckWorkflowStart ? { executionContext: TckExecutionContext } : {}),
-    exposes: [RulesA2AExpose],
+    endpoints: [RulesA2AExpose],
   })
   class RulesApplication {}
   return RulesApplication;

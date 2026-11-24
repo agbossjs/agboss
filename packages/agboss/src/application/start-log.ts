@@ -42,7 +42,7 @@ export interface WarningSources {
   readonly executionRecordRetention?: number | undefined;
   /** The application's name and exposes (#859): where its A2A files ride. */
   readonly name?: string;
-  readonly exposes?: readonly Class[];
+  readonly endpoints?: readonly Class[];
   /** The application's own and its workflows' providers (#812: where an `@A2AAgent` is listed). */
   readonly modules?: readonly ProviderModule[];
 }
@@ -119,7 +119,7 @@ function inlineFilesOf(sources: WarningSources): AssemblyWarning[] {
   const message = inlineFilesWarningOf({
     name: sources.name ?? "the application",
     providers: sources.providers,
-    exposes: sources.exposes ?? [],
+    endpoints: sources.endpoints ?? [],
     workflows: sources.workflows.map((workflow) => workflow.graph.type),
   });
   return message === undefined ? [] : [{ code: "a2a.inline-files-without-store", message }];

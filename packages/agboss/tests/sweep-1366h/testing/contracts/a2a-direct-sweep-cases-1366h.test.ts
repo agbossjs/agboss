@@ -55,59 +55,75 @@ async function outcomeOf(name: string, make: Make): Promise<"pass" | "fail"> {
 
 class Sound extends InMemoryA2ADirectMessageRepository {}
 
+/** The one endpoint the contract's messages belong to. */
+const ENDPOINT = "billing";
+const cutoffOf = (cutoffs: ReadonlyMap<string, Date>): Date => cutoffs.get(ENDPOINT) ?? new Date(0);
+const cutoffsAt = (cutoff: Date): ReadonlyMap<string, Date> => new Map([[ENDPOINT, cutoff]]);
+
+/** The messages a sweep took: the rows that are gone after it ran. */
+async function removedBy(
+  store: object,
+  sweep: () => Promise<number>,
+): Promise<A2ADirectMessageRecord[]> {
+  const rows = databaseOf(store).a2aDirectMessages;
+  const before = new Map(rows);
+  await sweep();
+  return [...before].filter(([row]) => !rows.has(row)).map(([, kept]) => kept);
+}
+
 /** The rows a sweep took, put back: the claims are freed, the messages stay. */
 class KeepsRows extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
+    const gone = await removedBy(this, () => super.deleteExpired(cutoffs, limit));
     for (const kept of gone) databaseOf(this).a2aDirectMessages.set(a2aMessageRowOf(kept), kept);
-    return gone;
+    return gone.length;
   }
 }
 
 /** The claims of the removed messages stay: an id is never free. */
 class KeepsClaims extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
     const claims = new Map(databaseOf(this).a2aMessages);
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
+    const gone = await super.deleteExpired(cutoffs, limit);
     for (const [row, claim] of claims) databaseOf(this).a2aMessages.set(row, claim);
     return gone;
   }
 }
 
-/** Hands back every completed message before the cutoff, whatever the limit. */
+/** Removes every completed message before the cutoff, whatever the limit. */
 class IgnoresLimit extends InMemoryA2ADirectMessageRepository {
-  override deleteByCreatedAtBefore(cutoff: Date, limit: number) {
-    return super.deleteByCreatedAtBefore(cutoff, Math.max(limit, 100));
+  override deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
+    return super.deleteExpired(cutoffs, Math.max(limit, 100));
   }
 }
 
 class NewestFirst extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
-    const all = await super.deleteByCreatedAtBefore(cutoff, 100);
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
+    const all = await removedBy(this, () => super.deleteExpired(cutoffs, 100));
     const taken = [...all].reverse().slice(0, limit);
-    // what it did not hand back is put back
+    // what it did not take is put back
     for (const kept of all.filter((one) => !taken.includes(one)))
       databaseOf(this).a2aDirectMessages.set(a2aMessageRowOf(kept), kept);
-    return taken;
+    return taken.length;
   }
 }
 
 /** Frees the claims of every failed message at once, whatever the limit. */
 class FreesAllOrphans extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
-    await super.deleteByCreatedAtBefore(cutoff, 100);
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
+    const gone = await super.deleteExpired(cutoffs, limit);
+    await super.deleteExpired(cutoffs, 100);
     return gone;
   }
 }
 
 /** Never frees the claim of a failed message. */
 class KeepsOrphans extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
     const claims = databaseOf(this).a2aMessages;
     const before = new Map(claims);
     const messages = databaseOf(this).a2aDirectMessages;
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
+    const gone = await removedBy(this, () => super.deleteExpired(cutoffs, limit));
     for (const [row, claim] of before)
       if (
         !claims.has(row) &&
@@ -115,21 +131,21 @@ class KeepsOrphans extends InMemoryA2ADirectMessageRepository {
         !messages.has(row)
       )
         claims.set(row, claim);
-    return gone;
+    return gone.length;
   }
 }
 
 /** Frees the claim of a failed message accepted at the cutoff too. */
 class FreesAtCutoff extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
-    return super.deleteByCreatedAtBefore(new Date(cutoff.getTime() + 1), limit);
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
+    return super.deleteExpired(cutoffsAt(new Date(cutoffOf(cutoffs).getTime() + 1)), limit);
   }
 }
 
 /** Removes the claims of every message with no row, a task's too. */
 class FreesTaskClaims extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
+    const gone = await super.deleteExpired(cutoffs, limit);
     const { a2aMessages: claims, a2aDirectMessages: messages } = databaseOf(this);
     for (const [row] of claims) if (!messages.has(row)) claims.delete(row);
     return gone;
@@ -138,12 +154,12 @@ class FreesTaskClaims extends InMemoryA2ADirectMessageRepository {
 
 /** Sweeps a message still in flight too. */
 class SweepsInFlight extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
     const { a2aMessages: claims, a2aDirectMessages: messages } = databaseOf(this);
     const old = [...messages.entries()].filter(
-      ([, kept]) => kept.createdAt.getTime() < cutoff.getTime(),
+      ([, kept]) => kept.createdAt.getTime() < cutoffOf(cutoffs).getTime(),
     );
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
+    const gone = await super.deleteExpired(cutoffs, limit);
     for (const [row, kept] of old) {
       if (kept.state === A2ADirectMessageState.InFlight) {
         messages.delete(row);
@@ -195,21 +211,22 @@ class ExpiredWithCompleted extends InMemoryA2ADirectMessageRepository {
 
 /** Takes the rows of the swept messages but leaves them findable: dated far ahead, never swept twice. */
 class KeepsRowsFindable extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
+    const gone = await removedBy(this, () => super.deleteExpired(cutoffs, limit));
     for (const kept of gone)
       databaseOf(this).a2aDirectMessages.set(a2aMessageRowOf(kept), {
         ...kept,
         createdAt: new Date(9e12),
+        completedAt: new Date(9e12),
       });
-    return gone;
+    return gone.length;
   }
 }
 
 /** Frees the claim of every message kept, whatever its age. */
 class FreesKeptClaims extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
+    const gone = await super.deleteExpired(cutoffs, limit);
     const { a2aMessages: claims, a2aDirectMessages: messages } = databaseOf(this);
     for (const [row] of messages) claims.delete(row);
     return gone;
@@ -261,41 +278,53 @@ class LosesTheResend extends InMemoryA2ADirectMessageRepository {
   }
 }
 
+/** One row of the page: when it was kept, its id, whether it is a completed message. */
+interface PageRow {
+  readonly at: number;
+  readonly id: string;
+  readonly isDone: boolean;
+}
+
+/** The completed messages and the failed ones' claims older than `cutoff`, by row. */
+function pageRowsOf(store: object, cutoff: number): Map<string, PageRow> {
+  const { a2aMessages: claims, a2aDirectMessages: messages } = databaseOf(store);
+  const rows = new Map<string, PageRow>();
+  for (const [row, kept] of messages) {
+    const at = kept.completedAt?.getTime() ?? cutoff;
+    if (kept.state === A2ADirectMessageState.Completed && at < cutoff)
+      rows.set(row, { at, id: kept.messageId, isDone: true });
+  }
+  for (const [row, claim] of claims)
+    if (!messages.has(row) && claim.taskId === "" && claim.savedAt.getTime() < cutoff)
+      rows.set(row, { at: claim.savedAt.getTime(), id: claim.messageId, isDone: false });
+  return rows;
+}
+
 /** One page of the completed messages and the failed ones' claims, oldest first, a tie by id, newest. */
 class OnePageOfBoth extends InMemoryA2ADirectMessageRepository {
-  override deleteByCreatedAtBefore(cutoff: Date, limit: number) {
+  override deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
     const { a2aMessages: claims, a2aDirectMessages: messages } = databaseOf(this);
-    const rows = new Map<string, { at: number; id: string; done?: A2ADirectMessageRecord }>();
-    for (const [row, kept] of messages)
-      if (
-        kept.state === A2ADirectMessageState.Completed &&
-        kept.createdAt.getTime() < cutoff.getTime()
-      )
-        rows.set(row, { at: kept.createdAt.getTime(), id: kept.messageId, done: kept });
-    for (const [row, claim] of claims)
-      if (!messages.has(row) && claim.taskId === "" && claim.savedAt.getTime() < cutoff.getTime())
-        rows.set(row, { at: claim.savedAt.getTime(), id: claim.messageId });
-    const page = [...rows.entries()]
+    const page = [...pageRowsOf(this, cutoffOf(cutoffs).getTime()).entries()]
       .sort(([, a], [, b]) => a.at - b.at || (a.id < b.id ? 1 : -1))
       .slice(0, limit);
     for (const [row] of page) {
       messages.delete(row);
       claims.delete(row);
     }
-    return Promise.resolve(page.flatMap(([, one]) => (one.done === undefined ? [] : [one.done])));
+    return Promise.resolve(page.filter(([, one]) => one.isDone).length);
   }
 }
 
 /** Keeps a failed message's claim, and takes an empty request hash for no hash to compare. */
 class KeepsOrphansEmptyHashFits extends InMemoryA2ADirectMessageRepository {
-  override async deleteByCreatedAtBefore(cutoff: Date, limit: number) {
+  override async deleteExpired(cutoffs: ReadonlyMap<string, Date>, limit: number) {
     const claims = databaseOf(this).a2aMessages;
     const before = new Map(claims);
-    const gone = await super.deleteByCreatedAtBefore(cutoff, limit);
+    const gone = await removedBy(this, () => super.deleteExpired(cutoffs, limit));
     for (const [row, claim] of before)
       if (!claims.has(row) && !gone.some((one) => a2aMessageRowOf(one) === row))
         claims.set(row, claim);
-    return gone;
+    return gone.length;
   }
 
   override saveIfAbsent(message: Parameters<Messages["saveIfAbsent"]>[0]) {

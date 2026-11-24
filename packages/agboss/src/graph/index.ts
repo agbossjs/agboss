@@ -49,6 +49,7 @@ export type { FileRuleCode } from "../files/file-rule-codes.js";
 export type { PiiRuleCode } from "../pii/pii-rule-codes.js";
 export type { ModelProviderRuleCode } from "../models/model-rule-codes.js";
 export type {
+  A2AEndpointRuleCode,
   ExtraRuleCode,
   ParallelLaunchRuleCode,
   PauseTargetRuleCode,

@@ -71,7 +71,7 @@ class SqliteOrdersA2AExpose {}
     SqliteA2ATaskRepository,
     BearerAuthenticator,
   ],
-  exposes: [SqliteOrdersA2AExpose],
+  endpoints: [SqliteOrdersA2AExpose],
   budgets: TEST_BUDGETS,
 })
 class SqliteOrdersApplication {}
@@ -110,7 +110,7 @@ for (const [name, test, expose] of CASES) {
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Done." }),
       );
-      const { url } = await a2aServer({ expose, authenticator: BearerAuthenticator });
+      const { url } = await a2aServer({ endpoint: expose, authenticator: BearerAuthenticator });
       const task = taskOf(
         await rpc(url, "SendMessage", { message: userMessage("m-1", [text("go")]) }),
       );
@@ -136,7 +136,7 @@ for (const [name, test, expose] of CASES) {
       mockLlm,
     }) => {
       mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
-      const { url } = await a2aServer({ expose, authenticator: BearerAuthenticator });
+      const { url } = await a2aServer({ endpoint: expose, authenticator: BearerAuthenticator });
       const task = taskOf(
         await rpc(url, "SendMessage", { message: userMessage("m-1", [text("go")]) }),
       );

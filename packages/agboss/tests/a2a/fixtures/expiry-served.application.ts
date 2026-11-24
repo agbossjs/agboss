@@ -29,7 +29,7 @@ export class OwnerA2AExpose {}
   workflows: [OwnerWorkflow],
   providers: [OwnerChannel, ExpiryPausedExecutionRepository, RecordingLogger, BearerAuthenticator],
   observers: [ExpiryLog],
-  exposes: [OwnerA2AExpose],
+  endpoints: [OwnerA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class ExpiryServedApplication {}

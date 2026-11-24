@@ -83,13 +83,13 @@ function exposeOf(exports: readonly Class[], skills: Record<string, object> = {}
 
 const violationsOf = (
   workflows: readonly Class[],
-  exposes: readonly Class[],
+  endpoints: readonly Class[],
   more: Partial<ApplicationOptions> = {},
 ) =>
   messageSkillViolations({
     name: "unit-rule-application",
     workflows,
-    exposes,
+    endpoints,
     ...more,
   } as ApplicationOptions);
 
@@ -186,7 +186,7 @@ describe("#860: what the direct-reply rule reads past", () => {
       undefined: { reply: A2AReply.Message },
     });
     const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose") throw new Error("not an expose");
+    if (meta?.kind !== "a2a-endpoint") throw new Error("not an expose");
 
     const codes = violationsOf([workflow], [expose]).map((found) => found.message);
 

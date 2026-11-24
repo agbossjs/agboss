@@ -178,7 +178,7 @@ export class QuotesA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, QuoteFileWorkflow, AckWorkflow],
   providers: [BearerAuthenticator, InMemoryFileRepository],
-  exposes: [QuotesA2AExpose],
+  endpoints: [QuotesA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class DirectApplication {}

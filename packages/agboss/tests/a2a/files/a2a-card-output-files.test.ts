@@ -66,7 +66,7 @@ export class SummaryFilesA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel],
-  exposes: [FilesA2AExpose, MarkedOutputsA2AExpose, SummaryFilesA2AExpose],
+  endpoints: [FilesA2AExpose, MarkedOutputsA2AExpose, SummaryFilesA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class CardOutputsApplication {}
@@ -92,7 +92,7 @@ async function entryOf(url: string, skill: string): Promise<SkillEntry> {
   return entry;
 }
 
-const serve = (expose: Class) => ({ expose, authenticator: BearerAuthenticator });
+const serve = (expose: Class) => ({ endpoint: expose, authenticator: BearerAuthenticator });
 
 /** What `checkCard` throws for a client of `skill` with these DTOs on the card at `url`. */
 async function refusalOf(

@@ -7,7 +7,7 @@ import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleCode, type RuleViolation } from "../graph/rule-error.js";
 import { boundClassesOf, effectOf } from "./a2a-effect-reach.js";
-import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
+import { skillMapOf, startsOfEndpoint, type A2AEndpointMeta } from "./a2a-endpoint.decorator.js";
 
 /**
  * A skill that answers with a direct message (#860, `A2AReply.Message`) is stateless, checked at
@@ -125,23 +125,25 @@ function skillProblems(
   );
 }
 
-/** The exports of an `@A2AExpose` that answer with a direct message, each with its skill's name. */
-function messageSkillEntriesOf(expose: A2AExposeOptions): (readonly [string, Class])[] {
-  return expose.exports.flatMap((start) => {
+/** The skills of an `@A2AEndpoint` that answer with a direct message, each with its skill's name. */
+function messageSkillEntriesOf(expose: A2AEndpointMeta): (readonly [string, Class])[] {
+  const options = skillMapOf(expose);
+  return startsOfEndpoint(expose).flatMap((start) => {
     const name = declarationOf(start)?.options.name;
-    const isMessage = name !== undefined && expose.skills?.[name]?.reply === A2AReply.Message;
+    const isMessage = name !== undefined && options[name]?.reply === A2AReply.Message;
     return isMessage ? [[name, start] as const] : [];
   });
 }
 
-/** The exports of an `@A2AExpose` that answer with a direct message (#860). */
-export const messageSkillsOf = (expose: A2AExposeOptions): readonly Class[] =>
+/** The starts of an `@A2AEndpoint` that answer with a direct message (#860). */
+export const messageSkillsOf = (expose: A2AEndpointMeta): readonly Class[] =>
   messageSkillEntriesOf(expose).map(([, start]) => start);
 
-/** What an `@A2AExpose`'s own options get wrong: a reply for no export, a default of none. */
-function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[] {
-  const names = new Set(expose.exports.map((start) => declarationOf(start)?.options.name));
-  const found = Object.entries(expose.skills ?? {})
+/** What an `@A2AEndpoint`'s own options get wrong: a reply for no skill, a default of none. */
+function optionProblems(expose: A2AEndpointMeta, where: string): RuleViolation[] {
+  const starts = startsOfEndpoint(expose);
+  const names = new Set(starts.map((start) => declarationOf(start)?.options.name));
+  const found = Object.entries(skillMapOf(expose))
     .filter(([name, skill]) => skill.reply !== undefined && !names.has(name))
     .map(([name]) =>
       violation(
@@ -151,7 +153,7 @@ function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[
       ),
     );
   const fallback = expose.defaultSkill;
-  if (fallback !== undefined && !expose.exports.includes(fallback))
+  if (fallback !== undefined && !starts.includes(fallback))
     found.push(
       violation(
         "a2a.unknown-skill-option",
@@ -166,10 +168,10 @@ function optionProblems(expose: A2AExposeOptions, where: string): RuleViolation[
 export function messageSkillViolations(options: ApplicationOptions): RuleViolation[] {
   const where = options.name;
   const bound = boundClassesOf(options);
-  // Stryker disable next-line ArrayDeclaration: no exposes, no skills either way
-  return (options.exposes ?? []).flatMap((cls) => {
+  // Stryker disable next-line ArrayDeclaration: no endpoints, no skills either way
+  return (options.endpoints ?? []).flatMap((cls) => {
     const meta = componentOf(cls);
-    if (meta?.kind !== "a2a-expose") return [];
+    if (meta?.kind !== "a2a-endpoint") return [];
     const expose = meta.meta;
     const skills = messageSkillEntriesOf(expose).flatMap(([skill, start]) => {
       const nodes = flowOf(options.workflows, start);

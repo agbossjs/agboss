@@ -46,10 +46,10 @@ export type ComponentMeta =
     }
   /** `@McpEndpoint` (`@agboss/core/mcp`): what `connectMcp` / `mcpHttpListener` expose to MCP clients. */
   | { readonly kind: "mcp-endpoint"; readonly meta: McpEndpointOptions }
-  /** `@A2AExpose` (`@agboss/core/a2a`, #398 PR 3): what `a2aHttpListener` serves to A2A callers. */
+  /** `@A2AEndpoint` (`@agboss/core/a2a`, #1320): what `a2aHttpListener` serves to A2A callers. */
   | {
-      readonly kind: "a2a-expose";
-      readonly meta: import("../a2a/a2a-expose.decorator.js").A2AExposeOptions;
+      readonly kind: "a2a-endpoint";
+      readonly meta: import("../a2a/a2a-endpoint.decorator.js").A2AEndpointMeta;
     }
   | {
       readonly kind: "channel";
@@ -196,7 +196,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   tool: "Tool",
   "mcp-server": "McpServer",
   "mcp-endpoint": "McpEndpoint",
-  "a2a-expose": "A2AExpose",
+  "a2a-endpoint": "A2AEndpoint",
   "a2a-agent": "A2AAgent",
   injectable: "Injectable",
   rag: "Rag",

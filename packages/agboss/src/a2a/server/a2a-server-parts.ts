@@ -39,6 +39,8 @@ import type { A2ADirectMessageRepository } from "../../infrastructure/a2a-direct
 
 export interface A2AServerParts {
   readonly app: A2AApp;
+  /** The `@A2AEndpoint({ name })` served: what its tasks and messages are kept under (#1320). */
+  readonly endpoint: string;
   readonly tasks: A2ATaskRepository;
   readonly control: ExecutionControl;
   readonly clock: Clock;
@@ -62,7 +64,7 @@ export interface A2AServerParts {
 /** What the direct-reply skills (#860, `A2AReply.Message`) work with. */
 export interface A2ADirectParts {
   readonly messages: A2ADirectMessageRepository;
-  /** The skill a message that names none runs (`@A2AExpose({ defaultSkill })`), if any. */
+  /** The skill a message that names none runs (`@A2AEndpoint({ defaultSkill })`), if any. */
   readonly defaultSkill: ServedSkill | undefined;
 }
 
@@ -191,7 +193,9 @@ export async function ownedTask(
   // the empty id, like every other that is no key's text, names no task
   const isKey = keyTextRuleOf(taskId) === undefined;
   const task = isKey ? await parts.tasks.findById(key) : undefined;
-  if (task === undefined || task.ownerId !== caller.ownerId) throw taskNotFound();
+  // another endpoint's task is "not found" too: two endpoints on one store never see each other's
+  if (task === undefined || task.ownerId !== caller.ownerId || task.endpoint !== parts.endpoint)
+    throw taskNotFound();
   return repairedOf(parts, task);
 }
 

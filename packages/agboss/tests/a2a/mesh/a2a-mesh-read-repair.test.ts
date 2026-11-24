@@ -50,9 +50,12 @@ afterEach(async () => {
 
 /** The peer's one task, as its store keeps it. */
 async function peerTaskOf(served: ServedPeer) {
-  const page = await served.app
-    .resolve(A2ATaskRepository)
-    .list({ tenantId: "default", ownerId: "mesh:caller-application", pageSize: 10 });
+  const page = await served.app.resolve(A2ATaskRepository).list({
+    endpoint: "peer-a2a-expose",
+    tenantId: "default",
+    ownerId: "mesh:caller-application",
+    pageSize: 10,
+  });
   expect(page.tasks).toHaveLength(1);
   return page.tasks[0];
 }

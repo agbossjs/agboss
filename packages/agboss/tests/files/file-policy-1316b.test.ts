@@ -123,8 +123,8 @@ describe("#1316b: @FilePolicy and the limits it gives", () => {
 });
 
 describe("#1316b: the assembly rules", () => {
-  const optionsOf = (workflow: unknown, exposes: readonly unknown[] = []) =>
-    ({ name: "rules-application", workflows: [workflow], exposes }) as never;
+  const optionsOf = (workflow: unknown, endpoints: readonly unknown[] = []) =>
+    ({ name: "rules-application", workflows: [workflow], endpoints }) as never;
   const codes = (found: readonly { readonly code: string }[]) => found.map(({ code }) => code);
 
   it("[workflow.file-policy-required]: files in the flow, no policy on the workflow", () => {

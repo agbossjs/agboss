@@ -59,7 +59,7 @@ function appOf(
       options.down === true
         ? () => ({ saveIfAbsent: () => Promise.reject(new Error("down")) })
         : () => store,
-    exposes: [OrdersMcp, AdminMcp],
+    endpoints: [OrdersMcp, AdminMcp],
   } as never;
   const app = {};
   rememberMeshSettings(app, () => settings);
@@ -166,7 +166,7 @@ describe("#1320: the mesh's gate of an MCP HTTP request", () => {
     class StrayMcp {}
 
     expect(() => servedEndpointOf(appOf() as never, StrayMcp)).toThrow(
-      "[application.expose-unlisted] StrayMcp",
+      "[application.endpoint-unlisted] StrayMcp",
     );
     expect(() => servedEndpointOf(appOf() as never, OrdersMcp)).not.toThrow();
   });

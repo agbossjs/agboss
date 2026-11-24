@@ -119,10 +119,8 @@ async function settled(
     ...MESH_DEFAULTS,
     clock: new VirtualClock(NOW),
     idempotencyRetention: hours(1),
-    a2aTaskRetention: hours(1),
-    a2aMessageRetention: hours(1),
     workflows: [],
-    exposes: [],
+    endpoints: [],
     contracts: () => Promise.reject(new Error("no contracts in a unit")),
   };
   if (!withoutSettings) rememberContextMeshSettings(application as never, settings);

@@ -241,7 +241,7 @@ const PEER_OPTIONS = {
   workflows: [PeerWorkflow],
   providers: [SharedTestClock, PeerAuthenticator],
   observers: [PeerStarts],
-  exposes: [PeerA2AExpose],
+  endpoints: [PeerA2AExpose],
   budgets: TEST_BUDGETS,
   mesh: PeerMesh,
 } as const;
@@ -258,7 +258,7 @@ export class PeerApplication {}
   workflows: [PeerWorkflow],
   providers: [SharedTestClock, PeerAuthenticator],
   observers: [PeerStarts],
-  exposes: [PeerA2AExpose],
+  endpoints: [PeerA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class KeylessPeerApplication {}

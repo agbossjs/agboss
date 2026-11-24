@@ -19,6 +19,7 @@ const NINE = new Date("2026-01-05T09:00:00.000Z");
 const at = (minutes: number): Date => new Date(NINE.getTime() + minutes * 60_000);
 
 const newTask = (taskId: string, messageId: string, acceptedAt: Date): NewA2ATask => ({
+  endpoint: "orders-a2a-expose",
   tenantId: "default",
   taskId,
   ownerId: "alice",
@@ -39,6 +40,7 @@ describe("#960: the SQLite orphan sweep against a resend of the orphan's message
     other.database.exec("PRAGMA busy_timeout = 0");
     const tasks = new SqliteA2ATaskRepository(other);
     const message = {
+      endpoint: "orders-a2a-expose",
       tenantId: "default",
       ownerId: "alice",
       messageId: "m-x",
@@ -55,7 +57,7 @@ describe("#960: the SQLite orphan sweep against a resend of the orphan's message
         () => "saved",
         () => "refused",
       );
-      sweepSqliteA2ATasks(sweeper.database, at(10));
+      sweepSqliteA2ATasks(sweeper.database, new Map([["orders-a2a-expose", at(10)]]));
     });
 
     expect(await interleaved).toBe("refused");
@@ -65,7 +67,7 @@ describe("#960: the SQLite orphan sweep against a resend of the orphan's message
     );
     // a later sweep leaves the live task's message; its resend is a duplicate
     sweeper.transaction(() => {
-      sweepSqliteA2ATasks(sweeper.database, at(10));
+      sweepSqliteA2ATasks(sweeper.database, new Map([["orders-a2a-expose", at(10)]]));
     });
     expect((await tasks.saveIfAbsent(newTask("t-30", "m-x", at(21)))).status).toBe(
       A2ATaskSaveStatus.MessageTaken,

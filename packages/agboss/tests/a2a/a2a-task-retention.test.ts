@@ -1,9 +1,11 @@
 /**
- * #807 AC5: the recovery sweep removes finished A2A tasks after `@Application({ retention: {
- * a2aTasks } })` — `hours(24)` by default — on the application's Clock, with their messages;
- * an unfinished task is never removed.
+ * #807 AC5, #1320: the recovery sweep removes finished A2A tasks after their endpoint's
+ * `ttl.tasks` on the application's Clock, with their messages — each endpoint's own, so two
+ * endpoints of one application keep their rows for their own time; `Ttl.Forever` keeps them for
+ * ever; an unfinished task is never removed.
  */
 import { describe, expect } from "vitest";
+import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../src/application/application.js";
 import {
   A2ATaskRepository,
@@ -12,10 +14,39 @@ import {
 } from "../../src/infrastructure/a2a-task.repository.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { testWith, type TestApp } from "../../src/testing/index.js";
-import { hours, minutes, seconds } from "../../src/units/index.js";
+import { hours, minutes, seconds, Ttl } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { RecoveryWorkflow } from "../infrastructure/fixtures/recovery.workflow.js";
-import { OrdersApplication } from "./fixtures/task.application.js";
+import {
+  OrderWorkflowStart,
+  RecoveryWorkflow,
+} from "../infrastructure/fixtures/recovery.workflow.js";
+
+@A2AEndpoint({
+  name: "short-tasks",
+  version: "1.0.0",
+  description: "Keeps its finished tasks ten minutes",
+  ttl: { tasks: minutes(10), messages: minutes(15) },
+  skills: [OrderWorkflowStart],
+})
+class ShortTasksEndpoint {}
+
+@A2AEndpoint({
+  name: "long-tasks",
+  version: "1.0.0",
+  description: "Keeps its finished tasks a day",
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [OrderWorkflowStart],
+})
+class LongTasksEndpoint {}
+
+@A2AEndpoint({
+  name: "forever-tasks",
+  version: "1.0.0",
+  description: "Keeps its finished tasks for ever",
+  ttl: { tasks: Ttl.Forever, messages: minutes(15) },
+  skills: [OrderWorkflowStart],
+})
+class ForeverTasksEndpoint {}
 
 @Application({
   name: "short-tasks-application",
@@ -23,16 +54,22 @@ import { OrdersApplication } from "./fixtures/task.application.js";
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   budgets: TEST_BUDGETS,
-  retention: { a2aTasks: minutes(10) },
+  endpoints: [ShortTasksEndpoint, LongTasksEndpoint, ForeverTasksEndpoint],
 })
-class ShortTasksApplication {}
+class TasksApplication {}
 
-/** Saves `taskId` accepted now and moves it to `status`. */
-async function taskIn(app: TestApp, taskId: string, status: A2ATaskStatus): Promise<void> {
+/** Saves `taskId` of `endpoint` accepted now and moves it to `status`. */
+async function taskIn(
+  app: TestApp,
+  endpoint: string,
+  taskId: string,
+  status: A2ATaskStatus,
+): Promise<void> {
   await app.ready();
   const tasks = app.resolve(A2ATaskRepository);
   const acceptedAt = app.clock.now();
   await tasks.saveIfAbsent({
+    endpoint,
     tenantId: "default",
     taskId,
     ownerId: undefined,
@@ -51,30 +88,33 @@ const WORKING: A2ATaskStatus = { state: A2ATaskState.Working, pendingPauses: [] 
 const find = (app: TestApp, taskId: string) =>
   app.resolve(A2ATaskRepository).findById({ tenantId: "default", taskId });
 
-describe("#807 AC5: finished tasks are swept after their retention", () => {
-  testWith(OrdersApplication)(
-    "24 hours by default; an unfinished task stays",
+describe("#807 AC5, #1320: finished tasks are swept after their endpoint's ttl", () => {
+  testWith(TasksApplication)(
+    "each endpoint at its own ttl; an unfinished task stays; Ttl.Forever is never swept",
     async ({ app, clock }) => {
-      await taskIn(app, "done", COMPLETED);
-      await taskIn(app, "running", WORKING);
+      await taskIn(app, "short-tasks", "short-done", COMPLETED);
+      await taskIn(app, "short-tasks", "short-running", WORKING);
+      await taskIn(app, "long-tasks", "long-done", COMPLETED);
+      await taskIn(app, "forever-tasks", "forever-done", COMPLETED);
 
-      await clock.advance(hours(23));
-      const kept = await find(app, "done");
-      await clock.advance(hours(1));
+      await clock.advance(minutes(10));
       await clock.advance(seconds(31));
+      const afterShort = [
+        await find(app, "short-done"),
+        await find(app, "short-running"),
+        await find(app, "long-done"),
+        await find(app, "forever-done"),
+      ].map((task) => task !== undefined);
+      await clock.advance(hours(24));
+      await clock.advance(seconds(31));
+      const afterLong = [
+        await find(app, "short-running"),
+        await find(app, "long-done"),
+        await find(app, "forever-done"),
+      ].map((task) => task !== undefined);
 
-      expect(kept).toBeDefined();
-      expect(await find(app, "done")).toBeUndefined();
-      expect(await find(app, "running")).toBeDefined();
+      expect(afterShort).toEqual([false, true, true, true]);
+      expect(afterLong).toEqual([true, false, true]);
     },
   );
-
-  testWith(ShortTasksApplication)("as the application sets it", async ({ app, clock }) => {
-    await taskIn(app, "done", COMPLETED);
-
-    await clock.advance(minutes(10));
-    await clock.advance(seconds(31));
-
-    expect(await find(app, "done")).toBeUndefined();
-  });
 });

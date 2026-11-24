@@ -137,7 +137,7 @@ describe("#1316b review: a child's pool only tightens its parent's", () => {
     const found = a2aFileStoreViolations({
       name: "rules-application",
       workflows: [FileReviewWorkflow],
-      exposes: [Expose],
+      endpoints: [Expose],
     } as never);
 
     expect(found.map(({ code }) => code)).toContain("a2a.skill-file-policy-exceeds-workflow");

@@ -66,7 +66,7 @@ export class OwnFilesA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel],
-  exposes: [FilesA2AExpose, MarkedFilesA2AExpose, OwnFilesA2AExpose],
+  endpoints: [FilesA2AExpose, MarkedFilesA2AExpose, OwnFilesA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class CardFilesApplication {}
@@ -92,7 +92,7 @@ async function entryOf(url: string): Promise<SkillEntry> {
   return entry;
 }
 
-const serve = (expose: Class) => ({ expose, authenticator: BearerAuthenticator });
+const serve = (expose: Class) => ({ endpoint: expose, authenticator: BearerAuthenticator });
 
 describe("#904 item 5 AC5.1: the card's file fields", () => {
   test("Extension (the default): out of input and required, declared in the extension's files", async ({

@@ -15,7 +15,7 @@ import { DeskApplication } from "../../../src/desk.application.js";
  */
 
 const deskTest = testWith(DeskApplication);
-const desk = { expose: DeskA2AExpose, authenticator: DeskHttpAuthenticator };
+const desk = { endpoint: DeskA2AExpose, authenticator: DeskHttpAuthenticator };
 
 /** A JSON-RPC `SendMessage` of one data part, as the helpline's tenant (none: no header). */
 async function sendMessage(url: string, tenantId?: string): Promise<Response> {

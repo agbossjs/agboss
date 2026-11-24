@@ -1,4 +1,5 @@
-import { A2AExpose } from "@agboss/core/a2a";
+import { A2AEndpoint } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 import { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js";
 
 /**
@@ -7,11 +8,11 @@ import { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js";
  * or its finishes' outputs needs a new `version` (`check --federation` against
  * `snapshots/desk-application.json`).
  */
-@A2AExpose({
+@A2AEndpoint({
   name: "desk-a2a-expose",
   version: "1.0.0",
   description: "Answers order questions for the helpline",
-  exports: [DeskWorkflowStart],
-  skills: { "desk-workflow-start": { tags: ["orders", "support"] } }, // a card's skill is found by its tags
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [{ start: DeskWorkflowStart, tags: ["orders", "support"] }], // a card's skill is found by its tags
 })
 export class DeskA2AExpose {}

@@ -85,7 +85,7 @@ export function a2aStoresApplication(
     workflows: [ReleaseWorkflow],
     budgets: TEST_BUDGETS,
     providers,
-    ...(isExposed ? { exposes: [ReleaseA2AExpose] } : {}),
+    ...(isExposed ? { endpoints: [ReleaseA2AExpose] } : {}),
   })
   class A2AStoresApplication {}
   return A2AStoresApplication;

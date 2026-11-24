@@ -30,7 +30,7 @@ import {
 
 const test = testWith(FilesApplication);
 const stored = testWith(StoredFilesApplication);
-const listener = { expose: FilesA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator };
 const SKILLS = "https://agboss.dev/a2a/skills/v1";
 
 const sdkPart = (bytes: Uint8Array, mediaType: string, filename: string): Part => ({

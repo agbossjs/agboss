@@ -141,7 +141,7 @@ export class RemoteDeskA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [RemoteDesk],
   budgets: TEST_BUDGETS,
-  exposes: [RemoteDeskA2AExpose],
+  endpoints: [RemoteDeskA2AExpose],
 })
 export class RemoteDeskApplication {}
 

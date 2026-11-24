@@ -40,7 +40,7 @@ const exposeOf = (name: string, reply: A2AReply): Class => {
   return AnA2AExpose;
 };
 
-const applicationWith = (providers: readonly Provider[], exposes: readonly Class[]): Class => {
+const applicationWith = (providers: readonly Provider[], endpoints: readonly Class[]): Class => {
   @Application({
     name: "stores-application",
     version: "1.0.0",
@@ -48,7 +48,7 @@ const applicationWith = (providers: readonly Provider[], exposes: readonly Class
     workflows: [QuoteWorkflow],
     budgets: TEST_BUDGETS,
     providers,
-    exposes,
+    endpoints,
   })
   class StoresApplication {}
   return StoresApplication;
@@ -104,12 +104,12 @@ describe("#860 AC3: [a2a.message-store-not-shared], each form", () => {
   });
 
   it("AC3: several exposes with direct-reply skills are named, comma-separated", async () => {
-    const exposes = [
+    const endpoints = [
       exposeOf("quotes-a2a-expose", A2AReply.Message),
       exposeOf("prices-a2a-expose", A2AReply.Message),
     ];
 
-    const found = await storeViolationsOf(applicationWith([MongoA2ATasks], exposes));
+    const found = await storeViolationsOf(applicationWith([MongoA2ATasks], endpoints));
 
     expect(found[0]?.message).toContain("(quotes-a2a-expose, prices-a2a-expose)");
   });

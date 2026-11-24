@@ -10,7 +10,7 @@ import { a2aCardWarningsOf } from "../../../src/a2a/a2a-card-warnings.js";
 import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
 import { recordComponent } from "../../../src/components/metadata.js";
-import { usd } from "../../../src/units/index.js";
+import { hours, minutes, usd } from "../../../src/units/index.js";
 import { RefundWorkflowStart } from "../../a2a/fixtures/contracts.workflow.js";
 
 type Sources = Parameters<typeof a2aCardWarningsOf>[0];
@@ -66,8 +66,14 @@ class ExposeOfNonStart {
   readonly kind = "expose-of-non-start";
 }
 recordComponent(ExposeOfNonStart, {
-  kind: "a2a-expose",
-  meta: { name: "odd-a2a-expose", version: "1.0.0", description: "d", exports: [NotAStart] },
+  kind: "a2a-endpoint",
+  meta: {
+    name: "odd-a2a-expose",
+    version: "1.0.0",
+    description: "d",
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [NotAStart],
+  },
 });
 
 describe("#1366 [a2a.skill-tags]", () => {
@@ -75,7 +81,7 @@ describe("#1366 [a2a.skill-tags]", () => {
     const warnings = a2aCardWarningsOf(
       sourcesOf({
         name: "app",
-        exposes: [UntaggedExpose, TaggedExpose, ExposeOfNonStart, NotAnExpose, ForeignAgent],
+        endpoints: [UntaggedExpose, TaggedExpose, ExposeOfNonStart, NotAnExpose, ForeignAgent],
       }),
     );
     expect(warnings.map((warning) => warning.code)).toEqual(["a2a.skill-tags"]);
@@ -84,7 +90,7 @@ describe("#1366 [a2a.skill-tags]", () => {
 
   it("no exposes at all: nothing is named", () => {
     expect(a2aCardWarningsOf(sourcesOf({}))).toEqual([]);
-    expect(a2aCardWarningsOf(sourcesOf({ exposes: [] }))).toEqual([]);
+    expect(a2aCardWarningsOf(sourcesOf({ endpoints: [] }))).toEqual([]);
   });
 });
 

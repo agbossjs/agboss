@@ -96,6 +96,7 @@ async function storeWith(
 ) {
   const tasks = new InMemoryA2ATaskRepository(new InMemoryDatabase());
   const save = await tasks.saveIfAbsent({
+    endpoint: "orders-a2a-expose",
     ...KEY,
     ownerId: "alice",
     contextId: "ctx-1",

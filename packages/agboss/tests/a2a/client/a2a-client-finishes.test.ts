@@ -62,7 +62,7 @@ async function cardCheckOf(
   );
 }
 
-const serve = { expose: FilesA2AExpose, authenticator: BearerAuthenticator };
+const serve = { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator };
 
 describe("#916 item 3: the card check of a client's output against its skill's finishes", () => {
   test("AC3.1 by default every finish: a DTO of one finish is [a2a.schema-mismatch] naming the other", async ({

@@ -22,6 +22,7 @@ import { hours } from "../../src/units/index.js";
 
 const NINE = new Date("2026-01-05T09:00:00.000Z");
 const accepted = {
+  endpoint: "orders-a2a-expose",
   tenantId: "default",
   taskId: "t-1",
   ownerId: undefined,
@@ -68,19 +69,22 @@ describe("#807: the A2A task stores' helpers", () => {
   });
 
   it("the sweep's expiry names the finished tasks and removes them by their status time", async () => {
-    const asked: Date[] = [];
+    const asked: ReadonlyMap<string, Date>[] = [];
     const tasks = {
-      deleteTerminalByStatusAtBefore: (cutoff: Date) => {
-        asked.push(cutoff);
-        return Promise.resolve();
+      deleteExpired: (cutoffs: ReadonlyMap<string, Date>) => {
+        asked.push(cutoffs);
+        return Promise.resolve(0);
       },
     };
 
-    const expiry = a2aTaskExpiryOf(tasks, hours(24));
+    const expiry = a2aTaskExpiryOf(tasks, "billing", hours(24));
     await expiry.remove?.(NINE);
 
-    expect(expiry).toMatchObject({ what: "the finished A2A tasks", retention: hours(24) });
-    expect(asked).toEqual([NINE]);
+    expect(expiry).toMatchObject({
+      what: "the finished A2A tasks of billing",
+      retention: hours(24),
+    });
+    expect(asked).toEqual([new Map([["billing", NINE]])]);
   });
 
   it("#824: each store declares its backend; the contract leaves it undeclared", () => {

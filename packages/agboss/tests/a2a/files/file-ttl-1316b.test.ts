@@ -253,7 +253,7 @@ describe("#1316b: the ttl rules", () => {
         filePolicy,
       })
       class RuleWorkflow {}
-      return { name: "rules-application", workflows: [RuleWorkflow], exposes: [] } as never;
+      return { name: "rules-application", workflows: [RuleWorkflow], endpoints: [] } as never;
     };
 
     expect(codes(a2aFileStoreViolations(appOf(NoTtl)))).toEqual([

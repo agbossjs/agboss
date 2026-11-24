@@ -23,7 +23,7 @@ import { eventually } from "./rpc.js";
 import { sdkClientOf, textMessage } from "./sdk-client.js";
 
 const test = testWith(OrdersApplication);
-const listener = { expose: OrdersA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const done = replyWith(ReceiptDto, { text: "Done." });
 
 beforeEach(resetRecovery);

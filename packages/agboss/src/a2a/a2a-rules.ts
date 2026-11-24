@@ -9,12 +9,14 @@ import { hasKindSuffix, kebabNameProblem, NameKind } from "../flow/names.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { A2AAgentMeta } from "./a2a-decorator.js";
+import { startsOfEndpoint, type A2AEndpointMeta } from "./a2a-endpoint.decorator.js";
+import { ttlViolations } from "./a2a-endpoint-ttl.js";
 
 /**
  * The declared contracts of an application at assembly (#398 PR 3). Its `exposes` are `@A2AExpose`
- * or `@McpEndpoint` classes (`[application.not-an-expose]`), each name once
- * (`[application.duplicate-expose]`); an `@A2AExpose` exports `@WorkflowStart`s of the application's
- * workflows (`[application.expose-unknown-start]`). Names: kebab-case (`[name.not-kebab-case]`).
+ * or `@McpEndpoint` classes (`[application.not-an-endpoint]`), each name once
+ * (`[application.duplicate-endpoint]`); an `@A2AExpose` exports `@WorkflowStart`s of the application's
+ * workflows (`[application.endpoint-unknown-start]`). Names: kebab-case (`[name.not-kebab-case]`).
  */
 
 /** `[name.not-kebab-case]` for a contract's `name`. */
@@ -35,34 +37,50 @@ function startsOf(workflows: readonly Class[]): ReadonlySet<Class> {
   return new Set(starts);
 }
 
-function exposeViolations(options: ApplicationOptions): RuleViolation[] {
+/** What one `@A2AEndpoint` gets wrong: its description, ttl and skills. */
+function a2aEndpointProblems(
+  meta: A2AEndpointMeta,
+  starts: ReadonlySet<Class>,
+  where: string,
+): RuleViolation[] {
+  const found = contractNameViolations(meta.name, "@A2AEndpoint", where);
+  if (meta.description.trim() === "") {
+    const message = `${meta.name} has no description — the Agent Card's description says what the agent does for a caller that finds it`;
+    found.push(violation("a2a.endpoint-description-required", message, [where]));
+  }
+  found.push(...ttlViolations(meta, where));
+  const listed = startsOfEndpoint(meta);
+  for (const [index, served] of listed.entries()) {
+    if (!starts.has(served)) {
+      const message = `${meta.name} serves ${served.name}, which is no @WorkflowStart of ${where}'s workflows — list a start of a listed workflow`;
+      found.push(violation("application.endpoint-unknown-start", message, [where]));
+    } else if (listed.indexOf(served) !== index) {
+      const message = `${meta.name} lists the skill ${served.name} twice — one entry per start`;
+      found.push(violation("a2a.duplicate-skill", message, [where]));
+    }
+  }
+  return found;
+}
+
+function endpointViolations(options: ApplicationOptions): RuleViolation[] {
   const where = options.name;
   const starts = startsOf(options.workflows);
   const seen = new Set<string>();
-  return (options.exposes ?? []).flatMap((expose): RuleViolation[] => {
-    const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose" && meta?.kind !== "mcp-endpoint") {
-      const message = `${expose.name} in ${where}'s exposes is neither an @A2AExpose nor an @McpEndpoint`;
-      return [violation("application.not-an-expose", message, [where])];
+  return (options.endpoints ?? []).flatMap((endpoint): RuleViolation[] => {
+    const meta = componentOf(endpoint);
+    if (meta?.kind !== "a2a-endpoint" && meta?.kind !== "mcp-endpoint") {
+      const message = `${endpoint.name} in ${where}'s endpoints is neither an @A2AEndpoint nor an @McpEndpoint`;
+      return [violation("application.not-an-endpoint", message, [where])];
     }
     const found: RuleViolation[] = [];
     if (seen.has(meta.meta.name)) {
-      const message = `${where} exposes two contracts named ${meta.meta.name} — one name per contract`;
-      found.push(violation("application.duplicate-expose", message, [where]));
+      const message = `${where} serves two contracts named ${meta.meta.name} — one name per contract`;
+      found.push(violation("application.duplicate-endpoint", message, [where]));
     }
     seen.add(meta.meta.name);
-    if (meta.kind === "mcp-endpoint") return found;
-    found.push(...contractNameViolations(meta.meta.name, "@A2AExpose", where));
-    if (meta.meta.description.trim() === "") {
-      const message = `${meta.meta.name} has no description — the Agent Card's description says what the agent does for a caller that finds it`;
-      found.push(violation("a2a.expose-description-required", message, [where]));
-    }
-    for (const exported of meta.meta.exports) {
-      if (starts.has(exported)) continue;
-      const message = `${meta.meta.name} exports ${exported.name}, which is no @WorkflowStart of ${where}'s workflows — export a start of a listed workflow`;
-      found.push(violation("application.expose-unknown-start", message, [where]));
-    }
-    return found;
+    return meta.kind === "mcp-endpoint"
+      ? found
+      : [...found, ...a2aEndpointProblems(meta.meta, starts, where)];
   });
 }
 
@@ -165,6 +183,6 @@ function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
 
 /** The declared contracts' violations of an application. */
 export const contractRuleViolations = (options: ApplicationOptions): RuleViolation[] => [
-  ...exposeViolations(options),
+  ...endpointViolations(options),
   ...a2aAgentViolations(options),
 ];

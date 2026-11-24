@@ -16,18 +16,20 @@ import {
 export const TERMINAL_STATES = Object.values(A2ATaskState).filter(isTerminalA2ATaskState);
 
 export const SCHEMA = `CREATE TABLE IF NOT EXISTS a2a_tasks (
-  tenant_id TEXT NOT NULL, task_id TEXT NOT NULL, owner_id TEXT NOT NULL,
+  endpoint TEXT NOT NULL, tenant_id TEXT NOT NULL, task_id TEXT NOT NULL, owner_id TEXT NOT NULL,
   context_id TEXT NOT NULL, skill TEXT NOT NULL, state TEXT NOT NULL, status TEXT NOT NULL,
   version INTEGER NOT NULL, accepted_at TEXT NOT NULL, status_at TEXT NOT NULL, caller_peer TEXT,
   mesh_body_hash TEXT,
   PRIMARY KEY (tenant_id, task_id));
 CREATE INDEX IF NOT EXISTS a2a_tasks_by_owner
   ON a2a_tasks (tenant_id, owner_id, status_at DESC, task_id DESC);
+CREATE INDEX IF NOT EXISTS a2a_tasks_by_endpoint ON a2a_tasks (endpoint, state, status_at);
 CREATE TABLE IF NOT EXISTS a2a_messages (
-  tenant_id TEXT NOT NULL, owner_id TEXT NOT NULL, message_id TEXT NOT NULL,
+  endpoint TEXT NOT NULL, tenant_id TEXT NOT NULL, owner_id TEXT NOT NULL, message_id TEXT NOT NULL,
   request_hash TEXT NOT NULL, task_id TEXT NOT NULL, saved_at TEXT NOT NULL, reply TEXT,
   PRIMARY KEY (tenant_id, owner_id, message_id));
-CREATE INDEX IF NOT EXISTS a2a_messages_by_task ON a2a_messages (tenant_id, task_id);`;
+CREATE INDEX IF NOT EXISTS a2a_messages_by_task ON a2a_messages (tenant_id, task_id);
+CREATE INDEX IF NOT EXISTS a2a_messages_by_endpoint ON a2a_messages (endpoint, task_id, saved_at);`;
 
 /** `work`'s result as a store's answer: a failure (a refused page token, a corrupt row) rejects. */
 export const answerOf = <T>(work: () => T): Promise<T> =>
@@ -39,6 +41,7 @@ export const answerOf = <T>(work: () => T): Promise<T> =>
 const { datetime: isoTime } = z.iso;
 
 const TaskRow = z.object({
+  endpoint: z.string(),
   tenant_id: z.string(),
   task_id: z.string(),
   owner_id: z.string(),
@@ -55,6 +58,7 @@ const TaskRow = z.object({
 });
 
 const MessageRow = z.object({
+  endpoint: z.string(),
   tenant_id: z.string(),
   owner_id: z.string(),
   message_id: z.string(),
@@ -98,6 +102,7 @@ const ownerOf = (column: string): string | undefined => (column === "" ? undefin
 export const taskOf = (row: unknown): A2ATaskRecord => {
   const parsed = TaskRow.parse(row);
   return {
+    endpoint: parsed.endpoint,
     tenantId: parsed.tenant_id,
     taskId: parsed.task_id,
     ownerId: ownerOf(parsed.owner_id),
@@ -115,6 +120,7 @@ export const taskOf = (row: unknown): A2ATaskRecord => {
 export const messageOf = (row: unknown): A2AMessageRecord => {
   const parsed = MessageRow.parse(row);
   return {
+    endpoint: parsed.endpoint,
     tenantId: parsed.tenant_id,
     ownerId: ownerOf(parsed.owner_id),
     messageId: parsed.message_id,

@@ -29,6 +29,7 @@ import { textMessage } from "../server/sdk-client.js";
 const NINE = new Date("2026-01-05T09:00:00.000Z");
 
 const lostMessage = (overrides: Partial<NewA2ADirectMessage> = {}): NewA2ADirectMessage => ({
+  endpoint: "quotes-a2a-expose",
   tenantId: "default",
   ownerId: "dana",
   messageId: "m-1",
@@ -48,7 +49,13 @@ function sweepOn(clock: VirtualClock) {
   const messages = new InMemoryA2ADirectMessageRepository(database);
   const files = new InMemoryFileRepository(database);
   const deleteByOwner = vi.spyOn(files, "deleteByOwner");
-  const expiry = a2aDirectMessageExpiryOf({ messages, files, clock, retention: minutes(15) });
+  const expiry = a2aDirectMessageExpiryOf({
+    messages,
+    files,
+    clock,
+    endpoint: "quotes-a2a-expose",
+    retention: minutes(15),
+  });
   const sweep = () =>
     expiry.remove?.(new Date(clock.now().getTime() - minutes(15))) ?? Promise.resolve();
   return { messages, deleteByOwner, sweep };
@@ -107,7 +114,7 @@ describe("#860: the sweep of the direct messages", () => {
 });
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: QuotesA2AExpose, authenticator: BearerAuthenticator };
 const QUOTE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-workflow-start" } };
 
 describe("#860: a resend that finds its attempt lost", () => {
@@ -120,6 +127,7 @@ describe("#860: a resend that finds its attempt lost", () => {
     mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
     const requestHash = requestHashOf(
+      "quotes-a2a-expose",
       "quote-workflow-start",
       textMessage("m-1", "price?", { metadata: QUOTE }),
     );

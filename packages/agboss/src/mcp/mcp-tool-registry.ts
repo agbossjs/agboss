@@ -27,7 +27,7 @@ import {
 export type { McpSessionOptions } from "./mcp-service-helpers.js";
 
 /**
- * What an `@McpEndpoint` exposes: its `@Tool` exports (run through the same adapter as
+ * What an `@McpEndpoint` endpoints: its `@Tool` exports (run through the same adapter as
  * agent tool calls — DTO validation of input and output, timeout, `callId`), its workflow starts
  * (`app.execute`), and `resume_workflow` (`app.resume`) when there is a start.
  */

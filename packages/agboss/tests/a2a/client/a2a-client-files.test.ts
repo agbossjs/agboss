@@ -67,7 +67,7 @@ describe("#859 AC2: an AGBoss agent, called with a file, answers with one", () =
     a2aServer,
   }) => {
     const { url } = await a2aServer({
-      expose: FileSummaryA2AExpose,
+      endpoint: FileSummaryA2AExpose,
       authenticator: BearerAuthenticator,
     });
     const client = new A2AClient<ReviewRequestDto, ReviewResultDto>({

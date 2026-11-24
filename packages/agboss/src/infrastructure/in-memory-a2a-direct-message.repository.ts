@@ -23,6 +23,7 @@ import type { StoreDescriptor } from "./execution-lease.repository.js";
 
 /** A message as `saveIfAbsent` keeps it: `InFlight`, its first attempt. */
 export const savedA2ADirectMessageOf = (message: NewA2ADirectMessage): A2ADirectMessageRecord => ({
+  endpoint: message.endpoint,
   tenantId: message.tenantId,
   ownerId: message.ownerId,
   messageId: message.messageId,
@@ -53,6 +54,7 @@ export const DIRECT_MESSAGE_CLAIM = "";
 
 /** What a direct message claims among the task store's messages: its id, of no task. */
 export const directMessageClaimOf = (message: NewA2ADirectMessage): A2AMessageRecord => ({
+  endpoint: message.endpoint,
   tenantId: message.tenantId,
   ownerId: message.ownerId,
   messageId: message.messageId,
@@ -93,6 +95,10 @@ export const isExpiredAttempt = (
   message.state === A2ADirectMessageState.InFlight &&
   message.attemptId === attemptId &&
   message.expiresAt.getTime() <= now.getTime();
+
+/** Whether `time` is before `cutoff`; an endpoint with no cutoff is never swept. */
+export const isBefore = (time: Date | undefined, cutoff: Date | undefined): boolean =>
+  time !== undefined && cutoff !== undefined && time.getTime() < cutoff.getTime();
 
 /** `work`'s result as a store's answer: a refused limit rejects, never throws. */
 const answered = <T>(work: () => T): Promise<T> =>
@@ -194,17 +200,17 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
     );
   }
 
-  deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]> {
-    return answered(() => this.#removedBefore(cutoff, checkedDirectMessageLimit(limit)));
+  deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number> {
+    return answered(() => this.#removedBefore(cutoffsByEndpoint, checkedDirectMessageLimit(limit)));
   }
 
-  #removedBefore(cutoff: Date, limit: number): readonly A2ADirectMessageRecord[] {
+  #removedBefore(cutoffs: ReadonlyMap<string, Date>, limit: number): number {
     const { a2aMessages: claims, a2aDirectMessages: messages } = this.database;
     const gone = [...messages.entries()]
       // an attempt in flight keeps its message (#860 D2): a lost one leaves by `deleteIfInFlight`
       .filter(([, kept]) => kept.state === A2ADirectMessageState.Completed)
-      .filter(([, kept]) => kept.createdAt.getTime() < cutoff.getTime())
-      .sort(([, a], [, b]) => a.createdAt.getTime() - b.createdAt.getTime())
+      .filter(([, kept]) => isBefore(kept.completedAt, cutoffs.get(kept.endpoint)))
+      .sort(([, a], [, b]) => (a.completedAt?.getTime() ?? 0) - (b.completedAt?.getTime() ?? 0))
       .slice(0, limit);
     // a kept message's id is claimed by it alone: a direct claim, never a task's
     for (const [row] of gone) {
@@ -215,11 +221,11 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
     const orphans = [...claims.entries()].filter(
       ([row, claim]) =>
         claim.taskId === DIRECT_MESSAGE_CLAIM &&
-        claim.savedAt.getTime() < cutoff.getTime() &&
+        isBefore(claim.savedAt, cutoffs.get(claim.endpoint)) &&
         !messages.has(row),
     );
     for (const [row] of orphans.slice(0, limit)) claims.delete(row);
-    return gone.map(([, kept]) => kept);
+    return gone.length;
   }
 
   /** The message changed by `change` while `InFlight` under `attemptId`; `undefined` otherwise. */

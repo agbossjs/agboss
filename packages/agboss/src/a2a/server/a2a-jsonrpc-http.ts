@@ -53,7 +53,7 @@ export interface A2AHttpBinding {
   readonly handler: A2ARequestHandler;
   /** Absent: only signed mesh peers call (`a2aHttpListener` checked it may be). */
   readonly authenticator?: HttpAuthenticatorHandler;
-  /** The `@A2AExpose` it serves: what a peer's `allowEndpoints` is matched against. */
+  /** The `@A2AEndpoint` it serves: what a peer's `allowEndpoints` is matched against. */
   readonly endpoint: Class;
   /** The origin the listener is reached at (`publicUrl`): a peer's signature must be made for it. */
   readonly origin: string;

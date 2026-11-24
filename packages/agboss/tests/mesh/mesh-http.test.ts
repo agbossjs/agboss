@@ -68,10 +68,8 @@ function receiverOf(
     ]),
     requests: options.requests ?? (() => store),
     idempotencyRetention: 30 * 60_000,
-    a2aTaskRetention: 0,
-    a2aMessageRetention: 0,
     workflows: [],
-    exposes: [],
+    endpoints: [],
     contracts: () => Promise.reject(new Error("none")),
   };
 }

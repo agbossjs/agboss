@@ -276,7 +276,7 @@ export class FilesA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel],
-  exposes: [FilesA2AExpose, FileSummaryA2AExpose],
+  endpoints: [FilesA2AExpose, FileSummaryA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class FilesApplication {}
@@ -287,7 +287,7 @@ export class FilesApplication {}
   environment: EmptyEnvironment,
   workflows: [StoredFileReviewWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel, InMemoryFileRepository],
-  exposes: [FilesA2AExpose],
+  endpoints: [FilesA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class StoredFilesApplication {}

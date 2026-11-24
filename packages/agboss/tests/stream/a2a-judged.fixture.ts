@@ -80,8 +80,8 @@ export class AuditA2AExpose {}
   workflows: [A2AWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
-  exposes: [AuditA2AExpose],
+  endpoints: [AuditA2AExpose],
 })
 export class A2AJudgedApplication {}
 
-export const judgedListener = { expose: AuditA2AExpose, authenticator: AuditAuthenticator };
+export const judgedListener = { endpoint: AuditA2AExpose, authenticator: AuditAuthenticator };

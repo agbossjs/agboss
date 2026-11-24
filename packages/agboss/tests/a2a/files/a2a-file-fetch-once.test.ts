@@ -102,7 +102,7 @@ describe("#904 item 6: FileFetches", () => {
 });
 
 const test = testWith(FilesApplication);
-const listener = { expose: FilesA2AExpose, authenticator: BearerAuthenticator };
+const listener = { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator };
 
 /** A transport whose answers wait for `release()`. */
 function gatedTransport() {

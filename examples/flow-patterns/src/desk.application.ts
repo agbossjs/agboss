@@ -34,7 +34,7 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   environment: AppEnvironment,
   piiKeyField: "piiPseudonymKey",
   workflows: [DeskWorkflow],
-  exposes: [DeskA2AExpose], // served over A2A: `helpline-workflow` calls it
+  endpoints: [DeskA2AExpose], // served over A2A: `helpline-workflow` calls it
   observers: [DeskMetricsObserver],
   healthChecks: [OrderDeskHealthCheck],
   maxConcurrentSteps: 16, // agent, router and action steps of one instance at once (#332)

@@ -88,6 +88,7 @@ export type {
   A2ADirectMessageSave,
   NewA2ADirectMessage,
   A2AMessageKey,
+  A2AEndpointOwned,
   A2AMessageRecord,
   A2ATaskKey,
   A2ATaskPage,

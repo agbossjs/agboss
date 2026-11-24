@@ -69,7 +69,7 @@ async function firstSeen(
 }
 
 /**
- * Decides one request to `endpoint` (an `@A2AExpose` / `@McpEndpoint` class). The header is verified
+ * Decides one request to `endpoint` (an `@A2AEndpoint` / `@McpEndpoint` class). The header is verified
  * before anything it claims is used; a request without one is an external caller's only under
  * `AllowExternal`; a verified peer reaches `endpoint` only when its `allowEndpoints` lists it (or lists
  * none).

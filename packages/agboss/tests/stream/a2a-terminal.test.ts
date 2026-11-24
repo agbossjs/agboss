@@ -93,7 +93,7 @@ function taskIdOf(events: readonly StreamResponse[]): string {
 
 describe("#1006 AC4: a CANCELED task", () => {
   useCanary();
-  const listener = { expose: RemoteDeskA2AExpose, authenticator: SingleTenantAuthenticator };
+  const listener = { endpoint: RemoteDeskA2AExpose, authenticator: SingleTenantAuthenticator };
 
   remote(
     "its stream's view is emptied before the CANCELED status",
@@ -136,6 +136,7 @@ describe("#1006 AC4: a CANCELED task", () => {
 
 const STEP: StreamStep = { agent: "a", visit: 1, branch: "e", attempt: 1 };
 const taskIn = (state: A2ATaskState): A2ATaskRecord => ({
+  endpoint: "orders-a2a-expose",
   tenantId: "acme",
   taskId: "t",
   ownerId: "dana",

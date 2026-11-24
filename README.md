@@ -1484,7 +1484,7 @@ _What `onStream` carries_ below) and
 channel, a guardrail or any component reads them through its injected `ExecutionContext`
 (`this.executionContext.tenant.tenantId`, the project's own fields), and an MCP session
 (`connectMcp(app, { endpoint: Mcp, transport, session: { tenant, execution, ownerId } })`) or an A2A call
-(`a2aHttpListener(app, { expose, authenticator, publicUrl })`, whose authenticator returns them per
+(`a2aHttpListener(app, { endpoint, authenticator, publicUrl })`, whose authenticator returns them per
 request, #387, #808) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
 run — it stops before its next model or tool call and `execute` resolves with

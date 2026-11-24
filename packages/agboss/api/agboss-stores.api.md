@@ -27,7 +27,7 @@ export interface A2ADirectMessageKey {
 }
 
 // @public
-export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt {
+export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt, A2AEndpointOwned {
     readonly callerPeer?: string;
     readonly callsModel: boolean;
     readonly completedAt?: Date;
@@ -54,7 +54,7 @@ export interface A2ADirectMessageReply {
 // @public
 export abstract class A2ADirectMessageRepository {
     abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    abstract deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
     abstract deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
     abstract findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
     // (undocumented)
@@ -87,6 +87,12 @@ export enum A2ADirectMessageState {
 }
 
 // @public
+export interface A2AEndpointOwned {
+    // (undocumented)
+    readonly endpoint: string;
+}
+
+// @public
 export interface A2AMessageKey {
     // (undocumented)
     readonly messageId: string;
@@ -96,7 +102,7 @@ export interface A2AMessageKey {
 }
 
 // @public
-export interface A2AMessageRecord extends A2AMessageKey {
+export interface A2AMessageRecord extends A2AMessageKey, A2AEndpointOwned {
     readonly reply?: unknown;
     readonly requestHash: string;
     // (undocumented)
@@ -131,7 +137,7 @@ export interface A2ATaskPause {
 }
 
 // @public
-export interface A2ATaskQuery {
+export interface A2ATaskQuery extends A2AEndpointOwned {
     // (undocumented)
     readonly contextId?: string;
     // (undocumented)
@@ -146,7 +152,7 @@ export interface A2ATaskQuery {
 }
 
 // @public
-export interface A2ATaskRecord extends A2ATaskKey {
+export interface A2ATaskRecord extends A2ATaskKey, A2AEndpointOwned {
     readonly acceptedAt: Date;
     readonly callerPeer?: string;
     readonly contextId: string;
@@ -163,7 +169,7 @@ export interface A2ATaskRecord extends A2ATaskKey {
 // @public (undocumented)
 export abstract class A2ATaskRepository {
     abstract compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
-    abstract deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
     // (undocumented)
     abstract findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
@@ -2730,6 +2736,7 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "taskId".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "endpoint".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "kind".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ownerId".

@@ -39,7 +39,7 @@ export enum A2ACardFileFields {
   Marker = "marker",
 }
 
-/** What an `@A2AExpose` says of its card's file fields: for all its skills, or for one. */
+/** What an `@A2AEndpoint` says of its card's file fields: for all its skills, or for one. */
 export interface CardFileFieldsSource {
   readonly cardFileFields?: A2ACardFileFields;
   readonly skills?: Readonly<Record<string, { readonly cardFileFields?: A2ACardFileFields }>>;

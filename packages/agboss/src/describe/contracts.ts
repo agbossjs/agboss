@@ -1,5 +1,10 @@
 import { cardFileFieldsOf } from "../a2a/files/a2a-file-options.js";
-import { A2AReply } from "../a2a/a2a-expose.decorator.js";
+import { A2AReply } from "../a2a/a2a-message-skill-rule.js";
+import {
+  cardFileFieldsSourceOf,
+  skillOptionsOf,
+  startsOfEndpoint,
+} from "../a2a/a2a-endpoint.decorator.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { A2AAgentMeta } from "../a2a/a2a-decorator.js";
 import type { Class } from "../components/injection.js";
@@ -26,8 +31,8 @@ export type * from "./contracts-types.js";
 
 /**
  * The application's declared contracts (#398 PR 3), as `agboss describe --json` lists them under
- * `application.contracts`: what it **exports** — each `@A2AExpose` start (its input and its
- * finishes' outputs) and each `@McpEndpoint` tool listed in `@Application({ exposes })` — and what
+ * `application.contracts`: what it **exports** — each `@A2AEndpoint` start (its input and its
+ * finishes' outputs) and each `@McpEndpoint` tool listed in `@Application({ endpoints })` — and what
  * it **consumes** — each `@A2AAgent` (its target, input, output, price and the tools that use it)
  * and each `@McpServer` tool (its target, or `null` for a third-party server). Every DTO is named
  * with its `schemaHash`; `schemas` holds the JSON Schema of each, what `check --federation`
@@ -67,8 +72,8 @@ function a2aExportsOf(
   dtos: Dtos,
 ): readonly A2AExportContract[] {
   const meta = componentOf(expose);
-  if (meta?.kind !== "a2a-expose") return [];
-  return meta.meta.exports.flatMap((start): A2AExportContract[] => {
+  if (meta?.kind !== "a2a-endpoint") return [];
+  return startsOfEndpoint(meta.meta).flatMap((start): A2AExportContract[] => {
     const workflow = parts.find((part) => part.nodes.includes(start));
     const declaration = declarationOf(start);
     if (workflow === undefined || declaration?.kind !== NodeKind.Start) return [];
@@ -89,8 +94,11 @@ function a2aExportsOf(
         workflow: workflow.name,
         input: dtos.ofShape(declaration.options.input),
         outputs,
-        reply: meta.meta.skills?.[declaration.options.name]?.reply ?? A2AReply.Task,
-        cardFileFields: cardFileFieldsOf(meta.meta, declaration.options.name),
+        reply: skillOptionsOf(meta.meta, declaration.options.name)?.reply ?? A2AReply.Task,
+        cardFileFields: cardFileFieldsOf(
+          cardFileFieldsSourceOf(meta.meta),
+          declaration.options.name,
+        ),
       },
     ];
   });
@@ -199,7 +207,7 @@ function mcpImportsOf(
 export function contractsOf(assembled: AssembledApplication): ContractsSnapshot {
   const dtos = new Dtos();
   const parts = workflowPartsOf(assembled.workflows.map((bundle) => bundle.graph.type));
-  const exports = assembled.exposes.flatMap((expose) => [
+  const exports = assembled.endpoints.flatMap((expose) => [
     ...a2aExportsOf(expose, parts, dtos),
     ...mcpExportsOf(expose, dtos),
   ]);

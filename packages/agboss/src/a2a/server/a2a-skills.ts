@@ -13,9 +13,9 @@ import { finishDtosOf } from "../files/a2a-file-tier.js";
 import { workflowFilePolicyOf, workflowOfStart } from "../../files/workflow-file-policy.js";
 import { workflowPartsOf } from "../../describe/contracts-parts.js";
 import { DecidedBy } from "../../flow/decorators/router.js";
-import type { A2AReply } from "../a2a-expose.decorator.js";
+import type { A2AReply } from "../a2a-message-skill-rule.js";
 import type { A2ACardFileFields } from "../files/a2a-file-options.js";
-import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
+import { skillOptionsOf, type A2AEndpointMeta } from "../a2a-endpoint.decorator.js";
 import { fileFieldsOf, type FileField } from "../../dto/standard/file.js";
 import { fileLimitsOf, type FileLimits } from "../../files/file-policy.js";
 
@@ -118,7 +118,7 @@ export interface SkillSources {
   readonly contracts: ContractsSnapshot;
   /** The application's workflows: where each start's finishes are. */
   readonly workflows: readonly Class[];
-  readonly expose: A2AExposeOptions;
+  readonly expose: A2AEndpointMeta;
 }
 
 /** The skill of one exported start, from its declaration and the application's contracts. */
@@ -135,7 +135,7 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
   );
   if (found?.kind !== "a2a")
     throw new ComponentError({
-      message: `[application.expose-unknown-start] ${name} is not a start of the application's workflows`,
+      message: `[application.endpoint-unknown-start] ${name} is not a start of the application's workflows`,
     });
   return {
     id: name,
@@ -163,7 +163,7 @@ function skillFilesOf(
   const workflowPolicy = workflowFilePolicyOf(workflowOfStart(start, sources.workflows));
   return {
     inputFiles: typeof input === "function" ? fileFieldsOf(input) : [],
-    fileLimits: fileLimitsOf(workflowPolicy, sources.expose.skills?.[name]?.filePolicy),
+    fileLimits: fileLimitsOf(workflowPolicy, skillOptionsOf(sources.expose, name)?.filePolicy),
     outputFileMediaTypes: fileLimitsOf(workflowPolicy).allowedMediaTypes,
   };
 }

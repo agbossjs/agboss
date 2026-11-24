@@ -175,6 +175,7 @@ async function savedUnder(parts: A2AServerParts, caller: A2ARequestCaller, unacc
   await keptFiles(parts, start?.toSave ?? []);
   const task: NewA2ATask = {
     ...key,
+    endpoint: parts.endpoint,
     taskId,
     contextId,
     skill: sent.skill.id,
@@ -240,7 +241,7 @@ export async function acceptedTask(
   const sent: NewMessage = {
     message,
     skill,
-    requestHash: requestHashOf(skill.id, message),
+    requestHash: requestHashOf(parts.endpoint, skill.id, message),
     inputFor,
   };
   const key = { tenantId: caller.tenantId, ownerId: caller.ownerId, messageId };

@@ -7,6 +7,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { hasFileAtAnyDepth, nestedFileFieldsOf } from "../dto/standard/file.js";
 import { finishDtosOf, listFinishItemsOf } from "./files/a2a-file-tier.js";
+import { startsOfEndpoint } from "./a2a-endpoint.decorator.js";
 
 /**
  * Fail closed at assembly (#859): a file of an A2A message or answer is a part of its own, filled
@@ -18,10 +19,10 @@ import { finishDtosOf, listFinishItemsOf } from "./files/a2a-file-tier.js";
 
 /** The DTOs an exported start carries: its input and its finishes' outputs. */
 function exportedDtosOf(options: ApplicationOptions): readonly DtoClass[] {
-  return (options.exposes ?? []).flatMap((expose) => {
+  return (options.endpoints ?? []).flatMap((expose) => {
     const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose") return [];
-    return meta.meta.exports.flatMap((start) => {
+    if (meta?.kind !== "a2a-endpoint") return [];
+    return startsOfEndpoint(meta.meta).flatMap((start) => {
       const declaration = declarationOf(start);
       if (declaration?.kind !== NodeKind.Start) return [];
       const { input } = declaration.options;
@@ -33,10 +34,10 @@ function exportedDtosOf(options: ApplicationOptions): readonly DtoClass[] {
 
 /** The item classes of the list-output finishes of the exported starts, with the finish's name. */
 function listItemsOf(options: ApplicationOptions): readonly (readonly [string, DtoClass])[] {
-  return (options.exposes ?? []).flatMap((expose) => {
+  return (options.endpoints ?? []).flatMap((expose) => {
     const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose") return [];
-    return meta.meta.exports.flatMap((start) =>
+    if (meta?.kind !== "a2a-endpoint") return [];
+    return startsOfEndpoint(meta.meta).flatMap((start) =>
       [...listFinishItemsOf(start, options.workflows)].flatMap(([finish, items]) =>
         items.map((item): readonly [string, DtoClass] => [finish, item]),
       ),

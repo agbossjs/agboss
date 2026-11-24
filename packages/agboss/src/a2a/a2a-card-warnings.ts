@@ -1,7 +1,11 @@
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { AssemblyWarning, WarningSources } from "../application/start-log.js";
-import type { A2AExposeOptions } from "./a2a-expose.decorator.js";
+import {
+  skillOptionsOf,
+  startsOfEndpoint,
+  type A2AEndpointMeta,
+} from "./a2a-endpoint.decorator.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 
 /**
@@ -17,25 +21,25 @@ import { declarationOf } from "../flow/decorators/declaration.js";
  *   charged.
  */
 
-/** The skills of an `@A2AExpose` that name no tag of their own, by start name. */
-function untaggedSkillsOf(meta: A2AExposeOptions): readonly string[] {
-  return meta.exports.flatMap((start) => {
+/** The skills of an `@A2AEndpoint` that name no tag of their own, by start name. */
+function untaggedSkillsOf(meta: A2AEndpointMeta): readonly string[] {
+  return startsOfEndpoint(meta).flatMap((start) => {
     const name = declarationOf(start)?.options.name;
     if (name === undefined) return [];
-    const tags = meta.skills?.[name]?.tags;
+    const tags = skillOptionsOf(meta, name)?.tags;
     return tags === undefined || tags.length === 0 ? [name] : [];
   });
 }
 
 function skillTagWarnings(sources: WarningSources): AssemblyWarning[] {
   const application = sources.name ?? "the application";
-  return (sources.exposes ?? []).flatMap((expose) => {
+  return (sources.endpoints ?? []).flatMap((expose) => {
     const component = componentOf(expose);
-    if (component?.kind !== "a2a-expose") return [];
+    if (component?.kind !== "a2a-endpoint") return [];
     const { meta } = component;
     return untaggedSkillsOf(meta).map((skill) => ({
       code: "a2a.skill-tags",
-      message: `${meta.name} lists the skill ${skill} with no tags — its card says [${application}]; name some in @A2AExpose({ skills: { "${skill}": { tags } } })`,
+      message: `${meta.name} lists the skill ${skill} with no tags — its card says [${application}]; name some in @A2AEndpoint({ skills: [{ start: <the start>, tags }] })`,
     }));
   });
 }

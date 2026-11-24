@@ -103,7 +103,7 @@ npm test
   component (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …) — `testUnit` with `services`,
   `testUnit` on the tool calls of a scripted visit.
 - **`src/helpline/`** — two applications over [A2A](A2A) (#398): `desk-application` serves
-  `desk-workflow-start` (`@A2AExpose` in `@Application({ exposes })`; its `@HttpAuthenticator` takes the
+  `desk-workflow-start` (`@A2AExpose` in `@Application({ endpoints })`; its `@HttpAuthenticator` takes the
   tenant from an `x-tenant-id` header, for callers on the same host only), and the helpline's
   `ask-desk-tool` calls it through `DeskA2AAgent`, an `@A2AAgent` contract with its own
   `DeskCallDto`. `npm run check` runs `agboss check --federation` twice, no network: the desk

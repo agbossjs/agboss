@@ -1,7 +1,7 @@
 import type { AnyTenantApp } from "../../app/types.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import type { FaultStoreSet } from "./fault-stores.js";
-import { FaultA2AExpose, FaultAuthenticator, keepsA2ATasks } from "./fixture/fault.a2a.js";
+import { FaultA2AEndpoint, FaultAuthenticator, keepsA2ATasks } from "./fixture/fault.a2a.js";
 
 /**
  * A fault pod's A2A listener (#811 AC4): on a store set that keeps A2A tasks, the pod serves the
@@ -48,7 +48,7 @@ export async function podA2AListenerOf(
     throw new Error(`the pod's A2A listener has no TCP address: ${String(address)}`);
   const url = `http://${LOOPBACK}:${String(address.port)}`;
   listening.handle = a2aHttpListener(app, {
-    expose: FaultA2AExpose,
+    endpoint: FaultA2AEndpoint,
     authenticator: FaultAuthenticator,
     publicUrl: url,
   });

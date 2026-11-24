@@ -9,7 +9,7 @@ when one application calls another over A2A (agent-to-agent) or is called that w
 | give an agent tools of an MCP server                  | `@McpServer` (`extends McpServerClient`) in a `@Tool`'s `deps` (the tool calls it)                            |
 | let Claude Desktop / another agent call your workflow | `@McpEndpoint` + `connectMcpStdio` / `connectMcp` / `mcpHttpListener` (`@agboss/core/mcp`)                    |
 | call a workflow of another AGBoss application         | `@A2AAgent({ target, input, output })` (`extends A2AClient<In, Out>`) in `providers`, injected into a `@Tool` |
-| serve your workflow to A2A callers                    | `@A2AExpose` in `@Application({ exposes })` + `a2aHttpListener(app, { expose, authenticator })`               |
+| serve your workflow to A2A callers                    | `@A2AEndpoint` in `@Application({ endpoints })` + `a2aHttpListener(app, { endpoint, authenticator })`         |
 
 ## Using an MCP server
 
@@ -314,14 +314,16 @@ export class SupportWorkflow {}
 
 ```ts file=src/support/a2a/support.a2a-expose.ts
 // what the application serves over A2A (#398 PR 3): the starts a caller may run
-import { A2AExpose } from "@agboss/core/a2a";
+import { A2AEndpoint } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 import { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
 
-@A2AExpose({
-  name: "support-a2a-expose",
+@A2AEndpoint({
+  name: "support",
   version: "1.0.0",
   description: "Answers support questions",
-  exports: [SupportWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [SupportWorkflowStart],
 })
 export class SupportA2AExpose {}
 ```
@@ -376,7 +378,7 @@ import { SupportWorkflow } from "./support/workflows/support/support.workflow.js
   environment: EmptyEnvironment,
   workflows: [SupportWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
-  exposes: [SupportA2AExpose], // describe --json lists it among the exported contracts
+  endpoints: [SupportA2AExpose], // describe --json lists it among the exported contracts
 })
 export class SupportApplication {}
 ```
@@ -470,10 +472,10 @@ await using connection = await connectMcpStdio(app, {
 }); // serves until closed
 ```
 
-Over A2A — an `@A2AExpose({ name, version, description, exports, skills? })`
-(a kebab-case `name`, no suffix needed; its `exports` starts of the application's workflows,
-`[application.expose-unknown-start]`) listed in `@Application({ exposes })` (else `a2aHttpListener`
-throws `[application.expose-unlisted]`) is an **A2A v1.0 agent** (#808,
+Over A2A — an `@A2AEndpoint({ name, version, description, ttl: { tasks, messages }, skills })`
+(a kebab-case `name`, no suffix needed; its `skills` starts of the application's workflows — a class, or
+`{ start, tags?, examples?, filePolicy?, reply?, cardFileFields? }` —, `[application.endpoint-unknown-start]`) listed in `@Application({ endpoints })` (else `a2aHttpListener`
+throws `[application.endpoint-unlisted]`) is an **A2A v1.0 agent** (#808,
 https://a2a-protocol.org/v1.0.0/specification/): its Agent Card at
 `<base>/.well-known/agent-card.json` (one skill per exported start, its id the start's name, tags
 default the application's name; `capabilities.streaming`; the skills extension
@@ -515,7 +517,7 @@ import { a2aHttpListener } from "@agboss/core/a2a";
 const app = await createApp(SupportApplication, { env: "prod" });
 createServer(
   a2aHttpListener(app, {
-    expose: SupportA2AExpose, // listed in @Application({ exposes })
+    endpoint: SupportA2AExpose, // listed in @Application({ endpoints })
     authenticator: SupportHttpAuthenticator, // the class: its instance is the container's
     publicUrl: "https://support.example", // where callers reach it: the card's interface URL
     base: "/a2a",
@@ -539,14 +541,14 @@ createServer(
 - An answer is built only by `HttpAuthResult` (branded: a plain object does not compile).
 - A caller that disconnects never cancels its task: it runs on, and `GetTask` / `SubscribeToTask`
   read it. `maxTaskDuration` gives every task an execution deadline.
-- The names: `A2AApp` (what the listener takes of `App`), `A2AHttpListenerOptions` (`authenticator`, `provider?`,
+- The names: `A2AApp` (what the listener takes of `App`), `A2AHttpListenerOptions` (`endpoint`, `authenticator`, `publicUrl`,
   `onError?`), `A2AOperation`, and from the root entry `HttpAuthenticator`, `HttpAuthResult`, `HttpAuthRequest`,
   `HttpAuthKind`, `HttpCaller`, `HttpSecurity`, `HttpSecurityScheme`, `HttpSecuritySchemeKind`.
 
 ### Direct message replies (#860)
 
 A skill that needs no task — a lookup, a classification — answers `SendMessage` with a `Message`
-directly: `reply: A2AReply.Message` in `@A2AExpose({ skills })`. `defaultSkill` is the skill a
+directly: `reply: A2AReply.Message` in `@A2AEndpoint({ skills: [{ start, reply }] })`. `defaultSkill` is the skill a
 message that names none runs (a foreign caller that knows nothing of the skills extension):
 
 ```ts file=src/support/workflows/lookup/lookup.workflow-start.ts
@@ -558,19 +560,20 @@ export class LookupWorkflowStart {}
 ```
 
 ```ts file=src/support/a2a/lookup.a2a-expose.ts
-import { A2AExpose, A2AReply } from "@agboss/core/a2a";
+import { A2AEndpoint, A2AReply } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 import { LookupWorkflowStart } from "../workflows/lookup/lookup.workflow-start.js";
 import { SupportWorkflowStart } from "../workflows/support/support.workflow-start.js";
 
-@A2AExpose({
-  name: "support-a2a-expose",
+@A2AEndpoint({
+  name: "support",
   version: "1.1.0",
   description: "Answers support questions",
-  exports: [SupportWorkflowStart, LookupWorkflowStart],
-  skills: {
-    "lookup-workflow-start": { reply: A2AReply.Message, tags: ["lookup"] }, // a Message, no task
-    "support-workflow-start": { tags: ["support"] },
-  },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [
+    { start: SupportWorkflowStart, tags: ["support"] },
+    { start: LookupWorkflowStart, reply: A2AReply.Message, tags: ["lookup"] }, // a Message, no task
+  ],
   defaultSkill: LookupWorkflowStart,
 })
 export class LookupA2AExpose {}
@@ -579,14 +582,14 @@ export class LookupA2AExpose {}
 - The workflow must be stateless, checked at assembly on every node: no pause (`[a2a.message-skill-pause]`),
   no `Idempotency` or `@A2AAgent` among its `deps` at any depth (`-effect`), only
   `@Tool({ readOnly: true })` tools (`-tool`), no compensation (`-compensation`), no child workflow
-  (`-child`); a `reply` set for a start the expose does not export, or a `defaultSkill` that is no
+  (`-child`); a `reply` set for a start the endpoint does not list, or a `defaultSkill` that is no
   export, is `[a2a.unknown-skill-option]`.
 - `returnImmediately` is ignored; `SendStreamingMessage` answers one frame, the message; `GetTask` or a
   follow-up naming it is `-32001`.
 - One `messageId` is one execution across both reply modes: the reply is kept in
   `A2ADirectMessageRepository` (in memory by default; `SqliteA2ADirectMessageRepository`, the
-  PostgreSQL and MongoDB ones; the suite `a2aDirectMessageContract`) for `retention.a2aMessages`
-  (default `minutes(15)`, published as the card's `messageIdempotencyRetention`); a resend within it
+  PostgreSQL and MongoDB ones; the suite `a2aDirectMessageContract`) for the endpoint's `ttl.messages`
+  (published as the card's `messageIdempotencyRetention`); a resend within it
   gets the kept reply, one racing the first waits for it, another content under the id is
   `-32602 a2a.message-id-reused`. The store must be on the task store's backend
   (`[a2a.message-store-not-shared]`). A model skill whose instance died mid-call records one call of
@@ -643,21 +646,21 @@ export class DocumentReader {
   `S3FileRepository`; the suite `fileContract`) they are kept under the task, which on leases
   the instances share needs a store they all reach (`[a2a.file-store-not-shared]`).
 - A task's files are kept while the task waits — a paused `INPUT_REQUIRED` task however long — and
-  removed `retention.a2aFiles` after it is over (default `retention.a2aTasks`).
+  removed by its `@FilePolicy({ ttl })` after it is over.
 - The card names a skill's file fields in the skills extension (`files`, `outputFiles`), never in a
-  data schema (`@A2AExpose({ cardFileFields })`). The client sends and reads files with
+  data schema (`@A2AEndpoint({ cardFileFields })`). The client sends and reads files with
   `FileDto.fromBytes` / `FileDto.fromUrl` (on the wire: `A2APart.fromFile`) and `downloadFile`.
 
 ### What an A2A server keeps
 
-| Store                        | Holds                                           | Retention (default)           | Built in                                                                                       |
-| ---------------------------- | ----------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `A2ATaskRepository`          | one task per root execution, its messages' ids  | `a2aTasks` (`hours(24)`)      | in memory, `SqliteA2ATaskRepository`, `@agboss/postgres`, `@agboss/mongodb`; `a2aTaskContract` |
-| `A2ADirectMessageRepository` | a direct reply, by `(tenant, owner, messageId)` | `a2aMessages` (`minutes(15)`) | in memory, `SqliteA2ADirectMessageRepository`, PostgreSQL, MongoDB; `a2aDirectMessageContract` |
-| `FileRepository`             | a task's files                                  | `a2aFiles` (`a2aTasks`)       | inline (none listed), in memory, `LocalDiskFileRepository`, `S3FileRepository`; `fileContract` |
+| Store                        | Holds                                           | Kept for                       | Built in                                                                                       |
+| ---------------------------- | ----------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `A2ATaskRepository`          | one task per root execution, its messages' ids  | `ttl.tasks` of the endpoint    | in memory, `SqliteA2ATaskRepository`, `@agboss/postgres`, `@agboss/mongodb`; `a2aTaskContract` |
+| `A2ADirectMessageRepository` | a direct reply, by `(tenant, owner, messageId)` | `ttl.messages` of the endpoint | in memory, `SqliteA2ADirectMessageRepository`, PostgreSQL, MongoDB; `a2aDirectMessageContract` |
+| `FileRepository`             | a task's files                                  | `@FilePolicy({ ttl })`         | inline (none listed), in memory, `LocalDiskFileRepository`, `S3FileRepository`; `fileContract` |
 
-`@Application({ retention: { a2aTasks, a2aMessages, a2aFiles } })` sets them; an unfinished task is
-never removed, and `a2aTasks` is how long a `messageId` is remembered after its task ended. An
+Each `@A2AEndpoint({ ttl: { tasks, messages } })` sets its own (its rows name the endpoint); an unfinished task is
+never removed, and `ttl.tasks` is how long a `messageId` is remembered after its task ended. An
 application whose instances share leases (any backend but `in-memory`) lists a task store, a message
 store (when a skill replies directly) and a file store (above 256 KB) they share, else it does not
 assemble: `[a2a.task-store-not-shared]`, `[a2a.message-store-not-shared]`,
@@ -667,7 +670,7 @@ assemble: `[a2a.task-store-not-shared]`, `[a2a.message-store-not-shared]`,
 
 | Rule                                                                                                     | When                                                                                            |
 | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `[a2a.expose-description-required]`                                                                      | an `@A2AExpose` with a blank `description` (the card's)                                         |
+| `[a2a.endpoint-description-required]`                                                                    | an `@A2AExpose` with a blank `description` (the card's)                                         |
 | `[a2a.skill-tags]` (warning)                                                                             | an exported skill with no `tags` (the card falls back to the application's name)                |
 | `[a2a.unpriced-foreign-peer]` (warning)                                                                  | an `@A2AAgent` without `target.application` and without `price`: its spend is invisible         |
 | `[a2a.task-store-not-shared]`                                                                            | shared leases, a task store that is not (above)                                                 |
@@ -686,7 +689,7 @@ and nothing is charged again; a new message to a finished task is `a2a.task-over
 pause that closed (cancelled, withdrawn, ended with its tree) is `-32004 a2a.pause-closed` with its
 `reason` and `closedAt`.
 
-Tests: the `a2aServer({ expose, authenticator })` fixture of `testWith` (an `A2AServerFixture`)
+Tests: the `a2aServer({ endpoint, authenticator })` fixture of `testWith` (an `A2AServerFixture`)
 serves the test's `app` on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new
 A2AClient({ url, headers })`; the loopback is open for it (no `allowNetwork`), it closes at the
 test's end, and `services: [FixedApiKeyDirectory]` replaces the authenticator's services like any other
@@ -712,7 +715,7 @@ class NoKeysDirectory extends ApiKeyDirectory {
 const test = testWith(SupportApplication, { services: [NoKeysDirectory] });
 
 test("an unknown key is 401 and never runs", async ({ a2aServer, mockLlm }) => {
-  const { url } = await a2aServer({ expose: SupportA2AExpose, authenticator: SupportHttpAuthenticator });
+  const { url } = await a2aServer({ endpoint: SupportA2AExpose, authenticator: SupportHttpAuthenticator });
 
   // any A2A v1.0 client calls the listener; a plain JSON-RPC `SendMessage` is the smallest one
   const sent = await fetch(url, {
@@ -861,7 +864,7 @@ authenticator: the audience first, then a known issuer's signature, replay windo
 message's body hash — a refusal is `401 { code }` and nothing runs. A message with no envelope, or a
 call without the extension, runs untrusted (still deduplicated by `messageId`). The extension is
 specified at https://agboss.dev/a2a/mesh/v1: the Agent Card declares it (`params.idempotencyRetention`
-= `retention.a2aTasks`, `messageIdempotencyRetention` = `retention.a2aMessages`), a receiver that
+= the endpoint's `ttl.tasks`, `messageIdempotencyRetention` = its `ttl.messages`), a receiver that
 activated it echoes it in its answer's `A2A-Extensions`, and a caller that gets no echo treats the
 call as one without the mesh (`mesh: false` in the tool call's record).
 
@@ -924,7 +927,7 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 | `OutboundCallError.Unreconciled` (`foreign A2A peer`)          | a send to a foreign agent got no answer: check the agent, then decide (`app.pendingOutboundCallsOf`) |
 | `[a2a.no-url]`                                                 | the client class lacks `@A2AAgent({ url })`                                                          |
 | `[a2a.no-contract]`                                            | `execute` on a client without `@A2AAgent({ input, output })`: declare them, or use `send`            |
-| `[application.expose-unlisted]`                                | list the `@A2AExpose` in `@Application({ exposes })`                                                 |
+| `[application.endpoint-unlisted]`                              | list the `@A2AExpose` in `@Application({ endpoints })`                                               |
 | `400 a2a.unknown-start`                                        | name an exported start (`target.start`), or export only one                                          |
 | `[mesh.audience-mismatch] …`                                   | the client's `target.application` is not the application at its `url`                                |
 | `mesh.audience-missing`                                        | a signed envelope names no application: sign only with an audience (`target.application`)            |

@@ -16,7 +16,13 @@ import {
 import type { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
 import type { VirtualClock } from "../../../../src/testing/clock.js";
 import { seconds } from "../../../../src/units/index.js";
-import { NINE, scriptOf, TEXT_SKILL, unitParts } from "../../server/support/unit-parts.js";
+import {
+  NINE,
+  scriptOf,
+  TEXT_SKILL,
+  UNIT_ENDPOINT,
+  unitParts,
+} from "../../server/support/unit-parts.js";
 
 /** The unit start as a direct-reply skill that can call a model. */
 export const DIRECT_SKILL: ServedSkill = {
@@ -107,6 +113,7 @@ export const acceptedMessage = (
   overrides: Partial<NewA2ADirectMessage> = {},
 ): NewA2ADirectMessage => ({
   ...KEY,
+  endpoint: UNIT_ENDPOINT,
   requestHash: "h-1",
   skill: DIRECT_SKILL.id,
   contextId: "ctx-1",

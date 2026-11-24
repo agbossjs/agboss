@@ -37,7 +37,7 @@ export const retentionSourcesOf = (
   threadRecords: infrastructure.records,
   threadTtls: threadTtlsOf(assembled),
   expiries: [
-    ...a2aExpiriesOf(infrastructure, assembled),
+    ...a2aExpiriesOf(infrastructure, assembled.endpoints),
     fileExpiryOf({
       files: infrastructure.a2aFiles,
       clock: infrastructure.clock,

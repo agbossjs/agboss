@@ -159,7 +159,7 @@ export class FamilyRouteA2AExpose {}
   environment: EmptyEnvironment,
   workflows: [FamilyRouteWorkflow],
   providers: [BearerAuthenticator],
-  exposes: [FamilyRouteA2AExpose],
+  endpoints: [FamilyRouteA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class FamilyRouteServedApplication {}

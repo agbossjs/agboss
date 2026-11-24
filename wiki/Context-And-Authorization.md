@@ -305,7 +305,7 @@ or any other component needs of the execution it reads through its injected `Exe
 (the tenant, the owner, the project's own fields — `deps: [ExecutionContext]`; a channel's request
 is made inside the paused step). An MCP session takes the values from its authenticated caller —
 `connectMcp(app, { endpoint: Mcp, transport, session: { tenant, execution, ownerId } })` (`McpSessionOptions`,
-`@agboss/core/mcp`) — and so does an A2A call: `a2aHttpListener(app, { expose, authenticator, publicUrl })` asks
+`@agboss/core/mcp`) — and so does an A2A call: `a2aHttpListener(app, { endpoint, authenticator, publicUrl })` asks
 the host's **`@HttpAuthenticator`** (a class in `services`) for every request, with its
 operation and task decoded from its body and nothing of it run before —
 `HttpAuthResult.authenticated({ tenant, ownerId, execution })`

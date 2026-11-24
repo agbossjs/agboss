@@ -1,5 +1,5 @@
 import { A2ACardFileFields } from "../a2a/files/a2a-file-options.js";
-import { A2AReply } from "../a2a/a2a-expose.decorator.js";
+import { A2AReply } from "../a2a/a2a-message-skill-rule.js";
 import { z } from "zod";
 import type { ContractsSnapshot } from "../describe/contracts-types.js";
 import type { FederationMember } from "./federation-types.js";

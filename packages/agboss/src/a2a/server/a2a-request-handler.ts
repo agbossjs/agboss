@@ -20,7 +20,7 @@ import {
 } from "../../infrastructure/a2a-task.repository.js";
 import { A2AOperation } from "../a2a-caller.js";
 import { acceptedTask } from "./a2a-accept.js";
-import { A2AReply } from "../a2a-expose.decorator.js";
+import { A2AReply } from "../a2a-message-skill-rule.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import { directReply } from "./a2a-direct-reply.js";
 import { skillOfMessage } from "./a2a-message-input.js";

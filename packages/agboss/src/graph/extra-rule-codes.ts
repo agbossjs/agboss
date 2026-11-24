@@ -14,6 +14,9 @@ export type StorageRuleCode =
   | "storage.secret-shared"
   | "storage.ttl-invalid";
 
+/** Codes of an `@A2AEndpoint`: its ttl, and a start listed twice (#1320). */
+export type A2AEndpointRuleCode = "a2a.ttl-invalid" | "a2a.duplicate-skill";
+
 /** Codes of the pause targets, their channels, selectors, interpreters and listeners (#1307, #1310). */
 export type PauseTargetRuleCode =
   | "channel.missing-for-target"
@@ -36,6 +39,7 @@ export type ParallelLaunchRuleCode =
 
 /** The rule codes that live beside their feature, not in the one list. */
 export type ExtraRuleCode =
+  | A2AEndpointRuleCode
   | FileRuleCode
   | ModelProviderRuleCode
   | ParallelLaunchRuleCode

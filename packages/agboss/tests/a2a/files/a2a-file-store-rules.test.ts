@@ -68,7 +68,7 @@ const appWith = (
     environment: EmptyEnvironment,
     workflows: [RulesWorkflow],
     providers: [FileCallerChannel, ...providers],
-    exposes: [RulesA2AExpose],
+    endpoints: [RulesA2AExpose],
     budgets: TEST_BUDGETS,
     ...more,
   })

@@ -136,11 +136,11 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly mesh?: Class;
   /**
-   * What the application serves to other applications (#398 PR 3): its `@A2AExpose` and
+   * What the application serves to other applications (#398 PR 3): its `@A2AEndpoint` and
    * `@McpEndpoint` classes — `a2aHttpListener` serves only a listed one
-   * (`[application.expose-unlisted]`), and `agboss describe --json` lists them as exported contracts.
+   * (`[application.endpoint-unlisted]`), and `agboss describe --json` lists them as exported contracts.
    */
-  readonly exposes?: readonly Class[];
+  readonly endpoints?: readonly Class[];
   /**
    * How long each automatic undo action may run (#340): an `@Action({ compensateWith })` undone
    * because no path could — its finished branches when a join fails — runs with a clean-up

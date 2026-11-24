@@ -163,11 +163,13 @@ function hashedPartOf(part: Part): Readonly<Record<string, unknown>> {
 }
 
 /**
- * The hash of what a message asks: its skill, parts, and the context and task it names — a resend
- * has the same one, another message under the same id another. Extension metadata is left out.
+ * The hash of what a message asks: its endpoint, skill, parts, and the context and task it names — a
+ * resend has the same one, another message under the same id another (a message id used at one
+ * endpoint is never another endpoint's). Extension metadata is left out.
  */
-export const requestHashOf = (skill: string, message: Message): string =>
+export const requestHashOf = (endpoint: string, skill: string, message: Message): string =>
   versionOf({
+    endpoint,
     skill,
     parts: message.parts.map(hashedPartOf),
     contextId: message.contextId,

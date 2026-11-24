@@ -27,7 +27,7 @@ import {
   FaultSecondPauseChannel,
   FaultTwicePauseWorkflow,
 } from "./window.workflow.js";
-import { FaultA2AExpose, FaultAuthenticator, keepsA2ATasks } from "./fault.a2a.js";
+import { FaultA2AEndpoint, FaultAuthenticator, keepsA2ATasks } from "./fault.a2a.js";
 import { breaksContract, isOutsideHolds, sabotagedStoreOf } from "../sabotage-stores.js";
 import type { FaultStoreSabotage } from "../pod-protocol.js";
 import { FaultPodLink } from "./pod-link.js";
@@ -98,15 +98,15 @@ export const heldProvidersOf = (
  */
 interface FaultA2AParts {
   readonly workflows: readonly Class[];
-  readonly exposes: readonly Class[];
+  readonly endpoints: readonly Class[];
   readonly providers: readonly Class[];
 }
 
 function a2aPartsOf(stores: FaultStoreSet): FaultA2AParts {
-  if (!keepsA2ATasks(stores.providers)) return { workflows: [], exposes: [], providers: [] };
+  if (!keepsA2ATasks(stores.providers)) return { workflows: [], endpoints: [], providers: [] };
   return {
     workflows: [FaultApprovalWorkflow],
-    exposes: [FaultA2AExpose],
+    endpoints: [FaultA2AEndpoint],
     providers: [FaultAuthenticator, FaultCallerChannel],
   };
 }
@@ -129,7 +129,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       ...(expiring ? [FaultExpiringWorkflow] : []),
       ...a2a.workflows,
     ],
-    ...(a2a.exposes.length === 0 ? {} : { exposes: a2a.exposes }),
+    ...(a2a.endpoints.length === 0 ? {} : { endpoints: a2a.endpoints }),
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
     retention: { executionRecords: hours(24) },
