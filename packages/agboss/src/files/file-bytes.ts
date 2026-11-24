@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { FileDto } from "../dto/standard/file.js";
+import { FilePayloadSource, fileSourceOf, type FileDto } from "../dto/standard/file.js";
 import { mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
 import type { FileCaller, FileFetchSlots } from "../a2a/files/a2a-file-slots.js";
 import type { FileTransport } from "../a2a/files/a2a-file-transport.js";
@@ -123,6 +123,10 @@ const sourced = (file: FileDto, context: FileReadContext): Promise<Uint8Array> =
  * its digest against its descriptor's, its bytes against its media type.
  */
 export async function fileContentOf(file: FileDto, context: FileReadContext): Promise<FileContent> {
+  // a stored or inline file is checked against its digest, so one with none is refused before any
+  // read (as `Files.read` does); only a file by url, whose bytes the origin owns, may come without
+  if (file.sha256 === undefined && fileSourceOf(file) !== FilePayloadSource.Url)
+    throw fileUnavailable({ reason: FileUnavailableReason.DigestMissing });
   const bytes = await sourced(file, context);
   if (bytes.byteLength > context.maxFileSize) throw fileRefused({ refusal: FileRefusal.TooLarge });
   const sha256 = sha256Of(bytes);

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Part } from "@a2a-js/sdk";
 import type { FileRepository } from "../../infrastructure/file.repository.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
@@ -48,10 +49,17 @@ async function contentOf(
     case FilePayloadSource.Url:
       return { $case: "url", value: file.url ?? "" };
     case FilePayloadSource.Inline:
-      return { $case: "raw", value: Buffer.from(file.inline ?? "", "base64") };
+      return inlineContentOf(file);
     case FilePayloadSource.Stored:
       return storedContentOf(file, task, store);
   }
+}
+
+/** An inline file's bytes, served only when they match their digest; one with none, or a wrong one, is left out. */
+function inlineContentOf(file: FileDto): Part["content"] | undefined {
+  const bytes = Buffer.from(file.inline ?? "", "base64");
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  return file.sha256 === digest ? { $case: "raw", value: bytes } : undefined;
 }
 
 /** A stored file's bytes, served only as its own task's and as its descriptor says. */

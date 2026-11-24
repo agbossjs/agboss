@@ -2,6 +2,7 @@
  * #1366: `downloadFile` hands out at most `maxSize` bytes, whichever way the bytes come: an inline file over it
  * is refused (`too-large`) as a file by url is, and a file of exactly `maxSize` is handed out.
  */
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { FileUnavailableReason } from "../../../../src/files/file-errors.js";
 import { downloadedFile } from "../../../../src/a2a/client/a2a-download.js";
@@ -10,6 +11,7 @@ import { kilobytes } from "../../../../src/units/index.js";
 const inlineOf = (size: number) => ({
   mediaType: "application/octet-stream",
   inline: Buffer.alloc(size, 7).toString("base64"),
+  sha256: createHash("sha256").update(Buffer.alloc(size, 7)).digest("hex"),
 });
 
 /** Never called: an inline file is read from the descriptor. */

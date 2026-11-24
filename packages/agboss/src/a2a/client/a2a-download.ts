@@ -48,7 +48,12 @@ async function boundedBodyOf(response: Response, max: number): Promise<Uint8Arra
 
 /** The signal a download runs under: the caller's, the policy's timeout (on the clock), and `stop`. */
 function signalOf(download: A2ADownload, stop: AbortSignal): AbortSignal | undefined {
-  if (download.timeout === undefined || download.clock === undefined) return download.signal;
+  if (download.timeout === undefined) return download.signal;
+  // no clock to run it on: the system's, so a set timeout is never skipped
+  if (download.clock === undefined) {
+    const system = AbortSignal.timeout(download.timeout);
+    return download.signal === undefined ? system : AbortSignal.any([download.signal, system]);
+  }
   const timed = new AbortController();
   void download.clock.sleep(download.timeout, stop).then(
     () => {
@@ -108,6 +113,10 @@ export async function downloadedFile(file: FileDto, download: A2ADownload): Prom
   // a stored descriptor is another application's own: never a file the client received
   if (fileSourceOf(file) === FilePayloadSource.Stored)
     throw unavailable(FileUnavailableReason.NotFound);
+  // an inline file is checked against its digest, so one with none is refused; only a file by url
+  // may come without one
+  if (file.sha256 === undefined && fileSourceOf(file) !== FilePayloadSource.Url)
+    throw unavailable(FileUnavailableReason.DigestMissing);
   const bytes =
     fileSourceOf(file) === FilePayloadSource.Url
       ? await fetchedOf(file.url ?? "", download, max)

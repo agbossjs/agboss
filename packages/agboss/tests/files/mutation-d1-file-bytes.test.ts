@@ -38,6 +38,7 @@ const textOf = (size: number): Uint8Array => new Uint8Array(size).fill(0x61);
 const inlineOf = (bytes: Uint8Array, rest: Partial<FileDto> = {}): FileDto => ({
   mediaType: "text/plain",
   inline: Buffer.from(bytes).toString("base64"),
+  sha256: sha256Of(bytes),
   ...rest,
 });
 
@@ -116,7 +117,7 @@ describe("a descriptor with no source at all", () => {
     const context = contextOn();
 
     const failure = await failureOf(
-      fileContentOf({ mediaType: "text/plain", fileId: "" }, context),
+      fileContentOf({ mediaType: "text/plain", fileId: "", sha256: "0".repeat(64) }, context),
     );
 
     expect(failure).toMatchObject({ reason: FileUnavailableReason.NotFound });

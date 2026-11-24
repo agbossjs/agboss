@@ -5,7 +5,7 @@ import type { UsageRecord } from "../finops/usage.js";
 import { InlineFileRepository } from "../infrastructure/file.repository.js";
 import { kindsOf } from "../pii/kinds.js";
 import { fileContentOf, sha256Of, type FileContent } from "./file-bytes.js";
-import { FileRedactionFailedError } from "./file-errors.js";
+import { FileRedactionFailedError, fileUnavailable, FileUnavailableReason } from "./file-errors.js";
 import { originalPieces, type MadeEntry } from "./file-pieces.js";
 import type { FileMask } from "./file-mask.js";
 import { valuesForRedactor } from "./redaction-values.js";
@@ -49,11 +49,14 @@ const parsed = (kept: string): KeptRedacted => JSON.parse(kept) as KeptRedacted;
 async function keptContentOf(batch: FileBatch, kept: KeptRedacted): Promise<FileContent> {
   if (kept.inline !== undefined) {
     const bytes = new Uint8Array(Buffer.from(kept.inline, "base64"));
+    const sha256 = sha256Of(bytes);
+    // the kept copy is checked against the digest it was kept under, as a stored one is
+    if (sha256 !== kept.sha256) throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
     return {
       mediaType: kept.mediaType,
       ...(kept.filename === undefined ? {} : { filename: kept.filename }),
       bytes,
-      sha256: sha256Of(bytes),
+      sha256,
     };
   }
   return fileContentOf(
