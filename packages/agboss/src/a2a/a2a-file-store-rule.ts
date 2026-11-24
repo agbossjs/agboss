@@ -75,7 +75,16 @@ function skillPolicyViolations(
 ): RuleViolation[] {
   if (policy === undefined) return [];
   const own = filePolicyViolations(`${expose}'s skill ${skill} filePolicy`, policy, [expose]);
-  if (own.length > 0 || start === undefined) return own;
+  if (own.length > 0) return own;
+  // a skill whose start is not among the exports cannot be compared: said, never skipped
+  if (start === undefined)
+    return [
+      violation(
+        "a2a.skill-file-policy-exceeds-workflow",
+        `${expose}'s skill ${skill} sets a filePolicy, but no exported start is named ${skill}: it cannot be checked against its workflow's`,
+        [expose],
+      ),
+    ];
   const excesses = filePolicyExcesses(
     workflowFilePolicyOf(workflowOfStart(start, workflows)),
     policy,

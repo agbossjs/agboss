@@ -89,6 +89,7 @@ describe("FileError.Unavailable", () => {
     expect(Object.values(FileUnavailableReason)).toEqual([
       "not-found",
       "digest-mismatch",
+      "digest-missing",
       "outside-execution",
       "too-large",
       "download-failed",

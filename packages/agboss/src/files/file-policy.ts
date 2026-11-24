@@ -1,5 +1,6 @@
 import { DEFAULT_A2A_FILE_MEDIA_TYPES, mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
 import type { Class } from "../components/injection.js";
+import { poolExcessOf } from "./file-pool-excess.js";
 import { callerFile } from "../components/call-site.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
 import { resolvedName } from "../flow/names.js";
@@ -257,7 +258,7 @@ function exceedsOf(parent: FileLimits, child: FileLimits): readonly string[] {
   const origins = child.allowedOrigins
     .filter((origin) => !parent.allowedOrigins.includes(origin))
     .map((origin) => `allowedOrigins has ${origin}, which it does not`);
-  return [...numbers, ...types, ...origins];
+  return [...numbers, ...poolExcessOf(parent.fetchPool, child.fetchPool), ...types, ...origins];
 }
 
 /**

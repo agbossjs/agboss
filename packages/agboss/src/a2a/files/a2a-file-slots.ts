@@ -214,16 +214,36 @@ export function fileSlotsOf(
   perOwner?: number,
   maxQueuedPerOwner?: number,
 ): FileFetchSlots {
-  const total = limit ?? DEFAULT_MAX_CONCURRENT_FILE_FETCHES;
-  const tenant = Math.min(perTenant ?? Math.max(1, Math.floor(total / TENANT_SHARE)), total);
-  const owner = Math.min(
-    perOwner ?? Math.min(DEFAULT_MAX_CONCURRENT_PER_OWNER, Math.max(1, Math.floor(tenant / 2))),
-    tenant,
-  );
+  const { total, tenant, owner, queued } = effectivePoolOf({
+    maxConcurrent: limit,
+    maxConcurrentPerTenant: perTenant,
+    maxConcurrentPerOwner: perOwner,
+    maxQueuedPerOwner,
+  });
   return new FileFetchSlots(total, total * QUEUED_PER_SLOT, shareOf(tenant), {
     running: owner,
-    queued: maxQueuedPerOwner ?? DEFAULT_MAX_QUEUED_PER_OWNER,
+    queued,
   });
+}
+
+/** A pool's numbers with every default filled in and every share held under the one above it. */
+export function effectivePoolOf(pool: {
+  readonly maxConcurrent?: number | undefined;
+  readonly maxConcurrentPerTenant?: number | undefined;
+  readonly maxConcurrentPerOwner?: number | undefined;
+  readonly maxQueuedPerOwner?: number | undefined;
+}): { total: number; tenant: number; owner: number; queued: number } {
+  const total = pool.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_FILE_FETCHES;
+  const tenant = Math.min(
+    pool.maxConcurrentPerTenant ?? Math.max(1, Math.floor(total / TENANT_SHARE)),
+    total,
+  );
+  const owner = Math.min(
+    pool.maxConcurrentPerOwner ??
+      Math.min(DEFAULT_MAX_CONCURRENT_PER_OWNER, Math.max(1, Math.floor(tenant / 2))),
+    tenant,
+  );
+  return { total, tenant, owner, queued: pool.maxQueuedPerOwner ?? DEFAULT_MAX_QUEUED_PER_OWNER };
 }
 
 /** The key of a tenant's share: its id as a JSON array, never a bare text, so it cannot be an owner's key. */

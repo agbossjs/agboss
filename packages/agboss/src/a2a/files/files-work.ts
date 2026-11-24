@@ -150,6 +150,10 @@ export async function readFile(
   const execution = executionOf();
   if (execution === undefined)
     throw fileUnavailable({ reason: FileUnavailableReason.OutsideExecution });
+  // a stored or inline file is checked against its digest, so one with none is refused; only a
+  // file by url, whose bytes the origin owns, may come without one
+  if (file.sha256 === undefined && fileSourceOf(file) !== FilePayloadSource.Url)
+    throw fileUnavailable({ reason: FileUnavailableReason.DigestMissing });
   const bytes = await bytesOf(store, clock, file, execution);
   if (file.sha256 !== undefined && sha256Of(bytes) !== file.sha256)
     throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });

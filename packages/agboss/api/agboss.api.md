@@ -4103,6 +4103,7 @@ export abstract class FileTranscriber {
 // @public
 export enum FileUnavailableReason {
     DigestMismatch = "digest-mismatch",
+    DigestMissing = "digest-missing",
     DownloadFailed = "download-failed",
     FetchBusy = "fetch-busy",
     NotFound = "not-found",

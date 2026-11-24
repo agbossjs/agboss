@@ -16,6 +16,8 @@ export enum FileUnavailableReason {
   NotFound = "not-found",
   /** Its bytes do not match the `sha256` its descriptor names. */
   DigestMismatch = "digest-mismatch",
+  /** A stored or inline file's descriptor names no `sha256`: only a file by url may go unchecked. */
+  DigestMissing = "digest-missing",
   /** A read outside an execution: a file belongs to its execution's task. */
   OutsideExecution = "outside-execution",
   /** A download larger than its `maxSize`: stopped there. */

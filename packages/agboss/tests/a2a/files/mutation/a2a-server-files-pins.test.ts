@@ -38,7 +38,11 @@ describe("the listener's file fetch", () => {
 
     expect(slotsOf(limits)).not.toBe(appFileSlotsOf(store));
     expect(slotsOf(limits)).toBe(slotsOf(limits));
-    expect(slotsOf({ ...DEFAULT_FILE_LIMITS, fetchPool: { maxConcurrent: 2 } })).not.toBe(
+    // a pool is its fields, not its object (#1316b review): an equal pool is the same pool
+    expect(slotsOf({ ...DEFAULT_FILE_LIMITS, fetchPool: { maxConcurrent: 2 } })).toBe(
+      slotsOf(limits),
+    );
+    expect(slotsOf({ ...DEFAULT_FILE_LIMITS, fetchPool: { maxConcurrent: 3 } })).not.toBe(
       slotsOf(limits),
     );
   });
