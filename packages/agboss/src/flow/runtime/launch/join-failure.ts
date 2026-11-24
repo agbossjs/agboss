@@ -1,7 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { errorRecordOf, RecordedError, type ErrorRecord } from "../../../core/error-record.js";
 import { valueWrite, type FlowEdge } from "../../analyse/flow-graph.js";
-import { compensationsOfFailedJoin } from "../../compensation.js";
+import { compensationsOfFailedJoin, type CompensationEntry } from "../../compensation.js";
 import { FailurePolicy } from "../../decorators/router.js";
 import { isSkippedBranch } from "./branch-skip.js";
 import { errorHandlerOf } from "../graph-model.js";
@@ -115,9 +115,7 @@ export async function failedJoined(
   const cause = thrown instanceof Error ? thrown : new RecordedBranchError(failureRecordOf(record));
   const undone = await compensationsOfFailedJoin({ ...site, cause });
   try {
-    const undoneNodes = (undone.compensations ?? []).flatMap((entry) =>
-      entry.launchId === site.ticket.launchId ? [entry.compensated.nodeId] : [],
-    );
+    const undoneNodes = undoneBranchesOf(undone.compensations, site.ticket);
     const failure = failureRecordOf(record);
     const entered = await failedJoin(
       launch,
@@ -130,6 +128,22 @@ export async function failedJoined(
     await site.deps.limits.budgets.record(undone.usage ?? []);
     throw error;
   }
+}
+
+/**
+ * The branches of the launch whose entries the join undid, by their node ids: an action's own
+ * step, a child workflow's branch by its index (#1281b: its entries are its child's actions').
+ */
+function undoneBranchesOf(
+  entries: readonly CompensationEntry[] | undefined,
+  ticket: LaunchTicket,
+): readonly string[] {
+  return (entries ?? []).flatMap((entry) => {
+    if (entry.launchId !== ticket.launchId) return [];
+    if (entry.childPath === undefined) return [entry.compensated.nodeId];
+    const branch = entry.branchIndex === undefined ? undefined : ticket.branches[entry.branchIndex];
+    return branch === undefined ? [] : [branch.nodeId];
+  });
 }
 
 /**
@@ -156,9 +170,7 @@ export async function failedQuorum(
   });
   const undone = await compensationsOfFailedJoin({ ...site, cause: error });
   try {
-    const undoneNodes = (undone.compensations ?? []).flatMap((entry) =>
-      entry.launchId === site.ticket.launchId ? [entry.compensated.nodeId] : [],
-    );
+    const undoneNodes = undoneBranchesOf(undone.compensations, site.ticket);
     const node = site.ticket.launcher;
     const entered = await failedJoin(launch, { ...site, record, node, undone: undoneNodes }, error);
     return { ...undone, ...entered };

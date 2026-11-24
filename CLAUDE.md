@@ -774,8 +774,8 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   path from it runs the committer or the undo, `[flow.uncommitted-action]`; `committedBy` without
   `compensateWith` has no effect, `[action.committer-without-compensator]`; `agboss describe`
   prints both. At run time (#340) each success opens a record in the execution's `compensations`
-  (with a snapshot of what its undo reads) — committed by its committer or a finish (a child's own
-  finish commits the child's), closed by its undo on a side path (`CompensationReason.SidePath`);
+  (with a snapshot of what its undo reads) — committed by its committer or a finish (a child's
+  finish commits none: it moves its open ones up to its parent, which commits or undoes them, #1281b), closed by its undo on a side path (`CompensationReason.SidePath`);
   a failed join undoes its finished undoable branches before `.onError` or the failure
   (`JoinFailed`, newest first, after awaiting the launch's running branches), each in its own frame
   — key `<step key>:compensation`, `step.compensates`, a clean-up `signal` bounded by

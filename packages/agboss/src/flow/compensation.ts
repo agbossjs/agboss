@@ -107,6 +107,16 @@ export interface CompensationEntry {
   readonly launchId?: string;
   /** Which branch of that launch it is (its ticket's index, #1281): what a quorum join excludes it by. */
   readonly branchIndex?: number;
+  /**
+   * The execution whose state holds it, once a child's finish moved it up to its parent (#1281b);
+   * absent: its own `executionId`.
+   */
+  readonly heldBy?: string;
+  /**
+   * The holder's nodes of the child workflows, down to the one that opened it (#1281b): where its
+   * undo runs; absent: an entry of the holder's own workflow.
+   */
+  readonly childPath?: readonly string[];
   /** What the undo reads, by slot: as the scope held it right after the action. */
   readonly input: ScopeRecords;
   readonly status: CompensationEntryStatus;
@@ -160,10 +170,12 @@ export function touchesCompensations(
   const isAction = declaration.kind === NodeKind.Action;
   if (isAction && declaration.options.compensateWith !== undefined) return true;
   const open = entries.filter((entry) => entry.status === CompensationEntryStatus.Open);
-  if (declaration.kind === NodeKind.Finish)
-    return open.some((entry) => entry.committer === undefined);
+  // a finish commits its open entries, or moves them up to its parent (#1281b)
+  if (declaration.kind === NodeKind.Finish) return open.length > 0;
+  // a committer or an undo of the holder's own workflow only: a child's moved entry is not its node's
+  const own = open.filter((entry) => entry.childPath === undefined);
   return (
-    isAction && open.some((entry) => entry.committer === node.id || entry.compensator === node.id)
+    isAction && own.some((entry) => entry.committer === node.id || entry.compensator === node.id)
   );
 }
 
@@ -272,15 +284,15 @@ export interface FailedJoinUndo {
 
 /**
  * A failed join undoes its finished undoable branches before `.onError` or the failure (#340
- * Q3): the runtime is loaded only for a launch of an action that declares its undo.
+ * Q3), a child workflow's branch the entries its finish moved up (#1281b): the runtime is loaded
+ * only for a launch of an action that declares its undo, or of a child workflow.
  */
 export async function compensationsOfFailedJoin(site: JoinUnwindSite): Promise<FailedJoinUndo> {
-  const isUndoable = site.ticket.branches.some((branch) => {
-    const declaration = site.deps.graph.nodes.get(branch.node)?.declaration;
-    return (
-      declaration?.kind === NodeKind.Action && declaration.options.compensateWith !== undefined
-    );
-  });
+  const kinds = site.ticket.branches.map((branch) => site.deps.graph.nodes.get(branch.node)?.kind);
+  const canLeave = kinds.some((kind) => kind === NodeKind.Action || kind === NodeKind.Workflow);
+  if (!canLeave) return {};
+  const { canLeaveEntries } = await lazyLoad(import("./runtime/compensation/held-entries.js"));
+  const isUndoable = site.ticket.branches.some((branch) => canLeaveEntries(site.deps, branch.node));
   if (!isUndoable) return {};
   const { unwoundJoin } = await lazyLoad(import("./runtime/compensation/join-unwind.js"));
   return unwoundJoin(site);

@@ -5,11 +5,8 @@ import { ExecutionCancelledError } from "../../core/errors.js";
 import type { RunContext } from "../../core/run-context.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import { takeCarriedRecords } from "./carried-records.js";
-import {
-  compensationRecordsOf,
-  hasUndoableActions,
-  type CompensationRecord,
-} from "../compensation.js";
+import { compensationRecordsOf, type CompensationRecord } from "../compensation.js";
+import { canHoldEntries, isChildsEntry } from "./compensation/held-entries.js";
 import { CompensationFailedError } from "../compensation.js";
 import type { Frame } from "../context/frame.js";
 import type { ExecutionEvent } from "../observers/execution-event.js";
@@ -101,9 +98,9 @@ async function undoneChild(
 ): Promise<{ readonly thrown: unknown; readonly compensations: readonly CompensationRecord[] }> {
   const { child } = parent.undo;
   const held = run.last?.compensations ?? [];
-  const own = held.filter((entry) => entry.executionId === ended.identity.executionId);
-  if (!hasUndoableActions(child.deps.graph))
-    return { thrown, compensations: compensationRecordsOf(own) };
+  const own = held.filter((entry) => isChildsEntry(entry, ended.identity.executionId));
+  // its own undoable actions, or a child of it at any depth that can move one up (#1281b)
+  if (!canHoldEntries(child.deps)) return { thrown, compensations: compensationRecordsOf(own) };
   const { unwoundChild } = await lazyLoad(import("./compensation/child-unwind.js"));
   const unwound = await unwoundChild(
     {

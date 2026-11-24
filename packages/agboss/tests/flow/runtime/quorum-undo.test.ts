@@ -3,19 +3,17 @@ import { CompensationReason } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
-  NotReservedWorkflowFinish,
-  ReservedWorkflowFinish,
-  ReleaseRoomAction,
-  ReleaseSeatAction,
-  ReserveRoomAction,
-  ReserveSeatAction,
-  UndoDesk,
-} from "./fixtures/undo.workflow.js";
-import {
+  BookRoomAction,
+  BookSeatAction,
+  FreeRoomAction,
+  FreeSeatAction,
+  TripBookingDesk,
+  TripNotReservedWorkflowFinish,
+  TripReviewedWorkflowFinish,
   QuorumExcludedWorkflowStart,
   QuorumRefusedWorkflowStart,
   QuorumUndoApplication,
-} from "./fixtures/quorum-undo.workflow.js";
+} from "../fixtures/quorum-undo.fixture.js";
 
 /**
  * #1281b: a quorum join that goes on undoes the branches that completed yet were not counted
@@ -32,15 +30,15 @@ describe("#1281b: the excluded branches of a quorum are undone", () => {
     app,
     mockOf,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockOf(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, QuorumExcludedWorkflowStart, GUEST);
 
-    expect(result).toFinishWith(ReservedWorkflowFinish, { summary: "reviewed" });
+    expect(result).toFinishWith(TripReviewedWorkflowFinish, { summary: "reviewed" });
     expect(desk.release.mock.calls.map(([id]) => id)).toEqual(["seat-1"]);
-    expect(result).toHaveCompensated(ReserveSeatAction, {
-      by: ReleaseSeatAction,
+    expect(result).toHaveCompensated(BookSeatAction, {
+      by: FreeSeatAction,
       reason: CompensationReason.QuorumExcluded,
     });
     expect(result.compensations).toHaveLength(1);
@@ -50,7 +48,7 @@ describe("#1281b: the excluded branches of a quorum are undone", () => {
     app,
     mockOf,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockOf(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
     desk.release.mockRejectedValue(new Error("the desk is down"));
 
@@ -67,18 +65,18 @@ describe("#1281b: a quorum not reached undoes its completed branches", () => {
     app,
     mockOf,
   }) => {
-    const desk = mockOf(UndoDesk);
+    const desk = mockOf(TripBookingDesk);
     desk.reserve.mockImplementation((kind: string) => Promise.resolve(`${kind}-1`));
 
     const result = await execute(app, QuorumRefusedWorkflowStart, GUEST);
 
-    expect(result).toFinishWith(NotReservedWorkflowFinish, GUEST);
+    expect(result).toFinishWith(TripNotReservedWorkflowFinish, GUEST);
     expect(desk.release.mock.calls.map(([id]) => id).sort()).toEqual(["room-1", "seat-1"]);
     expect(desk.release.mock.calls).toHaveLength(2);
-    expect(result).toHaveCompensated(ReserveRoomAction, {
-      by: ReleaseRoomAction,
+    expect(result).toHaveCompensated(BookRoomAction, {
+      by: FreeRoomAction,
       reason: CompensationReason.JoinFailed,
     });
-    expect(result).toHaveCompensated(ReserveSeatAction, { by: ReleaseSeatAction });
+    expect(result).toHaveCompensated(BookSeatAction, { by: FreeSeatAction });
   });
 });

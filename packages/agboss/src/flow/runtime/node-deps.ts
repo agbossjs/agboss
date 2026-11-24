@@ -47,6 +47,7 @@ function launchDepsOf(
     ...(deps.pause === undefined ? {} : { pauses: deps.pause }),
     ...(deps.branchErrors === undefined ? {} : { branchErrors: deps.branchErrors }),
     ...(deps.branchScheduler === undefined ? {} : { scheduler: deps.branchScheduler }),
+    ...(deps.childDepsOf === undefined ? {} : { childDepsOf: deps.childDepsOf }),
   };
 }
 

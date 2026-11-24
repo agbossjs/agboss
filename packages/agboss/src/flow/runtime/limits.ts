@@ -106,7 +106,8 @@ export function isOwedUndo(state: ExecutionStateType, node: RuntimeNode): boolea
   const undone = state.compensations
     .filter((entry) => entry.status === CompensationEntryStatus.Open)
     .sort((first, second) => first.sequence - second.sequence)
-    .filter((entry) => entry.compensator === node.id)
+    // an undo of this workflow's own entries: a child's moved-up one is no node's here (#1281b)
+    .filter((entry) => entry.childPath === undefined && entry.compensator === node.id)
     .at(-1);
   return undone !== undefined && on.owed.includes(undone.key);
 }

@@ -26,6 +26,7 @@ import { workflowChainOf } from "../../tracing/workflow-chain.js";
 import { remoteChildEndOf, type RemoteChildSite } from "./remote/remote-child.js";
 import { remoteSiteOf } from "./remote/remote-child-site.js";
 import type { ChildInitialState } from "./remote/remote-child-run.js";
+import { takenBy } from "./compensation/held-entries.js";
 
 /**
  * A child workflow as a step of its parent (#263, S37; ADR-0022): the parent's node of `W` runs the
@@ -37,7 +38,8 @@ import type { ChildInitialState } from "./remote/remote-child-run.js";
  * state starts with the spend so far, so every check counts the whole tree) and starts with its
  * parent's PII tokens, giving its own back on exit — with its value, or with its error to the side
  * path that takes it (#120; the tokens of its finished steps: never on the error itself). It ends at
- * a finish — its output, of the finish's class, is the parent's value — or fails (`child-exit.ts`).
+ * a finish — its output, of the finish's class, is the parent's value, and the undoable entries its
+ * finish moved up are the parent step's (#1281b, `held-entries.ts`) — or fails (`child-exit.ts`).
  */
 
 /** The child's graph for one pass of its parent: what a parent's node of the child runs. */
@@ -204,8 +206,8 @@ export function childRunner(
     const done = await inStepEntry(deps.stepEntries, frame, () =>
       runChild(child, { deps, frame, undo }, ended, call),
     );
-    const { piiTokens } = done.state;
-    return { value: valueOf(child, done.state), read: entry.read, usage: done.usage, piiTokens };
+    const exit = { read: entry.read, usage: done.usage, piiTokens: done.state.piiTokens };
+    return { value: valueOf(child, done.state), ...exit, ...takenBy(frame, node.id, done.state) };
   };
 }
 

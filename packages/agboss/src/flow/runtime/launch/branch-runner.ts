@@ -4,7 +4,7 @@ import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import { failedVisitOf, visitStepsOf, visitTimerOf, type VisitSite } from "../visit-step.js";
-import { compensationsOfBranch } from "../../compensation.js";
+import { compensationsOfBranch, type CompensationEntry } from "../../compensation.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
@@ -40,7 +40,7 @@ import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { branchFrameOf, branchVisitOf } from "./branch-view.js";
 import type { EndedChildRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
-import type { CompensationEntry } from "../../compensation.js";
+import { withTaken } from "../compensation/held-entries.js";
 
 /**
  * One branch of a launch (#273 S20, S21): one `Send` task. It takes a slot of the launch's
@@ -157,11 +157,11 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
       });
     },
   );
-  // an undoable action's branch opens its entry as it ends (#340): a failed join undoes it
   const { launchId } = run.owner.ticket;
   const branch = { launchId, branchIndex: ticket.index, value: outcome.value };
   const opened = await compensationsOfBranch({ node, view, frame, config, branch, deps });
-  return answeredEnd(run, outcome, marked, opened, run.visited());
+  const taken = { taken: outcome.compensations, branch, parts: deps.compensation, frame };
+  return answeredEnd(run, outcome, marked, withTaken(taken, opened), run.visited());
 }
 
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */

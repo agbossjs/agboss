@@ -45,4 +45,6 @@ export const FIXTURE_WORKFLOWS: readonly string[] = [
   "in-parallel.fixture.ts",
   "committee.fixture.ts",
   "quorum-working-deadline.fixture.ts",
+  "quorum-undo.fixture.ts",
+  "child-undo.fixture.ts",
 ].map((file) => new URL(`../fixtures/${file}`, import.meta.url).pathname);

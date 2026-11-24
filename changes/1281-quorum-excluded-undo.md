@@ -10,5 +10,4 @@ continues (`CompensationReason.QuorumExcluded`; `CompensationEntry.branchIndex` 
 never completed has no entry, so nothing is undone for it; counted branches stay open until their committer or
 a finish. A quorum that is not reached (`QuorumNotReachedError`) now undoes every completed undoable branch
 like a failed join does (`JoinFailed`), notifies the branches' pauses, and starts `.onError` with the settled
-answers as `optional(…)`. Child workflows' undoable actions bubbling to the parent (#1281b, D8) are not part of
-this change yet.
+answers as `optional(…)`.

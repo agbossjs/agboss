@@ -458,12 +458,14 @@ export interface Compacted {
 export interface CompensationEntry {
     readonly action: string;
     readonly branchIndex?: number;
+    readonly childPath?: readonly string[];
     readonly committer?: string;
     // (undocumented)
     readonly compensated: StepRecord;
     readonly compensator: string;
     // (undocumented)
     readonly executionId: string;
+    readonly heldBy?: string;
     readonly input: ScopeRecords;
     readonly key: string;
     readonly launchId?: string;

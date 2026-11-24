@@ -391,9 +391,15 @@ registry — the workflow's own compiled graph, never its own subgraph ([Recursi
 `children`. `result.spend` holds the whole tree's. `result.handledErrors` lists the failures a side
 path took (`error`, `at`, `by`).
 
-**A child is the unit of work for its undo (#340 Q2).** A child's undoable actions
-(`@Action({ compensateWith })`) are its own records: its finish commits them — a parent's later
-failure, or its join's, never undoes a finished child. A child that ends without a finish — it
+**A child's undo bubbles up to its parent (#340 Q2, #1281b).** A child's undoable actions
+(`@Action({ compensateWith })`) that are still open when it finishes — no committing action of its
+own ran — are not committed by its finish: the finish moves them up to its parent, in the same
+write, and the parent's step that ran the child takes them (a child on any instance: from its
+finished state), once by their compensation keys — a step run again after a crash takes the same
+ones. From then on they are the parent's: its finish commits them, and its unwind undoes them with
+its own, newest first, each in the child's workflow — a join that fails, a quorum that goes on
+without the child's branch (`QuorumExcluded`), the parent's own failure or cancel; a grandchild's go
+up both levels. What the child committed or undid never moves. A child that ends without a finish — it
 failed, it was cancelled, or its launch's `FailFast` aborted it — undoes its own open actions,
 newest first, in its parent's step before its error reaches the parent (#340 PR 3,
 `ExecutionFailed` / `ExecutionCancelled`): its records come from its checkpoint and the instance's

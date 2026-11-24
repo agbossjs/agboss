@@ -186,7 +186,13 @@ function setUp(setup: Setup = {}) {
   h.end = {
     failed: false,
     announces: false,
-    state: { finish: "child-finish", output: "out", usage: [], piiTokens: { t: "v" } },
+    state: {
+      finish: "child-finish",
+      output: "out",
+      usage: [],
+      piiTokens: { t: "v" },
+      compensations: [],
+    },
   };
   const nodes = new Map<string, unknown>([["child-finish", { declaration: FINISH }]]);
   if (setup.noStart !== true) nodes.set("child-start", {});

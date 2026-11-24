@@ -149,6 +149,8 @@ export function unwindShard() {
       "src/flow/runtime/compensation/unwind.ts",
       "src/flow/runtime/compensation/child-unwind.ts",
       "src/flow/runtime/compensation/join-unwind.ts",
+      // #1281b: a child's undo moved up to its parent, and where it undoes
+      "src/flow/runtime/compensation/held-entries.ts",
       "src/flow/runtime/launch/branch-skip.ts",
       "src/flow/runtime/launch/items-limit.ts",
       "src/app/compensation/root-unwind.ts",

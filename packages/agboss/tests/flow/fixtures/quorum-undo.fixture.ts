@@ -6,22 +6,24 @@ import {
   Action,
   Workflow,
   WorkflowStart,
-} from "../../../../src/index.js";
-import { optional } from "../../../../src/flow/dto-wrappers.js";
-import { Application } from "../../../../src/application/application.js";
-import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { onStart, toAction, toFinish } from "../../../helpers/flow.js";
+} from "../../../src/index.js";
+import { optional } from "../../../src/flow/dto-wrappers.js";
+import { Application } from "../../../src/application/application.js";
+import { TEST_BUDGETS } from "./budgets.js";
+import { onStart, toAction, toFinish } from "../../helpers/flow.js";
 import {
-  NotReservedWorkflowFinish,
-  ReservedDto,
-  ReservedWorkflowFinish,
-  ReserveRoomAction,
-  ReserveSeatAction,
-  RoomDto,
-  SeatDto,
-  UndoDesk,
-  UndoRequestDto,
-} from "./undo.workflow.js";
+  BookRoomAction,
+  BookSeatAction,
+  TripBookingDesk,
+  TripNotReservedWorkflowFinish,
+  TripRequestDto,
+  TripReviewedWorkflowFinish,
+  TripRoomDto,
+  TripSeatDto,
+  TripSummaryDto,
+} from "./trip-undo-parts.js";
+
+export * from "./trip-undo-parts.js";
 
 /**
  * #1281b — quorum joins over undoable actions: an arbiter counts only the room, so the seat that
@@ -32,13 +34,13 @@ import {
 /** Counts the room, refuses the seat. */
 @Arbiter({ name: "room-only-arbiter" })
 export class RoomOnlyArbiter {
-  @Arbitrate(ReserveSeatAction)
-  isSeat(_answer: SeatDto): boolean {
+  @Arbitrate(BookSeatAction)
+  isSeat(_answer: TripSeatDto): boolean {
     return false;
   }
 
-  @Arbitrate(ReserveRoomAction)
-  isRoom(_answer: RoomDto): boolean {
+  @Arbitrate(BookRoomAction)
+  isRoom(_answer: TripRoomDto): boolean {
     return true;
   }
 }
@@ -46,13 +48,13 @@ export class RoomOnlyArbiter {
 /** Refuses everything. */
 @Arbiter({ name: "refuse-all-arbiter" })
 export class RefuseAllArbiter {
-  @Arbitrate(ReserveSeatAction)
-  isSeat(_answer: SeatDto): boolean {
+  @Arbitrate(BookSeatAction)
+  isSeat(_answer: TripSeatDto): boolean {
     return false;
   }
 
-  @Arbitrate(ReserveRoomAction)
-  isRoom(_answer: RoomDto): boolean {
+  @Arbitrate(BookRoomAction)
+  isRoom(_answer: TripRoomDto): boolean {
     return false;
   }
 }
@@ -61,11 +63,11 @@ export class RefuseAllArbiter {
 @Action({
   name: "review-reservations-action",
   description: "Reads the counted reservations",
-  input: { seat: optional(SeatDto), room: optional(RoomDto) },
-  output: ReservedDto,
+  input: { seat: optional(TripSeatDto), room: optional(TripRoomDto) },
+  output: TripSummaryDto,
 })
 export class ReviewReservationsAction {
-  execute(): Promise<ReservedDto> {
+  execute(): Promise<TripSummaryDto> {
     return Promise.resolve({ summary: "reviewed" });
   }
 }
@@ -73,14 +75,14 @@ export class ReviewReservationsAction {
 @WorkflowStart({
   name: "quorum-excluded-workflow-start",
   description: "A reservation",
-  input: UndoRequestDto,
+  input: TripRequestDto,
 })
 export class QuorumExcludedWorkflowStart {}
 
 @WorkflowStart({
   name: "quorum-refused-workflow-start",
   description: "A reservation nobody accepts",
-  input: UndoRequestDto,
+  input: TripRequestDto,
 })
 export class QuorumRefusedWorkflowStart {}
 
@@ -89,14 +91,14 @@ export class QuorumRefusedWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExcludedWorkflowStart)
-      .inParallel([toAction(ReserveSeatAction), toAction(ReserveRoomAction)])
+      .inParallel([toAction(BookSeatAction), toAction(BookRoomAction)])
       .arbitratedBy(RoomOnlyArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(NotReservedWorkflowFinish))
+      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewReservationsAction)
-      .toFinish(ReservedWorkflowFinish),
+      .toFinish(TripReviewedWorkflowFinish),
   ],
-  providers: [UndoDesk],
+  providers: [TripBookingDesk],
 })
 export class QuorumExcludedWorkflow {}
 
@@ -105,14 +107,14 @@ export class QuorumExcludedWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(QuorumRefusedWorkflowStart)
-      .inParallel([toAction(ReserveSeatAction), toAction(ReserveRoomAction)])
+      .inParallel([toAction(BookSeatAction), toAction(BookRoomAction)])
       .arbitratedBy(RefuseAllArbiter)
       .joinQuorum({ min: 1 })
-      .onError(QuorumNotReachedError, toFinish(NotReservedWorkflowFinish))
+      .onError(QuorumNotReachedError, toFinish(TripNotReservedWorkflowFinish))
       .toAction(ReviewReservationsAction)
-      .toFinish(ReservedWorkflowFinish),
+      .toFinish(TripReviewedWorkflowFinish),
   ],
-  providers: [UndoDesk],
+  providers: [TripBookingDesk],
 })
 export class QuorumRefusedWorkflow {}
 

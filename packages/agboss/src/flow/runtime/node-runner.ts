@@ -43,6 +43,8 @@ export interface NodeOutcome {
   /** An agent's judges' verdicts; an agent's or a model router's guardrails' decisions (#395 C3). */
   readonly judgeVerdicts?: readonly JudgeVerdictRecord[];
   readonly guardrailDecisions?: readonly GuardrailDecisionRecord[];
+  /** A child workflow's open undoable entries its finish moved up to this step (#1281b). */
+  readonly compensations?: readonly CompensationEntry[];
 }
 
 /** Runs one node: an agent's loop, a router's decision, an action's or a finish's handler, … */

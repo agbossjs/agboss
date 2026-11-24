@@ -9,6 +9,7 @@ import type { BrokenScreeningWorkflow, ItemBlindAgent } from "../tests/flow/fixt
 import type { BrokenOfferWorkflow } from "../tests/flow/fixtures/broken.fixture.js";
 import type { AskResumeWorkflowFinish, ChatApplication, ChatWorkflow, ChatWorkflowFinish, IntakeWorkflowStart, MainRouter, NoReplyWorkflowFinish, ProfilerAgent, ScoutAgent } from "../tests/flow/fixtures/chat.fixture.js";
 import type { CompanyGradeDto, CompanyLinkDto, CompanyRejectedDto, CompanyReviewFailedDto, DeepDiveDto, GradedShortlistDto, JobOfferDto, PromisingCompanyDto } from "../tests/flow/fixtures/child-dtos.js";
+import type { CarDto, ChargeTripAction, ChargedTripWorkflow, ChargedTripWorkflowStart, ChildUndoApplication, CommitTripWorkflow, CommitTripWorkflowStart, ConfirmTripAction, MiddleTripWorkflow, MiddleTripWorkflowFinish, MiddleTripWorkflowStart, NestedChargedTripWorkflow, NestedChargedTripWorkflowStart, NestedQuorumTripWorkflow, NestedQuorumTripWorkflowStart, QuorumTripWorkflow, QuorumTripWorkflowStart, RefusedTripWorkflow, RefusedTripWorkflowStart, RemoteChargedTripWorkflow, RemoteChargedTripWorkflowStart, RemoteQuorumTripWorkflow, RemoteQuorumTripWorkflowStart, RemoteTripWorkflow, RemoteTripWorkflowFinish, RemoteTripWorkflowStart, ReserveCarAction, ReviewTripAction, TripBookedWorkflowFinish, TripChargedWorkflowFinish, TripChildWorkflow, TripChildWorkflowFinish, TripChildWorkflowStart, TripDto, TripRequestDto, TripRoomDto, TripSeatDto, TripSummaryDto } from "../tests/flow/fixtures/child-undo.fixture.js";
 import type { CompanyFinderAgent, CompanyGradedWorkflowFinish, CompanyLinkReviewWorkflowStart, CompanyPickerAgent, CompanyRejectedWorkflowFinish, CompanyReviewApplication, CompanyReviewFailedWorkflowFinish, CompanyReviewWorkflow, CompanyReviewWorkflowStart, CompanyReviewerAgent, CompanyScreeningWorkflow, CompanyScreeningWorkflowStart, DeepDiveAgent, GradedShortlistWorkflowFinish, GraderAgent, JobOfferAgent, JobOfferWorkflow, JobOfferWorkflowFinish, JobOfferWorkflowStart, LinkOfferWorkflow, LinkOfferWorkflowStart, MarkReviewFailedAction, NoOfferFailedWorkflowFinish, NoOfferRejectedWorkflowFinish, NotifyReviewStoppedAction, PickedOfferWorkflowStart, ReviewErrorWorkflowFinish, ReviewRankerAgent, ScreeningStoppedWorkflowFinish } from "../tests/flow/fixtures/children.fixture.js";
 import type { AuditBedAction, BedAgent, BedRequestWorkflow, BedRequestWorkflowStart, BedsDto, BedsWorkflowFinish, BookBedTool, ClinicApplication, ClinicExecutionContext, ClinicTenantContext, FreeBedsTool } from "../tests/flow/fixtures/clinic.fixture.js";
 import type { BudgetApprovalWorkflow, BudgetApprovalWorkflowStart, BudgetOwnerExternalTask, BudgetOwnerInboxChannel, CommitteeApplication, CommitteeChildWorkflow, CommitteeChildWorkflowFinish, CommitteeChildWorkflowStart, CommitteeNoteAgent, CommitteeNotesWorkflow, CommitteeNotesWorkflowFinish, CommitteeNotesWorkflowStart, ContractCommitteeWorkflow, ContractCommitteeWorkflowStart, ContractDto, ContractGroupsWorkflow, ContractGroupsWorkflowStart, ContractRejectedWorkflowFinish, ContractSignedWorkflowFinish, DraftContractAction, FinanceDirectorExternalTask, FinanceInboxChannel, LegalInboxChannel, LegalSignOffExternalTask, LoadBudgetOwnersAction, OwnerAskDto, ReviewNotesAction, SecurityInboxChannel, SecuritySignOffExternalTask, SignAsFinanceAction, SignAsPanelAction, SignContractAction, SignOffDto, SignedDto } from "../tests/flow/fixtures/committee.fixture.js";
@@ -39,6 +40,7 @@ import type { AuditorAgent, BoardSearchAgent, CandidateReviewWorkflowStart, Comp
 import type { AuditDto, CandidateDto, CompanyShortlistDto, CultureScoreDto, DealCritiqueDto, DealDto, DueDiligenceReportDto, FastScreenDto, FitSummaryDto, LegalReviewDto, SalaryFitDto, ScoreDto, ScoreReviewDto, SkillsScoreDto } from "../tests/flow/fixtures/quorum-dtos.js";
 import type { ConfirmScoreTool, CriticPanelAgent, DealPanelWorkflowStart, DealReportPanelAgent, DealReportPanelWorkflowFinish, FastPanelAgent, HirePanelAgent, LegalPanelAgent, NoQuorumPanelWorkflowFinish, PanelFailedWorkflowFinish, PanelItemsWorkflowStart, PanelReviewWorkflowFinish, PanelSummaryAgent, PanelUnjudgedWorkflowFinish, PanelWorkflowStart, QuickRejectPanelWorkflowFinish, RisksPanelAgent, SecondOpinionPanelWorkflowFinish, SkillsPanelAgent, WaitTool } from "../tests/flow/fixtures/quorum-runtime-parts.js";
 import type { ArbitratedPanelApplication, ArbitratedPanelWorkflow, ChatPanelApplication, ChatPanelWorkflow, CheckedPanelApplication, CheckedPanelWorkflow, CopiesPanelApplication, CopiesPanelWorkflow, DealPanelApplication, DealPanelWorkflow, EachItemPanelApplication, EachItemPanelWorkflow, HybridPanelApplication, HybridPanelWorkflow, ItemPanelApplication, ItemPanelWorkflow, ModelPanelApplication, ModelPanelWorkflow, QuickPanelApplication, QuickPanelWorkflow, RecoveryPanelApplication, RecoveryPanelWorkflow, StrictPanelApplication, StrictPanelWorkflow } from "../tests/flow/fixtures/quorum-runtime.fixture.js";
+import type { QuorumExcludedWorkflow, QuorumExcludedWorkflowStart, QuorumRefusedWorkflow, QuorumRefusedWorkflowStart, QuorumUndoApplication, ReviewReservationsAction } from "../tests/flow/fixtures/quorum-undo.fixture.js";
 import type { AuditApplication, AuditBrokenWorkflow, AuditBrokenWorkflowStart, AuditDaysWorkflow, AuditDaysWorkflowStart, AuditGroupsWorkflow, AuditGroupsWorkflowStart, AuditHoursWorkflow, AuditHoursWorkflowStart, AuditUnhandledWorkflow, AuditUnhandledWorkflowStart, AuditorExternalTask, AuditorInboxChannel, CounselExternalTask, CounselInboxChannel } from "../tests/flow/fixtures/quorum-working-deadline.fixture.js";
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
@@ -51,6 +53,7 @@ import type { FlakyCheckAction, SideQuestionApplication, SideQuestionWorkflow, S
 import type { BatchRankAgent, CompanyBatchWorkflowStart, CompanyCheckAgent, CompanyCheckApplication, CompanyCheckWorkflow, CompanyCheckWorkflowStart, CompanyScoreWorkflowFinish } from "../tests/flow/fixtures/starts.fixture.js";
 import type { AnswerRouter, ExpertAnswerAgent, FastAnswerAgent, LoyaltyAgent, OrderAgent, SupportAction, SupportWorkflow, SupportWorkflowFinish, SupportWorkflowStart } from "../tests/flow/fixtures/support.fixture.js";
 import type { DeliveryTopicAgent, OrderTopicAgent, RefundTopicAgent, TopicsRouter, TopicsWorkflow, TopicsWorkflowFinish, TopicsWorkflowStart } from "../tests/flow/fixtures/topics.fixture.js";
+import type { BookRoomAction, BookSeatAction, FreeRoomAction, FreeSeatAction, TripNotReservedWorkflowFinish, TripReviewedWorkflowFinish } from "../tests/flow/fixtures/trip-undo-parts.js";
 import type { ManualQuoteWorkflowFinish, PriceQuoteAction, QuoteApplication, QuoteDto, QuoteRefusedDto, QuoteRefusedWorkflowFinish, QuoteRequestDto, QuoteSizeRouter, QuoteWorkflow, QuoteWorkflowFinish, QuoteWorkflowStart } from "../tests/flow/fixtures/units.fixture.js";
 
 declare module "../src/flow/generated-types.js" {
@@ -82,6 +85,8 @@ declare module "../src/flow/generated-types.js" {
       "bed-agent": BedsDto;
       "bed-request-workflow-start": WorkflowStartTextDto;
       "board-search-agent": readonly CompanyDto[];
+      "book-room-action": TripRoomDto;
+      "book-seat-action": TripSeatDto;
       "broken-agent": OfferDraftDto;
       "broken-review-workflow-start": WorkflowStartTextDto;
       "budget-approval-workflow-start": WorkflowStartTextDto;
@@ -93,10 +98,13 @@ declare module "../src/flow/generated-types.js" {
       "cfo-approver-agent": CfoDecisionDto;
       "charge-card-action": ChargeResultDto;
       "charge-payment-action": PaymentDto;
+      "charge-trip-action": TripSummaryDto;
+      "charged-trip-workflow-start": TripRequestDto;
       "chart-merger-agent": TeamChartDto;
       "check-limit-action": PurchasePlacedDto | PurchaseQuestionDto;
       "checkout-workflow-start": WorkflowStartTextDto;
       "chosen-panel-writer-agent": ArticleDraftDto;
+      "commit-trip-workflow-start": TripRequestDto;
       "committee-child-workflow": ContractDto;
       "committee-child-workflow-start": ContractDto;
       "committee-note-agent": NoOutput;
@@ -116,6 +124,7 @@ declare module "../src/flow/generated-types.js" {
       "company-search-workflow-start": WorkflowStartTextDto;
       "company-shortlist-agent": CompanyShortlistDto;
       "company-vet-agent": CompanyCheckDto;
+      "confirm-trip-action": TripDto;
       "contract-committee-workflow-start": WorkflowStartTextDto;
       "contract-groups-workflow-start": WorkflowStartTextDto;
       "coo-approver-agent": CooDecisionDto;
@@ -176,6 +185,8 @@ declare module "../src/flow/generated-types.js" {
       "fit-review-workflow-start": CandidateDto;
       "fit-summary-agent": FitSummaryDto;
       "flaky-check-action": PurchasePlacedDto;
+      "free-room-action": NoOutput;
+      "free-seat-action": NoOutput;
       "full-grade-workflow-start": CompanyDto;
       "full-review-agent": DueDiligenceReportDto;
       "grader-agent": CompanyGradeDto;
@@ -208,6 +219,10 @@ declare module "../src/flow/generated-types.js" {
       "loyalty-offer-agent": LoyaltyOfferDto;
       "mark-review-failed-action": CompanyReviewFailedDto;
       "mark-unit-failed-action": OrgChartFailedDto;
+      "middle-trip-workflow": TripDto;
+      "middle-trip-workflow-start": TripRequestDto;
+      "nested-charged-trip-workflow-start": TripRequestDto;
+      "nested-quorum-trip-workflow-start": TripRequestDto;
       "notify-finance-team-action": NoOutput;
       "notify-operator-action": ScreeningFailedDto;
       "notify-recruiter-action": NoOutput;
@@ -259,6 +274,9 @@ declare module "../src/flow/generated-types.js" {
       "publisher-agent": ArticleDto;
       "purchase-workflow-start": WorkflowStartTextDto;
       "quick-grade-workflow-start": CompanyDto;
+      "quorum-excluded-workflow-start": TripRequestDto;
+      "quorum-refused-workflow-start": TripRequestDto;
+      "quorum-trip-workflow-start": TripRequestDto;
       "quote-workflow-start": QuoteRequestDto;
       "ranker-agent": RankingDto;
       "record-escalated-action": ExpiryDoneDto;
@@ -270,15 +288,23 @@ declare module "../src/flow/generated-types.js" {
       "refund-policy-agent": RefundPolicyDto;
       "refund-topic-agent": TopicAnswerDto;
       "refund-workflow-start": WorkflowStartTextDto;
+      "refused-trip-workflow-start": TripRequestDto;
       "release-stock-action": NoOutput;
+      "remote-charged-trip-workflow-start": TripRequestDto;
+      "remote-quorum-trip-workflow-start": TripRequestDto;
+      "remote-trip-workflow": TripDto;
+      "remote-trip-workflow-start": TripRequestDto;
       "report-merger-agent": ResearchReportDto;
       "research-workflow-start": WorkflowStartTextDto;
       "researcher-agent": ResearchDto;
+      "reserve-car-action": CarDto;
       "reserve-goods-action": NoOutput;
       "reserve-stock-action": StockReservationDto;
       "review-draft-action": ChangesRequestedDto | DraftApprovedDto;
       "review-notes-action": SignedDto;
       "review-ranker-agent": GradedShortlistDto;
+      "review-reservations-action": TripSummaryDto;
+      "review-trip-action": TripSummaryDto;
       "reviewer-agent": ChangesRequestedDto | DraftApprovedDto;
       "reviewer-workflow-start": ExpiryOrderDto;
       "risks-panel-agent": ScoreDto;
@@ -319,6 +345,8 @@ declare module "../src/flow/generated-types.js" {
       "treasury-desk-workflow-start": WorkflowStartTextDto;
       "treasury-workflow": WorkflowFinishTextDto;
       "treasury-workflow-start": WorkflowStartTextDto;
+      "trip-child-workflow": TripDto;
+      "trip-child-workflow-start": TripRequestDto;
       "twin-grade-workflow": CompanyGradeDto;
       "unit-charter-agent": TeamChartDto;
       "unit-picker-agent": OrgUnitDto | TeamChartDto;
@@ -381,6 +409,8 @@ declare module "../src/flow/generated-types.js" {
       "bed-request-workflow-start": WorkflowStartTextDto;
       "beds-workflow-finish": NoInput;
       "board-search-agent": { message: Produced<WorkflowStartTextDto, typeof CompanySearchWorkflowStart> };
+      "book-room-action": { request: Produced<TripRequestDto, typeof QuorumExcludedWorkflowStart | typeof QuorumRefusedWorkflowStart | typeof RemoteTripWorkflowStart | typeof TripChildWorkflowStart> };
+      "book-seat-action": { request: Produced<TripRequestDto, typeof QuorumExcludedWorkflowStart | typeof QuorumRefusedWorkflowStart | typeof RemoteTripWorkflowStart | typeof TripChildWorkflowStart> };
       "broken-agent": { readonly __error: "[input.missing-on-path] broken-offer-workflow: broken-agent.unrelated (UnrelatedDto) is not produced on the path offer-workflow-start → draft-agent → broken-agent" };
       "broken-offer-workflow": ShortlistDto;
       "broken-review-workflow": WorkflowStartTextDto;
@@ -403,6 +433,9 @@ declare module "../src/flow/generated-types.js" {
         | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval: Produced<CreditApprovalDto, typeof ApprovalAgent> }
         | { order: Produced<CreditOrderDto, typeof OrderIntakeAgent>; approval?: undefined };
       "charge-payment-action": { message: Produced<WorkflowStartTextDto, typeof CheckoutWorkflowStart> };
+      "charge-trip-action": { trip: Produced<TripDto, typeof MiddleTripWorkflow | typeof RemoteTripWorkflow | typeof TripChildWorkflow> };
+      "charged-trip-workflow": TripRequestDto;
+      "charged-trip-workflow-start": TripRequestDto;
       "chart-merger-agent": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart>; charts: readonly Produced<OrgChartFailedDto | TeamChartDto, typeof OrgChartWorkflow>[] };
       "chat-panel-workflow": CandidateDto;
       "chat-workflow": WorkflowStartTextDto;
@@ -417,6 +450,8 @@ declare module "../src/flow/generated-types.js" {
         | { plan: Produced<PlanDto, typeof PlannerAgent>; research: Produced<ResearchDto, typeof PlanResearcherAgent>; critique?: undefined }
         | { plan: Produced<PlanDto, typeof PlannerAgent>; research?: undefined; critique: Produced<CritiqueDto, typeof CriticAgent> }
         | { plan: Produced<PlanDto, typeof PlannerAgent>; research?: undefined; critique?: undefined };
+      "commit-trip-workflow": TripRequestDto;
+      "commit-trip-workflow-start": TripRequestDto;
       "committee-child-workflow": ContractDto;
       "committee-child-workflow-finish": NoInput;
       "committee-child-workflow-start": ContractDto;
@@ -450,6 +485,7 @@ declare module "../src/flow/generated-types.js" {
       "company-shortlist-agent": { checks: readonly Produced<CompanyCheckDto, typeof CompanyVetAgent>[] };
       "company-shortlist-workflow-finish": NoInput;
       "company-vet-agent": { company: Produced<CompanyDto, typeof BoardSearchAgent> };
+      "confirm-trip-action": { seat: Produced<TripSeatDto, typeof BookSeatAction>; room: Produced<TripRoomDto, typeof BookRoomAction> };
       "contract-committee-workflow": WorkflowStartTextDto;
       "contract-committee-workflow-start": WorkflowStartTextDto;
       "contract-groups-workflow": WorkflowStartTextDto;
@@ -556,6 +592,8 @@ declare module "../src/flow/generated-types.js" {
         | { skills?: undefined; culture?: undefined; salary?: undefined };
       "fit-summary-workflow-finish": NoInput;
       "flaky-check-action": { question: Produced<PurchaseQuestionDto, typeof DraftQuestionAction> };
+      "free-room-action": { room: Produced<TripRoomDto, never> };
+      "free-seat-action": { seat: Produced<TripSeatDto, never> };
       "full-grade-workflow-start": CompanyDto;
       "full-review-agent":
         | { deal: Produced<DealDto, typeof DealWorkflowStart>; legal: Produced<LegalReviewDto, typeof LegalAgent>; critiques: readonly Produced<DealCritiqueDto, typeof DealCriticAgent>[] }
@@ -616,7 +654,14 @@ declare module "../src/flow/generated-types.js" {
       "manual-quote-workflow-finish": NoInput;
       "mark-review-failed-action": { promising: Produced<PromisingCompanyDto, typeof CompanyReviewerAgent> };
       "mark-unit-failed-action": { unit: Produced<OrgUnitDto, typeof OrgChartWorkflowStart | typeof OrgDrillWorkflowStart | typeof UnitPickerAgent> };
+      "middle-trip-workflow": TripRequestDto;
+      "middle-trip-workflow-finish": NoInput;
+      "middle-trip-workflow-start": TripRequestDto;
       "model-panel-workflow": CandidateDto;
+      "nested-charged-trip-workflow": TripRequestDto;
+      "nested-charged-trip-workflow-start": TripRequestDto;
+      "nested-quorum-trip-workflow": TripRequestDto;
+      "nested-quorum-trip-workflow-start": TripRequestDto;
       "no-offer-failed-workflow-finish": NoInput;
       "no-offer-rejected-workflow-finish": NoInput;
       "no-order-workflow-finish": NoInput;
@@ -721,6 +766,12 @@ declare module "../src/flow/generated-types.js" {
       "quick-panel-workflow": CandidateDto;
       "quick-reject-panel-workflow-finish": NoInput;
       "quick-reject-workflow-finish": NoInput;
+      "quorum-excluded-workflow": TripRequestDto;
+      "quorum-excluded-workflow-start": TripRequestDto;
+      "quorum-refused-workflow": TripRequestDto;
+      "quorum-refused-workflow-start": TripRequestDto;
+      "quorum-trip-workflow": TripRequestDto;
+      "quorum-trip-workflow-start": TripRequestDto;
       "quote-refused-workflow-finish": NoInput;
       "quote-size-router": { request: Produced<QuoteRequestDto, typeof QuoteWorkflowStart> };
       "quote-workflow": QuoteRequestDto;
@@ -739,14 +790,24 @@ declare module "../src/flow/generated-types.js" {
       "refund-topic-agent": { intent: Produced<SupportIntentDto, typeof TopicsWorkflowStart> };
       "refund-workflow-finish": NoInput;
       "refund-workflow-start": WorkflowStartTextDto;
+      "refused-trip-workflow": TripRequestDto;
+      "refused-trip-workflow-start": TripRequestDto;
       "rejected-workflow-finish": NoInput;
       "release-stock-action": { reservation: Produced<StockReservationDto, typeof ReserveStockAction> };
+      "remote-charged-trip-workflow": TripRequestDto;
+      "remote-charged-trip-workflow-start": TripRequestDto;
+      "remote-quorum-trip-workflow": TripRequestDto;
+      "remote-quorum-trip-workflow-start": TripRequestDto;
+      "remote-trip-workflow": TripRequestDto;
+      "remote-trip-workflow-finish": NoInput;
+      "remote-trip-workflow-start": TripRequestDto;
       "report-merger-agent": { topic: Produced<ResearchTopicDto, typeof DeepResearchWorkflowStart>; results: readonly Produced<ResearchFailedDto | ResearchReportDto, typeof DeepResearchWorkflow>[] };
       "research-failed-workflow-finish": NoInput;
       "research-report-workflow-finish": NoInput;
       "research-workflow": WorkflowStartTextDto;
       "research-workflow-start": WorkflowStartTextDto;
       "researcher-agent": { request: Produced<ArticleRequestDto, typeof StoryWorkflowStart> };
+      "reserve-car-action": { request: Produced<TripRequestDto, typeof NestedQuorumTripWorkflowStart | typeof QuorumTripWorkflowStart | typeof RefusedTripWorkflowStart | typeof RemoteQuorumTripWorkflowStart> };
       "reserve-goods-action": { payment: Produced<PaymentDto, typeof ChargePaymentAction> };
       "reserve-stock-action": { order: Produced<OrderRequestDto, typeof OrderWorkflowStart> };
       "review-draft-action": { draft: HistoryOf<Produced<OfferDraftDto, typeof DraftEditorAgent | typeof FirstDraftAgent>> };
@@ -755,6 +816,16 @@ declare module "../src/flow/generated-types.js" {
         | { note: Produced<WorkflowFinishTextDto, typeof CommitteeNoteAgent>; checked: Produced<ContractDto, typeof CommitteeChildWorkflow | typeof DraftContractAction> }
         | { note?: undefined; checked: Produced<ContractDto, typeof CommitteeChildWorkflow | typeof DraftContractAction> };
       "review-ranker-agent": { reviews: readonly Produced<CompanyGradeDto | CompanyRejectedDto | CompanyReviewFailedDto, typeof CompanyReviewWorkflow>[] };
+      "review-reservations-action":
+        | { seat: Produced<TripSeatDto, typeof BookSeatAction>; room: Produced<TripRoomDto, typeof BookRoomAction> }
+        | { seat: Produced<TripSeatDto, typeof BookSeatAction>; room?: undefined }
+        | { seat?: undefined; room: Produced<TripRoomDto, typeof BookRoomAction> }
+        | { seat?: undefined; room?: undefined };
+      "review-trip-action":
+        | { trip: Produced<TripDto, typeof MiddleTripWorkflow | typeof RemoteTripWorkflow | typeof TripChildWorkflow>; car: Produced<CarDto, typeof ReserveCarAction> }
+        | { trip: Produced<TripDto, typeof MiddleTripWorkflow | typeof RemoteTripWorkflow | typeof TripChildWorkflow>; car?: undefined }
+        | { trip?: undefined; car: Produced<CarDto, typeof ReserveCarAction> }
+        | { trip?: undefined; car?: undefined };
       "reviewer-agent": { draft: Produced<OfferDraftDto, typeof DraftAgent | typeof EditorAgent> };
       "reviewer-notified-workflow-finish": NoInput;
       "reviewer-workflow": ExpiryOrderDto;
@@ -828,6 +899,13 @@ declare module "../src/flow/generated-types.js" {
       "treasury-workflow": WorkflowStartTextDto;
       "treasury-workflow-finish": NoInput;
       "treasury-workflow-start": WorkflowStartTextDto;
+      "trip-booked-workflow-finish": NoInput;
+      "trip-charged-workflow-finish": NoInput;
+      "trip-child-workflow": TripRequestDto;
+      "trip-child-workflow-finish": NoInput;
+      "trip-child-workflow-start": TripRequestDto;
+      "trip-not-reserved-workflow-finish": NoInput;
+      "trip-reviewed-workflow-finish": NoInput;
       "twin-grade-workflow": { readonly __error: "[graph.ambiguous-start] broken-review-workflow: company-picker-agent → twin-grade-workflow: full-grade-workflow-start and quick-grade-workflow-start both take CompanyDto — a start is chosen by class: make one start's input a subclass (class QuickCheckRequestDto extends CompanyDto {})" };
       "unit-charter-agent": { unit: Produced<OrgUnitDto, typeof OrgRetryWorkflowStart> };
       "unit-picker-agent": { unit: Produced<OrgUnitDto, typeof OrgDrillWorkflowStart> };
@@ -853,12 +931,15 @@ declare module "../src/flow/generated-types.js" {
       "audit-bed-action": NoOutput;
       "auditor-external-task": SignOffDto;
       "beds-workflow-finish": BedsDto;
+      "book-room-action": TripRoomDto;
+      "book-seat-action": TripSeatDto;
       "budget-owner-external-task": SignOffDto;
       "budget-owner-question": SpendingLimitAnswerDto;
       "budget-owner-reply-interpreter": SpendingLimitAnswerDto;
       "buyer-workflow-finish": WorkflowFinishTextDto;
       "charge-card-action": ChargeResultDto;
       "charge-payment-action": PaymentDto;
+      "charge-trip-action": TripSummaryDto;
       "chat-workflow-finish": OpeningsDto;
       "check-limit-action": PurchasePlacedDto | PurchaseQuestionDto;
       "committee-child-workflow-finish": ContractDto;
@@ -868,6 +949,7 @@ declare module "../src/flow/generated-types.js" {
       "company-review-failed-workflow-finish": CompanyReviewFailedDto;
       "company-score-workflow-finish": CompanyScoreDto;
       "company-shortlist-workflow-finish": CompanyShortlistDto;
+      "confirm-trip-action": TripDto;
       "contract-rejected-workflow-finish": WorkflowStartTextDto;
       "contract-signed-workflow-finish": SignedDto;
       "counsel-external-task": SignOffDto;
@@ -903,6 +985,8 @@ declare module "../src/flow/generated-types.js" {
       "finance-director-external-task": SignOffDto;
       "fit-summary-workflow-finish": FitSummaryDto;
       "flaky-check-action": PurchasePlacedDto;
+      "free-room-action": NoOutput;
+      "free-seat-action": NoOutput;
       "graded-shortlist-workflow-finish": GradedShortlistDto;
       "hand-over-workflow-finish": HandOverDto;
       "help-desk-workflow-finish": CustomerReplyDto;
@@ -921,6 +1005,7 @@ declare module "../src/flow/generated-types.js" {
       "manual-quote-workflow-finish": QuoteRequestDto;
       "mark-review-failed-action": CompanyReviewFailedDto;
       "mark-unit-failed-action": OrgChartFailedDto;
+      "middle-trip-workflow-finish": TripDto;
       "no-offer-failed-workflow-finish": CompanyReviewFailedDto;
       "no-offer-rejected-workflow-finish": CompanyRejectedDto;
       "no-order-workflow-finish": WorkflowStartTextDto;
@@ -970,13 +1055,17 @@ declare module "../src/flow/generated-types.js" {
       "refund-workflow-finish": RefundCardOutputDto;
       "rejected-workflow-finish": RejectedVerdictDto;
       "release-stock-action": NoOutput;
+      "remote-trip-workflow-finish": TripDto;
       "research-failed-workflow-finish": ResearchFailedDto;
       "research-report-workflow-finish": ResearchReportDto;
+      "reserve-car-action": CarDto;
       "reserve-goods-action": NoOutput;
       "reserve-stock-action": StockReservationDto;
       "review-draft-action": ChangesRequestedDto | DraftApprovedDto;
       "review-error-workflow-finish": WorkflowStartTextDto;
       "review-notes-action": SignedDto;
+      "review-reservations-action": TripSummaryDto;
+      "review-trip-action": TripSummaryDto;
       "reviewer-notified-workflow-finish": DealDto;
       "score-review-failed-workflow-finish": CandidateDto;
       "score-review-workflow-finish": ScoreReviewDto;
@@ -1004,6 +1093,11 @@ declare module "../src/flow/generated-types.js" {
       "treasury-batch-workflow-finish": WorkflowFinishTextDto;
       "treasury-desk-workflow-finish": WorkflowFinishTextDto;
       "treasury-workflow-finish": WorkflowFinishTextDto;
+      "trip-booked-workflow-finish": TripDto;
+      "trip-charged-workflow-finish": TripSummaryDto;
+      "trip-child-workflow-finish": TripDto;
+      "trip-not-reserved-workflow-finish": TripRequestDto;
+      "trip-reviewed-workflow-finish": TripSummaryDto;
       "update-crm-action": NoOutput;
     }
     interface WorkflowStarts {
@@ -1023,7 +1117,9 @@ declare module "../src/flow/generated-types.js" {
       "budget-approval-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
       "buyer-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto; readonly finishes: "buyer-workflow-finish" };
       "candidate-review-workflow-start": { input: CandidateDto; output: CandidateDto | ScoreReviewDto; readonly finishes: "score-review-failed-workflow-finish" | "score-review-workflow-finish" };
+      "charged-trip-workflow-start": { input: TripRequestDto; output: TripSummaryDto; readonly finishes: "trip-charged-workflow-finish" };
       "checkout-workflow-start": { input: WorkflowStartTextDto; output: PaymentDto; readonly finishes: "payment-workflow-finish" };
+      "commit-trip-workflow-start": { input: TripRequestDto; output: TripDto; readonly finishes: "trip-booked-workflow-finish" };
       "committee-child-workflow-start": { input: ContractDto; output: ContractDto; readonly finishes: "committee-child-workflow-finish" };
       "committee-notes-workflow-start": { input: WorkflowStartTextDto; output: SignedDto | WorkflowStartTextDto; readonly finishes: "contract-rejected-workflow-finish" | "contract-signed-workflow-finish" };
       "company-batch-workflow-start": { input: readonly CompanyDto[]; output: CompanyScoreDto; readonly finishes: "company-score-workflow-finish" };
@@ -1059,6 +1155,9 @@ declare module "../src/flow/generated-types.js" {
       "list-manager-workflow-start": { input: ListOrderDto; output: ListDoneDto; readonly finishes: "list-workflow-finish" };
       "list-open-workflow-start": { input: ListOrderDto; output: ListDoneDto; readonly finishes: "list-workflow-finish" };
       "list-owner-workflow-start": { input: ListOrderDto; output: ListDoneDto; readonly finishes: "list-workflow-finish" };
+      "middle-trip-workflow-start": { input: TripRequestDto; output: TripDto; readonly finishes: "middle-trip-workflow-finish" };
+      "nested-charged-trip-workflow-start": { input: TripRequestDto; output: TripSummaryDto; readonly finishes: "trip-charged-workflow-finish" };
+      "nested-quorum-trip-workflow-start": { input: TripRequestDto; output: TripRequestDto | TripSummaryDto; readonly finishes: "trip-not-reserved-workflow-finish" | "trip-reviewed-workflow-finish" };
       "offer-workflow-start": { input: ShortlistDto; output: OfferDraftDto | OfferSentDto; readonly finishes: "offer-failed-workflow-finish" | "offer-sent-workflow-finish" };
       "offers-workflow-start": { input: WorkflowStartTextDto; output: CustomerReplyDto; readonly finishes: "offers-workflow-finish" };
       "order-workflow-start": { input: OrderRequestDto; output: OrderRequestDto | OrderShippedDto; readonly finishes: "order-failed-workflow-finish" | "order-workflow-finish" };
@@ -1080,8 +1179,15 @@ declare module "../src/flow/generated-types.js" {
       "public-starter-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto; readonly finishes: "purchase-workflow-finish" };
       "purchase-workflow-start": { input: WorkflowStartTextDto; output: PurchasePlacedDto | PurchaseQuestionDto; readonly finishes: "purchase-unasked-workflow-finish" | "purchase-workflow-finish" };
       "quick-grade-workflow-start": { input: CompanyDto; output: CompanyGradeDto; readonly finishes: "company-graded-workflow-finish" };
+      "quorum-excluded-workflow-start": { input: TripRequestDto; output: TripRequestDto | TripSummaryDto; readonly finishes: "trip-not-reserved-workflow-finish" | "trip-reviewed-workflow-finish" };
+      "quorum-refused-workflow-start": { input: TripRequestDto; output: TripRequestDto | TripSummaryDto; readonly finishes: "trip-not-reserved-workflow-finish" | "trip-reviewed-workflow-finish" };
+      "quorum-trip-workflow-start": { input: TripRequestDto; output: TripRequestDto | TripSummaryDto; readonly finishes: "trip-not-reserved-workflow-finish" | "trip-reviewed-workflow-finish" };
       "quote-workflow-start": { input: QuoteRequestDto; output: QuoteDto | QuoteRefusedDto | QuoteRequestDto; readonly finishes: "manual-quote-workflow-finish" | "quote-refused-workflow-finish" | "quote-workflow-finish" };
       "refund-workflow-start": { input: WorkflowStartTextDto; output: RefundCardOutputDto; readonly finishes: "refund-workflow-finish" };
+      "refused-trip-workflow-start": { input: TripRequestDto; output: TripRequestDto | TripSummaryDto; readonly finishes: "trip-not-reserved-workflow-finish" | "trip-reviewed-workflow-finish" };
+      "remote-charged-trip-workflow-start": { input: TripRequestDto; output: TripSummaryDto; readonly finishes: "trip-charged-workflow-finish" };
+      "remote-quorum-trip-workflow-start": { input: TripRequestDto; output: TripRequestDto | TripSummaryDto; readonly finishes: "trip-not-reserved-workflow-finish" | "trip-reviewed-workflow-finish" };
+      "remote-trip-workflow-start": { input: TripRequestDto; output: TripDto; readonly finishes: "remote-trip-workflow-finish" };
       "research-workflow-start": { input: WorkflowStartTextDto; output: ArticleDraftDto; readonly finishes: "article-draft-workflow-finish" };
       "reviewer-workflow-start": { input: ExpiryOrderDto; output: ExpiryDoneDto; readonly finishes: "expiry-workflow-finish" };
       "screening-workflow-start": { input: WorkflowStartTextDto; output: RankingDto | ScreeningFailedDto; readonly finishes: "ranking-workflow-finish" | "screening-failed-workflow-finish" };
@@ -1094,17 +1200,21 @@ declare module "../src/flow/generated-types.js" {
       "treasury-batch-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto; readonly finishes: "treasury-batch-workflow-finish" };
       "treasury-desk-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto; readonly finishes: "treasury-desk-workflow-finish" };
       "treasury-workflow-start": { input: WorkflowStartTextDto; output: WorkflowFinishTextDto; readonly finishes: "treasury-workflow-finish" };
+      "trip-child-workflow-start": { input: TripRequestDto; output: TripDto; readonly finishes: "trip-child-workflow-finish" };
       "verdict-workflow-start": { input: ShortlistDto; output: ApprovedVerdictDto | RejectedVerdictDto; readonly finishes: "approved-workflow-finish" | "rejected-workflow-finish" };
     }
     interface WorkflowFinishes {
       "committee-child-workflow": typeof CommitteeChildWorkflowFinish;
       "company-review-workflow": typeof CompanyGradedWorkflowFinish | typeof CompanyRejectedWorkflowFinish | typeof CompanyReviewFailedWorkflowFinish;
       "deep-research-workflow": typeof ResearchFailedWorkflowFinish | typeof ResearchReportWorkflowFinish;
+      "middle-trip-workflow": typeof MiddleTripWorkflowFinish;
       "org-chart-workflow": typeof OrgChartFailedWorkflowFinish | typeof TeamChartWorkflowFinish;
       "org-drill-workflow": typeof OrgChartFailedWorkflowFinish | typeof TeamChartWorkflowFinish;
       "org-retry-workflow": typeof OrgChartFailedWorkflowFinish | typeof TeamChartWorkflowFinish;
       "outline-workflow": typeof ResearchFailedWorkflowFinish | typeof ResearchReportWorkflowFinish;
+      "remote-trip-workflow": typeof RemoteTripWorkflowFinish;
       "treasury-workflow": typeof TreasuryWorkflowFinish;
+      "trip-child-workflow": typeof TripChildWorkflowFinish;
       "twin-grade-workflow": typeof CompanyGradedWorkflowFinish;
     }
     interface Routes {
@@ -1309,6 +1419,7 @@ declare module "../src/flow/generated-types.js" {
       "AuditDto": AuditDto;
       "BedsDto": BedsDto;
       "CandidateDto": CandidateDto;
+      "CarDto": CarDto;
       "CfoDecisionDto": CfoDecisionDto;
       "ChangesRequestedDto": ChangesRequestedDto;
       "ChargeResultDto": ChargeResultDto;
@@ -1409,6 +1520,11 @@ declare module "../src/flow/generated-types.js" {
       "ToolCallApprovalDecisionDto": ToolCallApprovalDecisionDto;
       "TopicAnswerDto": TopicAnswerDto;
       "TransferRequestDto": TransferRequestDto;
+      "TripDto": TripDto;
+      "TripRequestDto": TripRequestDto;
+      "TripRoomDto": TripRoomDto;
+      "TripSeatDto": TripSeatDto;
+      "TripSummaryDto": TripSummaryDto;
       "WorkflowFinishTextDto": WorkflowFinishTextDto;
       "WorkflowStartTextDto": WorkflowStartTextDto;
     }
@@ -1631,6 +1747,123 @@ declare module "../tests/flow/fixtures/child-dtos.js" {
   }
   interface PromisingCompanyDto {
     readonly [agbossDto]?: "PromisingCompanyDto";
+  }
+}
+
+declare module "../tests/flow/fixtures/child-undo.fixture.js" {
+  interface CarDto {
+    readonly [agbossDto]?: "CarDto";
+  }
+  interface ChargedTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "charged-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface ChargedTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "charged-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface ChargeTripAction {
+    readonly [agbossComponent]?: { readonly name: "charge-trip-action"; readonly kind: NodeKind.Action };
+  }
+  interface ChildUndoApplication {
+    readonly [agbossTenantContext]?: false;
+  }
+  interface CommitTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "commit-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface CommitTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "commit-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface ConfirmTripAction {
+    readonly [agbossComponent]?: { readonly name: "confirm-trip-action"; readonly kind: NodeKind.Action };
+  }
+  interface MiddleTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "middle-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface MiddleTripWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "middle-trip-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface MiddleTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "middle-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface NestedChargedTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "nested-charged-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface NestedChargedTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "nested-charged-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface NestedQuorumTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "nested-quorum-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface NestedQuorumTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "nested-quorum-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface QuorumTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "quorum-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface QuorumTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "quorum-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface RefusedTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "refused-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface RefusedTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "refused-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface RemoteChargedTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "remote-charged-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface RemoteChargedTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "remote-charged-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface RemoteQuorumTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "remote-quorum-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface RemoteQuorumTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "remote-quorum-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface RemoteTripWorkflow {
+    readonly [agbossComponent]?: { readonly name: "remote-trip-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface RemoteTripWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "remote-trip-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface RemoteTripWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "remote-trip-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface ReserveCarAction {
+    readonly [agbossComponent]?: { readonly name: "reserve-car-action"; readonly kind: NodeKind.Action };
+  }
+  interface ReviewTripAction {
+    readonly [agbossComponent]?: { readonly name: "review-trip-action"; readonly kind: NodeKind.Action };
+  }
+  interface TripBookedWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "trip-booked-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface TripChargedWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "trip-charged-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface TripChildWorkflow {
+    readonly [agbossComponent]?: { readonly name: "trip-child-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface TripChildWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "trip-child-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface TripChildWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "trip-child-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface TripDto {
+    readonly [agbossDto]?: "TripDto";
+  }
+  interface TripRequestDto {
+    readonly [agbossDto]?: "TripRequestDto";
+  }
+  interface TripRoomDto {
+    readonly [agbossDto]?: "TripRoomDto";
+  }
+  interface TripSeatDto {
+    readonly [agbossDto]?: "TripSeatDto";
+  }
+  interface TripSummaryDto {
+    readonly [agbossDto]?: "TripSummaryDto";
   }
 }
 
@@ -3122,6 +3355,27 @@ declare module "../tests/flow/fixtures/quorum-runtime.fixture.js" {
   }
 }
 
+declare module "../tests/flow/fixtures/quorum-undo.fixture.js" {
+  interface QuorumExcludedWorkflow {
+    readonly [agbossComponent]?: { readonly name: "quorum-excluded-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface QuorumExcludedWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "quorum-excluded-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface QuorumRefusedWorkflow {
+    readonly [agbossComponent]?: { readonly name: "quorum-refused-workflow"; readonly kind: NodeKind.Workflow };
+  }
+  interface QuorumRefusedWorkflowStart {
+    readonly [agbossComponent]?: { readonly name: "quorum-refused-workflow-start"; readonly kind: NodeKind.Start };
+  }
+  interface QuorumUndoApplication {
+    readonly [agbossTenantContext]?: false;
+  }
+  interface ReviewReservationsAction {
+    readonly [agbossComponent]?: { readonly name: "review-reservations-action"; readonly kind: NodeKind.Action };
+  }
+}
+
 declare module "../tests/flow/fixtures/quorum-working-deadline.fixture.js" {
   interface AuditApplication {
     readonly [agbossTenantContext]?: false;
@@ -3557,6 +3811,27 @@ declare module "../tests/flow/fixtures/topics.fixture.js" {
   }
   interface TopicsWorkflowStart {
     readonly [agbossComponent]?: { readonly name: "topics-workflow-start"; readonly kind: NodeKind.Start };
+  }
+}
+
+declare module "../tests/flow/fixtures/trip-undo-parts.js" {
+  interface BookRoomAction {
+    readonly [agbossComponent]?: { readonly name: "book-room-action"; readonly kind: NodeKind.Action };
+  }
+  interface BookSeatAction {
+    readonly [agbossComponent]?: { readonly name: "book-seat-action"; readonly kind: NodeKind.Action };
+  }
+  interface FreeRoomAction {
+    readonly [agbossComponent]?: { readonly name: "free-room-action"; readonly kind: NodeKind.Action };
+  }
+  interface FreeSeatAction {
+    readonly [agbossComponent]?: { readonly name: "free-seat-action"; readonly kind: NodeKind.Action };
+  }
+  interface TripNotReservedWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "trip-not-reserved-workflow-finish"; readonly kind: NodeKind.Finish };
+  }
+  interface TripReviewedWorkflowFinish {
+    readonly [agbossComponent]?: { readonly name: "trip-reviewed-workflow-finish"; readonly kind: NodeKind.Finish };
   }
 }
 

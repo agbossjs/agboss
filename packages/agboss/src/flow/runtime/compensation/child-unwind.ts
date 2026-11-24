@@ -11,6 +11,7 @@ import { rootFactsOf, type ExecutionFacts, type Frame } from "../../context/fram
 import type { WorkflowIdentity } from "../step-frame.js";
 import { joinKeysOf } from "../workflow-keys.js";
 import { entriesInCheckpoint } from "./checkpoint-entries.js";
+import { heldUndoSiteOf, isChildsEntry } from "./held-entries.js";
 import type { UndoSite } from "./undo.js";
 import { unwound, type UnwindSite } from "./unwind.js";
 import {
@@ -31,7 +32,8 @@ import {
  * state misses writes after the abort, S2); its running bodies are awaited first (Q-A), and once
  * done the child is sealed (Q-B). The undo's spend goes to the ledger at once — the parent's step
  * may never write its state. A failing undo makes the child's error `CompensationFailedError`,
- * which passes the parent's boundary as it is (S5). Durable (#340 PR 4): its undo is marked under
+ * which passes the parent's boundary as it is (S5). The entries its own children's finishes moved up
+ * to it are its own now (#1281b): undone with them, each in its child's workflow. Durable (#340 PR 4): its undo is marked under
  * way (`@agboss/unwinding:<childExecutionId>`, with the child's own error) and each success done —
  * a child re-entered after a crash finishes the rest before its next step (`child-reentry.ts`).
  */
@@ -105,7 +107,8 @@ export async function unwoundChild(site: ChildUnwindSite, thrown: unknown): Prom
     stepEntries: deps.stepEntries,
     reason: reasonOfCause(thrown),
   };
-  const covers = (entry: CompensationEntry): boolean => entry.executionId === executionId;
+  // its own entries, and the ones its children's finishes moved up to it (#1281b)
+  const covers = (entry: CompensationEntry): boolean => isChildsEntry(entry, executionId);
   const record = async (usage: readonly UsageRecord[]): Promise<void> => {
     await site.budgets?.record(usage);
   };
@@ -117,7 +120,7 @@ export async function unwoundChild(site: ChildUnwindSite, thrown: unknown): Prom
       marks,
       [...(await checkpointed(site, rootId)), ...site.last].filter(covers),
     ),
-    undoSiteOf: () => undo,
+    undoSiteOf: (entry) => heldUndoSiteOf(undo, deps, entry),
     parts: deps.compensation,
     stepEntries: deps.stepEntries,
     ...{ clock: undo.clock, timeout: undo.timeout },

@@ -23,6 +23,7 @@ import {
 import { compensationsOfFailedJoin, type FailedJoinUndo } from "../../compensation.js";
 import type { StepEntries } from "../step-entries.js";
 import type { Class } from "../../../components/injection.js";
+import type { GraphDeps } from "../../../graph/deps.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
 /**
@@ -45,6 +46,8 @@ export interface JoinDeps extends VisitDeps {
   readonly stepEntries?: StepEntries | undefined;
   /** The pause stores: a failed join tells the branches that answered (#945). */
   readonly pauses?: PauseStores;
+  /** A child workflow's deps (#1281b): where an entry its finish moved up to a branch undoes. */
+  readonly childDepsOf?: ((workflow: Class) => GraphDeps<string> | undefined) | undefined;
 }
 
 const byIndex = (first: BranchOutcomeRecord, second: BranchOutcomeRecord): number =>

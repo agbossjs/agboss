@@ -3,6 +3,7 @@ import type { InterruptReason } from "../../app/interrupt-types.js";
 import { nodeEventOf } from "../observers/execution-event.js";
 import { extractRunContext } from "../../core/run-context.js";
 import { runInFrame, type FrameServices } from "../context/frame.js";
+import { withTaken } from "./compensation/held-entries.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import { handledErrorFrame } from "./handled-error-frame.js";
 import { checkVisit, countsAsStep, sidePathAfter, type ExecutionLimits } from "./limits.js";
@@ -155,10 +156,7 @@ function visitFrameOf(
             interruptBound: {
               timeout: deps.compensation.interruptTimeout,
               sleep: (delay: number, signal?: AbortSignal) =>
-                extractRunContext(config, state.runId).clock.sleep(
-                  delay as Milliseconds,
-                  signal,
-                ),
+                extractRunContext(config, state.runId).clock.sleep(delay as Milliseconds, signal),
             },
           }),
       // an `onInterrupted` cleanup that threw: told to the observers, the rest still run
@@ -213,7 +211,9 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
         await reportTruncation(reportSite, launched.ticket, itemBoundOf(launched.launch.launch));
       }
       const after = { ...undoables, ...parts, scope: write.scope ?? state.scope, endedAt: at.now };
-      const compensations = await compensationsOfVisit(after);
+      const own = await compensationsOfVisit(after);
+      const taken = { taken: outcome.compensations, parts: deps.compensation, frame };
+      const compensations = withTaken(taken, own);
       return { ...update, children: [...reported.children], ...compensations, ...kept };
     } catch (error) {
       const visit = { frame, node, state, startedAt, endedAt: clock.now() };
