@@ -25,7 +25,7 @@ export interface ExpiryHandlerErrorOptions {
  * only on the instance that ran the handler.
  */
 export class ExpiryHandlerError extends AGBossError {
-  static override readonly code = "pause.expiry-handler" as const;
+  static override readonly code = "pause.expiry-handler-failed" as const;
   declare readonly code: typeof ExpiryHandlerError.code;
   override name = "ExpiryHandlerError";
   readonly channel: string;

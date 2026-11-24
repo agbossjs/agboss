@@ -101,7 +101,7 @@ describe("#941: the pause deadline's errors", () => {
     expectTypeOf<PauseExpiredError["code"]>().toEqualTypeOf<"step.pause-expired">();
     expectTypeOf<PauseExpiredError["code"]>().toExtend<StepFailedError["code"]>();
     expectTypeOf<PauseExpiredError["code"]>().toExtend<PaidStepError["code"]>();
-    expectTypeOf<ExpiryHandlerError["code"]>().toEqualTypeOf<"pause.expiry-handler">();
+    expectTypeOf<ExpiryHandlerError["code"]>().toEqualTypeOf<"pause.expiry-handler-failed">();
     expectTypeOf<WorkingCalendarError["code"]>().toEqualTypeOf<"pause.working-calendar">();
   });
 });
@@ -126,7 +126,7 @@ describe("#906 AC2: switch (error.code) narrows over a union of instances", () =
         case "execution.lease-lost.fenced":
           expectTypeOf(error).toEqualTypeOf<ExecutionFencedError>();
           return error.scopeKey;
-        case "pause.unknown":
+        case "pause.unknown-pause":
           expectTypeOf(error).toEqualTypeOf<UnknownPauseError>();
           return error.message;
         default:

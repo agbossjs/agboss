@@ -159,7 +159,7 @@ export declare namespace StepError {
   /** A file could not be masked before the model. */
   export type FileMaskingFailed = PaidErrorVariant<
     StepErrorKind.FileMaskingFailed,
-    "step.file-redaction-failed"
+    "step.file-masking-failed"
   > &
     StepCoordinates & { readonly agent: string; readonly reason: string };
 }
@@ -226,9 +226,6 @@ export const StepError: FamilyConstructor<
     RerankFailed: ["a reranker failed"],
     Memory: ["a memory's compaction failed"],
     ModelFileLimit: ["a file the model was given is over a limit"],
-    FileMaskingFailed: [
-      "a file could not be masked before the model",
-      "step.file-redaction-failed",
-    ],
+    FileMaskingFailed: ["a file could not be masked before the model", "step.file-masking-failed"],
   },
 });

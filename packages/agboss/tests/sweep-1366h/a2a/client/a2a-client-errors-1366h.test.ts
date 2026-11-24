@@ -22,7 +22,7 @@ import {
 import {
   A2ACallDeadlineError,
   A2ACancelOutcome,
-  A2ATaskCanceledError,
+  A2ATaskCancelledError,
   A2ATaskEnd,
   A2ATaskFailedError,
   A2ATaskInterruptedError,
@@ -268,7 +268,7 @@ describe("#1366: what a task's end knows", () => {
   it("a canceled task, an interrupted one and a deadline keep their facts in details", () => {
     const ids = { agent: "a", taskId: "t", contextId: "c" };
 
-    expect(new A2ATaskCanceledError(ids).details).toStrictEqual({ agent: "a", taskId: "t" });
+    expect(new A2ATaskCancelledError(ids).details).toStrictEqual({ agent: "a", taskId: "t" });
     expect(
       new A2ATaskInterruptedError({ ...ids, interruption: A2ATaskInterruption.AuthRequired })
         .details,

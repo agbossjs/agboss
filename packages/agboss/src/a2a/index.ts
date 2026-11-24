@@ -26,7 +26,7 @@ export {
 export {
   A2ACallDeadlineError,
   A2ACancelOutcome,
-  A2ATaskCanceledError,
+  A2ATaskCancelledError,
   A2ATaskEnd,
   A2ATaskFailedError,
   A2ATaskInterruptedError,

@@ -94,7 +94,7 @@ describe("#1269: FileRedactionFailedError", () => {
     const error = new FileRedactionFailedError({ agent: "reader", reason: "the model said no" });
 
     expect(error.name).toBe("FileRedactionFailedError");
-    expect(error.code).toBe("step.file-redaction-failed");
+    expect(error.code).toBe("step.file-masking-failed");
     expect(error.message).toBe(
       'Agent "reader": a redacted copy of its file could not be made — the model said no',
     );

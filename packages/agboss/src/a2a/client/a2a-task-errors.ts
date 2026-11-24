@@ -74,10 +74,10 @@ export interface A2ATaskErrorOptions {
 }
 
 /** The remote task ended CANCELED (#809): by its agent, by `cancel(taskId)` or a deadline's cancel. */
-export class A2ATaskCanceledError extends AGBossError {
-  static override readonly code = "a2a.task-canceled" as const;
-  declare readonly code: typeof A2ATaskCanceledError.code;
-  override name = "A2ATaskCanceledError";
+export class A2ATaskCancelledError extends AGBossError {
+  static override readonly code = "a2a.task-cancelled" as const;
+  declare readonly code: typeof A2ATaskCancelledError.code;
+  override name = "A2ATaskCancelledError";
   readonly agent: string;
   readonly taskId: string;
   readonly contextId: string;

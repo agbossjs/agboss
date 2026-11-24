@@ -15,7 +15,7 @@ import {
   A2APeerKind,
   A2AProtocolError,
   A2ARemoteCallError,
-  A2ATaskCanceledError,
+  A2ATaskCancelledError,
   A2ATaskFailedError,
   A2ATaskInterruptedError,
   A2ATaskInterruption,
@@ -299,7 +299,7 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
     expect(replied.data).toEqual({ status: "paid" });
   });
 
-  it("FAILED is A2ATaskFailedError without the status text; CANCELED A2ATaskCanceledError", async () => {
+  it("FAILED is A2ATaskFailedError without the status text; CANCELED A2ATaskCancelledError", async () => {
     const failing = new SdkAgent({
       script: scripts.endWith(TaskState.TASK_STATE_FAILED, "db down for alice@example.com"),
     });
@@ -316,7 +316,7 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
     expect(
       JSON.stringify({ message: String(failed), details: (failed as A2ATaskFailedError).details }),
     ).not.toMatch(/alice|db down/);
-    await expect(canceled).rejects.toBeInstanceOf(A2ATaskCanceledError);
+    await expect(canceled).rejects.toBeInstanceOf(A2ATaskCancelledError);
   });
 
   it("an AGBoss peer's mesh limit code is rebuilt as the same limit error", async () => {

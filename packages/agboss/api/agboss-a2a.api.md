@@ -369,7 +369,7 @@ export interface A2AEndpointTtl {
 }
 
 // @public
-export type A2AError = A2AError.CallerRejected | A2AError.Contract | A2AError.Protocol | A2AError.Remote | A2AError.Unavailable | A2AError.Deadline | A2AError.TaskCanceled | A2AError.TaskFailed | A2AError.TaskInterrupted | A2AError.UnexpectedFinish | A2AError.MeshUnsupported | A2AError.OriginRefused;
+export type A2AError = A2AError.CallerRejected | A2AError.Contract | A2AError.Protocol | A2AError.Remote | A2AError.Unavailable | A2AError.Deadline | A2AError.TaskCancelled | A2AError.TaskFailed | A2AError.TaskInterrupted | A2AError.UnexpectedFinish | A2AError.MeshUnsupported | A2AError.OriginRefused;
 
 // @public
 export namespace A2AError {
@@ -382,7 +382,7 @@ export namespace A2AError {
     export type OriginRefused = ErrorVariant<A2AErrorKind.OriginRefused, "a2a.origin-refused">;
     export type Protocol = ErrorVariant<A2AErrorKind.Protocol, "a2a.protocol">;
     export type Remote = ErrorVariant<A2AErrorKind.Remote, "a2a.remote">;
-    export type TaskCanceled = ErrorVariant<A2AErrorKind.TaskCanceled, "a2a.task-canceled">;
+    export type TaskCancelled = ErrorVariant<A2AErrorKind.TaskCancelled, "a2a.task-cancelled">;
     export type TaskFailed = ErrorVariant<A2AErrorKind.TaskFailed, "a2a.task-failed">;
     export type TaskInterrupted = ErrorVariant<A2AErrorKind.TaskInterrupted, "a2a.task-interrupted">;
     export type Unavailable = ErrorVariant<A2AErrorKind.Unavailable, "a2a.unavailable">;
@@ -397,7 +397,7 @@ export const A2AError: FamilyConstructor<A2AError, {
     Remote: A2AError.Remote;
     Unavailable: A2AError.Unavailable;
     Deadline: A2AError.Deadline;
-    TaskCanceled: A2AError.TaskCanceled;
+    TaskCancelled: A2AError.TaskCancelled;
     TaskFailed: A2AError.TaskFailed;
     TaskInterrupted: A2AError.TaskInterrupted;
     UnexpectedFinish: A2AError.UnexpectedFinish;
@@ -422,7 +422,7 @@ export enum A2AErrorKind {
     // (undocumented)
     Remote = "remote",
     // (undocumented)
-    TaskCanceled = "task-canceled",
+    TaskCancelled = "task-cancelled",
     // (undocumented)
     TaskFailed = "task-failed",
     // (undocumented)
@@ -673,14 +673,14 @@ export interface A2ATarget {
 }
 
 // @public
-export class A2ATaskCanceledError extends AGBossError {
+export class A2ATaskCancelledError extends AGBossError {
     constructor(options: A2ATaskErrorOptions);
     // (undocumented)
     readonly agent: string;
     // (undocumented)
-    static readonly code: "a2a.task-canceled";
+    static readonly code: "a2a.task-cancelled";
     // (undocumented)
-    readonly code: typeof A2ATaskCanceledError.code;
+    readonly code: typeof A2ATaskCancelledError.code;
     // (undocumented)
     readonly contextId: string;
     // (undocumented)
@@ -1064,7 +1064,7 @@ export { TaskState }
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Remote".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Unavailable".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Deadline".
-// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskCanceled".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskCancelled".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskFailed".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskInterrupted".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "UnexpectedFinish".

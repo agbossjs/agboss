@@ -2958,8 +2958,23 @@ export interface ErrorRecord {
 // @public
 export function errorRecordOf(thrown: unknown): ErrorRecord;
 
+declare namespace ErrorTypes {
+    export {
+        ErrorVariant,
+        FamilyConstructor,
+        PaidErrorVariant,
+        PaidFacts,
+        VariantCommon,
+        VariantConstructor,
+        VariantConstructors,
+        VariantFacts,
+        VariantOptions,
+        ResultFactory
+    }
+}
+
 // @public
-export interface ErrorVariant<TKind extends string, TCode extends string = string> extends AGBossError {
+interface ErrorVariant<TKind extends string, TCode extends string = string> extends AGBossError {
     readonly code: TCode;
     readonly kind: TKind;
 }
@@ -3826,7 +3841,7 @@ export class ExpiryHandlerError extends AGBossError {
     // (undocumented)
     readonly channel: string;
     // (undocumented)
-    static readonly code: "pause.expiry-handler";
+    static readonly code: "pause.expiry-handler-failed";
     // (undocumented)
     readonly code: typeof ExpiryHandlerError.code;
     // (undocumented)
@@ -3918,7 +3933,7 @@ export enum FailurePolicy {
 }
 
 // @public
-export type FamilyConstructor<TFamily extends AGBossError, TVariants extends Readonly<Record<string, AGBossError>>> = (abstract new (...args: never[]) => TFamily) & VariantConstructors<TVariants> & {
+type FamilyConstructor<TFamily extends AGBossError, TVariants extends Readonly<Record<string, AGBossError>>> = (abstract new (...args: never[]) => TFamily) & VariantConstructors<TVariants> & {
     readonly code: string;
 };
 
@@ -4099,7 +4114,7 @@ export class FileRedactionFailedError extends StepFailedError {
     // (undocumented)
     readonly agent: string;
     // (undocumented)
-    static readonly code: "step.file-redaction-failed";
+    static readonly code: "step.file-masking-failed";
     // (undocumented)
     readonly code: typeof FileRedactionFailedError.code;
     // (undocumented)
@@ -5817,7 +5832,6 @@ export type LimitError = LimitError.Budget | LimitError.Deadline | LimitError.It
 export namespace LimitError {
     export type Budget = PaidErrorVariant<LimitErrorKind.Budget, "limit.budget"> & {
         readonly path: readonly string[];
-        readonly spentUsd: Usd;
     } & {
         readonly budget: Pick<ComponentRecord, "name">;
         readonly scope: BudgetScope;
@@ -5827,7 +5841,7 @@ export namespace LimitError {
         readonly maxSpend?: Usd | undefined;
         readonly spent: Usd;
         readonly maxTokens?: number | undefined;
-        readonly usedTokens: number;
+        readonly usedTokens?: number | undefined;
     };
     export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & {
         readonly path: readonly string[];
@@ -7305,7 +7319,7 @@ export interface PageQuery {
 }
 
 // @public
-export interface PaidErrorVariant<TKind extends string, TCode extends string = string> extends ErrorVariant<TKind, TCode> {
+interface PaidErrorVariant<TKind extends string, TCode extends string = string> extends ErrorVariant<TKind, TCode> {
     // (undocumented)
     readonly spend: CostReport;
     // (undocumented)
@@ -7313,7 +7327,7 @@ export interface PaidErrorVariant<TKind extends string, TCode extends string = s
 }
 
 // @public
-export type PaidFacts<TVariant extends AGBossError> = TVariant extends {
+type PaidFacts<TVariant extends AGBossError> = TVariant extends {
     readonly usage: readonly UsageRecord[];
 } ? {
     readonly usage?: readonly UsageRecord[];
@@ -7325,7 +7339,7 @@ export class PaidStepError extends AGBossError {
     // (undocumented)
     static readonly code: string;
     // (undocumented)
-    readonly code: "step" | "step.failed" | "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer" | "step.guard" | "step.router" | "step.router.invalid-decision" | "step.action" | "step.question" | "step.pause-expired" | "step.child" | "step.arbiter" | "step.quorum" | "step.tool-blocked" | "step.rerank-failed" | "step.model-file-limit" | "step.file-redaction-failed" | "outbound-call.in-flight" | "outbound-call.superseded" | "outbound-call.unreconciled" | "outbound-call.result-not-stored" | "guardrail.blocked" | "pii.refused" | "pii.detection-failed";
+    readonly code: "step" | "step.failed" | "step.agent" | "step.agent.quality-gate" | "step.agent.invalid-answer" | "step.guard" | "step.router" | "step.router.invalid-decision" | "step.action" | "step.question" | "step.pause-expired" | "step.child" | "step.arbiter" | "step.quorum" | "step.tool-blocked" | "step.rerank-failed" | "step.model-file-limit" | "step.file-masking-failed" | "outbound-call.in-flight" | "outbound-call.superseded" | "outbound-call.unreconciled" | "outbound-call.result-not-stored" | "guardrail.blocked" | "pii.refused" | "pii.detection-failed";
     // (undocumented)
     name: string;
     // (undocumented)
@@ -7423,17 +7437,6 @@ export interface PauseAnswer {
 export enum PauseAnswerer {
     Channel = "channel",
     ThreadOwner = "thread-owner"
-}
-
-// @public
-export class PauseAnswererError extends AGBossError {
-    constructor(options: MessageErrorOptions);
-    // (undocumented)
-    static readonly code: "pause.wrong-answerer";
-    // (undocumented)
-    readonly code: typeof PauseAnswererError.code;
-    // (undocumented)
-    name: string;
 }
 
 // @public
@@ -7585,7 +7588,7 @@ export namespace PauseError {
         readonly reason: string;
     };
     export type EscalationLimitExceeded = ErrorVariant<PauseErrorKind.EscalationLimitExceeded, "pause.escalation-limit-exceeded">;
-    export type ExpiryHandlerFailed = ErrorVariant<PauseErrorKind.ExpiryHandlerFailed, "pause.expiry-handler"> & {
+    export type ExpiryHandlerFailed = ErrorVariant<PauseErrorKind.ExpiryHandlerFailed, "pause.expiry-handler-failed"> & {
         readonly channel: string;
     };
     export type IncompatibleTarget = ErrorVariant<PauseErrorKind.IncompatibleTarget, "pause.incompatible-target">;
@@ -7594,10 +7597,10 @@ export namespace PauseError {
     export type PermissionDenied = ErrorVariant<PauseErrorKind.PermissionDenied, "pause.permission-denied">;
     export type StepKeyMismatch = ErrorVariant<PauseErrorKind.StepKeyMismatch, "pause.step-key-mismatch">;
     export type UninterpretableReply = ErrorVariant<PauseErrorKind.UninterpretableReply, "pause.uninterpretable-reply">;
-    export type UnknownPause = ErrorVariant<PauseErrorKind.UnknownPause, "pause.unknown">;
-    export type UpdateContended = ErrorVariant<PauseErrorKind.UpdateContended, "pause.extension-contended">;
+    export type UnknownPause = ErrorVariant<PauseErrorKind.UnknownPause, "pause.unknown-pause">;
+    export type UpdateContended = ErrorVariant<PauseErrorKind.UpdateContended, "pause.update-contended">;
     export type WorkingCalendar = ErrorVariant<PauseErrorKind.WorkingCalendar, "pause.working-calendar">;
-    export type WrongRespondent = ErrorVariant<PauseErrorKind.WrongRespondent, "pause.wrong-answerer">;
+    export type WrongRespondent = ErrorVariant<PauseErrorKind.WrongRespondent, "pause.wrong-respondent">;
 }
 
 // @public
@@ -7729,7 +7732,7 @@ export class PauseExtensionContendedError extends AGBossError {
     // (undocumented)
     readonly attempts: number;
     // (undocumented)
-    static readonly code: "pause.extension-contended";
+    static readonly code: "pause.update-contended";
     // (undocumented)
     readonly code: typeof PauseExtensionContendedError.code;
     // (undocumented)
@@ -8892,7 +8895,7 @@ export namespace Result {
 export const Result: ResultFactory;
 
 // @public
-export interface ResultFactory {
+interface ResultFactory {
     err<E>(error: E): Result.Err<E>;
     ok<T>(value: T): Result.Ok<T>;
     try<T>(fn: () => T): TryOutcome<T, AGBossError>;
@@ -9817,7 +9820,7 @@ export namespace StepError {
     export type ExternalTask = PaidErrorVariant<StepErrorKind.ExternalTask, "step.external-task"> & StepCoordinates & {
         readonly externalTask: string;
     };
-    export type FileMaskingFailed = PaidErrorVariant<StepErrorKind.FileMaskingFailed, "step.file-redaction-failed"> & StepCoordinates & {
+    export type FileMaskingFailed = PaidErrorVariant<StepErrorKind.FileMaskingFailed, "step.file-masking-failed"> & StepCoordinates & {
         readonly agent: string;
         readonly reason: string;
     };
@@ -10936,7 +10939,7 @@ export type UnionToIntersection<TUnion> = (TUnion extends unknown ? (value: TUni
 export class UnknownPauseError extends AGBossError {
     constructor(options: MessageErrorOptions);
     // (undocumented)
-    static readonly code: "pause.unknown";
+    static readonly code: "pause.unknown-pause";
     // (undocumented)
     readonly code: typeof UnknownPauseError.code;
     // (undocumented)
@@ -11067,7 +11070,7 @@ export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TD
 export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
 
 // @public
-export interface VariantCommon extends Pick<AGBossErrorOptions, "location" | "secondarySpans" | "notes" | "help" | "suggestionPatch"> {
+interface VariantCommon extends Pick<AGBossErrorOptions, "location" | "secondarySpans" | "notes" | "help" | "suggestionPatch"> {
     // (undocumented)
     readonly cause?: unknown;
     readonly details?: ErrorDetails;
@@ -11075,17 +11078,17 @@ export interface VariantCommon extends Pick<AGBossErrorOptions, "location" | "se
 }
 
 // @public
-export type VariantConstructor<TVariant extends AGBossError> = (Partial<VariantOptions<TVariant>> extends VariantOptions<TVariant> ? new (options?: VariantOptions<TVariant>) => TVariant : new (options: VariantOptions<TVariant>) => TVariant) & {
+type VariantConstructor<TVariant extends AGBossError> = (Partial<VariantOptions<TVariant>> extends VariantOptions<TVariant> ? new (options?: VariantOptions<TVariant>) => TVariant : new (options: VariantOptions<TVariant>) => TVariant) & {
     readonly code: string;
 };
 
 // @public
-export type VariantConstructors<TVariants extends Readonly<Record<string, AGBossError>>> = {
+type VariantConstructors<TVariants extends Readonly<Record<string, AGBossError>>> = {
     readonly [TName in keyof TVariants]: VariantConstructor<TVariants[TName]>;
 };
 
 // @public
-export type VariantFacts<TVariant extends AGBossError> = Omit<TVariant, keyof AGBossError | "kind" | "spend" | "usage">;
+type VariantFacts<TVariant extends AGBossError> = Omit<TVariant, keyof AGBossError | "kind" | "spend" | "usage">;
 
 // @public
 export type VariantOf<TValue> = TValue extends unknown ? {
@@ -11094,7 +11097,7 @@ export type VariantOf<TValue> = TValue extends unknown ? {
 } : never;
 
 // @public
-export type VariantOptions<TVariant extends AGBossError> = VariantFacts<TVariant> & PaidFacts<TVariant> & VariantCommon;
+type VariantOptions<TVariant extends AGBossError> = VariantFacts<TVariant> & PaidFacts<TVariant> & VariantCommon;
 
 // @public
 export interface VersionScore {
@@ -13193,9 +13196,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "route".
 // src/run/compaction.ts - (ae-undocumented) Missing documentation for "toTurn".
-// src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "code".
-// src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "name".
 // src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "code".
 // src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "code".
 // src/run/resume-agent.ts - (ae-undocumented) Missing documentation for "name".

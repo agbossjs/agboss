@@ -38,18 +38,9 @@ export * from "./core/error-families/pause-errors.js";
 export { ExecutionError, ExecutionErrorKind } from "./core/error-families/run-errors.js";
 export { FileError, FileErrorKind } from "./core/error-families/remote-errors.js";
 export * from "./core/error-families/step-errors.js";
-export type {
-  ErrorVariant,
-  FamilyConstructor,
-  PaidErrorVariant,
-  PaidFacts,
-  VariantCommon,
-  VariantConstructor,
-  VariantConstructors,
-  VariantFacts,
-  VariantOptions,
-} from "./core/error-families/family.js";
-export { Result, type ResultFactory, type TryOutcome } from "./core/result.js";
+/** @beta Type machinery of the error families: not a contract, names may change. */
+export type * as ErrorTypes from "./public/error-types.js";
+export { Result, type TryOutcome } from "./core/result.js";
 export * from "./infrastructure/store-call-timeout.js";
 export {
   SqliteSchemaTooNewError,

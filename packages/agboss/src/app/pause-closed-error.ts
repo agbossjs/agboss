@@ -49,7 +49,7 @@ export class PauseClosedError extends AGBossError {
  * call; retrying `extendPause` is safe. `attempts` is how many it made.
  */
 export class PauseExtensionContendedError extends AGBossError {
-  static override readonly code = "pause.extension-contended" as const;
+  static override readonly code = "pause.update-contended" as const;
   declare readonly code: typeof PauseExtensionContendedError.code;
   override name = "PauseExtensionContendedError";
   readonly pauseKey: string;

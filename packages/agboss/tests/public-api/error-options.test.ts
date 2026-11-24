@@ -66,9 +66,9 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
   it("AC1: the walk covers every entry of package.json#exports and finds the errors, each with a fixture", () => {
     expect(Object.keys(ENTRIES).length).toBe(Object.keys(exportMap).length);
     // the acceptance's enumeration found 120 in core's built entries, `AGBossError` among them; 112
-    // after #1317a, which moved the fenced-effect and outbound-call errors into their families; 109
+    // after #1317a, which moved the fenced-effect and outbound-call errors into their families; 109; 108 after `PauseAnswererError` became `PauseError.PermissionDenied`
     // after the rework's removals of errors
-    expect(classes.size).toBeGreaterThanOrEqual(109);
+    expect(classes.size).toBeGreaterThanOrEqual(108);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)

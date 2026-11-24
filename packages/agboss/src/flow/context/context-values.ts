@@ -144,7 +144,7 @@ export function checkedCallerId(options: string, field: string, id: unknown): vo
 /**
  * Who answers a pause, before it is looked up: its tenant (#552), then the owner the thread was
  * created with or a `Channel` answerer (#589) — recorded on the pause, in the records and read by a
- * model. A missing or blank `answeredBy` is left to the role's own check (`PauseAnswererError`).
+ * model. A missing or blank `answeredBy` is left to the role's own check (`PauseError.PermissionDenied`).
  */
 export function checkedCallers(
   options: string,

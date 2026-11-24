@@ -1851,7 +1851,7 @@ candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePoli
   reopened) or `GetTask` polled on the `Clock`, to the execution's deadline or `call.timeout`
   (best-effort `CancelTask`, `A2ACallDeadlineError` with its `cancel: A2ACancelOutcome`). Outcomes: FAILED / REJECTED
   `A2ATaskFailedError` (an AGBoss peer's mesh limit → the same `MeshLoopDetectedError` /
-  `HopsLimitExceededError`), CANCELED `A2ATaskCanceledError`, INPUT_REQUIRED
+  `HopsLimitExceededError`), CANCELED `A2ATaskCancelledError`, INPUT_REQUIRED
   `A2ATaskInterruptedError`, a JSON-RPC error `A2AProtocolError`, nothing usable
   `A2ARemoteCallError` — codes only, never a remote text. The mesh rides as the extension
   `https://agboss.dev/a2a/mesh/v1` (`A2AMesh.Required`, the default with a `target.application` →
@@ -2292,7 +2292,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `DeadlineExceededEr
   an execution with others left pauses again with the rest. Who may answer is the role's `answerer`:
   `ThreadOwner` — `ownerId`, the id listed in `result.pending`; `Channel` — `answeredBy` (non-empty,
   recorded on the pause and in `onExecutionResume`), the id only in the channel's `ask.pauseId`; the
-  other credential → `PauseAnswererError`. The decision (`ToolCallApprovalDecisionDto`: `approved`,
+  other credential → `PauseError.PermissionDenied`. The decision (`ToolCallApprovalDecisionDto`: `approved`,
   `reason?`, `overrideArguments?` only with `approved: true`) is validated before it is recorded.
   Each pause is a record (`PausedExecutionRepository`, S35) made by its step's idempotency key in
   its tree before `send` (#663: found by tenant, `rootExecutionId` and step key — never another
@@ -2834,7 +2834,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   `step.child` (`ChildExecutionFailedError`, #263) / `step.tool-blocked` (`ToolBlockedError`, #384),
   `limit.depth` (`DepthLimitExceededError`, #264),
   `step.memory` (`StepError.Memory`, #1303),
-  `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.channel-interpreter-missing`,
+  `pause.unknown-pause`, `pause.permission-denied`, `pause.uninterpretable-reply`, `pause.channel-interpreter-missing`,
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`, and **one shape (#906, #890 G8)**: it is made from one options object

@@ -40,7 +40,7 @@ export declare namespace PauseError {
   /** The thread is not paused. */
   export type NotPaused = ErrorVariant<PauseErrorKind.NotPaused, "pause.not-paused">;
   /** No such pause. */
-  export type UnknownPause = ErrorVariant<PauseErrorKind.UnknownPause, "pause.unknown">;
+  export type UnknownPause = ErrorVariant<PauseErrorKind.UnknownPause, "pause.unknown-pause">;
   /** The pause was closed before the answer came. */
   export type Closed = ErrorVariant<PauseErrorKind.Closed, "pause.closed"> & {
     readonly reason: string;
@@ -48,7 +48,7 @@ export declare namespace PauseError {
   /** The answer came from someone the pause does not wait for. */
   export type WrongRespondent = ErrorVariant<
     PauseErrorKind.WrongRespondent,
-    "pause.wrong-answerer"
+    "pause.wrong-respondent"
   >;
   /** The caller may not answer this pause. */
   export type PermissionDenied = ErrorVariant<
@@ -78,7 +78,7 @@ export declare namespace PauseError {
   /** A pause's expiry handler failed. */
   export type ExpiryHandlerFailed = ErrorVariant<
     PauseErrorKind.ExpiryHandlerFailed,
-    "pause.expiry-handler"
+    "pause.expiry-handler-failed"
   > & { readonly channel: string };
   /** A working-calendar deadline cannot be computed. */
   export type WorkingCalendar = ErrorVariant<
@@ -88,7 +88,7 @@ export declare namespace PauseError {
   /** Two updates of one pause raced. */
   export type UpdateContended = ErrorVariant<
     PauseErrorKind.UpdateContended,
-    "pause.extension-contended"
+    "pause.update-contended"
   >;
   /** An answer is for another step than the pause's. */
   export type StepKeyMismatch = ErrorVariant<
@@ -124,23 +124,17 @@ export const PauseError: FamilyConstructor<
   kinds: PauseErrorKind,
   variants: {
     NotPaused: ["the thread is not paused"],
-    UnknownPause: ["no such pause", "pause.unknown"],
+    UnknownPause: ["no such pause"],
     Closed: ["the pause was closed before the answer came"],
-    WrongRespondent: [
-      "the answer came from someone the pause does not wait for",
-      "pause.wrong-answerer",
-    ],
+    WrongRespondent: ["the answer came from someone the pause does not wait for"],
     PermissionDenied: ["the caller may not answer this pause"],
     EscalationLimitExceeded: ["the pause was escalated as often as it may be"],
     IncompatibleTarget: ["the new target of a pause does not fit its kind or DTO"],
     UninterpretableReply: ["a reply could not be read as an answer"],
-    ChannelInterpreterMissing: [
-      "the channel has no reply interpreter",
-      "pause.channel-interpreter-missing",
-    ],
-    ExpiryHandlerFailed: ["a pause's expiry handler failed", "pause.expiry-handler"],
+    ChannelInterpreterMissing: ["the channel has no reply interpreter"],
+    ExpiryHandlerFailed: ["a pause's expiry handler failed"],
     WorkingCalendar: ["a working-calendar deadline cannot be computed"],
-    UpdateContended: ["two updates of one pause raced", "pause.extension-contended"],
+    UpdateContended: ["two updates of one pause raced"],
     StepKeyMismatch: ["an answer is for another step than the pause's"],
     InvalidTimeout: ["a pause's timeout is not a valid duration"],
   },

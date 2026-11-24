@@ -12,12 +12,17 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import { DurableExecutionStatus, executionControlOf } from "../../src/app/execution-control.js";
 import {
   DtoValidationError,
-  PauseAnswererError,
   PauseClosedError,
   ThreadOwnerError,
   UnknownPauseError,
 } from "../../src/errors.js";
-import { PauseClosedReason, PauseResolution, PauseStatus, pauseKeyOf } from "../../src/index.js";
+import {
+  PauseError,
+  PauseClosedReason,
+  PauseResolution,
+  PauseStatus,
+  pauseKeyOf,
+} from "../../src/index.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import {
   callTool,
@@ -751,7 +756,7 @@ describe("#946: who may reassign, and what is refused", () => {
         ThreadOwnerError,
       );
       expect(await failureOf(app.reassignPause(request, manager))).toBeInstanceOf(
-        PauseAnswererError,
+        PauseError.PermissionDenied,
       );
       const moved = await app.reassignPause(request, { ownerId: "alice" });
 
@@ -765,7 +770,7 @@ describe("#946: who may reassign, and what is refused", () => {
 
     for (const options of [{}, { answeredBy: " " }, { ownerId: "alice" }])
       expect(await failureOf(app.reassignPause(request, options as never))).toBeInstanceOf(
-        PauseAnswererError,
+        PauseError.PermissionDenied,
       );
     expect(told.sent).toHaveLength(1);
   });

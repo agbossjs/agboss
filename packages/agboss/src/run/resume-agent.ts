@@ -90,23 +90,9 @@ export async function resumeAgent<TName extends string>(
 
 /** A pause id the tenant does not have — unknown, or another tenant's: the same error, no hint. */
 export class UnknownPauseError extends AGBossError {
-  static override readonly code = "pause.unknown" as const;
+  static override readonly code = "pause.unknown-pause" as const;
   declare readonly code: typeof UnknownPauseError.code;
   override name = "UnknownPauseError";
-
-  constructor(options: MessageErrorOptions) {
-    super(options.message, options);
-  }
-}
-
-/**
- * A pause answered with the wrong credential (#267 AC4): a `ThreadOwner` pause with `answeredBy`, a
- * `Channel` pause with `ownerId`, or a `Channel` pause without a non-empty `answeredBy`.
- */
-export class PauseAnswererError extends AGBossError {
-  static override readonly code = "pause.wrong-answerer" as const;
-  declare readonly code: typeof PauseAnswererError.code;
-  override name = "PauseAnswererError";
 
   constructor(options: MessageErrorOptions) {
     super(options.message, options);

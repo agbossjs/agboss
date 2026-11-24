@@ -320,7 +320,7 @@ await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", an
 | `PauseAnswerer.ThreadOwner` | `ownerId` — the thread's owner (else `ThreadOwnerError`) | `result.pending[i].pauseId`         |
 | `PauseAnswerer.Channel`     | `answeredBy` — non-empty, recorded                       | only in the channel's `ask.pauseId` |
 
-The wrong credential for the role is `PauseAnswererError`. The contract of every channel is
+The wrong credential for the role is `PauseError.PermissionDenied`. The contract of every channel is
 `ChannelHandler<Role>` — `send(ask)` and the optional `onPauseClosed(event)` / `onPauseAnswerNotTaken(event)` / `onPauseExtended(event)` / `onPauseExpiring(event)`;
 a role's implementation gets it by extending the role (`ChannelOf<Role>` implements it, the notices no-ops you `override`). Ready-made concrete channels named on a
 tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat` / `run`),
@@ -701,7 +701,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockLlm, m
 | `[channel.shared-interpreter]`                           | one `@ReplyInterpreter` on two roles → one each                                                                                                                           |
 | `[reply-interpreter.no-interpret-method]`                | a code interpreter without `interpret` → add it                                                                                                                           |
 | `[application.in-memory-pauses]`                         | pauses possible on the in-memory stores (a warning; an error under `--strict`) → list durable ones                                                                        |
-| `PauseAnswererError`                                     | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                                                                                |
+| `PauseError.PermissionDenied`                                     | `ownerId` for a Channel role or `answeredBy` for a ThreadOwner role → the other credential                                                                                |
 | `IncompatibleResumeError`                                | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
 
 ## Pitfalls

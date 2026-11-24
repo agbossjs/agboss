@@ -1079,6 +1079,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/public/calendar.ts",
     "src/public/components.ts",
     "src/public/dsl-types.ts",
+    "src/public/error-types.ts",
     "src/public/files.ts",
     "src/public/flow-parallel.ts",
     "src/public/flow-types.ts",

@@ -7,7 +7,6 @@
 import { beforeEach, describe, expect, vi } from "vitest";
 import {
   DtoValidationError,
-  PauseAnswererError,
   PauseClosedError,
   PauseExtensionContendedError,
   ThreadOwnerError,
@@ -15,7 +14,7 @@ import {
 } from "../../src/errors.js";
 import { MAX_EXTEND_ATTEMPTS } from "../../src/app/pause-extension.js";
 import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
-import { PauseClosedReason, PauseStatus, pauseKeyOf } from "../../src/index.js";
+import { PauseError, PauseClosedReason, PauseStatus, pauseKeyOf } from "../../src/index.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -122,7 +121,9 @@ describe("#942 AC1: an operator extends an open approval", () => {
     expect(await failureOf(app.extendPause(request, { ownerId: "bob" }))).toBeInstanceOf(
       ThreadOwnerError,
     );
-    expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(PauseAnswererError);
+    expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(
+      PauseError.PermissionDenied,
+    );
     const extension = await app.extendPause(request, { ownerId: "alice" });
 
     expect(extension.expiresAt).toBe(new Date(clock.now().getTime() + hours(24)).toISOString());
@@ -136,7 +137,7 @@ describe("#942 AC1: an operator extends an open approval", () => {
 
     for (const options of [{}, { answeredBy: " " }, { ownerId: "alice" }])
       expect(await failureOf(app.extendPause(request, options as never))).toBeInstanceOf(
-        PauseAnswererError,
+        PauseError.PermissionDenied,
       );
     expect((await pauseOf(app, pauseIdOf())).status).toBe(PauseStatus.Pending);
   });
@@ -404,7 +405,7 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     expect(told_.at(-1)).toBe(stored);
   });
 
-  test("AC2: a store whose extension always loses the compare-and-set: PauseExtensionContendedError (pause.extension-contended) after 8 attempts, nothing told or written", async ({
+  test("AC2: a store whose extension always loses the compare-and-set: PauseExtensionContendedError (pause.update-contended) after 8 attempts, nothing told or written", async ({
     app,
     clock,
   }) => {
@@ -421,7 +422,7 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     expect(MAX_EXTEND_ATTEMPTS).toBe(8);
     expect(refused).toBeInstanceOf(PauseExtensionContendedError);
     expect(refused).toMatchObject({
-      code: "pause.extension-contended",
+      code: "pause.update-contended",
       attempts: 8,
       details: { attempts: 8 },
     });

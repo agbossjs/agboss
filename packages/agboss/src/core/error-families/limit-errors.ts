@@ -31,7 +31,6 @@ export declare namespace LimitError {
   /** A budget is exhausted. */
   export type Budget = PaidErrorVariant<LimitErrorKind.Budget, "limit.budget"> & {
     readonly path: readonly string[];
-    readonly spentUsd: Usd;
   } & {
     readonly budget: Pick<ComponentRecord, "name">;
     readonly scope: BudgetScope;
@@ -41,7 +40,7 @@ export declare namespace LimitError {
     readonly maxSpend?: Usd | undefined;
     readonly spent: Usd;
     readonly maxTokens?: number | undefined;
-    readonly usedTokens: number;
+    readonly usedTokens?: number | undefined;
   };
   /** The execution ran past its deadline. */
   export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & {

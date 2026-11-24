@@ -129,11 +129,11 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     expect(workflowEvents()).toEqual([]);
   });
 
-  test("#267 AC2: a pause nobody made: pause.unknown, no thread named", async ({ app }) => {
+  test("#267 AC2: a pause nobody made: pause.unknown-pause, no thread named", async ({ app }) => {
     const unknown = app.resume({ pauseId: "no-such-pause", decision: approve });
 
     await expect(unknown).rejects.toBeInstanceOf(UnknownPauseError);
-    expectRejected({ operation: ExecutionOperation.Resume, code: "pause.unknown" });
+    expectRejected({ operation: ExecutionOperation.Resume, code: "pause.unknown-pause" });
   });
 
   test("execute with an id that cannot be a thread: run.invalid-thread-id, before onWorkflowStart", async ({

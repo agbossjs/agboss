@@ -73,7 +73,7 @@ console.log(result.threadId, result.executionId, result.pending.length);
 - **By its id, always** — one way, also when there is only one pause, and without a `threadId`: the
   pause is found by `(tenantId, pauseId)` anywhere in the execution tree (a parallel branch, a child
   at any depth) and the runtime wakes the chain up to the root. An unknown id, or another tenant's,
-  is the same `UnknownPauseError` (`pause.unknown`), with no hint that the id exists elsewhere.
+  is the same `UnknownPauseError` (`pause.unknown-pause`), with no hint that the id exists elsewhere.
 - **The rest keep waiting**: with other pauses left the execution pauses again with them
   (`status: Paused`, the rest in `pending`); the last answer lets it go on to its finish. The result
   carries `threadId` and `executionId`, so a webhook that needs them gets them back.
@@ -471,7 +471,7 @@ before the first `send` — a retried `send` gets the same one, so it is safe as
 towards Slack, mail or a ticket system — and `result.pending` and `onExecutionPause` leave it out of a
 `Channel` pause, so the token never leaves the channel's server side. A `ThreadOwner` pause answered
 with `answeredBy`, or a `Channel` pause with `ownerId` (or without `answeredBy`), is
-`PauseAnswererError` (`pause.wrong-answerer`); the pause keeps waiting. A concrete `@Channel` a tool
+`PauseError.PermissionDenied` (`pause.permission-denied`); the pause keeps waiting. A concrete `@Channel` a tool
 names as is (`TerminalUserChannel`) is answered by the thread's owner. The resumed pass runs as the
 thread's owner (`executionContext.ownerId`), whoever answered.
 
@@ -1053,7 +1053,7 @@ may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
 The handler runs under the tree's lease in the pause's frame under the tool's `timeout`, **once per
 expiry**: a crash before its decision was recorded may run it again, and one decision is recorded —
 so it must only read. A throw, a timeout, a value that is no `PauseExpiration` or an invalid answer
-makes the expiry `fail()` with an `ExpiryHandlerError` (`pause.expiry-handler`, `problem`: `handler-failed`
+makes the expiry `fail()` with an `ExpiryHandlerError` (`pause.expiry-handler-failed`, `problem`: `handler-failed`
 | `handler-timeout` | `answer-invalid`) as the cause; it is logged (`pause.expiry-handler-failed`,
 never the error's message). An instance that stops (`app.close()`) while a handler waits records no
 decision: another instance's look expires the pause.
@@ -1158,7 +1158,7 @@ optional `onPauseExtended(event)` and a listener's `onPauseExtended` hear "exten
   `DtoValidationError`, naming that deadline;
 - another tenant's pause or an unknown id — `UnknownPauseError`.
 - eight lost races in a row against other extensions of the same pause — `PauseExtensionContendedError`
-  (`pause.extension-contended`; nothing changed, trying again is safe).
+  (`pause.update-contended`; nothing changed, trying again is safe).
 
 ```ts
 import { hours } from "@agboss/core/units";
@@ -1228,7 +1228,7 @@ It is refused:
 - an `assignee` that is no key's text (#589: non-empty, no control or invisible characters, NFC) —
   `DtoValidationError` (`dto: "ReassignPauseRequest"`);
 - another tenant's pause or an unknown id — `UnknownPauseError`; a caller that may not answer it —
-  `ThreadOwnerError` / `PauseAnswererError`;
+  `ThreadOwnerError` / `PauseError.PermissionDenied`;
 - a pause its channel decided at once: it never waited, it is closed `answered`.
 
 ```ts

@@ -6,12 +6,7 @@
  */
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import {
-  PauseAnswerer,
-  PauseAnswererError,
-  PauseStatus,
-  ThreadOwnerError,
-} from "../../src/index.js";
+import { PauseAnswerer, PauseError, PauseStatus, ThreadOwnerError } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
 import {
@@ -56,7 +51,7 @@ describe("#267 AC4: a ThreadOwner pause is answered by the thread's owner", () =
       ThreadOwnerError,
     );
     await expect(app.resume(answerOf(paused, approve), manager)).rejects.toBeInstanceOf(
-      PauseAnswererError,
+      PauseError.PermissionDenied,
     );
     const done = await app.resume(answerOf(paused, approve), { ownerId: "alice" });
     expect(done).toFinishWith(DeskWorkflowFinish, { text: "Confirmed." });
@@ -86,9 +81,9 @@ describe("#267 AC3 / AC4: a Channel pause is answered through its channel", () =
     const anonymous = app.resume(answerFor("7"));
     const empty = app.resume(answerFor("7"), { answeredBy: " " });
 
-    await expect(asOwner).rejects.toBeInstanceOf(PauseAnswererError);
-    await expect(anonymous).rejects.toBeInstanceOf(PauseAnswererError);
-    await expect(empty).rejects.toBeInstanceOf(PauseAnswererError);
+    await expect(asOwner).rejects.toBeInstanceOf(PauseError.PermissionDenied);
+    await expect(anonymous).rejects.toBeInstanceOf(PauseError.PermissionDenied);
+    await expect(empty).rejects.toBeInstanceOf(PauseError.PermissionDenied);
     const stored = await pauseStore().findByTenantIdAndPauseId("default", askFor("7").pauseId);
     expect(stored?.status).toBe(PauseStatus.Pending);
     expect(seen.refunds).toEqual([]);

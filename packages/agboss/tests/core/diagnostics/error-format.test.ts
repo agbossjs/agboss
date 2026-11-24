@@ -46,7 +46,7 @@ describe("error.format()", () => {
     const text = thrownByUser().format({ backtrace: BacktraceMode.Short, cwd: CWD });
 
     expect(text).toMatch(
-      /\nStack backtrace:\n {3}0: thrownByUser\n {13}at \.\/tests\/core\/diagnostics\/error-format\.test\.ts:\d+:\d+\n/u,
+      /\nStack backtrace:\n {3}0: tests::core::diagnostics::thrownByUser\n {13}at \.\/tests\/core\/diagnostics\/error-format\.test\.ts:\d+:\d+\n/u,
     );
     expect(text).toMatch(/\[\.\.\. \d+ internal frames omitted \.\.\.\]/u);
     expect(
@@ -165,11 +165,13 @@ describe("the Span trace", () => {
     const text = error.format({ backtrace: BacktraceMode.Off, cwd: CWD });
 
     expect(error.spanTrace.map((frame) => frame.name)).toEqual([
-      expect.stringMatching(/^agboss::[a-z-]+::run$/u),
+      expect.stringMatching(/^agboss::[a-z-]+::execute$/u),
       "agboss::workflow::run",
     ]);
     expect(text).toContain("\nSpan trace:\n   0: agboss::");
     expect(text).toMatch(/agboss::workflow::run workflow="[^"]+" version="[^"]+"/u);
+    expect(text).toMatch(/agboss::[a-z-]+::execute name="[^"]+" visit=\d+\n/u);
+    expect(text).not.toContain("tenant=");
   });
 
   it("is empty for an error made outside an execution", () => {

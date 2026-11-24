@@ -270,7 +270,7 @@ export interface App<TApp = unknown> {
    * quorum) it was made under (`DtoValidationError`, `dto: "ExtendPauseRequest"`); another tenant's
    * or an unknown pause is `UnknownPauseError`. Atomic at the store against the expiry look; a call
    * that loses the store's compare-and-set to other writers 8 times in a row is
-   * `PauseExtensionContendedError` (`pause.extension-contended`; nothing changed, retry is safe).
+   * `PauseExtensionContendedError` (`pause.update-contended`; nothing changed, retry is safe).
    */
   extendPause(
     request: ExtendPauseRequest,

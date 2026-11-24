@@ -4,9 +4,9 @@ import type { ExecutionFacts } from "./frame.js";
 import type { StepDescriptor } from "./execution-context.js";
 
 /**
- * The `Span trace` of an error made inside a step (#1325c): the step — its component kind, its node
- * id, its visit number — then each workflow run around it, the innermost first, up to the root's.
- * Names and counters only: no tenant, no id of an execution, thread or tool call, no value of the
+ * The `Span trace` of an error made inside a step (#1325c): the step — its component kind, its
+ * component's name, its visit number — then each workflow run around it, the innermost first, up to the root's.
+ * Names and counters only (a tenant is left out to keep tenant ids out of logs): no id of an execution, thread or tool call, no value of the
  * run's data.
  */
 export function spanFramesOf(
@@ -16,8 +16,8 @@ export function spanFramesOf(
   const span = declarationOf(step.component.type)?.span;
   const frames: ExecutionSpanFrame[] = [
     {
-      name: `agboss::${step.component.kind}::run`,
-      fields: { node: step.nodeId, visit: step.visitNumber },
+      name: `agboss::${step.component.kind}::execute`,
+      fields: { name: step.component.name, visit: step.visitNumber },
       ...(span === undefined ? {} : { location: span }),
     },
   ];

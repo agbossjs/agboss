@@ -1089,14 +1089,14 @@ stop its siblings, the execution pauses only when nothing else can move, and `re
 lists every waiting pause (`PendingPause`: `kind`, `answerer`, `step`, `channel`, `itemIndex`,
 `childExecutionId`, the question `ask` — read after narrowing on `kind`). A pause is answered by its id, never by its thread —
 `app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
-(unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
+(unknown, or another tenant's → `UnknownPauseError`, `pause.unknown-pause`); with other pauses left the
 execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is
 the pause's channel role's `answerer`: a `PauseAnswerer.ThreadOwner` pause lists its `pauseId` in
 `result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
 `PauseAnswerer.Channel` pause's id is the right to answer it — only its channel got it
 (`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ answeredBy:
 "manager-17" }`, recorded on the pause and in `onExecutionResume`; the other credential (or an empty
-`answeredBy`) is `PauseAnswererError` (`pause.wrong-answerer`). The decision is validated before
+`answeredBy`) is `PauseError.PermissionDenied` (`pause.permission-denied`). The decision is validated before
 it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideArguments?`
 only with `approved: true`, checked by the tool's input), else `DtoValidationError` and the pause
 keeps waiting:

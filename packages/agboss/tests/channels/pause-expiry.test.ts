@@ -208,7 +208,7 @@ describe("#941 AC2: the channel decides on expiry", () => {
       expect(error).toBeInstanceOf(PauseExpiredError);
       const cause = (error as PauseExpiredError).cause;
       expect(cause).toBeInstanceOf(ExpiryHandlerError);
-      expect(cause).toMatchObject({ code: "pause.expiry-handler", problem });
+      expect(cause).toMatchObject({ code: "pause.expiry-handler-failed", problem });
       const warnings = logged.filter((entry) => entry.code === "pause.expiry-handler-failed");
       expect(warnings).toHaveLength(1);
       expect(warnings[0]?.message).toContain(problem);

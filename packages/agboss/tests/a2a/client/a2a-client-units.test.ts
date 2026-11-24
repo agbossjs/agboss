@@ -38,7 +38,7 @@ import {
 } from "../../../src/a2a/client/a2a-client-errors.js";
 import { A2AOriginError, A2AOriginSite } from "../../../src/a2a/client/a2a-guard-errors.js";
 import {
-  A2ATaskCanceledError,
+  A2ATaskCancelledError,
   A2ATaskEnd,
   A2ATaskFailedError,
   A2ATaskInterruptedError,
@@ -608,7 +608,7 @@ describe("each task state's outcome", () => {
       A2ATaskFailedError,
     );
     expect(failureOf(taskIn(TaskState.TASK_STATE_CANCELED), "a")).toBeInstanceOf(
-      A2ATaskCanceledError,
+      A2ATaskCancelledError,
     );
     expect(failureOf(taskIn(TaskState.TASK_STATE_INPUT_REQUIRED), "a")).toMatchObject({
       interruption: A2ATaskInterruption.InputRequired,

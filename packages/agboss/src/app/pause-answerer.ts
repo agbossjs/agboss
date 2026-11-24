@@ -1,4 +1,5 @@
-import { PauseAnswererError, UnknownPauseError } from "../run/resume-agent.js";
+import { PauseError } from "../core/error-families/pause-errors.js";
+import { UnknownPauseError } from "../run/resume-agent.js";
 import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
@@ -18,7 +19,7 @@ export async function answeredByOf(
   const { ownerId, answeredBy } = call;
   if (pauseAnswererOf(pause) === PauseAnswerer.ThreadOwner) {
     if (answeredBy !== undefined) {
-      throw new PauseAnswererError({
+      throw new PauseError.PermissionDenied({
         message: `pause ${pause.pauseId} is answered by the thread's owner (${pause.channel}): pass ownerId, not answeredBy`,
       });
     }
@@ -26,12 +27,12 @@ export async function answeredByOf(
     return ownerId;
   }
   if (ownerId !== undefined) {
-    throw new PauseAnswererError({
+    throw new PauseError.PermissionDenied({
       message: `pause ${pause.pauseId} is answered through its channel (${pause.channel}): pass answeredBy, not ownerId`,
     });
   }
   if (typeof answeredBy !== "string" || answeredBy.trim() === "") {
-    throw new PauseAnswererError({
+    throw new PauseError.PermissionDenied({
       message: `pause ${pause.pauseId} is answered through its channel (${pause.channel}): answeredBy must name who answered`,
     });
   }

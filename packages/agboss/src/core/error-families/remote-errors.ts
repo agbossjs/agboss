@@ -10,7 +10,7 @@ export enum A2AErrorKind {
   Remote = "remote",
   Unavailable = "unavailable",
   Deadline = "deadline",
-  TaskCanceled = "task-canceled",
+  TaskCancelled = "task-cancelled",
   TaskFailed = "task-failed",
   TaskInterrupted = "task-interrupted",
   UnexpectedFinish = "unexpected-finish",
@@ -26,7 +26,7 @@ export type A2AError =
   | A2AError.Remote
   | A2AError.Unavailable
   | A2AError.Deadline
-  | A2AError.TaskCanceled
+  | A2AError.TaskCancelled
   | A2AError.TaskFailed
   | A2AError.TaskInterrupted
   | A2AError.UnexpectedFinish
@@ -50,7 +50,7 @@ export declare namespace A2AError {
     readonly deadlineAt: Date;
   };
   /** The remote task was canceled. */
-  export type TaskCanceled = ErrorVariant<A2AErrorKind.TaskCanceled, "a2a.task-canceled">;
+  export type TaskCancelled = ErrorVariant<A2AErrorKind.TaskCancelled, "a2a.task-cancelled">;
   /** The remote task failed. */
   export type TaskFailed = ErrorVariant<A2AErrorKind.TaskFailed, "a2a.task-failed">;
   /** The remote task was interrupted. */
@@ -76,7 +76,7 @@ export const A2AError: FamilyConstructor<
     Remote: A2AError.Remote;
     Unavailable: A2AError.Unavailable;
     Deadline: A2AError.Deadline;
-    TaskCanceled: A2AError.TaskCanceled;
+    TaskCancelled: A2AError.TaskCancelled;
     TaskFailed: A2AError.TaskFailed;
     TaskInterrupted: A2AError.TaskInterrupted;
     UnexpectedFinish: A2AError.UnexpectedFinish;
@@ -94,7 +94,7 @@ export const A2AError: FamilyConstructor<
     Remote: ["the remote call failed"],
     Unavailable: ["the remote cannot be reached"],
     Deadline: ["the call ran past its deadline"],
-    TaskCanceled: ["the remote task was canceled"],
+    TaskCancelled: ["the remote task was canceled"],
     TaskFailed: ["the remote task failed"],
     TaskInterrupted: ["the remote task was interrupted"],
     UnexpectedFinish: ["the remote task finished in a way the call does not take"],

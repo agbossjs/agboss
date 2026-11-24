@@ -29,9 +29,26 @@ export function backtraceModeOf(env: NodeJS.ProcessEnv = process.env): Backtrace
   );
 }
 
-/** `ChargeCardAction.execute` → `ChargeCardAction::execute`: how Rust names a method. */
-const rustName = (name: string | undefined): string =>
-  name === undefined ? "<anonymous>" : name.replaceAll(".", "::");
+/**
+ * The module a frame's file is in, as Rust writes a module path: `src/credit/actions/charge.ts` under
+ * the working directory is `credit::actions` (the `src` root is no module). A file outside the
+ * working directory (a dependency, a global install) has none.
+ */
+export function modulePathOf(file: string, cwd: string): string | undefined {
+  const prefix = cwd.endsWith("/") ? cwd : `${cwd}/`;
+  if (!file.startsWith(prefix)) return undefined;
+  const folders = file.slice(prefix.length).split("/").slice(0, -1);
+  const modules = folders[0] === "src" ? folders.slice(1) : folders;
+  return modules.length === 0 ? undefined : modules.join("::");
+}
+
+/** `ChargeCardAction.execute` in `credit/actions` → `credit::actions::ChargeCardAction::execute`. */
+const rustName = (frame: StackFrame, cwd: string): string => {
+  const name =
+    frame.functionName === undefined ? "<anonymous>" : frame.functionName.replaceAll(".", "::");
+  const module = modulePathOf(frame.file, cwd);
+  return module === undefined || frame.functionName === undefined ? name : `${module}::${name}`;
+};
 
 /** `./src/a.ts:44:38`: a path under the working directory as Rust prints it. */
 function placeText(frame: StackFrame, cwd: string): string {
@@ -41,7 +58,7 @@ function placeText(frame: StackFrame, cwd: string): string {
 
 /** One frame as two lines: `   0: ChargeCardAction::execute` and `             at ./src/a.ts:44:38`. */
 const frameLines = (frame: StackFrame, index: number, cwd: string): readonly string[] => [
-  `${String(index).padStart(4)}: ${rustName(frame.functionName)}`,
+  `${String(index).padStart(4)}: ${rustName(frame, cwd)}`,
   `${" ".repeat(13)}at ${placeText(frame, cwd)}`,
 ];
 

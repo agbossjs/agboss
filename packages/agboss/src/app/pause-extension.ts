@@ -42,7 +42,7 @@ import type { AnyTenantApp, ExtendPauseRequest, PauseCallerOptions } from "./typ
  * compare-and-set over the deadline this call read, to a later one, while the pause is open — the
  * expiry look, an answer and another extension: one wins); the channel and the listeners are told
  * `extended` in the same transaction, once, by the winner. A call that loses the compare-and-set
- * `MAX_EXTEND_ATTEMPTS` (8) times in a row is `PauseExtensionContendedError` (`pause.extension-contended`);
+ * `MAX_EXTEND_ATTEMPTS` (8) times in a row is `PauseExtensionContendedError` (`pause.update-contended`);
  * it changed nothing, retrying is safe. No lease is taken and no tree moves.
  */
 

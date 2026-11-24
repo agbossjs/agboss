@@ -393,7 +393,7 @@ export class SupportApplication {}
   there; redirects elsewhere refused) — before anything is sent (`A2AContractError`).
   `execute(input, call?)` sends one data part (text for `WorkflowStartTextDto`) and returns the
   COMPLETED task's output, validated; FAILED / REJECTED is `A2ATaskFailedError` (an AGBoss peer's
-  `limit.mesh-loop` / `limit.hops` the same limit error), CANCELED `A2ATaskCanceledError`,
+  `limit.mesh-loop` / `limit.hops` the same limit error), CANCELED `A2ATaskCancelledError`,
   INPUT_REQUIRED `A2ATaskInterruptedError` (a remote pause is not a local one yet), a JSON-RPC error
   `A2AProtocolError` (codes only, never the agent's text). `send(message, call?)` (a text, `{ data }`
   or the parts) returns `A2ATaskResult { task, message, text, data, peer }` — an interrupted task too,
