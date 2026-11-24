@@ -8892,10 +8892,12 @@ export type RouteOutcome = {
     readonly kind: "decided";
     readonly decision: RouterDecision;
     readonly usage?: UsageRecord;
+    readonly spent?: readonly UsageRecord[];
 } | {
     readonly kind: "failed";
     readonly reason: string;
     readonly usage?: UsageRecord;
+    readonly spent?: readonly UsageRecord[];
     readonly unknownOption?: string;
     readonly cause?: unknown;
 };

@@ -10,6 +10,7 @@ import type { JudgeBinding } from "../../llm/registry.js";
 import type { AgentJudge } from "./deps.js";
 import type { ModelReadingMask } from "../../pii/model-boundary.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
+import { decisionSpendOf } from "../../finops/failed-decision.js";
 import { chargedCall } from "../../finops/charged-call.js";
 
 /** A judge's reading (#708), loaded on its first use: only an agent with PII policies needs it. */
@@ -96,7 +97,11 @@ function decideOf(
     };
     const sent = reading === undefined ? asked : await reading.request(asked);
     spent.push(...(reading?.usage ?? []));
-    const outcome = await binding.decide(sent);
+    const outcome = await binding.decide(sent).catch((error: unknown) => {
+      const billed = decisionSpendOf(error);
+      if (billed !== undefined) spent.push(billed); // an answer it billed and could not use (#1399)
+      throw error;
+    });
     spent.push(outcome.usage);
     // validated against these very questions (readDecision): each id answered with its own type
     return outcome.answers as AnswersOf<Q>;

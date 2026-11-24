@@ -32,6 +32,22 @@ export const reportToFrame = (records: readonly UsageRecord[]): void => {
   records.forEach((record) => report?.(record));
 };
 
+/**
+ * Where a call's extra spend goes: the current frame's report when it has one, else — outside a step
+ * (an eval run, a standalone check) — into `collected`, for the caller to account on its result (#1399).
+ */
+export function frameOrCollected(): {
+  readonly sink: ChargedSpec["sink"];
+  readonly collected: UsageRecord[];
+} {
+  const collected: UsageRecord[] = [];
+  const sink = (records: readonly UsageRecord[]): void => {
+    if (currentFrame()?.services.reportUsage === undefined) collected.push(...records);
+    else reportToFrame(records);
+  };
+  return { sink, collected };
+}
+
 const sizeOf = (sent: ChargedSpec["sent"]): number =>
   typeof sent === "string" ? sent.length : JSON.stringify(sent).length;
 

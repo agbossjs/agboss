@@ -1,3 +1,4 @@
+import { billedDecisionRecord, withDecisionSpend } from "../finops/failed-decision.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
 import {
@@ -144,7 +145,13 @@ export function createModelGateway(clients: ModelClients): DecidingGateway {
     checkDecisionRequest(request);
     const { state, questions } = request;
     const raw = await clients.jevClient({ model, state, questions }, modelProvider);
-    return readDecision(raw, { caller, model, questions });
+    try {
+      return readDecision(raw, { caller, model, questions });
+    } catch (error) {
+      // the provider answered and billed it: the spend travels with the failure, once (#1399)
+      const call = { caller, model, provider: modelProvider };
+      throw withDecisionSpend(error, billedDecisionRecord(call, { state, questions }, raw));
+    }
   };
   return {
     chatModel,

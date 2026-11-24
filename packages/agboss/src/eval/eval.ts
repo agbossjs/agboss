@@ -4,6 +4,7 @@ import {
   recordApplicationSpend,
 } from "../budgets/application-spend.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
+import { totalCost } from "../finops/usage.js";
 import type { RouteOutcome, RouteRequest, RouterEngine } from "../routers/index.js";
 import type { RegistryGateway } from "../llm/registry.js";
 import type { Turn, TurnRecords } from "../turns/index.js";
@@ -59,9 +60,14 @@ export async function scoreTurns(deps: EvalDeps, turns: readonly Turn[]): Promis
       return { scored, costUsd, stoppedBy: BUDGET_EXHAUSTED };
     }
     const outcome = await deps.judge.route(judgeRequest(turn));
-    if (outcome.usage !== undefined) {
-      await recordApplicationSpend(deps.budgets, [outcome.usage]);
-      costUsd = usd(costUsd + outcome.usage.costUsd);
+    // what the judge spent, a failed call's partial spend too (#1399): real money either way
+    const spent = [
+      ...(outcome.usage === undefined ? [] : [outcome.usage]),
+      ...(outcome.spent ?? []),
+    ];
+    if (spent.length > 0) {
+      await recordApplicationSpend(deps.budgets, spent);
+      costUsd = usd(costUsd + totalCost(spent));
     }
     const score = scoreOf(outcome);
     if (score === undefined) continue;

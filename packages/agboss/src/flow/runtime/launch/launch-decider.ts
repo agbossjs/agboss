@@ -15,6 +15,7 @@ import { routerCaller, type RouteOutcome } from "../../../routers/index.js";
 import { contentWithPieces, type FilePiece } from "../../../files/file-pieces.js";
 import { decisionStateWith } from "../../../files/decision-parts.js";
 import { withSortedKeys } from "../json.js";
+import { decisionSpendOf } from "../../../finops/failed-decision.js";
 import { chargedCall, reportToFrame } from "../../../finops/charged-call.js";
 
 /**
@@ -127,7 +128,8 @@ async function decideOnDecisionModel(
     );
     return decidedOf(request, probabilities, outcome.usage);
   } catch (error) {
-    return failedOf(error);
+    // an answer the provider billed and the questions do not fit is spent all the same (#1399)
+    return failedOf(error, decisionSpendOf(error));
   }
 }
 

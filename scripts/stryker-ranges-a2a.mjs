@@ -132,6 +132,7 @@ export function streamShard() {
       "src/graph/agent-loop/chunk-counter.ts",
       // #1399: the same for a call of any other component, and a fallback's share of it
       "src/finops/charged-call.ts",
+      "src/finops/failed-decision.ts",
     ],
   };
 }

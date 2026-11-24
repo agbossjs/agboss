@@ -1,6 +1,7 @@
 import { extractText } from "./multimodal-utils.js";
 import { z } from "zod";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
+import { billedDecisionRecord } from "../finops/failed-decision.js";
 import { usd, type Usd } from "../units/index.js";
 import type { JevClient } from "../llm/jev-client.js";
 import { callFailed, decided, failed, unknownOption } from "./outcome.js";
@@ -44,9 +45,15 @@ function reasonFor(score: number | undefined): string {
   return score === undefined ? "jev" : `jev confidence ${score.toFixed(2)}`;
 }
 
-function toOutcome(raw: unknown, request: RouteRequest, usageOf: UsageFactory): RouteOutcome {
+function toOutcome(
+  raw: unknown,
+  request: RouteRequest,
+  usageOf: UsageFactory,
+  billed: (raw: unknown, request: RouteRequest) => UsageRecord,
+): RouteOutcome {
   const parsed = JevResponseSchema.safeParse(raw);
-  if (!parsed.success) return failed("invalid router output", usageOf(undefined, usd(0)));
+  // an answer the provider billed that is no usable decision: its spend is recorded once (#1399)
+  if (!parsed.success) return failed("invalid router output", billed(raw, request));
   const { answers, usage, model } = parsed.data;
   const record = usageOf(model, reportedCost(usage));
   const { route } = answers;
@@ -69,6 +76,12 @@ export function createJevRouter(deps: JevRouterDeps): RouterEngine {
     costUsd,
     costSource: CostSource.Api,
   });
+  const billed = (raw: unknown, request: RouteRequest): UsageRecord =>
+    billedDecisionRecord(
+      { caller: routerCaller(deps.name), model: deps.model },
+      { input: extractText(request.input), options: request.options },
+      raw,
+    );
   return {
     name: deps.name,
     route: async (request) => {
@@ -85,7 +98,7 @@ export function createJevRouter(deps: JevRouterDeps): RouterEngine {
             },
           },
         });
-        return toOutcome(raw, request, usageOf);
+        return toOutcome(raw, request, usageOf, billed);
       } catch (error) {
         return callFailed(error, usageOf(undefined, usd(0)));
       }
