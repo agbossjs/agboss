@@ -1,5 +1,5 @@
 import { CostReport, type UsageRecord } from "../../finops/usage.js";
-import { AGBossError, type ErrorDetails } from "../errors.js";
+import { AGBossError, type AGBossErrorOptions, type ErrorDetails } from "../errors.js";
 
 /**
  * Error families (#1325): the errors of one area as one `type` (a union discriminated by `kind`), one
@@ -33,7 +33,10 @@ export interface PaidErrorVariant<
 }
 
 /** What a variant constructor takes besides its own facts. */
-export interface VariantCommon {
+export interface VariantCommon extends Pick<
+  AGBossErrorOptions,
+  "location" | "secondarySpans" | "notes" | "help" | "suggestionPatch"
+> {
   /** A sentence of your own; the variant's default says what happened, never a stored or model text. */
   readonly message?: string;
   readonly cause?: unknown;
@@ -168,9 +171,24 @@ function variantOf(
     readonly usage?: readonly UsageRecord[];
 
     constructor(options: VariantCommon & Readonly<Record<string, unknown>> = {}) {
-      const { message, cause, details, ...facts } = options;
+      const {
+        message,
+        cause,
+        details,
+        location,
+        secondarySpans,
+        notes,
+        help,
+        suggestionPatch,
+        ...facts
+      } = options;
       super(typeof message === "string" ? message : defaultMessage, {
         cause,
+        location,
+        secondarySpans,
+        notes,
+        help,
+        suggestionPatch,
         details: { ...detailsOf(facts), ...(isDetails(details) ? details : {}) },
       });
       Object.assign(this, facts);

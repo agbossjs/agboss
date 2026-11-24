@@ -25,6 +25,11 @@ export {
   type ThreadIdsExhaustedErrorOptions,
 } from "./core/errors.js";
 export { errorRecordOf, type ErrorRecord } from "./core/error-record.js";
+// diagnostics and backtraces (#1325c)
+export { BacktraceMode } from "./core/diagnostics/backtrace.js";
+export type { ErrorDiagnostics, ErrorFormatOptions } from "./core/diagnostics/error-report.js";
+export type { ExecutionSpanFrame } from "./core/diagnostics/span-trace.js";
+export type { LabeledSpan, SourceSpan } from "./core/diagnostics/source-span.js";
 export {
   GraphRuleError,
   type GraphRuleErrorOptions,

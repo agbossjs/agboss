@@ -1369,8 +1369,8 @@ export interface WorkflowMatchers<R = unknown> {
 
 // Warnings were encountered during analysis:
 //
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "Timeout".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "ServerError".

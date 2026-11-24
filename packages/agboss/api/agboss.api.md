@@ -326,16 +326,24 @@ export const agbossDto: unique symbol;
 // @public
 export class AGBossError extends Error {
     constructor(message: string, options?: AGBossErrorOptions);
+    readonly chain: () => readonly Error[];
     // (undocumented)
     static readonly code: string;
     // (undocumented)
     readonly code: string;
     // (undocumented)
     readonly details?: ErrorDetails;
+    readonly format: (options?: ErrorFormatOptions) => string;
+    readonly help: string | undefined;
+    readonly location: SourceSpan | undefined;
+    readonly notes: readonly string[];
+    readonly secondarySpans: readonly LabeledSpan[];
+    readonly spanTrace: readonly ExecutionSpanFrame[];
+    readonly suggestionPatch: string | undefined;
 }
 
 // @public
-export interface AGBossErrorOptions {
+export interface AGBossErrorOptions extends ErrorDiagnostics {
     // (undocumented)
     readonly cause?: unknown;
     // (undocumented)
@@ -930,6 +938,16 @@ export class AutoRejectChannel {
 export interface AwaitReplyOutcome {
     // (undocumented)
     readonly kind: ChannelOutcomeKind.AwaitReply;
+}
+
+// @public
+export enum BacktraceMode {
+    // (undocumented)
+    Full = "full",
+    // (undocumented)
+    Off = "0",
+    // (undocumented)
+    Short = "1"
 }
 
 // @public (undocumented)
@@ -2795,6 +2813,22 @@ export type ErrorClass<TError extends Error = Error> = abstract new (...args: ne
 export type ErrorDetails = Readonly<Record<string, unknown>>;
 
 // @public
+export interface ErrorDiagnostics {
+    readonly help?: string;
+    readonly location?: SourceSpan;
+    readonly notes?: readonly string[];
+    readonly secondarySpans?: readonly LabeledSpan[];
+    readonly spanTrace?: readonly ExecutionSpanFrame[];
+    readonly suggestionPatch?: string;
+}
+
+// @public
+export interface ErrorFormatOptions {
+    readonly backtrace?: BacktraceMode;
+    readonly cwd?: string;
+}
+
+// @public
 export interface ErrorHandling<TInstance, THead extends PathHead> {
     // (undocumented)
     onError(error: ErrorClass, path: SidePath): AfterStep<TInstance, THead>;
@@ -3567,6 +3601,13 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
     readonly answeredBy: string | undefined;
     readonly decision: unknown;
     readonly reason: ResumeReason;
+}
+
+// @public
+export interface ExecutionSpanFrame {
+    readonly fields: Readonly<Record<string, string | number>>;
+    readonly location?: SourceSpan;
+    readonly name: string;
 }
 
 // @public
@@ -4495,7 +4536,7 @@ export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
 // @public
 export class HopsLimitExceededError extends LimitExceededError {
     constructor(options: HopsLimitExceededErrorOptions);
-    readonly chain: readonly MeshHop[];
+    readonly callChain: readonly MeshHop[];
     // (undocumented)
     static readonly code: "limit.hops";
     // (undocumented)
@@ -5337,6 +5378,14 @@ type KindOf<T> = InstanceOrSelf<T> extends {
 } ? NodeKind extends TKind ? never : TKind : never;
 
 // @public
+export interface LabeledSpan {
+    // (undocumented)
+    readonly label: string;
+    // (undocumented)
+    readonly span: SourceSpan;
+}
+
+// @public
 type LastValue<TValue> = IsSeveral<TValue> extends true ? TValue extends readonly [...unknown[], infer TLast] ? TLast : never : TValue;
 
 // @public
@@ -5779,7 +5828,7 @@ export interface MeshLimitPlace {
 // @public
 export class MeshLoopDetectedError extends LimitExceededError {
     constructor(options: MeshLoopDetectedErrorOptions);
-    readonly chain: readonly MeshHop[];
+    readonly callChain: readonly MeshHop[];
     // (undocumented)
     static readonly code: "limit.mesh-loop";
     // (undocumented)
@@ -5791,9 +5840,9 @@ export class MeshLoopDetectedError extends LimitExceededError {
 
 // @public
 export interface MeshLoopDetectedErrorOptions extends Partial<MeshLimitPlace> {
+    readonly callChain: readonly MeshHop[];
     // (undocumented)
     readonly cause?: unknown;
-    readonly chain: readonly MeshHop[];
     readonly entry: MeshEntry;
 }
 
@@ -8732,6 +8781,18 @@ export interface SourceHead {
 }
 
 // @public
+export interface SourceSpan {
+    // (undocumented)
+    readonly column: number;
+    // (undocumented)
+    readonly endColumn?: number;
+    // (undocumented)
+    readonly file: string;
+    // (undocumented)
+    readonly line: number;
+}
+
+// @public
 export enum SpawnPolicy {
     Always = "always",
     OnDemand = "on-demand"
@@ -10425,7 +10486,7 @@ export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TD
 export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
 
 // @public
-export interface VariantCommon {
+export interface VariantCommon extends Pick<AGBossErrorOptions, "location" | "secondarySpans" | "notes" | "help" | "suggestionPatch"> {
     // (undocumented)
     readonly cause?: unknown;
     readonly details?: ErrorDetails;
@@ -11120,6 +11181,15 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "agents".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "ModelMax".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "All".
+// src/core/diagnostics/backtrace.ts - (ae-undocumented) Missing documentation for "Off".
+// src/core/diagnostics/backtrace.ts - (ae-undocumented) Missing documentation for "Short".
+// src/core/diagnostics/backtrace.ts - (ae-undocumented) Missing documentation for "Full".
+// src/core/diagnostics/source-span.ts - (ae-undocumented) Missing documentation for "file".
+// src/core/diagnostics/source-span.ts - (ae-undocumented) Missing documentation for "line".
+// src/core/diagnostics/source-span.ts - (ae-undocumented) Missing documentation for "column".
+// src/core/diagnostics/source-span.ts - (ae-undocumented) Missing documentation for "endColumn".
+// src/core/diagnostics/source-span.ts - (ae-undocumented) Missing documentation for "span".
+// src/core/diagnostics/source-span.ts - (ae-undocumented) Missing documentation for "label".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "GraphRules".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "FlowSyntax".
 // src/core/error-families/config-errors.ts - (ae-undocumented) Missing documentation for "NotAWorkflowStart".
@@ -11236,16 +11306,16 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Memory".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ModelFileLimit".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "FileMaskingFailed".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "name".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".

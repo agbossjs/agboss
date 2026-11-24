@@ -32,7 +32,7 @@ export interface A2ATaskRepairParts {
 }
 
 // @public
-export interface AGBossErrorOptions {
+export interface AGBossErrorOptions extends ErrorDiagnostics {
     // (undocumented)
     readonly cause?: unknown;
     // (undocumented)
@@ -240,6 +240,9 @@ export enum AttemptDivergenceReason {
 
 // @public
 export type AuditLogHooks = Pick<ExecutionObserver, "onExecutionLeaseTakeover" | "onStepHandedOver" | "onIdempotencyRun" | "onOutboundCall">;
+
+// @public
+export function backtraceModeOf(env?: NodeJS.ProcessEnv): BacktraceMode;
 
 // @public
 export interface BlastRadiusEntry {
@@ -692,6 +695,23 @@ export const describeServices: WorkflowServices;
 export const describeServicesWith: (environment: DescribedEnvironment | undefined) => WorkflowServices;
 
 // @public
+export interface Diagnostic {
+    readonly code: string;
+    // (undocumented)
+    readonly help?: string;
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly notes?: readonly string[];
+    readonly patch?: string;
+    readonly primary?: LabeledSpan;
+    readonly secondary?: readonly LabeledSpan[];
+}
+
+// @public
+export function diagnosticOfViolation(violation: RuleViolation): Diagnostic;
+
+// @public
 export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProviderDirectory;
 
 // @public
@@ -1010,6 +1030,9 @@ export function executionVersions<TName extends string>(deps: AgentExecutionDeps
     readonly configVersion: string;
     readonly configHash: string;
 };
+
+// @public
+export const explainedRuleCodes: () => readonly string[];
 
 // @public
 export const exportedRecordLine: (record: ExecutionHistoryRecord) => string;
@@ -1370,6 +1393,16 @@ export class ProfileError extends AGBossError {
 export type ProviderFetch = typeof fetch;
 
 // @public
+export function renderDiagnostic(diagnostic: Diagnostic, options?: RenderOptions): string;
+
+// @public (undocumented)
+export interface RenderOptions {
+    readonly cwd?: string;
+    readonly explainHint?: boolean;
+    readonly readSource?: (file: string) => string | undefined;
+}
+
+// @public
 export function renderTemplate(text: string, variables: Readonly<Record<string, unknown>>, unknown: (key: string) => Error): string;
 
 // @public
@@ -1395,6 +1428,15 @@ export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowService
 
 // @public
 export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, resume: TreeResume, deps: AgentExecutionDeps<TName>, options?: ContinueOptions): Promise<AgentExecutionOutput>;
+
+// @public
+export interface RuleExplanation {
+    readonly fix?: string;
+    readonly means: string;
+}
+
+// @public
+export const ruleExplanationOf: (code: string) => RuleExplanation | undefined;
 
 // @public
 export function runEvalSuite(built: BuiltApplication, suite: Class, options: EvalRunOptions): Promise<EvalRunReport>;
@@ -1703,9 +1745,13 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/config/profiles.ts - (ae-undocumented) Missing documentation for "code".
 // src/config/profiles.ts - (ae-undocumented) Missing documentation for "code".
 // src/config/profiles.ts - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "notes".
+// src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "help".
+// src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "RenderOptions".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "unknownCosts".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionStart".

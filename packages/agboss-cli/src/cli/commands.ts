@@ -16,6 +16,7 @@ import {
 } from "./options.js";
 
 import { CHECK_COMMAND } from "./check-command.js";
+import { EXPLAIN_COMMAND } from "./explain-command.js";
 
 export { COMMON_OPTIONS, optionsOf, type CommandSpec, type OptionSpec } from "./options.js";
 import { EVAL_CASE_OPTIONS, EVAL_COMMAND } from "./eval-commands.js";
@@ -203,6 +204,7 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
 export const COMMANDS: Readonly<Record<string, CommandSpec>> = {
   ...START_COMMANDS,
   ...APPLICATION_COMMANDS,
+  explain: EXPLAIN_COMMAND,
   ...SCAFFOLD_COMMANDS,
 };
 

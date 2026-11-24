@@ -239,7 +239,7 @@ describe("#398 PR 1: the AGBoss MCP client sends _meta and reads a mesh limit", 
     const server = new KbServer();
     const limit = new HopsLimitExceededError({
       entry: { application: "kb-application", start: "search" },
-      chain: [elsewhere],
+      callChain: [elsewhere],
       maxMeshHops: 1,
     });
     server.attachServerTools(

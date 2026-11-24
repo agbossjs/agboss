@@ -8,7 +8,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { inspect } from 'node:util';
 
 // @public
-export interface AGBossErrorOptions {
+export interface AGBossErrorOptions extends ErrorDiagnostics {
     // (undocumented)
     readonly cause?: unknown;
     // (undocumented)
@@ -1158,11 +1158,11 @@ export interface WireTool {
 // src/config/types.ts - (ae-undocumented) Missing documentation for "maxTokens".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "reasoning".
 // src/config/types.ts - (ae-undocumented) Missing documentation for "promptCaching".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/llm/jev-client.ts - (ae-undocumented) Missing documentation for "model".
 // src/llm/jev-client.ts - (ae-undocumented) Missing documentation for "questions".
 // src/models/capabilities.ts - (ae-undocumented) Missing documentation for "supported".

@@ -1,4 +1,5 @@
 import type { Class } from "../../components/injection.js";
+import type { SourceSpan } from "../../core/diagnostics/source-span.js";
 import type { DtoClass } from "../../dto/types.js";
 import type { NodeKind } from "../ast.js";
 import {
@@ -40,6 +41,8 @@ export interface Declared<TKind extends NodeKind, TOptions> {
   readonly options: TOptions;
   /** The file the decorator was called from (the class's file); absent when it cannot be told. */
   readonly source?: string;
+  /** Where the decorator was called in that file (#1325c): what a rendered diagnostic underlines. */
+  readonly span?: SourceSpan;
 }
 
 export type WorkflowStartDeclaration = Declared<NodeKind.Start, WorkflowStartOptions>;
@@ -63,9 +66,26 @@ export type ComponentDeclaration =
 
 const declarations = new WeakMap<object, ComponentDeclaration>();
 
+/** The classes a name stands for — a component's `name` or its class's name (#1325c): rules name nodes by it. */
+const classesByName = new Map<string, Set<Class>>();
+
 /** Called by the v2 decorators. */
 export function recordDeclaration(target: Class, declaration: ComponentDeclaration): void {
   declarations.set(target, declaration);
+  const options: unknown = declaration.options;
+  const named: unknown =
+    typeof options === "object" && options !== null ? Reflect.get(options, "name") : "";
+  for (const name of [target.name, typeof named === "string" ? named : ""]) {
+    if (name === "") continue;
+    classesByName.set(name, (classesByName.get(name) ?? new Set()).add(target));
+  }
+}
+
+/** The one class a component name or a class name stands for; none when it stands for none or for several. */
+export function componentClassOfName(name: string): Class | undefined {
+  const classes = classesByName.get(name);
+  const [only] = classes?.size === 1 ? classes : [];
+  return only;
 }
 
 /** What a v2 decorator recorded on a class; undefined for an undecorated one (or no class). */
@@ -78,6 +98,12 @@ export function declared<TKind extends NodeKind, TOptions>(
   kind: TKind,
   options: TOptions,
   source: string | undefined,
+  span?: SourceSpan,
 ): Declared<TKind, TOptions> {
-  return source === undefined ? { kind, options } : { kind, options, source };
+  return {
+    kind,
+    options,
+    ...(source === undefined ? {} : { source }),
+    ...(span === undefined ? {} : { span }),
+  };
 }

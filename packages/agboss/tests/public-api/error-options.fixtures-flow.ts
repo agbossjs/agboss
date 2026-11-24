@@ -96,7 +96,7 @@ export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries
     deadlineAt: "2026-01-01T00:00:30.000Z",
     ...lost,
   }),
-  fx(root.MeshLoopDetectedError, { entry, chain, ...lost }),
-  fx(root.HopsLimitExceededError, { entry, chain, maxMeshHops: 8, ...lost }),
+  fx(root.MeshLoopDetectedError, { entry, callChain: chain, ...lost }),
+  fx(root.HopsLimitExceededError, { entry, callChain: chain, maxMeshHops: 8, ...lost }),
   fx(root.CompensationFailedError, { failures: [] }),
 ]);

@@ -16,6 +16,19 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/run/compaction-events.ts"],
   ),
   ...reviewed(
+    "the options of the errors, moved out of `errors.ts` as they were (#1325c) to keep it under the line limit: the interfaces `AGBossErrorOptions`, `MessageErrorOptions`, `PlainErrorOptions` and `causeOptionOf`; no decision of money, a limit or a deadline",
+    ["src/core/error-options.ts"],
+  ),
+  ...reviewed(
+    "the diagnostics of #1325c: a report's text, a rustc-style snippet and the capture of a call site — no spend, limit, lease or fence, nothing a run's guarantees rest on, and no value of a run is read (a test makes secrets and PII values part of an error's context and finds none in a report); covered by tests/core/diagnostics/error-format.test.ts, tests/core/diagnostics/error-secrets.test.ts, tests/core/diagnostics/render-diagnostic.test.ts, tests/core/diagnostics/call-sites.test.ts, tests/core/diagnostics/rule-catalog.test.ts",
+    [
+      "src/core/diagnostics/**",
+      "src/flow/step-spans.ts",
+      "src/flow/context/frame-span-trace.ts",
+      "src/graph/rule-diagnostic.ts",
+    ],
+  ),
+  ...reviewed(
     "the storage components' declarations and wiring (#1321): decorators, driver descriptors, settings and field readers, the in-memory database and the barrel — which store holds the leases, the idempotency keys and the retention is decided in the sharded storage-assembly, storage-rules, storage-secret-rules and ttl-problem (assembly-rules); covered by tests/storage/storage-application.test.ts and tests/storage/storage.test-d.ts",
     [
       "src/storage/drivers.ts",

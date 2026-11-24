@@ -16,7 +16,7 @@ export type ActionEndEvent = EndEvent<unknown>;
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
 
 // @public
-export interface AGBossErrorOptions {
+export interface AGBossErrorOptions extends ErrorDiagnostics {
     // (undocumented)
     readonly cause?: unknown;
     // (undocumented)
@@ -514,9 +514,9 @@ export class WorkflowSettings {
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "code".
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "name".
 // src/components/prompt-problems.ts - (ae-undocumented) Missing documentation for "problems".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "tool".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "output".

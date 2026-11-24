@@ -294,8 +294,8 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 
 // Warnings were encountered during analysis:
 //
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/testing/faults/fault-stores.ts - (ae-undocumented) Missing documentation for "environment".
 // src/testing/faults/fault-stores.ts - (ae-undocumented) Missing documentation for "businessRows".
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "Before".

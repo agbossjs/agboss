@@ -102,7 +102,7 @@ describe("#1366: the loop a call would make", () => {
     expect(run).toThrow(
       new MeshLoopDetectedError({
         entry: { application: "billing", start: "charge" },
-        chain: chain,
+        callChain: chain,
       }),
     );
   });

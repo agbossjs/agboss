@@ -46,6 +46,12 @@ describe("v2 decorators record kind, options and the declaring file", () => {
         maxVisits: 2,
       },
       source: expect.stringMatching(/offer\.fixture\.ts$/),
+      // where the decorator is called (#1325c): what a rendered diagnostic underlines
+      span: {
+        file: expect.stringMatching(/offer\.fixture\.ts$/),
+        line: expect.any(Number),
+        column: expect.any(Number),
+      },
     });
   });
 

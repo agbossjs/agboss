@@ -10,6 +10,18 @@ export { createStartComponents } from "./app/start-components.js";
 export { renderTemplate } from "./components/render-template.js";
 export { ProfileError } from "./config/profiles.js";
 export type { AGBossErrorOptions, ErrorDetails, MessageErrorOptions } from "./core/errors.js";
+export { backtraceModeOf } from "./core/diagnostics/backtrace.js";
+export {
+  renderDiagnostic,
+  type Diagnostic,
+  type RenderOptions,
+} from "./core/diagnostics/render-diagnostic.js";
+export {
+  explainedRuleCodes,
+  ruleExplanationOf,
+  type RuleExplanation,
+} from "./core/diagnostics/rule-catalog.js";
+export { diagnosticOfViolation } from "./graph/rule-diagnostic.js";
 export { describeServices, describeServicesWith } from "./describe/describe-workflow.js";
 export { workflowSnapshotOf, type WorkflowSnapshot } from "./describe/snapshot.js";
 export { contractsOf, type ContractsSnapshot } from "./describe/contracts.js";

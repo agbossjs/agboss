@@ -31,17 +31,22 @@ interface CheckResult {
 }
 
 describe("#198 AC3: agboss check runs every key-free validation", () => {
-  it("a graph rule violation: file code message lines, exit 3, no API key", async () => {
+  it("a graph rule violation: a rustc-style snippet under the user's own line, exit 3, no API key", async () => {
     const call = await agboss(["check", "--application", BROKEN], CWD);
 
     expect(call.code).toBe(3);
     const lines = call.stdout.trimEnd().split("\n");
     expect(lines).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/^\S*broken\.workflow\.ts graph\.dead-end \S/),
-        expect.stringMatching(/^\S*broken\.workflow\.ts graph\.unreachable-node \S/),
+        expect.stringMatching(/^error\[graph\.dead-end\]: \S/),
+        expect.stringMatching(/^ +--> \S*broken\.workflow\.ts:\d+:\d+$/),
+        expect.stringMatching(/^ +\| +\^+ `researcher-agent` breaks this rule$/),
+        expect.stringMatching(/^error\[graph\.unreachable-node\]: \S/),
+        "For more information about this error, try `agboss explain graph.dead-end`.",
       ]),
     );
+    // the quoted line is the user's source, whole
+    expect(call.stdout).toContain("|       .toAgent(Researcher),");
     expect(call.stderr).toMatch(/^agboss check: \d+ problem\(s\) in /);
   });
 
@@ -62,6 +67,10 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
       expect.arrayContaining(["graph.dead-end", "graph.unreachable-node"]),
     );
     expect(result.problems.every((p) => p.file === BROKEN)).toBe(true);
+    // the snippet's places are for people: a problem of --json keeps its one shape
+    expect(result.problems.every((p) => Object.keys(p).sort().join() === "code,file,message")).toBe(
+      true,
+    );
   });
 
   it("a sound workflow passes: ok line, exit 0", async () => {

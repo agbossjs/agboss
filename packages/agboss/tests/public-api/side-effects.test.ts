@@ -113,8 +113,10 @@ const CLI_ONLY = /node_modules\/(typescript|tsx|esbuild|@inquirer|@apidevtools)\
  * and listener, and the rules of the targets — 5 modules of their own under the line limits.
  * 1,520 at the 0.1.1 rework integration (the root was 1,512): the observer, tool-interceptor, driver-provider
  * and metadata modules the rework chains added, each under the line limits.
+ * 1,530 at #1325c: an error reports itself (`error.format()`, `console.log(error)`) — the stack, the
+ * span and the report modules, the error options, and the flow's call-site registers: 8 modules of their own.
  */
-const MODULE_BUDGET = 1_520;
+const MODULE_BUDGET = 1_530;
 
 async function importInFreshProcess(module: string): Promise<Probe> {
   const probe = join(dir, "probe.mjs");

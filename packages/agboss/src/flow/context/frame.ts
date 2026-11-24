@@ -2,6 +2,8 @@ import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import type { StoreOutcomeUnknownError } from "../../infrastructure/store-call-timeout.js";
 import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { registerSpanTraceSource } from "../../core/diagnostics/span-trace.js";
+import { spanFramesOf } from "./frame-span-trace.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { Milliseconds } from "../../units/index.js";
 import { idempotencyKeyOf } from "./idempotency.js";
@@ -210,6 +212,12 @@ export interface Frame extends FrameSpec {
 }
 
 const storage = new AsyncLocalStorage<Frame>();
+
+// an error made inside a step carries its `Span trace` (#1325c)
+registerSpanTraceSource(() => {
+  const frame = storage.getStore();
+  return frame === undefined ? [] : spanFramesOf(frame.step, frame.execution);
+});
 
 /** The frame the current async context runs in; `undefined` outside any execution. */
 export const currentFrame = (): Frame | undefined => storage.getStore();

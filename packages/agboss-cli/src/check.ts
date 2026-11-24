@@ -7,7 +7,14 @@ import { modelProblemsOf } from "./cli/check-models.js";
 import { cassetteProblems } from "./cli/check-cassettes.js";
 import { federationProblems, requireFederationFlag } from "./cli/check-federation.js";
 import { envOption } from "./cli/environment.js";
-import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/check-problems.js";
+import {
+  assemble,
+  jsonProblem,
+  modelProblem,
+  problemBlock,
+  problemText,
+  type CheckProblem,
+} from "./cli/check-problems.js";
 import { checkReportOf, type CheckReport } from "./cli/check-report.js";
 import { CliError } from "./cli/errors.js";
 import { writeCheckedTypes } from "./cli/flow-types.js";
@@ -160,13 +167,13 @@ export const handle: CommandHandler = async (context) => {
     ...(typed.types === undefined ? [] : ["types"]),
   ];
   problems.forEach((problem) => {
-    context.say(problemText(problem));
+    context.say(problemBlock(problem));
   });
   if (problems.length === 0) context.say(`ok: ${file} — ${checks.join(", ")}`);
   const result = {
     application: file,
     checks,
-    problems,
+    problems: problems.map(jsonProblem),
     ...(typed.types === undefined ? {} : { types: typed.types }),
     ...(report === undefined ? {} : { report: reportData(report) }),
     ...skillsField(skills),

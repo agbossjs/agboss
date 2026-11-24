@@ -231,16 +231,24 @@ export interface A2ATaskStatus {
 // @public
 export class AGBossError extends Error {
     constructor(message: string, options?: AGBossErrorOptions);
+    readonly chain: () => readonly Error[];
     // (undocumented)
     static readonly code: string;
     // (undocumented)
     readonly code: string;
     // (undocumented)
     readonly details?: ErrorDetails;
+    readonly format: (options?: ErrorFormatOptions) => string;
+    readonly help: string | undefined;
+    readonly location: SourceSpan | undefined;
+    readonly notes: readonly string[];
+    readonly secondarySpans: readonly LabeledSpan[];
+    readonly spanTrace: readonly ExecutionSpanFrame[];
+    readonly suggestionPatch: string | undefined;
 }
 
 // @public
-export interface AGBossErrorOptions {
+export interface AGBossErrorOptions extends ErrorDiagnostics {
     // (undocumented)
     readonly cause?: unknown;
     // (undocumented)
@@ -2580,13 +2588,13 @@ export interface WrittenLedgerMark {
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerCutoffInvalid".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryExpired".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryInvalid".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "name".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "details".

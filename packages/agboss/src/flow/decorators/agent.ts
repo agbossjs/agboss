@@ -1,6 +1,7 @@
 import type { PromptValue } from "../../components/prompt-source.js";
 import type { ModelFiles } from "../../files/model-files.js";
 import { callerFile } from "../../components/call-site.js";
+import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class } from "../../components/injection.js";
 import type { ToolHandler } from "../../components/decorators.js";
 import type { CacheSetting, MaxTokens, Price } from "../../config/settings-types.js";
@@ -87,8 +88,9 @@ export interface AgentOptions {
  */
 export function Agent(options: AgentOptions) {
   const source = callerFile();
+  const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
-    recordDeclaration(value, declared(NodeKind.Agent, options, source));
+    recordDeclaration(value, declared(NodeKind.Agent, options, source, span));
     return value;
   };
 }

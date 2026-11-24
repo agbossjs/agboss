@@ -1,4 +1,5 @@
 import { callerFile } from "../../components/call-site.js";
+import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import { NodeKind } from "../ast.js";
 import type { OutputShape } from "../dto-wrappers.js";
@@ -41,10 +42,11 @@ export interface ExecuteMethod {
 
 export function Action<const TDeps extends readonly Token[] = []>(options: ActionOptions<TDeps>) {
   const source = callerFile();
+  const span = captureCallSite();
   return <TClass extends new (...args: ResolvedAll<TDeps>) => ExecuteMethod>(
     value: TClass,
   ): TClass => {
-    recordDeclaration(value, declared(NodeKind.Action, options, source));
+    recordDeclaration(value, declared(NodeKind.Action, options, source, span));
     return value;
   };
 }

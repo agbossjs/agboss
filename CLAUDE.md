@@ -82,7 +82,7 @@ The CLI works on one application (#268): its path is set once in the project's `
 name, exit 2 with the starts listed and a `Did you mean "…"?`, nothing runs); `run` takes a text
 (`"<task>"`, a start taking `WorkflowStartTextDto`), `--input '<json>'` or `--input-file <file>`,
 checked against the start's `InputOf` field by field before anything starts; `describe`, `check`
-and `rag index [--rag <name>]` cover every workflow of the application. `eval` is made of subcommands
+and `rag index [--rag <name>]` cover every workflow of the application. `agboss check` draws a broken assembly rule as `rustc` does (#1325c) — the flow step or decorator in the user's own source under `^^^` / `---`, a `= note:` and `= help:` from the skills' catalog — and `agboss explain <code>` (no application needed; `--list`) explains any rule or error code; an `AGBossError` prints as a report — `error.chain()`, `Location:`, `Span trace:`, `Stack backtrace:` per `AGBOSS_BACKTRACE=0|1|full` — that never prints `details`, a field, a foreign cause's message or a stored/model text. `eval` is made of subcommands
 (#396 S4): `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--env <name>]` runs an
 `@EvalSuite` (found in the application's `eval-suites/*.eval-suite.ts`) on the application built as
 `createApp` builds it — each case `--runs` times, its history written and its turns run on one thread

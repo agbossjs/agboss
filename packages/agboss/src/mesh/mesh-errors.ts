@@ -26,7 +26,7 @@ export interface MeshLoopDetectedErrorOptions extends Partial<MeshLimitPlace> {
   /** The entry that was called again: the receiver's application and start. */
   readonly entry: MeshEntry;
   /** The applications the request passed through, the first caller first. */
-  readonly chain: readonly MeshHop[];
+  readonly callChain: readonly MeshHop[];
   readonly cause?: unknown;
 }
 
@@ -44,11 +44,11 @@ export class MeshLoopDetectedError extends LimitExceededError {
   /** The entry that was called again: the receiver's application and start. */
   readonly entry: MeshEntry;
   /** The applications the request passed through, the first caller first. */
-  readonly chain: readonly MeshHop[];
+  readonly callChain: readonly MeshHop[];
 
   constructor(options: MeshLoopDetectedErrorOptions) {
-    const { entry, chain, path = [], spentUsd = usd(0), usage = [], cause } = options;
-    const line = chainText([...chain, entry]);
+    const { entry, callChain, path = [], spentUsd = usd(0), usage = [], cause } = options;
+    const line = chainText([...callChain, entry]);
     super({
       key: "mesh.callChain",
       limit: 1,
@@ -58,10 +58,10 @@ export class MeshLoopDetectedError extends LimitExceededError {
       usage,
       cause,
       message: `${entry.application} › ${entry.start} was called again through the mesh: ${line}`,
-      details: { entry: { ...entry }, chain: chain.map((hop) => ({ ...hop })) },
+      details: { entry: { ...entry }, chain: callChain.map((hop) => ({ ...hop })) },
     });
     this.entry = entry;
-    this.chain = chain;
+    this.callChain = callChain;
   }
 }
 
@@ -73,15 +73,23 @@ export class HopsLimitExceededError extends LimitExceededError {
   /** The entry that refused the request: the receiver's application and start. */
   readonly entry: MeshEntry;
   /** The applications the request passed through, the first caller first. */
-  readonly chain: readonly MeshHop[];
+  readonly callChain: readonly MeshHop[];
   /** The receiver's `@Application({ maxMeshHops })`. */
   readonly maxMeshHops: number;
   /** The applications the chain would reach with the receiver: one more than `maxMeshHops`. */
   readonly hops: number;
 
   constructor(options: HopsLimitExceededErrorOptions) {
-    const { entry, chain, maxMeshHops, path = [], spentUsd = usd(0), usage = [], cause } = options;
-    const hops = chain.length + 1;
+    const {
+      entry,
+      callChain,
+      maxMeshHops,
+      path = [],
+      spentUsd = usd(0),
+      usage = [],
+      cause,
+    } = options;
+    const hops = callChain.length + 1;
     super({
       key: "maxMeshHops",
       limit: maxMeshHops,
@@ -92,16 +100,16 @@ export class HopsLimitExceededError extends LimitExceededError {
       cause,
       message:
         `${entry.application} › ${entry.start} would be hop ${String(hops)} of the call chain; ` +
-        `its maxMeshHops is ${String(maxMeshHops)}: ${chainText(chain)}`,
+        `its maxMeshHops is ${String(maxMeshHops)}: ${chainText(callChain)}`,
       details: {
         entry: { ...entry },
-        chain: chain.map((hop) => ({ ...hop })),
+        chain: callChain.map((hop) => ({ ...hop })),
         maxMeshHops,
         hops,
       },
     });
     this.entry = entry;
-    this.chain = chain;
+    this.callChain = callChain;
     this.maxMeshHops = maxMeshHops;
     this.hops = hops;
   }
@@ -117,10 +125,10 @@ export const isMeshLimitError = (error: unknown): error is MeshLimitError =>
 /** The same limit at another place (the agent loop's path and spend, before it fails the step). */
 export function meshLimitAt(error: MeshLimitError, place: MeshLimitPlace): MeshLimitError {
   return error instanceof MeshLoopDetectedError
-    ? new MeshLoopDetectedError({ entry: error.entry, chain: error.chain, ...place })
+    ? new MeshLoopDetectedError({ entry: error.entry, callChain: error.callChain, ...place })
     : new HopsLimitExceededError({
         entry: error.entry,
-        chain: error.chain,
+        callChain: error.callChain,
         maxMeshHops: error.maxMeshHops,
         ...place,
       });

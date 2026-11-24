@@ -1,4 +1,5 @@
 import { callerFile } from "../../components/call-site.js";
+import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { DtoClass } from "../../dto/types.js";
 import { NodeKind } from "../ast.js";
 import type { ListWrapper } from "../dto-wrappers.js";
@@ -19,6 +20,7 @@ export interface WorkflowFinishOptions {
 
 export function WorkflowFinish(options: WorkflowFinishOptions) {
   const source = callerFile();
+  const span = captureCallSite();
   // `finish()` on the class is a compile error, like `route` on a model router
   return <TClass extends new () => object>(
     value: TClass &
@@ -28,7 +30,7 @@ export function WorkflowFinish(options: WorkflowFinishOptions) {
           }
         : unknown),
   ): TClass => {
-    recordDeclaration(value, declared(NodeKind.Finish, options, source));
+    recordDeclaration(value, declared(NodeKind.Finish, options, source, span));
     return value;
   };
 }

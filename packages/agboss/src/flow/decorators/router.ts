@@ -1,5 +1,6 @@
 import type { PromptValue } from "../../components/prompt-source.js";
 import { callerFile } from "../../components/call-site.js";
+import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import { NodeKind } from "../ast.js";
 import { resolveTarget, type TargetRef } from "../target-ref.js";
@@ -172,8 +173,9 @@ export function Router<const TDeps extends readonly Token[] = []>(
 ): CodeRouterDecorator<TDeps>;
 export function Router(options: RouterOptions): <TClass extends Class>(value: TClass) => TClass {
   const source = callerFile();
+  const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
-    recordDeclaration(value, declared(NodeKind.Router, options, source));
+    recordDeclaration(value, declared(NodeKind.Router, options, source, span));
     return value;
   };
 }

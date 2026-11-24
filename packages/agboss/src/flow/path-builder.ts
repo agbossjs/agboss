@@ -28,6 +28,7 @@ import { placementOptionOf } from "./child-placement.js";
 import { expiresInOptionOf } from "./question-options.js";
 import type { PathStart } from "./path-start.js";
 import { withTarget, type TargetRef } from "./target-ref.js";
+import { carryStepSpan, recordStepSpan } from "./step-spans.js";
 
 /**
  * The runtime of the path builder (#272): one immutable class behind every typed builder state;
@@ -61,7 +62,7 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   private then(step: Step): PathBuilder<TSource> {
     const problem = launchOrderProblem(this.last, step);
     if (problem !== undefined) throw syntaxError(problem);
-    return new PathBuilder(this.start, this.source, [...this.steps, step]);
+    return new PathBuilder(this.start, this.source, [...this.steps, recordStepSpan(step)]);
   }
 
   /** The join with a new handler: `.onError(…)` extends it. */
@@ -71,7 +72,9 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   /** The last step replaced: a join extended, a launch given one more arbiter. */
   private withLast(step: Step): PathBuilder<TSource> {
-    return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), step]);
+    const replaced = this.last;
+    const kept = replaced === undefined ? step : carryStepSpan(replaced, step);
+    return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), kept]);
   }
 
   private to(

@@ -113,8 +113,8 @@ export const workMin: (amount: number) => WorkingDuration;
 
 // Warnings were encountered during analysis:
 //
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/units/index.ts - (ae-undocumented) Missing documentation for "code".
 // src/units/index.ts - (ae-undocumented) Missing documentation for "code".
 // src/units/index.ts - (ae-undocumented) Missing documentation for "name".

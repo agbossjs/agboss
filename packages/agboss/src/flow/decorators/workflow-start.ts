@@ -1,4 +1,5 @@
 import { callerFile } from "../../components/call-site.js";
+import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { NodeKind } from "../ast.js";
@@ -20,8 +21,9 @@ export interface WorkflowStartOptions {
 /** The class is empty: `app.execute(S, payload)` is typed by the generated `InputOf<S>`. */
 export function WorkflowStart(options: WorkflowStartOptions) {
   const source = callerFile();
+  const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
-    recordDeclaration(value, declared(NodeKind.Start, options, source));
+    recordDeclaration(value, declared(NodeKind.Start, options, source, span));
     return value;
   };
 }

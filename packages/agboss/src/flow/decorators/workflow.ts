@@ -1,4 +1,5 @@
 import { callerFile } from "../../components/call-site.js";
+import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, Provider, ServiceEntry } from "../../components/injection.js";
 import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
 import type { FileDefaults } from "../../files/model-files.js";
@@ -154,11 +155,12 @@ export function Workflow<const TName extends string, const TFlow extends readonl
   options: WorkflowOptions<TName, TFlow>,
 ): (value: Class) => void {
   const source = callerFile();
+  const span = captureCallSite();
   const recorded: WorkflowOptions = { ...options, flow: options.flow.map(plainPath) };
   // returns nothing: a class's own type must not depend on its decorator, or `() => ItsOwnClass`
   // inside its own `flow` would be a circular reference (TS2506, TS7022; its brand is generated)
   return (value: Class): void => {
-    recordDeclaration(value, declared(NodeKind.Workflow, recorded, source));
+    recordDeclaration(value, declared(NodeKind.Workflow, recorded, source, span));
   };
 }
 

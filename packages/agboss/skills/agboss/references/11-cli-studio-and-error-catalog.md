@@ -126,13 +126,67 @@ detection that call a model, each `{ name, kind, promptHash, schemaHash }`), `sc
 ```
 $ npx agboss check
 types: .agboss/types.d.ts
-src/flow-patterns.application.ts graph.cycle-without-max-visits offer-workflow: the cycle through editor-agent, reviewer-agent has no maxVisits — set maxVisits on one of its agents or routers
+error[input.outdated-on-path]: offer-workflow: publisher-agent reads OfferDraftDto, outdated on the path after rewriter-agent
+  --> src/offer/offer.workflow.ts:27:8
+   |
+27 |       .toAgent(PublisherAgent)
+   |        ^^^^^^^^^^^^^^^^^^^^^^^ `publisher-agent` breaks this rule
+   |
+   = note: the field's latest value is outdated on some path
+   = help: reading `CritiqueDto` after the draft was rewritten → renew it on that path, or read it earlier
+For more information about this error, try `agboss explain input.outdated-on-path`.
 ```
 
-Each problem is one line — the file, the code, the message (`warning: …` before a warning) — then
-a count of the problems on stderr and exit 3; a clean
-run ends with `ok: src/<app>.application.ts — assembly, …, types`. In messages and in thrown errors a
-code is written in brackets, `[graph.cycle-without-max-visits]`.
+An assembly rule whose node's place is known — the flow step that enters it (`.toAgent(X)`), else its
+decorator — is drawn as `rustc` draws it: the code and message, `-->` and the line of **your own source** under
+`^^^` (the node the rule is broken at) and `---` (the others it names), a `= note:` (what the rule
+means) and a `= help:` (before → after), both from the catalog below. A problem with no place in a
+file is one line — the file, the code, the message (`warning: …` before a warning). Then a count of the
+problems on stderr and exit 3; a clean run ends with `ok: src/<app>.application.ts — assembly, …, types`.
+`--json` keeps one object per problem (`{ file, code, message }`), never the snippet. In messages and in
+thrown errors a code is written in brackets, `[graph.cycle-without-max-visits]`.
+
+`npx agboss explain <code>` prints a code's meaning and its before → after (`explain input.outdated-on-path`,
+`explain limit.budget` — also the `[code]` as printed; `--list` lists them all; `--json`): every row of this
+catalog, and the code of every variant of every error family with the class that throws it.
+
+### Reading an error: `error.format()`
+
+An `AGBossError` prints as a report, the way `color-eyre` prints one — in `console.log(error)`, an
+uncaught error and `util.inspect`, or `error.format()`:
+
+```
+Error:
+   0: step failed on visit 1
+   1: the key was settled with a different fingerprint
+
+Location:
+   src/credit/actions/charge-card.action.ts:44:38
+
+Span trace:
+   0: agboss::action::run node="charge-card-action" visit=1
+        at src/credit/actions/charge-card.action.ts:30:2
+   1: agboss::workflow::run workflow="credit-workflow" version="1.0.0"
+        at src/credit/workflows/credit.workflow.ts:14:2
+
+Stack backtrace:
+   0: ChargeCardAction::execute
+             at ./src/credit/actions/charge-card.action.ts:44:38
+      [... 19 internal frames omitted ...]
+
+note: Run with `AGBOSS_BACKTRACE=full` environment variable to display a full backtrace.
+```
+
+`Error:` is `error.chain()` — the error, then each `cause`, numbered; a cause that is not a framework error is
+named, its message withheld. `Location:` is where your code threw it (`error.location`). `Span trace:` is
+what the execution was doing (`error.spanTrace`: the step, then each workflow run around it — names and
+counters only), kept across every `await`. `Stack backtrace:` follows `AGBOSS_BACKTRACE` (`RUST_BACKTRACE`
+when it is not set): `0` none, `1` your own frames only, `full` every frame; the default is `0` under
+`NODE_ENV=production` and `1` elsewhere, and `agboss … --debug` prints `full`. `help`, `suggestionPatch` and
+`notes` — `Suggestion:` and `note:` lines — are what a thrower says about your code. The report never prints
+`details`, a field of an error, the message of a foreign error, a value of the execution, a tenant, a PII
+value or any model text; it prints the framework's own sentences, names and places in your source. `error.details`
+stays what logs and records keep.
 
 All violations come at once. Fix every problem line, then run `npx agboss check` again; a fix can
 reveal a rule the first error hid. In code, the same problems are a `GraphRuleError`:
@@ -451,6 +505,23 @@ classes follow the same convention (`SupportAgent`) without a check.
 | `[eval.unknown-start]`                                   | an `@EvalSuite`'s `start` is not a start of the application it runs on                                                                                                                                                                                                                           | the start of one of the application's workflows                                                                                        |
 | `[eval.duplicate-case]`                                  | two cases of one suite share a `name`                                                                                                                                                                                                                                                            | rename one: a case name keys reports and baselines                                                                                     |
 | `[eval.judge-wrong-output]`                              | a suite's judge judges no finish output its start reaches, or a list                                                                                                                                                                                                                             | `output` = a reached finish's `output` (`oneOf(…)` for several)                                                                        |
+
+### Pause targets, channel selectors and listeners
+
+| Code                                        | Means                                                                             | Before → after                                                                             |
+| ------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `[channel.missing-for-target]`              | a `@ToolApproval` or `@ExternalTask` target has no channel                        | list a `@Channel({ target: RefundApproval })` class in `@Application({ channels })`        |
+| `[channel.ambiguous-for-target]`            | a target has several channels and nothing picks one                               | add a `@ChannelSelector({ target })` that returns one, or list only one channel            |
+| `[channel.target-invalid]`                  | a `@Channel` names a target that is no `@ToolApproval` or `@ExternalTask`         | `target: SomeAgent` → the pause target class the channel serves                            |
+| `[channel.ttl-invalid]`                     | a channel's `ttl` is not a finite duration longer than the execution lease (30 s) | `ttl: seconds(5)` → `ttl: days(14)`                                                        |
+| `[channel-selector.no-select-method]`       | a `@ChannelSelector` class has no `selectChannel(ctx)` method                     | add `selectChannel(ctx)` returning one of the target's channels                            |
+| `[channel-selector.target-invalid]`         | a `@ChannelSelector` names a target that is no `@ToolApproval` or `@ExternalTask` | `target: SomeAgent` → the pause target class it selects for                                |
+| `[pause.incompatible-escalation-target]`    | a pause escalates to a target of another kind, or with another input or output    | `escalateTo: OtherKindTarget` → a target of the same kind with the same input (and output) |
+| `[pause.permit-hook-not-enforced]`          | a pause target defines a permit hook that nothing calls yet                       | remove the hook until the runtime enforces it                                              |
+| `[channel-listener.missing-handler]`        | a `@ChannelListener` class has none of the listener hooks                         | add one of its hooks, e.g. `onPauseSent(event)`                                            |
+| `[channel-listener.unknown-hook]`           | a `@ChannelListener` class has a method named like a hook that is none            | `onPauseSend` → the hook's exact name                                                      |
+| `[channel-interpreter.not-an-interpreter]`  | a channel's `interpreter` names an undecorated class                              | decorate it `@ChannelInterpreter({ … })`                                                   |
+| `[channel-interpreter.no-interpret-method]` | a code-decided `@ChannelInterpreter` has no `interpret(input)` method             | add `interpret(input)`, or give it a model and a prompt                                    |
 
 ## Warnings
 

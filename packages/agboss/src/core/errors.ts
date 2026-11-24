@@ -1,33 +1,10 @@
-/** Plain JSON facts an error carries into its record (`{ key, limit }`, `{ agent }`, …). */
-export type ErrorDetails = Readonly<Record<string, unknown>>;
+import type { ErrorFormatOptions } from "./diagnostics/error-report.js";
+import type { AGBossErrorOptions, ErrorDetails, MessageErrorOptions } from "./error-options.js";
+import type { ExecutionSpanFrame } from "./diagnostics/span-trace.js";
+import type { LabeledSpan, SourceSpan } from "./diagnostics/source-span.js";
+import { installReportMembers, keepDiagnostics } from "./diagnostics/report-members.js";
 
-/** What a framework error may take besides its message. */
-export interface AGBossErrorOptions {
-  readonly cause?: unknown;
-  readonly details?: ErrorDetails;
-}
-
-/**
- * What an error that has nothing to say but its message takes (#906): `new X({ message, cause })`.
- * Every error the framework throws is made from one options object — its keys are the error's own
- * properties, `cause` among them; `message` is the one fact of an error with no other.
- */
-export interface MessageErrorOptions extends AGBossErrorOptions {
-  readonly message: string;
-}
-
-/**
- * What an error that extends a platform class (`RangeError`) or `Error` itself takes (#906): `{ message,
- * cause }`, the one fact and the cause — the shape of `MessageErrorOptions` without `details`.
- */
-export interface PlainErrorOptions {
-  readonly message: string;
-  readonly cause?: unknown;
-}
-
-/** `{ cause }` for a native `Error` constructor, nothing when there is no cause (#906). */
-export const causeOptionOf = (cause: unknown): ErrorOptions | undefined =>
-  cause === undefined ? undefined : { cause };
+export * from "./error-options.js";
 
 /** The options of `ExecutionCancelledError`: the message is optional. */
 export interface ExecutionCancelledErrorOptions extends AGBossErrorOptions {
@@ -44,14 +21,38 @@ export class AGBossError extends Error {
   static readonly code: string = "agboss";
   readonly code: string;
   readonly details?: ErrorDetails;
+  // what the error reports about itself (#1325c): installed on the prototype below, beside the class
+  /** Where it was thrown in the user's source: set by the thrower, else the first frame of its stack outside the framework. */
+  declare readonly location: SourceSpan | undefined;
+  /** Other places in the user's source that explain it, with the words that say how. */
+  declare readonly secondarySpans: readonly LabeledSpan[];
+  /** What the execution was doing when it was made, innermost first (kept across `await`). */
+  declare readonly spanTrace: readonly ExecutionSpanFrame[];
+  /** Facts about it that are not its message. */
+  declare readonly notes: readonly string[];
+  /** What to do about it: one sentence. */
+  declare readonly help: string | undefined;
+  /** The lines of code that make the change `help` asks for. */
+  declare readonly suggestionPatch: string | undefined;
+  /** It and its causes, outermost first. */
+  declare readonly chain: () => readonly Error[];
+  /**
+   * The report: the numbered chain, `Location:`, `Span trace:`, `Stack backtrace:` (per
+   * `AGBOSS_BACKTRACE=0|1|full`), the suggestion and notes — what `console.log(error)` prints. It never
+   * prints `details`, a field of an error, or the message of an error that is not the framework's own.
+   */
+  declare readonly format: (options?: ErrorFormatOptions) => string;
 
   constructor(message: string, options: AGBossErrorOptions = {}) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = new.target.name;
     this.code = new.target.code;
     this.details = options.details;
+    keepDiagnostics(this, options);
   }
 }
+
+installReportMembers(AGBossError.prototype, (error) => error instanceof AGBossError);
 
 /** The run was cancelled: its signal aborted, or a cancel was requested before a node ran. */
 export class ExecutionCancelledError extends AGBossError {
