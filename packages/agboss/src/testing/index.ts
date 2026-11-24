@@ -64,6 +64,7 @@ export type {
   ToolCallsTurn,
   WaitTurn,
 } from "./turns.js";
+export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
 export type {
   ChatLine,
   ChatToolDefinition,

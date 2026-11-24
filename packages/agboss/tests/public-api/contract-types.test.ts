@@ -146,31 +146,13 @@ describe("#511 AC4: every type a public infrastructure contract names is exporte
     }
   });
 
-  it("#890 AC4: Turn* are the names; Tern* stay one minor as @deprecated aliases of them", () => {
-    const typeOf = (name: string): ts.Type | undefined => {
-      const symbol = rootExports.find((exportedSymbol) => exportedSymbol.name === name);
-      return symbol === undefined ? undefined : checker.getDeclaredTypeOfSymbol(targetOf(symbol));
-    };
-    const aliases = ["Tern", "NewTern", "TernOutcome", "TernStatus", "TernStep"].map((name) => {
-      const symbol = rootExports.find((exportedSymbol) => exportedSymbol.name === name);
-      const tags = symbol === undefined ? [] : targetOf(symbol).getJsDocTags(checker);
-      const alias = typeOf(name);
-      const turn = typeOf(name.replace("Tern", "Turn"));
-      const isSame =
-        alias !== undefined &&
-        turn !== undefined &&
-        checker.isTypeAssignableTo(alias, turn) &&
-        checker.isTypeAssignableTo(turn, alias);
-      return [name, tags.some((tag) => tag.name === "deprecated"), isSame];
-    });
+  it("#1324d: the Tern* aliases are gone; Turn* are the names", () => {
+    const names = new Set(rootExports.map((exportedSymbol) => exportedSymbol.name));
 
-    expect(aliases).toEqual([
-      ["Tern", true, true],
-      ["NewTern", true, true],
-      ["TernOutcome", true, true],
-      ["TernStatus", true, true],
-      ["TernStep", true, true],
-    ]);
+    for (const name of ["Tern", "NewTern", "TernOutcome", "TernStatus", "TernStep"])
+      expect(names.has(name), name).toBe(false);
+    for (const name of ["Turn", "NewTurn", "TurnOutcome", "TurnStatus", "TurnStep"])
+      expect(names.has(name), name).toBe(true);
   });
 });
 

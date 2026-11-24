@@ -1,7 +1,7 @@
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { AutoApproveChannel } from "../../../src/testing/index.js";
 import {
   Agent,
-  AutoApproveChannel,
   Channel,
   ChannelOf,
   ChannelOutcome,

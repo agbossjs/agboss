@@ -134,6 +134,28 @@ export interface ArbiterRunner extends UnitClock {
 }
 
 // @public
+export class AutoApproveChannel {
+    // (undocumented)
+    readonly [agbossComponent]?: {
+        readonly name: "auto-approve-channel";
+    };
+    static for(target: Class): new () => AutoApproveChannel;
+    // (undocumented)
+    send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
+}
+
+// @public
+export class AutoRejectChannel {
+    // (undocumented)
+    readonly [agbossComponent]?: {
+        readonly name: "auto-reject-channel";
+    };
+    static for(target: Class): new () => AutoRejectChannel;
+    // (undocumented)
+    send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
+}
+
+// @public
 export interface BoundaryStub<TCall, TResult> {
     readonly calls: readonly TCall[];
     reset(): this;
@@ -1502,6 +1524,10 @@ export interface WorkflowMatchers<R = unknown> {
 
 // Warnings were encountered during analysis:
 //
+// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
+// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
+// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "Timeout".

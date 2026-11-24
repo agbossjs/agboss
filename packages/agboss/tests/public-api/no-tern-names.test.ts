@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const API = join(import.meta.dirname, "../../api");
-const ALIASES = new Set(["Tern", "NewTern", "TernOutcome", "TernStatus", "TernStep"]);
+const ALIASES = new Set<string>();
 /** Words that only contain "tern" (pattern, internal, alternative, …). */
 const OTHER_WORDS =
   /pattern|interpreter|intern|extern|altern|concern|govern|lantern|stern|modern|cistern|eternal|maternal|paternal|fraternal|ternary/i;

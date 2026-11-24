@@ -111,35 +111,9 @@
     "./internal": {
       "types": "./dist/internal.d.ts",
       "import": "./dist/internal.js"
-    },
-    "./core": {
-      "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js"
-    },
-    "./graph": {
-      "types": "./dist/graph/index.d.ts",
-      "import": "./dist/graph/index.js"
-    },
-    "./router": {
-      "types": "./dist/router/index.d.ts",
-      "import": "./dist/router/index.js"
-    },
-    "./tool": {
-      "types": "./dist/tool/index.d.ts",
-      "import": "./dist/tool/index.js"
-    },
-    "./channels": {
-      "types": "./dist/channels/index.d.ts",
-      "import": "./dist/channels/index.js"
     }
   },
-  "deprecatedExports": {
-    "./core": ".",
-    "./graph": ".",
-    "./router": ".",
-    "./tool": ".",
-    "./channels": "."
-  },
+  "deprecatedExports": {},
   "internalExports": [
     "./internal"
   ],

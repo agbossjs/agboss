@@ -1,19 +1,14 @@
 import { describe, expect, it } from "vitest";
 import * as a2a from "../../src/a2a/index.js";
-import * as channels from "../../src/channels/index.js";
-import * as core from "../../src/core/index.js";
 import * as dto from "../../src/dto/index.js";
 import * as evals from "../../src/eval/index.js";
-import * as graph from "../../src/graph/index.js";
 import * as root from "../../src/index.js";
 import * as internal from "../../src/internal.js";
 import * as mcp from "../../src/mcp/index.js";
 import * as models from "../../src/models/index.js";
 import * as rag from "../../src/rag/index.js";
-import * as router from "../../src/router/index.js";
 import * as stores from "../../src/stores/index.js";
 import * as testing from "../../src/testing/index.js";
-import * as tool from "../../src/tool/index.js";
 import * as testingVitest from "../../src/testing/vitest.js";
 import * as units from "../../src/units/index.js";
 
@@ -31,11 +26,6 @@ const ENTRIES: Readonly<Record<string, object>> = {
   "./eval": evals,
   "./stores": stores,
   "./internal": internal,
-  "./core": core,
-  "./graph": graph,
-  "./router": router,
-  "./tool": tool,
-  "./channels": channels,
 };
 
 /** The flow DSL before #272 (AC8): none of these is a name of any entry any more. */
@@ -121,12 +111,6 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
     for (const name of ["listOf", "oneOf", "optional", "historyOf", "variant", "isVariant"]) {
       expect(name in dto).toBe(false);
       expect(name in root).toBe(true);
-    }
-  });
-
-  it("agboss/graph is deprecated (#195): what it still has are the root's values", () => {
-    for (const [name, value] of Object.entries(graph)) {
-      expect(root[name as keyof typeof root]).toBe(value);
     }
   });
 

@@ -10,9 +10,9 @@
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { beforeEach, describe, expect, it } from "vitest";
+import { AutoApproveChannel } from "../../src/testing/index.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import {
-  AutoApproveChannel,
   PauseClosedError,
   PauseAnswerer,
   PauseResolution,

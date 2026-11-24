@@ -30,7 +30,6 @@
         // the process of an isolated worker (#1286b), which its supervisor forks by path
         "src/app/remote/isolated-fork-main.ts",
         "src/testing/vitest.ts",
-        "src/{core,graph,router,tool,channels}/index.ts",
         // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`
         "tests/fixtures/loader/**/*.{workflow,application}.ts",
         // loaded by path: the applications `workflowOf` finds next to a workflow (#497)

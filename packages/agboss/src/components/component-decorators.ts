@@ -8,6 +8,11 @@
 /** The names of the decorators that make a class a component the container creates once. */
 export const COMPONENT_DECORATORS = [
   // `@agboss/core`
+  "Application",
+  "Workflow",
+  "WorkflowStart",
+  "WorkflowFinish",
+  "Agent",
   "Injectable",
   "Tool",
   "Action",
@@ -20,6 +25,7 @@ export const COMPONENT_DECORATORS = [
   "ChannelInterpreter",
   "ChannelListener",
   "HttpAuthenticator",
+  "Mesh",
   "FilePolicy",
   "InputGuardrail",
   "OutputGuardrail",
@@ -41,11 +47,15 @@ export const COMPONENT_DECORATORS = [
   "ModelProvider",
   // `@agboss/core/mcp`
   "McpServer",
+  "McpEndpoint",
   // `@agboss/core/rag`
   "Rag",
   "RagReranker",
   // `@agboss/core/a2a`
   "A2AAgent",
+  "A2AEndpoint",
+  // `@agboss/core/eval`
+  "EvalSuite",
 ] as const;
 
 /** One of `COMPONENT_DECORATORS`. */

@@ -565,8 +565,7 @@ no workflow of the application is a `TestSetupError`.
 
 
 ```ts no-check: the role's ChannelAsk / ChannelOutcome come from the generated types of a project
-import { AutoApproveChannel } from "@agboss/core";
-import { testWith } from "@agboss/core/testing";
+import { AutoApproveChannel, testWith } from "@agboss/core/testing";
 
 // every refund the agent asks for is approved at once: no pause, no Slack
 const test = testWith(RefundApplication, {

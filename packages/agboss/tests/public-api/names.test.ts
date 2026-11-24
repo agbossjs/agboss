@@ -67,18 +67,10 @@ describe("public names (#195)", () => {
     expect(ambiguous).toEqual([]);
   });
 
-  it("the deprecated entries re-export the root's names (one renamed alias: core's Router)", () => {
+  it("no deprecated entry is left (#1324d): the root's one renamed name stays its own", () => {
     const root = surfaces.get(".") ?? new Map<string, string>();
-    const strays = entries
-      .filter((entry) => entry.deprecated)
-      .flatMap((entry) =>
-        [...(surfaces.get(entry.subpath) ?? [])]
-          .filter(([name, declaration]) => root.get(name) !== declaration)
-          .map(([name, declaration]) => `${entry.subpath} ${name} → ${declaration}`),
-      );
 
-    expect(Object.values(pkg.deprecatedExports)).toEqual(Array(5).fill("."));
-    expect(strays).toEqual(["./core Router → routers/types.ts#RouterEngine"]);
+    expect(pkg.deprecatedExports).toEqual({});
     expect(root.get("RouterEngine")).toBe("routers/types.ts#RouterEngine");
     expect(root.get("Router")).toBe("flow/decorators/router.ts#Router");
   });

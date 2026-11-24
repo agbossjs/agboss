@@ -50,6 +50,21 @@ const statefulClass = (decorator: string, method: string): string =>
 
 /** AC1: one fixture per component decorator — its decorator line and a method of its contract. */
 const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
+  Application: statefulClass('@Application({ name: "app-application" })', "describe(): void"),
+  Workflow: statefulClass('@Workflow({ name: "app-workflow" })', "describe(): void"),
+  WorkflowStart: statefulClass(
+    '@WorkflowStart({ name: "app-workflow-start" })',
+    "describe(): void",
+  ),
+  WorkflowFinish: statefulClass(
+    '@WorkflowFinish({ name: "app-workflow-finish" })',
+    "describe(): void",
+  ),
+  Agent: statefulClass('@Agent({ name: "app-agent" })', "describe(): void"),
+  Mesh: statefulClass('@Mesh({ name: "app-mesh" })', "describe(): void"),
+  McpEndpoint: statefulClass('@McpEndpoint({ name: "app-mcp-endpoint" })', "describe(): void"),
+  A2AEndpoint: statefulClass('@A2AEndpoint({ name: "app-a2a-endpoint" })', "describe(): void"),
+  EvalSuite: statefulClass('@EvalSuite({ name: "app-eval-suite" })', "describe(): void"),
   Injectable: statefulClass("@Injectable()", "lookUp(): void"),
   Tool: statefulClass(
     '@Tool({ name: "order-status-tool", description: "d", input: OrderQuery, output: OrderInfo })',
@@ -188,17 +203,8 @@ describe("#402 AC1: `this.x = …` in a method of every component is reported", 
  * each with why — a new decorator must land in `COMPONENT_DECORATORS` or here.
  */
 const NOT_COMPONENTS: Readonly<Record<string, string>> = {
-  Agent:
-    "metadata of a flow node: an empty class, never instantiated (its loop is the framework's)",
-  WorkflowStart: "metadata of a flow node: an empty class, never instantiated",
-  WorkflowFinish: "metadata of a flow node: an empty class, never instantiated",
-  Workflow: "the module: metadata only, never instantiated",
-  Application: "the application: metadata only, never instantiated",
   ChannelRole: "an abstract role: its @Channel implementation is the component",
-  A2AEndpoint: "what a2aHttpListener serves (#1320): an empty configuration class",
-  McpEndpoint: "what connectMcp and mcpHttpListener expose: an empty configuration class",
   Arbitrate: "a method decorator (of a code @Arbiter)",
-  Mesh: "what a mesh declares (#1320): its peers and limits, an empty configuration class",
   SqliteDriver: "a driver factory (#1321): settings for a storage component, not a class",
   S3Driver: "a driver factory (#1321): settings for a storage component, not a class",
   LocalDiskDriver: "a driver factory (#1321): settings for a storage component, not a class",
@@ -208,7 +214,6 @@ const NOT_COMPONENTS: Readonly<Record<string, string>> = {
   OpenRouterDriver: "a driver factory (#1313): settings for a model provider, not a class",
   BeforeTool: "a method decorator (of a @ToolInterceptor)",
   AfterTool: "a method decorator (of a @ToolInterceptor)",
-  EvalSuite: "an eval suite (#396): its cases and checks as metadata, never instantiated",
 };
 
 /**

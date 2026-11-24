@@ -417,7 +417,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/channels/channel-selector.ts",
       "src/channels/channel-sender.ts",
       "src/channels/discovery.ts",
-      "src/channels/index.ts",
       "src/channels/pause-contexts.ts",
       "src/channels/pause-expiration.ts",
       "src/channels/pause-targets.ts",
@@ -502,7 +501,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("core types, hooks and the observers' manager: no money decision", [
     "src/core/error-record.ts",
     "src/core/hook-result.ts",
-    "src/core/index.ts",
     "src/core/observability.ts",
     "src/core/observer-hooks.ts",
     "src/core/run-context.ts",
@@ -823,7 +821,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/graph/agent-loop/tool-result-size.ts",
     "src/graph/agent-loop/tool-stops.ts",
     "src/graph/deps.ts",
-    "src/graph/index.ts",
     "src/graph/multimodal.ts",
     "src/graph/router-model.ts",
     "src/graph/rule-error.ts",
@@ -1181,7 +1178,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/public/observers.ts",
     "src/public/pause-notices.ts",
     "src/public/runtime-types.ts",
-    "src/public/turn-deprecated.ts",
   ]),
   ...reviewed("re-exports the public infrastructure types and stores", [
     "src/public/infrastructure.ts",
@@ -1200,7 +1196,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/rag/scope-checks.ts",
     "src/rag/types.ts",
   ]),
-  ...reviewed("the router's declaration", ["src/router/**"]),
   ...reviewed("the routers: choice of a branch, no money decision", [
     "src/routers/create-router.ts",
     "src/routers/decision.ts",
@@ -1245,7 +1240,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "test support shipped for users' tests (fakes, contracts, fault harness): no production decision; its spend, rate-limit and deadline sites are listed one by one below, each with its tests",
     ["src/testing/**"],
   ),
-  ...reviewed("the tool's entry: exports", ["src/tool/**"]),
   ...reviewed("the tool interceptors: guardrails", ["src/tool-interceptors/**"]),
   ...reviewed(
     "the tools' definitions: declarations (signed-fetch.ts is mutated by the a2a-client shard, so its directory lists the others)",

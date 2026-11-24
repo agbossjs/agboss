@@ -92,8 +92,6 @@ export type {
   TurnStep,
   VersionScore,
 } from "../turns/index.js";
-// the names before #890, deprecated: removed in 0.2 (by `export *`, so no module of the core names them)
-export type * from "./turn-deprecated.js";
 export {
   CostCategory,
   CostSource,

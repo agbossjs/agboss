@@ -729,28 +729,6 @@ export interface AuthenticatedHttpAuthResult {
 }
 
 // @public
-export class AutoApproveChannel {
-    // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "auto-approve-channel";
-    };
-    static for(target: Class): new () => AutoApproveChannel;
-    // (undocumented)
-    send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
-}
-
-// @public
-export class AutoRejectChannel {
-    // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "auto-reject-channel";
-    };
-    static for(target: Class): new () => AutoRejectChannel;
-    // (undocumented)
-    send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
-}
-
-// @public
 export interface AwaitReplyOutcome {
     // (undocumented)
     readonly kind: ChannelOutcomeKind.AwaitReply;
@@ -6577,9 +6555,6 @@ export interface NewStatusTransition {
 // @public (undocumented)
 export type NewSummary = Omit<Summary, "id" | "createdAt">;
 
-// @public @deprecated (undocumented)
-export type NewTern = NewTurn;
-
 // @public
 export interface NewThread {
     readonly ownerId?: string | undefined;
@@ -10425,18 +10400,6 @@ export class TerminalUserChannel {
     send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
 }
 
-// @public @deprecated (undocumented)
-export type Tern = Turn;
-
-// @public @deprecated (undocumented)
-export type TernOutcome = TurnOutcome;
-
-// @public @deprecated (undocumented)
-export type TernStatus = TurnStatus;
-
-// @public @deprecated (undocumented)
-export type TernStep = TurnStep;
-
 // @public
 type Thinking = "default" | "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | {
     budgetTokens: number;
@@ -11888,10 +11851,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "interpret".
 // src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
 // src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
-// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/test-channels.ts - (ae-undocumented) Missing documentation for "send".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onReady".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onBeforeDestroy".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "execute".
@@ -13274,11 +13233,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pii/pii-policy.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/pii/pii-policy.decorator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/pii/pii-policy.decorator.ts - (ae-undocumented) Missing documentation for "rules".
-// src/public/turn-deprecated.ts - (ae-undocumented) Missing documentation for "Tern".
-// src/public/turn-deprecated.ts - (ae-undocumented) Missing documentation for "NewTern".
-// src/public/turn-deprecated.ts - (ae-undocumented) Missing documentation for "TernOutcome".
-// src/public/turn-deprecated.ts - (ae-undocumented) Missing documentation for "TernStatus".
-// src/public/turn-deprecated.ts - (ae-undocumented) Missing documentation for "TernStep".
 // src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/routers/types.ts - (ae-undocumented) Missing documentation for "description".

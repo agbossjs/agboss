@@ -2,7 +2,6 @@ import { describe, expectTypeOf, it } from "vitest";
 import type * as Root from "../../src/index.js";
 import type * as Units from "../../src/units/index.js";
 import type * as Internal from "../../src/internal.js";
-import type * as DeprecatedCore from "../../src/core/index.js";
 import type { TracerProvider } from "@opentelemetry/api";
 import type {
   CreateAppOptions,
@@ -97,7 +96,6 @@ describe("#834 AC5: internals in /internal, units in /units", () => {
   it("the assembly internals are not in the root, nor in the deprecated /core", () => {
     expectTypeOf<typeof Root>().not.toHaveProperty("createAppDeps");
     expectTypeOf<typeof Root>().not.toHaveProperty("ExecutionObserverManager");
-    expectTypeOf<typeof DeprecatedCore>().not.toHaveProperty("ExecutionObserverManager");
     expectTypeOf<typeof Internal>().toHaveProperty("createAppDeps");
     expectTypeOf<typeof Internal>().toHaveProperty("ExecutionObserverManager");
     expectTypeOf<typeof Internal>().toHaveProperty("createAppWith");

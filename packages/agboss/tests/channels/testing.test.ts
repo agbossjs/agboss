@@ -6,7 +6,8 @@
  * Scripted reply interpreters come with #267 PR 3.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { AutoApproveChannel, PauseResolution, PauseStatus } from "../../src/index.js";
+import { PauseResolution, PauseStatus } from "../../src/index.js";
+import { AutoApproveChannel } from "../../src/testing/index.js";
 import {
   RefundApprovalChannel,
   RefundCardOutputDto,

@@ -15,7 +15,6 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 
 /** Where the old name is kept on purpose: the five deprecated aliases, the 0.1.0 paused-run read. */
 const DOCUMENTED = new Set([
-  "packages/agboss/src/public/turn-deprecated.ts",
   "packages/agboss/src/app/paused-runs.ts",
   "packages/agboss/src/infrastructure/stored-run.ts",
 ]);
@@ -57,7 +56,7 @@ describe("#906 D3: the sources' comments say Turn", { timeout: 60_000 }, () => {
   it("walks the sources of every package", () => {
     expect(sources.length).toBeGreaterThan(500);
     expect(sources).toContain("packages/agboss/src/turns/types.ts");
-    expect(DOCUMENTED.size).toBe(3);
+    expect(DOCUMENTED.size).toBe(2);
     for (const file of DOCUMENTED) expect(sources).toContain(file);
   });
 
