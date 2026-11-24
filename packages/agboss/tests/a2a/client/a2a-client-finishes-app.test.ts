@@ -129,7 +129,7 @@ describe("#916 item 3: an unexpected finish in an execution", () => {
   });
 
   it("AC3.9 describe and --json show the finishes the client takes", async () => {
-    const assembled = await applicationOf(AskApplication);
+    const assembled = await applicationOf(AskApplication, { withoutIdempotencyKeys: true });
 
     expect(a2aAgentLines(assembled)).toEqual([
       "a2a agents",
@@ -166,7 +166,7 @@ function consumerOf(finishes: readonly string[] | undefined): Class {
 }
 
 const memberOf = async (application: Class) => {
-  const assembled = await applicationOf(application);
+  const assembled = await applicationOf(application, { withoutIdempotencyKeys: true });
   return {
     name: assembled.name,
     version: assembled.version,
@@ -239,9 +239,9 @@ describe("#916 item 3: target.finishes at assembly", () => {
     })
     class FinishesApplication {}
 
-    const message = await applicationOf(FinishesApplication).catch((error: unknown) =>
-      String(error),
-    );
+    const message = await applicationOf(FinishesApplication, {
+      withoutIdempotencyKeys: true,
+    }).catch((error: unknown) => String(error));
 
     expect(message).toContain(
       `[a2a.unknown-finish] named-a2a-agent's target.finishes "answer" is no @WorkflowFinish name`,

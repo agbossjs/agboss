@@ -76,7 +76,7 @@ describe("#398 PR 3: the contracts at assembly", () => {
     })
     class BrokenApplication {}
 
-    const built = applicationOf(BrokenApplication);
+    const built = applicationOf(BrokenApplication, { withoutIdempotencyKeys: true });
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     const message = await built.catch((error: unknown) => String(error));
@@ -99,7 +99,9 @@ describe("#398 PR 3: the contracts at assembly", () => {
 
 describe("#398 PR 3: describe --json lists the declared contracts", () => {
   it("AC2: exports by expose and skill, imports (a foreign peer with foreign: true) by client and server, each DTO with its schemaHash", async () => {
-    const contracts = contractsOf(await applicationOf(ShopKbApplication));
+    const contracts = contractsOf(
+      await applicationOf(ShopKbApplication, { withoutIdempotencyKeys: true }),
+    );
 
     expect(contracts.exports).toEqual([
       {

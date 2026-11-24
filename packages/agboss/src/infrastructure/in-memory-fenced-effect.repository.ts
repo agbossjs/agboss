@@ -19,6 +19,7 @@ import {
   assertBusinessKey,
   assertEffectName,
   effectKeyIdentityOf,
+  previousIdentityOf,
   replayedFromOf,
   storedKeyFactsOf,
 } from "./fenced-effect-key.js";
@@ -28,6 +29,7 @@ import {
   laterExpiry,
   prunedFencedAt,
   treeKeyOf,
+  type FencedEffectResultRow,
   type InMemoryDatabase,
 } from "./in-memory-database.js";
 import { assertFingerprintDecided } from "./fenced-effect-fingerprint.js";
@@ -101,7 +103,7 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     checkInMemoryFence(this.database, this.clock, key);
-    const stored = this.database.fencedEffectResults.get(effectKeyIdentityOf(key));
+    const stored = this.#stored(key);
     if (stored !== undefined) {
       const replayedFrom = replayedFromOf(key, stored);
       raiseInMemoryMark(this.database, this.clock, key);
@@ -138,6 +140,16 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
       result: JSON.parse(text) as TResult,
       token: key.token,
     };
+  }
+
+  /** The result stored under the key — or, after a rotation of the idempotency secret, under its previous digest. */
+  #stored(key: EffectKey): FencedEffectResultRow | undefined {
+    const { fencedEffectResults: results } = this.database;
+    const previous = previousIdentityOf(key);
+    return (
+      results.get(effectKeyIdentityOf(key)) ??
+      (previous === undefined ? undefined : results.get(effectKeyIdentityOf(previous)))
+    );
   }
 
   /** `run` after every earlier transaction of the scope settled: one at a time per scope. */

@@ -26,6 +26,12 @@ export interface EffectKeyFields {
    */
   readonly businessKey?: string;
   /**
+   * The same business key's digest under the application's previous idempotency secret (#1317d, a
+   * rotation): a row stored before the rotation is found by it, so a call retried across the
+   * rotation replays. Never written: new rows carry `businessKey`. None when no previous secret is named.
+   */
+  readonly previousBusinessKey?: string;
+  /**
    * What the effect does, as a keyed digest (#825: an HMAC of canonical JSON under the application's
    * idempotency key): another one under the same business key is `IdempotencyError.KeyConflict`,
    * never a replay. Any text is a fingerprint, the empty one too (#574): `""` and none are two

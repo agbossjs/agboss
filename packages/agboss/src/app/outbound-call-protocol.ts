@@ -9,7 +9,9 @@ import {
   OutboundCallStatus,
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
-import { callKeyOf, checkedCall, keyedByRequest, stateOf } from "./outbound-call-business.js";
+import { checkedCall, keyedByRequest, stateOf } from "./outbound-call-business.js";
+import { pinnedTo } from "./outbound-call-keys.js";
+import { callKeyDigestOf } from "../infrastructure/business-key-digest.js";
 import {
   endExpiryOf,
   lookupOf,
@@ -163,12 +165,14 @@ async function settled<TRequest, TResult>(
   const readStarted = run.parts.clock.monotonicNow();
   const found = await run.parts.repository.findByKey(run.key);
   if (found === undefined) return recordedAndSent(run, request);
-  if ((await checkedCall(run, found)) === OutboundCallLeaseState.LeaseClosed)
-    leaseClosed(run, found);
-  if (found.status === OutboundCallStatus.Completed) return replayed(run, found);
-  if (found.status === OutboundCallStatus.Failed) return movedAndSent(run, found, false);
-  if (read > 1) throw inFlight(run);
-  return reconciled(run, found, readStarted);
+  // the wire key the intent was recorded with, whatever the secret is now (#1317d)
+  const pinned = pinnedTo(run, found);
+  if ((await checkedCall(pinned, found)) === OutboundCallLeaseState.LeaseClosed)
+    leaseClosed(pinned, found);
+  if (found.status === OutboundCallStatus.Completed) return replayed(pinned, found);
+  if (found.status === OutboundCallStatus.Failed) return movedAndSent(pinned, found, false);
+  if (read > 1) throw inFlight(pinned);
+  return reconciled(pinned, found, readStarted);
 }
 
 /** The reads of one call: until one settles it, at most `MAX_READS`, then in flight. */
@@ -199,7 +203,8 @@ export async function sendOutboundCall<TRequest, TResult>(
     key,
     options,
     frame,
-    idempotencyKey: callKeyOf(key),
+    // minted now, kept by the intent: a found one is read back (`pinned`), never made again
+    idempotencyKey: callKeyDigestOf(key),
     // Stryker disable next-line ObjectLiteral: `isAnswered` is only read as a truth value, where a missing one is `false`
     answer: { isAnswered: false },
   };

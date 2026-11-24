@@ -295,7 +295,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed(
     "builds the application instance and its workflows and starts the components; wiring only",
-    ["src/application/create-app.ts"],
+    ["src/application/create-app.ts", "src/application/instance-lifecycle.ts"],
   ),
   ...reviewed("creates the observer manager, the metrics and the audit writer of an application", [
     "src/application/observers.ts",

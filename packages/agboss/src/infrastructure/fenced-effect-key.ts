@@ -163,6 +163,19 @@ export const effectKeyIdentityOf = (key: EffectKey): string =>
     : ["business", key.tenantId, key.name, key.businessKey].join("\u0000");
 
 /**
+ * `key` as a row a rotation left is found by (#1317d): its business key the digest under the
+ * previous secret; `undefined` where the key names none or no previous secret. A store looks a row
+ * up by the key, then by this one — and keeps writing under the key.
+ */
+export const previousIdentityOf = (key: EffectKey): EffectKey | undefined =>
+  key.businessKey === undefined || key.previousBusinessKey === undefined
+    ? undefined
+    : (issuedKey({
+        ...(key as EffectKeyFields),
+        businessKey: key.previousBusinessKey,
+      }) as EffectKey);
+
+/**
  * What a stored row keeps of the key that wrote it (#508): its fingerprint and its step. A store
  * hands back what it read — `null` for a column with nothing in it, the step as parsed JSON:
  * `replayedFromOf` checks it, a row is never trusted.
@@ -260,16 +273,16 @@ export const pendingOutboundCallOf = (
 
 /**
  * A call as an operator's read, a kept record and an export show it (#508): a business key only by
- * its handle — never the key, in itself or inside the key the call went with — and never its
- * fingerprint (a digest of the request, kept in the store's row only, to tell a conflict).
+ * its handle — the key's digest is no part of it, and the key the call went with is an HMAC of it
+ * (#1317d) — and never its fingerprint (a digest of the request, kept in the store's row only, to
+ * tell a conflict).
  */
 export function shownCallOf(record: OutboundCallRecord): OutboundCallRecord {
   const shown = { ...record };
   delete shown.fingerprint;
   if (record.businessKey === undefined) return shown;
   delete shown.businessKey;
-  const handle = record.businessKeyHash === undefined ? "" : `${record.businessKeyHash}:`;
-  return { ...shown, idempotencyKey: `business-key:${handle}${record.name}` };
+  return shown;
 }
 
 export {

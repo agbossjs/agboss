@@ -183,14 +183,14 @@ describe("#626: what an operator's read shows of a business key", () => {
     name: "charge",
     businessKey: "order:42",
     fingerprint: "f",
-    idempotencyKey: "default:order%3A42:charge",
+    idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw",
   } as OutboundCallRecord;
 
   it("the handle and the name with a handle, the name alone without one; never the key or the fingerprint", () => {
+    // the key the call went with is an HMAC (#1317d): shown as it is
     expect(shownCallOf({ ...record, businessKeyHash: "a1b2c3d4e5f6" }).idempotencyKey).toBe(
-      "business-key:a1b2c3d4e5f6:charge",
+      record.idempotencyKey,
     );
-    expect(shownCallOf(record).idempotencyKey).toBe("business-key:charge");
     expect(shownCallOf(record)).not.toHaveProperty("businessKey");
     expect(shownCallOf(record)).not.toHaveProperty("fingerprint");
   });

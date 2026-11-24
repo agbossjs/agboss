@@ -968,12 +968,16 @@ export class ChargeOrderAction {
   (`outbound-call.result-not-stored`, `reason`: the code) — nothing sent, and
   never the marker as a result: read the result from the other system. A failure or lookup
   reason the mask cannot mask is `[redacted]`, with a warning `outbound-call.text-redacted`.
-- **The key that goes out:** `call.idempotencyKey` is `<tenant>:<key>:<name>`, the tenant and
-  the business key `encodeURIComponent`-encoded, the same from every step and execution — give it to
-  the other system as its idempotency key. Everything else names it by its handle only,
-  `business-key:<handle>:<name>`: `OutboundCallError.Unreconciled.idempotencyKey`,
-  `OutboundCallOutcome.idempotencyKey` (what a tool might hand a model), `app.outboundCallsOf`,
-  `app.pendingOutboundCallsOf`, a kept record and its export — none shows the key.
+- **The key that goes out:** `call.idempotencyKey` is 43 characters of base64url — an HMAC-SHA256 of
+  the call's tenant, name and business key (or step) under the application's `idempotencySecret` —,
+  minted when the intent is recorded and kept by it: every attempt, the lookup and a replay see the
+  same one, whatever the secret is by then (give it to the other system as its idempotency key;
+  `call.shortKey(25)` is its first 25 characters, 16 to 43, for a gateway with a short limit). It
+  names no business key, so `OutboundCallError.Unreconciled.idempotencyKey`,
+  `OutboundCallOutcome.idempotencyKey`, `app.outboundCallsOf`, a kept record and its export show it
+  as it is. A store keeps the business key as its HMAC too (never the text); during a rotation
+  (`previousIdempotencySecret`) a row is found by the digest under either secret — keep the previous
+  secret for as long as the longest `ttl`: once it is gone, a row written under it is not found.
 - **Stores:** the in-memory default; SQLite keeps business results in
   `fenced_effect_business_results` and business intents in `outbound_calls` under a unique index on
   `(tenant_id, name, business_key)`. `fencedEffectContract` and `outboundCallContract` carry the

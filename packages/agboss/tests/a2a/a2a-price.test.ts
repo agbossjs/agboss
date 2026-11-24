@@ -88,7 +88,7 @@ function applicationWith(price: unknown): Class {
 
 const violationsOf = async (price: unknown): Promise<readonly RuleViolation[]> => {
   try {
-    await applicationOf(applicationWith(price));
+    await applicationOf(applicationWith(price), { withoutIdempotencyKeys: true });
   } catch (error) {
     if (error instanceof GraphRuleError) return error.violations;
     throw error;

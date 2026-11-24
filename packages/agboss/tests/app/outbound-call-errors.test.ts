@@ -24,7 +24,7 @@ describe("#626: the outbound call's errors", () => {
     const cause = new Error("lookup failed");
     const error = unreconciledError({
       ...CALL,
-      idempotencyKey: "default:order%3A42:charge",
+      idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw",
       reason: "reconcile.unknown",
       detail: "the lookup timed out",
       cause,
@@ -34,11 +34,11 @@ describe("#626: the outbound call's errors", () => {
       name: "OutboundCallError.Unreconciled",
       code: "outbound-call.unreconciled",
       message:
-        'outbound call "charge" (charge on payments, key default:order%3A42:charge) is left pending and could not be reconciled (reconcile.unknown): the lookup timed out — nothing was sent; an operator decides (app.listOutboundCalls)',
+        'outbound call "charge" (charge on payments, key kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw) is left pending and could not be reconciled (reconcile.unknown): the lookup timed out — nothing was sent; an operator decides (app.listOutboundCalls)',
       call: "charge",
       target: "payments",
       operation: "charge",
-      idempotencyKey: "default:order%3A42:charge",
+      idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw",
       reason: "reconcile.unknown",
       detail: "the lookup timed out",
       cause,

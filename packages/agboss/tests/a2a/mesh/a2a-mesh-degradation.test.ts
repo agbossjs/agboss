@@ -73,7 +73,9 @@ describe("#810 AC3: a call without the mesh is said in the step's record", () =>
 
 describe("#810 AC3: agboss describe says whether the mesh is guaranteed", () => {
   it("AC3: an AGBoss target under Required: mesh: required; one of no target: not guaranteed", async () => {
-    const lines = describeApplication(await applicationOf(CallerApplication));
+    const lines = describeApplication(
+      await applicationOf(CallerApplication, { withoutIdempotencyKeys: true }),
+    );
 
     const at = lines.indexOf("a2a agents");
     expect(at).toBeGreaterThan(0);

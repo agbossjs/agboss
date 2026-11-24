@@ -35,17 +35,6 @@ export function keyedByRequest(key: EffectKey | OutboundCallKey, request: unknow
 }
 
 /**
- * The idempotency key sent with the call: the step's key and the name — or, with a business key,
- * the tenant, the business key and the name, the same from every step and execution. Each part is
- * unambiguous (#508): the tenant and the business key `encodeURIComponent`-encoded, the name
- * without a `:` (`effectKeyOf` checks it), so two keys never give one string.
- */
-export const callKeyOf = (key: EffectKey): string =>
-  key.businessKey === undefined
-    ? `${key.idempotencyKey}:${key.name}`
-    : `${encodeURIComponent(key.tenantId)}:${encodeURIComponent(key.businessKey)}:${key.name}`;
-
-/**
  * Checks a found intent (#505, #508): under a business key another fingerprint is
  * `IdempotencyError.KeyConflict`; for any key, a pending attempt whose owner lives is
  * `OutboundCallError.InFlight` — never reconciled or resent. Its owner is its `attemptOwner`: alive
@@ -74,16 +63,6 @@ export async function checkedCall<TRequest, TResult>(
   const state = await run.parts.repository.leaseStateOf({ tenantId, leaseExecutionId, token });
   if (state === OutboundCallLeaseState.Live) throw inFlight;
   return state;
-}
-
-/**
- * How an error names a call's key: a business key only by its keyed handle (#508), never as it is
- * — `business-key:<handle>:<name>`, or `business-key:<name>` where no handle could be made.
- */
-export function reportedKeyOf(key: EffectKey, idempotencyKey: string): string {
-  if (key.businessKey === undefined) return idempotencyKey;
-  const handle = key.businessKeyHash === undefined ? "" : `${key.businessKeyHash}:`;
-  return `business-key:${handle}${key.name}`;
 }
 
 /** The step a replayed call was made by, when it is another step or execution (#508). */

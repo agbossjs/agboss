@@ -42,7 +42,7 @@ const assembledWith = (retention: unknown, others: Readonly<Record<string, unkno
     ...(others as object),
   })
   class RetentionApplication {}
-  return applicationOf(RetentionApplication);
+  return applicationOf(RetentionApplication, { withoutIdempotencyKeys: true });
 };
 
 describe("#834 AC1: one retention group", () => {

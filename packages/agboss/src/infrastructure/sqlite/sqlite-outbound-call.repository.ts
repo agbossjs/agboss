@@ -21,7 +21,9 @@ import { sqlitePageOf } from "./sqlite-outbound-call-pages.js";
 import {
   AS_READ,
   OUTBOUND_CALL_COLUMNS,
+  recordFound,
   recordOf,
+  storedUnder,
   whereOf,
 } from "./sqlite-outbound-call-schema.js";
 import {
@@ -76,6 +78,8 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
       checkSqliteCancel(this.connection.database, key); // #909: a new intent is a new send
+      // recorded already — under the key, or under the digest of a secret since rotated
+      if (this.#found(key) !== undefined) return false;
       const record = pendingOutboundCallOf(key, intent, this.clock.now());
       const { changes } = this.connection.database
         .prepare(
@@ -178,10 +182,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   }
 
   #found(key: EffectKey): OutboundCallRecord | undefined {
-    const row = this.connection.database
-      .prepare(`SELECT record FROM outbound_calls WHERE ${whereOf(key)[0]}`)
-      .get(...whereOf(key)[1]);
-    return row === undefined ? undefined : recordOf(row);
+    return recordFound(this.connection.database, key);
   }
 
   /** A fenced change of the key's intent, written under the key's token; none recorded → nothing. */
@@ -213,7 +214,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     expiresAt: number | null,
   ): true {
     const record = { ...change, token: key.token, leaseExecutionId: key.leaseExecutionId };
-    const [where, values] = whereOf(key);
+    const [where, values] = whereOf(storedUnder(key, from));
     const { changes } = this.connection.database
       .prepare(
         `UPDATE outbound_calls SET status = ?, expires_at = ?, record = ? WHERE ${where} AND ${AS_READ}`,

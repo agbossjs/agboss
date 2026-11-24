@@ -43,11 +43,15 @@ function storedRowOf(database: DatabaseSync, key: EffectKey): unknown {
         "SELECT token, result FROM fenced_effect_results WHERE scope_key = ? AND idempotency_key = ? AND name = ?",
       )
       .get(key.scopeKey, key.idempotencyKey, key.name);
-  return database
-    .prepare(
-      "SELECT token, result, facts FROM fenced_effect_business_results WHERE tenant_id = ? AND name = ? AND business_key = ?",
-    )
-    .get(key.tenantId, key.name, key.businessKey);
+  const read = database.prepare(
+    "SELECT token, result, facts FROM fenced_effect_business_results WHERE tenant_id = ? AND name = ? AND business_key = ?",
+  );
+  // after a rotation of the idempotency secret: the row of the previous digest (#1317d)
+  const row: unknown = read.get(key.tenantId, key.name, key.businessKey);
+  const { previousBusinessKey } = key;
+  return row === undefined && previousBusinessKey !== undefined
+    ? read.get(key.tenantId, key.name, previousBusinessKey)
+    : row;
 }
 
 /** `key`'s expiry as a column keeps it: the time in ms, `NULL` for none (`Ttl.Forever`). */

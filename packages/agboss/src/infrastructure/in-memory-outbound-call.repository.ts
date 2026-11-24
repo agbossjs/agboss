@@ -10,7 +10,11 @@ import {
   inMemoryLeaseMismatch,
   raiseInMemoryMark,
 } from "./in-memory-fenced-effect.repository.js";
-import { effectKeyIdentityOf, pendingOutboundCallOf } from "./fenced-effect-key.js";
+import {
+  effectKeyIdentityOf,
+  pendingOutboundCallOf,
+  previousIdentityOf,
+} from "./fenced-effect-key.js";
 import {
   inMemoryPageOf,
   nextPlaceIn,
@@ -71,7 +75,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
 
   findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined> {
     return this.#fenced(key, () => {
-      const found = this.database.outboundCalls.get(effectKeyIdentityOf(key));
+      const found = this.database.outboundCalls.get(this.#rowOf(key));
       // a copy of the row, read now (#658)
       return found === undefined ? undefined : { ...structuredClone(found), readAt: this.#now() };
     });
@@ -80,7 +84,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
       checkInMemoryCancel(this.database, key); // #909: a new intent is a new send
-      const row = effectKeyIdentityOf(key);
+      const row = this.#rowOf(key);
       if (this.database.outboundCalls.has(row)) return false;
       this.database.outboundCalls.set(
         row,
@@ -162,6 +166,18 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
     return Promise.resolve(prunedCallsAt(this.database, now.getTime()));
   }
 
+  /**
+   * The row of the key's intent: its own — or, after a rotation of the idempotency secret, the one
+   * written under the previous digest of its business key; a new intent is written under the key's.
+   */
+  #rowOf(key: EffectKey): string {
+    const row = effectKeyIdentityOf(key);
+    const previous = previousIdentityOf(key);
+    if (previous === undefined || this.database.outboundCalls.has(row)) return row;
+    const earlier = effectKeyIdentityOf(previous);
+    return this.database.outboundCalls.has(earlier) ? earlier : row;
+  }
+
   /** The rows that match, in the order recorded, as copies. */
   #where(matches: (row: OutboundCallRecord) => boolean): Promise<readonly OutboundCallRecord[]> {
     const found = [...this.database.outboundCalls.values()].filter(matches);
@@ -180,7 +196,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   ): Promise<boolean> {
     return this.#fenced(key, () => {
       if (isSend) checkInMemoryCancel(this.database, key);
-      const row = effectKeyIdentityOf(key);
+      const row = this.#rowOf(key);
       const found = this.database.outboundCalls.get(row);
       const changed = found === undefined ? undefined : change(found);
       if (changed === undefined) return false;

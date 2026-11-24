@@ -2636,9 +2636,7 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   `OutboundCallError.ResultNotStored` (`outbound-call.result-not-stored`,
   nothing sent). A fingerprint is kept in the store's row only — no read, record, export or event
   shows it; rotating the PII key changes no fingerprint (#825). Effect names are 1–100 of `[A-Za-z0-9._-]`
-  (`IdempotencyError.InvalidName`, checked again at every store method for a key built by hand); the key sent with the call is `<tenant>:<key>:<name>`,
-  each part `encodeURIComponent`-encoded; operator reads, kept records and errors name a business
-  key by its handle only (`business-key:<handle>:<name>`), and so does `OutboundCallOutcome.idempotencyKey`. SQLite: `fenced_effect_business_results` and the
+  (`IdempotencyError.InvalidName`, checked again at every store method for a key built by hand); the key sent with the call (`call.idempotencyKey`, `call.shortKey(16..43)`) is a 43-character base64url HMAC of its tenant, name and business key (or step) under `idempotencySecret`, minted when the intent is recorded and kept by it (a rotation never changes it); a store keeps a business key as its HMAC, never the text, and finds a row by the digest under the previous secret too (`previousIdempotencySecret`); an operator's read shows a business key by its handle only. SQLite: `fenced_effect_business_results` and the
   `outbound_calls` partial unique index on `(tenant_id, name, business_key)`. flow-patterns' credit
   desk charges under `credit:<applicationId>`. Tests: `callTools(callTool(A, …), callTool(B, …))` —
   one move calling several tools at once (each its own task under `TestConcurrency.Real`).

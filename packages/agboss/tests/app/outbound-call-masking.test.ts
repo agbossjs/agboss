@@ -227,7 +227,7 @@ describe("#505: what reconcile and a replay get", () => {
       '{"orderId":"order-7","amountUsd":10,"email":"alice@example.com"}',
     ]);
     expect(gateway.lookups).toEqual([
-      { idempotencyKey: "test-execution:charge-order-action:1:charge", attempt: 1 },
+      { idempotencyKey: "Tz-xwZPgI5lI-vQYcp_J-q74VIDlA6P2PbD1NRV-wYY", attempt: 1 },
     ]);
   });
 });

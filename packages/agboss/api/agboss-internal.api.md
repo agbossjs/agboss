@@ -287,7 +287,7 @@ export interface BuiltApplication {
 }
 
 // @public
-export function builtApplicationOf(application: Class, options?: BuildApplicationOptions): Promise<BuiltApplication>;
+export function builtApplicationOf(application: Class, options?: BuildApplicationOptions, seams?: InstanceSeams): Promise<BuiltApplication>;
 
 // @public
 export function calibrateJudges(report: EvalRunReport, labels: readonly EvalLabel[]): EvalCalibrationResult;

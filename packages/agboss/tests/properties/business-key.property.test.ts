@@ -12,7 +12,10 @@ import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { scopeKeyOf } from "../../src/app/lease-lost.js";
-import { callKeyOf } from "../../src/app/outbound-call-business.js";
+import {
+  businessKeyDigestsUnder,
+  callKeyDigestUnder,
+} from "../../src/infrastructure/business-key-digest.js";
 import { keyTextRuleOf } from "../../src/core/errors.js";
 import {
   effectKeyIdentityOf,
@@ -22,6 +25,7 @@ import {
   IdempotencyRunStatus,
   type IdempotencyRunOutcome,
   type EffectKey,
+  type EffectKeyFields,
 } from "../../src/infrastructure/fenced-effect.repository.js";
 import { stableJson } from "../../src/turns/versions.js";
 import { seconds } from "../../src/units/index.js";
@@ -54,6 +58,10 @@ const keyWith = (tenantId: string, businessKey: string, effect: string): EffectK
     name: effect,
     businessKey,
   });
+
+/** The digest of a key's business key under a fixed idempotency secret. */
+const digestOf = (key: EffectKey): string =>
+  businessKeyDigestsUnder({ current: "property-key" }, key.businessKey ?? "").businessKey;
 
 /** The keys of `value` in another order. */
 function shuffled(value: unknown, order: number): unknown {
@@ -102,6 +110,12 @@ describe(`#533 AC2: the business-key rules (seed ${String(seed)})`, () => {
         fc.property(triple, triple, ([t1, b1, n1], [t2, b2, n2]) => {
           const isSame = t1 === t2 && b1 === b2 && n1 === n2;
           const [one, other] = [keyWith(t1, b1, n1), keyWith(t2, b2, n2)];
+          // what a store keeps and what a gateway is sent are digests of the key (#1317d)
+          const callKeyOf = (key: EffectKey): string =>
+            callKeyDigestUnder("property-key", {
+              ...(key as EffectKeyFields),
+              businessKey: digestOf(key),
+            });
           return (
             (effectKeyIdentityOf(one) === effectKeyIdentityOf(other)) === isSame &&
             (callKeyOf(one) === callKeyOf(other)) === isSame

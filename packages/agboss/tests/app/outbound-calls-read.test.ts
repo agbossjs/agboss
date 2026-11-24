@@ -72,7 +72,7 @@ describe("#505 AC4: the calls that left the system, for an operator", () => {
     expect(result.output).toEqual({ chargeId: "ch-order-7-1" });
     expect(runs.outcomes).toEqual([{ status: OutboundCallSendStatus.Sent, attempt: 1 }]);
     expect(gateway.calls).toEqual([
-      { idempotencyKey: "execution-1:charge-order-action:1:charge", attempt: 1 },
+      { idempotencyKey: "ck1UbYR5__kMqLRyhGpWwpKf5iAQLJJ-r52_O7pIlEo", attempt: 1 },
     ]);
   });
 
@@ -98,7 +98,7 @@ describe("#505 AC4: the calls that left the system, for an operator", () => {
         operation: "send-receipt",
         status: OutboundCallStatus.Completed,
         result: '{"messageId":"m-1"}',
-        idempotencyKey: "execution-1:charge-and-notify-action:1:receipt-mail",
+        idempotencyKey: "AOzQNJekqWw1pmq-W38c_oP_c86UCog_MSvNMCY89Rg",
       }),
     ]);
     expect((await app.pendingOutboundCallsOf({ tenantId: "default" })).calls).toEqual([]);
@@ -156,7 +156,7 @@ describe("#505 AC5: a zombie can neither record nor send", () => {
 
       expect(await rejectionOf(call)).toBeInstanceOf(ExecutionLeaseLostError);
       expect(gateway.calls).toEqual([
-        { idempotencyKey: "execution-1:charge-order-action:1:charge", attempt: 1 },
+        { idempotencyKey: "ck1UbYR5__kMqLRyhGpWwpKf5iAQLJJ-r52_O7pIlEo", attempt: 1 },
       ]);
       expect(await instance(apps, 1).outboundCallsOf(TREE)).toEqual([
         expect.objectContaining({ status: OutboundCallStatus.Completed, token: 2 }),

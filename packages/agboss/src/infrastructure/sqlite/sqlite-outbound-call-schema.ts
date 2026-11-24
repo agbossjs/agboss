@@ -1,5 +1,8 @@
+import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import type { EffectKey } from "../fenced-effect.repository.js";
+import { previousIdentityOf } from "../fenced-effect-key.js";
+import { issuedKey } from "../issued-keys.js";
+import type { EffectKey, EffectKeyFields } from "../fenced-effect.repository.js";
 import type { OutboundCallRecord } from "../outbound-call-record.js";
 import { parsedStoredJson } from "../stored-step.js";
 
@@ -54,3 +57,26 @@ export const recordOf = (row: unknown): OutboundCallRecord =>
     what: "outbound call record",
     text: RecordRow.parse(row).record,
   }) as OutboundCallRecord;
+
+/**
+ * The intent of `key`: under its own business key — or, after a rotation of the idempotency secret
+ * (#1317d), under the digest the previous secret made of it.
+ */
+export function recordFound(
+  database: DatabaseSync,
+  key: EffectKey,
+): OutboundCallRecord | undefined {
+  for (const at of [key, previousIdentityOf(key)]) {
+    if (at === undefined) continue;
+    const [where, values] = whereOf(at);
+    const row = database.prepare(`SELECT record FROM outbound_calls WHERE ${where}`).get(...values);
+    if (row !== undefined) return recordOf(row);
+  }
+  return undefined;
+}
+
+/** `key` as the row `from` is stored under: its business key is the one the row was written with. */
+export const storedUnder = (key: EffectKey, from: OutboundCallRecord): EffectKey =>
+  from.businessKey === undefined || from.businessKey === key.businessKey
+    ? key
+    : (issuedKey({ ...(key as EffectKeyFields), businessKey: from.businessKey }) as EffectKey);

@@ -1,5 +1,5 @@
 import { errorRecordOf } from "../core/error-record.js";
-import { reportedKeyOf } from "./outbound-call-business.js";
+import { shortKeyOrThrow } from "./outbound-call-keys.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type {
@@ -207,6 +207,7 @@ export const callOf = <TRequest, TResult>(
   signal: AbortSignal,
 ): OutboundCall<TRequest> => ({
   idempotencyKey: run.idempotencyKey,
+  shortKey: (length) => shortKeyOrThrow(run.idempotencyKey, length),
   request: run.options.request,
   attempt,
   target: run.options.target,
@@ -224,6 +225,7 @@ export const lookupOf = <TRequest, TResult>(
   ages: Pick<OutboundCallLookup, "attemptStartedAt" | "keyAge">,
 ): OutboundCallLookup => ({
   idempotencyKey: run.idempotencyKey,
+  shortKey: (length) => shortKeyOrThrow(run.idempotencyKey, length),
   storedRequest: found.request,
   attempt: found.attempt,
   ...ages,
@@ -243,8 +245,8 @@ export const outcomeOf = <TRequest, TResult>(
   // the JSON of a result of this call: what `send` or `reconcile` answered, or what was stored
   result: JSON.parse(JSON.stringify(result)) as TResult,
   attempt,
-  // a business key never in what the step may hand a model (#508): its handle only
-  idempotencyKey: reportedKeyOf(run.key, run.idempotencyKey),
+  // the call's wire key: an HMAC, never a business key (#1317d)
+  idempotencyKey: run.idempotencyKey,
 });
 
 /** What a move tells besides its state (#508): who made a replay, the newer attempt, a closed lease. */

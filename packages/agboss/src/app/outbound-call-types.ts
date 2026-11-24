@@ -11,8 +11,18 @@ import type { OutboundRecovery, Reconciliation } from "./outbound-recovery.js";
 
 /** What `send` gets: the call as it goes out. */
 export interface OutboundCall<TRequest> {
-  /** Send it with the call — the same on every attempt, every replay and every holder. */
+  /**
+   * Send it with the call — the same on every attempt, every replay and every holder: 43 characters
+   * of base64url, an HMAC of the call's key under the application's idempotency secret (never the
+   * business key itself), minted once and kept by the intent.
+   */
   readonly idempotencyKey: string;
+  /**
+   * The first `length` (16 to 43) characters of `idempotencyKey`, for a gateway with a short limit
+   * (`call.shortKey(25)`): the same prefix of the same key on every attempt. Another length is
+   * `IdempotencyError.InvalidKey`.
+   */
+  shortKey(length: number): string;
   /** The request as given (never the masked text the store keeps). */
   readonly request: TRequest;
   /** This attempt, from 1: 2 after a `notExecuted()` or a failed answer. */
@@ -31,6 +41,8 @@ export interface OutboundCall<TRequest> {
 export interface OutboundCallLookup {
   /** The key the call went with: what the other system finds it by. */
   readonly idempotencyKey: string;
+  /** The first `length` (16 to 43) characters of `idempotencyKey`, as `OutboundCall.shortKey`. */
+  shortKey(length: number): string;
   /** The request's JSON as stored: masked by the application's and the workflow's PII policies. */
   readonly storedRequest: string;
   /** The attempt left pending, from 1. */

@@ -8,7 +8,7 @@ import {
   OutboundCallStatus,
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
-import { replayedFromOf, reportedKeyOf } from "./outbound-call-business.js";
+import { replayedFromOf } from "./outbound-call-business.js";
 import {
   supersededError,
   unreconciledError,
@@ -73,7 +73,7 @@ export async function supersededErrorOf<TRequest, TResult>(
   cause?: unknown,
 ): Promise<OutboundCallError.Superseded> {
   const supersededBy = await superseded(run, attempt);
-  const idempotencyKey = reportedKeyOf(run.key, run.idempotencyKey);
+  const { idempotencyKey } = run;
   const { target, operation } = run.options;
   return supersededError({
     call: run.key.name,
@@ -151,7 +151,7 @@ export async function unreconciledOf<TRequest, TResult>(
   why: Unreconciled,
 ): Promise<OutboundCallError.Unreconciled> {
   told(run, OutboundCallEventOutcome.Unknown, [OutboundCallStatus.Pending, found.attempt]);
-  const idempotencyKey = reportedKeyOf(run.key, run.idempotencyKey);
+  const { idempotencyKey } = run;
   const detail = await maskedTextOf(run, why.detail);
   const { target, operation } = run.options;
   const { reason, cause } = why;

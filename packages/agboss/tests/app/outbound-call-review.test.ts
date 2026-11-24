@@ -130,7 +130,7 @@ describe("#508 review 2, #795: a lost completion is OutboundCallError.Superseded
       operation: "charge",
       attempt: 1,
       supersededBy: 2,
-      idempotencyKey: expect.stringMatching(/charge/u) as unknown,
+      idempotencyKey: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u) as unknown,
     });
     expect(runs.outcomes).toEqual([]);
     expect(gateway.calls).toHaveLength(1);
@@ -171,7 +171,9 @@ describe("#508 review 4: a joined call never takes on the first call's own error
 
     expect(third.output).toEqual({ chargeId: "ch-42-1" });
     expect(gateway.lookups).toHaveLength(1);
-    expect(gateway.calls).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 2 }]);
+    expect(gateway.calls).toEqual([
+      { idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw", attempt: 2 },
+    ]);
   });
 });
 
@@ -237,12 +239,17 @@ class BadlyNamedAction {
 }
 
 describe("#508 review 7: the key sent out is unambiguous", () => {
-  test("a business key is encoded in the key the call goes with; a name with a ':' is refused", async ({
+  test("a business key goes out as a 43-character digest, never as itself, and another key is another digest; a name with a ':' is refused", async ({
     app,
   }) => {
     await execute(app, SendChargeStart, { orderId: "4:2", amountUsd: 10 });
+    await execute(app, SendChargeStart, { orderId: "4:3", amountUsd: 10 });
 
-    expect(gateway.calls[0]?.idempotencyKey).toBe("default:order%3A4%3A2:charge");
+    const keys = gateway.calls.map((call) => call.idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys.every((key) => /^[A-Za-z0-9_-]{43}$/u.test(key))).toBe(true);
+    expect(new Set(keys).size).toBe(2);
+    expect(JSON.stringify(keys)).not.toContain("order");
   });
 
   it("a name with a ':' — which would make two keys one string — is IdempotencyError.InvalidName", async () => {

@@ -28,6 +28,7 @@ import { hours, seconds } from "../../src/units/index.js";
 import { testFrame } from "./frame.js";
 import { Logger, type LogEntry } from "../../src/infrastructure/logger.js";
 import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
+import { businessKeyDigestsUnder } from "../../src/infrastructure/business-key-digest.js";
 import { storeClockOf } from "./store-clock.js";
 
 /**
@@ -84,6 +85,8 @@ export interface OutboundFrame {
   readonly effects: InMemoryFencedEffectRepository;
   /** The instance's service, and a second instance over the same stores (a takeover's). */
   readonly idempotency: Idempotency;
+  /** The text of a business key a test made with `keyIn` (the store keeps its digest). */
+  readonly textOf: (key: EffectKey) => string | undefined;
   readonly otherInstance: () => Idempotency;
   /** `work` in the frame of the step `key` was made under. */
   readonly inFrame: <TValue>(key: EffectKey, work: () => Promise<TValue>) => Promise<TValue>;
@@ -137,11 +140,22 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
       step: { ...base.step, idempotencyKey: key.idempotencyKey },
     };
   };
+  /** The text of each business key a test made, by its digest. */
+  const texts = new Map<string, string>();
   /** The lease of `executionId` taken, and the call's key under it — `order:42` by default. */
   const keyIn = async (executionId: string, businessKey = "order:42"): Promise<KeyedLease> => {
     const taken = await leases.acquire("default", executionId, LONG_LEASE);
     if (taken === undefined) throw new Error(`the lease of ${executionId} is held`);
-    return { lease: taken, key: effectKeyForTesting(keyOf(taken), { origin, businessKey }) };
+    // a store keeps the digest of the business key (#1317d); `send` gives `Idempotency` the key's text
+    const digest = businessKeyDigestsUnder(
+      { current: TEST_IDEMPOTENCY_KEY },
+      businessKey,
+    ).businessKey;
+    texts.set(digest, businessKey);
+    return {
+      lease: taken,
+      key: effectKeyForTesting(keyOf(taken), { origin, businessKey: digest }),
+    };
   };
   /** `idempotency.sendOnce` in the frame of `key`'s step. */
   const send = <TRequest, TResult>(
@@ -154,7 +168,9 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
         ttl: hours(48),
         ...callOptions,
         name: key.name,
-        ...(key.businessKey === undefined ? {} : { key: key.businessKey }),
+        ...(key.businessKey === undefined
+          ? {}
+          : { key: texts.get(key.businessKey) ?? key.businessKey }),
       }),
     );
   const otherInstance = (): Idempotency =>
@@ -164,6 +180,8 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   return {
     ...{ clock, store, leases, reports, logger, keyIn, send, effects },
     ...{ idempotency, otherInstance, inFrame },
+    textOf: (key: EffectKey): string | undefined =>
+      key.businessKey === undefined ? undefined : (texts.get(key.businessKey) ?? key.businessKey),
   };
 }
 

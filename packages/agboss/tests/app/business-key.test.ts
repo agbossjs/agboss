@@ -153,7 +153,7 @@ describe("#508 AC2: two executions on two threads", () => {
     const second = await execute(app, SendChargeStart, { orderId: "42", amountUsd: 10 });
 
     expect(gateway.calls).toHaveLength(1);
-    expect(gateway.calls[0]?.idempotencyKey).toBe("default:order%3A42:charge");
+    expect(gateway.calls[0]?.idempotencyKey).toBe("kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw");
     expect(second.output).toEqual(first.output);
     expect(ledger.outbound).toEqual([OutboundCallSendStatus.Sent, OutboundCallSendStatus.Replayed]);
     const calls = await app.outboundCallsOf({
@@ -164,7 +164,7 @@ describe("#508 AC2: two executions on two threads", () => {
     expect(calls).toEqual([
       expect.objectContaining({
         businessKeyHash: TEST_KEYED,
-        idempotencyKey: `business-key:${TEST_KEYED}:charge`,
+        idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw",
       }),
     ]);
     expect(JSON.stringify(calls)).not.toContain("order:42");
@@ -282,8 +282,12 @@ describe("#508: a pending call under a business key", () => {
     const second = await execute(app, SendChargeStart, { orderId: "42", amountUsd: 10 });
 
     expect(ledger.outbound).toEqual([OutboundCallSendStatus.Sent]);
-    expect(gateway.lookups).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 1 }]);
-    expect(gateway.calls).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 2 }]);
+    expect(gateway.lookups).toEqual([
+      { idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw", attempt: 1 },
+    ]);
+    expect(gateway.calls).toEqual([
+      { idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw", attempt: 2 },
+    ]);
     expect(second.output).toEqual({ chargeId: "ch-42-1" });
   });
 });
@@ -368,9 +372,11 @@ describe("#508: one owner per attempt — calls of one execution never race", ()
       const [end] = await ends(1);
 
       expect(gateway.lookups).toEqual([
-        { idempotencyKey: "default:order%3A42:charge", attempt: 1 },
+        { idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw", attempt: 1 },
       ]);
-      expect(gateway.calls).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 2 }]);
+      expect(gateway.calls).toEqual([
+        { idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw", attempt: 2 },
+      ]);
       expect(end?.output).toEqual({ chargeId: "ch-42-1" });
       leases.thaw(a);
     },
@@ -402,7 +408,7 @@ describe("#508: a business key never leaves in an error", () => {
     await expect(Promise.reject(error as Error)).rejects.toFailWith(
       OutboundCallError.Unreconciled,
       {
-        idempotencyKey: expect.stringMatching(/^business-key:[0-9a-f]{12}:charge$/u) as unknown,
+        idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw",
       },
     );
     expect(chainTextOf(error)).not.toContain("order:42");

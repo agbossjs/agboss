@@ -1,10 +1,10 @@
 import type { AgentCard, Part, Task } from "@a2a-js/sdk";
+import { markBusinessKeyWriter } from "../../components/container/fenced-reach.js";
 import { validate } from "../../dto/schema.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { lazyLoad, SystemClock, type Clock } from "../../infrastructure/clock.js";
 import { accept } from "./a2a-accept.js";
 import type { Accepted } from "./a2a-message.js";
-import type { A2ARemotePeer } from "./a2a-card.js";
 import { CardCache, type Wire } from "./a2a-card-cache.js";
 import {
   agentNameOf,
@@ -18,6 +18,7 @@ import {
   type A2AClientContract,
   type A2AClientOptions,
   type A2ATaskResult,
+  type Settled,
 } from "./a2a-client-options.js";
 import { A2AClientOperation } from "./a2a-client-errors.js";
 import {
@@ -40,13 +41,6 @@ import { inputPartsOf, partsOf, type A2AMessageInput } from "./a2a-parts.js";
 import { waitForTask } from "./a2a-wait.js";
 import type { A2ADownloadOptions, FileDto } from "./a2a-download.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
-
-/** One call's settled answer. */
-interface Settled {
-  readonly accepted: Accepted;
-  readonly task: Task | undefined;
-  readonly peer: A2ARemotePeer;
-}
 
 /**
  * Calls an A2A v1.0 agent (#809) — another AGBoss application or any compliant agent — on the
@@ -265,3 +259,6 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     });
   }
 }
+
+// a component that reaches a client sends under a call key of the idempotency secret (#1317d)
+markBusinessKeyWriter(A2AClient);

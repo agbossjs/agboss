@@ -2,7 +2,6 @@ import type { BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
 import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
 import type { App } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
-import { startComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
 import { namedEnvironmentFor, type EnvironmentOwner } from "../environments/load.js";
 import { contextsOf } from "./instance-contexts.js";
@@ -29,11 +28,12 @@ import { withExecutionControl as byId } from "../app/tree-control.js";
 import type { ApplicationClass } from "./types.js";
 import type { applicationPiiMaskOf } from "./application-pii.js";
 import { instancePiiOf } from "./instance-pii.js";
-import { applicationIdempotencyKeysOf } from "./idempotency-key.js";
+import { applicationIdempotencyKeysOf, TEST_IDEMPOTENCY_KEYS } from "./idempotency-key.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type * as InstanceSteps from "./instance-steps.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
 import { lazyLoad } from "../infrastructure/clock.js";
+import { releaseAll, startAll } from "./instance-lifecycle.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
@@ -90,20 +90,6 @@ const instancePartsOf = async (
   ...args: Parameters<typeof InstanceSteps.instancePartsOf>
 ): Promise<InstanceSteps.SharedInstanceParts> =>
   (await lazyLoad(import("./instance-steps.js"))).instancePartsOf(...args);
-
-/**
- * `onInit` → `onStart` of every component, then each workflow's config snapshot (#747): the stores
- * are ready only now — a PostgreSQL schema is checked or migrated at its connection's `onInit`.
- */
-async function startAll(created: unknown[], workflows: readonly BuiltApp[]): Promise<void> {
-  await startComponents(created);
-  for (const workflow of workflows) await workflow.deps.rememberConfig();
-}
-
-/** Closes what the workflows already built opened (a later workflow or a start hook failed). */
-async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
-  for (const workflow of built) await workflow.app.close();
-}
 
 /** The budgets every workflow of the application counts against. */
 export const budgetsOf = (assembled: AssembledApplication): BudgetListing => {
@@ -216,12 +202,18 @@ export async function createApp<TApplication extends Class>(
  */
 export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {}
 
-/** An app instance on the internal build path (#834): `createApp` with its seams. */
+/**
+ * An app instance on the internal build path (#834): `createApp` with its seams. A test's: an
+ * application with no `@DatabaseStorage` gets the test's idempotency keys (as `testWith` gives
+ * them), where `createApp` refuses a component that reaches `Idempotency` without a secret.
+ */
 export async function createAppWith(
   application: Class,
   options: BuildApplicationOptions = {},
 ): Promise<App> {
-  return (await builtApplicationOf(application, options)).app;
+  const withTestKeys = { withoutIdempotencyKeys: true as const, ...options };
+  const seams = { idempotencyTestKeys: TEST_IDEMPOTENCY_KEYS };
+  return (await builtApplicationOf(application, withTestKeys, seams)).app;
 }
 
 /**
@@ -232,6 +224,7 @@ export async function createAppWith(
 export async function builtApplicationOf(
   application: Class,
   options: BuildApplicationOptions = {},
+  seams: InstanceSeams = {},
 ): Promise<BuiltApplication> {
   const assembled = await applicationOf(application, options);
   const environment = await namedEnvironmentFor(
@@ -239,7 +232,7 @@ export async function builtApplicationOf(
     options,
     options.processEnv ?? process.env,
   );
-  const built = await buildApplication(assembled, { ...options, ...environment });
+  const built = await buildApplication(assembled, { ...options, ...environment }, seams);
   closeOnStopSignals(built);
   return built;
 }

@@ -6760,6 +6760,7 @@ export interface OutboundCall<TRequest> {
     // (undocumented)
     readonly operation: string;
     readonly request: TRequest;
+    shortKey(length: number): string;
     readonly signal: AbortSignal;
     // (undocumented)
     readonly target: string;
@@ -6946,6 +6947,7 @@ export interface OutboundCallLookup {
     readonly keyAge: Milliseconds | undefined;
     // (undocumented)
     readonly operation: string;
+    shortKey(length: number): string;
     readonly signal: AbortSignal;
     readonly storedRequest: string;
     // (undocumented)

@@ -3,16 +3,12 @@ import { Injectable } from "../components/decorators.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { ttlProblemOf } from "../storage/ttl-problem.js";
 import { liveExecutionContextOf } from "../flow/context/live-context.js";
-import { effectKeyOf } from "../infrastructure/fenced-effect-key.js";
 import {
   FencedEffectRepository,
-  type EffectKey,
-  type EffectKeyFields,
   type IdempotencyRunOutcome,
 } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundMasking } from "./outbound-masking.js";
 import { Clock, lazyLoad } from "../infrastructure/clock.js";
-import { issuedKey } from "../infrastructure/issued-keys.js";
 import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import { kilobytes, seconds, Ttl, type Bytes, type Milliseconds } from "../units/index.js";
@@ -20,6 +16,7 @@ import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import { EXECUTION_LEASE } from "./lease-fence.js";
 import type { IdempotencyRunOptions } from "./idempotency-types.js";
 import { boundedWork } from "./idempotency-work.js";
+import { callKeyIn } from "./idempotency-keys.js";
 import { callKeyErrorOf, checkedRecovery } from "./outbound-call-contract.js";
 import { expiryOf, type LiveCall } from "./outbound-call-parts.js";
 import type {
@@ -113,37 +110,12 @@ export class Idempotency {
     if (timeoutProblem !== undefined) throw refused("runOnce", timeoutProblem);
     if (timeout >= EXECUTION_LEASE) throw refused("runOnce", `timeout is not below the lease`);
     if (typeof execute !== "function") throw refused("runOnce", "execute is not a function");
+    const context = liveExecutionContextOf(undefined, "Idempotency");
     const expiresAt = expiryOf(this.clock, ttl);
-    const effectKey = this.#effectKey(name, key, options, { maxResultSize, expiresAt });
+    const parts = { ...options, key, expiresAt, maxResultSize };
+    const effectKey = callKeyIn(context, name, parts, "runOnce");
     const bounded = boundedWork(this.clock, { name, timeout }, execute);
     return this.effects.runOnce(effectKey, bounded);
-  }
-
-  /** The key of the current step's effect `name`, with what its options say it does. */
-  #effectKey(
-    name: string,
-    key: string | undefined,
-    options: { readonly fingerprint?: unknown; readonly withoutFingerprint?: unknown },
-    keyed: { readonly maxResultSize: Bytes | undefined; readonly expiresAt: Date | null },
-  ): EffectKey {
-    const context = liveExecutionContextOf(undefined, "Idempotency");
-    const { fingerprint, withoutFingerprint } = options;
-    const made =
-      key === undefined
-        ? effectKeyOf(context, name)
-        : effectKeyOf(context, name, {
-            businessKey: key,
-            ...(fingerprint === undefined ? {} : { fingerprint }),
-            ...(withoutFingerprint === undefined ? {} : { withoutFingerprint }),
-          } as Parameters<typeof effectKeyOf>[2]);
-    if (key === undefined && (fingerprint !== undefined || withoutFingerprint !== undefined))
-      throw refused("runOnce", "a fingerprint needs a key: it says what the work under it does");
-    const { maxResultSize, expiresAt } = keyed;
-    return issuedKey({
-      ...(made as EffectKeyFields),
-      expiresAt,
-      ...(maxResultSize === undefined ? {} : { maxResultSize }),
-    }) as EffectKey;
   }
 
   /**
@@ -170,15 +142,9 @@ export class Idempotency {
       throw refused("sendOnce", "target is not a name");
     const checked = checkedRecovery(name, recovery, { timeout, ttl });
     const context = liveExecutionContextOf(undefined, "Idempotency");
-    const keyed =
-      key === undefined
-        ? effectKeyOf(context, name)
-        : effectKeyOf(context, name, { businessKey: key });
     // the scope's mark lives as long as the longest ttl written under it (`null`: for good)
-    const stepKey = issuedKey({
-      ...(keyed as EffectKeyFields),
-      expiresAt: expiryOf(this.clock, ttl),
-    }) as EffectKey;
+    const expiresAt = expiryOf(this.clock, ttl);
+    const stepKey = callKeyIn(context, name, { key, expiresAt }, "sendOnce");
     // the checked copy is the one the protocol reads (`options` as given is the caller's, live)
     callKeyErrorOf(stepKey);
     const run: OutboundCallRun<TRequest, TResult> = {

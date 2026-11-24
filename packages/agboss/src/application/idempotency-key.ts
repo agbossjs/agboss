@@ -1,3 +1,4 @@
+import { IdempotencyError } from "../core/error-families/effect-errors.js";
 import { EnvironmentError, EnvironmentErrorCode } from "../environments/errors.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import { OptionalSecretReference, variableOfSecretRef } from "../environments/secret.js";
@@ -76,14 +77,28 @@ function storageKeysOf(
   return Object.freeze(previous === undefined ? { current } : { current, previous });
 }
 
+/**
+ * The refusal of an application whose components can write under a business key and whose
+ * `idempotencySecret` is named but resolves to nothing (an optional reference left unset): the
+ * start fails, never "no key" (#1317d).
+ */
+const unresolvedSecret = (application: string): IdempotencyError.SecretKeyMissing =>
+  new IdempotencyError.SecretKeyMissing({
+    message: `${application}: @DatabaseStorage({ idempotencySecret }) resolves to no value, and a component of the application can write under a business key — an idempotency secret that is unset or empty keys nothing: set its variable`,
+    effect: application,
+  });
+
 /** An assembled application's idempotency keys (#825), as its instance's parts take them. */
 export function applicationIdempotencyKeysOf(
-  assembled: Pick<AssembledApplication, "name" | "storage"> & AssembledKeyFields,
+  assembled: Pick<AssembledApplication, "name" | "storage" | "workflows"> & AssembledKeyFields,
   environment: Environment,
   env: NodeJS.ProcessEnv,
   fallback?: FingerprintKeys,
 ): { readonly fingerprintKeys?: FingerprintKeys } {
   const fromStorage = storageKeysOf(assembled, env, fallback);
+  const isNamed = assembled.storage?.database?.meta.idempotencySecret !== undefined;
+  const reachesWriter = assembled.workflows.some((one) => one.businessKeyWriter !== undefined);
+  if (fromStorage === undefined && isNamed && reachesWriter) throw unresolvedSecret(assembled.name);
   assertKeyVariablesApart(assembled.name, assembled, environment);
   if (fromStorage !== undefined) return { fingerprintKeys: fromStorage };
   // no storage declared (in-memory defaults): a test's keys, else none

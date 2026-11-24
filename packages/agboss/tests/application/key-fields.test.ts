@@ -10,6 +10,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
+import { applicationIdempotencyKeysOf } from "../../src/application/idempotency-key.js";
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { Application } from "../../src/application/application.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -327,5 +329,52 @@ describe("#825 AC6: only a Secret field of the contract compiles", () => {
     };
 
     expect(declare).toBeTypeOf("function");
+  });
+});
+
+describe("#1317d: an idempotency secret that is named must resolve", () => {
+  /** A storage whose current secret is an optional reference — reachable by a cast only. */
+  const optionalStorage = () => {
+    @DatabaseStorage({
+      name: "optional-secret-storage",
+      driver: SqliteDriver.inMemory(),
+      auditLogTtl: hours(24),
+      ledgerEntriesTtl: hours(24),
+      idempotencySecret: secret.optional("OPTIONAL_IDEMPOTENCY") as never,
+    })
+    class OptionalStorage {}
+    return OptionalStorage;
+  };
+
+  const assembledWith = async (workflows: ApplicationOptions["workflows"]) => {
+    @Application({
+      name: "optional-secret-application",
+      version: "1.0.0",
+      environment: KeysEnvironment,
+      workflows,
+      budgets: TEST_BUDGETS,
+      storage: optionalStorage(),
+    })
+    class OptionalApplication {}
+    return applicationOf(OptionalApplication);
+  };
+
+  it("a keyed runOnce and the variable unset or empty: the start fails with IdempotencyError.SecretKeyMissing", async () => {
+    const assembled = await assembledWith([BookOrderWorkflow]);
+
+    for (const env of [{}, { OPTIONAL_IDEMPOTENCY: "" }])
+      expect(() => applicationIdempotencyKeysOf(assembled, {} as never, env)).toThrow(
+        IdempotencyError.SecretKeyMissing,
+      );
+  });
+
+  it("the variable set: it works; and no writer reachable: an unset secret is no failure", async () => {
+    const assembled = await assembledWith([BookOrderWorkflow]);
+    const plain = await assembledWith([PlainWorkflow]);
+
+    expect(
+      applicationIdempotencyKeysOf(assembled, {} as never, { OPTIONAL_IDEMPOTENCY: "one" }),
+    ).toEqual({ fingerprintKeys: { current: "one" } });
+    expect(() => applicationIdempotencyKeysOf(plain, {} as never, {})).not.toThrow();
   });
 });

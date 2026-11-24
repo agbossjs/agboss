@@ -9,6 +9,7 @@ import { currentFrame } from "../../flow/context/frame.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { Milliseconds, Usd } from "../../units/index.js";
 import type { A2ARemotePeer } from "./a2a-card.js";
+import type { Accepted } from "./a2a-message.js";
 import type { A2AMesh } from "./a2a-guard-errors.js";
 
 /**
@@ -200,4 +201,11 @@ export function typedContractOf(
   throw new ComponentError({
     message: `[a2a.no-contract] ${name} declares no typed contract — @A2AAgent({ input, output }) on its class, or the contract option; send(message) runs without one`,
   });
+}
+
+/** One call's settled answer. */
+export interface Settled {
+  readonly accepted: Accepted;
+  readonly task: Task | undefined;
+  readonly peer: A2ARemotePeer;
 }

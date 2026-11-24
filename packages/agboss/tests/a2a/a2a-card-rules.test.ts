@@ -53,7 +53,7 @@ function applicationWith(
 }
 
 const warningsOf = async (application: ReturnType<typeof applicationWith>): Promise<string[]> => {
-  const assembled = await applicationOf(application);
+  const assembled = await applicationOf(application, { withoutIdempotencyKeys: true });
   return assemblyWarningsOf({ ...assembled }).map(
     (warning) => `[${warning.code}] ${warning.message}`,
   );
@@ -61,7 +61,7 @@ const warningsOf = async (application: ReturnType<typeof applicationWith>): Prom
 
 describe("#812 AC5: [a2a.expose-description-required]", () => {
   it.each(["", "   "])("a blank description (%j) is refused at assembly", async (description) => {
-    const built = applicationOf(applicationWith({ description }));
+    const built = applicationOf(applicationWith({ description }), { withoutIdempotencyKeys: true });
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     await expect(built).rejects.toThrow(
@@ -70,7 +70,9 @@ describe("#812 AC5: [a2a.expose-description-required]", () => {
   });
 
   it("a description assembles", async () => {
-    await expect(applicationOf(applicationWith({}))).resolves.toBeDefined();
+    await expect(
+      applicationOf(applicationWith({}), { withoutIdempotencyKeys: true }),
+    ).resolves.toBeDefined();
   });
 });
 

@@ -6,11 +6,7 @@
  */
 import { getEventListeners } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import {
-  checkedCall,
-  replayedFromOf,
-  reportedKeyOf,
-} from "../../src/app/outbound-call-business.js";
+import { checkedCall, replayedFromOf } from "../../src/app/outbound-call-business.js";
 import {
   fencedEnd,
   leaseClosed,
@@ -52,17 +48,7 @@ describe("#626: the step a replayed call names", () => {
   });
 });
 
-describe("#626: how an error names a call's key", () => {
-  it("a step's key as it is; a business key by its handle, or by its name with no handle", () => {
-    const business = { businessKey: "order:42", name: "charge" };
-
-    expect(reportedKeyOf({ name: "charge" } as never, "k:charge")).toBe("k:charge");
-    expect(reportedKeyOf({ ...business, businessKeyHash: "h1" } as never, "k")).toBe(
-      "business-key:h1:charge",
-    );
-    expect(reportedKeyOf(business as never, "k")).toBe("business-key:charge");
-  });
-
+describe("#626: what a call's key is checked against", () => {
   it("a step's key finds no conflict in a stored fingerprint: a store's leftover, never compared", async () => {
     const run = { key: { name: "charge" }, options: {}, parts: { owners: new Set() } } as never;
     const found = { fingerprint: "left-by-a-store", status: OutboundCallStatus.Completed } as never;

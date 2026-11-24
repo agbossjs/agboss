@@ -660,6 +660,7 @@ export interface EffectKeyFields {
     readonly maxResultSize?: Bytes;
     readonly name: string;
     readonly origin?: FencedEffectOrigin;
+    readonly previousBusinessKey?: string;
     readonly previousFingerprint?: string;
     readonly rootExecutionId?: string;
     readonly scopeKey: string;

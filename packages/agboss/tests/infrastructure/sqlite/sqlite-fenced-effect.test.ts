@@ -75,7 +75,7 @@ describe("#500: SqliteFencedEffectRepository", () => {
     // the lease store wiped (its epochs count from 1 again), the scope's mark kept at 2
     stores.connection.database.exec("DELETE FROM execution_leases");
     stores.connection.database
-      .prepare("INSERT INTO fenced_effect_marks VALUES ('default:execution-1', 2, 0)")
+      .prepare("INSERT INTO fenced_effect_marks VALUES ('default:execution-1', 2, 0, NULL)")
       .run();
     const again = await held(stores.leases);
 

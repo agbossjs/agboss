@@ -185,7 +185,7 @@ describe("#1317a sendOnce: a timeout is not 'not sent'", () => {
       other.sendOnce({
         ...options({ sends: () => (sends += 1) }),
         name: second.key.name,
-        key: String(second.key.businessKey),
+        key: frame.textOf(second.key),
         timeout: seconds(5),
         ttl: hours(48),
       } as never),

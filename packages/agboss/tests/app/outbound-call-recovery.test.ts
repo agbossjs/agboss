@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 /** The key the charge of the first execution goes with. */
-const KEY = "execution-1:charge-order-action:1:charge";
+const KEY = "ck1UbYR5__kMqLRyhGpWwpKf5iAQLJJ-r52_O7pIlEo";
 
 /**
  * A's charge frozen in the provider (before or after it processed the charge), A's lease stalled,
