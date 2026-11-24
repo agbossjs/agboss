@@ -2593,10 +2593,11 @@ ExecutionLeaseLostError`: `scopeKey`, `tenantId`, `leaseExecutionId`, `token`, `
   `Default_Ignorable_Code_Point` — the combining grapheme joiner, Hangul fillers, every variation
   selector, the emoji ones too, so `order:❤️` is refused —, `ignorable`), no private use or noncharacter
   (`private-or-noncharacter`), no code point unassigned in the runtime's Unicode (`unassigned`), no
-  U+2800 braille blank (`blank`), in NFC, never normalized silently: `keyTextRuleOf(text)`
+  U+2800 braille blank (`blank`), in NFC, never normalized silently, no `/child/` (#1321d: it joins a
+  child's checkpoint thread to its parent's, `reserved-separator`): `keyTextRuleOf(text)`
   → `KeyTextRule`, the same for thread ids (a text breaking several named by the first in `KeyTextRule`'s
   order — `length`, `lone-surrogate`, `control-character`, `format-character`, `space-separator`,
-  `spacing`, `ignorable`, `private-or-noncharacter`, `unassigned`, `blank`, `not-nfc` —, wherever each
+  `spacing`, `ignorable`, `private-or-noncharacter`, `unassigned`, `blank`, `not-nfc`, `reserved-separator` —, wherever each
   breach stands); else `IdempotencyError.InvalidKey`,
   `idempotency.invalid-key`, its `rule` named, never the key — checked by
   `runOnce`, `sendOnce` and every store's entry, `assertBusinessKey` for a

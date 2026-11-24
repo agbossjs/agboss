@@ -1,29 +1,37 @@
+import { CHILD_THREAD_SEPARATOR } from "../core/child-thread-separator.js";
+
 /**
  * The checkpoint threads of one execution tree (#1321d). A child execution runs on its own thread,
  * `<parentThreadId>/child/<executionId>` (ADR-0022), at any depth; the root's thread is its
- * execution id. Removing a tree's checkpoints (`deleteThread(rootExecutionId)`) removes all of them
- * and only them: a thread whose id merely starts with the root's (`<id>x`, `<id>0/child/…`) is another tree's.
+ * execution id. Removing a tree's checkpoints (`deleteThread(rootExecutionId)`) removes the threads
+ * whose stored root is that id and no other: a thread whose id merely starts with the root's
+ * (`<id>x`, `<id>0/child/…`) is another tree's.
  */
 
-/** What joins a parent's thread id to a child's execution id. */
-export const CHILD_THREAD_SEPARATOR = "/child/";
+export { CHILD_THREAD_SEPARATOR };
+
+/**
+ * The configurable key that names a checkpoint thread's tree: the root execution id, written with
+ * every checkpoint and every pending write of the tree's threads. A saver deletes a tree by it
+ * (`deleteThread(rootExecutionId)`), never by a range of thread ids (#1321d).
+ */
+export const ROOT_EXECUTION_ID_KEY = "root_execution_id";
+
+/**
+ * The root execution id a checkpoint's config names: `configurable.root_execution_id`, else the
+ * thread id's first segment (an id never holds the separator, `KeyTextRule.ReservedSeparator`).
+ */
+export function rootExecutionIdOf(
+  configurable: Readonly<Record<string, unknown>> | undefined,
+): string | undefined {
+  const named: unknown = configurable?.[ROOT_EXECUTION_ID_KEY];
+  if (typeof named === "string" && named !== "") return named;
+  const thread: unknown = configurable?.thread_id;
+  if (typeof thread !== "string") return undefined;
+  const [first = ""] = thread.split(CHILD_THREAD_SEPARATOR, 1);
+  return first === "" ? thread : first;
+}
 
 /** The child thread `<parentThreadId>/child/<executionId>`. */
 export const childThreadOf = (parentThreadId: string, executionId: string): string =>
   `${parentThreadId}${CHILD_THREAD_SEPARATOR}${executionId}`;
-
-/** Whether `candidate` is a child thread of `threadId`, at any depth. */
-export const isChildThreadOf = (threadId: string, candidate: string): boolean =>
-  candidate.startsWith(`${threadId}${CHILD_THREAD_SEPARATOR}`);
-
-/**
- * The half-open range of the thread ids below `threadId` for a store that deletes by comparison
- * (`thread_id >= lower AND thread_id < upper`, in code-point order — PostgreSQL `COLLATE "C"`,
- * SQLite's default): `/child/` and `/child0` differ in their last character, `/` then `0`.
- */
-export const childThreadRangeOf = (
-  threadId: string,
-): { readonly lower: string; readonly upper: string } => ({
-  lower: `${threadId}${CHILD_THREAD_SEPARATOR}`,
-  upper: `${threadId}/child0`,
-});

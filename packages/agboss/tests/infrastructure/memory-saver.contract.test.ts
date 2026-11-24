@@ -13,7 +13,7 @@ import {
   type CheckpointTuple,
 } from "@langchain/langgraph";
 import { describe } from "vitest";
-import { isChildThreadOf } from "../../src/infrastructure/checkpoint-threads.js";
+import { rootExecutionIdOf } from "../../src/infrastructure/checkpoint-threads.js";
 import { newestFirstOrder, stepOf } from "../../src/infrastructure/latest-by-step.js";
 import { checkpointSaverContract, StoreCapability } from "../../src/testing/contracts/index.js";
 import { inMemoryTarget, sharedInMemory } from "./contracts/store-kinds.js";
@@ -22,19 +22,41 @@ import { inMemoryTarget, sharedInMemory } from "./contracts/store-kinds.js";
 type ChannelVersions = Parameters<BaseCheckpointSaver["put"]>[3];
 
 /**
- * LangGraph's `MemorySaver` with the one thing the contract asks beyond it (#1321d): `deleteThread`
- * of a tree's root also removes its child threads (`<root>/child/…`), as every saver of a store does.
+ * LangGraph's `MemorySaver` with the one thing the contract asks beyond it (#1321d): it keeps the
+ * root execution id each thread's config names, and `deleteThread` of a root also removes the
+ * threads of its tree, as every saver of a store does — by that root, never by the shape of an id.
  */
 class ChildThreadsMemorySaver extends MemorySaver {
+  readonly #roots = new Map<string, string>();
+
+  #noteRoot(config: RunnableConfig): void {
+    const thread = String(config.configurable?.thread_id);
+    if (!this.#roots.has(thread))
+      this.#roots.set(thread, rootExecutionIdOf(config.configurable) ?? thread);
+  }
+
+  override async put(
+    ...[config, ...rest]: Parameters<MemorySaver["put"]>
+  ): Promise<RunnableConfig> {
+    this.#noteRoot(config);
+    return super.put(config, ...rest);
+  }
+
+  override async putWrites(
+    ...[config, ...rest]: Parameters<MemorySaver["putWrites"]>
+  ): Promise<void> {
+    this.#noteRoot(config);
+    await super.putWrites(config, ...rest);
+  }
+
   override async deleteThread(threadId: string): Promise<void> {
-    const threads = [...Object.keys(this.storage), ...Object.keys(this.writes).map(writerOf)];
-    for (const each of new Set(threads)) {
-      if (each === threadId || isChildThreadOf(threadId, each)) await super.deleteThread(each);
+    const tree = [...this.#roots].filter(([, root]) => root === threadId).map(([each]) => each);
+    for (const each of new Set([threadId, ...tree])) {
+      await super.deleteThread(each);
+      this.#roots.delete(each);
     }
   }
 }
-
-const writerOf = (key: string): string => String((JSON.parse(key) as unknown[])[0]);
 
 /** Where a blob lives: thread, namespace, channel and the version it was written at. */
 const blobKey = (config: RunnableConfig, channel: string, version: string | number): string =>

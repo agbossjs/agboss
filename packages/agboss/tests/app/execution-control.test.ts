@@ -134,6 +134,13 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
     expect(seen.steps).toEqual(["once"]);
   });
 
+  test("an id that holds the child separator is refused as well, the id not echoed (#1321d)", () => {
+    expect(() => withReservedExecutionId({}, "root/child/x-evil")).toThrow(
+      /^a reserved execution id breaks the rule "reserved-separator"$/u,
+    );
+    expect(() => withReservedExecutionId({}, "root/child/x-evil")).toThrow(RangeError);
+  });
+
   test("an id that is no key's text is refused before any call, the id not echoed", () => {
     expect(() => withReservedExecutionId({}, "x\uD800")).toThrow(RangeError);
     expect(() => withReservedExecutionId({}, "x\uD800")).toThrow(

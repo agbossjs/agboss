@@ -864,7 +864,10 @@ export class ChargeOrderAction {
   - no U+2800 BRAILLE PATTERN BLANK, which renders as a blank but is a symbol (`blank`);
   - in NFC — "é" as U+00E9, never "e" + U+0301 (`not-nfc`). Refused, never normalized silently: a
     key changed on its way in would no longer replay what was stored under it. Normalize where the
-    key is made (`text.normalize("NFC")`).
+    key is made (`text.normalize("NFC")`);
+  - no `/child/` (`reserved-separator`, #1321d): the framework joins a child execution's checkpoint
+    thread to its parent's with it (`<parent>/child/<id>`), and a tree's checkpoints are deleted by
+    the root id each thread stores, so no id a caller picks or a generator mints may hold it.
 
   A text that breaks several rules is named by the first of them in this list — `KeyTextRule`'s
   order — wherever in the text each breach stands (#547 acceptance; #556's rules come after

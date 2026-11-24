@@ -32,6 +32,7 @@ const KEY_TEXT_PRECEDENCE: readonly KeyTextRule[] = [
   KeyTextRule.Unassigned,
   KeyTextRule.Blank,
   KeyTextRule.NotNfc,
+  KeyTextRule.ReservedSeparator,
 ];
 
 /** One breach of each rule but the length, each breaking that rule alone between two letters. */
@@ -46,6 +47,7 @@ const BREACHES: readonly (readonly [KeyTextRule, string])[] = [
   [KeyTextRule.Unassigned, "\u0378"],
   [KeyTextRule.Blank, "\u2800"],
   [KeyTextRule.NotNfc, "e\u0301"],
+  [KeyTextRule.ReservedSeparator, "/child/"],
 ];
 
 const rank = (rule: KeyTextRule): number => KEY_TEXT_PRECEDENCE.indexOf(rule);
@@ -127,6 +129,7 @@ const BREAKS: Readonly<Record<KeyTextRule, (text: string) => boolean>> = {
     ),
   [KeyTextRule.Blank]: (text) => text.includes("\u2800"),
   [KeyTextRule.NotNfc]: (text) => !hasLoneSurrogate(text) && text.normalize("NFC") !== text,
+  [KeyTextRule.ReservedSeparator]: (text) => text.includes("/child/"),
 };
 
 /** Letters a breach can stand beside without making another one. */
@@ -140,11 +143,11 @@ describe("#547 acceptance: the rule named is the precedence's first one the text
     fc.assert(
       fc.property(
         fc.subarray([...BREACHES], { minLength: 1 }),
-        fc.array(FILLER, { minLength: 11, maxLength: 11 }),
+        fc.array(FILLER, { minLength: 12, maxLength: 12 }),
         fc.boolean(),
         (set, fillers, isLong) => {
           const body = set.map(([, breach], at) => `${fillers[at] ?? ""}${breach}`).join("");
-          const text = `a${body}${fillers[10] ?? ""}b${isLong ? "k".repeat(201) : ""}`;
+          const text = `a${body}${fillers[11] ?? ""}b${isLong ? "k".repeat(201) : ""}`;
           const expected = KEY_TEXT_PRECEDENCE.find((rule) => BREAKS[rule](text));
           expect(keyTextRuleOf(text)).toBe(expected);
         },

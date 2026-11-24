@@ -1,7 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
 import { BaseCheckpointSaver, emptyCheckpoint } from "@langchain/langgraph";
-import { childThreadOf } from "../../infrastructure/checkpoint-threads.js";
+import { childThreadOf, ROOT_EXECUTION_ID_KEY } from "../../infrastructure/checkpoint-threads.js";
 import type { ChildIdentityRecord } from "./child-records.js";
 import type { ExecutionStateType } from "./state.js";
 
@@ -64,7 +64,14 @@ export function markerConfigOf(config: RunnableConfig | undefined): RunnableConf
   const threadId: unknown = config?.configurable?.thread_id;
   const namespace: unknown = config?.configurable?.checkpoint_ns;
   if (typeof threadId !== "string" || typeof namespace !== "string") return undefined;
-  return { configurable: { thread_id: threadId, checkpoint_ns: namespace } };
+  const root: unknown = config?.configurable?.[ROOT_EXECUTION_ID_KEY];
+  return {
+    configurable: {
+      thread_id: threadId,
+      checkpoint_ns: namespace,
+      ...(typeof root === "string" ? { [ROOT_EXECUTION_ID_KEY]: root } : {}),
+    },
+  };
 }
 
 /** Keeps the launching task's marker: written once, on the child's first entry. */

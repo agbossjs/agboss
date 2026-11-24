@@ -94,6 +94,7 @@ export function keysAndCallsShard() {
       "src/infrastructure/issued-keys.ts",
       // the key text rules every id passes, and the error classes around them
       "src/core/errors.ts",
+      "src/core/key-text-rule.ts",
       "src/app/idempotency.ts",
       "src/app/idempotency-work.ts",
       // #795: how far a resend is trusted, and the call's errors

@@ -1,5 +1,10 @@
 import type { DatabaseSync } from "node:sqlite";
-import { CHECKPOINT_TABLES, STEP_INDEX, UNREADABLE_STEP_INDEX } from "./sqlite-checkpoint-rows.js";
+import {
+  CHECKPOINT_TABLES,
+  ROOT_INDEXES,
+  STEP_INDEX,
+  UNREADABLE_STEP_INDEX,
+} from "./sqlite-checkpoint-rows.js";
 import { DIRECT_SCHEMA } from "./sqlite-a2a-direct-message-rows.js";
 import { SCHEMA as A2A_TASKS_SCHEMA } from "./sqlite-a2a-task-rows.js";
 import { STATUS_TRANSITIONS_SCHEMA } from "../../turns/index.js";
@@ -35,7 +40,7 @@ const BASELINE_DDL: readonly string[] = [
   OUTBOUND_CALLS_SCHEMA,
   AUDIT_EVENTS_SCHEMA,
   CHECKPOINT_TABLES,
-  `${STEP_INDEX};\n${UNREADABLE_STEP_INDEX};`,
+  `${STEP_INDEX};\n${UNREADABLE_STEP_INDEX};\n${ROOT_INDEXES}`,
   PAUSED_RUNS_SCHEMA,
   PAUSES_SCHEMA,
   NOTICES_SCHEMA,

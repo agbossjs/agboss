@@ -5601,6 +5601,7 @@ export enum KeyTextRule {
     LoneSurrogate = "lone-surrogate",
     NotNfc = "not-nfc",
     PrivateOrNoncharacter = "private-or-noncharacter",
+    ReservedSeparator = "reserved-separator",
     SpaceSeparator = "space-separator",
     Spacing = "spacing",
     Unassigned = "unassigned"
@@ -9457,7 +9458,6 @@ export abstract class SpendRecorder {
 // @public
 export class SqliteCheckpointSaver extends BaseCheckpointSaver implements LatestByStepCheckpointSaver {
     constructor(connection: SqliteConnection);
-    // (undocumented)
     deleteThread(threadId: string): Promise<void>;
     // (undocumented)
     getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
@@ -13077,7 +13077,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "list".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "put".
 // src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "putWrites".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "deleteThread".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".

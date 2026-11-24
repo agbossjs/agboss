@@ -9,7 +9,7 @@ import {
   stepOf,
   type LatestByStepCheckpointSaver,
 } from "./latest-by-step.js";
-import { isChildThreadOf } from "./checkpoint-threads.js";
+import { ROOT_EXECUTION_ID_KEY, rootExecutionIdOf } from "./checkpoint-threads.js";
 import { newestFirstByCodePoint } from "./in-memory-checkpoint-order.js";
 
 /** The steps of a thread's namespace by checkpoint id, and the newest by `(step, id)` of them. */
@@ -49,11 +49,31 @@ const place = (config: RunnableConfig): [string, string] => [
 export class InMemoryCheckpointSaver extends MemorySaver implements LatestByStepCheckpointSaver {
   /** Each thread's namespaces' step indexes (#962), kept by `put`. */
   readonly #threads = new Map<string, Map<string, StepIndex>>();
+  /** Each thread's tree: its root execution id, kept with its first checkpoint or write (#1321d). */
+  readonly #roots = new Map<string, string>();
+
+  #noteRoot(config: RunnableConfig): void {
+    const [thread] = place(config);
+    // the config's own root wins; the config `put` returns names none, so a thread keeps the one it had
+    if (
+      typeof config.configurable?.[ROOT_EXECUTION_ID_KEY] === "string" ||
+      !this.#roots.has(thread)
+    )
+      this.#roots.set(thread, rootExecutionIdOf(config.configurable) ?? thread);
+  }
+
+  override async putWrites(
+    ...[config, ...rest]: Parameters<MemorySaver["putWrites"]>
+  ): Promise<void> {
+    await super.putWrites(config, ...rest);
+    this.#noteRoot(config);
+  }
 
   override async put(
     ...[config, checkpoint, metadata]: Parameters<MemorySaver["put"]>
   ): Promise<RunnableConfig> {
     const stored = await super.put(config, checkpoint, metadata);
+    this.#noteRoot(config);
     const [thread, namespace] = place(config);
     const namespaces = this.#threads.get(thread) ?? new Map<string, StepIndex>();
     this.#threads.set(thread, namespaces);
@@ -63,19 +83,14 @@ export class InMemoryCheckpointSaver extends MemorySaver implements LatestByStep
     return stored;
   }
 
-  /** The thread and its child threads (#1321d: a tree's checkpoints), no other. */
+  /** The thread and every thread of the tree it roots (#1321d): by the stored root, never by the shape of an id. */
   override async deleteThread(threadId: string): Promise<void> {
-    const known = new Set([...Object.keys(this.storage), ...this.#threadsOfWrites()]);
-    const doomed = [threadId, ...[...known].filter((each) => isChildThreadOf(threadId, each))];
-    for (const each of doomed) {
+    const doomed = [...this.#roots].filter(([, root]) => root === threadId).map(([each]) => each);
+    for (const each of new Set([threadId, ...doomed])) {
       await super.deleteThread(each);
       this.#threads.delete(each);
+      this.#roots.delete(each);
     }
-  }
-
-  /** The threads that hold pending writes (a write's key is `[thread, namespace, checkpoint]`). */
-  #threadsOfWrites(): string[] {
-    return Object.keys(this.writes).map((key) => String((JSON.parse(key) as unknown[])[0]));
   }
 
   /**

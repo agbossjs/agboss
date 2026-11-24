@@ -6,6 +6,7 @@ import {
   CheckpointRow,
   checkpointOf,
   configOf,
+  hasRoot,
   keyOf,
   listQueryOf,
   matchesMetadata,
@@ -14,7 +15,6 @@ import {
   writeIndexOf,
   type PendingWrites,
 } from "./sqlite-checkpoint-rows.js";
-import { childThreadRangeOf } from "../checkpoint-threads.js";
 import type { LatestByStepCheckpointSaver } from "../latest-by-step.js";
 import { latestRowOf, newestIdOf, rowOf, stepsToRank } from "./sqlite-latest-by-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
@@ -91,14 +91,19 @@ export class SqliteCheckpointSaver
     checkpoint: Parameters<BaseCheckpointSaver["put"]>[1],
     metadata: Parameters<BaseCheckpointSaver["put"]>[2],
   ): Promise<RunnableConfig> {
-    const { tenantId, threadId, namespace, checkpointId: parentId } = keyOf(config, "put");
+    const { tenantId, threadId, namespace, checkpointId: parentId, ...key } = keyOf(config, "put");
+    const rootId = this.#rootOf(config, threadId, key.rootId);
     const [[checkpointType, dumped], [metadataType, dumpedMetadata]] = await Promise.all([
       this.serde.dumpsTyped(copyCheckpoint(checkpoint)),
       this.serde.dumpsTyped(metadata),
     ]);
     this.connection.transaction(() => {
       this.connection.database
-        .prepare("INSERT OR REPLACE INTO checkpoints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .prepare(
+          `INSERT OR REPLACE INTO checkpoints (thread_id, checkpoint_ns, checkpoint_id,
+             parent_checkpoint_id, checkpoint_type, checkpoint, metadata_type, metadata, tenant_id, root_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
         .run(
           threadId,
           namespace,
@@ -109,6 +114,7 @@ export class SqliteCheckpointSaver
           metadataType,
           dumpedMetadata,
           tenantId,
+          rootId,
         );
     });
     return configOf(threadId, namespace, checkpoint.id);
@@ -117,10 +123,11 @@ export class SqliteCheckpointSaver
   async putWrites(
     ...[config, writes, taskId]: Parameters<BaseCheckpointSaver["putWrites"]>
   ): Promise<void> {
-    const { tenantId, threadId, namespace, checkpointId } = keyOf(config, "putWrites");
+    const { tenantId, threadId, namespace, checkpointId, ...key } = keyOf(config, "putWrites");
     if (checkpointId === undefined) {
       throw new Error("SqliteCheckpointSaver.putWrites: the config has no checkpoint_id");
     }
+    const rootId = this.#rootOf(config, threadId, key.rootId);
     const dumped = await Promise.all(
       writes.map(async ([channel, value], position) => {
         const [type, bytes] = await this.serde.dumpsTyped(value);
@@ -137,7 +144,9 @@ export class SqliteCheckpointSaver
             : "DO UPDATE SET channel = excluded.channel, value_type = excluded.value_type, value = excluded.value";
         database
           .prepare(
-            `INSERT INTO checkpoint_writes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO checkpoint_writes (thread_id, checkpoint_ns, checkpoint_id, task_id, idx,
+               channel, value_type, value, tenant_id, root_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (thread_id, checkpoint_ns, checkpoint_id, task_id, idx) ${conflict}`,
           )
           .run(
@@ -150,19 +159,32 @@ export class SqliteCheckpointSaver
             write.type,
             write.bytes,
             tenantId,
+            rootId,
           );
       }
     });
   }
 
+  /**
+   * The tree a thread's rows belong to: the one the config names, else the one the thread's rows
+   * already store (the config `put` returns names no root, and a thread's tree never changes),
+   * else the thread's first segment.
+   */
+  #rootOf(config: RunnableConfig, threadId: string, derived: string): string {
+    if (hasRoot(config)) return derived;
+    const row = this.connection.database
+      .prepare("SELECT root_id FROM checkpoints WHERE thread_id = ? LIMIT 1")
+      .get(threadId);
+    return typeof row?.root_id === "string" ? row.root_id : derived;
+  }
+
+  /** The thread and every thread of the tree it roots (#1321d): by the stored `root_id`, never by a range of ids. */
   deleteThread(threadId: string): Promise<void> {
     const { database } = this.connection;
-    const { lower, upper } = childThreadRangeOf(threadId);
-    // the thread and its child threads (#1321d): `thread_id >= '<id>/child/' AND < '<id>/child0'`
-    const where = "thread_id = ? OR (thread_id >= ? AND thread_id < ?)";
+    const where = "thread_id = ? OR root_id = ?";
     this.connection.transaction(() => {
-      database.prepare(`DELETE FROM checkpoint_writes WHERE ${where}`).run(threadId, lower, upper);
-      database.prepare(`DELETE FROM checkpoints WHERE ${where}`).run(threadId, lower, upper);
+      database.prepare(`DELETE FROM checkpoint_writes WHERE ${where}`).run(threadId, threadId);
+      database.prepare(`DELETE FROM checkpoints WHERE ${where}`).run(threadId, threadId);
     });
     return Promise.resolve();
   }

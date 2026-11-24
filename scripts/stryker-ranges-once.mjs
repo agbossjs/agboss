@@ -22,7 +22,7 @@ export function onceChildShard() {
       "src/flow/runtime/child.ts",
       "src/flow/runtime/child-value.ts",
       "src/flow/runtime/remote/{remote-child,remote-claim}.ts",
-      "src/app/remote/{child-end-event,queued-child-run}.ts",
+      "src/app/remote/{child-end-event,queued-child-run,queued-child-stream-config}.ts",
     ],
   };
 }

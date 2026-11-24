@@ -11,8 +11,12 @@ import { MOVED_ENTRIES_CASES } from "./checkpoint-moved-entries.cases.js";
 /** The options `list` takes. */
 type ListOptions = Parameters<BaseCheckpointSaver["list"]>[1];
 
-const thread = (threadId: string): RunnableConfig => ({
-  configurable: { thread_id: threadId, checkpoint_ns: "" },
+const thread = (threadId: string, rootId?: string): RunnableConfig => ({
+  configurable: {
+    thread_id: threadId,
+    checkpoint_ns: "",
+    ...(rootId === undefined ? {} : { root_execution_id: rootId }),
+  },
 });
 
 /** A checkpoint with an id that sorts by time, and one channel value at version `step`. */
@@ -28,9 +32,13 @@ const checkpointOf = (id: string, step: number): ReturnType<typeof emptyCheckpoi
  * passes the versions of the channels it changed, as LangGraph does (#511): a saver that writes a
  * channel's value only for the versions it is given (LangGraph's `PostgresSaver`) passes as it is.
  */
-async function twoSteps(saver: BaseCheckpointSaver, threadId: string): Promise<RunnableConfig> {
+async function twoSteps(
+  saver: BaseCheckpointSaver,
+  threadId: string,
+  rootId?: string,
+): Promise<RunnableConfig> {
   const first = await saver.put(
-    thread(threadId),
+    thread(threadId, rootId),
     checkpointOf("checkpoint-1", 1),
     { source: "input", step: 1, parents: {} },
     { messages: 1 },
@@ -135,21 +143,39 @@ const CHECKPOINT_CASES: readonly ContractCase<BaseCheckpointSaver>[] = [
     },
   },
   {
-    name: "deleteThread of a tree's root removes its child threads at any depth, and no thread that only starts like them (#1321d)",
+    name: "deleteThread of a tree's root removes the threads that name it as their root, at any depth, and no other thread (#1321d)",
     run: async ({ first, second }) => {
+      // each thread names its tree's root in `configurable.root_execution_id`, as the framework writes it
       const doomed = ["root", "root/child/a", "root/child/a/child/b"];
-      // a sibling tree, a thread that continues the id, one whose id sorts next to the range's bounds
-      const kept = ["root2", "root-child", "root/children", "root/child", "other/child/root"];
-      for (const id of [...doomed, ...kept]) {
-        const config = await twoSteps(first, id);
+      // another tree whose ids merely look like the root's: no id shape, no range, is a tree
+      const kept = [
+        ["root2", "root2"],
+        ["root-child", "root-child"],
+        ["root/children", "root/children"],
+        ["root/child", "root/child"],
+        ["other/child/root", "other"],
+        ["root0", "root0"],
+        // a thread inside the range of the root's child threads, but of another tree
+        ["root/child/x-evil", "root/child/x-evil"],
+        ["root/child/x-evil/child/y", "root/child/x-evil"],
+      ] as const;
+      for (const id of doomed) {
+        const config = await twoSteps(first, id, "root");
+        await first.putWrites(config, [["messages", "pending"]], "task-1");
+      }
+      for (const [id, rootId] of kept) {
+        const config = await twoSteps(first, id, rootId);
         await first.putWrites(config, [["messages", "pending"]], "task-1");
       }
 
       await second.deleteThread("root");
 
       for (const id of doomed) expect(await first.getTuple(thread(id))).toBeUndefined();
-      for (const id of kept)
-        expect((await first.getTuple(thread(id)))?.checkpoint.id).toBe("checkpoint-2");
+      for (const [id] of kept) {
+        const tuple = await first.getTuple(thread(id));
+        expect(tuple?.checkpoint.id).toBe("checkpoint-2");
+        expect(tuple?.pendingWrites).toEqual([["task-1", "messages", "pending"]]);
+      }
     },
   },
 ];

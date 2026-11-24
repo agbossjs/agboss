@@ -210,8 +210,12 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/public/application-limits.ts"],
   ),
   ...reviewed(
-    "a tree's checkpoint thread names (#1321d): the `<root>/child/<id>` join and the half-open range of a root's child threads, used by the savers' deleteThread; the deletion itself is checked by the checkpoint saver contract and tests/infrastructure/checkpoint-threads.test.ts",
+    "a tree's checkpoint thread names (#1321d): the `<root>/child/<id>` join and the root a checkpoint's config names, used by the savers; the deletion by root is checked by the checkpoint saver contract and tests/infrastructure/checkpoint-threads.test.ts",
     ["src/infrastructure/checkpoint-threads.ts"],
+  ),
+  ...reviewed(
+    "the child separator `/child/` (#1321d): one string constant; refused in every key by KeyTextRule.ReservedSeparator (sharded in key-text-rule.ts) and checked by tests/infrastructure/checkpoint-threads.test.ts",
+    ["src/core/child-thread-separator.ts"],
   ),
   ...reviewed(
     "the cluster's in-memory double (#1321e): a test double of a Redis-like cluster (liveness by a clock, counters per tree, pushed marks) with an outage switch, used by the core's unit tests and as a store package's first contract run — no store of the application; covered by tests/infrastructure/cluster-lease.test.ts",

@@ -1,6 +1,7 @@
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { newRunContext, type RunContext } from "../core/run-context.js";
 import type { PiiRuntime } from "../pii/runtime.js";
+import { ROOT_EXECUTION_ID_KEY } from "../infrastructure/checkpoint-threads.js";
 import { runConfig } from "./paused.js";
 import { rootChainOf } from "../tracing/workflow-chain.js";
 import { RunStream } from "./stream/run-stream.js";
@@ -97,7 +98,13 @@ export function streamConfig<TName extends string>(
   };
   return {
     // the checkpoint thread is the run; its rows are tagged with the run's tenant (#261 AC6)
-    ...runConfig(runId, services, { ...options.configurable, tenant_id: tenantId }),
+    // and its tree's root, which every checkpoint and write of the tree stores (#1321d): the run's
+    // own id; a child's config inherits it, a queued child's is set from its identity
+    ...runConfig(runId, services, {
+      ...options.configurable,
+      tenant_id: tenantId,
+      [ROOT_EXECUTION_ID_KEY]: runId,
+    }),
     streamMode: "values",
     durability: "sync",
     runName: deps.config.name,
