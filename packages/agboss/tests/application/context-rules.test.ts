@@ -42,12 +42,13 @@ class PlanTenantContext extends TenantContext {
 }
 
 class SpoofedTenantContext extends TenantContext {
-  @Text() tenantId!: string;
+  @Text() override tenantId = "";
 }
 
 class SpoofedExecutionContext extends ExecutionContext {
-  @Text() ownerId!: string;
-  @Text() handledError!: string;
+  @Text() override ownerId = "";
+  // @ts-expect-error -- the spoof: a text field where the framework sets a record
+  @Text() override handledError = "";
 }
 
 class OwnFieldsTenantContext extends TenantContext {
@@ -103,7 +104,7 @@ class SpoofedTenantApplication {}
   environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
   budgets: TEST_BUDGETS,
-  executionContext: SpoofedExecutionContext,
+  executionContext: SpoofedExecutionContext as never, // the spoof does not fit the context's type
 })
 class SpoofedExecutionApplication {}
 
