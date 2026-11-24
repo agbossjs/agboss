@@ -1,5 +1,4 @@
 import type { Class } from "../../components/injection.js";
-import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
 import {
   NodeKind,
   type AcceptedBy,
@@ -115,8 +114,13 @@ export interface FlowEdge {
   readonly from: ComponentName;
   readonly to: ComponentName;
   readonly kind: EdgeKind;
-  /** The values of the step `from` (a launch edge adds a per-item branch's item last). */
+  /**
+   * The values of the step `from`, derived from its declaration (#1270; a launch edge adds a
+   * per-item branch's item last).
+   */
   readonly writes: readonly ValueWrite[];
+  /** The values its `.returns(…)` chain named: `[flow.returns-mismatch]` compares them with `writes`. */
+  readonly returned: readonly ValueWrite[];
   /** The class an `EdgeKind.Error` / `EdgeKind.JoinError` edge catches. */
   readonly error?: ErrorClass;
   /** `EdgeKind.Launch` and `EdgeKind.Join` / `EdgeKind.JoinError`: the launch (#273). */
@@ -172,16 +176,6 @@ export function outputOf(node: FlowNode): OutputShape | undefined {
 /** An agent without `output` answers with text (#270 AC10). */
 export const isTextAgent = (node: FlowNode): boolean =>
   node.declaration.kind === NodeKind.Agent && node.declaration.options.output === undefined;
-
-/** What a text agent gives on its way out: its reply as `WorkflowFinishTextDto`. */
-const TEXT_ANSWER: readonly ValueWrite[] = [{ shape: WorkflowFinishTextDto, isCase: false }];
-
-/** What an edge of `kind` leaving `node` writes: the flow's values, or a text agent's reply. */
-export const writesLeaving = (
-  node: FlowNode,
-  kind: EdgeKind,
-  written: readonly ValueWrite[],
-): readonly ValueWrite[] => (isTextAgent(node) && kind === EdgeKind.Next ? TEXT_ANSWER : written);
 
 /** A canonical, comparable key of an edge. */
 export function edgeKey(edge: FlowEdge): string {

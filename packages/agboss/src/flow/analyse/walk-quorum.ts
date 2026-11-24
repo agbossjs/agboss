@@ -1,7 +1,8 @@
 import { violation } from "../../graph/rule-error.js";
 import { QuorumKind, StepKind, type GroupsQuorum, type Step } from "../ast.js";
 import { EdgeKind, type JoinEdge } from "./flow-graph.js";
-import { groupAgentNames, groupQuorumGroupsOf, joinValuesOf } from "./quorum-joins.js";
+import { valuesOfGroups } from "./join-groups.js";
+import { groupAgentNames, groupQuorumGroupsOf } from "./quorum-joins.js";
 import { nextCursor, type Cursor } from "./walk-cursor.js";
 import type { LaunchRecorder, SideWalk } from "./walk-launch.js";
 
@@ -24,11 +25,12 @@ export function walkGroups(
   if (current === undefined || launch === undefined) return cursor;
   for (const group of quorum.groups) {
     const agents = groupAgentNames(group.agents);
+    const groups = groupQuorumGroupsOf(launch, agents, (name) => walker.table.node(name));
     const join: JoinEdge = {
       launch,
-      values: joinValuesOf(group.returns),
+      values: valuesOfGroups(groups),
       written: group.returns.map((value) => value.shape),
-      groups: groupQuorumGroupsOf(launch, agents, (name) => walker.table.node(name)),
+      groups,
       quorum,
       group: group.priority === undefined ? { agents } : { agents, priority: group.priority },
     };

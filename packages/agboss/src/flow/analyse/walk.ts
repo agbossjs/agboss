@@ -12,13 +12,11 @@ import {
   type ToStep,
 } from "../ast.js";
 import { Wrapper } from "../dto-wrappers.js";
-import { declarationOf } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
 import {
   EdgeKind,
   edgeKey,
   valueWrite,
-  writesLeaving,
   type FlowEdge,
   type FlowGraph,
   type FlowLaunch,
@@ -35,7 +33,7 @@ import {
   type WalkedFlow,
 } from "./walked-flow.js";
 import { NodeTable } from "./nodes.js";
-import { nextCursor, type Cursor } from "./walk-cursor.js";
+import { cursorAt, kindOfTarget, type Cursor } from "./walk-cursor.js";
 import { walkJoin, walkLaunch, type LaunchRecorder } from "./walk-launch.js";
 import { isGroupsJoin } from "./walk-quorum.js";
 
@@ -67,7 +65,7 @@ class FlowWalker implements LaunchRecorder {
       if (path.source.kind === NodeKind.Start) this.starts.push(source);
       else this.mentions.push({ node: source, kind: MentionKind.OwnPath, isContinued: true });
     }
-    this.walkSteps(path.steps, nextCursor(source, 0, path.source));
+    this.walkSteps(path.steps, cursorAt(this.table, source, 0, path.source));
   }
 
   /** Walks a step list; returns whether it reached a node of its own (a `.to…` step). */
@@ -114,13 +112,13 @@ class FlowWalker implements LaunchRecorder {
     const { shape } = step.value;
     if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
       return { ...cursor, oneOf: shape };
-    return { ...cursor, writes: [...cursor.writes, valueWrite(shape, false)] };
+    return { ...cursor, returned: [...cursor.returned, valueWrite(shape, false)] };
   }
 
   private enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
     const target = this.table.resolve(step.target, step.targetKind);
     if (target !== undefined) this.arrive(target, cursor, isContinued);
-    return nextCursor(target, cursor.depth, cursor.path);
+    return cursorAt(this.table, target, cursor.depth, cursor.path);
   }
 
   /** A mention of `target` reached from the cursor: its placement, mention and incoming edge. */
@@ -138,7 +136,8 @@ class FlowWalker implements LaunchRecorder {
       from,
       to: target,
       kind,
-      writes: writesLeaving(this.table.node(from), kind, cursor.writes),
+      writes: cursor.writes,
+      returned: cursor.returned,
       ...(error === undefined ? {} : { error }),
       ...(launch === undefined ? {} : { launch }),
       ...(join === undefined ? {} : { join }),
@@ -158,6 +157,7 @@ class FlowWalker implements LaunchRecorder {
       const inner: Cursor = {
         current: cursor.current,
         writes: [valueWrite(branch.dto, true)],
+        returned: [],
         entry: EdgeKind.Case,
         path: cursor.path,
         depth: cursor.depth + 1,
@@ -176,7 +176,7 @@ class FlowWalker implements LaunchRecorder {
       const target = this.table.resolve(route.target, kindOfTarget(route.target));
       if (target === undefined) continue;
       this.arrive(target, { ...cursor, entry: EdgeKind.Route, depth }, route.path.steps.length > 0);
-      this.walkSteps(route.path.steps, nextCursor(target, depth, cursor.path));
+      this.walkSteps(route.path.steps, cursorAt(this.table, target, depth, cursor.path));
     }
   }
 
@@ -186,6 +186,7 @@ class FlowWalker implements LaunchRecorder {
     const inner: Cursor = {
       ...cursor,
       writes: [],
+      returned: [],
       entry: EdgeKind.Error,
       error: step.error,
       depth: cursor.depth + 1,
@@ -196,10 +197,6 @@ class FlowWalker implements LaunchRecorder {
     }
   }
 }
-
-/** A route target's kind is the kind its class is declared with (the builder checked it). */
-const kindOfTarget = (target: ToStep["target"]): NodeKind =>
-  declarationOf(target)?.kind ?? NodeKind.Agent;
 
 /** Walks every path of a flow; `self` is the workflow it belongs to (`ThisWorkflow`, #264). */
 export function walkFlow(flow: readonly FlowPath[], self?: Class): WalkedFlow {

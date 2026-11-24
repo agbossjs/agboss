@@ -1,9 +1,9 @@
 import type { Class } from "../../components/injection.js";
-import type { CountQuorum, ReturnedValue } from "../ast.js";
+import type { CountQuorum } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
-import { isValueShape, optional, Wrapper, type ValueShape } from "../dto-wrappers.js";
+import { optional, Wrapper, type ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
-import { valueWrite, type FlowLaunch, type ValueWrite } from "./flow-graph.js";
+import type { FlowLaunch } from "./flow-graph.js";
 import { joinGroupsOf, launchKeyOf, type JoinGroup, type NodeLookup } from "./join-groups.js";
 
 /**
@@ -64,10 +64,3 @@ export const groupAgentNames = (agents: readonly Class[]): readonly ComponentNam
 /** The `JoinOutputs` key of a group: `<launch> group(<agents as listed>)`, as the builder spells it. */
 export const groupKeyOf = (launch: FlowLaunch, agents: readonly ComponentName[]): string =>
   `${launchKeyOf(launch)} group(${agents.join(", ")})`;
-
-/** The values of a `.returns(…)` chain a join (or a quorum group) writes. */
-export function joinValuesOf(returns: readonly ReturnedValue[]): readonly ValueWrite[] {
-  return returns.flatMap((value) =>
-    isValueShape(value.shape) ? [valueWrite(value.shape, false)] : [],
-  );
-}

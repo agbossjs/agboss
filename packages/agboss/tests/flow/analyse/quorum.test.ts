@@ -149,6 +149,12 @@ describe("#279 AC14: what .returns(…) may promise after .joinQuorum({ min })",
         message:
           "fit-review-workflow-start → toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ min: 2 }) may leave skills-score-agent out of the quorum — write .returns(optional(SkillsScoreDto)), not .returns(SkillsScoreDto) (or min: 3 to count every agent)",
       },
+      // the graph carries what the branches give (#1270), so the consumer reads the optional value
+      {
+        code: "input.missing-on-path",
+        message:
+          "skills-reader-agent.skills (SkillsScoreDto) is not produced on the path fit-review-workflow-start → skills-reader-agent (skills-score-agent may be left out of the quorum) — make it optional(SkillsScoreDto) or listOf(SkillsScoreDto)",
+      },
     ]);
   });
 

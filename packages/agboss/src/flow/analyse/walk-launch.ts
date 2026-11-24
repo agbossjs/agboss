@@ -22,9 +22,9 @@ import {
   type LaunchBranch,
   type ValueWrite,
 } from "./flow-graph.js";
-import { joinGroupsOf, type NodeLookup } from "./join-groups.js";
+import { joinGroupsOf, valuesOfGroups, type NodeLookup } from "./join-groups.js";
 import type { NodeTable } from "./nodes.js";
-import { countQuorumGroupsOf, joinValuesOf } from "./quorum-joins.js";
+import { countQuorumGroupsOf } from "./quorum-joins.js";
 import type { Cursor } from "./walk-cursor.js";
 import { walkGroups } from "./walk-quorum.js";
 import {
@@ -110,11 +110,13 @@ export function itemWrites(launch: FlowLaunch): readonly ValueWrite[] {
  */
 export function joinEdgeOf(launch: FlowLaunch, step: JoinStep, nodeOf: NodeLookup): JoinEdge {
   const written = step.returns.map((value) => value.shape);
-  const values = joinValuesOf(step.returns);
   const { quorum } = step;
-  if (quorum?.kind !== QuorumKind.Count)
-    return { launch, values, written, groups: joinGroupsOf(launch, nodeOf) };
-  return { launch, values, written, groups: countQuorumGroupsOf(launch, quorum, nodeOf), quorum };
+  const groups =
+    quorum?.kind === QuorumKind.Count
+      ? countQuorumGroupsOf(launch, quorum, nodeOf)
+      : joinGroupsOf(launch, nodeOf);
+  const joined = { launch, values: valuesOfGroups(groups), written, groups };
+  return quorum?.kind === QuorumKind.Count ? { ...joined, quorum } : joined;
 }
 
 /** What the walker keeps that a launch and its join add to. */
@@ -142,7 +144,14 @@ export function walkLaunch(walker: LaunchRecorder, step: LaunchStep, cursor: Cur
   }
   const writes = [...cursor.writes, ...itemWrites(launch)];
   for (const branch of launch.branches)
-    walker.edges.push({ from: current, to: branch.node, kind: EdgeKind.Launch, writes, launch });
+    walker.edges.push({
+      from: current,
+      to: branch.node,
+      kind: EdgeKind.Launch,
+      writes,
+      returned: cursor.returned,
+      launch,
+    });
   return { ...cursor, launch };
 }
 

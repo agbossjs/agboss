@@ -418,6 +418,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/flow/analyse/compensation-walk.ts",
       "src/flow/analyse/compensation.ts",
       "src/flow/analyse/dataflow.ts",
+      "src/flow/analyse/derived-writes.ts",
       "src/flow/analyse/fields.ts",
       "src/flow/analyse/flow-graph.ts",
       "src/flow/analyse/join-groups.ts",

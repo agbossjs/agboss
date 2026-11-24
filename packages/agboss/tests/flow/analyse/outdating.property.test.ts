@@ -125,13 +125,20 @@ function graphOf(spec: GraphSpec): FlowGraph {
   const agents = spec.agents.map((agent, index) => agentNode(index, agent));
   const target = (index: number): ComponentName => agents[index]?.name ?? named(FINISH);
   const edges: FlowEdge[] = [
-    { from: named(START), to: target(spec.startNext), kind: EdgeKind.Next, writes: START_WRITES },
+    {
+      from: named(START),
+      to: target(spec.startNext),
+      kind: EdgeKind.Next,
+      writes: START_WRITES,
+      returned: [],
+    },
     ...spec.agents.flatMap((agent, index) =>
       agent.next.map((next): FlowEdge => ({
         from: target(index),
         to: target(next),
         kind: EdgeKind.Next,
         writes: [{ shape: dtoAt(agent.output), isCase: false }],
+        returned: [],
       })),
     ),
   ];

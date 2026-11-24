@@ -5,9 +5,11 @@ import type { ComponentName } from "../registry.js";
 import {
   isTextAgent,
   outputOf,
+  valueWrite,
   type FlowLaunch,
   type FlowNode,
   type LaunchBranch,
+  type ValueWrite,
 } from "./flow-graph.js";
 import { shapeLabel } from "./labels.js";
 import { slotOfValue, writtenValue, type SlotKey } from "./scope.js";
@@ -98,6 +100,10 @@ export function joinGroupsOf(launch: FlowLaunch, nodeOf: NodeLookup): readonly J
     .map((gathered) => groupOf(launch, gathered))
     .sort((first, second) => first.slot.localeCompare(second.slot));
 }
+
+/** The values a join writes: one per group that can carry one, derived from the branches (#1270). */
+export const valuesOfGroups = (groups: readonly JoinGroup[]): readonly ValueWrite[] =>
+  groups.flatMap((group) => (group.shape === undefined ? [] : [valueWrite(group.shape, false)]));
 
 /** The producers of a value the join writes into `slot`: its group's, else every branch. */
 export function producersOfSlot(

@@ -1,7 +1,6 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
-import { isValueShape, Wrapper } from "../../dto-wrappers.js";
-import { WorkflowFinishTextDto } from "../../../dto/standard/framework.js";
+import { Wrapper } from "../../dto-wrappers.js";
+import { derivedWrites } from "../derived-writes.js";
 import { EdgeKind, isTextAgent, outputOf, type FlowEdge, type FlowNode } from "../flow-graph.js";
 import { shapeLabel } from "../labels.js";
 import type { AnalysisContext } from "./context.js";
@@ -14,26 +13,13 @@ import type { AnalysisContext } from "./context.js";
  * `.switch(caseOf(…)…)` (#299 S54 c, checked with the switch in `switch.ts`).
  */
 
-/** What a start returns: its input DTO, its list, or one value per field of its map. */
-function startValues(node: FlowNode): readonly string[] | undefined {
-  if (node.declaration.kind !== NodeKind.Start) return undefined;
-  const { input } = node.declaration.options;
-  return isValueShape(input) ? [shapeLabel(input)] : Object.values(input).map(shapeLabel);
-}
-
 /** The shapes the step's edges must carry, or what to write instead of `.returns(…)`. */
 function expected(node: FlowNode): readonly string[] | string {
-  const fromStart = startValues(node);
-  if (fromStart !== undefined) return fromStart;
-  if (node.kind === NodeKind.Router) return [];
-  // a text agent's reply is its implicit output (#270 AC10)
-  if (isTextAgent(node)) return [shapeLabel(WorkflowFinishTextDto)];
   const output = outputOf(node);
-  if (output === undefined) return [];
-  if (typeof output !== "function" && output.kind === Wrapper.OneOf) {
+  if (output !== undefined && typeof output !== "function" && output.kind === Wrapper.OneOf) {
     return `${node.name} gives ${shapeLabel(output)} — write .returns(${shapeLabel(output)}) and branch it with .switch(caseOf(…)…)`;
   }
-  return [shapeLabel(output)];
+  return derivedWrites(node).map((write) => shapeLabel(write.shape));
 }
 
 /** Edges whose values are not (only) the step's own `.returns(…)`. */
@@ -56,8 +42,10 @@ export const chain = (labels: readonly string[]): string =>
 function edgeViolation(node: FlowNode, edge: FlowEdge): RuleViolation | undefined {
   // a launch edge adds a per-item branch's item; a join-error edge repeats its join edge's values
   if (SKIPPED.has(edge.kind)) return undefined;
+  // a text agent's reply is its implicit output: nothing is written after it (#270 AC10)
+  if (isTextAgent(node)) return undefined;
   const want = expected(node);
-  const got = edge.writes.map((write) => shapeLabel(write.shape));
+  const got = edge.returned.map((write) => shapeLabel(write.shape));
   if (typeof want === "string") return violation("flow.returns-mismatch", want, [node.name]);
   if (sorted(want) === sorted(got)) return undefined;
   const message =
