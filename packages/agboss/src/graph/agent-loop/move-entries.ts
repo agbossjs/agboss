@@ -1,4 +1,7 @@
-import { callsOf, invalidCallsOf } from "./deps.js";
+import { createHash } from "node:crypto";
+import { sortedJson } from "../../flow/runtime/json.js";
+import { PreparedFrom, type CallDecision, type PreparedCall } from "./state.js";
+import { callsOf, invalidCallsOf, type ToolCallRequest } from "./deps.js";
 import type { AIMessage } from "@langchain/core/messages";
 
 /**
@@ -14,7 +17,7 @@ export const mergeMove = <TValue>(
   ) as Record<string, TValue>;
 
 /** The entries of the calls of a new move, all dropped: what a move starts from. */
-export function freshEntriesOf(move: AIMessage): {
+export function freshEntriesOf(move: AIMessage | null): {
   readonly results: Record<string, undefined>;
   readonly decisions: Record<string, undefined>;
   readonly prepared: Record<string, undefined>;
@@ -32,3 +35,26 @@ export function freshEntriesOf(move: AIMessage): {
     callRecords: fresh,
   };
 }
+
+/**
+ * A decision without the arguments the approver typed (#1295c): they were prepared once more and
+ * are kept as prepared; none when the decision had no override.
+ */
+export function withoutOverride(decided: CallDecision | undefined): CallDecision | undefined {
+  if (decided?.overrideArguments === undefined) return undefined;
+  const { approved, by, reason } = decided;
+  return { approved, by, ...(reason === undefined ? {} : { reason }) };
+}
+
+/** A call to a tool the agent does not have, prepared as an invalid call: never left unprepared (#1295c). */
+export const unknownToolPrepared = (call: ToolCallRequest): PreparedCall => ({
+  tool: call.tool,
+  argsDigest: argsDigestOf(call.args),
+  args: call.args,
+  from: PreparedFrom.Model,
+  kind: "invalid",
+});
+
+/** The digest of the arguments the model gave a call. */
+export const argsDigestOf = (args: Record<string, unknown>): string =>
+  createHash("sha256").update(sortedJson(args)).digest("hex");

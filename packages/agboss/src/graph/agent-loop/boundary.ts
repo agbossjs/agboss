@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { sortedJson } from "../../flow/runtime/json.js";
+import { argsDigestOf, freshEntriesOf } from "./move-entries.js";
 import { Send } from "@langchain/langgraph";
 import { approvalChannelOf } from "../../tools/index.js";
 import { loopUsage } from "./state.js";
@@ -26,10 +25,6 @@ import {
   type StoredToolCall,
   type ToolTask,
 } from "./state.js";
-
-/** The digest of the arguments the model gave a call. */
-export const argsDigestOf = (args: Record<string, unknown>): string =>
-  createHash("sha256").update(sortedJson(args)).digest("hex");
 
 /** Whether a prepared call is the call as the model made it: its tool and its arguments. */
 export const isPreparedFor = (prepared: PreparedCall, call: ToolCallRequest): boolean =>
@@ -172,7 +167,15 @@ export function makeBoundaryNode(
         feedback: invalidArgumentsMessage([call]),
       });
     }
-    return { messages, results, ...unread, callRecords };
+    // a call id the model reuses is a new call: an older one's entries are dropped first (#1295c)
+    const fresh = freshEntriesOf(state.move);
+    return {
+      ...fresh,
+      messages,
+      results: { ...fresh.results, ...results },
+      ...unread,
+      callRecords: { ...fresh.callRecords, ...callRecords },
+    };
   };
 }
 

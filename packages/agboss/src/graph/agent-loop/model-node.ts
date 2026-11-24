@@ -1,4 +1,3 @@
-import { freshEntriesOf } from "./move-entries.js";
 import { AIMessage, type AIMessageChunk, type BaseMessage } from "@langchain/core/messages";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { RunnableConfig } from "@langchain/core/runnables";
@@ -240,10 +239,8 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     }
     // the call exhausted a budget: no tool runs on it (an answer is kept — the next step stops)
     if (calls > 0) checkSpent(state, deps, [...spent, ...checked]);
-    // a call id the model reuses is a new call: nothing of an older one with that id is kept (#1295c)
     return {
       move,
-      ...freshEntriesOf(move),
       usage: [...spent, ...checked],
       modelCalls: 1,
       toolCalls: calls,
