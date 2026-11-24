@@ -51,6 +51,7 @@ export type {
   ModelVideoPart,
   PartMeta,
 } from "./content.js";
+export { CliModelProvider, type CliInvocation, type CliResult } from "./cli-model-provider.js";
 export { FinishReason } from "./finish-reason.js";
 export type { ModelCapabilities, PromptCachingSupport, ReasoningSupport } from "./capabilities.js";
 export {

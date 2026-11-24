@@ -12,11 +12,12 @@ import {
 } from "./circuit-breaker-policy.js";
 
 /** Codes of a failed model call the framework raises itself. */
-export type ModelCallErrorCode = "model.circuit-open" | "model.unsupported-input";
+export type ModelCallErrorCode =
+  "model.circuit-open" | "model.unsupported-input" | "model.cli-failed";
 
 /** What a model call the framework failed itself takes (#906): why, the provider and the message. */
 export interface ModelCallErrorOptions {
-  /** Why: `model.circuit-open`, or `model.unsupported-input` (#899: a part the model cannot take). */
+  /** Why: `model.circuit-open`; `model.unsupported-input` (#899: a part the model cannot take); `model.cli-failed` (#1313: a CLI that cannot start, or whose first frame refuses the call). */
   readonly code: ModelCallErrorCode;
   /** The provider's name. */
   readonly provider: string;

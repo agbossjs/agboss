@@ -965,6 +965,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     [
       "src/models/capabilities.ts",
       "src/models/catch-all.ts",
+      "src/models/cli-model-provider.ts",
       "src/models/config-cascade.ts",
       "src/models/connections.ts",
       "src/models/content.ts",

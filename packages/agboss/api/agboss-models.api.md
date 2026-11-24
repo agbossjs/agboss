@@ -107,6 +107,29 @@ export class CircuitBreakerPolicyError extends RangeError {
 }
 
 // @public
+export interface CliInvocation {
+    readonly args: readonly string[];
+    readonly command: string;
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string>>;
+    readonly stdin?: string;
+}
+
+// @public
+export abstract class CliModelProvider {
+    complete(request: ModelProviderRequest): Promise<ModelProviderResponse>;
+    protected abstract invocationOf(request: ModelProviderRequest): CliInvocation;
+    onInit(): Promise<void>;
+    protected parseStreamLine(line: string): string | undefined;
+    protected resultOf(stdout: string): CliResult;
+    stream(request: ModelProviderRequest): ModelProviderStream;
+    verifyStartup?(): void | Promise<void>;
+}
+
+// @public
+export type CliResult = Omit<ModelProviderResponse, "toolCalls">;
+
+// @public
 export class ConfigurationError extends AGBossError {
     constructor(options: ConfigurationErrorOptions);
     // (undocumented)
@@ -341,7 +364,7 @@ export class ModelCallError extends AGBossError {
 }
 
 // @public
-export type ModelCallErrorCode = "model.circuit-open" | "model.unsupported-input";
+export type ModelCallErrorCode = "model.circuit-open" | "model.unsupported-input" | "model.cli-failed";
 
 // @public
 export interface ModelCallErrorOptions {

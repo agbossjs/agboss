@@ -6333,7 +6333,7 @@ export class ModelCallError extends AGBossError {
 }
 
 // @public
-export type ModelCallErrorCode = "model.circuit-open" | "model.unsupported-input";
+export type ModelCallErrorCode = "model.circuit-open" | "model.unsupported-input" | "model.cli-failed";
 
 // @public
 export interface ModelCallErrorOptions {
