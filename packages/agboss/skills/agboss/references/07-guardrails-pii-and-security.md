@@ -506,7 +506,7 @@ asserts it. A policy's `secret` or the storage's `piiSecret` whose variable is u
 | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `[model.missing-provider]`                                          | no `model`, no `defaults.guardrail.model` and no `modelProvider` in the cascade → set one (the router's model is not used) |
 | `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | a model guardrail with neither / any guardrail with both a `refusal` text and a `refusal(content)` method                  |
-| `[guardrail.no-prompt]`                                             | no question → `prompt`                                                                                     |
+| `[guardrail.no-prompt]`                                             | no question → `prompt`                                                                                                     |
 | `[guardrail.missing-handler]`                                       | a guardrail with no `prompt`, `threshold` or `model` whose class has no `check(content)`                                   |
 | `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                                                                    |
 | `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                                                          |

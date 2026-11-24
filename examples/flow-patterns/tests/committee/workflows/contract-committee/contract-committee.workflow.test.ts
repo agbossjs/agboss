@@ -18,16 +18,11 @@ describe("a committee of external tasks", () => {
   test("every party has its own pause, asked at once", async ({ app }) => {
     const paused = await app.execute(ContractCommitteeWorkflowStart, CONTRACT, OWNER);
 
-    expect(
-      paused.pending
-        .map((pause) => pause.step)
-        .sort(),
-    )
-      .toEqual([
-        "finance-director-sign-off-external-task",
-        "legal-sign-off-external-task",
-        "security-sign-off-external-task",
-      ]);
+    expect(paused.pending.map((pause) => pause.step).sort()).toEqual([
+      "finance-director-sign-off-external-task",
+      "legal-sign-off-external-task",
+      "security-sign-off-external-task",
+    ]);
   });
 
   test("two approvals meet the quorum: the contract is signed and the third pause is withdrawn", async ({
@@ -45,11 +40,10 @@ describe("a committee of external tasks", () => {
       OWNER,
     );
 
-    expect(done)
-      .toFinishWith(ContractSignedWorkflowFinish, {
-        title: "Supply agreement",
-        signedBy: "2",
-      });
+    expect(done).toFinishWith(ContractSignedWorkflowFinish, {
+      title: "Supply agreement",
+      signedBy: "2",
+    });
     await expect(
       app.resume(
         { pauseId: pauseOf("finance-director-sign-off-external-task") ?? "", decision: approve },
@@ -69,7 +63,6 @@ describe("a committee of external tasks", () => {
       OWNER,
     );
 
-    expect(done)
-      .toFinishWith(ContractRejectedWorkflowFinish, CONTRACT);
+    expect(done).toFinishWith(ContractRejectedWorkflowFinish, CONTRACT);
   });
 });

@@ -1,5 +1,11 @@
 // `agboss rag index` interrupted in its write phase (#891 D1): a real SqliteFtsRagSource over the folder and file the test names
-import { Agent, Application, EmptyEnvironment, Workflow, inline } from "../../../../agboss/src/index.js";
+import {
+  Agent,
+  Application,
+  EmptyEnvironment,
+  Workflow,
+  inline,
+} from "../../../../agboss/src/index.js";
 import { Rag, RagScope, SqliteFtsRagSource } from "../../../../agboss/src/rag/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";

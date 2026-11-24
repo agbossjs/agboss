@@ -74,9 +74,7 @@ describe("#1318: env.ttl.optional keeps Ttl.None out unless it allows it", () =>
   const ttl = {} as EnvReaders["ttl"];
 
   it("allowNone defaults to false", () => {
-    expectTypeOf(ttl.optional("A")).toEqualTypeOf<
-      EnvRef<Milliseconds | Ttl.Forever | undefined>
-    >();
+    expectTypeOf(ttl.optional("A")).toEqualTypeOf<EnvRef<Milliseconds | Ttl.Forever | undefined>>();
     expectTypeOf(ttl.optional("A", { allowNone: false })).toEqualTypeOf<
       EnvRef<Milliseconds | Ttl.Forever | undefined>
     >();

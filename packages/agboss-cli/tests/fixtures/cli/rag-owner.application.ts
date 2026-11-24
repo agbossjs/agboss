@@ -1,6 +1,12 @@
 // `agboss rag index` fixture: an owner-scoped knowledge base — an owner id is unique within a tenant
 // only, so the command names the tenant too
-import { Agent, Application, EmptyEnvironment, Workflow, inline } from "../../../../agboss/src/index.js";
+import {
+  Agent,
+  Application,
+  EmptyEnvironment,
+  Workflow,
+  inline,
+} from "../../../../agboss/src/index.js";
 import {
   Rag,
   RagScope,

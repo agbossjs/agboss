@@ -21,7 +21,11 @@ describe("#1328: a run on its own in an application with a tenantContext", () =>
   });
 
   strict("the call's own tenant runs it and gives a UnitRun", async ({ app }) => {
-    const run = await app.runTool(GetOrderTool, { orderId: "1" }, { tenant: { tenantId: "acme", plan: "pro" } });
+    const run = await app.runTool(
+      GetOrderTool,
+      { orderId: "1" },
+      { tenant: { tenantId: "acme", plan: "pro" } },
+    );
 
     expect(run.output).toMatchObject({ kind: "ok" });
     expect(run.spend.totalUsd).toBe(0);

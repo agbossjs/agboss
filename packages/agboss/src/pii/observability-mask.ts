@@ -31,8 +31,7 @@ export interface ObservedContexts {
   readonly executionContext: abstract new () => unknown;
 }
 
-const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  isWalkable(value);
+const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> => isWalkable(value);
 
 const hiddenTokens = (tokens: unknown): unknown =>
   isPlain(tokens)

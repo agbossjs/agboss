@@ -1,5 +1,11 @@
 // `agboss rag index` interrupted (#891 AC5): a knowledge base whose index runs until its signal aborts
-import { Agent, Application, EmptyEnvironment, Workflow, inline } from "../../../../agboss/src/index.js";
+import {
+  Agent,
+  Application,
+  EmptyEnvironment,
+  Workflow,
+  inline,
+} from "../../../../agboss/src/index.js";
 import {
   Rag,
   RagScope,

@@ -10,7 +10,12 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { settle } from "./fixtures/fence-takeover.js";
-import { frozenRuns, gates, letAllGo, resetFencedEffect } from "./fixtures/fenced-effect.workflow.js";
+import {
+  frozenRuns,
+  gates,
+  letAllGo,
+  resetFencedEffect,
+} from "./fixtures/fenced-effect.workflow.js";
 import {
   behaviour,
   CancelFenceApplication,

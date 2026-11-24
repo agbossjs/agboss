@@ -266,35 +266,35 @@ const approve = { approved: true };
 
 /** A tree that rests at a business pause is frozen too (`dual_paused`): `app.unpause` lifts only the operator's freeze. */
 describe("#1341c: app.pause of a tree resting at a business pause", () => {
-  kept("is dual_paused: an answer is refused until the unpause, then accepted", async ({
-    app,
-    mockLlm,
-  }) => {
-    mockLlm(Clerk).thenReturn(
-      callTool(Probe, { text: "card" }),
-      callTool(Charge, { text: "10 USD" }),
-      replyWith(ReceiptDto, { text: "Charged." }),
-    );
-    const paused = await execute(app, Start, { text: "charge" });
+  kept(
+    "is dual_paused: an answer is refused until the unpause, then accepted",
+    async ({ app, mockLlm }) => {
+      mockLlm(Clerk).thenReturn(
+        callTool(Probe, { text: "card" }),
+        callTool(Charge, { text: "10 USD" }),
+        replyWith(ReceiptDto, { text: "Charged." }),
+      );
+      const paused = await execute(app, Start, { text: "charge" });
 
-    const asked = await app.pause(paused.threadId, { reason: "freeze" });
-    const refused = await app.resume(answerOf(paused, approve)).catch((error: unknown) => error);
+      const asked = await app.pause(paused.threadId, { reason: "freeze" });
+      const refused = await app.resume(answerOf(paused, approve)).catch((error: unknown) => error);
 
-    expect(asked).toEqual({ state: PauseRequestState.Paused });
-    expect(refused).toBeInstanceOf(ExecutionError.ExternallyPaused);
-    expect(seen.charges).toEqual([]);
-    const lifted = await app.unpause(paused.threadId, { reason: "thaw" });
-    expect(lifted).toMatchObject({ status: ExecutionStatus.Paused, isExternallyPaused: false });
-    const done = await app.resume(answerOf(paused, approve));
-    expect(done.status).toBe(ExecutionStatus.Finished);
-    expect(seen.charges).toHaveLength(1);
-    expect(await statusesOf(app, paused.threadId)).toEqual([
-      "running",
-      "paused",
-      "dual-paused",
-      "paused",
-      "running",
-      "finished",
-    ]);
-  });
+      expect(asked).toEqual({ state: PauseRequestState.Paused });
+      expect(refused).toBeInstanceOf(ExecutionError.ExternallyPaused);
+      expect(seen.charges).toEqual([]);
+      const lifted = await app.unpause(paused.threadId, { reason: "thaw" });
+      expect(lifted).toMatchObject({ status: ExecutionStatus.Paused, isExternallyPaused: false });
+      const done = await app.resume(answerOf(paused, approve));
+      expect(done.status).toBe(ExecutionStatus.Finished);
+      expect(seen.charges).toHaveLength(1);
+      expect(await statusesOf(app, paused.threadId)).toEqual([
+        "running",
+        "paused",
+        "dual-paused",
+        "paused",
+        "running",
+        "finished",
+      ]);
+    },
+  );
 });
