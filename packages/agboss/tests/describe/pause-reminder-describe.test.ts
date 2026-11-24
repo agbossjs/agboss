@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describedChannelsOf } from "../../src/describe/channels.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { ExtensionApplication } from "../flow/fixtures/pause-extension.fixture.js";
 
 describe("#942: describe shows the reminder", () => {
@@ -16,7 +16,7 @@ describe("#942: describe shows the reminder", () => {
     );
 
     expect(channel).toMatchObject({ expiresIn: 24 * 3_600_000, remindBefore: 2 * 3_600_000 });
-    expect(describeApplication(assembled).join("\n")).toContain(
+    expect(describeAssembledApplication(assembled).join("\n")).toContain(
       "· expires in 24 h · reminds 2 h before",
     );
   });
@@ -30,7 +30,7 @@ describe("#942: describe shows the reminder", () => {
 
     expect(channel?.expiresIn).toBeUndefined();
     expect(channel?.remindBefore).toBe(2 * 3_600_000);
-    expect(describeApplication(assembled).join("\n")).toMatch(
+    expect(describeAssembledApplication(assembled).join("\n")).toMatch(
       /extendable-open-question \(ExtendOpenQuestion\)[^\n]*answered by the channel · reminds 2 h before/,
     );
   });

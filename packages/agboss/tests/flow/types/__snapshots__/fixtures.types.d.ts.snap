@@ -11,7 +11,7 @@ import type { AskResumeWorkflowFinish, ChatApplication, ChatWorkflow, ChatWorkfl
 import type { CompanyGradeDto, CompanyLinkDto, CompanyRejectedDto, CompanyReviewFailedDto, DeepDiveDto, GradedShortlistDto, JobOfferDto, PromisingCompanyDto } from "../tests/flow/fixtures/child-dtos.js";
 import type { CarDto, ChargeTripAction, ChargedTripWorkflow, ChargedTripWorkflowStart, ChildUndoApplication, CommitTripWorkflow, CommitTripWorkflowStart, ConfirmTripAction, DeclinedTripWorkflow, DeclinedTripWorkflowStart, MiddleTripWorkflow, MiddleTripWorkflowFinish, MiddleTripWorkflowStart, NestedChargedTripWorkflow, NestedChargedTripWorkflowStart, NestedQuorumTripWorkflow, NestedQuorumTripWorkflowStart, QuorumTripWorkflow, QuorumTripWorkflowStart, RefusedTripWorkflow, RefusedTripWorkflowStart, RemoteChargedTripWorkflow, RemoteChargedTripWorkflowStart, RemoteQuorumTripWorkflow, RemoteQuorumTripWorkflowStart, RemoteTripWorkflow, RemoteTripWorkflowFinish, RemoteTripWorkflowStart, ReserveCarAction, ReviewTripAction, TripBookedWorkflowFinish, TripChargedWorkflowFinish, TripChildWorkflow, TripChildWorkflowFinish, TripChildWorkflowStart, TripDto, TripRequestDto, TripRoomDto, TripSeatDto, TripSummaryDto } from "../tests/flow/fixtures/child-undo.fixture.js";
 import type { CompanyFinderAgent, CompanyGradedWorkflowFinish, CompanyLinkReviewWorkflowStart, CompanyPickerAgent, CompanyRejectedWorkflowFinish, CompanyReviewApplication, CompanyReviewFailedWorkflowFinish, CompanyReviewWorkflow, CompanyReviewWorkflowStart, CompanyReviewerAgent, CompanyScreeningWorkflow, CompanyScreeningWorkflowStart, DeepDiveAgent, GradedShortlistWorkflowFinish, GraderAgent, JobOfferAgent, JobOfferWorkflow, JobOfferWorkflowFinish, JobOfferWorkflowStart, LinkOfferWorkflow, LinkOfferWorkflowStart, MarkReviewFailedAction, NoOfferFailedWorkflowFinish, NoOfferRejectedWorkflowFinish, NotifyReviewStoppedAction, PickedOfferWorkflowStart, ReviewErrorWorkflowFinish, ReviewRankerAgent, ScreeningStoppedWorkflowFinish } from "../tests/flow/fixtures/children.fixture.js";
-import type { AuditBedAction, BedAgent, BedRequestWorkflow, BedRequestWorkflowStart, BedsDto, BedsWorkflowFinish, BookBedTool, ClinicApplication, ClinicExecutionContext, ClinicTenantContext, FreeBedsTool } from "../tests/flow/fixtures/clinic.fixture.js";
+import type { AuditBedAction, BedAgent, BedQueryDto, BedRequestWorkflow, BedRequestWorkflowStart, BedsDto, BedsWorkflowFinish, BookBedTool, ClinicApplication, ClinicExecutionContext, ClinicTenantContext, FreeBedsTool } from "../tests/flow/fixtures/clinic.fixture.js";
 import type { BudgetApprovalWorkflow, BudgetApprovalWorkflowStart, BudgetOwnerExternalTask, BudgetOwnerInboxChannel, CommitteeApplication, CommitteeChildWorkflow, CommitteeChildWorkflowFinish, CommitteeChildWorkflowStart, CommitteeNoteAgent, CommitteeNotesWorkflow, CommitteeNotesWorkflowFinish, CommitteeNotesWorkflowStart, ContractCommitteeWorkflow, ContractCommitteeWorkflowStart, ContractDto, ContractGroupsWorkflow, ContractGroupsWorkflowStart, ContractRejectedWorkflowFinish, ContractSignedWorkflowFinish, DraftContractAction, FinanceDirectorExternalTask, FinanceInboxChannel, LegalInboxChannel, LegalSignOffExternalTask, LoadBudgetOwnersAction, OwnerAskDto, ReviewNotesAction, SecurityInboxChannel, SecuritySignOffExternalTask, SignAsFinanceAction, SignAsPanelAction, SignContractAction, SignOffDto, SignedDto } from "../tests/flow/fixtures/committee.fixture.js";
 import type { ChargeResultDto, CreditApprovalDto, CreditOrderDto, SupportIntentDto, TopicAnswerDto } from "../tests/flow/fixtures/credit-dtos.js";
 import type { ApprovalAgent, ChargeCardAction, CreditApplication, CreditByModelApplication, CreditByModelWorkflow, CreditLimitByModelRouter, CreditLimitRouter, CreditWorkflow, CreditWorkflowFinish, CreditWorkflowStart, DeskRouter, NoOrderWorkflowFinish, OrderHeldWorkflowFinish, OrderIntakeAgent } from "../tests/flow/fixtures/credit.fixture.js";
@@ -32,6 +32,7 @@ import type { ApprovedVerdictDto, ApprovedWorkflowFinish, RejectedVerdictDto, Re
 import type { BrokenAgent, DraftAgent, EditorAgent, NotifyRecruiterAction, OfferFailedWorkflowFinish, OfferSentWorkflowFinish, OfferWorkflow, OfferWorkflowStart, ReviewerAgent, SendOfferAction } from "../tests/flow/fixtures/offer.fixture.js";
 import type { NotifyFinanceTeamAction, OrderAction, OrderFailedWorkflowFinish, OrderWorkflow, OrderWorkflowFinish, OrderWorkflowStart, RefundCardAction, ReleaseStockAction, ReserveStockAction, ShipOrderAction } from "../tests/flow/fixtures/order.fixture.js";
 import type { ChartMergerAgent, MarkUnitFailedAction, OrgChartFailedDto, OrgChartFailedWorkflowFinish, OrgChartWorkflow, OrgChartWorkflowStart, OrgDepthRouter, OrgDrillWorkflow, OrgDrillWorkflowStart, OrgMapperAgent, OrgRetryWorkflow, OrgRetryWorkflowStart, OrgSplitDto, OrgUnitDto, SplitUnitAction, TeamChartDto, TeamChartWorkflowFinish, UnitCharterAgent, UnitPickerAgent } from "../tests/flow/fixtures/org-chart.fixture.js";
+import type { OwnerToolApproval } from "../tests/flow/fixtures/owner-approval.fixture.js";
 import type { ExtendManagerQuestion, ExtendManagerWorkflow, ExtendManagerWorkflowStart, ExtendOpenQuestion, ExtendOpenWorkflow, ExtendOpenWorkflowStart, ExtendOwnerQuestion, ExtendOwnerWorkflow, ExtendOwnerWorkflowStart, ExtendTightWorkflow, ExtendTightWorkflowStart, ExtensionApplication, ExtensionWorkflowFinish, RecordExtensionAction } from "../tests/flow/fixtures/pause-extension.fixture.js";
 import type { PtAnyChannel, PtAnyToolApproval, PtApplication, PtLimitAnswerDto, PtLimitAskDto, PtLimitChannel, PtLimitChannelInterpreter, PtLimitExternalTask, PtLimitWorkflow, PtLimitWorkflowFinish, PtLimitWorkflowStart, PtNoteTool, PtPayerAgent, PtPayoutChannel, PtPayoutDoneDto, PtPayoutDto, PtPayoutTool, PtPayoutToolApproval, PtPayoutWorkflow, PtPayoutWorkflowFinish, PtPayoutWorkflowStart } from "../tests/flow/fixtures/pause-targets.fixture.js";
 import type { ApproverAnswerDto, ApproverQuestion, ApproverReplyInterpreter, BuyerAgent, BuyerWorkflow, BuyerWorkflowFinish, BuyerWorkflowStart, DownQuestionToolsApplication, OrderTool, OwnerBuyerAgent, OwnerBuyerWorkflow, OwnerBuyerWorkflowFinish, OwnerBuyerWorkflowStart, QuestionToolsApplication, RuleQuestionToolsApplication, WrongQuestionToolsApplication } from "../tests/flow/fixtures/question-tools.fixture.js";
@@ -1280,6 +1281,7 @@ declare module "../src/flow/generated-types.js" {
       "list-manager-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
       "list-open-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
       "list-owner-question": { readonly ask: ListOrderDto; readonly answer: ListDecisionDto };
+      "owner-tool-approval": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: BedQueryDto | ScoreDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: BedQueryDto | ScoreDto } };
       "payout-approval-channel": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PayoutRequestDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PayoutRequestDto } };
       "pt-any-tool-approval": { readonly ask: Omit<ToolCallApprovalAskDto, "arguments"> & { readonly arguments: PtLimitAskDto }; readonly answer: Omit<ToolCallApprovalDecisionDto, "overrideArguments"> & { readonly overrideArguments?: PtLimitAskDto } };
       "pt-limit-external-task": { readonly ask: PtLimitAskDto; readonly answer: PtLimitAnswerDto };
@@ -1295,6 +1297,7 @@ declare module "../src/flow/generated-types.js" {
       "counsel-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
       "finance-director-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
       "legal-sign-off-external-task": { readonly input: ContractDto; readonly output: SignOffDto };
+      "owner-tool-approval": { readonly input: BedQueryDto | ScoreDto; readonly output: { readonly approved: boolean; readonly reason?: string; readonly overrideInput?: BedQueryDto | ScoreDto } };
       "pt-any-tool-approval": { readonly input: PtLimitAskDto; readonly output: { readonly approved: boolean; readonly reason?: string; readonly overrideInput?: PtLimitAskDto } };
       "pt-limit-external-task": { readonly input: PtLimitAskDto; readonly output: PtLimitAnswerDto };
       "pt-payout-tool-approval": { readonly input: PtPayoutDto; readonly output: { readonly approved: boolean; readonly reason?: string; readonly overrideInput?: PtPayoutDto } };
@@ -1421,6 +1424,7 @@ declare module "../src/flow/generated-types.js" {
       "ArticleRequestDto": ArticleRequestDto;
       "AskDto": AskDto;
       "AuditDto": AuditDto;
+      "BedQueryDto": BedQueryDto;
       "BedsDto": BedsDto;
       "CandidateDto": CandidateDto;
       "CarDto": CarDto;
@@ -1973,6 +1977,9 @@ declare module "../tests/flow/fixtures/clinic.fixture.js" {
   }
   interface BedAgent {
     readonly [agbossComponent]?: { readonly name: "bed-agent"; readonly kind: NodeKind.Agent };
+  }
+  interface BedQueryDto {
+    readonly [agbossDto]?: "BedQueryDto";
   }
   interface BedRequestWorkflow {
     readonly [agbossComponent]?: { readonly name: "bed-request-workflow"; readonly kind: NodeKind.Workflow };
@@ -2861,6 +2868,12 @@ declare module "../tests/flow/fixtures/org-chart.fixture.js" {
   }
   interface UnitPickerAgent {
     readonly [agbossComponent]?: { readonly name: "unit-picker-agent"; readonly kind: NodeKind.Agent };
+  }
+}
+
+declare module "../tests/flow/fixtures/owner-approval.fixture.js" {
+  interface OwnerToolApproval {
+    readonly [agbossComponent]?: { readonly name: "owner-tool-approval" };
   }
 }
 

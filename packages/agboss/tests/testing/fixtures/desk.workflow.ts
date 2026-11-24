@@ -20,7 +20,7 @@ import {
 import { Reasoning } from "../../../src/models/index.js";
 import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { McpServer, McpServerClient } from "../../../src/mcp/index.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TestApplicationDailyBudget } from "../../flow/fixtures/budgets.js";
@@ -140,7 +140,7 @@ const notePath = (title: string): string => join(NOTES_DIR, `${title}.md`);
 @Tool({
   name: "save-note-tool",
   description: "Saves a note",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Note,
   output: NoteRef,
   deps: [NotesServer],

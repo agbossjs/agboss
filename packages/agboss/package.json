@@ -88,6 +88,10 @@
       "types": "./dist/stores/index.d.ts",
       "import": "./dist/stores/index.js"
     },
+    "./describe": {
+      "types": "./dist/describe/index.d.ts",
+      "import": "./dist/describe/index.js"
+    },
     "./mcp": {
       "types": "./dist/mcp/index.d.ts",
       "import": "./dist/mcp/index.js"

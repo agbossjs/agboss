@@ -187,6 +187,5 @@ export type {
   DecoratorRuleCode,
   HistoryTtlRuleCode,
 } from "../graph/extra-rule-codes.js";
-export { TerminalUserChannel } from "../channels/terminal-channel.js";
 // the tools an agent's scripted calls may name (#679), filled by `.agboss/types.d.ts`
 export type { AgentToolNamesOf, ToolNameOf } from "../flow/generated-types.js";

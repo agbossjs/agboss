@@ -22,7 +22,7 @@ describe("migrateImports (#195)", () => {
       'import { WorkflowSettings, type WorkflowDefinition } from "@agboss/core/core";',
       'import { usd } from "@agboss/core/units";',
       "// a comment that stays",
-      'import { TerminalUserChannel } from "@agboss/core/channels";',
+      'import { AutoApproveChannel } from "@agboss/core/channels";',
       "",
       "export const x = 1;",
       "",
@@ -32,7 +32,7 @@ describe("migrateImports (#195)", () => {
 
     expect(after.text).toBe(
       [
-        'import { Workflow, provide, from, WorkflowSettings, type WorkflowDefinition, TerminalUserChannel } from "@agboss/core";',
+        'import { Workflow, provide, from, WorkflowSettings, type WorkflowDefinition, AutoApproveChannel } from "@agboss/core";',
         'import { usd } from "@agboss/core/units";',
         "// a comment that stays",
         "",

@@ -1,7 +1,7 @@
 import type { Class } from "../../components/injection.js";
 import { ComponentError } from "../../components/metadata.js";
 import { fieldsOf } from "../../dto/metadata.js";
-import type { A2AExportContract, ContractsSnapshot } from "../../describe/contracts-types.js";
+import type { A2AExportContract, ApplicationContracts } from "../../describe/contracts-types.js";
 import type { JsonSchema } from "../../dto/schema.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../dto/standard/framework.js";
 import { NodeKind } from "../../flow/ast.js";
@@ -81,7 +81,7 @@ function callsModel(node: Class): boolean {
   return declared?.kind === NodeKind.Router && declared.options.decidedBy !== DecidedBy.Code;
 }
 
-const schemaOf = (contracts: ContractsSnapshot, dto: string | undefined): JsonSchema | null =>
+const schemaOf = (contracts: ApplicationContracts, dto: string | undefined): JsonSchema | null =>
   dto === undefined ? null : (contracts.schemas[dto]?.jsonSchema ?? null);
 
 const TEXT_FINISH_HASH = (): string => dtoSchemaHashOf(WorkflowFinishTextDto);
@@ -91,7 +91,7 @@ const dataFieldCountOf = (dto: DtoClass | undefined): number =>
   dto === undefined ? 1 : fieldsOf(dto).length - fileFieldsOf(dto).length;
 
 function outputsOf(
-  contracts: ContractsSnapshot,
+  contracts: ApplicationContracts,
   found: A2AExportContract,
   finishes: ReadonlyMap<string, DtoClass>,
 ): ServedOutput[] {
@@ -116,7 +116,7 @@ const startCallsModel = (start: Class, workflows: readonly Class[]): boolean =>
 
 /** What a listener's skills are built from besides the exports. */
 export interface SkillSources {
-  readonly contracts: ContractsSnapshot;
+  readonly contracts: ApplicationContracts;
   /** The application's workflows: where each start's finishes are. */
   readonly workflows: readonly Class[];
   readonly expose: A2AEndpointMeta;

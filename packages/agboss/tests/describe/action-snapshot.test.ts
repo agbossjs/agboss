@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { describeServices } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -52,7 +52,7 @@ if (booking === undefined) throw new TypeError("the application lists one workfl
 
 describe("#339 AC4: describe shows declared compensation", () => {
   it("the text: one line per action that declares it", () => {
-    const lines = describeApplication(assembled);
+    const lines = describeAssembledApplication(assembled);
 
     expect(lines).toContain(
       "  book-trip-action  compensateWith cancel-booking-action · committedBy confirm-trip-action",
@@ -74,7 +74,7 @@ describe("#339 AC4: describe shows declared compensation", () => {
 describe("#340: a launched action's undo is automatic on a failed join", () => {
   it("the text says so after its compensateWith", async () => {
     const { UndoApplication } = await import("../flow/runtime/fixtures/undo.workflow.js");
-    const lines = describeApplication(await applicationOf(UndoApplication));
+    const lines = describeAssembledApplication(await applicationOf(UndoApplication));
 
     expect(lines).toContain(
       "  reserve-room-action  compensateWith release-room-action  (on a failed join: automatic)",

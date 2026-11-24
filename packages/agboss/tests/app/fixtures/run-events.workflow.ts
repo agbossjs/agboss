@@ -1,5 +1,5 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -85,7 +85,7 @@ export class Lookup {
 @Tool({
   name: "apply-tool",
   description: "Applies for a job",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Query,
   output: Query,
 })

@@ -101,7 +101,7 @@ The result — one row per DTO, its producer and its readers — is the plan for
 | `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ channel: Role })` whose call needs an answer: a `@ChannelRole` (`extends ChannelOf<Self>`) and its `@Channel` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })`   |
 | `thread_id` in `configurable`                                  | `app.execute(Start, input, { threadId, ownerId })`                                                                                                                                                      |
 | `MessagesAnnotation`, a messages reducer                       | across executions, the thread's turns: each agent sees its `@Memory`'s last `uncompactedTurns`, older ones through its compaction; within one, an agent's tool loop keeps its own messages              |
-| `MemorySaver`, `PostgresSaver`                                 | infrastructure in `@Application({ providers })`: `SqliteCheckpointSaver`, `SqlitePausedExecutionRepository`, … (in-memory by default)                                                                   |
+| `MemorySaver`, `PostgresSaver`                                 | infrastructure in `@Application({ providers })`: `SqlitePausedExecutionRepository`, … (the checkpointer comes with the storage driver) (in-memory by default)                                           |
 | `streamMode: "updates"`                                        | `app.execute(…, { onStream })`; observers in `@Application({ observers })` for events                                                                                                                   |
 
 There is no pause step in an AGBoss flow: a pause is always a tool call through a channel. An
@@ -776,8 +776,8 @@ export class SupportWorkflow {}
 ```
 
 The `compile({ checkpointer })` call becomes the application: its workflows, budgets and
-infrastructure — here the channel's implementation; in production also `SqliteCheckpointSaver` and
-`SqlitePausedExecutionRepository`, so a pause survives a restart (`09-persistence-k8s-and-deploy.md`).
+infrastructure — here the channel's implementation; in production also
+`SqlitePausedExecutionRepository` and a storage driver, so a pause survives a restart (`09-persistence-k8s-and-deploy.md`).
 Its budgets, one per file in `budgets/`:
 
 ```ts file=src/support/budgets/support-application.budget.ts

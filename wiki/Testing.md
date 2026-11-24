@@ -61,9 +61,10 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, TerminalUserChannel, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish } from "@agboss/core";
+import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, ToolApproval, PauseRespondent, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish } from "@agboss/core";
 import { List, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
+import { hours } from "@agboss/core/units";
 const model = "moonshotai/kimi-k2.6";
 export class FileRead { @Text() path!: string; }
 export class FileContent { @Text() content!: string; }
@@ -74,10 +75,12 @@ export class ShortlistServer extends McpServerClient<typeof tools> {}
 export class ChosenJob { @Text() title!: string; @Text() link!: string; }
 export class ChosenJobs { @List(ChosenJob) jobs!: ChosenJob[]; }
 export class SavedJobs { @List(Text) added!: string[]; }
+@ToolApproval({ name: "owner-tool-approval", description: "The owner approves the save", respondent: PauseRespondent.Owner, timeout: hours(24) })
+export class OwnerApproval {}
 @Tool({
   name: "save-shortlist-tool",
   description: "Saves jobs",
-  channel: TerminalUserChannel,
+  approval: OwnerApproval,
   input: ChosenJobs,
   output: SavedJobs,
   deps: [ShortlistServer],

@@ -31,7 +31,7 @@ export interface DescribedLaunch {
 }
 
 /** One workflow of the tree: its name, version, starts and children. */
-export interface DescribedWorkflowNode {
+export interface DescribedWorkflowTree {
   readonly name: string;
   readonly version: string;
   /** `chat-workflow-start (WorkflowStartTextDto)`, a map as `({ a: ADto, b: BDto })`. */
@@ -46,12 +46,12 @@ export interface DescribedChild {
   readonly isRecursive: boolean;
   readonly maxDepth?: number;
   /** The child workflow; a recursive one is its parent again and is not expanded. */
-  readonly workflow: DescribedWorkflowNode;
+  readonly workflow: DescribedWorkflowTree;
 }
 
 /** The workflows the application lists, each a tree of its children. */
 export interface DescribedTree {
-  readonly workflows: readonly DescribedWorkflowNode[];
+  readonly workflows: readonly DescribedWorkflowTree[];
 }
 
 function launchOf(edges: readonly FlowEdge[]): DescribedLaunch {
@@ -81,7 +81,7 @@ function nodeOf(
   workflow: Class,
   source: TreeSource,
   above: readonly Class[],
-): DescribedWorkflowNode {
+): DescribedWorkflowTree {
   const declaration = declarationOf(workflow);
   const options = declaration?.kind === NodeKind.Workflow ? declaration.options : undefined;
   const graph = source.graphOf(workflow);
@@ -117,7 +117,7 @@ function nodeOf(
 }
 
 /** A workflow named in the tree without its children (a recursion: its parent again). */
-function leafOf(workflow: Class): DescribedWorkflowNode {
+function leafOf(workflow: Class): DescribedWorkflowTree {
   const declaration = declarationOf(workflow);
   const options = declaration?.kind === NodeKind.Workflow ? declaration.options : undefined;
   return {
@@ -165,7 +165,7 @@ function childLines(child: DescribedChild, indent: string): string[] {
   ];
 }
 
-function nodeLines(node: DescribedWorkflowNode, indent: string, withTitle: boolean): string[] {
+function nodeLines(node: DescribedWorkflowTree, indent: string, withTitle: boolean): string[] {
   return [
     ...(withTitle ? [`${indent}${node.name} ${node.version}`] : []),
     ...node.starts.map((start) => `${indent}${withTitle ? "  " : ""}start ${start}`),

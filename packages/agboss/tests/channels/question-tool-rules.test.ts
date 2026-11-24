@@ -13,7 +13,7 @@ import { questionRoleOf } from "../../src/channels/discovery.js";
 import { questionToolOf } from "../../src/components/runtime.js";
 import type { Class } from "../../src/components/injection.js";
 import { ChannelImplementationReason, describedChannelsOf } from "../../src/describe/channels.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
@@ -96,7 +96,7 @@ describe("#712 AC1: a question role in an agent's tools", () => {
 
   it("AC1: the model sees the role's name, description and ask as a tool", async () => {
     const assembled = await applicationOf(QuestionToolsApplication);
-    const lines = describeApplication(assembled).join("\n");
+    const lines = describeAssembledApplication(assembled).join("\n");
 
     expect(lines).toContain("approver-question");
     const channel = describedChannelsOf(assembled).find(

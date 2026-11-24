@@ -266,7 +266,7 @@ export class ExecutionBudget implements BudgetHandler {
 ```
 
 ```ts file=src/refunds.application.ts
-import { Application, SqliteCheckpointSaver, SqlitePausedExecutionRepository } from "@agboss/core";
+import { Application, SqlitePausedExecutionRepository } from "@agboss/core";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { ApplicationDailyBudget } from "./refunds/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./refunds/budgets/execution.budget.js";
@@ -282,8 +282,7 @@ import { RefundWorkflow } from "./refunds/workflows/refund/refund.workflow.js";
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   providers: [
     SlackRefundApprovalChannel, // …the channel implementation in the application
-    SqlitePausedExecutionRepository, // pauses survive a restart: a durable pause store…
-    SqliteCheckpointSaver, // …and a durable checkpointer, both
+    SqlitePausedExecutionRepository, // pauses survive a restart: a durable pause store
   ],
 })
 export class RefundsApplication {}
@@ -323,8 +322,9 @@ await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", ac
 The wrong credential for the role is `PauseError.PermissionDenied`. The contract of every channel is
 `ChannelHandler<Role>` — `send(ask)` and the optional `onPauseClosed(event)` / `onPauseAnswerNotTaken(event)` / `onPauseExtended(event)` / `onPauseExpiring(event)`;
 a role's implementation gets it by extending the role (`ChannelOf<Role>` implements it, the notices no-ops you `override`). Ready-made concrete channels named on a
-tool as is: `TerminalUserChannel` (answered in the terminal by `npx agboss chat` / `run`),
-`AutoApproveChannel`, `AutoRejectChannel` (decide at once — scripts and tests).
+tool as is: `AutoApproveChannel`, `AutoRejectChannel` (decide at once — scripts and tests). An approval
+the thread's owner answers needs no channel: a `@ToolApproval` with `PauseRespondent.Owner`, answered in
+the terminal by `npx agboss chat` / `run` or by `app.resume`.
 
 ## Questions: the workflow asks, the answer goes on the path
 

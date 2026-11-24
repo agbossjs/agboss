@@ -144,7 +144,7 @@ next model call with `BudgetExceededError` ([FinOps](FinOps#at-run-time)).
 
 ## Approval
 
-A tool declared with a `channel` (`@Tool({ channel: TerminalUserChannel })` or a channel role, found
+A tool declared with a `channel` (`@Tool({ channel: AutoApproveChannel })` or a channel role, found
 through the tool — [Tools → Approval channels](Tools#approval-channels)) waits for a decision before
 it runs: its channel's `send` decides at once (`ChannelOutcome.decided`), or the call pauses
 (`ExecutionOutput.pending`, one entry per waiting call — parallel branches each wait on their own)

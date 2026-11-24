@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describedChannelsOf } from "../../src/describe/channels.js";
 import { describedApplicationOf } from "../../src/describe/application.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { WorkingWeek } from "../../src/index.js";
 import { hours, workingHours, workingMinutes } from "../../src/units/index.js";
 import { workingApp } from "../flow/fixtures/working-time-app.js";
@@ -30,7 +30,7 @@ describe("#944: describe shows working time", () => {
       remindBefore: 30 * 60_000,
       isRemindBeforeWorking: true,
     });
-    expect(describeApplication(assembled).join("\n")).toContain(
+    expect(describeAssembledApplication(assembled).join("\n")).toContain(
       "· expires in 8 h of working time · reminds 30 min of working time before",
     );
   });

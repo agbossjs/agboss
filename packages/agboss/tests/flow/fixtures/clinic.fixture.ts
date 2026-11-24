@@ -1,4 +1,4 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "./owner-approval.fixture.js";
 import { Injectable, Tool } from "../../../src/components/decorators.js";
 import { List, Nested, Text } from "../../../src/dto/index.js";
 import { PiiAction } from "../../../src/pii/actions.js";
@@ -135,7 +135,7 @@ export class FreeBedsTool {
 @Tool({
   name: "book-bed-tool",
   description: "Books a bed",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: BedQueryDto,
   output: BedsDto,
   deps: [ClinicExecutionContext],

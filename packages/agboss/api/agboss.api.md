@@ -4,13 +4,10 @@
 
 ```ts
 
-import { BaseCheckpointSaver } from '@langchain/langgraph';
-import { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
 import type { IncomingMessage } from 'node:http';
 import { inspect } from 'node:util';
 import type { MeterProvider } from '@opentelemetry/api';
-import type { RunnableConfig } from '@langchain/core/runnables';
 import type { TracerProvider } from '@opentelemetry/api';
 
 // @public
@@ -148,11 +145,6 @@ export namespace AGBossTypes {
         };
         // (undocumented)
         readonly "auto-reject-channel": {
-            readonly ask: ToolCallApprovalAskDto;
-            readonly answer: ToolCallApprovalDecisionDto;
-        };
-        // (undocumented)
-        readonly "terminal-user-channel": {
             readonly ask: ToolCallApprovalAskDto;
             readonly answer: ToolCallApprovalDecisionDto;
         };
@@ -9295,23 +9287,6 @@ export abstract class SpendRecorder {
 }
 
 // @public
-export class SqliteCheckpointSaver extends BaseCheckpointSaver implements LatestByStepCheckpointSaver {
-    constructor(connection: SqliteConnection);
-    deleteThread(threadId: string): Promise<void>;
-    // (undocumented)
-    getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
-    // (undocumented)
-    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
-    // (undocumented)
-    list(config: RunnableConfig, options?: NonNullable<Parameters<BaseCheckpointSaver["list"]>[1]>): AsyncGenerator<CheckpointTuple>;
-    ping(): Promise<void>;
-    // (undocumented)
-    put(config: RunnableConfig, checkpoint: Parameters<BaseCheckpointSaver["put"]>[1], metadata: Parameters<BaseCheckpointSaver["put"]>[2]): Promise<RunnableConfig>;
-    // (undocumented)
-    putWrites(...input: Parameters<BaseCheckpointSaver["putWrites"]>): Promise<void>;
-}
-
-// @public
 export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepository {
     constructor(connection: SqliteConnection, clock: Clock, applicationContext: ApplicationContext);
     // (undocumented)
@@ -10318,16 +10293,6 @@ export type TenantPointArgs<TApp, TOptions extends object = object> = HasTenantC
 export interface TenantValues {
     readonly tenantId?: string;
     readonly weight?: number;
-}
-
-// @public
-export class TerminalUserChannel {
-    // (undocumented)
-    readonly [agbossComponent]?: {
-        readonly name: "terminal-user-channel";
-    };
-    // (undocumented)
-    send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
 }
 
 // @public
@@ -11769,8 +11734,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "reason".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "reason".
 // src/channels/reply-interpreter.decorator.ts - (ae-undocumented) Missing documentation for "interpret".
-// src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "[agbossComponent]".
-// src/channels/terminal-channel.ts - (ae-undocumented) Missing documentation for "send".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onReady".
 // src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onBeforeDestroy".
 // src/components/decision-model.ts - (ae-undocumented) Missing documentation for "decide".
@@ -12408,7 +12371,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
@@ -12828,11 +12790,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "externalRef".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "getTuple".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "latestByStep".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "put".
-// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "putWrites".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".

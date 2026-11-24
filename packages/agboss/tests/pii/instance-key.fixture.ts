@@ -3,7 +3,7 @@
  * as a `sensitive` field (one approved, one that holds until its execution stops), a child
  * workflow that reads the author again, and a checkpointer that keeps every `piiKey` it saved.
  */
-import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   Agent,
@@ -74,7 +74,7 @@ const lookedUp = (input: LookupDto): LookedUpDto => ({ status: "found", author: 
 @Tool({
   name: "lookup-tool",
   description: "Looks the author up",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: LookupDto,
   output: LookedUpDto,
 })

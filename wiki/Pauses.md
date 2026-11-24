@@ -477,7 +477,7 @@ towards Slack, mail or a ticket system — and `result.pending` and `onExecution
 `Channel` pause, so the token never leaves the channel's server side. A `ThreadOwner` pause answered
 with `actor`, or a `Channel` pause with `ownerId` (or without `actor`), is
 `PauseError.PermissionDenied` (`pause.permission-denied`); the pause keeps waiting. A concrete `@Channel` a tool
-names as is (`TerminalUserChannel`) is answered by the thread's owner. The resumed pass runs as the
+names as is is answered by the thread's owner. The resumed pass runs as the
 thread's owner (`executionContext.ownerId`), whoever answered.
 
 ## A pause's life

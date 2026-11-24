@@ -28,7 +28,8 @@ import { mostStepsFrom } from "./steps.js";
  */
 
 export interface WorstCase {
-  readonly start: ComponentName;
+  /** The name of the start the call enters through. */
+  readonly start: string;
   /** The `name` of the workflow the start opens. */
   readonly workflow: string;
   readonly executions: number;
@@ -49,8 +50,8 @@ export interface WorstCase {
 
 /** An edge into a child workflow in a worst case: how many it starts, how many at once, and why. */
 export interface WorstCaseChild {
-  /** The step the edge leaves. */
-  readonly from: ComponentName;
+  /** The name of the step the edge leaves. */
+  readonly from: string;
   /** How many children the edge starts: `maxItems` of a per-item launch, else 1. */
   readonly count: number;
   /** How many of them at once: `maxConcurrency` (at most `count`), else `count`. */

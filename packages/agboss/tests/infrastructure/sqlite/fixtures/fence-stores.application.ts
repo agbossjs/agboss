@@ -6,7 +6,6 @@ import {
   Clock,
   StoreClock,
   Injectable,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -14,6 +13,7 @@ import {
   SqlitePausedExecutionRepository,
   type ExecutionLease,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
 import { InMemoryExecutionLeaseRepository } from "../../../../src/infrastructure/execution-lease.repository.js";
 import { IN_MEMORY_DATABASE } from "../../../../src/infrastructure/in-memory-database.js";

@@ -23,7 +23,7 @@ import type {
   A2AImportBase,
   A2AImportContract,
   ContractDto,
-  ContractsSnapshot,
+  ApplicationContracts,
   McpExportContract,
   McpImportContract,
 } from "./contracts-types.js";
@@ -54,7 +54,7 @@ class Dtos {
     return typeof shape === "function" ? this.of(shape as DtoClass) : null;
   }
 
-  schemas(): ContractsSnapshot["schemas"] {
+  schemas(): ApplicationContracts["schemas"] {
     const sorted = [...this.#byName.entries()].sort(([left], [right]) => left.localeCompare(right));
     return Object.fromEntries(
       sorted.map(([name, dto]) => [
@@ -210,7 +210,7 @@ function mcpImportsOf(
 }
 
 /** The declared contracts of an assembled application. */
-export function contractsOf(assembled: AssembledApplication): ContractsSnapshot {
+export function contractsOf(assembled: AssembledApplication): ApplicationContracts {
   const dtos = new Dtos();
   const parts = workflowPartsOf(assembled.workflows.map((bundle) => bundle.graph.type));
   const exports = assembled.endpoints.flatMap((expose) => [

@@ -133,8 +133,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["PendingPause", "PausedExecutionRepository", "ExecutionStatus"],
     ...["ReplyInterpreter", "ReplyInterpretation", "ReplyInterpreterHandler"],
     ...["ToolCallApprovalDecisionDto", "ToolCallApprovalAskDto"],
-    ...["AutoApproveChannel", "AutoRejectChannel", "TerminalUserChannel"],
-    ...["SqlitePausedExecutionRepository", "SqliteCheckpointSaver", "hours"],
+    ...["AutoApproveChannel", "AutoRejectChannel"],
+    ...["SqlitePausedExecutionRepository", "hours"],
     ...["NotPausedError", "PauseClosedError", "UnknownPauseError", "PauseError"],
     ...["PauseExpiration", "PauseExpiryHandler", "PauseExpiredError", "ExpiryHandlerError"],
     ...["ExtendPauseRequest", "PauseExtension", "PauseCallerOptions", "ChannelPauseExtendedEvent"],
@@ -243,11 +243,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
   ],
   "references/09-persistence-k8s-and-deploy.md": [
     ...["SqliteConnection", "ExecutionLeaseLostError", "SqliteChildExecutionQueueRepository"],
-    ...[
-      "SqliteCheckpointSaver",
-      "SqliteExecutionRecordRepository",
-      "SqlitePausedExecutionRepository",
-    ],
+    ...["SqliteExecutionRecordRepository", "SqlitePausedExecutionRepository"],
     ...["SqliteCostLedgerRepository", "SqliteExecutionLeaseRepository", "SqliteConnection"],
     ...["SqliteExecutionTreeRepository", "SqliteRateLimitRepository", "ExecutionRecordRepository"],
     ...["PausedExecutionRepository", "CostLedgerRepository", "ExecutionLeaseRepository"],
@@ -320,7 +316,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ],
     ...["GuardrailBlockedError", "VisitsLimitExceededError", "QuorumNotReachedError"],
     ...["testUnit", "callTool", "replyWith", "decideWith"],
-    ...["SqliteCheckpointSaver", "SpendRecorder", "ExecutionContext"],
+    ...["SpendRecorder", "ExecutionContext"],
   ],
   "references/13-migrating-from-langgraph.md": [
     ...["Application", "Workflow", "WorkflowStart", "WorkflowFinish", "createApp", "testWith"],
@@ -336,7 +332,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "ExecutionStatus",
     ],
     ...["VisitsLimitExceededError", "Text", "Integer", "Budget", "EmptyEnvironment"],
-    ...["SqliteCheckpointSaver", "SqlitePausedExecutionRepository"],
+    "SqlitePausedExecutionRepository",
     ...["routeTo", "callTool", "replyWith", "testUnit"],
   ],
 };

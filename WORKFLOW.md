@@ -191,8 +191,9 @@ export class SlackUserDeletionApprovalChannel extends UserDeletionApprovalChanne
 the tool runs. The implementation is channel transport — infrastructure — listed only in
 `@Application({ providers })` (none → `[di.missing-implementation]`, two →
 `[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`). A
-tool may also name a concrete `@Channel` as is (`TerminalUserChannel`; `AutoApproveChannel` /
-`AutoRejectChannel`, which decide at once, for tests and scripts).
+tool may also name a concrete `@Channel` as is (`AutoApproveChannel` / `AutoRejectChannel`, which
+decide at once, for tests and scripts); an approval the thread's owner answers needs no channel at
+all (`@ToolApproval({ respondent: PauseRespondent.Owner })`, answered by `app.resume`).
 
 <!-- snippet-context
 import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, inline } from "@agboss/core";
@@ -297,5 +298,5 @@ await app.resume(
 - **Several pauses at once**: parallel branches each pause on their own; the execution rests only when nothing else can move, `result.pending` lists every waiting pause, and answering one continues it while the others keep waiting. Two answers to one pause (a double click) — the second gets `PauseClosedError`.
 - **Decided at once**: a rule-based channel ("up to $50 approve at once") returns `ChannelOutcome.decided(decision)` — the step goes on with no pause, the decision validated like a reply. No channel needs the application to resume itself, and nothing waits in memory for a person.
 - **Timeouts and Rejections**: If a run should timeout, use an external cron job or scheduler to answer the pause: `app.resume({ pauseId, decision: { approved: false, reason: "Timeout" } }, { actor: { id: "scheduler" } })`.
-- **Durable pauses**: each pause is a record of `PausedExecutionRepository`, made by its step's idempotency key before the channel is asked, so a retried `send` carries the same `pauseId`. By default paused runs live in memory (the built-in in-memory `PausedExecutionRepository` and checkpointer, #261) and are lost on restart — dev and tests only. In production list durable implementations in `@Application({ providers })`: a class that `extends PausedExecutionRepository` and a durable `BaseCheckpointSaver` — e.g. `SqlitePausedExecutionRepository` and `SqliteCheckpointSaver` (#265, `sqlitePath` in the environment).
+- **Durable pauses**: each pause is a record of `PausedExecutionRepository`, made by its step's idempotency key before the channel is asked, so a retried `send` carries the same `pauseId`. By default paused runs live in memory (the built-in in-memory `PausedExecutionRepository` and checkpointer, #261) and are lost on restart — dev and tests only. In production list durable implementations in `@Application({ providers })`: a class that `extends PausedExecutionRepository` and a durable `BaseCheckpointSaver` — e.g. `SqlitePausedExecutionRepository` and the checkpointer of the storage driver (#265, #1321, `sqlitePath` in the environment).
 - **Resume across deployments**: each pause stores the workflow version and config hash it paused under. Resuming it on an app with another config hash throws `IncompatibleResumeError` (naming both versions) unless the workflow accepts it: `WorkflowSettings.builder().onIncompatibleResume(({ paused }) => paused.workflowVersion === "1.0.0" ? "resume" : "reject")`. A rejected resume leaves the run paused.

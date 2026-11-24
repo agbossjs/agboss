@@ -1,12 +1,13 @@
 import {
+  applicationDataOf,
   childSourcesIn,
-  describeApplication,
+  describeAssembledApplication,
   describedEnvironmentFor,
   environmentOwnerOf,
+  workflowDataOf,
 } from "@agboss/core/internal";
 import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { textOption, type CommandHandler } from "./cli/context.js";
-import { applicationData, describeData } from "./cli/describe-data.js";
 import { envOption } from "./cli/environment.js";
 
 /**
@@ -25,7 +26,7 @@ export const handle: CommandHandler = async (context) => {
     context.io.env,
   );
   if (!context.json) {
-    describeApplication(assembled, {
+    describeAssembledApplication(assembled, {
       source: loaded.path.shown,
       profile: profile ?? "base",
       ...(environment === undefined ? {} : { environment }),
@@ -34,9 +35,14 @@ export const handle: CommandHandler = async (context) => {
   }
   return {
     result: {
-      application: applicationData(assembled, environment),
+      application: applicationDataOf(assembled, environment),
       workflows: assembled.workflows.map((workflow) =>
-        describeData(workflow, profile ?? "base", environment, childSourcesIn(assembled.workflows)),
+        workflowDataOf(
+          workflow,
+          profile ?? "base",
+          environment,
+          childSourcesIn(assembled.workflows),
+        ),
       ),
     },
   };

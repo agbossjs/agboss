@@ -1,7 +1,6 @@
 import { Application } from "../../../../src/application/application.js";
 import { PauseExpiration } from "../../../../src/channels/pause-expiration.js";
 import {
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -14,6 +13,7 @@ import {
   type WorkingCalendarHandler,
   type WorkingCalendarContext,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { workingParts } from "../../../flow/fixtures/working-time-app.js";

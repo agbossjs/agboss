@@ -1,7 +1,6 @@
 import {
   ApplicationContext,
   PauseListener,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
@@ -11,6 +10,7 @@ import {
   type PauseListenerHandler,
   type PauseListenerOpenedEvent,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryWorkflow } from "../../fixtures/recovery.workflow.js";

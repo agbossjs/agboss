@@ -1,5 +1,4 @@
 import {
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -7,6 +6,7 @@ import {
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { PlannedIdGenerator } from "../../fixtures/minted-ids.application.js";

@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { Application } from "../src/application/application.js";
 import { applicationOf } from "../src/application/assemble.js";
 import { describedChannelsOf, ChannelImplementationReason } from "../src/describe/channels.js";
-import { describeApplication } from "../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../src/describe/describe-application.js";
 import { describedLimitsOf, worstCaseLimitsOf } from "../src/describe/limits.js";
 import { describedPiiPoliciesOf } from "../src/describe/pii-policies.js";
 import { describedTreeOf } from "../src/describe/tree.js";
@@ -123,7 +123,7 @@ describe("#268 AC4: the tree — workflows, their starts and children", () => {
         },
       ],
     });
-    const lines = describeApplication(treasury);
+    const lines = describeAssembledApplication(treasury);
     const at = lines.indexOf("workflows");
     expect(lines.slice(at, at + 11)).toEqual([
       "workflows",
@@ -141,7 +141,9 @@ describe("#268 AC4: the tree — workflows, their starts and children", () => {
   });
 
   it("a workflow launching itself is the workflow again, marked recursive with its maxDepth", async () => {
-    const lines = describeApplication(await applicationOf(applicationWith(DeepResearchWorkflow)));
+    const lines = describeAssembledApplication(
+      await applicationOf(applicationWith(DeepResearchWorkflow)),
+    );
 
     expect(lines).toContain(
       "    child deep-research-workflow (recursive, maxDepth 4) per item from split-topic-action (maxItems 5, maxConcurrency 3)",
@@ -151,7 +153,7 @@ describe("#268 AC4: the tree — workflows, their starts and children", () => {
 
 describe("#268 AC4: model providers and channels with their implementations", () => {
   it("the built-in model providers when none is listed, and why", () => {
-    const lines = describeApplication(treasury);
+    const lines = describeAssembledApplication(treasury);
     const at = lines.indexOf("model providers");
 
     expect(lines.slice(at, at + 3)).toEqual([
@@ -180,13 +182,13 @@ describe("#268 AC4: model providers and channels with their implementations", ()
       reason: ChannelImplementationReason.Listed,
       tools: ["pay-out-tool (treasury-workflow)"],
     });
-    expect(describeApplication(treasury)).toContain(
+    expect(describeAssembledApplication(treasury)).toContain(
       "  expense-approval-channel (ExpenseApprovalChannel): ExpenseRequestDto → ToolCallApprovalDecisionDto · answered by the thread's owner · reply interpreter expense-reply-interpreter · ButtonExpenseApprovalChannel (listed in @Application providers) · tools book-expense-tool (treasury-workflow)",
     );
   });
 
   it("an application whose tools name no channel says so", () => {
-    expect(describeApplication(clerk)).toContain("channels none");
+    expect(describeAssembledApplication(clerk)).toContain("channels none");
   });
 });
 
@@ -219,7 +221,7 @@ describe("#268 AC4: PII policies and their refusals", () => {
         ],
       ],
     ]);
-    expect(describeApplication(clerk)).toContain(
+    expect(describeAssembledApplication(clerk)).toContain(
       '  iban-pii-policy — iban: block() · refusal: "Please do not send an IBAN.", email: mask() · on clerk-agent · masks logs and traces',
     );
   });
@@ -257,9 +259,9 @@ describe("#268 AC4, #120 PR 3: each agent's compaction and window with where the
     lines.find((line) => line.startsWith(`  ${agent}  `));
 
   it("the agent's own or its workflow's", async () => {
-    const own = describeApplication(await applicationOf(applicationWith(OwnNoteWorkflow)));
-    const workflow = describeApplication(await applicationOf(NotesDeskApplication));
-    const application = describeApplication(await applicationOf(HelpDeskApplication));
+    const own = describeAssembledApplication(await applicationOf(applicationWith(OwnNoteWorkflow)));
+    const workflow = describeAssembledApplication(await applicationOf(NotesDeskApplication));
+    const application = describeAssembledApplication(await applicationOf(HelpDeskApplication));
 
     expect(agentLine(own, "own-note-agent")).toMatch(/ · compaction note-memory \(own\)$/);
     expect(agentLine(workflow, "note-agent")).toMatch(

@@ -47,7 +47,6 @@ export {
   type ChildExecutionQueueWatch,
   type QueuedChildExecution,
 } from "../infrastructure/child-execution-queue.repository.js";
-export { SqliteCheckpointSaver } from "../infrastructure/sqlite/sqlite-checkpoint-saver.js";
 export { SqliteCostLedgerRepository } from "../infrastructure/sqlite/sqlite-cost-ledger.repository.js";
 export type { LedgerKey } from "../finops/ledger-mark.js";
 // the store helpers of the ledger (#817, #869) are in `@agboss/core/stores` (#890)

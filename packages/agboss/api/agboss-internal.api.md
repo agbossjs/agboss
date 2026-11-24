@@ -7,6 +7,8 @@
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
+import { CheckpointTuple } from '@langchain/langgraph';
+import type { DatabaseSync } from 'node:sqlite';
 import type { Graph } from '@langchain/core/runnables/graph';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
@@ -98,10 +100,51 @@ export interface AppDepsOptions {
 }
 
 // @public
+export interface ApplicationContracts {
+    // (undocumented)
+    readonly exports: readonly (A2AExportContract | McpExportContract)[];
+    // (undocumented)
+    readonly imports: readonly (A2AImportContract | A2AForeignImportContract | McpImportContract)[];
+    // (undocumented)
+    readonly schemas: Readonly<Record<string, {
+        readonly schemaHash: string;
+        readonly jsonSchema: JsonSchema;
+    }>>;
+}
+
+// @public
+export function applicationDataOf(assembled: AssembledApplication, environment: DescribedEnvironment | undefined): DescribedApplication;
+
+// @public
 export interface ApplicationDescription {
     readonly environment?: DescribedEnvironment;
     readonly profile?: string;
     readonly source?: string;
+}
+
+// @public
+export interface ApplicationFacts {
+    // (undocumented)
+    readonly budgets: readonly DescribedBudget[];
+    // (undocumented)
+    readonly executionBudgets: readonly DescribedExecutionBudget[];
+    // (undocumented)
+    readonly implementations: readonly ImplementationChoice[];
+    readonly maxConcurrentSteps?: number;
+    // (undocumented)
+    readonly modelProviders: readonly DescribedModelProvider[];
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly observers: readonly string[];
+    readonly pauseListeners: readonly DescribedPauseListener[];
+    readonly storage?: readonly DescribedStorage[];
+    // (undocumented)
+    readonly version: string;
+    // (undocumented)
+    readonly warnings: readonly string[];
+    readonly workflows: readonly string[];
+    readonly workingCalendar?: string;
 }
 
 // @public
@@ -386,20 +429,7 @@ export function contextsOutsideExecution(workflow: {
 export type ContinueOptions = Omit<AgentExecutionOptions, "replayOf" | "runId" | "contexts">;
 
 // @public
-export function contractsOf(assembled: AssembledApplication): ContractsSnapshot;
-
-// @public
-export interface ContractsSnapshot {
-    // (undocumented)
-    readonly exports: readonly (A2AExportContract | McpExportContract)[];
-    // (undocumented)
-    readonly imports: readonly (A2AImportContract | A2AForeignImportContract | McpImportContract)[];
-    // (undocumented)
-    readonly schemas: Readonly<Record<string, {
-        readonly schemaHash: string;
-        readonly jsonSchema: JsonSchema;
-    }>>;
-}
+export function contractsOf(assembled: AssembledApplication): ApplicationContracts;
 
 // @public
 export enum CostCategory {
@@ -523,35 +553,10 @@ export interface DefaultSource {
 export function defaultSourceOf(levels: DefaultsLevels, section: Section, field: string): DefaultSource | undefined;
 
 // @public
-export function describeApplication(assembled: AssembledApplication, description?: ApplicationDescription): string[];
+export function describeAssembledApplication(assembled: AssembledApplication, description?: ApplicationDescription): string[];
 
 // @public
-export interface DescribedApplication {
-    // (undocumented)
-    readonly budgets: readonly DescribedBudget[];
-    // (undocumented)
-    readonly executionBudgets: readonly DescribedExecutionBudget[];
-    // (undocumented)
-    readonly implementations: readonly ImplementationChoice[];
-    readonly maxConcurrentSteps?: number;
-    // (undocumented)
-    readonly modelProviders: readonly DescribedModelProvider[];
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    readonly observers: readonly string[];
-    readonly pauseListeners: readonly DescribedPauseListener[];
-    readonly storage?: readonly StorageLine[];
-    // (undocumented)
-    readonly version: string;
-    // (undocumented)
-    readonly warnings: readonly string[];
-    readonly workflows: readonly string[];
-    readonly workingCalendar?: string;
-}
-
-// @public
-export function describedApplicationOf(assembled: AssembledApplication): DescribedApplication;
+export function describedApplicationOf(assembled: AssembledApplication): ApplicationFacts;
 
 // @public
 export interface DescribedBudget {
@@ -597,7 +602,7 @@ export interface DescribedChild {
     readonly launch: DescribedLaunch;
     // (undocumented)
     readonly maxDepth?: number;
-    readonly workflow: DescribedWorkflowNode;
+    readonly workflow: DescribedWorkflowTree;
 }
 
 // @public
@@ -691,14 +696,14 @@ export interface DescribedPiiRule {
 // @public
 export interface DescribedTree {
     // (undocumented)
-    readonly workflows: readonly DescribedWorkflowNode[];
+    readonly workflows: readonly DescribedWorkflowTree[];
 }
 
 // @public
 export function describedTreeOf(assembled: AssembledApplication): DescribedTree;
 
 // @public
-export interface DescribedWorkflowNode {
+export interface DescribedWorkflowTree {
     // (undocumented)
     readonly children: readonly DescribedChild[];
     // (undocumented)
@@ -1090,7 +1095,7 @@ export function failureTaxonomyOf(content: string): EvalFailureTaxonomyRead;
 // @public
 export interface FederationMember {
     // (undocumented)
-    readonly contracts: ContractsSnapshot;
+    readonly contracts: ApplicationContracts;
     // (undocumented)
     readonly file: string;
     // (undocumented)
@@ -1244,6 +1249,9 @@ export interface GraphDeps<TName extends string> {
 }
 
 // @public
+export const hasLatestByStep: (saver: BaseCheckpointSaver) => saver is LatestByStepCheckpointSaver;
+
+// @public
 export interface HistoryExportQuery {
     // (undocumented)
     readonly from: Date;
@@ -1294,6 +1302,12 @@ export interface KnowledgeSource {
 
 // @public
 export function labelsWith(content: string, label: EvalLabel): string;
+
+// @public
+export interface LatestByStepCheckpointSaver extends BaseCheckpointSaver {
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@agboss/core" does not have an export "NO_STEP"
+    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+}
 
 // @public
 export function loadApplicationClass(path: string, options?: {
@@ -1609,6 +1623,23 @@ export type SnapshotReading = {
 };
 
 // @public
+export class SqliteCheckpointSaver extends BaseCheckpointSaver implements LatestByStepCheckpointSaver {
+    constructor(connection: SqliteConnection);
+    deleteThread(threadId: string): Promise<void>;
+    // (undocumented)
+    getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+    // (undocumented)
+    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+    // (undocumented)
+    list(config: RunnableConfig, options?: NonNullable<Parameters<BaseCheckpointSaver["list"]>[1]>): AsyncGenerator<CheckpointTuple>;
+    ping(): Promise<void>;
+    // (undocumented)
+    put(config: RunnableConfig, checkpoint: Parameters<BaseCheckpointSaver["put"]>[1], metadata: Parameters<BaseCheckpointSaver["put"]>[2]): Promise<RunnableConfig>;
+    // (undocumented)
+    putWrites(...input: Parameters<BaseCheckpointSaver["putWrites"]>): Promise<void>;
+}
+
+// @public
 export interface StaleCassette {
     // (undocumented)
     readonly changes: readonly CassetteChange[];
@@ -1710,6 +1741,9 @@ export const versionOf: (value: unknown) => string;
 export function withReservedExecutionId<TOptions extends object>(options: TOptions, executionId: string): TOptions;
 
 // @public
+export function workflowDataOf(bundle: AssembledWorkflow, profile?: string, environment?: DescribedEnvironment, children?: ChildSnapshotSources): DescribedWorkflow;
+
+// @public
 export interface WorkflowDepsParts {
     readonly auditLog?: AuditLogWriter;
     readonly budgets?: BudgetListing;
@@ -1779,8 +1813,7 @@ export interface WorstCase {
     readonly executions: number;
     readonly isStepsCapped: boolean;
     readonly parts: readonly string[];
-    // (undocumented)
-    readonly start: ComponentName;
+    readonly start: string;
     readonly steps: number;
     readonly treeSteps: number;
     readonly workflow: string;
@@ -1790,7 +1823,7 @@ export interface WorstCase {
 export interface WorstCaseChild {
     readonly atOnce: number;
     readonly count: number;
-    readonly from: ComponentName;
+    readonly from: string;
     readonly isRecursive: boolean;
     readonly maxConcurrency?: number;
     readonly maxItems?: number;
@@ -2043,7 +2076,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
 // src/flow/analyse/steps.ts - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts - (ae-undocumented) Missing documentation for "most".
-// src/flow/analyse/worst-case.ts - (ae-undocumented) Missing documentation for "start".
 // src/flow/analyse/worst-case.ts - (ae-undocumented) Missing documentation for "executions".
 // src/flow/analyse/worst-case.ts - (ae-undocumented) Missing documentation for "concurrentExecutions".
 // src/flow/context/runtime-contexts.ts - (ae-undocumented) Missing documentation for "application".
@@ -2056,6 +2088,11 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/graph/deps.ts - (ae-undocumented) Missing documentation for "observer".
 // src/infrastructure/execution-history-export.ts - (ae-undocumented) Missing documentation for "from".
 // src/infrastructure/execution-history-export.ts - (ae-undocumented) Missing documentation for "to".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "getTuple".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "latestByStep".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "put".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "putWrites".
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "name".

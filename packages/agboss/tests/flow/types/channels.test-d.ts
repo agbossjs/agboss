@@ -2,7 +2,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import type { ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
-import type { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import type { AutoApproveChannel } from "../../../src/channels/test-channels.js";
 import type { ToolArguments } from "../../../src/dto/standard/framework.js";
 import type * as Root from "../../../src/index.js";
 import type {
@@ -57,7 +57,7 @@ describe("#267 AC6: approves types arguments", () => {
   });
 
   it("the built-in channels approve any tool: untyped arguments", () => {
-    expectTypeOf<ChannelAsk<TerminalUserChannel>["input"]>().toEqualTypeOf<ToolArguments>();
+    expectTypeOf<ChannelAsk<AutoApproveChannel>["input"]>().toEqualTypeOf<ToolArguments>();
   });
 
   it("a class that is not a generated role gives MissingGeneratedTypes", () => {

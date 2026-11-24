@@ -23,7 +23,6 @@ import type { TypeTable, TypeTables } from "./tables.js";
 
 /** The framework's channels: typed in the tables module, never generated. */
 const BUILT_IN_CHANNELS: ReadonlySet<string> = new Set([
-  "terminal-user-channel",
   "auto-approve-channel",
   "auto-reject-channel",
 ]);

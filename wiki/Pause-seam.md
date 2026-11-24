@@ -10,13 +10,14 @@ limits, spend recording or Turns.
 ## Plug it in
 
 A tool that needs approval names a **channel** — who is asked — found through the tool, nothing to
-list in the workflow (#267): a concrete `@Channel` used as is (`TerminalUserChannel` asks in the
-terminal; `AutoApproveChannel` / `AutoRejectChannel` decide at once, for tests and scripts) or a
+list in the workflow (#267): a concrete `@Channel` used as is (`AutoApproveChannel` / `AutoRejectChannel` decide at once, for tests and scripts; an owner's approval
+needs none) or a
 **channel role** whose implementation the application lists
 ([Tools → Approval channels](Tools#approval-channels)):
 
 <!-- snippet-context
-import { Agent, ExecutionStatus, TerminalUserChannel, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
+import { Agent, ExecutionStatus, PauseRespondent, Tool, ToolApproval, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 import { Email, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 class EmailDraft { @Email() to!: string; @Text() body!: string; }
 class EmailSent { @Text() id!: string; }
@@ -27,12 +28,20 @@ export class Done {}
 -->
 
 ```ts file=errands.workflow.ts
+@ToolApproval({
+  name: "owner-tool-approval",
+  description: "The thread's owner approves the call",
+  respondent: PauseRespondent.Owner,
+  timeout: hours(24),
+})
+export class OwnerApproval {}
+
 @Tool({
   name: "send-email-tool",
   description: "Sends an email",
   input: EmailDraft,
   output: EmailSent,
-  channel: TerminalUserChannel, // the call waits for a decision
+  approval: OwnerApproval, // the call waits for the owner's decision
 })
 export class SendEmail {
   execute(draft: EmailDraft): Promise<EmailSent> {
@@ -69,7 +78,7 @@ const app = await createApp(ErrandsApplication);
 const first = await app.execute(TaskStart, { text: "Email the report to my boss" });
 const [waiting] = first.pending; // { pauseId, answerer, step, channel, ask: { tool, arguments, … } }
 if (first.status === ExecutionStatus.Paused && waiting?.pauseId !== undefined) {
-  // TerminalUserChannel's pauses are answered by the thread's owner: their id is listed
+  // the owner's pauses are answered by the thread's owner: their id is listed
   const done = await app.resume({ pauseId: waiting.pauseId, decision: { approved: true } });
   console.log(done.output);
 }
@@ -90,8 +99,8 @@ asking one from a step or a tool is #659.
 Paused runs and their pauses live in the application's `PausedExecutionRepository` and their state
 in its `BaseCheckpointSaver` (#261) — in memory by default, lost on restart. A pause survives a
 restart when both are durable: a class that `extends PausedExecutionRepository` and a durable
-`BaseCheckpointSaver` listed in `@Application({ providers })` (`SqlitePausedExecutionRepository` and
-`SqliteCheckpointSaver`, #265).
+`BaseCheckpointSaver` listed in `@Application({ providers })` (`SqlitePausedExecutionRepository`, #265, and the storage
+driver's checkpointer).
 
 ## How it works
 

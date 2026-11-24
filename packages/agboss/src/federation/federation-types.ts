@@ -1,4 +1,4 @@
-import type { ContractsSnapshot } from "../describe/contracts-types.js";
+import type { ApplicationContracts } from "../describe/contracts-types.js";
 
 /** The shapes of `agboss check --federation` (#398 PR 4; `federation.ts`). */
 
@@ -7,7 +7,7 @@ export interface FederationMember {
   readonly name: string;
   readonly version: string;
   readonly file: string;
-  readonly contracts: ContractsSnapshot;
+  readonly contracts: ApplicationContracts;
 }
 
 /** The stable codes of the federation check. */

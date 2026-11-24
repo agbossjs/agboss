@@ -145,7 +145,7 @@ export function resolvedStorageOf(
 }
 
 /** One storage component as `agboss describe` lists it. */
-export interface StorageLine {
+export interface DescribedStorage {
   readonly role: StorageRole;
   readonly name: string;
   readonly backend: string;
@@ -153,7 +153,7 @@ export interface StorageLine {
 }
 
 /** The application's storage components, by role. */
-export function storageLinesOf(storage: AssembledStorage | undefined): readonly StorageLine[] {
+export function storageLinesOf(storage: AssembledStorage | undefined): readonly DescribedStorage[] {
   if (storage === undefined) return [];
   return [
     [StorageRole.Database, storage.database],

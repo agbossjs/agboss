@@ -9,7 +9,7 @@ import { Application } from "../src/application/application.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../src/budgets/budget.js";
 import { describedApplicationOf } from "../src/describe/application.js";
 import { describedLimitsOf } from "../src/describe/limits.js";
-import { describeApplication } from "../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../src/describe/describe-application.js";
 import { applicationOf } from "../src/application/assemble.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../src/dto/index.js";
 import {
@@ -129,16 +129,16 @@ describe("#261 M1: describe shows the application", () => {
       "RecordingCostLedgerRepository",
       ImplementationReason.Listed,
     ]);
-    expect(describeApplication(tellApplication)).toContain(
+    expect(describeAssembledApplication(tellApplication)).toContain(
       "  CostLedgerRepository → RecordingCostLedgerRepository (listed in @Application providers)",
     );
-    expect(describeApplication(tellApplication)).toContain(
+    expect(describeAssembledApplication(tellApplication)).toContain(
       "  Logger → ConsoleLogger (built-in default: none listed)",
     );
   });
 
   it("the budgets by scope with their periods, and the workflow's own execution budget", () => {
-    const lines = describeApplication(tellApplication);
+    const lines = describeAssembledApplication(tellApplication);
     const at = lines.indexOf("budgets");
 
     expect(lines.slice(at, at + 5)).toEqual([
@@ -154,7 +154,7 @@ describe("#261 M1: describe shows the application", () => {
   });
 
   it("the observers and the warnings (a durable ledger listed, no pause: none)", () => {
-    const lines = describeApplication(tellApplication);
+    const lines = describeAssembledApplication(tellApplication);
 
     expect(lines).toContain("observers TellAuditObserver");
     expect(describedApplicationOf(tellApplication).warnings).toEqual([]);
@@ -167,7 +167,7 @@ describe("#261 M1: describe shows the application", () => {
       isMaxStepsSet: true,
       maxVisits: { "teller-agent": 2 },
     });
-    const lines = describeApplication(tellApplication);
+    const lines = describeAssembledApplication(tellApplication);
     const at = lines.indexOf("limits");
     expect(lines.slice(at, at + 8)).toEqual([
       "limits",

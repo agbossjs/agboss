@@ -1,5 +1,5 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
@@ -73,7 +73,7 @@ export class Sent {
 @Tool({
   name: "send-email-tool",
   description: "Sends an email",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Email,
   output: Sent,
 })

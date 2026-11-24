@@ -1,4 +1,4 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text } from "../../../../src/dto/index.js";
 import { Agent, listOf, Tool, Workflow, WorkflowStart, inline } from "../../../../src/index.js";
 import { onStart, toWorkflow } from "../../../helpers/flow.js";
@@ -15,7 +15,7 @@ export class TaskConfirmationDto {
 @Tool({
   name: "confirm-task-tool",
   description: "Confirms a task",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: TaskConfirmationDto,
   output: TaskConfirmationDto,
 })

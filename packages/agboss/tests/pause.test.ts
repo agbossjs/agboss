@@ -1,6 +1,6 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
-import { TerminalUserChannel } from "../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "./flow/fixtures/owner-approval.fixture.js";
 import { DtoValidationError, Text } from "../src/dto/index.js";
 import { NotPausedError, Tool } from "../src/index.js";
 import { ScriptedChatModel, type Reply } from "./fakes/scripted-model.js";
@@ -25,7 +25,7 @@ class EmailSent {
 @Tool({
   name: "send-email-tool",
   description: "Send an email",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Email,
   output: EmailSent,
 })

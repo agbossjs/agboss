@@ -1,11 +1,11 @@
 import {
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqliteFencedEffectRepository,
   SqlitePausedExecutionRepository,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { SqliteChildExecutionQueueRepository } from "../../../../src/infrastructure/sqlite/sqlite-child-execution-queue.repository.js";

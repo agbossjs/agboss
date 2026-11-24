@@ -3,13 +3,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach } from "vitest";
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
 import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   ApplicationContext,
   Clock,
   Injectable,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -19,6 +17,7 @@ import {
   Workflow,
   type ExecutionLease,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds, type Milliseconds } from "../../../../src/units/index.js";

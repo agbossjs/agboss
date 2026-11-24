@@ -43,7 +43,7 @@ const pause = (overrides: Partial<PendingPause> = {}): PendingPause =>
     pauseId: "p-1",
     answerer: PauseAnswerer.ThreadOwner,
     step: "clerk-agent",
-    channel: "terminal-user-channel",
+    channel: "owner-tool-approval",
     childExecutionId: undefined,
     itemIndex: undefined,
     kind: PauseKind.Approval,

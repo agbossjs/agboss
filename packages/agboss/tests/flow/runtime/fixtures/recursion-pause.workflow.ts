@@ -1,4 +1,4 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Integer } from "../../../../src/dto/index.js";
 import {
   Action,
@@ -42,7 +42,7 @@ export class DigConfirmationDto {
 @Tool({
   name: "confirm-dig-tool",
   description: "Confirms digging one level deeper",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: DigConfirmationDto,
   output: DigConfirmationDto,
   deps: [ExecutionContext],

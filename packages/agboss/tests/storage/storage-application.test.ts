@@ -27,9 +27,9 @@ import {
   SqliteDriver,
   SqliteExecutionLeaseRepository,
   SqliteCostLedgerRepository,
-  SqliteCheckpointSaver,
   Ttl,
 } from "../../src/index.js";
+import { SqliteCheckpointSaver } from "../../src/internal.js";
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { storageProvidersOf, assembledStorageOf } from "../../src/storage/storage-assembly.js";
 import { defineStorageDriver, StorageRole } from "../../src/stores/index.js";

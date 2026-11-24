@@ -2,7 +2,6 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import type { CheckpointTuple } from "@langchain/langgraph";
 import {
   Injectable,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -10,6 +9,7 @@ import {
   SqliteFencedEffectRepository,
   SqlitePausedExecutionRepository,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { withHoldPoints } from "../../../../src/testing/faults/held-stores.js";

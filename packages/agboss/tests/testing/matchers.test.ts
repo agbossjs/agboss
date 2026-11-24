@@ -57,7 +57,7 @@ const paused = run({
       pauseId: "pause-1",
       answerer: PauseAnswerer.ThreadOwner,
       step: "support-agent",
-      channel: "terminal-user-channel",
+      channel: "owner-tool-approval",
       childExecutionId: undefined,
       itemIndex: undefined,
       input: {},

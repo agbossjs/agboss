@@ -11,13 +11,13 @@ import { SqliteA2ATaskRepository } from "../../src/stores/index.js";
 import { Application } from "../../src/application/application.js";
 import { A2ATaskRepository } from "../../src/infrastructure/a2a-task.repository.js";
 import {
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
 } from "../../src/index.js";
+import { SqliteCheckpointSaver } from "../../src/internal.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {

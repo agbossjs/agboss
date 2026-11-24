@@ -1315,7 +1315,7 @@ registered …`); a class in `providers` without a decorator fails with `[di.und
   (listed, or the built-in default), the budgets by scope and the count limits. Nothing is written to
   the home folder. Every contract has a
   ready SQLite implementation, enabled only by listing it (#265: `SqliteExecutionRecordRepository`,
-  `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`,
+  `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`,
   `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`,
   `SqliteMeshRequestRepository`, `SqliteExecutionHistoryRepository`,
   `SqliteChildExecutionQueueRepository`, `SqliteExecutionAuditLogRepository`,
@@ -1580,7 +1580,7 @@ export class SeenJobsRepository {
   `beforeToolCall(Tool, input)` / `afterToolCall(Tool, input, output)` → `{ output, spend }` (a phase with no hook at all: `TestSetupError`).
 - **Channels (#267)** are found through the tools that name them (`@Tool({ channel })`), like
   services through `deps` — there is no `channelClasses`. A tool names a concrete `@Channel` (used as
-  is: `TerminalUserChannel`, `AutoApproveChannel`, …) or a **role**: a project's abstract class
+  is: `AutoApproveChannel`, …) or a **role**: a project's abstract class
   `@ChannelRole({ name, description, approves: XDto, answerer: PauseAnswerer.… })`
   that `extends ChannelOf<Self>` — `answerer` is required (0.1.0's `answeredBy` alias is gone), `approves` must be the tool's input
   (`[channel.wrong-tool]`; both forms or neither → `[channel.role-form]` when the decorator runs), one `replyInterpreter` belongs to one role
@@ -1606,8 +1606,8 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   `app.resume({ pauseId, decision })`, `ChannelOutcome.decided(decision)` goes on at once (validated
   like a reply, its record closed at once: `Taken`, `PauseResolution.Decided`). The `pauseId` is made
   once per pause, before the first `send` — a retried `send` gets the same one (the channel's
-  idempotency key); a concrete `@Channel` named as is (`TerminalUserChannel`) is answered by the
-  thread's owner. **Free-text replies (#267 PR 3):** a role's `replyInterpreter` is a
+  idempotency key); a concrete `@Channel` named as is is answered by the
+  thread's owner (an owner's approval needs no channel). **Free-text replies (#267 PR 3):** a role's `replyInterpreter` is a
   `@ReplyInterpreter` (`-reply-interpreter`, one per role) that reads `app.resume({ pauseId, reply })`
   with the pause's question — `{ ask, reply }` — into the role's answer, validated like a decision:
   `DecidedBy.Model` (a chat model, one answer tool — for an approval role its `overrideArguments`

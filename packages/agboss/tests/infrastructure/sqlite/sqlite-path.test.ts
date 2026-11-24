@@ -11,7 +11,6 @@ import type { Class } from "../../../src/components/injection.js";
 import {
   EmptyEnvironment,
   GraphRuleError,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -19,6 +18,7 @@ import {
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
 } from "../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../src/internal.js";
 import { McpStubs, stubbedMcpConnect } from "../../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";

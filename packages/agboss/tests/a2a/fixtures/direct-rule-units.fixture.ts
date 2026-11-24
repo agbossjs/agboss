@@ -7,7 +7,7 @@ import { McpServer } from "../../../src/components/decorators.js";
 import { McpServerClient } from "../../../src/components/mcp-client.js";
 import { McpTransport } from "../../../src/config/mcp-server-config.js";
 import { Idempotency } from "../../../src/app/idempotency.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Injectable, Tool } from "../../../src/components/decorators.js";
 import { InjectionToken, type Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -26,7 +26,7 @@ interface Message {
 @Tool({
   name: "approved-read-tool",
   description: "Reads, once approved",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: WorkflowStartTextDto,
   output: WorkflowFinishTextDto,
   readOnly: true,

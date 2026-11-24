@@ -123,14 +123,15 @@ export {
   type StoredNamesUnreadableErrorOptions,
 } from "../infrastructure/stored-step.js";
 
-// an optional capability of a checkpoint saver (#962): its newest checkpoint of a thread's
-// namespace by `(step, id)` as one indexed read, which a marked thread's latest read uses
+// the step of a checkpoint (#962): the pure functions of the latest-by-step read; the saver
+// capability itself holds LangGraph types and stays in `@agboss/core/internal` (#1324)
 export {
-  hasLatestByStep,
+  compareCodePoints,
+  newestFirstOrder,
   NO_STEP,
   stepOf,
-  type LatestByStepCheckpointSaver,
 } from "../infrastructure/latest-by-step.js";
+export { childThreadOf } from "../infrastructure/checkpoint-threads.js";
 export {
   StoreError,
   StoreErrorKind,

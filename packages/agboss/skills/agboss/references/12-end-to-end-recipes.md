@@ -889,7 +889,7 @@ export class SourcingExecutionBudget implements BudgetHandler {
 ```
 
 ```ts file=sourcing/src/sourcing.application.ts
-import { Application, SqliteCheckpointSaver, SqlitePausedExecutionRepository } from "@agboss/core";
+import { Application, SqlitePausedExecutionRepository } from "@agboss/core";
 import { SourcingApplicationBudget } from "./budgets/sourcing-application.budget.js";
 import { SourcingExecutionBudget } from "./budgets/sourcing-execution.budget.js";
 import { SourcingTenantBudget } from "./budgets/sourcing-tenant.budget.js";
@@ -904,7 +904,7 @@ import { SourcingWorkflow } from "./workflows/sourcing/sourcing.workflow.js";
   environment: SourcingEnvironment,
   workflows: [SourcingWorkflow], // the child need not be listed: it belongs to its parent
   budgets: [SourcingApplicationBudget, SourcingTenantBudget, SourcingExecutionBudget],
-  providers: [BuyerInboxPurchaseApprovalChannel, BuyerInboxService, SqlitePausedExecutionRepository, SqliteCheckpointSaver],
+  providers: [BuyerInboxPurchaseApprovalChannel, BuyerInboxService, SqlitePausedExecutionRepository],
 })
 export class SourcingApplication {}
 ```
@@ -1868,7 +1868,6 @@ export class LoansExecutionBudget implements BudgetHandler {
 ```ts file=loans/src/loans.application.ts
 import {
   Application,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -1901,7 +1900,6 @@ import { LoanWorkflow } from "./workflows/loan/loan.workflow.js";
     LoansOpenRouterModelProvider,
     LoansBackupModelProvider,
     DecisionsModelProvider, // the guardrail's decision model: one listed → the list is complete
-    SqliteCheckpointSaver,
     SqliteExecutionRecordRepository,
     SqlitePausedExecutionRepository,
     SqliteCostLedgerRepository,

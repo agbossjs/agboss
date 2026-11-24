@@ -21,7 +21,7 @@ import {
 import { type ExecutionFence } from "../../../src/stores/index.js";
 import { fenceOf } from "../../../src/flow/context/execution-fence.js";
 import { Application } from "../../../src/application/application.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
@@ -276,7 +276,7 @@ export class StageTool {
 @Tool({
   name: "approved-stage-tool",
   description: "Stages an artifact once approved",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: StageQuery,
   output: StageQuery,
   deps: [ExecutionContext, ArtifactLedger],

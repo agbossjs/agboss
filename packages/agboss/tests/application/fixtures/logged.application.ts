@@ -6,7 +6,7 @@ import {
   BudgetScope,
   type BudgetHandler,
 } from "../../../src/budgets/budget.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
@@ -74,7 +74,7 @@ export class NoteDto {
 @Tool({
   name: "send-note-tool",
   description: "Sends a note",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: NoteDto,
   output: NoteDto,
 })

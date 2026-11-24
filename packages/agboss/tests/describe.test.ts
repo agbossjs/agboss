@@ -40,14 +40,14 @@ describe("describe a workflow", () => {
     const paused: AssembledWorkflow = {
       ...greetings,
       tools: [
-        { ...resolvedGreetingsTools[0], channel: "terminal-user-channel" },
+        { ...resolvedGreetingsTools[0], channel: "owner-tool-approval" },
         ...resolvedGreetingsTools.slice(1),
       ],
     };
 
     expect(
       describeWorkflow(paused).some((l) =>
-        l.includes("· greet-tool (channel:terminal-user-channel, local, uses channel)"),
+        l.includes("· greet-tool (channel:owner-tool-approval, local, uses channel)"),
       ),
     ).toBe(true);
     expect(describeWorkflow(paused)).toContain(

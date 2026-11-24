@@ -71,7 +71,7 @@ const calendarClassOf = (source: WorkingCalendarSource | undefined): readonly Cl
 
 /**
  * Who may answer a channel's pauses: its role's `answerer`; a concrete `@Channel` named as is
- * (`TerminalUserChannel`) asks whoever runs the thread — its owner.
+ * asks whoever runs the thread — its owner.
  */
 const answererOf = (cls: Class): PauseAnswerer =>
   channelRoleOf(cls)?.options.answerer ?? PauseAnswerer.ThreadOwner;

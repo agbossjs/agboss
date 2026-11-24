@@ -5,7 +5,6 @@ import {
   Action,
   ExecutionContext,
   Idempotency,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -17,6 +16,7 @@ import {
   WorkflowStart,
   type Tracked,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { hours } from "../../../../src/units/index.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import type { SqliteTransactionHandle } from "../../../../src/infrastructure/sqlite/sqlite-transaction.js";

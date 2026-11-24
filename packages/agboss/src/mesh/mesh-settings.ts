@@ -1,7 +1,7 @@
 import type { KeyObject } from "node:crypto";
 import type { Class } from "../components/injection.js";
 import type { ApplicationContext } from "../flow/context/application-context.js";
-import type { ContractsSnapshot } from "../describe/contracts-types.js";
+import type { ApplicationContracts } from "../describe/contracts-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { MeshKeys } from "./mesh-keys.js";
 import type { MeshRequestRepository } from "../infrastructure/mesh-request.repository.js";
@@ -41,7 +41,7 @@ export interface MeshSettings {
    * start's input and finishes, every DTO's JSON Schema), read on first use: an A2A listener's
    * Agent Card is written from them.
    */
-  readonly contracts: () => Promise<ContractsSnapshot>;
+  readonly contracts: () => Promise<ApplicationContracts>;
 }
 
 /** What a verified peer may do here: the endpoints it may call and whether its tenant is trusted. */

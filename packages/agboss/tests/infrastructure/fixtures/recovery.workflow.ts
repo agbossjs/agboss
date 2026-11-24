@@ -1,7 +1,7 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
 import type { Page } from "../../../src/app/page.js";
 import { until } from "../../helpers/until.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
@@ -162,7 +162,7 @@ export class Hold {
 @Tool({
   name: "charge-tool",
   description: "Charges the card",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Query,
   output: Query,
 })

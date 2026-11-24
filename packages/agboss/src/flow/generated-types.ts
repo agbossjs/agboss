@@ -126,10 +126,6 @@ export declare namespace AGBossTypes {
    */
   export interface ChannelRoles {
     readonly [notGenerated]?: never;
-    readonly "terminal-user-channel": {
-      readonly ask: ToolCallApprovalAskDto;
-      readonly answer: ToolCallApprovalDecisionDto;
-    };
     readonly "auto-approve-channel": {
       readonly ask: ToolCallApprovalAskDto;
       readonly answer: ToolCallApprovalDecisionDto;

@@ -4,10 +4,7 @@
 
 ```ts
 
-import type { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
-import type { RunnableConfig } from '@langchain/core/runnables';
 
 // @public
 export interface A2ADirectMessageAttempt {
@@ -437,6 +434,9 @@ export interface ChildLaunchRecord {
 }
 
 // @public
+export const childThreadOf: (parentThreadId: string, executionId: string) => string;
+
+// @public
 export const closedAtOf: (pause: PauseRecord) => string | undefined;
 
 // @public
@@ -541,6 +541,9 @@ export interface Compacted {
     // (undocumented)
     readonly toTurn: number;
 }
+
+// @public
+export function compareCodePoints(first: string, second: string): number;
 
 // @public
 export interface CompensationEntry {
@@ -1291,9 +1294,6 @@ export enum HandOverSite {
 }
 
 // @public
-export const hasLatestByStep: (saver: BaseCheckpointSaver) => saver is LatestByStepCheckpointSaver;
-
-// @public
 export enum IdempotencyRunEventOutcome {
     Cancelled = "cancelled",
     Joined = "joined",
@@ -1438,11 +1438,6 @@ export interface JudgeVerdictRecord {
 }
 
 // @public
-export interface LatestByStepCheckpointSaver extends BaseCheckpointSaver {
-    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
-}
-
-// @public
 export interface LaunchRecord {
     readonly branches: readonly BranchRecord[];
     readonly group?: QuorumGroupRecord;
@@ -1578,6 +1573,15 @@ export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> 
     // (undocumented)
     readonly requestHash: string;
 }
+
+// @public
+export const newestFirstOrder: (first: {
+    readonly step: number;
+    readonly id: string;
+}, second: {
+    readonly step: number;
+    readonly id: string;
+}) => number;
 
 // @public
 export interface NewStatusTransition {

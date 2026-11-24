@@ -1,7 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import {
   env,
-  SqliteCheckpointSaver,
   SqliteChildExecutionQueueRepository,
   SqliteCostLedgerRepository,
   SqliteExecutionHistoryRepository,
@@ -13,6 +12,7 @@ import {
   SqliteOutboundCallRepository,
   SqlitePausedExecutionRepository,
 } from "../../src/index.js";
+import { SqliteCheckpointSaver } from "../../src/internal.js";
 import {
   requireSqliteTransaction,
   SqliteConnection,

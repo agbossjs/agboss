@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describedChannelsOf } from "../../src/describe/channels.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { durationLabel } from "../../src/units/duration-label.js";
 import { AgentExpiryApplication } from "../flow/fixtures/agent-expiry.fixture.js";
 import { PublicExpiryApplication } from "../flow/fixtures/expiry-public.fixture.js";
@@ -18,13 +18,15 @@ describe("#941 AC1: describe shows the deadlines", () => {
     );
 
     expect(channel?.expiresIn).toBe(24 * 3_600_000);
-    expect(describeApplication(assembled).join("\n")).toContain(
+    expect(describeAssembledApplication(assembled).join("\n")).toContain(
       "expiring-refund-approval (RefundApprovalRole): AgentRefundDto → ToolCallApprovalDecisionDto · answered by the channel · expires in 24 h",
     );
   });
 
   it("a tool's expiresIn is on its line", async () => {
-    const text = describeApplication(await applicationOf(AgentExpiryApplication)).join("\n");
+    const text = describeAssembledApplication(await applicationOf(AgentExpiryApplication)).join(
+      "\n",
+    );
 
     expect(text).toMatch(
       /urgent-refund-tool \(channel:expiring-refund-approval[^\n]*· expires in 4 h/,
@@ -33,7 +35,9 @@ describe("#941 AC1: describe shows the deadlines", () => {
   });
 
   it("a question step's expiresIn is in the flow", async () => {
-    const text = describeApplication(await applicationOf(PublicExpiryApplication)).join("\n");
+    const text = describeAssembledApplication(await applicationOf(PublicExpiryApplication)).join(
+      "\n",
+    );
 
     expect(text).toContain(".toExternalTask(ManagerQuestion, { expiresIn: 14400000 })");
     expect(text).toContain("toExternalTask(DirectorQuestion, { expiresIn: 3600000 })");

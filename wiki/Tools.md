@@ -448,7 +448,7 @@ unassigned tools: none
 A tool that needs a decision before it runs names a channel: `@Tool({ channel })` .
 Channels are found through the tools that name them, like services through `deps` — there is no
 `channelClasses` (#267) — and one instance serves every workflow of the application. A tool names
-either a concrete `@Channel` as is (`TerminalUserChannel`, `AutoApproveChannel`,
+either a concrete `@Channel` as is (`AutoApproveChannel`,
 `AutoRejectChannel`) or a **channel role** — the project's abstract class that says what it approves
 and who may answer:
 

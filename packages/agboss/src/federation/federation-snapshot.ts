@@ -1,7 +1,7 @@
 import { A2ACardFileFields } from "../a2a/files/a2a-file-options.js";
 import { A2AReply } from "../a2a/a2a-message-skill-rule.js";
 import { z } from "zod";
-import type { ContractsSnapshot } from "../describe/contracts-types.js";
+import type { ApplicationContracts } from "../describe/contracts-types.js";
 import type { FederationMember } from "./federation-types.js";
 
 /**
@@ -134,6 +134,6 @@ export function federationMemberOf(text: string, file: string): SnapshotReading 
     };
   }
   const { name, version, contracts } = parsed.data.result.application;
-  const snapshot: ContractsSnapshot = contracts;
+  const snapshot: ApplicationContracts = contracts;
   return { kind: "member", member: { name, version, file, contracts: snapshot } };
 }

@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { A2AMesh } from "../../../src/a2a/index.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import type { App } from "../../../src/app/types.js";
-import { describeApplication } from "../../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../../src/describe/describe-application.js";
 import { hours } from "../../../src/units/index.js";
 import { callerOf } from "../client/fixtures/caller.js";
 import { scripts, SdkAgent } from "../client/support/sdk-agent.js";
@@ -73,7 +73,7 @@ describe("#810 AC3: a call without the mesh is said in the step's record", () =>
 
 describe("#810 AC3: agboss describe says whether the mesh is guaranteed", () => {
   it("AC3: an AGBoss target under Required: mesh: required; one of no target: not guaranteed", async () => {
-    const lines = describeApplication(
+    const lines = describeAssembledApplication(
       await applicationOf(CallerApplication, { withoutIdempotencyKeys: true }),
     );
 

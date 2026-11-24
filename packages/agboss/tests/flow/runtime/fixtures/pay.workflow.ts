@@ -1,4 +1,4 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { AGBossError } from "../../../../src/core/errors.js";
 import { Enum, Text } from "../../../../src/dto/index.js";
 import {
@@ -70,7 +70,7 @@ export class RefundQuery {
 @Tool({
   name: "refund-tool",
   description: "Refunds an order",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: RefundQuery,
   output: RefundQuery,
 })

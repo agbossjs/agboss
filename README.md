@@ -268,7 +268,7 @@ export class JobScoutApplication {}
 
 Every storage contract has a ready **SQLite** implementation (#265), enabled only by listing it:
 `SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`,
-`SqliteCheckpointSaver`, `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`,
+`SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`,
 `SqliteRateLimitRepository`. They share one file per application instance — `sqlitePath` of the
 environment contract, required only when one is listed (else `[environment.missing-field]`
 names it); WAL, `busy_timeout`, every atomic operation in `BEGIN IMMEDIATE`, time from the
@@ -280,7 +280,7 @@ tokens only (`extends` + `override`, `@Injectable({ deps })` as the class's own 
 #313) and lists the subclass instead. One file serves one machine (Wiki → Several-instances):
 
 <!-- snippet-context
-import { SqliteCheckpointSaver, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqlitePausedExecutionRepository, env } from "@agboss/core";
+import { SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqlitePausedExecutionRepository, env } from "@agboss/core";
 -->
 
 ```ts
@@ -298,7 +298,6 @@ export const environment: StoreEnvironment = {
 export const durableStores = [
   SqliteExecutionRecordRepository,
   SqlitePausedExecutionRepository,
-  SqliteCheckpointSaver,
   SqliteExecutionLeaseRepository,
 ];
 ```

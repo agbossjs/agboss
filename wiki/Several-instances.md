@@ -34,7 +34,7 @@ Each contract has a ready **SQLite** implementation (#265 PR 3) and a **PostgreS
 
 | Contract                    | SQLite implementation             | Tables                            |
 | --------------------------- | --------------------------------- | --------------------------------- |
-| `BaseCheckpointSaver`       | `SqliteCheckpointSaver`           | `checkpoints`, `checkpoint_writes` |
+| `BaseCheckpointSaver`       | the storage driver's (internal)   | `checkpoints`, `checkpoint_writes` |
 | `PausedExecutionRepository` | `SqlitePausedExecutionRepository` | `paused_executions`               |
 | `ExecutionRecordRepository` | `SqliteExecutionRecordRepository` | the Turn tables (`threads`, `terns`, …) |
 | `CostLedgerRepository`      | `SqliteCostLedgerRepository`      | `cost_ledger`, `cost_ledger_max_spend` |
@@ -62,14 +62,14 @@ them, and the column is filled at the next open) and does not take part in the c
 
 Each one is enabled only by listing it in `@Application({ providers })` — list one, some or all; a
 contract not listed keeps its in-memory default. They are built on `node:sqlite` (no native
-driver to install; `SqliteCheckpointSaver` is our own `BaseCheckpointSaver`, serializing with
-LangGraph's `serde`) and share **one file**: the environment contract's `sqlitePath`, required only
+driver to install; the checkpoint saver is our own `BaseCheckpointSaver`, serializing with
+LangGraph's `serde`, and not public) and share **one file**: the environment contract's `sqlitePath`, required only
 when a SQLite implementation is listed — a contract without it fails assembly with
 `[environment.missing-field] SqliteExecutionLeaseRepository needs sqlitePath: string in
 AppEnvironment (read by SqliteConnection)` ([Environments](Environments)), an empty value fails the start naming it.
 
 <!-- snippet-context
-import { Application, EmptyEnvironment, SqliteCheckpointSaver, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, env } from "@agboss/core";
+import { Application, EmptyEnvironment, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, env } from "@agboss/core";
 -->
 
 ```ts
@@ -88,7 +88,6 @@ export const sqliteStores = [
   SqliteExecutionRecordRepository,
   SqliteCostLedgerRepository,
   SqlitePausedExecutionRepository,
-  SqliteCheckpointSaver,
   SqliteExecutionLeaseRepository,
   SqliteExecutionTreeRepository,
   SqliteRateLimitRepository,
@@ -145,7 +144,7 @@ records the application's `IdGenerator` (#313: a new thread's id):
 
 | Implementation | Its `deps` |
 | --- | --- |
-| `SqliteCheckpointSaver`, `SqliteExecutionTreeRepository`, `SqliteMeshRequestRepository`, `SqliteCostLedgerRepository` (#261 PR 5: each counter's period is named by the runtime from the `Clock`) | `[SqliteConnection]` |
+| `SqliteExecutionTreeRepository`, `SqliteMeshRequestRepository`, `SqliteCostLedgerRepository` (#261 PR 5: each counter's period is named by the runtime from the `Clock`) | `[SqliteConnection]` |
 | `SqlitePausedExecutionRepository` | `[SqliteConnection, Clock]` |
 | `SqliteExecutionLeaseRepository`, `SqliteRateLimitRepository`, `SqliteChildExecutionQueueRepository` | `[SqliteConnection, Clock, ApplicationContext]` |
 | `SqliteExecutionRecordRepository` | `[SqliteConnection, Clock, ApplicationContext, IdGenerator]` |

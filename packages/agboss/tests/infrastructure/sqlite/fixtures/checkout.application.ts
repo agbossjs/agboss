@@ -1,10 +1,10 @@
 import {
-  SqliteCheckpointSaver,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { Checkout } from "../../../app/fixtures/run-context.workflow.js";

@@ -219,7 +219,7 @@ application's model gateway calls them ([Model providers](Model-providers#regist
 Nothing is written to the home folder: with the defaults, records, spend, pauses and leases live in
 the instance and are gone after a restart. Each contract has a ready SQLite implementation, enabled
 only by listing it (`SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`,
-`SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`, `SqliteExecutionLeaseRepository`,
+`SqlitePausedExecutionRepository`, `SqliteExecutionLeaseRepository`,
 `SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`, `SqliteExecutionHistoryRepository`,
 `SqliteChildExecutionQueueRepository` — one file, the environment's
 `sqlitePath`, required only then: [Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine));

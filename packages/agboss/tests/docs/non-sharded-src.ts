@@ -424,7 +424,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/channels/reply-interpreter.decorator.ts",
       "src/channels/reply-tools.ts",
       "src/channels/role-interpreter.ts",
-      "src/channels/terminal-channel.ts",
       "src/channels/test-channels.ts",
     ],
   ),
@@ -523,6 +522,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/describe/contracts.ts",
     "src/describe/defaults.ts",
     "src/describe/describe-application.ts",
+    "src/describe/describe-data.ts",
+    "src/describe/index.ts",
   ]),
   ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 179 mutants, 156 killed in the final run; the 30 that had lived in the first run each got a test (25), an equivalence reason (4) or was classed message text (1); covered by tests/sweep-1366h/describe/describe-workflow-1366h.test.ts, tests/describe.test.ts, tests/describe/pause-expiry-describe.test.ts; survivors listed in the #1366 round-8 notes",
@@ -991,6 +992,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/internal-a2a.ts",
     "src/internal-routers.ts",
     "src/internal-run.ts",
+    "src/internal-surface.ts",
     "src/internal.ts",
   ]),
   ...reviewed("the LLM helpers: no money decision", [

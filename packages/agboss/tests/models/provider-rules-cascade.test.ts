@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describedApplicationOf } from "../../src/describe/application.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { GraphRuleError } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import {
@@ -53,7 +53,7 @@ describe("#1313a: describe lists the providers a cascade names", () => {
       ["sound-models", true],
       ["third-models", true],
     ]);
-    const text = describeApplication(assembled).join("\n");
+    const text = describeAssembledApplication(assembled).join("\n");
     expect(text).toContain("second-models → SecondModels (named by modelProvider)");
     expect(text).toContain("third-models → ThirdModels (named by modelProvider)");
   });

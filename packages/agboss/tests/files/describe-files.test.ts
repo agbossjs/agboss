@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { describeServices } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import { elementFingerprintsOf } from "../../src/run/fingerprints.js";
@@ -36,7 +36,7 @@ async function snapshotOf(options: Parameters<typeof readerApplication>[0]) {
   const [workflow] = assembled.workflows;
   if (workflow === undefined) throw new Error("no workflow");
   return {
-    lines: describeApplication(assembled),
+    lines: describeAssembledApplication(assembled),
     snapshot: workflowSnapshotOf(workflow, describeServices),
   };
 }

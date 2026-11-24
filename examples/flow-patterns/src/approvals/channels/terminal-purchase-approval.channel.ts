@@ -3,7 +3,7 @@ import { ApprovalTerminal } from "../services/approval-terminal.service.js";
 import { PurchaseApprovalChannel } from "./purchase-approval.channel.js";
 
 /**
- * Asks in the terminal, like `TerminalUserChannel`: prints the purchase once, with its pause's id,
+ * Asks in the terminal: prints the purchase once, with its pause's id,
  * and waits. `agboss run` then asks the thread's owner for each waiting pause in turn and resumes
  * it; code answers with `app.resume({ pauseId, decision })`. Two buyers asking at once are two
  * pauses, each printed once — a pause is asked when it is made, never again on a resume.

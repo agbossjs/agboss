@@ -1,4 +1,4 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "./owner-approval.fixture.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { Integer } from "../../../src/dto/index.js";
 import {
@@ -120,7 +120,7 @@ export class WaitTool {
 @Tool({
   name: "confirm-score-tool",
   description: "Confirms a score",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: ScoreDto,
   output: ScoreDto,
 })

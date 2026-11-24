@@ -13,7 +13,7 @@ import {
   LimitExceededError,
   inline,
 } from "../../src/index.js";
-import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
 import { onStart, toFinish } from "../helpers/flow.js";
@@ -41,7 +41,7 @@ export class PurchaseDto {
   description: "Pays for an item",
   input: Payment,
   output: Receipt,
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
 })
 export class Pay {
   execute({ item }: Payment): Promise<Receipt> {

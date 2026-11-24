@@ -93,7 +93,7 @@ export interface McpImportContract {
 }
 
 /** `application.contracts` of `describe --json`. */
-export interface ContractsSnapshot {
+export interface ApplicationContracts {
   readonly exports: readonly (A2AExportContract | McpExportContract)[];
   readonly imports: readonly (A2AImportContract | A2AForeignImportContract | McpImportContract)[];
   readonly schemas: Readonly<

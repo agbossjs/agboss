@@ -26,7 +26,7 @@ export {
 export { diagnosticOfViolation } from "./graph/rule-diagnostic.js";
 export { describeServices, describeServicesWith } from "./describe/describe-workflow.js";
 export { workflowSnapshotOf, type WorkflowSnapshot } from "./describe/snapshot.js";
-export { contractsOf, type ContractsSnapshot } from "./describe/contracts.js";
+export { contractsOf, type ApplicationContracts } from "./describe/contracts.js";
 export {
   checkFederation,
   FederationProblemCode,
@@ -37,7 +37,7 @@ export {
 } from "./federation/federation.js";
 export { federationMemberOf, type SnapshotReading } from "./federation/federation-snapshot.js";
 export {
-  describeApplication,
+  describeAssembledApplication,
   type ApplicationDescription,
 } from "./describe/describe-application.js";
 export {
@@ -45,7 +45,7 @@ export {
   type DescribedChild,
   type DescribedLaunch,
   type DescribedTree,
-  type DescribedWorkflowNode,
+  type DescribedWorkflowTree,
 } from "./describe/tree.js";
 export {
   ChannelImplementationReason,
@@ -143,7 +143,7 @@ export { childLines, inputLines } from "./describe/inputs.js";
 export {
   applicationWarningsOf,
   describedApplicationOf,
-  type DescribedApplication,
+  type ApplicationFacts,
   type DescribedBudget,
   type DescribedExecutionBudget,
 } from "./describe/application.js";
@@ -198,6 +198,7 @@ export {
 export * from "./internal-a2a.js";
 export * from "./internal-run.js";
 export * from "./internal-routers.js";
+export * from "./internal-surface.js";
 // assembly internals (#834): an app's and a workflow's dependencies, the observers' manager
 export * from "./app/app-deps.js";
 export type { GraphDeps } from "./graph/deps.js";

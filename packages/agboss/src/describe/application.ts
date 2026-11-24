@@ -15,7 +15,7 @@ import {
 import {
   storageLinesOf,
   storageProvidersOf,
-  type StorageLine,
+  type DescribedStorage,
 } from "../storage/storage-assembly.js";
 import { assemblyWarningsOf, warningText, type AssemblyWarning } from "../application/start-log.js";
 import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
@@ -59,14 +59,14 @@ export interface DescribedPauseListener {
 }
 
 /** An application, as `describe` shows it. */
-export interface DescribedApplication {
+export interface ApplicationFacts {
   readonly name: string;
   readonly version: string;
   /** Every workflow it runs: the listed ones, then the children they launch. */
   readonly workflows: readonly string[];
   readonly implementations: readonly ImplementationChoice[];
   /** `@Application({ storage })` (#1321): each storage component with its driver; absent = none declared. */
-  readonly storage?: readonly StorageLine[];
+  readonly storage?: readonly DescribedStorage[];
   readonly modelProviders: readonly DescribedModelProvider[];
   readonly budgets: readonly DescribedBudget[];
   readonly executionBudgets: readonly DescribedExecutionBudget[];
@@ -114,7 +114,7 @@ export const applicationWarningsOf = (
 ): readonly AssemblyWarning[] => assemblyWarningsOf(assembled);
 
 /** The application, described from its assembly. */
-export function describedApplicationOf(assembled: AssembledApplication): DescribedApplication {
+export function describedApplicationOf(assembled: AssembledApplication): ApplicationFacts {
   const names = new Map<Class, string>(
     assembled.workflows.map((workflow) => [workflow.graph.type, workflow.config.name]),
   );
@@ -161,7 +161,7 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
 }
 
 /** `maxConcurrentSteps 32 (set) · …`, or that the instance has no cap (#332). */
-const stepCapLine = (described: DescribedApplication): string =>
+const stepCapLine = (described: ApplicationFacts): string =>
   described.maxConcurrentSteps === undefined
     ? "maxConcurrentSteps none (not set) · no cap on this instance's steps"
     : `maxConcurrentSteps ${String(described.maxConcurrentSteps)} (set) · agent, router and action steps of this instance at work at once`;
@@ -184,7 +184,7 @@ function executionBudgetLine(budget: DescribedExecutionBudget): string {
 }
 
 /** The budgets by scope, then the one that caps each workflow. */
-function budgetLines(described: DescribedApplication): string[] {
+function budgetLines(described: ApplicationFacts): string[] {
   const byScope = SCOPES.flatMap((scope) => {
     const listed = described.budgets.filter((budget) => budget.scope === scope);
     return listed.length === 0 ? [] : [`  ${scope}: ${listed.map(budgetLabel).join(", ")}`];
@@ -205,7 +205,7 @@ const modelProviderLine = (provider: DescribedModelProvider): string =>
   }`;
 
 /** `pause listeners ledger-pause-listener (allowAnswering: sees the ids of channel pauses), …`. */
-const pauseListenerLines = (described: DescribedApplication): string[] =>
+const pauseListenerLines = (described: ApplicationFacts): string[] =>
   described.pauseListeners.length === 0
     ? []
     : [
@@ -218,7 +218,7 @@ const pauseListenerLines = (described: DescribedApplication): string[] =>
       ];
 
 /** The application's implementations, model providers, budgets, observers and warnings. */
-export function applicationLines(described: DescribedApplication): string[] {
+export function applicationLines(described: ApplicationFacts): string[] {
   return [
     ...(described.storage === undefined
       ? []

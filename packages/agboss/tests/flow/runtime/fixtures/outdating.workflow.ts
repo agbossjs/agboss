@@ -1,5 +1,5 @@
 import { Window5Memory } from "../../../helpers/window-memory.js";
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Agent,
@@ -60,7 +60,7 @@ export class EditorQuestion {
 @Tool({
   name: "ask-editor-tool",
   description: "Asks the editor about the draft",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: EditorQuestion,
   output: EditorQuestion,
 })

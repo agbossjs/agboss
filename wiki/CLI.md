@@ -489,6 +489,13 @@ steps and visits; budgets are opened per execution by the app ([FinOps](FinOps))
 
 ## describe (#268)
 
+Code reads the same facts from `@agboss/core/describe` (#1324): `describeApplication(AppClass, options?)`
+and `describeWorkflow(AppClass, WorkflowClass, options?)` return the text lines, and
+`describeApplicationData(AppClass, options?)` the typed `--json` projection
+`{ application: DescribedApplication, workflows: DescribedWorkflow[] }`. They take the `@Application`
+class and assemble it as `createApp` does — `options` is `{ profile?, processEnv?, source? }` — so no
+assembled structure is public.
+
 `agboss describe` prints the application first, then each workflow — from the decorators, with no
 key, no network and no project code run (no `maxSpend()`):
 

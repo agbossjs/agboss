@@ -1,4 +1,4 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text } from "../../../../src/dto/index.js";
 import {
   Agent,
@@ -142,7 +142,7 @@ export class ItemConfirmation {
 @Tool({
   name: "confirm-item-tool",
   description: "Confirms an item",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: ItemConfirmation,
   output: ItemConfirmation,
 })

@@ -13,7 +13,7 @@ In memory nothing is shared between instances and nothing survives a restart.
 
 | Contract                            | Holds                                                                         | SQLite implementation              |
 | ----------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------- |
-| `BaseCheckpointSaver` (LangGraph's) | every step's checkpoint: a pause, a crash and a resume continue from it       | `SqliteCheckpointSaver`            |
+| `BaseCheckpointSaver` (LangGraph's) | every step's checkpoint: a pause, a crash and a resume continue from it       | the storage driver's (internal)    |
 | `ExecutionRecordRepository`         | threads, owners, execution records, who answered each pause, summaries        | `SqliteExecutionRecordRepository`  |
 | `PausedExecutionRepository`         | each pause's record (`Pending → Resolved → Taken`, or `Cancelled`)            | `SqlitePausedExecutionRepository`  |
 | `CostLedgerRepository`              | the budgets' counters (reference 06)                                          | `SqliteCostLedgerRepository`       |
@@ -206,7 +206,6 @@ export class ExecutionBudget implements BudgetHandler {
 ```ts file=src/claims.application.ts
 import {
   Application,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionHistoryRepository,
   SqliteExecutionLeaseRepository,
@@ -232,7 +231,6 @@ import { AppEnvironment } from "./environments/app.environment.js";
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   providers: [
     // every store durable and shared: no [application.in-memory-…] warning
-    SqliteCheckpointSaver,
     SqliteExecutionRecordRepository,
     SqlitePausedExecutionRepository,
     SqliteCostLedgerRepository,
