@@ -1,4 +1,4 @@
-import type { ExecutionOutput } from "../app/types.js";
+import { ExecutionStatus, type ExecutionOutput } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import type { ErrorClass } from "../flow/ast.js";
 import { matchError, type ExpectedErrorFields } from "./error-matcher.js";
@@ -73,6 +73,29 @@ function hasParts(
   });
 }
 
+/** A run that ended by an operator's command: the status `status`, and `reason` when one is expected. */
+function endedBy(
+  context: MatcherContext,
+  received: unknown,
+  expected: {
+    readonly matcher: string;
+    readonly status: ExecutionStatus.Stopped | ExecutionStatus.Cancelled;
+    readonly reason: string | undefined;
+  },
+): Verdict {
+  if (!isExecutionOutput(received)) return wrongReceived(expected.matcher, RUN);
+  const reason = "reason" in received ? received.reason : undefined;
+  const pass =
+    received.status === expected.status &&
+    (expected.reason === undefined || reason === expected.reason);
+  const why = expected.reason === undefined ? "" : ` for ${JSON.stringify(expected.reason)}`;
+  const got =
+    received.status === expected.status
+      ? `it ended ${received.status} for ${JSON.stringify(reason ?? null)}`
+      : endOf(received);
+  return verdict(context, pass, `the run to be ${expected.status}${why}`, got);
+}
+
 /** Matchers on run results, errors and `mockLlm(…)` — all by class. Registered by the setup file. */
 export const workflowMatchers = {
   /** The execution visited these components, in this order (compared by node id = `name`). */
@@ -97,6 +120,24 @@ export const workflowMatchers = {
     const data = output === undefined ? "" : ` with ${JSON.stringify(output)}`;
     const said = `the run to finish at ${nodeNameOf(finish)}${data}`;
     return verdict(this, pass, said, endOf(received));
+  },
+
+  /** The run was halted by `app.stop` (`ExecutionStatus.Stopped`, nothing undone), for `reason` when given. */
+  toStopWith(this: MatcherContext, received: unknown, reason?: string): Verdict {
+    return endedBy(this, received, {
+      matcher: "toStopWith",
+      status: ExecutionStatus.Stopped,
+      reason,
+    });
+  },
+
+  /** The run was undone by `app.cancel` (`ExecutionStatus.Cancelled`), for `reason` when given. */
+  toCancelWith(this: MatcherContext, received: unknown, reason?: string): Verdict {
+    return endedBy(this, received, {
+      matcher: "toCancelWith",
+      status: ExecutionStatus.Cancelled,
+      reason,
+    });
   },
 
   toHavePausedAt(this: MatcherContext, received: unknown, agent: Class): Verdict {
@@ -143,6 +184,10 @@ export interface WorkflowMatchers<R = unknown> {
   toFollowPath(path: readonly Class[]): R;
   toFinishWith(finish: Class, output?: unknown): R;
   toHavePausedAt(agent: Class): R;
+  /** The run was stopped by `app.stop` (`ExecutionStatus.Stopped`), for `reason` when given. */
+  toStopWith(reason?: string): R;
+  /** The run was cancelled and undone by `app.cancel` (`ExecutionStatus.Cancelled`), for `reason` when given. */
+  toCancelWith(reason?: string): R;
   /** The error, or one it was caused by, is of this class and has these fields (#262 AC10). */
   toFailWith<TError extends Error>(
     error: ErrorClass<TError>,

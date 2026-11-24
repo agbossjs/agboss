@@ -39,6 +39,8 @@ declare module "vitest" {
     toFollowPath: WorkflowMatchers<T>["toFollowPath"];
     toFinishWith: WorkflowMatchers<T>["toFinishWith"];
     toHavePausedAt: WorkflowMatchers<T>["toHavePausedAt"];
+    toStopWith: WorkflowMatchers<T>["toStopWith"];
+    toCancelWith: WorkflowMatchers<T>["toCancelWith"];
     toFailWith: WorkflowMatchers<T>["toFailWith"];
     toHaveScriptedToolCalls: WorkflowMatchers<T>["toHaveScriptedToolCalls"];
     toHaveCalledTools: ToolCallMatchers<T>["toHaveCalledTools"];

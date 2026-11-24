@@ -1477,6 +1477,7 @@ export interface WorkflowFixtures {
 
 // @public
 export interface WorkflowMatchers<R = unknown> {
+    toCancelWith(reason?: string): R;
     toFailWith<TError extends Error>(error: ErrorClass<TError>, fields?: ExpectedErrorFields<TError>): R;
     // (undocumented)
     toFinishWith(finish: Class, output?: unknown): R;
@@ -1487,6 +1488,7 @@ export interface WorkflowMatchers<R = unknown> {
     // (undocumented)
     toHavePausedAt(agent: Class): R;
     toHaveScriptedToolCalls(tools: readonly Class[]): R;
+    toStopWith(reason?: string): R;
 }
 
 // Warnings were encountered during analysis:

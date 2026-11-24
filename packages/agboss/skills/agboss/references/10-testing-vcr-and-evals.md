@@ -622,7 +622,8 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain),
   `toHaveChildExecutions(W, [{ item, finish | failedWith | cancelled }])`,
   `toHaveHandledError(E, { at, by })`, `toHaveCalledTools([A, B])` and `toHaveToolCallMatching(Tool,
-partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
+partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`, `toStopWith(reason?)` /
+  `toCancelWith(reason?)` (the run ended `Stopped` / `Cancelled`); on
   `mockLlm(X)` / `mockAction(A)`: `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`,
   `toHaveReturned(Dto, fields?)`, `toHaveScriptedToolCalls([Tool])` (its model's calls, exactly, in
   order), `.inputs`, `.lastRequest`.

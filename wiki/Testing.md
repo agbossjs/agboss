@@ -654,6 +654,8 @@ pause is `test.no-open-pause`.
 | `toFollowPath([Start, Router, Agent, …])`           | a run result             | the visited nodes are exactly these, in order (node ids are the components' names; a launch's copy `critic-agent#2` is its class) |
 | `toFinishWith(Finish, data?)`                    | a run result             | it finished there (with that output)                 |
 | `toHavePausedAt(Agent)`                          | a run result             | it waits for a human in that step (`pending[i].step`) |
+| `toStopWith(reason?)`                            | a run result             | it ended `ExecutionStatus.Stopped` (`app.stop`; nothing undone), for that `reason` when given (#1341) |
+| `toCancelWith(reason?)`                          | a run result             | it ended `ExecutionStatus.Cancelled` (`app.cancel`; its undo done), for that `reason` when given (#1341) |
 | `toFailWith(ErrorClass, { …fields, cause? })`    | an error (`.rejects`)    | the error or one it was caused by is of that class (a subclass too) with those fields (deep partials); `cause` names a class further down the chain (#262) |
 | `toHaveBeenCalledWith(partial)`                  | `mockLlm(X)`, `mockAction(A)` | a call's input matched — the `when(…)` matcher, typed by `InputOf<X>` |
 | `toHaveBeenCalledTimes(n)`                       | `mockLlm(X)`, `mockAction(A)` | model calls of X (an agent that calls a tool and answers: 2), executions of A |

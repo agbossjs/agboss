@@ -100,6 +100,51 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
     }).toThrow("it ended finished without a finish");
   });
 
+  it("toStopWith and toCancelWith name the operator's command and, when given, its reason (#1341)", () => {
+    const stopped = run({
+      status: ExecutionStatus.Stopped,
+      finish: undefined,
+      output: undefined,
+      reason: "enough",
+    });
+    const cancelled = run({
+      status: ExecutionStatus.Cancelled,
+      finish: undefined,
+      output: undefined,
+    });
+
+    expect(stopped).toStopWith();
+    expect(stopped).toStopWith("enough");
+    expect(cancelled).toCancelWith();
+    expect(stopped).not.toCancelWith();
+    expect(cancelled).not.toStopWith();
+    expect(stopped).not.toStopWith("another reason");
+    expect(() => {
+      expect(stopped).toStopWith("another reason");
+    }).toThrow(
+      'expected the run to be stopped for "another reason", it ended stopped for "enough"',
+    );
+    expect(() => {
+      expect(cancelled).toCancelWith("withdrawn");
+    }).toThrow('expected the run to be cancelled for "withdrawn", it ended cancelled for null');
+    expect(() => {
+      expect(run({})).toStopWith();
+    }).toThrow('expected the run to be stopped, it finished at "reply-workflow-finish"');
+    expect(() => {
+      expect(paused).toCancelWith();
+    }).toThrow('expected the run to be cancelled, it paused at "support-agent"');
+    expect(() => {
+      expect(run({})).not.toStopWith();
+      expect(stopped).not.toStopWith();
+    }).toThrow("expected not the run to be stopped");
+    expect(() => {
+      expect({}).toStopWith();
+    }).toThrow("toStopWith: expected a run result");
+    expect(() => {
+      expect({}).toCancelWith();
+    }).toThrow("toCancelWith: expected a run result");
+  });
+
   it("toFailWith matches a class and its fields along the cause chain (#262 AC10)", () => {
     const router = new RouterDecisionError({
       nodeId: "main-router",
