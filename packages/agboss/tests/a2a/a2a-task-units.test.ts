@@ -323,7 +323,7 @@ describe("#807: the projection on its own", () => {
 
   it("an end → COMPLETED from the records, with what it spent (#810); nothing while they show no finish", async () => {
     const spend = { totalUsd: usd(0.25) };
-    const end = { ...(eventOf() as object), finish: { name: "f" }, spend } as never;
+    const end = { ...(eventOf() as object), finish: { name: "f" }, output: 1, spend } as never;
     const { tasks } = await storeWith(WORKING);
 
     const running = scripted([{ status: DurableExecutionStatus.Running }]);

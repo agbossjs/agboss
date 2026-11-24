@@ -203,7 +203,7 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
 
 describe("#807 AC3: a status the events missed is repaired on read", () => {
   internal(
-    "a missed finish → COMPLETED with its output, once a lease period passed",
+    "a missed finish → COMPLETED from the records (an ended tree keeps no output, #1321d), once a lease period passed",
     async ({ app, clock, mockLlm }) => {
       mockLlm(Clerk).thenReturn(done);
       await accepted(app);
@@ -222,7 +222,7 @@ describe("#807 AC3: a status the events missed is repaired on read", () => {
 
       expect(fresh.status.state).toBe(A2ATaskState.Submitted);
       expect(repaired).toMatchObject({
-        status: { state: A2ATaskState.Completed, output: { text: "Done." } },
+        status: { state: A2ATaskState.Completed, finish: expect.any(String) as unknown },
         version: 2,
       });
       expect(await taskOn(app)).toEqual(repaired);
