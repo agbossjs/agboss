@@ -30,6 +30,8 @@ export enum StepKind {
   Switch = "switch",
   /** `.toOneOf([…branches])` (#1275): the DTO-free branching of a `oneOf(…)` output. */
   OneOf = "one-of",
+  /** `.onFinish(ChildFinish, subPath)` (#1275b): one finish of the child workflow the step before is. */
+  OnFinish = "on-finish",
   ChooseOne = "choose-one",
   OnError = "on-error",
   /**
@@ -91,6 +93,16 @@ export interface SwitchStep {
 export interface OneOfStep {
   readonly kind: StepKind.OneOf;
   readonly branches: readonly SubPath[];
+}
+
+/**
+ * `.onFinish(KycFraudFinish, toAction(X)…)` (#1275b): the path the child workflow's finish takes. It
+ * names the finish by its component class, never by the DTO it outputs: two finishes may output one.
+ */
+export interface OnFinishStep {
+  readonly kind: StepKind.OnFinish;
+  readonly finish: Class;
+  readonly path: SubPath;
 }
 
 /** One `route(X)…` of a `.chooseOne(…)`: its target and what follows it. */
@@ -212,7 +224,14 @@ export interface JoinStep {
 }
 
 export type Step =
-  ToStep | SwitchStep | OneOfStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
+  | ToStep
+  | SwitchStep
+  | OneOfStep
+  | OnFinishStep
+  | ChooseOneStep
+  | OnErrorStep
+  | LaunchStep
+  | JoinStep;
 
 /** The steps inside `route(X)…`, `caseOf(D)…`, a `.toOneOf([…])` branch or the side path of `.onError`. */
 export interface SubPath {

@@ -7,15 +7,14 @@ import { inStepEntry } from "./step-entries.js";
 import { assertAnnouncing, eventOf, failedChild, type ChildParent } from "./child-failure.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { unkeptExecutionIds } from "../../infrastructure/clock.js";
-import { childWorkflowOf } from "../analyse/child-workflow.js";
 import { currentFrame, depthOf, type Frame } from "../context/frame.js";
-import { NodeKind } from "../ast.js";
 import { childEntryOf, type ChildEntry } from "./child-entry.js";
+import { valueOf } from "./child-value.js";
 import { childRecordOf, ownUsageOf, type EndedChild } from "./child-exit.js";
 import { childEnteredAt, childRunOf, type ChildEntered } from "./child-identity.js";
 import { ChildExecutionStatus } from "./child-records.js";
 import type { RuntimeNode } from "./graph-model.js";
-import type { NodeOutcome, NodeRunner } from "./node-runner.js";
+import type { NodeRunner } from "./node-runner.js";
 import { validStartInput } from "./start-input.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import type { WorkflowIdentity } from "./step-frame.js";
@@ -60,16 +59,6 @@ function parentFrame(node: RuntimeNode): Frame {
   if (frame === undefined || frame.isClosed())
     throw new TypeError(`${node.id}: a child workflow ran outside a step of its parent`);
   return frame;
-}
-
-/** The child's value: its finish's output, with the finish's class when it gives several. */
-function valueOf(child: ChildGraph, state: ExecutionStateType): NodeOutcome["value"] {
-  const finish = child.deps.graph.nodes.get(state.finish)?.declaration;
-  const output = finish?.kind === NodeKind.Finish ? finish.options.output : undefined;
-  // Stryker disable next-line ArrayDeclaration: equivalent: a list of one output is no choice of several (`outputs.length > 1`), as the empty one
-  const outputs = childWorkflowOf(child.workflow.type)?.outputs ?? [];
-  const isOneOf = outputs.length > 1 && typeof output === "function";
-  return isOneOf ? { value: state.output, variant: output.name } : { value: state.output };
 }
 
 /** The child's first state: its start and input, the parent's contexts and spend, its identity. */

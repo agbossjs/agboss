@@ -85,6 +85,14 @@ export declare namespace AGBossTypes {
   }
 
   /**
+   * The finishes of each child workflow by its `name`, as classes (`typeof KycFraudFinish | …`):
+   * what `.onFinish(ChildFinish, subPath)` names after `.toWorkflow(W)` (#1275b).
+   */
+  export interface WorkflowFinishes {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
    * The DTO classes the generated file brands, by class name (S39): each is augmented with
    * `readonly [agbossDto]?: "XDto"`, so empty marker DTOs and same-shaped DTOs are distinct types.
    */

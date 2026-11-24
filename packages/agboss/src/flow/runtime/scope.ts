@@ -32,6 +32,8 @@ export interface ScopeView {
 export interface NodeValue {
   readonly value: unknown;
   readonly variant?: string;
+  /** A child workflow's value: the finish it ended at, by node id (`.onFinish(F, …)` picks by it, #1275b). */
+  readonly finish?: string;
 }
 
 /** Where a visit writes: which node, which visit, what it read, and the scope it writes into. */

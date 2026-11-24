@@ -41,6 +41,8 @@ export interface ChildStart {
 export interface ChildWorkflow {
   readonly name: ComponentName;
   readonly starts: readonly ChildStart[];
+  /** The finishes its flow reaches, sorted by name (`.onFinish(F, …)` names one of them, #1275). */
+  readonly finishes: readonly Class[];
   /** The distinct output classes of its finishes, sorted by name. */
   readonly outputs: readonly (DtoClass | ListWrapper)[];
   /** What it gives its parent: one class, a `oneOf(…)` of several, nothing without a finish. */
@@ -69,6 +71,8 @@ function allSteps(steps: readonly Step[]): readonly Step[] {
         return [step, ...step.cases.flatMap((branch) => allSteps(branch.path.steps))];
       case StepKind.OneOf:
         return [step, ...step.branches.flatMap((branch) => allSteps(branch.steps))];
+      case StepKind.OnFinish:
+        return [step, ...allSteps(step.path.steps)];
       case StepKind.ChooseOne:
         return [step, ...step.routes.flatMap((route) => allSteps(route.path.steps))];
       case StepKind.OnError:
@@ -82,7 +86,7 @@ function allSteps(steps: readonly Step[]): readonly Step[] {
 }
 
 /** The finish classes a flow names: `.toFinish(F)` and `route(F)`. */
-function finishesOf(flow: readonly FlowPath[]): readonly Class[] {
+export function finishesOf(flow: readonly FlowPath[]): readonly Class[] {
   const targets = flow
     .flatMap((path) => allSteps(path.steps))
     .flatMap((step): readonly Class[] => {
@@ -140,6 +144,7 @@ function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
   return {
     name: name as ComponentName,
     starts: unique,
+    finishes: [...finishesOf(flow)].sort((first, second) => first.name.localeCompare(second.name)),
     outputs,
     ...(output === undefined ? {} : { output }),
   };

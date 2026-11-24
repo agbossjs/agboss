@@ -14,6 +14,7 @@ import {
   type SwitchCase,
   type ToStep,
 } from "./ast.js";
+import { oneOfStepOf, onFinishStepOf } from "./branch-step.js";
 import { FlowSyntaxError, launchOrderProblem, launchStepOf } from "./launch-step.js";
 import {
   acceptedByOf,
@@ -39,7 +40,6 @@ const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ 
 
 export type { PathStart } from "./path-start.js";
 
-const ONE_OF_PATHS = ".toOneOf([…]) takes side paths";
 const SIDE_PATH_HINT = "toAction(…), toAgent(…), toFinish(…), …";
 
 /** A flow path's builder holds its source; a sub-path's holds `undefined`. */
@@ -121,13 +121,12 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 
   /** `.toOneOf([toAction(A)…, toFinish(F)])` (#1275): the branches of a `oneOf(…)` output. */
   toOneOf(branches: unknown): PathBuilder<TSource> {
-    if (!Array.isArray(branches) || branches.length < 2)
-      throw syntaxError(".toOneOf([…]) takes an array of two or more side paths: toAction(…), …");
-    const paths = (branches as readonly unknown[]).map((path) => {
-      if (path instanceof PathBuilder) return path.asSidePath(ONE_OF_PATHS);
-      throw syntaxError(`${ONE_OF_PATHS}: ${SIDE_PATH_HINT}`);
-    });
-    return this.then({ kind: StepKind.OneOf, branches: paths });
+    return this.then(oneOfStepOf(branches, (path, call) => PathBuilder.sideOf(path, call)));
+  }
+
+  /** `.onFinish(KycFraudFinish, toAction(X)…)` (#1275b): the side path one finish of a child takes. */
+  onFinish(finish: unknown, path: unknown): PathBuilder<TSource> {
+    return this.then(onFinishStepOf(finish, path, (side, call) => PathBuilder.sideOf(side, call)));
   }
 
   chooseOne(...routes: readonly PathBuilder[]): PathBuilder<TSource> {
@@ -231,6 +230,12 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   /** A group: its agents, priority and own path. */
   private asGroup(): QuorumGroup | undefined {
     return this.start.kind === "group" ? quorumGroupOf(this.start, this.steps) : undefined;
+  }
+
+  /** A side path of `call` (`.toOneOf([…])`, `.onFinish(F, …)`), or a syntax error. */
+  static sideOf(path: unknown, call: string): SubPath {
+    if (path instanceof PathBuilder) return path.asSidePath(`${call} takes side paths`);
+    throw syntaxError(`${call} takes side paths: ${SIDE_PATH_HINT}`);
   }
 
   private asSidePath(call = ".onError(E, …) takes a side path"): SubPath {

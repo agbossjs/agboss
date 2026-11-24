@@ -1,8 +1,11 @@
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { OneOfProblem } from "../one-of.js";
-import { EdgeKind, outputOf } from "../flow-graph.js";
+import { childClassOf, EdgeKind, outputOf } from "../flow-graph.js";
+import { childWorkflowOf } from "../child-workflow.js";
 import type { OutputShape } from "../../dto-wrappers.js";
-import { shapeLabel } from "../labels.js";
+import type { ComponentName } from "../../registry.js";
+import { NodeKind } from "../../ast.js";
+import { classLabel, shapeLabel } from "../labels.js";
 import { variantsOf } from "./switch.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -52,7 +55,54 @@ function unbranchedViolations(context: AnalysisContext): readonly RuleViolation[
   return [...found.values()];
 }
 
+/** The finishes `.onFinish(F, …)` names must be the child's, once each, and cover every one of them. */
+function onFinishViolations(context: AnalysisContext): readonly RuleViolation[] {
+  const byNode = new Map<ComponentName, (typeof context.walked.onFinishes)[number][]>();
+  for (const site of context.walked.onFinishes)
+    byNode.set(site.node, [...(byNode.get(site.node) ?? []), site]);
+  return [...byNode].flatMap(([name, sites]) => {
+    const node = context.graph.nodes.get(name);
+    const child =
+      node?.kind === NodeKind.Workflow ? childWorkflowOf(childClassOf(node)) : undefined;
+    if (child === undefined) {
+      const message = `${name}: .onFinish(F, …) follows a child workflow — .toWorkflow(W)`;
+      return [violation("flow.one-of-ambiguous", message, [name])];
+    }
+    const named = sites.map((site) => site.step.finish);
+    const unknown = named.filter((finish) => !child.finishes.includes(finish));
+    const twice = named.filter((finish, at) => named.indexOf(finish) !== at);
+    const missing = child.finishes.filter((finish) => !named.includes(finish));
+    const mixed = context.graph.edges.some(
+      (edge) => edge.from === name && edge.kind === EdgeKind.Next,
+    );
+    return [
+      ...unknown.map((finish) => {
+        const message = `${name}: .onFinish(${classLabel(finish)}, …) — ${classLabel(finish)} is no finish of ${child.name}`;
+        return violation("flow.one-of-ambiguous", message, [name]);
+      }),
+      ...twice.map((finish) => {
+        const message = `${name}: .onFinish(${classLabel(finish)}, …) is written twice — a finish has one path`;
+        return violation("flow.one-of-ambiguous", message, [name]);
+      }),
+      ...missing.map((finish) => {
+        const message = `${name} can end at ${classLabel(finish)} — add .onFinish(${classLabel(finish)}, …)`;
+        return violation("flow.one-of-not-exhaustive", message, [name]);
+      }),
+      ...(mixed
+        ? [
+            violation(
+              "flow.one-of-ambiguous",
+              `${name}: .onFinish(F, …) and a transition after the same child — a child continues by its finishes or by one next step`,
+              [name],
+            ),
+          ]
+        : []),
+    ];
+  });
+}
+
 export const oneOfRules = (context: AnalysisContext): readonly RuleViolation[] => [
   ...oneOfViolations(context),
+  ...onFinishViolations(context),
   ...unbranchedViolations(context),
 ];

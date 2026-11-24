@@ -134,6 +134,7 @@ export function printTypes(
       tableLines("Inputs", tables.inputs),
       tableLines("Outputs", tables.outputs),
       tableLines("WorkflowStarts", tables.workflowStarts),
+      tableLines("WorkflowFinishes", tables.workflowFinishes),
       tableLines("Routes", tables.routes),
       tableLines("RouterAnswers", tables.routerAnswers),
       tableLines("ChannelRoles", tables.channelRoles ?? new Map()),

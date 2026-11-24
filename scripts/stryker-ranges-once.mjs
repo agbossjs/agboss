@@ -20,6 +20,7 @@ export function onceChildShard() {
     configFile: "vitest.mutation-once-child.config.ts",
     mutate: [
       "src/flow/runtime/child.ts",
+      "src/flow/runtime/child-value.ts",
       "src/flow/runtime/remote/remote-child.ts",
       "src/app/remote/{child-end-event,queued-child-run}.ts",
     ],

@@ -1,13 +1,14 @@
 import type { RuleViolation } from "../../graph/rule-error.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
-import { EdgeKind, outputOf, reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
+import { EdgeKind, type FlowNode } from "../analyse/flow-graph.js";
 import type { Class } from "../../components/injection.js";
 import { NodeKind } from "../ast.js";
 import { onDemandRoutesOf, routesOf, type RouterOptions } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
 import { TablesImport, type ImportTable } from "./imports.js";
 import { childInputEntry, inputEntry, nodeInput } from "./inputs.js";
-import { outputText, startInputText, startOutputText, valueText } from "./shapes.js";
+import { outputText, startInputText, valueText } from "./shapes.js";
+import { writeChild, writeStart } from "./start-entries.js";
 import { offPathUndoActions } from "./undo-actions.js";
 
 /**
@@ -61,6 +62,8 @@ export interface TypeTables {
   readonly workflowStarts: TypeTable;
   readonly routes: TypeTable;
   readonly routerAnswers: TypeTable;
+  /** The finishes of each child workflow, by workflow name (`.onFinish(F, …)`, #1275b). */
+  readonly workflowFinishes: TypeTable;
   /** S4 lines for `agboss check`: the nodes whose `InputOf` is flat. */
   readonly notes: readonly string[];
 }
@@ -83,25 +86,6 @@ const launchingRouters = (workflows: readonly AnalysedWorkflow[]): ReadonlySet<s
         .map((edge) => edge.from),
     ),
   );
-
-/** The outputs of the finishes a start reaches, in every workflow it is in. */
-function startOutputs(
-  workflows: readonly AnalysedWorkflow[],
-  start: ComponentName,
-  names: ImportTable,
-): string {
-  const outputs = new Set<string>();
-  for (const { analysis } of workflows) {
-    const { graph } = analysis;
-    if (!graph.nodes.has(start)) continue;
-    for (const reached of reachableFrom([start], graph.edges)) {
-      const node = graph.nodes.get(reached);
-      if (node?.declaration.kind === NodeKind.Finish)
-        outputs.add(valueText(node.declaration.options.output, names));
-    }
-  }
-  return outputs.size === 0 ? "never" : [...outputs].sort().join(" | ");
-}
 
 /**
  * `Inputs[workflow]` (#1287): what a workflow takes — the union of its starts' inputs, as
@@ -138,17 +122,9 @@ function writeNode(
 ): void {
   const { declaration, name } = node;
   switch (declaration.kind) {
-    case NodeKind.Start: {
-      const { input } = declaration.options;
-      tables.producerOutputs.set(name, startOutputText(input, names));
-      tables.inputs.set(name, startInputText(input, names));
-      const output = startOutputs(workflows, name, names);
-      tables.workflowStarts.set(
-        name,
-        `{ input: ${startInputText(input, names)}; output: ${output} }`,
-      );
+    case NodeKind.Start:
+      writeStart(node, declaration.options.input, workflows, names, tables);
       return;
-    }
     case NodeKind.Agent:
       tables.producerOutputs.set(name, outputText(declaration.options.output, names));
       return;
@@ -172,8 +148,7 @@ function writeNode(
       return;
     }
     case NodeKind.Workflow:
-      // a child workflow gives its finishes' outputs (#263): one class or a `oneOf(…)`
-      tables.producerOutputs.set(name, outputText(outputOf(node), names));
+      writeChild(node, names, tables);
       return;
   }
 }
@@ -185,6 +160,7 @@ interface MutableTables {
   readonly workflowStarts: Map<string, string>;
   readonly routes: Map<string, string>;
   readonly routerAnswers: Map<string, string>;
+  readonly workflowFinishes: Map<string, string>;
   readonly launchingRouters: ReadonlySet<string>;
   readonly notes: string[];
 }
@@ -203,6 +179,7 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
     workflowStarts: new Map(),
     routes: new Map(),
     routerAnswers: new Map(),
+    workflowFinishes: new Map(),
     launchingRouters: launchingRouters(workflows),
     notes: [],
   };

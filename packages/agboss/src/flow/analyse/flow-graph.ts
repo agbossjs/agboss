@@ -117,6 +117,11 @@ export interface FlowEdge {
    * per-item branch's item last).
    */
   readonly writes: readonly ValueWrite[];
+  /**
+   * `EdgeKind.Case`: what the runtime picks the branch by — the class name of the DTO a `.switch` /
+   * `.toOneOf` branch takes, the component name of the child finish an `.onFinish(F, …)` takes (#1275).
+   */
+  readonly caseKey?: string;
   /** The class an `EdgeKind.Error` / `EdgeKind.JoinError` edge catches. */
   readonly error?: ErrorClass;
   /** `EdgeKind.Launch` and `EdgeKind.Join` / `EdgeKind.JoinError`: the launch (#273). */
@@ -176,7 +181,14 @@ export const isTextAgent = (node: FlowNode): boolean =>
 /** A canonical, comparable key of an edge. */
 export function edgeKey(edge: FlowEdge): string {
   const writes = edge.writes.map((write) => `${shapeLabel(write.shape)}:${String(write.isCase)}`);
-  return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(",")].join("|");
+  return [
+    edge.from,
+    edge.to,
+    edge.kind,
+    edge.error?.name ?? "",
+    writes.join(","),
+    edge.caseKey ?? "",
+  ].join("|");
 }
 
 /** Edges leaving each node, in canonical order. */

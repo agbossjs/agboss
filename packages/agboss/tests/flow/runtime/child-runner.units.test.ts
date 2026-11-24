@@ -466,7 +466,7 @@ describe("#1366: what the parent's step takes from the child", () => {
     const done = await run();
 
     expect(done).toEqual({
-      value: { value: "out" },
+      value: { value: "out", finish: "child-finish" },
       read: ["read-1"],
       usage: ["own-usage"],
       piiTokens: { t: "v" },
@@ -481,7 +481,9 @@ describe("#1366: what the parent's step takes from the child", () => {
     const { run } = setUp();
     h.outputs = ["a", "b"];
 
-    expect(await run()).toMatchObject({ value: { value: "out", variant: "ApprovedDto" } });
+    expect(await run()).toMatchObject({
+      value: { value: "out", variant: "ApprovedDto", finish: "child-finish" },
+    });
   });
 
   it("names none for a child with one output, nor for a finish that is not one", async () => {
@@ -493,16 +495,16 @@ describe("#1366: what the parent's step takes from the child", () => {
     const odd = setUp();
     h.outputs = ["a", "b"];
     (h.end as { state: Record<string, unknown> }).state.finish = "nowhere";
-    expect((await odd.run()).value).toEqual({ value: "out" });
+    expect((await odd.run()).value).toEqual({ value: "out", finish: "nowhere" });
     (h.end as { state: Record<string, unknown> }).state.finish = "child-start";
-    expect((await odd.run()).value).toEqual({ value: "out" });
+    expect((await odd.run()).value).toEqual({ value: "out", finish: "child-start" });
   });
 
   it("names no variant for a workflow the analysis knows no outputs of", async () => {
     const { run } = setUp();
     h.outputs = undefined;
 
-    expect((await run()).value).toEqual({ value: "out" });
+    expect((await run()).value).toEqual({ value: "out", finish: "child-finish" });
   });
 
   it("a child whose parent's frame has no recordChild is run all the same", async () => {

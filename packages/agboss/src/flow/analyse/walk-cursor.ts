@@ -13,6 +13,8 @@ export interface Cursor {
   readonly writes: readonly ValueWrite[];
   readonly entry: EdgeKind;
   readonly error?: ErrorClass;
+  /** A branch of a `.switch`, `.toOneOf` or `.onFinish`: what picks it (`FlowEdge.caseKey`). */
+  readonly caseKey?: string;
   readonly depth: number;
   readonly path: PathSource;
   /** A launch waiting for its join, then a join waiting for its `.to…(…)` (#273). */

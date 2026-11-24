@@ -180,6 +180,7 @@ function analyse(graph: FlowGraph): Analysed {
     placements: [],
     switches: [],
     oneOfs: [],
+    onFinishes: [],
     choices: [],
     errorHandlers: [],
     launches: [],

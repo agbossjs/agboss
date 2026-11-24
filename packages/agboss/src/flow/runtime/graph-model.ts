@@ -81,16 +81,11 @@ export interface RuntimeGraph {
   readonly analysis: FlowAnalysis;
 }
 
-const caseKeyOf = (edge: FlowEdge): string | undefined => {
-  const [write] = edge.writes;
-  return write !== undefined && typeof write.shape === "function" ? write.shape.name : undefined;
-};
-
 function exitsOf(edges: readonly FlowEdge[]): NodeExits {
   const cases = new Map<string, FlowEdge>();
   const routes = new Map<string, FlowEdge>();
   for (const edge of edges) {
-    const key = caseKeyOf(edge);
+    const key = edge.caseKey;
     if (edge.kind === EdgeKind.Case && key !== undefined) cases.set(key, edge);
     if (edge.kind === EdgeKind.Route) routes.set(edge.to, edge);
   }

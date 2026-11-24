@@ -344,6 +344,25 @@ describe("#299 S54: a case holds its class only", () => {
     );
   });
 
+  it("records an .onFinish as the finish class and its side path (#1275b)", () => {
+    expect(
+      callUntyped(builder.onAgent(ReviewerAgent), "onFinish", [
+        OfferFailedWorkflowFinish,
+        builder.toAgent(EditorAgent),
+      ]),
+    ).toEqual(
+      expect.objectContaining({
+        steps: [
+          {
+            kind: StepKind.OnFinish,
+            finish: OfferFailedWorkflowFinish,
+            path: { steps: [to(EditorAgent, NodeKind.Agent)] },
+          },
+        ],
+      }),
+    );
+  });
+
   it("`.returns` is gone: values are derived from the steps' declarations (#1270)", () => {
     expect(() => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto])).toThrow(
       TypeError,

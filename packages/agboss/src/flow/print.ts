@@ -188,6 +188,9 @@ class Printer {
         });
         this.line(depth, ")");
         return;
+      case StepKind.OnFinish:
+        this.sidePath(this.label(step.finish), step.path.steps, depth, "onFinish");
+        return;
       case StepKind.OnError:
         this.sidePath(step.error.name, step.path.steps, depth, "onError");
         return;

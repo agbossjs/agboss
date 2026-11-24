@@ -402,6 +402,10 @@ export namespace AGBossTypes {
         // (undocumented)
         readonly [notGenerated]?: never;
     }
+    export interface WorkflowFinishes {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
     export interface WorkflowStarts {
         // (undocumented)
         readonly [notGenerated]?: never;
@@ -3986,6 +3990,15 @@ export enum FileView {
 }
 
 // @public
+export type FinishesOf<TInstance> = GeneratedEntry<AGBossTypes.WorkflowFinishes, TInstance> extends infer TEntry ? TEntry extends Class ? TEntry : never : never;
+
+// @public
+export interface FinishHandling<TInstance, THead extends PathHead> {
+    // (undocumented)
+    onFinish(finish: FinishesOf<TInstance>, path: SidePath): BuiltPath<THead> & FinishHandling<TInstance, THead>;
+}
+
+// @public
 export interface FlowDefaults {
     // (undocumented)
     readonly maxPathDepth?: number;
@@ -6247,6 +6260,7 @@ export enum NodeKind {
 
 // @public
 export interface NodeValue {
+    readonly finish?: string;
     // (undocumented)
     readonly value: unknown;
     // (undocumented)
@@ -6415,6 +6429,16 @@ export interface OnErrorStep {
 
 // @public
 export function onExternalTask<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SourceHead>;
+
+// @public
+export interface OnFinishStep {
+    // (undocumented)
+    readonly finish: Class;
+    // (undocumented)
+    readonly kind: StepKind.OnFinish;
+    // (undocumented)
+    readonly path: SubPath;
+}
 
 // @public
 export interface OnInit {
@@ -9133,12 +9157,12 @@ type StartTenantOf<TInstance> = WorkflowStartEntry<TInstance> extends {
 } ? TTenant : never;
 
 // @public (undocumented)
-export type Step = ToStep | SwitchStep | OneOfStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
+export type Step = ToStep | SwitchStep | OneOfStep | OnFinishStep | ChooseOneStep | OnErrorStep | LaunchStep | JoinStep;
 
 // @public (undocumented)
 type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [
 never
-] ? Transitions<THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ErrorHandling<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead>;
+] ? Transitions<THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ErrorHandling<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead> & WithFinishes<TInstance, THead>;
 
 // @public
 export interface StepCoordinates {
@@ -9354,6 +9378,7 @@ export enum StepKind {
     OneOf = "one-of",
     // (undocumented)
     OnError = "on-error",
+    OnFinish = "on-finish",
     // (undocumented)
     Switch = "switch",
     // (undocumented)
@@ -10497,6 +10522,9 @@ export enum Weekday {
     Wednesday = 3
 }
 
+// @public
+export type WithFinishes<TInstance, THead extends PathHead> = true extends IsUnion<FinishesOf<TInstance>> ? FinishHandling<TInstance, THead> : unknown;
+
 // @public (undocumented)
 export function Workflow<const TName extends string, const TFlow extends readonly FlowPath[]>(options: WorkflowOptions<TName, TFlow>): (value: Class) => void;
 
@@ -11486,6 +11514,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "cases".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "branches".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "finish".
+// src/flow/ast.ts - (ae-undocumented) Missing documentation for "path".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "target".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "path".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "ChooseOneStep".
@@ -11542,6 +11573,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "toFinish".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "Switching".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "switch".
+// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onFinish".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "onError".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "chooseOne".
@@ -11660,6 +11692,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[noInput]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "__error".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "__error".
+// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".

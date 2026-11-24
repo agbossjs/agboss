@@ -1,6 +1,8 @@
 import type { Class } from "../components/injection.js";
 import type { ErrorClass, FlowPath, NodeKind, SubPath } from "./ast.js";
 import type {
+  AGBossTypes,
+  GeneratedEntry,
   GeneratedTypeError,
   InputOf,
   KindOf,
@@ -147,7 +149,9 @@ export type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInsta
     ? RouterStep<THead, TInstance>
     : [KindOf<TInstance>] extends [NodeKind.Start]
       ? ValueContinuation<ProducerOutputOf<TInstance>, THead>
-      : ErrorHandling<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead>;
+      : ErrorHandling<TInstance, THead> &
+          OutputContinuation<ProducerOutputOf<TInstance>, THead> &
+          WithFinishes<TInstance, THead>;
 
 /** Whether an output is a `oneOf(…)`: a union of two or more DTOs, not a list or a single DTO. */
 export type IsOneOf<TOutput> = [TOutput] extends [readonly unknown[]]
@@ -226,6 +230,29 @@ export interface Switching<TOutput, THead extends PathHead> {
   switch<const TCases extends readonly [CasePath, ...CasePath[]]>(
     ...cases: TCases & SwitchCheck<TCases, TOutput>
   ): BuiltPath<THead>;
+}
+
+/** The finishes a child workflow ends at, as classes; `never` for anything else or before generation. */
+export type FinishesOf<TInstance> =
+  GeneratedEntry<AGBossTypes.WorkflowFinishes, TInstance> extends infer TEntry
+    ? TEntry extends Class
+      ? TEntry
+      : never
+    : never;
+
+/** After a child workflow with two or more finishes: `.onFinish(ChildFinish, subPath)` (#1275b). */
+export type WithFinishes<TInstance, THead extends PathHead> =
+  true extends IsUnion<FinishesOf<TInstance>> ? FinishHandling<TInstance, THead> : unknown;
+
+/**
+ * `.onFinish(KycFraudFinish, toAction(X)…)`: the path one finish of the child takes, named by the
+ * finish's component class — never by a DTO, two finishes may give one.
+ */
+export interface FinishHandling<TInstance, THead extends PathHead> {
+  onFinish(
+    finish: FinishesOf<TInstance>,
+    path: SidePath,
+  ): BuiltPath<THead> & FinishHandling<TInstance, THead>;
 }
 
 /** `.onError(E, toAction(X)…)` right after the step that throws; the main path goes on. */

@@ -43,6 +43,7 @@ import {
 import {
   DraftAgent,
   EditorAgent,
+  OfferSentWorkflowFinish,
   ReviewerAgent,
   SendOfferAction,
 } from "../fixtures/offer.fixture.js";
@@ -53,6 +54,14 @@ import {
   CompanyCheckWorkflowStart,
 } from "../fixtures/starts.fixture.js";
 import { ExpertAnswerAgent, FastAnswerAgent, SupportAction } from "../fixtures/support.fixture.js";
+import {
+  CompanyGradedWorkflowFinish,
+  CompanyRejectedWorkflowFinish,
+  CompanyReviewerAgent,
+  CompanyReviewWorkflow,
+  CompanyReviewWorkflowStart,
+} from "../fixtures/children.fixture.js";
+import { TreasuryWorkflowFinish } from "../fixtures/replies.fixture.js";
 
 /**
  * Compile-time checks of the generated `.agboss/types.d.ts` (#272 PR 3, #270 → Generated types),
@@ -100,6 +109,25 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     onAgent(DraftAgent).toOneOf([toAgent(EditorAgent), toAction(SendOfferAction)]);
     // @ts-expect-error — a transition right after a oneOf output is not offered
     reviewed.toAction(SendOfferAction);
+  });
+
+  it("1275b: .onFinish(ChildFinish, subPath) follows a child with two or more finishes", () => {
+    const reviewed = onStart(CompanyReviewWorkflowStart).toWorkflow(CompanyReviewWorkflow);
+    reviewed.onFinish(CompanyGradedWorkflowFinish, toAgent(CompanyReviewerAgent));
+    reviewed
+      .onFinish(CompanyGradedWorkflowFinish, toAgent(CompanyReviewerAgent))
+      .onFinish(CompanyRejectedWorkflowFinish, toAgent(CompanyReviewerAgent));
+    // @ts-expect-error — a finish of another workflow is no finish of this child
+    reviewed.onFinish(ChangesRequestedDto, toAgent(CompanyReviewerAgent));
+    // @ts-expect-error — a finish of another workflow is no finish of this child
+    reviewed.onFinish(OfferSentWorkflowFinish, toAgent(CompanyReviewerAgent));
+    // @ts-expect-error — the path of a finish is a side path, not a caseOf(…)
+    reviewed.onFinish(CompanyGradedWorkflowFinish, caseOf(ChangesRequestedDto));
+    // @ts-expect-error — an agent is no child workflow
+    onAgent(DraftAgent).onFinish(CompanyGradedWorkflowFinish, toAgent(CompanyReviewerAgent));
+    expectTypeOf<AGBossTypes.WorkflowFinishes["treasury-workflow"]>().toEqualTypeOf<
+      typeof TreasuryWorkflowFinish
+    >();
   });
 
   it("AC3: from(Dto, tag) does not exist; historyOf is HistoryOf<Produced<…>> in InputOf (AC4)", () => {
@@ -188,6 +216,7 @@ describe("#270 AC13 / AC21: WorkflowStarts types app.execute's input and result.
     expectTypeOf<AGBossTypes.WorkflowStarts["company-check-workflow-start"]>().toEqualTypeOf<{
       input: { company: CompanyDto; request?: SearchRequestDto };
       output: CompanyScoreDto;
+      readonly finishes: "company-score-workflow-finish";
     }>();
     expectTypeOf<InputOf<CompanyCheckWorkflowStart>>().toEqualTypeOf<{
       company: CompanyDto;

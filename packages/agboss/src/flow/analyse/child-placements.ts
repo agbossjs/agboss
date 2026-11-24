@@ -66,6 +66,7 @@ export function subPathsOf(step: Exclude<Step, ToStep | LaunchStep>): readonly S
       return step.cases.map((branch) => branch.path);
     case StepKind.OneOf:
       return step.branches;
+    case StepKind.OnFinish:
     case StepKind.OnError:
       return [step.path];
     case StepKind.Join:

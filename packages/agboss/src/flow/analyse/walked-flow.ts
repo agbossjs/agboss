@@ -6,6 +6,7 @@ import type {
   PathSource,
   Step,
   OneOfStep,
+  OnFinishStep,
   SwitchStep,
 } from "../ast.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
@@ -69,6 +70,7 @@ export interface WalkedFlow {
   readonly placements: readonly Placement[];
   readonly switches: readonly SwitchSite[];
   readonly oneOfs: readonly OneOfSite[];
+  readonly onFinishes: readonly BranchSite<OnFinishStep>[];
   readonly choices: readonly BranchSite<ChooseOneStep>[];
   readonly errorHandlers: readonly BranchSite<OnErrorStep>[];
   /** Every parallel launch, in the order written (#273). */

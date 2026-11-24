@@ -512,6 +512,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the flow DSL's builder, syntax and types: build-time declarations", [
     "src/flow/ast.ts",
+    "src/flow/branch-step.ts",
     "src/flow/builder-types.ts",
     "src/flow/builder.ts",
     "src/flow/child-placement.ts",

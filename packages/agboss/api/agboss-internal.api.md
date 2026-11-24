@@ -255,7 +255,7 @@ export interface BlastRadiusEntry {
 export interface BudgetListing {
     // (undocumented)
     readonly applicationName: string;
-    // (undocumented)
+    readonly attached?: readonly Class[] | undefined;
     readonly budgets: readonly Class[];
 }
 
@@ -1673,7 +1673,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "container".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "infrastructure".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "executionHistory".
-// src/app/app-deps.ts - (ae-undocumented) Missing documentation for "budgets".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "applicationName".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "createWorkflowDeps".
 // src/app/execution-control.ts - (ae-undocumented) Missing documentation for "tenantId".
