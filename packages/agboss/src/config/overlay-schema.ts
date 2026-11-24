@@ -114,6 +114,16 @@ export const DatabaseStorageOverlaySchema = z
     message: "give auditLogTtl and/or ledgerEntriesTtl",
   });
 
+/** What a profile changes of one `@Channel`, by its name: its closed pauses' keep time and a call's bound. */
+export const ChannelOverlaySchema = z
+  .strictObject({
+    ttl: z.number().positive().optional(),
+    timeout: z.number().positive().optional(),
+  })
+  .refine((one) => one.ttl !== undefined || one.timeout !== undefined, {
+    message: "give ttl and/or timeout",
+  });
+
 /** What a profile changes of the application's `@Mesh`, by its name. */
 export const MeshOverlaySchema = z
   .strictObject({
@@ -162,6 +172,8 @@ export const ScalarOverlaySchema = z.strictObject({
   filePolicies: z.record(kebab, FilePolicyOverlaySchema).optional(),
   /** How long a `@DatabaseStorage` keeps its audit log and ledger entries, by its name. */
   databaseStorages: z.record(kebab, DatabaseStorageOverlaySchema).optional(),
+  /** The settings of an `@Channel` by its name. */
+  channels: z.record(kebab, ChannelOverlaySchema).optional(),
   /** The application's `@Mesh` limits, by its name. */
   mesh: z.record(kebab, MeshOverlaySchema).optional(),
   /** How long the pauses of a `@ToolApproval` wait, by its name. */

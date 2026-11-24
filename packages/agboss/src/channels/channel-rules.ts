@@ -8,6 +8,7 @@ import {
   unitOf,
   type TimeSpan,
 } from "../units/working-time.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { isCountLimit, shownLimit } from "../graph/count-limit.js";
@@ -228,12 +229,13 @@ function remindBeforeViolations(uses: readonly ChannelUse[]): RuleViolation[] {
 export function channelRuleViolations(
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
+  options: ComponentOptions,
   defaultCalendar?: WorkingCalendarSource,
 ): RuleViolation[] {
   return [
     ...wrongToolViolations(uses),
     ...implementationViolations(uses, modules),
-    ...pauseTargetViolations(uses, modules),
+    ...pauseTargetViolations(uses, modules, options),
     ...replyInterpreterViolations(uses),
     ...maxVisitsViolations(uses),
     ...expiresInViolations(uses),
@@ -250,12 +252,13 @@ export function channelRuleViolations(
 export function checkChannels(
   workflow: Class,
   modules: readonly ProviderModule[],
+  options: ComponentOptions,
   isStandalone: boolean,
   defaultCalendar?: WorkingCalendarSource,
 ): void {
   const uses = channelUsesOf([workflow]);
   const violations = [
-    ...channelRuleViolations(uses, modules, defaultCalendar),
+    ...channelRuleViolations(uses, modules, options, defaultCalendar),
     ...(isStandalone ? sharedInterpreterViolations(uses) : []),
   ];
   if (violations.length > 0) throw new GraphRuleError({ violations });

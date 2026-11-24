@@ -34,6 +34,7 @@ import {
   UnprovidedRefundsApplication,
 } from "../flow/fixtures/refunds.fixture.js";
 import { execute } from "../helpers/flow.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 const offline = (book = new ScriptBook()) => ({
   processEnv: {},
@@ -65,16 +66,18 @@ describe("#267 AC9: roles from the graph", () => {
   it("a child's role needs an implementation in the parent's application", () => {
     const uses = channelUsesOf([FrontDeskWorkflow]);
 
-    expect(channelRuleViolations(uses, [])).toEqual([
+    expect(channelRuleViolations(uses, [], ComponentOptions.none)).toEqual([
       expect.objectContaining({
         code: "di.missing-implementation",
         nodes: ["refund-approval-channel"],
       }),
     ]);
     expect(
-      channelRuleViolations(uses, [
-        { owner: "front-desk-application", providers: [SlackRefundApprovalChannel] },
-      ]),
+      channelRuleViolations(
+        uses,
+        [{ owner: "front-desk-application", providers: [SlackRefundApprovalChannel] }],
+        ComponentOptions.none,
+      ),
     ).toEqual([]);
   });
 

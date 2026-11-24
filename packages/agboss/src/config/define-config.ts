@@ -2,6 +2,7 @@ import { isEnvContract } from "../environments/define-env.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import { budgetOf } from "../budgets/budget.js";
 import { memoryMetaOf } from "../memory/memory.decorator.js";
+import { meshOf } from "../mesh/mesh.decorator.js";
 import { filePolicyMetaOf } from "../files/file-policy.js";
 import { ProfileError, ProfileErrorReason } from "./profile-error.js";
 import { ScalarOverlaySchema } from "./overlay-schema.js";
@@ -13,13 +14,7 @@ const OVERLAY: unique symbol = Symbol.for("agboss.config.overlay");
 export type ConfigOverlay = Readonly<ConfigSpec> & { readonly [OVERLAY]: true };
 
 /** The keys only TypeScript holds: classes and `configureEnv` values — never in a `.config.yaml`. */
-export const TYPESCRIPT_ONLY_KEYS = [
-  "env",
-  "storage",
-  "modelProvider",
-  "channels",
-  "healthChecks",
-] as const;
+export const TYPESCRIPT_ONLY_KEYS = ["env", "storage", "modelProvider", "healthChecks"] as const;
 
 /** The shelves whose entries may name a `@ModelProvider` by its class (`modelProvider`), which only TypeScript holds. */
 export const COMPONENT_MODEL_SHELVES = [
@@ -68,10 +63,14 @@ const workflowConstantsOf = (workflow: unknown): unknown =>
           : { routers: withoutProviderClasses(workflow.routers) }),
       };
 
+/** `channels` (a list) and `mesh` (a class) replace the application's own; as a record they are shelves of constants. */
+const replacingKeysOf = (spec: Readonly<Record<string, unknown>>): readonly string[] =>
+  ["channels", "mesh"].filter((key) => Array.isArray(spec[key]) || typeof spec[key] === "function");
+
 /** The constant part of a spec: what the zod schema validates. */
 function constantsOf(spec: Readonly<Record<string, unknown>>): Record<string, unknown> {
   const rest = {
-    ...without(spec, TYPESCRIPT_ONLY_KEYS),
+    ...without(spec, [...TYPESCRIPT_ONLY_KEYS, ...replacingKeysOf(spec)]),
     ...Object.fromEntries(
       COMPONENT_MODEL_SHELVES.filter((key) => spec[key] !== undefined).map((key) => [
         key,
@@ -150,12 +149,24 @@ function checkComponentProviders(spec: Readonly<Record<string, unknown>>): void 
   }
 }
 
-/** The lists of classes that stand in for the application's own. */
+/** The lists of classes that stand in for the application's own; `channels` may be a record of settings instead. */
 function checkClassLists(spec: Readonly<Record<string, unknown>>): void {
-  for (const key of ["channels", "healthChecks"]) {
-    if (spec[key] !== undefined && !isClassList(spec[key]))
-      throw invalid(`defineConfig: ${key} takes a list of classes`);
-  }
+  const { channels, healthChecks } = spec;
+  if (healthChecks !== undefined && !isClassList(healthChecks))
+    throw invalid("defineConfig: healthChecks takes a list of classes");
+  if (channels !== undefined && !isPlain(channels) && !isClassList(channels))
+    throw invalid("defineConfig: channels takes a list of classes, or settings by channel name");
+}
+
+/** `mesh` is a `@Mesh` class, or settings by mesh name. */
+function checkMesh(spec: Readonly<Record<string, unknown>>): void {
+  const { mesh } = spec;
+  if (
+    typeof mesh === "function"
+      ? meshOf(mesh as never) === undefined
+      : mesh !== undefined && !isPlain(mesh)
+  )
+    throw invalid("defineConfig: mesh takes a @Mesh class, or settings by mesh name");
 }
 
 /** Checks the classes and `configureEnv` values of a spec: what the zod schema cannot see. */
@@ -165,6 +176,7 @@ function checkTypeScriptParts(spec: Readonly<Record<string, unknown>>): void {
   checkComponentProviders(spec);
   checkClassSlots(spec);
   checkClassLists(spec);
+  checkMesh(spec);
 }
 
 /** Why the constants of a spec are not valid: the first issue's path and rule, never the value. */

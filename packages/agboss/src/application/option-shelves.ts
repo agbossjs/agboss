@@ -15,6 +15,7 @@ import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { ApplicationOptions } from "./application.js";
+import { providersOf } from "./listed-providers.js";
 
 /**
  * The carrier of the component options (`ComponentOptions`) the selected profiles leave, built once per
@@ -85,6 +86,47 @@ function checkFilePolicies(folded: FoldedConfig, policies: readonly Class[]): vo
   }
 }
 
+/** The `@Channel` classes the application and its workflows list, each once. */
+function channelClassesOf(options: ApplicationOptions): readonly Class[] {
+  const listed = [
+    ...providersOf(options),
+    ...withChildWorkflows(options.workflows).flatMap((workflow) => {
+      const declaration = declarationOf(workflow);
+      return declaration?.kind === NodeKind.Workflow ? providersOf(declaration.options) : [];
+    }),
+  ];
+  return [
+    ...new Set(
+      listed.filter(
+        (provider): provider is Class =>
+          typeof provider === "function" && componentOf(provider)?.kind === "channel",
+      ),
+    ),
+  ];
+}
+
+/** A shelf name is a channel of the application, and a `ttl` is given only to a channel bound to a pause target. */
+function checkChannels(folded: FoldedConfig, options: ApplicationOptions): void {
+  const profiles = folded.profiles.join(",");
+  const metas = channelClassesOf(options).flatMap((cls) => {
+    const component = componentOf(cls);
+    return component?.kind === "channel" ? [component.meta] : [];
+  });
+  for (const [name, overlay] of Object.entries(folded.channels)) {
+    const meta = metas.find((one) => one.name === name);
+    if (meta === undefined)
+      throw failure(
+        ProfileErrorReason.Unknown,
+        `profile ${profiles}: channels.${name}: no such @Channel in the application — it has: ${metas.map((one) => one.name).join(", ") || "none"}`,
+      );
+    if (overlay.ttl !== undefined && meta.target === undefined)
+      throw failure(
+        ProfileErrorReason.Invalid,
+        `profile ${profiles}: channels.${name}.ttl: ${name} is bound to no pause target, so it keeps no closed pause — only a @Channel({ target }) has a ttl`,
+      );
+  }
+}
+
 /**
  * The options of the components under the selected profiles, one carrier for the assembly. Every name
  * a shelf holds is checked against the application here, so a typo is a `ProfileError` at assembly;
@@ -95,11 +137,13 @@ export function optionCarrierOf(
   options: ApplicationOptions,
 ): ComponentOptions {
   const filePolicySlots = filePolicySlotsOf(folded, options);
-  const hasShelves = Object.keys(folded.filePolicies).length > 0;
-  if (!hasShelves && filePolicySlots.size === 0) return ComponentOptions.none;
+  const shelves = [folded.filePolicies, folded.channels];
+  if (shelves.every((shelf) => Object.keys(shelf).length === 0) && filePolicySlots.size === 0)
+    return ComponentOptions.none;
   checkFilePolicies(folded, filePoliciesInUse(options, filePolicySlots));
+  checkChannels(folded, options);
   return new ComponentOptions(
-    { filePolicies: folded.filePolicies },
+    { filePolicies: folded.filePolicies, channels: folded.channels },
     { filePolicy: filePolicySlots },
   );
 }

@@ -1,6 +1,6 @@
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
-import { componentOf } from "../components/metadata.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import { EXECUTION_LEASE } from "../app/lease-fence.js";
 import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
@@ -64,11 +64,14 @@ function bindingViolations(
 }
 
 /** `[channel.target-invalid]` / `[channel.ttl-invalid]` over every listed `@Channel({ target })`. */
-function channelViolations(modules: readonly ProviderModule[]): RuleViolation[] {
+function channelViolations(
+  modules: readonly ProviderModule[],
+  options: ComponentOptions,
+): RuleViolation[] {
   return listedClassesOf(modules).flatMap((cls) => {
-    const component = componentOf(cls);
-    if (component?.kind !== "channel") return [];
-    const { name, target, ttl } = component.meta;
+    const meta = options.channelMetaOf(cls);
+    if (meta === undefined) return [];
+    const { name, target, ttl } = meta;
     if (target === undefined) return [];
     const found: RuleViolation[] = [];
     if (pauseTargetOf(target) === undefined) {
@@ -193,13 +196,14 @@ function permitHookViolations(uses: readonly ChannelUse[]): RuleViolation[] {
 export function pauseTargetViolations(
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
+  options: ComponentOptions,
 ): RuleViolation[] {
   return [
     ...nameViolations(uses),
     ...permitHookViolations(uses),
-    ...ignoredSettingViolations(uses, modules),
+    ...ignoredSettingViolations(uses, modules, options),
     ...bindingViolations(uses, modules),
-    ...channelViolations(modules),
+    ...channelViolations(modules, options),
     ...selectorViolations(modules),
     ...escalationViolations(uses),
   ];

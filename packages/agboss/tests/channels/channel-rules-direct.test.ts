@@ -20,6 +20,7 @@ import type { Class } from "../../src/components/injection.js";
 import { hours, seconds, workDays, workingHours, workingMinutes } from "../../src/units/index.js";
 import { MAX_SPAN_MS } from "../../src/units/working-time.js";
 import { PurchaseQuestionDto, SpendingLimitAnswerDto } from "../flow/fixtures/questions.fixture.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 class Interpreter {
   readonly fixture = true;
@@ -49,7 +50,7 @@ const useOf = (channel: Class): ChannelUse => ({
 });
 
 const found = (role: Class) =>
-  channelRuleViolations([useOf(role)], [])
+  channelRuleViolations([useOf(role)], [], ComponentOptions.none)
     .filter((one) => !one.code.startsWith("di.") && !one.code.includes("working-time"))
     .map(({ code, message, nodes }) => ({ code, message, nodes }));
 
@@ -255,9 +256,11 @@ describe("#1366: the implementation of a role", () => {
     ];
 
     expect(
-      channelRuleViolations([useOf(role)], [{ providers: impls }] as never).map(
-        (one) => one.message,
-      ),
+      channelRuleViolations(
+        [useOf(role)],
+        [{ providers: impls }] as never,
+        ComponentOptions.none,
+      ).map((one) => one.message),
     ).toEqual([
       "channel role SomeQuestion (anon-channel) has 2 implementations: (anonymous class), (anonymous class) — list one (one question to several places is one implementation that sends to each)",
     ]);
@@ -268,7 +271,11 @@ describe("#1366: the implementation of a role", () => {
     const uses = [useOf(role)];
 
     expect(
-      channelRuleViolations(uses, []).map(({ code, message, nodes }) => ({ code, message, nodes })),
+      channelRuleViolations(uses, [], ComponentOptions.none).map(({ code, message, nodes }) => ({
+        code,
+        message,
+        nodes,
+      })),
     ).toEqual([
       {
         code: "di.missing-implementation",
@@ -281,9 +288,11 @@ describe("#1366: the implementation of a role", () => {
     class TwoImpl extends (role as new () => object) {}
 
     expect(
-      channelRuleViolations(uses, [{ providers: [OneImpl, TwoImpl] }] as never).map(
-        ({ code, message, nodes }) => ({ code, message, nodes }),
-      ),
+      channelRuleViolations(
+        uses,
+        [{ providers: [OneImpl, TwoImpl] }] as never,
+        ComponentOptions.none,
+      ).map(({ code, message, nodes }) => ({ code, message, nodes })),
     ).toEqual([
       {
         code: "di.ambiguous-implementation",
@@ -292,7 +301,9 @@ describe("#1366: the implementation of a role", () => {
         nodes: ["lonely-channel"],
       },
     ]);
-    expect(channelRuleViolations(uses, [{ providers: [OneImpl] }] as never)).toEqual([]);
+    expect(
+      channelRuleViolations(uses, [{ providers: [OneImpl] }] as never, ComponentOptions.none),
+    ).toEqual([]);
   });
 });
 

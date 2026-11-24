@@ -1246,6 +1246,12 @@ export enum ChannelOutcomeKind {
 }
 
 // @public
+export interface ChannelOverlay {
+    readonly timeout?: Milliseconds;
+    readonly ttl?: Milliseconds;
+}
+
+// @public
 export interface ChannelPauseAnswerNotTakenEvent<TRole> extends PauseDeliveredEvent {
     readonly answer: ChannelAnswerOf<TRole>;
     readonly answeredBy?: string;
@@ -2105,7 +2111,7 @@ export interface ConfigSpec {
     readonly arbiters?: Readonly<Record<string, ComponentModelConfig>>;
     readonly budgets?: Readonly<Record<string, BudgetOverlay>>;
     readonly channelInterpreters?: Readonly<Record<string, ComponentModelConfig>>;
-    readonly channels?: ApplicationOptions["channels"];
+    readonly channels?: ApplicationOptions["channels"] | Readonly<Record<string, ChannelOverlay>>;
     readonly databaseStorages?: Readonly<Record<string, DatabaseStorageOverlay>>;
     readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
     readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
@@ -2115,7 +2121,7 @@ export interface ConfigSpec {
     readonly healthChecks?: ApplicationOptions["healthChecks"];
     readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
     readonly memories?: Readonly<Record<string, MemoryOverlay>>;
-    readonly mesh?: Readonly<Record<string, MeshOverlay>>;
+    readonly mesh?: Class | Readonly<Record<string, MeshOverlay>>;
     readonly modelProvider?: Class;
     readonly modelProviders?: Readonly<Record<string, ModelProviderOverlay>>;
     readonly piiPolicies?: Readonly<Record<string, ComponentModelConfig>>;

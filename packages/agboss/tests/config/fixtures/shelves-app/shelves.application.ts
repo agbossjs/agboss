@@ -103,6 +103,15 @@ export class ShelfDatabase {}
 })
 export class ShelfMesh {}
 
+/** A mesh only a profile gives the application: answers kept five minutes, one hop. */
+@Mesh({
+  name: "shelf-other-mesh",
+  inboundMode: MeshInboundMode.Strict,
+  deduplicationTtl: minutes(5),
+  maxHops: 1,
+})
+export class ShelfOtherMesh {}
+
 @WorkflowStart({
   name: "shelf-workflow-start",
   description: "A question",

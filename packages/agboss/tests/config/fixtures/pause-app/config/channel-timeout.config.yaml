@@ -1,0 +1,3 @@
+channels:
+  desk-refund-channel:
+    timeout: 5000

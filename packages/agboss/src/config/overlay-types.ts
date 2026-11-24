@@ -39,6 +39,14 @@ export interface DatabaseStorageOverlay {
   readonly ledgerEntriesTtl?: Milliseconds | Ttl.Forever;
 }
 
+/** What a profile changes of one `@Channel`, by its `name`: how long a closed pause is kept, how long a call may run. */
+export interface ChannelOverlay {
+  /** How long a closed pause of this channel is kept (a channel bound to a pause target only). */
+  readonly ttl?: Milliseconds;
+  /** How long one call of the channel may run. */
+  readonly timeout?: Milliseconds;
+}
+
 /** What a profile changes of the application's `@Mesh`, by its name: its limits and clock tolerance. */
 export interface MeshOverlay {
   readonly deduplicationTtl?: Milliseconds;
@@ -109,8 +117,12 @@ export interface ConfigSpec {
   readonly memories?: Readonly<Record<string, MemoryOverlay>>;
   /** How long each `@DatabaseStorage` keeps its audit log and ledger entries, by its `name`. */
   readonly databaseStorages?: Readonly<Record<string, DatabaseStorageOverlay>>;
-  /** The application's `@Mesh` limits, by its `name`: `deduplicationTtl`, `maxHops`, `envelopeTtl`, `maxClockSkew`. */
-  readonly mesh?: Readonly<Record<string, MeshOverlay>>;
+  /**
+   * A `@Mesh` class replaces `@Application({ mesh })`; a record changes the limits of the application's
+   * `@Mesh` by its `name`: `deduplicationTtl`, `maxHops`, `envelopeTtl`, `maxClockSkew`. A later profile's
+   * record never clobbers an earlier profile's class, nor the other way round. A `.config.yaml` holds only the record.
+   */
+  readonly mesh?: Class | Readonly<Record<string, MeshOverlay>>;
   /** How long the pauses of each `@ToolApproval` wait (`timeout`, `remindBefore`), by its `name`: the channel, the deadline and the listeners all see it. */
   readonly toolApprovals?: Readonly<Record<string, PauseTargetOverlay>>;
   /** The same for each `@ExternalTask`, by its `name`. */
@@ -137,8 +149,11 @@ export interface ConfigSpec {
   readonly storage?: ApplicationOptions["storage"];
   /** Replaces `@Application({ modelProvider })`. */
   readonly modelProvider?: Class;
-  /** Replaces `@Application({ channels })`. */
-  readonly channels?: ApplicationOptions["channels"];
+  /**
+   * A list of classes replaces `@Application({ channels })` whole; a record changes the settings of the
+   * application's `@Channel`s by their `name` (`ttl`, `timeout`). A `.config.yaml` holds only the record.
+   */
+  readonly channels?: ApplicationOptions["channels"] | Readonly<Record<string, ChannelOverlay>>;
   /** Replaces `@Application({ healthChecks })`. */
   readonly healthChecks?: ApplicationOptions["healthChecks"];
 }

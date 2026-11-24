@@ -22,6 +22,7 @@ import { ComponentError } from "../../src/components/metadata.js";
 import { Text } from "../../src/dto/index.js";
 import { days, hours, seconds } from "../../src/units/index.js";
 import { PurchaseQuestionDto, SpendingLimitAnswerDto } from "../flow/fixtures/questions.fixture.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 class InputDto {
   @Text()
@@ -81,11 +82,13 @@ function channelOf(target: Class, name: string, ttl = days(1)): Class {
 const modulesOf = (...providers: Class[]) => [{ owner: "x-application", providers }];
 
 const found = (uses: ChannelUse[], providers: Class[]) =>
-  channelRuleViolations(uses, modulesOf(...providers)).map(({ code, message, nodes }) => ({
-    code,
-    message,
-    nodes,
-  }));
+  channelRuleViolations(uses, modulesOf(...providers), ComponentOptions.none).map(
+    ({ code, message, nodes }) => ({
+      code,
+      message,
+      nodes,
+    }),
+  );
 
 describe("#1307a: a target has a channel", () => {
   it("a target with its channel is clean", () => {

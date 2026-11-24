@@ -20,12 +20,16 @@ export function memoriesOf(
 /** What a shelf of named settings says, later profiles winning per field. */
 export function foldedShelf<TOverlay extends object>(
   layers: readonly LoadedProfile[],
-  shelf: "databaseStorages" | "mesh",
+  shelf: "databaseStorages" | "mesh" | "channels",
 ): Readonly<Record<string, TOverlay>> {
   const found: Record<string, TOverlay> = {};
-  for (const layer of layers)
-    for (const [name, one] of Object.entries(layer.spec[shelf] ?? {}))
+  for (const layer of layers) {
+    const entries = layer.spec[shelf];
+    // a class (`mesh`) or a list of classes (`channels`) replaces the application's own: no shelf of settings
+    if (typeof entries !== "object" || Array.isArray(entries)) continue;
+    for (const [name, one] of Object.entries(entries))
       found[name] = { ...found[name], ...one } as TOverlay;
+  }
   return found;
 }
 

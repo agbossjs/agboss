@@ -1,6 +1,6 @@
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
-import { componentOf } from "../components/metadata.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelSelectorOf } from "./channel-selector.js";
 import { rolesOf, type ChannelUse } from "./discovery.js";
@@ -40,6 +40,7 @@ const ignored = (what: string, name: string, owner: string): RuleViolation =>
 export function ignoredSettingViolations(
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
+  options: ComponentOptions,
 ): RuleViolation[] {
   const ofTargets = targetsOf(uses).flatMap(([target, { options }]) => [
     ...UNCALLED_HOOKS.filter(
@@ -55,10 +56,8 @@ export function ignoredSettingViolations(
     return meta === undefined ? [] : [ignored("a @ChannelSelector", meta.name, nameOf(cls))];
   });
   const ofChannels = listed.flatMap((cls) => {
-    const component = componentOf(cls);
-    return component?.kind === "channel" && component.meta.timeout !== undefined
-      ? [ignored("timeout", component.meta.name, nameOf(cls))]
-      : [];
+    const meta = options.channelMetaOf(cls);
+    return meta?.timeout !== undefined ? [ignored("timeout", meta.name, nameOf(cls))] : [];
   });
   return [...ofTargets, ...ofSelectors, ...ofChannels];
 }

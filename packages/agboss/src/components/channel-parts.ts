@@ -18,6 +18,7 @@ import { containerFor } from "./runtime.js";
 import type { Container } from "./container/container.js";
 import type { ToolClasses } from "./assemble-checks.js";
 import type { WorkflowMeta } from "./meta-types.js";
+import { optionsOf, type WorkflowPatch } from "./profiled.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 import { checkChannels } from "../channels/channel-rules.js";
 import {
@@ -154,12 +155,20 @@ export function channelPartsOf(
 export async function checkedChannelsOf(
   workflow: Class,
   modules: readonly ProviderModule[],
-  owner: { readonly workingCalendar?: WorkingCalendarSource } | undefined,
+  owner:
+    | { readonly workingCalendar?: WorkingCalendarSource; readonly patch?: WorkflowPatch }
+    | undefined,
   loader: PromptLoader,
   resolver?: ModelResolver,
 ): Promise<readonly AssembledReplyInterpreter[]> {
   // a workflow on its own is standalone; an application's calendar satisfies a working duration (#944)
-  checkChannels(workflow, modules, owner === undefined, owner?.workingCalendar);
+  checkChannels(
+    workflow,
+    modules,
+    optionsOf(owner?.patch),
+    owner === undefined,
+    owner?.workingCalendar,
+  );
   return replyInterpretersOf(workflow, loader, resolver);
 }
 
