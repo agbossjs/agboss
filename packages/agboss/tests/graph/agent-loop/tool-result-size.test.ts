@@ -151,7 +151,7 @@ describe("#336 AC3: tool results bounded by maxResultSize", () => {
     await execute(app, PageStart, { text: "read both" });
 
     expect(toolEnds.map((event) => event.isResultTruncated)).toEqual([true, false]);
-    expect(toolEnds[1]?.update).toBe(`{"text":"a short page"}`);
+    expect(toolEnds[1]?.output).toBe(`{"text":"a short page"}`);
   });
 });
 

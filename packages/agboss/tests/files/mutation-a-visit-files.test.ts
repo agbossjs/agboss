@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /** #1269: what a visit's files become — limits at their edges, removed files, masked transcriptions. */
 import { describe, expect, it } from "vitest";
 import { CostSource } from "../../src/finops/cost-source.js";
@@ -12,7 +13,7 @@ import {
   type FileRuntime,
   type SourceFile,
 } from "../../src/files/visit-files.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
@@ -31,7 +32,7 @@ const baseSettings = resolvedFilesOf({
 const usageOf = (caller: string): UsageRecord => ({
   caller,
   model: "m",
-  costUsd: 0,
+  costUsd: usd(0),
   costSource: CostSource.Tool,
   inputTokens: 1,
   outputTokens: 1,
@@ -48,7 +49,7 @@ function runtimeOf(over: Partial<typeof baseSettings> = {}): FileRuntime {
     transcriberKey: () => "t",
     transcribe: (file) => Promise.resolve({ text: `read ${String(file.bytes.byteLength)}` }),
     context: () => ({
-      store: new InMemoryFileRepository(new InMemoryDatabase()),
+      store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
       tenantId: "t",
       ownerId: "o",
       signal: new AbortController().signal,

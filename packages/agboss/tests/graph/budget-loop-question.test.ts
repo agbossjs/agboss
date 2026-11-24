@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules at the loop's approval step, for a question role an agent asks as a
  * tool (#712), each on its own over fakes: before the ask its `maxVisits`, the execution's budgets with the loop's
@@ -33,7 +34,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -145,7 +146,7 @@ describe("#1366: the checks before a question is asked", () => {
     const failure = await made.node(state, undefined).catch((e: unknown) => e);
 
     expect(failure).toBeInstanceOf(VisitsLimitExceededError);
-    expect(failure).toMatchObject({ maxVisits: 1, path: ["a"], spentUsd: 1.5 });
+    expect(failure).toMatchObject({ maxVisits: 1, path: ["a"], spentUsd: usd(1.5) });
     expect((failure as VisitsLimitExceededError).component).toMatchObject({ name: "ask-tool" });
     expect(made.check).not.toHaveBeenCalled();
     expect(made.requestAnswer).not.toHaveBeenCalled();
@@ -166,7 +167,7 @@ describe("#1366: the checks before a question is asked", () => {
       const failure = await made.node(stateOf(), undefined).catch((e: unknown) => e);
 
       expect(failure).toBeInstanceOf(VisitsLimitExceededError);
-      expect(failure).toMatchObject({ maxVisits: 0, path: ["a"], spentUsd: 1.5 });
+      expect(failure).toMatchObject({ maxVisits: 0, path: ["a"], spentUsd: usd(1.5) });
       expect((failure as Error).message).not.toContain("five");
       expect(made.check).not.toHaveBeenCalled();
       expect(made.requestAnswer).not.toHaveBeenCalled();

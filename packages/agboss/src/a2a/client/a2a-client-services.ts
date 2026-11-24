@@ -2,9 +2,9 @@ import type { App } from "../../app/types.js";
 import { OutboundCalls } from "../../app/outbound-calls.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { Clock } from "../../infrastructure/clock.js";
-import { Files } from "../files/files.service.js";
-import type { FileDto } from "../../dto/standard/file.js";
-import { fileUnavailable, FileUnavailableReason } from "../../files/file-errors.js";
+import { A2AFiles } from "../files/a2a-files.service.js";
+import type { A2AFileDto } from "../files/a2a-file.dto.js";
+import { A2AFileUnavailableError, A2AFileUnavailableReason } from "../files/a2a-file-errors.js";
 import type { A2AMeshSeam } from "./a2a-mesh-seam.js";
 
 /**
@@ -17,8 +17,8 @@ export interface A2AClientServices {
   /** The application's `OutboundCalls`, resolved on the first call that needs it. */
   readonly outboundCalls: () => OutboundCalls;
   readonly clock: Clock;
-  /** The application's `Files` (#859): a stored file an input forwards is read through it. */
-  readonly files?: () => Files;
+  /** The application's `A2AFiles` (#859): a stored file an input forwards is read through it. */
+  readonly files?: () => A2AFiles;
   /** What rides a call beyond the core protocol; none → the AGBoss mesh (`AGBOSS_MESH`). */
   readonly mesh?: A2AMeshSeam;
 }
@@ -42,19 +42,21 @@ export function rememberA2AClientServicesOf(app: Pick<App, "resolve">): void {
   rememberA2AClientServices(app.resolve(ApplicationContext), {
     outboundCalls: () => app.resolve(OutboundCalls),
     clock: app.resolve(Clock),
-    files: () => app.resolve(Files),
+    files: () => app.resolve(A2AFiles),
   });
 }
 
 /**
  * How a typed input's stored file (#859, `fileId`: a file of the calling execution's task) is read
- * before it is sent: the application's `Files`; outside an execution there is none to read.
+ * before it is sent: the application's `A2AFiles`; outside an execution there is none to read.
  */
 export const storedFileReaderOf =
   (services: A2AClientServices | undefined) =>
-  (file: FileDto): Promise<Uint8Array> => {
+  (file: A2AFileDto): Promise<Uint8Array> => {
     const files = services?.files?.();
     return files === undefined
-      ? Promise.reject(fileUnavailable({ reason: FileUnavailableReason.OutsideExecution }))
+      ? Promise.reject(
+          new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.OutsideExecution }),
+        )
       : files.read(file);
   };

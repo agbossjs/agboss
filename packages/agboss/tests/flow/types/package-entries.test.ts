@@ -1,12 +1,12 @@
 /**
  * #904 item 1: the type generator knows every built-in DTO's entry. A project imports
- * `WorkflowFinishFileDto` / `FileDto` from `@agboss/core/dto`: an app whose
+ * `WorkflowFinishFileDto` / `A2AFileDto` from `@agboss/core/a2a`, not `@agboss/core/dto`: an app whose
  * finish returns one is typed (no `[types.unexported-class]`), and every DTO class any public entry
  * exports is found in the generator's package entries — a new one cannot drift.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
+import { WorkflowFinishFileDto } from "../../../src/a2a/files/a2a-file.dto.js";
 import type { Class } from "../../../src/components/injection.js";
 import { fieldsOf } from "../../../src/dto/metadata.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -72,7 +72,7 @@ const isDto = (value: unknown, name: string): value is DtoClass =>
   typeof value === "function" && value.name === name && fieldsOf(value as DtoClass).length > 0;
 
 describe("#904 item 1: the generator knows every built-in DTO's entry", () => {
-  it("AC1.1 an app whose finish returns WorkflowFinishFileDto is typed: imported from @agboss/core/dto", async () => {
+  it("AC1.1 an app whose finish returns WorkflowFinishFileDto is typed: imported from @agboss/core/a2a", async () => {
     const generated = generateFlowTypes({
       workflows: [FileOutWorkflow],
       modules: [PROJECT_MODULE, ...(await packageModules())],
@@ -81,7 +81,7 @@ describe("#904 item 1: the generator knows every built-in DTO's entry", () => {
 
     expect(generated.errors).toEqual([]);
     expect(generated.text).toContain(
-      'import type { WorkflowFinishFileDto, WorkflowStartTextDto } from "@agboss/core/dto";',
+      'import type { WorkflowFinishFileDto } from "@agboss/core/a2a";',
     );
   });
 

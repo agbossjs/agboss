@@ -62,6 +62,9 @@ export interface CachingRequest {
 }
 
 // @public
+export type ChatModelDriver = ModelDriver<ModelKind.Chat>;
+
+// @public
 export interface ChatRequest {
     // (undocumented)
     readonly connection: ProviderConnection;
@@ -134,6 +137,18 @@ export interface DecideRequest {
 export const DECISION_MODELS: readonly string[];
 
 // @public
+export function DecisionsDriver(options: DecisionsDriverOptions): DecisionsModelDriver;
+
+// @public
+export interface DecisionsDriverOptions extends DriverConnectionSettings {
+    readonly knownModels?: readonly string[];
+    readonly path?: string;
+}
+
+// @public
+export type DecisionsModelDriver = ModelDriver<ModelKind.Decisions>;
+
+// @public
 export class DecisionsModelProvider implements ModelProviderHandler {
     capabilities(model: string): Promise<ModelCapabilities | undefined>;
     // (undocumented)
@@ -143,6 +158,47 @@ export class DecisionsModelProvider implements ModelProviderHandler {
 
 // @public
 export const DEFAULT_MODEL_PROVIDERS: readonly [typeof OpenRouterModelProvider, typeof DecisionsModelProvider];
+
+// @public
+export interface DriverConnectionSettings {
+    readonly apiKey?: SecretRef | OptionalSecretRef;
+    readonly baseUrl: TextSetting;
+    readonly headers?: DriverHeaders;
+}
+
+// @public
+export type DriverHeaders = Readonly<Record<string, TextSetting | SecretRef | OptionalSecretRef>>;
+
+// @public
+export interface DriverModelProviderOptions {
+    // (undocumented)
+    readonly apiKey?: never;
+    // (undocumented)
+    readonly baseUrl?: never;
+    // (undocumented)
+    readonly baseUrlField?: never;
+    readonly circuitBreakerPolicy: CircuitBreakerPolicy;
+    // (undocumented)
+    readonly cost: ModelCost;
+    // (undocumented)
+    readonly deps?: never;
+    // (undocumented)
+    readonly description?: string;
+    readonly driver: ModelDriver;
+    readonly model?: string;
+    readonly models?: Readonly<Record<string, string>>;
+    readonly name?: string;
+    readonly promptCaching?: PromptCaching;
+    readonly rateLimitPolicy?: RateLimitPolicy;
+    readonly reasoning?: Reasoning;
+    readonly retryPolicy: RetryPolicy;
+    // (undocumented)
+    readonly serves?: never;
+    readonly timeout: Milliseconds;
+}
+
+// @public
+export type DriverModelProviderType = abstract new () => ModelProviderHandler;
 
 // @public
 export type ErrorDetails = Readonly<Record<string, unknown>>;
@@ -303,6 +359,27 @@ export const ModelCost: {
 };
 
 // @public
+export interface ModelDriver<TKind extends ModelKind = ModelKind> {
+    // (undocumented)
+    readonly [driverBrand]: true;
+    readonly describes: string;
+    readonly dialect: string;
+    readonly handler: ModelProviderHandler;
+    readonly kind: TKind;
+    readonly settings: ModelDriverSettings;
+}
+
+// @public
+export interface ModelDriverSettings {
+    // (undocumented)
+    readonly apiKey?: SecretRef | OptionalSecretRef | undefined;
+    // (undocumented)
+    readonly baseUrl: TextSetting;
+    // (undocumented)
+    readonly headers?: DriverHeaders | undefined;
+}
+
+// @public
 export interface ModelEntry {
     // (undocumented)
     readonly [key: string]: unknown;
@@ -368,6 +445,14 @@ export type ModelInputKind = "text" | "image" | "file" | "audio" | "video";
 export type ModelInputPart = ModelTextPart | ModelBlobPart;
 
 // @public
+export enum ModelKind {
+    // (undocumented)
+    Chat = "chat",
+    // (undocumented)
+    Decisions = "decisions"
+}
+
+// @public
 export interface ModelPrice {
     // (undocumented)
     readonly cachedInputPerMillion?: Usd;
@@ -395,13 +480,16 @@ export interface ModelProblem {
 }
 
 // @public
-export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price" | "model.no-matching-endpoint" | "model.unsupported-input";
+export type ModelProblemCode = "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.unknown-model" | "model.unsupported-setting" | "model.no-price" | "model.fallback-unmapped" | "model.fallback-no-price" | "model.no-matching-endpoint" | "model.unsupported-input";
 
 // @public
 export function ModelProvider(options: HttpModelProviderOptions): <C extends HttpModelProviderType>(value: C) => C;
 
 // @public (undocumented)
 export function ModelProvider<const D extends readonly Token[] = []>(options: TransportModelProviderOptions<D>): <C extends TransportModelProviderType<D>>(value: C) => C;
+
+// @public (undocumented)
+export function ModelProvider(options: DriverModelProviderOptions): <C extends DriverModelProviderType>(value: C) => C;
 
 // @public (undocumented)
 export class ModelProviderError extends AGBossError {
@@ -491,7 +579,7 @@ export enum ModelProviderMessageRole {
 }
 
 // @public
-export type ModelProviderOptions = HttpModelProviderOptions | TransportModelProviderOptions;
+export type ModelProviderOptions = HttpModelProviderOptions | TransportModelProviderOptions | DriverModelProviderOptions;
 
 // @public
 export type ModelProviderPart = ModelInputPart;
@@ -571,14 +659,6 @@ export interface ModelProviderUsage {
     readonly outputTokens: number;
 }
 
-// @public
-export enum ModelPurpose {
-    // (undocumented)
-    Chat = "chat",
-    // (undocumented)
-    Decision = "decision"
-}
-
 // @public (undocumented)
 export interface ModelTextPart {
     // (undocumented)
@@ -601,12 +681,21 @@ export interface ModelVideoPart {
 export type NoRequestFields = Readonly<Record<string, never>>;
 
 // @public
+export function OpenAiCompatibleDriver(options: OpenAiCompatibleDriverOptions): ChatModelDriver;
+
+// @public
+export interface OpenAiCompatibleDriverOptions extends DriverConnectionSettings {
+    readonly requestFields?: Readonly<Record<string, unknown>>;
+}
+
+// @public
 export abstract class OpenAiCompatibleProvider<TFields extends object = NoRequestFields> implements ModelProviderHandler {
     protected cachingPlan(input: CachingRequest): WirePlan;
     // (undocumented)
     capabilities(model: string, connection: ProviderConnection): Promise<ModelCapabilities | undefined>;
     protected capabilitiesOf(entry: ModelEntry): ModelCapabilities;
     chat(request: ChatRequest): BaseChatModel;
+    protected headersOf(connection: ProviderConnection): Readonly<Record<string, string>>;
     protected reasoningFields(reasoning: Reasoning): Readonly<Record<string, unknown>>;
     // (undocumented)
     abstract readonly requestFields: TFields;
@@ -617,6 +706,20 @@ export abstract class OpenAiCompatibleProvider<TFields extends object = NoReques
 
 // @public (undocumented)
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+
+// @public
+export function OpenRouterDriver(options: OpenRouterDriverOptions): ChatModelDriver;
+
+// @public
+export interface OpenRouterDriverOptions {
+    // (undocumented)
+    readonly apiKey: SecretRef | OptionalSecretRef;
+    readonly baseUrl?: TextSetting;
+    // (undocumented)
+    readonly headers?: DriverConnectionSettings["headers"];
+    readonly routing?: OpenRouterRouting;
+    readonly transforms?: readonly string[];
+}
 
 // @public
 export interface OpenRouterFields {
@@ -750,6 +853,7 @@ export interface ProviderConnection {
     // (undocumented)
     readonly baseUrl: string;
     readonly fetch: typeof fetch;
+    readonly headers?: Readonly<Record<string, string>>;
     // (undocumented)
     readonly provider: string;
 }
@@ -900,6 +1004,7 @@ export interface ResolvedModelSettings {
     readonly maxTokens: MaxTokens;
     // (undocumented)
     readonly model: string;
+    readonly modelProvider?: string | undefined;
     readonly price?: Price | undefined;
     // (undocumented)
     readonly promptCaching?: PromptCaching | undefined;
@@ -941,6 +1046,9 @@ export interface RoutingProblem {
     readonly supported: string;
     readonly value: string;
 }
+
+// @public
+export type TextSetting = string | EnvRef<string>;
 
 // @public
 export interface TokenUsage {
@@ -1125,10 +1233,18 @@ export interface WireTool {
 // src/models/jev-alias.ts - (ae-undocumented) Missing documentation for "JevModelProvider".
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "OPENROUTER_BASE_URL".
 // src/models/jev.provider.ts - (ae-undocumented) Missing documentation for "knownModels".
+// src/models/model-driver.ts - (ae-undocumented) Missing documentation for "baseUrl".
+// src/models/model-driver.ts - (ae-undocumented) Missing documentation for "apiKey".
+// src/models/model-driver.ts - (ae-undocumented) Missing documentation for "headers".
+// src/models/model-driver.ts - (ae-undocumented) Missing documentation for "[driverBrand]".
+// src/models/model-drivers.ts - (ae-undocumented) Missing documentation for "apiKey".
+// src/models/model-drivers.ts - (ae-undocumented) Missing documentation for "headers".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "Timeout".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "RateLimited".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "ServerError".
 // src/models/model-failure.ts - (ae-undocumented) Missing documentation for "NetworkError".
+// src/models/model-kind.ts - (ae-undocumented) Missing documentation for "Chat".
+// src/models/model-kind.ts - (ae-undocumented) Missing documentation for "Decisions".
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "id".
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "supported_parameters".
 // src/models/model-list.ts - (ae-undocumented) Missing documentation for "reasoning".
@@ -1143,10 +1259,18 @@ export interface WireTool {
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrl".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrlField".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "apiKey".
+// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "cost".
+// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "serves".
+// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrl".
+// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "baseUrlField".
+// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "apiKey".
+// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProviderError".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "name".
+// src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProvider".
 // src/models/model-provider.decorator.ts - (ae-undocumented) Missing documentation for "ModelProvider".
 // src/models/openai-compatible.provider.ts - (ae-undocumented) Missing documentation for "caching".
 // src/models/openai-compatible.provider.ts - (ae-undocumented) Missing documentation for "model".
@@ -1215,8 +1339,6 @@ export interface WireTool {
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/reasoning.ts - (ae-undocumented) Missing documentation for "Reasoning".
-// src/models/resolve.ts - (ae-undocumented) Missing documentation for "Chat".
-// src/models/resolve.ts - (ae-undocumented) Missing documentation for "Decision".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "Exponential".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "Fixed".
 // src/models/retry-policy.ts - (ae-undocumented) Missing documentation for "None".

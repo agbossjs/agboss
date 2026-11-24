@@ -10,7 +10,7 @@ import { ChannelOutcome } from "./channel-outcome.js";
   description: "Asks the user via terminal standard output and waits for CLI input",
 })
 export class TerminalUserChannel {
-  declare readonly [agbossComponent]?: "terminal-user-channel";
+  declare readonly [agbossComponent]?: { readonly name: "terminal-user-channel" };
 
   send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>> {
     const { tool, arguments: args } = ask.value;

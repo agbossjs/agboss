@@ -38,7 +38,7 @@ import { originPolicyOf } from "./a2a-origins.js";
 import { outputOf, untypedResultOf } from "./a2a-outcome.js";
 import { inputPartsOf, partsOf, type A2AMessageInput } from "./a2a-parts.js";
 import { waitForTask } from "./a2a-wait.js";
-import type { A2ADownloadOptions, FileDto } from "./a2a-download.js";
+import type { A2ADownloadOptions, A2AReceivedFile } from "./a2a-download.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
 
 /** One call's settled answer. */
@@ -135,7 +135,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
    * through the client's own fetch — on its origins only, with its headers — up to `maxSize`
    * (`kilobytes(10240)` by default), each checked against its `sha256` when it names one.
    */
-  public downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array> {
+  public downloadFile(file: A2AReceivedFile, options?: A2ADownloadOptions): Promise<Uint8Array> {
     const loaded = lazyLoad(import("./a2a-download.js"));
     return loaded.then((it) => it.downloadedFile(file, { ...options, fetcher: this.#cards.fetch }));
   }

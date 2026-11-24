@@ -1,3 +1,4 @@
+import { type Usd } from "../units/index.js";
 import type { RagSearchResultDto } from "../dto/standard/framework.js";
 import type { UsageRecord } from "../finops/usage.js";
 
@@ -5,7 +6,7 @@ import type { UsageRecord } from "../finops/usage.js";
 export interface RagRetrieval {
   readonly results: readonly RagSearchResultDto[];
   /** What this retrieval cost (embeddings, a search API); 0 or absent when free. */
-  readonly costUsd?: number;
+  readonly costUsd?: Usd;
 }
 
 /** What one index build did (`agboss rag index` prints it). */
@@ -14,7 +15,7 @@ export interface RagIndexReport {
   readonly chunks: number;
   /** Documents left as they were (unchanged since the last index). */
   readonly skipped: number;
-  readonly costUsd?: number;
+  readonly costUsd?: Usd;
 }
 
 /**
@@ -74,7 +75,7 @@ export interface RerankResult {
   /** A subset of the candidates as given — never a passage of its own, at most `topK`. */
   readonly results: readonly RagSearchResultDto[];
   /** What this reranking cost (a rerank API); 0 or absent when free. */
-  readonly costUsd?: number;
+  readonly costUsd?: Usd;
 }
 
 /**

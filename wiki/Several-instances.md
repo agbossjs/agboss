@@ -1042,12 +1042,12 @@ observers get `onExecutionResume` with `reason: ResumeReason.Recovered` (`decisi
 recorded one), then `onExecutionEnd` / `onExecutionPause` / `onExecutionError` as for any pass.
 
 <!-- snippet-context
-import { Injectable, ResumeReason, type OnExecutionResume, type ExecutionResumeEvent } from "@agboss/core";
+import { Observer, ResumeReason, type ExecutionResumeEvent } from "@agboss/core";
 -->
 
 ```ts
-@Injectable()
-export class RecoveryCounter implements OnExecutionResume {
+@Observer()
+export class RecoveryCounter {
   onExecutionResume(event: ExecutionResumeEvent): void {
     if (event.reason === ResumeReason.Recovered) {
       // an instance died or stopped while this run moved: count it, alert

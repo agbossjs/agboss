@@ -10,8 +10,13 @@ import type {
 
 /** Where the Decisions API is: OpenRouter's base URL and key. */
 export interface JevConnection {
-  readonly apiKey: string;
+  /** Absent or empty (a self-hosted gateway without a key): no `Authorization` header. */
+  readonly apiKey?: string | undefined;
   readonly baseUrl: string;
+  /** The endpoint under the base URL; default `/alpha/decisions` (a trailing `/v1` of the base is dropped). */
+  readonly path?: string | undefined;
+  /** Headers the gateway wants besides the key. */
+  readonly headers?: Readonly<Record<string, string>> | undefined;
 }
 
 /** A Decisions API request: `POST {base}/alpha/decisions` with `{ model, state, questions }`. */
@@ -23,7 +28,11 @@ export interface JevDecisionRequest {
 }
 
 /** Raw transport; the response is validated by the caller. */
-export type JevClient = (request: JevDecisionRequest) => Promise<unknown>;
+export type JevClient = (
+  request: JevDecisionRequest,
+  /** The provider's `name` the model's cascade resolved (#1313); absent: the one that serves the model. */
+  modelProvider?: string,
+) => Promise<unknown>;
 
 /** The Decisions API's own name of a yes/no question, and of its answer's field. */
 const WIRE_BOOLEAN = "noul";
@@ -70,8 +79,8 @@ export class JevApiError extends Error {
   override name = "JevApiError";
 }
 
-export function jevDecisionsUrl(baseUrl: string): string {
-  return `${baseUrl.replace(/\/v1\/?$/, "")}/alpha/decisions`;
+export function jevDecisionsUrl(baseUrl: string, path = "/alpha/decisions"): string {
+  return `${baseUrl.replace(/\/v1\/?$/, "")}${path}`;
 }
 
 /** A decision that gets no answer in time fails (a router falls back as usual). */
@@ -89,14 +98,16 @@ export function createJevClient(
   timeout: Milliseconds = JEV_TIMEOUT,
   clock: Clock = systemClock,
 ): JevClient {
-  const url = jevDecisionsUrl(connection.baseUrl);
+  const url = jevDecisionsUrl(connection.baseUrl, connection.path);
+  const key = connection.apiKey;
   return async (request) => {
     const timer = timeoutOn(clock, timeout, timeoutError);
     try {
       const response = await fetchImpl(url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${connection.apiKey}`,
+          ...connection.headers,
+          ...(key === undefined || key === "" ? {} : { Authorization: `Bearer ${key}` }),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ ...request, questions: toWireQuestions(request.questions) }),

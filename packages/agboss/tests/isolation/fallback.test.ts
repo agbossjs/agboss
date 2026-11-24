@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /** #202 AC3: a fallback call is sent as the fallback's model and priced with the fallback's prices. */
 import { describe, expect, it } from "vitest";
 import { appWithKeys } from "../models/gateway.js";
@@ -41,7 +42,11 @@ describe("#202 AC3: the fallback provider has its own model mapping and prices",
     expect(result.output).toEqual({ text: "from backup" });
     // 1M input × $10 + 0.5M output × $20 = $20 — the primary's table would say $2
     expect(result.spend.trace).toEqual([
-      expect.objectContaining({ model: "backup/model", costUsd: 20, costSource: "price-table" }),
+      expect.objectContaining({
+        model: "backup/model",
+        costUsd: usd(20),
+        costSource: "price-table",
+      }),
     ]);
     await app.close();
   });

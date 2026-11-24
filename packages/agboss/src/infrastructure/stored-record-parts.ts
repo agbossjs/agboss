@@ -8,7 +8,7 @@ import type { OutdatedValueRecord } from "../flow/runtime/records.js";
 import { ToolCallStatus, type ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import type { ExecutionStepRecord } from "../flow/runtime/step-records.js";
 import type { StepRecord } from "../flow/context/execution-context.js";
-import { NO_COST_BY_CATEGORY } from "../finops/cost-category.js";
+import { storedUsd } from "../finops/cost-report.js";
 import { CostCategory, CostSource, type CostReport } from "../finops/usage.js";
 import type { ExecutionOrigin } from "../mesh/mesh-envelope.js";
 import { ChildExecutionStatus, type EndedChildRecord } from "../flow/runtime/child-records.js";
@@ -70,24 +70,25 @@ const StoredCostLine = z.object({
   caller: text,
   category: z.enum(CostCategory),
   model: text,
-  costUsd: count,
+  costUsd: storedUsd,
   costSource: z.enum(CostSource),
   servedBy: text.optional(),
   ...tokens,
 });
 
-/** What a run cost (`unknownCalls` since #853: none before it; a category added later reads as 0). */
+/** What a run cost: every sum and token count of `CostReport`. */
 export const StoredCostReport: z.ZodType<CostReport> = z.object({
-  totalUsd: count,
+  totalUsd: storedUsd,
   calls: count,
-  unknownCalls: count.default(0),
+  unknownCalls: count,
+  inputTokens: count,
+  outputTokens: count,
   cacheReadTokens: count,
-  byCaller: z.record(text, count),
-  // a category added after a record was written (`retrieval`, `files`) is 0 there, never an unreadable record
-  byCategory: z
-    .partialRecord(z.enum(CostCategory), count)
-    .transform((spent) => ({ ...NO_COST_BY_CATEGORY, ...spent })),
-  byModel: z.record(text, count),
+  cacheWriteTokens: count,
+  totalTokens: count,
+  byCaller: z.record(text, storedUsd),
+  byCategory: z.record(z.enum(CostCategory), storedUsd),
+  byModel: z.record(text, storedUsd),
   trace: z.array(StoredCostLine),
 });
 

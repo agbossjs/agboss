@@ -1,4 +1,3 @@
-import { fileConflict } from "../../files/file-errors.js";
 import { Injectable } from "../../components/decorators.js";
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import { OBJECT_SETTINGS, type ResolvedSettings } from "../../storage/settings.js";
@@ -6,16 +5,17 @@ import { EnvironmentField } from "../../environments/contract.js";
 import { Secret } from "../../environments/secret.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import {
-  FileRepository,
+  A2AFileConflictError,
+  A2AFileRepository,
   isSameFile,
   checkedPageLimit,
   ownerOrderOf,
   metadataOf,
-  type FileKey,
-  type FileMetadata,
-  type FileOwner,
-  type NewFile,
-} from "../file.repository.js";
+  type A2AFileKey,
+  type A2AFileMetadata,
+  type A2AFileOwner,
+  type NewA2AFile,
+} from "../a2a-file.repository.js";
 import { Clock } from "../clock.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
 import { S3Client, type S3Location } from "./s3-client.js";
@@ -34,7 +34,7 @@ import {
   textOf,
   type IndexEntry,
   type StoredMetadata,
-} from "./s3-file-layout.js";
+} from "./s3-a2a-file-layout.js";
 
 /** How much of a file's object is read for its metadata: past it, the whole object. */
 const METADATA_READ = 16 * 1024;
@@ -52,7 +52,8 @@ function locationOf(
   };
   const required = (name: string): string => {
     const value = text(name);
-    if (value === undefined) throw new Error(`S3FileRepository needs ${name} in the environment`);
+    if (value === undefined)
+      throw new Error(`S3A2AFileRepository needs ${name} in the environment`);
     return value;
   };
   return {
@@ -71,7 +72,7 @@ function locationOf(
 function locationOfSettings(settings: ResolvedSettings): S3Location & { readonly prefix: string } {
   if (settings.kind !== "s3")
     throw new ConfigError.Option({
-      message: `S3FileRepository is on the object storage's ${settings.kind} driver, not S3Driver`,
+      message: `S3A2AFileRepository is on the object storage's ${settings.kind} driver, not S3Driver`,
     });
   const text = (name: string): string | undefined => {
     const value = settings[name];
@@ -98,7 +99,7 @@ function locationOfSettings(settings: ResolvedSettings): S3Location & { readonly
 /** The prefix, if it leaves room for every key (#904). */
 function checkedPrefix(prefix: string): string {
   const problem = prefixProblemOf(prefix);
-  if (problem !== undefined) throw new Error(`S3FileRepository: ${problem}`);
+  if (problem !== undefined) throw new Error(`S3A2AFileRepository: ${problem}`);
   return prefix;
 }
 
@@ -123,7 +124,7 @@ function checkedPrefix(prefix: string): string {
     a2aS3SecretAccessKey: EnvironmentField.secret(),
   },
 })
-export class S3FileRepository extends FileRepository {
+export class S3A2AFileRepository extends A2AFileRepository {
   static override readonly store: StoreDescriptor = { backend: "s3" };
 
   readonly #client: S3Client;
@@ -145,26 +146,26 @@ export class S3FileRepository extends FileRepository {
     return this.#client.ping();
   }
 
-  async save(file: NewFile): Promise<void> {
+  async save(file: NewA2AFile): Promise<void> {
     const stored: StoredMetadata = { ...metadataOf(file), createdAt: file.createdAt.toISOString() };
     const body = objectBodyOf(stored, file.bytes);
     const isNew = await this.#client.putIfAbsent(this.#fileKey(file), body, {});
     if (!isNew) {
       const kept = await this.findMetadata(file);
       if (kept !== undefined && !isSameFile(kept, file))
-        throw fileConflict({ fileId: file.fileId });
+        throw new A2AFileConflictError({ fileId: file.fileId });
     }
     // the index after the file: a file the sweep finds is there; one written twice is one key
     const entry = `${this.#prefix}${indexKeyOf(file)}`;
     await this.#client.putIfAbsent(entry, entryBodyOf(file), {});
   }
 
-  async findBytes(key: FileKey): Promise<Uint8Array | undefined> {
+  async findBytes(key: A2AFileKey): Promise<Uint8Array | undefined> {
     const body = await this.#client.get(this.#fileKey(key));
     return body === undefined ? undefined : fileBytesOf(body);
   }
 
-  async findMetadata(key: FileKey): Promise<FileMetadata | undefined> {
+  async findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined> {
     const fileKey = this.#fileKey(key);
     const head = await this.#client.get(fileKey, METADATA_READ);
     if (head === undefined) return undefined;
@@ -183,13 +184,13 @@ export class S3FileRepository extends FileRepository {
   async findOwnersByCreatedAtBefore(
     cutoff: Date,
     limit: number,
-    after?: FileOwner,
-  ): Promise<readonly FileOwner[]> {
+    after?: A2AFileOwner,
+  ): Promise<readonly A2AFileOwner[]> {
     checkedPageLimit(limit);
     const index = `${this.#prefix}owners/`;
     // `~` sorts after the digits of every saved time: past every key of `after`, before the next owner's
     const startAfter = after === undefined ? undefined : `${this.#prefix}${ownerFolderOf(after)}~`;
-    const found = new Map<string, FileOwner>();
+    const found = new Map<string, A2AFileOwner>();
     for await (const key of this.#client.keys(index, startAfter)) {
       const entry = indexEntryOf(key.slice(this.#prefix.length));
       if (entry === undefined || entry.savedAt >= cutoff.getTime()) continue;
@@ -201,7 +202,7 @@ export class S3FileRepository extends FileRepository {
     return [...found.values()];
   }
 
-  async deleteByOwner(owner: FileOwner): Promise<void> {
+  async deleteByOwner(owner: A2AFileOwner): Promise<void> {
     for await (const key of this.#client.keys(`${this.#prefix}${ownerFolderOf(owner)}`)) {
       const entry = indexEntryOf(key.slice(this.#prefix.length));
       if (entry === undefined) continue;
@@ -211,12 +212,12 @@ export class S3FileRepository extends FileRepository {
     }
   }
 
-  #fileKey(key: FileKey): string {
+  #fileKey(key: A2AFileKey): string {
     return `${this.#prefix}${fileKeyOf(segmentOf(key.tenantId), segmentOf(key.fileId))}`;
   }
 
   /** The owner of an index entry: from its key, else (a digest) from its body. */
-  async #ownerOf(key: string, entry: IndexEntry): Promise<FileOwner | undefined> {
+  async #ownerOf(key: string, entry: IndexEntry): Promise<A2AFileOwner | undefined> {
     const tenantId = textOf(entry.tenant);
     const ownerId = textOf(entry.owner);
     if (tenantId !== undefined && ownerId !== undefined) return { tenantId, ownerId };

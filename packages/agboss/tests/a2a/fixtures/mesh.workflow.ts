@@ -17,7 +17,6 @@ import {
   WorkflowStart,
   type ExecutionEvent,
   type MeshOptions,
-  type OnExecutionStart,
 } from "../../../src/index.js";
 import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -169,7 +168,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   class MeshWorkflow {}
 
   @Injectable()
-  class StartObserver implements OnExecutionStart {
+  class StartObserver {
     onExecutionStart(event: ExecutionEvent): void {
       started.push(event);
     }

@@ -1,5 +1,5 @@
 import { compensationRecordsOf } from "../flow/compensation.js";
-import { buildCostReport } from "../finops/usage.js";
+import { CostReport } from "../finops/usage.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
@@ -80,7 +80,7 @@ export async function currentOutputOf(
       tenantId: tree.tenantId,
       executionId: tree.runId,
       path: state.path ?? [],
-      spend: buildCostReport(state.usage ?? []),
+      spend: CostReport.fromUsage(state.usage ?? []),
       ...recordsOf(state),
       pending: [],
       finish: nodeRecordIn(deps, state.finish),

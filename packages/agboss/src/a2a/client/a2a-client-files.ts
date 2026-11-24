@@ -1,15 +1,16 @@
+import { createHash } from "node:crypto";
 import type { Part } from "@a2a-js/sdk";
 import type { DtoClass } from "../../dto/types.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
 import {
-  FilePayloadSource,
+  A2AFileSource,
   fileFieldsOf,
   fileSourceOf,
   WorkflowFinishFileDto,
   WorkflowFinishFilesDto,
-  FileDto,
-  type FileField,
-} from "../../dto/standard/file.js";
+  type A2AFileDto,
+  type A2AFileField,
+} from "../files/a2a-file.dto.js";
 import { mediaTypeEssenceOf } from "../files/a2a-file-options.js";
 
 /**
@@ -21,12 +22,41 @@ import { mediaTypeEssenceOf } from "../files/a2a-file-options.js";
  * the DTO's only file field.
  */
 
-/** The A2A wire's `Part` of a file (#859, #1316). */
-export const A2APart = {
+/** A file the client received: its descriptor, its bytes inline (`raw`) or by `url`. */
+export type A2AReceivedFile = A2AFileDto;
+
+/** What a file sent is named by: its media type and file name. */
+export interface A2AClientFileOptions {
+  readonly mediaType: string;
+  readonly filename?: string;
+}
+
+const sha256Of = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
+
+/** Builds the files an `A2AClient` sends (#859). */
+export const A2AClientFile = {
+  /** A file of these bytes, sent as a `raw` part. */
+  fromBytes(bytes: Uint8Array, options: A2AClientFileOptions): A2AFileDto {
+    return {
+      mediaType: mediaTypeEssenceOf(options.mediaType),
+      ...(options.filename === undefined ? {} : { filename: options.filename }),
+      sha256: sha256Of(bytes),
+      sizeBytes: bytes.byteLength,
+      inline: Buffer.from(bytes).toString("base64"),
+    };
+  },
+  /** A file by reference, sent as a `url` part: the agent fetches it (from an origin it allows). */
+  fromUrl(url: string, options: A2AClientFileOptions): A2AFileDto {
+    return {
+      mediaType: mediaTypeEssenceOf(options.mediaType),
+      ...(options.filename === undefined ? {} : { filename: options.filename }),
+      url,
+    };
+  },
   /** The part of a file whose bytes are at hand (inline) or elsewhere (`url`), for `send(parts)`. */
-  fromFile(file: FileDto, field?: string): Part {
+  toPart(file: A2AFileDto, field?: string): Part {
     const content: Part["content"] =
-      fileSourceOf(file) === FilePayloadSource.Url
+      fileSourceOf(file) === A2AFileSource.Url
         ? { $case: "url", value: file.url ?? "" }
         : { $case: "raw", value: Buffer.from(file.inline ?? "", "base64") };
     return {
@@ -38,23 +68,23 @@ export const A2APart = {
   },
 } as const;
 
-/** How a step's stored file (`fileId`) is read before it is sent: `Files.read`. */
-export type StoredFileReader = (file: FileDto) => Promise<Uint8Array>;
+/** How a step's stored file (`fileId`) is read before it is sent: `A2AFiles.read`. */
+export type StoredFileReader = (file: A2AFileDto) => Promise<Uint8Array>;
 
 /** A descriptor with its bytes at hand: a stored one read, any other as it is. */
-async function sendableOf(file: FileDto, read: StoredFileReader): Promise<FileDto> {
-  if (fileSourceOf(file) !== FilePayloadSource.Stored) return file;
+async function sendableOf(file: A2AFileDto, read: StoredFileReader): Promise<A2AFileDto> {
+  if (fileSourceOf(file) !== A2AFileSource.Stored) return file;
   const bytes = await read(file);
-  return FileDto.fromBytes(bytes, {
+  return A2AClientFile.fromBytes(bytes, {
     mediaType: file.mediaType,
     ...(file.filename === undefined ? {} : { filename: file.filename }),
   });
 }
 
-const filesIn = (value: unknown): readonly FileDto[] => {
+const filesIn = (value: unknown): readonly A2AFileDto[] => {
   if (value === undefined || value === null) return [];
   // the input was validated as its DTO: the field holds descriptors
-  return (Array.isArray(value) ? value : [value]) as FileDto[];
+  return (Array.isArray(value) ? value : [value]) as A2AFileDto[];
 };
 
 /** The parts of an input DTO with files: its file parts, then a `data` part of the rest. */
@@ -70,7 +100,7 @@ export async function fileInputPartsOf(
   const parts: Part[] = [];
   for (const field of fields)
     for (const file of filesIn(record[field.name]))
-      parts.push(A2APart.fromFile(await sendableOf(file, read), field.name));
+      parts.push(A2AClientFile.toPart(await sendableOf(file, read), field.name));
   const rest = Object.fromEntries(
     Object.entries(record).filter(([name]) => !fields.some((field) => field.name === name)),
   );
@@ -78,13 +108,13 @@ export async function fileInputPartsOf(
 }
 
 /** A file part as the client receives it; `undefined` for any other part. */
-export function receivedFileOf(part: Part): FileDto | undefined {
+export function receivedFileOf(part: Part): A2AReceivedFile | undefined {
   const { content } = part;
   if (content?.$case !== "raw" && content?.$case !== "url") return undefined;
   const named = part.filename === "" ? {} : { filename: part.filename };
   const mediaType = mediaTypeEssenceOf(part.mediaType);
   if (content.$case === "url") return { mediaType, ...named, url: content.value };
-  return FileDto.fromBytes(new Uint8Array(content.value), { mediaType, ...named });
+  return A2AClientFile.fromBytes(new Uint8Array(content.value), { mediaType, ...named });
 }
 
 /** The field a received file part names. */
@@ -96,7 +126,10 @@ function namedFieldOf(part: Part): string | undefined {
 }
 
 /** The field an unnamed file goes into: a standard file finish's, else the DTO's only one. */
-const defaultFieldOf = (dto: DtoClass, fields: readonly FileField[]): FileField | undefined =>
+const defaultFieldOf = (
+  dto: DtoClass,
+  fields: readonly A2AFileField[],
+): A2AFileField | undefined =>
   dto === WorkflowFinishFileDto || dto === WorkflowFinishFilesDto || fields.length === 1
     ? fields[0]
     : undefined;
@@ -143,10 +176,10 @@ export function fileOutputOf(
 /** Each file field with the files its parts name (or, naming none, its default field's). */
 function filledFieldsOf(
   dto: DtoClass,
-  fields: readonly FileField[],
-  files: readonly { readonly part: Part; readonly file: FileDto }[],
+  fields: readonly A2AFileField[],
+  files: readonly { readonly part: Part; readonly file: A2AReceivedFile }[],
 ): Record<string, unknown> {
-  const byField = new Map<string, FileDto[]>();
+  const byField = new Map<string, A2AReceivedFile[]>();
   for (const { part, file } of files) {
     const named = namedFieldOf(part);
     const field = fields.find((each) => each.name === named) ?? defaultFieldOf(dto, fields);

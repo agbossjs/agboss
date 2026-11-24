@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (files-pii shard) — what a set of PII policies decides on its own, each rule over fake policies: the known
  * sensitive values found wherever they stand (two characters at least, each place, the first of two that overlap
@@ -24,7 +25,7 @@ const record = (costUsd: number): UsageRecord => ({
   ...ZERO_USAGE,
   caller: "pii",
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

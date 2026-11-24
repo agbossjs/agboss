@@ -14,7 +14,7 @@ import {
   type NoRequestFields,
 } from "../../src/models/index.js";
 import type { ModelProviderType } from "../../src/models/model-provider.decorator.js";
-import { ModelPurpose } from "../../src/models/resolve.js";
+import { ModelKind } from "../../src/models/model-kind.js";
 import { seconds } from "../../src/units/index.js";
 import { httpOptionsOf, LocalModelProvider } from "../models/providers.fixture.js";
 
@@ -135,8 +135,8 @@ function sendsValues(
     },
   } as never;
   const uses = [
-    { key: "agents.x-agent", model: agentModel, purpose: ModelPurpose.Chat },
-    { key: "files.redactor.x-agent", model: redactorModel, purpose: ModelPurpose.Chat },
+    { key: "agents.x-agent", model: agentModel, purpose: ModelKind.Chat },
+    { key: "files.redactor.x-agent", model: redactorModel, purpose: ModelKind.Chat },
   ] as never;
   const resolved = withRedactionValues(config, uses, (use) => {
     const resolution = directory.resolve(use);

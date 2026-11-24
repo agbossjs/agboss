@@ -2,19 +2,22 @@
  * #1244: the two file errors, pinned exactly: message, code, details (a key only when its value is
  * given), cause and the fields.
  */
-import { FileError } from "../../../../src/core/error-families/remote-errors.js";
-import { fileRefused, fileUnavailable } from "../../../../src/files/file-errors.js";
 import { describe, expect, it } from "vitest";
-import { FileRefusal, FileUnavailableReason } from "../../../../src/files/file-errors.js";
+import {
+  A2AFileRefusal,
+  A2AFileRefusedError,
+  A2AFileUnavailableError,
+  A2AFileUnavailableReason,
+} from "../../../../src/a2a/files/a2a-file-errors.js";
 
-describe("FileError.Refused", () => {
+describe("A2AFileRefusedError", () => {
   it("the refusal alone: its message, code and details, no media type or size", () => {
-    const error = fileRefused({ refusal: FileRefusal.OutsideExecution });
+    const error = new A2AFileRefusedError({ refusal: A2AFileRefusal.OutsideExecution });
 
     expect(error.message).toBe("the file was refused: outside-execution");
-    expect(error.code).toBe("files.refused");
-    expect(FileError.Refused.code).toBe("files.refused");
-    expect(error.name).toBe("FileError.Refused");
+    expect(error.code).toBe("a2a.file-refused");
+    expect(A2AFileRefusedError.code).toBe("a2a.file-refused");
+    expect(error.name).toBe("A2AFileRefusedError");
     expect(error.refusal).toBe("outside-execution");
     expect(error.mediaType).toBeUndefined();
     expect(error.sizeBytes).toBeUndefined();
@@ -25,13 +28,13 @@ describe("FileError.Refused", () => {
 
   it("the media type, the size and the cause when given, each its own key", () => {
     const cause = new Error("underneath");
-    const withType = fileRefused({
-      refusal: FileRefusal.MediaType,
+    const withType = new A2AFileRefusedError({
+      refusal: A2AFileRefusal.MediaType,
       mediaType: "application/zip",
     });
-    const withSize = fileRefused({ refusal: FileRefusal.TooLarge, sizeBytes: 0 });
-    const both = fileRefused({
-      refusal: FileRefusal.MediaTypeMismatch,
+    const withSize = new A2AFileRefusedError({ refusal: A2AFileRefusal.TooLarge, sizeBytes: 0 });
+    const both = new A2AFileRefusedError({
+      refusal: A2AFileRefusal.MediaTypeMismatch,
       mediaType: "text/plain",
       sizeBytes: 7,
       cause,
@@ -53,31 +56,29 @@ describe("FileError.Refused", () => {
   });
 
   it("every refusal has its own wire text", () => {
-    expect(Object.values(FileRefusal)).toEqual([
+    expect(Object.values(A2AFileRefusal)).toEqual([
       "outside-execution",
       "media-type",
       "media-type-mismatch",
       "too-large",
       "url-invalid",
-      "origin-denied",
-      "address-denied",
     ]);
   });
 });
 
-describe("FileError.Unavailable", () => {
+describe("A2AFileUnavailableError", () => {
   it("its message, code, reason, details and cause", () => {
     const cause = new Error("underneath");
-    const error = fileUnavailable({
-      reason: FileUnavailableReason.DigestMismatch,
+    const error = new A2AFileUnavailableError({
+      reason: A2AFileUnavailableReason.DigestMismatch,
       cause,
     });
-    const plain = fileUnavailable({ reason: FileUnavailableReason.NotFound });
+    const plain = new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.NotFound });
 
     expect(error.message).toBe("the file's bytes are unavailable: digest-mismatch");
-    expect(error.code).toBe("files.unavailable");
-    expect(FileError.Unavailable.code).toBe("files.unavailable");
-    expect(error.name).toBe("FileError.Unavailable");
+    expect(error.code).toBe("a2a.file-unavailable");
+    expect(A2AFileUnavailableError.code).toBe("a2a.file-unavailable");
+    expect(error.name).toBe("A2AFileUnavailableError");
     expect(error.reason).toBe("digest-mismatch");
     expect(error.details).toStrictEqual({ reason: "digest-mismatch" });
     expect(error.cause).toBe(cause);
@@ -86,7 +87,7 @@ describe("FileError.Unavailable", () => {
   });
 
   it("every reason has its own wire text", () => {
-    expect(Object.values(FileUnavailableReason)).toEqual([
+    expect(Object.values(A2AFileUnavailableReason)).toEqual([
       "not-found",
       "by-reference",
       "digest-mismatch",

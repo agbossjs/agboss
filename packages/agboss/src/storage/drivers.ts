@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { env } from "../environments/env-readers.js";
 import type { EnvRef, SecretRef } from "../environments/env-ref.js";
 import { secret } from "../environments/secret.js";
-import { InMemoryFileRepository } from "../infrastructure/in-memory-file.repository.js";
-import { LocalDiskFileRepository } from "../infrastructure/local-disk-file.repository.js";
-import { S3FileRepository } from "../infrastructure/s3/s3-file.repository.js";
+import { InMemoryA2AFileRepository } from "../infrastructure/in-memory-a2a-file.repository.js";
+import { LocalDiskA2AFileRepository } from "../infrastructure/local-disk-a2a-file.repository.js";
+import { S3A2AFileRepository } from "../infrastructure/s3/s3-a2a-file.repository.js";
 import { SqliteA2ADirectMessageRepository } from "../infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
 import { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-task.repository.js";
 import { SqliteCheckpointSaver } from "../infrastructure/sqlite/sqlite-checkpoint-saver.js";
@@ -154,7 +154,7 @@ export function S3Driver(options: S3DriverOptions): ObjectDriver {
       secretAccessKey: secret("AWS_SECRET_ACCESS_KEY"),
       ...defined(options),
     },
-    providers: [S3FileRepository],
+    providers: [S3A2AFileRepository],
   });
 }
 
@@ -172,7 +172,7 @@ export function LocalDiskDriver(options: LocalDiskDriverOptions): ObjectDriver {
     backend: "local-disk",
     describes: `local disk ${typeof directory === "string" ? directory : `(${directory.variable})`}`,
     settings: { kind: "local-disk", directory },
-    providers: [LocalDiskFileRepository],
+    providers: [LocalDiskA2AFileRepository],
   });
 }
 
@@ -183,6 +183,6 @@ export function InMemoryObjectDriver(): ObjectDriver {
     backend: "in-memory",
     describes: "in memory",
     settings: { kind: "in-memory" },
-    providers: [InMemoryFileRepository],
+    providers: [InMemoryA2AFileRepository],
   });
 }

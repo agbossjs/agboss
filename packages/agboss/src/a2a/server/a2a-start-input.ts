@@ -1,5 +1,5 @@
 import type { Message } from "@a2a-js/sdk";
-import type { NewFile } from "../../infrastructure/file.repository.js";
+import type { NewA2AFile } from "../../infrastructure/a2a-file.repository.js";
 import { fileAdmissionOf } from "./a2a-file-admission.js";
 import { filesOfMessage } from "./a2a-message-files.js";
 import { inputOfMessage } from "./a2a-message-input.js";
@@ -15,7 +15,7 @@ import type { ServedSkill } from "./a2a-skills.js";
 /** A message's input for one task: the start's input and the files the store keeps first. */
 export interface StartInput {
   readonly input: unknown;
-  readonly toSave: readonly NewFile[];
+  readonly toSave: readonly NewA2AFile[];
 }
 
 /** The input of a new message for one task id: its files admitted, then checked against the start. */
@@ -34,6 +34,9 @@ export function inputForOf(
 }
 
 /** Keeps a task's input files before the task: a resend or a takeover reads the same bytes. */
-export async function keptFiles(parts: A2AServerParts, files: readonly NewFile[]): Promise<void> {
+export async function keptFiles(
+  parts: A2AServerParts,
+  files: readonly NewA2AFile[],
+): Promise<void> {
   for (const file of files) await parts.files.store.save(file);
 }

@@ -1,3 +1,4 @@
+import { type Usd } from "../units/index.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { definedOf } from "../infrastructure/clock.js";
 import { checkedCallerId, treeRead } from "../flow/context/context-values.js";
@@ -86,8 +87,8 @@ function recordStateOf(
  */
 export const finishedSpendOf = (
   record: Pick<Turn, "status" | "costUsd"> | undefined,
-  checkpointed: number,
-): number => (record?.status === ExecutionRecordStatus.Answered ? record.costUsd : checkpointed);
+  checkpointed: Usd,
+): Usd => (record?.status === ExecutionRecordStatus.Answered ? record.costUsd : checkpointed);
 
 /** Its paused run, else its last checkpoint at a finish; `undefined` when it is at neither. */
 async function restStateOf(

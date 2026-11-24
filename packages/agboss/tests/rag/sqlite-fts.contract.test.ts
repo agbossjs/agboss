@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #700 AC2 — the reference connector runs the published RAG connector contract
  * (`ragConnectorContract`, `@agboss/core/testing/contracts`): each tenant its own folder (looked up,
@@ -81,7 +82,7 @@ afterAll(() => {
 
 const reversing: RerankerHandler = {
   rerank: (_query, candidates, { topK }): Promise<RerankResult> =>
-    Promise.resolve({ results: [...candidates].reverse().slice(0, topK), costUsd: 0 }),
+    Promise.resolve({ results: [...candidates].reverse().slice(0, topK), costUsd: usd(0) }),
 };
 
 ragConnectorContract({

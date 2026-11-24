@@ -4,7 +4,7 @@ import {
   withoutFileFields,
   type CardFileField,
 } from "../a2a-card-file-fields.js";
-import type { FileField } from "../../dto/standard/file.js";
+import type { A2AFileField } from "../files/a2a-file.dto.js";
 import { A2ACardFileFields } from "../files/a2a-file-options.js";
 import type { ServedSkill } from "./a2a-skills.js";
 
@@ -38,14 +38,14 @@ interface CardSchema {
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const declarationOf = (field: FileField, mediaTypes: readonly string[]): CardFileField => ({
+const declarationOf = (field: A2AFileField, mediaTypes: readonly string[]): CardFileField => ({
   list: field.isList,
   optional: field.isOptional,
   mediaTypes,
 });
 
 /** A file field's marker: its declaration, and what it holds said in its description. */
-function markerOf(field: FileField, schema: unknown, mediaTypes: readonly string[]): JsonSchema {
+function markerOf(field: A2AFileField, schema: unknown, mediaTypes: readonly string[]): JsonSchema {
   const described =
     isRecord(schema) && typeof schema.description === "string" ? schema.description : field.name;
   const parts = field.isList ? "file parts" : "a file part";
@@ -58,7 +58,7 @@ function markerOf(field: FileField, schema: unknown, mediaTypes: readonly string
 /** A data schema with file fields, as the card describes it in `mode`. */
 function cardSchemaOf(
   schema: JsonSchema | null,
-  fields: readonly FileField[],
+  fields: readonly A2AFileField[],
   mode: A2ACardFileFields,
   mediaTypes: readonly string[],
 ): CardSchema {

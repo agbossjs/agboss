@@ -7,13 +7,13 @@ import type { LookupAddress } from "node:dns";
 import { describe, expect, it } from "vitest";
 import { maxBodySizeOf } from "../../../src/a2a/a2a-http.js";
 import {
-  FileDto,
-  FilePayloadSource,
+  A2AFileDto,
+  A2AFileSource,
   fileFieldsOf,
   fileSourceOf,
   WorkflowFinishFileDto,
   WorkflowFinishFilesDto,
-} from "../../../src/dto/standard/file.js";
+} from "../../../src/a2a/files/a2a-file.dto.js";
 import { guardedLookupOf, isDeniedAddress } from "../../../src/a2a/files/a2a-file-address.js";
 import {
   fetchedFile,
@@ -34,7 +34,7 @@ import { PDF, PNG, scriptedTransport, TEXT } from "./support.js";
 
 const SHA = "a".repeat(64);
 
-describe("#859: the file descriptor (FileDto)", () => {
+describe("#859: the file descriptor (A2AFileDto)", () => {
   it("is exactly one of fileId, inline or url; bytes name their digest and size", () => {
     const ok = [
       { mediaType: "application/pdf", fileId: "t.0", sha256: SHA, sizeBytes: 3 },
@@ -55,12 +55,12 @@ describe("#859: the file descriptor (FileDto)", () => {
       { mediaType: "text/plain", url: "file:///etc/passwd" },
     ];
 
-    expect(ok.map((file) => fileSourceOf(validate(FileDto, file)))).toEqual([
-      FilePayloadSource.Stored,
-      FilePayloadSource.Inline,
-      FilePayloadSource.Url,
+    expect(ok.map((file) => fileSourceOf(validate(A2AFileDto, file)))).toEqual([
+      A2AFileSource.Stored,
+      A2AFileSource.Inline,
+      A2AFileSource.Url,
     ]);
-    for (const file of bad) expect(() => validate(FileDto, file)).toThrow();
+    for (const file of bad) expect(() => validate(A2AFileDto, file)).toThrow();
   });
 
   it("a DTO's file fields: one, a list, in declaration order; the standard finishes'", () => {
@@ -74,7 +74,7 @@ describe("#859: the file descriptor (FileDto)", () => {
     expect(fileFieldsOf(WorkflowFinishFilesDto)).toEqual([
       { name: "files", isList: true, isOptional: false },
     ]);
-    expect(fileFieldsOf(FileDto)).toEqual([]);
+    expect(fileFieldsOf(A2AFileDto)).toEqual([]);
   });
 });
 

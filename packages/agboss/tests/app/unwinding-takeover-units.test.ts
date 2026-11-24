@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #633 (unwind shard) — a tree taken over mid-undo (`unwinding-takeover.ts`, #340 PR 4) and a
  * pass's root unwind (`tree-unwind.ts`) on their own: with the mark the undo is finished under the
@@ -49,7 +50,7 @@ const FAILED_TURN: Turn = {
   stopReason: "",
   route: [],
   steps: [],
-  costUsd: 0,
+  costUsd: usd(0),
   promptVersion: "",
   modelVersion: "",
   replayOf: null,

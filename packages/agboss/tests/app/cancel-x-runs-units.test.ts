@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (shard `cancel-x-runs`) on its own: the runs in flight a cancel aborts (`live-runs.ts`) — by thread
  * and by tree, each index emptied when its runs end —, what the stop of the instance does to them and to the
@@ -526,11 +527,11 @@ describe("#1366: what a cancel leaves in the record", () => {
       stopReason: "the run was cancelled",
       route: ["a", "b"],
       steps: [],
-      costUsd: 0.5,
+      costUsd: usd(0.5),
     };
 
-    expect(cancelledRecordOutcome(["a", "b"], 0.5)).toEqual(outcome);
-    expect(cancelledOutcome({ path: ["a", "b"], cost: { totalUsd: 0.5 } } as never)).toEqual(
+    expect(cancelledRecordOutcome(["a", "b"], usd(0.5))).toEqual(outcome);
+    expect(cancelledOutcome({ path: ["a", "b"], cost: { totalUsd: usd(0.5) } } as never)).toEqual(
       outcome,
     );
   });

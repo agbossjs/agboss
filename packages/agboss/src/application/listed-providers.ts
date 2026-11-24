@@ -27,4 +27,5 @@ export const isListedProvider = (app: object, cls: Class): boolean | undefined =
 /** What an application or a workflow's module lists in `providers`: nothing when it lists none. */
 export const providersOf = (listed: {
   readonly providers?: readonly Provider[];
-}): readonly Provider[] => listed.providers ?? [];
+  readonly services?: readonly Provider[];
+}): readonly Provider[] => [...(listed.providers ?? []), ...(listed.services ?? [])];

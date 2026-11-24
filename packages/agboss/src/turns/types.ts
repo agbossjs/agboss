@@ -1,4 +1,4 @@
-import type { MessageContent } from "@langchain/core/messages";
+import { type Usd } from "../units/index.js";
 /** Terminology: a Turn is one question → replyWith round (one run). A thread is a client's sequence of Turns. */
 
 /**
@@ -23,7 +23,7 @@ export const TURN_STATUSES = [
 /** One step inside a Turn: what one agent answered. */
 export interface TurnStep {
   readonly agent: string;
-  readonly content: MessageContent;
+  readonly content: string;
 }
 
 export interface Turn {
@@ -41,7 +41,7 @@ export interface Turn {
   readonly stopReason: string;
   readonly route: readonly string[];
   readonly steps: readonly TurnStep[];
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly promptVersion: string;
   readonly modelVersion: string;
   /** Id of the Turn this one replays, if any. */
@@ -66,7 +66,7 @@ export interface Summary {
   readonly toTurnId: string;
   readonly turns: number;
   readonly text: string;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly createdAt: string;
 }
 
@@ -153,7 +153,7 @@ export interface VersionScore {
   readonly turns: number;
   readonly scored: number;
   readonly meanScore: number | null;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
 }
 
 /**

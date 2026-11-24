@@ -8,7 +8,7 @@ import {
   ChannelRole,
   EmptyEnvironment,
   ExecutionContext,
-  Injectable,
+  Injectable, Observer,
   listOf,
   PauseAnswerer,
   PauseListener,
@@ -27,8 +27,6 @@ import {
   type PauseListenerOpenedEvent,
   type ExecutionResumeEvent,
   type ExecutionPauseEvent,
-  type OnExecutionPause,
-  type OnExecutionResume,
   type Produced,
   Action,
 } from "../../../src/index.js";
@@ -421,8 +419,8 @@ export function pauseStore(): InMemoryPausedExecutionRepository {
   return store;
 }
 
-@Injectable()
-export class PauseLog implements OnExecutionPause, OnExecutionResume {
+@Observer()
+export class PauseLog {
   onExecutionPause(event: ExecutionPauseEvent): void {
     seen.pauses.push(event);
   }

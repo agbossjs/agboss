@@ -1,3 +1,4 @@
+import { usd } from "../../../../src/units/index.js";
 import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
@@ -100,7 +101,7 @@ const answerOf = (answer: Answer): unknown => {
         limit: 1,
         actual: 2,
         path: ["ask-router"],
-        spentUsd: 0,
+        spentUsd: usd(0),
       });
   }
 };

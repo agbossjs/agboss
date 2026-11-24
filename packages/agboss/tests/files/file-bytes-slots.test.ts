@@ -4,14 +4,16 @@
  * as `a2a.file-fetch-busy` (here as the download's failure, the busy refusal its cause), and the
  * slot goes back when the read ends — whole, refused, failed, cancelled or aborted.
  */
-import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { describe, expect, it } from "vitest";
 import { callerKeyOf, fileSlotsOf, tenantKeyOf } from "../../src/a2a/files/a2a-file-slots.js";
 import type { FileFetchSlots } from "../../src/a2a/files/a2a-file-slots.js";
 import type { FileHttpResponse, FileTransport } from "../../src/a2a/files/a2a-file-transport.js";
 import { fileContentOf, sha256Of, type FileReadContext } from "../../src/files/file-bytes.js";
-import { FileUnavailableReason } from "../../src/files/file-errors.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import {
+  ModelFileUnavailableError,
+  ModelFileUnavailableReason,
+} from "../../src/files/file-errors.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, seconds } from "../../src/units/index.js";
@@ -71,7 +73,7 @@ const contextOf = (
   slots: FileFetchSlots,
   parts: Partial<FileReadContext> = {},
 ): FileReadContext => ({
-  store: new InMemoryFileRepository(new InMemoryDatabase()),
+  store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
   tenantId: "acme",
   ownerId: "root-1",
   signal: new AbortController().signal,
@@ -122,9 +124,9 @@ describe("#1312 a model's read of a file by url takes a fetch slot", () => {
 
     const over = await outcomeOf(fileContentOf(file("/over"), contextOf(held.transport, slots)));
 
-    expect(over).toBeInstanceOf(FileError.Unavailable);
+    expect(over).toBeInstanceOf(ModelFileUnavailableError);
     expect(over).toMatchObject({
-      reason: FileUnavailableReason.DownloadFailed,
+      reason: ModelFileUnavailableReason.DownloadFailed,
       cause: { metadata: { code: "a2a.file-fetch-busy" } },
     });
     expect(held.state.asked).not.toContain("/over");
@@ -170,14 +172,14 @@ describe("#1312 a model's read of a file by url takes a fetch slot", () => {
     const failed = outcomeOf(fileContentOf(file("/x"), contextOf(failing.transport, slots)));
     await until(() => failing.state.asked.length === 1, "asked");
     failing.answer("/x", "fail");
-    expect(await failed).toBeInstanceOf(FileError.Unavailable);
+    expect(await failed).toBeInstanceOf(ModelFileUnavailableError);
     expect(slots.callers).toBe(0);
 
     const partial = heldTransport(206);
     const refused = outcomeOf(fileContentOf(file("/y"), contextOf(partial.transport, slots)));
     await until(() => partial.state.asked.length === 1, "asked");
     partial.answer("/y");
-    expect(await refused).toBeInstanceOf(FileError.Unavailable);
+    expect(await refused).toBeInstanceOf(ModelFileUnavailableError);
     expect(slots.callers).toBe(0);
 
     const large = heldTransport();
@@ -213,11 +215,11 @@ describe("#1312 a model's read of a file by url takes a fetch slot", () => {
     );
 
     queued.abort();
-    expect(await second).toBeInstanceOf(FileError.Unavailable);
+    expect(await second).toBeInstanceOf(ModelFileUnavailableError);
     expect(held.state.asked).toEqual(["/r"]); // the queued one never fetched
 
     running.abort();
-    expect(await first).toBeInstanceOf(FileError.Unavailable);
+    expect(await first).toBeInstanceOf(ModelFileUnavailableError);
     expect(slots.callers).toBe(0);
     expect(slots.tenants).toBe(0);
 

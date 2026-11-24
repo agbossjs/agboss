@@ -22,7 +22,7 @@ import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.r
 import { InMemoryMeshRequestRepository, MeshRequestRepository } from "./mesh-request.repository.js";
 import { A2ATaskRepository } from "./a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "./in-memory-a2a-task.repository.js";
-import { FileRepository, InlineFileRepository } from "./file.repository.js";
+import { A2AFileRepository, InlineA2AFileRepository } from "./a2a-file.repository.js";
 import { A2ADirectMessageRepository } from "./a2a-direct-message.repository.js";
 import { InMemoryA2ADirectMessageRepository } from "./in-memory-a2a-direct-message.repository.js";
 import {
@@ -46,7 +46,7 @@ import { FencedEffects } from "../app/fenced-effects.js";
 import { OutboundCalls } from "../app/outbound-calls.js";
 import { FileRedactor, ModelImageRedactor } from "../files/file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "../files/file-transcriber.js";
-import { Files } from "../a2a/files/files.service.js";
+import { A2AFiles } from "../a2a/files/a2a-files.service.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
 import { targetOf } from "../app/store-call-bound.js";
 
@@ -70,7 +70,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [RateLimitRepository, InMemoryRateLimitRepository],
   [MeshRequestRepository, InMemoryMeshRequestRepository],
   [A2ATaskRepository, InMemoryA2ATaskRepository],
-  [FileRepository, InlineFileRepository],
+  [A2AFileRepository, InlineA2AFileRepository],
   [A2ADirectMessageRepository, InMemoryA2ADirectMessageRepository],
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
@@ -100,7 +100,7 @@ export const TEST_INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<C
 const CORE_SERVICES: readonly (readonly [Class, Class])[] = [
   [OutboundCalls, OutboundCalls],
   // #859: what a step reads and keeps its A2A task's files with
-  [Files, Files],
+  [A2AFiles, A2AFiles],
   [FencedEffects, FencedEffects],
 ];
 
@@ -160,7 +160,7 @@ export interface Infrastructure {
   /** The A2A tasks the application serves (#807): one per root execution, ever. */
   readonly a2aTasks: A2ATaskRepository;
   /** The A2A tasks' files (#859); the built-in default keeps none (they ride inline). */
-  readonly a2aFiles: FileRepository;
+  readonly a2aFiles: A2AFileRepository;
   /** The direct A2A messages' replies (#860): `A2AReply.Message` skills, by `messageId`. */
   readonly a2aDirectMessages: A2ADirectMessageRepository;
   /** The kept root executions (#401 PR 1): written only with `retention.executionRecords`. */
@@ -210,7 +210,7 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   rateLimits: resolve(RateLimitRepository) as RateLimitRepository,
   meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
   a2aTasks: resolve(A2ATaskRepository) as A2ATaskRepository,
-  a2aFiles: resolve(FileRepository) as FileRepository,
+  a2aFiles: resolve(A2AFileRepository) as A2AFileRepository,
   a2aDirectMessages: resolve(A2ADirectMessageRepository) as A2ADirectMessageRepository,
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,

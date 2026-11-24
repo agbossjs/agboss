@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (shard `cancel-x-pauses`): the pause step's answer on its own (`pause.ts`) — a failing `send` is the asking
  * step's unless the pass was stopped, a reply that is no outcome is refused, a re-entry of a sent pause asks
@@ -291,7 +292,7 @@ describe("#1366: a pause that is no longer pending", () => {
 
   it("an answer no step took yet: marked taken, durably, before the step acts; who answered, or the thread's owner, and what reading it cost", async () => {
     for (const [answer, by] of [
-      [{ ...answered, usage: [{ costUsd: 1 }] }, "manager-17"],
+      [{ ...answered, usage: [{ costUsd: usd(1) }] }, "manager-17"],
       [{ decision: { approved: true }, answeredBy: undefined }, THREAD_OWNER],
     ] as const) {
       const { site, pauses } = setup();
@@ -370,7 +371,7 @@ describe("#1366: a pause that is no longer pending", () => {
         answer: {
           decision: { approved: false },
           answeredBy: undefined,
-          usage: [{ costUsd: 5 }],
+          usage: [{ costUsd: usd(5) }],
         } as never,
       });
 

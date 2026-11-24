@@ -20,7 +20,7 @@ export interface LimitExceededErrorOptions {
   /** The value that crossed it. */
   readonly actual: number;
   readonly path: readonly string[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   /** Spend the execution's state does not hold yet; none by default. */
   readonly usage?: readonly UsageRecord[];
   /** A subclass's own sentence; a general one by default. */
@@ -51,7 +51,7 @@ export class LimitExceededError extends AGBossError {
   readonly limit: number;
   readonly actual: number;
   readonly path: readonly string[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   readonly usage: readonly UsageRecord[];
 
   constructor(options: LimitExceededErrorOptions) {
@@ -93,7 +93,7 @@ export interface BudgetBreach {
 /** What a budget error takes (#906): the breach, where the execution was, its spend. */
 export interface BudgetExceededErrorOptions extends BudgetBreach {
   readonly path: readonly string[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   readonly usage?: readonly UsageRecord[];
   readonly cause?: unknown;
 }
@@ -169,7 +169,7 @@ export interface StepsLimitExceededErrorOptions {
   readonly workflow: WorkflowRecord;
   readonly maxSteps: number;
   readonly path: readonly string[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   readonly cause?: unknown;
 }
 

@@ -6,7 +6,7 @@ import { FileFetches } from "../../../../src/a2a/files/a2a-file-fetches.js";
 import { fileSlotsOf } from "../../../../src/a2a/files/a2a-file-slots.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
 import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
-import { InlineFileRepository } from "../../../../src/infrastructure/file.repository.js";
+import { InlineA2AFileRepository } from "../../../../src/infrastructure/a2a-file.repository.js";
 import { seconds } from "../../../../src/units/index.js";
 import { DEFAULT_A2A_FILE_LIMITS } from "../../../../src/a2a/files/a2a-file-options.js";
 import { Role, type Message } from "@a2a-js/sdk";
@@ -150,7 +150,7 @@ export function unitParts(
     maxTaskDuration: undefined,
     mesh: UNIT_MESH,
     files: {
-      store: new InlineFileRepository(),
+      store: new InlineA2AFileRepository(),
       transport: undefined,
       timeout: seconds(10),
       fetches: new FileFetches(),

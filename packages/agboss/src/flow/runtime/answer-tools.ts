@@ -1,6 +1,6 @@
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { BaseChatModelCallOptions } from "@langchain/core/language_models/chat_models";
-import type { FileDto } from "../../dto/standard/file.js";
+import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
 import { jsonSchemaOf, validate } from "../../dto/schema.js";
 import {
   answerFilesOf,
@@ -122,7 +122,7 @@ export interface ValidAnswerReading {
   /** The answer as it may be shown to a guardrail or a record: its files as `redactedFileOf` shows them (#899 §0). */
   readonly shown: unknown;
   /** The files in the answer (#899 §8), in order. */
-  readonly files: readonly FileDto[];
+  readonly files: readonly A2AFileDto[];
 }
 
 export type AnswerReading =

@@ -189,13 +189,15 @@ export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.
 // #860: the direct A2A messages' replies (infrastructure, listed in `@Application({ providers })`)
 export * from "../infrastructure/a2a-direct-message.repository.js";
 export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
-// #859, #1316: the files a step keeps and reads (infrastructure, listed in `@Application({ providers })`)
+// #859: the A2A tasks' files (infrastructure, listed in `@Application({ providers })`)
 export {
-  FileRepository,
-  type FileKey,
-  type FileMetadata,
-  type FileOwner,
-  type NewFile,
-} from "../infrastructure/file.repository.js";
+  A2AFileConflictError,
+  type A2AFileConflictErrorOptions,
+  A2AFileRepository,
+  type A2AFileKey,
+  type A2AFileMetadata,
+  type A2AFileOwner,
+  type NewA2AFile,
+} from "../infrastructure/a2a-file.repository.js";
 export type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 export type { RetentionOptions } from "../application/retention.js";

@@ -49,9 +49,9 @@ const taskOf = (state: TaskState, report?: string): Task => ({
   metadata: report === undefined ? undefined : { [A2A_MESH_EXTENSION]: { report } },
 });
 
-const signedReport = (spentUsd: number, executionId = TASK, issuedAt = NOW): string =>
+const signedReport = (spent: number, executionId = TASK, issuedAt = NOW): string =>
   encodeRunReport(
-    { issuer: PEER, executionId, spentUsd, bodyHash: BODY, issuedAt },
+    { issuer: PEER, executionId, spentUsd: usd(spent), bodyHash: BODY, issuedAt },
     peerKeys.privateKey,
   );
 
@@ -194,7 +194,7 @@ describe("#844: a meshed call's settle says when no report was verified", () => 
   it("a report signed by another key is none verified: report: false", async () => {
     const stranger = generateKeyPairSync("ed25519");
     const forged = encodeRunReport(
-      { issuer: PEER, executionId: TASK, spentUsd: 3, bodyHash: BODY, issuedAt: NOW },
+      { issuer: PEER, executionId: TASK, spentUsd: usd(3), bodyHash: BODY, issuedAt: NOW },
       stranger.privateKey,
     );
     expect((await settled(taskOf(TaskState.TASK_STATE_COMPLETED, forged))).remotes).toEqual([

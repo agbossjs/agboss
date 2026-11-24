@@ -101,7 +101,7 @@ describe("AC12: the scripted gateway on its own", () => {
 
     expect(outcome).toMatchObject({
       kind: "decided",
-      usage: { model: "test/free", costUsd: 0.01 },
+      usage: { model: "test/free", costUsd: usd(0.01) },
     });
     expect(book.scriptOf("router:r").onlyRequest).toMatchObject({ instructions: "" });
   });

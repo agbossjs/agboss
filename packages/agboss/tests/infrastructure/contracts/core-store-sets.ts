@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { InMemoryA2ADirectMessageRepository } from "../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
 import { SqliteA2ADirectMessageRepository } from "../../../src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
-import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { randomIdGenerator } from "../../../src/infrastructure/clock.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
@@ -43,7 +43,7 @@ import { inMemoryTarget, sharedInMemory, sqliteTarget } from "./store-kinds.js";
 
 /** Every in-memory store of the core. */
 export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => ({
-  a2aFile: inMemoryTarget(({ database }) => new InMemoryFileRepository(database)),
+  a2aFile: inMemoryTarget(({ database }) => new InMemoryA2AFileRepository(database)),
   a2aTask: inMemoryTarget(({ database }) => new InMemoryA2ATaskRepository(database)),
   a2aDirectMessage: inMemoryTarget(({ database }) => ({
     messages: new InMemoryA2ADirectMessageRepository(database),

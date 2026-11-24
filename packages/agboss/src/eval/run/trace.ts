@@ -1,3 +1,4 @@
+import { type Usd } from "../../units/index.js";
 import type { ComponentKind } from "../../flow/runtime/records.js";
 import type { ToolCallStatus } from "../../flow/runtime/tool-calls.js";
 import type { GuardrailSide } from "../../components/policy-decorators.js";
@@ -27,7 +28,7 @@ export interface EvalModelCallTrace {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly cacheReadTokens: number;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
 }
 
 /** One tool call of an agent's visit. */
@@ -81,7 +82,7 @@ export interface EvalStepTrace {
   readonly toolCalls: readonly EvalToolCallTrace[];
   readonly guardrailDecisions: readonly EvalGuardrailDecisionTrace[];
   readonly judgeVerdicts: readonly EvalJudgeVerdictTrace[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   readonly startedAt: string;
   readonly endedAt: string;
   /** The failure an `.onError` side path took. */

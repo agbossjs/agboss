@@ -1,7 +1,8 @@
-import { File, FileDto } from "@agboss/core/dto";
+import { Nested } from "@agboss/core/dto";
+import { A2AFileDto } from "@agboss/core/a2a";
 
 /** A voice note. */
 export class AudioNoteRequestDto {
-  @File({ prompt: "The voice note, an mp3" })
-  note!: FileDto;
+  @Nested(A2AFileDto, { prompt: "The voice note, an mp3" })
+  note!: A2AFileDto;
 }

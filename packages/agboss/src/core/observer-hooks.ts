@@ -1,4 +1,3 @@
-import type { Class } from "../components/injection.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
@@ -6,7 +5,12 @@ import type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
-import type { AuditLogHooks } from "../flow/observers/audit-log.js";
+import type {
+  ExecutionLeaseTakeoverEvent,
+  FencedEffectEvent,
+  OutboundCallEvent,
+  StepHandedOverEvent,
+} from "../flow/observers/audit-log.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -30,176 +34,88 @@ import type {
   ExecutionRejectedEvent,
   ExecutionResumeEvent,
   ExecutionStartEvent,
+  AgentRetryEvent,
   ToolEndEvent,
   ToolStartEvent,
 } from "./observability.js";
-import type { HookResult } from "./hook-result.js";
-
-export type { HookResult } from "./hook-result.js";
-
-/**
- * Observer hooks, one interface per hook (#261). An observer class implements any of them and is
- * listed in `@Application({ observers: [...] })`; only listed classes are called — for every
- * execution of the application, child executions included (filter by `event.workflow.name`).
- */
-/** Once per execution, at `execute` (a resume does not start it again). */
-export interface OnExecutionStart {
-  onExecutionStart(event: ExecutionStartEvent): HookResult;
-}
-/** The execution paused (an approval, a channel); `onExecutionResume` follows when it continues. */
-export interface OnExecutionPause {
-  onExecutionPause(event: ExecutionPauseEvent): HookResult;
-}
-/** `app.resume` picked the paused execution up, or recovery continues an interrupted one. */
-export interface OnExecutionResume {
-  onExecutionResume(event: ExecutionResumeEvent): HookResult;
-}
-/**
- * A request was refused before an execution started or was located (`execute`, `resume` or
- * `cancel` of another owner's thread, a resume with nothing paused, an unknown thread, invalid
- * input, an exhausted budget, a stopping app).
- */
-export interface OnExecutionRejected {
-  onExecutionRejected(event: ExecutionRejectedEvent): HookResult;
-}
-/** The execution ended at a finish — at `execute`, or after a resume; once per execution. */
-export interface OnExecutionEnd {
-  onExecutionEnd(event: ExecutionEndEvent): HookResult;
-}
-/**
- * The execution failed (also after a resume, or cancelled while paused: `ExecutionCancelledError`),
- * or a resume of a paused one was refused as incompatible (`IncompatibleResumeError`; it stays
- * paused).
- */
-export interface OnExecutionError {
-  onExecutionError(event: ExecutionErrorEvent): HookResult;
-}
-export interface OnAgentStart {
-  onAgentStart(event: AgentStartEvent): HookResult;
-}
-export interface OnAgentEnd {
-  onAgentEnd(event: AgentEndEvent): HookResult;
-}
-export interface OnRouterStart {
-  onRouterStart(event: RouterStartEvent): HookResult;
-}
-export interface OnRouterEnd {
-  onRouterEnd(event: RouterEndEvent): HookResult;
-}
-export interface OnToolStart {
-  onToolStart(event: ToolStartEvent): HookResult;
-}
-export interface OnToolEnd {
-  onToolEnd(event: ToolEndEvent): HookResult;
-}
-/** Every model call of an agent. */
-export interface OnModelStart {
-  onModelStart(event: ModelStartEvent): HookResult;
-}
-export interface OnModelEnd {
-  onModelEnd(event: ModelEndEvent): HookResult;
-}
-export interface OnRagStart {
-  onRagStart(event: RagStartEvent): HookResult;
-}
-export interface OnRagEnd {
-  onRagEnd(event: RagEndEvent): HookResult;
-}
-export interface OnGuardrailStart {
-  onGuardrailStart(event: GuardrailStartEvent): HookResult;
-}
-export interface OnGuardrailEnd {
-  onGuardrailEnd(event: GuardrailEndEvent): HookResult;
-}
-export interface OnActionStart {
-  onActionStart(event: ActionStartEvent): HookResult;
-}
-export interface OnActionEnd {
-  onActionEnd(event: ActionEndEvent): HookResult;
-}
-export interface OnChannelStart {
-  onChannelStart(event: ChannelStartEvent): HookResult;
-}
-export interface OnChannelEnd {
-  onChannelEnd(event: ChannelEndEvent): HookResult;
-}
-export interface OnJudgeStart {
-  onJudgeStart(event: JudgeStartEvent): HookResult;
-}
-export interface OnJudgeEnd {
-  onJudgeEnd(event: JudgeEndEvent): HookResult;
-}
-/**
- * A write outdated values of the path scope (#271): once per cascade — the new value and every
- * value it made stale, with the reasons; never empty, never the DTO values.
- */
-export interface OnValuesOutdated {
-  onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
-}
-/**
- * A per-item launch took the first `maxItems` items of a longer list (#273): once per such launch,
- * with how many items there were — truncation is never an error.
- */
-export interface OnLaunchItemsTruncated {
-  /** Called once per truncated launch, after the launching step. */
-  onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): HookResult;
-}
-/**
- * A quorum join decided (#279): once per quorum, with each branch's verdict (counted, rejected and
- * by which arbiters, surplus, or none when cancelled) and the winning group.
- */
-export interface OnQuorumDecided {
-  /** Called once per quorum join, before the execution goes on (or into `.onError`). */
-  onQuorumDecided(event: QuorumDecidedEvent): HookResult;
-}
+import type { Class, ResolvedAll, Token } from "../components/injection.js";
+import { componentOf, recordComponent } from "../components/metadata.js";
+import { resolvedName } from "../flow/names.js";
+import { nameOf } from "../components/name-of.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 
 /**
- * An automatic undo action starts (#340): a failed join undoing its finished branches — once per
- * undo action, newest first, before `.onError`.
+ * Every observer hook, all optional (#261, #1343): an observer class — `@Observer`, listed in
+ * `@Application({ observers })`, the only place observers are registered — declares the ones it
+ * wants as methods. Every execution of the application is observed, child executions included;
+ * `@Observer({ workflows, agents })` narrows what its hooks receive.
  */
-export interface OnCompensationStart {
-  /** Called before each automatic undo action runs, in its frame. */
-  onCompensationStart(event: CompensationStartEvent): HookResult;
+export interface ExecutionObserver {
+  /** Once per execution, at `execute` (a resume does not start it again). */
+  onExecutionStart?(event: ExecutionStartEvent): void | Promise<void>;
+  /** The execution paused (an approval, a channel); `onExecutionResume` follows when it continues. */
+  onExecutionPause?(event: ExecutionPauseEvent): void | Promise<void>;
+  /** `app.resume` picked the paused execution up, or recovery continues an interrupted one. */
+  onExecutionResume?(event: ExecutionResumeEvent): void | Promise<void>;
+  /** A request was refused before an execution started or was located (`execute`, `resume` or `cancel` of another owner's thread, a resume with nothing paused, an unknown thread, invalid input, an exhausted budget, a stopping app). */
+  onExecutionRejected?(event: ExecutionRejectedEvent): void | Promise<void>;
+  /** The execution ended at a finish: at `execute`, or after a resume; once per execution. */
+  onExecutionEnd?(event: ExecutionEndEvent): void | Promise<void>;
+  /** The execution failed (also after a resume, or cancelled while paused: `ExecutionCancelledError`), or a resume of a paused one was refused as incompatible (`IncompatibleResumeError`; it stays paused). */
+  onExecutionError?(event: ExecutionErrorEvent): void | Promise<void>;
+  onAgentStart?(event: AgentStartEvent): void | Promise<void>;
+  onAgentEnd?(event: AgentEndEvent): void | Promise<void>;
+  /** An agent corrects itself: one iteration of its internal retry loop (an invalid answer, invalid tool input, a judge's rejection), before it asks its model again. */
+  onAgentRetry?(event: AgentRetryEvent): void | Promise<void>;
+  onRouterStart?(event: RouterStartEvent): void | Promise<void>;
+  onRouterEnd?(event: RouterEndEvent): void | Promise<void>;
+  onToolStart?(event: ToolStartEvent): void | Promise<void>;
+  onToolEnd?(event: ToolEndEvent): void | Promise<void>;
+  /** Every model call of an agent. */
+  onModelStart?(event: ModelStartEvent): void | Promise<void>;
+  onModelEnd?(event: ModelEndEvent): void | Promise<void>;
+  onRagStart?(event: RagStartEvent): void | Promise<void>;
+  onRagEnd?(event: RagEndEvent): void | Promise<void>;
+  onGuardrailStart?(event: GuardrailStartEvent): void | Promise<void>;
+  onGuardrailEnd?(event: GuardrailEndEvent): void | Promise<void>;
+  onActionStart?(event: ActionStartEvent): void | Promise<void>;
+  onActionEnd?(event: ActionEndEvent): void | Promise<void>;
+  onChannelStart?(event: ChannelStartEvent): void | Promise<void>;
+  onChannelEnd?(event: ChannelEndEvent): void | Promise<void>;
+  onJudgeStart?(event: JudgeStartEvent): void | Promise<void>;
+  onJudgeEnd?(event: JudgeEndEvent): void | Promise<void>;
+  /** A write outdated values of the path scope (#271): once per cascade, with the reasons; never empty, never the DTO values. */
+  onValuesOutdated?(event: ValuesOutdatedEvent): void | Promise<void>;
+  /** A per-item launch took the first items of a longer list (#273): once per such launch, with how many items there were; truncation is never an error. */
+  onLaunchItemsTruncated?(event: LaunchItemsTruncatedEvent): void | Promise<void>;
+  /** A quorum join decided (#279): once per quorum, before the execution goes on (or into `.onError`). */
+  onQuorumDecided?(event: QuorumDecidedEvent): void | Promise<void>;
+  /** An automatic undo action starts (#340): before each one runs, in its frame. */
+  onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
+  /** An automatic undo action ended: `Compensated` or `Failed` (with its `error`). */
+  onCompensationEnd?(event: CompensationEndEvent): void | Promise<void>;
+  /**
+   * An instance took a tree's lease over (#501): the recovery sweep, an undo's takeover, a remote
+   * child's reclaim or its holder's reclaim after a yield. Called once per takeover, after its row
+   * of the audit log is written, before the tree moves on; a throw is only a warning.
+   */
+  onExecutionLeaseTakeover?(event: ExecutionLeaseTakeoverEvent): void | Promise<void>;
+  /**
+   * A step stopped without failing (#501): its lease was lost, an external system fenced its write,
+   * or the instance stopped. Called once per hand-over, before the moving call rejects.
+   */
+  onStepHandedOver?(event: StepHandedOverEvent): void | Promise<void>;
+  /**
+   * A step's fenced effect was called (#501): ran, replayed, joined or refused. Called once per
+   * call of `runOnce`, after its outcome is known; a throw never reaches the effect or its step.
+   */
+  onFencedEffect?(event: FencedEffectEvent): void | Promise<void>;
+  /**
+   * A step's call that leaves the system moved (#505). Called once per move of the call, in the
+   * order of the moves; a throw never reaches the call or its step.
+   */
+  onOutboundCall?(event: OutboundCallEvent): void | Promise<void>;
 }
-/** An automatic undo action ended: `status` `Compensated` or `Failed` (with its `error`). */
-export interface OnCompensationEnd {
-  /** Called after each automatic undo action, whether it returned or threw. */
-  onCompensationEnd(event: CompensationEndEvent): HookResult;
-}
-
-/** Every hook, all optional: the type of an observer instance. */
-export type ExecutionObserver = Partial<
-  OnExecutionStart &
-    OnExecutionPause &
-    OnExecutionResume &
-    OnExecutionEnd &
-    OnExecutionError &
-    OnExecutionRejected &
-    OnAgentStart &
-    OnAgentEnd &
-    OnRouterStart &
-    OnRouterEnd &
-    OnToolStart &
-    OnToolEnd &
-    OnModelStart &
-    OnModelEnd &
-    OnRagStart &
-    OnRagEnd &
-    OnGuardrailStart &
-    OnGuardrailEnd &
-    OnActionStart &
-    OnActionEnd &
-    OnChannelStart &
-    OnChannelEnd &
-    OnJudgeStart &
-    OnJudgeEnd &
-    OnValuesOutdated &
-    OnLaunchItemsTruncated &
-    OnQuorumDecided &
-    OnCompensationStart &
-    OnCompensationEnd &
-    AuditLogHooks
->;
 
 /** The name of a hook, e.g. `"onToolEnd"`. */
 export type ObserverHook = keyof ExecutionObserver;
@@ -238,6 +154,7 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
   onQuorumDecided: true,
   onCompensationStart: true,
   onCompensationEnd: true,
+  onAgentRetry: true,
   onExecutionLeaseTakeover: true,
   onStepHandedOver: true,
   onFencedEffect: true,
@@ -247,3 +164,103 @@ const HOOKS: Readonly<Record<ObserverHook, true>> = {
 export const OBSERVER_HOOKS: readonly ObserverHook[] = Object.keys(HOOKS).filter(
   (name): name is ObserverHook => name in HOOKS,
 );
+
+/** `@Observer` options (#1343): every one optional. */
+export interface ObserverOptions<TDeps extends readonly Token[] = readonly Token[]> {
+  /** Kebab-case, unique among the application's observers; the class name in kebab-case when left out (`DeskMetricsObserver` → `desk-metrics-observer`). */
+  readonly name?: string;
+  readonly description?: string;
+  /** Only the events of these `@Workflow` classes; absent = every workflow's (and the app-level ones). */
+  readonly workflows?: readonly Class[];
+  /** Only the events of these `@Agent` classes; absent = every agent's (and the events of no agent). */
+  readonly agents?: readonly Class[];
+  /** The constructor's dependencies, in order (compiler-checked), injected by the container. */
+  readonly deps?: TDeps;
+}
+
+/** What `@Observer` records about a class. */
+export interface ObserverMeta {
+  readonly name: string;
+  readonly description?: string;
+  readonly workflows: readonly Class[];
+  readonly agents: readonly Class[];
+  readonly deps: readonly Token[];
+}
+
+/**
+ * An execution observer: a class with `on…` hook methods (`onExecutionEnd`, `onToolEnd`,
+ * `onAgentRetry`, …), created by the application's container like any component and listed only in
+ * `@Application({ observers })`. A hook that is no observer hook fails assembly
+ * (`[observer.unknown-hook]`). `workflows` and `agents` filter what its hooks receive, so a hook
+ * needs no `if (event.workflow.name !== nameOf(…)) return;`.
+ */
+export function Observer<const TDeps extends readonly Token[] = []>(
+  options: ObserverOptions<TDeps> = {},
+) {
+  return <TClass extends new (...args: ResolvedAll<TDeps>) => ExecutionObserver>(
+    value: TClass,
+  ): TClass => {
+    const { description, workflows = [], agents = [], deps = [] } = options;
+    const meta = { name: resolvedName(options.name, value), workflows, agents, deps };
+    recordComponent(value, {
+      kind: "observer",
+      meta: description === undefined ? meta : { ...meta, description },
+    });
+    return value;
+  };
+}
+
+/** What `@Observer` recorded on a class; `undefined` when it is not an observer. */
+export function observerOf(cls: Class): ObserverMeta | undefined {
+  const component = componentOf(cls);
+  return component?.kind === "observer" ? component.meta : undefined;
+}
+
+/** What an `@Observer({ workflows, agents })` lets through, as names; `undefined` = everything. */
+interface ObserverFilter {
+  readonly workflows: ReadonlySet<string>;
+  readonly agents: ReadonlySet<string>;
+}
+
+const filters = new WeakMap<object, ObserverFilter | null>();
+
+/** The filter of an observer instance's class; none for an observer without `workflows` and `agents`. */
+function filterOf(observer: ExecutionObserver): ObserverFilter | undefined {
+  const cached = filters.get(observer);
+  if (cached !== undefined) return cached ?? undefined;
+  const meta = observerOf(observer.constructor as Class);
+  const filter =
+    meta === undefined || (meta.workflows.length === 0 && meta.agents.length === 0)
+      ? undefined
+      : {
+          workflows: new Set(meta.workflows.map((cls) => nameOf(cls))),
+          agents: new Set(meta.agents.map((cls) => nameOf(cls))),
+        };
+  filters.set(observer, filter ?? null);
+  return filter;
+}
+
+/** The agent an event is about: its own `agent`, else the agent whose step it is; none for the rest. */
+function agentOf(event: object): string | undefined {
+  if ("agent" in event && typeof event.agent === "string") return event.agent;
+  if (!("step" in event)) return undefined;
+  const component = (event.step as { readonly component: AgentRetryEvent["step"]["component"] })
+    .component;
+  return component.kind === ComponentKind.Agent ? component.name : undefined;
+}
+
+/** Whether the observer's `workflows` / `agents` let the event through (an unfiltered side lets all). */
+export function isWanted(observer: ExecutionObserver, event: object): boolean {
+  const filter = filterOf(observer);
+  if (filter === undefined) return true;
+  if (filter.workflows.size > 0) {
+    const workflow =
+      "workflow" in event ? (event.workflow as { readonly name: string }) : undefined;
+    if (workflow === undefined || !filter.workflows.has(workflow.name)) return false;
+  }
+  if (filter.agents.size > 0) {
+    const agent = agentOf(event);
+    if (agent === undefined || !filter.agents.has(agent)) return false;
+  }
+  return true;
+}

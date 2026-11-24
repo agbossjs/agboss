@@ -44,7 +44,7 @@ export function historyViolations(
   return [
     violation(
       "files.history-needs-store",
-      `${name}: FileSource.History needs a FileRepository in @Application({ providers }): a turn keeps its files' descriptors, not their bytes — the inline default has none to read again`,
+      `${name}: FileSource.History needs an A2AFileRepository in @Application({ providers }): a turn keeps its files' descriptors, not their bytes — the inline default has none to read again`,
       [name],
     ),
   ];
@@ -81,7 +81,7 @@ export function redactorViolations(
     found.push(
       violation(
         "files.redacted-needs-store",
-        `${name}: FileView.Redacted with maxFileSize over ${String(MAX_INLINE_REDACTED)} bytes needs a FileRepository in @Application({ providers }): a redacted copy over that does not fit in an execution's state`,
+        `${name}: FileView.Redacted with maxFileSize over ${String(MAX_INLINE_REDACTED)} bytes needs an A2AFileRepository in @Application({ providers }): a redacted copy over that does not fit in an execution's state`,
         [name],
       ),
     );

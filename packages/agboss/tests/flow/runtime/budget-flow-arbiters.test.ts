@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — the budget rules of the arbiter chain of a branch, each on its own over fakes: a model
  * arbiter's call is checked against the execution's budgets first, with what the chain spent so far; its cost
@@ -25,7 +26,7 @@ const record = (costUsd: number, caller = "arbiter"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -112,7 +113,7 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
       usage: [],
     });
     beforeModelCall.mockRejectedValue(limit);
@@ -227,7 +228,7 @@ describe("#1366: a model arbiter's call is checked against the budgets, and its 
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
       usage: [],
     });
     const { deps } = depsOf({ "a-arbiter": { judge: vi.fn(() => Promise.reject(limit)) } });

@@ -3,15 +3,16 @@ import type { ResolvedModelSettings } from "../config/types.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "../models/calls/provider-calls.js";
-import { isModelProviderClass, isTransportClass } from "../models/model-provider.decorator.js";
+import {
+  isDriverOptions,
+  isModelProviderClass,
+  isTransportClass,
+} from "../models/model-provider.decorator.js";
 import { ConfigurationError } from "../models/problems.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import type { ModelChaos } from "../eval/chaos/model-chaos.js";
-import {
-  ModelPurpose,
-  type ModelProviderDirectory,
-  type RegisteredModelProvider,
-} from "../models/resolve.js";
+import { ModelKind } from "../models/model-kind.js";
+import { type ModelProviderDirectory, type RegisteredModelProvider } from "../models/resolve.js";
 import type { JevClient } from "./jev-client.js";
 import type * as ProviderChat from "./provider-chat.js";
 import type { TransportResolver } from "../models/transport/transport-resolver.js";
@@ -78,7 +79,11 @@ export function providerClients(
   directory: ModelProviderDirectory,
   options: ProviderClientOptions,
   extensions?: ChatExtensions,
-): { readonly chatModel: ModelFactory; readonly jevClient: JevClient } {
+): {
+  readonly chatModel: ModelFactory;
+  readonly jevClient: JevClient;
+  readonly kindOf: (modelProvider: string | undefined) => ModelKind | undefined;
+} {
   const connectionFor = connectionsOf(options);
   const registeredFor = registeredIn(directory);
   (options.connectAtStart ?? directory.providers).forEach(connectionFor);
@@ -87,14 +92,18 @@ export function providerClients(
     connectionFor,
     ...(extensions === undefined ? {} : { extensions }),
   });
-  const providerFor = (model: string, purpose: ModelPurpose): RegisteredModelProvider => {
-    const resolution = directory.resolve({ key: model, model, purpose });
+  const providerFor = (
+    model: string,
+    purpose: ModelKind,
+    modelProvider?: string,
+  ): RegisteredModelProvider => {
+    const resolution = directory.resolve({ key: model, model, purpose, modelProvider });
     if (resolution.kind === "problem")
       throw new ConfigurationError({ problems: [resolution.problem] });
     return resolution.provider;
   };
   const chatModel = (settings: ResolvedModelSettings): BaseChatModel => {
-    const provider = providerFor(settings.model, ModelPurpose.Chat);
+    const provider = providerFor(settings.model, ModelKind.Chat, settings.modelProvider);
     const primary = chatOf(provider, settings);
     const fallback = provider.options.circuitBreakerPolicy.fallback;
     if (!isModelProviderClass(fallback) || options.calls === undefined) return primary;
@@ -106,12 +115,25 @@ export function providerClients(
       chatOf,
     });
   };
-  const jevClient: JevClient = (decision) => {
-    const provider = providerFor(decision.model, ModelPurpose.Decision);
+  const jevClient: JevClient = (decision, modelProvider) => {
+    const provider = providerFor(decision.model, ModelKind.Decisions, modelProvider);
     const routeTo = provider.handler?.routeTo?.bind(provider.handler);
     if (routeTo === undefined)
       throw new ProviderCapabilityError(`${provider.options.name} does not routeTo`);
     return routeTo({ decision, connection: connectionFor(provider) });
   };
-  return { chatModel, jevClient };
+  return { chatModel, jevClient, kindOf: kindOfIn(directory) };
 }
+
+/**
+ * What a model is, by the driver of the provider its cascade resolved (#1313); `undefined` when no
+ * provider is named or its driver is an older provider's — the caller's name patterns then decide.
+ */
+const kindOfIn =
+  (directory: ModelProviderDirectory) =>
+  (modelProvider: string | undefined): ModelKind | undefined =>
+    directory.providers.flatMap((provider) =>
+      provider.options.name === modelProvider && isDriverOptions(provider.options)
+        ? [provider.options.driver.kind]
+        : [],
+    )[0];

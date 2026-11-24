@@ -52,7 +52,7 @@ export interface A2ADirectMessageReply {
     readonly finish: string;
     // (undocumented)
     readonly output: unknown;
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
 }
 
 // @public
@@ -91,12 +91,72 @@ export enum A2ADirectMessageState {
 }
 
 // @public
+export class A2AFileConflictError extends AGBossError {
+    constructor(options: A2AFileConflictErrorOptions);
+    // (undocumented)
+    static readonly code: "a2a.file-conflict";
+    // (undocumented)
+    readonly code: typeof A2AFileConflictError.code;
+    // (undocumented)
+    readonly fileId: string;
+}
+
+// @public
+export interface A2AFileConflictErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly fileId: string;
+}
+
+// @public
+export interface A2AFileKey {
+    // (undocumented)
+    readonly fileId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2AFileMetadata extends A2AFileKey {
+    readonly createdAt: Date;
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+    // (undocumented)
+    readonly ownerId: string;
+    readonly sha256: string;
+    // (undocumented)
+    readonly sizeBytes: number;
+}
+
+// @public
 export interface A2AFileOptions {
     readonly allowedFileOrigins?: readonly string[];
     readonly allowedMediaTypes?: readonly string[];
     readonly maxFiles?: number;
     readonly maxFileSize?: Bytes;
     readonly maxTotalFileSize?: Bytes;
+}
+
+// @public
+export interface A2AFileOwner {
+    // (undocumented)
+    readonly ownerId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public (undocumented)
+export abstract class A2AFileRepository {
+    abstract deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    abstract findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    abstract findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    abstract ping(): Promise<void>;
+    abstract save(file: NewA2AFile): Promise<void>;
+    static readonly store: StoreDescriptor;
 }
 
 // @public
@@ -235,7 +295,7 @@ export interface A2ATaskStatus {
     readonly message?: string;
     readonly output?: unknown;
     readonly pendingPauses: readonly A2ATaskPause[];
-    readonly spentUsd?: number;
+    readonly spentUsd?: Usd;
     // (undocumented)
     readonly state: A2ATaskState;
 }
@@ -338,6 +398,65 @@ export interface AGBossErrorOptions {
 
 // @public
 export const agbossTenantContext: unique symbol;
+
+// @public
+export namespace AGBossTypes {
+    export interface AgentTools {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface ChannelRoles {
+        // (undocumented)
+        readonly "auto-approve-channel": {
+            readonly ask: ToolCallApprovalAskDto;
+            readonly answer: ToolCallApprovalDecisionDto;
+        };
+        // (undocumented)
+        readonly "auto-reject-channel": {
+            readonly ask: ToolCallApprovalAskDto;
+            readonly answer: ToolCallApprovalDecisionDto;
+        };
+        // (undocumented)
+        readonly "terminal-user-channel": {
+            readonly ask: ToolCallApprovalAskDto;
+            readonly answer: ToolCallApprovalDecisionDto;
+        };
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface DtoBrands {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface Inputs {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface Outputs {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface PauseTargets {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface ProducerOutputs {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface RouterAnswers {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface Routes {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface WorkflowStarts {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+}
 
 // @public
 export function Agent(options: AgentOptions): <TClass extends Class>(value: TClass) => TClass;
@@ -444,8 +563,8 @@ export interface AgentOptions {
     readonly maxToolCalls?: number;
     readonly maxVisits?: number;
     readonly memoryStrategy?: Class<BaseMemoryStrategy>;
-    // (undocumented)
-    readonly model: string;
+    readonly model?: string;
+    readonly modelProvider?: Class;
     readonly name: string;
     readonly output?: OutputShape;
     readonly piiPolicies?: readonly Class[];
@@ -478,6 +597,23 @@ export interface AgentRag {
 }
 
 // @public
+export interface AgentRetryEvent extends NodeEvent {
+    readonly agent: string;
+    readonly attempt: number;
+    readonly feedback: string;
+    readonly maxAttempts: number;
+    // (undocumented)
+    readonly reason: AgentRetryReason;
+}
+
+// @public
+export enum AgentRetryReason {
+    InvalidAnswer = "invalid-answer",
+    InvalidToolInput = "invalid-tool-input",
+    JudgeRejected = "judge-rejected"
+}
+
+// @public
 export interface AgentsConfig {
     // (undocumented)
     agents: Record<string, AgentSettings>;
@@ -493,6 +629,7 @@ export interface AgentsConfig {
         router?: {
             kind: "jev";
             model: string;
+            modelProvider?: string | undefined;
         } | (ModelSettings & {
             kind: "llm";
         }) | undefined;
@@ -550,13 +687,7 @@ export type AgentsLaunched<THead extends PathHead> = Launched<THead> & Quorums<T
 export type AgentStartEvent = StartEvent<string>;
 
 // @public
-export type AgentToolNamesOf<TSelf> = GeneratedEntry<AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
-
-// @public
-export interface AgentTools {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+export type AgentToolNamesOf<TSelf> = GeneratedEntry<AGBossTypes.AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
 
 // @public
 export interface AlwaysRouterRoute {
@@ -683,14 +814,16 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops?: number;
     readonly mesh?: MeshOptions;
+    readonly modelProvider?: Class;
     readonly name: string;
-    readonly observers?: readonly ObserverClass[];
+    readonly observers?: readonly Class<ExecutionObserver>[];
     readonly outboundCalls?: OutboundCallOptions;
     readonly piiKeyField?: SecretFieldOf<TEnvironment>;
     readonly piiPolicies?: readonly Class[];
     readonly previousIdempotencyKeyField?: SecretFieldOf<TEnvironment>;
     readonly providers?: readonly Provider[];
     readonly retention?: RetentionOptions;
+    readonly services?: readonly ServiceEntry[];
     readonly shutdownTimeout?: Milliseconds;
     readonly storage?: ApplicationStorage;
     readonly tenantContext?: TenantContextClass;
@@ -822,12 +955,11 @@ export interface AuditEventStep {
 }
 
 // @public
-export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall;
-
-// @public
 export class AutoApproveChannel {
     // (undocumented)
-    readonly [agbossComponent]?: "auto-approve-channel";
+    readonly [agbossComponent]?: {
+        readonly name: "auto-approve-channel";
+    };
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
@@ -835,7 +967,9 @@ export class AutoApproveChannel {
 // @public
 export class AutoRejectChannel {
     // (undocumented)
-    readonly [agbossComponent]?: "auto-reject-channel";
+    readonly [agbossComponent]?: {
+        readonly name: "auto-reject-channel";
+    };
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
@@ -968,7 +1102,7 @@ export interface BudgetExceededErrorOptions extends BudgetBreach {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly usage?: readonly UsageRecord[];
 }
@@ -1099,7 +1233,7 @@ export function Channel<const D extends readonly Token[] = []>(options: ChannelO
 }>(value: C) => C;
 
 // @public
-export type ChannelAnswerOf<TRole> = GeneratedEntry<ChannelRoles, TRole> extends {
+export type ChannelAnswerOf<TRole> = GeneratedEntry<AGBossTypes.ChannelRoles, TRole> extends {
     readonly answer: infer TAnswer;
 } ? TAnswer : MissingGeneratedTypes;
 
@@ -1353,7 +1487,7 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
 export type ChannelPauseTimeoutChangedEvent<TTarget> = ChannelPauseExtendedEvent<TTarget>;
 
 // @public
-export type ChannelQuestionOf<TRole> = GeneratedEntry<ChannelRoles, TRole> extends {
+export type ChannelQuestionOf<TRole> = GeneratedEntry<AGBossTypes.ChannelRoles, TRole> extends {
     readonly ask: infer TAsk;
 } ? TAsk : MissingGeneratedTypes;
 
@@ -1391,27 +1525,6 @@ export interface ChannelRoleBaseOptions {
 export type ChannelRoleOptions = (ChannelApprovalRoleOptions | ChannelQuestionRoleOptions) & ({
     readonly answerer: PauseAnswerer;
 } | Required<Pick<ChannelRoleBaseOptions, "answeredBy">>);
-
-// @public
-export interface ChannelRoles {
-    // (undocumented)
-    readonly "auto-approve-channel": {
-        readonly ask: ToolCallApprovalAskDto;
-        readonly answer: ToolCallApprovalDecisionDto;
-    };
-    // (undocumented)
-    readonly "auto-reject-channel": {
-        readonly ask: ToolCallApprovalAskDto;
-        readonly answer: ToolCallApprovalDecisionDto;
-    };
-    // (undocumented)
-    readonly "terminal-user-channel": {
-        readonly ask: ToolCallApprovalAskDto;
-        readonly answer: ToolCallApprovalDecisionDto;
-    };
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
 
 // @public
 export interface ChannelSelectContext<TTarget> {
@@ -2173,13 +2286,19 @@ export enum CostCategory {
     // (undocumented)
     Agents = "agents",
     // (undocumented)
-    Compaction = "compaction",
+    Arbiters = "arbiters",
     // (undocumented)
     Files = "files",
     // (undocumented)
-    Guards = "guards",
+    Guardrails = "guardrails",
     // (undocumented)
-    Retrieval = "retrieval",
+    Memory = "memory",
+    // (undocumented)
+    Pauses = "pauses",
+    // (undocumented)
+    Pii = "pii",
+    // (undocumented)
+    Rag = "rag",
     // (undocumented)
     Review = "review",
     // (undocumented)
@@ -2277,7 +2396,7 @@ export interface CostLine extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -2286,24 +2405,35 @@ export interface CostLine extends TokenUsage {
 // @public
 export interface CostReport {
     // (undocumented)
-    readonly byCaller: Readonly<Record<string, number>>;
-    readonly byCategory: Readonly<Record<CostCategory, number>>;
+    readonly byCaller: Readonly<Record<string, Usd>>;
+    readonly byCategory: Readonly<Record<CostCategory, Usd>>;
     // (undocumented)
-    readonly byModel: Readonly<Record<string, number>>;
-    // (undocumented)
+    readonly byModel: Readonly<Record<string, Usd>>;
     readonly cacheReadTokens: number;
+    readonly cacheWriteTokens: number;
     readonly calls: number;
-    readonly totalUsd: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly totalUsd: Usd;
     readonly trace: readonly CostLine[];
     readonly unknownCalls: number;
 }
+
+// @public
+export const CostReport: {
+    readonly fromUsage: (records: readonly UsageRecord[]) => CostReport;
+    readonly empty: () => CostReport;
+    readonly sum: (reports: readonly CostReport[]) => CostReport;
+};
 
 // @public
 export enum CostSource {
     Api = "api",
     PriceTable = "price-table",
     Tool = "tool",
-    Unknown = "unknown"
+    Unknown = "unknown",
+    Unpriced = "unpriced"
 }
 
 // @public
@@ -2399,7 +2529,7 @@ export interface DeadlineExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly usage?: readonly UsageRecord[];
 }
@@ -2544,12 +2674,6 @@ export interface DepthLimitExceededErrorOptions {
 }
 
 // @public
-export interface DtoBrands {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
-
-// @public
 export class DtoValidationError extends AGBossError {
     constructor(options: DtoValidationErrorOptions);
     // (undocumented)
@@ -2660,7 +2784,7 @@ export interface EndEvent<U> extends NodeEvent {
     // (undocumented)
     readonly name: string;
     // (undocumented)
-    readonly update: U;
+    readonly output: U;
 }
 
 // @public
@@ -2900,7 +3024,7 @@ export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverReco
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
-    abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
@@ -3044,6 +3168,7 @@ export interface ExecutionDeadline {
 // @public
 export interface ExecutionEndEvent extends ExecutionEvent {
     readonly finish: ComponentRecord;
+    readonly output: unknown;
     readonly spend: CostReport;
 }
 
@@ -3257,7 +3382,7 @@ export interface ExecutionHistoryRecord extends ExecutionRecord {
 
 // @public (undocumented)
 export abstract class ExecutionHistoryRepository {
-    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
     abstract findAllByStartedAtBetween(from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
     abstract findAllByTenantIdAndStartedAtBetween(tenantId: string, from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
@@ -3365,7 +3490,59 @@ export interface ExecutionLeaseTakeoverEvent {
 }
 
 // @public
-export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & AuditLogHooks>;
+export interface ExecutionObserver {
+    // (undocumented)
+    onActionEnd?(event: ActionEndEvent): void | Promise<void>;
+    // (undocumented)
+    onActionStart?(event: ActionStartEvent): void | Promise<void>;
+    // (undocumented)
+    onAgentEnd?(event: AgentEndEvent): void | Promise<void>;
+    onAgentRetry?(event: AgentRetryEvent): void | Promise<void>;
+    // (undocumented)
+    onAgentStart?(event: AgentStartEvent): void | Promise<void>;
+    // (undocumented)
+    onChannelEnd?(event: ChannelEndEvent): void | Promise<void>;
+    // (undocumented)
+    onChannelStart?(event: ChannelStartEvent): void | Promise<void>;
+    onCompensationEnd?(event: CompensationEndEvent): void | Promise<void>;
+    onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
+    onExecutionEnd?(event: ExecutionEndEvent): void | Promise<void>;
+    onExecutionError?(event: ExecutionErrorEvent): void | Promise<void>;
+    onExecutionLeaseTakeover?(event: ExecutionLeaseTakeoverEvent): void | Promise<void>;
+    onExecutionPause?(event: ExecutionPauseEvent): void | Promise<void>;
+    onExecutionRejected?(event: ExecutionRejectedEvent): void | Promise<void>;
+    onExecutionResume?(event: ExecutionResumeEvent): void | Promise<void>;
+    onExecutionStart?(event: ExecutionStartEvent): void | Promise<void>;
+    onFencedEffect?(event: FencedEffectEvent): void | Promise<void>;
+    // (undocumented)
+    onGuardrailEnd?(event: GuardrailEndEvent): void | Promise<void>;
+    // (undocumented)
+    onGuardrailStart?(event: GuardrailStartEvent): void | Promise<void>;
+    // (undocumented)
+    onJudgeEnd?(event: JudgeEndEvent): void | Promise<void>;
+    // (undocumented)
+    onJudgeStart?(event: JudgeStartEvent): void | Promise<void>;
+    onLaunchItemsTruncated?(event: LaunchItemsTruncatedEvent): void | Promise<void>;
+    // (undocumented)
+    onModelEnd?(event: ModelEndEvent): void | Promise<void>;
+    onModelStart?(event: ModelStartEvent): void | Promise<void>;
+    onOutboundCall?(event: OutboundCallEvent): void | Promise<void>;
+    onQuorumDecided?(event: QuorumDecidedEvent): void | Promise<void>;
+    // (undocumented)
+    onRagEnd?(event: RagEndEvent): void | Promise<void>;
+    // (undocumented)
+    onRagStart?(event: RagStartEvent): void | Promise<void>;
+    // (undocumented)
+    onRouterEnd?(event: RouterEndEvent): void | Promise<void>;
+    // (undocumented)
+    onRouterStart?(event: RouterStartEvent): void | Promise<void>;
+    onStepHandedOver?(event: StepHandedOverEvent): void | Promise<void>;
+    // (undocumented)
+    onToolEnd?(event: ToolEndEvent): void | Promise<void>;
+    // (undocumented)
+    onToolStart?(event: ToolStartEvent): void | Promise<void>;
+    onValuesOutdated?(event: ValuesOutdatedEvent): void | Promise<void>;
+}
 
 // @public
 export enum ExecutionOperation {
@@ -3594,10 +3771,8 @@ export interface ExecutionTreeQuery {
 // @public
 export abstract class ExecutionTreeRepository {
     abstract deleteAllInTree(tree: ExecutionTree): Promise<void>;
-    findById(key: string): Promise<ExecutionTreeValue | undefined>;
     abstract findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
     abstract ping(): Promise<void>;
-    saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean>;
     abstract saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
 }
 
@@ -3904,16 +4079,13 @@ export type FileError = FileError.Conflict | FileError.Refused | FileError.Unava
 
 // @public
 export namespace FileError {
-    export type Conflict = ErrorVariant<FileErrorKind.Conflict, "files.conflict"> & {
-        readonly fileId: string;
-    };
+    export type Conflict = ErrorVariant<FileErrorKind.Conflict, "files.conflict">;
     export type Refused = ErrorVariant<FileErrorKind.Refused, "files.refused"> & {
-        readonly refusal: FileRefusal;
-        readonly mediaType?: string;
-        readonly sizeBytes?: Bytes;
+        readonly refusal: ModelFileRefusal;
+        readonly sizeBytes: Bytes;
     };
     export type Unavailable = ErrorVariant<FileErrorKind.Unavailable, "files.unavailable"> & {
-        readonly reason: FileUnavailableReason;
+        readonly reason: ModelFileUnavailableReason;
     };
 }
 
@@ -3932,36 +4104,6 @@ export enum FileErrorKind {
     Refused = "refused",
     // (undocumented)
     Unavailable = "unavailable"
-}
-
-// @public
-export interface FileKey {
-    // (undocumented)
-    readonly fileId: string;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface FileMetadata extends FileKey {
-    readonly createdAt: Date;
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
-    // (undocumented)
-    readonly ownerId: string;
-    readonly sha256: string;
-    // (undocumented)
-    readonly sizeBytes: Bytes;
-}
-
-// @public
-export interface FileOwner {
-    // (undocumented)
-    readonly ownerId: string;
-    // (undocumented)
-    readonly tenantId: string;
 }
 
 // @public
@@ -3997,45 +4139,7 @@ export abstract class FileRedactor {
 }
 
 // @public
-export interface FileReference {
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
-}
-
-// @public
-export enum FileRefusal {
-    AddressDenied = "address-denied",
-    MediaType = "media-type",
-    MediaTypeMismatch = "media-type-mismatch",
-    OriginDenied = "origin-denied",
-    OutsideExecution = "outside-execution",
-    TooLarge = "too-large",
-    UrlInvalid = "url-invalid"
-}
-
-// @public (undocumented)
-export abstract class FileRepository {
-    abstract deleteByOwner(owner: FileOwner): Promise<void>;
-    abstract findBytes(key: FileKey): Promise<Uint8Array | undefined>;
-    abstract findMetadata(key: FileKey): Promise<FileMetadata | undefined>;
-    abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: FileOwner): Promise<readonly FileOwner[]>;
-    abstract ping(): Promise<void>;
-    abstract save(file: NewFile): Promise<void>;
-    static readonly store: StoreDescriptor;
-}
-
-// @public
 export type FileRuleCode = "files.invalid-setting" | "files.no-redactor" | "files.redacted-needs-store" | "files.history-needs-store" | "files.redactor-values-withheld" | "files.answer-file-unseen" | "pii.original-file" | "pii.redacted-needs-kinds";
-
-// @public
-export class Files {
-    constructor(store: FileRepository, clock: Clock);
-    fromUrl(url: string, reference: FileReference): FileDto;
-    read(file: FileDto): Promise<Uint8Array>;
-    save(content: FileToSave): Promise<FileDto>;
-}
 
 // @public
 export enum FileSource {
@@ -4045,29 +4149,9 @@ export enum FileSource {
 }
 
 // @public
-export interface FileToSave {
-    // (undocumented)
-    readonly bytes: Uint8Array;
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
-}
-
-// @public
 export abstract class FileTranscriber {
     // (undocumented)
     abstract transcribe(file: FileContent, options: TranscribeOptions): Promise<TranscriptionResult>;
-}
-
-// @public
-export enum FileUnavailableReason {
-    ByReference = "by-reference",
-    DigestMismatch = "digest-mismatch",
-    DownloadFailed = "download-failed",
-    NotFound = "not-found",
-    OutsideExecution = "outside-execution",
-    TooLarge = "too-large"
 }
 
 // @public
@@ -4210,7 +4294,7 @@ declare namespace FlowTypes {
         ExecutionOptionOf,
         GeneratedEntry,
         KindOf,
-        KindOfName,
+        InstanceOrSelf,
         NameOf,
         ProducerOutputOf,
         StartExecutionOf,
@@ -4667,9 +4751,6 @@ export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
 }
 
 // @public
-export type HookResult = Promise<void> | void;
-
-// @public
 export class HopsLimitExceededError extends LimitExceededError {
     constructor(options: HopsLimitExceededErrorOptions);
     readonly chain: readonly MeshHop[];
@@ -4847,13 +4928,17 @@ export type InferEnv<TContract> = TContract extends {
 export type InferEnvValue<TRef> = TRef extends SecretRef ? Secret : TRef extends OptionalSecretRef ? Secret | undefined : TRef extends EnvRef<infer TValue> ? TValue : never;
 
 // @public
-export function Injectable<const D extends readonly Token[] = []>(options?: InjectableOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+export function Injectable<const D extends readonly Token[] = [], const TPorts extends InjectAs = readonly []>(options?: InjectableOptions<D, TPorts>): <C extends new (...args: ResolvedAll<D>) => PortInstances<TPorts>>(value: C) => C;
 
 // @public
-export interface InjectableOptions<D extends readonly Token[]> {
+export interface InjectableOptions<D extends readonly Token[], TPorts extends InjectAs = readonly []> {
     readonly deps?: D;
     readonly environmentFields?: EnvironmentFields;
+    readonly injectAs?: TPorts;
 }
+
+// @public
+export type InjectAs = Class | readonly Class[];
 
 // @public
 export class InjectionToken<T> {
@@ -4991,13 +5076,10 @@ export function InputGuardrail<const D extends readonly Token[] = []>(options: C
 export function InputGuardrail<const D extends readonly Token[] = []>(options: CodeGuardrailComputedOptions<D>): GuardrailDecorator<D, GuardrailHandler & GuardrailRefusal>;
 
 // @public
-export type InputOf<TInstance> = GeneratedEntry<Inputs, TInstance>;
+export type InputOf<TInstance> = GeneratedEntry<AGBossTypes.Inputs, TInstance>;
 
 // @public
-export interface Inputs {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+type InstanceOrSelf<T> = T extends abstract new (...args: never[]) => infer TInstance ? TInstance : T;
 
 // @public
 export class InvalidA2APageTokenError extends AGBossError {
@@ -5221,11 +5303,11 @@ export type JudgedValueOf<TShape extends JudgeReplyShape> = TShape extends ListW
 // @public
 export interface JudgeEndEvent extends NodeEvent {
     // (undocumented)
-    readonly agentName: string;
+    readonly agent: string;
     // (undocumented)
-    readonly name: string;
+    readonly judge: string;
     // (undocumented)
-    readonly update: JudgeVerdict;
+    readonly output: JudgeVerdict;
 }
 
 // @public
@@ -5283,12 +5365,10 @@ export type JudgeReplyShape = DtoClass | OneOfWrapper | ListWrapper;
 
 // @public
 export interface JudgeStartEvent extends NodeEvent {
-    // (undocumented)
-    readonly agentName: string;
+    readonly agent: string;
     // (undocumented)
     readonly input: unknown;
-    // (undocumented)
-    readonly name: string;
+    readonly judge: string;
 }
 
 // @public
@@ -5357,10 +5437,11 @@ interface KindLabels {
 }
 
 // @public
-type KindOf<TInstance> = KindOfName<NameOf<TInstance>>;
-
-// @public
-type KindOfName<TName extends string> = TName extends `${string}-workflow-start` ? NodeKind.Start : TName extends `${string}-workflow-finish` ? NodeKind.Finish : TName extends `${string}-workflow` ? NodeKind.Workflow : TName extends `${string}-agent` ? NodeKind.Agent : TName extends `${string}-router` ? NodeKind.Router : TName extends `${string}-action` ? NodeKind.Action : TName extends `${string}-question` | `${string}-external-task` ? NodeKind.Question : never;
+type KindOf<T> = InstanceOrSelf<T> extends {
+    readonly [agbossComponent]?: {
+        readonly kind: infer TKind extends NodeKind;
+    };
+} ? NodeKind extends TKind ? never : TKind : never;
 
 // @public
 type LastValue<TValue> = IsSeveral<TValue> extends true ? TValue extends readonly [...unknown[], infer TLast] ? TLast : never : TValue;
@@ -5488,7 +5569,7 @@ export type LimitError = LimitError.Budget | LimitError.Deadline | LimitError.It
 export namespace LimitError {
     export type Budget = PaidErrorVariant<LimitErrorKind.Budget, "limit.budget"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly budget: Pick<ComponentRecord, "name">;
         readonly scope: BudgetScope;
@@ -5499,14 +5580,14 @@ export namespace LimitError {
     };
     export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly deadline: Milliseconds;
         readonly deadlineAt: Date;
     };
     export type Depth = PaidErrorVariant<LimitErrorKind.Depth, "limit.depth"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly workflow: string;
         readonly limit: number;
@@ -5514,7 +5595,7 @@ export namespace LimitError {
     };
     export type Hops = PaidErrorVariant<LimitErrorKind.Hops, "limit.hops"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly entry: string;
         readonly limit: number;
@@ -5522,7 +5603,7 @@ export namespace LimitError {
     };
     export type Items = PaidErrorVariant<LimitErrorKind.Items, "limit.items"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly node: string;
         readonly limit: number;
@@ -5530,7 +5611,7 @@ export namespace LimitError {
     };
     export type MeshLoop = PaidErrorVariant<LimitErrorKind.MeshLoop, "limit.mesh-loop"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly entry: string;
         readonly limit: number;
@@ -5538,7 +5619,7 @@ export namespace LimitError {
     };
     export type Steps = PaidErrorVariant<LimitErrorKind.Steps, "limit.steps"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly workflow: string;
         readonly limit: number;
@@ -5546,7 +5627,7 @@ export namespace LimitError {
     };
     export type Visits = PaidErrorVariant<LimitErrorKind.Visits, "limit.visits"> & {
         readonly path: readonly string[];
-        readonly spentUsd: number;
+        readonly spentUsd: Usd;
     } & {
         readonly nodeId: string;
         readonly limit: number;
@@ -5604,7 +5685,7 @@ export class LimitExceededError extends AGBossError {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly usage: readonly UsageRecord[];
 }
@@ -5622,7 +5703,7 @@ export interface LimitExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     readonly usage?: readonly UsageRecord[];
 }
 
@@ -5757,7 +5838,7 @@ export interface MeshHop extends MeshEntry {
 // @public
 export interface MeshLimitPlace {
     readonly path: readonly string[];
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     readonly usage: readonly UsageRecord[];
 }
 
@@ -5828,8 +5909,8 @@ export interface MeshRequestRecord extends MeshRequestKey {
 
 // @public (undocumented)
 export abstract class MeshRequestRepository {
-    abstract deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
     abstract deleteByKey(key: MeshRequestKey): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
@@ -5942,9 +6023,9 @@ export interface ModelDefaults {
 // @public
 export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
-    readonly calculatedCost?: number;
-    // (undocumented)
     readonly callerName: string;
+    // (undocumented)
+    readonly costUsd?: Usd;
     // (undocumented)
     readonly model: string;
     // (undocumented)
@@ -5993,6 +6074,34 @@ export interface ModelFileLimitErrorOptions {
 }
 
 // @public
+export enum ModelFileRefusal {
+    AddressDenied = "address-denied",
+    MediaTypeMismatch = "media-type-mismatch",
+    OriginDenied = "origin-denied",
+    TooLarge = "too-large",
+    UrlInvalid = "url-invalid"
+}
+
+// @public
+export class ModelFileRefusedError extends AGBossError {
+    constructor(options: ModelFileRefusedErrorOptions);
+    // (undocumented)
+    static readonly code: "model.file-refused";
+    // (undocumented)
+    readonly code: typeof ModelFileRefusedError.code;
+    // (undocumented)
+    readonly refusal: ModelFileRefusal;
+}
+
+// @public (undocumented)
+export interface ModelFileRefusedErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly refusal: ModelFileRefusal;
+}
+
+// @public
 export class ModelFiles {
     static of(options?: ModelFilesOptions): ModelFiles;
     // (undocumented)
@@ -6014,6 +6123,33 @@ export interface ModelFilesOptions {
 // @public
 export class ModelFileTranscriber extends FileTranscriber {
     transcribe(): Promise<TranscriptionResult>;
+}
+
+// @public
+export class ModelFileUnavailableError extends AGBossError {
+    constructor(options: ModelFileUnavailableErrorOptions);
+    // (undocumented)
+    static readonly code: "model.file-unavailable";
+    // (undocumented)
+    readonly code: typeof ModelFileUnavailableError.code;
+    // (undocumented)
+    readonly reason: ModelFileUnavailableReason;
+}
+
+// @public (undocumented)
+export interface ModelFileUnavailableErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly reason: ModelFileUnavailableReason;
+}
+
+// @public
+export enum ModelFileUnavailableReason {
+    DigestMismatch = "digest-mismatch",
+    DownloadFailed = "download-failed",
+    NotFound = "not-found",
+    OutsideExecution = "outside-execution"
 }
 
 // @public
@@ -6118,6 +6254,7 @@ interface ModelSettings {
     maxTokens?: MaxTokens | undefined;
     // (undocumented)
     model: string;
+    modelProvider?: string | undefined;
     price?: Price | undefined;
     // (undocumented)
     temperature?: number | undefined;
@@ -6146,8 +6283,10 @@ export interface ModelUsage {
 }
 
 // @public
-type NameOf<TInstance> = TInstance extends {
-    readonly [agbossComponent]?: infer TName extends string;
+type NameOf<T> = InstanceOrSelf<T> extends {
+    readonly [agbossComponent]?: {
+        readonly name: infer TName extends string;
+    };
 } ? string extends TName ? never : TName : never;
 
 // @public (undocumented)
@@ -6157,17 +6296,17 @@ export function nameOf<TComponent extends Class>(component: TComponent): Compone
 export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
 
 // @public
+export interface NewA2AFile extends A2AFileMetadata {
+    // (undocumented)
+    readonly bytes: Uint8Array;
+}
+
+// @public
 export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> {
     // (undocumented)
     readonly messageId: string;
     // (undocumented)
     readonly requestHash: string;
-}
-
-// @public
-export interface NewFile extends FileMetadata {
-    // (undocumented)
-    readonly bytes: Uint8Array;
 }
 
 // @public (undocumented)
@@ -6347,44 +6486,24 @@ export interface ObjectStorageOptions {
     readonly name?: string;
 }
 
-// @public (undocumented)
-export const OBSERVER_HOOKS: readonly ObserverHook[];
+// @public
+export function Observer<const TDeps extends readonly Token[] = []>(options?: ObserverOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => ExecutionObserver>(value: TClass) => TClass;
 
 // @public
-export type ObserverClass = Class<ExecutionObserver>;
-
-// @public
-export type ObserverHook = keyof ExecutionObserver;
+export interface ObserverOptions<TDeps extends readonly Token[] = readonly Token[]> {
+    readonly agents?: readonly Class[];
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly description?: string;
+    readonly name?: string;
+    readonly workflows?: readonly Class[];
+}
 
 // @public
 export function onAction<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
-// @public (undocumented)
-export interface OnActionEnd {
-    // (undocumented)
-    onActionEnd(event: ActionEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnActionStart {
-    // (undocumented)
-    onActionStart(event: ActionStartEvent): HookResult;
-}
-
 // @public
 export function onAgent<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SourceHead>;
-
-// @public (undocumented)
-export interface OnAgentEnd {
-    // (undocumented)
-    onAgentEnd(event: AgentEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnAgentStart {
-    // (undocumented)
-    onAgentStart(event: AgentStartEvent): HookResult;
-}
 
 // @public
 export function OnAnswer<const TAgent extends Class>(agent: TAgent & KindCheck<TAgent, NodeKind.Agent, KindLabel<NodeKind.Agent>>): OnAnswerDecorator<TAgent>;
@@ -6394,26 +6513,10 @@ export type OnAnswerDecorator<TAgent extends Class> = <This>(value: AnswerJudgem
     readonly static: false;
 }) => void;
 
-// @public (undocumented)
-export interface OnChannelEnd {
-    // (undocumented)
-    onChannelEnd(event: ChannelEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnChannelStart {
-    // (undocumented)
-    onChannelStart(event: ChannelStartEvent): HookResult;
-}
-
 // @public
-export interface OnCompensationEnd {
-    onCompensationEnd(event: CompensationEndEvent): HookResult;
-}
-
-// @public
-export interface OnCompensationStart {
-    onCompensationStart(event: CompensationStartEvent): HookResult;
+export interface OnBeforeDestroy {
+    // (undocumented)
+    onBeforeDestroy(): Promise<void> | void;
 }
 
 // @public
@@ -6443,136 +6546,21 @@ export interface OnErrorStep {
 }
 
 // @public
-export interface OnExecutionEnd {
-    // (undocumented)
-    onExecutionEnd(event: ExecutionEndEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionError {
-    // (undocumented)
-    onExecutionError(event: ExecutionErrorEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionLeaseTakeover {
-    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionPause {
-    // (undocumented)
-    onExecutionPause(event: ExecutionPauseEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionRejected {
-    // (undocumented)
-    onExecutionRejected(event: ExecutionRejectedEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionResume {
-    // (undocumented)
-    onExecutionResume(event: ExecutionResumeEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionStart {
-    // (undocumented)
-    onExecutionStart(event: ExecutionStartEvent): HookResult;
-}
-
-// @public
 export function onExternalTask<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SourceHead>;
-
-// @public
-export interface OnFencedEffect {
-    onFencedEffect(event: FencedEffectEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnGuardrailEnd {
-    // (undocumented)
-    onGuardrailEnd(event: GuardrailEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnGuardrailStart {
-    // (undocumented)
-    onGuardrailStart(event: GuardrailStartEvent): HookResult;
-}
 
 // @public
 export interface OnInit {
     onInit(): Promise<void> | void;
 }
 
-// @public (undocumented)
-export interface OnJudgeEnd {
-    // (undocumented)
-    onJudgeEnd(event: JudgeEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnJudgeStart {
-    // (undocumented)
-    onJudgeStart(event: JudgeStartEvent): HookResult;
-}
-
 // @public
-export interface OnLaunchItemsTruncated {
-    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnModelEnd {
+export interface OnReady {
     // (undocumented)
-    onModelEnd(event: ModelEndEvent): HookResult;
-}
-
-// @public
-export interface OnModelStart {
-    // (undocumented)
-    onModelStart(event: ModelStartEvent): HookResult;
-}
-
-// @public
-export interface OnOutboundCall {
-    onOutboundCall(event: OutboundCallEvent): HookResult;
-}
-
-// @public
-export interface OnQuorumDecided {
-    onQuorumDecided(event: QuorumDecidedEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnRagEnd {
-    // (undocumented)
-    onRagEnd(event: RagEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnRagStart {
-    // (undocumented)
-    onRagStart(event: RagStartEvent): HookResult;
+    onReady(): Promise<void> | void;
 }
 
 // @public
 export function onRouter<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SourceHead>;
-
-// @public (undocumented)
-export interface OnRouterEnd {
-    // (undocumented)
-    onRouterEnd(event: RouterEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnRouterStart {
-    // (undocumented)
-    onRouterStart(event: RouterStartEvent): HookResult;
-}
 
 // @public
 export interface OnStart {
@@ -6583,31 +6571,8 @@ export interface OnStart {
 export function onStart<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
-export interface OnStepHandedOver {
-    onStepHandedOver(event: StepHandedOverEvent): HookResult;
-}
-
-// @public
 export interface OnStop {
     onStop(): Promise<void> | void;
-}
-
-// @public (undocumented)
-export interface OnToolEnd {
-    // (undocumented)
-    onToolEnd(event: ToolEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnToolStart {
-    // (undocumented)
-    onToolStart(event: ToolStartEvent): HookResult;
-}
-
-// @public
-export interface OnValuesOutdated {
-    // (undocumented)
-    onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
 }
 
 // @public
@@ -7205,13 +7170,7 @@ export class OutputInvalidError extends AGBossError {
 }
 
 // @public
-export type OutputOf<TInstance> = GeneratedEntry<Outputs, TInstance>;
-
-// @public
-export interface Outputs {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+export type OutputOf<TInstance> = GeneratedEntry<AGBossTypes.Outputs, TInstance>;
 
 // @public
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
@@ -7629,7 +7588,7 @@ export interface PauseExtensionContendedErrorOptions {
 }
 
 // @public
-export type PauseInputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<PauseTargets, TTarget> extends {
+export type PauseInputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<AGBossTypes.PauseTargets, TTarget> extends {
     readonly input: infer TInput;
 } ? TInput : MissingGeneratedTypes;
 
@@ -7734,7 +7693,7 @@ export interface PauseListenerOptions<TDeps extends readonly Token[] = readonly 
 }
 
 // @public
-export type PauseOutputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<PauseTargets, TTarget> extends {
+export type PauseOutputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<AGBossTypes.PauseTargets, TTarget> extends {
     readonly output: infer TOutput;
 } ? TOutput : MissingGeneratedTypes;
 
@@ -7870,12 +7829,6 @@ export interface PauseTargetHooks {
 
 // @public
 export type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
-
-// @public
-export interface PauseTargets {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
 
 // @public
 export interface PauseToolCallSummary {
@@ -8191,6 +8144,9 @@ export interface PlainErrorOptions {
 }
 
 // @public
+export type PortInstances<TPorts> = TPorts extends abstract new (...args: never[]) => infer TInstance ? TInstance : TPorts extends readonly [infer THead, ...infer TRest] ? PortInstances<THead> & PortInstances<TRest> : unknown;
+
+// @public
 export interface PreviousLeaseHolder {
     // (undocumented)
     readonly holderInstanceId: string;
@@ -8210,13 +8166,7 @@ export interface ProducedValue<TValue, TProducer> {
 }
 
 // @public
-type ProducerOutputOf<TInstance> = GeneratedEntry<ProducerOutputs, TInstance>;
-
-// @public
-export interface ProducerOutputs {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+type ProducerOutputOf<TInstance> = GeneratedEntry<AGBossTypes.ProducerOutputs, TInstance>;
 
 // @public
 export interface ProfileComparison {
@@ -8232,7 +8182,7 @@ export interface ProfileReport {
     // (undocumented)
     readonly costPerTaskUsd: number;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly diff: readonly string[];
     // (undocumented)
@@ -8755,7 +8705,7 @@ export interface RetentionOptions {
 export type ReturnedShape = ValueShape | OneOfWrapper;
 
 // @public
-export type Route<TInstance> = GeneratedEntry<Routes, TInstance>;
+export type Route<TInstance> = GeneratedEntry<AGBossTypes.Routes, TInstance>;
 
 // @public
 export function route<const TClass extends Class>(target: TClass & TargetCheck<TClass, RouteTargetKind, RouteTargetLabel>, ...options: RouteOptions<TClass>): RouteContinuation<InstanceType<TClass>>;
@@ -8816,13 +8766,7 @@ export function Router<const TDeps extends readonly Token[] = []>(options: CodeR
 export const ROUTER_FACTORY: InjectionToken<(name: string) => RouterEngine>;
 
 // @public
-export type RouterAnswerOf<TInstance> = GeneratedEntry<RouterAnswers, TInstance>;
-
-// @public
-export interface RouterAnswers {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+export type RouterAnswerOf<TInstance> = GeneratedEntry<AGBossTypes.RouterAnswers, TInstance>;
 
 // @public
 export interface RouterDecided {
@@ -8943,12 +8887,6 @@ export interface RouterVisit {
     readonly visitNumber: number;
 }
 
-// @public
-export interface Routes {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
-
 // @public (undocumented)
 type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Finish | NodeKind.Workflow;
 
@@ -8956,7 +8894,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -9062,6 +9000,9 @@ export interface SecretRef {
     // (undocumented)
     readonly variable: string;
 }
+
+// @public
+export type ServiceEntry = Class | ValueProvider;
 
 // @public
 export interface ServiceSpend {
@@ -9200,7 +9141,7 @@ export interface SqliteDriverOptions {
 export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(cutoff: Date): Promise<number>;
     // (undocumented)
     findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     // (undocumented)
@@ -9213,7 +9154,7 @@ export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogReposito
 export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    deleteExpired(cutoff: Date): Promise<number>;
     // (undocumented)
     findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
     // (undocumented)
@@ -9351,9 +9292,9 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository<Databas
 export class SqliteMeshRequestRepository extends MeshRequestRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
-    deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
-    // (undocumented)
     deleteByKey(key: MeshRequestKey): Promise<void>;
+    // (undocumented)
+    deleteExpired(cutoff: Date): Promise<number>;
     // (undocumented)
     findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     // (undocumented)
@@ -9799,7 +9740,7 @@ export interface StepsLimitExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly workflow: WorkflowRecord;
 }
@@ -9929,7 +9870,7 @@ export interface Summary {
     readonly bundle: string;
     readonly compaction: string;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
@@ -10086,7 +10027,9 @@ export interface TenantValues {
 // @public
 export class TerminalUserChannel {
     // (undocumented)
-    readonly [agbossComponent]?: "terminal-user-channel";
+    readonly [agbossComponent]?: {
+        readonly name: "terminal-user-channel";
+    };
     // (undocumented)
     send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
 }
@@ -10121,7 +10064,10 @@ type Thinking = "default" | "none" | "minimal" | "low" | "medium" | "high" | "xh
 // @public
 export class ThisWorkflow {
     // (undocumented)
-    readonly [agbossComponent]?: "this-workflow";
+    readonly [agbossComponent]?: {
+        readonly name: "this-workflow";
+        readonly kind: NodeKind.Workflow;
+    };
 }
 
 // @public
@@ -10406,13 +10352,12 @@ export interface ToolDefaults {
 
 // @public
 export interface ToolEndEvent extends NodeEvent {
-    // (undocumented)
-    readonly agentName: string;
+    readonly agent?: string;
     readonly isResultTruncated: boolean;
     // (undocumented)
-    readonly toolName: string;
+    readonly output: string;
     // (undocumented)
-    readonly update: string;
+    readonly tool: string;
 }
 
 // @public
@@ -10459,12 +10404,10 @@ export interface ToolOptions<In extends DtoClass, Out extends DtoClass, D extend
 
 // @public
 export interface ToolStartEvent extends NodeEvent {
+    readonly agent?: string;
     // (undocumented)
-    readonly agentName: string;
-    // (undocumented)
-    readonly arguments: Readonly<Record<string, unknown>>;
-    // (undocumented)
-    readonly toolName: string;
+    readonly input: Readonly<Record<string, unknown>>;
+    readonly tool: string;
 }
 
 // @public
@@ -10503,12 +10446,9 @@ export interface ToStep {
 }
 
 // @public
-export function totalCost(entries: readonly (UsageRecord & {
+export function totalCost(records: readonly {
     readonly costUsd: Usd;
-})[]): Usd;
-
-// @public (undocumented)
-export function totalCost(records: readonly UsageRecord[]): number;
+}[]): Usd;
 
 // @public
 export function toWorkflow<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>, options?: ChildStepOptions): AfterStep<InstanceType<TClass>, SideHead>;
@@ -10560,7 +10500,7 @@ export interface Turn {
     readonly configHash: string | null;
     readonly configVersion: string | null;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
@@ -10605,7 +10545,7 @@ export interface TurnStep {
     // (undocumented)
     readonly agent: string;
     // (undocumented)
-    readonly content: MessageContent;
+    readonly content: string;
 }
 
 // @public
@@ -10712,7 +10652,7 @@ export interface UsageRecord extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     readonly ledger?: LedgerMark;
     readonly ledgerKey?: LedgerKey;
     // (undocumented)
@@ -10817,7 +10757,7 @@ export type VariantOptions<TVariant extends AGBossError> = VariantFacts<TVariant
 // @public
 export interface VersionScore {
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly meanScore: number | null;
     // (undocumented)
@@ -10856,7 +10796,7 @@ export interface VisitsLimitExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
 }
 
 // @public
@@ -10968,10 +10908,12 @@ export interface WorkflowOptions<TName extends string = string, TFlow extends re
     readonly maxDepth?: number;
     readonly maxSteps?: number;
     readonly mcp?: readonly Class[];
+    readonly modelProvider?: Class;
     readonly name: TName;
     readonly piiPolicies?: readonly Class[];
     readonly promptVariables?: Readonly<Record<string, string>>;
     readonly providers?: readonly Provider[];
+    readonly services?: readonly ServiceEntry[];
     readonly toolInterceptors?: readonly Class[];
     readonly uncompactedTurns?: UncompactedTurns;
     // (undocumented)
@@ -11007,7 +10949,7 @@ export interface WorkflowSettingsBuilder {
 export function WorkflowStart(options: WorkflowStartOptions): <TClass extends Class>(value: TClass) => TClass;
 
 // @public
-type WorkflowStartEntry<TInstance> = GeneratedEntry<WorkflowStarts, TInstance>;
+type WorkflowStartEntry<TInstance> = GeneratedEntry<AGBossTypes.WorkflowStarts, TInstance>;
 
 // @public
 export type WorkflowStartInput = DtoClass | ListWrapper<DtoClass> | Readonly<Record<string, ValueShape>>;
@@ -11019,12 +10961,6 @@ export interface WorkflowStartOptions {
     // (undocumented)
     readonly input: WorkflowStartInput;
     readonly name: string;
-}
-
-// @public
-export interface WorkflowStarts {
-    // (undocumented)
-    readonly [notGenerated]?: never;
 }
 
 // @public
@@ -11117,11 +11053,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 
 // Warnings were encountered during analysis:
 //
-// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "bytes".
-// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "filename".
-// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/a2a/files/files.service.ts - (ae-undocumented) Missing documentation for "filename".
 // src/app/create-app.ts - (ae-undocumented) Missing documentation for "profileRoot".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "cause".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
@@ -11473,6 +11404,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/compaction/errors.ts - (ae-undocumented) Missing documentation for "name".
+// src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onReady".
+// src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onBeforeDestroy".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "execute".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "ToolOptions".
 // src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
@@ -11717,15 +11650,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "rule".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "output".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "route".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "reason".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "arguments".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "tool".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "output".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "side".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "element".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "text".
@@ -11746,61 +11676,35 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "callerName".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "rawContent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "calculatedCost".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "costUsd".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "reason".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "judge".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "agent".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "output".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "pending".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "error".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "Execute".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "Resume".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "Cancel".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionPause".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionResume".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionRejected".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnAgentStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnAgentEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnRouterStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnRouterEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnToolStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnToolEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnModelEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnRagStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnRagEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnGuardrailStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnGuardrailEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnActionStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnActionEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnChannelStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnChannelEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnJudgeStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnJudgeEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
+// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "description".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "ok".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "value".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "ok".
@@ -11873,6 +11777,18 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/files/file-bytes.ts - (ae-undocumented) Missing documentation for "filename".
 // src/files/file-bytes.ts - (ae-undocumented) Missing documentation for "bytes".
 // src/files/file-bytes.ts - (ae-undocumented) Missing documentation for "sha256".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "ModelFileUnavailableErrorOptions".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "reason".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "reason".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "ModelFileRefusedErrorOptions".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "refusal".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/files/file-errors.ts - (ae-undocumented) Missing documentation for "refusal".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "agent".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "limit".
 // src/files/file-errors.ts - (ae-undocumented) Missing documentation for "cause".
@@ -11915,12 +11831,17 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/files/model-files.ts - (ae-undocumented) Missing documentation for "options".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guards".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Review".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Memory".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Rag".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pii".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Arbiters".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pauses".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "cause".
@@ -11948,10 +11869,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byModel".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "totalCost".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Start".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Finish".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "Agent".
@@ -12068,7 +11985,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "description".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "promptUrls".
-// src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "model".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "reasoning".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "rag".
 // src/flow/decorators/agent.ts - (ae-undocumented) Missing documentation for "price".
@@ -12163,10 +12079,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
+// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
@@ -12420,6 +12336,21 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "A2ADirectMessageSave".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "filename".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "bytes".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "A2AFileRepository".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Submitted".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Working".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "InputRequired".
@@ -12576,16 +12507,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/fenced-effect-settings.ts - (ae-undocumented) Missing documentation for "maxResultSize".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "result".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "filename".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "sizeBytes".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "bytes".
-// src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "FileRepository".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
@@ -12679,7 +12600,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndRootExecutionIdOrderByOccurredAt".
-// src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "deleteByOccurredAtBefore".
+// src/infrastructure/sqlite/sqlite-execution-audit-log.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "save".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "findByTenantIdAndExecutionId".
@@ -12687,7 +12608,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndThreadId".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "findAllByTenantIdAndStartedAtBetween".
 // src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "findAllByStartedAtBetween".
-// src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "deleteByEndedAtBefore".
+// src/infrastructure/sqlite/sqlite-execution-history.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-execution-lease.repository.ts - (ae-undocumented) Missing documentation for "acquire".
@@ -12739,7 +12660,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "saveResponse".
 // src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "deleteByKey".
-// src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
+// src/infrastructure/sqlite/sqlite-mesh-request.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-outbound-call.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
@@ -12809,8 +12730,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "Chat".
-// src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "Decisions".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "kind".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "call".
 // src/llm/decision-errors.ts - (ae-undocumented) Missing documentation for "cause".
@@ -12869,6 +12788,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "name".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "code".
 // src/models/circuit-breaker.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/models/model-kind.ts - (ae-undocumented) Missing documentation for "Chat".
+// src/models/model-kind.ts - (ae-undocumented) Missing documentation for "Decisions".
 // src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseOpened".
 // src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseClosed".
 // src/pause/channel-listener.ts - (ae-undocumented) Missing documentation for "onPauseExpiring".

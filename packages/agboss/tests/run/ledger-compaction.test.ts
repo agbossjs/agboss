@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-memory shard) — what a compaction spends and stores, each rule on its own over fakes: every model
  * call recorded at once under `compaction:<name>`, the summary asked again shorter when it was cut, the cost the
@@ -56,7 +57,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -123,7 +124,7 @@ describe("#1366: the summary's model call", () => {
 
     expect(out.text).toBe("the summary");
     expect(out.usage).toEqual([
-      expect.objectContaining({ caller: "compaction:notes", costUsd: 0.25, model: "cheap" }),
+      expect.objectContaining({ caller: "compaction:notes", costUsd: usd(0.25), model: "cheap" }),
     ]);
     expect(recorded).toHaveBeenCalledOnce();
     expect(recorded).toHaveBeenCalledWith(out.usage);
@@ -202,7 +203,7 @@ describe("#1366: the compactions due before an execution", () => {
       toTurnId: "t2",
       turns: 2,
       text: "the summary",
-      costUsd: 0.25,
+      costUsd: usd(0.25),
     });
     expect(out.compacted).toEqual([
       { compaction: "notes", fromTurn: 1, toTurn: 2, summaries: 2, summaryQueueLength: 3 },
@@ -340,7 +341,7 @@ describe("#1366: a compaction that stored nothing", () => {
 
     const out = await compactWithModel(deps, compaction(), run, due);
 
-    expect(out).toStrictEqual({ usage: [expect.objectContaining({ costUsd: 0.25 })] });
+    expect(out).toStrictEqual({ usage: [expect.objectContaining({ costUsd: usd(0.25) })] });
   });
 });
 

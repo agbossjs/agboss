@@ -1,27 +1,33 @@
 /**
- * #859: `Files`, what a step reads and keeps its task's files with — a file saved for the
+ * #859: `A2AFiles`, what a step reads and keeps its task's files with — a file saved for the
  * execution's task is read back by it, inline with no store listed; never another task's or another
  * tenant's, never bytes that do not match their digest; a save is bounded and checked like an input.
  */
-import { FileError } from "../../../src/core/error-families/remote-errors.js";
 import { describe, expect, it } from "vitest";
-import { FileRefusal, FileUnavailableReason } from "../../../src/files/file-errors.js";
-import { Files } from "../../../src/a2a/files/files.service.js";
+import {
+  A2AFileRefusal,
+  A2AFileRefusedError,
+  A2AFileUnavailableError,
+  A2AFileUnavailableReason,
+} from "../../../src/a2a/files/a2a-file-errors.js";
+import { A2AFiles } from "../../../src/a2a/files/a2a-files.service.js";
 import { runInFrame } from "../../../src/flow/context/frame.js";
-import { InlineFileRepository } from "../../../src/infrastructure/file.repository.js";
-import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
+import { InlineA2AFileRepository } from "../../../src/infrastructure/a2a-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { inTenantFrame, inTestFrame, testFrame } from "../../helpers/frame.js";
 import { PDF, TEXT } from "./support.js";
 
 const clock = new VirtualClock(new Date("2026-01-05T09:00:00.000Z"));
-const stored = () => new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock);
+const stored = () => new A2AFiles(new InMemoryA2AFileRepository(new InMemoryDatabase()), clock);
 const reasonOf = async (work: Promise<unknown>) =>
   work.then(
     () => "read",
     (error: unknown) =>
-      error instanceof FileError.Unavailable ? error.reason : (error as FileError.Refused).refusal,
+      error instanceof A2AFileUnavailableError
+        ? error.reason
+        : (error as A2AFileRefusedError).refusal,
   );
 
 /** Runs `work` in a frame of another execution (another task) of the same tenant. */
@@ -33,7 +39,7 @@ const inOtherExecution = <T>(work: () => Promise<T>): Promise<T> => {
   );
 };
 
-describe("#859: Files", () => {
+describe("#859: A2AFiles", () => {
   it("a saved file is kept under the task, read back by it, checked against its digest", async () => {
     const files = stored();
 
@@ -52,7 +58,7 @@ describe("#859: Files", () => {
   });
 
   it("with no store listed the file rides inline in its descriptor", async () => {
-    const files = new Files(new InlineFileRepository(), clock);
+    const files = new A2AFiles(new InlineA2AFileRepository(), clock);
 
     const file = await inTestFrame(() => files.save({ bytes: TEXT, mediaType: "text/plain" }));
 
@@ -65,7 +71,7 @@ describe("#859: Files", () => {
     const files = stored();
     const file = await inTestFrame(() => files.save({ bytes: PDF, mediaType: "application/pdf" }));
     const inline = await inTestFrame(() =>
-      new Files(new InlineFileRepository(), clock).save({
+      new A2AFiles(new InlineA2AFileRepository(), clock).save({
         bytes: TEXT,
         mediaType: "text/plain",
       }),
@@ -88,11 +94,11 @@ describe("#859: Files", () => {
     ]);
 
     expect(reasons).toEqual([
-      FileUnavailableReason.NotFound,
-      FileUnavailableReason.NotFound,
-      FileUnavailableReason.ByReference,
-      FileUnavailableReason.DigestMismatch,
-      FileUnavailableReason.OutsideExecution,
+      A2AFileUnavailableReason.NotFound,
+      A2AFileUnavailableReason.NotFound,
+      A2AFileUnavailableReason.ByReference,
+      A2AFileUnavailableReason.DigestMismatch,
+      A2AFileUnavailableReason.OutsideExecution,
     ]);
   });
 
@@ -108,13 +114,13 @@ describe("#859: Files", () => {
     ]);
 
     expect(refusals).toEqual([
-      FileRefusal.OutsideExecution,
-      FileRefusal.MediaType,
-      FileRefusal.TooLarge,
-      FileRefusal.MediaTypeMismatch,
+      A2AFileRefusal.OutsideExecution,
+      A2AFileRefusal.MediaType,
+      A2AFileRefusal.TooLarge,
+      A2AFileRefusal.MediaTypeMismatch,
     ]);
     expect(() => files.fromUrl("http://f.example/a", { mediaType: "text/plain" })).toThrow(
-      FileError.Refused,
+      A2AFileRefusedError,
     );
   });
 });

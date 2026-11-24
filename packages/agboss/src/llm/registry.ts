@@ -34,7 +34,7 @@ export type JudgeBinding =
     };
 
 /** What the registry needs of the gateway; `decide` only when a judge is on a decision model. */
-export type RegistryGateway = Pick<ModelGateway, "chatModel" | "decide">;
+export type RegistryGateway = Pick<ModelGateway, "chatModel" | "decide" | "kindOf">;
 
 /** Chat models of the agents. The router is built separately (see src/routing). */
 export interface ModelRegistry {
@@ -69,11 +69,17 @@ export function resolveSettings(
     ...(thinking === undefined ? {} : { reasoning: reasoningOfThinking(thinking) }),
     ...(promptCaching === undefined ? {} : { promptCaching }),
     ...(settings.price === undefined ? {} : { price: settings.price }),
+    ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
   };
 }
 
 /** A judge on a decision model decides through the gateway, its cost under `judge:<name>`. */
-function decisionJudge(judge: string, model: string, gateway: RegistryGateway): JudgeBinding {
+function decisionJudge(
+  judge: string,
+  model: string,
+  gateway: RegistryGateway,
+  modelProvider: string | undefined,
+): JudgeBinding {
   const decide = gateway.decide;
   if (decide === undefined) {
     throw new DecisionError.InvalidRequest({
@@ -83,7 +89,7 @@ function decisionJudge(judge: string, model: string, gateway: RegistryGateway): 
   return {
     kind: ModelKind.Decisions,
     model,
-    decide: (request) => decide({ caller: `judge:${judge}`, model, request }),
+    decide: (request) => decide({ caller: `judge:${judge}`, model, modelProvider, request }),
   };
 }
 
@@ -145,7 +151,11 @@ export function judgeBindingOf(
   config: Pick<AgentsConfigOf<string>, "defaults">,
   gateway: RegistryGateway,
 ): JudgeBinding {
-  if (isDecisionModel(settings.model)) return decisionJudge(judge, settings.model, gateway);
+  const kind =
+    gateway.kindOf?.(settings.modelProvider) ??
+    (isDecisionModel(settings.model) ? ModelKind.Decisions : ModelKind.Chat);
+  if (kind === ModelKind.Decisions)
+    return decisionJudge(judge, settings.model, gateway, settings.modelProvider);
   const resolved = resolveSettings(settings, config.defaults.models);
   const user: ChatModelUser = { kind: "judge", judge };
   return {

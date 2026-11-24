@@ -18,6 +18,8 @@ export interface ProviderConnection {
   readonly provider: string;
   readonly baseUrl: string;
   readonly apiKey: string | undefined;
+  /** Headers its driver adds to every request (#1313), references resolved; none for the older providers. */
+  readonly headers?: Readonly<Record<string, string>>;
   /** `fetch` with the provider's timeout, retry policy and circuit breaker. */
   readonly fetch: typeof fetch;
 }

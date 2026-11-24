@@ -1,9 +1,8 @@
 /**
- * #859: `S3FileRepository` passes the A2A file contract on an S3-compatible store (two instances
+ * #859: `S3A2AFileRepository` passes the A2A file contract on an S3-compatible store (two instances
  * on one bucket, each request's Signature Version 4 checked), and its signing is AWS's own: the
  * documented example of a signed GET gives the documented signature.
  */
-import { bytes as byteSize } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { secret } from "../../../src/environments/secret.js";
 import { resolveEnvironment } from "../../../src/environments/resolve.js";
@@ -11,9 +10,9 @@ import {
   applicationContextOf,
   type ApplicationContext,
 } from "../../../src/flow/context/application-context.js";
-import { S3FileRepository } from "../../../src/infrastructure/s3/s3-file.repository.js";
+import { S3A2AFileRepository } from "../../../src/infrastructure/s3/s3-a2a-file.repository.js";
 import { authorizationOf } from "../../../src/infrastructure/s3/s3-signing.js";
-import { fileContract } from "../../../src/testing/contracts/index.js";
+import { a2aFileContract } from "../../../src/testing/contracts/index.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { FakeS3, S3_BUCKET, S3_ENDPOINT, S3_KEYS, S3_REGION } from "./fake-s3.js";
 
@@ -49,16 +48,16 @@ const ENVIRONMENT = {
   a2aS3SecretAccessKey: secret("A2A_S3_SECRET_ACCESS_KEY"),
 };
 
-fileContract({
+a2aFileContract({
   name: "S3",
   reset: () => {
     bucket = new FakeS3();
   },
   instance: ({ clock }) =>
-    new S3FileRepository(contextOf(ENVIRONMENT, PROCESS_ENV), clock, undefined, bucket.fetcher),
+    new S3A2AFileRepository(contextOf(ENVIRONMENT, PROCESS_ENV), clock, undefined, bucket.fetcher),
 });
 
-describe("#859: S3FileRepository", () => {
+describe("#859: S3A2AFileRepository", () => {
   it("signs as AWS documents it (the GET-object example of Signature Version 4)", () => {
     const authorization = authorizationOf(
       {
@@ -88,7 +87,7 @@ describe("#859: S3FileRepository", () => {
 
   it("a page of owners lists from past the cursor and stops at the limit: never the whole index", async () => {
     const s3 = new FakeS3();
-    const store = new S3FileRepository(
+    const store = new S3A2AFileRepository(
       contextOf(ENVIRONMENT, PROCESS_ENV),
       new VirtualClock(),
       undefined,
@@ -102,7 +101,7 @@ describe("#859: S3FileRepository", () => {
         ownerId: owner,
         mediaType: "text/plain",
         sha256: "a".repeat(64),
-        sizeBytes: byteSize(1),
+        sizeBytes: 1,
         createdAt: at,
         bytes: Uint8Array.from([1]),
       });
@@ -124,7 +123,7 @@ describe("#859: S3FileRepository", () => {
 
   it("names the environment field it misses, never a value", () => {
     expect(
-      () => new S3FileRepository(contextOf({ a2aS3Region: "x" }), {} as never, undefined),
-    ).toThrow("S3FileRepository needs a2aS3Bucket in the environment");
+      () => new S3A2AFileRepository(contextOf({ a2aS3Region: "x" }), {} as never, undefined),
+    ).toThrow("S3A2AFileRepository needs a2aS3Bucket in the environment");
   });
 });

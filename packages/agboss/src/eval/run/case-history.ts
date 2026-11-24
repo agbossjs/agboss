@@ -1,3 +1,4 @@
+import { usd } from "../../units/index.js";
 import type { AppDeps } from "../../app/app-deps.js";
 import { nameOf } from "../../components/name-of.js";
 import { ExecutionRecordStatus } from "../../infrastructure/execution-record.repository.js";
@@ -33,7 +34,7 @@ function turnOf(deps: AppDeps, thread: CaseThread, past: EvalPastTurn): NewTurn 
     stopReason: "",
     route: [],
     steps: [],
-    costUsd: 0,
+    costUsd: usd(0),
     promptVersion: versions.promptVersion,
     modelVersion: versions.modelVersion,
     replayOf: null,

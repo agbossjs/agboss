@@ -1,91 +1,75 @@
-import { FileError } from "../core/error-families/remote-errors.js";
-import { bytes } from "../units/index.js";
+import { AGBossError } from "../core/errors.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import { ModelFileLimit } from "./model-files.js";
 
 /**
- * What stops a file on its way to a model (#899): its bytes cannot be read (`FileError.Unavailable`),
- * the guarded path refuses them (`FileError.Refused`), or they are over a limit of the agent
+ * What stops a file on its way to a model (#899): its bytes cannot be read (`ModelFileUnavailableError`),
+ * the guarded path refuses them (`ModelFileRefusedError`), or they are over a limit of the agent
  * (`ModelFileLimitError`, before any model call, never a silent truncation).
  */
 
-/** Why a file's bytes cannot be read: `FileError.Unavailable`'s `reason`. */
-export enum FileUnavailableReason {
-  /** No such file in the store for this execution's task (another task's, swept, removed). */
+/** Why a file's bytes cannot be read. */
+export enum ModelFileUnavailableReason {
+  /** The file is no longer kept (another task's, swept, removed). */
   NotFound = "not-found",
-  /** A file by reference (`url`): its bytes are elsewhere, fetched by the step itself. */
-  ByReference = "by-reference",
   /** Its bytes do not match the `sha256` its descriptor names. */
   DigestMismatch = "digest-mismatch",
-  /** A read outside an execution: a file belongs to its execution's task. */
-  OutsideExecution = "outside-execution",
-  /** A download larger than its `maxSize`: stopped there. */
-  TooLarge = "too-large",
   /** The url did not answer the file: a failure, a timeout, a status. */
   DownloadFailed = "download-failed",
+  /** A read outside an execution: a file belongs to its execution's task. */
+  OutsideExecution = "outside-execution",
 }
 
-/** Why a file is refused: `FileError.Refused`'s `refusal`. */
-export enum FileRefusal {
-  /** A save outside an execution: a file belongs to its execution's task. */
-  OutsideExecution = "outside-execution",
-  /** Its media type is not in the policy's `allowedMediaTypes`. */
-  MediaType = "media-type",
-  /** Its bytes are not of the media type it declares. */
-  MediaTypeMismatch = "media-type-mismatch",
-  /** It is larger than the policy's `maxFileSize`. */
-  TooLarge = "too-large",
-  /** A file by reference is on no `https:` URL, or the url is no url, or carries a user or a password. */
-  UrlInvalid = "url-invalid",
-  /** A file by url with no allowed origins, or from an origin not in them, or a redirect to one. */
+export interface ModelFileUnavailableErrorOptions {
+  readonly reason: ModelFileUnavailableReason;
+  readonly cause?: unknown;
+}
+
+/** The bytes of a file cannot be read (`model.file-unavailable`). */
+export class ModelFileUnavailableError extends AGBossError {
+  static override readonly code = "model.file-unavailable" as const;
+  declare readonly code: typeof ModelFileUnavailableError.code;
+  readonly reason: ModelFileUnavailableReason;
+
+  constructor(options: ModelFileUnavailableErrorOptions) {
+    const { reason, cause } = options;
+    super(`the file's bytes are unavailable: ${reason}`, { cause, details: { reason } });
+    this.reason = reason;
+  }
+}
+
+/** Why the guarded path refuses a file. */
+export enum ModelFileRefusal {
+  /** A file by url with no `allowedFileOrigins`, or from an origin not in them, or a redirect to one. */
   OriginDenied = "origin-denied",
   /** The url's host is an address a file is never fetched from (private, link-local, …). */
   AddressDenied = "address-denied",
+  /** The url is no url, or carries a user or a password. */
+  UrlInvalid = "url-invalid",
+  /** The file is larger than the agent's `maxFileSize`. */
+  TooLarge = "too-large",
+  /** The bytes are not what the declared media type says. */
+  MediaTypeMismatch = "media-type-mismatch",
 }
 
-/** What a refused file is known by. */
-export interface FileRefusedOptions {
-  readonly refusal: FileRefusal;
-  readonly mediaType?: string;
-  readonly sizeBytes?: number;
+export interface ModelFileRefusedErrorOptions {
+  readonly refusal: ModelFileRefusal;
   readonly cause?: unknown;
 }
 
-/** A file refused (`files.refused`): nothing of its bytes was read or kept. */
-export function fileRefused(options: FileRefusedOptions): FileError.Refused {
-  const { refusal, mediaType, sizeBytes, cause } = options;
-  return new FileError.Refused({
-    message: `the file was refused: ${refusal}`,
-    refusal,
-    ...(mediaType === undefined ? {} : { mediaType }),
-    ...(sizeBytes === undefined ? {} : { sizeBytes: bytes(sizeBytes) }),
-    cause,
-  });
-}
+/** The guarded path refused a file (`model.file-refused`): nothing of its bytes was read or kept. */
+export class ModelFileRefusedError extends AGBossError {
+  static override readonly code = "model.file-refused" as const;
+  declare readonly code: typeof ModelFileRefusedError.code;
+  readonly refusal: ModelFileRefusal;
 
-/** A file whose bytes cannot be read (`files.unavailable`). */
-export function fileUnavailable(options: {
-  readonly reason: FileUnavailableReason;
-  readonly cause?: unknown;
-}): FileError.Unavailable {
-  const { reason, cause } = options;
-  return new FileError.Unavailable({
-    message: `the file's bytes are unavailable: ${reason}`,
-    reason,
-    cause,
-  });
+  constructor(options: ModelFileRefusedErrorOptions) {
+    const { refusal, cause } = options;
+    super(`the file was refused: ${refusal}`, { cause, details: { refusal } });
+    this.refusal = refusal;
+  }
 }
-
-/** A save of a key already kept with other bytes: a file never changes (`files.conflict`). */
-export const fileConflict = (options: {
-  readonly fileId: string;
-  readonly cause?: unknown;
-}): FileError.Conflict =>
-  new FileError.Conflict({
-    message: "a file is saved once: another file is kept under this id",
-    ...options,
-  });
 
 /** What a file over a limit takes (#906). */
 export interface ModelFileLimitErrorOptions {

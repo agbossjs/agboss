@@ -1,5 +1,5 @@
 import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
-import type { FileRefusal, FileUnavailableReason } from "../../files/file-errors.js";
+import type { ModelFileRefusal, ModelFileUnavailableReason } from "../../files/file-errors.js";
 import type { Bytes } from "../../units/index.js";
 
 /** The kinds of `A2AError`: `switch (error.kind)` is exhaustive. */
@@ -147,20 +147,15 @@ export type FileError = FileError.Conflict | FileError.Refused | FileError.Unava
 /** The variants of `FileError`, each with the facts it carries. */
 export declare namespace FileError {
   /** A file with this id is stored with other content. */
-  export type Conflict = ErrorVariant<FileErrorKind.Conflict, "files.conflict"> & {
-    readonly fileId: string;
-  };
+  export type Conflict = ErrorVariant<FileErrorKind.Conflict, "files.conflict">;
   /** A file was refused. */
   export type Refused = ErrorVariant<FileErrorKind.Refused, "files.refused"> & {
-    readonly refusal: FileRefusal;
-    /** The media type it declared, when that is why. */
-    readonly mediaType?: string;
-    /** Its size, when that is why. */
-    readonly sizeBytes?: Bytes;
+    readonly refusal: ModelFileRefusal;
+    readonly sizeBytes: Bytes;
   };
   /** A file is unavailable. */
   export type Unavailable = ErrorVariant<FileErrorKind.Unavailable, "files.unavailable"> & {
-    readonly reason: FileUnavailableReason;
+    readonly reason: ModelFileUnavailableReason;
   };
 }
 

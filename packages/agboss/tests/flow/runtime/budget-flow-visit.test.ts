@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a node's visit does with the budgets, each rule on its own over fakes: the
  * visit's limits are checked in its tree's slot before the node runs (and decide whether it counts as a step),
@@ -90,7 +91,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -148,7 +149,7 @@ describe("#1366: the limits of a visit", () => {
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
       usage: [],
     });
     vi.mocked(checkVisit).mockRejectedValue(limit);
@@ -271,7 +272,7 @@ describe("#1366: a failed visit's spend and its owed undo's", () => {
         limit: 1,
         actual: 2,
         path: [],
-        spentUsd: 0,
+        spentUsd: usd(0),
         usage: [],
       }),
     );
@@ -300,7 +301,7 @@ describe("#1366: a failed visit's spend and its owed undo's", () => {
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
       usage: [],
     });
 

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /** #1269: the files a guardrail checks, and what masking their headings and names costs. */
 import { describe, expect, it } from "vitest";
 import type { UsageRecord } from "../../src/finops/usage.js";
@@ -11,7 +12,7 @@ import { kilobytes } from "../../src/units/index.js";
 const usageOf = (caller: string): UsageRecord => ({
   caller,
   model: "m",
-  costUsd: 0,
+  costUsd: usd(0),
   costSource: CostSource.Tool,
   inputTokens: 1,
   outputTokens: 1,

@@ -13,7 +13,7 @@ import { fileMaskOf } from "../../src/files/file-mask.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NO_FILES, filePiecesOf, type FileRuntime } from "../../src/files/visit-files.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { PiiAction } from "../../src/pii/actions.js";
 import { PiiKeyPurpose, purposeDigestOf, purposeKeyOf } from "../../src/pii/key-hierarchy.js";
@@ -196,7 +196,7 @@ const runtime: FileRuntime = {
     return Promise.resolve({ text: "write to dana@example.com" });
   },
   context: () => ({
-    store: new InMemoryFileRepository(new InMemoryDatabase()),
+    store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
     tenantId: "t",
     ownerId: "o",
     signal: new AbortController().signal,

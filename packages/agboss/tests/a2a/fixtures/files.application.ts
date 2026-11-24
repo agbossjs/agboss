@@ -1,11 +1,11 @@
 // #859 — an application that takes files and gives them back over A2A: a start whose input holds a
-// document (and optional more pages), an action that reads its bytes through Files and answers
+// document (and optional more pages), an action that reads its bytes through A2AFiles and answers
 // with a report file and a verdict, or — asked to — pauses for its caller first (INPUT_REQUIRED),
 // then reads the same document again after the answer. Stores: none listed (files inline) in
-// FilesApplication, InMemoryFileRepository in StoredFilesApplication.
+// FilesApplication, InMemoryA2AFileRepository in StoredFilesApplication.
 import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
-import { FileDto, WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
-import { Files } from "../../../src/a2a/files/files.service.js";
+import { A2AFileDto, WorkflowFinishFileDto } from "../../../src/a2a/files/a2a-file.dto.js";
+import { A2AFiles } from "../../../src/a2a/files/a2a-files.service.js";
 import { Application } from "../../../src/application/application.js";
 import { Channel } from "../../../src/components/decorators.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
@@ -24,7 +24,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf, variant, type Variant } from "../../../src/flow/dto-wrappers.js";
 import { EmptyEnvironment, type Produced } from "../../../src/index.js";
-import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { caseOf, onStart } from "../../helpers/flow.js";
@@ -32,11 +32,11 @@ import { BearerCallerResolver } from "./bearer-caller-resolver.js";
 
 /** What a caller sends: a document, maybe more pages, and a note ("ask" pauses first). */
 export class ReviewRequestDto {
-  @Nested(FileDto, { prompt: "the document to review" })
-  document!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the document to review" })
+  document!: A2AFileDto;
 
-  @List(FileDto, { prompt: "more pages", optional: true })
-  pages?: FileDto[];
+  @List(A2AFileDto, { prompt: "more pages", optional: true })
+  pages?: A2AFileDto[];
 
   @Text({ prompt: "a note to the reviewer", optional: true })
   note?: string;
@@ -44,8 +44,8 @@ export class ReviewRequestDto {
 
 /** What a review gives: its report, a file, and its verdict. */
 export class ReviewResultDto {
-  @Nested(FileDto, { prompt: "the review's report" })
-  report!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the review's report" })
+  report!: A2AFileDto;
 
   @Text({ prompt: "the verdict" })
   verdict!: string;
@@ -56,8 +56,8 @@ export class ReviewAskDto {
   @Text({ prompt: "what the reviewer needs" })
   ask!: string;
 
-  @Nested(FileDto, { prompt: "the document under review" })
-  document!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the document under review" })
+  document!: A2AFileDto;
 }
 
 /** The caller's answer. */
@@ -75,10 +75,10 @@ const reportOf = (bytes: Uint8Array, note: string): string =>
   description: "Reads the document and answers with a report",
   input: { request: ReviewRequestDto },
   output: oneOf(ReviewResultDto, ReviewAskDto),
-  deps: [Files],
+  deps: [A2AFiles],
 })
 export class FileReviewAction {
-  constructor(private readonly a2aFiles: Files) {}
+  constructor(private readonly a2aFiles: A2AFiles) {}
 
   async execute(input: {
     readonly request: Produced<ReviewRequestDto, unknown>;
@@ -102,10 +102,10 @@ export class FileReviewAction {
   description: "Reads the document again once its caller answered, and gives it back",
   input: { ask: ReviewAskDto, reply: ReviewReplyDto },
   output: WorkflowFinishFileDto,
-  deps: [Files],
+  deps: [A2AFiles],
 })
 export class FileAnsweredAction {
-  constructor(private readonly a2aFiles: Files) {}
+  constructor(private readonly a2aFiles: A2AFiles) {}
 
   async execute(input: {
     readonly ask: Produced<ReviewAskDto, unknown>;
@@ -188,10 +188,10 @@ export class FileReviewWorkflow {}
   description: "Reads the document and answers with a report",
   input: { request: ReviewRequestDto },
   output: ReviewResultDto,
-  deps: [Files],
+  deps: [A2AFiles],
 })
 export class FileSummaryAction {
-  constructor(private readonly a2aFiles: Files) {}
+  constructor(private readonly a2aFiles: A2AFiles) {}
 
   async execute(input: {
     readonly request: Produced<ReviewRequestDto, unknown>;
@@ -263,7 +263,7 @@ export class FilesApplication {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow],
-  providers: [BearerCallerResolver, FileCallerChannel, InMemoryFileRepository],
+  providers: [BearerCallerResolver, FileCallerChannel, InMemoryA2AFileRepository],
   exposes: [FilesA2AExpose],
   a2aFiles: { maxFileSize: kilobytes(512), maxTotalFileSize: kilobytes(1024) },
   budgets: TEST_BUDGETS,

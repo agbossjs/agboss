@@ -536,7 +536,7 @@ export class RefundCardTool {
   chosen by the request's data, is one implementation that does it inside. Child workflows' tools
   count too: their roles need an implementation in the parent's application.
 - **`send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>`** is the one method: `ask` is
-  `{ pauseId, value }` (the value typed by the generated `ChannelRoles` table — `agboss check`;
+  `{ pauseId, value }` (the value typed by the generated `AGBossTypes.ChannelRoles` table — `agboss check`;
   `ChannelQuestionOf<Role>` is the question, `ChannelAnswerOf<Role>` the answer `decided` takes;
   the execution through `deps`). `ChannelOutcome.awaitReply()` — the call pauses and is saved
   until the reply ([Pauses](Pauses), [Pause seam](Pause-seam)); `ChannelOutcome.decided(decision)` — the answer now

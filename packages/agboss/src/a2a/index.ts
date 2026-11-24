@@ -90,8 +90,40 @@ export { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-tas
 export * from "../infrastructure/a2a-direct-message.repository.js";
 export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 export { SqliteA2ADirectMessageRepository } from "../infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
-// #859: file parts in messages and artifacts: the wire's `Part` of a `FileDto` (#1316)
-export { A2APart } from "./client/a2a-client-files.js";
+// #859: file parts in messages and artifacts
+export {
+  A2AFileDto,
+  A2AFileSource,
+  WorkflowFinishFileDto,
+  WorkflowFinishFilesDto,
+  type A2AFileField,
+} from "./files/a2a-file.dto.js";
+export { A2AFiles, type A2AFileContent, type A2AFileReference } from "./files/a2a-files.service.js";
+export {
+  A2AFileRefusal,
+  A2AFileRefusedError,
+  A2AFileUnavailableError,
+  type A2AFileUnavailableErrorOptions,
+  A2AFileUnavailableReason,
+  type A2AFileRefusedErrorOptions,
+} from "./files/a2a-file-errors.js";
 export { DEFAULT_A2A_FILE_MEDIA_TYPES, type A2AFileOptions } from "./files/a2a-file-options.js";
+export {
+  A2AClientFile,
+  type A2AClientFileOptions,
+  type A2AReceivedFile,
+} from "./client/a2a-client-files.js";
 export type { A2ADownloadOptions } from "./client/a2a-download.js";
+export {
+  A2AFileConflictError,
+  type A2AFileConflictErrorOptions,
+  A2AFileRepository,
+  type A2AFileKey,
+  type A2AFileMetadata,
+  type A2AFileOwner,
+  type NewA2AFile,
+} from "../infrastructure/a2a-file.repository.js";
+export { InMemoryA2AFileRepository } from "../infrastructure/in-memory-a2a-file.repository.js";
+export { LocalDiskA2AFileRepository } from "../infrastructure/local-disk-a2a-file.repository.js";
+export { S3A2AFileRepository } from "../infrastructure/s3/s3-a2a-file.repository.js";
 export { A2AError, A2AErrorKind } from "../core/error-families/remote-errors.js";

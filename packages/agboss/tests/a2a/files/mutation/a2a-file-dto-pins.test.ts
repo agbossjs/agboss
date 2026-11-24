@@ -4,14 +4,14 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  FileDto,
-  FilePayloadSource,
+  A2AFileDto,
+  A2AFileSource,
   fileFieldsOf,
   fileSourceOf,
   hasFileAtAnyDepth,
   nestedFileFieldsOf,
   redactedFileOf,
-} from "../../../../src/dto/standard/file.js";
+} from "../../../../src/a2a/files/a2a-file.dto.js";
 import { Nested, Text } from "../../../../src/dto/decorators.js";
 import { DtoValidationError } from "../../../../src/dto/errors.js";
 import { fieldsOf, recordField } from "../../../../src/dto/metadata.js";
@@ -23,7 +23,7 @@ const SHA = "a".repeat(64);
 
 function issuesOf(raw: unknown): readonly { path: string; reason: string }[] {
   try {
-    validate(FileDto, raw);
+    validate(A2AFileDto, raw);
   } catch (error) {
     if (error instanceof DtoValidationError) return error.issues;
     throw error;
@@ -67,15 +67,15 @@ describe("redactedFileOf", () => {
   it("the media type and the source only, each optional key only when set", () => {
     expect(redactedFileOf({ ...base, url: "https://a.example/x" })).toStrictEqual({
       mediaType: "text/plain",
-      source: FilePayloadSource.Url,
+      source: A2AFileSource.Url,
     });
     expect(redactedFileOf({ ...base, fileId: "f" })).toStrictEqual({
       mediaType: "text/plain",
-      source: FilePayloadSource.Stored,
+      source: A2AFileSource.Stored,
     });
     expect(redactedFileOf({ ...base, inline: "aGk=" })).toStrictEqual({
       mediaType: "text/plain",
-      source: FilePayloadSource.Inline,
+      source: A2AFileSource.Inline,
     });
   });
 
@@ -100,7 +100,7 @@ describe("redactedFileOf", () => {
   });
 
   it("a file id wins over inline in the source", () => {
-    expect(fileSourceOf({ ...base, fileId: "f", inline: "x" })).toBe(FilePayloadSource.Stored);
+    expect(fileSourceOf({ ...base, fileId: "f", inline: "x" })).toBe(A2AFileSource.Stored);
   });
 });
 
@@ -109,8 +109,8 @@ class PlainDto {
   label!: string;
 }
 class InnerDto {
-  @Nested(FileDto, { prompt: "f" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "f" })
+  file!: A2AFileDto;
 }
 class MidDto {
   @Nested(InnerDto, { prompt: "i" })
@@ -123,7 +123,7 @@ class TopDto {
   @Nested(PlainDto, { prompt: "p" })
   plain!: PlainDto;
 }
-class SubFileDto extends FileDto {}
+class SubFileDto extends A2AFileDto {}
 class WithSubDto {
   @Nested(SubFileDto, { prompt: "s" })
   sub!: SubFileDto;
@@ -131,22 +131,22 @@ class WithSubDto {
 
 // a class cannot name itself in its own decorator: a cycle is closed in the field table
 class CycleMidDto {
-  @Nested(FileDto, { prompt: "f" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "f" })
+  file!: A2AFileDto;
 
   @Nested(PlainDto, { prompt: "p", optional: true })
   top?: PlainDto;
 }
 class CycleTopDto {
-  @Nested(FileDto, { prompt: "f" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "f" })
+  file!: A2AFileDto;
 
   @Nested(CycleMidDto, { prompt: "m" })
   mid!: CycleMidDto;
 }
 class DeepInnerDto {
-  @Nested(FileDto, { prompt: "f" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "f" })
+  file!: A2AFileDto;
 
   @Nested(PlainDto, { prompt: "p", optional: true })
   back?: PlainDto;
@@ -181,7 +181,7 @@ describe("fileFieldsOf", () => {
 
 describe("hasFileAtAnyDepth", () => {
   it("at the top, below, through a subclass; not in a DTO without", () => {
-    expect(hasFileAtAnyDepth(FileDto)).toBe(true);
+    expect(hasFileAtAnyDepth(A2AFileDto)).toBe(true);
     expect(hasFileAtAnyDepth(TopDto)).toBe(true);
     expect(hasFileAtAnyDepth(WithSubDto)).toBe(true);
     expect(hasFileAtAnyDepth(PlainDto)).toBe(false);

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,7 +16,7 @@ const turn = (overrides: Partial<NewTurn> = {}): NewTurn => ({
   stopReason: "done",
   route: ["alpha"],
   steps: [{ agent: "alpha", content: "replyWith" }],
-  costUsd: 0.01,
+  costUsd: usd(0.01),
   promptVersion: "p1",
   modelVersion: "m1",
   replayOf: null,
@@ -28,14 +29,16 @@ describe("SQLite Turn store", () => {
   it("#265: a run in flight is no result — summary and byVersion leave out running Terns", async () => {
     const store = createSqliteTurnStore(":memory:", () => new Date());
     const thread = await store.createThread({ workflow: "b", tenantId: "default" });
-    await store.append(turn({ threadId: thread, task: "done", costUsd: 0.01 }));
-    await store.append(turn({ threadId: thread, task: "moving", status: "running", costUsd: 0.5 }));
+    await store.append(turn({ threadId: thread, task: "done", costUsd: usd(0.01) }));
+    await store.append(
+      turn({ threadId: thread, task: "moving", status: "running", costUsd: usd(0.5) }),
+    );
 
     const originals = await store.byVersion("b", "p1", 10);
     const [summary] = await store.summary("b");
 
     expect(originals.map((item) => item.task)).toEqual(["done"]);
-    expect(summary).toMatchObject({ promptVersion: "p1", turns: 1, costUsd: 0.01 });
+    expect(summary).toMatchObject({ promptVersion: "p1", turns: 1, costUsd: usd(0.01) });
   });
 
   it("#265 S30: pages the Terns with a status, oldest first (recovery's running records)", async () => {
@@ -96,8 +99,8 @@ describe("SQLite Turn store", () => {
     expect(await store.meanScore([a.id])).toBe(0.8);
     expect(await store.meanScore([])).toBeNull();
     expect(await store.summary("b")).toEqual([
-      { promptVersion: "p1", turns: 2, scored: 1, meanScore: 0.8, costUsd: 0.02 },
-      { promptVersion: "p2", turns: 1, scored: 0, meanScore: null, costUsd: 0.01 },
+      { promptVersion: "p1", turns: 2, scored: 1, meanScore: 0.8, costUsd: usd(0.02) },
+      { promptVersion: "p2", turns: 1, scored: 0, meanScore: null, costUsd: usd(0.01) },
     ]);
   });
 
@@ -143,7 +146,7 @@ describe("SQLite Turn store", () => {
       toTurnId: first.id,
       turns: 1,
       text: "acme so far",
-      costUsd: 0,
+      costUsd: usd(0),
     });
 
     expect(await store.threadOwner("b", "acme", "order-7")).toEqual({ owner: "alice" });

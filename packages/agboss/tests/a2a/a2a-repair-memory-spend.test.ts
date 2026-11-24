@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #844 (money): what read repair signs for a finished tree is what its end event reports — its
  * agents' memory update after the turn included, a spend the checkpoint never holds. The record
@@ -44,10 +45,10 @@ describe("#844: a repaired task signs the spend its end event reports", () => {
   });
 
   it("the record's cost once it answered, else the checkpoint's (its record gone, or not ended)", () => {
-    const record = (status: ExecutionRecordStatus) => ({ status, costUsd: 3 });
+    const record = (status: ExecutionRecordStatus) => ({ status, costUsd: usd(3) });
 
-    expect(finishedSpendOf(record(ExecutionRecordStatus.Answered), 2)).toBe(3);
-    expect(finishedSpendOf(record(ExecutionRecordStatus.Running), 2)).toBe(2);
-    expect(finishedSpendOf(undefined, 2)).toBe(2);
+    expect(finishedSpendOf(record(ExecutionRecordStatus.Answered), usd(2))).toBe(3);
+    expect(finishedSpendOf(record(ExecutionRecordStatus.Running), usd(2))).toBe(2);
+    expect(finishedSpendOf(undefined, usd(2))).toBe(2);
   });
 });

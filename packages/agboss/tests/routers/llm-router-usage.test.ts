@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the usage an LLM router's outcome carries — the call's, priced; and a record of no cost when the call
  * threw, so a router that failed is still one call on the ledger's trace.
@@ -22,7 +23,7 @@ describe("#1366: the usage of an LLM router's outcome", () => {
     const outcome = await createLlmRouter({ name: "main", model, settings }).route(request);
 
     expect(outcome.kind).toBe("failed");
-    expect(outcome.usage).toMatchObject({ caller: "router:main", costUsd: 0 });
+    expect(outcome.usage).toMatchObject({ caller: "router:main", costUsd: usd(0) });
   });
 
   it("an answer that is no decision is a failed outcome that keeps the call's usage", async () => {

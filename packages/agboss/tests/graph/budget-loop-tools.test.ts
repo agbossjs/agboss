@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules of one tool call of an agent's loop, each on its own over fakes: the
  * cost a tool reports and the usage it reports through its frame are counted the moment they are reported
@@ -72,7 +73,7 @@ const record = (costUsd: number, caller = "x"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -96,7 +97,7 @@ function setup(
     records.map((r) => ({ ...r, tallied: true })),
   );
   const deps = {
-    agent: { name: "alpha", tools: [], maxResultSize: undefined },
+    agent: { name: "alpha", tools: [], maxResultSize: undefined, limits: { modelCalls: 12 } },
     budgets: { exhausted: exhausted.signal, tally, remaining: () => 5, deadline: undefined },
     observer: options.observer,
   };
@@ -126,9 +127,9 @@ describe("#1366: the spend of a tool call is counted when it is reported", () =>
 
     expect(tally).toHaveBeenCalledOnce();
     expect(tally.mock.calls[0]?.[0]).toEqual([
-      expect.objectContaining({ caller: "tool:lookup-tool", costUsd: 0.5 }),
+      expect.objectContaining({ caller: "tool:lookup-tool", costUsd: usd(0.5) }),
     ]);
-    expect(out.usage).toEqual([expect.objectContaining({ costUsd: 0.5, tallied: true })]);
+    expect(out.usage).toEqual([expect.objectContaining({ costUsd: usd(0.5), tallied: true })]);
   });
 
   it("a tool with a cost caller of its own bills it", async () => {
@@ -156,7 +157,7 @@ describe("#1366: the spend of a tool call is counted when it is reported", () =>
     const out = await node(taskOf(), undefined);
 
     expect(tally).toHaveBeenCalledWith([{ ...record(0.25), caller: "tool:lookup-tool" }]);
-    expect(out.usage).toEqual([expect.objectContaining({ costUsd: 0.25, tallied: true })]);
+    expect(out.usage).toEqual([expect.objectContaining({ costUsd: usd(0.25), tallied: true })]);
   });
 
   it("several reports are each tallied, in order, and all of them are the loop's spend", async () => {
@@ -269,9 +270,9 @@ describe("#1366: what the call tells", () => {
 
     expect(onToolStart).toHaveBeenCalledWith({
       base: true,
-      toolName: "lookup-tool",
-      agentName: "alpha",
-      arguments: { q: 1 },
+      tool: "lookup-tool",
+      agent: "alpha",
+      input: { q: 1 },
     });
   });
 

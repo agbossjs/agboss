@@ -40,11 +40,7 @@ export class DraftingStart {}
 @Workflow({
   name: "drafting-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(DraftingStart)
-      .toAgent(DraftingAgent)
-      .toFinish(NotesFinish),
-  ],
+  flow: [onStart(DraftingStart).toAgent(DraftingAgent).toFinish(NotesFinish)],
   defaults,
   uncompactedTurns: 1,
 })
@@ -68,11 +64,7 @@ export class PolishingStart {}
 @Workflow({
   name: "polishing-workflow",
   version: "1.0.0",
-  flow: [
-    onStart(PolishingStart)
-      .toAgent(PolishingAgent)
-      .toFinish(NotesFinish),
-  ],
+  flow: [onStart(PolishingStart).toAgent(PolishingAgent).toFinish(NotesFinish)],
   defaults,
   uncompactedTurns: 1,
 })

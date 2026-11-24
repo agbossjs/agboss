@@ -204,7 +204,7 @@ describe("#633: the undo's events and its record", () => {
     ]);
     expect(seen[2]?.[1]).toMatchObject({
       name: "cancel-booking-action",
-      update: { cancelled: true },
+      output: { cancelled: true },
     });
     expect(seen[3]?.[1]).toMatchObject({ status: CompensationStatus.Compensated });
     expect(seen[3]?.[1]).not.toHaveProperty("error");

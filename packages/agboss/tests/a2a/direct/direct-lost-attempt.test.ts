@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #860 (design §5): an attempt lost in flight — its run stopped without its reply, its `expiresAt`
  * passed — is settled once by whoever removes or takes the message over: its files removed (its
@@ -14,8 +15,8 @@ import {
   type NewA2ADirectMessage,
 } from "../../../src/infrastructure/a2a-direct-message.repository.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
-import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
-import { FileRepository } from "../../../src/infrastructure/file.repository.js";
+import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { A2AFileRepository } from "../../../src/infrastructure/a2a-file.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
@@ -45,7 +46,7 @@ const lostMessage = (overrides: Partial<NewA2ADirectMessage> = {}): NewA2ADirect
 function sweepOn(clock: VirtualClock) {
   const database = new InMemoryDatabase();
   const messages = new InMemoryA2ADirectMessageRepository(database);
-  const files = new InMemoryFileRepository(database);
+  const files = new InMemoryA2AFileRepository(database);
   const deleteByOwner = vi.spyOn(files, "deleteByOwner");
   const expiry = a2aDirectMessageExpiryOf({ messages, files, clock, retention: minutes(15) });
   const sweep = () =>
@@ -86,7 +87,7 @@ describe("#860: the sweep of the direct messages", () => {
   it("messages accepted before the retention go, with their attempts' files; younger ones stay", async () => {
     const clock = new VirtualClock(NINE);
     const { messages, deleteByOwner, sweep } = sweepOn(clock);
-    const reply = { finish: "quote-workflow-finish", output: { text: "12.50" }, spentUsd: 0 };
+    const reply = { finish: "quote-workflow-finish", output: { text: "12.50" }, spentUsd: usd(0) };
     await messages.saveIfAbsent(lostMessage());
     await messages.completeIfInFlight(lostMessage(), "run-lost", reply, NINE);
     await clock.advance(minutes(10));
@@ -125,7 +126,7 @@ describe("#860: a resend that finds its attempt lost", () => {
     await app
       .resolve(A2ADirectMessageRepository)
       .saveIfAbsent(lostMessage({ requestHash, startedAt: now, createdAt: now, expiresAt: now }));
-    const deleteByOwner = vi.spyOn(app.resolve(FileRepository), "deleteByOwner");
+    const deleteByOwner = vi.spyOn(app.resolve(A2AFileRepository), "deleteByOwner");
 
     const answer = await rpc(url, "SendMessage", {
       message: userMessage("m-1", [text("price?")], { metadata: QUOTE }),

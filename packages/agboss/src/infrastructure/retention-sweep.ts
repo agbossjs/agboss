@@ -101,12 +101,12 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
     },
     {
       what: "the mesh requests' answers",
-      remove: meshRequests && ((cutoff) => meshRequests.deleteByCreatedAtBefore(cutoff)),
+      remove: meshRequests && ((cutoff) => meshRequests.deleteExpired(cutoff)),
       retention: sources.idempotencyRetention,
     },
     {
       what: "the kept execution records",
-      remove: executionHistory && ((cutoff) => executionHistory.deleteByEndedAtBefore(cutoff)),
+      remove: executionHistory && ((cutoff) => executionHistory.deleteExpired(cutoff)),
       retention: sources.executionRecordRetention,
     },
     {
@@ -116,7 +116,7 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
     },
     {
       what: "the audit log's old rows",
-      remove: auditLog && ((cutoff) => auditLog.deleteByOccurredAtBefore(cutoff)),
+      remove: auditLog && ((cutoff) => auditLog.deleteExpired(cutoff)),
       retention: sources.auditLogRetention,
     },
     {
@@ -134,17 +134,29 @@ const expiriesOf = (sources: RetentionSources): readonly Expiry[] => {
   ];
 };
 
-/** Removes every kind of rows past its retention; `report` hears of each store that failed. */
+/** What one look removed of one kind of rows: the stores that count give the number (`onTtlSweep`). */
+export interface SweptRows {
+  readonly what: string;
+  readonly removed: number | undefined;
+}
+
+/**
+ * Removes every kind of rows past its retention and tells what each look removed; `report` hears of
+ * each store that failed.
+ */
 export async function removeExpired(
   sources: RetentionSources,
   report: (text: string) => void,
-): Promise<void> {
+): Promise<readonly SweptRows[]> {
+  const swept: SweptRows[] = [];
   for (const { what, remove, retention } of expiriesOf(sources)) {
     if (remove === undefined || retention === undefined) continue;
     try {
-      await remove(new Date(sources.clock.now().getTime() - retention));
+      const removed = await remove(new Date(sources.clock.now().getTime() - retention));
+      swept.push({ what, removed: typeof removed === "number" ? removed : undefined });
     } catch (error) {
       report(`${what} could not be removed: ${String(error)}`);
     }
   }
+  return swept;
 }

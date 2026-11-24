@@ -129,7 +129,7 @@ export interface EvalCheckResult {
     readonly metrics?: JudgeMetrics;
     readonly reason?: string;
     readonly skippedBy?: string;
-    readonly spentUsd?: number;
+    readonly spentUsd?: Usd;
     // (undocumented)
     readonly status: CheckStatus;
 }
@@ -328,7 +328,7 @@ export interface EvalModelCallTrace {
     readonly cacheReadTokens: number;
     readonly caller: string;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly inputTokens: number;
     // (undocumented)
@@ -468,7 +468,7 @@ export interface EvalRunResult {
     readonly finish?: string;
     readonly passed: boolean;
     readonly run: number;
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     readonly tenantId?: string;
     // (undocumented)
     readonly threadId: string;
@@ -481,7 +481,7 @@ export type EvalRunSchemaVersion = 1 | 2 | 3 | typeof EVAL_RUN_SCHEMA_VERSION;
 // @public
 export interface EvalRunSpend {
     // (undocumented)
-    readonly totalUsd: number;
+    readonly totalUsd: Usd;
 }
 
 // @public
@@ -527,7 +527,7 @@ export interface EvalStepTrace {
     readonly modelCalls: readonly EvalModelCallTrace[];
     readonly nodeId: string;
     // (undocumented)
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
     // (undocumented)
     readonly startedAt: string;
     // (undocumented)

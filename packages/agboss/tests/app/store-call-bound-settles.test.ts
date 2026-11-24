@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { boundedStoreOf } from "../../src/app/store-call-bound.js";
 import { limitOf } from "../../src/app/store-call-kind.js";
 import { leaseScope } from "../../src/app/lease-scope.js";
-import { FileRepository } from "../../src/infrastructure/file.repository.js";
+import { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import {
   ExecutionLeaseLostError,
@@ -142,7 +142,7 @@ describe("#928: a bounded call settles on every path", () => {
 
 describe("#928: a subclass of a contract is that contract in every limit", () => {
   abstract class OwnLeases extends ExecutionLeaseRepository {}
-  abstract class OwnFiles extends FileRepository {}
+  abstract class OwnFiles extends A2AFileRepository {}
 
   it("renews within the renewal's own bound, as the lease store does", () => {
     const own = limitOf(OwnLeases, "renew");
@@ -151,6 +151,6 @@ describe("#928: a subclass of a contract is that contract in every limit", () =>
   });
 
   it("is a long call where its base is", () => {
-    expect(limitOf(OwnFiles, "read")).toEqual(limitOf(FileRepository, "read"));
+    expect(limitOf(OwnFiles, "read")).toEqual(limitOf(A2AFileRepository, "read"));
   });
 });

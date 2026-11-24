@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #860 (mutation shard `a2a-direct`): a direct message on its own — accepted in flight for
  * `IN_FLIGHT` under a minted attempt and answered with a `Message` built from its kept row; a resend
@@ -33,7 +34,7 @@ import {
 
 const hello = (contextId = "ctx-7") => messageOf("m-1", ["hello"], { contextId });
 const helloHash = requestHashOf(DIRECT_SKILL.id, hello());
-const REPLY = { finish: "unit-workflow-finish", output: { total: 9 }, spentUsd: 0 };
+const REPLY = { finish: "unit-workflow-finish", output: { total: 9 }, spentUsd: usd(0) };
 
 describe("#860: a new direct message", () => {
   it("is kept in flight for 30 s under its attempt while it runs, then answered with its reply as a Message", async () => {

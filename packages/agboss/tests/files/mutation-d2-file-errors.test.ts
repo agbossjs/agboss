@@ -1,39 +1,39 @@
 /** #1269: the errors of a file on its way to a model: their codes, names, messages, fields, causes and details. */
-import { FileError } from "../../src/core/error-families/remote-errors.js";
-import { fileRefused, fileUnavailable } from "../../src/files/file-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   FileRedactionFailedError,
   ModelFileLimitError,
-  FileRefusal,
-  FileUnavailableReason,
+  ModelFileRefusal,
+  ModelFileRefusedError,
+  ModelFileUnavailableError,
+  ModelFileUnavailableReason,
 } from "../../src/files/file-errors.js";
 import { ModelFileLimit } from "../../src/files/model-files.js";
 
-describe("#1269: FileError.Unavailable", () => {
+describe("#1269: ModelFileUnavailableError", () => {
   it("says why in its message, its reason and its details; keeps the cause", () => {
     const cause = new Error("boom");
-    const error = fileUnavailable({
-      reason: FileUnavailableReason.DigestMismatch,
+    const error = new ModelFileUnavailableError({
+      reason: ModelFileUnavailableReason.DigestMismatch,
       cause,
     });
 
     expect(error.message).toBe("the file's bytes are unavailable: digest-mismatch");
     expect(error.reason).toBe("digest-mismatch");
-    expect(error.code).toBe("files.unavailable");
+    expect(error.code).toBe("model.file-unavailable");
     expect(error.details).toEqual({ reason: "digest-mismatch" });
     expect(error.cause).toBe(cause);
   });
 });
 
-describe("#1269: FileError.Refused", () => {
+describe("#1269: ModelFileRefusedError", () => {
   it("says what was refused in its message, its refusal and its details; keeps the cause", () => {
     const cause = new Error("denied");
-    const error = fileRefused({ refusal: FileRefusal.TooLarge, cause });
+    const error = new ModelFileRefusedError({ refusal: ModelFileRefusal.TooLarge, cause });
 
     expect(error.message).toBe("the file was refused: too-large");
     expect(error.refusal).toBe("too-large");
-    expect(error.code).toBe("files.refused");
+    expect(error.code).toBe("model.file-refused");
     expect(error.details).toEqual({ refusal: "too-large" });
     expect(error.cause).toBe(cause);
   });

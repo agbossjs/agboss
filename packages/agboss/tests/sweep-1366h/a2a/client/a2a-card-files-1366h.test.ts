@@ -18,29 +18,29 @@ import {
   skillSchemasOf,
 } from "../../../../src/a2a/client/a2a-card-schemas.js";
 import { FILE_PART_KEYWORD } from "../../../../src/a2a/a2a-card-file-fields.js";
-import { FileDto } from "../../../../src/dto/standard/file.js";
+import { A2AFileDto } from "../../../../src/a2a/files/a2a-file.dto.js";
 import { List, Nested, Text } from "../../../../src/dto/index.js";
 import { jsonSchemaOf } from "../../../../src/dto/schema.js";
 
 class OneRequired {
-  @Nested(FileDto, { prompt: "doc" })
-  doc!: FileDto;
+  @Nested(A2AFileDto, { prompt: "doc" })
+  doc!: A2AFileDto;
 }
 class OneOptional {
-  @Nested(FileDto, { prompt: "doc", optional: true })
-  doc?: FileDto;
+  @Nested(A2AFileDto, { prompt: "doc", optional: true })
+  doc?: A2AFileDto;
 }
 class ManyRequired {
-  @List(FileDto, { prompt: "doc" })
-  doc!: FileDto[];
+  @List(A2AFileDto, { prompt: "doc" })
+  doc!: A2AFileDto[];
 }
 class NoFiles {
   @Text({ prompt: "note" })
   note!: string;
 }
 class FileAndNote {
-  @Nested(FileDto, { prompt: "doc" })
-  doc!: FileDto;
+  @Nested(A2AFileDto, { prompt: "doc" })
+  doc!: A2AFileDto;
   @Text({ prompt: "note" })
   note!: string;
 }

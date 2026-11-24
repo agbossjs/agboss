@@ -1,3 +1,4 @@
+import { budgetLeftAfter, budgetLeftOf } from "../finops/cost-report.js";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { memoryPlanOf } from "../compaction/plan.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
@@ -31,7 +32,8 @@ export interface MemoryBeforeRun {
   readonly threadId: string;
   /** A thread this execution just created: nothing to compact, nothing to read. */
   readonly isNewThread: boolean;
-  readonly budgetLeftUsd: number;
+  /** What the execution may spend in all, `Infinity` without a cost limit: what compacting may use. */
+  readonly budgetUsd: number;
   readonly callbacks: BaseCallbackHandler[];
   readonly record: (records: readonly UsageRecord[]) => Promise<void>;
   /** Runs work in the frame of the execution's start (a custom compaction's `compact()`, #382). */
@@ -63,7 +65,11 @@ export async function memoryBeforeRun<TName extends string>(
       ? NOTHING_COMPACTED
       : await (
           await lazyLoad(import("./compaction.js"))
-        ).compactDue(deps, plan, { ...run, tokens: {} });
+        ).compactDue(deps, plan, {
+          ...run,
+          budgetLeftUsd: budgetLeftOf(run.budgetUsd),
+          tokens: {},
+        });
   return { ...(await threadMemoryOf(deps, thread)), ...compacted };
 }
 
@@ -81,11 +87,11 @@ export async function updateMemoryAfter<TName extends string>(
     threadId: ctx.base.threadId,
     executionId: ctx.runId,
     turn: history,
-    budgetLeftUsd: ctx.budgetUsd - totalCost(usageSoFar),
+    budgetLeftUsd: budgetLeftAfter(budgetLeftOf(ctx.budgetUsd), totalCost(usageSoFar)),
   };
   const usage: UsageRecord[] = [];
   for (const strategy of agentStrategiesOf(ctx.deps)) {
-    const left = turn.budgetLeftUsd - totalCost(usage);
+    const left = budgetLeftAfter(turn.budgetLeftUsd, totalCost(usage));
     const update = await strategy.updateMemory?.({ ...turn, budgetLeftUsd: left });
     usage.push(...(update?.usage ?? []));
   }

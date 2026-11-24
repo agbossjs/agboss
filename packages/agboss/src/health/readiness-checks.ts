@@ -1,5 +1,5 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
-import { isInlineFileStore } from "../infrastructure/file.repository.js";
+import { isInlineFileStore } from "../infrastructure/a2a-file.repository.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
 import { circuitOpenKeyOf } from "../models/circuit-breaker.js";
 import { modelProviderOf } from "../models/model-provider.decorator.js";

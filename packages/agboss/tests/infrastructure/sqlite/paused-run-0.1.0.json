@@ -16,11 +16,15 @@
     "byCategory": {
       "agents": 0.01,
       "routing": 0,
-      "guards": 0,
+      "guardrails": 0,
       "review": 0,
       "tools": 0,
-      "compaction": 0,
-      "retrieval": 0
+      "memory": 0,
+      "rag": 0,
+      "files": 0,
+      "pii": 0,
+      "arbiters": 0,
+      "pauses": 0
     },
     "byModel": {
       "m": 0.01
@@ -37,7 +41,12 @@
         "costUsd": 0.01,
         "costSource": "api"
       }
-    ]
+    ],
+    "unknownCalls": 0,
+    "inputTokens": 1,
+    "outputTokens": 1,
+    "cacheWriteTokens": 0,
+    "totalTokens": 2
   },
   "threadId": "t-1",
   "tenantId": "default",
@@ -110,11 +119,15 @@
           "byCategory": {
             "agents": 0.01,
             "routing": 0,
-            "guards": 0,
+            "guardrails": 0,
             "review": 0,
             "tools": 0,
-            "compaction": 0,
-            "retrieval": 0
+            "memory": 0,
+            "rag": 0,
+            "files": 0,
+            "pii": 0,
+            "arbiters": 0,
+            "pauses": 0
           },
           "byModel": {
             "m": 0.01
@@ -131,7 +144,12 @@
               "costUsd": 0.01,
               "costSource": "api"
             }
-          ]
+          ],
+          "unknownCalls": 0,
+          "inputTokens": 1,
+          "outputTokens": 1,
+          "cacheWriteTokens": 0,
+          "totalTokens": 2
         },
         "toolCalls": [],
         "steps": [],

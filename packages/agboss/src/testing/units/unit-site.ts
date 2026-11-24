@@ -11,7 +11,7 @@ import { LiveJudgeModel } from "../../components/judge-call.js";
 import { ROUTER_FACTORY } from "../../components/runtime.js";
 import { LiveSpendRecorder, SpendRecorder } from "../../components/spend-recorder.js";
 import { NO_ENVIRONMENT_VALUES, unitEnvironmentOf } from "../../environments/resolve.js";
-import { buildCostReport, type UsageRecord } from "../../finops/usage.js";
+import { CostReport, type UsageRecord } from "../../finops/usage.js";
 import { applicationContextOf } from "../../flow/context/application-context.js";
 import { ExecutionContext } from "../../flow/context/execution-context.js";
 import { runInFrame, type FrameSpec } from "../../flow/context/frame.js";
@@ -199,7 +199,7 @@ export class UnitSite {
       const output = await runInFrame(spec, () => untilAborted(work({ signal, spent }), signal));
       const failure = this.book.takeFailure();
       if (failure !== undefined) throw failure;
-      return { output, spend: buildCostReport(spent) };
+      return { output, spend: CostReport.fromUsage(spent) };
     } catch (error) {
       throw this.book.takeFailure() ?? error;
     } finally {

@@ -1,3 +1,4 @@
+import { usd } from "../../units/index.js";
 import type { BuiltApplication } from "../../application/create-app.js";
 import type { ChaosOptions } from "../chaos/chaos-failure.js";
 import { modelChaosOf } from "../chaos/model-chaos.js";
@@ -100,7 +101,9 @@ export async function runEvalSuite(
   const cases: EvalCaseReport[] = [];
   for (const written of parts.suite.cases) cases.push(await caseReport(parts, written, options));
   const { config } = parts.deps;
-  const spent = cases.flatMap((found) => found.runResults).reduce((sum, r) => sum + r.spentUsd, 0);
+  const spent = usd(
+    cases.flatMap((found) => found.runResults).reduce((sum, r) => sum + r.spentUsd, 0),
+  );
   return {
     kind: EVAL_RUN_KIND,
     schemaVersion: EVAL_RUN_SCHEMA_VERSION,

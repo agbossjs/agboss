@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { fileAdmissionOf } from "../../../src/a2a/server/a2a-file-admission.js";
 import type { IncomingFile } from "../../../src/a2a/server/a2a-message-files.js";
-import { InlineFileRepository } from "../../../src/infrastructure/file.repository.js";
+import { InlineA2AFileRepository } from "../../../src/infrastructure/a2a-file.repository.js";
 
 const fileOf = (index: number, size: number): IncomingFile => ({
   index,
@@ -18,7 +18,7 @@ const fileOf = (index: number, size: number): IncomingFile => ({
 /** The admission of `sizes` to a skill that takes 10 bytes of files in all. */
 function admissionOf(...sizes: number[]) {
   const parts = {
-    files: { store: new InlineFileRepository() },
+    files: { store: new InlineA2AFileRepository() },
     clock: { now: () => new Date(0) },
   };
   const skill = { id: "skill", fileLimits: { maxTotalFileSize: 10 } };

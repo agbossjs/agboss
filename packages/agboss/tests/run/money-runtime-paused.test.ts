@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (money-runtime shard) — how the spend of a paused run is found, each rule on its own over fake checkpoints: a
  * run waits when nodes are left; an agent loop's own spend lives in the checkpoint of the task it waits in, under the
@@ -27,7 +28,7 @@ const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

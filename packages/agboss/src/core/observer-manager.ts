@@ -37,8 +37,9 @@ import type {
   ExecutionStartEvent,
   ToolEndEvent,
   ToolStartEvent,
+  AgentRetryEvent,
 } from "./observability.js";
-import type { ObserverHook, ExecutionObserver } from "./observer-hooks.js";
+import { isWanted, type ObserverHook, type ExecutionObserver } from "./observer-hooks.js";
 
 /**
  * The instance's tally of a lost pass's Unknown-cost entries (#875): its metrics' counters, given
@@ -95,10 +96,12 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
   ): Promise<void> {
     await this.callAll(this.builtIn, hook, event, call);
-    if (this.observers.length === 0) return;
+    // an observer's `workflows` / `agents` read the event as it is, before the mask
+    const wanting = this.observers.filter((observer) => isWanted(observer, event as object));
+    if (wanting.length === 0) return;
     // the mask keeps an event's shape: every string masked, class instances (errors) as they are
     const shown = (await this.mask(event)) as TEvent;
-    await this.callAll(this.observers, hook, shown, call);
+    await this.callAll(wanting, hook, shown, call);
   }
 
   private async callAll<TEvent>(
@@ -139,6 +142,9 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onAgentEnd(event: AgentEndEvent): Promise<void> {
     return this.each("onAgentEnd", event, (o, e) => o.onAgentEnd?.(e));
+  }
+  onAgentRetry(event: AgentRetryEvent): Promise<void> {
+    return this.each("onAgentRetry", event, (o, e) => o.onAgentRetry?.(e));
   }
   onRouterStart(event: RouterStartEvent): Promise<void> {
     return this.each("onRouterStart", event, (o, e) => o.onRouterStart?.(e));

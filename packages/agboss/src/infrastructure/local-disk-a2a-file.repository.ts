@@ -1,4 +1,3 @@
-import { fileConflict } from "../files/file-errors.js";
 import { createHash, randomUUID } from "node:crypto";
 import { link, mkdir, readdir, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -8,15 +7,16 @@ import { OBJECT_SETTINGS, type ResolvedSettings } from "../storage/settings.js";
 import { EnvironmentField } from "../environments/contract.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import {
-  FileRepository,
+  A2AFileConflictError,
+  A2AFileRepository,
   isSameFile,
   ownerPageOf,
   metadataOf,
-  type FileKey,
-  type FileMetadata,
-  type FileOwner,
-  type NewFile,
-} from "./file.repository.js";
+  type A2AFileKey,
+  type A2AFileMetadata,
+  type A2AFileOwner,
+  type NewA2AFile,
+} from "./a2a-file.repository.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 import { parsedStoredJson } from "./stored-step.js";
 
@@ -24,14 +24,14 @@ import { parsedStoredJson } from "./stored-step.js";
 const nameOf = (text: string): string => createHash("sha256").update(text).digest("hex");
 
 /** A file's metadata as kept on disk: JSON, its time as ISO 8601. */
-type StoredMetadata = Omit<FileMetadata, "createdAt"> & { readonly createdAt: string };
+type StoredMetadata = Omit<A2AFileMetadata, "createdAt"> & { readonly createdAt: string };
 
 const isMissing = (error: unknown): boolean =>
   typeof error === "object" && error !== null && Reflect.get(error, "code") === "ENOENT";
 const isTaken = (error: unknown): boolean =>
   typeof error === "object" && error !== null && Reflect.get(error, "code") === "EEXIST";
 
-const parsedOf = (text: string): FileMetadata => {
+const parsedOf = (text: string): A2AFileMetadata => {
   const stored = parsedStoredJson("a2a file metadata", text, {}) as StoredMetadata;
   return metadataOf({ ...stored, createdAt: new Date(stored.createdAt) });
 };
@@ -47,7 +47,7 @@ const parsedOf = (text: string): FileMetadata => {
   deps: [ApplicationContext, OBJECT_SETTINGS],
   environmentFields: { a2aFilesPath: EnvironmentField.text() },
 })
-export class LocalDiskFileRepository extends FileRepository {
+export class LocalDiskA2AFileRepository extends A2AFileRepository {
   static override readonly store: StoreDescriptor = { backend: "local-disk" };
 
   /** The folder the files are kept in. */
@@ -57,7 +57,7 @@ export class LocalDiskFileRepository extends FileRepository {
     super();
     if (settings !== undefined && settings.kind !== "local-disk")
       throw new ConfigError.Option({
-        message: `LocalDiskFileRepository is on the object storage's ${settings.kind} driver, not LocalDiskDriver`,
+        message: `LocalDiskA2AFileRepository is on the object storage's ${settings.kind} driver, not LocalDiskDriver`,
       });
     const folder: unknown =
       settings === undefined
@@ -65,7 +65,7 @@ export class LocalDiskFileRepository extends FileRepository {
         : settings.directory;
     if (typeof folder !== "string" || folder === "")
       throw new Error(
-        "LocalDiskFileRepository needs a2aFilesPath: string in the environment — the folder the files are kept in",
+        "LocalDiskA2AFileRepository needs a2aFilesPath: string in the environment — the folder the files are kept in",
       );
     this.folder = folder;
   }
@@ -75,10 +75,10 @@ export class LocalDiskFileRepository extends FileRepository {
     await stat(this.folder);
   }
 
-  async save(file: NewFile): Promise<void> {
+  async save(file: NewA2AFile): Promise<void> {
     const kept = await this.findMetadata(file);
     if (kept !== undefined) {
-      if (!isSameFile(kept, file)) throw fileConflict({ fileId: file.fileId });
+      if (!isSameFile(kept, file)) throw new A2AFileConflictError({ fileId: file.fileId });
       return;
     }
     const tenant = join(this.folder, nameOf(file.tenantId));
@@ -90,17 +90,17 @@ export class LocalDiskFileRepository extends FileRepository {
     if (!(await this.#placed(`${base}.json`, JSON.stringify(stored)))) {
       const other = await this.findMetadata(file);
       if (other !== undefined && !isSameFile(other, file))
-        throw fileConflict({ fileId: file.fileId });
+        throw new A2AFileConflictError({ fileId: file.fileId });
     }
   }
 
-  async findBytes(key: FileKey): Promise<Uint8Array | undefined> {
+  async findBytes(key: A2AFileKey): Promise<Uint8Array | undefined> {
     const found = await this.findMetadata(key);
     if (found === undefined) return undefined;
     return this.#read(`${this.#baseOf(key)}.${found.sha256}.bin`);
   }
 
-  async findMetadata(key: FileKey): Promise<FileMetadata | undefined> {
+  async findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined> {
     const text = await this.#read(`${this.#baseOf(key)}.json`);
     if (text === undefined) return undefined;
     const found = parsedOf(Buffer.from(text).toString("utf8"));
@@ -110,13 +110,13 @@ export class LocalDiskFileRepository extends FileRepository {
   async findOwnersByCreatedAtBefore(
     cutoff: Date,
     limit: number,
-    after?: FileOwner,
-  ): Promise<readonly FileOwner[]> {
+    after?: A2AFileOwner,
+  ): Promise<readonly A2AFileOwner[]> {
     const found = (await this.#all()).filter((file) => file.createdAt.getTime() < cutoff.getTime());
     return ownerPageOf(found, limit, after);
   }
 
-  async deleteByOwner(owner: FileOwner): Promise<void> {
+  async deleteByOwner(owner: A2AFileOwner): Promise<void> {
     const tenant = join(this.folder, nameOf(owner.tenantId));
     for (const file of await this.#all()) {
       if (file.tenantId !== owner.tenantId || file.ownerId !== owner.ownerId) continue;
@@ -128,7 +128,7 @@ export class LocalDiskFileRepository extends FileRepository {
     }
   }
 
-  #baseOf(key: FileKey): string {
+  #baseOf(key: A2AFileKey): string {
     return join(this.folder, nameOf(key.tenantId), nameOf(key.fileId));
   }
 
@@ -157,9 +157,9 @@ export class LocalDiskFileRepository extends FileRepository {
   }
 
   /** Every file's metadata, every tenant's. */
-  async #all(): Promise<readonly FileMetadata[]> {
+  async #all(): Promise<readonly A2AFileMetadata[]> {
     const tenants = await this.#names(this.folder);
-    const found: FileMetadata[] = [];
+    const found: A2AFileMetadata[] = [];
     for (const tenant of tenants) {
       for (const name of await this.#names(join(this.folder, tenant))) {
         if (!name.endsWith(".json")) continue;

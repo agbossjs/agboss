@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #817 (money shard) — one ledger state on a usage record: `ledger` read back as kept (a
  * checkpoint's ISO date as a `Date`), a record kept before 0.1.1 (`isRecordedElsewhere`,
@@ -19,7 +20,7 @@ import {
   writtenLedgerIdOf,
   writtenLedgerIdsOf,
 } from "../../src/finops/ledger-mark.js";
-import { buildCostReport, recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
+import { CostReport, recordToolCost, type UsageRecord } from "../../src/finops/usage.js";
 import {
   InMemoryCostLedgerRepository,
   type CostCounter,
@@ -103,7 +104,7 @@ describe("#817: ledgerMarkOf reads the one state", () => {
   });
 
   it("a cost report shows no mark of any version", () => {
-    const report = buildCostReport([
+    const report = CostReport.fromUsage([
       { ...paid(1), ledger: { state: LedgerState.Written, ledgerId: "p:4", madeAt: NOW } },
       legacy({ isRecordedElsewhere: true, ledgerId: "p:5", madeAt: NOW.toISOString() }),
     ]);
@@ -199,7 +200,7 @@ describe("#817 AC3: a record kept before 0.1.1 reads as the same state", () => {
   it("a child's call recorded elsewhere the old way is taken in once, never written", async () => {
     const ledger = new SeenLedger();
     await ledger.saveAll([counterOf(budget, NOW)], [ledgerEntryOf(paid(2), "child:0", NOW)]);
-    const child = legacy({ isRecordedElsewhere: true, costUsd: 2 });
+    const child = legacy({ isRecordedElsewhere: true, costUsd: usd(2) });
     const meter = meterOf(ledger);
     const seen = ledger.seen.length;
 
@@ -220,8 +221,8 @@ describe("#817: every save of the meter is a ledger entry", () => {
     await meter.record([paid(0.25), paid(0.25)]);
 
     expect(ledger.seen).toEqual([
-      expect.objectContaining({ ledgerId: expect.any(String), madeAt: NOW, costUsd: 0.25 }),
-      expect.objectContaining({ ledgerId: expect.any(String), madeAt: NOW, costUsd: 0.25 }),
+      expect.objectContaining({ ledgerId: expect.any(String), madeAt: NOW, costUsd: usd(0.25) }),
+      expect.objectContaining({ ledgerId: expect.any(String), madeAt: NOW, costUsd: usd(0.25) }),
     ]);
     expect(ledger.seen[0]?.ledgerId).not.toBe(ledger.seen[1]?.ledgerId);
     expect(await spentIn(ledger)).toBe(0.5);
@@ -313,7 +314,7 @@ describe("#817: a record read back with its mark as this version keeps it", () =
   });
 
   it("#810: a cost report shows no ledgerKey", () => {
-    const report = buildCostReport([
+    const report = CostReport.fromUsage([
       { ...paid(1), ledgerKey: { id: "a2a:m-1:price", madeAt: NOW } },
     ]);
     for (const line of report.trace) expect(line).not.toHaveProperty("ledgerKey");

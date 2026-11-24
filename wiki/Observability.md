@@ -3,9 +3,9 @@
 Observers see an application's executions: their start, pause, resume, end and failure, the
 requests refused before an execution, and the node events — agent, router, tool, model, knowledge
 base, guardrail, action, channel and judge start / end, outdated values, truncated
-launches. They are registered, not discovered: only classes listed in
-`@Application({ observers: [...] })` are called (#261) — never in `@Workflow`; one instance each,
-for every execution of the application, child executions included. Tracing to Langfuse is built in
+launches. They are registered, not discovered: only `@Observer` classes listed in
+`@Application({ observers: [...] })` are called (#261, #1343) — the one place, never in `@Workflow`;
+one instance each, for every execution of the application, child executions included. Tracing to Langfuse is built in
 ([Tracing](Tracing)); observers are for everything else (metrics, your own tracer, audit). What the
 framework itself writes is its [log](#the-frameworks-log).
 
@@ -27,8 +27,9 @@ A node event (`NodeEvent`) adds `step`, a `StepRecord` — the serialized `execu
 `component` (a `ComponentRecord`, no class), `nodeId` (`critic-agent#2` for a copy), `visitNumber`,
 `copyNumber`, `itemIndex`, `idempotencyKey`, `callId` (during a tool call), `toolLoopIteration`,
 `validationAttempts` ([Join keys](#join-keys) below). An observer interested
-in one workflow or component filters by name, taken with `nameOf(C)` (any AGBoss-decorated class;
-an undecorated one throws `ComponentError`): `event.workflow.name === nameOf(SupportWorkflow)`,
+in one workflow or agent says so in the decorator — `@Observer({ workflows: [SupportWorkflow], agents:
+[CriticAgent] })` — and its hooks receive only those events; otherwise it filters by name, taken
+with `nameOf(C)` (any AGBoss-decorated class; an undecorated one throws `ComponentError`):
 `event.step.component.name === nameOf(CriticAgent)` — never by parsing `nodeId`.
 
 ### Join keys
@@ -53,46 +54,54 @@ and `onQuorumDecided`, joined by `nodeId`, `copyNumber` and `itemIndex`. `toolLo
 part of `idempotencyKey` (#335): the key's format is unchanged.
 
 ```ts
-import { Injectable, type ModelEndEvent, type OnModelEnd } from "@agboss/core";
+import { Observer, type ModelEndEvent } from "@agboss/core";
 
-@Injectable()
-export class JoinKeyLog implements OnModelEnd {
+@Observer()
+export class JoinKeyLog {
   onModelEnd(event: ModelEndEvent): void {
     const { configHash } = event.workflow; // describe --json: workflows[].configHash
     const { name, promptHash, schemaHash } = event.step.component; // workflows[].nodes[]
     const iteration = event.step.toolLoopIteration; // 1, 2, … within the agent's visit
-    console.info(configHash, name, promptHash, schemaHash, iteration, event.calculatedCost);
+    console.info(configHash, name, promptHash, schemaHash, iteration, event.costUsd);
   }
 }
 ```
 
 ## The hooks
 
-Each hook is its own interface with a typed payload (root entry `agboss`):
+An observer is a class with `@Observer({ name?, description?, workflows?, agents?, deps? })` and a
+method per hook it wants; every parameter is typed by its event, no `implements` is needed
+(`ExecutionObserver` is the type of all the hooks, each optional). Listed in `@Application({ observers })`, it is checked at assembly: a
+misspelled `on…` method is `[observer.unknown-hook]` with the hook it meant, a class without
+`@Observer` is `[observer.not-an-observer]`, and two with one name are `[observer.duplicate-name]`
+(the name is the class name in kebab-case unless given). `workflows` / `agents` pass only the events
+of those workflows / agents; app-level events (no workflow or agent) go to an observer without that
+filter, and a standalone `@Tool` call through an `@McpEndpoint` has no `agent`.
 
-| Hook interfaces                           | Payload                                                                                   |
+| Hook                                      | Payload                                                                                   |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `OnExecutionStart`                        | `ExecutionStartEvent` (the common fields)                                                 |
-| `OnExecutionEnd`                          | `ExecutionEndEvent` (`finish`: a `ComponentRecord`, `spend`)                              |
-| `OnExecutionPause` / `OnExecutionResume`  | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `answeredBy`)|
-| `OnExecutionError`                        | `ExecutionErrorEvent` (`error`)                                                           |
-| `OnExecutionRejected`                     | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)        |
-| `OnAgentStart` / `OnAgentEnd`             | `AgentStartEvent` / `AgentEndEvent`                                                       |
-| `OnRouterStart` / `OnRouterEnd`           | `RouterStartEvent` / `RouterEndEvent`                                                     |
-| `OnToolStart` / `OnToolEnd`               | `ToolStartEvent` (tool, agent, arguments) / `ToolEndEvent` (`update`, `isResultTruncated` — #336) |
-| `OnModelStart` / `OnModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (model, usage, cost)                                  |
-| `OnRagStart` / `OnRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
-| `OnActionStart` / `OnActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |
-| `OnGuardrailStart` / `OnGuardrailEnd`     | `GuardrailStartEvent` (`input`: `side`, `element`, the masked `text`) / `GuardrailEndEvent` (`update`: `isBlocked`, `probability`) |
-| `OnChannelStart` / `OnChannelEnd`         | `ChannelStartEvent` / `ChannelEndEvent`                                                   |
-| `OnJudgeStart` / `OnJudgeEnd`             | `JudgeStartEvent` / `JudgeEndEvent`                                                       |
-| `OnValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |
-| `OnLaunchItemsTruncated`                  | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
-| `OnQuorumDecided`                         | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))       |
-| `OnCompensationStart` / `OnCompensationEnd` | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo)) |
-| `OnExecutionLeaseTakeover`                | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501)) |
-| `OnStepHandedOver`                        | `StepHandedOverEvent` (step, reason, site, scope key, holder, token, observedToken — [below](#hand-overs-501)) |
-| `OnFencedEffect`                          | `FencedEffectEvent` (step, name, scope key, token, outcome, writtenToken, observedToken — [below](#fenced-effects-501)) |
+| `onExecutionStart`                        | `ExecutionStartEvent` (the common fields)                                                 |
+| `onExecutionEnd`                          | `ExecutionEndEvent` (`finish`: a `ComponentRecord`, `output`, `spend`)                              |
+| `onExecutionPause` / `onExecutionResume`  | `ExecutionPauseEvent` (`pending`) / `ExecutionResumeEvent` (`reason`, `decision`, `answeredBy`)|
+| `onExecutionError`                        | `ExecutionErrorEvent` (`error`)                                                           |
+| `onExecutionRejected`                     | `ExecutionRejectedEvent` (`operation`, `threadId?`, `tenantId`, `code`, `message`)        |
+| `onAgentStart` / `onAgentEnd`             | `AgentStartEvent` / `AgentEndEvent` (`output`)                                            |
+| `onAgentRetry`                            | `AgentRetryEvent` (`agent`, `reason`: `InvalidAnswer`, `InvalidToolInput`, `JudgeRejected`; `attempt`, `maxAttempts`, `feedback`) |
+| `onRouterStart` / `onRouterEnd`           | `RouterStartEvent` / `RouterEndEvent`                                                     |
+| `onToolStart` / `onToolEnd`               | `ToolStartEvent` (`tool`, `agent?`, `input`) / `ToolEndEvent` (`tool`, `agent?`, `output`, `isResultTruncated` — #336) |
+| `onModelStart` / `onModelEnd`             | `ModelStartEvent` / `ModelEndEvent` (model, usage, cost)                                  |
+| `onRagStart` / `onRagEnd`                 | `RagStartEvent` / `RagEndEvent`                                                           |
+| `onActionStart` / `onActionEnd`           | `ActionStartEvent` / `ActionEndEvent`                                                     |
+| `onGuardrailStart` / `onGuardrailEnd`     | `GuardrailStartEvent` (`input`: `side`, `element`, the masked `text`) / `GuardrailEndEvent` (`output`: `isBlocked`, `probability`) |
+| `onChannelStart` / `onChannelEnd`         | `ChannelStartEvent` / `ChannelEndEvent`                                                   |
+| `onJudgeStart` / `onJudgeEnd`             | `JudgeStartEvent` / `JudgeEndEvent` (`judge`, `agent`, `output`)                                                       |
+| `onValuesOutdated`                        | `ValuesOutdatedEvent` (step, trigger, outdated — [below](#outdated-values))               |
+| `onLaunchItemsTruncated`                  | `LaunchItemsTruncatedEvent` (step, launch, items, maxItems — [below](#parallel-launches)) |
+| `onQuorumDecided`                         | `QuorumDecidedEvent` (step, launch, isReached, branches, group — [below](#quorums))       |
+| `onCompensationStart` / `onCompensationEnd` | `CompensationStartEvent` (step, compensated, reason) / `CompensationEndEvent` (+ status, error — [below](#automatic-undo)) |
+| `onExecutionLeaseTakeover`                | `ExecutionLeaseTakeoverEvent` (tenant, root, lease execution, scope key, token, holders, reason — [below](#lease-takeovers-501)) |
+| `onStepHandedOver`                        | `StepHandedOverEvent` (step, reason, site, scope key, holder, token, observedToken — [below](#hand-overs-501)) |
+| `onFencedEffect`                          | `FencedEffectEvent` (step, name, scope key, token, outcome, writtenToken, observedToken — [below](#fenced-effects-501)) |
 
 `onExecutionStart` fires once per execution, at `execute` — a resume does not start it again, so
 the count of starts is the count of executions. One that pauses (an approval on a channel) emits
@@ -134,13 +143,12 @@ whose `onIncompatibleResume` policy accepts it.
 ```ts
 import {
   ExecutionOperation,
-  Injectable,
+  Observer,
   type ExecutionRejectedEvent,
-  type OnExecutionRejected,
 } from "@agboss/core";
 
-@Injectable()
-export class Audit implements OnExecutionRejected {
+@Observer()
+export class Audit {
   onExecutionRejected(event: ExecutionRejectedEvent): void {
     const what = event.operation === ExecutionOperation.Execute ? "a new execution" : event.operation;
     console.warn(`${what} refused for ${event.tenantId}: ${event.code}`);
@@ -167,10 +175,10 @@ are in `result.record.outdatedValues`):
   adds to `outdatedValues`, each with `byValueId` = the trigger's `valueId`.
 
 ```ts
-import { Injectable, OutdatedReason, type OnValuesOutdated, type ValuesOutdatedEvent } from "@agboss/core";
+import { Observer, OutdatedReason, type ValuesOutdatedEvent } from "@agboss/core";
 
-@Injectable()
-export class OutdatingAudit implements OnValuesOutdated {
+@Observer()
+export class OutdatingAudit {
   onValuesOutdated(event: ValuesOutdatedEvent) {
     const answers = event.outdated.filter((value) => value.reason === OutdatedReason.AboutReplaced);
     console.log(
@@ -202,10 +210,10 @@ items truncated"; `LaunchItemsTruncatedEvent` carries the execution's fields (`e
 list had and the `maxItems` that were taken. No item values.
 
 ```ts
-import { Injectable, type LaunchItemsTruncatedEvent, type OnLaunchItemsTruncated } from "@agboss/core";
+import { Observer, type LaunchItemsTruncatedEvent } from "@agboss/core";
 
-@Injectable()
-export class LaunchAudit implements OnLaunchItemsTruncated {
+@Observer()
+export class LaunchAudit {
   onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent) {
     console.warn(`${event.step.nodeId} found ${String(event.items)}, ran ${String(event.maxItems)}`);
   }
@@ -242,10 +250,10 @@ arbiters that rejected it — or `Surplus`; a cancelled branch has none). The jo
 `onModelStart` / `onModelEnd`); their cost is in `spend` under `arbiter:<name>`.
 
 ```ts
-import { BranchVerdict, Injectable, type OnQuorumDecided, type QuorumDecidedEvent } from "@agboss/core";
+import { BranchVerdict, Observer, type QuorumDecidedEvent } from "@agboss/core";
 
-@Injectable()
-export class QuorumAudit implements OnQuorumDecided {
+@Observer()
+export class QuorumAudit {
   onQuorumDecided(event: QuorumDecidedEvent) {
     const rejected = event.branches.filter((branch) => branch.verdict === BranchVerdict.Rejected);
     console.info(`${event.launch}: reached ${String(event.isReached)}, ${String(rejected.length)} rejected`);
@@ -272,10 +280,10 @@ automatic undo of its end in the order they ran (`[]` when none ran); a failed u
 child's event lists its own; a root's its own and those its end undid for a paused child.
 
 ```ts
-import { CompensationStatus, Injectable, type CompensationEndEvent, type OnCompensationEnd } from "@agboss/core";
+import { CompensationStatus, Observer, type CompensationEndEvent } from "@agboss/core";
 
-@Injectable()
-export class CompensationAudit implements OnCompensationEnd {
+@Observer()
+export class CompensationAudit {
   onCompensationEnd(event: CompensationEndEvent) {
     if (event.status === CompensationStatus.Failed)
       console.warn(`${event.compensated.component.name} not undone: ${event.error?.message ?? ""}`);
@@ -302,14 +310,13 @@ an observer that throws is a warning (`observer.failed`) and never reaches the t
 
 ```ts
 import {
-  Injectable,
+  Observer,
   LeaseTakeoverReason,
   type ExecutionLeaseTakeoverEvent,
-  type OnExecutionLeaseTakeover,
 } from "@agboss/core";
 
-@Injectable()
-export class TakeoverAlert implements OnExecutionLeaseTakeover {
+@Observer()
+export class TakeoverAlert {
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent) {
     if (event.reason === LeaseTakeoverReason.Recovered && event.previousHolderInstanceId !== undefined)
       console.warn(`${event.previousHolderInstanceId} lost ${event.scopeKey}; token ${event.token}`);
@@ -335,13 +342,12 @@ written first, and the lease is released — the moving call rejects — only af
 ```ts
 import {
   HandOverReason,
-  Injectable,
-  type OnStepHandedOver,
+  Observer,
   type StepHandedOverEvent,
 } from "@agboss/core";
 
-@Injectable()
-export class ZombieWriteAlert implements OnStepHandedOver {
+@Observer()
+export class ZombieWriteAlert {
   onStepHandedOver(event: StepHandedOverEvent) {
     if (event.reason === HandOverReason.Fenced)
       console.warn(`${event.step.idempotencyKey}: token ${event.token} refused, ${String(event.observedToken)} seen`);
@@ -379,16 +385,15 @@ call of this instance was made meanwhile, its outcome shared), the lease's
 
 <!-- snippet-context
 import {
-  Injectable,
+  Observer,
   OutboundCallEventOutcome,
-  type OnOutboundCall,
   type OutboundCallEvent,
 } from "@agboss/core";
 -->
 
 ```ts
-@Injectable()
-export class UnreconciledCallAlert implements OnOutboundCall {
+@Observer()
+export class UnreconciledCallAlert {
   onOutboundCall(event: OutboundCallEvent) {
     if (event.outcome === OutboundCallEventOutcome.Unknown)
       console.warn(`${event.target} ${event.operation}: left pending at attempt ${event.attempt}`);
@@ -538,19 +543,15 @@ export class SupportExecutionBudget implements BudgetHandler {
 import {
   Application,
   EmptyEnvironment,
-  Injectable,
+  Observer,
   type AgentEndEvent,
   type AgentStartEvent,
   type ExecutionErrorEvent,
   type ModelEndEvent,
-  type OnAgentEnd,
-  type OnAgentStart,
-  type OnExecutionError,
-  type OnModelEnd,
 } from "@agboss/core";
 
-@Injectable()
-export class ConsoleTracer implements OnAgentStart, OnAgentEnd, OnModelEnd, OnExecutionError {
+@Observer()
+export class ConsoleTracer {
   onAgentStart(event: AgentStartEvent): void {
     console.log(`[trace] ${event.step.nodeId} started in ${event.executionId} (${event.tenantId})`);
   }
@@ -631,6 +632,6 @@ there):
 ## Files in events, traces and records (#899)
 
 A file in a model request, an event, a trace, the record or a cassette is shown as `{ kind, mediaType,
-filename?, sizeBytes, sha256 }` — a content part's bytes and an `FileDto`'s `inline` never leave as text.
+filename?, sizeBytes, sha256 }` — a content part's bytes and an `A2AFileDto`'s `inline` never leave as text.
 An input guardrail's event lists the files it checked the same way (`GuardedFileShown`). See [Files for
 models](Files-for-models).

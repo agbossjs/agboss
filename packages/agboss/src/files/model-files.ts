@@ -8,9 +8,9 @@ import type { Bytes } from "../units/index.js";
 
 /** Where the files an agent's model reads come from. */
 export enum FileSource {
-  /** The agent's input fields (the DTOs of its `input` that hold `FileDto` fields). */
+  /** The agent's input fields (the DTOs of its `input` that hold `A2AFileDto` fields). */
   Input = "input",
-  /** The results of its tools: a tool whose output holds `FileDto` fields. */
+  /** The results of its tools: a tool whose output holds `A2AFileDto` fields. */
   ToolResults = "tool-results",
   /** The thread's earlier turns (a later release). */
   History = "history",

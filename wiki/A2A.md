@@ -218,16 +218,16 @@ protocolVersion: "1.0" }`.
 
 ### Files — `raw` and `url` parts (#859)
 
-A skill takes files when its start's input DTO has `FileDto` fields — `@File()` for
-one, `@List(FileDto)` for several (`@agboss/core/dto`). A step holds a file as a descriptor
+A skill takes files when its start's input DTO has `A2AFileDto` fields — `@Nested(A2AFileDto)` for
+one, `@List(A2AFileDto)` for several (`@agboss/core/a2a`). A step holds a file as a descriptor
 (`mediaType`, `filename`, `sha256`, `sizeBytes`, and where its bytes are: `fileId` in the store,
-`inline` base64, or `url`) and reads its bytes with the `Files` service (`deps: [Files]`,
+`inline` base64, or `url`) and reads its bytes with the `A2AFiles` service (`deps: [A2AFiles]`,
 `read(file)`); it makes one with `save({ bytes, mediaType, filename })` or names one by reference
 with `fromUrl(url, { mediaType, filename })`. A finish whose output holds files —
 `WorkflowFinishFileDto { file }`, `WorkflowFinishFilesDto { files }`, or any DTO with file fields —
 answers with one file part per file (`metadata[skills-uri].field` naming its field), then one
 `data` part of its other fields. The card lists the media types a skill takes in `inputModes` and
-what `Files.save` takes — the application's `a2aFiles`, else the defaults — in `outputModes`
+what `A2AFiles.save` takes — the application's `a2aFiles`, else the defaults — in `outputModes`
 (#904).
 
 **The card never asks for a file field in a data part** (#904; a finish's outputs too, #916):
@@ -241,7 +241,7 @@ expose's; an invalid value or a skill not exported is `[a2a.file-options-invalid
 | `Marker` | each file field kept as `{ "x-agboss-file-part": { list, optional, mediaTypes }, description }` (#916: the declaration `Extension` makes; was `true`), never in `required` — a strict ajv compiles it once the keyword is declared (`ajv.addVocabulary(["x-agboss-file-part"])`) |
 
 The media types are those the skill takes (its `files`, else the application's `a2aFiles`) for the
-input, what `Files.save` takes for the outputs. Either way a standard validator accepts a data
+input, what `A2AFiles.save` takes for the outputs. Either way a standard validator accepts a data
 part without file fields; the entry names the mode (`cardFileFields`), `agboss describe --json` names
 it per export, and the AGBoss client's schema check — the same under either mode — compares its
 input DTO without its file fields, then its file fields with the declared ones (a missing required
@@ -254,7 +254,7 @@ finish gives as files that it reads as data).
 | --- | --- |
 | where a file goes | into the field its part names in `metadata["https://agboss.dev/a2a/skills/v1"].field`; unnamed ones in order — each one-file field not filled yet takes one, the first list the rest; one left over `-32602 a2a.too-many-files-for-field` |
 | a data part naming a file field | `-32602 a2a.file-field-in-data` — a descriptor is the server's, never the caller's, with file parts or without |
-| a file below the top level | `[a2a.nested-file-field]` at assembly — an exported start's input, its finishes' outputs and an `@A2AAgent`'s DTOs hold `FileDto` in top-level fields only; a client built with such a contract refuses to call |
+| a file below the top level | `[a2a.nested-file-field]` at assembly — an exported start's input, its finishes' outputs and an `@A2AAgent`'s DTOs hold `A2AFileDto` in top-level fields only; a client built with such a contract refuses to call |
 | limits | `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`: `maxFileSize` (64 KB), `maxTotalFileSize` (64 KB), `maxFiles` (5) — `-32602 a2a.file-too-large` / `a2a.files-too-large` / `a2a.too-many-files`; `[a2a.file-options-invalid]` at assembly |
 | media types | `allowedMediaTypes` (PNG, JPEG, WebP, GIF, PDF, plain text, Markdown, CSV, JSON): another `-32005 a2a.file-media-type`; the bytes checked against the declared type (signatures, valid UTF-8, JSON) — `-32602 a2a.media-type-mismatch` |
 | a file by `url` | fetched once at the admission, before the task is kept: `https:` on an origin of `allowedFileOrigins` only (none listed: `a2a.file-url-not-allowed`; another `a2a.file-origin-denied`), `GET`, redirects followed by hand — at most 3, each target's origin checked —, never an address of a range of the IANA special-purpose registries that is not globally reachable — loopback, private, link-local, CGNAT, `192.0.0.0/24`, benchmarking, documentation, reserved, multicast, unique-local, site-local, `2001::/23`, `64:ff9b:1::/48`, … — nor an IPv6 one carrying such an IPv4 (IPv4-mapped, -translated, -compatible, NAT64 `64:ff9b::/96`, 6to4: checked as that IPv4; #904) (the lookup's answer checked, `a2a.file-address-denied`), never a url with a user or a password (`a2a.file-origin-denied`, on a redirect too; #904), never through a proxy nor `node:http(s)` — the fetch has its own connection and its own HTTP/1.1 exchange on it (#1138): the guarded lookup resolves the name once and checks every answer, a raw TCP socket is connected to the vetted address (that address as the host, and a `lookup` that answers only it), its remote address is checked at `connect` before any byte (else the socket is destroyed), then TLS starts on that socket, with the host as SNI and for its certificate, and the fetch writes its own `GET` on it (`Connection: close`; the response read strictly: status line, headers, a `chunked`, `Content-Length` or close-delimited body; only a `200` is the file: any other status, a 2xx too — a `206` is a part (no `Range` is sent), a `204` has none —, is `a2a.file-fetch-failed` with none of the response in it, #1331) — so `NODE_USE_ENV_PROXY` / `--use-env-proxy` / `HTTPS_PROXY`, a replaced `https.globalAgent` or `global-agent` never carry it: behind a proxy the lookup would check the proxy's address only (#916); a deployment whose egress must go through a proxy takes no file by url. What holds: **one TCP connection per request, to the vetted address only** — no `ClientRequest`, agent or global agent is ever constructed or asked, so a replaced `ClientRequest` (one that drops `agent` and `createConnection`, assigns `http.globalAgent` or a keep-alive agent, sets the url's name back or builds options of its own), an agent or an interceptor makes no DNS lookup and no connection for the fetch, whatever its resolver's timing — a resolver that answers in the same tick too —; nothing is pooled or reused, so a fetch after a refused one connects anew; each redirect hop goes through the same steps; a name with one denied address among its answers (a mix of public and private, an IPv4-mapped or other embedded form) is refused before any connect; **0 bytes to a denied peer** (no TCP payload, no ClientHello, no request), the TLS socket destroyed on every failure (#1022). What stays outside: a patch of `net` or `tls` itself acts on its own — pass-through wrappers (APM agents) work, one that reroutes the connection is refused at the peer check with nothing sent (its own TCP connection was made), and a `net` patch that lies about `remoteAddress` cannot be detected; `ClientRequest` wrappers no longer see the request (the span below stands for it). Each request is one OpenTelemetry `CLIENT` span (`@opentelemetry/api`, a no-op without an SDK; method, status, `server.address`, `server.port`, `url.full` without query or fragment; no trace header (`traceparent`, `baggage`) is sent; an error status with `error.type` when the fetch fails or is refused — also after a 2xx status line: a body past `maxFileSize` `a2a.file-too-large`, one cut by the deadline or the request's end `ABORT_ERR`, one the peer resets its error's code (`ECONNRESET`), #1139; not in Langfuse's isolated provider; dd-trace's http plugin does not see it unless Datadog's OpenTelemetry `TracerProvider` bridge is registered; #1021) —, the read stopped at `maxFileSize`, bound to the request's end and `a2aHttpListener({ fileFetchTimeout })` (10 s; `a2a.file-fetch-failed`), and across all messages at most `a2aHttpListener({ maxConcurrentFileFetches })` (16) fetches at once: one without a slot waits in a queue of four per slot, its wait part of `fileFetchTimeout`, and past the queue it is refused `a2a.file-fetch-busy`; a tenant holds at most `maxConcurrentFileFetchesPerTenant` of them (a quarter by default, at least 1) and four queue places per slot of its share, however many owners it has, and inside it each owner (a caller with no owner is its tenant's one anonymous owner) at most `maxConcurrentFileFetchesPerOwner` (a quarter of the tenant's share by default, at least 1) and four places per slot of that; a fetch over either share is refused `a2a.file-fetch-busy` at once, so one tenant's flood leaves the other tenants their slots and one owner's flood the tenant's other owners (#1256, #1297); a model's read of a file by url (`ModelFiles`, #899) takes a slot of the same limiter, with the same keys (its tenant, and the thread's owner inside it), when the listener has no `maxConcurrentFileFetches*` option of its own: the application's default slots are shared by its listeners and its models' reads, and over them the read fails as a download failure whose cause is `a2a.file-fetch-busy` (#1332) |
@@ -263,22 +263,22 @@ finish gives as files that it reads as data).
 | a follow-up | text or data only: a file `-32005` |
 | `maxBodySize` | unset: 1 MB, or room for the largest `maxTotalFileSize` as base64 and 256 KB more |
 
-**Where the bytes are.** With no `FileRepository` listed, a file rides inline in its task's own
+**Where the bytes are.** With no `A2AFileRepository` listed, a file rides inline in its task's own
 records (the checkpoint, the task's output) — silently up to 64 KB, with the warning
 `[a2a.inline-files-without-store]` up to 256 KB (an error under `--strict`), above it
-`[a2a.file-store-required]`. A listed store keeps it under the task (`InMemoryFileRepository`,
-`LocalDiskFileRepository` on the environment's `a2aFilesPath`, `S3FileRepository` — a bucket
+`[a2a.file-store-required]`. A listed store keeps it under the task (`InMemoryA2AFileRepository`,
+`LocalDiskA2AFileRepository` on the environment's `a2aFilesPath`, `S3A2AFileRepository` — a bucket
 every instance reaches, on plain `fetch` with Signature Version 4: `a2aS3Bucket`, `a2aS3Region`,
 `a2aS3Endpoint?` (an S3-compatible store), `a2aS3Prefix?`, `a2aS3AccessKeyId`,
 `a2aS3SecretAccessKey`; every key within S3's 255-byte segments and 1024-byte keys for every valid id — a long id in pieces, one past 300 characters as its digest —, a file's metadata in its object's body, `a2aS3Prefix` at most 99 bytes (#904) —, or your own, proved by
-`fileContract`); on leases the instances share, one host's store with files above 256 KB is
+`a2aFileContract`); on leases the instances share, one host's store with files above 256 KB is
 `[a2a.file-store-not-shared]`. A task's files are its own: a step reads no other task's, a task's
 artifact serves only its own. They are removed `@Application({ retention: { a2aFiles } })` after
 the task is over (default and at most `a2aTasks`) — never while it waits, however long an
 `INPUT_REQUIRED` task is paused.
 
-**The client.** `execute(input)` sends `FileDto.fromBytes(bytes, { mediaType, filename })`
-(a `raw` part) or `FileDto.fromUrl(url, …)` (a `url` part) in an input's file fields, a
+**The client.** `execute(input)` sends `A2AClientFile.fromBytes(bytes, { mediaType, filename })`
+(a `raw` part) or `A2AClientFile.fromUrl(url, …)` (a `url` part) in an input's file fields, a
 stored file of the calling task read first; an answer's file parts fill the output DTO's file
 fields (a foreign agent's unnamed parts into `WorkflowFinishFileDto` / `WorkflowFinishFilesDto`,
 or the DTO's only file field), never a descriptor from a data part; `send` gives
@@ -286,7 +286,7 @@ or the DTO's only file field), never a descriptor from a data part; `send` gives
 `url` through the client's own fetch, on its origins only.
 
 A pause's decision never carries a file (#900): a follow-up `{ pauseId?, decision }` holding an
-object shaped as an `FileDto` — a `mediaType` with a `fileId`, `sha256`, `inline` or `url` — at
+object shaped as an `A2AFileDto` — a `mediaType` with a `fileId`, `sha256`, `inline` or `url` — at
 any depth is `-32602 a2a.file-field-in-data`, nothing resumed (the scan bounded: 64 levels, 10 000
 values, else `a2a.answer-shape`).
 
@@ -320,7 +320,7 @@ export class QuotesA2AExpose {}
   `deps` a node or a tool reaches (`[a2a.message-skill-effect]`), only `@Tool({ readOnly: true })`
   tools and no `@McpTool` (`[a2a.message-skill-tool]`), no `compensateWith` / `committedBy`
   (`[a2a.message-skill-compensation]`), no child workflow or recursion
-  (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's files (`Files`) is fine. A
+  (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's files (`A2AFiles`) is fine. A
   `reply` for no export, a `defaultSkill` that is none: `[a2a.unknown-skill-option]`.
 - **Once per `messageId`.** The reply is kept in the application's `A2ADirectMessageRepository`
   (in memory by default; `SqliteA2ADirectMessageRepository`, `PostgresA2ADirectMessageRepository`,

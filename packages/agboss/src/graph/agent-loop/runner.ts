@@ -1,4 +1,4 @@
-import type { FileDto } from "../../dto/standard/file.js";
+import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
 import { NO_FILES, type SeenFile, type SourceFile } from "../../files/visit-files.js";
 import type { ExecutionStateType } from "../../flow/runtime/state.js";
 import { readerMemoryOf } from "../../flow/runtime/history.js";
@@ -104,7 +104,7 @@ export interface LoopResult {
   /** The transcriptions it made (#899): the execution keeps them. */
   readonly fileTranscripts: Readonly<Record<string, string>>;
   /** The files of its answer (#899 §8): its output guardrails check them with it. */
-  readonly answerFiles: readonly FileDto[];
+  readonly answerFiles: readonly A2AFileDto[];
   /** The source files it saw (#899 §8), numbered in the order it was shown them. */
   readonly seen: readonly SeenFile[];
 }

@@ -35,7 +35,16 @@ export interface AgentOptions {
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt (the same bytes in every execution). */
   readonly promptVariables?: Readonly<Record<string, string>>;
-  readonly model: string;
+  /**
+   * A model name, or a role the provider maps (`"fast"`, `models` of `@ModelProvider`); left out, the
+   * provider's `model`, else its `models.default` (#1313).
+   */
+  readonly model?: string;
+  /**
+   * The `@ModelProvider` class this agent's model is served from; left out, its workflow's
+   * `modelProvider`, else its application's (#1313).
+   */
+  readonly modelProvider?: Class;
   /** What the agent reads from the path scope, by type. */
   readonly input?: InputFields;
   /** What it answers with; without it, text. What the answers are about is said in the flow (#299). */

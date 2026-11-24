@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-reply shard) — the budget rules of reading one free-text reply by its interpreter, each on its own
  * over fakes: a model interpreter's call is checked against the tree's budgets before it is made (a code one makes
@@ -42,7 +43,7 @@ const record = (costUsd: number, caller = "reply"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

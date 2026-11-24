@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 import {
   Action,
   AGBossError,
@@ -55,7 +56,7 @@ const THROWN: Readonly<Record<string, (() => Error) | undefined>> = {
   "step-action": () => new StepError.Action({ action: "throwing-action", component, ...where }),
   "step-agent": agentError,
   "limit-items": () =>
-    new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: 0 }),
+    new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
   "unknown-thread": () => new ExecutionError.UnknownThread(),
   "lease-lost": () => new ExecutionError.LeaseLost({ rootExecutionId: "run-1" }),
   fenced,

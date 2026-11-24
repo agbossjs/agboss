@@ -6,12 +6,14 @@ const BASIS: Readonly<Record<CostSource, (line: CostLine) => string>> = {
     `${String(line.inputTokens)} in / ${String(line.outputTokens)} out`,
   [CostSource.Api]: () => "api-priced",
   [CostSource.Tool]: () => "tool-reported",
+  [CostSource.Unpriced]: (line) =>
+    `unpriced: ${String(line.inputTokens)} in / ${String(line.outputTokens)} out`,
   [CostSource.Unknown]: () => "unknown: a lost pass (#853)",
 };
 
 const usd = (value: number): string => `$${value.toFixed(6)}`;
 
-/** Categories that cost something: "agents $0.003378 · routing $0.000050 · guards $0.000044". */
+/** Categories that cost something: "agents $0.003378 · routing $0.000050 · guardrails $0.000044". */
 export function costSummary(cost: CostReport): string {
   const parts = Object.values(CostCategory)
     .filter((category) => cost.byCategory[category] > 0)

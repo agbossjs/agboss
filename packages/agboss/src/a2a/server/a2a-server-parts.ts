@@ -24,7 +24,7 @@ import type { AdmittedRequest } from "./a2a-admitted.js";
 import type { A2ARequestMesh } from "./a2a-mesh-admission.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { invalidParams, taskNotFound } from "./a2a-wire-errors.js";
-import type { FileRepository } from "../../infrastructure/file.repository.js";
+import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
 import type { FileFetches } from "../files/a2a-file-fetches.js";
 import type { FileFetchSlots } from "../files/a2a-file-slots.js";
 import type { FileTransport } from "../files/a2a-file-transport.js";
@@ -67,8 +67,8 @@ export interface A2ADirectParts {
 
 /** A listener's files (#859): the store, the fetch of a file by `url` and its bound. */
 export interface A2AServerFiles {
-  /** The application's `FileRepository`; the built-in default keeps none (inline). */
-  readonly store: FileRepository;
+  /** The application's `A2AFileRepository`; the built-in default keeps none (inline). */
+  readonly store: A2AFileRepository;
   /** A test's own transport; `undefined`: the built-in `node:https` one. */
   readonly transport: FileTransport | undefined;
   readonly timeout: Milliseconds;

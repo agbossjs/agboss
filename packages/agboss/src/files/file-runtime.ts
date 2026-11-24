@@ -3,7 +3,7 @@ import { appFileSlotsOf } from "../a2a/files/a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "../a2a/files/a2a-file-slots.js";
 import type { FileTransport } from "../a2a/files/a2a-file-transport.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
-import { FileRepository } from "../infrastructure/file.repository.js";
+import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
 import { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import { lazyLoad, systemClock } from "../infrastructure/clock.js";
 import type { BudgetMeter } from "../budgets/execution-budgets.js";
@@ -56,7 +56,7 @@ function executionOf() {
 function readContextOf(deps: GraphDeps<string>, settings: ResolvedModelFiles): FileReadContext {
   const execution = executionOf();
   const limits = contextMeshSettingsOf(execution.tenant.application)?.a2aFiles;
-  const store = deps.container.get(FileRepository);
+  const store = deps.container.get(A2AFileRepository);
   return {
     store,
     tenantId: execution.tenant.tenantId,

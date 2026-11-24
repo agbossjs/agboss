@@ -2,12 +2,15 @@
  * #899 §3: the one guarded path that reads a file's bytes for a model — stored, inline or by url — its
  * refusals (origin, address, userinfo, size, media type, digest) and its read-once pinning.
  */
-import { bytes as byteSize } from "../../src/units/index.js";
-import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { describe, expect, it } from "vitest";
 import { fileContentOf, sha256Of, type FileReadContext } from "../../src/files/file-bytes.js";
-import { FileRefusal, FileUnavailableReason } from "../../src/files/file-errors.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import {
+  ModelFileRefusal,
+  ModelFileRefusedError,
+  ModelFileUnavailableError,
+  ModelFileUnavailableReason,
+} from "../../src/files/file-errors.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { httpsFileTransport } from "../../src/a2a/files/a2a-file-transport.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -23,7 +26,7 @@ const contextOn = (
 ): FileReadContext & { readonly asked: () => readonly string[] } => {
   const script = scriptedTransport(parts.files ?? {});
   return {
-    store: new InMemoryFileRepository(new InMemoryDatabase()),
+    store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
     tenantId: "acme",
     ownerId: "root-1",
     signal: new AbortController().signal,
@@ -40,7 +43,7 @@ const contextOn = (
 const described = (bytes: Uint8Array, mediaType: string) => ({
   mediaType,
   sha256: sha256Of(bytes),
-  sizeBytes: byteSize(bytes.byteLength),
+  sizeBytes: bytes.byteLength,
 });
 
 const failureOf = (work: Promise<unknown>): Promise<unknown> =>
@@ -69,7 +72,7 @@ describe("AC1: reading a file's bytes for a model", () => {
     };
 
     expect(await failureOf(fileContentOf(file, contextOn()))).toMatchObject({
-      reason: FileUnavailableReason.DigestMismatch,
+      reason: ModelFileUnavailableReason.DigestMismatch,
     });
   });
 
@@ -82,7 +85,7 @@ describe("AC1: reading a file's bytes for a model", () => {
 
     for (const file of [asPdf, asPng])
       expect(await failureOf(fileContentOf(file, contextOn()))).toMatchObject({
-        refusal: FileRefusal.MediaTypeMismatch,
+        refusal: ModelFileRefusal.MediaTypeMismatch,
       });
   });
 
@@ -101,10 +104,10 @@ describe("AC1: reading a file's bytes for a model", () => {
 
     expect((await fileContentOf(file, context)).sha256).toBe(sha256Of(PDF));
     expect(await failureOf(fileContentOf(file, { ...context, ownerId: "root-2" }))).toMatchObject({
-      reason: FileUnavailableReason.NotFound,
+      reason: ModelFileUnavailableReason.NotFound,
     });
     expect(await failureOf(fileContentOf(file, { ...context, tenantId: "other" }))).toBeInstanceOf(
-      FileError.Unavailable,
+      ModelFileUnavailableError,
     );
   });
 });
@@ -136,7 +139,7 @@ describe("AC6: a file by url goes through the guarded fetch", () => {
     expect(
       await failureOf(fileContentOf({ mediaType: "application/pdf", url }, context)),
     ).toMatchObject({
-      refusal: FileRefusal.OriginDenied,
+      refusal: ModelFileRefusal.OriginDenied,
     });
     expect(context.asked()).toEqual([]);
   });
@@ -154,12 +157,12 @@ describe("AC6: a file by url goes through the guarded fetch", () => {
         ),
       ),
     ).toMatchObject({
-      refusal: FileRefusal.OriginDenied,
+      refusal: ModelFileRefusal.OriginDenied,
     });
     expect(
       await failureOf(fileContentOf({ mediaType: "application/pdf", url }, context)),
     ).toMatchObject({
-      refusal: FileRefusal.OriginDenied,
+      refusal: ModelFileRefusal.OriginDenied,
     });
   });
 
@@ -173,7 +176,7 @@ describe("AC6: a file by url goes through the guarded fetch", () => {
           context,
         ),
       ),
-    ).toMatchObject({ refusal: FileRefusal.OriginDenied });
+    ).toMatchObject({ refusal: ModelFileRefusal.OriginDenied });
   });
 
   it("a private address, a NAT64 address and a link-local address are never fetched from", async () => {
@@ -185,7 +188,7 @@ describe("AC6: a file by url goes through the guarded fetch", () => {
         await failureOf(
           fileContentOf({ mediaType: "application/pdf", url: `${origin}/a.pdf` }, context),
         ),
-      ).toMatchObject({ refusal: FileRefusal.AddressDenied });
+      ).toMatchObject({ refusal: ModelFileRefusal.AddressDenied });
   });
 
   it("a download over maxFileSize stops there (too-large)", async () => {
@@ -195,7 +198,7 @@ describe("AC6: a file by url goes through the guarded fetch", () => {
     expect(
       await failureOf(fileContentOf({ mediaType: "application/pdf", url }, context)),
     ).toMatchObject({
-      refusal: FileRefusal.TooLarge,
+      refusal: ModelFileRefusal.TooLarge,
     });
   });
 
@@ -204,9 +207,9 @@ describe("AC6: a file by url goes through the guarded fetch", () => {
 
     const failure = await failureOf(fileContentOf({ mediaType: "application/pdf", url }, context));
 
-    expect(failure).toBeInstanceOf(FileError.Unavailable);
-    expect(failure).not.toBeInstanceOf(FileError.Refused);
-    expect(failure).toMatchObject({ reason: FileUnavailableReason.DownloadFailed });
+    expect(failure).toBeInstanceOf(ModelFileUnavailableError);
+    expect(failure).not.toBeInstanceOf(ModelFileRefusedError);
+    expect(failure).toMatchObject({ reason: ModelFileUnavailableReason.DownloadFailed });
   });
 
   it("a file by url that is not what it says is refused after its read", async () => {
@@ -215,7 +218,7 @@ describe("AC6: a file by url goes through the guarded fetch", () => {
     expect(
       await failureOf(fileContentOf({ mediaType: "application/pdf", url }, context)),
     ).toMatchObject({
-      refusal: FileRefusal.MediaTypeMismatch,
+      refusal: ModelFileRefusal.MediaTypeMismatch,
     });
   });
 });

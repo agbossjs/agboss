@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { usd } from "../units/index.js";
 import { CostSource, type UsageRecord } from "../finops/usage.js";
 import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionAnswer, DecisionQuestion, DecisionQuestions } from "./decisions.js";
@@ -117,7 +118,7 @@ export function readDecision(raw: unknown, asked: DecisionAsked): DecisionOutcom
       outputTokens: usage?.output_tokens ?? 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: usage?.cost ?? 0,
+      costUsd: usd(usage?.cost ?? 0),
       costSource: CostSource.Api,
     },
   };

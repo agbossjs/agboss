@@ -16,11 +16,11 @@ import { replayed } from "../../../src/app/outbound-call-endings.js";
 import { resumeMapOf } from "../../../src/flow/runtime/child-own-thread.js";
 import { decodedRun } from "../../../src/flow/runtime/remote/remote-child-run.js";
 import { remoteFailureOf } from "../../../src/flow/runtime/remote/remote-failure.js";
-import { LocalDiskFileRepository } from "../../../src/infrastructure/local-disk-file.repository.js";
+import { LocalDiskA2AFileRepository } from "../../../src/infrastructure/local-disk-a2a-file.repository.js";
 import {
   ownerOfEntryBody,
   storedMetadataOf,
-} from "../../../src/infrastructure/s3/s3-file-layout.js";
+} from "../../../src/infrastructure/s3/s3-a2a-file-layout.js";
 import { SqliteExecutionAuditLogRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-audit-log.repository.js";
 import { SqliteExecutionTreeRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-tree.repository.js";
 import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
@@ -269,7 +269,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
   it("an a2a file's metadata on disk", async () => {
     const folder = mkdtempSync(join(tmpdir(), "agboss-1166-files-"));
     folders.push(folder);
-    const files = new LocalDiskFileRepository({
+    const files = new LocalDiskA2AFileRepository({
       environment: { a2aFilesPath: folder },
     } as never);
     const name = (text: string) => createHash("sha256").update(text).digest("hex");

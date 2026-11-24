@@ -5,6 +5,7 @@ import type { RagMode } from "../rag/types.js";
 import type { JudgeHandlerClass } from "./judge-decorators.js";
 import type { AgentToolClass } from "./decorators.js";
 import type { BaseMemoryStrategy } from "../memory/types.js";
+import type { ModelCascade } from "../models/model-cascade.js";
 import type { Class, Provider } from "./injection.js";
 import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
 
@@ -61,7 +62,9 @@ export interface AgentMeta
   readonly description: string;
   readonly prompt?: PromptValue;
   readonly promptUrls?: readonly string[];
-  readonly model: string;
+  readonly model?: string;
+  /** The `@ModelProvider` class its model is served from (#1313); left out: its workflow's, its application's. */
+  readonly modelProvider?: Class;
   /**
    * This agent's memory strategy (a `BaseMemoryStrategy` subclass from `@agboss/core/memory`,
    * created by the workflow's container); other agents use the built-in one (`uncompactedTurns`,
@@ -114,5 +117,9 @@ export interface WorkflowMeta {
   readonly uncompactedTurns?: UncompactedTurns;
   readonly mcp?: readonly Class[];
   readonly providers?: readonly Provider[];
+  /** `@Workflow({ services })` (#1324): scoped to the workflow's own container. */
+  readonly services?: readonly Provider[];
   readonly promptVariables?: Readonly<Record<string, string>>;
+  /** The workflow's and its application's `modelProvider` (#1313), the levels over a component's own. */
+  readonly modelCascade?: ModelCascade;
 }

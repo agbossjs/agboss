@@ -13,10 +13,10 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import type { OnExecutionRejected } from "../../../src/core/observer-hooks.js";
 import type { ExecutionRejectedEvent } from "../../../src/core/observability.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
+import { Observer } from "../../../src/index.js";
 
 /**
  * #261 PR 3 — a clinic: the project's tenant level (its units) and execution level (the clinician
@@ -75,8 +75,8 @@ export function resetClinicSeen(): void {
 }
 
 /** Records every refused request (an invalid context value is one). */
-@Injectable()
-export class ClinicRejectionsObserver implements OnExecutionRejected {
+@Observer()
+export class ClinicRejectionsObserver {
   onExecutionRejected(event: ExecutionRejectedEvent): void {
     clinicSeen.rejections.push(event);
   }

@@ -19,6 +19,18 @@ export class AddressDto {
 }
 
 // @public
+export class AttachmentDto {
+    // (undocumented)
+    content?: string;
+    // (undocumented)
+    mediaType: string;
+    // (undocumented)
+    name: string;
+    // (undocumented)
+    url?: string;
+}
+
+// @public
 export const Bool: FieldFactory<boolean, object>;
 
 // @public
@@ -172,53 +184,6 @@ export interface FieldOptions<T> {
     readonly prompt?: string;
     // (undocumented)
     readonly sensitive?: Sensitivity;
-}
-
-// @public
-function File_2(options: FileFieldOptions & OptionalField): FieldDecorator<FileDto | undefined>;
-
-// @public (undocumented)
-function File_2(options?: FileFieldOptions & {
-    readonly optional?: false;
-}): FieldDecorator<FileDto>;
-export { File_2 as File }
-
-// @public
-export class FileDto {
-    // (undocumented)
-    fileId?: string;
-    // (undocumented)
-    filename?: string;
-    static fromBytes(bytes: Uint8Array, options: FileDtoOptions): FileDto;
-    static fromUrl(url: string, options: FileDtoOptions): FileDto;
-    // (undocumented)
-    inline?: string;
-    // (undocumented)
-    mediaType: string;
-    // (undocumented)
-    sha256?: string;
-    // (undocumented)
-    sizeBytes?: number;
-    // (undocumented)
-    url?: string;
-}
-
-// @public
-export interface FileDtoOptions {
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
-}
-
-// @public
-export type FileFieldOptions = Pick<FieldOptions<FileDto>, "prompt">;
-
-// @public
-export enum FilePayloadSource {
-    Inline = "inline",
-    Stored = "stored",
-    Url = "url"
 }
 
 // @public
@@ -569,18 +534,6 @@ export type VariantOf<TValue> = TValue extends unknown ? {
 } : never;
 
 // @public
-export class WorkflowFinishFileDto {
-    // (undocumented)
-    file: FileDto;
-}
-
-// @public
-export class WorkflowFinishFilesDto {
-    // (undocumented)
-    files: FileDto[];
-}
-
-// @public
 export class WorkflowFinishTextDto {
     // (undocumented)
     text: string;
@@ -661,6 +614,10 @@ enum Wrapper {
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "timeZone".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "from".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "to".
+// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "name".
+// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "url".
+// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "content".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "street".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "city".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "region".
@@ -673,18 +630,6 @@ enum Wrapper {
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "title".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "url".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "quote".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "filename".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "filename".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "sha256".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "sizeBytes".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "url".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "inline".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "File".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "file".
-// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "files".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "author".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".

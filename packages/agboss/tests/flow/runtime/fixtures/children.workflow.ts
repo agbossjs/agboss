@@ -1,6 +1,7 @@
 import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
 import { Text } from "../../../../src/dto/index.js";
 import {
+  Observer,
   Action,
   Agent,
   ChildExecutionFailedError,
@@ -19,9 +20,6 @@ import {
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionStartEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionStart,
   type Produced,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
@@ -639,8 +637,8 @@ export class ReviewStoppedWorkflowFinish {}
 export class ReviewOneWorkflow {}
 
 /** Every child execution event, in order. */
-@Injectable()
-export class ChildEventLog implements OnExecutionStart, OnExecutionEnd, OnExecutionError {
+@Observer()
+export class ChildEventLog {
   onExecutionStart(event: ExecutionStartEvent): void {
     childLog.starts.push(event);
   }

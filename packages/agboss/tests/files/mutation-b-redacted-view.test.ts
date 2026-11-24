@@ -3,7 +3,6 @@
  * redactor, what an answer must be to be kept, how the copy is kept (inline or in the store) and what
  * every refusal says. Called directly on a batch, with a redactor and a mask that are told what to do.
  */
-import { bytes as byteSize } from "../../src/units/index.js";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { sha256Of, type FileContent } from "../../src/files/file-bytes.js";
@@ -13,9 +12,9 @@ import {
   redactedKeyOf,
   redactedViewOf,
 } from "../../src/files/redacted-view.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import type { NewFile } from "../../src/infrastructure/file.repository.js";
+import type { NewA2AFile } from "../../src/infrastructure/a2a-file.repository.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { PiiRefusedError } from "../../src/pii/errors.js";
 import { PNG_BYTES } from "./reader.factory.js";
@@ -36,13 +35,13 @@ import {
 const HEADING = "### card";
 
 /** A store that keeps what it is given where a test can see it. */
-class SpyStore extends InMemoryFileRepository {
-  readonly saved: NewFile[] = [];
+class SpyStore extends InMemoryA2AFileRepository {
+  readonly saved: NewA2AFile[] = [];
   constructor(private readonly failure?: Error) {
     super(new InMemoryDatabase());
   }
 
-  override save(file: NewFile): Promise<void> {
+  override save(file: NewA2AFile): Promise<void> {
     this.saved.push(file);
     return this.failure === undefined ? super.save(file) : Promise.reject(this.failure);
   }
@@ -294,7 +293,7 @@ describe("a copy made once is read again, never made twice", () => {
       ownerId: OWNER,
       mediaType: "image/png",
       sha256: sha256Of(bytes),
-      sizeBytes: byteSize(bytes.byteLength),
+      sizeBytes: bytes.byteLength,
       createdAt: NOW,
       bytes,
     });
@@ -307,6 +306,6 @@ describe("a copy made once is read again, never made twice", () => {
 
     const error = await rejection(redactedViewOf(cached, png(), HEADING));
 
-    expect(error).toMatchObject({ code: "files.unavailable" });
+    expect(error).toMatchObject({ code: "model.file-unavailable" });
   });
 });

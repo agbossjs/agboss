@@ -4,7 +4,7 @@ import { invalidParams } from "./a2a-wire-errors.js";
  * A caller's structured answer never carries a file's descriptor (#900, after #859): a file's
  * descriptor is the server's, made when a file part is admitted — never written by the caller. A
  * pause's decision (`{ pauseId?, decision }`) is scanned at every depth for an object shaped as an
- * `FileDto` — a `mediaType` with a `fileId`, `sha256`, `inline` or `url` — and one found is
+ * `A2AFileDto` — a `mediaType` with a `fileId`, `sha256`, `inline` or `url` — and one found is
  * `-32602 a2a.file-field-in-data`, as a start's data part naming a file field is. The walk is
  * iterative and bounded: deeper than `MAX_DEPTH`, or more than `MAX_NODES` values, is refused too
  * (`a2a.answer-shape`) — fail closed, no stack to blow, no unbounded work.

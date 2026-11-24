@@ -7,7 +7,6 @@
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
-import type { MessageContent } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 
 // @public
@@ -48,7 +47,7 @@ export interface A2ADirectMessageReply {
     readonly finish: string;
     // (undocumented)
     readonly output: unknown;
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
 }
 
 // @public
@@ -222,7 +221,7 @@ export interface A2ATaskStatus {
     readonly message?: string;
     readonly output?: unknown;
     readonly pendingPauses: readonly A2ATaskPause[];
-    readonly spentUsd?: number;
+    readonly spentUsd?: Usd;
     // (undocumented)
     readonly state: A2ATaskState;
 }
@@ -522,13 +521,19 @@ export enum CostCategory {
     // (undocumented)
     Agents = "agents",
     // (undocumented)
-    Compaction = "compaction",
+    Arbiters = "arbiters",
     // (undocumented)
     Files = "files",
     // (undocumented)
-    Guards = "guards",
+    Guardrails = "guardrails",
     // (undocumented)
-    Retrieval = "retrieval",
+    Memory = "memory",
+    // (undocumented)
+    Pauses = "pauses",
+    // (undocumented)
+    Pii = "pii",
+    // (undocumented)
+    Rag = "rag",
     // (undocumented)
     Review = "review",
     // (undocumented)
@@ -561,7 +566,7 @@ export interface CostLine extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
     readonly servedBy?: string;
@@ -570,24 +575,35 @@ export interface CostLine extends TokenUsage {
 // @public
 export interface CostReport {
     // (undocumented)
-    readonly byCaller: Readonly<Record<string, number>>;
-    readonly byCategory: Readonly<Record<CostCategory, number>>;
+    readonly byCaller: Readonly<Record<string, Usd>>;
+    readonly byCategory: Readonly<Record<CostCategory, Usd>>;
     // (undocumented)
-    readonly byModel: Readonly<Record<string, number>>;
-    // (undocumented)
+    readonly byModel: Readonly<Record<string, Usd>>;
     readonly cacheReadTokens: number;
+    readonly cacheWriteTokens: number;
     readonly calls: number;
-    readonly totalUsd: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly totalUsd: Usd;
     readonly trace: readonly CostLine[];
     readonly unknownCalls: number;
 }
+
+// @public
+export const CostReport: {
+    readonly fromUsage: (records: readonly UsageRecord[]) => CostReport;
+    readonly empty: () => CostReport;
+    readonly sum: (reports: readonly CostReport[]) => CostReport;
+};
 
 // @public
 export enum CostSource {
     Api = "api",
     PriceTable = "price-table",
     Tool = "tool",
-    Unknown = "unknown"
+    Unknown = "unknown",
+    Unpriced = "unpriced"
 }
 
 // @public
@@ -709,7 +725,7 @@ export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverReco
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
-    abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
@@ -808,7 +824,7 @@ export const executionHistoryRecordOfJson: (value: unknown) => ExecutionHistoryR
 
 // @public (undocumented)
 export abstract class ExecutionHistoryRepository {
-    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
     abstract findAllByStartedAtBetween(from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
     abstract findAllByTenantIdAndStartedAtBetween(tenantId: string, from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
@@ -972,10 +988,8 @@ export interface ExecutionTree {
 // @public
 export abstract class ExecutionTreeRepository {
     abstract deleteAllInTree(tree: ExecutionTree): Promise<void>;
-    findById(key: string): Promise<ExecutionTreeValue | undefined>;
     abstract findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
     abstract ping(): Promise<void>;
-    saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean>;
     abstract saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
 }
 
@@ -1298,8 +1312,8 @@ export interface MeshRequestRecord extends MeshRequestKey {
 
 // @public (undocumented)
 export abstract class MeshRequestRepository {
-    abstract deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
     abstract deleteByKey(key: MeshRequestKey): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
@@ -2311,7 +2325,7 @@ export interface Summary {
     readonly bundle: string;
     readonly compaction: string;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
@@ -2395,7 +2409,7 @@ export interface Turn {
     readonly configHash: string | null;
     readonly configVersion: string | null;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
@@ -2434,7 +2448,7 @@ export interface TurnStep {
     // (undocumented)
     readonly agent: string;
     // (undocumented)
-    readonly content: MessageContent;
+    readonly content: string;
 }
 
 // @public
@@ -2447,7 +2461,7 @@ export interface UsageRecord extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     readonly ledger?: LedgerMark;
     readonly ledgerKey?: LedgerKey;
     // (undocumented)
@@ -2458,7 +2472,7 @@ export interface UsageRecord extends TokenUsage {
 // @public
 export interface VersionScore {
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly meanScore: number | null;
     // (undocumented)
@@ -2549,12 +2563,17 @@ export interface WrittenLedgerMark {
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "summary".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guards".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Review".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Memory".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Rag".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pii".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Arbiters".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pauses".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "caller".
@@ -2566,9 +2585,6 @@ export interface WrittenLedgerMark {
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "executionId".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "compensated".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "status".

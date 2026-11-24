@@ -41,9 +41,6 @@ export type AnswersOf<Q extends DecisionQuestions> = {
 };
 
 // @public
-export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall;
-
-// @public
 export function Channel<const D extends readonly Token[] = []>(options: TargetChannelOptions<D>): <C extends new (...args: ResolvedAll<D>) => {
     send(ask: never): unknown;
 }>(value: C) => C;
@@ -164,7 +161,59 @@ export type DecisionState = string | Readonly<Record<string, unknown>> | readonl
 export type ErrorDetails = Readonly<Record<string, unknown>>;
 
 // @public
-export type ExecutionObserver = Partial<OnExecutionStart & OnExecutionPause & OnExecutionResume & OnExecutionEnd & OnExecutionError & OnExecutionRejected & OnAgentStart & OnAgentEnd & OnRouterStart & OnRouterEnd & OnToolStart & OnToolEnd & OnModelStart & OnModelEnd & OnRagStart & OnRagEnd & OnGuardrailStart & OnGuardrailEnd & OnActionStart & OnActionEnd & OnChannelStart & OnChannelEnd & OnJudgeStart & OnJudgeEnd & OnValuesOutdated & OnLaunchItemsTruncated & OnQuorumDecided & OnCompensationStart & OnCompensationEnd & AuditLogHooks>;
+export interface ExecutionObserver {
+    // (undocumented)
+    onActionEnd?(event: ActionEndEvent): void | Promise<void>;
+    // (undocumented)
+    onActionStart?(event: ActionStartEvent): void | Promise<void>;
+    // (undocumented)
+    onAgentEnd?(event: AgentEndEvent): void | Promise<void>;
+    onAgentRetry?(event: AgentRetryEvent): void | Promise<void>;
+    // (undocumented)
+    onAgentStart?(event: AgentStartEvent): void | Promise<void>;
+    // (undocumented)
+    onChannelEnd?(event: ChannelEndEvent): void | Promise<void>;
+    // (undocumented)
+    onChannelStart?(event: ChannelStartEvent): void | Promise<void>;
+    onCompensationEnd?(event: CompensationEndEvent): void | Promise<void>;
+    onCompensationStart?(event: CompensationStartEvent): void | Promise<void>;
+    onExecutionEnd?(event: ExecutionEndEvent): void | Promise<void>;
+    onExecutionError?(event: ExecutionErrorEvent): void | Promise<void>;
+    onExecutionLeaseTakeover?(event: ExecutionLeaseTakeoverEvent): void | Promise<void>;
+    onExecutionPause?(event: ExecutionPauseEvent): void | Promise<void>;
+    onExecutionRejected?(event: ExecutionRejectedEvent): void | Promise<void>;
+    onExecutionResume?(event: ExecutionResumeEvent): void | Promise<void>;
+    onExecutionStart?(event: ExecutionStartEvent): void | Promise<void>;
+    onFencedEffect?(event: FencedEffectEvent): void | Promise<void>;
+    // (undocumented)
+    onGuardrailEnd?(event: GuardrailEndEvent): void | Promise<void>;
+    // (undocumented)
+    onGuardrailStart?(event: GuardrailStartEvent): void | Promise<void>;
+    // (undocumented)
+    onJudgeEnd?(event: JudgeEndEvent): void | Promise<void>;
+    // (undocumented)
+    onJudgeStart?(event: JudgeStartEvent): void | Promise<void>;
+    onLaunchItemsTruncated?(event: LaunchItemsTruncatedEvent): void | Promise<void>;
+    // (undocumented)
+    onModelEnd?(event: ModelEndEvent): void | Promise<void>;
+    onModelStart?(event: ModelStartEvent): void | Promise<void>;
+    onOutboundCall?(event: OutboundCallEvent): void | Promise<void>;
+    onQuorumDecided?(event: QuorumDecidedEvent): void | Promise<void>;
+    // (undocumented)
+    onRagEnd?(event: RagEndEvent): void | Promise<void>;
+    // (undocumented)
+    onRagStart?(event: RagStartEvent): void | Promise<void>;
+    // (undocumented)
+    onRouterEnd?(event: RouterEndEvent): void | Promise<void>;
+    // (undocumented)
+    onRouterStart?(event: RouterStartEvent): void | Promise<void>;
+    onStepHandedOver?(event: StepHandedOverEvent): void | Promise<void>;
+    // (undocumented)
+    onToolEnd?(event: ToolEndEvent): void | Promise<void>;
+    // (undocumented)
+    onToolStart?(event: ToolStartEvent): void | Promise<void>;
+    onValuesOutdated?(event: ValuesOutdatedEvent): void | Promise<void>;
+}
 
 // @public
 export function file(filePath: string): string;
@@ -187,9 +236,6 @@ export interface GuardrailInput {
 export type GuardrailStartEvent = StartEvent<GuardrailInput>;
 
 // @public
-export type HookResult = Promise<void> | void;
-
-// @public
 export enum ImageDetail {
     // (undocumented)
     Auto = "auto",
@@ -200,7 +246,7 @@ export enum ImageDetail {
 }
 
 // @public
-export function Injectable<const D extends readonly Token[] = []>(options?: InjectableOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+export function Injectable<const D extends readonly Token[] = [], const TPorts extends InjectAs = readonly []>(options?: InjectableOptions<D, TPorts>): <C extends new (...args: ResolvedAll<D>) => PortInstances<TPorts>>(value: C) => C;
 
 // @public
 export class InjectionToken<T> {
@@ -217,11 +263,11 @@ export function Judge<const TReply extends JudgeReplyShape, const D extends read
 // @public
 export interface JudgeEndEvent extends NodeEvent {
     // (undocumented)
-    readonly agentName: string;
+    readonly agent: string;
     // (undocumented)
-    readonly name: string;
+    readonly judge: string;
     // (undocumented)
-    readonly update: JudgeVerdict;
+    readonly output: JudgeVerdict;
 }
 
 // @public
@@ -241,12 +287,10 @@ export abstract class JudgeModel {
 
 // @public
 export interface JudgeStartEvent extends NodeEvent {
-    // (undocumented)
-    readonly agentName: string;
+    readonly agent: string;
     // (undocumented)
     readonly input: unknown;
-    // (undocumented)
-    readonly name: string;
+    readonly judge: string;
 }
 
 // @public
@@ -270,9 +314,9 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
 // @public
 export interface ModelEndEvent extends NodeEvent {
     // (undocumented)
-    readonly calculatedCost?: number;
-    // (undocumented)
     readonly callerName: string;
+    // (undocumented)
+    readonly costUsd?: Usd;
     // (undocumented)
     readonly model: string;
     // (undocumented)
@@ -291,185 +335,9 @@ export interface ModelStartEvent extends NodeEvent {
     readonly rawPayload: readonly BaseMessage[];
 }
 
-// @public (undocumented)
-export const OBSERVER_HOOKS: readonly ObserverHook[];
-
-// @public
-export type ObserverClass = Class<ExecutionObserver>;
-
-// @public
-export type ObserverHook = keyof ExecutionObserver;
-
-// @public (undocumented)
-export interface OnActionEnd {
-    // (undocumented)
-    onActionEnd(event: ActionEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnActionStart {
-    // (undocumented)
-    onActionStart(event: ActionStartEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnAgentEnd {
-    // (undocumented)
-    onAgentEnd(event: AgentEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnAgentStart {
-    // (undocumented)
-    onAgentStart(event: AgentStartEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnChannelEnd {
-    // (undocumented)
-    onChannelEnd(event: ChannelEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnChannelStart {
-    // (undocumented)
-    onChannelStart(event: ChannelStartEvent): HookResult;
-}
-
-// @public
-export interface OnCompensationEnd {
-    onCompensationEnd(event: CompensationEndEvent): HookResult;
-}
-
-// @public
-export interface OnCompensationStart {
-    onCompensationStart(event: CompensationStartEvent): HookResult;
-}
-
 // @public
 export interface OnDestroy {
     onDestroy(): Promise<void> | void;
-}
-
-// @public
-export interface OnExecutionEnd {
-    // (undocumented)
-    onExecutionEnd(event: ExecutionEndEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionError {
-    // (undocumented)
-    onExecutionError(event: ExecutionErrorEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionLeaseTakeover {
-    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionPause {
-    // (undocumented)
-    onExecutionPause(event: ExecutionPauseEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionRejected {
-    // (undocumented)
-    onExecutionRejected(event: ExecutionRejectedEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionResume {
-    // (undocumented)
-    onExecutionResume(event: ExecutionResumeEvent): HookResult;
-}
-
-// @public
-export interface OnExecutionStart {
-    // (undocumented)
-    onExecutionStart(event: ExecutionStartEvent): HookResult;
-}
-
-// @public
-export interface OnFencedEffect {
-    onFencedEffect(event: FencedEffectEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnGuardrailEnd {
-    // (undocumented)
-    onGuardrailEnd(event: GuardrailEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnGuardrailStart {
-    // (undocumented)
-    onGuardrailStart(event: GuardrailStartEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnJudgeEnd {
-    // (undocumented)
-    onJudgeEnd(event: JudgeEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnJudgeStart {
-    // (undocumented)
-    onJudgeStart(event: JudgeStartEvent): HookResult;
-}
-
-// @public
-export interface OnLaunchItemsTruncated {
-    onLaunchItemsTruncated(event: LaunchItemsTruncatedEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnModelEnd {
-    // (undocumented)
-    onModelEnd(event: ModelEndEvent): HookResult;
-}
-
-// @public
-export interface OnModelStart {
-    // (undocumented)
-    onModelStart(event: ModelStartEvent): HookResult;
-}
-
-// @public
-export interface OnOutboundCall {
-    onOutboundCall(event: OutboundCallEvent): HookResult;
-}
-
-// @public
-export interface OnQuorumDecided {
-    onQuorumDecided(event: QuorumDecidedEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnRagEnd {
-    // (undocumented)
-    onRagEnd(event: RagEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnRagStart {
-    // (undocumented)
-    onRagStart(event: RagStartEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnRouterEnd {
-    // (undocumented)
-    onRouterEnd(event: RouterEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnRouterStart {
-    // (undocumented)
-    onRouterStart(event: RouterStartEvent): HookResult;
 }
 
 // @public
@@ -478,31 +346,8 @@ export interface OnStart {
 }
 
 // @public
-export interface OnStepHandedOver {
-    onStepHandedOver(event: StepHandedOverEvent): HookResult;
-}
-
-// @public
 export interface OnStop {
     onStop(): Promise<void> | void;
-}
-
-// @public (undocumented)
-export interface OnToolEnd {
-    // (undocumented)
-    onToolEnd(event: ToolEndEvent): HookResult;
-}
-
-// @public (undocumented)
-export interface OnToolStart {
-    // (undocumented)
-    onToolStart(event: ToolStartEvent): HookResult;
-}
-
-// @public
-export interface OnValuesOutdated {
-    // (undocumented)
-    onValuesOutdated(event: ValuesOutdatedEvent): HookResult;
 }
 
 // @public
@@ -607,23 +452,20 @@ export function Tool<In extends DtoClass, Out extends DtoClass, const D extends 
 
 // @public
 export interface ToolEndEvent extends NodeEvent {
-    // (undocumented)
-    readonly agentName: string;
+    readonly agent?: string;
     readonly isResultTruncated: boolean;
     // (undocumented)
-    readonly toolName: string;
+    readonly output: string;
     // (undocumented)
-    readonly update: string;
+    readonly tool: string;
 }
 
 // @public
 export interface ToolStartEvent extends NodeEvent {
+    readonly agent?: string;
     // (undocumented)
-    readonly agentName: string;
-    // (undocumented)
-    readonly arguments: Readonly<Record<string, unknown>>;
-    // (undocumented)
-    readonly toolName: string;
+    readonly input: Readonly<Record<string, unknown>>;
+    readonly tool: string;
 }
 
 // @public
@@ -676,12 +518,9 @@ export class WorkflowSettings {
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "arguments".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "toolName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "update".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "tool".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "output".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "side".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "element".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "text".
@@ -693,56 +532,28 @@ export class WorkflowSettings {
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "callerName".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "rawContent".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "usage".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "calculatedCost".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "agentName".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/core/observability.ts - (ae-undocumented) Missing documentation for "input".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "name".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "agentName".
-// src/core/observability.ts - (ae-undocumented) Missing documentation for "update".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionPause".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionResume".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionRejected".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onExecutionError".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnAgentStart".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "judge".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "agent".
+// src/core/observability.ts - (ae-undocumented) Missing documentation for "output".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onAgentStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnAgentEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onAgentEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnRouterStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onRouterStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnRouterEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onRouterEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnToolStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onToolStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnToolEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onToolEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onModelStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnModelEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onModelEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnRagStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onRagStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnRagEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onRagEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnGuardrailStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onGuardrailStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnGuardrailEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onGuardrailEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnActionStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onActionStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnActionEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onActionEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnChannelStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onChannelStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnChannelEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onChannelEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnJudgeStart".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onJudgeStart".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OnJudgeEnd".
 // src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onJudgeEnd".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "onValuesOutdated".
-// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
 // src/flow/decorators/workflow.ts - (ae-undocumented) Missing documentation for "Workflow".
 // src/graph/settings.ts - (ae-undocumented) Missing documentation for "onIncompatibleResume".
 // src/graph/settings.ts - (ae-undocumented) Missing documentation for "builder".

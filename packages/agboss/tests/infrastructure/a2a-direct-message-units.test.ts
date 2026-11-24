@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #860 (mutation shard `a2a-direct`): the direct-message stores' parts on their own — the contract's
  * undeclared backend, a page's limit refused with its value, the SQLite row's refusals (a state and
@@ -15,7 +16,7 @@ import {
   checkedDirectMessageLimit,
   InMemoryA2ADirectMessageRepository,
 } from "../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { directMessageOf } from "../../src/infrastructure/sqlite/sqlite-a2a-direct-message-rows.js";
 import { SqliteA2ADirectMessageRepository } from "../../src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
@@ -81,7 +82,7 @@ const row = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const REPLY = JSON.stringify({ finish: "f", output: { a: 1 }, spentUsd: 0 });
+const REPLY = JSON.stringify({ finish: "f", output: { a: 1 }, spentUsd: usd(0) });
 const DISAGREE = "a2a_direct_messages row m-1: its state and its reply disagree";
 
 describe("#860: a SQLite row of a direct message", () => {
@@ -90,7 +91,7 @@ describe("#860: a SQLite row of a direct message", () => {
 
     expect(directMessageOf(row())).not.toHaveProperty("reply");
     expect(directMessageOf(completed)).toMatchObject({
-      reply: { finish: "f", output: { a: 1 }, spentUsd: 0 },
+      reply: { finish: "f", output: { a: 1 }, spentUsd: usd(0) },
       completedAt: NINE,
     });
   });
@@ -142,7 +143,7 @@ async function pagesRead(sizes: readonly number[], kind: "lost" | "old"): Promis
   vi.spyOn(messages, "deleteByCreatedAtBefore").mockImplementation(() =>
     Promise.resolve(kind === "old" ? page() : []),
   );
-  const files = new InMemoryFileRepository(new InMemoryDatabase());
+  const files = new InMemoryA2AFileRepository(new InMemoryDatabase());
   vi.spyOn(files, "deleteByOwner").mockResolvedValue(undefined);
   const expiry = a2aDirectMessageExpiryOf({
     messages,
@@ -158,7 +159,7 @@ describe("#860: the sweep's pages", () => {
   it("is the sweep of the direct A2A messages", () => {
     const expiry = a2aDirectMessageExpiryOf({
       messages: {} as A2ADirectMessageRepository,
-      files: new InMemoryFileRepository(new InMemoryDatabase()),
+      files: new InMemoryA2AFileRepository(new InMemoryDatabase()),
       clock: new VirtualClock(NINE),
       retention: minutes(15),
     });

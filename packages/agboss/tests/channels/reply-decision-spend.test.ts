@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what a decision-model reply interpreter cost — the masking of the reply and the decision call are both in
  * the reading's usage, whether the model answered yes / no or gave no answer, so the ledger holds each paid call.
@@ -11,7 +12,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

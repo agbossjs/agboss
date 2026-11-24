@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366: a judge's paid file reading (each source file the model saw, read again and transcribed) is checked
  * against the budgets before every model call it makes, with the usage so far, the flow's path and the
@@ -19,7 +20,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

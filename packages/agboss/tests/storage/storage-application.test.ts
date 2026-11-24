@@ -28,7 +28,7 @@ import {
   SqliteCheckpointSaver,
   Ttl,
 } from "../../src/index.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { storageProvidersOf, assembledStorageOf } from "../../src/storage/storage-assembly.js";
 import { defineStorageDriver, StorageRole } from "../../src/stores/index.js";
 import { defineEnv, env, secret } from "../../src/environments/index.js";
@@ -319,7 +319,7 @@ describe("storage rules", () => {
 
 describe("drivers", () => {
   it("S3Driver, LocalDiskDriver and InMemoryObjectDriver provide their file store", () => {
-    expect(InMemoryObjectDriver().providers).toEqual([InMemoryFileRepository]);
+    expect(InMemoryObjectDriver().providers).toEqual([InMemoryA2AFileRepository]);
     expect(LocalDiskDriver({ directory: "/tmp/x" }).describes).toBe("local disk /tmp/x");
     expect(S3Driver({ bucket: "files" }).describes).toBe("s3 files");
   });

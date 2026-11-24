@@ -19,7 +19,7 @@ import {
 } from "../../src/index.js";
 import { sha256Of } from "../../src/files/file-bytes.js";
 import { FileRedactor } from "../../src/files/file-redactor.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -94,7 +94,7 @@ const REDACTED = ModelFiles.of({
 });
 const stored = readerApplication({
   files: REDACTED,
-  providers: [OwnRedactor, InMemoryFileRepository],
+  providers: [OwnRedactor, InMemoryA2AFileRepository],
   piiPolicies: [CardsPolicy],
 });
 const toolFiles = readerApplication({
@@ -103,12 +103,12 @@ const toolFiles = readerApplication({
     views: [FileView.Redacted],
     allowedMediaTypes: ["image/png"],
   }),
-  providers: [OwnRedactor, InMemoryFileRepository],
+  providers: [OwnRedactor, InMemoryA2AFileRepository],
   piiPolicies: [CardsPolicy],
 });
 const blocking = readerApplication({
   files: REDACTED,
-  providers: [OwnRedactor, InMemoryFileRepository],
+  providers: [OwnRedactor, InMemoryA2AFileRepository],
   piiPolicies: [SsnPolicy],
 });
 const inlineMode = readerApplication({
@@ -118,7 +118,7 @@ const inlineMode = readerApplication({
 });
 const noPolicy = readerApplication({
   files: REDACTED,
-  providers: [OwnRedactor, InMemoryFileRepository],
+  providers: [OwnRedactor, InMemoryA2AFileRepository],
 });
 
 const COPY = Buffer.concat([PNG_BYTES, COPY_TAIL]);

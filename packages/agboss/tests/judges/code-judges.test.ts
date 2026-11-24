@@ -183,7 +183,7 @@ describe("#396: testJudge on a code judge", () => {
     });
 
     expect(passed.output).toEqual(JudgeVerdict.passed({ metrics: { words: 3, tenantId: "acme" } }));
-    expect(passed.spend).toMatchObject({ calls: 0, totalUsd: 0, trace: [] });
+    expect(passed.spend).toMatchObject({ calls: 0, totalUsd: usd(0), trace: [] });
     expect(failed.output).toEqual(JudgeVerdict.failed({ reason: "never say guarantee" }));
   });
 

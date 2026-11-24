@@ -38,9 +38,9 @@ export class InvoiceReaderAgent {}
 
 | Source | Files | Needs |
 | --- | --- | --- |
-| `FileSource.Input` (default) | the `FileDto` fields of the agent's input | nothing |
-| `FileSource.ToolResults` | the `FileDto` fields of a tool's output; the tool message stays text, a user message with the parts follows | nothing |
-| `FileSource.History` | the files of the turns the agent remembers: a turn keeps a descriptor, never bytes | an `FileRepository` that keeps files (`[files.history-needs-store]`) |
+| `FileSource.Input` (default) | the `A2AFileDto` fields of the agent's input | nothing |
+| `FileSource.ToolResults` | the `A2AFileDto` fields of a tool's output; the tool message stays text, a user message with the parts follows | nothing |
+| `FileSource.History` | the files of the turns the agent remembers: a turn keeps a descriptor, never bytes | an `A2AFileRepository` that keeps files (`[files.history-needs-store]`) |
 
 A history file is read through the guarded path as a copy under the execution that reads it: only a file of a
 root execution of the same tenant and thread is read, never another thread's or tenant's. A file that

@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (ledger-branch shard) — the spend of one branch of a launch, each rule on its own over fakes: what a
  * branch that answered writes (its node's usage, its arbiters' decisions counted as they end, its services),
@@ -102,7 +103,7 @@ const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

@@ -93,12 +93,12 @@ describe("#385: a transport provider serves its models through complete(request)
     expect(priced.spend.trace).toEqual([
       expect.objectContaining({
         model: "bedrock/claude",
-        costUsd: 10.5,
+        costUsd: usd(10.5),
         costSource: "price-table",
       }),
     ]);
     expect(reported.spend.trace).toEqual([
-      expect.objectContaining({ costUsd: 0.25, costSource: "api" }),
+      expect.objectContaining({ costUsd: usd(0.25), costSource: "api" }),
     ]);
     await app.close();
   });

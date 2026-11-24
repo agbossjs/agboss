@@ -5,7 +5,7 @@ Status: accepted (#899). Builds on #859 (A2A files) and #120 (PII policies and g
 ## Context
 
 An agent that takes documents over A2A has to see them in its model. Until #899 a model never saw a file's
-bytes, and the base64 `inline` of an `FileDto` was rendered into prompts, tool results and records as text.
+bytes, and the base64 `inline` of an `A2AFileDto` was rendered into prompts, tool results and records as text.
 Who sees a file, from where, in which form, and what privacy rules do to it each differ per application.
 
 ## Decision

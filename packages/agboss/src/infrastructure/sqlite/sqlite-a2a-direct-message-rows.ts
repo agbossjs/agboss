@@ -1,3 +1,4 @@
+import { storedUsd } from "../../finops/cost-report.js";
 import { z } from "zod";
 import {
   A2ADirectMessageState,
@@ -45,7 +46,7 @@ const DirectRow = z.object({
 const Reply = z.strictObject({
   finish: z.string(),
   output: z.unknown(),
-  spentUsd: z.number().nonnegative(),
+  spentUsd: storedUsd,
 });
 
 /** The reply of a row whose state says it has one, and only then (a corrupt row is refused). */

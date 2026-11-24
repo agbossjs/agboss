@@ -14,7 +14,7 @@ import { callScopeOf, leaseScope, leasedRenewal, outsideLease } from "../../src/
 import { LONG_CALL_BOUND, RENEW_BOUND, STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import type { Class } from "../../src/components/injection.js";
 import type { FrameLease } from "../../src/flow/context/frame.js";
-import { FileRepository } from "../../src/infrastructure/file.repository.js";
+import { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
 import { waitOf } from "../../src/infrastructure/clock.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { seconds } from "../../src/units/index.js";
@@ -137,7 +137,7 @@ describe("#1069: long calls", () => {
     const set = LONG_CONTRACTS as Set<Class>;
     set.add(Other);
     try {
-      expect(limitOf(FileRepository, "read").kind).toBe(StoreCallKind.Long);
+      expect(limitOf(A2AFileRepository, "read").kind).toBe(StoreCallKind.Long);
       expect(limitOf(Other, "read").kind).toBe(StoreCallKind.Long);
       expect(limitOf(Kv, "read").kind).toBe(StoreCallKind.Unleased);
     } finally {

@@ -19,7 +19,7 @@ import {
   type ExecutionHistoryRecord,
 } from "../../src/infrastructure/execution-history.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { buildCostReport } from "../../src/finops/usage.js";
+import { CostReport } from "../../src/finops/usage.js";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { EvalDeskApplication } from "../flow/fixtures/eval-desk.fixture.js";
 import { SqliteHistoryApplication } from "./sqlite/fixtures/history.application.js";
@@ -35,7 +35,7 @@ const recordOf = (n: number, tenantId = "acme"): ExecutionHistoryRecord => ({
   path: [],
   scope: [],
   outdatedValues: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   children: [],
   pauses: [],
   compensations: [],

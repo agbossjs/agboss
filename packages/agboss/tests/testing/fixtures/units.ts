@@ -175,7 +175,7 @@ export class HandbookRag implements RagConnector {
       source: `handbook#${String(index + 1)}`,
       text,
     }));
-    return { results, costUsd: 0.001 };
+    return { results, costUsd: usd(0.001) };
   }
 }
 

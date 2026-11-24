@@ -18,14 +18,25 @@ const workflow = { name: "desk", version: "1.0.0", startedVersion: "1.0.1", conf
 
 describe("#1366: limit error facts", () => {
   it("the base limit's code is limit, on the class and on its instances", () => {
-    const error = new LimitExceededError({ key: "k", limit: 1, actual: 2, path: [], spentUsd: 0 });
+    const error = new LimitExceededError({
+      key: "k",
+      limit: 1,
+      actual: 2,
+      path: [],
+      spentUsd: usd(0),
+    });
 
     expect(LimitExceededError.code).toBe("limit");
     expect(error.code).toBe("limit");
   });
 
   it("the steps' limit is keyed maxSteps and keeps its workflow, limit and count in its details", () => {
-    const error = new StepsLimitExceededError({ workflow, maxSteps: 3, path: ["f"], spentUsd: 0 });
+    const error = new StepsLimitExceededError({
+      workflow,
+      maxSteps: 3,
+      path: ["f"],
+      spentUsd: usd(0),
+    });
 
     expect(error.key).toBe("maxSteps");
     expect(error.details).toEqual({
@@ -53,7 +64,7 @@ describe("#1366: limit error facts", () => {
       maxSpend: usd(40),
       spent: usd(40.05),
       path: [],
-      spentUsd: 40.05,
+      spentUsd: usd(40.05),
     });
 
     expect(error.period).toBeUndefined();
@@ -70,7 +81,7 @@ describe("#1366: limit error facts", () => {
       maxSpend: usd(40),
       spent: usd(40.05),
       path: [],
-      spentUsd: 40.05,
+      spentUsd: usd(40.05),
     });
 
     expect(error.message).toContain("today");
@@ -85,7 +96,7 @@ describe("#1366: limit error facts", () => {
       maxSpend: usd(1),
       spent: usd(2),
       path: [],
-      spentUsd: 2,
+      spentUsd: usd(2),
     });
 
     expect(isPeriodBudgetExhausted(error)).toBe(true);

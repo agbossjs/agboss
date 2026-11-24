@@ -340,7 +340,7 @@ describe("[files.history-needs-store]", () => {
     expect(found).toEqual([
       {
         code: "files.history-needs-store",
-        message: `${name}: FileSource.History needs a FileRepository in @Application({ providers }): a turn keeps its files' descriptors, not their bytes — the inline default has none to read again`,
+        message: `${name}: FileSource.History needs an A2AFileRepository in @Application({ providers }): a turn keeps its files' descriptors, not their bytes — the inline default has none to read again`,
         nodes: [name],
       },
     ]);

@@ -24,7 +24,8 @@ export function modelFamilyOf(model: string): string | undefined {
 /** An agent a judge reads the answers of: its name and its model. */
 export interface JudgedAgent {
   readonly name: string;
-  readonly model: string;
+  /** None: the agent's provider names it (#1313); the family is not known before assembly. */
+  readonly model: string | undefined;
 }
 
 /** The judge's own model, when it is a model judge. */
@@ -44,7 +45,7 @@ export function sameFamilyWarnings(
   const family = own === undefined ? undefined : modelFamilyOf(own.model);
   if (own === undefined || family === undefined) return [];
   return agents.flatMap((agent) => {
-    if (modelFamilyOf(agent.model) !== family) return [];
+    if (agent.model === undefined || modelFamilyOf(agent.model) !== family) return [];
     const message =
       `${where}${own.name} (${own.model}) judges ${agent.name}, whose model ${agent.model} is of ` +
       `the same family (${family}) — a judge grades its own family's answers too kindly: give ` +

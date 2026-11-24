@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what the budgets are asked before a branch's model arbiter calls its model — the whole spend so far:
  * the execution's records, the services' and what the arbiter spent already, so a call that would pass the
@@ -11,7 +12,7 @@ const record = (costUsd: number, caller: string): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

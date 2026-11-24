@@ -1455,11 +1455,11 @@ In unit tests, `testExecutionContext({ … })` from
 `tenant` and `tenant.application` are set with `{ tenantContext, tenant, application: {
 environment } }`.
 
-Observers are registered only in `@Application({ observers: [...] })` (#261) — one instance each,
-created by the container at start with their `deps`, called for every execution of the
-application (filter by `event.workflow.name === nameOf(SupportWorkflow)` — `nameOf(C)` gives the
-`name` of any AGBoss-decorated class); none listed → none is
-called. Each hook gets one event object, plain data, never the framework's internal state. Every
+Observers are `@Observer` classes registered only in `@Application({ observers: [...] })` (#261) —
+one instance each, created by the container at start with their `deps`, called for every execution
+of the application, within the `workflows` / `agents` their decorator names
+(`@Observer({ workflows: [SupportWorkflow] })`; `nameOf(C)` gives the `name` of any
+AGBoss-decorated class); none listed → none is called. Each hook gets one event object, plain data, never the framework's internal state. Every
 execution event (`ExecutionEvent`) carries `executionId`, `parentExecutionId`, `rootExecutionId`,
 `threadId`, `tenantId` and `workflow` — a `WorkflowRecord` `{ name, version, startedVersion }`, no
 class; a node event (agent, router, tool, model, knowledge base, guardrail, action,
@@ -1469,7 +1469,7 @@ channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `St
 `execute`); one that pauses because nothing else can move emits `onExecutionPause` (`event.pending`:
 every pause it waits for — again after a partial resume), `app.resume` and recovery emit
 `onExecutionResume` (`event.reason`, `event.decision`, `event.answeredBy`), `onExecutionEnd` fires once
-when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.spend`) and
+when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.output`, `event.spend`) and
 `onExecutionError` when it fails (`event.error`) — also after a resume; cancelling a paused
 execution is an `onExecutionError` with `ExecutionCancelledError`. A request refused before an
 execution starts or is located — another owner's thread, a `resume` of an unknown pause or one no
@@ -1482,7 +1482,9 @@ values; never an `executionId`) and still throws. A resume refused as incompatib
 write that renews a value of the path scope outdates what was built from the older one:
 `onValuesOutdated` fires once per such cascade (the new value, each outdated value with its
 `OutdatedReason`; never DTO values), and `result.record.outdatedValues` keeps the values themselves.
-Assembly rejects an observer with no hook or with a misspelled one (`did you mean onToolEnd?`); an
+Assembly rejects a listed class without `@Observer`, an observer with no hook or with a misspelled
+one (`did you mean onToolEnd?`), and two with one name; `onAgentRetry` tells each time an agent
+corrects itself (an invalid answer or tool input, a judge's rejection); an
 observer that throws is a warning in the application's log (`observer.failed`) and never fails the
 execution.
 
@@ -1490,17 +1492,14 @@ execution.
 import {
   Application,
   EmptyEnvironment,
-  Injectable,
+  Observer,
   type AgentStartEvent,
   type ExecutionEndEvent,
   type ExecutionRejectedEvent,
-  type OnAgentStart,
-  type OnExecutionEnd,
-  type OnExecutionRejected,
 } from "@agboss/core";
 
-@Injectable()
-export class MetricsObserver implements OnExecutionEnd, OnAgentStart, OnExecutionRejected {
+@Observer()
+export class MetricsObserver {
   onExecutionEnd(event: ExecutionEndEvent): void {
     console.log(`${event.workflow.name} ${event.executionId} (tenant ${event.tenantId}) cost $${event.spend.totalUsd}`);
   }

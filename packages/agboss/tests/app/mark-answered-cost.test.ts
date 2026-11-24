@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what a resting root's record states when a pause is answered — the root goes `running` again with the
  * route and the spend the run had, so a root that is `running` between the mark and its recovery still shows what it
@@ -27,7 +28,12 @@ function parts(pause: object) {
 }
 
 const pending = { tenantId: "t", pauseId: "p", threadId: "th", status: PauseStatus.Pending };
-const rested = { runId: "r", turnId: "turn-1", path: ["start", "agent"], cost: { totalUsd: 0.75 } };
+const rested = {
+  runId: "r",
+  turnId: "turn-1",
+  path: ["start", "agent"],
+  cost: { totalUsd: usd(0.75) },
+};
 
 describe("#1366: the record of a root whose pause is answered", () => {
   it("goes running with the run's route and its whole spend", async () => {
@@ -37,7 +43,7 @@ describe("#1366: the record of a root whose pause is answered", () => {
 
     expect(isMarked).toBe(true);
     expect(completed).toMatchObject([
-      ["turn-1", "paused", { costUsd: 0.75, route: ["start", "agent"] }],
+      ["turn-1", "paused", { costUsd: usd(0.75), route: ["start", "agent"] }],
     ]);
   });
 

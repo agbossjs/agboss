@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import type { FileMetadata, FileOwner } from "../file.repository.js";
+import type { A2AFileMetadata, A2AFileOwner } from "../a2a-file.repository.js";
 import { parsedStoredJson } from "../stored-step.js";
 
 /**
- * How `S3FileRepository` lays its files out in a bucket (#859, #904): every key within what S3
+ * How `S3A2AFileRepository` lays its files out in a bucket (#859, #904): every key within what S3
  * and MinIO take — a segment at most 255 bytes, a key at most 1024 — for every valid id, and a
  * file's metadata in its object's body, never a header (user metadata is at most 2 KB there).
  *
@@ -67,11 +67,11 @@ export function indexEntryOf(key: string): IndexEntry | undefined {
 }
 
 /** An owner's folder of the index, below the prefix. */
-export const ownerFolderOf = (owner: FileOwner): string =>
+export const ownerFolderOf = (owner: A2AFileOwner): string =>
   `owners/${segmentOf(owner.tenantId)}/${segmentOf(owner.ownerId)}/`;
 
 /** A file's index entry below the prefix. */
-export const indexKeyOf = (file: FileMetadata): string =>
+export const indexKeyOf = (file: A2AFileMetadata): string =>
   `${ownerFolderOf(file)}${String(file.createdAt.getTime()).padStart(TIME_WIDTH, "0")}/${segmentOf(file.fileId)}`;
 
 /** A file's object below the prefix, from its ids' parts. */
@@ -86,7 +86,7 @@ export function prefixProblemOf(prefix: string): string | undefined {
 }
 
 /** A file's metadata as kept: JSON, its time as ISO 8601. */
-export type StoredMetadata = Omit<FileMetadata, "createdAt"> & { readonly createdAt: string };
+export type StoredMetadata = Omit<A2AFileMetadata, "createdAt"> & { readonly createdAt: string };
 
 const NEWLINE = 0x0a;
 
@@ -112,15 +112,15 @@ export function fileBytesOf(body: Uint8Array): Uint8Array {
 }
 
 /** An index entry's body: the owner it is of, so a digest's id is read back. */
-export const entryBodyOf = (owner: FileOwner): Uint8Array =>
+export const entryBodyOf = (owner: A2AFileOwner): Uint8Array =>
   Buffer.from(JSON.stringify({ tenantId: owner.tenantId, ownerId: owner.ownerId }), "utf8");
 
 /** The owner an index entry's body names. */
-export const ownerOfEntryBody = (body: Uint8Array): FileOwner => {
+export const ownerOfEntryBody = (body: Uint8Array): A2AFileOwner => {
   const parsed = parsedStoredJson(
     "a2a file index entry",
     Buffer.from(body).toString("utf8"),
     {},
-  ) as FileOwner;
+  ) as A2AFileOwner;
   return { tenantId: parsed.tenantId, ownerId: parsed.ownerId };
 };

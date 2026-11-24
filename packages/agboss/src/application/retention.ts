@@ -70,7 +70,7 @@ export interface RetentionOptions {
    */
   readonly a2aTasks?: Milliseconds;
   /**
-   * The files of an A2A task (#859, `FileRepository`) after the task is over — never while it is
+   * The files of an A2A task (#859, `A2AFileRepository`) after the task is over — never while it is
    * not: a paused, `INPUT_REQUIRED` task keeps them however long it waits. At most `a2aTasks`: a
    * file outliving its task is read by no one. Default `a2aTasks`.
    */

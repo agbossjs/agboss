@@ -582,17 +582,18 @@ export class LookupA2AExpose {}
 
 ### File parts (#859)
 
-A start's input or a finish's output may hold files: a `FileDto` field (`@File()`, or
-`@List(FileDto)`) is filled from `raw` (inline bytes) or `url` parts of the message — never from
+A start's input or a finish's output may hold files: an `A2AFileDto` field (`@Nested(A2AFileDto)`, or
+`@List(A2AFileDto)`) is filled from `raw` (inline bytes) or `url` parts of the message — never from
 a data part (`-32602 a2a.file-field-in-data`) — and a finish's file fields leave as file parts of its
-artifact. A step reads and writes them through `Files` (`read`, `save`, `fromUrl`):
+artifact. A step reads and writes them through `A2AFiles` (`read`, `save`, `fromUrl`):
 
 ```ts file=src/support/dto/review-request.dto.ts
-import { File, FileDto, Text } from "@agboss/core/dto";
+import { A2AFileDto } from "@agboss/core/a2a";
+import { Nested, Text } from "@agboss/core/dto";
 
 export class ReviewRequestDto {
-  @File({ prompt: "the document to review" })
-  document!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the document to review" })
+  document!: A2AFileDto;
 
   @Text({ prompt: "a note to the reviewer", optional: true })
   note?: string;
@@ -600,15 +601,15 @@ export class ReviewRequestDto {
 ```
 
 ```ts file=src/support/services/document-reader.service.ts
-import { Files, Injectable } from "@agboss/core";
-import { FileDto } from "@agboss/core/dto";
+import { Injectable } from "@agboss/core";
+import { A2AFileDto, A2AFiles } from "@agboss/core/a2a";
 import { ReviewRequestDto } from "../dto/review-request.dto.js";
 
-@Injectable({ deps: [Files] })
+@Injectable({ deps: [A2AFiles] })
 export class DocumentReader {
-  constructor(private readonly a2aFiles: Files) {}
+  constructor(private readonly a2aFiles: A2AFiles) {}
 
-  async report(request: ReviewRequestDto): Promise<FileDto> {
+  async report(request: ReviewRequestDto): Promise<A2AFileDto> {
     const bytes = await this.a2aFiles.read(request.document); // checked against its sha256
     return this.a2aFiles.save({
       bytes: new TextEncoder().encode(`read ${String(bytes.byteLength)} bytes`),
@@ -627,22 +628,22 @@ export class DocumentReader {
   against `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`.
 - Bytes ride inline in the task's records up to 64 KB (above it with no store listed:
   `[a2a.inline-files-without-store]`, a warning; above 256 KB `[a2a.file-store-required]`); with an
-  `FileRepository` listed (`InMemoryFileRepository`, `LocalDiskFileRepository`,
-  `S3FileRepository`; the suite `fileContract`) they are kept under the task, which on leases
+  `A2AFileRepository` listed (`InMemoryA2AFileRepository`, `LocalDiskA2AFileRepository`,
+  `S3A2AFileRepository`; the suite `a2aFileContract`) they are kept under the task, which on leases
   the instances share needs a store they all reach (`[a2a.file-store-not-shared]`).
 - A task's files are kept while the task waits — a paused `INPUT_REQUIRED` task however long — and
   removed `retention.a2aFiles` after it is over (default `retention.a2aTasks`).
 - The card names a skill's file fields in the skills extension (`files`, `outputFiles`), never in a
   data schema (`@A2AExpose({ cardFileFields })`). The client sends and reads files with
-  `FileDto.fromBytes` / `FileDto.fromUrl` (on the wire: `A2APart.fromFile`) and `downloadFile`.
+  `A2AClientFile.fromBytes` / `.fromUrl` and `downloadFile`.
 
 ### What an A2A server keeps
 
-| Store                        | Holds                                           | Retention (default)           | Built in                                                                                       |
-| ---------------------------- | ----------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `A2ATaskRepository`          | one task per root execution, its messages' ids  | `a2aTasks` (`hours(24)`)      | in memory, `SqliteA2ATaskRepository`, `@agboss/postgres`, `@agboss/mongodb`; `a2aTaskContract` |
-| `A2ADirectMessageRepository` | a direct reply, by `(tenant, owner, messageId)` | `a2aMessages` (`minutes(15)`) | in memory, `SqliteA2ADirectMessageRepository`, PostgreSQL, MongoDB; `a2aDirectMessageContract` |
-| `FileRepository`             | a task's files                                  | `a2aFiles` (`a2aTasks`)       | inline (none listed), in memory, `LocalDiskFileRepository`, `S3FileRepository`; `fileContract` |
+| Store                        | Holds                                           | Retention (default)           | Built in                                                                                                |
+| ---------------------------- | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `A2ATaskRepository`          | one task per root execution, its messages' ids  | `a2aTasks` (`hours(24)`)      | in memory, `SqliteA2ATaskRepository`, `@agboss/postgres`, `@agboss/mongodb`; `a2aTaskContract`          |
+| `A2ADirectMessageRepository` | a direct reply, by `(tenant, owner, messageId)` | `a2aMessages` (`minutes(15)`) | in memory, `SqliteA2ADirectMessageRepository`, PostgreSQL, MongoDB; `a2aDirectMessageContract`          |
+| `A2AFileRepository`          | a task's files                                  | `a2aFiles` (`a2aTasks`)       | inline (none listed), in memory, `LocalDiskA2AFileRepository`, `S3A2AFileRepository`; `a2aFileContract` |
 
 `@Application({ retention: { a2aTasks, a2aMessages, a2aFiles } })` sets them; an unfinished task is
 never removed, and `a2aTasks` is how long a `messageId` is remembered after its task ended. An

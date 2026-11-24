@@ -103,7 +103,7 @@ export const budgetExceededErrorOf = (
     maxSpend: usd(record.maxSpend),
     spent: usd(Math.max(0, spent)),
     path,
-    spentUsd: executionSpent,
+    spentUsd: usd(executionSpent),
     usage,
   });
 

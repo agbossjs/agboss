@@ -13,7 +13,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../src/index.js";
-import { FileDto } from "../../src/dto/standard/file.js";
+import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import { Application } from "../../src/application/application.js";
 import { Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -23,8 +23,8 @@ import { route, onStart } from "../helpers/flow.js";
 
 /** What a caller sends: a document and a note. */
 export class ReadRequestDto {
-  @Nested(FileDto, { prompt: "the document to read" })
-  document!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the document to read" })
+  document!: A2AFileDto;
 
   @Text({ prompt: "a note", optional: true })
   note?: string;
@@ -36,8 +36,8 @@ export class ScanQueryDto {
 }
 
 export class ScanResultDto {
-  @Nested(FileDto, { prompt: "the scan" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the scan" })
+  file!: A2AFileDto;
 }
 
 /** A tool that gives a file back, its bytes inline. */
@@ -63,7 +63,7 @@ const sha256Of = async (bytes: Buffer): Promise<string> => {
 };
 
 /** An inline descriptor of some bytes. */
-export const inlineFile = async (bytes: Buffer, filename: string): Promise<FileDto> => ({
+export const inlineFile = async (bytes: Buffer, filename: string): Promise<A2AFileDto> => ({
   mediaType: "application/pdf",
   filename,
   inline: bytes.toString("base64"),
@@ -71,7 +71,7 @@ export const inlineFile = async (bytes: Buffer, filename: string): Promise<FileD
   sizeBytes: bytes.byteLength,
 });
 
-const SCAN: FileDto = {
+const SCAN: A2AFileDto = {
   mediaType: "application/pdf",
   filename: "scan.pdf",
   inline: SCAN_BYTES.toString("base64"),

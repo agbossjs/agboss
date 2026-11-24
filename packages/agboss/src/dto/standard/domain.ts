@@ -5,6 +5,7 @@ import {
   IsoDateTime,
   DecimalString,
   Email,
+  MediaType,
   PhoneNumber,
   Text,
   TimeZone,
@@ -51,6 +52,26 @@ crossFieldRule(DateTimeRangeDto, ({ from, to }) =>
   Date.parse(from) < Date.parse(to)
     ? undefined
     : { field: "to", reason: "the end is not after the start" },
+);
+
+/** A file attached to a message or an replyWith — by link or by content. */
+export class AttachmentDto {
+  @Text({ prompt: "the file name, e.g. invoice.pdf" })
+  name!: string;
+
+  @MediaType({ prompt: "the file type, e.g. application/pdf" })
+  mediaType!: string;
+
+  @Url({ prompt: "where to download it", optional: true })
+  url?: string;
+
+  @Text({ prompt: "the content, base64-encoded, when there is no link", optional: true })
+  content?: string;
+}
+crossFieldRule(AttachmentDto, ({ url, content }) =>
+  (url === undefined) !== (content === undefined)
+    ? undefined
+    : { field: "url", reason: "give exactly one of url and content" },
 );
 
 /** A postal address. */

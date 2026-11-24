@@ -157,7 +157,7 @@ describe("#383: observers see a code guardrail's decision", () => {
     );
     expect(ended).toMatchObject({
       name: "card-number-guardrail",
-      update: { isBlocked: false, probability: 0 },
+      output: { isBlocked: false, probability: 0 },
     });
   });
 });

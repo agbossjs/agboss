@@ -3,14 +3,16 @@
  * long it waits — and go `retention.a2aFiles` after the task is over; a file whose task never came
  * to be goes once it is that old (and two leases old at least).
  */
-import { bytes as byteSize } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
-import { fileExpiryOf, type NewFile } from "../../../src/infrastructure/file.repository.js";
+import {
+  a2aFileExpiryOf,
+  type NewA2AFile,
+} from "../../../src/infrastructure/a2a-file.repository.js";
 import {
   A2ATaskState,
   type A2ATaskStatus,
 } from "../../../src/infrastructure/a2a-task.repository.js";
-import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
@@ -21,18 +23,18 @@ const START = new Date("2026-01-05T09:00:00.000Z");
 function storesAt() {
   const database = new InMemoryDatabase();
   const clock = new VirtualClock(START);
-  const files = new InMemoryFileRepository(database);
+  const files = new InMemoryA2AFileRepository(database);
   const tasks = new InMemoryA2ATaskRepository(database);
-  const expiry = fileExpiryOf({ files, tasks, clock, retention: hours(24), pageSize: 2 });
+  const expiry = a2aFileExpiryOf({ files, tasks, clock, retention: hours(24), pageSize: 2 });
   /** One sweep look now: its cutoff `retention` before the clock. */
   const sweep = () => expiry.remove?.(new Date(clock.now().getTime() - hours(24)));
-  const fileOf = (ownerId: string): NewFile => ({
+  const fileOf = (ownerId: string): NewA2AFile => ({
     tenantId: "default",
     fileId: `${ownerId}.0`,
     ownerId,
     mediaType: "application/pdf",
     sha256: "a".repeat(64),
-    sizeBytes: byteSize(3),
+    sizeBytes: 3,
     createdAt: clock.now(),
     bytes: Uint8Array.from([1, 2, 3]),
   });

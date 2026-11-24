@@ -358,6 +358,50 @@ models
   routers.main-router  model: typesafe/jev-1.13 → decisions-model-provider
 ```
 
+## Driver providers and the model cascade (#1313)
+
+A provider can be an **independent class with a driver** instead of a `serves` pattern: the driver
+speaks the protocol, the class holds the model names of its own, and a component reaches it by
+`modelProvider`, never by a model's name.
+
+```ts
+@ModelProvider({
+  driver: OpenAiCompatibleDriver({
+    baseUrl: appEnv.llmBaseUrl, // OpenAI, LiteLLM, vLLM, Ollama, Groq, DeepSeek, …
+    apiKey: appEnv.llmApiKey, // optional for a local server
+    headers: { "x-tenant": "acme" }, // text, env(…) or secret(…)
+  }),
+  timeout: min(2),
+  cost: ModelCost.fromResponse(),
+  retryPolicy: RetryPolicy.none(),
+  circuitBreakerPolicy: { failureThreshold: 5, window: min(1), openFor: sec(30) },
+  models: { default: "gpt-4.1", fast: "gpt-4.1-mini" }, // or model: "gpt-4.1"
+})
+export class AppChatModels {}
+
+@Application({ …, modelProvider: AppChatModels, providers: [AppChatModels] })
+```
+
+- **Drivers:** `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })` (the Chat
+  Completions API and `GET /models`, no OpenRouter-only header), `OpenRouterDriver({ apiKey, baseUrl?,
+  headers?, routing?, transforms? })` (OpenRouter's dialect), `DecisionsDriver({ baseUrl, apiKey?,
+  headers?, path?, knownModels? })` (decision models; no `Authorization` header without a key). `baseUrl`,
+  `apiKey` and header values are read from the process once, at start; a missing key fails naming its
+  variable.
+- **The cascade:** `Component.modelProvider ?? Workflow.modelProvider ?? Application.modelProvider` —
+  `@Agent`, `@Workflow` and `@Application` take `modelProvider`. A provider the cascade names is part
+  of the application even when it is not in `providers`.
+- **Roles:** a component's `model: "fast"` is the vendor's name `models.fast` maps to; a name that is
+  no role goes to the server as written; a component with no `model` asks for `models.default`, else
+  the provider's `model`.
+- **What a model is** is said by its provider's driver (chat or decisions), not by its name:
+  `ModelKind.Chat` / `ModelKind.Decisions`.
+- **Rules:** `[model.missing-provider]` (no provider in the cascade, or the named one is not listed),
+  `[model.incompatible-provider]` (a chat model on a decisions driver, or the reverse), `[model.missing]`
+  (no model named and the provider has neither `model` nor `models.default`).
+- The older `serves` providers and the built-ins stay until every test application names its
+  provider; a component with no provider in its cascade is resolved by `serves` as before.
+
 ## Cost
 
 - `ModelCost.fromResponse()` — the provider reports each call's cost in its answer (`usage.cost`),

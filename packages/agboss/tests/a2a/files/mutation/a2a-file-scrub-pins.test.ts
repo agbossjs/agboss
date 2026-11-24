@@ -4,7 +4,7 @@
  */
 import { HumanMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
-import { FileDto } from "../../../../src/dto/standard/file.js";
+import { A2AFileDto } from "../../../../src/a2a/files/a2a-file.dto.js";
 import {
   isFileDescriptor,
   redactedFilesIn,
@@ -164,8 +164,8 @@ class ChildDto {
   @Text({ prompt: "t" })
   label!: string;
 
-  @Nested(FileDto, { prompt: "f", optional: true })
-  file?: FileDto;
+  @Nested(A2AFileDto, { prompt: "f", optional: true })
+  file?: A2AFileDto;
 }
 class ParentDto {
   @Nested(ChildDto, { prompt: "c" })
@@ -177,22 +177,22 @@ class ParentDto {
 
 describe("scrubbedFilesOfDto", () => {
   it("a file DTO's place: a descriptor as shown, anything else without its sources", () => {
-    expect(scrubbedFilesOfDto(FileDto, stored)).toStrictEqual(storedShown);
+    expect(scrubbedFilesOfDto(A2AFileDto, stored)).toStrictEqual(storedShown);
     expect(
-      scrubbedFilesOfDto(FileDto, { fileId: "f", inline: "b", url: "u", note: "n", other: 1 }),
+      scrubbedFilesOfDto(A2AFileDto, { fileId: "f", inline: "b", url: "u", note: "n", other: 1 }),
     ).toStrictEqual({ note: "n", other: 1 });
-    expect(scrubbedFilesOfDto(FileDto, { mediaType: "a/b" })).toStrictEqual({
+    expect(scrubbedFilesOfDto(A2AFileDto, { mediaType: "a/b" })).toStrictEqual({
       mediaType: "a/b",
     });
   });
 
   it("a list: each item by the same DTO", () => {
-    expect(scrubbedFilesOfDto(FileDto, [stored, { url: "u" }])).toStrictEqual([storedShown, {}]);
+    expect(scrubbedFilesOfDto(A2AFileDto, [stored, { url: "u" }])).toStrictEqual([storedShown, {}]);
   });
 
   it("a value that is no plain record is returned as it is", () => {
     const date = new Date(0);
-    expect(scrubbedFilesOfDto(FileDto, "text")).toBe("text");
+    expect(scrubbedFilesOfDto(A2AFileDto, "text")).toBe("text");
     expect(scrubbedFilesOfDto(ParentDto, "text")).toBe("text");
     expect(scrubbedFilesOfDto(ParentDto, 5)).toBe(5);
     expect(scrubbedFilesOfDto(ParentDto, date)).toBe(date);

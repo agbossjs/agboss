@@ -16,7 +16,7 @@ const breachOf = (scope: BudgetScope) =>
     maxSpend: usd(1),
     spent: usd(2),
     path: [],
-    spentUsd: 2,
+    spentUsd: usd(2),
   });
 
 describe("#1366: a period budget exhausted", () => {

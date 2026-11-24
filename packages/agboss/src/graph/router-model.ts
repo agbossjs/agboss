@@ -4,6 +4,7 @@ import { createRouter, type RouterEngine } from "../routers/index.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 
 import { isDecisionModel } from "../models/decision-models.js";
+import { ModelKind } from "../models/model-kind.js";
 import { createLaunchDecider, type LaunchDecider } from "../flow/runtime/launch/launch-decider.js";
 import { createArbiterModel, type ArbiterModel } from "../flow/runtime/launch/arbiter-model.js";
 import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
@@ -22,10 +23,19 @@ export interface FlowRouterFactoryDeps {
 }
 
 /** A router's model by its id: a decision model (`kind: "jev"`), or a chat model with the settings the registry knows. */
-export function routerModelOf(model: string, deps: FlowRouterFactoryDeps): RouterModel {
-  return isDecisionModel(model)
-    ? { kind: "jev", model }
-    : { ...deps.chatModelSettings(model), kind: "llm", model };
+export function routerModelOf(
+  model: string,
+  deps: FlowRouterFactoryDeps,
+  modelProvider?: string,
+): RouterModel {
+  // the driver of the provider the cascade resolved says what the model is; else its name does (#1313)
+  const kind =
+    deps.gateway.kindOf?.(modelProvider) ??
+    (isDecisionModel(model) ? ModelKind.Decisions : ModelKind.Chat);
+  const named = modelProvider === undefined ? {} : { modelProvider };
+  return kind === ModelKind.Decisions
+    ? { kind: "jev", model, ...named }
+    : { ...deps.chatModelSettings(model), kind: "llm", model, ...named };
 }
 
 /** `FlowRuntime.routerFor` through the existing routers (one route → no call). */

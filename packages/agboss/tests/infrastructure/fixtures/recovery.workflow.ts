@@ -6,7 +6,7 @@ import {
   ExecutionContext,
   ExecutionRecordRepository,
   ExecutionRecordStatus,
-  Injectable,
+  Injectable, Observer,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -14,9 +14,6 @@ import {
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLease,
-  type OnExecutionError,
-  type OnExecutionEnd,
-  type OnExecutionResume,
   type ExecutionResumeEvent,
 } from "../../../src/index.js";
 import { ApplicationContext, Clock } from "../../../src/index.js";
@@ -178,8 +175,8 @@ export class Clerk {}
  * What the observers saw: resumes (with their reason), ends and errors. An event carries no DTO
  * value, so an end's output is read from the execution's record (its finish line).
  */
-@Injectable({ deps: [ExecutionRecordRepository] })
-export class RecoveryLog implements OnExecutionResume, OnExecutionEnd, OnExecutionError {
+@Observer({ deps: [ExecutionRecordRepository] })
+export class RecoveryLog {
   constructor(private readonly executionRecordRepository: ExecutionRecordRepository) {}
 
   onExecutionResume(event: ExecutionResumeEvent): void {

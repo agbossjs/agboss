@@ -26,6 +26,7 @@ import type { JudgedFiles } from "./judge-files.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import { agentStreamOf } from "../../run/stream/agent-stream.js";
 import { StreamDiscardReason } from "../../run/types.js";
+import { AgentRetryReason, reportAgentRetry } from "./retry-event.js";
 
 /**
  * The class of each value of the answer (#262 S125): the class of the answer tool it was answered
@@ -154,7 +155,7 @@ async function rejectionsOf(
   spent.usage.push(...seen.usage);
   for (const judge of judges) {
     const input = judgedInputOf(state, deps, judge, text, seen.files);
-    const event = { name: judge.name, agentName: agent };
+    const event = { judge: judge.name, agent };
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeStart({ ...base, ...event, input: text }),
     );
@@ -170,7 +171,7 @@ async function rejectionsOf(
     );
     spent.verdicts.push(verdictRecordOf(judge.name, state.retries, verdict));
     await reportNodeEvent((base) =>
-      deps.observer?.onJudgeEnd({ ...base, ...event, update: verdict }),
+      deps.observer?.onJudgeEnd({ ...base, ...event, output: verdict }),
     );
     if (!verdict.passed) rejected.push({ judge: judge.name, reason: verdict.reason });
   }
@@ -219,6 +220,13 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       carryRecords(error, { judgeVerdicts: verdicts }); // this round's, after the loop's (#395 S6)
       throw error;
     }
+    const feedback = retryPrompt(rejected);
+    await reportAgentRetry(deps, {
+      reason: AgentRetryReason.JudgeRejected,
+      attempt: state.retries + 1,
+      maxAttempts: maxRetries + 1,
+      feedback,
+    });
     return {
       reply: null,
       answer: null,
@@ -227,7 +235,7 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       retries: 1,
       usage,
       judgeVerdicts: verdicts,
-      messages: [new HumanMessage(retryPrompt(rejected))],
+      messages: [new HumanMessage(feedback)],
     };
   };
 }

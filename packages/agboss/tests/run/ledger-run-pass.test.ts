@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-run shard) — how a run's spend reaches the ledger and its turn in the run's own passes, each rule
  * on its own over fakes: the new run records what its graph spends as it is made, keeps it on its running record
@@ -43,7 +44,7 @@ const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -170,7 +171,7 @@ describe("#1366: a new run records what it spends", () => {
       stopReason: "",
       route: [],
       steps: [],
-      costUsd: 0,
+      costUsd: usd(0),
     });
   });
 
@@ -185,7 +186,7 @@ describe("#1366: a new run records what it spends", () => {
     expect(openThread).toHaveBeenCalledWith(deps, "default", "t-9");
     expect(memoryBeforeRun).toHaveBeenCalledWith(
       deps,
-      expect.objectContaining({ isNewThread: false, threadId: "t-9", budgetLeftUsd: 2 }),
+      expect.objectContaining({ isNewThread: false, threadId: "t-9", budgetUsd: 2 }),
     );
 
     vi.mocked(openThread).mockClear();
@@ -319,7 +320,7 @@ describe("#1366: a new run records what it spends", () => {
       stopReason: "boom",
       route: [],
       steps: [],
-      costUsd: 0.5,
+      costUsd: usd(0.5),
     });
   });
 
@@ -341,7 +342,7 @@ describe("#1366: a new run records what it spends", () => {
       status: "failed",
       stopReason: "compaction",
       runId: "run-1",
-      costUsd: 0,
+      costUsd: usd(0),
     });
   });
 
@@ -455,7 +456,7 @@ describe("#1366: a continued pass does not record the spend before it", () => {
       stopReason: "boom",
       route: [],
       steps: [],
-      costUsd: 1.5,
+      costUsd: usd(1.5),
     });
   });
 

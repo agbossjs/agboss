@@ -19,10 +19,10 @@ import {
   type PiiPolicyHandler,
 } from "../../src/index.js";
 import { kilobytes } from "../../src/units/index.js";
-import { FileDto } from "../../src/dto/standard/file.js";
+import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import { fieldsOf, recordField } from "../../src/dto/metadata.js";
 import { METADATA_KEY } from "../../src/polyfills/symbol-metadata.js";
-import { hasFileAtAnyDepth } from "../../src/dto/standard/file.js";
+import { hasFileAtAnyDepth } from "../../src/a2a/files/a2a-file.dto.js";
 import { List, Nested, Text } from "../../src/dto/index.js";
 import { FetchedDto, readerApplication } from "./reader.factory.js";
 
@@ -99,8 +99,8 @@ describe("[files.invalid-setting] is an assembly rule, never thrown at import", 
 });
 
 class InnerDto {
-  @Nested(FileDto, { prompt: "f" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "f" })
+  file!: A2AFileDto;
 }
 class MiddleDto {
   @Nested(InnerDto, { prompt: "i" })

@@ -1,7 +1,7 @@
 import { fieldsOf } from "../../dto/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
 import { FILE_PART_KEYWORD } from "../a2a-card-file-fields.js";
-import { fileFieldsOf, type FileField } from "../../dto/standard/file.js";
+import { fileFieldsOf, type A2AFileField } from "../files/a2a-file.dto.js";
 
 /**
  * The file fields a skill's card declares (#904), wherever it declares them — the skills
@@ -64,7 +64,7 @@ export function declaredOutputFileFieldsOf(
 }
 
 /** How one of the client's input file fields differs from the skill's declaration of it. */
-function fieldDifferencesOf(field: FileField, theirs: DeclaredFileField | undefined): string[] {
+function fieldDifferencesOf(field: A2AFileField, theirs: DeclaredFileField | undefined): string[] {
   const { name } = field;
   if (theirs === undefined)
     return [`input: ${name} is a file field the skill does not take as files`];
@@ -97,7 +97,7 @@ export function fileFieldDifferencesOf(
 
 /** How one of the client's output file fields differs from a finish's declaration of it. */
 function outputFieldDifferencesOf(
-  field: FileField,
+  field: A2AFileField,
   theirs: DeclaredFileField | undefined,
   where: string,
 ): string[] {

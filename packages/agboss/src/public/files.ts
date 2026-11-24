@@ -13,13 +13,15 @@ export {
   type ModelFilesOptions,
 } from "../files/model-files.js";
 export {
-  FileRefusal,
-  FileUnavailableReason,
   ModelFileLimitError,
+  ModelFileRefusal,
+  ModelFileRefusedError,
+  ModelFileUnavailableError,
+  ModelFileUnavailableReason,
   type ModelFileLimitErrorOptions,
+  type ModelFileRefusedErrorOptions,
+  type ModelFileUnavailableErrorOptions,
 } from "../files/file-errors.js";
-// the service a step keeps and reads its files with (`deps: [Files]`, #1316)
-export { Files, type FileReference, type FileToSave } from "../a2a/files/files.service.js";
 export {
   FileTranscriber,
   ModelFileTranscriber,

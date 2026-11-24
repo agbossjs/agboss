@@ -56,16 +56,8 @@ export {
   WorkflowStartTextDto,
 } from "./standard/framework.js";
 export {
-  File,
-  FileDto,
-  FilePayloadSource,
-  WorkflowFinishFileDto,
-  WorkflowFinishFilesDto,
-  type FileDtoOptions,
-  type FileFieldOptions,
-} from "./standard/file.js";
-export {
   AddressDto,
+  AttachmentDto,
   ContactInfoDto,
   DateRangeDto,
   DateTimeRangeDto,

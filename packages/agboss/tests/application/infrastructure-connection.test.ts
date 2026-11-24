@@ -211,10 +211,17 @@ describe("#526 AC8: what the graph check still refuses, and what it now takes", 
     ).resolves.toBeDefined();
   });
 
-  it("regression: a workflow's own service that nobody lists is still not registered", async () => {
-    await expect(applicationOf(applicationReading(OrderLedger, []))).rejects.toThrow(
-      'ReadingAction: "OrderLedger" is not registered in @Workflow({ providers })',
-    );
+  it("a decorated workflow service that nobody lists is found through deps (#1324)", async () => {
+    await expect(applicationOf(applicationReading(OrderLedger, []))).resolves.toBeDefined();
+  });
+
+  it("an undecorated class that nobody lists is not registered", async () => {
+    class BareLedger {
+      readonly kind = "bare";
+    }
+    await expect(
+      applicationOf(applicationReading(BareLedger as typeof OrderLedger, [])),
+    ).rejects.toThrow('ReadingAction: "BareLedger" is not registered in @Workflow({ providers })');
   });
 
   it("an InjectionToken under a store is never its own registration: the store names it", async () => {

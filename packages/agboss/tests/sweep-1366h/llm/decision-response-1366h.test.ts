@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366: a Decisions API response is accepted only when every answer has its question's type, a choice among its
  * options, a score within its levels and probabilities within 0..1; a refusal is a DecisionError.InvalidResponse
@@ -49,7 +50,7 @@ describe("#1366: readDecision validation", () => {
       model: "m2",
       inputTokens: 7,
       outputTokens: 3,
-      costUsd: 0.5,
+      costUsd: usd(0.5),
     });
   });
 
@@ -58,7 +59,12 @@ describe("#1366: readDecision validation", () => {
       { answers: { n: { type: "boolean", probability: 1 } } },
       { caller: "c", model: "m1", questions: { n: booleanQ } },
     );
-    expect(read.usage).toMatchObject({ model: "m1", inputTokens: 0, outputTokens: 0, costUsd: 0 });
+    expect(read.usage).toMatchObject({
+      model: "m1",
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: usd(0),
+    });
     expect(read.answers.n).toMatchObject({ probability: 1 });
   });
 

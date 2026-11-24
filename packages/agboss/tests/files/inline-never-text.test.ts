@@ -3,7 +3,7 @@
  * a turn; with or without a PII runtime. Each place is checked for the base64 of a document's bytes.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { redactedFileOf } from "../../src/dto/standard/file.js";
+import { redactedFileOf } from "../../src/a2a/files/a2a-file.dto.js";
 import { redactedFilesIn, withoutInlineBytes } from "../../src/a2a/files/a2a-file-scrub.js";
 import { unmasked } from "../../src/core/observer-manager.js";
 import { closedResult } from "../../src/graph/agent-loop/tool-pii.js";

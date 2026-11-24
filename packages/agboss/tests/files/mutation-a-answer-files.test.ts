@@ -1,7 +1,6 @@
 /** #1269: the answer-files module's promises, pinned value by value. */
-import { bytes as byteSize } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
-import { FileDto, redactedFileOf } from "../../src/dto/standard/file.js";
+import { A2AFileDto, redactedFileOf } from "../../src/a2a/files/a2a-file.dto.js";
 import { List, Nested, Text } from "../../src/dto/index.js";
 import type { JsonSchema } from "../../src/dto/schema.js";
 import {
@@ -18,14 +17,14 @@ import {
 import type { SeenFile } from "../../src/files/visit-files.js";
 
 class PickedDto {
-  @Nested(FileDto, { prompt: "the file" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the file" })
+  file!: A2AFileDto;
 
   @Text({ prompt: "a note", optional: true })
   note?: string;
 }
 
-class SubFileDto extends FileDto {}
+class SubFileDto extends A2AFileDto {}
 
 class SubPickedDto {
   @Nested(SubFileDto, { prompt: "the file" })
@@ -33,16 +32,16 @@ class SubPickedDto {
 }
 
 class ManyDto {
-  @List(FileDto, { prompt: "the files" })
-  files!: FileDto[];
+  @List(A2AFileDto, { prompt: "the files" })
+  files!: A2AFileDto[];
 
   @List(Text, { prompt: "tags", optional: true })
   tags?: string[];
 }
 
 class InnerDto {
-  @Nested(FileDto, { prompt: "the inner file" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the inner file" })
+  file!: A2AFileDto;
 }
 
 class OuterDto {
@@ -65,11 +64,11 @@ class WithPlainDto {
   @List(PlainDto, { prompt: "plains", optional: true })
   plains?: PlainDto[];
 
-  @Nested(FileDto, { prompt: "the file" })
-  file!: FileDto;
+  @Nested(A2AFileDto, { prompt: "the file" })
+  file!: A2AFileDto;
 }
 
-/** The same shape as `FileDto`, as a plain object (a class instance cannot be spread). */
+/** The same shape as `A2AFileDto`, as a plain object (a class instance cannot be spread). */
 interface FileShape {
   readonly mediaType: string;
   readonly filename?: string;
@@ -195,7 +194,7 @@ describe("answerFilesOf and shownAnswerOf", () => {
   });
 });
 
-const seenFile = (descriptor: FileDto, digest: string): SeenFile => ({
+const seenFile = (descriptor: A2AFileDto, digest: string): SeenFile => ({
   source: { descriptor, field: "document", producer: "start" },
   digest,
 });
@@ -403,7 +402,7 @@ const check = (over: Partial<AnswerFileCheck> = {}): AnswerFileCheck => ({
   ...over,
 });
 
-const urlFile = (url: string): FileDto => ({ mediaType: "image/png", url });
+const urlFile = (url: string): A2AFileDto => ({ mediaType: "image/png", url });
 
 describe("modelWrittenFileProblem", () => {
   it("allows an https url on an allowed origin", async () => {
@@ -413,8 +412,10 @@ describe("modelWrittenFileProblem", () => {
   });
 
   it("names the file by its place, and why, for each way a url is not allowed", async () => {
-    const problem = (url: string, place: readonly FileDto[] = [urlFile(url)]): Promise<unknown> =>
-      modelWrittenFileProblem(place, check());
+    const problem = (
+      url: string,
+      place: readonly A2AFileDto[] = [urlFile(url)],
+    ): Promise<unknown> => modelWrittenFileProblem(place, check());
 
     expect(await problem("not a url")).toBe(
       "answer file 1 of 1 is not allowed: its url is not a URL",
@@ -443,7 +444,7 @@ describe("modelWrittenFileProblem", () => {
   });
 
   it("refuses a stored file the root execution does not own, and a missing one", async () => {
-    const stored: FileDto = { mediaType: "image/png", fileId: "f1" };
+    const stored: A2AFileDto = { mediaType: "image/png", fileId: "f1" };
     const holding = (ownerId: string): AnswerFileCheck["store"] => ({
       findMetadata: () =>
         Promise.resolve({
@@ -452,7 +453,7 @@ describe("modelWrittenFileProblem", () => {
           ownerId,
           mediaType: "image/png",
           sha256: "a".repeat(64),
-          sizeBytes: byteSize(3),
+          sizeBytes: 3,
           createdAt: new Date(0),
         }),
     });

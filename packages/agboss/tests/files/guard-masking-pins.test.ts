@@ -12,13 +12,13 @@ import {
   seenPicker,
 } from "../../src/files/answer-files.js";
 import { sha256Of } from "../../src/files/file-bytes.js";
-import { FileUnavailableReason } from "../../src/files/file-errors.js";
+import { ModelFileUnavailableReason } from "../../src/files/file-errors.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileTranscriber } from "../../src/files/file-transcriber.js";
 import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import type { FileRuntime } from "../../src/files/visit-files.js";
 import { judgedFilesOf } from "../../src/graph/agent-loop/judge-files.js";
-import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
+import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { PiiFileAction, PiiKind, PiiPolicy } from "../../src/index.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -161,7 +161,7 @@ const runtimeOn = (served: Record<string, { body: Uint8Array }>): FileRuntime =>
     transcriberKey: () => "t",
     transcribe: () => Promise.reject(new Error("none")),
     context: () => ({
-      store: new InMemoryFileRepository(new InMemoryDatabase()),
+      store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
       tenantId: "acme",
       ownerId: "root-1",
       signal: new AbortController().signal,
@@ -205,7 +205,7 @@ describe("AC4: a judge reads a file pinned to the digest the agent saw", () => {
   it("changed after the agent's read: digest-mismatch, the judge never sees the new bytes", async () => {
     const run = judgedOn(runtimeOn({ [URL_OF]: { body: Buffer.concat([PNG, Buffer.from("x")]) } }));
 
-    await expect(run).rejects.toMatchObject({ reason: FileUnavailableReason.DigestMismatch });
+    await expect(run).rejects.toMatchObject({ reason: ModelFileUnavailableReason.DigestMismatch });
   });
 });
 

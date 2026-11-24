@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #941 AC6 (I18, D8): a run's deadline bounds every pause. A run with a 5-minute deadline paused on
  * a 24-hour question has a pause that expires at minute 5 — the run fails with
@@ -207,13 +208,13 @@ describe("#941 V5: the step builds DeadlineExceededError itself when its own che
   });
 
   it("an agent's approval node builds it with the loop's usage (the visit's own check normally fails first)", () => {
-    const usage = [{ caller: "agent", costUsd: 0.5 }] as never;
+    const usage = [{ caller: "agent", costUsd: usd(0.5) }] as never;
     const error = expiryFailureOf(pause(PauseExpiryBound.RunDeadline), {
       ...place(() => undefined),
       usage,
     });
 
-    expect(error).toMatchObject({ usage, spentUsd: 0.5 });
+    expect(error).toMatchObject({ usage, spentUsd: usd(0.5) });
   });
 
   it("its own check throwing the deadline: that error, the way every visit gets it", () => {
@@ -221,7 +222,7 @@ describe("#941 V5: the step builds DeadlineExceededError itself when its own che
       deadline: seconds(300),
       deadlineAt: "2026-01-01T00:05:00.000Z",
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
     });
 
     const error = expiryFailureOf(

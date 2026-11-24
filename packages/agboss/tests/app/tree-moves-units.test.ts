@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #633 (recovery shard) — moving a tree (`tree-moves.ts`) on its own, every collaborator scripted:
  * the sweep leaves a root a resume of this instance moves, a take that ends the tree (a cancel, an
@@ -180,7 +181,7 @@ const answerOf = (startedVersion?: string): RecordedAnswer =>
     run:
       startedVersion === undefined
         ? undefined
-        : { startedVersion, turnId: "tern-1", path: [], cost: { totalUsd: 0 } },
+        : { startedVersion, turnId: "tern-1", path: [], cost: { totalUsd: usd(0) } },
   }) as never;
 
 beforeEach(() => {
@@ -366,7 +367,7 @@ describe("#901: a resume whose tree failed after its answer was recorded", () =>
 
 /** The tree's stored rest, as the mark of its record reads it. */
 const restOf = () =>
-  ({ run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: 0 } } }) as never;
+  ({ run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: usd(0) } } }) as never;
 
 describe("#1179: a resume's `running` mark is made under its lease, never before", () => {
   it("the record is marked after the take of the lease, from `paused`, once an answer is there to take", async () => {
@@ -424,7 +425,7 @@ describe("#633: the drain", () => {
       },
     );
     paused.find.mockResolvedValue({
-      run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: 0 } },
+      run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: usd(0) } },
     } as never);
     mocks.observedPass.mockResolvedValue(output(ExecutionStatus.Paused));
 
@@ -455,7 +456,7 @@ describe("#633: the drain", () => {
 });
 
 /** The paused run a resting root keeps. */
-const STORED = { run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: 0 } } };
+const STORED = { run: { runId: ROOT, turnId: "tern-1", path: [], cost: { totalUsd: usd(0) } } };
 
 describe("#941: the expiry look's move (expired)", () => {
   it("a root a resume of this instance moves is left alone: no take", async () => {

@@ -1,9 +1,9 @@
-import { FileDto, hasFileAtAnyDepth, redactedFileOf } from "../dto/standard/file.js";
+import { A2AFileDto, hasFileAtAnyDepth, redactedFileOf } from "../a2a/files/a2a-file.dto.js";
 import { isFileDescriptor } from "../a2a/files/a2a-file-scrub.js";
 import { fieldsOf } from "../dto/metadata.js";
 import type { JsonSchema } from "../dto/schema.js";
 import type { DtoClass, FieldSpec } from "../dto/types.js";
-import type { FileRepository } from "../infrastructure/file.repository.js";
+import type { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
 import type { SeenFile } from "./visit-files.js";
 
 /**
@@ -14,7 +14,8 @@ import type { SeenFile } from "./visit-files.js";
  * on `allowedFileOrigins`, a `fileId` one the root execution owns.
  */
 
-const isFileDto = (dto: DtoClass): boolean => dto === FileDto || dto.prototype instanceof FileDto;
+const isFileDto = (dto: DtoClass): boolean =>
+  dto === A2AFileDto || dto.prototype instanceof A2AFileDto;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -45,8 +46,8 @@ export function mapFileFields(dto: DtoClass, value: unknown, map: FileMapper): u
 }
 
 /** The descriptors in a validated value, in field order. */
-export function answerFilesOf(dto: DtoClass, value: unknown): readonly FileDto[] {
-  const found: FileDto[] = [];
+export function answerFilesOf(dto: DtoClass, value: unknown): readonly A2AFileDto[] {
+  const found: A2AFileDto[] = [];
   mapFileFields(dto, value, (file) => {
     if (isFileDescriptor(file)) found.push(file);
     return file;
@@ -62,7 +63,7 @@ export const shownAnswerOf = (dto: DtoClass, value: unknown): unknown =>
 
 /** What a number the model gave is: the descriptor of that file, or why it cannot be returned. */
 export type FilePick =
-  | { readonly kind: "file"; readonly file: FileDto }
+  | { readonly kind: "file"; readonly file: A2AFileDto }
   | { readonly kind: "problem"; readonly problem: string };
 
 /** What picks a file by its number. */
@@ -148,7 +149,7 @@ function pickedSchemaOf(schema: unknown, element: DtoClass, isList: boolean): un
 }
 
 /**
- * A DTO's JSON schema with every `FileDto` field — at any depth — taking `{ file: <n> }` instead
+ * A DTO's JSON schema with every `A2AFileDto` field — at any depth — taking `{ file: <n> }` instead
  * of a descriptor (`AnswerFiles.SeenInVisit`). What the model reads; the answer is checked against the
  * same rule, so a schema shape this cannot reach (a recursive `$ref`) is still no way to write a descriptor.
  */
@@ -172,7 +173,7 @@ export function withPickedFiles(dto: DtoClass, schema: JsonSchema): JsonSchema {
 /** Why a descriptor the model wrote is not allowed back; `undefined` when it is (`AnswerFiles.Any`). */
 export interface AnswerFileCheck {
   readonly allowedOrigins: readonly string[];
-  readonly store: Pick<FileRepository, "findMetadata">;
+  readonly store: Pick<A2AFileRepository, "findMetadata">;
   readonly tenantId: string;
   /** The root execution: a stored file must be its own. */
   readonly ownerId: string;
@@ -188,7 +189,7 @@ const originProblemOf = (text: string, allowed: readonly string[]): string | und
 
 /** The first problem of the answer's files that the model wrote itself; none when every one may travel. */
 export async function modelWrittenFileProblem(
-  files: readonly FileDto[],
+  files: readonly A2AFileDto[],
   check: AnswerFileCheck,
 ): Promise<string | undefined> {
   for (const [index, file] of files.entries()) {

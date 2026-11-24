@@ -389,7 +389,7 @@ return {'ran'}
 The framework bounds every call it makes to your store, whatever the store does: under a held
 lease (a step's call, a pass's end, a child's run up to its completion) by the time the holder still
 trusts the lease; any other call by 15 s; a retention delete (`delete…Before`) and every call of an
-`FileRepository` by 5 minutes. A call that does not answer is of unknown outcome: it may have
+`A2AFileRepository` by 5 minutes. A call that does not answer is of unknown outcome: it may have
 taken effect. Under a lease the holder hands the tree over and does not release the lease; the next
 holder replays the fenced effect's row, reconciles the pending intent or resumes from the latest
 checkpoint. Anywhere else the caller gets `StoreCallTimeoutError`. So:

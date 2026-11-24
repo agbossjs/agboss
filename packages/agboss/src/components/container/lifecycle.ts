@@ -31,13 +31,29 @@ export interface OnStop {
   onStop(): Promise<void> | void;
 }
 
+/**
+ * What needs the whole application (#1324: `onStart`'s name in 0.1.1): runs once every component is
+ * past `onInit`, before the first execution. A failure stops the start.
+ */
+export interface OnReady {
+  onReady(): Promise<void> | void;
+}
+
+/**
+ * Stop taking work, finish its own operations (#1324: `onStop`'s name in 0.1.1): runs at
+ * `app.close()`. A failure does not stop the other hooks.
+ */
+export interface OnBeforeDestroy {
+  onBeforeDestroy(): Promise<void> | void;
+}
+
 /** Closing connections, releasing resources. A failure does not stop the other hooks. */
 export interface OnDestroy {
   /** Runs once the running executions have finished or paused (dependants first). */
   onDestroy(): Promise<void> | void;
 }
 
-type HookName = "onInit" | "onStart" | "onStop" | "onDestroy";
+type HookName = "onInit" | "onStart" | "onReady" | "onStop" | "onBeforeDestroy" | "onDestroy";
 
 const hasHook = <THook extends HookName>(
   instance: unknown,
@@ -63,7 +79,7 @@ const hookFailure = (instance: object, hook: HookName, error: unknown): Componen
 /** Runs `hook` of every instance in order; the first failure stops it, naming the component and the hook. */
 async function runInOrder(
   instances: readonly unknown[],
-  hook: "onInit" | "onStart",
+  hook: "onInit" | "onStart" | "onReady",
   done: unknown[],
 ): Promise<void> {
   for (const instance of instances) {
@@ -118,7 +134,7 @@ async function withinBound(work: Promise<void>, bound: StopBound, what: string):
 /** Runs `hook` of every instance, dependants first; every hook runs, the failures are returned. */
 async function runAll(
   instances: readonly unknown[],
-  hook: "onStop" | "onDestroy",
+  hook: "onStop" | "onBeforeDestroy" | "onDestroy",
   bound?: StopBound,
 ): Promise<ComponentError[]> {
   const failures: ComponentError[] = [];
@@ -154,6 +170,7 @@ export async function startComponents(instances: readonly unknown[]): Promise<vo
   try {
     await runInOrder(instances, "onInit", initialized);
     await runInOrder(instances, "onStart", []);
+    await runInOrder(instances, "onReady", []);
   } catch (error) {
     await runAll(initialized, "onDestroy");
     throw error;
@@ -171,7 +188,10 @@ export async function stopComponents(
   executionsDone: () => Promise<void> = () => Promise.resolve(),
   bound?: StopBound,
 ): Promise<void> {
-  const stopped = await runAll(instances, "onStop");
+  const stopped = [
+    ...(await runAll(instances, "onStop")),
+    ...(await runAll(instances, "onBeforeDestroy")),
+  ];
   await executionsDone();
   const destroyed = await runAll(instances, "onDestroy", bound);
   const failure = collected([...stopped, ...destroyed]);

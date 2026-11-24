@@ -1,3 +1,4 @@
+import { type Usd } from "../units/index.js";
 import type { ExecutionIdentity } from "../infrastructure/execution-lease.repository.js";
 import type { PendingPause } from "../pause/types.js";
 import type { App } from "./types.js";
@@ -65,7 +66,7 @@ export type DurableExecutionState =
        * strategies' memory update included — else its last checkpoint's, so a status repaired from
        * the records still signs its run report.
        */
-      readonly spentUsd: number;
+      readonly spentUsd: Usd;
     }
   | { readonly status: DurableExecutionStatus.Failed; readonly reason: string }
   | { readonly status: DurableExecutionStatus.Cancelled };

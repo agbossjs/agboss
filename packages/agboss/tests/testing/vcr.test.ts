@@ -267,7 +267,7 @@ describe("#226: VCR records and replays a judge's decisions", () => {
       expect(result.output).toEqual({ text: "Acme is hiring a TS engineer." });
       const judgedSpend = (run: ExecutionOutput) =>
         run.spend.trace.filter((line) => line.caller === "judge:answer-grounded");
-      expect(judgedSpend(result)).toMatchObject([{ model: LUNA, costUsd: 0.0003 }]);
+      expect(judgedSpend(result)).toMatchObject([{ model: LUNA, costUsd: usd(0.0003) }]);
       expect(judgedSpend(result)).toEqual(judgedSpend(judgedRun));
     },
   );

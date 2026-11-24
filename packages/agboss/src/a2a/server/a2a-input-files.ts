@@ -1,12 +1,12 @@
-import type { FileDto, FileField } from "../../dto/standard/file.js";
+import type { A2AFileDto, A2AFileField } from "../files/a2a-file.dto.js";
 import type { AdmittedFile } from "./a2a-file-admission.js";
 import { invalidParams } from "./a2a-wire-errors.js";
 
 /**
  * Where a message's files go in its input (#859): each into the field it names
  * (`metadata[A2A_SKILLS_EXTENSION].field`); the ones that name none — a foreign client's — in
- * order into the fields in declaration order: each `@Nested(FileDto)` not filled yet takes one,
- * the first `@List(FileDto)` the rest. A file left over is `-32602
+ * order into the fields in declaration order: each `@Nested(A2AFileDto)` not filled yet takes one,
+ * the first `@List(A2AFileDto)` the rest. A file left over is `-32602
  * a2a.too-many-files-for-field`. The `data` part never fills a file field itself (`-32602
  * a2a.file-field-in-data`): a file's descriptor is the server's, made at its admission, never the
  * caller's — so no caller names a file it did not send.
@@ -19,9 +19,9 @@ const tooMany = () =>
   invalidParams("a2a.too-many-files-for-field", "more files than the input's fields take");
 
 /** The files that name their field, by field; the others, in order. */
-function namedOf(fields: readonly FileField[], files: readonly AdmittedFile[]) {
-  const byField = new Map<FileField, FileDto[]>(fields.map((field) => [field, []]));
-  const unnamed: FileDto[] = [];
+function namedOf(fields: readonly A2AFileField[], files: readonly AdmittedFile[]) {
+  const byField = new Map<A2AFileField, A2AFileDto[]>(fields.map((field) => [field, []]));
+  const unnamed: A2AFileDto[] = [];
   for (const file of files) {
     const named =
       file.field === undefined ? undefined : fields.find((field) => field.name === file.field);
@@ -35,9 +35,9 @@ function namedOf(fields: readonly FileField[], files: readonly AdmittedFile[]) {
 
 /** The files each field gets: the named ones first, then the others in order. */
 function filesByField(
-  fields: readonly FileField[],
+  fields: readonly A2AFileField[],
   files: readonly AdmittedFile[],
-): Map<FileField, FileDto[]> {
+): Map<A2AFileField, A2AFileDto[]> {
   const { byField, unnamed } = namedOf(fields, files);
   for (const field of fields) {
     const given = byField.get(field) ?? [];
@@ -52,7 +52,7 @@ function filesByField(
 /** The input with its files in their fields; `data` as it is when it is no object. */
 export function withFilesOf(
   data: unknown,
-  fields: readonly FileField[],
+  fields: readonly A2AFileField[],
   files: readonly AdmittedFile[],
 ): unknown {
   if (!isRecord(data)) return data;

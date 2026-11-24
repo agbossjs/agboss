@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 import { Agent, DecidedBy, EmptyEnvironment, Workflow } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart, type Class } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -47,7 +48,7 @@ class Candidates implements RagConnector {
   retrieve(_query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
     this.asked.push(options.topK);
     const results = options.tenantId === "default" ? CANDIDATES.slice(0, options.topK) : [];
-    return Promise.resolve({ results, costUsd: 0.0001 });
+    return Promise.resolve({ results, costUsd: usd(0.0001) });
   }
 }
 
@@ -68,7 +69,10 @@ export class KeywordReranker implements RerankerHandler {
   ): Promise<RerankResult> {
     const hits = candidates.filter((c) => c.text.includes("third month"));
     const rest = candidates.filter((c) => !c.text.includes("third month"));
-    return Promise.resolve({ results: [...hits, ...rest].slice(0, options.topK), costUsd: 0.0004 });
+    return Promise.resolve({
+      results: [...hits, ...rest].slice(0, options.topK),
+      costUsd: usd(0.0004),
+    });
   }
 }
 

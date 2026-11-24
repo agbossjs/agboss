@@ -3,7 +3,7 @@ import type {
   A2ADirectMessageRecord,
   A2ADirectMessageRepository,
 } from "./a2a-direct-message.repository.js";
-import type { FileRepository } from "./file.repository.js";
+import type { A2AFileRepository } from "./a2a-file.repository.js";
 import type { Clock } from "./clock.js";
 import type { Expiry } from "./expiry.js";
 
@@ -18,7 +18,7 @@ import type { Expiry } from "./expiry.js";
 
 /** What settling a lost attempt writes to. */
 export interface LostAttemptSources {
-  readonly files: Pick<FileRepository, "deleteByOwner">;
+  readonly files: Pick<A2AFileRepository, "deleteByOwner">;
   readonly clock: Pick<Clock, "now">;
 }
 

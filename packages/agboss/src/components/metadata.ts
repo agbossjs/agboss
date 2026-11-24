@@ -121,6 +121,8 @@ export type ComponentMeta =
       readonly kind: "channel-selector";
       readonly meta: import("../channels/channel-selector.js").ChannelSelectorMeta;
     }
+  /** `@Observer` (#1343): an execution observer, listed in `@Application({ observers })`. */
+  | { readonly kind: "observer"; readonly meta: import("../core/observer-hooks.js").ObserverMeta }
   /** `@PauseListener` (#940): an application-wide listener of every pause, listed in `providers`. */
   | {
       readonly kind: "pause-listener";
@@ -202,6 +204,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "channel-selector": "ChannelSelector",
   budget: "Budget",
   "health-check": "HealthCheck",
+  observer: "Observer",
   "pause-listener": "PauseListener",
   "working-calendar": "WorkingCalendar",
   "database-storage": "DatabaseStorage",

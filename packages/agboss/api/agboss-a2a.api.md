@@ -24,10 +24,10 @@ export const A2A_MESH_EXTENSION = "https://agboss.dev/a2a/mesh/v1";
 export const A2A_SKILLS_EXTENSION = "https://agboss.dev/a2a/skills/v1";
 
 // @public
-export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D extends readonly Token[] = []>(config: A2AAgentConfig<TIn, TOut, D>): <C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>>>(value: C) => C;
+export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D extends readonly Token[] = [], const TPorts extends InjectAs = readonly []>(config: A2AAgentConfig<TIn, TOut, D, TPorts>): <C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>> & PortInstances<TPorts>>(value: C) => C;
 
 // @public
-export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = []> = {
+export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = [], TPorts extends InjectAs = readonly []> = {
     readonly name: string;
     readonly url: string;
     readonly target?: A2ATarget;
@@ -35,6 +35,7 @@ export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClas
     readonly mesh?: A2AMesh;
     readonly allowedOrigins?: readonly string[];
     readonly deps?: D;
+    readonly injectAs?: TPorts;
 } & ({
     readonly input: TIn;
     readonly output: TOut;
@@ -182,7 +183,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     agentCard(call?: Pick<A2AClientCall, "signal">): Promise<AgentCard>;
     cancel(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
     readonly contract: A2AClientContract | undefined;
-    downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array>;
+    downloadFile(file: A2AReceivedFile, options?: A2ADownloadOptions): Promise<Uint8Array>;
     execute(input: TIn, call?: A2AClientCall): Promise<TOut>;
     protected getHeaders(): Promise<Record<string, string>>;
     getTask(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
@@ -212,6 +213,21 @@ export interface A2AClientContract {
     readonly output?: DtoClass;
     readonly price?: Usd;
     readonly skill?: string;
+}
+
+// @public
+export const A2AClientFile: {
+    readonly fromBytes: (bytes: Uint8Array, options: A2AClientFileOptions) => A2AFileDto;
+    readonly fromUrl: (url: string, options: A2AClientFileOptions) => A2AFileDto;
+    readonly toPart: (file: A2AFileDto, field?: string) => Part;
+};
+
+// @public
+export interface A2AClientFileOptions {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
 }
 
 // @public
@@ -318,7 +334,7 @@ export interface A2ADirectMessageReply {
     readonly finish: string;
     // (undocumented)
     readonly output: unknown;
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
 }
 
 // @public
@@ -457,12 +473,196 @@ export interface A2AExposeOptions {
 }
 
 // @public
+export class A2AFileConflictError extends AGBossError {
+    constructor(options: A2AFileConflictErrorOptions);
+    // (undocumented)
+    static readonly code: "a2a.file-conflict";
+    // (undocumented)
+    readonly code: typeof A2AFileConflictError.code;
+    // (undocumented)
+    readonly fileId: string;
+}
+
+// @public
+export interface A2AFileConflictErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly fileId: string;
+}
+
+// @public
+export interface A2AFileContent {
+    // (undocumented)
+    readonly bytes: Uint8Array;
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
+export class A2AFileDto {
+    // (undocumented)
+    fileId?: string;
+    // (undocumented)
+    filename?: string;
+    // (undocumented)
+    inline?: string;
+    // (undocumented)
+    mediaType: string;
+    // (undocumented)
+    sha256?: string;
+    // (undocumented)
+    sizeBytes?: number;
+    // (undocumented)
+    url?: string;
+}
+
+// @public
+export interface A2AFileField {
+    // (undocumented)
+    readonly isList: boolean;
+    // (undocumented)
+    readonly isOptional: boolean;
+    // (undocumented)
+    readonly name: string;
+}
+
+// @public
+export interface A2AFileKey {
+    // (undocumented)
+    readonly fileId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2AFileMetadata extends A2AFileKey {
+    readonly createdAt: Date;
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+    // (undocumented)
+    readonly ownerId: string;
+    readonly sha256: string;
+    // (undocumented)
+    readonly sizeBytes: number;
+}
+
+// @public
 export interface A2AFileOptions {
     readonly allowedFileOrigins?: readonly string[];
     readonly allowedMediaTypes?: readonly string[];
     readonly maxFiles?: number;
     readonly maxFileSize?: Bytes;
     readonly maxTotalFileSize?: Bytes;
+}
+
+// @public
+export interface A2AFileOwner {
+    // (undocumented)
+    readonly ownerId: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface A2AFileReference {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
+}
+
+// @public
+export enum A2AFileRefusal {
+    MediaType = "media-type",
+    MediaTypeMismatch = "media-type-mismatch",
+    OutsideExecution = "outside-execution",
+    TooLarge = "too-large",
+    UrlInvalid = "url-invalid"
+}
+
+// @public
+export class A2AFileRefusedError extends AGBossError {
+    constructor(options: A2AFileRefusedErrorOptions);
+    // (undocumented)
+    static readonly code: "a2a.file-refused";
+    // (undocumented)
+    readonly code: typeof A2AFileRefusedError.code;
+    readonly mediaType: string | undefined;
+    // (undocumented)
+    readonly refusal: A2AFileRefusal;
+    readonly sizeBytes: number | undefined;
+}
+
+// @public
+export interface A2AFileRefusedErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly mediaType?: string;
+    // (undocumented)
+    readonly refusal: A2AFileRefusal;
+    // (undocumented)
+    readonly sizeBytes?: number;
+}
+
+// @public (undocumented)
+export abstract class A2AFileRepository {
+    abstract deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    abstract findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    abstract findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    abstract ping(): Promise<void>;
+    abstract save(file: NewA2AFile): Promise<void>;
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class A2AFiles {
+    constructor(store: A2AFileRepository, clock: Clock);
+    fromUrl(url: string, reference: A2AFileReference): A2AFileDto;
+    read(file: A2AFileDto): Promise<Uint8Array>;
+    save(content: A2AFileContent): Promise<A2AFileDto>;
+}
+
+// @public
+export enum A2AFileSource {
+    Inline = "inline",
+    Stored = "stored",
+    Url = "url"
+}
+
+// @public
+export class A2AFileUnavailableError extends AGBossError {
+    constructor(options: A2AFileUnavailableErrorOptions);
+    // (undocumented)
+    static readonly code: "a2a.file-unavailable";
+    // (undocumented)
+    readonly code: typeof A2AFileUnavailableError.code;
+    // (undocumented)
+    readonly reason: A2AFileUnavailableReason;
+}
+
+// @public
+export interface A2AFileUnavailableErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+    // (undocumented)
+    readonly reason: A2AFileUnavailableReason;
+}
+
+// @public
+export enum A2AFileUnavailableReason {
+    ByReference = "by-reference",
+    DigestMismatch = "digest-mismatch",
+    DownloadFailed = "download-failed",
+    NotFound = "not-found",
+    OutsideExecution = "outside-execution",
+    TooLarge = "too-large"
 }
 
 // @public
@@ -569,11 +769,6 @@ export enum A2AOriginSite {
 }
 
 // @public
-export const A2APart: {
-    readonly fromFile: (file: FileDto, field?: string) => Part;
-};
-
-// @public
 export interface A2APeer {
     // (undocumented)
     readonly peer?: string;
@@ -618,6 +813,9 @@ export interface A2AProtocolErrorOptions {
     readonly protocolVersions?: readonly string[];
     readonly rpcCode?: number | undefined;
 }
+
+// @public
+export type A2AReceivedFile = A2AFileDto;
 
 // @public
 export class A2ARemoteCallError extends AGBossError {
@@ -837,7 +1035,7 @@ export enum A2ATaskInterruption {
 export interface A2ATaskResult {
     // (undocumented)
     readonly data: unknown;
-    readonly files: readonly FileDto[];
+    readonly files: readonly A2AReceivedFile[];
     // (undocumented)
     readonly message: Message | undefined;
     // (undocumented)
@@ -910,10 +1108,54 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
     static readonly store: StoreDescriptor;
 }
 
+// @public
+export class InMemoryA2AFileRepository extends A2AFileRepository {
+    // (undocumented)
+    deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    // (undocumented)
+    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    // (undocumented)
+    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    // (undocumented)
+    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    save(file: NewA2AFile): Promise<void>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class LocalDiskA2AFileRepository extends A2AFileRepository {
+    constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
+    // (undocumented)
+    deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    // (undocumented)
+    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    // (undocumented)
+    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    // (undocumented)
+    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    readonly folder: string;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    save(file: NewA2AFile): Promise<void>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
 export { Message }
 
 // @public
 export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
+
+// @public
+export interface NewA2AFile extends A2AFileMetadata {
+    // (undocumented)
+    readonly bytes: Uint8Array;
+}
 
 export { Part }
 
@@ -932,6 +1174,24 @@ export interface ResolvedA2ACallerResolution<TStart extends Class> {
     readonly caller: A2ACaller<TStart>;
     // (undocumented)
     readonly kind: A2ACallerResolutionKind.Resolved;
+}
+
+// @public
+export class S3A2AFileRepository extends A2AFileRepository {
+    constructor(applicationContext: ApplicationContext, clock: Clock, settings: ResolvedSettings | undefined, fetcher?: typeof fetch);
+    // (undocumented)
+    deleteByOwner(owner: A2AFileOwner): Promise<void>;
+    // (undocumented)
+    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
+    // (undocumented)
+    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
+    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    save(file: NewA2AFile): Promise<void>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
 }
 
 // @public
@@ -986,6 +1246,18 @@ export { Task }
 
 export { TaskState }
 
+// @public
+export class WorkflowFinishFileDto {
+    // (undocumented)
+    file: A2AFileDto;
+}
+
+// @public
+export class WorkflowFinishFilesDto {
+    // (undocumented)
+    files: A2AFileDto[];
+}
+
 // Warnings were encountered during analysis:
 //
 // src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "peer".
@@ -1039,6 +1311,8 @@ export { TaskState }
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "rule".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "skill".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "differences".
+// src/a2a/client/a2a-client-files.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/client/a2a-client-files.ts - (ae-undocumented) Missing documentation for "filename".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "input".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "output".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "A2AClientOptions".
@@ -1123,6 +1397,35 @@ export { TaskState }
 // src/a2a/client/a2a-task-errors.ts - (ae-undocumented) Missing documentation for "contextId".
 // src/a2a/client/a2a-task-errors.ts - (ae-undocumented) Missing documentation for "deadlineAt".
 // src/a2a/client/a2a-task-errors.ts - (ae-undocumented) Missing documentation for "cancel".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "refusal".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "refusal".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "reason".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "code".
+// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "reason".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "filename".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "sha256".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "url".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "inline".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "file".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "files".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "name".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "isList".
+// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "isOptional".
+// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "bytes".
+// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "filename".
+// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "filename".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "CallerRejected".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Contract".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Protocol".
@@ -1143,6 +1446,21 @@ export { TaskState }
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "A2ADirectMessageSave".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "filename".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "bytes".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "A2AFileRepository".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
@@ -1152,6 +1470,26 @@ export { TaskState }
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
 // src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
+// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findBytes".
+// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findMetadata".
+// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
+// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "deleteByOwner".
+// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findBytes".
+// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findMetadata".
+// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
+// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "deleteByOwner".
+// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "save".
+// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findBytes".
+// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findMetadata".
+// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "deleteByOwner".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".

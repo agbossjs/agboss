@@ -1,6 +1,7 @@
 import { ApplicationStoppingError, ExecutionCancelledError } from "../core/errors.js";
 import type { AgentExecutionOptions, AgentExecutionOutput } from "../run/types.js";
 import type { TurnOutcome } from "../turns/index.js";
+import type { Usd } from "../units/index.js";
 import type { CallOptions } from "./types.js";
 import type { TreeMoves } from "./tree-move-types.js";
 import { threadMapKeyOf, type ThreadOfTenant } from "../infrastructure/in-memory-database.js";
@@ -9,8 +10,6 @@ import type { StepEntries } from "../flow/runtime/step-entries.js";
 
 /** A thread's key in the app (#261): its tenant and its id — the same id in two tenants is two threads. */
 export type ThreadKey = ThreadOfTenant;
-
-const keyOf = threadMapKeyOf;
 
 /** A tree's key in the app: its tenant and its root execution (#807: one A2A task). */
 const treeKeyOf = (tree: ExecutionTree, threadId: string): string =>
@@ -45,7 +44,7 @@ export class LiveRuns {
   ): Promise<T> {
     const controller = new AbortController();
     if (this.#interrupted !== undefined) controller.abort(this.#interrupted);
-    const key = keyOf(thread);
+    const key = threadMapKeyOf(thread);
     const leave = [entered(this.#runs, key, controller)];
     if (thread.runId !== undefined) {
       const tree = { tenantId: thread.tenantId, rootExecutionId: thread.runId };
@@ -197,7 +196,7 @@ export class LiveRuns {
    * durable mark before it aborts the runs.
    */
   treesOf(thread: ThreadKey): readonly ExecutionTree[] {
-    const roots = this.#rootsOf.get(keyOf(thread));
+    const roots = this.#rootsOf.get(threadMapKeyOf(thread));
     return [...(roots?.keys() ?? [])].map((rootExecutionId) => ({
       tenantId: thread.tenantId,
       rootExecutionId,
@@ -206,7 +205,7 @@ export class LiveRuns {
 
   /** Aborts the thread's runs in flight; `false` when none is running. */
   abort(thread: ThreadKey): boolean {
-    return abortAll(this.#runs.get(keyOf(thread)), thread.threadId);
+    return abortAll(this.#runs.get(threadMapKeyOf(thread)), thread.threadId);
   }
 
   /**
@@ -279,7 +278,7 @@ export const cancelledErrorOf = (threadId: string): ExecutionCancelledError =>
 export const CANCELLED_STOP_REASON = "the run was cancelled";
 
 /** The Turn outcome of a cancelled execution: the path it took and what it cost. */
-export const cancelledRecordOutcome = (route: readonly string[], costUsd: number): TurnOutcome => ({
+export const cancelledRecordOutcome = (route: readonly string[], costUsd: Usd): TurnOutcome => ({
   replyWith: "",
   status: "failed",
   stopReason: CANCELLED_STOP_REASON,

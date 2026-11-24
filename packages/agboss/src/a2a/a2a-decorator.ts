@@ -1,4 +1,5 @@
 import { recordComponent } from "../components/metadata.js";
+import { recordInjectAs, type InjectAs, type PortInstances } from "../components/injection.js";
 import type { ResolvedAll, Token } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Usd } from "../units/index.js";
@@ -33,6 +34,7 @@ export type A2AAgentConfig<
   TIn extends DtoClass = DtoClass,
   TOut extends DtoClass = DtoClass,
   D extends readonly Token[] = [],
+  TPorts extends InjectAs = readonly [],
 > = {
   /** `billing-desk` — kebab-case (`[name.not-kebab-case]`). */
   readonly name: string;
@@ -58,6 +60,8 @@ export type A2AAgentConfig<
   readonly allowedOrigins?: readonly string[];
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
+  /** The abstract ports this agent's client is the implementation of (#1324). */
+  readonly injectAs?: TPorts;
 } & (
   | {
       /** What `execute(input)` takes: the skill's input, validated before it is sent. */
@@ -95,9 +99,12 @@ export function A2AAgent<
   TIn extends DtoClass,
   TOut extends DtoClass,
   const D extends readonly Token[] = [],
->(config: A2AAgentConfig<TIn, TOut, D>) {
+  const TPorts extends InjectAs = readonly [],
+>(config: A2AAgentConfig<TIn, TOut, D, TPorts>) {
   return <
-    C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>>,
+    C extends new (
+      ...args: ResolvedAll<D>
+    ) => A2AClient<InstanceType<TIn>, InstanceType<TOut>> & PortInstances<TPorts>,
   >(
     value: C,
   ): C => {
@@ -114,6 +121,7 @@ export function A2AAgent<
       deps: config.deps ?? [],
     };
     recordComponent(value, { kind: "a2a-agent", meta });
+    recordInjectAs(value, config.injectAs);
     return value;
   };
 }

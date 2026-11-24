@@ -21,7 +21,7 @@ describe("#1356: the record of a service's spend", () => {
       caller: "service:serp-api",
       model: "serp-api",
       ...ZERO_USAGE,
-      costUsd: 0.002,
+      costUsd: usd(0.002),
       costSource: CostSource.Tool,
     });
   });

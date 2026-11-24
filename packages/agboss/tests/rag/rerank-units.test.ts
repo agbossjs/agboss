@@ -41,7 +41,7 @@ describe("#703: testRag reranks", () => {
     const { output, spend } = await testRag(KeywordRankedRag)("on-call");
 
     expect(output[0]?.source).toBe(ANSWER.source);
-    expect(spend.byCategory.retrieval).toBeCloseTo(0.0005, 10);
+    expect(spend.byCategory.rag).toBeCloseTo(0.0005, 10);
   });
 });
 

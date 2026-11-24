@@ -1,14 +1,9 @@
 import {
-  Injectable,
+  Observer,
   type CompensationEndEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
-  type OnCompensationEnd,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionLeaseTakeover,
-  type OnStepHandedOver,
   type StepHandedOverEvent,
 } from "../../../index.js";
 import { FaultPodLink } from "./pod-link.js";
@@ -18,15 +13,8 @@ import { FaultPodLink } from "./pod-link.js";
  * failure, every takeover of a lease, every step handed over and every undo that ran — the
  * moments a scenario waits for. The invariants themselves are read from the stores afterwards.
  */
-@Injectable({ deps: [FaultPodLink] })
-export class FaultObserver
-  implements
-    OnExecutionEnd,
-    OnExecutionError,
-    OnExecutionLeaseTakeover,
-    OnStepHandedOver,
-    OnCompensationEnd
-{
+@Observer({ deps: [FaultPodLink] })
+export class FaultObserver {
   constructor(private readonly faultPodLink: FaultPodLink) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {

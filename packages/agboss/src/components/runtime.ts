@@ -86,7 +86,13 @@ export const rememberServers = (
 
 /** The workflow's providers as modules of the app's container (#261: one container per app). */
 export const providerModulesOf = (bundle: WorkflowMeta): readonly ProviderModule[] => [
-  { owner: bundle.name, providers: bundle.providers ?? [] },
+  bundle.services === undefined
+    ? { owner: bundle.name, providers: bundle.providers ?? [] }
+    : {
+        owner: bundle.name,
+        providers: [...(bundle.providers ?? []), ...bundle.services],
+        services: bundle.services,
+      },
 ];
 
 /** One container per app instance (its services): its tools, knowledge and index share instances. */
