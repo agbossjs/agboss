@@ -15,8 +15,11 @@ import {
 } from "../../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
+import { Mesh, MeshInboundMode } from "../../../../src/mesh/mesh.decorator.js";
+import { SqliteDriver } from "../../../../src/storage/drivers.js";
+import { DatabaseStorage } from "../../../../src/storage/storage-decorators.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../../../src/models/index.js";
-import { hours, seconds, usd } from "../../../../src/units/index.js";
+import { hours, minutes, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart, route } from "../../../helpers/flow.js";
 
@@ -81,6 +84,25 @@ export class ShelfMemory {}
 })
 export class ShelfOtherMemory {}
 
+/** Where the application's rows go: a day for the audit log and the ledger entries. */
+@DatabaseStorage({
+  name: "shelf-database-storage",
+  description: "Rows in an in-memory SQLite",
+  driver: SqliteDriver.inMemory(),
+  auditLogTtl: hours(24),
+  ledgerEntriesTtl: hours(24),
+})
+export class ShelfDatabase {}
+
+/** The application's mesh: answers kept ten minutes, five hops. */
+@Mesh({
+  name: "shelf-mesh",
+  inboundMode: MeshInboundMode.Strict,
+  deduplicationTtl: minutes(10),
+  maxHops: 5,
+})
+export class ShelfMesh {}
+
 @WorkflowStart({
   name: "shelf-workflow-start",
   description: "A question",
@@ -139,5 +161,7 @@ export class ShelfWorkflow {}
   budgets: [...TEST_BUDGETS, ShelfListedBudget],
   modelProvider: ShelfModels,
   providers: [ShelfModels, ShelfOtherModels],
+  storage: ShelfDatabase,
+  mesh: ShelfMesh,
 })
 export class ShelfApplication {}

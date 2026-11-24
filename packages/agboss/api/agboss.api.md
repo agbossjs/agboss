@@ -2067,6 +2067,7 @@ export interface ConfigSpec {
     readonly budgets?: Readonly<Record<string, BudgetOverlay>>;
     readonly channelInterpreters?: Readonly<Record<string, ComponentModelConfig>>;
     readonly channels?: ApplicationOptions["channels"];
+    readonly databaseStorages?: Readonly<Record<string, DatabaseStorageOverlay>>;
     readonly defaults?: OverlayPartial<AgentsConfig["defaults"]>;
     readonly env?: EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
     readonly externalTasks?: Readonly<Record<string, PauseTargetOverlay>>;
@@ -2074,6 +2075,7 @@ export interface ConfigSpec {
     readonly healthChecks?: ApplicationOptions["healthChecks"];
     readonly judges?: Readonly<Record<string, ComponentModelConfig>>;
     readonly memories?: Readonly<Record<string, MemoryOverlay>>;
+    readonly mesh?: Readonly<Record<string, MeshOverlay>>;
     readonly modelProvider?: Class;
     readonly modelProviders?: Readonly<Record<string, ModelProviderOverlay>>;
     readonly piiPolicies?: Readonly<Record<string, ComponentModelConfig>>;
@@ -2304,6 +2306,14 @@ export interface DatabaseStorageOptions {
     readonly piiSecret?: SecretRef;
     readonly previousIdempotencySecret?: SecretRef | OptionalSecretRef;
     readonly previousPiiSecret?: SecretRef | OptionalSecretRef;
+}
+
+// @public
+export interface DatabaseStorageOverlay {
+    // (undocumented)
+    readonly auditLogTtl?: Milliseconds | Ttl.Forever | Ttl.None;
+    // (undocumented)
+    readonly ledgerEntriesTtl?: Milliseconds | Ttl.Forever;
 }
 
 // @public
@@ -6053,6 +6063,18 @@ export interface MeshOriginStep {
     readonly component: string;
     readonly idempotencyKey: string;
     readonly tool?: string;
+}
+
+// @public
+export interface MeshOverlay {
+    // (undocumented)
+    readonly deduplicationTtl?: Milliseconds;
+    // (undocumented)
+    readonly envelopeTtl?: Milliseconds;
+    // (undocumented)
+    readonly maxClockSkew?: Milliseconds;
+    // (undocumented)
+    readonly maxHops?: number;
 }
 
 // @public
@@ -11758,6 +11780,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/components/spend-recorder.ts - (ae-undocumented) Missing documentation for "name".
 // src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "model".
 // src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "modelProvider".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "auditLogTtl".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "ledgerEntriesTtl".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "deduplicationTtl".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "maxHops".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "envelopeTtl".
+// src/config/overlay-types.ts - (ae-undocumented) Missing documentation for "maxClockSkew".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "model".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "temperature".
 // src/config/settings-types.ts - (ae-undocumented) Missing documentation for "maxTokens".

@@ -79,6 +79,28 @@ export const PauseTargetOverlaySchema = z
     message: "give timeout and/or remindBefore",
   });
 
+/** What a profile changes of one `@DatabaseStorage`, by its name: how long its rows are kept. */
+export const DatabaseStorageOverlaySchema = z
+  .strictObject({
+    auditLogTtl: z
+      .union([z.number().positive(), z.literal(Ttl.Forever), z.literal(Ttl.None)])
+      .optional(),
+    ledgerEntriesTtl: keptFor.optional(),
+  })
+  .refine((one) => Object.keys(one).length > 0, {
+    message: "give auditLogTtl and/or ledgerEntriesTtl",
+  });
+
+/** What a profile changes of the application's `@Mesh`, by its name. */
+export const MeshOverlaySchema = z
+  .strictObject({
+    deduplicationTtl: z.number().positive().optional(),
+    maxHops: z.number().int().positive().optional(),
+    envelopeTtl: z.number().positive().optional(),
+    maxClockSkew: z.number().nonnegative().optional(),
+  })
+  .refine((one) => Object.keys(one).length > 0, { message: "give at least one limit" });
+
 /** What a profile changes of one workflow's config: constants only. */
 export const WorkflowOverlaySchema = z.strictObject({
   /** The config version a profile's runs carry. */
@@ -113,6 +135,10 @@ export const ScalarOverlaySchema = z.strictObject({
   budgets: z.record(kebab, BudgetOverlaySchema).optional(),
   /** A `@Memory`'s keep time, window and compaction pace by its name. */
   memories: z.record(kebab, MemoryOverlaySchema).optional(),
+  /** How long a `@DatabaseStorage` keeps its audit log and ledger entries, by its name. */
+  databaseStorages: z.record(kebab, DatabaseStorageOverlaySchema).optional(),
+  /** The application's `@Mesh` limits, by its name. */
+  mesh: z.record(kebab, MeshOverlaySchema).optional(),
   /** How long the pauses of a `@ToolApproval` wait, by its name. */
   toolApprovals: z.record(kebab, PauseTargetOverlaySchema).optional(),
   /** How long the pauses of an `@ExternalTask` wait, by its name. */

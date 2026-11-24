@@ -2,6 +2,7 @@ import type { ApplicationOptions } from "../application/application.js";
 import type { EnvOverrides } from "../environments/define-env.js";
 import type { EnvContract } from "../environments/env-ref.js";
 import type { Class } from "../components/injection.js";
+import type { Milliseconds, Ttl } from "../units/index.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
 import type { MemoryOverlay } from "../memory/memory.decorator.js";
 import type { PauseTargetOverlay } from "../channels/pause-targets.js";
@@ -29,6 +30,20 @@ export interface ComponentModelOverlay {
 export interface ComponentModelConfig {
   readonly model?: string;
   readonly modelProvider?: string | Class;
+}
+
+/** What a profile changes of one `@DatabaseStorage`, by its name: how long its rows are kept. */
+export interface DatabaseStorageOverlay {
+  readonly auditLogTtl?: Milliseconds | Ttl.Forever | Ttl.None;
+  readonly ledgerEntriesTtl?: Milliseconds | Ttl.Forever;
+}
+
+/** What a profile changes of the application's `@Mesh`, by its name: its limits and clock tolerance. */
+export interface MeshOverlay {
+  readonly deduplicationTtl?: Milliseconds;
+  readonly maxHops?: number;
+  readonly envelopeTtl?: Milliseconds;
+  readonly maxClockSkew?: Milliseconds;
 }
 
 /** What a profile changes of one workflow (`workflows: { "credit-workflow": { … } }`). */
@@ -89,6 +104,10 @@ export interface ConfigSpec {
    * thread's keep time, its readers' windows, its compaction pace.
    */
   readonly memories?: Readonly<Record<string, MemoryOverlay>>;
+  /** How long each `@DatabaseStorage` keeps its audit log and ledger entries, by its `name`. */
+  readonly databaseStorages?: Readonly<Record<string, DatabaseStorageOverlay>>;
+  /** The application's `@Mesh` limits, by its `name`: `deduplicationTtl`, `maxHops`, `envelopeTtl`, `maxClockSkew`. */
+  readonly mesh?: Readonly<Record<string, MeshOverlay>>;
   /** How long the pauses of each `@ToolApproval` wait (`timeout`, `remindBefore`), by its `name`: the channel, the deadline and the listeners all see it. */
   readonly toolApprovals?: Readonly<Record<string, PauseTargetOverlay>>;
   /** The same for each `@ExternalTask`, by its `name`. */

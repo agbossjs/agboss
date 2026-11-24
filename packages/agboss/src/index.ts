@@ -57,6 +57,8 @@ export type {
   ComponentModelConfig,
   ComponentModelOverlay,
   ConfigSpec,
+  DatabaseStorageOverlay,
+  MeshOverlay,
   ModelProviderOverlay,
   OverlayPartial,
   PromptOverride,

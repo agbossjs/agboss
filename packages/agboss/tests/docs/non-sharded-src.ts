@@ -189,6 +189,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/application/profile-checks.ts"],
   ),
   ...reviewed(
+    "the database storage and the mesh a profile's shelves change (#1318c): derives one class per (class, overlay) carrying the overlaid keep times and mesh limits, and names a shelf entry the application lacks; the keep times are enforced by the sharded retention and ledger code and the mesh limits by the sharded mesh rules, which read the derived record like a declared one; covered by tests/config/shelves.test.ts",
+    ["src/application/component-profile.ts"],
+  ),
+  ...reviewed(
     "the variables a component names through defineEnv, found for `agboss check --env` (#1324): a walk of decorator options listing variable names, never a value; it decides nothing at run time; covered by tests/storage/referenced-variables.test.ts",
     ["src/application/referenced-variables.ts"],
   ),

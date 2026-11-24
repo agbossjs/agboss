@@ -1,0 +1,3 @@
+databaseStorages:
+  ghost-database-storage:
+    auditLogTtl: 1000

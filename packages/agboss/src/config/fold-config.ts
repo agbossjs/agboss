@@ -6,8 +6,10 @@ import type { LoadedProfile } from "./config-files.js";
 import { deepMerge } from "./deep-merge.js";
 import { TYPESCRIPT_ONLY_WORKFLOW_KEYS } from "./define-config.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
+import { budgetsOf, foldedShelf, memoriesOf, pauseTargetsOf } from "./fold-shelves.js";
 import type { MemoryOverlay } from "../memory/memory.decorator.js";
 import type { PauseTargetOverlay } from "../channels/pause-targets.js";
+import type { DatabaseStorageOverlay, MeshOverlay } from "./overlay-types.js";
 import type { ComponentModelOverride } from "../models/model-cascade.js";
 import type {
   ComponentModelConfig,
@@ -60,6 +62,9 @@ export interface FoldedConfig {
   readonly budgets: Readonly<Record<string, BudgetOverlay>>;
   /** What each `@Memory` keeps by its name, the profiles folded (a later one wins per field). */
   readonly memories: Readonly<Record<string, MemoryOverlay>>;
+  /** What each `@DatabaseStorage` keeps and the `@Mesh`'s limits, by name, the profiles folded. */
+  readonly databaseStorages: Readonly<Record<string, DatabaseStorageOverlay>>;
+  readonly mesh: Readonly<Record<string, MeshOverlay>>;
   /** How long the pauses of each `@ToolApproval` / `@ExternalTask` wait, by name, the profiles folded. */
   readonly toolApprovals: Readonly<Record<string, PauseTargetOverlay>>;
   readonly externalTasks: Readonly<Record<string, PauseTargetOverlay>>;
@@ -77,6 +82,8 @@ export const unchangedConfig = (profiles: readonly string[]): FoldedConfig => ({
   modelProviders: {},
   budgets: {},
   memories: {},
+  databaseStorages: {},
+  mesh: {},
   toolApprovals: {},
   externalTasks: {},
   componentModels: {},
@@ -129,36 +136,6 @@ function componentModelsOf(
         found[`${prefix}.${name}`] = { ...found[`${prefix}.${name}`], ...one };
     }
   }
-  return found;
-}
-
-/** What each memory keeps, later profiles winning per field. */
-function memoriesOf(layers: readonly LoadedProfile[]): Readonly<Record<string, MemoryOverlay>> {
-  const found: Record<string, MemoryOverlay> = {};
-  for (const layer of layers)
-    for (const [name, one] of Object.entries(layer.spec.memories ?? {}))
-      found[name] = { ...found[name], ...one };
-  return found;
-}
-
-/** What a shelf of pause targets says, later profiles winning per field. */
-function pauseTargetsOf(
-  layers: readonly LoadedProfile[],
-  shelf: "toolApprovals" | "externalTasks",
-): Readonly<Record<string, PauseTargetOverlay>> {
-  const found: Record<string, PauseTargetOverlay> = {};
-  for (const layer of layers)
-    for (const [name, one] of Object.entries(layer.spec[shelf] ?? {}))
-      found[name] = { ...found[name], ...one };
-  return found;
-}
-
-/** The limits of each budget, later profiles winning per limit. */
-function budgetsOf(layers: readonly LoadedProfile[]): Readonly<Record<string, BudgetOverlay>> {
-  const found: Record<string, BudgetOverlay> = {};
-  for (const layer of layers)
-    for (const [name, one] of Object.entries(layer.spec.budgets ?? {}))
-      found[name] = { ...found[name], ...one };
   return found;
 }
 
@@ -227,6 +204,8 @@ export function foldedConfigOf(
     modelProviders: providersOf(layers),
     budgets: budgetsOf(layers),
     memories: memoriesOf(layers),
+    databaseStorages: foldedShelf(layers, "databaseStorages"),
+    mesh: foldedShelf(layers, "mesh"),
     toolApprovals: pauseTargetsOf(layers, "toolApprovals"),
     externalTasks: pauseTargetsOf(layers, "externalTasks"),
     componentModels: componentModelsOf(layers),

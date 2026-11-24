@@ -28,6 +28,7 @@ import {
 } from "./application.js";
 import type { PauseTargetOverrides } from "../channels/pause-targets.js";
 import { pauseOverridesOf } from "../config/pause-overrides.js";
+import { checkComponentShelves, componentOptionsOf } from "./component-profile.js";
 import { budgetOverlaysOf } from "./budget-profile.js";
 import { checkMemories, checkPauseTargets } from "./profile-checks.js";
 import { withIsolatedStorage } from "./isolated-storage.js";
@@ -51,15 +52,19 @@ async function effectiveOptionsOf(
     folded.replacements.storage === undefined
       ? await withIsolatedStorage(declaration.written)
       : declaration.written;
+  const replaced = { ...written, ...folded.replacements, ...own };
+  // the database storage and the mesh the profiles' shelves change: a derived class, the declared one untouched
+  const changed = componentOptionsOf(replaced, folded);
   if (
     written === declaration.written &&
     Object.keys(folded.replacements).length === 0 &&
-    Object.keys(own).length === 0
+    Object.keys(own).length === 0 &&
+    Object.keys(changed).length === 0
   )
     return declaration.options;
   // the replaced lists go through the same step as the declared ones: a replaced `storage` replaces
   // its stores in `providers`, a replaced `channels` its channels
-  return declaredOptionsOf({ ...written, ...folded.replacements, ...own });
+  return declaredOptionsOf({ ...replaced, ...changed });
 }
 
 /** The providers the application's workflows can reach, by their `name`. */
@@ -174,6 +179,7 @@ export function checkAppliedProfiles(
 ): void {
   checkOverlayUse(applied.folded, applied.use);
   checkMemories(applied.folded, assembled);
+  checkComponentShelves(applied.folded, applied.options);
   checkPauseTargets(applied.folded, assembled);
   checkProviderOverlays(applied.folded, reachableProvidersOf(applied.options, assembled));
 }

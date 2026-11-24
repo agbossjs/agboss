@@ -16,13 +16,17 @@ import { standaloneBudgetsOf } from "../../src/application/application-container
 import { describedApplicationOf } from "../../src/describe/application.js";
 import { ProfileError, ProfileErrorReason } from "../../src/config/profile-error.js";
 import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
-import { hours, usd } from "../../src/units/index.js";
+import { databaseStorageOf } from "../../src/storage/storage-decorators.js";
+import { meshOf } from "../../src/mesh/mesh.decorator.js";
+import { hours, minutes, usd } from "../../src/units/index.js";
 import { memoryMetaOf } from "../../src/memory/memory.decorator.js";
 import {
   ShelfApplication,
   ShelfAttachedBudget,
   ShelfListedBudget,
+  ShelfDatabase,
   ShelfMemory,
+  ShelfMesh,
   ShelfOtherMemory,
   ShelfSlotBudget,
   ShelfWorkflow,
@@ -320,5 +324,43 @@ describe("the memories shelf and the memory class slot", () => {
     };
 
     expect(Object.keys(schema.properties.memories.properties)).toEqual(["shelf-memory"]);
+  });
+});
+
+describe("the databaseStorages and mesh shelves", () => {
+  it("declared: a day of audit log and ledger entries, ten minutes of mesh answers, five hops", async () => {
+    const app = await assembled();
+
+    expect(app.auditLogRetention).toBe(hours(24));
+    expect(app.ledgerEntryRetention).toBe(hours(24));
+    expect(app.meshAnswerRetention).toBe(minutes(10));
+    expect(app.maxMeshHops).toBe(5);
+  });
+
+  it("gives every reader the profile's keep times and mesh limits", async () => {
+    const app = await assembled("keep");
+
+    expect(app.auditLogRetention).toBe(hours(1));
+    expect(app.ledgerEntryRetention).toBe(hours(2));
+    expect(app.meshAnswerRetention).toBe(minutes(30));
+    expect(app.maxMeshHops).toBe(3);
+    expect(app.mesh).toMatchObject({ name: "shelf-mesh", deduplicationTtl: minutes(30) });
+  });
+
+  it("never changes the declared classes, nor another assembly of them", async () => {
+    await assembled("keep");
+
+    expect(databaseStorageOf(ShelfDatabase)).toMatchObject({ auditLogTtl: hours(24) });
+    expect(meshOf(ShelfMesh)).toMatchObject({ deduplicationTtl: minutes(10), maxHops: 5 });
+    expect((await assembled()).maxMeshHops).toBe(5);
+  });
+
+  it("refuses a storage and a mesh the application does not have", async () => {
+    expect((await failure(assembled("ghost-storage"))).message).toMatch(
+      /databaseStorages\.ghost-database-storage: no such @DatabaseStorage/,
+    );
+    expect((await failure(assembled("ghost-mesh"))).message).toMatch(
+      /mesh\.ghost-mesh: no such @Mesh/,
+    );
   });
 });
