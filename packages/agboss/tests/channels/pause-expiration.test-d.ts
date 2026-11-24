@@ -10,6 +10,7 @@ import {
   type ChannelRoleBaseOptions,
   type DecideExpiration,
   type FailExpiration,
+  type ReassignExpiration,
   type PauseExpiryHandler,
   type QuestionStepOptions,
   type ToolOptions,
@@ -69,5 +70,19 @@ describe("#941: PauseExpiration and PauseExpiryHandler", () => {
     const bad: QuestionStepOptions = { expiresIn: 4 };
     expectTypeOf(options).toExtend<QuestionStepOptions>();
     expectTypeOf(bad).toExtend<QuestionStepOptions>();
+  });
+
+  it("#1310a: reassign takes assignees, a duration and a reason — and nothing of a person's answer", () => {
+    const moved = PauseExpiration.reassign({
+      assignees: ["deputy-1"],
+      timeout: hours(2),
+      reason: "no answer",
+    });
+    expectTypeOf(moved).toEqualTypeOf<ReassignExpiration>();
+    expectTypeOf(moved.kind).toEqualTypeOf<PauseExpirationKind.Reassign>();
+    // @ts-expect-error assignees are required
+    PauseExpiration.reassign({ timeout: hours(2) });
+    // @ts-expect-error a duration (hours(2)), not a number
+    PauseExpiration.reassign({ assignees: ["d"], timeout: 2 });
   });
 });

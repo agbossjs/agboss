@@ -1,6 +1,7 @@
 import type { PauseActor } from "../channels/pause-contexts.js";
 import type {
   PauseClosedReason,
+  PauseExpiryBound,
   PauseRecipients,
   PauseRecord,
   PauseStatus,
@@ -147,6 +148,16 @@ export interface PauseReplacement {
   readonly actor?: PauseActor;
   /** Why, already masked by the pause's workflow's PII policy: kept in the chain of custody. */
   readonly reason?: string;
+  /**
+   * An expiry's reassignment (#1310a): applied only while the pause's deadline is at or before the
+   * write (a due-at compare-and-set, not "still open"), and the replacement waits for `expiresAt`
+   * (absent: no deadline) bound by `expiryBound`, with no reminder — a reassignment otherwise keeps
+   * the old deadline.
+   */
+  readonly due?: {
+    readonly expiresAt?: string;
+    readonly expiryBound?: PauseExpiryBound;
+  };
 }
 
 /** The receivers of a kind: `opened` goes to listeners only, every other kind to the channel too. */

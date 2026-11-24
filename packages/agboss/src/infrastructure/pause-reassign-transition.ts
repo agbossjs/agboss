@@ -1,7 +1,7 @@
 import type { PauseRecipients, PauseReplacement } from "./pause-notices.js";
 import type { PauseRecord } from "./pause-record.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
-import { closing, isOpenAt, type PauseChange } from "./pause-transitions.js";
+import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transitions.js";
 
 /**
  * `Pending → Cancelled / Reassigned` and the replacement made (#946), only while the pause is open at
@@ -17,7 +17,7 @@ export function reassignChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseChange | undefined {
-  if (!isOpenAt(pause, at)) return undefined;
+  if (replacement.due === undefined ? !isOpenAt(pause, at) : !isDueAt(pause, at)) return undefined;
   const stepKey = replacementStepKeyOf(pause, takenStepKeys);
   return {
     ...closing(pause, reassignedPause(pause, replacement.pauseId, at), at, recipients),

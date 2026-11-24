@@ -1054,6 +1054,13 @@ may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
   `actor` is the channel's name); `onExecutionResume` says `ResumeReason.Expired`. An
   approval decided `{ approved: true }` runs its tool with no person having looked — choose it
   knowing that; `{ approved: false, reason }` is read by the model as a refusal by the channel.
+- `PauseExpiration.reassign({ assignees, timeout?, reason? })` (#1310): the pause goes on waiting, for
+  other assignees, under a new deadline (`timeout` after now, else the channel's `expiresIn`, never
+  past the run's or a quorum's bound). The old pause closes `reassigned`, a new one (a new id, the
+  old `trail` plus a `reassigned` entry, no reminder) is asked of the same channel by the re-send
+  look, and the tree rests paused again. A request that is not valid, or a deadline already past,
+  expires the pause as `fail()`; a pause bound by the run's or a quorum's deadline is never
+  reassigned.
 
 The handler runs under the tree's lease in the pause's frame under the tool's `timeout`, **once per
 expiry**: a crash before its decision was recorded may run it again, and one decision is recorded —

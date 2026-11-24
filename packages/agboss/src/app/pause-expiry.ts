@@ -1,5 +1,6 @@
 import { effectiveBoundOf } from "../infrastructure/pause-bound.js";
 import { isPauseExpiration, PauseExpirationKind } from "../channels/pause-expiration.js";
+import { movedOnExpiry, reassignmentOf, type ExpiryOutcome } from "./pause-expiry-reassign.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
 import { answerValidatorOf } from "../channels/decision.js";
 import {
@@ -70,10 +71,12 @@ function fellBackTo(parts: TreeMoveParts, pause: PauseRecord, problem: ExpiryPro
   return { problem };
 }
 
-/** The decision a returned value is: `fail()`, or `decide(answer)` validated like a resume's. */
-function decisionOf(parts: TreeMoveParts, pause: PauseRecord, value: unknown): PauseExpiry {
+/** The decision a returned value is: `fail()`, `decide(answer)` validated like a resume's, or a reassignment. */
+function decisionOf(parts: TreeMoveParts, pause: PauseRecord, value: unknown): ExpiryOutcome {
   if (!isPauseExpiration(value)) return fellBackTo(parts, pause, ExpiryProblem.HandlerFailed);
   if (value.kind === PauseExpirationKind.Fail) return FAILED;
+  if (value.kind === PauseExpirationKind.Reassign)
+    return reassignmentOf(value) ?? fellBackTo(parts, pause, ExpiryProblem.AnswerInvalid);
   try {
     const checks = { tools: treeToolsOf(parts.deps), questions: treeQuestionAnswersOf(parts.deps) };
     const decision = answerValidatorOf(pause, checks)(value.answer);
@@ -89,7 +92,7 @@ async function askedChannel(
   decide: NonNullable<ChannelSender["onPauseExpired"]>,
   pause: PauseRecord,
   interruption: AbortSignal | undefined,
-): Promise<PauseExpiry> {
+): Promise<ExpiryOutcome> {
   const { deps } = parts;
   const own = ownDepsOf(deps, pause.workflow);
   const timeout = isApprovalPause(pause)
@@ -133,13 +136,34 @@ async function expiryOf(
   parts: TreeMoveParts,
   pause: PauseRecord,
   interruption: AbortSignal | undefined,
-): Promise<PauseExpiry> {
+): Promise<ExpiryOutcome> {
   const bound = effectiveBoundOf(pause);
   if (bound === PauseExpiryBound.RunDeadline || bound === PauseExpiryBound.Quorum) return FAILED;
   const sender = senderOf(parts, pause);
   if (sender?.onPauseExpired === undefined) return FAILED;
   // Stryker disable next-line OptionalChaining: the handler is there — `sender.onPauseExpired` was checked above; the call only narrows its type
   return askedChannel(parts, (ask) => sender.onPauseExpired?.(ask), pause, interruption);
+}
+
+/** The pause expired with `expiry` by the store's compare-and-set: its notices, its tally, its answer logged; `false` when it closed meanwhile. */
+async function expiredPause(
+  parts: TreeMoveParts,
+  pause: PauseRecord,
+  expiry: PauseExpiry,
+): Promise<boolean> {
+  const stores = parts.deps.pause;
+  const applied = await stores?.pauses.expireByTenantIdAndPauseId(
+    pause.tenantId,
+    pause.pauseId,
+    expiry,
+    parts.clock.now(),
+    recipientsIn(stores, pause),
+  );
+  if (stores === undefined || applied === undefined) return false;
+  noticesWritten(stores);
+  pauseTallyOf(stores)?.closed(applied);
+  await logPauseAnswer(stores.answers, applied, applied.resolution ?? PauseResolution.Expired);
+  return true;
 }
 
 /**
@@ -160,21 +184,14 @@ export async function expirePauses(
     const tree = { tenantId: pause.tenantId, rootExecutionId: pause.rootExecutionId };
     // a cancel always beats an expiry (#941): once requested, no decision is asked or recorded
     if (await isCancelRequested(parts.trees, tree)) break;
-    const expiry = await expiryOf(parts, pause, interruption);
+    const outcome = await expiryOf(parts, pause, interruption);
     // ...and one requested while the handler ran: its decision is dropped, the cancel ends the tree
     if (await isCancelRequested(parts.trees, tree)) break;
-    const applied = await stores.pauses.expireByTenantIdAndPauseId(
-      pause.tenantId,
-      pause.pauseId,
-      expiry,
-      parts.clock.now(),
-      recipientsIn(stores, pause),
-    );
-    if (applied === undefined) continue;
-    noticesWritten(stores);
-    pauseTallyOf(stores)?.closed(applied);
-    await logPauseAnswer(stores.answers, applied, applied.resolution ?? PauseResolution.Expired);
-    closed += 1;
+    const moved = await movedOnExpiry(parts, pause, outcome);
+    if (moved === "done") closed += 1;
+    if (moved !== "failed") continue;
+    const expiry: PauseExpiry = "reassign" in outcome ? FAILED : outcome;
+    if (await expiredPause(parts, pause, expiry)) closed += 1;
   }
   return closed;
 }

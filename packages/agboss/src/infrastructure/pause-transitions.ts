@@ -77,7 +77,7 @@ export const isOpenAt = (pause: PauseRecord, at: Date): boolean =>
   pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) > at.toISOString();
 
 /** Whether a pending pause's deadline is at or before `at`. */
-const isDueAt = (pause: PauseRecord, at: Date): boolean =>
+export const isDueAt = (pause: PauseRecord, at: Date): boolean =>
   pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) <= at.toISOString();
 
 /** `Pending → Resolved` with the answer, only while `expiresAt` is after `at` (I1, I2). */

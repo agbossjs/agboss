@@ -7715,18 +7715,24 @@ export interface PauseExecutionOptions {
 }
 
 // @public
-export type PauseExpiration<TRole> = FailExpiration | DecideExpiration<ChannelAnswerOf<TRole>>;
+export type PauseExpiration<TRole> = FailExpiration | DecideExpiration<ChannelAnswerOf<TRole>> | ReassignExpiration;
 
 // @public
 export const PauseExpiration: {
     readonly fail: () => FailExpiration;
     readonly decide: <TAnswer>(answer: TAnswer) => DecideExpiration<TAnswer>;
+    readonly reassign: (options: {
+        readonly assignees: readonly string[];
+        readonly timeout?: Milliseconds;
+        readonly reason?: string;
+    }) => ReassignExpiration;
 };
 
 // @public
 export enum PauseExpirationKind {
     Decide = "decide",
-    Fail = "fail"
+    Fail = "fail",
+    Reassign = "reassign"
 }
 
 // @public
@@ -8780,6 +8786,15 @@ export abstract class RateLimitRepository {
     abstract ping(): Promise<void>;
     abstract release(rateLimitLease: RateLimitLease): Promise<void>;
     abstract renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean>;
+}
+
+// @public
+export interface ReassignExpiration {
+    readonly assignees: readonly string[];
+    // (undocumented)
+    readonly kind: PauseExpirationKind.Reassign;
+    readonly reason?: string;
+    readonly timeout?: Milliseconds;
 }
 
 // @public
@@ -12019,6 +12034,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "answer".
+// src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "onPauseExpired".
 // src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "assign".
 // src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "resolveTimeout".

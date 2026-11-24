@@ -160,6 +160,7 @@ export {
   PauseExpirationKind,
   type DecideExpiration,
   type FailExpiration,
+  type ReassignExpiration,
   type PauseExpiryHandler,
 } from "../channels/pause-expiration.js";
 export {

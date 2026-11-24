@@ -1,5 +1,10 @@
-import type { PauseActor } from "../channels/pause-contexts.js";
-import { PauseResolution, PauseStatus, type PauseRecord } from "./pause-record.js";
+import type { PauseReplacement } from "./pause-notices.js";
+import {
+  PauseResolution,
+  PauseStatus,
+  type PauseRecord,
+  type PauseTrailRecord,
+} from "./pause-record.js";
 
 /**
  * A reassigned pause and its replacement (#946): the records a reassignment makes and the step key a
@@ -49,29 +54,59 @@ export const reassignedPause = (
   reassignedTo: replacementId,
 });
 
+/** The entry a reassignment adds to the chain of custody: who moved the pause, when, to whom, why. */
+function reassignedEntryOf(
+  pause: PauseRecord,
+  replacement: ReplacementOf,
+  at: Date,
+): PauseTrailRecord {
+  const { assignees, actor, reason, due } = replacement;
+  const expiresAt = due === undefined ? pause.expiresAt : due.expiresAt;
+  return {
+    action: "reassigned",
+    at: at.toISOString(),
+    ...(actor === undefined ? {} : { actor }),
+    target: pause.channel,
+    channel: pause.channel,
+    assignees,
+    ...(expiresAt === undefined ? {} : { expiresAt }),
+    ...(reason === undefined ? {} : { reason }),
+  };
+}
+
+/** What a replacement is made from. */
+type ReplacementOf = Pick<
+  PauseReplacement,
+  "pauseId" | "assignees" | "actor" | "reason" | "due"
+> & {
+  readonly stepKey: string;
+};
+
+/** The old pause without what a replacement does not keep: its reference, and on an expiry its deadline and reminder. */
+function keptOf(pause: PauseRecord, isExpiry: boolean): Omit<PauseRecord, "externalRef"> {
+  const dropped: readonly string[] = isExpiry
+    ? ["externalRef", "expiresAt", "expiryBound", "remindAt"]
+    : ["externalRef"];
+  return Object.fromEntries(
+    Object.entries(pause).filter(([key]) => !dropped.includes(key)),
+  ) as Omit<PauseRecord, "externalRef">;
+}
+
 /**
- * The pause that takes the place of `pause` for another addressee (#946): `Pending` and unsent, its
+ * The pause that takes the place of `pause` for other addressees (#946): `Pending` and unsent, its
  * channel asked again; the deadline, its source, its reminder, the branches and the question are the
- * old pause's — a reassignment is no new deadline.
+ * old pause's — a reassignment is no new deadline, unless an expiry made it (`due`, #1310a). Its
+ * chain of custody is the old one's and a `reassigned` entry; the channel's reference is not kept.
  */
 export function replacementPause(
   pause: PauseRecord,
-  replacement: {
-    readonly pauseId: string;
-    readonly assignees: readonly string[];
-    readonly stepKey: string;
-    readonly actor?: PauseActor | undefined;
-    readonly reason?: string | undefined;
-  },
+  replacement: ReplacementOf,
   at: Date,
 ): PauseRecord {
-  const { pauseId, assignees, stepKey, actor, reason } = replacement;
-  // the channel's system gave the old pause its reference: the new send gets its own
-  const asked = Object.fromEntries(
-    Object.entries(pause).filter(([key]) => key !== "externalRef"),
-  ) as Omit<PauseRecord, "externalRef">;
+  const { pauseId, assignees, stepKey, due } = replacement;
   return {
-    ...asked,
+    ...keptOf(pause, due !== undefined),
+    ...due,
     pauseId,
     assignees,
     stepKey,
@@ -79,18 +114,6 @@ export function replacementPause(
     isSent: false,
     askedAt: at.toISOString(),
     reassignedFrom: pause.pauseId,
-    trail: [
-      ...pause.trail,
-      {
-        action: "reassigned",
-        at: at.toISOString(),
-        ...(actor === undefined ? {} : { actor }),
-        target: pause.channel,
-        channel: pause.channel,
-        assignees,
-        ...(pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt }),
-        ...(reason === undefined ? {} : { reason }),
-      },
-    ],
+    trail: [...pause.trail, reassignedEntryOf(pause, replacement, at)],
   };
 }

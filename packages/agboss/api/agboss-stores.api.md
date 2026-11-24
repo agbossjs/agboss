@@ -2110,6 +2110,10 @@ export const pauseRecordOfJson: (value: unknown) => PauseRecord;
 export interface PauseReplacement {
     readonly actor?: PauseActor;
     readonly assignees: readonly string[];
+    readonly due?: {
+        readonly expiresAt?: string;
+        readonly expiryBound?: PauseExpiryBound;
+    };
     readonly pauseId: string;
     readonly reason?: string;
 }

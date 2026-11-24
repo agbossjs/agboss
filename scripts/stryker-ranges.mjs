@@ -84,7 +84,7 @@ export function pausesShard() {
       "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-transitions}.ts",
       "src/infrastructure/in-memory-pause-{book,queries,store}.ts",
       // #1307c: an answer is recorded only once its target's permitAnswer said true; fails closed
-      "src/app/{answer-permit,answer-parts}.ts",
+      "src/app/{answer-permit,answer-parts,pause-expiry-reassign}.ts",
     ],
   };
 }

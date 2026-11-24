@@ -23,7 +23,7 @@ function assigneeProblem(assignee: unknown): string | undefined {
 }
 
 /** The assignees of a request, checked: one to 100 key's texts, none twice. */
-function assigneesOf(given: unknown): readonly string[] {
+export function assigneesOf(given: unknown): readonly string[] {
   if (!Array.isArray(given) || given.length === 0 || given.length > MAX_ASSIGNEES)
     return reject([
       {
