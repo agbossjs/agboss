@@ -1,3 +1,4 @@
+import { trustedOf } from "./sqlite-transaction.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
@@ -130,7 +131,7 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository {
     work: FencedEffectWork<TResult>,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     // the file's one transaction span, asynchronous: other operations wait behind it (#1317c)
-    return this.connection.held(() => this.#transaction(key, work));
+    return this.connection.held((handle) => this.#transaction(key, work, trustedOf(handle)));
   }
 
   deleteExpired(now: Date): Promise<number> {
@@ -154,12 +155,16 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository {
   async #transaction<TResult>(
     key: EffectKey,
     work: FencedEffectWork<TResult>,
+    trusted: <TInner>(inner: () => TInner) => TInner,
   ): Promise<IdempotencyRunOutcome<TResult>> {
     const { database } = this.connection;
-    const now = this.clock.now().getTime();
-    checkSqliteFence(database, key, now);
-    raiseSqliteMark(database, key, now);
-    const stored = storedRowOf(database, key);
+    // the store's own statements are trusted; the user's `execute` (below) never is
+    const stored = trusted(() => {
+      const now = this.clock.now().getTime();
+      checkSqliteFence(database, key, now);
+      raiseSqliteMark(database, key, now);
+      return storedRowOf(database, key);
+    });
     if (stored !== undefined) {
       const { token, result, facts } = ResultRow.parse(stored);
       // written by this store from the key's facts; checked by replayedFromOf
@@ -176,14 +181,18 @@ export class SqliteFencedEffectRepository extends FencedEffectRepository {
       };
     }
     // #909: no stored result — a new effect after a durable cancel is refused, the work not run
-    checkSqliteCancel(database, key);
+    trusted(() => {
+      checkSqliteCancel(database, key);
+    });
     const text = this.storedResultOf(key, await work());
     // the lease may have moved, or the cancel arrived, while the work ran: the transaction holds the
     // file's write lock, but the lease's time runs on — checked again before the row is written
-    const after = this.clock.now().getTime();
-    checkSqliteFence(database, key, after);
-    checkSqliteCancel(database, key);
-    insertRowOf(database, key, after, text);
+    trusted(() => {
+      const after = this.clock.now().getTime();
+      checkSqliteFence(database, key, after);
+      checkSqliteCancel(database, key);
+      insertRowOf(database, key, after, text);
+    });
     return {
       status: IdempotencyRunStatus.Ran,
       result: JSON.parse(text) as TResult,

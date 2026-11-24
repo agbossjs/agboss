@@ -13,6 +13,7 @@ import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqli
 import { SqliteExecutionTreeRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-tree.repository.js";
 import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { SQLITE_HOLD_CAP } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
+import { controlsTransaction } from "../../../src/infrastructure/sqlite/sqlite-transaction.js";
 import { keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { hours, seconds } from "../../../src/units/index.js";
@@ -307,5 +308,145 @@ describe("#1317c: the ambient transaction", () => {
       IdempotencyError.OutsideTransaction,
     );
     expect(rowsOf(stores)).toEqual([]);
+  });
+});
+
+describe("#1317c fix: renewals, transaction control, an ended hold", () => {
+  it("a renewal made during a hold that rolls back is re-applied: the lease stays extended", async () => {
+    const stores = storesOn();
+    const lease = await leaseOf(stores);
+    const key = keyOf(lease);
+    const hold = latch();
+    const run = stores.effects.runOnce(key, async () => {
+      await hold.promise;
+      throw new Error("a declined card");
+    });
+    await turns();
+    await stores.clock.advance(seconds(10));
+
+    const left = await stores.leases.renew(lease, seconds(30));
+    hold.open();
+    await expect(run).rejects.toThrow("a declined card");
+
+    expect(left).toBe(seconds(30));
+    const expiresAt = Number(
+      stores.connection.database
+        .prepare("SELECT expires_at FROM execution_leases WHERE root_execution_id = 'execution-1'")
+        .get()?.expires_at,
+    );
+    expect(expiresAt).toBe(stores.clock.now().getTime() + seconds(30));
+  });
+
+  it("a renewal during a hold that hits the 15 s cap survives the rollback", async () => {
+    vi.useFakeTimers();
+    const stores = storesOn();
+    const lease = await leaseOf(stores);
+    const key = keyOf(lease);
+    const never = latch();
+    const run = stores.effects.runOnce(key, () => never.promise.then(() => ({ done: true })));
+    const settled = run.catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(1);
+    const renewed = await stores.leases.renew(lease, hours(2));
+    expect(renewed).toBe(hours(2));
+
+    await vi.advanceTimersByTimeAsync(SQLITE_HOLD_CAP);
+
+    expect(await settled).toBeInstanceOf(IdempotencyError.HoldTooLong);
+    const expiresAt = Number(
+      stores.connection.database
+        .prepare("SELECT expires_at FROM execution_leases WHERE root_execution_id = 'execution-1'")
+        .get()?.expires_at,
+    );
+    expect(expiresAt).toBe(stores.clock.now().getTime() + hours(2));
+  });
+
+  it.each([
+    "COMMIT",
+    "END",
+    "ROLLBACK",
+    "BEGIN",
+    "SAVEPOINT s",
+    "RELEASE s",
+    "  /* c */ commit",
+    "INSERT INTO rows VALUES ('x'); COMMIT",
+  ])("the handle refuses transaction control (%s) and nothing is committed", async (sql) => {
+    const stores = storesOn();
+    const key = keyOf(await leaseOf(stores));
+    let refusal: unknown;
+
+    const call = stores.effects.runOnce(key, () => {
+      const transaction = stores.connection.requireTransaction();
+      try {
+        transaction.exec(sql);
+      } catch (error) {
+        refusal = error;
+      }
+      try {
+        transaction.prepare(sql).run();
+      } catch {
+        // refused as well
+      }
+      return { done: true };
+    });
+
+    await expect(call).rejects.toThrow();
+    expect(refusal).toBeInstanceOf(IdempotencyError.NestedTransaction);
+    expect(rowsOf(stores)).toEqual([]);
+    expect(stores.connection.database.isTransaction).toBe(false);
+  });
+
+  it("a quoted semicolon and comment is not transaction control", () => {
+    expect(controlsTransaction("INSERT INTO rows VALUES ('a; commit')")).toBe(false);
+    expect(controlsTransaction("-- commit\nSELECT 1")).toBe(false);
+    expect(controlsTransaction("SELECT 1; END")).toBe(true);
+  });
+
+  it("raw database statements inside a hold are refused: only requireTransaction() writes", async () => {
+    const stores = storesOn();
+    const key = keyOf(await leaseOf(stores));
+    let refusal: unknown;
+
+    await stores.effects.runOnce(key, () => {
+      try {
+        stores.connection.database.exec("COMMIT");
+      } catch (error) {
+        refusal = error;
+      }
+      return { done: true };
+    });
+
+    expect(refusal).toBeInstanceOf(IdempotencyError.OutsideTransaction);
+    expect(stores.connection.database.isTransaction).toBe(false);
+  });
+
+  it("a late write from an abandoned hold is refused after the timeout and writes nothing", async () => {
+    vi.useFakeTimers();
+    const stores = storesOn();
+    const key = keyOf(await leaseOf(stores));
+    const never = latch();
+    const late: unknown[] = [];
+    const run = stores.effects.runOnce(key, async () => {
+      await never.promise;
+      await stores.tree.saveIfAbsentInTree(TREE, "late", "v").catch((error: unknown) => {
+        late.push(error);
+      });
+      try {
+        stores.connection.database.prepare("INSERT INTO rows VALUES ('raw')").run();
+      } catch (error) {
+        late.push(error);
+      }
+      return { done: true };
+    });
+    const settled = run.catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(SQLITE_HOLD_CAP + 1);
+    expect(await settled).toBeInstanceOf(IdempotencyError.HoldTooLong);
+
+    never.open();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(late).toHaveLength(2);
+    expect(late.every((error) => error instanceof IdempotencyError.OutsideTransaction)).toBe(true);
+    expect(rowsOf(stores)).toEqual([]);
+    expect(await stores.tree.findByIdInTree(TREE, "late")).toBeUndefined();
   });
 });

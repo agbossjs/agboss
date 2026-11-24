@@ -5,6 +5,8 @@ import type { SqliteConnection } from "./sqlite-connection.js";
 export interface SqliteGateOptions {
   /** Methods served ahead of the queue (a single statement, harmless inside an open transaction). */
   readonly priority?: readonly string[];
+  /** Priority methods that renew a lease: re-applied when the hold they rode in rolls back. */
+  readonly renewals?: readonly string[];
   /** Methods that queue for the file themselves (`FencedEffectRepository.runInTransaction`). */
   readonly ungated?: readonly string[];
 }
@@ -41,18 +43,7 @@ export function gatedSqliteImplementation(
     const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
     const original = descriptor?.value as AnyFunction | undefined;
     if (typeof original !== "function" || GATED in original) continue;
-    const isPriority = options.priority?.includes(name) === true;
-    const isStream = original.constructor.name === "AsyncGeneratorFunction";
-    const gated: AnyFunction = isStream
-      ? async function* (this: object, ...args: unknown[]) {
-          await connectionFor(this, connectionOf)?.serve(() => undefined);
-          yield* original.apply(this, args) as AsyncGenerator;
-        }
-      : function (this: object, ...args: unknown[]) {
-          const connection = connectionFor(this, connectionOf);
-          if (connection === undefined) return original.apply(this, args);
-          return connection.gate(() => original.apply(this, args), { isPriority });
-        };
+    const gated = gatedMethod(original, flagsOf(options, name), connectionOf);
     Object.defineProperty(gated, GATED, { value: true });
     Object.defineProperty(gated, "name", { value: name });
     Object.defineProperty(prototype, name, { ...descriptor, value: gated });
@@ -69,4 +60,30 @@ function connectionFor(
   connectionOf: (instance: object) => SqliteConnection | undefined,
 ): SqliteConnection | undefined {
   return connectionOf(instance);
+}
+
+/** How a method meets the mutex: served ahead, and whether it renews a lease. */
+function flagsOf(options: SqliteGateOptions, name: string) {
+  return {
+    isPriority: options.priority?.includes(name) === true,
+    isRenewal: options.renewals?.includes(name) === true,
+  };
+}
+
+/** `original` routed through its instance's connection (a stream waits its turn once, up front). */
+function gatedMethod(
+  original: AnyFunction,
+  flags: ReturnType<typeof flagsOf>,
+  connectionOf: (instance: object) => SqliteConnection | undefined,
+): AnyFunction {
+  if (original.constructor.name === "AsyncGeneratorFunction")
+    return async function* (this: object, ...args: unknown[]) {
+      await connectionFor(this, connectionOf)?.serve(() => undefined);
+      yield* original.apply(this, args) as AsyncGenerator;
+    };
+  return function (this: object, ...args: unknown[]) {
+    const connection = connectionFor(this, connectionOf);
+    if (connection === undefined) return original.apply(this, args);
+    return connection.gate(() => original.apply(this, args), flags);
+  };
 }

@@ -109,7 +109,7 @@ export class SqliteConnection implements OnDestroy {
       throw error;
     }
     this.#mutex = mutexOfSqliteFile(this.path) as SqliteMutex<SqliteTransactionScope>;
-    this.#database = guardedDatabase(classifiedDatabase(database), this.#mutex);
+    this.#database = guardedDatabase(classifiedDatabase(database), this.#mutex, this);
   }
 
   /** The database itself: for the statements of one store. */
@@ -137,20 +137,18 @@ export class SqliteConnection implements OnDestroy {
    */
   serve<TValue>(
     work: () => TValue,
-    options?: { readonly isPriority?: boolean },
+    options?: { readonly isPriority?: boolean; readonly isRenewal?: boolean },
   ): Promise<Awaited<TValue>> {
-    return Promise.resolve(
-      options?.isPriority === true ? this.#mutex.ahead(this, work) : this.#mutex.whenFree(work),
-    );
+    return Promise.resolve(this.gate(work, options));
   }
 
   /** `serve` that returns what `work` returns as it is when no transaction is open (no extra tick). */
   gate<TValue>(
     work: () => TValue,
-    options?: { readonly isPriority?: boolean },
+    options?: { readonly isPriority?: boolean; readonly isRenewal?: boolean },
   ): TValue | Promise<Awaited<TValue>> {
     return options?.isPriority === true
-      ? this.#mutex.ahead(this, work)
+      ? this.#mutex.ahead(this, work, options.isRenewal === true)
       : this.#mutex.whenFree(work);
   }
 
