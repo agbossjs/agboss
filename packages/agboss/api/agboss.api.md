@@ -284,10 +284,11 @@ export interface ActionOptions<TDeps extends readonly Token[] = readonly Token[]
     readonly input?: InputFields;
     readonly name: string;
     readonly output?: OutputShape;
+    readonly timeout?: Milliseconds;
 }
 
 // @public
-export type ActionResult<TOutput> = [TOutput] extends [NoOutput] ? Promise<void> : Promise<TOutput>;
+export type ActionResult<TOutput> = [TOutput] extends [NoOutput] ? void | Promise<void> : TOutput | Promise<TOutput>;
 
 // @public
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
@@ -2946,7 +2947,7 @@ export interface EvalCaseIssue {
 // @public
 interface ExecuteMethod {
     // (undocumented)
-    execute(input: never): Promise<unknown>;
+    execute(input: never): unknown;
 }
 
 // @public

@@ -15,10 +15,15 @@ import { ActionFailedError, OutputInvalidError, passesThrough } from "../errors.
 import { readInput, type NodeValue } from "../scope.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import { currentFrame } from "../../context/frame.js";
+import { StepError } from "../../../core/error-families/step-errors.js";
+import { stepCoordinatesOf } from "../../../graph/errors.js";
+import { timeoutOn, type Clock } from "../../../infrastructure/clock.js";
+import type { Milliseconds } from "../../../units/index.js";
+import { ComponentKind } from "../records.js";
 
 /** What an action is: `execute(input)` (`implements ActionHandler<Self>`). */
 interface ActionInstance {
-  execute(input: Readonly<Record<string, unknown>>): Promise<unknown>;
+  execute(input: Readonly<Record<string, unknown>>): unknown;
 }
 
 const isAction = (value: unknown): value is ActionInstance =>
@@ -61,9 +66,45 @@ export function checkedActionValue(node: string, output: OutputShape, result: un
   return { value: items };
 }
 
+/**
+ * The action's `execute`, sync or async: its result as a promise, a sync throw a rejection. With a
+ * `timeout` the step fails with `StepError.ActionTimeout` when it runs past it (on the application's
+ * clock); without one it waits as long as the action does.
+ */
+async function executed(
+  run: () => unknown,
+  node: string,
+  timeout: Milliseconds | undefined,
+  clock: Clock | undefined,
+): Promise<unknown> {
+  const result = Promise.resolve().then(run);
+  if (timeout === undefined || clock === undefined) return result;
+  const expired = timeoutOn(clock, timeout, () => timedOut(node, timeout));
+  const late = new Promise<never>((_resolve, reject) => {
+    expired.signal.addEventListener("abort", () => {
+      reject(expired.signal.reason);
+    });
+  });
+  try {
+    return await Promise.race([result, late]);
+  } finally {
+    expired.release();
+  }
+}
+
+const timedOut = (action: string, timeout: Milliseconds): StepError.ActionTimeout =>
+  new StepError.ActionTimeout({
+    ...stepCoordinatesOf(action, ComponentKind.Action),
+    action,
+    timeout,
+    message: `Action "${action}" ran past its timeout of ${String(timeout)} ms`,
+  });
+
 /** A failure of the action's code; a limit, a cancel or a pause passes as it is (S22). */
 const failure = (node: string, error: unknown): unknown =>
-  passesThrough(error) ? error : new ActionFailedError({ action: node, cause: error });
+  passesThrough(error) || error instanceof StepError.ActionTimeout
+    ? error
+    : new ActionFailedError({ action: node, cause: error });
 
 /**
  * An action: its instance from the container runs `execute(input)` with its fields from the scope;
@@ -75,7 +116,7 @@ const failure = (node: string, error: unknown): unknown =>
 export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Action) throw new TypeError(`${node.id} is not an action`);
-  const { output } = declaration.options;
+  const { output, timeout } = declaration.options;
   return async (state) => {
     const instance: unknown = deps.container.get(node.component);
     if (!isAction(instance))
@@ -89,7 +130,12 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
     // `detectWithModel`): the holder's fence right before the action, nothing awaited in between —
     // a holder past its lease runs nothing (a hand-over: the new holder runs it)
     currentFrame()?.execution.lease?.assertHeld();
-    const result = await instance.execute(input.fields).catch((error: unknown) => {
+    const result = await executed(
+      () => instance.execute(input.fields),
+      node.id,
+      timeout,
+      deps.clock,
+    ).catch((error: unknown) => {
       throw failure(node.id, error);
     });
     await reportNodeEvent((base) => deps.observer?.onActionEnd({ ...base, name, output: result }));

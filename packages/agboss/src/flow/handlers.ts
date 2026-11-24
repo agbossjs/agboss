@@ -9,7 +9,9 @@ import type { InputOf, NoOutput, OutputOf, RouterAnswerOf } from "./generated-ty
  */
 
 /** What an action's `execute` resolves to: its output, nothing without `output`. */
-export type ActionResult<TOutput> = [TOutput] extends [NoOutput] ? Promise<void> : Promise<TOutput>;
+export type ActionResult<TOutput> = [TOutput] extends [NoOutput]
+  ? void | Promise<void>
+  : TOutput | Promise<TOutput>;
 
 /**
  * `@Action`: `execute(input)` — `Promise<OutputOf<Self>>`, `Promise<void>` without `output`. No run
