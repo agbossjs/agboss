@@ -81,7 +81,9 @@ const Status = z.looseObject({
   errorDetails: z.unknown().optional(),
   spentUsd: storedUsd.optional(),
   spentTokens: z.number().int().nonnegative().optional(),
-  cancelRequestedAt: isoTime().optional(),
+  cancelRequestedAt: isoTime()
+    .transform((text) => new Date(text))
+    .optional(),
 });
 
 /** The status of a row whose `state` column agrees with it (M6: a compare-and-set reads the column). */

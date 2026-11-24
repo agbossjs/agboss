@@ -203,8 +203,9 @@ export enum A2ATaskSaveStatus {
 
 // @public
 export enum A2ATaskState {
+    AuthRequired = "TASK_STATE_AUTH_REQUIRED",
     // (undocumented)
-    Canceled = "TASK_STATE_CANCELED",
+    Cancelled = "TASK_STATE_CANCELED",
     // (undocumented)
     Completed = "TASK_STATE_COMPLETED",
     // (undocumented)
@@ -215,13 +216,14 @@ export enum A2ATaskState {
     Rejected = "TASK_STATE_REJECTED",
     // (undocumented)
     Submitted = "TASK_STATE_SUBMITTED",
+    Unspecified = "TASK_STATE_UNSPECIFIED",
     // (undocumented)
     Working = "TASK_STATE_WORKING"
 }
 
 // @public
 export interface A2ATaskStatus {
-    readonly cancelRequestedAt?: string;
+    readonly cancelRequestedAt?: Date;
     readonly errorCode?: string;
     readonly errorDetails?: unknown;
     readonly finish?: string;
@@ -233,6 +235,9 @@ export interface A2ATaskStatus {
     // (undocumented)
     readonly state: A2ATaskState;
 }
+
+// @public
+export type A2ATerminalTaskState = A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Cancelled | A2ATaskState.Rejected;
 
 // @public
 export class AGBossError extends Error {
@@ -1223,7 +1228,71 @@ export enum IdempotencyRunStatus {
 export const idGeneratorNameOf: (idGenerator: object) => string;
 
 // @public
+export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
+    // (undocumented)
+    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
+    // (undocumented)
+    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
+    // (undocumented)
+    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class InMemoryA2ATaskRepository extends A2ATaskRepository {
+    // (undocumented)
+    compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
+    // (undocumented)
+    findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    list(query: A2ATaskQuery): Promise<A2ATaskPage>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
+    // (undocumented)
+    saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class InvalidA2APageTokenError extends AGBossError {
+    constructor(options?: InvalidA2APageTokenErrorOptions);
+    // (undocumented)
+    static readonly code: "a2a.invalid-page-token";
+    // (undocumented)
+    readonly code: typeof InvalidA2APageTokenError.code;
+}
+
+// @public
+export interface InvalidA2APageTokenErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
+}
+
+// @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
+
+// @public
+export const isTerminalA2ATaskState: (state: A2ATaskState) => state is A2ATerminalTaskState;
 
 // @public
 export type JsonPrimitive = string | number | boolean | null;
@@ -2125,6 +2194,54 @@ export interface SetAsideMailbox {
 export const SQLITE_HOLD_CAP: Milliseconds;
 
 // @public
+export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
+    // (undocumented)
+    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
+    // (undocumented)
+    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class SqliteA2ATaskRepository extends A2ATaskRepository {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
+    // (undocumented)
+    findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    list(query: A2ATaskQuery): Promise<A2ATaskPage>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
+    // (undocumented)
+    saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
 export class SqliteConnection implements OnDestroy {
     constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
     columnsOf(table: string): readonly string[];
@@ -2773,7 +2890,7 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "InputRequired".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Completed".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Failed".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Canceled".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Cancelled".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Rejected".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "taskId".
@@ -2795,6 +2912,9 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tasks".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "nextPageToken".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "A2ATaskRepository".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
@@ -2872,6 +2992,25 @@ export interface WrittenLedgerMark {
 // src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "origin".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "completeIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "peer".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "idempotencyKey".
@@ -2933,6 +3072,25 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "stepKey".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "reassignedFrom".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "completeIfInFlight".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "changes".
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "lastInsertRowid".
 // src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "run".

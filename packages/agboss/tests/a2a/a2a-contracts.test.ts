@@ -1,6 +1,7 @@
+import { hours, minutes } from "../../src/units/index.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { A2AAgent, A2AClient, A2AExpose, a2aHttpListener } from "../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AEndpoint, a2aHttpListener } from "../../src/a2a/index.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { App } from "../../src/app/types.js";
@@ -28,7 +29,7 @@ afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()));
 });
 
-describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
+describe("#398 PR 3: a2aHttpListener serves an @A2AEndpoint", () => {
   it("an expose the application does not list: [application.endpoint-unlisted]", async () => {
     const app = await createTestAppWith(ShopApplication, offline(new ScriptBook()));
     apps.push(app);
@@ -46,11 +47,12 @@ describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
 
 describe("#398 PR 3: the contracts at assembly", () => {
   it("names, exports and targets are checked, every violation at once", async () => {
-    @A2AExpose({
+    @A2AEndpoint({
       name: "Shop_Expose",
       version: "1.0.0",
       description: "A shop",
-      exports: [QuoteWorkflowStart, Object],
+      ttl: { tasks: hours(24), messages: minutes(15) },
+      skills: [QuoteWorkflowStart, Object],
     })
     class ShopExpose {}
 

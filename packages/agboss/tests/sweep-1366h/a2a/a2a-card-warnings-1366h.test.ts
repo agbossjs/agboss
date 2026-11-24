@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
 import { a2aCardWarningsOf } from "../../../src/a2a/a2a-card-warnings.js";
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
 import { recordComponent } from "../../../src/components/metadata.js";
 import { hours, minutes, usd } from "../../../src/units/index.js";
@@ -45,20 +45,21 @@ class PeerAgent extends A2AClient {}
 @A2AAgent({ name: "second-a2a-agent", url: "http://s.invalid" })
 class SecondForeignAgent extends A2AClient {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "tags-a2a-expose",
   version: "1.0.0",
   description: "d",
-  exports: [RefundWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [RefundWorkflowStart],
 })
 class UntaggedExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "tagged-a2a-expose",
   version: "1.0.0",
   description: "d",
-  exports: [RefundWorkflowStart],
-  skills: { "refund-workflow-start": { tags: ["refunds"] } },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [{ start: RefundWorkflowStart, tags: ["refunds"] }],
 })
 class TaggedExpose {}
 

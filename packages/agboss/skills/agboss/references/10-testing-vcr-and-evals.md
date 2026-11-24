@@ -653,7 +653,7 @@ url, headers })`. The app is built first and the authenticator taken from its co
 `allowNetwork`, its `publicUrl` is its own address, and the server closes when the test ends. It
 serves A2A v1.0 (#808): the Agent Card at `<url>/.well-known/agent-card.json` and JSON-RPC 2.0 at
 `POST <url>` — any A2A client calls it, here a plain `fetch` of `SendMessage`. A refused caller is
-`401 a2a.caller-unauthenticated`, `A2ACallerRejectedError` on an AGBoss client (reference 04):
+`401 a2a.caller-unauthenticated`, `A2AError.CallerRejected` on an AGBoss client (reference 04):
 
 <!-- snippet-context
 import { type HttpAuthenticatorHandler } from "@agboss/core";

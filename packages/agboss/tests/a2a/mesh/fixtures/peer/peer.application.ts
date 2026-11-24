@@ -5,8 +5,8 @@ import "../keys.js";
 import { Mesh, MeshInboundMode } from "../../../../../src/mesh/mesh.decorator.js";
 import { defineEnv } from "../../../../../src/environments/define-env.js";
 import { secret } from "../../../../../src/environments/secret.js";
-import { minutes } from "../../../../../src/units/index.js";
-import { A2AExpose } from "../../../../../src/a2a/a2a-expose.decorator.js";
+import { minutes, hours } from "../../../../../src/units/index.js";
+import { A2AEndpoint } from "../../../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../../../src/application/application.js";
 import type { Class } from "../../../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../../src/dto/index.js";
@@ -203,11 +203,12 @@ export class PeerAnswerWorkflowFinish {}
 })
 export class PeerWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "peer-a2a-expose",
   version: "1.0.0",
   description: "Answers questions",
-  exports: [PeerAskWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [PeerAskWorkflowStart],
 })
 export class PeerA2AExpose {}
 

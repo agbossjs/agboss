@@ -1,9 +1,9 @@
-import { hours } from "../../../src/units/index.js";
+import { hours, minutes } from "../../../src/units/index.js";
 // #860 — an application with a direct-reply skill: a quote agent (one read-only tool) that answers
 // with a direct A2A `Message`, beside an ordinary task skill (an action). The quote skill is the
 // expose's `defaultSkill`. Stores: the in-memory defaults (DirectApplication), the SQLite files of
 // the instances' environment (SqliteDirectApplication, two instances).
-import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
 import { FilePolicy } from "../../../src/files/file-policy.js";
 import { Files } from "../../../src/a2a/files/files.service.js";
@@ -159,16 +159,17 @@ export class AckWorkflowFinish {}
 })
 export class AckWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "quotes-a2a-expose",
   version: "1.0.0",
   description: "Answers price questions at once; acknowledges messages as tasks",
-  exports: [QuoteWorkflowStart, QuoteFileWorkflowStart, AckWorkflowStart],
-  skills: {
-    "quote-workflow-start": { reply: A2AReply.Message },
-    "quote-file-workflow-start": { reply: A2AReply.Message },
-  },
   defaultSkill: QuoteWorkflowStart,
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [
+    { start: QuoteWorkflowStart, reply: A2AReply.Message },
+    { start: QuoteFileWorkflowStart, reply: A2AReply.Message },
+    AckWorkflowStart,
+  ],
 })
 export class QuotesA2AExpose {}
 

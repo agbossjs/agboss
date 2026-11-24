@@ -80,11 +80,11 @@ async function lostStartOf(
     return START_LOST;
   const requestedAt = task.status.cancelRequestedAt;
   if (requestedAt !== undefined)
-    return now.getTime() - Date.parse(requestedAt) >= startTimeout ? START_LOST : undefined;
+    return now.getTime() - requestedAt.getTime() >= startTimeout ? START_LOST : undefined;
   const tree = { tenantId: task.tenantId, rootExecutionId: task.taskId, threadId: task.contextId };
   const outcome = await control.cancelExecution({ ...tree, ownerId: task.ownerId });
   if (outcome === ExecutionCancelOutcome.AwaitingStart)
-    return { ...task.status, cancelRequestedAt: now.toISOString() };
+    return { ...task.status, cancelRequestedAt: now };
   // it began meanwhile: its true state (its cancel ends it, and its events say so)
   return durableStatusOf(await control.executionStateOf(tree));
 }

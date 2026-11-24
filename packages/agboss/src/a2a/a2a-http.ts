@@ -1,4 +1,3 @@
-import { MAX_DEADLINE, timerProblemOf } from "../units/timer-limits.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { executionControlOf } from "../app/execution-control.js";
 import type { Class } from "../components/injection.js";
@@ -6,7 +5,7 @@ import { componentOf, ComponentError } from "../components/metadata.js";
 import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
 import { Clock, IdGenerator, lazyLoad } from "../infrastructure/clock.js";
 import { frameworkLogOf, Logger } from "../infrastructure/logger.js";
-import { kilobytes, type Bytes, type Milliseconds } from "../units/index.js";
+import { kilobytes, type Bytes } from "../units/index.js";
 import type { A2AApp } from "./a2a-caller.js";
 import {
   listenerAuthenticatorOf,
@@ -26,7 +25,7 @@ import { interfaceUrlOf } from "./a2a-public-url.js";
 import { cardSourceOf, knownOf } from "./a2a-card-source.js";
 import { serverFilesOf } from "./files/a2a-server-files.js";
 
-/** `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base?, onError?, maxBodySize?, maxTaskDuration? })` (#387, #808, #1316, #1320). */
+/** `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base?, onError?, maxBodySize? })` (#387, #808, #1316, #1320). */
 export interface A2AHttpListenerOptions {
   /**
    * What it serves (#398 PR 3): an `@A2AEndpoint` listed in `@Application({ endpoints })` — its
@@ -61,8 +60,6 @@ export interface A2AHttpListenerOptions {
    * more when a skill takes files (#859): room for its `maxTotalFileSize` as base64 and 256 KB more.
    */
   readonly maxBodySize?: Bytes;
-  /** Every task's execution deadline (`DeadlineExceededError` past it): a task outlives its request; at most 24 days (`[a2a.timeout-invalid]`, #1141). */
-  readonly maxTaskDuration?: Milliseconds;
 }
 
 const HTTP_UNAVAILABLE = 503;
@@ -89,19 +86,6 @@ export function maxBodySizeOf(
     ),
   );
   return Math.max(MAX_BODY_SIZE, Math.ceil((largest * 4) / 3) + kilobytes(256)) as Bytes;
-}
-
-/** `maxTaskDuration` bounds a timer: above their maximum, `[a2a.timeout-invalid]` (#1141). */
-function checkedListenerTimers(options: A2AHttpListenerOptions): void {
-  const problems = [
-    options.maxTaskDuration === undefined
-      ? undefined
-      : timerProblemOf("maxTaskDuration", options.maxTaskDuration, MAX_DEADLINE),
-  ].filter((problem) => problem !== undefined);
-  if (problems.length > 0)
-    throw new ComponentError({
-      message: `[a2a.timeout-invalid] a2aHttpListener's ${problems.join("; ")}`,
-    });
 }
 
 /** The server's modules, loaded with the first request (the root import stays lean). */
@@ -178,7 +162,6 @@ async function bindingOf(
     skills,
     runs: new LocalRuns(log),
     log,
-    maxTaskDuration: options.maxTaskDuration,
     mesh,
     files: serverFilesOf(app, options),
     direct: directPartsOf(app, skills, expose.defaultSkill),
@@ -212,7 +195,6 @@ export function a2aHttpListener(
   app: A2AApp,
   options: A2AHttpListenerOptions,
 ): (req: IncomingMessage, res: ServerResponse) => void {
-  checkedListenerTimers(options);
   const authenticator = listenerAuthenticatorOf(app, options.authenticator);
   const endpoint = endpointOf(app, options.endpoint);
   const base = options.base ?? "";

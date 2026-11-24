@@ -1,6 +1,7 @@
+import { hours, minutes } from "../../../src/units/index.js";
 import { Window2Memory } from "../../helpers/window-memory.js";
 import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
-import { A2AExpose } from "../../../src/a2a/index.js";
+import { A2AEndpoint } from "../../../src/a2a/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import {
   Agent,
@@ -110,23 +111,27 @@ const defaults = {
 @Workflow({
   name: "remote-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(AskStart).toAgent(Desk).toFinish(DeskAnswer)],
+  flow: [onStart(AskStart)
+    .toAgent(Desk)
+    .toFinish(DeskAnswer)],
   defaults,
   memory: Window2Memory,
   providers: [SingleTenantAuthenticator],
 })
 export class RemoteDesk implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder().build();
+    return WorkflowSettings.builder()
+      .build();
   }
 }
 
 /** What the application serves over A2A (#398 PR 3): its one start. */
-@A2AExpose({
+@A2AEndpoint({
   name: "remote-desk-a2a-expose",
   description: "Served over A2A",
   version: "1.0.0",
-  exports: [AskStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [AskStart],
 })
 export class RemoteDeskA2AExpose {}
 

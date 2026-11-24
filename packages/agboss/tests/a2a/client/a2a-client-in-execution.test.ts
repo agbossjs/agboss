@@ -223,7 +223,7 @@ describe("#809: the deadline and the price", () => {
     await ask("slow").catch(() => undefined);
 
     expect(errors[0]).toBeInstanceOf(A2ACallDeadlineError);
-    expect(errors[0]).toMatchObject({ isCanceled: true });
+    expect(errors[0]).toMatchObject({ isCancelled: true });
     expect(agent.count("CancelTask")).toBe(1);
   });
 

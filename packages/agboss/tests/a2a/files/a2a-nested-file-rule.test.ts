@@ -5,9 +5,10 @@
  * exported start's input, its finishes' outputs, an `@A2AAgent`'s input and output), and a client
  * built with such a contract refuses to call.
  */
+import { hours, minutes } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
 import { FileDto, nestedFileFieldsOf } from "../../../src/dto/standard/file.js";
 import { Application } from "../../../src/application/application.js";
@@ -71,11 +72,12 @@ function servedWith(
   })
   class NestedWorkflow {}
 
-  @A2AExpose({
+  @A2AEndpoint({
     name: "nested-a2a-expose",
     version: "1.0.0",
     description: "n",
-    exports: [NestedStart],
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [NestedStart],
   })
   class NestedExpose {}
 
@@ -111,11 +113,12 @@ function servedWithListOutput(item: ListWrapper) {
   })
   class ListedWorkflow {}
 
-  @A2AExpose({
+  @A2AEndpoint({
     name: "listed-a2a-expose",
     version: "1.0.0",
     description: "l",
-    exports: [ListedStart],
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [ListedStart],
   })
   class ListedExpose {}
 

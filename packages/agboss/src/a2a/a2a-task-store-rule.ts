@@ -47,7 +47,7 @@ function isShared(leases: string | undefined, tasks: string | undefined): boolea
 
 /** The names of the application's `@A2AEndpoint`s. */
 const a2aEndpointsOf = (options: ApplicationOptions): readonly string[] =>
-  // Stryker disable next-line ArrayDeclaration: an entry that is no class is no @A2AExpose: none either way
+  // Stryker disable next-line ArrayDeclaration: an entry that is no class is no @A2AEndpoint: none either way
   (options.endpoints ?? []).flatMap((endpoint) => {
     const meta = componentOf(endpoint);
     return meta?.kind === "a2a-endpoint" ? [meta.meta.name] : [];

@@ -206,8 +206,12 @@ describe("#1366: a call charges the peer's price at the accept and settles after
       isStreaming: true,
       deadlineAt: undefined,
       signal: controller.signal,
-      onEvent,
+      onEvent: expect.any(Function),
     });
+    // the caller's `onEvent` is given the event as AGBoss types it, never the SDK's
+    const given = vi.mocked(waitForTask).mock.calls[0]?.[0].onEvent;
+    given?.({ payload: { $case: "message", value: made.accepted.message as never } });
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "message" }));
   });
 
   it("a card that does not stream is polled", async () => {

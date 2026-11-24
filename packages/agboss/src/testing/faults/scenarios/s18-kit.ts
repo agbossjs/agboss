@@ -29,7 +29,7 @@ import { pauseStateOn } from "./pause-kit.js";
  */
 
 /** Whether an answer is the task canceled. */
-export const isCanceled = (answer: A2AAnswer): boolean => answer.state === A2ATaskState.Canceled;
+export const isCanceled = (answer: A2AAnswer): boolean => answer.state === A2ATaskState.Cancelled;
 
 /** What `pod`'s store answered to its transitions of a pause at `point` (`true`: it moved it). */
 export const movedBy = (
@@ -146,7 +146,7 @@ export const isResumedFirst = (cluster: FaultCluster, a: FaultPod, b: FaultPod):
 export const isAccepted = (cancel: A2AAnswer): boolean =>
   cancel.errorCode === undefined &&
   cancel.state !== undefined &&
-  (cancel.state === A2ATaskState.Canceled || !isTerminalA2ATaskState(cancel.state));
+  (cancel.state === A2ATaskState.Cancelled || !isTerminalA2ATaskState(cancel.state));
 
 /**
  * Whether a's held charge of `orderId` stopped within two leases of the pods' clock: its holder

@@ -1,6 +1,7 @@
 // #808 — the pauses fixture served over A2A: two skills (a text desk, a DTO audit), an approval its
 // caller answers (`ThreadOwner`) and one only its channel answers.
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { hours, minutes } from "../../../src/units/index.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -18,13 +19,16 @@ import {
 } from "../../channels/fixtures/pauses.workflow.js";
 import { BearerAuthenticator } from "./bearer-authenticator.js";
 
-@A2AExpose({
+@A2AEndpoint({
   name: "desk-a2a-expose",
   version: "2.1.0",
   description: "Refunds and confirms orders",
   provider: { organization: "Example Corp", url: "https://example.test" },
-  exports: [DeskWorkflowStart, AuditWorkflowStart],
-  skills: { "audit-workflow-start": { tags: ["audit", "refunds"], examples: ["refund order 7"] } },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [
+    DeskWorkflowStart,
+    { start: AuditWorkflowStart, tags: ["audit", "refunds"], examples: ["refund order 7"] },
+  ],
 })
 export class DeskA2AExpose {}
 

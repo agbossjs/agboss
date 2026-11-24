@@ -6,8 +6,9 @@
  * workflow, an export, an expose) read past without a throw; a skill option of no reply; the start
  * of no listed workflow; every violation placed on the application.
  */
+import { hours, minutes } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
-import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import {
   messageSkillsOf,
   messageSkillViolations,
@@ -67,15 +68,14 @@ function skillOf(nodes: readonly Class[]): { readonly start: Class; readonly wor
 const nameOf = (start: Class): string => declarationOf(start)?.options.name ?? start.name;
 
 /** An expose of `exports` whose first export answers with a direct message, `skills` over it. */
-function exposeOf(exports: readonly Class[], skills: Record<string, object> = {}): Class {
+function exposeOf(exports: readonly Class[]): Class {
   const first = exports[0];
-  const name = first === undefined ? "none" : nameOf(first);
-  @A2AExpose({
+  @A2AEndpoint({
     name: "unit-rule-a2a-expose",
     version: "1.0.0",
     description: "Direct replies",
-    exports: [...exports],
-    skills: { [name]: { reply: A2AReply.Message }, ...skills },
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: exports.map((start) => (start === first ? { start, reply: A2AReply.Message } : start)),
   })
   class Made {}
   return Made;
@@ -179,34 +179,15 @@ describe("#860: what the direct-reply rule reads past", () => {
     expect(violationsOf([workflow], [UnitMcpEndpoint, PlainTool])).toEqual([]);
   });
 
-  it("an option of no reply for no export is no unknown reply; an export of no name never answers with a message", () => {
-    const { start: exported, workflow } = skillOf([PlainAgent]);
-    const expose = exposeOf([exported, PlainTool], {
-      "files-only": { files: { maxFiles: 1 } },
-      undefined: { reply: A2AReply.Message },
-    });
-    const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-endpoint") throw new Error("not an expose");
-
-    const codes = violationsOf([workflow], [expose]).map((found) => found.message);
-
-    expect(codes).toEqual([
-      "unit-rule-a2a-expose sets the reply of undefined, which it does not export — name an exported start",
-    ]);
-    expect(messageSkillsOf(meta.meta)).toEqual([exported]);
-    expect(violationsOf([workflow], [expose]).map((found) => found.nodes)).toEqual([
-      ["unit-rule-application"],
-    ]);
-  });
-
   it("a defaultSkill of no export is placed on the application", () => {
     const { start: exported, workflow } = skillOf([PlainAgent]);
-    @A2AExpose({
+    @A2AEndpoint({
       name: "unit-default-a2a-expose",
       version: "1.0.0",
       description: "Direct replies",
-      exports: [exported],
       defaultSkill: PlainTool,
+      ttl: { tasks: hours(24), messages: minutes(15) },
+      skills: [exported],
     })
     class DefaultExpose {}
 

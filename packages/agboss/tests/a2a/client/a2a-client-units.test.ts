@@ -13,7 +13,7 @@ import {
 } from "@a2a-js/sdk/errors";
 import { describe, expect, it } from "vitest";
 import { urlOf } from "./support/sdk-agent.js";
-import { A2ACallerRejectedError } from "../../../src/a2a/a2a-caller.js";
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 import {
   meshBodyHashOf,
   meshEnvelopeTextOf,
@@ -198,10 +198,9 @@ describe("which failed sends did nothing", () => {
   it("a refused caller, a JSON-RPC error but -32603, a 4xx but 408 are definite", () => {
     expect(
       isDefiniteSendFailure(
-        new A2ACallerRejectedError({
+        new A2AError.CallerRejected({
           httpStatus: 403,
           wireCode: "a2a.caller-forbidden",
-          reason: "x",
         }),
       ),
     ).toBe(true);
@@ -223,9 +222,7 @@ describe("which failed sends did nothing", () => {
     expect(isAmbiguous(protocol({ rpcCode: -32603 }))).toBe(true);
     expect(isAmbiguous(protocol({ rpcCode: -32602 }))).toBe(false);
     expect(
-      isAmbiguous(
-        new A2ACallerRejectedError({ httpStatus: 401, wireCode: "a2a.caller-x", reason: "x" }),
-      ),
+      isAmbiguous(new A2AError.CallerRejected({ httpStatus: 401, wireCode: "a2a.caller-x" })),
     ).toBe(false);
     expect(isAmbiguous(new Error("an Idempotency refusal"))).toBe(false);
   });
@@ -246,10 +243,9 @@ describe("wireErrorOf: codes only", () => {
 
   it("passes the client's own errors through, found in the causes", () => {
     const network = new A2ANetworkError(new TypeError("reset"));
-    const refused = new A2ACallerRejectedError({
+    const refused = new A2AError.CallerRejected({
       httpStatus: 401,
       wireCode: "a2a.caller-x",
-      reason: "x",
     });
     const origin = new A2AOriginError({
       agent: "a",
@@ -452,7 +448,7 @@ describe("wireFetchOf", () => {
       wireCode: "a2a.caller-unauthenticated",
     });
     await expect(fetch401({ code: "a2a.caller-forbidden" }, 403)).rejects.toBeInstanceOf(
-      A2ACallerRejectedError,
+      A2AError.CallerRejected,
     );
     await expect(fetch401({ code: "a2a.caller-forbidden" }, 402)).rejects.toThrow(/HTTP 402/);
     await expect(fetch401({ code: "mesh.signature-invalid" })).rejects.toThrow(/HTTP 401/);
@@ -901,7 +897,7 @@ describe("the transport's edges", () => {
     expect(await refusal("a2a.caller-forbidden!")).toBeInstanceOf(HttpStatusError);
     expect(await refusal("a2a.caller-")).toBeInstanceOf(HttpStatusError);
     expect(await refusal("a2a.caller-forbidden")).toMatchObject({
-      message: expect.stringContaining("refused by the agent's caller resolver"),
+      message: "the A2A server rejected the caller (401 a2a.caller-forbidden)",
     });
   });
 

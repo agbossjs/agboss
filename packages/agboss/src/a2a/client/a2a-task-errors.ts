@@ -140,9 +140,9 @@ export class A2ATaskInterruptedError extends AGBossError {
 /** How the best-effort cancel at a deadline went. */
 export enum A2ACancelOutcome {
   /** The agent answered the task CANCELED. */
-  Canceled = "canceled",
+  Cancelled = "cancelled",
   /** The agent answered, the task in another state (it may still end on its side). */
-  NotCanceled = "not-canceled",
+  NotCancelled = "not-cancelled",
   /** The agent refused it (an error answer: the task not cancelable, the caller refused, …). */
   Refused = "refused",
   /** No answer within the cancel's own bound. */
@@ -151,14 +151,14 @@ export enum A2ACancelOutcome {
 
 /** What a call that ran out of time knows. */
 export interface A2ACallDeadlineErrorOptions extends A2ATaskErrorOptions {
-  /** When the wait ended (ISO 8601). */
-  readonly deadlineAt: string;
+  /** When the wait ended. */
+  readonly deadlineAt: Date;
   readonly cancel: A2ACancelOutcome;
 }
 
 /**
  * The wait for a remote task reached its deadline (#809): the execution's deadline, or the call's
- * own. The client sent a best-effort CancelTask (`isCanceled`: the agent answered CANCELED); the
+ * own. The client sent a best-effort CancelTask (`isCancelled`: the agent answered CANCELED); the
  * task may still end later on the agent's side.
  */
 export class A2ACallDeadlineError extends AGBossError {
@@ -168,18 +168,22 @@ export class A2ACallDeadlineError extends AGBossError {
   readonly agent: string;
   readonly taskId: string;
   readonly contextId: string;
-  readonly deadlineAt: string;
+  readonly deadlineAt: Date;
   readonly cancel: A2ACancelOutcome;
   /** Whether the agent answered the cancel with a CANCELED task. */
-  readonly isCanceled: boolean;
+  readonly isCancelled: boolean;
 
   constructor(options: A2ACallDeadlineErrorOptions) {
     const canceled = `the cancel asked: ${options.cancel}`;
     super(
-      `the task ${options.taskId} of A2A agent ${options.agent} did not end by ${options.deadlineAt}: ${canceled}`,
+      `the task ${options.taskId} of A2A agent ${options.agent} did not end by ${options.deadlineAt.toISOString()}: ${canceled}`,
       {
         cause: options.cause,
-        details: { agent: options.agent, taskId: options.taskId, deadlineAt: options.deadlineAt },
+        details: {
+          agent: options.agent,
+          taskId: options.taskId,
+          deadlineAt: options.deadlineAt.toISOString(),
+        },
       },
     );
     this.agent = options.agent;
@@ -187,7 +191,7 @@ export class A2ACallDeadlineError extends AGBossError {
     this.contextId = options.contextId;
     this.deadlineAt = options.deadlineAt;
     this.cancel = options.cancel;
-    this.isCanceled = options.cancel === A2ACancelOutcome.Canceled;
+    this.isCancelled = options.cancel === A2ACancelOutcome.Cancelled;
   }
 }
 

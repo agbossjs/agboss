@@ -534,13 +534,13 @@ createServer(
 
 - A refused request runs nothing: no `onExecutionStart`, no `onExecutionRejected`, no record — and a
   streaming caller gets the real status, not an event stream. `A2AClient.send` throws
-  `A2ACallerRejectedError` (`code` `a2a.caller-rejected`, `httpStatus`, the server's `wireCode`) on a
+  `A2AError.CallerRejected` (`code` `a2a.caller-rejected`, `httpStatus`, the server's `wireCode`) on a
   `401` / `403`.
 - `authenticated({ … })` takes the tenant's values when the application declares a `TenantContext`; optional `rateLimitKey`
   keys the listener's per-caller limits. A single-tenant host returns `HttpAuthResult.authenticated({})` — never implied.
 - An answer is built only by `HttpAuthResult` (branded: a plain object does not compile).
 - A caller that disconnects never cancels its task: it runs on, and `GetTask` / `SubscribeToTask`
-  read it. `maxTaskDuration` gives every task an execution deadline.
+  read it.
 - The names: `A2AApp` (what the listener takes of `App`), `A2AHttpListenerOptions` (`endpoint`, `authenticator`, `publicUrl`,
   `onError?`), `A2AOperation`, and from the root entry `HttpAuthenticator`, `HttpAuthResult`, `HttpAuthRequest`,
   `HttpAuthKind`, `HttpCaller`, `HttpSecurity`, `HttpSecurityScheme`, `HttpSecuritySchemeKind`.
@@ -932,7 +932,7 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 | `[mesh.audience-mismatch] …`                                   | the client's `target.application` is not the application at its `url`                                |
 | `mesh.audience-missing`                                        | a signed envelope names no application: sign only with an audience (`target.application`)            |
 | `[http.not-an-authenticator] … is not an @HttpAuthenticator`   | decorate the class with `@HttpAuthenticator()` and list it in `@Application({ services })`           |
-| `A2ACallerRejectedError … (401 a2a.caller-unauthenticated)`    | the server's authenticator refused the client's credentials: check its `headers`                     |
+| `A2AError.CallerRejected … (401 a2a.caller-unauthenticated)`   | the server's authenticator refused the client's credentials: check its `headers`                     |
 | `MeshLoopDetectedError` (`limit.mesh-loop`)                    | two applications call each other back: break the cycle, or `.onError` it to a finish                 |
 | `HopsLimitExceededError` (`limit.hops`)                        | the call chain is longer than the receiver's `maxMeshHops`: shorten it or raise it                   |
 | `401 mesh.signature-invalid` / `mesh.envelope-expired`         | the caller signs with another key than its peer entry, or the clocks differ by > 30 s                |

@@ -1,5 +1,6 @@
 /** The guarded agents (#1006) served over A2A: what a client's socket receives of a blocked answer. */
-import { A2AExpose } from "../../src/a2a/index.js";
+import { hours, minutes } from "../../src/units/index.js";
+import { A2AEndpoint } from "../../src/a2a/index.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
@@ -40,11 +41,12 @@ export class WireAuthenticator {
 })
 class WireGuardedWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "wire-guarded-a2a-expose",
   description: "Served",
   version: "1.0.0",
-  exports: [WireGuardedStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [WireGuardedStart],
 })
 export class WireA2AExpose {}
 

@@ -1,6 +1,7 @@
 /** A judged text agent served over A2A (#1004, #1006): `a2aServer(listener)` streams its answers. */
+import { hours, minutes } from "../../src/units/index.js";
 import { Injectable } from "../../src/components/decorators.js";
-import { A2AExpose } from "../../src/a2a/index.js";
+import { A2AEndpoint } from "../../src/a2a/index.js";
 import {
   Agent,
   EmptyEnvironment,
@@ -66,11 +67,12 @@ export class AuditAuthenticator {
 })
 class A2AWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "a2a-audit-a2a-expose",
   description: "Served",
   version: "1.0.0",
-  exports: [A2AStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [A2AStart],
 })
 export class AuditA2AExpose {}
 

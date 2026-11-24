@@ -13,9 +13,9 @@ import { startsOfEndpoint, type A2AEndpointMeta } from "./a2a-endpoint.decorator
 import { ttlViolations } from "./a2a-endpoint-ttl.js";
 
 /**
- * The declared contracts of an application at assembly (#398 PR 3). Its `exposes` are `@A2AExpose`
+ * The declared contracts of an application at assembly (#398 PR 3). Its `endpoints` are `@A2AEndpoint`
  * or `@McpEndpoint` classes (`[application.not-an-endpoint]`), each name once
- * (`[application.duplicate-endpoint]`); an `@A2AExpose` exports `@WorkflowStart`s of the application's
+ * (`[application.duplicate-endpoint]`); an `@A2AEndpoint` exports `@WorkflowStart`s of the application's
  * workflows (`[application.endpoint-unknown-start]`). Names: kebab-case (`[name.not-kebab-case]`).
  */
 

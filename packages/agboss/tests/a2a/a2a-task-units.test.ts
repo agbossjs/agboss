@@ -4,7 +4,7 @@ import { usd } from "../../src/units/index.js";
  * store and an execution control of the test's, every branch of each.
  */
 import { describe, expect, it } from "vitest";
-import { InvalidA2APageTokenError } from "../../src/index.js";
+import { InvalidA2APageTokenError } from "../../src/stores/index.js";
 import {
   DurableExecutionStatus,
   ExecutionCancelOutcome,
@@ -150,7 +150,7 @@ describe("#807: an execution's state as its task's status", () => {
     }
 
     expect(failedStatusOf(new ExecutionCancelledError({ message: "stop" }))).toEqual({
-      state: A2ATaskState.Canceled,
+      state: A2ATaskState.Cancelled,
       pendingPauses: [],
     });
     expect(failedStatusOf(new LimitError("too many"))).toEqual({
@@ -229,7 +229,7 @@ describe("#807: an execution's state as its task's status", () => {
     ],
     [
       { status: DurableExecutionStatus.Cancelled },
-      { state: A2ATaskState.Canceled, pendingPauses: [] },
+      { state: A2ATaskState.Cancelled, pendingPauses: [] },
     ],
     [
       { status: DurableExecutionStatus.Failed, reason: "it broke" },
@@ -373,7 +373,7 @@ describe("#807: the projection on its own", () => {
 
     expect((await running.tasks.findById(KEY))?.version).toBe(1);
     expect((await failed.tasks.findById(KEY))?.status).toEqual(failedStatusOf(new Error("x")));
-    expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Canceled);
+    expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Cancelled);
   });
 
   it("#1341: a cancel → CANCELED and a stop → CANCELED, each only once the records show that end", async () => {
@@ -402,9 +402,9 @@ describe("#807: the projection on its own", () => {
       scripted([{ status: DurableExecutionStatus.Cancelled }]).control,
     ).projection.onExecutionStop(event);
 
-    expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Canceled);
+    expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Cancelled);
     expect((await early.tasks.findById(KEY))?.version).toBe(1);
-    expect((await stopped.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Canceled);
+    expect((await stopped.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Cancelled);
     expect((await wrong.tasks.findById(KEY))?.version).toBe(1);
     expect(durableStatusOf({ status: DurableExecutionStatus.Stopped })).toEqual(
       durableStatusOf({ status: DurableExecutionStatus.Cancelled }),
@@ -596,7 +596,7 @@ describe("#807: read repair on its own", () => {
     expect(requested.status).toEqual({
       state: A2ATaskState.Submitted,
       pendingPauses: [],
-      cancelRequestedAt: after(60_000).toISOString(),
+      cancelRequestedAt: after(60_000),
     });
     expect(early).toBe(requested);
     expect(settled.status.errorCode).toBe(A2A_START_LOST);

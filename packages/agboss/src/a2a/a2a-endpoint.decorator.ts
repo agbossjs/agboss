@@ -87,11 +87,8 @@ export interface A2AEndpointOptions {
   readonly cardFileFields?: A2ACardFileFields;
 }
 
-/** What the endpoint component records: its options, and the skill options an old form named no export for. */
-export interface A2AEndpointMeta extends A2AEndpointOptions {
-  /** Skill options keyed by a name that is no skill's (`[a2a.unknown-skill-option]`): `@A2AExpose`'s map only. */
-  readonly unmatchedSkills?: Readonly<Record<string, A2AEndpointSkillOptions>>;
-}
+/** What the endpoint component records: its options. */
+export type A2AEndpointMeta = A2AEndpointOptions;
 
 /** The `@WorkflowStart` of a skill entry. */
 export const skillStartOf = (entry: A2ASkillEntry): Class =>
@@ -102,22 +99,22 @@ export const startsOfEndpoint = (endpoint: Pick<A2AEndpointOptions, "skills">): 
   endpoint.skills.map(skillStartOf);
 
 /**
- * The skills' options by the start's name: each skill's own, then the ones named for no skill
- * (`unmatchedSkills`). What the card and the rules read a skill's tags, reply, files by.
+ * The skills' options by the start's name. What the card and the rules read a skill's tags, reply,
+ * files by.
  */
 export function skillMapOf(
-  endpoint: Pick<A2AEndpointMeta, "skills" | "unmatchedSkills">,
+  endpoint: Pick<A2AEndpointMeta, "skills">,
 ): Readonly<Record<string, A2AEndpointSkillOptions>> {
   const own = endpoint.skills.flatMap((entry): [string, A2AEndpointSkillOptions][] => {
     const name = typeof entry === "function" ? undefined : declarationOf(entry.start)?.options.name;
     return name === undefined || typeof entry === "function" ? [] : [[name, entry]];
   });
-  return { ...endpoint.unmatchedSkills, ...Object.fromEntries(own) };
+  return Object.fromEntries(own);
 }
 
 /** What the card-file-fields rules read of an endpoint: its own setting and its skills' by name. */
 export const cardFileFieldsSourceOf = (
-  endpoint: Pick<A2AEndpointMeta, "skills" | "unmatchedSkills" | "cardFileFields">,
+  endpoint: Pick<A2AEndpointMeta, "skills" | "cardFileFields">,
 ): {
   readonly cardFileFields?: A2ACardFileFields;
   readonly skills: Readonly<Record<string, A2AEndpointSkillOptions>>;
@@ -128,7 +125,7 @@ export const cardFileFieldsSourceOf = (
 
 /** The options of the skill named `name` (its start's name), or none. */
 export const skillOptionsOf = (
-  endpoint: Pick<A2AEndpointMeta, "skills" | "unmatchedSkills">,
+  endpoint: Pick<A2AEndpointMeta, "skills">,
   name: string,
 ): A2AEndpointSkillOptions | undefined => skillMapOf(endpoint)[name];
 

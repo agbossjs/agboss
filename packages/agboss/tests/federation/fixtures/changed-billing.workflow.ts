@@ -1,4 +1,5 @@
-import { A2AExpose } from "../../../src/a2a/index.js";
+import { hours, minutes } from "../../../src/units/index.js";
+import { A2AEndpoint } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
   Agent,
@@ -49,11 +50,12 @@ export class ChangedBillingWorkflowFinish {}
 })
 export class ChangedBillingWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "billing-a2a-expose",
   description: "Served over A2A",
   version: "1.0.0",
-  exports: [ChangedBillingWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [ChangedBillingWorkflowStart],
 })
 export class ChangedBillingA2AExpose {}
 

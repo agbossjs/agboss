@@ -1,4 +1,4 @@
-import type { AgentCard, Part, Task } from "@a2a-js/sdk";
+import type { Part } from "@a2a-js/sdk";
 import { markBusinessKeyWriter } from "../../components/container/fenced-reach.js";
 import { validate } from "../../dto/schema.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -8,7 +8,7 @@ import { CardCache, type Wire } from "./a2a-card-cache.js";
 import { AgentConfig, type ResolvedAgent } from "./a2a-agent-config.js";
 import { boundCallOf, stepSignalOf } from "./a2a-call-bounds.js";
 import { cardCacheOf } from "./a2a-client-cache.js";
-import { readOf, waitedOf } from "./a2a-client-reads.js";
+import { taskCancelOf, taskReadOf, waitedOf, type WireOf } from "./a2a-client-reads.js";
 import {
   agentNameOf,
   allowedOriginsOfClass,
@@ -23,7 +23,6 @@ import {
   type A2ATaskResult,
   type Settled,
 } from "./a2a-client-options.js";
-import { A2AClientOperation } from "./a2a-client-errors.js";
 import {
   a2aClientServicesOf,
   storedFileReaderOf,
@@ -39,7 +38,10 @@ import {
 import { activatedMeshOf } from "./a2a-activation.js";
 import { callPeerOf } from "./a2a-call-peer.js";
 import { outputOf, untypedResultOf } from "./a2a-outcome.js";
-import { inputPartsOf, partsOf, type A2AMessageInput } from "./a2a-parts.js";
+import { inputPartsOf, partsOf } from "./a2a-parts.js";
+import { a2aCardOf } from "./a2a-card-map.js";
+import { a2aTaskOf } from "./a2a-public-map.js";
+import type { A2AAgentCard, A2AMessageInput, A2ATask } from "../a2a-types.js";
 import type { A2ADownloadOptions, FileDto } from "./a2a-download.js";
 
 /**
@@ -60,6 +62,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
   readonly #config: AgentConfig;
   readonly #filePolicy: A2AClientOptions["filePolicy"];
   #cards: CardCache | undefined;
+  readonly #wired: WireOf = (signal) => this.#wire(signal);
 
   constructor(options: A2AClientOptions = {}) {
     this.#options = options;
@@ -108,8 +111,8 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
   }
 
   /** The agent's card, checked against the client's contract (fetched once per `cardTtl`). */
-  public async agentCard(call: Pick<A2AClientCall, "signal"> = {}): Promise<AgentCard> {
-    return (await this.#wire(stepSignalOf(call))).checked.card;
+  public async agentCard(call: Pick<A2AClientCall, "signal"> = {}): Promise<A2AAgentCard> {
+    return a2aCardOf((await this.#wire(stepSignalOf(call))).checked.card);
   }
 
   /**
@@ -138,10 +141,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
    * or a stateless message. FAILED, REJECTED and CANCELED throw as for `execute`.
    */
   public async send(message: A2AMessageInput, call: A2AClientCall = {}): Promise<A2ATaskResult> {
-    return untypedResultOf(
-      await this.#call(partsOf(message), undefined, boundCallOf(call, this.contract?.timeout)),
-      this.#agent,
-    );
+    return this.#untyped(message, undefined, call);
   }
 
   /** Continues a task that waits for input (INPUT_REQUIRED) with `answer`, as `send` does. */
@@ -150,40 +150,34 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     answer: A2AMessageInput,
     call: A2AClientCall = {},
   ): Promise<A2ATaskResult> {
-    return untypedResultOf(
-      await this.#call(partsOf(answer), taskId, boundCallOf(call, this.contract?.timeout)),
-      this.#agent,
-    );
+    return this.#untyped(answer, taskId, call);
   }
 
-  public downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array> {
+  /** One untyped call: its files read first when stored (D7: a rejection, never a throw). */
+  async #untyped(
+    input: A2AMessageInput,
+    taskId: string | undefined,
+    call: A2AClientCall,
+  ): Promise<A2ATaskResult> {
+    const parts = await partsOf(input, storedFileReaderOf(this.#services()));
+    const bound = boundCallOf(call, this.contract?.timeout);
+    return untypedResultOf(await this.#call(parts, taskId, bound), this.#agent);
+  }
+
+  public async downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array> {
     const using = [this.#cardCache().fetch, this.#clock(), this.#filePolicy] as const;
-    return lazyLoad(import("./a2a-download-bounds.js")).then((it) =>
-      it.downloadedBy(this, file, options, using),
-    );
+    const bounds = await lazyLoad(import("./a2a-download-bounds.js"));
+    return await bounds.downloadedBy(this, file, options, using);
   }
 
   /** The task as the agent has it now. */
-  public getTask(taskId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<Task> {
-    return readOf(
-      this.#agent,
-      this.#wire(stepSignalOf(call)),
-      A2AClientOperation.GetTask,
-      stepSignalOf(call),
-      (client, options) => client.getTask({ tenant: "", id: taskId }, options),
-    );
+  public async getTask(taskId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<A2ATask> {
+    return a2aTaskOf(await taskReadOf(this.#agent, this.#wired, taskId, call));
   }
 
   /** Asks the agent to cancel the task (was `cancel(threadId)`): the task as it answers. */
-  public cancel(taskId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<Task> {
-    return readOf(
-      this.#agent,
-      this.#wire(stepSignalOf(call)),
-      A2AClientOperation.CancelTask,
-      stepSignalOf(call),
-      (client, options) =>
-        client.cancelTask({ tenant: "", id: taskId, metadata: undefined }, options),
-    );
+  public async cancel(taskId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<A2ATask> {
+    return a2aTaskOf(await taskCancelOf(this.#agent, this.#wired, taskId, call));
   }
 
   /** The application's services in an execution; `undefined` outside one. */
@@ -245,7 +239,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
       return refusedCall({
         agent: this.#agent,
         taskId: accepted.taskId,
-        read: (taskId) => this.getTask(taskId, call),
+        read: (taskId) => taskReadOf(this.#agent, this.#wired, taskId, call),
         charge: () => {
           activation.charge(price, charged);
         },

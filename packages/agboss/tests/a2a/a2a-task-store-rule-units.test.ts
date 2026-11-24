@@ -2,12 +2,13 @@
  * #824 AC3 (mutation shard `a2a-server`): the rule's own texts and edges, from the declarations —
  * each refusal's full message (a listed store, a single-host one, an undeclared lease backend, one
  * no store of the core's names, a second database of one kind), the violation's node, every
- * `@A2AExpose` named; never a refusal for an application serving MCP only, with no endpoints, or
+ * `@A2AEndpoint` named; never a refusal for an application serving MCP only, with no endpoints, or
  * with two lease stores (their ambiguity is reported, nothing thrown).
  */
+import { hours, minutes } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { a2aTaskStoreViolations } from "../../src/a2a/a2a-task-store-rule.js";
-import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { ApplicationOptions } from "../../src/application/application.js";
 import type { Provider } from "../../src/components/injection.js";
@@ -41,11 +42,12 @@ class OtherFileA2ATasks extends InMemoryA2ATaskRepository {
   static override readonly store: StoreDescriptor = { backend: "sqlite:other" };
 }
 
-@A2AExpose({
+@A2AEndpoint({
   name: "audit-a2a-expose",
   version: "1.0.0",
   description: "Audits",
-  exports: [ReleaseWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [ReleaseWorkflowStart],
 })
 class AuditA2AExpose {}
 
@@ -71,7 +73,7 @@ const SERVES = "rule-application serves A2A (release-a2a-expose) on";
 const RESENT = "a message resent to another instance would start a second execution";
 
 describe("#824 AC3: the rule's refusals, word for word", () => {
-  it("one violation, on the application, naming every @A2AExpose it serves", () => {
+  it("one violation, on the application, naming every @A2AEndpoint it serves", () => {
     const [found, ...rest] = ruleOf([ReleaseA2AExpose, AuditA2AExpose], [PostgresLeases]);
 
     expect(rest).toEqual([]);

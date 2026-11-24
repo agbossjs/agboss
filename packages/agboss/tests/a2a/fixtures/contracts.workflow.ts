@@ -1,4 +1,4 @@
-import { A2AAgent, A2AClient, A2AExpose } from "../../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AEndpoint } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import { McpServer } from "../../../src/components/decorators.js";
 import { McpTransport } from "../../../src/config/mcp-server-config.js";
@@ -16,7 +16,7 @@ import {
 import { McpEndpoint } from "../../../src/mcp/index.js";
 import { defineEnv, secret } from "../../../src/environments/index.js";
 import { DatabaseStorage, SqliteDriver } from "../../../src/storage/index.js";
-import { hours, usd } from "../../../src/units/index.js";
+import { hours, minutes, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
@@ -173,7 +173,9 @@ export class OpenAuthenticator {
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
-  flow: [onStart(QuoteWorkflowStart).toAgent(QuoteDeskAgent).toFinish(QuoteWorkflowFinish)],
+  flow: [onStart(QuoteWorkflowStart)
+    .toAgent(QuoteDeskAgent)
+    .toFinish(QuoteWorkflowFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [BillingDeskA2AAgent, WeatherA2AAgent, OracleA2AAgent, OpenAuthenticator],
 })
@@ -182,31 +184,36 @@ export class QuoteWorkflow {}
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
-  flow: [onStart(RefundWorkflowStart).toFinish(RefundWorkflowFinish)],
+  flow: [onStart(RefundWorkflowStart)
+    .toFinish(RefundWorkflowFinish)],
 })
 export class RefundWorkflow {}
 
 @Workflow({
   name: "kb-workflow",
   version: "1.0.0",
-  flow: [onStart(KbWorkflowStart).toAgent(KbDeskAgent).toFinish(KbWorkflowFinish)],
+  flow: [onStart(KbWorkflowStart)
+    .toAgent(KbDeskAgent)
+    .toFinish(KbWorkflowFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
 })
 export class KbWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "shop-a2a-expose",
   description: "Served over A2A",
   version: "2.0.0",
-  exports: [QuoteWorkflowStart, RefundWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [QuoteWorkflowStart, RefundWorkflowStart],
 })
 export class ShopA2AExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "quote-a2a-expose",
   description: "Served over A2A",
   version: "1.0.0",
-  exports: [QuoteWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [QuoteWorkflowStart],
 })
 export class QuoteA2AExpose {}
 

@@ -1,6 +1,7 @@
-// #807 — the recovery workflow served over A2A: an application with an @A2AExpose, so the framework
+// #807 — the recovery workflow served over A2A: an application with an @A2AEndpoint, so the framework
 // registers its A2A task projection.
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { hours, minutes } from "../../../src/units/index.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { BearerAuthenticator } from "./bearer-authenticator.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -12,11 +13,12 @@ import {
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
 
-@A2AExpose({
+@A2AEndpoint({
   name: "orders-a2a-expose",
   version: "1.0.0",
   description: "Takes orders: steps, holds and charges",
-  exports: [OrderWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [OrderWorkflowStart],
 })
 export class OrdersA2AExpose {}
 

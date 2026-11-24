@@ -1,7 +1,7 @@
-import { hours } from "../../../src/units/index.js";
+import { hours, minutes } from "../../../src/units/index.js";
 /**
  * #904 item 5 (AC5.1): the Agent Card never asks for a file field in the data part. As set by
- * `@A2AExpose({ cardFileFields })` (a skill may set its own): `Extension`, the default — the file
+ * `@A2AEndpoint({ cardFileFields })` (a skill may set its own): `Extension`, the default — the file
  * fields out of the data `input` schema and its `required`, declared in the skills extension's
  * `files` — or `Marker` — each one in it as `{ "x-agboss-file-part": { list, optional, mediaTypes },
  * description }` (#916), never required. A foreign validator (ajv) accepts a data part without file fields under either; the
@@ -11,11 +11,10 @@ import { Ajv } from "ajv";
 import { describe, expect, it } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
 import { FilePolicy } from "../../../src/files/file-policy.js";
-import { A2ACardFileFields, A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2ACardFileFields, A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { FILE_PART_KEYWORD } from "../../../src/a2a/a2a-card-file-fields.js";
 import { cardFileFieldsViolations } from "../../../src/a2a/files/a2a-file-options.js";
-import { checkCard } from "../../../src/a2a/client/a2a-card.js";
-import { A2AClient } from "../../../src/a2a/index.js";
+import { checkCard, fetchCard } from "../../../src/a2a/client/a2a-card.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { contractsOf } from "../../../src/describe/contracts.js";
@@ -38,25 +37,29 @@ const FILE_TYPES = ["application/pdf", "text/plain", "image/png"];
 @FilePolicy({ ttl: hours(24), allowedMediaTypes: FILE_TYPES })
 class SkillFilesPolicy {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "marked-files-a2a-expose",
   version: "1.0.0",
   description: "Reviews documents, its file fields marked",
-  exports: [FileReviewWorkflowStart],
   cardFileFields: A2ACardFileFields.Marker,
-  skills: { [START]: { filePolicy: SkillFilesPolicy } },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [{ start: FileReviewWorkflowStart, filePolicy: SkillFilesPolicy }],
 })
 export class MarkedFilesA2AExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "own-files-a2a-expose",
   version: "1.0.0",
   description: "Reviews documents, the skill's own setting over the expose's",
-  exports: [FileReviewWorkflowStart],
   cardFileFields: A2ACardFileFields.Marker,
-  skills: {
-    [START]: { filePolicy: SkillFilesPolicy, cardFileFields: A2ACardFileFields.Extension },
-  },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [
+    {
+      start: FileReviewWorkflowStart,
+      filePolicy: SkillFilesPolicy,
+      cardFileFields: A2ACardFileFields.Extension,
+    },
+  ],
 })
 export class OwnFilesA2AExpose {}
 
@@ -169,14 +172,16 @@ describe("#904 item 5 AC5.1: the card's file fields", () => {
     });
     for (const expose of [FilesA2AExpose, MarkedFilesA2AExpose]) {
       const { url } = await a2aServer(serve(expose));
-      const card = await new A2AClient({ url, fetcher: fetch }).agentCard();
+      const card = (await fetchCard(url, fetch, { agent: "files", origins: [new URL(url).origin] }))
+        .card;
 
       expect(() => {
         checkCard(card, expected(ReviewRequestDto));
       }).not.toThrow();
     }
     const { url } = await a2aServer(serve(FilesA2AExpose));
-    const card = await new A2AClient({ url, fetcher: fetch }).agentCard();
+    const card = (await fetchCard(url, fetch, { agent: "files", origins: [new URL(url).origin] }))
+      .card;
 
     expect(() => {
       checkCard(card, expected(OtherRequestDto));

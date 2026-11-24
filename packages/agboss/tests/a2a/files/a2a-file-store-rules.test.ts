@@ -6,7 +6,7 @@
  * files are checked (`[file-policy.invalid]`, `[application.retention-invalid]`).
  */
 import { describe, expect, it } from "vitest";
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { FilePolicy, type FilePolicyOptions } from "../../../src/files/file-policy.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { Application, type ApplicationOptions } from "../../../src/application/application.js";
@@ -21,7 +21,7 @@ import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-fi
 import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 import { LocalDiskFileRepository } from "../../../src/infrastructure/local-disk-file.repository.js";
 import { EmptyEnvironment } from "../../../src/index.js";
-import { hours, kilobytes } from "../../../src/units/index.js";
+import { hours, kilobytes, minutes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { PostgresLeases } from "../../application/fixtures/store-backends.fixture.js";
 import { PostgresA2ATasks } from "../fixtures/a2a-task-stores.fixture.js";
@@ -53,12 +53,12 @@ const appWith = (
   })
   class RulesWorkflow {}
 
-  @A2AExpose({
+  @A2AEndpoint({
     name: "rules-a2a-expose",
     version: "1.0.0",
     description: "files",
-    exports: [FileReviewWorkflowStart],
-    skills: { "file-review-workflow-start": { tags: ["files"] } },
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [{ start: FileReviewWorkflowStart, tags: ["files"] }],
   })
   class RulesA2AExpose {}
 

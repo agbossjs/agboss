@@ -1,5 +1,4 @@
 import { MAX_TIMEOUT, timerProblemOf } from "../../units/timer-limits.js";
-import type { Message, StreamResponse, Task } from "@a2a-js/sdk";
 import type { Class } from "../../components/injection.js";
 import { nestedFileFieldsOf } from "../../dto/standard/file.js";
 import type { FileDto } from "../../dto/standard/file.js";
@@ -10,6 +9,8 @@ import type { A2AAgentMeta } from "../a2a-decorator.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { Milliseconds, Usd } from "../../units/index.js";
+import type { A2AMessage, A2AStreamEvent, A2ATask } from "../a2a-types.js";
+import type { Task } from "@a2a-js/sdk";
 import type { A2ARemotePeer } from "./a2a-card.js";
 import type { Accepted } from "./a2a-message.js";
 import type { A2AMesh } from "./a2a-guard-errors.js";
@@ -65,9 +66,6 @@ export interface A2AClientOptions {
   readonly filePolicy?: Class;
 }
 
-/** One event of a remote task while the call waits: the SDK's `StreamResponse`. */
-export type A2AStreamEvent = StreamResponse;
-
 /** Per call. */
 export interface A2AClientCall {
   /** The conversation to continue (was `threadId`): the agent's `contextId`. */
@@ -95,8 +93,8 @@ export interface A2AClientCall {
  * is and is not guaranteed (`peer.kind`, `peer.mesh`).
  */
 export interface A2ATaskResult {
-  readonly task: Task | undefined;
-  readonly message: Message | undefined;
+  readonly task: A2ATask | undefined;
+  readonly message: A2AMessage | undefined;
   readonly text: string | undefined;
   readonly data: unknown;
   /** The answer's files (#859), in order: each one's bytes inline (`raw`) or by `url`. */

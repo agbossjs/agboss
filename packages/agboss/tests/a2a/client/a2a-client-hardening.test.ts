@@ -39,7 +39,7 @@ import {
   isTransientWireError,
   rpcCodeOf,
 } from "../../../src/a2a/client/a2a-wire-errors.js";
-import { A2ACallerRejectedError } from "../../../src/a2a/a2a-caller.js";
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Tool } from "../../../src/index.js";
 import { testUnit } from "../../../src/testing/index.js";
@@ -104,7 +104,7 @@ describe("one rule for what a wait may read again", () => {
     expect(isTransientWireError(protocol({ httpStatus: 499 }))).toBe(false);
     expect(
       isTransientWireError(
-        new A2ACallerRejectedError({ httpStatus: 401, wireCode: "a2a.caller-x", reason: "x" }),
+        new A2AError.CallerRejected({ httpStatus: 401, wireCode: "a2a.caller-x" }),
       ),
     ).toBe(false);
     const origin = new A2AOriginError({
@@ -355,12 +355,12 @@ describe("how the cancel at a deadline went", () => {
       status: { ...working.status, state: TaskState.TASK_STATE_CANCELED },
     } as Task;
     expect(await deadlineOf(() => Promise.resolve(canceled))).toMatchObject({
-      cancel: A2ACancelOutcome.Canceled,
-      isCanceled: true,
+      cancel: A2ACancelOutcome.Cancelled,
+      isCancelled: true,
     });
     expect(await deadlineOf(() => Promise.resolve(working))).toMatchObject({
-      cancel: A2ACancelOutcome.NotCanceled,
-      isCanceled: false,
+      cancel: A2ACancelOutcome.NotCancelled,
+      isCancelled: false,
     });
     expect(await deadlineOf(() => Promise.reject(new Error("TaskNotCancelable")))).toMatchObject({
       cancel: A2ACancelOutcome.Refused,
@@ -757,6 +757,6 @@ describe("the second review's edges", () => {
 
     const error = await waiter.aborted().catch((caught: unknown) => caught);
 
-    expect(error).toMatchObject({ cancel: A2ACancelOutcome.NotCanceled, contextId: "" });
+    expect(error).toMatchObject({ cancel: A2ACancelOutcome.NotCancelled, contextId: "" });
   });
 });

@@ -1,4 +1,4 @@
-import { hours } from "../../src/units/index.js";
+import { hours, minutes } from "../../src/units/index.js";
 // #811 — the conformance application the official A2A TCK (a2aproject/a2a-tck) runs against: a task
 // skill, the expose's `defaultSkill` (the TCK names none), whose paths end at a text finish, at a DTO
 // finish (a `data` artifact) or at a pause its caller answers (INPUT_REQUIRED); and (#860) a skill
@@ -8,7 +8,7 @@ import { hours } from "../../src/units/index.js";
 // which no workflow sees: `tck-serve.ts` puts it in a header and the caller resolver passes it to
 // the execution as a declared context field. Everything past that is AGBoss as an application
 // serves it.
-import { A2AExpose, A2AReply } from "../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint, A2AReply } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { WorkflowFinishFileDto } from "../../src/dto/standard/file.js";
 import { FilePolicy } from "../../src/files/file-policy.js";
 import { Files } from "../../src/a2a/files/files.service.js";
@@ -284,13 +284,13 @@ export class TckMessageFinish {}
 })
 export class TckMessageWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "tck-a2a-expose",
   version: "1.0.0",
   description: "The AGBoss conformance agent of the A2A TCK",
-  exports: [TckWorkflowStart, TckMessageWorkflowStart],
-  skills: { "tck-message-workflow-start": { reply: A2AReply.Message } },
   defaultSkill: TckWorkflowStart,
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [TckWorkflowStart, { start: TckMessageWorkflowStart, reply: A2AReply.Message }],
 })
 export class TckA2AExpose {}
 

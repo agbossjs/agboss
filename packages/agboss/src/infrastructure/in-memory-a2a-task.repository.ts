@@ -20,9 +20,19 @@ import { IN_MEMORY_DATABASE, type InMemoryDatabase } from "./in-memory-database.
 import { DIRECT_MESSAGE_CLAIM, isBefore } from "./in-memory-a2a-direct-message.repository.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 
-/** A status kept as plain JSON, as the SQLite store keeps it: one comparison for both (L1). */
-const asStored = (status: A2ATaskStatus): A2ATaskStatus =>
-  JSON.parse(JSON.stringify(status)) as A2ATaskStatus;
+/**
+ * A status kept as plain JSON, as the SQLite store keeps it: one comparison for both (L1). Its one
+ * time (`cancelRequestedAt`) is read back as a `Date`.
+ */
+const asStored = (status: A2ATaskStatus): A2ATaskStatus => {
+  const stored = JSON.parse(JSON.stringify(status)) as Omit<A2ATaskStatus, "cancelRequestedAt"> & {
+    cancelRequestedAt?: string;
+  };
+  const { cancelRequestedAt, ...rest } = stored;
+  return cancelRequestedAt === undefined
+    ? rest
+    : { ...rest, cancelRequestedAt: new Date(cancelRequestedAt) };
+};
 
 /** The built-in default: the tasks in this instance's memory, a copy of each in and out. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })

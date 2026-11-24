@@ -6,7 +6,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   FileRepository,
-  A2ATaskRepository,
   ChildExecutionQueueRepository,
   ExecutionLeaseLostError,
   ExecutionLeaseRepository,
@@ -15,6 +14,7 @@ import {
   StoreCallTimeoutError,
   StoreOutcomeSource,
 } from "../../src/index.js";
+import { A2ATaskRepository } from "../../src/stores/index.js";
 import { ExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
 import { FencedEffectRepository } from "../../src/infrastructure/fenced-effect.repository.js";
 import { LONG_CALL_BOUND, STORE_CALL_BOUND } from "../../src/app/lease-fence.js";

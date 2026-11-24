@@ -74,7 +74,6 @@ function started(
         ...(tenant === undefined ? {} : { tenant }),
         ...(ownerId === undefined ? {} : { ownerId }),
         ...(execution === undefined ? {} : { execution }),
-        ...(parts.maxTaskDuration === undefined ? {} : { deadline: parts.maxTaskDuration }),
       },
       inboundMeshOfA2A(caller.mesh),
     ),

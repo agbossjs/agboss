@@ -150,7 +150,7 @@ const taskIn = (state: A2ATaskState): A2ATaskRecord => ({
 const text: ExecutionStreamEvent = { kind: StreamEventKind.TextDelta, delta: "x", step: STEP };
 
 describe("#1006 AC4: the view of a task that ends without an output", () => {
-  for (const state of [A2ATaskState.Failed, A2ATaskState.Canceled, A2ATaskState.Rejected]) {
+  for (const state of [A2ATaskState.Failed, A2ATaskState.Cancelled, A2ATaskState.Rejected]) {
     it(`${state} after streamed text: one empty last chunk, once`, () => {
       const view = new ArtifactView();
       view.textOf(taskIn(A2ATaskState.Working), text);

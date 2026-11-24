@@ -17,7 +17,7 @@ import {
   requireSqliteTransaction,
   SqliteConnection,
 } from "../../src/infrastructure/sqlite/sqlite-connection.js";
-import { SqliteA2ATaskRepository } from "../../src/a2a/index.js";
+import { SqliteA2ATaskRepository } from "../../src/stores/index.js";
 import { FaultStoreTime, type FaultStoreSet } from "../../src/testing/faults/index.js";
 
 /**

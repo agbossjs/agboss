@@ -8,6 +8,7 @@
  * that createApp did not build (no mesh settings or no execution control) is refused with
  * `[a2a.app-required]`.
  */
+import { hours, minutes } from "../../../src/units/index.js";
 import { MESH_DEFAULTS } from "../../helpers/mesh-settings.js";
 import { describe, expect, it } from "vitest";
 import { a2aHttpListener } from "../../../src/a2a/a2a-http.js";
@@ -23,11 +24,17 @@ import { testWith } from "../../../src/testing/index.js";
 import { until } from "../../helpers/until.js";
 import { BearerAuthenticator } from "../../a2a/fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../../a2a/fixtures/task.application.js";
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { recordComponent } from "../../../src/components/metadata.js";
 import { OrderWorkflowStart } from "../../infrastructure/fixtures/recovery.workflow.js";
 
-@A2AExpose({ name: "flipped", version: "1.0.0", description: "d", exports: [OrderWorkflowStart] })
+@A2AEndpoint({
+  name: "flipped",
+  version: "1.0.0",
+  description: "d",
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [OrderWorkflowStart],
+})
 class FlippedExpose {}
 
 class MemoryLogger extends Logger {
@@ -141,18 +148,6 @@ describe("#1366: the listener's URL checks", () => {
     expect(refusal("https://desk.example", "/a2a")).not.toThrow();
     expect(refusal("https://desk.example", "")).not.toThrow();
   });
-
-  it("the timer problem of one listener is refused as timeout-invalid", () => {
-    const host = hostOf({ mesh: true, control: true });
-    const make = () =>
-      a2aHttpListener(host.app, {
-        endpoint: OrdersA2AExpose,
-        authenticator: BearerAuthenticator,
-        publicUrl: "https://desk.example",
-        maxTaskDuration: 2_073_600_001 as never,
-      });
-    expect(make).toThrow(/\[a2a\.timeout-invalid\].*maxTaskDuration/su);
-  });
 });
 
 describe("#1366: the card's URL", () => {
@@ -214,7 +209,7 @@ describe("#1366: a request the listener cannot serve", () => {
     expect(sent.seen.status).toBe(0);
   });
 
-  it("an expose whose metadata is no longer an @A2AExpose's at the first request is refused as not-an-expose", async () => {
+  it("an expose whose metadata is no longer an @A2AEndpoint's at the first request is refused as not-an-expose", async () => {
     const host = hostOf({ mesh: true, control: true });
     const listener = a2aHttpListener(host.app, {
       endpoint: FlippedExpose,

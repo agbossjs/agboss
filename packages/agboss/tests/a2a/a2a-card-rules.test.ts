@@ -5,14 +5,14 @@
  */
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../src/a2a/a2a-decorator.js";
-import { A2AExpose, type A2AExposeOptions } from "../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint, type A2AEndpointOptions } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { A2AClient } from "../../src/a2a/client/a2a-client.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/index.js";
-import { usd } from "../../src/units/index.js";
+import { usd, hours, minutes } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
   BillingDeskA2AAgent,
@@ -27,14 +27,15 @@ class WeatherA2AAgent extends A2AClient {}
 class PaidA2AAgent extends A2AClient {}
 
 function applicationWith(
-  expose: Partial<A2AExposeOptions>,
+  expose: Partial<A2AEndpointOptions>,
   providers: readonly (typeof WeatherA2AAgent)[] = [],
 ) {
-  @A2AExpose({
+  @A2AEndpoint({
     name: "card-a2a-expose",
     version: "1.0.0",
     description: "A card",
-    exports: [RefundWorkflowStart],
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [RefundWorkflowStart],
     ...expose,
   })
   class CardA2AExpose {}
@@ -92,10 +93,10 @@ describe("#812 AC5: [a2a.skill-tags] (a warning)", () => {
 
   it("an empty list counts as no tags; a tag gives no warning", async () => {
     const empty = await warningsOf(
-      applicationWith({ skills: { "refund-workflow-start": { tags: [] } } }),
+      applicationWith({ skills: [{ start: RefundWorkflowStart, tags: [] }] }),
     );
     const tagged = await warningsOf(
-      applicationWith({ skills: { "refund-workflow-start": { tags: ["refunds"] } } }),
+      applicationWith({ skills: [{ start: RefundWorkflowStart, tags: ["refunds"] }] }),
     );
 
     expect(tagWarnings(empty)).toHaveLength(1);

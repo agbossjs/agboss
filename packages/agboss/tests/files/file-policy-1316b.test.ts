@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { a2aFileStoreViolations } from "../../src/a2a/a2a-file-store-rule.js";
-import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { Files } from "../../src/a2a/files/files.service.js";
 import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { FileRefusal, FileUnavailableReason } from "../../src/files/file-errors.js";
@@ -22,7 +22,7 @@ import { runInFrame } from "../../src/flow/context/frame.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { kilobytes } from "../../src/units/index.js";
+import { kilobytes, hours, minutes } from "../../src/units/index.js";
 import {
   FileReviewWorkflow,
   FileReviewWorkflowStart,
@@ -164,12 +164,12 @@ describe("#1316b: the assembly rules", () => {
     @FilePolicy({ maxFiles: 1 })
     class Narrow {}
     const exposeWith = (name: string, filePolicy: new () => object) => {
-      @A2AExpose({
+      @A2AEndpoint({
         name,
         version: "1.0.0",
         description: "files",
-        exports: [FileReviewWorkflowStart],
-        skills: { "file-review-workflow-start": { filePolicy } },
+        ttl: { tasks: hours(24), messages: minutes(15) },
+        skills: [{ start: FileReviewWorkflowStart, filePolicy }],
       })
       class Expose {}
       return Expose;

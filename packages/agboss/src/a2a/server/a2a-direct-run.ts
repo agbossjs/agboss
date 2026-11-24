@@ -29,9 +29,8 @@ export const IN_FLIGHT: Milliseconds = seconds(30);
 /** How long an attempt's run may take: strictly within `IN_FLIGHT`. */
 export const RUN_BOUND: Milliseconds = seconds(25);
 
-/** The run's execution deadline: the listener's `maxTaskDuration`, within `RUN_BOUND`. */
-const deadlineOf = (parts: A2AServerParts): Milliseconds =>
-  Math.min(parts.maxTaskDuration ?? RUN_BOUND, RUN_BOUND) as Milliseconds;
+/** The run's execution deadline: `RUN_BOUND`. */
+const deadlineOf = (): Milliseconds => RUN_BOUND;
 
 /** The caller's signal, aborted too once `RUN_BOUND` passes; `done()` ends the bound. */
 function boundedSignal(parts: A2AServerParts, caller: A2ARequestCaller) {
@@ -62,7 +61,7 @@ function optionsOf(
       ...(tenant === undefined ? {} : { tenant }),
       ...(ownerId === undefined ? {} : { ownerId }),
       ...(execution === undefined ? {} : { execution }),
-      deadline: deadlineOf(parts),
+      deadline: deadlineOf(),
       signal,
     },
     inboundMeshOfA2A(caller.mesh),

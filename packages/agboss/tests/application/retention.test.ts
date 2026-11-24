@@ -9,7 +9,6 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { DEFAULT_RETENTION, type RetentionOptions } from "../../src/application/retention.js";
 import {
-  A2ATaskRepository,
   CostLedgerRepository,
   ExecutionHistoryRepository,
   ExecutionAuditLogRepository,
@@ -19,6 +18,7 @@ import {
   OutboundCallRepository,
   PausedExecutionRepository,
 } from "../../src/index.js";
+import { A2ATaskRepository } from "../../src/stores/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { hours, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";

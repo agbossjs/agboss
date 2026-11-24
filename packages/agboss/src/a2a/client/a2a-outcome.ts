@@ -3,6 +3,7 @@ import type { DtoClass } from "../../dto/types.js";
 import type { MeshLimitError } from "../../mesh/mesh-errors.js";
 import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
+import { a2aMessageOf, a2aTaskOf } from "./a2a-public-map.js";
 import { answerPartsOf, dataOf, rawOutputOf, textOf } from "./a2a-parts.js";
 import { receivedFileOf } from "./a2a-client-files.js";
 import { assertTakenFinish } from "./a2a-finish.js";
@@ -149,5 +150,12 @@ export function untypedResultOf(
   // Stryker disable next-line ArrayDeclaration: any array of no part reads as no text and no data
   const parts = answer === undefined ? [] : answerPartsOf(answer);
   const files = parts.flatMap((part) => receivedFileOf(part) ?? []);
-  return { task, message, text: textOf(parts), data: dataOf(parts)?.value, files, peer };
+  return {
+    task: task === undefined ? undefined : a2aTaskOf(task),
+    message: message === undefined ? undefined : a2aMessageOf(message),
+    text: textOf(parts),
+    data: dataOf(parts)?.value,
+    files,
+    peer,
+  };
 }

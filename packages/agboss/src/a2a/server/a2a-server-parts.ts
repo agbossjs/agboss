@@ -48,8 +48,6 @@ export interface A2AServerParts {
   readonly skills: readonly ServedSkill[];
   readonly runs: LocalRuns;
   readonly log: FrameworkLog;
-  /** Every task's execution deadline (`a2aHttpListener({ maxTaskDuration })`); none when unset. */
-  readonly maxTaskDuration: Milliseconds | undefined;
   /**
    * The application's mesh settings (#810): its name and `maxMeshHops` (what refuses a chain), its
    * signing key (what signs a trusted task's run report).

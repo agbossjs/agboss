@@ -68,8 +68,9 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
     // the acceptance's enumeration found 120 in core's built entries, `AGBossError` among them; 112
     // after #1317a, which moved the fenced-effect and outbound-call errors into their families; 109
     // after the rework's removals of errors; 108 once `PauseAnswererError` became
-    // `PauseError.PermissionDenied`
-    expect(classes.size).toBeGreaterThanOrEqual(108);
+    // `PauseError.PermissionDenied`; 106 once `A2ACallerRejectedError` became
+    // `A2AError.CallerRejected` and the A2A stores left the root entry (#1320)
+    expect(classes.size).toBeGreaterThanOrEqual(106);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)

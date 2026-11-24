@@ -6,7 +6,7 @@ import {
   RestTransportFactory,
   type Client,
 } from "@a2a-js/sdk/client";
-import { A2ACallerRejectedError } from "../a2a-caller.js";
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { A2AOriginSite } from "./a2a-guard-errors.js";
 import { observeEcho, type EchoWatch } from "./a2a-echo.js";
 import { originRefusalOf, type OriginPolicy } from "./a2a-origins.js";
@@ -90,16 +90,16 @@ async function isA2AErrorBody(response: Response, isJsonRpc: boolean): Promise<b
 }
 
 /** A `401` / `403` naming an `a2a.caller-*` code: an AGBoss server refused the caller (#387). */
-async function callerRejectionOf(response: Response): Promise<A2ACallerRejectedError | undefined> {
+async function callerRejectionOf(response: Response): Promise<A2AError.CallerRejected | undefined> {
   if (response.status !== HTTP_UNAUTHORIZED && response.status !== HTTP_FORBIDDEN) return undefined;
   const body = await bodyOf(response);
   const wireCode = String(isRecord(body) ? body.code : undefined);
   if (!/^a2a\.caller-[a-z-]{1,40}$/u.test(wireCode)) return undefined;
   // the server's reason is its own text: the code says what happened
-  return new A2ACallerRejectedError({
+  return new A2AError.CallerRejected({
     httpStatus: response.status,
     wireCode,
-    reason: "refused by the agent's caller resolver",
+    message: `the A2A server rejected the caller (${String(response.status)} ${wireCode})`,
   });
 }
 

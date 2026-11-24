@@ -199,7 +199,6 @@ unreachable, lacks an env variable or has a drifted contract stops startup (`Mcp
 | `publicUrl`        | required: where callers reach the listener, an absolute http(s) URL (or a function giving it, asked at the first request) — the card's interface URL |
 | `base?`            | its path (`"/a2a"`): JSON-RPC at `POST <base>`, the card at `<base>/.well-known/agent-card.json` |
 | `maxBodySize?`     | the largest request body read, default `kilobytes(1024)`; over it `413`, nothing run             |
-| `maxTaskDuration?` | every task's execution deadline (a task outlives its request)                                    |
 
 Tasks are kept `@A2AEndpoint({ ttl: { tasks } })` after they end, a direct reply `ttl: { messages }`. See
 [A2A](A2A#2-serving--a2ahttplistenerapp-options).
@@ -328,7 +327,6 @@ maximum, naming the field, and accepted at it:
 | `RetryPolicy` `initialDelay`, `maxDelay`, `delay`                   | 24 hours   | `RetryPolicyError` (`config.retry-policy`)                                    |
 | `@FilePolicy({ fetchTimeout })`                                     | 24 hours   | `[file-policy.invalid]` at assembly                                           |
 | an A2A client call's `timeout`                                      | 24 hours   | `ComponentError` `[a2a.timeout-invalid]` before anything is sent              |
-| `a2aHttpListener({ maxTaskDuration })`                              | 24 days    | `ComponentError` `[a2a.timeout-invalid]` when the listener is made            |
 | `.joinQuorum({ deadline })`, `.joinQuorumGroups({ deadline })`   | 24 days    | `FlowSyntaxError` where the flow is written                                   |
 | `app.execute(…, { deadline })`                                      | 24 days    | `ConfigError.Unit` (`config.unit`), the execution not started                        |
 

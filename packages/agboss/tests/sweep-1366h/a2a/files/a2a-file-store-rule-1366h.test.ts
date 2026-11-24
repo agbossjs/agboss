@@ -1,4 +1,4 @@
-import { hours } from "../../../../src/units/index.js";
+import { hours, minutes } from "../../../../src/units/index.js";
 /**
  * #1366: the file store rule reports, per violation, the code and the node it names (the
  * application, or the expose whose skill options are wrong), measures the tier in KB (256 KB is the
@@ -10,7 +10,7 @@ import {
   a2aFileStoreViolations,
   inlineFilesWarningOf,
 } from "../../../../src/a2a/a2a-file-store-rule.js";
-import { A2AExpose } from "../../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../../src/a2a/a2a-endpoint.decorator.js";
 import { FilePolicy, type FilePolicyOptions } from "../../../../src/files/file-policy.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import type { Provider } from "../../../../src/components/injection.js";
@@ -52,21 +52,21 @@ function workflowWith(options: FilePolicyOptions) {
 @FilePolicy({ ttl: hours(24), name: "zero-files-file-policy", maxFiles: 0 })
 class ZeroFilesPolicy {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "rules-a2a-expose",
   version: "1.0.0",
   description: "files",
-  exports: [FileReviewWorkflowStart],
-  skills: { "file-review-workflow-start": { tags: ["files"], filePolicy: ZeroFilesPolicy } },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [{ start: FileReviewWorkflowStart, tags: ["files"], filePolicy: ZeroFilesPolicy }],
 })
 class BadSkillExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "plain-a2a-expose",
   version: "1.0.0",
   description: "files",
-  exports: [FileReviewWorkflowStart],
-  skills: { "file-review-workflow-start": { tags: ["files"] } },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [{ start: FileReviewWorkflowStart, tags: ["files"] }],
 })
 class PlainExpose {}
 

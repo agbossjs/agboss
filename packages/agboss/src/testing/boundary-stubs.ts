@@ -1,6 +1,6 @@
 import type { Class } from "../components/injection.js";
 import { requireComponent } from "../components/metadata.js";
-import type { A2AMessageInput } from "../a2a/client/a2a-parts.js";
+import type { A2AMessageInput } from "../a2a/a2a-types.js";
 import type { A2ATaskResult } from "../a2a/client/a2a-client-options.js";
 import type { RagRetrieval } from "../rag/types.js";
 import { TestFailure } from "./errors.js";

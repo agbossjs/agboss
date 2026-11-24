@@ -1,4 +1,4 @@
-import { usd } from "../../src/units/index.js";
+import { usd, hours, minutes } from "../../src/units/index.js";
 import {
   Action,
   AGBossError,
@@ -10,7 +10,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
 } from "../../src/index.js";
-import { A2AExpose } from "../../src/a2a/index.js";
+import { A2AEndpoint } from "../../src/a2a/index.js";
 import { errorRecordOf, RecordedError } from "../../src/core/error-record.js";
 import { Application } from "../../src/application/application.js";
 import { BearerAuthenticator } from "../a2a/fixtures/bearer-authenticator.js";
@@ -145,11 +145,12 @@ export class FamilyRouteWorkflow {}
 export class FamilyRouteApplication {}
 
 /** The family-routing workflow served over A2A, for the failures that reach the wire. */
-@A2AExpose({
+@A2AEndpoint({
   name: "family-route-a2a-expose",
   version: "1.0.0",
   description: "Throws what it is asked to",
-  exports: [FamilyRouteStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [FamilyRouteStart],
 })
 export class FamilyRouteA2AExpose {}
 

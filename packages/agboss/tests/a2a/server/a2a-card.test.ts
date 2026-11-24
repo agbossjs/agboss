@@ -1,7 +1,7 @@
 /**
  * #808 AC1: `GET <base>/.well-known/agent-card.json` serves a valid A2A v1.0 card — its required
  * fields, one skill per exported start (tags default to the application's name), streaming on, the
- * skills extension with each skill's JSON Schemas, `securitySchemes` from `@A2AExpose({ security })`
+ * skills extension with each skill's JSON Schemas, `securitySchemes` from `@A2AEndpoint({ security })`
  * and one JSONRPC 1.0 interface at `publicUrl` + `base`; the official SDK reads it.
  */
 import { AgentCard } from "@a2a-js/sdk";

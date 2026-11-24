@@ -1,6 +1,6 @@
 /**
  * #1366: what the A2A client's errors keep as facts: the `details` each error carries (the agent, the task, the codes — present
- * only when the call had them), the properties read by code (`differences`, `protocolVersions`, `isCanceled`), the stable remote
+ * only when the call had them), the properties read by code (`differences`, `protocolVersions`, `isCancelled`), the stable remote
  * code `remoteCodeOf` lets through and the safe ids `safeTaskIdOf` / `hasSafeIds` keep. Never the wording of a message.
  */
 import { describe, expect, it } from "vitest";
@@ -275,18 +275,21 @@ describe("#1366: what a task's end knows", () => {
     ).toStrictEqual({ agent: "a", taskId: "t", interruption: "auth-required" });
     const late = new A2ACallDeadlineError({
       ...ids,
-      deadlineAt: "2026-01-01T00:00:00.000Z",
-      cancel: A2ACancelOutcome.Canceled,
+      deadlineAt: new Date("2026-01-01T00:00:00.000Z"),
+      cancel: A2ACancelOutcome.Cancelled,
     });
     expect(late.details).toStrictEqual({
       agent: "a",
       taskId: "t",
       deadlineAt: "2026-01-01T00:00:00.000Z",
     });
-    expect(late.isCanceled).toBe(true);
+    expect(late.isCancelled).toBe(true);
     expect(
-      new A2ACallDeadlineError({ ...ids, deadlineAt: "x", cancel: A2ACancelOutcome.NoAnswer })
-        .isCanceled,
+      new A2ACallDeadlineError({
+        ...ids,
+        deadlineAt: new Date(0),
+        cancel: A2ACancelOutcome.NoAnswer,
+      }).isCancelled,
     ).toBe(false);
   });
 });

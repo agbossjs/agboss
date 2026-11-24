@@ -26,18 +26,22 @@ export enum A2ATaskState {
   InputRequired = "TASK_STATE_INPUT_REQUIRED",
   Completed = "TASK_STATE_COMPLETED",
   Failed = "TASK_STATE_FAILED",
-  Canceled = "TASK_STATE_CANCELED",
+  Cancelled = "TASK_STATE_CANCELED",
   Rejected = "TASK_STATE_REJECTED",
+  /** A remote agent's: it waits for the caller to authenticate. An application never writes it. */
+  AuthRequired = "TASK_STATE_AUTH_REQUIRED",
+  /** A remote agent's answer that names no state (or one this version does not know). Never written. */
+  Unspecified = "TASK_STATE_UNSPECIFIED",
 }
 
 /** The states a task never leaves (§4.1.3): it is over. */
 export type A2ATerminalTaskState =
-  A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Canceled | A2ATaskState.Rejected;
+  A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Cancelled | A2ATaskState.Rejected;
 
 const TERMINAL: ReadonlySet<A2ATaskState> = new Set<A2ATaskState>([
   A2ATaskState.Completed,
   A2ATaskState.Failed,
-  A2ATaskState.Canceled,
+  A2ATaskState.Cancelled,
   A2ATaskState.Rejected,
 ]);
 
@@ -104,10 +108,11 @@ export interface A2ATaskStatus {
   /** Why it failed or was rejected: a stable code (`limit.hops`, `a2a.start-lost`, …). */
   readonly errorCode?: string;
   /**
-   * When read repair asked a start it could not fence out to stop (ISO 8601): the task settles
-   * `a2a.start-lost` one start timeout later, unless its execution began meanwhile. Never on the wire.
+   * When read repair asked a start it could not fence out to stop: the task settles
+   * `a2a.start-lost` one start timeout later, unless its execution began meanwhile. Never on the
+   * wire. A store keeps it as JSON (ISO 8601) and reads it back as a `Date`.
    */
-  readonly cancelRequestedAt?: string;
+  readonly cancelRequestedAt?: Date;
 }
 
 /** A task as kept. */

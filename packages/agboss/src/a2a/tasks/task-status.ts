@@ -86,7 +86,7 @@ export const rejectedStatusOf = (limit: MeshLimitError): A2ATaskStatus => ({
 });
 
 /** A cancel and a stop (#1341) both end a task as `canceled`: A2A has no other state for an operator's halt. */
-export const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [] };
+export const CANCELED: A2ATaskStatus = { state: A2ATaskState.Cancelled, pendingPauses: [] };
 
 /**
  * An execution's error as its task's end: a cancel is `CANCELED`; anything else `FAILED` with the

@@ -136,7 +136,7 @@ describe("ArtifactView.retractionOf", () => {
 });
 
 describe("ArtifactView.closing", () => {
-  it.each([A2ATaskState.Failed, A2ATaskState.Canceled, A2ATaskState.Rejected])(
+  it.each([A2ATaskState.Failed, A2ATaskState.Cancelled, A2ATaskState.Rejected])(
     "a task that ends %s after text replaces it with an empty last chunk, once",
     async (state) => {
       const view = new ArtifactView();

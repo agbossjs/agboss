@@ -17,9 +17,8 @@ import { skillMapOf, startsOfEndpoint, type A2AEndpointMeta } from "./a2a-endpoi
  * tool reaches (`[a2a.message-skill-effect]`); only `@Tool({ readOnly: true })` tools
  * (`[a2a.message-skill-tool]`), none reaching an MCP server (`[a2a.message-skill-effect]`); no `compensateWith` / `committedBy` (`[a2a.message-skill-compensation]`);
  * no child workflow, no recursion (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's
- * files (`Files`) is allowed. A `reply` set for no exported start is `[a2a.unknown-skill-option]`
- * (a misspelt one would answer with a task); a `defaultSkill` that is no export
- * `[a2a.unknown-skill-option]` too.
+ * files (`Files`) is allowed. A `defaultSkill` that is no export is
+ * `[a2a.unknown-skill-option]`.
  */
 
 /**
@@ -139,19 +138,10 @@ function messageSkillEntriesOf(expose: A2AEndpointMeta): (readonly [string, Clas
 export const messageSkillsOf = (expose: A2AEndpointMeta): readonly Class[] =>
   messageSkillEntriesOf(expose).map(([, start]) => start);
 
-/** What an `@A2AEndpoint`'s own options get wrong: a reply for no skill, a default of none. */
+/** What an `@A2AEndpoint`'s own options get wrong: a default skill of none. */
 function optionProblems(expose: A2AEndpointMeta, where: string): RuleViolation[] {
   const starts = startsOfEndpoint(expose);
-  const names = new Set(starts.map((start) => declarationOf(start)?.options.name));
-  const found = Object.entries(skillMapOf(expose))
-    .filter(([name, skill]) => skill.reply !== undefined && !names.has(name))
-    .map(([name]) =>
-      violation(
-        "a2a.unknown-skill-option",
-        `${expose.name} sets the reply of ${name}, which it does not export — name an exported start`,
-        [where],
-      ),
-    );
+  const found: RuleViolation[] = [];
   const fallback = expose.defaultSkill;
   if (fallback !== undefined && !starts.includes(fallback))
     found.push(

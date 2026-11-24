@@ -2,8 +2,12 @@ import type { Artifact, Message, Part, Task } from "@a2a-js/sdk";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../dto/standard/framework.js";
 import type { DtoClass } from "../../dto/types.js";
 import { A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
+import type { FileDto } from "../../dto/standard/file.js";
+import type { A2AMessageInput, A2APart } from "../a2a-types.js";
+import { sdkPartOf } from "./a2a-public-map.js";
 import {
   fileInputPartsOf,
+  sendableFilePartOf,
   fileOutputOf,
   hasFileFieldInData,
   type StoredFileReader,
@@ -15,9 +19,6 @@ import {
  * artifact or a message's parts — a `data` part, or text for a text finish. No model coerces text
  * into a DTO: what cannot be read is no output.
  */
-
-/** What `send` / `reply` take: a text, a JSON value, or the parts as they are. */
-export type A2AMessageInput = string | { readonly data: unknown } | readonly Part[];
 
 export const JSON_MEDIA_TYPE = "application/json";
 export const TEXT_MEDIA_TYPE = "text/plain";
@@ -36,11 +37,22 @@ export const dataPartOf = (data: unknown): Part => ({
   mediaType: JSON_MEDIA_TYPE,
 });
 
-/** The parts of an untyped message. */
-export function partsOf(input: A2AMessageInput): Part[] {
+/**
+ * The parts of an untyped message (`send` / `reply`): its text, its data, then its files — a stored
+ * file (`fileId`) read through `read` first, as for a typed input — or the parts as they are.
+ */
+export async function partsOf(input: A2AMessageInput, read: StoredFileReader): Promise<Part[]> {
   if (typeof input === "string") return [textPartOf(input)];
-  if (Array.isArray(input)) return [...(input as readonly Part[])];
-  return [dataPartOf((input as { readonly data: unknown }).data)];
+  if (Array.isArray(input)) return (input as readonly A2APart[]).map(sdkPartOf);
+  const { text, data, files } = input as {
+    readonly text?: string;
+    readonly data?: unknown;
+    readonly files?: readonly FileDto[];
+  };
+  const parts: Part[] = text === undefined ? [] : [textPartOf(text)];
+  for (const file of files ?? []) parts.push(await sendableFilePartOf(file, read));
+  if ("data" in input && data !== undefined) parts.push(dataPartOf(data));
+  return parts;
 }
 
 const extendsClass = (dto: DtoClass, base: DtoClass): boolean =>

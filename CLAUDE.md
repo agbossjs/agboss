@@ -1885,7 +1885,7 @@ guaranteed (foreign peer)`). The server's side (#810, `src/a2a/server/a2a-mesh-a
 [Start], skills? })` (`a2a/*.a2a-expose.ts`) listed in
   `@Application({ endpoints })` with its `@McpEndpoint`s (`[application.endpoint-unknown-start]`,
   `[application.not-an-endpoint]`) and served as an **A2A v1.0 agent** (#808) by
-  `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base?, onError?, maxBodySize?, maxTaskDuration? })`
+  `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base?, onError?, maxBodySize? })`
   (`[application.expose-unlisted]`) on the official SDK `@a2a-js/sdk` (exact pin; our own
   `A2ARequestHandler` over the app, never its `DefaultRequestHandler`): the Agent Card at
   `<base>/.well-known/agent-card.json` (one skill per exported start, `capabilities.streaming`, the

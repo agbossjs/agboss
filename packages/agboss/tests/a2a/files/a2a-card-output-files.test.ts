@@ -1,7 +1,7 @@
-import { hours } from "../../../src/units/index.js";
+import { hours, minutes } from "../../../src/units/index.js";
 /**
  * #916 items 2 and 4: the card's file fields, of a skill's input and of its finishes' outputs, as
- * `@A2AExpose({ cardFileFields })` sets them — `Extension`: out of the data schema (and its
+ * `@A2AEndpoint({ cardFileFields })` sets them — `Extension`: out of the data schema (and its
  * `required`), declared in the skills extension (`files` for the input, `outputFiles` by finish);
  * `Marker`: each in the data schema as `{ "x-agboss-file-part": { list, optional, mediaTypes },
  * description }`, never required. The AGBoss client's card check reads both alike: a missing required
@@ -11,11 +11,10 @@ import { hours } from "../../../src/units/index.js";
 import { describe, expect } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
 import { FilePolicy } from "../../../src/files/file-policy.js";
-import { A2ACardFileFields, A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2ACardFileFields, A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { FILE_PART_KEYWORD } from "../../../src/a2a/a2a-card-file-fields.js";
-import { checkCard } from "../../../src/a2a/client/a2a-card.js";
+import { checkCard, fetchCard } from "../../../src/a2a/client/a2a-card.js";
 import { FileDto } from "../../../src/dto/standard/file.js";
-import { A2AClient } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { DtoClass } from "../../../src/dto/types.js";
 import { List, Nested, Text } from "../../../src/dto/index.js";
@@ -42,21 +41,22 @@ const OUTPUT_MEDIA = ["application/pdf", "text/plain", "image/png"];
 @FilePolicy({ ttl: hours(24), allowedMediaTypes: MEDIA })
 class MediaPolicy {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "marked-outputs-a2a-expose",
   version: "1.0.0",
   description: "Reviews and summarises documents, its file fields marked",
-  exports: [FileReviewWorkflowStart, FileSummaryWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
   cardFileFields: A2ACardFileFields.Marker,
-  skills: { [REVIEW]: { filePolicy: MediaPolicy } },
+  skills: [{ start: FileReviewWorkflowStart, filePolicy: MediaPolicy }, FileSummaryWorkflowStart],
 })
 export class MarkedOutputsA2AExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "summary-files-a2a-expose",
   version: "1.0.0",
   description: "Summarises documents, its file fields in the extension",
-  exports: [FileSummaryWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [FileSummaryWorkflowStart],
 })
 export class SummaryFilesA2AExpose {}
 
@@ -100,7 +100,8 @@ async function refusalOf(
   skill: string,
   dtos: { readonly input?: DtoClass; readonly output?: DtoClass },
 ): Promise<string> {
-  const card = await new A2AClient({ url, fetcher: fetch }).agentCard();
+  const card = (await fetchCard(url, fetch, { agent: "files", origins: [new URL(url).origin] }))
+    .card;
   try {
     checkCard(card, { agent: "files", skill, input: dtos.input, output: dtos.output });
     return "accepted";

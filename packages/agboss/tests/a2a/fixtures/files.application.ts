@@ -1,10 +1,10 @@
-import { hours } from "../../../src/units/index.js";
+import { hours, minutes } from "../../../src/units/index.js";
 // #859 — an application that takes files and gives them back over A2A: a start whose input holds a
 // document (and optional more pages), an action that reads its bytes through Files and answers
 // with a report file and a verdict, or — asked to — pauses for its caller first (INPUT_REQUIRED),
 // then reads the same document again after the answer. Stores: none listed (files inline) in
 // FilesApplication, InMemoryFileRepository in StoredFilesApplication.
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { FileDto, WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
 import { Files } from "../../../src/a2a/files/files.service.js";
 import { FilePolicy } from "../../../src/files/file-policy.js";
@@ -254,19 +254,21 @@ export class FileSummaryWorkflowStart {}
 })
 export class FileSummaryWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "file-summary-a2a-expose",
   version: "1.0.0",
   description: "Summarises documents",
-  exports: [FileSummaryWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [FileSummaryWorkflowStart],
 })
 export class FileSummaryA2AExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "files-a2a-expose",
   version: "1.0.0",
   description: "Reviews documents",
-  exports: [FileReviewWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [FileReviewWorkflowStart],
 })
 export class FilesA2AExpose {}
 

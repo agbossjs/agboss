@@ -1,5 +1,10 @@
-import { A2AError, A2A_ERROR_CODE, isJsonRpcError, isRestError } from "@a2a-js/sdk/errors";
-import { A2ACallerRejectedError } from "../a2a-caller.js";
+import {
+  A2AError as SdkA2AError,
+  A2A_ERROR_CODE,
+  isJsonRpcError,
+  isRestError,
+} from "@a2a-js/sdk/errors";
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { A2AClientOperation, A2AProtocolError } from "./a2a-client-errors.js";
 import { A2AOriginError } from "./a2a-guard-errors.js";
 import { A2ANetworkError, A2ANotSentError, HttpStatusError } from "./a2a-transport.js";
@@ -45,7 +50,7 @@ const CODE_OF_KIND: Readonly<Record<string, number>> = {
 function codeOfOne(error: unknown): number | undefined {
   if (error instanceof A2AProtocolError) return error.rpcCode;
   if (isJsonRpcError(error)) return error.envelopeCode;
-  return error instanceof A2AError ? CODE_OF_KIND[error.name] : undefined;
+  return error instanceof SdkA2AError ? CODE_OF_KIND[error.name] : undefined;
 }
 
 /** The A2A code an error carries (the SDK's mapped error), anywhere in its causes. */
@@ -66,7 +71,7 @@ function httpStatusOf(error: unknown): number | undefined {
 
 /** The client's own errors, passed on as they are wherever they are in the causes. */
 const isOwn = (error: unknown): boolean =>
-  error instanceof A2ACallerRejectedError ||
+  error instanceof A2AError.CallerRejected ||
   error instanceof A2ANetworkError ||
   error instanceof A2ANotSentError ||
   error instanceof A2AOriginError ||
@@ -127,7 +132,7 @@ const isRefusedStatus = (status: number): boolean =>
  * unknown outcome: the message may have arrived.
  */
 export function isDefiniteSendFailure(error: unknown): boolean {
-  if (error instanceof A2ANotSentError || error instanceof A2ACallerRejectedError) return true;
+  if (error instanceof A2ANotSentError || error instanceof A2AError.CallerRejected) return true;
   if (!(error instanceof A2AProtocolError)) return false;
   if (error.rpcCode !== undefined) return NOTHING_DONE.has(error.rpcCode);
   // Stryker disable next-line LogicalOperator: no status (`undefined`) is refused neither way

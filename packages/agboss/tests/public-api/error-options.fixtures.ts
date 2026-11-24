@@ -4,6 +4,7 @@
  */
 import * as a2a from "../../src/a2a/index.js";
 import * as root from "../../src/index.js";
+import * as stores from "../../src/stores/index.js";
 import * as models from "../../src/models/index.js";
 import { TokenLimit } from "../../src/config/types.js";
 import { ModelKind } from "../../src/llm/decision-errors.js";
@@ -58,7 +59,7 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.CostLedgerCutoffInvalidError, { reason: "not a Date" }),
   fx(root.CostLedgerEntryExpiredError, { ledgerIds: ["l-1"], prunedBefore: new Date(0) }),
   fx(root.CostLedgerEntryInvalidError, { index: 0, reason: "no id" }),
-  fx(root.InvalidA2APageTokenError, {}),
+  fx(stores.InvalidA2APageTokenError, {}),
   fx(root.PauseError.PermissionDenied, { message }),
   fx(root.PauseExtensionContendedError, { pauseKey: "default:p-1", attempts: 8 }),
   fx(root.UnknownPauseError, { message }),
@@ -113,11 +114,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.FlowSyntaxError, { message }),
   fx(root.ExecutionContextUnavailableError, { message }),
   fx(root.OutputInvalidError, { message }),
-  fx(a2a.A2ACallerRejectedError, {
-    httpStatus: 403,
-    wireCode: "a2a.caller-forbidden",
-    reason: "no",
-  }),
   fx(a2a.A2AContractError, {
     agent: "refund-agent",
     rule: a2a.A2AContractRule.UnknownSkill,
@@ -151,8 +147,8 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   }),
   fx(a2a.A2ACallDeadlineError, {
     ...task,
-    deadlineAt: "2026-01-01T00:00:00.000Z",
-    cancel: a2a.A2ACancelOutcome.Canceled,
+    deadlineAt: new Date("2026-01-01T00:00:00.000Z"),
+    cancel: a2a.A2ACancelOutcome.Cancelled,
   }),
   fx(a2a.A2ATaskCancelledError, task),
   fx(a2a.A2ATaskFailedError, { ...task, end: a2a.A2ATaskEnd.Failed, remoteCode: "limit.hops" }),

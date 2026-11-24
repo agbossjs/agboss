@@ -6,8 +6,8 @@
 import { describe, expect, it } from "vitest";
 import { AgentEvent } from "@a2a-js/sdk/server";
 import {
-  A2ACallerRejectedError,
   A2AClient,
+  A2AError,
   A2AContractError,
   A2AContractRule,
   A2AOriginError,
@@ -19,9 +19,10 @@ import {
   A2ATaskFailedError,
   A2ATaskInterruptedError,
   A2ATaskInterruption,
-  TaskState,
+  A2ATaskState,
   type A2AStreamEvent,
 } from "../../../src/a2a/index.js";
+import { TaskState } from "@a2a-js/sdk";
 import { A2A_SKILLS_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
 import { HopsLimitExceededError } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -291,7 +292,7 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
     const interrupted = client.execute({ invoiceId: "?" });
     const replied = await client.reply(asked.task?.id ?? "", { data: { invoiceId: "inv-7" } });
 
-    expect(asked.task?.status?.state).toBe(TaskState.TASK_STATE_INPUT_REQUIRED);
+    expect(asked.task?.status?.state).toBe(A2ATaskState.InputRequired);
     await expect(interrupted).rejects.toMatchObject({
       interruption: A2ATaskInterruption.InputRequired,
     });
@@ -348,7 +349,7 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
     );
   });
 
-  it("a refused caller is A2ACallerRejectedError with its code (the server's reason is not kept)", async () => {
+  it("a refused caller is A2AError.CallerRejected with its code (the server's reason is not kept)", async () => {
     const fetcher: typeof fetch = (input, init) =>
       urlOf(input).endsWith("agent-card.json")
         ? new SdkAgent({ script: scripts.messageEcho }).fetcher(input, init)
@@ -361,7 +362,7 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
 
     const sent = new A2AClient({ url: AGENT_URL, fetcher }).send("hi");
 
-    await expect(sent).rejects.toBeInstanceOf(A2ACallerRejectedError);
+    await expect(sent).rejects.toBeInstanceOf(A2AError.CallerRejected);
     await expect(sent).rejects.toMatchObject({ httpStatus: 403, wireCode: "a2a.caller-forbidden" });
     await expect(sent).rejects.not.toThrow(/k-123/);
   });
@@ -404,7 +405,7 @@ describe("#809: waiting — polling, streaming, a dropped stream", () => {
     await expect(run).resolves.toEqual({ status: "paid" });
     expect(agent.count("GetTask")).toBeGreaterThanOrEqual(1);
     expect(agent.count("SubscribeToTask")).toBe(0);
-    expect(events.at(-1)?.payload?.$case).toBe("task");
+    expect(events.at(-1)?.kind).toBe("task");
   });
 
   it("a streaming agent is subscribed to; a dropped stream is opened again", async () => {

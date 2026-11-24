@@ -120,7 +120,7 @@ describe("#1366: the card and the tasks a client reads", () => {
     const { client, wireOf } = clientOf();
     const signal = new AbortController().signal;
 
-    expect(await client.agentCard({ signal })).toBe(card);
+    expect(await client.agentCard({ signal })).toMatchObject({ name: "peer-agent" });
 
     expect(wireOf).toHaveBeenCalledOnce();
     const [clock, passed] = wireOf.mock.calls[0] ?? [];
@@ -144,13 +144,13 @@ describe("#1366: the card and the tasks a client reads", () => {
 
   it("a task is cancelled by its id, in no tenant, and the task as the agent answers is what comes back", async () => {
     const { client, sdk } = clientOf();
-    sdk.cancelTask.mockResolvedValue({ id: "t-1", state: "canceled" });
+    sdk.cancelTask.mockResolvedValue({ id: "t-1", contextId: "c-1" });
     const signal = new AbortController().signal;
 
     const answered = await client.cancel("t-1", { signal });
     await client.cancel("t-2");
 
-    expect(answered).toEqual({ id: "t-1", state: "canceled" });
+    expect(answered).toEqual({ id: "t-1", contextId: "c-1", artifacts: [], history: [] });
     expect(sdk.cancelTask.mock.calls[0]).toEqual([
       { tenant: "", id: "t-1", metadata: undefined },
       { signal },

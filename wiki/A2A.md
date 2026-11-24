@@ -108,7 +108,7 @@ createServer(
     authenticator: ShopHttpAuthenticator, // the class: its instance is the container's
     publicUrl: "https://shop.example", // where callers reach it: the card's interface URL
     base: "/a2a",
-    // maxBodySize: kilobytes(1024), maxTaskDuration: minutes(10)
+    // maxBodySize: kilobytes(1024)
   }),
 ).listen(8080);
 ```
@@ -177,7 +177,7 @@ protocolVersion: "1.0" }`.
   task is gone once it is older than the retention (a follow-up saved while its task was removed, #960),
   so its id is free again. A status a store does not know a key of is kept as written.
 - **A task outlives its connection**: a caller that disconnects never cancels it; it reads it again
-  with `GetTask` or `SubscribeToTask`. `maxTaskDuration` gives every task an execution deadline.
+  with `GetTask` or `SubscribeToTask`.
 - **Pauses**: a pause the caller answers is `TASK_STATE_INPUT_REQUIRED`, its pauses (`pauseId`,
   `kind`, `ask`) in the status message's `data` part; a follow-up `SendMessage` with the same `taskId`
   answers it — one `data` part `{ pauseId?, decision }` (`pauseId` optional with one pause) or a text

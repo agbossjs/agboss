@@ -1,4 +1,4 @@
-import { A2AAgent, A2AClient, A2AExpose } from "../../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AEndpoint } from "../../../src/a2a/index.js";
 import {
   Agent,
   EmptyEnvironment,
@@ -16,7 +16,7 @@ import {
 import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { Class } from "../../../src/components/injection.js";
-import { minutes, type Usd } from "../../../src/units/index.js";
+import { minutes, type Usd, hours } from "../../../src/units/index.js";
 import type { ToolClass } from "../../../src/testing/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -162,7 +162,9 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
           .toAgent(MeshDesk)
           .onError(MeshLoopDetectedError, toFinish(LoopFinish))
           .toFinish(MeshAnswer)
-      : onStart(MeshStart).toAgent(MeshDesk).toFinish(MeshAnswer);
+      : onStart(MeshStart)
+          .toAgent(MeshDesk)
+          .toFinish(MeshAnswer);
 
   @Workflow({
     name: `${name}-workflow`,
@@ -180,11 +182,12 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     }
   }
 
-  @A2AExpose({
+  @A2AEndpoint({
     name: `${name}-a2a-expose`,
     version: "1.0.0",
     description: "Served over A2A",
-    exports: [MeshStart],
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [MeshStart],
   })
   class MeshA2AExpose {}
 

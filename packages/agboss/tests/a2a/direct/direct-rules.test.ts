@@ -7,7 +7,7 @@
  * on shared leases included.
  */
 import { describe, expect, it } from "vitest";
-import { A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
@@ -79,15 +79,13 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
     expect(await violationsOf(directRulesApplication(BusyWorkflowStart, [], skills))).toEqual([]);
   });
 
-  it("AC3: a reply set for no export, and a defaultSkill that is no export, are refused", async () => {
-    const skills = { "quote-workflow-startt": { reply: A2AReply.Message } };
-    const application = directRulesApplication(BusyWorkflowStart, [], skills, QuoteWorkflowStart);
+  it("AC3: a defaultSkill that is no export is refused", async () => {
+    const application = directRulesApplication(BusyWorkflowStart, [], {}, QuoteWorkflowStart);
 
     const violations = await violationsOf(application);
 
     expect(violations).toEqual(
       expect.arrayContaining([
-        "[a2a.unknown-skill-option] rules-a2a-expose sets the reply of quote-workflow-startt, which it does not export — name an exported start",
         "[a2a.unknown-skill-option] rules-a2a-expose's defaultSkill QuoteWorkflowStart is not one of its exports",
       ]),
     );

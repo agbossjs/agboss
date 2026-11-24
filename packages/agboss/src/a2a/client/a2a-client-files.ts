@@ -11,6 +11,8 @@ import {
   type FileField,
 } from "../../dto/standard/file.js";
 import { mediaTypeEssenceOf } from "../files/a2a-file-options.js";
+import { A2APart } from "../a2a-types.js";
+import { sdkPartOf } from "./a2a-public-map.js";
 
 /**
  * Files on the client's side (#859): what `execute(input)` sends for an input DTO's file fields —
@@ -21,22 +23,9 @@ import { mediaTypeEssenceOf } from "../files/a2a-file-options.js";
  * the DTO's only file field.
  */
 
-/** The A2A wire's `Part` of a file (#859, #1316). */
-export const A2APart = {
-  /** The part of a file whose bytes are at hand (inline) or elsewhere (`url`), for `send(parts)`. */
-  fromFile(file: FileDto, field?: string): Part {
-    const content: Part["content"] =
-      fileSourceOf(file) === FilePayloadSource.Url
-        ? { $case: "url", value: file.url ?? "" }
-        : { $case: "raw", value: Buffer.from(file.inline ?? "", "base64") };
-    return {
-      content,
-      metadata: field === undefined ? undefined : { [A2A_SKILLS_EXTENSION]: { field } },
-      filename: file.filename ?? "",
-      mediaType: file.mediaType,
-    };
-  },
-} as const;
+/** The SDK's `Part` of a file: `A2APart.fromFile`, written as the SDK shapes it. */
+const filePartOf = (file: FileDto, field?: string): Part =>
+  sdkPartOf(A2APart.fromFile(file, field));
 
 /** How a step's stored file (`fileId`) is read before it is sent: `Files.read`. */
 export type StoredFileReader = (file: FileDto) => Promise<Uint8Array>;
@@ -49,6 +38,15 @@ async function sendableOf(file: FileDto, read: StoredFileReader): Promise<FileDt
     mediaType: file.mediaType,
     ...(file.filename === undefined ? {} : { filename: file.filename }),
   });
+}
+
+/** The part of a file for `send` / `reply`: a stored one (`fileId`) is read first (`Files.read`). */
+export async function sendableFilePartOf(
+  file: FileDto,
+  read: StoredFileReader,
+  field?: string,
+): Promise<Part> {
+  return filePartOf(await sendableOf(file, read), field);
 }
 
 const filesIn = (value: unknown): readonly FileDto[] => {
@@ -70,7 +68,7 @@ export async function fileInputPartsOf(
   const parts: Part[] = [];
   for (const field of fields)
     for (const file of filesIn(record[field.name]))
-      parts.push(A2APart.fromFile(await sendableOf(file, read), field.name));
+      parts.push(await sendableFilePartOf(file, read, field.name));
   const rest = Object.fromEntries(
     Object.entries(record).filter(([name]) => !fields.some((field) => field.name === name)),
   );

@@ -6,7 +6,7 @@ import { A2ACardFileFields } from "../../../../src/a2a/files/a2a-file-options.js
 import { FileFetches } from "../../../../src/a2a/files/a2a-file-fetches.js";
 import { fileSlotsOf } from "../../../../src/a2a/files/a2a-file-slots.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
-import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
+import { A2AReply } from "../../../../src/a2a/a2a-endpoint.decorator.js";
 import { InlineFileRepository } from "../../../../src/infrastructure/file.repository.js";
 import { seconds } from "../../../../src/units/index.js";
 import { DEFAULT_FILE_LIMITS } from "../../../../src/files/file-policy.js";
@@ -149,7 +149,6 @@ export function unitParts(
     clock: new VirtualClock(NINE),
     runs: new LocalRuns(),
     skills: [TEXT_SKILL],
-    maxTaskDuration: undefined,
     mesh: UNIT_MESH,
     files: {
       store: new InlineFileRepository(),

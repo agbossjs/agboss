@@ -1,7 +1,8 @@
+import { hours, minutes } from "../../../src/units/index.js";
 // #860 AC3 — workflows a direct-reply skill may not run (each breaks one rule of
 // `[a2a.message-skill-*]`), and an application that exposes one start of them as `A2AReply.Message`
 // on given stores.
-import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { Idempotency } from "../../../src/app/idempotency.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable, Tool } from "../../../src/components/decorators.js";
@@ -167,12 +168,12 @@ export function directRulesApplication(
   defaultSkill?: Class,
 ): Class {
   const name = exported === BusyWorkflowStart ? "busy-workflow-start" : "tck-workflow-start";
-  @A2AExpose({
+  @A2AEndpoint({
     name: "rules-a2a-expose",
     version: "1.0.0",
     description: "Direct replies",
-    exports: [exported],
-    skills: { [name]: { reply: A2AReply.Message }, ...skills },
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [{ start: exported, reply: skills[name]?.reply ?? A2AReply.Message }],
     ...(defaultSkill === undefined ? {} : { defaultSkill }),
   })
   class RulesA2AExpose {}

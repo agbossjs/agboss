@@ -35,8 +35,17 @@ export type A2AError =
 
 /** The variants of `A2AError`, each with the facts it carries. */
 export declare namespace A2AError {
-  /** The caller was rejected. */
-  export type CallerRejected = ErrorVariant<A2AErrorKind.CallerRejected, "a2a.caller-rejected">;
+  /**
+   * The A2A server refused the caller (`A2AClient.send` on a `401` / `403` carrying an
+   * `a2a.caller-*` code): `httpStatus` and `wireCode` (`a2a.caller-unauthenticated`,
+   * `a2a.caller-forbidden`, ...). Nothing ran on the server; its own text is never kept.
+   */
+  export type CallerRejected = ErrorVariant<A2AErrorKind.CallerRejected, "a2a.caller-rejected"> & {
+    /** `401` or `403`. */
+    readonly httpStatus: number;
+    /** The code the server sent (`{ code, error }`): `a2a.caller-unauthenticated`, ... */
+    readonly wireCode: string;
+  };
   /** The remote's answer breaks its contract. */
   export type Contract = ErrorVariant<A2AErrorKind.Contract, "a2a.contract">;
   /** The remote broke the protocol. */

@@ -288,17 +288,6 @@ describe("#1141: A2A", () => {
         } as never,
       );
 
-  it("maxTaskDuration: cap + 1 refused naming the field", () => {
-    expect(listener({ maxTaskDuration: over(MAX_DEADLINE) })).toThrow(
-      /\[a2a.timeout-invalid\].*maxTaskDuration is 2073600001 ms/u,
-    );
-  });
-
-  it("a caps accepted: the listener's own checks go on (not the timeout's)", () => {
-    for (const options of [{ maxTaskDuration: MAX_DEADLINE }])
-      expect(listener(options)).not.toThrow(/timeout-invalid/u);
-  });
-
   it("a client call's timeout: cap + 1 refused naming the field, the cap accepted", () => {
     expect(() => {
       checkedCallTimeout("peer-a2a-agent", over(MAX_TIMEOUT));

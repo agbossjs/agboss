@@ -1,10 +1,10 @@
-import { hours } from "../../../../src/units/index.js";
+import { hours, minutes } from "../../../../src/units/index.js";
 /**
  * #1244: the storage tier's size, pinned: of each exported start, its input's files take
  * `maxTotalFileSize`, its finishes' files `maxFileSize`; the most of them all.
  */
 import { describe, expect, it } from "vitest";
-import { A2AExpose } from "../../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../../src/a2a/a2a-endpoint.decorator.js";
 import { FileDto, WorkflowFinishFileDto } from "../../../../src/dto/standard/file.js";
 import { FilePolicy, type FilePolicyOptions } from "../../../../src/files/file-policy.js";
 import { fileTierSizeOf, finishDtosOf } from "../../../../src/a2a/files/a2a-file-tier.js";
@@ -72,11 +72,12 @@ function skill(
   })
   class TierWorkflow {}
 
-  @A2AExpose({
+  @A2AEndpoint({
     name: `${id}-a2a-expose`,
     version: "1.0.0",
     description: "t",
-    exports: [TierStart],
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [TierStart],
   })
   class TierExpose {}
 
@@ -143,11 +144,12 @@ describe("fileTierSizeOf", () => {
     })
     class MapWorkflow {}
 
-    @A2AExpose({
+    @A2AEndpoint({
       name: `${id}-a2a-expose`,
       version: "1.0.0",
       description: "m",
-      exports: [MapStart],
+      ttl: { tasks: hours(24), messages: minutes(15) },
+      skills: [MapStart],
     })
     class MapExpose {}
 
@@ -176,7 +178,7 @@ describe("fileTierSizeOf", () => {
     expect(tierOf([plain])).toBe(64 * 1024);
   });
 
-  it("only an @A2AExpose counts: a class that is none (or no component) is skipped", () => {
+  it("only an @A2AEndpoint counts: a class that is none (or no component) is skipped", () => {
     @Injectable({ deps: [] })
     class NotAnExpose {}
     class Undecorated {
@@ -197,11 +199,12 @@ describe("fileTierSizeOf", () => {
       readonly bare = true;
     }
 
-    @A2AExpose({
+    @A2AEndpoint({
       name: `${id}-a2a-expose`,
       version: "1.0.0",
       description: "o",
-      exports: [OddFinish, Undecorated],
+      ttl: { tasks: hours(24), messages: minutes(15) },
+      skills: [OddFinish, Undecorated],
     })
     class OddExpose {}
 

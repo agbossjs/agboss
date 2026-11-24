@@ -4,7 +4,8 @@
  * ones that declare none or an empty one. They are the in-memory store underneath: only their
  * declarations are read at assembly.
  */
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { hours, minutes } from "../../../src/units/index.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
@@ -65,11 +66,12 @@ export class MongoLeases extends InMemoryExecutionLeaseRepository {
   static override readonly store: StoreDescriptor = { backend: "mongodb" };
 }
 
-@A2AExpose({
+@A2AEndpoint({
   name: "release-a2a-expose",
   version: "1.0.0",
   description: "Releases",
-  exports: [ReleaseWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [ReleaseWorkflowStart],
 })
 export class ReleaseA2AExpose {}
 

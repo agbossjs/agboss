@@ -145,31 +145,6 @@ export {
   type ReplayRecovery,
   type UnknownReconciliation,
 } from "../app/outbound-recovery.js";
-// #807: the A2A tasks an application serves (infrastructure, listed in `@Application({ providers })`)
-export {
-  A2ATaskRepository,
-  A2ATaskSaveStatus,
-  A2ATaskState,
-  InvalidA2APageTokenError,
-  type InvalidA2APageTokenErrorOptions,
-  isTerminalA2ATaskState,
-  type A2AMessageKey,
-  type A2AEndpointOwned,
-  type A2AMessageRecord,
-  type A2ATaskKey,
-  type A2ATaskPage,
-  type A2ATaskPause,
-  type A2ATaskQuery,
-  type A2ATaskRecord,
-  type A2ATaskSave,
-  type A2ATaskStatus,
-  type A2ATerminalTaskState,
-  type NewA2ATask,
-} from "../infrastructure/a2a-task.repository.js";
-export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.repository.js";
-// #860: the direct A2A messages' replies (infrastructure, listed in `@Application({ providers })`)
-export * from "../infrastructure/a2a-direct-message.repository.js";
-export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 // #859, #1316: the files a step keeps and reads (infrastructure, listed in `@Application({ providers })`)
 export {
   FileRepository,

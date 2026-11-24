@@ -386,7 +386,7 @@ describe("#808: a read repair wakes the task's waiters when it writes", () => {
     const unwritten = await repairedTask(repairParts(losing, control), lost.task);
     stop();
 
-    expect(repaired.status.state).toBe(A2ATaskState.Canceled);
+    expect(repaired.status.state).toBe(A2ATaskState.Cancelled);
     expect(unwritten.status.state).toBe(A2ATaskState.Working);
     expect(woken).toBe(1);
   });

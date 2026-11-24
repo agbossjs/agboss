@@ -2,9 +2,8 @@
  * #1366 (ledger-a2a-client shard) — a call to an agent whose card says nothing of its capabilities is a poll of its
  * task, not a stream, and never a `TypeError`; a client with no headers of its own sends none.
  */
-import { TaskState } from "@a2a-js/sdk";
 import { describe, expect, it } from "vitest";
-import { A2AClient } from "../../../src/a2a/index.js";
+import { A2AClient, A2ATaskState } from "../../../src/a2a/index.js";
 import { AGENT_URL, scripts, SdkAgent } from "./support/sdk-agent.js";
 
 const cardOf = (capabilities: Record<string, unknown> | undefined) => ({
@@ -34,7 +33,7 @@ describe("#1366: a task of an agent whose card declares no capabilities", () => 
 
       const answer = await client.send("hi");
 
-      expect(answer.task?.status?.state).toBe(TaskState.TASK_STATE_COMPLETED);
+      expect(answer.task?.status?.state).toBe(A2ATaskState.Completed);
       expect(answer.text).toBe("done");
     },
   );

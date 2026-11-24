@@ -1,6 +1,7 @@
 // #941 — the owner's question with a 10-minute deadline served over A2A: a task that waits for the
 // caller's input, and expires.
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { hours, minutes } from "../../../src/units/index.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -14,11 +15,12 @@ import {
 import { RecordingLogger } from "../../helpers/log.js";
 import { BearerAuthenticator } from "./bearer-authenticator.js";
 
-@A2AExpose({
+@A2AEndpoint({
   name: "owner-a2a-expose",
   version: "1.0.0",
   description: "Orders their owner approves within 10 minutes",
-  exports: [OwnerWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [OwnerWorkflowStart],
 })
 export class OwnerA2AExpose {}
 

@@ -4,9 +4,10 @@
  * terminal or not — never `a2a.task-over`, never a second charge. `task-over` stays the answer to a
  * NEW message to a finished task.
  */
+import { hours, minutes } from "../../src/units/index.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
-import { SqliteA2ATaskRepository } from "../../src/a2a/index.js";
+import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
+import { SqliteA2ATaskRepository } from "../../src/stores/index.js";
 import { Application } from "../../src/application/application.js";
 import { A2ATaskRepository } from "../../src/infrastructure/a2a-task.repository.js";
 import {
@@ -46,11 +47,12 @@ import {
   type RpcAnswer,
 } from "./server/rpc.js";
 
-@A2AExpose({
+@A2AEndpoint({
   name: "ac4-orders-a2a-expose",
   version: "1.0.0",
   description: "Takes orders",
-  exports: [OrderWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [OrderWorkflowStart],
 })
 class SqliteOrdersA2AExpose {}
 

@@ -20,7 +20,7 @@ const sameStep = (left: StreamStep, right: StreamStep): boolean =>
 /** The states that end a task without an output. */
 const WITHOUT_OUTPUT: ReadonlySet<A2ATaskState> = new Set<A2ATaskState>([
   A2ATaskState.Failed,
-  A2ATaskState.Canceled,
+  A2ATaskState.Cancelled,
   A2ATaskState.Rejected,
 ]);
 

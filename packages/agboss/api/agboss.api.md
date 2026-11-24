@@ -17,235 +17,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import type { TracerProvider } from '@opentelemetry/api';
 
 // @public
-export interface A2ADirectMessageAttempt {
-    readonly attemptId: string;
-    readonly expiresAt: Date;
-    // (undocumented)
-    readonly startedAt: Date;
-}
-
-// @public
-export interface A2ADirectMessageKey {
-    // (undocumented)
-    readonly messageId: string;
-    readonly ownerId: string | undefined;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt, A2AEndpointOwned {
-    readonly callerPeer?: string;
-    readonly callsModel: boolean;
-    readonly completedAt?: Date;
-    readonly contextId: string;
-    readonly createdAt: Date;
-    readonly meshBodyHash?: string;
-    readonly reply?: A2ADirectMessageReply;
-    readonly requestHash: string;
-    readonly skill: string;
-    // (undocumented)
-    readonly state: A2ADirectMessageState;
-}
-
-// @public
-export interface A2ADirectMessageReply {
-    // (undocumented)
-    readonly finish: string;
-    // (undocumented)
-    readonly output: unknown;
-    readonly spentTokens?: number;
-    readonly spentUsd: Usd;
-}
-
-// @public
-export abstract class A2ADirectMessageRepository {
-    abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
-    abstract deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
-    abstract findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
-    // (undocumented)
-    abstract findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
-    abstract ping(): Promise<void>;
-    abstract retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
-    abstract saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
-    static readonly store: StoreDescriptor;
-}
-
-// @public (undocumented)
-export type A2ADirectMessageSave = {
-    readonly status: A2ADirectMessageSaveStatus.Saved | A2ADirectMessageSaveStatus.Kept;
-    readonly message: A2ADirectMessageRecord;
-} | {
-    readonly status: A2ADirectMessageSaveStatus.Taken;
-};
-
-// @public
-export enum A2ADirectMessageSaveStatus {
-    Kept = "kept",
-    Saved = "saved",
-    Taken = "taken"
-}
-
-// @public
-export enum A2ADirectMessageState {
-    Completed = "completed",
-    InFlight = "in-flight"
-}
-
-// @public
-export interface A2AEndpointOwned {
-    // (undocumented)
-    readonly endpoint: string;
-}
-
-// @public
 export type A2AEndpointRuleCode = "a2a.ttl-invalid" | "a2a.duplicate-skill";
-
-// @public
-export interface A2AMessageKey {
-    // (undocumented)
-    readonly messageId: string;
-    readonly ownerId: string | undefined;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface A2AMessageRecord extends A2AMessageKey, A2AEndpointOwned {
-    readonly reply?: unknown;
-    readonly requestHash: string;
-    // (undocumented)
-    readonly savedAt: Date;
-    // (undocumented)
-    readonly taskId: string;
-}
-
-// @public
-export interface A2ATaskKey {
-    // (undocumented)
-    readonly taskId: string;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface A2ATaskPage {
-    // (undocumented)
-    readonly nextPageToken: string;
-    // (undocumented)
-    readonly tasks: readonly A2ATaskRecord[];
-    readonly totalSize: number;
-}
-
-// @public
-export interface A2ATaskPause {
-    readonly ask: unknown;
-    // (undocumented)
-    readonly kind: PauseKind;
-    readonly pauseId?: string;
-}
-
-// @public
-export interface A2ATaskQuery extends A2AEndpointOwned {
-    // (undocumented)
-    readonly contextId?: string;
-    // (undocumented)
-    readonly ownerId: string | undefined;
-    readonly pageSize: number;
-    readonly pageToken?: string;
-    // (undocumented)
-    readonly state?: A2ATaskState;
-    readonly statusAtAfter?: Date;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface A2ATaskRecord extends A2ATaskKey, A2AEndpointOwned {
-    readonly acceptedAt: Date;
-    readonly callerPeer?: string;
-    readonly contextId: string;
-    readonly meshBodyHash?: string;
-    // (undocumented)
-    readonly ownerId: string | undefined;
-    readonly skill: string;
-    // (undocumented)
-    readonly status: A2ATaskStatus;
-    readonly statusAt: Date;
-    readonly version: number;
-}
-
-// @public (undocumented)
-export abstract class A2ATaskRepository {
-    abstract compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
-    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
-    // (undocumented)
-    abstract findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
-    // (undocumented)
-    abstract findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
-    abstract list(query: A2ATaskQuery): Promise<A2ATaskPage>;
-    abstract ping(): Promise<void>;
-    abstract saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
-    abstract saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
-    abstract saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
-    static readonly store: StoreDescriptor;
-}
-
-// @public (undocumented)
-export type A2ATaskSave = {
-    readonly status: A2ATaskSaveStatus.Saved;
-    readonly task: A2ATaskRecord;
-} | {
-    readonly status: A2ATaskSaveStatus.MessageTaken;
-    readonly message: A2AMessageRecord;
-    readonly task: A2ATaskRecord | undefined;
-} | {
-    readonly status: A2ATaskSaveStatus.TaskIdTaken;
-};
-
-// @public
-export enum A2ATaskSaveStatus {
-    MessageTaken = "message-taken",
-    Saved = "saved",
-    TaskIdTaken = "task-id-taken"
-}
-
-// @public
-export enum A2ATaskState {
-    // (undocumented)
-    Canceled = "TASK_STATE_CANCELED",
-    // (undocumented)
-    Completed = "TASK_STATE_COMPLETED",
-    // (undocumented)
-    Failed = "TASK_STATE_FAILED",
-    // (undocumented)
-    InputRequired = "TASK_STATE_INPUT_REQUIRED",
-    // (undocumented)
-    Rejected = "TASK_STATE_REJECTED",
-    // (undocumented)
-    Submitted = "TASK_STATE_SUBMITTED",
-    // (undocumented)
-    Working = "TASK_STATE_WORKING"
-}
-
-// @public
-export interface A2ATaskStatus {
-    readonly cancelRequestedAt?: string;
-    readonly errorCode?: string;
-    readonly errorDetails?: unknown;
-    readonly finish?: string;
-    readonly message?: string;
-    readonly output?: unknown;
-    readonly pendingPauses: readonly A2ATaskPause[];
-    readonly spentTokens?: number;
-    readonly spentUsd?: Usd;
-    // (undocumented)
-    readonly state: A2ATaskState;
-}
-
-// @public
-export type A2ATerminalTaskState = A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Canceled | A2ATaskState.Rejected;
 
 // @public (undocumented)
 export function Action<const TDeps extends readonly Token[] = []>(options: ActionOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => ExecuteMethod>(value: TClass) => TClass;
@@ -5272,52 +5044,6 @@ export interface InlinePrompt {
 }
 
 // @public
-export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
-    // (undocumented)
-    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
-    // (undocumented)
-    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
-    // (undocumented)
-    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
-    // (undocumented)
-    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
-    // (undocumented)
-    static readonly store: StoreDescriptor;
-}
-
-// @public
-export class InMemoryA2ATaskRepository extends A2ATaskRepository {
-    // (undocumented)
-    compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
-    // (undocumented)
-    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
-    // (undocumented)
-    findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
-    // (undocumented)
-    findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
-    // (undocumented)
-    list(query: A2ATaskQuery): Promise<A2ATaskPage>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
-    // (undocumented)
-    saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
-    // (undocumented)
-    saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
-    // (undocumented)
-    static readonly store: StoreDescriptor;
-}
-
-// @public
 export class InMemoryDatabaseStorage {
 }
 
@@ -5399,21 +5125,6 @@ export type InputOf<TInstance> = GeneratedEntry<AGBossTypes.Inputs, TInstance>;
 type InstanceOrSelf<T> = T extends abstract new (...args: never[]) => infer TInstance ? TInstance : T;
 
 // @public
-export class InvalidA2APageTokenError extends AGBossError {
-    constructor(options?: InvalidA2APageTokenErrorOptions);
-    // (undocumented)
-    static readonly code: "a2a.invalid-page-token";
-    // (undocumented)
-    readonly code: typeof InvalidA2APageTokenError.code;
-}
-
-// @public
-export interface InvalidA2APageTokenErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-}
-
-// @public
 export class InvalidMintedIdError extends AGBossError {
     constructor(options: InvalidMintedIdErrorOptions);
     // (undocumented)
@@ -5475,9 +5186,6 @@ unknown
 
 // @public
 type IsSeveral<TOutput> = TOutput extends readonly unknown[] ? number extends TOutput["length"] ? false : true : false;
-
-// @public
-export const isTerminalA2ATaskState: (state: A2ATaskState) => state is A2ATerminalTaskState;
 
 // @public (undocumented)
 type IsUnion<TValue, TAll = TValue> = TValue extends unknown ? [TAll] extends [TValue] ? false : true : never;
@@ -6653,17 +6361,6 @@ export interface NeedsItemsHandler<THead extends PathHead> {
 export interface NeedsItemsQuorumHandler<THead extends PathHead> {
     // (undocumented)
     onError<const TError extends ErrorClass>(error: TError, path: SidePath): [LimitError.Items] extends [ErrorInstance<TError>] ? QuorumJoined<THead> : NeedsItemsQuorumHandler<THead>;
-}
-
-// @public
-export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
-
-// @public
-export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> {
-    // (undocumented)
-    readonly messageId: string;
-    // (undocumented)
-    readonly requestHash: string;
 }
 
 // @public
@@ -12769,47 +12466,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/http/http-authenticator.ts - (ae-undocumented) Missing documentation for "description".
 // src/http/http-authenticator.ts - (ae-undocumented) Missing documentation for "schemes".
 // src/http/http-authenticator.ts - (ae-undocumented) Missing documentation for "deps".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "messageId".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "finish".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "output".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "startedAt".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "A2ADirectMessageSave".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Submitted".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Working".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "InputRequired".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Completed".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Failed".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Canceled".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Rejected".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "taskId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "messageId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "endpoint".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "kind".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "taskId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "savedAt".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "messageId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "requestHash".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "A2ATaskSave".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "contextId".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tasks".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "nextPageToken".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "A2ATaskRepository".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
 // src/infrastructure/clock.ts - (ae-undocumented) Missing documentation for "source".
 // src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "spent".
 // src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "maxSpend".
@@ -12888,25 +12544,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "completedAt".
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "bytes".
 // src/infrastructure/file.repository.ts - (ae-undocumented) Missing documentation for "FileRepository".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "completeIfInFlight".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/in-memory-fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "runInTransaction".

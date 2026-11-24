@@ -1,5 +1,5 @@
 /**
- * #807 (A2A P1, design §4.1.3 step 7): an application that exposes an `@A2AExpose` moves each A2A
+ * #807 (A2A P1, design §4.1.3 step 7): an application that exposes an `@A2AEndpoint` moves each A2A
  * task with its execution's events — start → WORKING, a rest at a pause → INPUT_REQUIRED with the
  * pause, resume → WORKING, a finish → COMPLETED with its output, a failure → FAILED with its code (and
  * that code's fixed text, never the error's own), a
@@ -164,7 +164,7 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
     });
 
     expect((await taskOn(app))?.status).toEqual({
-      state: A2ATaskState.Canceled,
+      state: A2ATaskState.Cancelled,
       pendingPauses: [],
     });
   });

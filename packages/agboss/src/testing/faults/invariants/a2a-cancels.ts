@@ -89,8 +89,8 @@ export function canceledViolations(
   writes: readonly HistoryOperation[],
 ): FaultViolation[] {
   const isCanceled =
-    answers.some((answer) => answer.state === A2ATaskState.Canceled) ||
-    writes.some(({ complete }) => outputOf(complete).state === A2ATaskState.Canceled);
+    answers.some((answer) => answer.state === A2ATaskState.Cancelled) ||
+    writes.some(({ complete }) => outputOf(complete).state === A2ATaskState.Cancelled);
   const anchor = cancelAnchorOf(run, taskId);
   const asked = run.events.some(
     (event) =>

@@ -5,8 +5,6 @@
  */
 // the contracts a store extends (also in the root entry: an application names them in `deps`)
 export {
-  A2ADirectMessageRepository,
-  A2ATaskRepository,
   ChildExecutionQueueRepository,
   CostLedgerRepository,
   ExecutionAuditLogRepository,
@@ -43,10 +41,6 @@ export type {
 
 // what the contracts' members name in turn (also in the root entry): a store needs no other import
 export {
-  A2ADirectMessageSaveStatus,
-  A2ADirectMessageState,
-  A2ATaskSaveStatus,
-  A2ATaskState,
   AGBossError,
   BranchStatus,
   BranchVerdict,
@@ -81,22 +75,6 @@ export {
   ToolCallStatus,
 } from "../index.js";
 export type {
-  A2ADirectMessageAttempt,
-  A2ADirectMessageKey,
-  A2ADirectMessageRecord,
-  A2ADirectMessageReply,
-  A2ADirectMessageSave,
-  NewA2ADirectMessage,
-  A2AMessageKey,
-  A2AEndpointOwned,
-  A2AMessageRecord,
-  A2ATaskKey,
-  A2ATaskPage,
-  A2ATaskPause,
-  A2ATaskQuery,
-  A2ATaskRecord,
-  A2ATaskSave,
-  A2ATaskStatus,
   AGBossErrorOptions,
   AgentExecutionOutput,
   ApplicationRecord,
@@ -151,7 +129,6 @@ export type {
   MeshOriginStep,
   MeshRequestKey,
   MeshRequestRecord,
-  NewA2ATask,
   OutboundCallClosedLease,
   OutboundCallEventRecord,
   OutboundCallFailure,
@@ -191,3 +168,31 @@ export type {
   WorkflowRecord,
   WrittenLedgerMark,
 } from "../index.js";
+
+// the A2A task and direct-message stores an application serves (#807, #860, #1320): the contracts a
+// store extends, its records, and the built-in in-memory and SQLite stores for `@Application({ providers })`
+export {
+  A2ATaskRepository,
+  A2ATaskSaveStatus,
+  A2ATaskState,
+  InvalidA2APageTokenError,
+  isTerminalA2ATaskState,
+  type A2AEndpointOwned,
+  type A2AMessageKey,
+  type A2AMessageRecord,
+  type A2ATaskKey,
+  type A2ATaskPage,
+  type A2ATaskPause,
+  type A2ATaskQuery,
+  type A2ATaskRecord,
+  type A2ATaskSave,
+  type A2ATaskStatus,
+  type A2ATerminalTaskState,
+  type InvalidA2APageTokenErrorOptions,
+  type NewA2ATask,
+} from "../infrastructure/a2a-task.repository.js";
+export * from "../infrastructure/a2a-direct-message.repository.js";
+export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.repository.js";
+export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
+export { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-task.repository.js";
+export { SqliteA2ADirectMessageRepository } from "../infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";

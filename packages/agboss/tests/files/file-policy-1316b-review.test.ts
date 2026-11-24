@@ -3,9 +3,10 @@
  * pool per set of pool fields, never per object; a skill's pool only tightens its workflow's, and a
  * skill whose start cannot be found is said, not skipped.
  */
+import { hours, minutes } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { a2aFileStoreViolations } from "../../src/a2a/a2a-file-store-rule.js";
-import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { appFileSlotsOf } from "../../src/a2a/files/a2a-file-pool.js";
 import { Files } from "../../src/a2a/files/files.service.js";
 import { FileError } from "../../src/core/error-families/remote-errors.js";
@@ -120,26 +121,5 @@ describe("#1316b review: a child's pool only tightens its parent's", () => {
     );
     expect(excess(undefined, { maxConcurrent: 16 })).toHaveLength(1);
     expect(excess(undefined, { maxConcurrent: 8 })).toEqual([]);
-  });
-
-  it("a skill whose start is not exported is said, not skipped", () => {
-    @FilePolicy({ maxFiles: 1 })
-    class Narrow {}
-    @A2AExpose({
-      name: "orphan-skill-a2a-expose",
-      version: "1.0.0",
-      description: "files",
-      exports: [FileReviewWorkflowStart],
-      skills: { "no-such-skill": { filePolicy: Narrow } },
-    })
-    class Expose {}
-
-    const found = a2aFileStoreViolations({
-      name: "rules-application",
-      workflows: [FileReviewWorkflow],
-      endpoints: [Expose],
-    } as never);
-
-    expect(found.map(({ code }) => code)).toContain("a2a.skill-file-policy-exceeds-workflow");
   });
 });

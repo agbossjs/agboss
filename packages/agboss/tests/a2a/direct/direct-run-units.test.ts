@@ -1,7 +1,7 @@
 /**
  * #860 (mutation shard `a2a-direct`): one attempt's run — the skill's start under the attempt's
  * reserved id, never recovered, on the message's thread with exactly the caller's options and the
- * deadline min(maxTaskDuration, 25 s); aborted at the caller's disconnect and once 25 s pass (then
+ * deadline 25 s; aborted at the caller's disconnect and once 25 s pass (then
  * `-32603`, its row and files removed), its bound over with it.
  */
 import { describe, expect, it, vi } from "vitest";
@@ -68,17 +68,11 @@ describe("#860: an attempt's run", () => {
     );
   });
 
-  it("has the listener's maxTaskDuration as its deadline, within 25 s", async () => {
-    const deadlineWith = async (maxTaskDuration: number) => {
-      const rig = directRig({ maxTaskDuration: maxTaskDuration as never });
-      await directReply(rig.parts, callerOf(), hello(), DIRECT_SKILL);
-      return rig.runs[0]?.options.deadline;
-    };
+  it("has 25 s as its deadline", async () => {
+    const rig = directRig();
+    await directReply(rig.parts, callerOf(), hello(), DIRECT_SKILL);
 
-    expect([await deadlineWith(seconds(10)), await deadlineWith(seconds(60))]).toEqual([
-      seconds(10),
-      seconds(25),
-    ]);
+    expect(rig.runs[0]?.options.deadline).toBe(seconds(25));
   });
 
   it("is aborted once 25 s pass: -32603, its row and its files removed", async () => {

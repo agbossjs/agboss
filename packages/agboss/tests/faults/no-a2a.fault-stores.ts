@@ -1,4 +1,4 @@
-import { SqliteA2ATaskRepository } from "../../src/a2a/index.js";
+import { SqliteA2ATaskRepository } from "../../src/stores/index.js";
 import type { FaultStoreSet } from "../../src/testing/faults/index.js";
 import { faultStores as sqlite } from "./sqlite.fault-stores.js";
 

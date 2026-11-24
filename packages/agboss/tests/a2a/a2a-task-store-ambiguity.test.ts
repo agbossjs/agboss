@@ -1,7 +1,7 @@
 /**
  * #960 AC2 — two listed A2A task stores: assembly refuses the pair, naming both with their
  * backends (`[di.ambiguous-implementation]`, as two lease stores are named), whether or not an
- * `@A2AExpose` is served and whatever the leases are; the task-store rule adds nothing to it.
+ * `@A2AEndpoint` is served and whatever the leases are; the task-store rule adds nothing to it.
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
