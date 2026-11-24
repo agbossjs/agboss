@@ -1540,6 +1540,18 @@ export interface OutdatedValueRecord extends ScopeValueRecord {
 }
 
 // @public
+export interface Page<TItem> {
+    readonly items: readonly TItem[];
+    readonly nextCursor?: string;
+}
+
+// @public
+export interface PageQuery {
+    readonly cursor?: string;
+    readonly limit?: number;
+}
+
+// @public
 export function parsedStoredJson(what: string, text: string, ids: Readonly<Record<string, string | undefined>>, reviver?: (key: string, value: unknown) => unknown): unknown;
 
 // @public

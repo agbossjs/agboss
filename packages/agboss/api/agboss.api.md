@@ -397,6 +397,9 @@ export interface AGBossErrorOptions {
 }
 
 // @public
+export const agbossTenantContext: unique symbol;
+
+// @public
 export function Agent(options: AgentOptions): <TClass extends Class>(value: TClass) => TClass;
 
 // @public
@@ -4332,6 +4335,9 @@ export enum HandOverSite {
 }
 
 // @public
+export type HasTenantContext<TApp> = unknown extends TApp ? true : TApp extends TenantContextBranded<infer THas> ? [THas] extends [false] ? false : true : true;
+
+// @public
 export function HealthCheck<const TDeps extends readonly Token[] = []>(options: HealthCheckOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => HealthCheckHandler>(value: TClass) => TClass;
 
 // @public
@@ -7024,6 +7030,18 @@ export interface Outputs {
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
 // @public
+export interface Page<TItem> {
+    readonly items: readonly TItem[];
+    readonly nextCursor?: string;
+}
+
+// @public
+export interface PageQuery {
+    readonly cursor?: string;
+    readonly limit?: number;
+}
+
+// @public
 export interface PaidErrorVariant<TKind extends string, TCode extends string = string> extends ErrorVariant<TKind, TCode> {
     // (undocumented)
     readonly spend: CostReport;
@@ -9694,7 +9712,33 @@ export abstract class TenantContext {
 }
 
 // @public
+export interface TenantContextBranded<THas extends boolean> {
+    // (undocumented)
+    readonly [agbossTenantContext]?: THas;
+}
+
+// @public
 export type TenantContextClass<T extends TenantContext = TenantContext> = abstract new () => T;
+
+// @public
+export interface TenantIdOption {
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export type TenantListArgs<TApp, TQuery extends object = object> = HasTenantContext<TApp> extends false ? [query?: TQuery & {
+    readonly tenantId?: string;
+}] : [query: TQuery & TenantListScope];
+
+// @public
+export type TenantListScope = {
+    readonly tenantId: string;
+    readonly allTenants?: never;
+} | {
+    readonly allTenants: true;
+    readonly tenantId?: never;
+};
 
 // @public
 type TenantOptionOf<TInstance> = [StartTenantOf<TInstance>] extends [never] ? {
@@ -9702,6 +9746,11 @@ type TenantOptionOf<TInstance> = [StartTenantOf<TInstance>] extends [never] ? {
 } : {
     readonly tenant: ContextValues<StartTenantOf<TInstance>>;
 };
+
+// @public
+export type TenantPointArgs<TApp, TOptions extends object = object> = HasTenantContext<TApp> extends false ? [options?: TOptions & {
+    readonly tenantId?: string;
+}] : [options: TOptions & TenantIdOption];
 
 // @public
 export interface TenantValues {
@@ -10810,6 +10859,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "attempts".
 // src/app/pause-closed-error.ts - (ae-undocumented) Missing documentation for "cause".
 // src/app/paused-runs.ts - (ae-undocumented) Missing documentation for "run".
+// src/app/tenant-args.ts - (ae-undocumented) Missing documentation for "[agbossTenantContext]".
+// src/app/tenant-args.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "reply".

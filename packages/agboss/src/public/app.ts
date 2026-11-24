@@ -103,6 +103,16 @@ export {
   type ResumeDecision,
   type ResumeVersions,
 } from "../run/resume-guard.js";
+export { agbossTenantContext } from "../app/tenant-args.js";
+export type {
+  HasTenantContext,
+  TenantContextBranded,
+  TenantIdOption,
+  TenantListArgs,
+  TenantListScope,
+  TenantPointArgs,
+} from "../app/tenant-args.js";
+export type { Page, PageQuery } from "../app/page.js";
 export {
   ExecutionStatus,
   type App,

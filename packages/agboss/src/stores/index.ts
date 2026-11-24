@@ -21,6 +21,9 @@ export * from "./pause-contract-types.js";
 // `@agboss/mongodb` take it and give it to their applications
 export { SchemaSetup } from "./schema-setup.js";
 
+// the one paging shape of every listing (#1324e)
+export type { Page, PageQuery } from "../app/page.js";
+
 // the rows at an outbound-call store's boundary (#505): an intent, its claim, its lease
 export { OutboundCallLeaseState } from "../infrastructure/execution-audit-log.repository.js";
 export type {

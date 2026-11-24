@@ -135,6 +135,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/a2a/server/a2a-request-handler.ts"],
   ),
   ...reviewed(
+    "the paging shape and the tenant-safety argument types of App (#1324e): type declarations and one brand symbol, no runtime rule; the runtime refusal is ValidationError.TenantRequired, in the error families; pinned by the type tests in tests/app",
+    ["src/app/page.ts", "src/app/tenant-args.ts"],
+  ),
+  ...reviewed(
     "the application's assembly and run wiring: no spend, lease, cancel or pause-notice rule of its own",
     [
       "src/app/app-deps-parts.ts",
