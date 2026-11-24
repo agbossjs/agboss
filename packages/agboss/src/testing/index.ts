@@ -18,6 +18,8 @@ export type { TestWithOptions } from "./environment.js";
 export type { TestInstanceOptions } from "./instances.js";
 export type { TestApp } from "./test-app.js";
 export type { A2AServerFixture, A2ATestServer } from "./a2a-server.js";
+export type { McpServerFixture, McpServerFixtureOptions, McpTestServer } from "./mcp-server.js";
+export type { A2AStub, BoundaryStub, RagStub } from "./boundary-stubs.js";
 export type { AgentSlice, RouterSlice, ToolSlice, ToolClassOf } from "./slices.js";
 export {
   replyWith,
@@ -118,7 +120,16 @@ export type {
 export { testService, type ServiceRunner } from "./units/test-service.js";
 export { testDto, type DtoTestHarness } from "./test-dto.js";
 export {
+  testModule,
+  type TestModule,
+  type TestModuleApplicationOptions,
+  type TestModuleOptions,
+} from "./test-module.js";
+export { testAgent, type AgentRunner, type TestAgentOptions } from "./test-agent.js";
+export type { ActionSlice } from "./slices.js";
+export {
   testUnit,
+  type FailClosed,
   type IsFlowNode,
   type OtherUnitRunners,
   type UnitRunnerOf,

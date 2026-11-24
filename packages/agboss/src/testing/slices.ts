@@ -153,3 +153,32 @@ export function agentSlice(built: BuiltApp, target: Class): AgentSlice {
     },
   };
 }
+
+/** One action of the app on its own: its input in, what `execute` gives out (no flow, no output node). */
+export interface ActionSlice {
+  run(input: unknown): Promise<unknown>;
+}
+
+/** The action as the container created it, run in a step's frame of an execution of its own. */
+export function actionSlice(built: BuiltApp, cls: Class): ActionSlice {
+  const name = nodeNameOf(cls);
+  const signal = new AbortController().signal;
+  const call = {
+    workflow: workflowIdentityOf(built.deps),
+    type: cls,
+    name,
+    executionId: "action-slice",
+    callId: "action-slice",
+    signal,
+    tenant: defaultTenantOf(built.deps.contexts ?? contextsOutsideExecution(built.deps.config)),
+  };
+  return {
+    run: (input) =>
+      runInFrame(standaloneCallFrameOf(call), async () => {
+        const instance = built.deps.container.get(cls) as {
+          execute(input: unknown): unknown;
+        };
+        return await instance.execute(input);
+      }),
+  };
+}

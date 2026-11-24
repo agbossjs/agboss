@@ -353,6 +353,9 @@ export function compareBundleProfiles(bundleOf: (profile: string) => Promise<Ass
 export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunReport, file: string): EvalRunComparison;
 
 // @public
+export function compareEvalSuiteWith(application: Class, suite: Class, options: CompareEvalSuiteOptions & Pick<NonNullable<CompareSeams>, "seams">): Promise<EvalSuiteComparison>;
+
+// @public
 export function compareProfilesWith<TApplication extends Class>(application: ApplicationClass<TApplication>, options: CompareProfilesOptions & {
     readonly gateway?: ModelGateway;
 }): Promise<ProfileComparison>;
@@ -722,11 +725,30 @@ export function diagnosticOfViolation(violation: RuleViolation): Diagnostic;
 export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProviderDirectory;
 
 // @public
+export interface DraftPause {
+    readonly actor?: {
+        readonly id: string;
+    };
+    // (undocumented)
+    readonly decision: unknown;
+    // (undocumented)
+    readonly target: string;
+}
+
+// @public
 export interface DraftToolCall {
     // (undocumented)
     readonly input: unknown;
     // (undocumented)
     readonly tool: string;
+}
+
+// @public
+export interface DraftTurn {
+    // (undocumented)
+    readonly input: unknown;
+    // (undocumented)
+    readonly pauses?: readonly DraftPause[];
 }
 
 // @public (undocumented)
@@ -797,6 +819,7 @@ export type EvalCalibrationResult = {
 // @public
 export interface EvalCaseDraft {
     readonly execution?: Readonly<Record<string, unknown>>;
+    readonly expectedStatus?: ExecutionStatus.Stopped | ExecutionStatus.Cancelled;
     // (undocumented)
     readonly history: readonly ObservedTurn[];
     // (undocumented)
@@ -806,9 +829,7 @@ export interface EvalCaseDraft {
     readonly start: string;
     readonly tenant?: Readonly<Record<string, unknown>>;
     // (undocumented)
-    readonly turns: readonly {
-        readonly input: unknown;
-    }[];
+    readonly turns: readonly DraftTurn[];
 }
 
 // @public
@@ -1331,7 +1352,9 @@ export interface ObservedExecution {
     readonly history: readonly ObservedTurn[];
     // (undocumented)
     readonly input: unknown;
+    readonly pauses: readonly PauseAnswerRecord[];
     readonly start: string;
+    readonly status: ExecutionHistoryStatus;
     readonly tenant: Readonly<Record<string, unknown>>;
     readonly toolCalls: readonly ToolCallRecord[];
 }
@@ -1477,7 +1500,12 @@ export interface RuleExplanation {
 export const ruleExplanationOf: (code: string) => RuleExplanation | undefined;
 
 // @public
-export function runEvalSuite(built: BuiltApplication, suite: Class, options: EvalRunOptions): Promise<EvalRunReport>;
+export function runEvalSuiteWith(application: Class, suite: Class, options?: RunEvalSuiteOptions & {
+    readonly seams?: Pick<BuildApplicationOptions, "gateway">;
+}): Promise<EvalRunReport>;
+
+// @public
+export function runSuiteOn(built: BuiltApplication, suite: Class, options: EvalRunOptions): Promise<EvalRunReport>;
 
 // @public
 export interface RuntimeContexts {
@@ -1900,6 +1928,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "execution".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "tool".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "input".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "target".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "decision".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "input".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "pauses".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "name".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "history".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "turns".

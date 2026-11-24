@@ -5,6 +5,7 @@
 ```ts
 
 import type { Assertion } from 'vitest';
+import type { BaseMessage } from '@langchain/core/messages';
 import type { Graph } from '@langchain/core/runnables/graph';
 import type { IncomingMessage } from 'node:http';
 import { inspect } from 'node:util';
@@ -20,6 +21,9 @@ import type { ToolDefinition } from '@langchain/core/language_models/base';
 export type A2AServerFixture = (options: Omit<A2AHttpListenerOptions, "publicUrl"> & {
     readonly publicUrl?: string | (() => string);
 }) => Promise<A2ATestServer>;
+
+// @public
+export type A2AStub<TInput = unknown, TResult = unknown> = BoundaryStub<TInput, TResult>;
 
 // @public
 export interface A2ATestServer {
@@ -46,6 +50,21 @@ export interface ActionRunner<TInput, TOutput> extends UnitClock {
 export interface ActionScript<TSelf = unknown> {
     readonly inputs: readonly RecordedInputOf<TSelf>[];
     readonly label: string;
+}
+
+// @public
+export interface ActionSlice {
+    // (undocumented)
+    run(input: unknown): Promise<unknown>;
+}
+
+// @public
+export interface AgentRunner extends Pick<TestModule, "mockTool" | "mockService" | "mockMcp" | "mockRag" | "mockA2A" | "clock" | "close" | "get"> {
+    // (undocumented)
+    (input: string): Promise<string>;
+    mockModel(component?: Class): ModelScript;
+    // (undocumented)
+    run(input: string): Promise<string>;
 }
 
 // @public
@@ -114,6 +133,14 @@ export interface AppCloseTimeoutErrorOptions {
 export interface ArbiterRunner extends UnitClock {
     // (undocumented)
     <TAgent extends Class>(agent: TAgent, answer: ArbiterAnswerOf<TAgent>, options?: UnitCallOptions): Promise<UnitRun<boolean>>;
+}
+
+// @public
+export interface BoundaryStub<TCall, TResult> {
+    readonly calls: readonly TCall[];
+    reset(): this;
+    thenFail(...errors: readonly Error[]): this;
+    thenReturn(...results: readonly TResult[]): this;
 }
 
 // @public
@@ -312,6 +339,9 @@ export interface ExpectedRequest {
     // (undocumented)
     readonly system?: string;
 }
+
+// @public
+export type FailClosed<TRunner, TGenerated> = [TGenerated] extends [never] ? TRunner : [TGenerated] extends [MissingGeneratedTypes] ? MissingGeneratedTypes : TRunner;
 
 // @public
 export const failStreamAfter: (chunks: readonly string[], failure: ModelFailure) => StreamFailureTurn;
@@ -575,6 +605,14 @@ export class LiveCallBlockedError extends TestFailure {
 }
 
 // @public
+export type McpServerFixture = (endpoint: Class, options?: McpServerFixtureOptions) => Promise<McpTestServer>;
+
+// @public
+export type McpServerFixtureOptions = Omit<McpHttpListenerOptions, "endpoint" | "publicUrl"> & {
+    readonly publicUrl?: string;
+};
+
+// @public
 export function mcpServerStub<TServer extends McpServerClient<ServerTools>>(server: new () => TServer, handlers: ServerToolHandlers<ToolsOf<TServer>>): TServer;
 
 // @public
@@ -589,6 +627,11 @@ export interface McpStubCall {
     readonly args: unknown;
     // (undocumented)
     readonly tool: string;
+}
+
+// @public
+export interface McpTestServer {
+    readonly url: string;
 }
 
 // @public
@@ -715,6 +758,9 @@ export interface RagRunner extends UnitClock {
     // (undocumented)
     (query: string, options?: RagCallOptions): Promise<UnitRun<readonly RagSearchResultDto[]>>;
 }
+
+// @public
+export type RagStub = BoundaryStub<string, RagRetrieval>;
 
 // @public
 export type RecordedInputOf<TSelf> = IsKnown<TSelf> extends true ? InputOf<TSelf> : Readonly<Record<string, unknown>>;
@@ -948,7 +994,18 @@ export interface StudioOptions {
 }
 
 // @public
+export function testAgent(agent: Class, options: TestAgentOptions): Promise<AgentRunner>;
+
+// @public
+export interface TestAgentOptions extends Omit<TestModuleOptions, "components"> {
+    readonly components?: readonly Class[];
+    readonly workflow: Class;
+}
+
+// @public
 export interface TestApp extends Pick<AnyTenantApp, "execute" | "resume" | "extendPause" | "reassignPause" | "close" | "cancel" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "listPauses" | "resolve"> {
+    // (undocumented)
+    action(action: Class): ActionSlice;
     // (undocumented)
     agent(agent: Class): AgentSlice;
     // (undocumented)
@@ -1031,7 +1088,7 @@ export class TestFailure extends Error {
 }
 
 // @public
-export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.cassette-missing" | "vcr.stale-cassette" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step" | "test.close-timeout" | "test.unsettled-work";
+export type TestFailureCode = "test.live-call-blocked" | "test.script-exhausted" | "test.not-a-route" | "test.wrong-script" | "test.app-closed" | "test.app-not-ready" | "test.no-open-pause" | "test.cassette-missing" | "vcr.stale-cassette" | "test.no-matching-script" | "test.unused-script" | "test.unreachable-step" | "test.close-timeout" | "test.unsettled-work";
 
 // @public
 export interface TestFailureOptions {
@@ -1079,6 +1136,42 @@ export interface TestInstanceOptions {
 export interface TestLeases {
     freeze(app: TestApp): void;
     thaw(app: TestApp): void;
+}
+
+// @public
+export interface TestModule {
+    readonly app: TestApp;
+    readonly clock: VirtualClock;
+    close(): Promise<void>;
+    get<TToken extends Token>(token: TToken): Resolved<TToken>;
+    // (undocumented)
+    mockA2A(agent: Class): A2AStub;
+    // (undocumented)
+    mockAction(action: Class): ActionScript;
+    // (undocumented)
+    mockMcp<TServer extends McpServerClient<ServerTools>>(server: new () => TServer): McpStub<TServer>;
+    mockModel<TComponent extends Class>(component: TComponent): ModelScript<InstanceType<TComponent>>;
+    // (undocumented)
+    mockRag(rag: Class): RagStub;
+    // (undocumented)
+    mockService<T>(service: Class<T>): Mocked<T>;
+    // (undocumented)
+    mockTool(tool: Class): ToolScript;
+    runAction(action: Class, input: unknown): Promise<unknown>;
+    runAgent(agent: Class, input: string): Promise<string>;
+    runRouter(router: Class, input: string): Promise<Class>;
+    runTool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>, input: TInput): Promise<ToolOutput<TOutput>>;
+}
+
+// @public
+export function testModule(options: TestModuleOptions): Promise<TestModule>;
+
+// @public
+export type TestModuleApplicationOptions = Partial<Omit<ApplicationOptions, "name" | "version" | "workflows" | "providers" | "services">>;
+
+// @public
+export interface TestModuleOptions extends TestWithOptions, TestModuleApplicationOptions {
+    readonly components: readonly Class[];
 }
 
 // @public
@@ -1262,13 +1355,13 @@ export interface UnitRun<TOutput> {
 }
 
 // @public
-export type UnitRunnerOf<TClass extends Class> = IsFlowNode<InstanceType<TClass>, NodeKind.Router> extends true ? RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>> : IsFlowNode<InstanceType<TClass>, NodeKind.Action> extends true ? ActionRunner<ActionInputOf<InstanceType<TClass>>, ActionOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
+export type UnitRunnerOf<TClass extends Class> = IsFlowNode<InstanceType<TClass>, NodeKind.Router> extends true ? FailClosed<RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>> : IsFlowNode<InstanceType<TClass>, NodeKind.Action> extends true ? ActionRunner<ActionInputOf<InstanceType<TClass>>, ActionOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     execute(input: never): unknown;
 } ? ToolRunner<ToolInputOf<InstanceType<TClass>>, ToolOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     route(input: never): unknown;
-} ? RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
+} ? FailClosed<RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     judge(input: never): unknown;
-} ? TClass extends Class<object> ? JudgeRunner<JudgeOutputOf<TClass>> : never : InstanceType<TClass> extends RagSource ? RagRunner : OtherUnitRunners<InstanceType<TClass>>;
+} ? TClass extends Class<object> ? FailClosed<JudgeRunner<JudgeOutputOf<TClass>>, JudgeOutputOf<TClass>> : never : InstanceType<TClass> extends RagSource ? RagRunner : OtherUnitRunners<InstanceType<TClass>>;
 
 // @public
 export const UNSCRIPTED_SUMMARY = "(summary of the earlier turns)";
@@ -1353,16 +1446,21 @@ export interface WhenScript<TSelf = unknown> {
 // @public
 export interface WorkflowFixtures {
     readonly a2aServer: A2AServerFixture;
+    readonly answerPause: <const TTarget extends Class>(target: TTarget, decision: PauseOutputOf<InstanceType<TTarget>>, options?: EvalPauseOptions) => Promise<ExecutionOutput>;
     readonly app: TestApp;
     readonly apps: readonly TestApp[];
     readonly clock: VirtualClock;
     readonly leases: TestLeases;
     readonly mcpOf: <TServer extends McpServerClient<ServerTools>>(server: new () => TServer) => McpStub<TServer>;
+    readonly mcpServer: McpServerFixture;
+    readonly mockA2A: (agent: Class) => A2AStub;
     readonly mockAction: <TAction extends Class>(action: TAction) => ActionScript<InstanceType<TAction>>;
     readonly mockLlm: <TComponent extends Class>(component: TComponent) => ModelScript<InstanceType<TComponent>>;
     readonly mockOf: <T>(component: Class<T>) => Mocked<T>;
+    readonly mockRag: (rag: Class) => RagStub;
     readonly mockTool: (tool: Class) => ToolScript;
     readonly recoverApp: () => Promise<TestApp>;
+    readonly replyToPause: (target: Class, reply: string, options?: EvalPauseOptions) => Promise<ExecutionOutput>;
 }
 
 // @public
@@ -1503,10 +1601,20 @@ export interface WorkflowMatchers<R = unknown> {
 // src/testing/slices.ts - (ae-undocumented) Missing documentation for "invoke".
 // src/testing/slices.ts - (ae-undocumented) Missing documentation for "routeTo".
 // src/testing/slices.ts - (ae-undocumented) Missing documentation for "replyWith".
+// src/testing/slices.ts - (ae-undocumented) Missing documentation for "run".
+// src/testing/test-agent.ts - (ae-undocumented) Missing documentation for "__call".
+// src/testing/test-agent.ts - (ae-undocumented) Missing documentation for "run".
 // src/testing/test-app.ts - (ae-undocumented) Missing documentation for "clock".
+// src/testing/test-app.ts - (ae-undocumented) Missing documentation for "action".
 // src/testing/test-app.ts - (ae-undocumented) Missing documentation for "agent".
 // src/testing/test-app.ts - (ae-undocumented) Missing documentation for "router".
 // src/testing/test-app.ts - (ae-undocumented) Missing documentation for "tool".
+// src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockTool".
+// src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockAction".
+// src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockService".
+// src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockMcp".
+// src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockRag".
+// src/testing/test-module.ts - (ae-undocumented) Missing documentation for "mockA2A".
 // src/testing/turns.ts - (ae-undocumented) Missing documentation for "reason".
 // src/testing/turns.ts - (ae-undocumented) Missing documentation for "cost".
 // src/testing/turns.ts - (ae-undocumented) Missing documentation for "value".

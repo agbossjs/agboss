@@ -1,27 +1,30 @@
 import { rememberExecutionControl } from "../app/execution-control.js";
 import { LeaseGate, rememberLeaseGate } from "./leases.js";
-import type { BuiltApp } from "../app/create-app.js";
 import type { BuiltApplication } from "../application/create-app.js";
-import type { AnyTenantApp, ExecutionOutput } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { Class, Resolved, Token } from "../components/injection.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { VirtualClock } from "./clock.js";
 import type { TestEnvironment } from "./environment.js";
-import { TestFailure, TestSetupError } from "./errors.js";
+import { TestFailure } from "./errors.js";
 import {
-  agentSlice,
-  routerSlice,
-  toolSlice,
+  type ActionSlice,
   type AgentSlice,
   type RouterSlice,
   type ToolClassOf,
   type ToolSlice,
 } from "./slices.js";
-import { toolNameOf } from "./script.js";
 import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
 import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
 import { lazyLoad } from "../infrastructure/clock.js";
-import { forwardedControlOf, resolvingOf } from "./test-app-parts.js";
+import {
+  checked,
+  forwardedControlOf,
+  probesOf,
+  resolvingOf,
+  runsOf,
+  slicesOf,
+} from "./test-app-parts.js";
 
 /**
  * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
@@ -63,42 +66,10 @@ export interface TestApp extends Pick<
    * The app must be built (`await app.ready()` or an execute).
    */
   get<TToken extends Token>(token: TToken): Resolved<TToken>;
+  action(action: Class): ActionSlice;
   agent(agent: Class): AgentSlice;
   router(router: Class): RouterSlice;
   tool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>): ToolSlice<TInput, TOutput>;
-}
-
-/** Rethrows what the test must see: a reported failure wins over the run's own error. */
-async function checked<T>(environment: TestEnvironment, work: () => Promise<T>): Promise<T> {
-  let value: T;
-  try {
-    value = await work();
-  } catch (error) {
-    throw environment.book.takeFailure() ?? error;
-  }
-  const failure = environment.book.takeFailure();
-  if (failure !== undefined) throw failure;
-  return value;
-}
-
-/** The workflow of the application a component is in (its first, for a shared one); else the first. */
-function workflowWith(built: BuiltApplication, component: Class): BuiltApp {
-  const found =
-    built.workflows.find((workflow) =>
-      [...workflow.bundle.graph.nodes.values()].some((node) => node.component === component),
-    ) ?? built.workflows[0];
-  // the assembly rejects an application without workflows
-  if (found === undefined)
-    throw new TestSetupError({ message: "the application has no workflows" });
-  return found;
-}
-
-/** The workflow of the application whose agents use a tool of this class. */
-function workflowWithTool(built: BuiltApplication, tool: Class): BuiltApp {
-  const name = toolNameOf(tool);
-  return (
-    built.workflows.find((workflow) => workflow.app.hasTool(name)) ?? workflowWith(built, tool)
-  );
 }
 
 /**
@@ -113,58 +84,6 @@ async function withProbesLoaded(building: Promise<BuiltApplication>): Promise<Bu
   ]);
   return built;
 }
-
-/** The slices of single components (`app.agent(X)`, `app.router(R)`, `app.tool(T)`). */
-const slicesOf = (
-  environment: TestEnvironment,
-  built: () => Promise<BuiltApplication>,
-): Pick<TestApp, "agent" | "router" | "tool"> => ({
-  agent: (agent) => ({
-    replyWith: (task) =>
-      checked(environment, async () =>
-        agentSlice(workflowWith(await built(), agent), agent).replyWith(task),
-      ),
-  }),
-  router: (router) => ({
-    routeTo: (input) =>
-      checked(environment, async () =>
-        routerSlice(workflowWith(await built(), router), router).routeTo(input),
-      ),
-  }),
-  tool: (tool) => ({
-    invoke: (input) =>
-      checked(environment, async () =>
-        toolSlice(workflowWithTool(await built(), tool), tool).invoke(input),
-      ),
-  }),
-});
-
-/**
- * What answers during and after `close()` too: the probes (an orchestrator asks while the app
- * stops), the audit log (#501: a test reads a stopped zombie's) and the outbound calls (#505: an
- * operator reads them after the instance stopped).
- */
-const probesOf = (
-  environment: TestEnvironment,
-  probed: () => Promise<BuiltApplication>,
-): Pick<
-  TestApp,
-  | "checkLiveness"
-  | "checkReadiness"
-  | "auditLogOf"
-  | "outboundCallsOf"
-  | "pendingOutboundCallsOf"
-  | "listPauses"
-> => ({
-  checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
-  checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
-  auditLogOf: (tree) => checked(environment, async () => (await probed()).app.auditLogOf(tree)),
-  outboundCallsOf: (tree) =>
-    checked(environment, async () => (await probed()).app.outboundCallsOf(tree)),
-  pendingOutboundCallsOf: (query) =>
-    checked(environment, async () => (await probed()).app.pendingOutboundCallsOf(query)),
-  listPauses: (query) => checked(environment, async () => (await probed()).app.listPauses(query)),
-});
 
 /** The config of each workflow of the application, as assembled (a profile applied), by name. */
 const settingsOf = (environment: TestEnvironment): TestApp["settings"] =>
@@ -210,10 +129,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   const testApp: TestApp = {
     clock: environment.clock,
     settings: settingsOf(environment),
-    execute: (start, input, ...options) =>
-      checked(environment, async () => (await built()).app.execute(start, input, ...options)),
-    resume: (request, options): Promise<ExecutionOutput> =>
-      checked(environment, async () => (await built()).app.resume(request, options)),
+    ...runsOf(environment, built),
     extendPause: (request, options) =>
       checked(environment, async () => (await built()).app.extendPause(request, options)),
     reassignPause: (request, options) =>

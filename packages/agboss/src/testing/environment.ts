@@ -1,5 +1,6 @@
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
 import type { BuildOptions } from "../app/app-deps.js";
+import type { ExecutionOutput } from "../app/types.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import { buildApplication, type BuiltApplication } from "../application/create-app.js";
 import type { EnvironmentSelection } from "../environments/load.js";
@@ -115,6 +116,8 @@ export class TestEnvironment {
   readonly database = new InMemoryDatabase();
   /** `mockOf`, `mockTool`, `mockAction`: what the test replaces or watches. */
   readonly mocks: TestMocks;
+  /** What the last `execute` or `resume` of any app of the test gave: `answerPause` answers its pause. */
+  lastOutput: ExecutionOutput | undefined;
   readonly #apps: BuiltApplication[] = [];
   readonly #nodes: readonly RuntimeNode[];
   readonly #used: ReadonlySet<Class>;

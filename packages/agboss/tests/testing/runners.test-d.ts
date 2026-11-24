@@ -17,6 +17,8 @@ import {
   type ToolRunner,
 } from "../../src/testing/index.js";
 import type * as Testing from "../../src/testing/index.js";
+import type { MissingGeneratedTypes } from "../../src/flow/generated-types.js";
+import { OffRouteRouter } from "./units/fakes.js";
 import { ContactPiiPolicy, GroundedJudge, HandbookRag, SearchJobsTool } from "./fixtures/units.js";
 
 class Order {
@@ -33,6 +35,10 @@ describe("#1328b: testUnit's runner is the component's", () => {
   it("a list of policies is the PII runner; a class of none gives every other runner in one", () => {
     expectTypeOf(testUnit([ContactPiiPolicy])).toEqualTypeOf<PiiRunner>();
     expectTypeOf(testUnit(ContactPiiPolicy)).toExtend<GuardrailRunner>();
+  });
+
+  it("a router whose answer `agboss check` has not generated gives MissingGeneratedTypes, not a runner", () => {
+    expectTypeOf(testUnit(OffRouteRouter)).toEqualTypeOf<MissingGeneratedTypes>();
   });
 
   it("services take classes and provide(…) values", () => {
@@ -58,5 +64,30 @@ describe("#1328b: testUnit's runner is the component's", () => {
     type _Tool = typeof Testing.testTool;
     // @ts-expect-error — `services` replaces override(…)
     type _Override = typeof Testing.override;
+  });
+});
+
+describe("#1328d: the pause vocabulary of the fixtures", () => {
+  it("answerPause and replyToPause take the target first and answer with the execution's output", () => {
+    expectTypeOf<Testing.WorkflowFixtures["replyToPause"]>().parameter(1).toEqualTypeOf<string>();
+    expectTypeOf<Testing.WorkflowFixtures["answerPause"]>().returns.resolves.toHaveProperty(
+      "status",
+    );
+  });
+});
+
+describe("#1328b: testModule, testAgent and the boundary mocks", () => {
+  it("a module and an agent are built asynchronously; the agent is a function of its input message", () => {
+    expectTypeOf<typeof Testing.testModule>().returns.resolves.toHaveProperty("runAgent");
+    expectTypeOf<Awaited<ReturnType<typeof Testing.testAgent>>>().toBeCallableWith("input");
+    expectTypeOf<Awaited<ReturnType<typeof Testing.testAgent>>>().returns.resolves.toBeString();
+  });
+
+  it("mockRag and mockA2A give a stub that takes answers, failures and a reset", () => {
+    expectTypeOf<Testing.WorkflowFixtures["mockRag"]>().returns.toEqualTypeOf<Testing.RagStub>();
+    expectTypeOf<Testing.RagStub["calls"]>().toEqualTypeOf<readonly string[]>();
+    expectTypeOf<Testing.A2AStub["thenFail"]>().toBeFunction();
+    // @ts-expect-error — a stub takes errors, not values, as failures
+    void ({} as Testing.RagStub).thenFail("down");
   });
 });

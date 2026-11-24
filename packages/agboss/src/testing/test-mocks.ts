@@ -9,6 +9,7 @@ import { TestSetupError } from "./errors.js";
 import { nodeNameOf } from "./failure-facts.js";
 import { mockInstanceOf } from "./mocks.js";
 import type { ScriptBook } from "./script-book.js";
+import { BoundaryStubs, type A2AStub, type RagStub } from "./boundary-stubs.js";
 import { ToolScripts, type ToolScript } from "./tool-script.js";
 
 /**
@@ -19,6 +20,7 @@ import { ToolScripts, type ToolScript } from "./tool-script.js";
 export class TestMocks {
   readonly #overrides: Map<Token, unknown>;
   readonly #tools: ToolScripts;
+  readonly #boundaries: BoundaryStubs;
   /** Every action call of the test (one more observer of each instance). */
   readonly actions: ActionCallRecorder;
   #isStarted = false;
@@ -33,6 +35,9 @@ export class TestMocks {
     this.#tools = new ToolScripts((script) => {
       book.expect(script);
     });
+    this.#boundaries = new BoundaryStubs(book, (script) => {
+      book.expect(script);
+    });
     const labelOf = (name: string): string =>
       nodes.find((node) => node.id === name)?.component.name ?? name;
     this.actions = new ActionCallRecorder(labelOf, actionOutputClassOf(nodes));
@@ -44,6 +49,7 @@ export class TestMocks {
       overrides: this.#overrides,
       onCreate: (instance) => {
         this.#tools.patch(instance);
+        this.#boundaries.patch(instance);
       },
     };
   }
@@ -96,5 +102,27 @@ export class TestMocks {
     }
     this.#beforeStart(`mockTool(${tool.name})`);
     return this.#tools.scriptOf(tool);
+  }
+
+  /** The scripted retrievals of a knowledge base of the application (its pipeline still runs). */
+  mockRag(rag: Class): RagStub {
+    if (!this.used.has(rag)) {
+      throw new TestSetupError({
+        message: `mockRag(${rag.name}): not a knowledge base of this application`,
+      });
+    }
+    this.#beforeStart(`mockRag(${rag.name})`);
+    return this.#boundaries.ragOf(rag);
+  }
+
+  /** The scripted answers of an A2A peer the application calls. */
+  mockA2A(agent: Class): A2AStub {
+    if (!this.used.has(agent)) {
+      throw new TestSetupError({
+        message: `mockA2A(${agent.name}): not an A2A agent of this application`,
+      });
+    }
+    this.#beforeStart(`mockA2A(${agent.name})`);
+    return this.#boundaries.a2aOf(agent);
   }
 }

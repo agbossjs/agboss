@@ -607,7 +607,37 @@ One component of the real app on its own:
   runs in an execution of its own, so an injected `ExecutionContext` reads (`step.callId`
   `"tool-slice"`);
 - `app.router(X).routeTo(text)` → the node it chooses;
-- `app.agent(X).replyWith(task)` → its answer (its model, prompt and tools; no flow, no approval pause).
+- `app.agent(X).replyWith(task)` → its answer (its model, prompt and tools; no flow, no approval pause);
+- `app.action(X).run(input)` → what its `execute` gives, in a step's frame of an execution of its own.
+
+### `testModule` and `testAgent` — a slice of an application (#1328)
+
+`await testModule({ components: [DeskWorkflow, DeskModelProvider], modelProvider: DeskModelProvider, … })`
+assembles the workflows and services you list — nothing else of the application — on one container, one
+`VirtualClock` and one set of stores, with the models scripted and the network blocked as in `testWith`.
+A workflow in `components` goes to the application's `workflows`, every other class to its `providers`;
+the rest of the options are `testWith`'s (`services`, `profile`, `only`, …) and the `@Application`'s
+(`tenantContext`, `budgets`, `storage`, `piiPolicies`, …). It gives `runAgent`, `runAction`, `runTool`,
+`runRouter` (the slices above), `get(token)`, `clock`, `mockModel`, `mockTool`, `mockAction`, `mockService`,
+`mockMcp`, `mockRag`, `mockA2A`, and `close()` — which fails the test for a script nothing used.
+`await testAgent(DeskAgent, { workflow: DeskWorkflow, … })` is one agent of it as a function of its input
+message (`await agent("Where is order 9?")`), its model `agent.mockModel()`.
+
+### `mockRag` and `mockA2A` — the other boundaries
+
+`mockRag(Handbook).thenReturn({ results: [{ source: "leave.md", text: "…" }] })` scripts what a knowledge
+base's `retrieve` gives; its pipeline (scope, reranking, PII policies, spend) still runs on it.
+`mockA2A(BillingDesk).thenReturn({ answer: "paid" })` scripts what an A2A peer's `execute` / `send` answers.
+Both take `.thenFail(error)` and `.reset()`, record `calls`, fail the test for a call with nothing left
+(`test.script-exhausted`) and for a script no call took. `mcpServer(Endpoint, { authenticator })` serves the
+app as an MCP server on a free loopback port, as `a2aServer` does for A2A.
+
+### `answerPause` and `replyToPause`
+
+After an `execute` that paused, `await answerPause(RefundApproval, { approved: true }, { actor })` answers
+the open pause of that target, and `await replyToPause(RefundApproval, "yes, but half")` answers it with a
+free-text reply its interpreter reads — the same two calls an eval case's `pauses` list. A target with no open
+pause is `test.no-open-pause`.
 
 ## Matchers
 

@@ -133,6 +133,6 @@ describe("what the runner refuses", () => {
     class Plain {
       readonly isPlain = true;
     }
-    expect(() => testUnit(Plain)).toThrow("testUnit(Plain): not a @Memory");
+    expect(() => testUnit(Plain)).toThrow("testUnit(Plain): not a component it runs");
   });
 });

@@ -6,7 +6,7 @@ import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
-import type { KindOf, RouterAnswerOf } from "../../flow/generated-types.js";
+import type { KindOf, MissingGeneratedTypes, RouterAnswerOf } from "../../flow/generated-types.js";
 import type { JudgeOutputOf } from "../../components/judge-decorators.js";
 import type { RagSource } from "../../rag/rag-source.js";
 import type { ToolInputOf, ToolOutputOf } from "../../tools/index.js";
@@ -50,25 +50,42 @@ export type OtherUnitRunners<TInstance> = GuardrailRunner &
   ReplyInterpreterRunner<TInstance>;
 
 /**
+ * The runner of a component whose types come from `agboss check` (a router's answer, a judge's
+ * output): `MissingGeneratedTypes` while they are not generated — a call is then a compile error,
+ * never a runner typed by what is unknown (#1328).
+ */
+export type FailClosed<TRunner, TGenerated> = [TGenerated] extends [never]
+  ? TRunner
+  : [TGenerated] extends [MissingGeneratedTypes]
+    ? MissingGeneratedTypes
+    : TRunner;
+
+/**
  * The runner `testUnit` gives for a class (#1328): a flow node by its brand (an action, a router),
  * a class with a handler method by it (`execute`: a tool or an action, `route`, `judge`, a
  * `RagSource`), every other kind by what its runner is called with.
  */
 export type UnitRunnerOf<TClass extends Class> =
   IsFlowNode<InstanceType<TClass>, NodeKind.Router> extends true
-    ? RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>>
+    ? FailClosed<
+        RouterRunner<RecordedInputOf<InstanceType<TClass>>, RouterAnswerOf<InstanceType<TClass>>>,
+        RouterAnswerOf<InstanceType<TClass>>
+      >
     : IsFlowNode<InstanceType<TClass>, NodeKind.Action> extends true
       ? ActionRunner<ActionInputOf<InstanceType<TClass>>, ActionOutputOf<InstanceType<TClass>>>
       : InstanceType<TClass> extends { execute(input: never): unknown }
         ? ToolRunner<ToolInputOf<InstanceType<TClass>>, ToolOutputOf<InstanceType<TClass>>>
         : InstanceType<TClass> extends { route(input: never): unknown }
-          ? RouterRunner<
-              RecordedInputOf<InstanceType<TClass>>,
+          ? FailClosed<
+              RouterRunner<
+                RecordedInputOf<InstanceType<TClass>>,
+                RouterAnswerOf<InstanceType<TClass>>
+              >,
               RouterAnswerOf<InstanceType<TClass>>
             >
           : InstanceType<TClass> extends { judge(input: never): unknown }
             ? TClass extends Class<object>
-              ? JudgeRunner<JudgeOutputOf<TClass>>
+              ? FailClosed<JudgeRunner<JudgeOutputOf<TClass>>, JudgeOutputOf<TClass>>
               : never
             : InstanceType<TClass> extends RagSource
               ? RagRunner

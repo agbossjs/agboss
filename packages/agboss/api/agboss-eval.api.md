@@ -4,6 +4,8 @@
 
 ```ts
 
+import type { TracerProvider } from '@opentelemetry/api';
+
 // @public
 export function answerPause<const TTarget extends Class>(target: TTarget, decision: PauseOutputOf<InstanceType<TTarget>>, options?: EvalPauseOptions): EvalPauseScript;
 
@@ -26,6 +28,13 @@ export enum ChaosFailure {
 }
 
 // @public
+export interface ChaosOptions {
+    readonly failures: readonly ChaosFailure[];
+    readonly rate: number;
+    readonly seed: number;
+}
+
+// @public
 export enum CheckStatus {
     // (undocumented)
     Failed = "failed",
@@ -35,10 +44,28 @@ export enum CheckStatus {
 }
 
 // @public
+export const compareEvalSuite: (application: Class, suite: Class, options: CompareEvalSuiteOptions) => Promise<EvalSuiteComparison>;
+
+// @public
+export interface CompareEvalSuiteOptions extends Pick<RunEvalSuiteOptions, "runs" | "metamorphic" | "tracerProvider" | "processEnv" | "env"> {
+    // (undocumented)
+    readonly variants: readonly EvalComparisonVariant[];
+}
+
+// @public
 export const EVAL_RUN_KIND = "agboss.eval-run";
 
 // @public
 export const EVAL_RUN_SCHEMA_VERSION = 5;
+
+// @public
+export interface EvalAttempt {
+    readonly case: string;
+    readonly run: number;
+}
+
+// @public
+export type EvalAttemptHook = (attempt: EvalAttempt) => void | Promise<void>;
 
 // @public
 export interface EvalCalibration {
@@ -60,6 +87,8 @@ export enum EvalCascade {
 
 // @public
 export interface EvalCase {
+    readonly afterAttempt?: EvalAttemptHook;
+    readonly beforeAttempt?: EvalAttemptHook;
     readonly execution?: unknown;
     readonly expectedStatus?: ExecutionStatus;
     readonly history?: readonly EvalPastTurn[];
@@ -156,6 +185,13 @@ export interface EvalChildTrace extends EvalTrajectory {
     readonly status: ChildExecutionStatus;
     // (undocumented)
     readonly workflow: string;
+}
+
+// @public
+export interface EvalComparisonVariant {
+    readonly name: string;
+    // (undocumented)
+    readonly profile?: ProfileSelection;
 }
 
 // @public
@@ -395,6 +431,9 @@ export interface EvalRaterAgreement {
 }
 
 // @public
+export type EvalRuleCode = "eval.judge-missing-provider";
+
+// @public
 export interface EvalRunChaos {
     readonly calls: number;
     readonly failures: readonly ChaosFailure[];
@@ -558,6 +597,16 @@ export interface EvalStepTrace {
 export function EvalSuite<const TStart extends Class>(options: EvalSuiteOptions<TStart>): <C extends Class>(value: C) => C;
 
 // @public
+export interface EvalSuiteComparison {
+    readonly comparisons: readonly EvalRunComparison[];
+    // (undocumented)
+    readonly suite: string;
+    readonly totalUsd: Usd;
+    // (undocumented)
+    readonly variants: readonly EvalVariantReport[];
+}
+
+// @public
 export interface EvalSuiteMeta extends Omit<EvalSuiteOptions, "cases" | "cascade" | "judges"> {
     // (undocumented)
     readonly cascade: EvalCascade;
@@ -569,6 +618,8 @@ export interface EvalSuiteMeta extends Omit<EvalSuiteOptions, "cases" | "cascade
 
 // @public
 export interface EvalSuiteOptions<TStart extends Class = Class> {
+    readonly afterAttempt?: EvalAttemptHook;
+    readonly beforeAttempt?: EvalAttemptHook;
     readonly cascade?: EvalCascade;
     readonly cases: readonly EvalCaseOf<InstanceType<TStart>>[];
     readonly description?: string;
@@ -582,10 +633,13 @@ export interface EvalSuiteOptions<TStart extends Class = Class> {
 // @public
 export interface EvalToolCallTrace {
     // (undocumented)
+    readonly endedAt: Date;
+    // (undocumented)
     readonly error?: EvalTraceError;
     readonly input: unknown;
     readonly isResultTruncated: boolean;
     readonly output?: unknown;
+    readonly startedAt: Date;
     // (undocumented)
     readonly status: ToolCallStatus;
     // (undocumented)
@@ -663,6 +717,19 @@ export type EvalValueOf<TValue> = TValue extends readonly (infer TItem)[] ? read
 } : TValue;
 
 // @public
+export interface EvalVariantReport {
+    readonly executionUsd: Usd;
+    readonly judgeUsd: Usd;
+    readonly latencyP50?: Milliseconds;
+    // (undocumented)
+    readonly latencyP95?: Milliseconds;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly report: EvalRunReport;
+}
+
+// @public
 export interface ExpectedToolCall<TTool extends Class<ToolHandler<never, unknown>> = Class<ToolHandler<never, unknown>>> {
     readonly input?: ToolInputPartialOf<TTool>;
     // (undocumented)
@@ -686,6 +753,20 @@ export interface PastTurnOptions<TStart extends Class, TFinish extends Class> {
 
 // @public
 export function replyToPause(target: Class, reply: string, options?: EvalPauseOptions): EvalPauseScript;
+
+// @public
+export const runEvalSuite: (application: Class, suite: Class, options?: RunEvalSuiteOptions) => Promise<EvalRunReport>;
+
+// @public
+export interface RunEvalSuiteOptions {
+    readonly chaos?: ChaosOptions;
+    readonly env?: string | undefined;
+    readonly metamorphic?: boolean;
+    readonly processEnv?: NodeJS.ProcessEnv;
+    readonly profile?: ProfileSelection | undefined;
+    readonly runs?: number;
+    readonly tracerProvider?: TracerProvider | TracingAdapter;
+}
 
 // @public
 export function toolCall<const TTool extends Class<ToolHandler<never, unknown>>>(tool: TTool, input?: ToolInputPartialOf<TTool>): ExpectedToolCall<TTool>;
@@ -744,6 +825,13 @@ export const turn: <const TInput>(input: TInput, options?: {
 // src/eval/calibrate/calibration.ts - (ae-undocumented) Missing documentation for "suite".
 // src/eval/calibrate/calibration.ts - (ae-undocumented) Missing documentation for "matched".
 // src/eval/calibrate/calibration.ts - (ae-undocumented) Missing documentation for "judges".
+// src/eval/run/compare-suite.ts - (ae-undocumented) Missing documentation for "profile".
+// src/eval/run/compare-suite.ts - (ae-undocumented) Missing documentation for "variants".
+// src/eval/run/compare-suite.ts - (ae-undocumented) Missing documentation for "name".
+// src/eval/run/compare-suite.ts - (ae-undocumented) Missing documentation for "report".
+// src/eval/run/compare-suite.ts - (ae-undocumented) Missing documentation for "latencyP95".
+// src/eval/run/compare-suite.ts - (ae-undocumented) Missing documentation for "suite".
+// src/eval/run/compare-suite.ts - (ae-undocumented) Missing documentation for "variants".
 // src/eval/run/comparison.ts - (ae-undocumented) Missing documentation for "passed".
 // src/eval/run/comparison.ts - (ae-undocumented) Missing documentation for "runs".
 // src/eval/run/comparison.ts - (ae-undocumented) Missing documentation for "name".
@@ -795,6 +883,7 @@ export const turn: <const TInput>(input: TInput, options?: {
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "tool".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "status".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "error".
+// src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "endedAt".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "guardrail".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "side".
 // src/eval/run/trace.ts - (ae-undocumented) Missing documentation for "isBlocked".

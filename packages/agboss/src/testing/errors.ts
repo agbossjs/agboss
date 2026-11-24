@@ -8,6 +8,7 @@ export type TestFailureCode =
   | "test.wrong-script"
   | "test.app-closed"
   | "test.app-not-ready"
+  | "test.no-open-pause"
   | "test.cassette-missing"
   | "vcr.stale-cassette"
   | "test.no-matching-script"
