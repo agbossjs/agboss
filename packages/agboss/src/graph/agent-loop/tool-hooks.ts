@@ -57,11 +57,11 @@ async function called(interceptor: RuntimeToolInterceptor, work: () => unknown):
 export interface CallSite {
   readonly tool: AnyTool;
   readonly scope: InterceptedCallScope;
-  readonly type: Class;
+  readonly type: Class | undefined;
 }
 
-const dtosOf = (type: Class): { input?: DtoClass; output?: DtoClass } => {
-  const component = componentOf(type);
+const dtosOf = (type: Class | undefined): { input?: DtoClass; output?: DtoClass } => {
+  const component = type === undefined ? undefined : componentOf(type);
   return component?.kind === "tool" || component?.kind === "mcp-tool"
     ? { input: component.meta.input, output: component.meta.output }
     : {};

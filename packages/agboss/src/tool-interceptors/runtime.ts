@@ -16,8 +16,8 @@ export interface ToolInterceptorInstance {
 export interface RuntimeToolInterceptor {
   readonly name: string;
   readonly instance: ToolInterceptorInstance;
-  /** The `@Tool` / `@McpTool` class the chain is for. */
-  readonly toolType: Class;
+  /** The `@Tool` / `@McpTool` class the chain is for; none for a call of a tool nobody resolved. */
+  readonly toolType: Class | undefined;
   /** The names of the `@BeforeTool` / `@AfterTool` methods of this tool, if it has them. */
   readonly beforeMethod: string | undefined;
   readonly afterMethod: string | undefined;
@@ -44,20 +44,33 @@ export function toolInterceptorRuntimeOf(
     byAgent: assembled?.byAgent ?? new Map(),
     interceptors: assembled?.interceptors ?? [],
     toolTypes: assembled?.toolTypes ?? new Map(),
+    agentLevel: assembled?.agentLevel ?? new Map(),
     ofAgent: (agent) => {
       const tools = assembled?.byAgent.get(agent);
+      const types = assembled?.toolTypes.get(agent);
+      // fail closed: a call of a tool that resolves to no class still meets the catch-all hooks of
+      // the agent's interceptors, never an empty chain
+      const catchAlls = (assembled?.agentLevel.get(agent) ?? []).map(
+        (loaded): RuntimeToolInterceptor => ({
+          name: loaded.name,
+          instance: instanceOf(loaded.type),
+          toolType: undefined,
+          beforeMethod: undefined,
+          afterMethod: undefined,
+        }),
+      );
       return (tool) => {
-        const toolType = assembled?.toolTypes.get(tool);
-        if (toolType === undefined) return NO_CHAIN;
-        return (
-          tools?.get(tool)?.map((loaded) => ({
-            name: loaded.name,
-            instance: instanceOf(loaded.type),
-            toolType,
-            beforeMethod: loaded.methods.before.get(toolType),
-            afterMethod: loaded.methods.after.get(toolType),
-          })) ?? NO_CHAIN
-        );
+        const toolType = types?.get(tool);
+        const chain = tools?.get(tool);
+        if (toolType === undefined || chain === undefined)
+          return catchAlls.length === 0 ? NO_CHAIN : catchAlls;
+        return chain.map((loaded) => ({
+          name: loaded.name,
+          instance: instanceOf(loaded.type),
+          toolType,
+          beforeMethod: loaded.methods.before.get(toolType),
+          afterMethod: loaded.methods.after.get(toolType),
+        }));
       };
     },
   };

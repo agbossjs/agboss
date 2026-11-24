@@ -32,6 +32,8 @@ interface ToolLists {
 /** What the levels give: the classes per agent and tool name, every class listed, the rules broken. */
 export interface EffectiveToolInterceptors {
   readonly byAgent: ReadonlyMap<string, ReadonlyMap<string, readonly Class[]>>;
+  /** The interceptors of each agent's own and upper levels, which every call of it meets. */
+  readonly ofAgent: ReadonlyMap<string, readonly Class[]>;
   readonly classes: readonly Class[];
   readonly violations: readonly RuleViolation[];
 }
@@ -120,6 +122,7 @@ export function effectiveToolInterceptors(
     violations.push(...notInherited(lists.name, lists.excludeToolInterceptors, from, where));
   }
   const byAgent = new Map<string, ReadonlyMap<string, readonly Class[]>>();
+  const agentLevel = new Map<string, readonly Class[]>();
   for (const agent of levels.agents) {
     const own = agent.toolInterceptors ?? [];
     const excluded = agent.excludeToolInterceptors ?? [];
@@ -128,6 +131,7 @@ export function effectiveToolInterceptors(
       ...notInherited(agent.name, excluded, inherited, "neither its application nor its workflow"),
     );
     const ofAgent = kept([...inherited, ...own], excluded);
+    agentLevel.set(agent.name, ofAgent.filter(isInterceptor));
     const perTool = new Map<string, readonly Class[]>();
     for (const cls of agent.tools ?? []) {
       const lists = toolListsOf(cls);
@@ -142,5 +146,10 @@ export function effectiveToolInterceptors(
     ...levels.agents.flatMap((agent) => agent.toolInterceptors ?? []),
     ...[...tools.values()].flatMap(({ lists }) => lists.toolInterceptors),
   ];
-  return { byAgent, classes: unique(everyListed).filter(isInterceptor), violations };
+  return {
+    byAgent,
+    ofAgent: agentLevel,
+    classes: unique(everyListed).filter(isInterceptor),
+    violations,
+  };
 }

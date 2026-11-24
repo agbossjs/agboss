@@ -104,13 +104,14 @@ export function AfterTool<const TTools extends ToolTargets>(
   return recorder(ToolHookPhase.After, "AfterTool", tools);
 }
 
-/**
- * The `@BeforeTool` / `@AfterTool` methods of an interceptor class, its parents' included (a
- * subclass keeps every hook its parent declares — a parent's blocking hook never stops running
- * silently); a subclass's hook on the same method name and phase replaces the parent's. Parents
- * first, in declaration order.
- */
-export function toolHooksOf(cls: Class): readonly ToolHook[] {
+/** A subclass's hook that replaced a parent's one of the same phase and method, and its parent's targets it dropped. */
+export interface DroppedTargets {
+  readonly phase: ToolHookPhase;
+  readonly method: string;
+  readonly tools: readonly Class[];
+}
+
+function mergedHooksOf(cls: Class): { hooks: ToolHook[]; dropped: DroppedTargets[] } {
   const chain: ToolHook[][] = [];
   for (
     let metadata: unknown = Reflect.get(cls, METADATA_KEY);
@@ -121,6 +122,35 @@ export function toolHooksOf(cls: Class): readonly ToolHook[] {
     if (own !== undefined) chain.unshift(own);
   }
   const merged = new Map<string, ToolHook>();
-  for (const hook of chain.flat()) merged.set(`${hook.phase}:${hook.method}`, hook);
-  return [...merged.values()];
+  const dropped: DroppedTargets[] = [];
+  for (const hook of chain.flat()) {
+    const key = `${hook.phase}:${hook.method}`;
+    const parent = merged.get(key);
+    if (parent === undefined) {
+      merged.set(key, hook);
+      continue;
+    }
+    const lost = parent.tools.filter((tool) => !hook.tools.includes(tool));
+    if (lost.length > 0) dropped.push({ phase: hook.phase, method: hook.method, tools: lost });
+    // the parent's targets are never lost: the union stays, the assembly refuses the override
+    merged.set(key, { ...hook, tools: [...new Set([...parent.tools, ...hook.tools])] });
+  }
+  return { hooks: [...merged.values()], dropped };
+}
+
+/**
+ * The `@BeforeTool` / `@AfterTool` methods of an interceptor class, its parents' included (a
+ * subclass keeps every hook its parent declares — a parent's blocking hook never stops running
+ * silently). A subclass's hook on the same method name and phase replaces the parent's method but
+ * keeps the union of both target lists, so no parent target is lost; one that drops a parent's
+ * target is `[tool-interceptor.override-drops-target]` at the assembly. Parents first, in
+ * declaration order.
+ */
+export function toolHooksOf(cls: Class): readonly ToolHook[] {
+  return mergedHooksOf(cls).hooks;
+}
+
+/** The parent targets a subclass's same-named hooks leave out (each is a rule violation). */
+export function droppedTargetsOf(cls: Class): readonly DroppedTargets[] {
+  return mergedHooksOf(cls).dropped;
 }

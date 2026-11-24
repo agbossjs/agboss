@@ -1,11 +1,11 @@
 import type { Class } from "../components/injection.js";
 import type { AgentMeta } from "../components/meta-types.js";
-import { componentOf } from "../components/metadata.js";
 import { kebabNameProblem } from "../flow/names.js";
 import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
 import { toolInterceptorMetaOf, type ToolInterceptorMeta } from "./decorator.js";
-import { toolHooksOf, ToolHookPhase } from "./hooks.js";
+import { droppedTargetsOf, toolHooksOf, ToolHookPhase } from "./hooks.js";
 import { effectiveToolInterceptors } from "./levels.js";
+import { toolNameOf, toolTypesOf } from "./tool-types.js";
 
 /**
  * A workflow's tool interceptors as assembled (#384): each listed class checked — its name is
@@ -42,8 +42,10 @@ export interface LoadedToolInterceptor {
 export interface AssembledToolInterceptors {
   readonly byAgent: ReadonlyMap<string, ReadonlyMap<string, readonly LoadedToolInterceptor[]>>;
   readonly interceptors: readonly LoadedToolInterceptor[];
-  /** The `@Tool` / `@McpTool` class of each tool name the agents call. */
-  readonly toolTypes: ReadonlyMap<string, Class>;
+  /** Per agent: the `@Tool` / `@McpTool` class of each tool name it calls (names may repeat across agents). */
+  readonly toolTypes: ReadonlyMap<string, ReadonlyMap<string, Class>>;
+  /** Per agent: the interceptors of its upper levels and its own, which meet every call, even of a tool nobody resolved. */
+  readonly agentLevel: ReadonlyMap<string, readonly LoadedToolInterceptor[]>;
 }
 
 /** What the levels above the agents are: the application's list, the workflow's and its name. */
@@ -56,13 +58,6 @@ export interface ToolInterceptorOwners {
 
 const hasMethod = (cls: Class, method: string): boolean =>
   typeof Reflect.get(cls.prototype as object, method) === "function";
-
-const toolNameOf = (tool: Class): string | undefined => {
-  const component = componentOf(tool);
-  return component?.kind === "tool" || component?.kind === "mcp-tool"
-    ? component.meta.name
-    : undefined;
-};
 
 /** The target-bound methods of a class by phase and tool class; the first of a tool's wins. */
 export const methodsOf = (cls: Class): ToolInterceptorMethods => {
@@ -119,6 +114,14 @@ function targetViolations(cls: Class, meta: ToolInterceptorMeta): RuleViolation[
         );
       seen.add(key);
     }
+  for (const dropped of droppedTargetsOf(cls))
+    found.push(
+      violation(
+        "tool-interceptor.override-drops-target",
+        `${meta.name}: ${cls.name}.${dropped.method} overrides a parent's @${dropped.phase === ToolHookPhase.Before ? "BeforeTool" : "AfterTool"} method and leaves out ${dropped.tools.map((tool) => tool.name || "(anonymous class)").join(", ")} — list every target of the parent's method, or give the new hook another method name`,
+        [cls.name],
+      ),
+    );
   return found;
 }
 
@@ -195,11 +198,9 @@ export function toolInterceptorPartsOf(
       new Map([...tools].map(([tool, classes]) => [tool, of(classes)] as const)),
     ]),
   );
-  const toolTypes = new Map<string, Class>();
-  for (const agent of agents)
-    for (const tool of agent.tools ?? []) {
-      const name = toolNameOf(tool);
-      if (name !== undefined) toolTypes.set(name, tool);
-    }
-  return { byAgent, interceptors, toolTypes };
+  const toolTypes = toolTypesOf(agents, byAgent, effective.ofAgent);
+  const agentLevel = new Map(
+    [...effective.ofAgent].map(([agent, classes]) => [agent, of(classes)] as const),
+  );
+  return { byAgent, interceptors, toolTypes, agentLevel };
 }

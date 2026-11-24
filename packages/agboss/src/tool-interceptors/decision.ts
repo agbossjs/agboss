@@ -117,9 +117,9 @@ const toolTypes = new WeakMap<object, Class>();
 /** Notes the `@Tool` class of a call's context (framework code only). */
 export const withToolType = <TContext extends ToolCallContext>(
   context: TContext,
-  type: Class,
+  type: Class | undefined,
 ): TContext => {
-  toolTypes.set(context, type);
+  if (type !== undefined) toolTypes.set(context, type);
   return context;
 };
 
@@ -128,7 +128,8 @@ export const ToolCall = {
   /** The `@Tool` / `@McpTool` class a call is for: `ToolCall.typeOf(call) === OrderStatusTool`. */
   typeOf(call: ToolCallContext): Class {
     const type = toolTypes.get(call);
-    if (type === undefined) throw new TypeError("ToolCall.typeOf: not a tool call context");
+    if (type === undefined)
+      throw new TypeError("ToolCall.typeOf: no @Tool class resolved for this call");
     return type;
   },
 } as const;
