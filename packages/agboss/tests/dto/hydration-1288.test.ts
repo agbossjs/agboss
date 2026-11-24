@@ -140,3 +140,94 @@ describe("#1288a: walks keep working on a hydrated DTO", () => {
     await expect(mask.value({ at: when })).resolves.toEqual({ at: when });
   });
 });
+
+describe("#1288a: a key that names the prototype never swaps it", () => {
+  const hostile = (key: string): unknown =>
+    JSON.parse(
+      `{"customer":"Ada Lovelace","first":{"sku":"A","quantity":1},"lines":[],"${key}":{"customer":"x"}}`,
+    );
+
+  it.each(["__proto__", "constructor", "prototype"])("%s: hydrated() refuses the value", (key) => {
+    expect(() => hydrated(OrderDto, hostile(key))).toThrow("a payload is not a valid DTO");
+  });
+
+  it("a nested hostile key is refused too, and nothing of the stored text is in the error", () => {
+    const raw = JSON.parse(
+      '{"customer":"c","first":{"sku":"SECRET","quantity":1,"__proto__":{}},"lines":[]}',
+    );
+
+    expect(() => hydrated(OrderDto, raw)).toThrow("a payload is not a valid DTO");
+    try {
+      hydrated(OrderDto, raw);
+    } catch (error) {
+      expect(String(error)).not.toContain("SECRET");
+    }
+  });
+
+  it("copies the declared fields only: an extra field is not carried over", () => {
+    const copy = hydrated(OrderDto, { ...RAW, extra: "x" }) as Record<string, unknown>;
+
+    expect(copy.extra).toBeUndefined();
+    expect(Object.getPrototypeOf(copy)).toBe(OrderDto.prototype);
+  });
+
+  it("validate() with a hostile key keeps the DTO prototype and masks the sensitive field", () => {
+    const order = validate(OrderDto, hostile("__proto__"));
+
+    expect(Object.getPrototypeOf(order)).toBe(OrderDto.prototype);
+    expect(JSON.stringify(maskDto(OrderDto, order))).not.toContain("Ada");
+  });
+});
+
+class NoteDto {
+  @Text({ sensitive: PiiAction.mask() }) secret!: string;
+}
+class FancyNoteDto extends NoteDto {}
+class HolderDto {
+  @Nested(NoteDto) note!: NoteDto;
+}
+class PlainNote {
+  secret = "TOP-SECRET";
+}
+
+describe("#1288a: masking fails closed on every object that is not a leaf", () => {
+  const nulled = Object.assign(Object.create(null) as object, { secret: "TOP-SECRET" });
+  const subclass = Object.assign(Object.create(FancyNoteDto.prototype) as object, {
+    secret: "TOP-SECRET",
+  });
+  const cases: readonly (readonly [string, unknown])[] = [
+    ["a nested non-DTO class instance", new PlainNote()],
+    ["an Object.create(null) object", nulled],
+    ["an instance of a DTO subclass", subclass],
+  ];
+
+  it.each(cases)("maskDto masks a sensitive field inside %s", (_name, note) => {
+    validate(NoteDto, { secret: "x" });
+    validate(FancyNoteDto, { secret: "x" });
+    const shown = maskDto(HolderDto, { note } as unknown as HolderDto);
+
+    expect(JSON.stringify(shown)).not.toContain("TOP-SECRET");
+  });
+
+  it.each(cases)("the observability mask hides the channels inside %s", async (_name, holder) => {
+    const mask = observabilityMaskOf(new PiiPolicySet([], "k"));
+    const state = Object.assign(Object.create(Object.getPrototypeOf(holder) as object) as object, {
+      piiKey: "TOP-SECRET",
+    });
+
+    const shown = await mask.traceData(JSON.stringify({ state }));
+
+    expect(JSON.stringify(shown)).not.toContain("TOP-SECRET");
+  });
+
+  it("a class instance under piiTokens has its token values hidden", async () => {
+    class Tokens {
+      "<email:abc123>" = "a@b.c";
+    }
+    const mask = observabilityMaskOf(new PiiPolicySet([], "k"));
+
+    const shown = await mask.traceData({ piiTokens: new Tokens() });
+
+    expect(JSON.stringify(shown)).not.toContain("a@b.c");
+  });
+});

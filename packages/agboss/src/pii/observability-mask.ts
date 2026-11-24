@@ -1,5 +1,5 @@
 import { redactedFilesIn } from "../a2a/files/a2a-file-scrub.js";
-import { isDtoOrPlainObject, likeOriginal } from "../dto/plain.js";
+import { isWalkable, likeOriginal } from "../dto/plain.js";
 import { displayMask, maskedDtoValue } from "../dto/redact.js";
 import type { DtoClass } from "../dto/types.js";
 import { kindPlaceholder } from "./replacement.js";
@@ -32,7 +32,7 @@ export interface ObservedContexts {
 }
 
 const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  isDtoOrPlainObject(value);
+  isWalkable(value);
 
 const hiddenTokens = (tokens: unknown): unknown =>
   isPlain(tokens)

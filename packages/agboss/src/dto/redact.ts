@@ -1,7 +1,7 @@
 import { PiiActionKind, type MaskingPiiAction } from "../pii/actions.js";
 import { kindPlaceholder, partReplaced } from "../pii/replacement.js";
 import { fieldsOf } from "./metadata.js";
-import { isDtoOrPlainObject, likeOriginal } from "./plain.js";
+import { isWalkable, likeOriginal } from "./plain.js";
 import type { DtoClass, FieldSpec } from "./types.js";
 
 /**
@@ -37,7 +37,7 @@ export const rememberDtoOf = (schema: object, dto: DtoClass): void => {
 /** The DTO a schema was built from; none for a schema of its own (an MCP tool). */
 export const dtoOf = (schema: object): DtoClass | undefined => dtoOfSchema.get(schema);
 
-const isRecord = (value: unknown): value is Record<string, unknown> => isDtoOrPlainObject(value);
+const isRecord = (value: unknown): value is Record<string, unknown> => isWalkable(value);
 
 const textOf = (value: unknown): string =>
   typeof value === "string" ? value : JSON.stringify(value);

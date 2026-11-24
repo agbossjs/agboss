@@ -1,3 +1,4 @@
+import { ValidationError } from "../core/error-families/effect-errors.js";
 import { isOpen, registerDto } from "./metadata.js";
 import { isDtoOrPlainObject } from "./plain.js";
 import type { DtoClass, FieldSpec } from "./types.js";
@@ -8,6 +9,8 @@ import type { DtoClass, FieldSpec } from "./types.js";
  * (a validated answer, a scope read after a resume, a test input). No `new XDto()` on this path, and
  * no freeze: only the prototype is set, the fields stay as they are.
  */
+
+const FORBIDDEN_KEYS: ReadonlySet<string> = new Set(["__proto__", "constructor", "prototype"]);
 
 function hydratedField(field: FieldSpec, value: unknown): unknown {
   const element = field.element;
@@ -26,13 +29,26 @@ export function hydrated(dto: DtoClass, value: unknown): unknown {
   // already an instance of the class (a validated value, a tracked one): kept, so what is recorded about it stays
   if (Object.getPrototypeOf(value) === dto.prototype) return value;
   const fields = registerDto(dto);
+  // a key that names the prototype is refused, never copied: assignment would swap the class (JSON.parse makes an own `__proto__`)
+  if (Object.keys(value).some((key) => FORBIDDEN_KEYS.has(key))) {
+    throw new ValidationError.DtoInvalid({
+      dto: dto.name,
+      issues: [{ path: "(root)", reason: "a forbidden key" }],
+    });
+  }
   const copy: Record<string, unknown> = Object.create(dto.prototype as object) as Record<
     string,
     unknown
   >;
-  for (const [key, item] of Object.entries(value)) copy[key] = item;
+  // only the declared fields are copied; defineProperty never runs a setter
   for (const field of fields) {
-    if (field.name in copy) copy[field.name] = hydratedField(field, copy[field.name]);
+    if (!Object.hasOwn(value, field.name)) continue;
+    Object.defineProperty(copy, field.name, {
+      value: hydratedField(field, value[field.name]),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
   }
   return copy;
 }
