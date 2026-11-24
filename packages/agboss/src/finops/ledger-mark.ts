@@ -1,5 +1,6 @@
 import { isDate } from "node:util/types";
 import { AGBossError } from "../core/errors.js";
+import { StoredNamesUnreadableError } from "../core/stored-json.js";
 
 /**
  * Where the ledger holds a usage record (#333 PR 3, #727, #771; one state, #817): the budgets'
@@ -80,11 +81,27 @@ function markOf(ledger: unknown): LedgerMark {
   );
 }
 
+/** The fields of 0.1.0's mark (`isRecordedElsewhere`, `ledgerId`, `madeAt`) a record carries. */
+function legacyFieldsOf(record: object): string[] {
+  return ["isRecordedElsewhere", "ledgerId", "madeAt"].filter(
+    (field) => Reflect.get(record, field) !== undefined,
+  );
+}
+
 /**
  * Where the ledger holds `record` (#817): its `ledger`, read back as kept — a checkpoint's date
- * as a `Date`. `undefined`: not in the ledger yet. No 0.1.0 field is read.
+ * as a `Date`. `undefined`: not in the ledger yet. A record that carries a field of 0.1.0's mark
+ * (`isRecordedElsewhere`, `ledgerId`, `madeAt`) is refused with `StoredNamesUnreadableError` (field
+ * names only, no value): read as "not in the ledger" its spend would be written or counted again.
  */
 export function ledgerMarkOf(record: object): LedgerMark | undefined {
+  const legacy = legacyFieldsOf(record);
+  if (legacy.length > 0)
+    throw new StoredNamesUnreadableError({
+      record: "usage record",
+      ids: "",
+      fields: legacy.join(", "),
+    });
   const ledger: unknown = Reflect.get(record, "ledger");
   return ledger === undefined ? undefined : markOf(ledger);
 }

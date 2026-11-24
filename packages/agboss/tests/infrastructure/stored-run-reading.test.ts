@@ -74,4 +74,42 @@ describe("a paused run is read whole", () => {
     expect(error.message).toContain(field);
     expect(inspect(error, { depth: 12 })).not.toContain(SECRET);
   });
+
+  const pending = (change: Record<string, unknown>) => ({
+    pending: [
+      {
+        pauseId: "p",
+        kind: "approval",
+        answerer: "channel",
+        step: "clerk-agent",
+        channel: "c",
+        ask: { callId: "c1", tool: "refund", arguments: {}, summary: "s" },
+        ...change,
+      },
+    ],
+  });
+
+  it.each([
+    ["ternId, 0.1.0's name of turnId", { ternId: "turn-1" }, "ternId"],
+    ["a pending pause with 0.1.0's agent", pending({ agent: "clerk-agent" }), "pending.0.agent"],
+    [
+      "a pending pause whose answeredBy is another kind than its answerer",
+      pending({ answeredBy: "thread-owner" }),
+      "pending.0",
+    ],
+    ["a run with no tenantId", { tenantId: undefined }, "tenantId"],
+    ["a pending pause with no kind", pending({ kind: undefined }), "pending.0.kind"],
+  ])("0.1.0 is refused, never defaulted: %s", (_name, change, field) => {
+    let error: unknown;
+    try {
+      pausedRunOfValue({ ...RUN, ...change });
+    } catch (thrown) {
+      error = thrown;
+    }
+
+    expect(error).toBeInstanceOf(StoredNamesUnreadableError);
+    if (!(error instanceof Error)) throw new TypeError("nothing was thrown");
+    expect(error.message).toContain(field);
+    expect(inspect(error, { depth: 12 })).not.toContain(SECRET);
+  });
 });

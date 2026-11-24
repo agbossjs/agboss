@@ -104,3 +104,48 @@ describe("a store's parsed JSON is read through the core", () => {
     });
   });
 });
+
+describe("0.1.0 is refused, never defaulted", () => {
+  const refused = (read: () => unknown, field: string): void => {
+    let error: unknown;
+    try {
+      read();
+    } catch (thrown) {
+      error = thrown;
+    }
+    expect(error).toBeInstanceOf(StoredNamesUnreadableError);
+    if (!(error instanceof Error)) throw new TypeError("nothing was thrown");
+    expect(error.message).toContain(field);
+  };
+
+  it.each([
+    [
+      "answeredBy as the kind, no answerer",
+      { answerer: undefined, answeredBy: "channel" },
+      "answerer",
+    ],
+    ["answeredBy beside the answerer", { answeredBy: "channel" }, "answeredBy"],
+    ["no copyNumber", { copyNumber: undefined }, "copyNumber"],
+    ["no askedAt", { askedAt: undefined }, "askedAt"],
+    [
+      "an answer with 0.1.0's answerer",
+      { answer: { decision: 1, answerer: "manager-17" } },
+      "answer.answerer",
+    ],
+  ])("a pause with %s", (_name, change, field) => {
+    refused(() => pauseRecordOfJson({ ...PAUSE, ...change }), field);
+  });
+
+  it("a log entry with 0.1.0's answeredBy as the kind and no answerer", () => {
+    refused(
+      () =>
+        pauseAnswerRecordOfValue({
+          ...answerLogEntry,
+          answerer: undefined,
+          answeredBy: "channel",
+          responder: "manager-17",
+        }),
+      "answerer",
+    );
+  });
+});

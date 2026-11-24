@@ -1,4 +1,5 @@
 import { usd } from "../../src/units/index.js";
+import { StoredNamesUnreadableError } from "../../src/core/stored-json.js";
 /**
  * #817 (money shard) — one ledger state on a usage record: `ledger` read back as kept (a
  * checkpoint's ISO date as a `Date`; no 0.1.0 field is read), and every save of the meter an entry with its own identity, a step's end too.
@@ -112,6 +113,30 @@ describe("#817: ledgerMarkOf reads the one state", () => {
       expect(line).not.toHaveProperty("madeAt");
     }
     expect(withoutLedgerMarks(paid(1))).toEqual(paid(1));
+  });
+});
+
+describe("D3: a record of 0.1.0's mark is refused, never read as not in the ledger", () => {
+  it.each([
+    [{ isRecordedElsewhere: true }, "isRecordedElsewhere"],
+    [{ isRecordedElsewhere: false }, "isRecordedElsewhere"],
+    [{ ledgerId: "p:1" }, "ledgerId"],
+    [{ madeAt: "2026-11-04T10:00:00.000Z" }, "madeAt"],
+    [
+      { isRecordedElsewhere: true, ledgerId: "p:2", madeAt: NOW.toISOString() },
+      "isRecordedElsewhere, ledgerId, madeAt",
+    ],
+  ])("%o", (fields, names) => {
+    const record = { ...paid(1), ...fields };
+
+    for (const read of [
+      () => ledgerMarkOf(record),
+      () => writtenLedgerIdOf(record),
+      () => withLedgerMarkRead(record),
+    ]) {
+      expect(read).toThrow(StoredNamesUnreadableError);
+      expect(read).toThrow(names);
+    }
   });
 });
 

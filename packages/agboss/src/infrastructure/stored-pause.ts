@@ -38,6 +38,8 @@ export const StoredAnswer = z
   .object({
     decision: z.unknown(),
     answeredBy: z.string().optional(),
+    // 0.1.0's name of `answeredBy` (the person): refused, never read
+    answerer: z.never().optional(),
     // #1197: the channel's own decision; `false` is no marker
     byChannel: z.boolean().optional(),
     usage: z.array(StoredUsage).optional(),
@@ -86,6 +88,8 @@ export const StoredPause = z
     // a pause stored before #337 has none: its own step's key is its only branch key
     branchKeys: z.array(z.string()).optional(),
     answerer: z.enum(PauseAnswerer),
+    // 0.1.0's name of `answerer` (who may answer): refused, never read, never filled from 0.1.1
+    answeredBy: z.never().optional(),
     // an approval's tool call, or a question role's own ask (#659, #712, #746): `kind` says
     ask: z.record(z.string(), z.unknown()),
     pauseId: z.string(),
