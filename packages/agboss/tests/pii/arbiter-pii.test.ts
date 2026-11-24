@@ -16,6 +16,7 @@ import {
   WorkflowStart,
   type Produced,
   Action,
+  inline,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -41,7 +42,7 @@ export class OwnersDto {
 @Agent({
   name: "contact-answer-agent",
   description: "Names the rota's owner",
-  prompt: "Name the owner.",
+  prompt: inline("Name the owner."),
   model: "local/llama",
   output: OwnerAnswerDto,
   piiPolicies: [ContactPiiPolicy],
@@ -51,7 +52,7 @@ class ContactAnswerAgent {}
 @Arbiter({
   name: "contact-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer that names an owner.",
+  prompt: inline("Count an answer that names an owner."),
   criteria: [{ target: ContactAnswerAgent, prompt: "Names the owner with a contact" }],
 })
 class ContactArbiter {}

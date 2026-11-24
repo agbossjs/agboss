@@ -6,6 +6,7 @@ import {
   WorkflowStart,
   type OnInit,
   type OnStart,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -87,7 +88,12 @@ function echoWorkflowOn(
   })
   class EchoFinish {}
 
-  @Agent({ name: `${prefix}-agent`, description: "Echoes", prompt: "Repeat the message.", model })
+  @Agent({
+    name: `${prefix}-agent`,
+    description: "Echoes",
+    prompt: inline("Repeat the message."),
+    model,
+  })
   class EchoAgent {}
 
   @Workflow({

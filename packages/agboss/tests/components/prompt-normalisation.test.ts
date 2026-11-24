@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { normalisePromptText, PromptLoader } from "../../src/components/prompt-render.js";
+import { inline } from "../../src/components/prompt-source.js";
 
 const dir = mkdtempSync(join(tmpdir(), "agboss-120-prompts-"));
 const source = join(dir, "owner.ts");
@@ -19,7 +20,7 @@ writeFileSync(join(dir, "blank.prompt.md"), "\n  \n\t\n");
 const load = (prompt: string | undefined, promptUrls: readonly string[] = []): Promise<string> =>
   new PromptLoader().load({
     label: '@Guardrail "test-guardrail"',
-    options: { ...(prompt === undefined ? {} : { prompt }), promptUrls },
+    options: { ...(prompt === undefined ? {} : { prompt: inline(prompt) }), promptUrls },
     source,
   });
 

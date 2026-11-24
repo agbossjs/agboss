@@ -9,6 +9,7 @@ import {
   type OnInit,
   type OnStart,
   type OnStop,
+  inline,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -103,7 +104,7 @@ export class SearchJobsTool {
 @Agent({
   name: "scout-agent",
   description: "Searches jobs",
-  prompt: "Search jobs.",
+  prompt: inline("Search jobs."),
   model: "stub/scout",
   tools: [SearchJobsTool],
 })
@@ -170,7 +171,7 @@ export class BrokenSearchJobsTool {
 @Agent({
   name: "broken-scout-agent",
   description: "Searches jobs",
-  prompt: "Search jobs.",
+  prompt: inline("Search jobs."),
   model: "stub/scout",
   tools: [BrokenSearchJobsTool],
 })

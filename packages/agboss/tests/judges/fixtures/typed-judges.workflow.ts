@@ -8,6 +8,7 @@ import {
   WorkflowFinish,
   type JudgeHandler,
   type JudgeInput,
+  inline,
 } from "../../../src/index.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import {
@@ -84,7 +85,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
 
 @Agent({
   name: "scout-agent",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   description: "Finds jobs",
   model: "local/llama",
   output: JobReportDto,
@@ -168,7 +169,7 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
 
 @Agent({
   name: "screener-agent",
-  prompt: "Decide.",
+  prompt: inline("Decide."),
   description: "Offers or refuses",
   model: "local/llama",
   output: oneOf(OfferDto, RefusalDto),
@@ -231,7 +232,7 @@ export class TextJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "offer-judged-screener-agent",
-  prompt: "Decide.",
+  prompt: inline("Decide."),
   description: "Offers or refuses, judged on offers only",
   model: "local/llama",
   output: oneOf(OfferDto, RefusalDto),
@@ -241,7 +242,7 @@ export class OfferJudgedScreenerAgent {}
 
 @Agent({
   name: "report-judged-writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Answers text, judged as a report",
   model: "local/llama",
   judges: [AnswerGroundedJudge],
@@ -250,7 +251,7 @@ export class ReportJudgedWriterAgent {}
 
 @Agent({
   name: "text-judged-scout-agent",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   description: "Answers a report, judged as text",
   model: "local/llama",
   output: JobReportDto,
@@ -260,7 +261,7 @@ export class TextJudgedScoutAgent {}
 
 @Agent({
   name: "list-judged-scout-agent",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   description: "Answers a list of jobs",
   model: "local/llama",
   output: listOf(JobDto),
@@ -304,7 +305,7 @@ export class WrongReportReplyWorkflow {}
 /** What the list's summary reads. */
 @Agent({
   name: "jobs-summary-agent",
-  prompt: "Summarize.",
+  prompt: inline("Summarize."),
   description: "Summarizes the jobs",
   model: "local/llama",
   input: { jobs: listOf(JobDto) },
@@ -362,7 +363,7 @@ export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
 
 @Agent({
   name: "jobs-scout-agent",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   description: "Finds a list of jobs",
   model: "local/llama",
   output: listOf(JobDto),
@@ -423,7 +424,7 @@ export class DecisionsJudge implements JudgeHandler<Decisions> {
 
 @Agent({
   name: "panel-screener-agent",
-  prompt: "Decide on each candidate.",
+  prompt: inline("Decide on each candidate."),
   description: "Offers or refuses, per candidate",
   model: "local/llama",
   output: listOf(oneOf(OfferDto, RefusalDto)),
@@ -434,7 +435,7 @@ export class PanelScreenerAgent {}
 
 @Agent({
   name: "decisions-summary-agent",
-  prompt: "Summarize.",
+  prompt: inline("Summarize."),
   description: "Summarizes the decisions",
   model: "local/llama",
   input: { decisions: listOf(oneOf(OfferDto, RefusalDto)) },
@@ -467,7 +468,7 @@ export class VariantListJudgeApplication {}
 
 @Agent({
   name: "list-judged-reporter-agent",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   description: "Answers one report, judged as a list",
   model: "local/llama",
   output: JobReportDto,

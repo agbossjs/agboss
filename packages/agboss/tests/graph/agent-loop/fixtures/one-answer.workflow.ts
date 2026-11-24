@@ -6,6 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import {
@@ -53,7 +54,7 @@ export class ClauseTextTool {
 @Agent({
   name: "legal-review-agent",
   description: "Reviews the contract",
-  prompt: "Cite the contract clause your review rests on.",
+  prompt: inline("Cite the contract clause your review rests on."),
   model: "wire/model",
   input: { message: WorkflowStartTextDto },
   output: LegalReviewDto,
@@ -63,7 +64,7 @@ export class LegalReviewAgent {}
 @Agent({
   name: "clause-reader-agent",
   description: "Reviews the contract, reading its clauses",
-  prompt: "Read the clauses you need, then cite the one your review rests on.",
+  prompt: inline("Read the clauses you need, then cite the one your review rests on."),
   model: "wire/model",
   input: { message: WorkflowStartTextDto },
   output: LegalReviewDto,

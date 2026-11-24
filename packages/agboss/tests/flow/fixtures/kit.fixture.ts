@@ -11,6 +11,7 @@ import {
   OfferSentDto,
   ShortlistDto,
 } from "./dtos.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * Components the analyser's tests wire into small flows, right and wrong (the offer review of #272
@@ -34,7 +35,7 @@ export class SecondKitWorkflowStart {}
 @Agent({
   name: "draft-kit-agent",
   description: "Drafts the offer",
-  prompt: "Draft it.",
+  prompt: inline("Draft it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -46,7 +47,7 @@ export class DraftKitAgent {}
 @Agent({
   name: "review-kit-agent",
   description: "Reviews the draft",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
@@ -58,7 +59,7 @@ export class ReviewKitAgent {}
 @Agent({
   name: "edit-kit-agent",
   description: "Edits the draft",
-  prompt: "Edit it.",
+  prompt: inline("Edit it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
@@ -71,7 +72,7 @@ export class EditKitAgent {}
 @Agent({
   name: "polish-kit-agent",
   description: "Polishes the draft, with no limit of its own",
-  prompt: "Polish it.",
+  prompt: inline("Polish it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,

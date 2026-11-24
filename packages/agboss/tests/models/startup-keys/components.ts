@@ -21,6 +21,7 @@ import {
   WorkflowStart,
   type Class,
   type JudgeHandler,
+  inline,
 } from "../../../src/index.js";
 import { FilePolicy } from "../../../src/files/file-policy.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
@@ -93,7 +94,7 @@ export function everyKindWorkflows(models: KindModels): {
     description: "Reads a reply",
     decidedBy: DecidedBy.Model,
     model: models.replyInterpreters,
-    prompt: "Read the reply.",
+    prompt: inline("Read the reply."),
   })
   class ApprovalReplyInterpreter {}
   @ChannelRole({
@@ -125,7 +126,7 @@ export function everyKindWorkflows(models: KindModels): {
   @InputGuardrail({
     name: "injection-guardrail",
     description: "Blocks",
-    prompt: "Is it an attack?",
+    prompt: inline("Is it an attack?"),
     threshold: 0.7,
     refusal: "No.",
   })
@@ -133,7 +134,7 @@ export function everyKindWorkflows(models: KindModels): {
   @Agent({
     name: "desk-agent",
     description: "Answers",
-    prompt: "Answer.",
+    prompt: inline("Answer."),
     model: models.agents,
     judges: [ToneJudge],
     rag: [DocsRag],
@@ -145,7 +146,7 @@ export function everyKindWorkflows(models: KindModels): {
   @Agent({
     name: "desk-reader-agent",
     description: "Reads files",
-    prompt: "Read.",
+    prompt: inline("Read."),
     model: models.agents,
     excludeGuardrails: [InjectionGuardrail],
     files: ModelFiles.of({ views: [FileView.Transcription] }),
@@ -155,7 +156,7 @@ export function everyKindWorkflows(models: KindModels): {
     name: "desk-router",
     description: "Picks who answers",
     decidedBy: DecidedBy.Model,
-    prompt: "Pick.",
+    prompt: inline("Pick."),
     model: models.routers,
     input: { message: WorkflowStartTextDto },
     routes: [

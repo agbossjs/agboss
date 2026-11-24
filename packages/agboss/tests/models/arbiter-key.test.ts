@@ -9,6 +9,7 @@ import {
   WorkflowStart,
   type Produced,
   Action,
+  inline,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
@@ -30,13 +31,19 @@ class OutDto {
   @Text({ prompt: "o" }) o!: string;
 }
 
-@Agent({ name: "ans-agent", description: "A", prompt: "A.", model: "local/llama", output: AnsDto })
+@Agent({
+  name: "ans-agent",
+  description: "A",
+  prompt: inline("A."),
+  model: "local/llama",
+  output: AnsDto,
+})
 class AnsAgent {}
 
 @Arbiter({
   name: "ans-arbiter",
   model: "moonshotai/kimi-k2.6",
-  prompt: "Count it.",
+  prompt: inline("Count it."),
   criteria: [{ target: AnsAgent, prompt: "ok" }],
 })
 class AnsArbiter {}

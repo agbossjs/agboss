@@ -19,7 +19,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
@@ -61,7 +61,7 @@ function loopOf(
   @Agent({
     name: `limit-${String(count)}-edit-agent`,
     description: "Edits the draft",
-    prompt: "Edit it.",
+    prompt: inline("Edit it."),
     model: "moonshotai/kimi-k2.6",
     input: { draft: OfferDraftDto },
     output: OfferDraftDto,
@@ -72,7 +72,7 @@ function loopOf(
   @Agent({
     name: `limit-${String(count)}-review-agent`,
     description: "Reviews the draft",
-    prompt: "Review it.",
+    prompt: inline("Review it."),
     model: "moonshotai/kimi-k2.6",
     input: { draft: OfferDraftDto },
     output: oneOf(ChangesRequestedDto, DraftApprovedDto),

@@ -20,13 +20,7 @@ import { checkedRagClassesOf } from "./rag.js";
 import type { Class, Provider, Token } from "./injection.js";
 import type { ProviderModule } from "./container/registrations.js";
 import { containerPartsOf, toolDependenciesOf } from "./assemble-parts.js";
-import {
-  checkComponents,
-  checkProviderClasses,
-  componentClassesOf,
-  promptsOf,
-  toolNames,
-} from "./assemble-checks.js";
+import { checkComponents, componentClassesOf, promptsOf, toolNames } from "./assemble-checks.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import { channelPartsOf, questionRolesOf } from "./channel-parts.js";
 import type { ToolClasses } from "./assemble-checks.js";
@@ -39,7 +33,7 @@ import {
   type DefaultsLevels,
 } from "../config/defaults.js";
 import type { PromptVariables } from "./prompt-variables.js";
-import { judgePartsOf, judgesOf, judgeSettingsOf, type AssembledJudges } from "./judge-parts.js";
+import { judgePartsOf, judgeSettingsOf, type AssembledJudges } from "./judge-parts.js";
 import { agentSettings } from "./agent-settings.js";
 import { memoriesFor, policyPartsOf, type CompactionConfigPart } from "./policy-parts.js";
 import {
@@ -47,6 +41,7 @@ import {
   levelCascadeOf,
   resolverOf,
   workflowModelPartsOf,
+  checkedJudgesOf,
 } from "./model-parts.js";
 import { settingsOf } from "./workflow-settings.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
@@ -156,12 +151,6 @@ const levelsOf = (workflow: Class, owner: WorkflowOwner | undefined): DefaultsLe
   };
 };
 
-/** The workflow's provider classes, checked before the graph; then its judges. */
-function checkedJudgesOf(bundle: WorkflowMeta, agents: readonly AgentMeta[], loader: PromptLoader) {
-  checkProviderClasses(bundle);
-  return judgesOf(agents, loader);
-}
-
 /** The workflow's runtime graph, with the levels its defaults came from remembered (#261). */
 function graphOf(analysis: FlowAnalysis, workflow: Class, owner: WorkflowOwner | undefined) {
   const { flow } = workflowDeclarationOf(workflow).options;
@@ -199,7 +188,7 @@ export async function workflowOf(
   const routers = await loadRouters(graph, loader, bundle.defaults.router?.model, resolver);
   const tools = toolClassesOf(bundle, agents, graph);
   const rags = await checkedRagClassesOf(bundle, agents, tools.local);
-  const judges = await checkedJudgesOf(bundle, agents, loader);
+  const { judges, modelPrompts } = await checkedJudgesOf(bundle, agents, loader, graph, rags);
   const sources = { workflow, bundle, owner, agents, graph, loader };
   const policies = await policyPartsOf({ ...sources, resolver });
   const memories = await memoriesFor({ bundle, agents, graph, loader });
@@ -222,7 +211,7 @@ export async function workflowOf(
     ...policies.assembled,
     ...channelPartsOf(bundle, tools, owner?.workingCalendar, modules),
     ...workflowModelPartsOf(
-      { owner, bundle, agents, config, routers, graph, resolver },
+      { owner, bundle, agents, config, routers, graph, resolver, modelPrompts },
       { ...policies.models, replyInterpreters, rags },
     ),
     onIncompatibleResume: settingsOf(workflow).onIncompatibleResume,

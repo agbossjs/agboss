@@ -32,6 +32,7 @@ import {
   StoryWorkflowStart,
   StoryWriterAgent,
 } from "../fixtures/review.fixture.js";
+import { inline } from "../../../src/index.js";
 
 /** #271 PR 1: outdating in the analyser (S10) and `[input.outdated-on-path]` (rule 6). */
 
@@ -103,7 +104,7 @@ class JobsWorkflowStart {}
 @Agent({
   name: "job-search-agent",
   description: "Finds jobs for the profile",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   model: "moonshotai/kimi-k2.6",
   input: { profile: CandidateProfileDto },
   output: JobListDto,
@@ -113,7 +114,7 @@ class JobSearchAgent {}
 @Agent({
   name: "job-scoring-agent",
   description: "Scores the jobs",
-  prompt: "Score them.",
+  prompt: inline("Score them."),
   model: "moonshotai/kimi-k2.6",
   input: { jobs: JobListDto },
   output: JobScoresDto,
@@ -123,7 +124,7 @@ class JobScoringAgent {}
 @Agent({
   name: "profile-editor-agent",
   description: "Corrects the profile",
-  prompt: "Correct it.",
+  prompt: inline("Correct it."),
   model: "moonshotai/kimi-k2.6",
   input: { profile: CandidateProfileDto },
   output: CandidateProfileDto,
@@ -133,7 +134,7 @@ class ProfileEditorAgent {}
 @Agent({
   name: "job-picker-agent",
   description: "Picks the job to apply for",
-  prompt: "Pick one.",
+  prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
   input: { scores: JobScoresDto, profile: CandidateProfileDto },
   output: JobPickDto,
@@ -294,7 +295,7 @@ describe("#271 rule 5: in the review loop a new draft outdates the notes, never 
 @Agent({
   name: "gate-writer-agent",
   description: "Writes the draft, or rewrites it from the notes",
-  prompt: "Write it.",
+  prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { request: ArticleRequestDto, changes: optional(DraftChangesDto) },
@@ -305,7 +306,7 @@ class GateWriterAgent {}
 @Agent({
   name: "loose-publisher-agent",
   description: "Publishes, approved or not",
-  prompt: "Publish.",
+  prompt: inline("Publish."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: DraftDto, approval: optional(ApprovalDto) },
   output: ArticleDto,
@@ -315,7 +316,7 @@ class LoosePublisherAgent {}
 @Agent({
   name: "strict-publisher-agent",
   description: "Publishes an approved draft",
-  prompt: "Publish.",
+  prompt: inline("Publish."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: DraftDto, approval: ApprovalDto },
   output: ArticleDto,
@@ -391,7 +392,7 @@ class ThreadWorkflowStart {}
 @Agent({
   name: "thread-picker-agent",
   description: "Picks a job from the whole thread",
-  prompt: "Pick one.",
+  prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   output: JobPickDto,
@@ -401,7 +402,7 @@ class ThreadPickerAgent {}
 @Agent({
   name: "message-picker-agent",
   description: "Picks a job from the message only",
-  prompt: "Pick one.",
+  prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { message: WorkflowStartTextDto },
@@ -464,7 +465,7 @@ describe("#271 AC7: the value of an agent without input is outdated on any renew
 @Agent({
   name: "loop-reviewer-agent",
   description: "Reviews the draft, without saying what about",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { draft: DraftDto },
@@ -505,7 +506,7 @@ describe("#271 AC13: every assembly error at once, with those of #270 and #272",
 @Agent({
   name: "outer-planner-agent",
   description: "Plans the article, again after an approval",
-  prompt: "Plan it.",
+  prompt: inline("Plan it."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { request: ArticleRequestDto, approval: optional(ApprovalDto) },
@@ -516,7 +517,7 @@ class OuterPlannerAgent {}
 @Agent({
   name: "plan-draft-agent",
   description: "Writes the first draft of a plan",
-  prompt: "Write it.",
+  prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { plan: PlanDto },
@@ -527,7 +528,7 @@ class PlanDraftAgent {}
 @Agent({
   name: "notes-draft-agent",
   description: "Writes the draft, or rewrites it from the notes",
-  prompt: "Write it.",
+  prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 6,
   input: { plan: PlanDto, changes: optional(DraftChangesDto) },
@@ -538,7 +539,7 @@ class NotesDraftAgent {}
 @Agent({
   name: "rewrite-agent",
   description: "Rewrites the draft from the notes",
-  prompt: "Rewrite it.",
+  prompt: inline("Rewrite it."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 6,
   input: { plan: PlanDto, draft: DraftDto, changes: DraftChangesDto },
@@ -549,7 +550,7 @@ class RewriteAgent {}
 @Agent({
   name: "inner-reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 6,
   input: { draft: DraftDto },

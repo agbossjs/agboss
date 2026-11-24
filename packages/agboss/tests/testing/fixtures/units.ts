@@ -25,6 +25,7 @@ import {
   type JudgeInput,
   type PiiMatch,
   type PiiPolicyHandler,
+  inline,
 } from "../../../src/index.js";
 import { Rag } from "../../../src/components/decorators.js";
 import { Enum, PlainTextDto, Text } from "../../../src/dto/index.js";
@@ -191,7 +192,7 @@ export class HandbookRag extends RagSource {
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
-  prompt: "Does the message ask for legal advice?",
+  prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13",
   threshold: 0.8,
   deps: [ApplicationContext, ExecutionContext],

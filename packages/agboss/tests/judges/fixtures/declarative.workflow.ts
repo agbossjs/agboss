@@ -5,6 +5,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -12,7 +13,6 @@ import {
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { inline } from "../../../src/components/prompt-source.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "./judged.workflow.js";
@@ -51,7 +51,7 @@ export class ShortJudge {}
 
 @Agent({
   name: "declared-writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes an answer, gated by declarative judges",
   model: "local/llama",
   judges: [GroundedJudge, PoliteJudge],
@@ -61,7 +61,7 @@ export class DeclaredWriter {}
 
 @Agent({
   name: "two-judges-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Gated by two declarative judges, in order",
   model: "local/llama",
   judges: [GroundedJudge, ShortJudge],

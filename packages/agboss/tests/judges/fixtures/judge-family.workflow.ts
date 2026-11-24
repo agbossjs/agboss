@@ -8,6 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type JudgeHandler,
+  inline,
 } from "../../../src/index.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../../src/models/index.js";
 import { seconds } from "../../../src/units/index.js";
@@ -47,7 +48,7 @@ export class BareJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes on an OpenAI model",
   model: "openai/gpt-6-mini",
   judges: [OpenAiJudge, JevJudge, LengthJudge, BareJudge],
@@ -103,7 +104,7 @@ export class ClaudeJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "alias-writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes on a bare OpenAI model id",
   model: "gpt-6-mini",
   judges: [AliasJudge, ClaudeJudge],
@@ -146,7 +147,7 @@ export class PlainJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "no-retry-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "No retries",
   judges: [PlainJudge],
 })
@@ -154,7 +155,7 @@ export class NoRetryAgent {}
 
 @Agent({
   name: "zero-retry-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Zero retries",
   judges: [PlainJudge],
   maxRetries: 0,
@@ -163,12 +164,12 @@ export class ZeroRetryAgent {}
 
 @Agent({
   name: "retry-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Retries",
   judges: [PlainJudge],
   maxRetries: 2,
 })
 export class RetryAgent {}
 
-@Agent({ name: "judgeless-agent", prompt: "Write.", description: "No judges" })
+@Agent({ name: "judgeless-agent", prompt: inline("Write."), description: "No judges" })
 export class JudgelessAgent {}

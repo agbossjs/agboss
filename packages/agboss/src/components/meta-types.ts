@@ -1,5 +1,5 @@
 import type { PromptVariables } from "./prompt-variables.js";
-import type { PromptValue } from "./prompt-source.js";
+import type { PromptSource } from "./prompt-source.js";
 import type { AgentSettings, AgentsConfig } from "../config/types.js";
 import type { ModelFiles } from "../files/model-files.js";
 import type { AgentToolClass } from "./decorators.js";
@@ -47,7 +47,7 @@ export interface AgentMeta
   extends GuardrailFields, PiiPolicyFields, MemoryFields, ToolInterceptorFields {
   readonly name: string;
   readonly description: string;
-  readonly prompt?: PromptValue;
+  readonly prompt?: PromptSource;
   readonly promptUrls?: readonly string[];
   readonly model?: string;
   /** The `@ModelProvider` class its model is served from (#1313); left out: its workflow's, its application's. */

@@ -588,10 +588,10 @@ export interface JudgeRunner<TOutput> extends UnitClock {
 }
 
 // @public
-export type JudgeRunnerInput<TOutput> = JudgedOutput<TOutput> & {
+export type JudgeRunnerInput<TOutput> = JudgedOutput<TOutput> extends infer TInput ? TInput extends unknown ? Omit<TInput, "toolCalls" | "files"> & {
     readonly toolCalls?: readonly ToolCallRecord[];
     readonly files?: readonly FileContent[];
-};
+} : never : never;
 
 // @public
 export class LiveCallBlockedError extends TestFailure {

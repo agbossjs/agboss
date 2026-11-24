@@ -1569,4 +1569,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "holds spend, rate-limit or deadline sites (timer problem <) - not mutated: covered by tests/units/unit-errors-no-text.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
     ["src/units/timer-limits.ts"],
   ),
+  ...reviewed(
+    "the prompts of the model arbiters, read at assembly like every prompt (#1347), and the texts the arbiters' hashes are made of: file reads through the prompt loader and a hash of the text — no spend, limit, lease or fence; covered by tests/flow/arbiter-prompt.test.ts and tests/run/fingerprints.test.ts",
+    ["src/flow/runtime/launch/arbiter-prompts.ts", "src/run/arbiter-snapshot.ts"],
+  ),
 ]);

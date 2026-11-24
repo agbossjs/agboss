@@ -6,6 +6,7 @@ import {
   Router,
   Tool,
   Workflow,
+  inline,
 } from "../../../src/index.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
 import { IsoDateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -75,7 +76,7 @@ export class Coder {}
   name: "main-router",
   description: "Sends the message to an agent, or ends",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who handles the message.",
+  prompt: inline("Pick who handles the message."),
   model: "typesafe/jev-1.13",
   input: { message: WorkflowStartTextDto },
   maxVisits: 10,

@@ -11,6 +11,7 @@ import {
   secret,
   type PiiMatch,
   type PiiPolicyHandler,
+  inline,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -62,7 +63,7 @@ export class AppKeyPiiPolicy {}
 @Agent({
   name: "keyed-agent",
   description: "Answers",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/keyed",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
 })

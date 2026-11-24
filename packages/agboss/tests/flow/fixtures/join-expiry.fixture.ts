@@ -23,6 +23,7 @@ import {
   type PauseListenerHandler,
   type PauseListenerJoinFailedEvent,
   type PauseListenerOpenedEvent,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -164,7 +165,7 @@ const MODEL = "moonshotai/kimi-k2.6";
 @Agent({
   name: "legal-approver-agent",
   description: "Legal approves",
-  prompt: "Approve.",
+  prompt: inline("Approve."),
   model: MODEL,
   tools: [ApproveTool],
   input: { request: ApprovalRequestDto },
@@ -175,7 +176,7 @@ export class LegalApproverAgent {}
 @Agent({
   name: "finance-approver-agent",
   description: "Finance approves",
-  prompt: "Approve.",
+  prompt: inline("Approve."),
   model: MODEL,
   tools: [ApproveTool],
   input: { request: ApprovalRequestDto },
@@ -186,7 +187,7 @@ export class FinanceApproverAgent {}
 @Agent({
   name: "cfo-approver-agent",
   description: "The CFO approves within 30 minutes",
-  prompt: "Approve.",
+  prompt: inline("Approve."),
   model: MODEL,
   tools: [ApproveInThirtyTool],
   input: { request: ApprovalRequestDto },
@@ -197,7 +198,7 @@ export class CfoApproverAgent {}
 @Agent({
   name: "coo-approver-agent",
   description: "The COO approves",
-  prompt: "Approve.",
+  prompt: inline("Approve."),
   model: MODEL,
   tools: [ApproveTool],
   input: { request: ApprovalRequestDto },

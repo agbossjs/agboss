@@ -10,6 +10,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  inline,
 } from "../../../../src/index.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { Application } from "../../../../src/application/application.js";
@@ -50,7 +51,7 @@ export class PickyWorkflowStart {}
   description: "Picks who answers, on a chat model",
   decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
-  prompt: "Pick everyone needed for the customer's message.",
+  prompt: inline("Pick everyone needed for the customer's message."),
   input: { message: WorkflowStartTextDto },
   routes: [
     {
@@ -66,7 +67,7 @@ export class PickyRouter {}
 @Agent({
   name: "picky-answer-agent",
   description: "Answers from what was launched",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -173,7 +174,7 @@ export class BudgetDeskWorkflowStart {}
 @Agent({
   name: "budget-answer-agent",
   description: "Writes the reply from the branches' results",
-  prompt: "Write the reply.",
+  prompt: inline("Write the reply."),
   model: "moonshotai/kimi-k2.6",
   input: {
     order: OrderStatusDto,

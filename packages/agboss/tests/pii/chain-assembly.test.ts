@@ -14,6 +14,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   secret,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -122,7 +123,7 @@ class ConflictChildStart {}
 })
 class ConflictChildFinish {}
 
-@Agent({ name: "cc-agent", description: "d", prompt: "p", model: "test/cc" })
+@Agent({ name: "cc-agent", description: "d", prompt: inline("p"), model: "test/cc" })
 class ConflictAgent {}
 
 /** Lists e-mails by kind; its parents list them as tokens. */
@@ -148,7 +149,7 @@ class ConflictRootStart {}
 })
 class ConflictRootFinish {}
 
-@Agent({ name: "cc-summary-agent", description: "d", prompt: "p", model: "test/cc" })
+@Agent({ name: "cc-summary-agent", description: "d", prompt: inline("p"), model: "test/cc" })
 class ConflictSummaryAgent {}
 
 /** Its child per item: the edge `.toParallelWorkflows` is a way in too. */

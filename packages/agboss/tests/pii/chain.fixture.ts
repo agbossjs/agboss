@@ -20,6 +20,7 @@ import {
   type ExecutionStartEvent,
   type PiiMatch,
   type PiiPolicyHandler,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -83,7 +84,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 @Agent({
   name: "chain-child-agent",
   description: "Answers in the child",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/chain-child",
   price,
 })
@@ -92,7 +93,7 @@ export class ChainChildAgent {}
 @Agent({
   name: "chain-peek-agent",
   description: "Sees the root's secret at its model",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/chain-peek",
   price,
   excludePiiPolicies: [RootSecretPiiPolicy],
@@ -102,7 +103,7 @@ export class ChainPeekAgent {}
 @Agent({
   name: "chain-open-agent",
   description: "Its workflow excludes the root's secret at its models",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/chain-open",
   price,
 })
@@ -126,7 +127,7 @@ export class ChainChildDirectFinish {}
   name: "chain-child-router",
   description: "Sends the message to the child's agent",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who handles it.",
+  prompt: inline("Pick who handles it."),
   model: "test/chain-router",
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
@@ -221,7 +222,7 @@ export class ChainFarFinish {}
 @Agent({
   name: "chain-far-agent",
   description: "Answers in a child on any instance",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/chain-far",
   price,
 })

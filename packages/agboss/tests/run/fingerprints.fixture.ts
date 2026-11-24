@@ -129,7 +129,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
   @Agent({
     name: "answer-agent",
     description: "Answers",
-    prompt: variant.agentPrompt ?? "Answer the message.",
+    prompt: inline(variant.agentPrompt ?? "Answer the message."),
     model: "test/answer",
     judges: judgesOf(variant),
     ...(variant.isAgentExcludingPii === true ? { excludePiiPolicies: [policy] } : {}),
@@ -140,7 +140,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
     name: "help-router",
     description: "Sends the message on",
     decidedBy: DecidedBy.Model,
-    prompt: "Pick who answers.",
+    prompt: inline("Pick who answers."),
     model: JEV,
     input: { message: WorkflowStartTextDto },
     ...(variant.routerTurns === undefined ? {} : { memory: routerWindowOf(variant.routerTurns) }),

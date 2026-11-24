@@ -11,6 +11,7 @@ import {
 import { CompanyDto } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onAgent, onStart } from "./paths.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #263 — a child with two starts that take one class (`[graph.ambiguous-start]`): its generated
@@ -35,7 +36,7 @@ export class FullGradeWorkflowStart {}
 @Agent({
   name: "company-grader-agent",
   description: "Grades one company",
-  prompt: "Grade the company.",
+  prompt: inline("Grade the company."),
   model: "moonshotai/kimi-k2.6",
   input: { company: CompanyDto },
   output: CompanyGradeDto,

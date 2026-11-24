@@ -15,6 +15,7 @@ import {
   WorkflowStart,
   type Produced,
   Observer,
+  inline,
 } from "../../../src/index.js";
 import { type ExecutionFence } from "../../../src/stores/index.js";
 import { fenceOf } from "../../../src/flow/context/execution-fence.js";
@@ -323,7 +324,7 @@ export class ToolEndLog {
 @Agent({
   name: "release-agent",
   description: "Stages artifacts",
-  prompt: "Stage what you are asked.",
+  prompt: inline("Stage what you are asked."),
   tools: [StageTool, ApprovedStageTool],
   toolInterceptors: [FenceToolInterceptor],
   model: "test/release",

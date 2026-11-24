@@ -1,8 +1,8 @@
 /**
  * File-first prompts (#1347): a prompt is a path to a `.prompt.md` file (`./`, `../` or `/`), an
  * `inline("…")` text, or a non-empty list of those, read in order and joined with one blank line.
- * The path form is accepted next to today's bare `prompt` text and `promptUrls` until #1347b removes
- * them, so a part that starts with `./`, `../` or `/` is a file and any other bare string is text.
+ * A bare string that is no path is not prompt text: the compiler refuses it, and a JavaScript caller
+ * gets `[prompt.bare-text]` at assembly.
  */
 
 /** A prompt file: relative to the declaring file (`./`, `../`) or absolute (`/`). */
@@ -21,9 +21,6 @@ export type PromptPart = PromptFilePath | InlinePrompt;
 
 /** What `prompt` takes: one part, or a non-empty list read in order. */
 export type PromptSource = PromptPart | readonly [PromptPart, ...PromptPart[]];
-
-/** What `prompt` still takes while bare text is accepted (#1347a): a source, or text as before. */
-export type PromptValue = string | InlinePrompt | readonly (string | InlinePrompt)[];
 
 const made = new WeakSet<object>();
 
@@ -86,21 +83,25 @@ export const isPromptFilePath = (value: string): value is PromptFilePath =>
 /** One part of a normalised prompt. */
 export type PromptPieceOf =
   | { readonly kind: "file"; readonly path: string }
-  | { readonly kind: "text"; readonly text: string };
+  | { readonly kind: "text"; readonly text: string }
+  /** A string that is no path and no `inline(…)`: only a JavaScript caller can write it. */
+  | { readonly kind: "bare"; readonly text: string };
 
-const isPromptList = (value: PromptValue): value is readonly (string | InlinePrompt)[] =>
+const isPromptList = (value: PromptSource): value is readonly [PromptPart, ...PromptPart[]] =>
   Array.isArray(value);
 
 /** A `prompt` as a list of files and texts, in the order written. */
-export function promptPiecesOf(prompt: PromptValue | undefined): readonly PromptPieceOf[] {
+export function promptPiecesOf(prompt: PromptSource | undefined): readonly PromptPieceOf[] {
   if (prompt === undefined) return [];
-  const parts: readonly (string | InlinePrompt)[] = isPromptList(prompt) ? prompt : [prompt];
+  const parts: readonly PromptPart[] = isPromptList(prompt) ? prompt : [prompt];
   return parts.flatMap((part): PromptPieceOf[] => {
     if (typeof part !== "string") return [{ kind: "text", text: part.text }];
-    return isPromptFilePath(part) ? [{ kind: "file", path: part }] : [{ kind: "text", text: part }];
+    return isPromptFilePath(part)
+      ? [{ kind: "file", path: part }]
+      : [{ kind: "bare", text: String(part) }];
   });
 }
 
 /** Whether a `prompt` says anything: a file, or a text that is not empty. */
-export const hasPrompt = (prompt: PromptValue | undefined): boolean =>
-  promptPiecesOf(prompt).some((piece) => piece.kind === "file" || piece.text !== "");
+export const hasPrompt = (prompt: PromptSource | undefined): boolean =>
+  promptPiecesOf(prompt).some((piece) => piece.kind !== "text" || piece.text !== "");

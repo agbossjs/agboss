@@ -29,6 +29,7 @@ import {
   TckWorkflowStart,
 } from "../../a2a-tck/tck.application.js";
 import { PriceLookupTool, QuoteWorkflow } from "./direct.application.js";
+import { inline } from "../../../src/index.js";
 
 interface Message {
   readonly message: Produced<WorkflowStartTextDto, unknown>;
@@ -65,7 +66,7 @@ export class LedgerReadTool {
 @Agent({
   name: "busy-agent",
   description: "Calls every kind of tool",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   tools: [PriceLookupTool, PingTool, BoardLookupTool, LedgerReadTool],
 })

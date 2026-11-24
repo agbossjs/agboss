@@ -9,7 +9,14 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { Budget, BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import type { Class } from "../../src/components/injection.js";
-import { Agent, GraphRuleError, Injectable, Workflow, WorkflowFinish } from "../../src/index.js";
+import {
+  Agent,
+  GraphRuleError,
+  Injectable,
+  Workflow,
+  WorkflowFinish,
+  inline,
+} from "../../src/index.js";
 import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
@@ -59,7 +66,12 @@ class NotABudget {
 })
 class Misnamed {}
 
-@Agent({ name: "orders-agent", description: "Another", prompt: "Answer.", model: "test/beta" })
+@Agent({
+  name: "orders-agent",
+  description: "Another",
+  prompt: inline("Answer."),
+  model: "test/beta",
+})
 class OtherOrdersAgent {}
 
 @WorkflowFinish({ name: "other-workflow-finish", description: "d", output: WorkflowFinishTextDto })

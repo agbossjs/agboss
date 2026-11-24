@@ -20,6 +20,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../src/index.js";
 import {
   DecisionsModelProvider,
@@ -85,7 +86,7 @@ class WideModelProvider extends OpenRouterProvider {
 @Agent({
   name: "harness-agent",
   description: "Answers on the harness",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "harness/x",
 })
 class HarnessAgent {}
@@ -93,7 +94,7 @@ class HarnessAgent {}
 @Agent({
   name: "kimi-agent",
   description: "Answers on OpenRouter",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
 })
 class KimiAgent {}

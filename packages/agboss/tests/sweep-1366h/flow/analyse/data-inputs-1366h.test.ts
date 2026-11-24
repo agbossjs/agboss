@@ -37,6 +37,7 @@ import { CritiqueDto, ResearchDto } from "../../../flow/fixtures/review-dtos.js"
 import { onStart, toAction } from "../../../flow/fixtures/paths.js";
 import { MAX_SCOPES_PER_NODE } from "../../../../src/flow/analyse/dataflow.js";
 import { toFinish } from "../../../flow/fixtures/paths.js";
+import { inline } from "../../../../src/index.js";
 
 type Flow = WorkflowOptions["flow"];
 
@@ -62,7 +63,7 @@ const agentOf = (name: string, input: Record<string, unknown>) => {
   @Agent({
     name,
     description: "Reads its input",
-    prompt: "Read it.",
+    prompt: inline("Read it."),
     model: "moonshotai/kimi-k2.6",
     input: input as never,
     output: OfferDraftDto,
@@ -111,7 +112,7 @@ describe("#1366: several values where one field reads", () => {
     @Agent({
       name: "contract-summary-1366h-agent",
       description: "Sums the review up",
-      prompt: "Sum up.",
+      prompt: inline("Sum up."),
       model: "moonshotai/kimi-k2.6",
       input: { review: ReviewDto },
       output: ShortlistDto,
@@ -144,7 +145,7 @@ const readerOf = (name: string, input: Record<string, unknown>) => {
   @Agent({
     name,
     description: "Reads the critique",
-    prompt: "Read it.",
+    prompt: inline("Read it."),
     model: "moonshotai/kimi-k2.6",
     input: input as never,
     output: ArticleDraftDto,
@@ -320,7 +321,7 @@ const researchAgent = (
   @Agent({
     name,
     description: "Works",
-    prompt: "Work.",
+    prompt: inline("Work."),
     model: "moonshotai/kimi-k2.6",
     input: input as never,
     output: output as never,

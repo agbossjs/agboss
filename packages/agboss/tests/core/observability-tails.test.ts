@@ -19,6 +19,7 @@ import {
   type ToolStartEvent,
   WorkflowStart,
   WorkflowFinish,
+  inline,
 } from "../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../src/dto/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -86,7 +87,7 @@ class TailsObserver {
 @InputGuardrail({
   name: "safe-input-guardrail",
   description: "Checks what the agent reads",
-  prompt: "Is the message unsafe?",
+  prompt: inline("Is the message unsafe?"),
   model: "typesafe/jev-1.13",
   threshold: 0.9,
   refusal: "No.",
@@ -96,7 +97,7 @@ class SafeInputGuardrail {}
 @OutputGuardrail({
   name: "safe-output-guardrail",
   description: "Checks what the agent answers",
-  prompt: "Is the answer unsafe?",
+  prompt: inline("Is the answer unsafe?"),
   model: "typesafe/jev-1.13",
   threshold: 0.9,
   refusal: "No.",

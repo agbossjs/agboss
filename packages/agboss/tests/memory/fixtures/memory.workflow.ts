@@ -9,6 +9,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   TokenLimit,
+  inline,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { DecisionsModelProvider } from "../../../src/models/index.js";
@@ -32,7 +33,7 @@ export class WindowDto {
 
 @Agent({
   name: "recaller-agent",
-  prompt: "Recall.",
+  prompt: inline("Recall."),
   description: "Recalls",
   model: "local/llama",
   input: { message: WorkflowStartTextDto },
@@ -42,7 +43,7 @@ export class Recaller {}
 
 @Agent({
   name: "windowed-agent",
-  prompt: "Window.",
+  prompt: inline("Window."),
   description: "Sees two turns",
   model: "local/llama",
   memory: Window2Memory,
@@ -53,7 +54,7 @@ export class Windowed {}
 
 @Agent({
   name: "noter-agent",
-  prompt: "Note.",
+  prompt: inline("Note."),
   description: "Opts out of the workflow's memory",
   model: "local/llama",
   memory: NoMemory,

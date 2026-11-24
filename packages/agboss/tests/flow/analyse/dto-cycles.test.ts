@@ -14,6 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Reasoning } from "../../../src/models/index.js";
@@ -91,7 +92,7 @@ describe("#1080: an agent's output that holds itself", () => {
     @Agent({
       name: "diamond-agent",
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "test/r",
       price: { inputPerMTok: 1, outputPerMTok: 10 },
       input: { diamond: DiamondDto },

@@ -18,7 +18,7 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { LimitExceededError } from "../../../src/graph/limits.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline } from "../../../src/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
   CompanyGradeDto,
@@ -58,7 +58,7 @@ export class CompanyLinkReviewWorkflowStart {}
 @Agent({
   name: "company-reviewer-agent",
   description: "Decides whether the company is worth a deep dive",
-  prompt: "Review the company.",
+  prompt: inline("Review the company."),
   model: "moonshotai/kimi-k2.6",
   input: { company: optional(CompanyDto), link: optional(CompanyLinkDto) },
   output: oneOf(PromisingCompanyDto, CompanyRejectedDto),
@@ -68,7 +68,7 @@ export class CompanyReviewerAgent {}
 @Agent({
   name: "deep-dive-agent",
   description: "Looks deeper into a promising company",
-  prompt: "Dive into the company.",
+  prompt: inline("Dive into the company."),
   model: "moonshotai/kimi-k2.6",
   input: { promising: PromisingCompanyDto },
   output: DeepDiveDto,
@@ -78,7 +78,7 @@ export class DeepDiveAgent {}
 @Agent({
   name: "grader-agent",
   description: "Grades the company",
-  prompt: "Grade the company.",
+  prompt: inline("Grade the company."),
   model: "moonshotai/kimi-k2.6",
   input: { deepDive: DeepDiveDto },
   output: CompanyGradeDto,
@@ -161,7 +161,7 @@ export class CompanyScreeningWorkflowStart {}
 @Agent({
   name: "company-finder-agent",
   description: "Finds the companies to review",
-  prompt: "Find companies.",
+  prompt: inline("Find companies."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: listOf(CompanyDto),
@@ -182,7 +182,7 @@ export class NotifyReviewStoppedAction implements ActionHandler<NotifyReviewStop
 @Agent({
   name: "review-ranker-agent",
   description: "Ranks the reviewed companies",
-  prompt: "Rank the companies.",
+  prompt: inline("Rank the companies."),
   model: "moonshotai/kimi-k2.6",
   input: { reviews: listOf(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto)) },
   output: GradedShortlistDto,
@@ -234,7 +234,7 @@ export class JobOfferWorkflowStart {}
 @Agent({
   name: "company-picker-agent",
   description: "Picks the company of the request",
-  prompt: "Pick the company.",
+  prompt: inline("Pick the company."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: CompanyDto,
@@ -244,7 +244,7 @@ export class CompanyPickerAgent {}
 @Agent({
   name: "job-offer-agent",
   description: "Writes the offer for a graded company",
-  prompt: "Write the offer.",
+  prompt: inline("Write the offer."),
   model: "moonshotai/kimi-k2.6",
   input: { grade: CompanyGradeDto },
   output: JobOfferDto,

@@ -13,7 +13,7 @@ import { ArticleDto, ArticleRequestDto } from "./dtos.js";
 import { ApprovalDto, CritiqueDto, DraftDto, ResearchDto } from "./review-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline } from "../../../src/index.js";
 
 /**
  * #271 — the review loop (`caseOf(…)` after the reviewer, #299) and a polish
@@ -30,7 +30,7 @@ export class StoryWorkflowStart {}
 @Agent({
   name: "researcher-agent",
   description: "Researches the subject",
-  prompt: "Research the subject.",
+  prompt: inline("Research the subject."),
   model: "moonshotai/kimi-k2.6",
   input: {
     request: ArticleRequestDto,
@@ -42,7 +42,7 @@ export class ResearcherAgent {}
 @Agent({
   name: "story-writer-agent",
   description: "Writes the article, or rewrites it from the reviewer's notes",
-  prompt: "Write the article.",
+  prompt: inline("Write the article."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 4,
   input: {
@@ -57,7 +57,7 @@ export class StoryWriterAgent {}
 @Agent({
   name: "story-reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 4,
   input: {
@@ -70,7 +70,7 @@ export class StoryReviewerAgent {}
 @Agent({
   name: "publisher-agent",
   description: "Prepares the approved draft for publishing",
-  prompt: "Prepare the draft.",
+  prompt: inline("Prepare the draft."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: DraftDto,
@@ -122,7 +122,7 @@ export class StoryApplication {}
 @Agent({
   name: "polish-agent",
   description: "Polishes the draft by the critiques",
-  prompt: "Polish the draft.",
+  prompt: inline("Polish the draft."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: {

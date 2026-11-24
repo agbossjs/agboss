@@ -33,7 +33,7 @@ export class RefusalTextService {
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
-  prompt: "Does the message ask for legal advice?",
+  prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13",
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService],
@@ -53,7 +53,7 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 @OutputGuardrail({
   name: "no-legal-advice-guardrail",
   description: "Blocks answers that give legal advice",
-  prompt: "Does the answer give legal advice?",
+  prompt: inline("Does the answer give legal advice?"),
   threshold: 0.8,
   refusal: "I can't give legal advice. Please contact a lawyer.",
 })
@@ -189,7 +189,7 @@ export class NotesFinish {}
 @Agent({
   name: "notes-agent",
   description: "Writes a note for the staff",
-  prompt: "Write a note.",
+  prompt: inline("Write a note."),
   model: "moonshotai/kimi-k2.6",
   excludeGuardrails: [PromptInjectionGuardrail], // its model only; every other one keeps it
 })

@@ -17,6 +17,7 @@ import {
   type ExecutionTreeValue,
   type PausedExecution,
   type ExecutionResumeEvent,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
@@ -188,7 +189,7 @@ export class Recall {
 @Agent({
   name: "clerk-agent",
   description: "Charges, holds and claims",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [Charge, Hold, Claim, Recall],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },

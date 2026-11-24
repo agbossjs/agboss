@@ -53,6 +53,7 @@ import {
   toWorkflow,
   toAction,
 } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 /** #263 PR 1 — child workflows in the analyser: the start per edge, outputs, scope, warnings. */
 
@@ -84,7 +85,7 @@ class SoloGradeWorkflowStart {}
 @Agent({
   name: "solo-grader-agent",
   description: "Grades one company",
-  prompt: "Grade it.",
+  prompt: inline("Grade it."),
   model: "moonshotai/kimi-k2.6",
   input: { company: CompanyDto },
   output: CompanyGradeDto,
@@ -168,7 +169,7 @@ class SearchOfferWorkflowStart {}
 @Agent({
   name: "score-list-agent",
   description: "Ranks the scores",
-  prompt: "Rank.",
+  prompt: inline("Rank."),
   model: "moonshotai/kimi-k2.6",
   input: { scores: listOf(CompanyScoreDto) },
   output: GradedShortlistDto,
@@ -462,7 +463,7 @@ describe("#263 AC11: a per-item child with no way to fail softly", () => {
   name: "review-desk-router",
   description: "Grades the company, or hands the request back",
   decidedBy: DecidedBy.Model,
-  prompt: "Choose.",
+  prompt: inline("Choose."),
   model: "typesafe/jev-1.13",
   input: { company: CompanyDto },
   routes: [
@@ -475,7 +476,7 @@ class ReviewDeskRouter {}
 @Agent({
   name: "grade-list-agent",
   description: "Ranks the grades",
-  prompt: "Rank.",
+  prompt: inline("Rank."),
   model: "moonshotai/kimi-k2.6",
   input: { grades: listOf(CompanyGradeDto) },
   output: GradedShortlistDto,
@@ -581,7 +582,7 @@ describe("#1271: a workflow's finishes do not mix a list with another shape", ()
   @Agent({
     name: "mixed-scorer-agent",
     description: "Scores them",
-    prompt: "Score.",
+    prompt: inline("Score."),
     model: "moonshotai/kimi-k2.6",
     input: { companies: listOf(CompanyDto) },
     output: CompanyScoreDto,

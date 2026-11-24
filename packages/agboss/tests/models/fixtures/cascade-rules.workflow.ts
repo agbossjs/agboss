@@ -6,6 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -53,12 +54,12 @@ export class BrokenModels {}
 })
 export class SoundModels {}
 
-@Agent({ name: "sound-agent", prompt: "Answer.", description: "Answers" })
+@Agent({ name: "sound-agent", prompt: inline("Answer."), description: "Answers" })
 export class SoundAgent {}
 
 @Agent({
   name: "broken-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Names the broken provider itself",
   modelProvider: BrokenModels,
 })
@@ -201,7 +202,7 @@ export class ThirdModels {}
 
 @Agent({
   name: "third-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Names the third provider",
   modelProvider: ThirdModels,
 })

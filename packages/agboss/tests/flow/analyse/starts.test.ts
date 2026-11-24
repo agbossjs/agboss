@@ -12,6 +12,7 @@ import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { OfferDraftDto, ShortlistDto } from "../fixtures/dtos.js";
 import { DraftKitWorkflowFinish } from "../fixtures/kit.fixture.js";
 import { onStart } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 /** A start's input as a list or a map of fields (#270 AC20, AC21). */
 
@@ -25,7 +26,7 @@ class DraftsWorkflowStart {}
 @Agent({
   name: "rank-drafts-agent",
   description: "Ranks the drafts",
-  prompt: "Rank them.",
+  prompt: inline("Rank them."),
   model: "moonshotai/kimi-k2.6",
   input: {
     drafts: listOf(OfferDraftDto),
@@ -64,7 +65,7 @@ const readerOf = (
   @Agent({
     name: "redraft-agent",
     description: "Drafts again, from the earlier draft when there is one",
-    prompt: "Draft it.",
+    prompt: inline("Draft it."),
     model: "moonshotai/kimi-k2.6",
     input: {
       shortlist: ShortlistDto,

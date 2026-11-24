@@ -8,6 +8,7 @@ import {
   type Class,
   type Produced,
   Action,
+  inline,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -22,7 +23,7 @@ export function arbiterWorkflow(model: string): Class {
   @Agent({
     name: "ans-agent",
     description: "A",
-    prompt: "A.",
+    prompt: inline("A."),
     model: "local/llama",
     output: AnswerDto,
   })
@@ -30,7 +31,7 @@ export function arbiterWorkflow(model: string): Class {
   @Arbiter({
     name: "ans-arbiter",
     model,
-    prompt: "Count it.",
+    prompt: inline("Count it."),
     criteria: [{ target: AnsAgent, prompt: "ok" }],
   })
   class AnsArbiter {}

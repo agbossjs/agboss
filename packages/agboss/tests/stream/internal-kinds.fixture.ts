@@ -14,6 +14,7 @@ import {
   listOf,
   type Produced,
   Action,
+  inline,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -24,7 +25,7 @@ import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 @OutputGuardrail({
   name: "chat-guardrail",
   description: "Blocks an answer on a chat model",
-  prompt: "Is the answer forbidden?",
+  prompt: inline("Is the answer forbidden?"),
   model: "local/llama",
   threshold: 0.8,
   refusal: "Refused.",
@@ -33,7 +34,7 @@ export class ChatGuardrail {}
 
 @Agent({
   name: "guarded-text-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   guardrails: [ChatGuardrail],
@@ -75,7 +76,7 @@ export class OwnersDto {
 @Agent({
   name: "owner-answer-agent",
   description: "Names the rota's owner",
-  prompt: "Name the owner.",
+  prompt: inline("Name the owner."),
   model: "local/llama",
   output: OwnerDto,
 })
@@ -84,7 +85,7 @@ export class OwnerAgent {}
 @Arbiter({
   name: "chat-arbiter",
   model: "local/llama",
-  prompt: "Count an answer that names an owner.",
+  prompt: inline("Count an answer that names an owner."),
   criteria: [{ target: OwnerAgent, prompt: "Names the owner" }],
 })
 export class ChatArbiter {}

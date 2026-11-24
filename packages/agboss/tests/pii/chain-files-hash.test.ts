@@ -14,6 +14,7 @@ import {
   WorkflowStart,
   type PiiMatch,
   type PiiPolicyHandler,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -60,7 +61,7 @@ class OwnAllowPiiPolicy implements PiiPolicyHandler {
   findMatches = none;
 }
 
-@Agent({ name: "fh-child-agent", description: "d", prompt: "p", model: "test/fh" })
+@Agent({ name: "fh-child-agent", description: "d", prompt: inline("p"), model: "test/fh" })
 class FhChildAgent {}
 
 @WorkflowStart({ name: "fh-child-workflow-start", description: "s", input: WorkflowStartTextDto })

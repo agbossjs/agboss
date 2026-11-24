@@ -7,6 +7,26 @@
 import { inspect } from 'node:util';
 
 // @public
+export interface CodeRagRerankerOptions<D extends readonly Token[] = readonly Token[]> extends RagRerankerBase {
+    readonly deps?: D;
+    // (undocumented)
+    readonly model?: never;
+    // (undocumented)
+    readonly modelProvider?: never;
+    // (undocumented)
+    readonly prompt?: never;
+}
+
+// @public
+export interface ModelRagRerankerOptions extends RagRerankerBase {
+    // (undocumented)
+    readonly deps?: never;
+    readonly model?: string;
+    readonly modelProvider?: Class;
+    readonly prompt?: PromptSource;
+}
+
+// @public
 export function Rag<const D extends readonly Token[] = []>(options: {
     readonly name: string;
     readonly description: string;
@@ -45,20 +65,13 @@ export class RagQueryDto {
 }
 
 // @public
-export function RagReranker<const D extends readonly Token[] = []>(options: RagRerankerOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+export function RagReranker(options: ModelRagRerankerOptions): <C extends new () => object>(value: C) => C;
 
 // @public
-export interface RagRerankerOptions<D extends readonly Token[] = readonly Token[]> {
-    readonly candidates: number;
-    readonly deps?: D;
-    // (undocumented)
-    readonly description?: string;
-    readonly maxCandidateLength?: number;
-    readonly model?: string;
-    readonly modelProvider?: Class;
-    readonly name?: string;
-    readonly onFailure?: RerankFailurePolicy;
-}
+export function RagReranker<const D extends readonly Token[] = []>(options: CodeRagRerankerOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+
+// @public
+export type RagRerankerOptions<D extends readonly Token[] = readonly Token[]> = ModelRagRerankerOptions | CodeRagRerankerOptions<D>;
 
 // @public
 export interface RagRetrieval {
@@ -202,7 +215,10 @@ export class SqliteFtsRagSource extends RagSource {
 // src/rag/dto.ts - (ae-undocumented) Missing documentation for "title".
 // src/rag/dto.ts - (ae-undocumented) Missing documentation for "url".
 // src/rag/dto.ts - (ae-undocumented) Missing documentation for "quote".
-// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "model".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "modelProvider".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "deps".
 // src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "scopeId".
 // src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "scope".

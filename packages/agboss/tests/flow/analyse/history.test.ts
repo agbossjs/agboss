@@ -18,6 +18,7 @@ import {
 } from "../fixtures/history.fixture.js";
 import { onStart } from "../fixtures/paths.js";
 import { ResearchDto } from "../fixtures/review-dtos.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #299 S56 (AC4, analysis): `historyOf(XDto)` needs a current `XDto` on every path into its node;
@@ -32,7 +33,7 @@ const errorsOf = (workflow: abstract new () => unknown, code: string): readonly 
 @Agent({
   name: "draft-history-agent",
   description: "Reads the drafts so far",
-  prompt: "Compare the drafts.",
+  prompt: inline("Compare the drafts."),
   model: "moonshotai/kimi-k2.6",
   input: { drafts: historyOf(OfferDraftDto, { maxPrevious: 2 }) },
   output: DraftChangesDto,
@@ -55,7 +56,7 @@ class NoDraftWorkflow {}
 @Agent({
   name: "research-agent",
   description: "Researches",
-  prompt: "Research.",
+  prompt: inline("Research."),
   model: "moonshotai/kimi-k2.6",
   input: { shortlist: ShortlistDto },
   output: ResearchDto,
@@ -65,7 +66,7 @@ class ResearchAgent {}
 @Agent({
   name: "research-draft-agent",
   description: "Drafts from the research",
-  prompt: "Draft.",
+  prompt: inline("Draft."),
   model: "moonshotai/kimi-k2.6",
   input: { research: ResearchDto },
   output: OfferDraftDto,
@@ -75,7 +76,7 @@ class ResearchDraftAgent {}
 @Agent({
   name: "research-again-agent",
   description: "Researches again",
-  prompt: "Research again.",
+  prompt: inline("Research again."),
   model: "moonshotai/kimi-k2.6",
   input: { shortlist: ShortlistDto },
   output: ResearchDto,
@@ -100,7 +101,7 @@ class StaleDraftWorkflow {}
 @Agent({
   name: "limitless-agent",
   description: "A history with a maxPrevious that is not one",
-  prompt: "Read.",
+  prompt: inline("Read."),
   model: "moonshotai/kimi-k2.6",
   input: { drafts: historyOf(OfferDraftDto, { maxPrevious: 0 }) },
   output: DraftChangesDto,

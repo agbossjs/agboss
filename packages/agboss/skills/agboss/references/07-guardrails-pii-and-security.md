@@ -41,14 +41,14 @@ export class RefusalTextService {
 
 ```ts file=src/clinic/guardrails/legal-advice/legal-advice.guardrail.ts
 // a computed refusal: the sender's language, from a service
-import { InputGuardrail, type GuardrailRefusal } from "@agboss/core";
+import { InputGuardrail, type GuardrailRefusal, inline } from "@agboss/core";
 import { ClinicExecutionContext } from "../../contexts/clinic-execution.context.js";
 import { RefusalTextService } from "../../services/refusal-text.service.js";
 
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
-  prompt: "Does the message ask for legal advice?",
+  prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13", // a decision model: one Decision.boolean; a chat model: one answer tool
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService],
@@ -67,12 +67,12 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 
 ```ts file=src/clinic/guardrails/no-diagnosis/no-diagnosis.guardrail.ts
 // a fixed refusal; no model: defaults.guardrail.model
-import { OutputGuardrail } from "@agboss/core";
+import { OutputGuardrail, inline } from "@agboss/core";
 
 @OutputGuardrail({
   name: "no-diagnosis-guardrail",
   description: "Blocks answers that diagnose",
-  prompt: "Does the answer give a medical diagnosis?",
+  prompt: inline("Does the answer give a medical diagnosis?"),
   threshold: 0.7,
   refusal: "I can't diagnose. Please see a doctor.",
 })
@@ -261,14 +261,14 @@ export class PatientMessageDto {
 ```
 
 ```ts file=src/clinic/agents/clinic/clinic.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PatientMessageDto } from "../../dto/patient-message.dto.js";
 import { LegalAdviceGuardrail } from "../../guardrails/legal-advice/legal-advice.guardrail.js";
 
 @Agent({
   name: "clinic-agent",
   description: "Answers patients' practical questions",
-  prompt: "Answer practical questions about appointments. Never diagnose.",
+  prompt: inline("Answer practical questions about appointments. Never diagnose."),
   model: "moonshotai/kimi-k2.6",
   input: { message: PatientMessageDto },
   guardrails: [LegalAdviceGuardrail], // this agent's model only
@@ -277,7 +277,7 @@ export class ClinicAgent {}
 ```
 
 ```ts file=src/clinic/agents/billing/billing.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PatientMessageDto } from "../../dto/patient-message.dto.js";
 import { NoDiagnosisGuardrail } from "../../guardrails/no-diagnosis/no-diagnosis.guardrail.js";
 import { PatientIdPiiPolicy } from "../../pii-policies/patient-id.pii-policy.js";
@@ -285,7 +285,7 @@ import { PatientIdPiiPolicy } from "../../pii-policies/patient-id.pii-policy.js"
 @Agent({
   name: "billing-agent",
   description: "Answers billing questions",
-  prompt: "Answer billing questions.",
+  prompt: inline("Answer billing questions."),
   model: "moonshotai/kimi-k2.6",
   input: { message: PatientMessageDto },
   excludeGuardrails: [NoDiagnosisGuardrail], // billing answers cannot diagnose
@@ -295,7 +295,7 @@ export class BillingAgent {}
 ```
 
 ```ts file=src/clinic/routers/clinic/clinic.router.ts
-import { DecidedBy, Router } from "@agboss/core";
+import { DecidedBy, Router, inline } from "@agboss/core";
 import { BillingAgent } from "../../agents/billing/billing.agent.js";
 import { ClinicAgent } from "../../agents/clinic/clinic.agent.js";
 import { PatientMessageDto } from "../../dto/patient-message.dto.js";
@@ -305,7 +305,7 @@ import { PatientMessageDto } from "../../dto/patient-message.dto.js";
   description: "Sends a message to the agent that answers it",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick who answers the patient.",
+  prompt: inline("Pick who answers the patient."),
   input: { message: PatientMessageDto }, // read masked: the policies apply to routers too
   routes: [
     { prompt: "Appointments and practical questions", target: ClinicAgent },

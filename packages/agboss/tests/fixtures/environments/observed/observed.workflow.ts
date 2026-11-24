@@ -1,4 +1,4 @@
-import { Agent, ApplicationContext, Observer, Workflow } from "../../../../src/index.js";
+import { Agent, ApplicationContext, Observer, Workflow, inline } from "../../../../src/index.js";
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
@@ -18,7 +18,7 @@ export class RunLog {
 @Agent({
   name: "greeter-agent",
   description: "Greets",
-  prompt: "Greet the user.",
+  prompt: inline("Greet the user."),
   model: "test/greeter",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
 })

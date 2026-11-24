@@ -11,6 +11,7 @@ import {
   Workflow,
   WorkflowStart,
   type Produced,
+  inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -63,7 +64,7 @@ export class DigWorkflowStart {}
 @Agent({
   name: "digger-agent",
   description: "Digs one level deeper while the count lasts",
-  prompt: "Dig one level deeper while the count lasts.",
+  prompt: inline("Dig one level deeper while the count lasts."),
   model: "moonshotai/kimi-k2.6",
   tools: [ConfirmDigTool],
   input: { count: CountDto },

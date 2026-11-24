@@ -81,11 +81,12 @@ export function flowArbiterModelFactory(
     if (found !== undefined) return found;
     // the model the cascade resolved (its provider, #1313); a unit's arbiter its declared one
     const use = uses.find((candidate) => candidate.name === options.name);
-    const resolved = use ?? { model: options.model ?? "" };
+    const resolved = use ?? { model: options.model ?? "", prompt: "" };
     const model = createArbiterModels(
       options.name,
       routerModelOf(resolved.model, deps, use?.modelProvider, use?.unpriced),
       { gateway: deps.gateway, chatDefaults: deps.chatDefaults },
+      resolved.prompt,
     );
     made.set(arbiter, model);
     return model;

@@ -18,6 +18,7 @@ import {
   type CompactionInput,
   type CompactionTurn,
   type MemoryOptions,
+  inline,
 } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -83,14 +84,14 @@ describe("#1303 types", () => {
     Agent({
       name: "memory-agent",
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "m",
       memory: NoMemory,
     });
     Agent({
       name: "old-agent",
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "m",
       // @ts-expect-error -- uncompactedTurns moved into @Memory
       uncompactedTurns: 2,
@@ -98,7 +99,7 @@ describe("#1303 types", () => {
     Agent({
       name: "strategy-agent",
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "m",
       // @ts-expect-error -- memoryStrategy is gone with @agboss/core/memory
       memoryStrategy: class Strategy {

@@ -171,7 +171,7 @@ async function byModel(
   const criterionText = normalisePromptText(criterion.prompt);
   const question = { target: site.node, answer: site.answer, criterion: criterionText };
   const verdict = await model.judge(
-    { ...question, instructions: normalisePromptText(options.prompt) },
+    { ...question, instructions: model.instructions },
     deps.reading,
   );
   spent.push(...verdict.usage);

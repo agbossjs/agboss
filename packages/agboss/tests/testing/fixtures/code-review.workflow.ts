@@ -8,6 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
@@ -71,7 +72,7 @@ export class PullRequest {}
   name: "review-gate-router",
   description: "Sends the code back to the coder or opens the pull request",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the review clean?",
+  prompt: inline("Is the review clean?"),
   model: "typesafe/jev-1.13",
   input: { review: ReviewDto },
   maxVisits: 3,

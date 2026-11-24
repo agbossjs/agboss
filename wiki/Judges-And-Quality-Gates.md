@@ -454,7 +454,7 @@ set `maxRetries` so a rejected answer gets another try.
 ## Adding judges to an agent
 
 ```ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CorrectnessJudge } from "./judges/correctness.judge.js";
 import { GroundedJudge } from "./judges/grounded.judge.js";
 import { OneSentenceJudge } from "./judges/one-sentence.judge.js";
@@ -462,7 +462,7 @@ import { OneSentenceJudge } from "./judges/one-sentence.judge.js";
 @Agent({
   name: "writer-agent",
   description: "Writes the answer",
-  prompt: "Write the answer to the task.",
+  prompt: inline("Write the answer to the task."),
   model: "moonshotai/kimi-k2.6",
   judges: [OneSentenceJudge, CorrectnessJudge, GroundedJudge], // a text agent: all judge PlainTextDto
   maxRetries: 2,

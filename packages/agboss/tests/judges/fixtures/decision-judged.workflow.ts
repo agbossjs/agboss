@@ -1,4 +1,4 @@
-import { Agent, Decision, Judge, Workflow } from "../../../src/index.js";
+import { Agent, Decision, Judge, Workflow, inline } from "../../../src/index.js";
 import {
   JudgeModel,
   JudgeVerdict,
@@ -65,7 +65,7 @@ export class LooksRight implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes an answer",
   model: "local/llama",
   judges: [AnswerGrounded],
@@ -75,7 +75,7 @@ export class Writer {}
 
 @Agent({
   name: "illustrator-agent",
-  prompt: "Describe the chart.",
+  prompt: inline("Describe the chart."),
   description: "Describes a chart",
   model: "local/llama",
   judges: [LooksRight],

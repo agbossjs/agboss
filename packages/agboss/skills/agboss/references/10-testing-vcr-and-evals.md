@@ -226,12 +226,12 @@ export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
 ```
 
 ```ts file=src/screening/guardrails/bias/bias.guardrail.ts
-import { OutputGuardrail } from "@agboss/core";
+import { OutputGuardrail, inline } from "@agboss/core";
 
 @OutputGuardrail({
   name: "bias-guardrail",
   description: "Blocks verdicts that rest on protected traits",
-  prompt: "Does the verdict rest on age, gender, origin or religion?",
+  prompt: inline("Does the verdict rest on age, gender, origin or religion?"),
   model: "typesafe/jev-1.13",
   threshold: 0.7,
   refusal: "The verdict was withheld for review.",
@@ -301,7 +301,7 @@ export class HireRouter implements RouterHandler<HireRouter> {
 The agents:
 
 ```ts file=src/screening/agents/skills/skills.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CandidateDto } from "../../dto/candidate.dto.js";
 import { SkillsReportDto } from "../../dto/skills-report.dto.js";
 import { CandidateArchiveTool } from "../../tools/candidate-archive.tool.js";
@@ -309,7 +309,7 @@ import { CandidateArchiveTool } from "../../tools/candidate-archive.tool.js";
 @Agent({
   name: "skills-agent",
   description: "Scores technical skills",
-  prompt: "Score the candidate's technical skills.",
+  prompt: inline("Score the candidate's technical skills."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: CandidateDto },
   output: SkillsReportDto,
@@ -319,14 +319,14 @@ export class SkillsAgent {}
 ```
 
 ```ts file=src/screening/agents/culture/culture.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CandidateDto } from "../../dto/candidate.dto.js";
 import { CultureReportDto } from "../../dto/culture-report.dto.js";
 
 @Agent({
   name: "culture-agent",
   description: "Scores team fit",
-  prompt: "Score the candidate's team fit.",
+  prompt: inline("Score the candidate's team fit."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: CandidateDto },
   output: CultureReportDto,
@@ -335,7 +335,7 @@ export class CultureAgent {}
 ```
 
 ```ts file=src/screening/agents/verdict/verdict.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CultureReportDto } from "../../dto/culture-report.dto.js";
 import { SkillsReportDto } from "../../dto/skills-report.dto.js";
 import { VerdictDto } from "../../dto/verdict.dto.js";
@@ -347,7 +347,7 @@ import { HiringPolicyRag } from "../../rag/hiring-policy.rag.js";
 @Agent({
   name: "verdict-agent",
   description: "Decides from both reports and the policy",
-  prompt: "Decide hire or reject from the reports, following the policy.",
+  prompt: inline("Decide hire or reject from the reports, following the policy."),
   model: "moonshotai/kimi-k2.6",
   input: { skills: SkillsReportDto, culture: CultureReportDto },
   output: VerdictDto,

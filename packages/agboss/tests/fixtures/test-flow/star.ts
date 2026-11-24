@@ -4,6 +4,7 @@ import type { FlowPath } from "../../../src/flow/ast.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { route, onStart } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "./test.flow.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * A star flow over the given text agents (test workflows): chat workflow start → a Jev router
@@ -14,7 +15,7 @@ export function starOf(...agents: readonly [Class, ...Class[]]): readonly FlowPa
     name: "main-router",
     description: "Sends the message to an agent, or ends",
     decidedBy: DecidedBy.Model,
-    prompt: "Pick who handles the message.",
+    prompt: inline("Pick who handles the message."),
     model: "typesafe/jev-1.13",
     input: { message: WorkflowStartTextDto },
     maxVisits: 10,

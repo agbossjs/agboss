@@ -17,7 +17,7 @@ import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { FlowSyntaxError } from "../../src/flow/flow-syntax-error.js";
 import { StepFailedError } from "../../src/graph/errors.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, inline } from "../../src/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
@@ -280,7 +280,7 @@ describe("#941 AC1: a tool's expiresIn", () => {
     @Agent({
       name: `${name}-agent`,
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "test/m",
       input: { message: WorkflowStartTextDto },
       output: PurchasePlacedDto,

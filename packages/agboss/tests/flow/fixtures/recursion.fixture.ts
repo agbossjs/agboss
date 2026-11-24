@@ -10,6 +10,7 @@ import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #264 — the issue's recursive topic research in the typed builder: `toParallelWorkflows(() => Self, …)` as a per-item
@@ -50,7 +51,7 @@ export class DeepResearchWorkflowStart {}
 @Agent({
   name: "topic-researcher-agent",
   description: "Researches a topic, or lists its subtopics",
-  prompt: "Research the topic, or list its subtopics.",
+  prompt: inline("Research the topic, or list its subtopics."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: ResearchTopicDto },
   output: oneOf(ResearchReportDto, ResearchTooBroadDto),
@@ -75,7 +76,7 @@ export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
 @Agent({
   name: "report-merger-agent",
   description: "Merges the subtopics' results",
-  prompt: "Merge the results.",
+  prompt: inline("Merge the results."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: ResearchTopicDto, results: listOf(oneOf(ResearchReportDto, ResearchFailedDto)) },
   output: ResearchReportDto,
@@ -143,7 +144,7 @@ export class OutlineWorkflowStart {}
 @Agent({
   name: "outline-agent",
   description: "Outlines the topic",
-  prompt: "Outline the topic.",
+  prompt: inline("Outline the topic."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: ResearchTopicDto },
   output: ResearchReportDto,

@@ -18,6 +18,7 @@ import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js
 import { LimitExceededError } from "../../../src/errors.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { Integer, List, Text } from "../../../src/dto/index.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #264 S112, #1287 — a workflow launching itself with a thunk, typed per path: three recursive
@@ -61,7 +62,7 @@ export class OrgChartWorkflowStart {}
 @Agent({
   name: "org-mapper-agent",
   description: "Charts a unit, or lists its sub-units",
-  prompt: "Chart the unit, or list its sub-units.",
+  prompt: inline("Chart the unit, or list its sub-units."),
   model: "moonshotai/kimi-k2.6",
   input: { unit: OrgUnitDto },
   output: oneOf(TeamChartDto, OrgSplitDto),
@@ -84,7 +85,7 @@ export class SplitUnitAction implements ActionHandler<SplitUnitAction> {
 @Agent({
   name: "chart-merger-agent",
   description: "Merges the sub-units' charts",
-  prompt: "Merge the charts.",
+  prompt: inline("Merge the charts."),
   model: "moonshotai/kimi-k2.6",
   input: { unit: OrgUnitDto, charts: listOf(oneOf(TeamChartDto, OrgChartFailedDto)) },
   output: TeamChartDto,
@@ -153,7 +154,7 @@ export class OrgDrillWorkflowStart {}
 @Agent({
   name: "unit-picker-agent",
   description: "Charts a unit, or picks the one sub-unit to drill into",
-  prompt: "Chart the unit, or pick the sub-unit to drill into.",
+  prompt: inline("Chart the unit, or pick the sub-unit to drill into."),
   model: "moonshotai/kimi-k2.6",
   input: { unit: OrgUnitDto },
   output: oneOf(TeamChartDto, OrgUnitDto),
@@ -217,7 +218,7 @@ export class OrgRetryWorkflowStart {}
 @Agent({
   name: "unit-charter-agent",
   description: "Charts a unit",
-  prompt: "Chart the unit.",
+  prompt: inline("Chart the unit."),
   model: "moonshotai/kimi-k2.6",
   input: { unit: OrgUnitDto },
   output: TeamChartDto,

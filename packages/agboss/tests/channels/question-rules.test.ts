@@ -18,7 +18,7 @@ import { Agent } from "../../src/flow/decorators/agent.js";
 import { DecidedBy } from "../../src/flow/decorators/router.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, inline } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -135,7 +135,7 @@ describe("#659 AC1: a question role's name and implementation", () => {
     @Agent({
       name: "limit-agent",
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "test/m",
       input: { message: WorkflowStartTextDto },
       output: PurchasePlacedDto,

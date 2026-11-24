@@ -4,6 +4,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -13,7 +14,12 @@ import { LocalModelProvider } from "../../../models/providers.fixture.js";
 import { onStart } from "../../../helpers/flow.js";
 
 /** The child's agent: `config/*.config.yaml` change its settings (`workflows.profile-kid-workflow.agents`). */
-@Agent({ name: "kid-agent", description: "Answers", prompt: "Answer.", model: "local/llama" })
+@Agent({
+  name: "kid-agent",
+  description: "Answers",
+  prompt: inline("Answer."),
+  model: "local/llama",
+})
 export class Kid {}
 
 @WorkflowStart({

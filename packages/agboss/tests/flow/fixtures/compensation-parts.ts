@@ -3,6 +3,7 @@ import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #339 — the parts of the compensation rules' workflows: a booking (undone by its cancel, committed
@@ -93,7 +94,7 @@ export class NotifyAgencyAction extends SideEffect {}
 @Agent({
   name: "trip-letter-agent",
   description: "Writes the letter",
-  prompt: "Write the letter.",
+  prompt: inline("Write the letter."),
   model: "moonshotai/kimi-k2.6",
   input: { booking: BookingDto },
   output: TripLetterDto,

@@ -12,6 +12,7 @@ import {
   type ExecutionEndEvent,
   type ExecutionCancelEvent,
   type ExecutionErrorEvent,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -129,7 +130,7 @@ export class LostPassWorkflowFinish {}
 @Agent({
   name: "writer-agent",
   description: "Writes the report",
-  prompt: "Write the report.",
+  prompt: inline("Write the report."),
   model: "test/writer",
   input: { message: WorkflowStartTextDto },
   output: ReportDto,
@@ -140,7 +141,7 @@ export class WriterAgent {}
 @Agent({
   name: "reviewer-agent",
   description: "Reviews the report",
-  prompt: "Review the report.",
+  prompt: inline("Review the report."),
   model: "test/reviewer",
   input: { report: ReportDto },
   output: ReportDto,
@@ -210,7 +211,7 @@ export class LostBranchWorkflowFinish {}
 @Agent({
   name: "checker-agent",
   description: "Checks the task",
-  prompt: "Check the task.",
+  prompt: inline("Check the task."),
   model: "test/checker",
   input: { message: WorkflowStartTextDto },
   output: CheckDto,
@@ -220,7 +221,7 @@ export class CheckerAgent {}
 @Agent({
   name: "drafter-agent",
   description: "Drafts the report",
-  prompt: "Draft the report.",
+  prompt: inline("Draft the report."),
   model: "test/drafter",
   input: { message: WorkflowStartTextDto },
   output: ReportDto,

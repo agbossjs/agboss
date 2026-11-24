@@ -39,6 +39,7 @@ import {
   SupportWorkflowStart,
   SupportAction,
 } from "../fixtures/support.fixture.js";
+import { inline } from "../../../src/index.js";
 
 /** The path scope (#270 AC4) on the data-flow engine (#272 S10). */
 
@@ -58,7 +59,7 @@ class OverwriteWorkflow {}
 @Agent({
   name: "drafts-kit-agent",
   description: "Drafts several offers",
-  prompt: "Draft them.",
+  prompt: inline("Draft them."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -82,7 +83,7 @@ class ListIsNotSingleWorkflow {}
 @Agent({
   name: "strict-expert-agent",
   description: "Needs a loyalty offer on every path",
-  prompt: "Reply carefully.",
+  prompt: inline("Reply carefully."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -138,7 +139,7 @@ class ContractWorkflowStart {}
 @Agent({
   name: "contract-summary-agent",
   description: "Sums the review up",
-  prompt: "Sum up.",
+  prompt: inline("Sum up."),
   model: "moonshotai/kimi-k2.6",
   input: {
     review: ReviewDto,
@@ -213,7 +214,7 @@ class WideWorkflow {}
 @Agent({
   name: "screen-agent",
   description: "Screens each candidate",
-  prompt: "Screen them.",
+  prompt: inline("Screen them."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,

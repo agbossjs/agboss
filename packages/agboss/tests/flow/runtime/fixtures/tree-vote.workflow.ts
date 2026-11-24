@@ -11,6 +11,7 @@ import {
   WorkflowStart,
   type Produced,
   Action,
+  inline,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
 import { caseOf, route, onStart, toFinish, toAction } from "../../../helpers/flow.js";
@@ -48,7 +49,7 @@ export class NotVotedDto {
 @Agent({
   name: "first-voter-agent",
   description: "Votes on a task",
-  prompt: "Vote on the task.",
+  prompt: inline("Vote on the task."),
   model: "moonshotai/kimi-k2.6",
   input: { task: TaskDto },
   output: VoteDto,
@@ -58,7 +59,7 @@ export class FirstVoterAgent {}
 @Agent({
   name: "second-voter-agent",
   description: "Votes on a task",
-  prompt: "Vote on the task.",
+  prompt: inline("Vote on the task."),
   model: "moonshotai/kimi-k2.6",
   input: { task: TaskDto },
   output: VoteDto,

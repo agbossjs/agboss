@@ -6,6 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -44,7 +45,7 @@ export class SendApprovedEmail {
 @Agent({
   name: "mailer-agent",
   description: "Sends approved emails",
-  prompt: "Send the email.",
+  prompt: inline("Send the email."),
   model: "test/mailer",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [SendApprovedEmail],

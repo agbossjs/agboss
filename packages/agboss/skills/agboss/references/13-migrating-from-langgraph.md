@@ -481,14 +481,14 @@ Each LLM node is an agent with a static prompt and typed `input` / `output` — 
 no string building. The writer and the editor are two agents: the first never reads a draft.
 
 ```ts file=src/support/agents/research-planner/research-planner.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { ResearchQuestionDto } from "../../dto/research-question.dto.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
 
 @Agent({
   name: "research-planner-agent",
   description: "Lists what to check before answering",
-  prompt: "List the questions to check before answering the customer about their order.",
+  prompt: inline("List the questions to check before answering the customer about their order."),
   model: "moonshotai/kimi-k2.6",
   input: { request: SupportRequestDto },
   output: listOf(ResearchQuestionDto),
@@ -497,7 +497,7 @@ export class ResearchPlannerAgent {}
 ```
 
 ```ts file=src/support/agents/order-researcher/order-researcher.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
 import { ResearchQuestionDto } from "../../dto/research-question.dto.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
@@ -506,7 +506,7 @@ import { OrderLookupTool } from "../../tools/order-lookup.tool.js";
 @Agent({
   name: "order-researcher-agent",
   description: "Answers one question from the order's facts",
-  prompt: "Answer the question from the order's facts. Look the order up with order-lookup-tool.",
+  prompt: inline("Answer the question from the order's facts. Look the order up with order-lookup-tool."),
   model: "moonshotai/kimi-k2.6",
   input: { question: ResearchQuestionDto, request: SupportRequestDto },
   output: ResearchFindingDto,
@@ -517,7 +517,7 @@ export class OrderResearcherAgent {}
 ```
 
 ```ts file=src/support/agents/reply-writer/reply-writer.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
 import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
@@ -525,7 +525,7 @@ import { SupportRequestDto } from "../../dto/support-request.dto.js";
 @Agent({
   name: "reply-writer-agent",
   description: "Writes the first reply from the findings",
-  prompt: "Write a short, honest reply. Promise a refund only when the findings support one.",
+  prompt: inline("Write a short, honest reply. Promise a refund only when the findings support one."),
   model: "moonshotai/kimi-k2.6",
   input: { request: SupportRequestDto, findings: listOf(ResearchFindingDto) },
   output: ReplyDraftDto,
@@ -534,7 +534,7 @@ export class ReplyWriterAgent {}
 ```
 
 ```ts file=src/support/agents/reply-reviewer/reply-reviewer.agent.ts
-import { Agent, historyOf, listOf, oneOf } from "@agboss/core";
+import { Agent, historyOf, listOf, oneOf, inline } from "@agboss/core";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { ReplyApprovedDto } from "../../dto/reply-approved.dto.js";
 import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
@@ -543,7 +543,7 @@ import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
 @Agent({
   name: "reply-reviewer-agent",
   description: "Approves the reply or asks for changes",
-  prompt: "Approve the reply if the findings support every claim in it; otherwise say what to change. Do not ask again for what an earlier version fixed.",
+  prompt: inline("Approve the reply if the findings support every claim in it; otherwise say what to change. Do not ask again for what an earlier version fixed."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: historyOf(ReplyDraftDto, { maxPrevious: 2 }), findings: listOf(ResearchFindingDto) },
   output: oneOf(ChangesRequestedDto, ReplyApprovedDto), // the old `approved` flag and `critique`
@@ -553,14 +553,14 @@ export class ReplyReviewerAgent {}
 ```
 
 ```ts file=src/support/agents/reply-editor/reply-editor.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
 
 @Agent({
   name: "reply-editor-agent",
   description: "Rewrites the reply as asked",
-  prompt: "Rewrite the reply so it meets every requested change.",
+  prompt: inline("Rewrite the reply so it meets every requested change."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: ReplyDraftDto, changes: ChangesRequestedDto },
   output: ReplyDraftDto,
@@ -570,7 +570,7 @@ export class ReplyEditorAgent {}
 ```
 
 ```ts file=src/support/agents/refund-sign-off/refund-sign-off.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { RefundIssuedDto } from "../../dto/refund-issued.dto.js";
 import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
@@ -579,7 +579,7 @@ import { IssueSignedOffRefundTool } from "../../tools/issue-signed-off-refund.to
 @Agent({
   name: "refund-sign-off-agent",
   description: "Issues a large refund once it is signed off",
-  prompt: "Issue the refund the reply promises with issue-signed-off-refund-tool, then report its id.",
+  prompt: inline("Issue the refund the reply promises with issue-signed-off-refund-tool, then report its id."),
   model: "moonshotai/kimi-k2.6",
   input: { request: SupportRequestDto, draft: ReplyDraftDto },
   output: RefundIssuedDto,
@@ -626,7 +626,7 @@ export class ReplyStuckWorkflowFinish {}
 ```
 
 ```ts file=src/support/routers/support-triage/support-triage.router.ts
-import { DecidedBy, Router } from "@agboss/core";
+import { DecidedBy, Router, inline } from "@agboss/core";
 import { ResearchPlannerAgent } from "../../agents/research-planner/research-planner.agent.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
 import { HandOverWorkflowFinish } from "../../workflows/support/hand-over.workflow-finish.js";
@@ -635,7 +635,7 @@ import { HandOverWorkflowFinish } from "../../workflows/support/hand-over.workfl
   name: "support-triage-router",
   description: "Sends a refund request on, hands anything else over",
   decidedBy: DecidedBy.Model,
-  prompt: "Decide whether the customer asks for a refund.",
+  prompt: inline("Decide whether the customer asks for a refund."),
   model: "typesafe/jev-1.13",
   input: { request: SupportRequestDto },
   routes: [

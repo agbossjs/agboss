@@ -10,6 +10,7 @@ import { generateFlowTypes } from "../../../src/flow/types/generate.js";
 import { ImportTable, moduleSpecifier } from "../../../src/flow/types/imports.js";
 import { ClassLocator } from "../../../src/flow/types/locate.js";
 import { onStart } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * How the generated file names classes (#272 S2, S3): import paths from the modules that export
@@ -57,7 +58,7 @@ class TextWorkflowFinish {}
 @Agent({
   name: "unused-agent",
   description: "Unused",
-  prompt: "Do it.",
+  prompt: inline("Do it."),
   model: "moonshotai/kimi-k2.6",
 })
 class UnusedAgent {}

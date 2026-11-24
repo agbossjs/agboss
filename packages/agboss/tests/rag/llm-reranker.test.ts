@@ -86,3 +86,28 @@ describe("#703: the LLM reranker's reply", () => {
     expect(seen[0]).toContain("[2] (b.md) b");
   });
 });
+
+describe("#1299: a model reranker's prompt", () => {
+  it("is told to the model after the ranking task", async () => {
+    const seen: string[] = [];
+    const binding = bindingOf('{"ranking":[1]}');
+    const model = binding.model;
+    const invoke = model.invoke.bind(model);
+    model.invoke = ((messages: { content: unknown }[], ...rest: unknown[]) => {
+      seen.push(messages.map((message) => String(message.content)).join("\n--\n"));
+      return (invoke as (...args: unknown[]) => unknown)(messages, ...rest);
+    }) as typeof model.invoke;
+    const reranker = modelRerankerOf(
+      "docs-reranker",
+      binding,
+      undefined,
+      undefined,
+      "Prefer recent.",
+    );
+
+    await reranker.rerank("q", candidates, options);
+
+    expect(seen[0]).toContain("You rerank search results for a query.");
+    expect(seen[0]).toContain("\n\nPrefer recent.\n--\n");
+  });
+});

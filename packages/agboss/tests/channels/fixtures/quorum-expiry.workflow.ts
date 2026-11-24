@@ -22,6 +22,7 @@ import {
   type Produced,
   type QuorumDecidedEvent,
   Action,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -217,7 +218,7 @@ const MODEL = "moonshotai/kimi-k2.6";
 @Agent({
   name: "short-policy-agent",
   description: "Checks the policy; its desk has 30 minutes",
-  prompt: "Score the refund.",
+  prompt: inline("Score the refund."),
   model: MODEL,
   tools: [ShortRefundTool],
   input: { request: RefundRequestDto },
@@ -228,7 +229,7 @@ export class ShortPolicyAgent {}
 @Agent({
   name: "short-risk-agent",
   description: "Checks the risk; its desk has 30 minutes",
-  prompt: "Score the refund.",
+  prompt: inline("Score the refund."),
   model: MODEL,
   tools: [ShortRefundTool],
   input: { request: RefundRequestDto },
@@ -239,7 +240,7 @@ export class ShortRiskAgent {}
 @Agent({
   name: "short-fraud-agent",
   description: "Checks for fraud; its desk has 30 minutes",
-  prompt: "Score the refund.",
+  prompt: inline("Score the refund."),
   model: MODEL,
   tools: [ShortRefundTool],
   input: { request: RefundRequestDto },
@@ -291,7 +292,7 @@ export class QuorumExpiryShortOneWorkflow {}
 @Agent({
   name: "quick-score-agent",
   description: "Scores at once",
-  prompt: "Score the refund.",
+  prompt: inline("Score the refund."),
   model: MODEL,
   input: { request: RefundRequestDto },
   output: RefundScoreDto,
@@ -384,7 +385,7 @@ export class PlainExpiryHandledWorkflow {}
   description: "Launches both desks; the short policy desk's failure drops it",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick the desks the order needs.",
+  prompt: inline("Pick the desks the order needs."),
   input: { request: RefundRequestDto },
   routes: [
     { target: ShortPolicyAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },

@@ -1,4 +1,5 @@
 import type { PromptLoader } from "../../components/prompt-render.js";
+import { inline } from "../../components/prompt-source.js";
 import { NodeKind } from "../ast.js";
 import { declarationOf, type Declared } from "../decorators/declaration.js";
 import { isCodeRouter, routesOf, type ModelRouterOptions } from "../decorators/router.js";
@@ -37,6 +38,11 @@ export interface LoadedRouter {
 const byOption = (left: LoadedRoute, right: LoadedRoute): number =>
   left.option < right.option ? -1 : left.option > right.option ? 1 : 0;
 
+/** A route's `prompt` is its own text (a short plain string), never a file. */
+const routeOptions = (route: { readonly prompt?: string | undefined }) => ({
+  prompt: inline(route.prompt ?? ""),
+});
+
 /** One model router with its texts loaded, named `name` (its node id). */
 export async function loadRouter(
   name: string,
@@ -57,7 +63,7 @@ export async function loadRouter(
         source,
         variables,
       };
-      return { option, condition: await loader.load({ ...owner, options: route }) };
+      return { option, condition: await loader.load({ ...owner, options: routeOptions(route) }) };
     }),
   );
   return {

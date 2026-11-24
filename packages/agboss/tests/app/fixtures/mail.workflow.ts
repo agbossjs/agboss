@@ -13,6 +13,7 @@ import {
   type ExecutionEvent,
   type ExecutionPauseEvent,
   type ExecutionRejectedEvent,
+  inline,
 } from "../../../src/index.js";
 import type { IncompatibleResume } from "../../../src/run/resume-guard.js";
 import { onStart } from "../../helpers/flow.js";
@@ -86,7 +87,7 @@ export class SendEmail {
 @Agent({
   name: "mailer-agent",
   description: "Sends the emails it is asked to",
-  prompt: "Send the email you are asked to send.",
+  prompt: inline("Send the email you are asked to send."),
   tools: [SendEmail],
   model: "test/mailer",
 })

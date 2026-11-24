@@ -6,6 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -70,15 +71,15 @@ export class BareChatModels {}
 })
 export class DecisionModels {}
 
-@Agent({ name: "fast-agent", prompt: "Answer.", description: "Answers fast", model: "fast" })
+@Agent({ name: "fast-agent", prompt: inline("Answer."), description: "Answers fast", model: "fast" })
 export class FastAgent {}
 
-@Agent({ name: "plain-agent", prompt: "Answer.", description: "Names no model" })
+@Agent({ name: "plain-agent", prompt: inline("Answer."), description: "Names no model" })
 export class PlainAgent {}
 
 @Agent({
   name: "own-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Names its own provider",
   modelProvider: SingleModelProvider,
 })
@@ -86,7 +87,7 @@ export class OwnAgent {}
 
 @Agent({
   name: "literal-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Names a vendor model as written",
   model: "vendor/literal",
 })

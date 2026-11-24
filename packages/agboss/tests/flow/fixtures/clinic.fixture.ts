@@ -16,7 +16,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import type { ExecutionRejectedEvent } from "../../../src/core/observability.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
-import { Observer } from "../../../src/index.js";
+import { Observer, inline } from "../../../src/index.js";
 
 /**
  * #261 PR 3 — a clinic: the project's tenant level (its units) and execution level (the clinician
@@ -160,7 +160,7 @@ export class BookBedTool {
 @Agent({
   name: "bed-agent",
   description: "Finds and books beds",
-  prompt: "Find a bed.",
+  prompt: inline("Find a bed."),
   tools: [FreeBedsTool, BookBedTool],
   model: "test/bed",
   input: { message: WorkflowStartTextDto },

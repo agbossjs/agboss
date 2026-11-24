@@ -279,10 +279,10 @@ export function isVariant<TItem extends {
 export const jsonSchemaOf: (dto: DtoClass) => Readonly<Record<string, unknown>>;
 
 // @public
-export const KeyText: FieldFactory<string, KeyTextLimits>;
+export const KeyText: FieldFactory<string, KeyTextOptions>;
 
 // @public
-export interface KeyTextLimits {
+export interface KeyTextOptions {
     readonly maxLength?: number;
     readonly minLength?: number;
     readonly pattern?: RegExp;

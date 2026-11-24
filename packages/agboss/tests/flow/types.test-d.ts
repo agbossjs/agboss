@@ -102,6 +102,7 @@ import {
   type JudgeInput,
   type StepDescriptor,
   type ToolHandler,
+  inline,
 } from "../../src/index.js";
 import { testExecutionContext } from "../../src/testing/execution-context.js";
 
@@ -172,7 +173,7 @@ import { LimitExceededError } from "../../src/graph/limits.js";
 @Agent({
   name: "fresh-agent",
   description: "Added after the last agboss check",
-  prompt: "Do it.",
+  prompt: inline("Do it."),
   model: "moonshotai/kimi-k2.6",
 })
 class FreshAgent {}
@@ -414,7 +415,7 @@ describe("#299 S54 / S56: about is the flow's, historyOf an input's", () => {
     @Agent({
       name: "typed-critic-agent",
       description: "Critiques",
-      prompt: "Critique it.",
+      prompt: inline("Critique it."),
       model: "moonshotai/kimi-k2.6",
       input: { drafts: historyOf(DraftDto, { maxPrevious: 3 }) },
       output: listOf(CritiqueDto),
@@ -424,7 +425,7 @@ describe("#299 S54 / S56: about is the flow's, historyOf an input's", () => {
     @Agent({
       name: "history-output-agent",
       description: "Bad",
-      prompt: "Answer.",
+      prompt: inline("Answer."),
       model: "moonshotai/kimi-k2.6",
       // @ts-expect-error — an output is a value: historyOf is read, never answered
       output: historyOf(DraftDto),
@@ -452,7 +453,7 @@ describe("#269 AC1 / AC2: closed sets are enums, reasoning has one form", () => 
   const base = {
     name: "enum-agent",
     description: "Uses the enums",
-    prompt: "Do it.",
+    prompt: inline("Do it."),
     model: "moonshotai/kimi-k2.6",
   } as const;
 
@@ -483,12 +484,12 @@ describe("AC16: a shared options const keeps its exact types", () => {
   it("satisfies Omit<AgentOptions, name | description>", () => {
     expectTypeOf(reviewerAgentOptions.output).toEqualTypeOf<typeof ReviewDto>();
     const withName = {
-      prompt: "Review it.",
+      prompt: inline("Review it."),
       model: "moonshotai/kimi-k2.6",
       // @ts-expect-error — name is set by each class, never in the shared const
       name: "reviewer-agent",
     } satisfies Omit<AgentOptions, "name" | "description">;
-    expectTypeOf(withName.prompt).toEqualTypeOf<string>();
+    expectTypeOf(withName.prompt).toEqualTypeOf<ReturnType<typeof inline>>();
   });
 });
 

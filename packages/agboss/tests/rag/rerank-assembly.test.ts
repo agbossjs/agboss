@@ -6,7 +6,7 @@
  */
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { Agent, EmptyEnvironment, Workflow, type Class } from "../../src/index.js";
+import { Agent, EmptyEnvironment, Workflow, type Class, inline } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Rag, RagReranker, RagScope, RagSource, type RagRetrieval } from "../../src/rag/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
@@ -60,7 +60,7 @@ function workflowReading(reranker: Class, topK = 3): Class {
   @Agent({
     name: "reader-agent",
     description: "Reads",
-    prompt: "Read.",
+    prompt: inline("Read."),
     model: "local/llama",
     rag: [DocsRag],
   })
@@ -120,5 +120,37 @@ describe("reranking at assembly", () => {
 
   it("a model reranker that names no model, under no model provider: [model.missing-provider] — the core has no default model", async () => {
     expect(await codesOf(workflowReading(NoModelReranker))).toEqual(["model.missing-provider"]);
+  });
+});
+
+describe("#1299: @RagReranker({ prompt }) is read at assembly", () => {
+  it("a model reranker's inline prompt is on the assembled workflow", async () => {
+    @RagReranker({
+      name: "prompted-reranker",
+      description: "Prompted",
+      candidates: 10,
+      model: "local/llama",
+      prompt: inline("  Prefer the newest documents.\n"),
+    })
+    class PromptedReranker {}
+
+    const bundle = await workflowOf(workflowReading(PromptedReranker));
+
+    expect(bundle.rerankers).toEqual([
+      { name: "prompted-reranker", model: "local/llama", prompt: "  Prefer the newest documents." },
+    ]);
+  });
+
+  it("a bare text is [prompt.bare-text], not a prompt", async () => {
+    @RagReranker({
+      name: "bare-reranker",
+      description: "Bare",
+      candidates: 10,
+      model: "local/llama",
+      prompt: "Prefer the newest documents." as never,
+    })
+    class BareReranker {}
+
+    await expect(workflowOf(workflowReading(BareReranker))).rejects.toThrow("[prompt.bare-text]");
   });
 });

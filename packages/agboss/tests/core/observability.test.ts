@@ -19,6 +19,7 @@ import {
   type ToolStartEvent,
   Router,
   WorkflowStart,
+  inline,
 } from "../../src/index.js";
 import { DecidedBy, WorkflowFinish } from "../../src/index.js";
 import { Rag } from "../../src/components/decorators.js";
@@ -143,7 +144,7 @@ class ObsAgent {}
   input: { message: WorkflowStartTextDto },
   model: "stub",
   name: "obs-router",
-  prompt: "Decide.",
+  prompt: inline("Decide."),
   maxVisits: 10,
   routes: [
     { prompt: "go", target: ObsAgent },

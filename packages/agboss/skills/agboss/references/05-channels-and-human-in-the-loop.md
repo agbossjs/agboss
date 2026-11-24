@@ -179,13 +179,13 @@ export const environment: AppEnvironment = { sqlitePath: ":memory:" };
 The agent, the workflow with its start and finish, the budgets and the application:
 
 ```ts file=src/refunds/agents/refund/refund.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { RefundTool } from "../../tools/refund.tool.js";
 
 @Agent({
   name: "refund-agent",
   description: "Refunds orders on request",
-  prompt: "Refund the order the customer names, with refund-tool.",
+  prompt: inline("Refund the order the customer names, with refund-tool."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool],
 })

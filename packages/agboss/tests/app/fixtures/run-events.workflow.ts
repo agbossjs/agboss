@@ -24,6 +24,7 @@ import {
   type ModelStartEvent,
   type NodeEvent,
   type ToolStartEvent,
+  inline,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
@@ -97,7 +98,7 @@ export class Apply {
 @Agent({
   name: "clerk-agent",
   description: "Applies for jobs",
-  prompt: "Apply for the jobs asked for.",
+  prompt: inline("Apply for the jobs asked for."),
   tools: [Lookup, Apply],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },

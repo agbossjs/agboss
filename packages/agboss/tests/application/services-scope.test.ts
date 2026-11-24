@@ -18,6 +18,7 @@ import {
   type OnBeforeDestroy,
   type OnInit,
   type OnReady,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { RateLimitRepository } from "../../src/infrastructure/rate-limit.repository.js";
@@ -96,7 +97,12 @@ const workflowOver = (
     output: WorkflowFinishTextDto,
   })
   class Finish {}
-  @Agent({ name: `${stem}-agent`, description: "Answers", prompt: "Answer.", model: "test/alpha" })
+  @Agent({
+    name: `${stem}-agent`,
+    description: "Answers",
+    prompt: inline("Answer."),
+    model: "test/alpha",
+  })
   class Answerer {}
   @Workflow({
     name: `${stem}-workflow`,

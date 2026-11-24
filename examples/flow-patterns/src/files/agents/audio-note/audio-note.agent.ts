@@ -1,4 +1,4 @@
-import { Agent, FileView, ModelFiles } from "@agboss/core";
+import { Agent, FileView, ModelFiles, inline } from "@agboss/core";
 import { megabytes } from "@agboss/core/units";
 import { AudioNoteRequestDto } from "../../dto/audio-note-request.dto.js";
 
@@ -6,7 +6,7 @@ import { AudioNoteRequestDto } from "../../dto/audio-note-request.dto.js";
 @Agent({
   name: "audio-note-agent",
   description: "Summarises a voice note",
-  prompt: "Summarise the voice note in one sentence.",
+  prompt: inline("Summarise the voice note in one sentence."),
   model: "google/gemini-2.5-flash",
   input: { request: AudioNoteRequestDto },
   files: ModelFiles.of({

@@ -7,7 +7,7 @@ import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { CompanyDto, CompanyScoreDto, SearchRequestDto } from "./data-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline } from "../../../src/index.js";
 
 /** #270 AC20 / AC21 — a start's input as a map of fields and as a list. */
 
@@ -31,7 +31,7 @@ export class CompanyBatchWorkflowStart {}
 @Agent({
   name: "company-check-agent",
   description: "Scores one company",
-  prompt: "Score the company.",
+  prompt: inline("Score the company."),
   model: "moonshotai/kimi-k2.6",
   input: {
     company: CompanyDto,
@@ -44,7 +44,7 @@ export class CompanyCheckAgent {}
 @Agent({
   name: "batch-rank-agent",
   description: "Ranks a batch of companies",
-  prompt: "Rank the companies.",
+  prompt: inline("Rank the companies."),
   model: "moonshotai/kimi-k2.6",
   input: {
     companies: listOf(CompanyDto),

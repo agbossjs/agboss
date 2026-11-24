@@ -13,6 +13,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline as inlinePrompt,
 } from "../../src/index.js";
 import { FileDto } from "../../src/dto/standard/file.js";
 import { FilePolicy, type FilePolicyOptions } from "../../src/files/file-policy.js";
@@ -145,7 +146,7 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
   @Agent({
     name: `reader-${suffix}-agent`,
     description: "Reads the bundle",
-    prompt: "Read the files.",
+    prompt: inlinePrompt("Read the files."),
     model,
     input: { bundle: BundleDto },
     tools: [FetchTool],

@@ -16,6 +16,8 @@ import { workflowOf } from "../../src/testing/workflow-of.js";
 import { executionVersions } from "../../src/run/versions.js";
 import { workflowWith, type FlowPrompts } from "./prompts/flows.js";
 
+const asPath = (file: string) => file as `/${string}`;
+
 /** #1347a: `PromptSource`, `inline()` and the loader's reading of files next to today's text and `promptUrls`. */
 
 describe("#1347a: inline()", () => {
@@ -45,15 +47,18 @@ describe("#1347a: inline()", () => {
 
 describe("#1347a: a prompt as pieces", () => {
   it("tells a file from text, in the order written", () => {
-    expect(promptPiecesOf(["./a.md", inline("b"), "plain text", "../c.md", "/d.md"])).toEqual([
+    expect(promptPiecesOf(["./a.md", inline("b"), "../c.md", "/d.md"])).toEqual([
       { kind: "file", path: "./a.md" },
       { kind: "text", text: "b" },
-      { kind: "text", text: "plain text" },
       { kind: "file", path: "../c.md" },
       { kind: "file", path: "/d.md" },
     ]);
     expect(promptPiecesOf(undefined)).toEqual([]);
     expect(promptPiecesOf("./a.md")).toEqual([{ kind: "file", path: "./a.md" }]);
+  });
+
+  it("a bare string that is no path is its own piece, for the loader to refuse", () => {
+    expect(promptPiecesOf("plain text" as never)).toEqual([{ kind: "bare", text: "plain text" }]);
   });
 
   it("a text with a line break that starts with a slash is text", () => {
@@ -64,9 +69,7 @@ describe("#1347a: a prompt as pieces", () => {
 
   it("says whether a prompt says anything", () => {
     expect(hasPrompt(undefined)).toBe(false);
-    expect(hasPrompt("")).toBe(false);
     expect(hasPrompt(inline(""))).toBe(false);
-    expect(hasPrompt([])).toBe(false);
     expect(hasPrompt("./a.md")).toBe(true);
     expect(hasPrompt(inline("x"))).toBe(true);
   });
@@ -118,12 +121,10 @@ describe("#1347a: the hash does not change: [inline(x), file] renders as prompt:
     const file = join(dir, "tone.prompt.md");
     await writeFile(file, "Speak plainly about {{boards}}.\n");
 
-    const old = await versionOf({ agent: { prompt: "You scout.", promptUrls: [file] } });
-    const next = await versionOf({ agent: { prompt: [inline("You scout."), file] } });
-    const text = await versionOf({ agent: { prompt: ["You scout.", file] } });
+    const old = await versionOf({ agent: { prompt: inline("You scout."), promptUrls: [file] } });
+    const next = await versionOf({ agent: { prompt: [inline("You scout."), asPath(file)] } });
 
     expect(next).toBe(old);
-    expect(text).toBe(old);
   });
 
   it("the order of the parts is the order of the text", async () => {
@@ -131,8 +132,10 @@ describe("#1347a: the hash does not change: [inline(x), file] renders as prompt:
     const file = join(dir, "tone.prompt.md");
     await writeFile(file, "Speak plainly.\n");
 
-    const fileFirst = await versionOf({ agent: { prompt: [file, inline("You scout.")] } });
-    const inlineFirst = await versionOf({ agent: { prompt: [inline("You scout."), file] } });
+    const fileFirst = await versionOf({ agent: { prompt: [asPath(file), inline("You scout.")] } });
+    const inlineFirst = await versionOf({
+      agent: { prompt: [inline("You scout."), asPath(file)] },
+    });
 
     expect(fileFirst).not.toBe(inlineFirst);
   });

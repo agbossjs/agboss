@@ -17,6 +17,7 @@ import {
   type GuardrailContent,
   type GuardrailHandler,
   type PiiRefusal,
+  inline,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -61,7 +62,7 @@ export class EchoTool {
 
 @Agent({
   name: "guarded-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   guardrails: [ForbiddenWordGuardrail],
@@ -74,7 +75,7 @@ export class GuardedAgent {}
 
 @Agent({
   name: "card-only-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   piiPolicies: [AuditCardPiiPolicy],
@@ -83,7 +84,7 @@ export class CardOnlyAgent {}
 
 @Agent({
   name: "guardrail-only-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   guardrails: [ForbiddenWordGuardrail],

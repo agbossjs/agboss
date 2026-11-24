@@ -262,7 +262,7 @@ export class InjectionToken<T> {
 }
 
 // @public
-export function Judge<const TOutput extends JudgeOutputShape>(options: DeclarativeJudgeOptions<TOutput>): <C extends Class>(value: DeclarativeJudgeClass<C>) => C;
+export function Judge<const TOutput extends JudgeOutputShape>(options: ModelJudgeOptions<TOutput>): <C extends Class>(value: DeclarativeJudgeClass<C>) => C;
 
 // @public (undocumented)
 export function Judge<const TOutput extends JudgeOutputShape, const TDeps extends readonly Token[] = []>(options: CodeJudgeOptions<TOutput, TDeps> & HybridJudgeModelOptions<TDeps>): <C extends new (...args: ResolvedAll<TDeps>) => JudgeMethod<TOutput>>(value: C) => C;
@@ -393,7 +393,7 @@ export interface PromptProblem {
 }
 
 // @public
-export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.input-in-instructions" | "prompt.secret-in-instructions" | "prompt.invalid-variable" | "prompt.unused-variable";
+export type PromptProblemCode = "prompt.unknown-variable" | "prompt.missing-file" | "prompt.path-as-text" | "prompt.bare-text" | "prompt.input-in-instructions" | "prompt.secret-in-instructions" | "prompt.invalid-variable" | "prompt.unused-variable";
 
 // @public
 export function provide<T>(token: InjectionToken<T>, cls: Class<NoInfer<T>>): ClassProvider<T>;

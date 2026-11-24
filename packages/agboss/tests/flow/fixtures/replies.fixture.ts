@@ -4,6 +4,7 @@ import {
   ToolCallDecision,
   ToolInterceptor,
   type ToolCallContext,
+  inline,
 } from "../../../src/index.js";
 import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
@@ -140,9 +141,10 @@ export function treasuryLedger(): InMemoryCostLedgerRepository {
   description: "Turns a finance manager's free-text reply into a payout decision",
   decidedBy: DecidedBy.Model,
   model: "test/payout-reader",
-  prompt:
+  prompt: inline(
     "The manager answered a payout approval in free text. " +
-    "Decide approve / refuse and any changed amount.",
+      "Decide approve / refuse and any changed amount.",
+  ),
 })
 export class PayoutReplyInterpreter {}
 
@@ -152,7 +154,7 @@ export class PayoutReplyInterpreter {}
   description: "Reads whether a clerk's free-text reply approves a deposit return",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "The clerk answered a deposit return.",
+  prompt: inline("The clerk answered a deposit return."),
 })
 export class DepositReplyInterpreter {}
 
@@ -339,7 +341,7 @@ export class TransferTool {
 @Agent({
   name: "treasurer-agent",
   description: "Pays, books and transfers",
-  prompt: "Do what is asked.",
+  prompt: inline("Do what is asked."),
   model: "test/treasurer",
   input: { message: WorkflowStartTextDto },
   tools: [PayOutTool, BookExpenseTool, TransferTool, ReturnDepositTool],
@@ -426,7 +428,7 @@ export class SplitRequestsAction implements ActionHandler<SplitRequestsAction> {
 @Agent({
   name: "batch-summary-agent",
   description: "Sums the treasury's answers up",
-  prompt: "Sum the answers up.",
+  prompt: inline("Sum the answers up."),
   model: "test/batch-summary",
   input: { answers: listOf(WorkflowFinishTextDto) },
 })

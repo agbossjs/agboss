@@ -30,6 +30,7 @@ import {
   type ExecutionPauseEvent,
   type Produced,
   Action,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { minutes } from "../../../src/units/index.js";
@@ -449,7 +450,7 @@ export class DeskWorkflowFinish {}
 @Agent({
   name: "desk-clerk-agent",
   description: "Refunds, confirms orders",
-  prompt: "Handle the request.",
+  prompt: inline("Handle the request."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool, ConfirmOrderTool, AutoRefundTool, SlowRefundTool],
   input: { message: WorkflowStartTextDto },
@@ -479,7 +480,7 @@ export class BatchWorkflowStart {}
 @Agent({
   name: "batch-refund-agent",
   description: "Refunds one order",
-  prompt: "Refund the order.",
+  prompt: inline("Refund the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool],
   input: { request: RefundRequestDto },
@@ -539,7 +540,7 @@ export class AuditWorkflowStart {}
 @Agent({
   name: "audit-refund-agent",
   description: "Refunds the order",
-  prompt: "Refund the order.",
+  prompt: inline("Refund the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool],
   input: { request: RefundRequestDto },
@@ -550,7 +551,7 @@ export class AuditRefundAgent {}
 @Agent({
   name: "audit-check-agent",
   description: "Checks the order",
-  prompt: "Check the order.",
+  prompt: inline("Check the order."),
   model: "moonshotai/kimi-k2.6",
   input: { request: RefundRequestDto },
   output: BatchSummaryDto,

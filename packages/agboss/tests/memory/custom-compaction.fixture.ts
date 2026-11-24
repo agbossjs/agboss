@@ -18,6 +18,7 @@ import {
   WorkflowStart,
   type CompactionInput,
   type CompactionTurn,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -101,7 +102,7 @@ export class GraphAnswer {}
 @Agent({
   name: "graph-agent",
   description: "Answers from the graph's summaries",
-  prompt: "Answer the message.",
+  prompt: inline("Answer the message."),
   model: "test/graph",
   excludePiiPolicies: [GraphContactPiiPolicy],
 })

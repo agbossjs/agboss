@@ -8,6 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../../src/index.js";
 import { seconds, usd, type Usd } from "../../../../src/units/index.js";
 import { onStart } from "../../../helpers/flow.js";
@@ -114,7 +115,7 @@ export class ShipAction {
 @Agent({
   name: "searcher-agent",
   description: "Searches",
-  prompt: "Search.",
+  prompt: inline("Search."),
   model: "test/searcher",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
   tools: [SerpSearchTool, SlowFetchTool],

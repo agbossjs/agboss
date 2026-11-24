@@ -111,7 +111,7 @@ export class InRangeArbiter {
 @Arbiter({
   name: "valid-score-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
     { target: ScoreBAgent, prompt: "Names at least two concrete risks" },

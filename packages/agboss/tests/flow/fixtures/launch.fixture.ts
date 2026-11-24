@@ -25,6 +25,7 @@ import {
   ScreeningFailedDto,
 } from "./launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "./review-dtos.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #273 — the issue's four launches, each a workflow of its own: different agents (a repeated one),
@@ -44,7 +45,7 @@ export class ResearchWorkflowStart {}
 @Agent({
   name: "planner-agent",
   description: "Plans the article",
-  prompt: "Plan the article.",
+  prompt: inline("Plan the article."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -56,7 +57,7 @@ export class PlannerAgent {}
 @Agent({
   name: "plan-researcher-agent",
   description: "Researches the plan",
-  prompt: "Research the plan.",
+  prompt: inline("Research the plan."),
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: PlanDto,
@@ -68,7 +69,7 @@ export class PlanResearcherAgent {}
 @Agent({
   name: "critic-agent",
   description: "Criticises the plan",
-  prompt: "Criticise the plan.",
+  prompt: inline("Criticise the plan."),
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: PlanDto,
@@ -80,7 +81,7 @@ export class CriticAgent {}
 @Agent({
   name: "article-writer-agent",
   description: "Writes the article from the plan, the research and the critiques",
-  prompt: "Write the article.",
+  prompt: inline("Write the article."),
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: PlanDto,
@@ -124,7 +125,7 @@ export class ScreeningWorkflowStart {}
 @Agent({
   name: "screening-agent",
   description: "Finds the companies",
-  prompt: "Find the companies.",
+  prompt: inline("Find the companies."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -136,7 +137,7 @@ export class ScreeningAgent {}
 @Agent({
   name: "company-audit-agent",
   description: "Checks one company",
-  prompt: "Check the company.",
+  prompt: inline("Check the company."),
   model: "moonshotai/kimi-k2.6",
   input: {
     company: CompanyDto, // the item of this run
@@ -148,7 +149,7 @@ export class CompanyAuditAgent {}
 @Agent({
   name: "ranker-agent",
   description: "Ranks the checked companies",
-  prompt: "Rank the companies.",
+  prompt: inline("Rank the companies."),
   model: "moonshotai/kimi-k2.6",
   input: {
     checks: listOf(CompanyCheckDto), // one per item
@@ -303,7 +304,7 @@ export class HelpDeskWorkflowStart {}
 @Agent({
   name: "order-lookup-agent",
   description: "Looks the order up",
-  prompt: "Look the order up.",
+  prompt: inline("Look the order up."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -315,7 +316,7 @@ export class OrderLookupAgent {}
 @Agent({
   name: "refund-policy-agent",
   description: "Reads the refund policy",
-  prompt: "Quote the refund policy.",
+  prompt: inline("Quote the refund policy."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -327,7 +328,7 @@ export class RefundPolicyAgent {}
 @Agent({
   name: "loyalty-offer-agent",
   description: "Finds an offer for the customer",
-  prompt: "Find an offer.",
+  prompt: inline("Find an offer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -341,7 +342,7 @@ export class LoyaltyOfferAgent {}
   description: "Picks everyone needed for the customer's message",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick everyone needed for the customer's message.",
+  prompt: inline("Pick everyone needed for the customer's message."),
   input: {
     message: WorkflowStartTextDto,
   },
@@ -360,7 +361,7 @@ export class HelpDeskRouter {}
 @Agent({
   name: "answer-agent",
   description: "Writes the reply from the branches' results",
-  prompt: "Write the reply.",
+  prompt: inline("Write the reply."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -420,7 +421,7 @@ export class OffersRouter implements RouterHandler<OffersRouter> {
 @Agent({
   name: "offers-answer-agent",
   description: "Answers with the policy and maybe an offer",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     refund: RefundPolicyDto,

@@ -20,6 +20,17 @@ export const interpreterPrompts = (
   return model.length === 0 ? {} : { replyInterpreters: model };
 };
 
+/** The model rerankers' prompts (#1347) in the prompt version, only where one has a prompt. */
+export const rerankerPrompts = (
+  rerankers: readonly { readonly name: string; readonly prompt?: string }[] | undefined,
+): { readonly rerankers?: readonly object[] } => {
+  const prompted = (rerankers ?? [])
+    .filter((found) => (found.prompt ?? "") !== "")
+    .map(({ name, prompt }) => ({ name, prompt: normalisePromptText(prompt ?? "") }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  return prompted.length === 0 ? {} : { rerankers: prompted };
+};
+
 /** The guardrails' questions (#120) in the prompt version; the key `guards` keeps the versions of workflows without them. */
 export const guardrailPrompts = (guardrails: readonly LoadedModelGuardrail[]): object => ({
   guards: guardrails.map(({ name, side, prompt, threshold }) => ({

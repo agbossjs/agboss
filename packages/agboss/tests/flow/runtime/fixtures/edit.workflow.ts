@@ -8,6 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   Action,
+  inline,
 } from "../../../../src/index.js";
 import { optional } from "../../../../src/flow/dto-wrappers.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../../src/index.js";
@@ -32,7 +33,7 @@ export class EditStart {}
 
 const editor = {
   description: "Writes the draft, again after the gate's review",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "test/editor",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
   maxVisits: 2,
@@ -71,7 +72,7 @@ export class GaveUpFinish {}
   name: "gate-router",
   description: "Sends the draft back or accepts it",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the draft good?",
+  prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
   input: { draft: DraftDto },
   maxVisits: 5,
@@ -112,7 +113,7 @@ export class PatientEditorAgent {}
   name: "patient-gate-router",
   description: "Sends the draft back or accepts it",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the draft good?",
+  prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
   input: { draft: DraftDto },
   maxVisits: 5,

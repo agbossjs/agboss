@@ -1,5 +1,5 @@
 import { usd } from "../../../src/units/index.js";
-import { Agent, EmptyEnvironment, Tool, Workflow } from "../../../src/index.js";
+import { Agent, EmptyEnvironment, Tool, Workflow, inline } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart, type Class } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -180,7 +180,7 @@ function workflowWith(
   @Agent({
     name: `${name}-agent`,
     description: "Answers",
-    prompt: "Answer from the docs.",
+    prompt: inline("Answer from the docs."),
     model: "local/llama",
     ...(reading === "tool" ? { tools: [SearchTool] } : { rag: [rag] }),
   })

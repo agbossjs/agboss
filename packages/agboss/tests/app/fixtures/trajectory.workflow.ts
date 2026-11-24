@@ -16,6 +16,7 @@ import {
   type JudgeHandler,
   type JudgeInput,
   type ToolCallRecord,
+  inline,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -93,7 +94,7 @@ export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "clerk-agent",
-  prompt: "Answer questions about orders.",
+  prompt: inline("Answer questions about orders."),
   description: "Looks orders up",
   model: "local/llama",
   tools: [LookupOrderTool],
@@ -174,7 +175,7 @@ export class FrontDeskWorkflow {}
 /** A clerk without retries: an answer its judge fails is a QualityGateError at once. */
 @Agent({
   name: "strict-clerk-agent",
-  prompt: "Answer questions about orders.",
+  prompt: inline("Answer questions about orders."),
   description: "Looks orders up, judged once",
   model: "local/llama",
   tools: [LookupOrderTool],

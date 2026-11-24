@@ -9,6 +9,7 @@ import {
   PauseClosedError,
   GraphRuleError,
   WorkflowStart,
+  inline,
 } from "../../src/index.js";
 import { DtoValidationError, Text } from "../../src/dto/index.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
@@ -71,7 +72,7 @@ class TicketStart {}
 @Agent({
   name: "ticket-agent",
   description: "Answers tickets",
-  prompt: "Answer the ticket.",
+  prompt: inline("Answer the ticket."),
   model: "test/support",
   input: { ticket: TicketDto },
 })

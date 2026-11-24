@@ -92,7 +92,7 @@ export class ShortlistSavedDto {
 
 ```ts file=src/shortlist/agents/screening/screening.agent.ts
 // agents/screening/screening.agent.ts — the agent that does the work also says which outcome it is
-import { Agent, oneOf } from "@agboss/core";
+import { Agent, oneOf, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { NoMatchDto } from "../../dto/no-match.dto.js";
 import { ShortlistDto } from "../../dto/shortlist.dto.js";
@@ -100,7 +100,7 @@ import { ShortlistDto } from "../../dto/shortlist.dto.js";
 @Agent({
   name: "screening-agent",
   description: "Turns a job request into a shortlist, or says nothing matches",
-  prompt: "Pick the jobs that match the request. If none does, answer that nothing matches.",
+  prompt: inline("Pick the jobs that match the request. If none does, answer that nothing matches."),
   model: "moonshotai/kimi-k2.6",
   input: { request: WorkflowStartTextDto },
   output: oneOf(ShortlistDto, NoMatchDto), // two answer tools: answer-shortlist-dto, answer-no-match-dto
@@ -343,7 +343,7 @@ What this shows:
 - One field decorator per field (`[dto.undecorated-field]` otherwise): `@Text`, `@Integer`,
   `@Float`, `@Bool`, `@Enum(["a", "b"])`, `@List(ItemDto | Text, { minItems })`,
   `@Nested(OtherDto)`, formats `@Email`, `@Url`, `@Uuid`, `@IsoDate`, `@IsoDateTime`, `@PhoneNumber`, `@KeyText` (an id that is usable as a key: 1 to 200
-  characters, no invisible or look-alike ones), ….
+  characters of `[a-zA-Z0-9._:-]`, nothing else), ….
   Options: `prompt` (the field's description in the JSON Schema the model reads), `optional: true`,
   `default`, limits (`minLength`, `maxLength`, `pattern`, `min`, `max`), `example`, `sensitive`
   (a PII action, reference 07).

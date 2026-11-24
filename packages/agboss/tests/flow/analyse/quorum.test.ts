@@ -51,6 +51,7 @@ import {
 } from "../fixtures/quorum.fixture.js";
 import { minutes } from "../../../src/units/index.js";
 import { onAgent, onStart, side, toAction, toAgent, toFinish } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 /** #279 PR 1 — quorums in the analyser: impossible quorums, what `.returns` may promise, arbiters. */
 
@@ -77,7 +78,7 @@ const codesOf = (flow: Flow): readonly string[] =>
 @Agent({
   name: "skills-reader-agent",
   description: "Needs the skills score",
-  prompt: "Read.",
+  prompt: inline("Read."),
   model: "moonshotai/kimi-k2.6",
   input: {
     skills: SkillsScoreDto,
@@ -275,7 +276,7 @@ describe("#279 AC7 / AC13: groups continue their own paths, shapes from the laun
 @Arbiter({
   name: "partial-score-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets its criterion.",
+  prompt: inline("Count an answer only if it meets its criterion."),
   criteria: [
     { target: ScoreAAgent, prompt: "A score" },
     { target: ScoreBAgent, prompt: "Risks" },
@@ -314,7 +315,7 @@ class OneMethodArbiter {
 @Arbiter({
   name: "Badly_Named",
   model: "typesafe/jev-1.13",
-  prompt: "Judge.",
+  prompt: inline("Judge."),
   criteria: [
     { target: ScoreAAgent, prompt: "A score" },
     { target: ScoreBAgent, prompt: "Risks" },

@@ -1,4 +1,4 @@
-import { Agent, Decision, Judge, Workflow, Router } from "../../../src/index.js";
+import { Agent, Decision, Judge, Workflow, Router, inline } from "../../../src/index.js";
 import {
   JudgeModel,
   JudgeVerdict,
@@ -41,7 +41,7 @@ export class DecisionChatter implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "chat-judged-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Judged by a chat model asked to decide",
   model: "local/llama",
   judges: [ChatDecider],
@@ -50,7 +50,7 @@ export class ChatJudged {}
 
 @Agent({
   name: "decision-judged-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Judged by a decision model asked to chat",
   model: "local/llama",
   judges: [DecisionChatter],
@@ -109,14 +109,14 @@ export class AskDto {
 
 @Agent({
   name: "intake-agent",
-  prompt: "Read.",
+  prompt: inline("Read."),
   description: "Reads the ask",
   model: "local/llama",
   output: AskDto,
 })
 export class Intake {}
 
-@Agent({ name: "coder-agent", prompt: "Code.", description: "Writes code", model: "local/llama" })
+@Agent({ name: "coder-agent", prompt: inline("Code."), description: "Writes code", model: "local/llama" })
 export class Coder {}
 
 @WorkflowFinish({ name: "as-is-workflow-finish", description: "The ask, as is", output: AskDto })
@@ -127,7 +127,7 @@ export class AsIs {}
   name: "triage-router",
   description: "Sends coding asks to the coder",
   decidedBy: DecidedBy.Model,
-  prompt: "Who handles this?",
+  prompt: inline("Who handles this?"),
   model: LUNA,
   input: { ask: AskDto },
   routes: [

@@ -15,6 +15,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type QuorumDecidedEvent,
+  inline,
 } from "../../../src/index.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import {
@@ -145,7 +146,7 @@ export class PanelItemsWorkflowStart {}
 @Agent({
   name: "skills-panel-agent",
   description: "Scores the skills",
-  prompt: "Score the skills.",
+  prompt: inline("Score the skills."),
   model: MODEL,
   tools: TOOLS,
   input: { candidate: CandidateDto },
@@ -156,7 +157,7 @@ export class SkillsPanelAgent {}
 @Agent({
   name: "risks-panel-agent",
   description: "Scores the risks",
-  prompt: "Score the risks.",
+  prompt: inline("Score the risks."),
   model: MODEL,
   tools: TOOLS,
   input: { candidate: CandidateDto },
@@ -167,7 +168,7 @@ export class RisksPanelAgent {}
 @Agent({
   name: "hire-panel-agent",
   description: "Scores the hire",
-  prompt: "Score the hire.",
+  prompt: inline("Score the hire."),
   model: MODEL,
   tools: TOOLS,
   input: { candidate: CandidateDto },
@@ -178,7 +179,7 @@ export class HirePanelAgent {}
 @Agent({
   name: "panel-summary-agent",
   description: "Sums up the counted scores",
-  prompt: "Sum up the scores.",
+  prompt: inline("Sum up the scores."),
   model: MODEL,
   input: { scores: listOf(ScoreDto) },
   output: ScoreReviewDto,
@@ -235,7 +236,7 @@ export class InRangeArbiter {
 @Arbiter({
   name: "panel-model-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: SkillsPanelAgent, prompt: "Scores the technical skills" },
     { target: RisksPanelAgent, prompt: "Names a concrete risk" },
@@ -247,7 +248,7 @@ export class PanelModelArbiter {}
 @Arbiter({
   name: "panel-chat-arbiter",
   model: "moonshotai/kimi-k2.6",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: SkillsPanelAgent, prompt: "Scores the technical skills" },
     { target: RisksPanelAgent, prompt: "Names a concrete risk" },
@@ -312,7 +313,7 @@ export class DealPanelWorkflowStart {}
 @Agent({
   name: "legal-panel-agent",
   description: "Reviews the legal risks",
-  prompt: "Review the legal risks.",
+  prompt: inline("Review the legal risks."),
   model: MODEL,
   tools: [WaitTool],
   input: { deal: DealDto },
@@ -323,7 +324,7 @@ export class LegalPanelAgent {}
 @Agent({
   name: "critic-panel-agent",
   description: "Objects",
-  prompt: "Object.",
+  prompt: inline("Object."),
   model: MODEL,
   tools: [WaitTool],
   input: { deal: DealDto },
@@ -334,7 +335,7 @@ export class CriticPanelAgent {}
 @Agent({
   name: "fast-panel-agent",
   description: "Screens the deal fast",
-  prompt: "Screen the deal.",
+  prompt: inline("Screen the deal."),
   model: MODEL,
   tools: [WaitTool],
   input: { deal: DealDto },
@@ -345,7 +346,7 @@ export class FastPanelAgent {}
 @Agent({
   name: "deal-report-panel-agent",
   description: "Writes the report from the counted reviews",
-  prompt: "Write the report.",
+  prompt: inline("Write the report."),
   model: MODEL,
   input: { legal: LegalReviewDto, critique: DealCritiqueDto },
   output: DueDiligenceReportDto,

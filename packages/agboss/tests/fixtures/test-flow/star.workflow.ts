@@ -8,7 +8,7 @@ import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline } from "../../../src/index.js";
 
 /**
  * The star test workflow (tests/fixtures/test-flow): chat → main-router ("test/router", a chat
@@ -49,7 +49,7 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
   @Agent({
     name: "alpha-agent",
     description: "Handles alpha work with tools",
-    prompt: "You are alpha.",
+    prompt: inline("You are alpha."),
     model: "test/alpha",
     price: { inputPerMTok: 3, outputPerMTok: 6 },
     tools: options.tools,

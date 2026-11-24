@@ -24,6 +24,7 @@ import {
 } from "../fixtures/offer.fixture.js";
 import { onAgent, caseOf, onStart, toAction } from "../fixtures/paths.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
+import { inline } from "../../../src/index.js";
 
 const OFFER_START = "offer-workflow-start" as ComponentName;
 
@@ -31,7 +32,7 @@ const OFFER_START = "offer-workflow-start" as ComponentName;
 @Agent({
   name: "officer-agent",
   description: "Reviews the draft",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto },
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
@@ -42,7 +43,7 @@ class OfficerAgent {}
 @Agent({
   name: "rewriter-agent",
   description: "Rewrites the draft by the officer's notes",
-  prompt: "Rewrite the draft.",
+  prompt: inline("Rewrite the draft."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
   output: OfferDraftDto,

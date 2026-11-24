@@ -58,6 +58,7 @@ import {
 } from "../fixtures/launch.fixture.js";
 import { onAgent, onStart, toAction } from "../fixtures/paths.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
+import { inline } from "../../../src/index.js";
 
 /** #273 PR 1 — launches in the analyser: scopes, joins, policies, widths, steps. */
 
@@ -89,7 +90,7 @@ const ranked = (launched: ReturnType<typeof screened>) =>
 @Agent({
   name: "critique-reader-agent",
   description: "Reads one critique",
-  prompt: "Read the critique.",
+  prompt: inline("Read the critique."),
   model: "moonshotai/kimi-k2.6",
   input: { critique: CritiqueDto },
   output: ArticleDraftDto,
@@ -99,7 +100,7 @@ class CritiqueReaderAgent {}
 @Agent({
   name: "sibling-reader-agent",
   description: "Reads a sibling's value",
-  prompt: "Read the research.",
+  prompt: inline("Read the research."),
   model: "moonshotai/kimi-k2.6",
   input: { research: ResearchDto },
   output: CritiqueDto,
@@ -109,7 +110,7 @@ class SiblingReaderAgent {}
 @Agent({
   name: "refund-reader-agent",
   description: "Needs the refund policy",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   input: { order: OrderStatusDto, refund: RefundPolicyDto, loyalty: optional(LoyaltyOfferDto) },
   output: CustomerReplyDto,
@@ -119,7 +120,7 @@ class RefundReaderAgent {}
 @Agent({
   name: "lists-agent",
   description: "Gives a list",
-  prompt: "List.",
+  prompt: inline("List."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: listOf(CritiqueDto),
@@ -129,7 +130,7 @@ class ListsAgent {}
 @Agent({
   name: "either-agent",
   description: "Gives one of two",
-  prompt: "Choose.",
+  prompt: inline("Choose."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: oneOf(CritiqueDto, ResearchDto),
@@ -139,7 +140,7 @@ class EitherAgent {}
 @Agent({
   name: "critiques-agent",
   description: "Reads every critique",
-  prompt: "Read the critiques.",
+  prompt: inline("Read the critiques."),
   model: "moonshotai/kimi-k2.6",
   input: { critiques: listOf(CritiqueDto) },
   output: ArticleDraftDto,
@@ -320,7 +321,7 @@ const modelRouter = (name: string, routes: ModelRouterOptions["routes"]) => {
     description: "Launches agents",
     decidedBy: DecidedBy.Model,
     model: "typesafe/jev-1.13",
-    prompt: "Pick.",
+    prompt: inline("Pick."),
     input: { message: WorkflowStartTextDto },
     routes,
   })

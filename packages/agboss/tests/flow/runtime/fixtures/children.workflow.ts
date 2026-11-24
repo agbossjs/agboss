@@ -21,6 +21,7 @@ import {
   type ExecutionErrorEvent,
   type ExecutionStartEvent,
   type Produced,
+  inline,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
@@ -483,7 +484,7 @@ export class ConfirmReviewTool {
 @Agent({
   name: "item-reviewer-agent",
   description: "Reviews one item",
-  prompt: "Review the item.",
+  prompt: inline("Review the item."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 5,
   tools: [ConfirmReviewTool],
@@ -534,7 +535,7 @@ export class ReviewItemsWorkflowStart {}
 @Agent({
   name: "review-rescue-agent",
   description: "Says what to do when a review ran out of steps",
-  prompt: "Say what to do.",
+  prompt: inline("Say what to do."),
   model: "moonshotai/kimi-k2.6",
   input: { items: listOf(ItemDto) },
   output: SummaryDto,

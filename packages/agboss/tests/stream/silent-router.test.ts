@@ -1,6 +1,14 @@
 /** #1004 AC1: a chat-model router's raw JSON decision never reaches the user's stream. */
 import { describe, expect, it } from "vitest";
-import { Agent, DecidedBy, Router, TokenLimit, Workflow, WorkflowFinish } from "../../src/index.js";
+import {
+  Agent,
+  DecidedBy,
+  Router,
+  TokenLimit,
+  Workflow,
+  WorkflowFinish,
+  inline,
+} from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -20,7 +28,7 @@ import { deltas } from "./writer.fixture.js";
 @Agent({
   name: "routed-audit-agent",
   description: "Answers",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "bedrock/claude",
 })
 class RoutedAgent {}
@@ -36,7 +44,7 @@ class HandOver {}
   name: "audit-chat-router",
   description: "Picks the agent",
   decidedBy: DecidedBy.Model,
-  prompt: "INTERNAL ROUTING PROMPT",
+  prompt: inline("INTERNAL ROUTING PROMPT"),
   model: "bedrock/claude",
   input: { message: WorkflowStartTextDto },
   routes: [

@@ -6,6 +6,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type InferEnv,
+  inline,
 } from "../../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -33,7 +34,7 @@ export class OtherModels {}
 
 @Agent({
   name: "ts-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Answers on its role's model",
   model: "fast",
 })

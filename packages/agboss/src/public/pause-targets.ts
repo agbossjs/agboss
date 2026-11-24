@@ -5,7 +5,6 @@ export {
   ToolApproval,
   type ExternalTaskOptions,
   type PauseTargetBaseOptions,
-  type PauseTargetHooks,
   type ToolApprovalOptions,
 } from "../channels/pause-targets.js";
 export type {
@@ -38,4 +37,3 @@ export {
   type NotUnderstoodChannelInterpretation,
   type UnderstoodChannelInterpretation,
 } from "../channels/channel-interpreter.js";
-export type { PauseTargetRuleCode } from "../graph/extra-rule-codes.js";

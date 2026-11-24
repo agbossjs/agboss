@@ -14,7 +14,7 @@ import type {
 import { resolvedName } from "../flow/names.js";
 import { recordComponent } from "./metadata.js";
 import { callerFile } from "./call-site.js";
-import type { DeclarativeJudgeClass, DeclarativeJudgeOptions } from "./judge-declaration.js";
+import type { DeclarativeJudgeClass, ModelJudgeOptions } from "./judge-declaration.js";
 import type { PromptSource } from "./prompt-source.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 
@@ -133,19 +133,7 @@ export abstract class JudgeModel {
  * class; a `listOf(oneOf(A, B))` judge reads `output: readonly VariantOf<A | B>[]`, each item with its
  * own `variant`, and has no `variant` of its own.
  */
-export type JudgeInput<T> = JudgedInput<JudgeOutputValueOf<T>>;
-
-/** What a judge reads of a value of its `output`: the output itself and the visit's trajectory. */
-export type JudgedInput<TOutput> = JudgedOutput<TOutput> & {
-  readonly toolCalls: readonly ToolCallRecord[];
-  /**
-   * The files the agent's model read in this visit (#899 §8), in the views it got them — an original
-   * as the file, a transcription as a `text/plain` file of its masked text; none for an agent without
-   * `files`. A judge's own model reads them too: `judgeModel.invoke` and `judgeModel.decide` carry them
-   * as parts of their input.
-   */
-  readonly files: readonly FileContent[];
-};
+export type JudgeInput<T> = JudgedOutput<JudgeOutputValueOf<T>>;
 
 /**
  * The output value a `JudgeInput<T>` reads: the `JudgeOutputs` entry of a `@Judge` class (named by
@@ -169,24 +157,31 @@ export type JudgeOutputValueOf<T> = [NameOf<InstanceOrSelf<T>>] extends [never]
     : MissingGeneratedTypes
   : GeneratedEntry<AGBossTypes.JudgeOutputs, InstanceOrSelf<T>>;
 
-/** What a judge reads of the output itself, in the shape of its `output` (`JudgeInput` without the trajectory). */
+/**
+ * What a judge reads of a value of its `output`, in the shape of that output: the output itself, the
+ * run's task, the retry count and the visit's trajectory — `toolCalls` and `files`. One interface for
+ * a code judge's `judge(input)` and a declarative judge's model alike.
+ */
 export type JudgedOutput<TOutput> = TOutput extends readonly VariantOf<unknown>[]
-  ? { readonly output: TOutput; readonly task: string; readonly attempt: number }
+  ? JudgedBase & { readonly output: TOutput }
   : TOutput extends readonly (infer TItem)[]
-    ? {
-        readonly variant: DtoClass<TItem>;
-        readonly output: TOutput;
-        readonly task: string;
-        readonly attempt: number;
-      }
+    ? JudgedBase & { readonly variant: DtoClass<TItem>; readonly output: TOutput }
     : TOutput extends unknown
-      ? {
-          readonly variant: DtoClass<TOutput>;
-          readonly output: TOutput;
-          readonly task: string;
-          readonly attempt: number;
-        }
+      ? JudgedBase & { readonly variant: DtoClass<TOutput>; readonly output: TOutput }
       : never;
+
+export interface JudgedBase {
+  readonly task: string;
+  readonly attempt: number;
+  readonly toolCalls: readonly ToolCallRecord[];
+  /**
+   * The files the agent's model read in this visit (#899 §8), in the views it got them — an original
+   * as the file, a transcription as a `text/plain` file of its masked text; none for an agent without
+   * `files`. A judge's own model reads them too: `judgeModel.invoke` and `judgeModel.decide` carry them
+   * as parts of their input.
+   */
+  readonly files: readonly FileContent[];
+}
 
 /** What a verdict may carry for reports: named numbers, texts or flags. */
 export type JudgeMetrics = Readonly<Record<string, number | string | boolean>>;
@@ -256,7 +251,7 @@ export interface JudgeHandler<TOutput> {
 }
 
 /** Any judge's input as the agent's loop builds it (internal): one class, or items of several. */
-export type AnyJudgeInput = JudgedInput<unknown> | JudgedInput<readonly VariantOf<unknown>[]>;
+export type AnyJudgeInput = JudgedOutput<unknown> | JudgedOutput<readonly VariantOf<unknown>[]>;
 
 /** A judge's instance as the agent's loop calls it (internal), whatever output it judges. */
 export interface RunnableJudge {
@@ -311,7 +306,7 @@ export interface JudgeMethod<TOutput extends JudgeOutputShape> {
  * `$0`; with `JudgeModel` in `deps` it asks its own model too (hybrid).
  */
 export function Judge<const TOutput extends JudgeOutputShape>(
-  options: DeclarativeJudgeOptions<TOutput>,
+  options: ModelJudgeOptions<TOutput>,
 ): <C extends Class>(value: DeclarativeJudgeClass<C>) => C;
 export function Judge<
   const TOutput extends JudgeOutputShape,

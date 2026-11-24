@@ -4,6 +4,7 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { onStart } from "./paths.js";
+import { inline } from "../../../src/index.js";
 
 /** #272 S2 — a component and a DTO the generated types need but no module exports. */
 
@@ -18,7 +19,7 @@ export class HiddenWorkflowStart {}
 @Agent({
   name: "hidden-agent",
   description: "Not exported",
-  prompt: "Do it.",
+  prompt: inline("Do it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     text: HiddenDto,

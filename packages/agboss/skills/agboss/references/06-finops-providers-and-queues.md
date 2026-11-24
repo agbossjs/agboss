@@ -574,7 +574,7 @@ export class InvoiceWorkflowStart {}
 ```
 
 ```ts file=src/billing/agents/invoice/invoice.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { InvoiceDraftDto } from "../../dto/invoice-draft.dto.js";
 import { TaxRateTool } from "../../tools/tax-rate.tool.js";
@@ -582,7 +582,7 @@ import { TaxRateTool } from "../../tools/tax-rate.tool.js";
 @Agent({
   name: "invoice-agent",
   description: "Drafts an invoice with the right VAT",
-  prompt: "Draft the invoice; look the VAT rate up with tax-rate-tool.",
+  prompt: inline("Draft the invoice; look the VAT rate up with tax-rate-tool."),
   model: "moonshotai/kimi-k2.6", // served by openrouter-model-provider (backup/kimi while its breaker is open)
   input: { request: WorkflowStartTextDto },
   output: InvoiceDraftDto,

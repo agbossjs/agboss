@@ -25,6 +25,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { caseOf, onExternalTask, onStart, toFinish } from "./paths.js";
 import { QuestionFailedError } from "../../../src/flow/runtime/errors.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #659 — question roles: a purchase asks its budget owner for a spending limit before it is placed.
@@ -133,7 +134,7 @@ export class RuleSpendingLimitChannel extends SpendingLimitQuestion {
   description: "Reads the budget owner's limit",
   decidedBy: DecidedBy.Model,
   model: "test/m",
-  prompt: "The budget owner names the most this purchase may cost.",
+  prompt: inline("The budget owner names the most this purchase may cost."),
 })
 export class BudgetOwnerReplyInterpreter {}
 

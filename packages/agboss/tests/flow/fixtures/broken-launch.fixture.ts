@@ -9,6 +9,7 @@ import {
   ScreeningWorkflowStart,
 } from "./launch.fixture.js";
 import { onStart } from "./paths.js";
+import { inline } from "../../../src/index.js";
 /**
  * #273 — a per-item launch whose target reads no item (`[launch.item-not-read]`): its generated
  * `InputOf` is the rule's message, so the typed builder refuses `.toParallelAgents(ItemBlindAgent)`.
@@ -17,7 +18,7 @@ import { onStart } from "./paths.js";
 @Agent({
   name: "item-blind-agent",
   description: "Checks a company without reading it",
-  prompt: "Check the company.",
+  prompt: inline("Check the company."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,

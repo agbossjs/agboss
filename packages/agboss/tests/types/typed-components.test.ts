@@ -7,6 +7,7 @@ import {
   JudgeModel,
   JudgeVerdict,
   Tool,
+  inline,
 } from "../../src/index.js";
 import type { JudgeInput } from "../../src/index.js";
 import {
@@ -53,7 +54,7 @@ class Fair {
 @InputGuardrail({
   name: "polite-guardrail",
   description: "Blocks rude messages",
-  prompt: "Is the message rude?",
+  prompt: inline("Is the message rude?"),
   threshold: 0.8,
   refusal: "Please be polite.",
 })
@@ -65,7 +66,7 @@ describe("#200 AC2: slots are typed by component kind", () => {
       name: "typed-agent",
       description: "Typed slots",
       model: "test/alpha",
-      prompt: "p",
+      prompt: inline("p"),
       tools: [Search],
       judges: [Fair],
       guardrails: [Polite],
@@ -76,7 +77,7 @@ describe("#200 AC2: slots are typed by component kind", () => {
       name: "wrong-agent",
       description: "A service in every slot",
       model: "test/alpha",
-      prompt: "p",
+      prompt: inline("p"),
       // @ts-expect-error -- JobFitJudge is not a @Tool (no `run`)
       tools: [JobFitJudge],
     })

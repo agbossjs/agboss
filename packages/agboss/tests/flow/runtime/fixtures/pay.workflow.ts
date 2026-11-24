@@ -8,6 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../../src/index.js";
 import { onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
@@ -82,7 +83,7 @@ export class RefundTool {
 @Agent({
   name: "apologizer-agent",
   description: "Apologizes for a declined card, refunding what was taken",
-  prompt: "Apologize; refund the order.",
+  prompt: inline("Apologize; refund the order."),
   model: "test/apologizer",
   tools: [RefundTool],
   input: { order: OrderDto },

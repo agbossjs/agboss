@@ -8,7 +8,7 @@ import type { PromptSource } from "./prompt-source.js";
  * `threshold` the model answers pass or fail; with it a score from 0 to 1 that passes at
  * `score >= threshold`.
  */
-export interface DeclarativeJudgeOptions<TOutput extends JudgeOutputShape = JudgeOutputShape> {
+export interface ModelJudgeOptions<TOutput extends JudgeOutputShape = JudgeOutputShape> {
   /** Unique in the workflow; the class name in kebab-case when left out. */
   readonly name?: string;
   /** What it judges: the agent's answer as this DTO. */

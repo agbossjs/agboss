@@ -10,6 +10,7 @@ import {
   type ChannelAsk,
   listOf,
   type Produced,
+  inline,
 } from "../../../src/index.js";
 import {
   PauseExpiration,
@@ -161,7 +162,7 @@ export class AgentExpiryWorkflowFinish {}
 @Agent({
   name: "expiry-refund-agent",
   description: "Refunds an order, asks a manager",
-  prompt: "Refund the order.",
+  prompt: inline("Refund the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [ExpiringRefundTool, UrgentRefundTool, QuickRefundTool, ManagerQuestion],
   input: { request: AgentRefundDto },
@@ -230,7 +231,7 @@ export class AgentBatchWorkflowStart {}
 @Agent({
   name: "expiry-batch-refund-agent",
   description: "Refunds one order",
-  prompt: "Refund the order.",
+  prompt: inline("Refund the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [ExpiringRefundTool],
   input: { request: AgentRefundDto },
@@ -303,7 +304,7 @@ export class GateTool {
 @Agent({
   name: "expiry-hold-agent",
   description: "Holds at the gate",
-  prompt: "Hold.",
+  prompt: inline("Hold."),
   model: "moonshotai/kimi-k2.6",
   tools: [GateTool],
   input: { request: AgentRefundDto },

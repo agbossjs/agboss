@@ -4,6 +4,7 @@ import type { Class } from "../../components/injection.js";
 import { arbiterOf, hasArbiterModel, type ArbiterAnswerOf } from "../../flow/decorators/arbiter.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { judgeAnswer } from "../../flow/runtime/launch/arbiters.js";
+import { unitArbiterUsesOf } from "../../flow/runtime/launch/arbiter-prompts.js";
 import { flowArbiterModelFactory } from "../../graph/router-model.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { TestSetupError } from "../errors.js";
@@ -46,7 +47,7 @@ export function arbiterUnit<
   const site = new UnitSite(options);
   if (hasArbiterModel(declaration.options))
     site.scriptModel(arbiterKeyOf(name), arbiter.name, options.model);
-  const modelOf = flowArbiterModelFactory(unitRouterDeps(site.gateway));
+  const routerDeps = unitRouterDeps(site.gateway);
   const run = <TTarget extends Class>(
     target: TTarget,
     answer: ArbiterAnswerOf<TTarget>,
@@ -58,6 +59,8 @@ export function arbiterUnit<
       ...callTimeoutOf(call.timeout),
     };
     return site.run(frame, async ({ signal, spent }) => {
+      // a declarative arbiter's prompt, read as at assembly (#1347)
+      const modelOf = flowArbiterModelFactory(routerDeps, await unitArbiterUsesOf(arbiter));
       const deps = {
         instanceOf: (cls: Class): unknown => site.instanceOf(cls),
         modelOf,

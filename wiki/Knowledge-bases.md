@@ -92,7 +92,7 @@ import { CompanyDocs } from "./rag/company-docs.rag.js";
 @Agent({
   name: "onboarding-agent",
   description: "Answers questions about the company",
-  prompt: "Answer from the company docs; cite them as [source].",
+  prompt: inline("Answer from the company docs; cite them as [source]."),
   model: "moonshotai/kimi-k2.6",
   rag: [CompanyDocs], // a list of @Rag classes; one listed twice is [agent.duplicate-rag]
 })

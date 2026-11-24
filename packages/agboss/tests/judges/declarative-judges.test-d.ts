@@ -2,7 +2,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import { PlainTextDto } from "../../src/dto/index.js";
 import { Judge, JudgeModel, JudgeVerdict } from "../../src/index.js";
 import { inline, type PromptSource } from "../../src/components/prompt-source.js";
-import type { DeclarativeJudgeOptions } from "../../src/components/judge-declaration.js";
+import type { ModelJudgeOptions } from "../../src/components/judge-declaration.js";
 
 /** #1290b: the declarative `@Judge` overload and the forms it removed. */
 
@@ -23,8 +23,8 @@ describe("#1290b: the declarative @Judge overload", () => {
       Empty,
     );
     Judge({ output: PlainTextDto, prompt: ["./a.prompt.md", inline("and b")] })(Empty);
-    expectTypeOf<DeclarativeJudgeOptions["prompt"]>().toEqualTypeOf<PromptSource>();
-    expectTypeOf<DeclarativeJudgeOptions["threshold"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<ModelJudgeOptions["prompt"]>().toEqualTypeOf<PromptSource>();
+    expectTypeOf<ModelJudgeOptions["threshold"]>().toEqualTypeOf<number | undefined>();
   });
 
   it("a class with judge(input) does not take the declarative form", () => {

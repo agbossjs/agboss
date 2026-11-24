@@ -29,7 +29,7 @@ import { InlineFileRepository } from "../../src/infrastructure/file.repository.j
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import type { ModelUse } from "../../src/models/uses.js";
 import { kilobytes } from "../../src/units/index.js";
-import { Agent, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, inline } from "../../src/index.js";
 import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
 import { onStart } from "../helpers/flow.js";
@@ -100,7 +100,7 @@ function miniWorkflow(files?: ModelFiles, defaults?: WorkflowDefaults, filePolic
   @Agent({
     name: `mini-${suffix}-agent`,
     description: "Reads",
-    prompt: "Read.",
+    prompt: inline("Read."),
     model: "local/reader",
     input: { bundle: BundleDto },
     ...(files === undefined ? {} : { files }),

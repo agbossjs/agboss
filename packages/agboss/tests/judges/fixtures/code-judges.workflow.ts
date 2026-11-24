@@ -14,6 +14,7 @@ import {
   provide,
   type JudgeHandler,
   type JudgeInput,
+  inline,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -62,7 +63,7 @@ export class NoBannedWordsJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "promise-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes an answer, gated by code and by a model",
   model: "local/llama",
   judges: [NoBannedWordsJudge, Grounded],

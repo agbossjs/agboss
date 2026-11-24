@@ -125,12 +125,15 @@ export function modelRerankerOf(
   binding: ModelBinding,
   reading?: RerankReading,
   maxCandidateLength?: number,
+  instructions = "",
 ): ModelRerankerHandler {
   return {
     rerank: async (query, candidates, { topK, signal }) => {
       const read = readCandidates(candidates, reading);
       const messages = [
-        new SystemMessage(RERANKER_SYSTEM),
+        new SystemMessage(
+          instructions === "" ? RERANKER_SYSTEM : `${RERANKER_SYSTEM}\n\n${instructions}`,
+        ),
         new HumanMessage(rerankPromptOf(reading?.query ?? query, read, topK, maxCandidateLength)),
       ];
       const spec = {

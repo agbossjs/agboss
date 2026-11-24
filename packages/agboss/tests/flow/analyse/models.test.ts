@@ -9,6 +9,7 @@ import { ProfileDto, ShortlistDto } from "../fixtures/dtos.js";
 import { KitWorkflowStart } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
 import { onStart } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 /** Answer tools of agents with `output` (#272 S6): their names and the model's tool calling. */
 
@@ -20,7 +21,7 @@ class ShortlistOfTheBestCandidatesWithTheirScoresAndTheReviewersNotesDto {
 @Agent({
   name: "long-answer-agent",
   description: "Answers with a long class name",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,

@@ -30,4 +30,3 @@ export {
   type PiiRefusal,
   type PiiRule,
 } from "./pii-policy.decorator.js";
-export type { PiiRuleCode } from "./pii-rule-codes.js";

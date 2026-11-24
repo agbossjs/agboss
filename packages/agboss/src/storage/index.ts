@@ -16,4 +16,4 @@ export {
 } from "./drivers.js";
 export type { ApplicationStorage, ApplicationStorageOptions } from "./storage-assembly.js";
 export type { ClusterDriver, DatabaseDriver, ObjectDriver } from "./storage-driver.js";
-export type { ExtraRuleCode, StorageRuleCode } from "../graph/extra-rule-codes.js";
+export type { StorageRuleCode } from "../graph/extra-rule-codes.js";

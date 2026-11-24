@@ -20,10 +20,10 @@ describe("#1347a: the prompt types", () => {
     expectTypeOf<readonly []>().not.toExtend<PromptSource>();
   });
 
-  it("prompt takes a file, inline(), a list of them, and still bare text", () => {
+  it("prompt takes a file, inline() or a list of them — and no bare text", () => {
     expectTypeOf<{ prompt: "./a.prompt.md" }>().toExtend<PromptOptions>();
     expectTypeOf<{ prompt: InlinePrompt }>().toExtend<PromptOptions>();
     expectTypeOf<{ prompt: readonly ["./a.prompt.md", InlinePrompt] }>().toExtend<PromptOptions>();
-    expectTypeOf<{ prompt: "bare text" }>().toExtend<PromptOptions>();
+    expectTypeOf<{ prompt: "bare text" }>().not.toExtend<PromptOptions>();
   });
 });

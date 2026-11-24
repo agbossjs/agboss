@@ -14,6 +14,7 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #267 PR 1 — a card refund approved through a channel role: the tool names the role, the role
@@ -104,7 +105,7 @@ export class RefundCardTool {
 @Agent({
   name: "refund-clerk-agent",
   description: "Refunds card payments",
-  prompt: "Refund what is asked.",
+  prompt: inline("Refund what is asked."),
   model: "test/refund-clerk",
   input: { message: WorkflowStartTextDto },
   output: RefundCardOutputDto,

@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { GuardrailVerdict, InputGuardrail, OutputGuardrail } from "../../src/index.js";
+import { GuardrailVerdict, InputGuardrail, OutputGuardrail, inline } from "../../src/index.js";
 import type { ComponentRecord } from "../../src/index.js";
 import type { GuardrailInput } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
@@ -31,7 +31,7 @@ describe("#1289: the guardrail options", () => {
       }
     }
     expect(Bare).toBeTypeOf("function");
-    InputGuardrail({ prompt: "Is it rude?", threshold: 0.5, refusal: "Be polite." });
+    InputGuardrail({ prompt: inline("Is it rude?"), threshold: 0.5, refusal: "Be polite." });
   });
 
   it("a model guardrail takes a model and its provider; its class has no check(content)", () => {

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Agent, EmptyEnvironment, Tool, Workflow } from "../../../src/index.js";
+import { Agent, EmptyEnvironment, Tool, Workflow, inline } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -66,7 +66,7 @@ export class SearchTenantDocsTool {
 @Agent({
   name: "searching-agent",
   description: "Searches the tenant's documents",
-  prompt: "Answer from the documents.",
+  prompt: inline("Answer from the documents."),
   model: "local/llama",
   tools: [SearchTenantDocsTool],
 })
@@ -75,7 +75,7 @@ export class SearchingAgent {}
 @Agent({
   name: "reading-agent",
   description: "Reads the tenant's documents given first",
-  prompt: "Answer from the documents.",
+  prompt: inline("Answer from the documents."),
   model: "local/llama",
   rag: [TenantDocsRag],
 })

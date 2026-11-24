@@ -8,6 +8,7 @@ import { ShortlistDto } from "../fixtures/dtos.js";
 import { KitWorkflowStart } from "../fixtures/kit.fixture.js";
 import { onStart } from "../fixtures/paths.js";
 import { analyseWorkflow } from "../../../src/flow/analyse/analyse.js";
+import { inline } from "../../../src/index.js";
 
 /** Names (#272 AC13; #270 AC14, S5): kind suffixes, the `Dto` suffix, unique DTO names. */
 
@@ -19,7 +20,7 @@ class Critique {
 @Agent({
   name: "score-summary",
   description: "Sums the scores up",
-  prompt: "Sum up.",
+  prompt: inline("Sum up."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -46,7 +47,7 @@ class BadlyNamedWorkflow {}
 @Agent({
   name: "rank-summary-agent",
   description: "Sums the ranks up",
-  prompt: "Sum up.",
+  prompt: inline("Sum up."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -89,7 +90,7 @@ const offerResult = (() => {
 @Agent({
   name: "search-agent",
   description: "Searches",
-  prompt: "Search.",
+  prompt: inline("Search."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,

@@ -17,6 +17,7 @@ import {
   JobPickDto,
   JobScoresDto,
 } from "../../flow/fixtures/review-dtos.js";
+import { inline } from "../../../src/index.js";
 
 /** #1325c: spans of decorator calls and flow builder steps, and a broken rule drawn over them. */
 
@@ -33,7 +34,7 @@ class SpanStart {}
 @Agent({
   name: "span-search-agent",
   description: "Finds jobs for the profile",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   model: "moonshotai/kimi-k2.6",
   input: { profile: CandidateProfileDto },
   output: JobListDto,
@@ -43,7 +44,7 @@ class SpanSearchAgent {}
 @Agent({
   name: "span-scoring-agent",
   description: "Scores the jobs",
-  prompt: "Score them.",
+  prompt: inline("Score them."),
   model: "moonshotai/kimi-k2.6",
   input: { jobs: JobListDto },
   output: JobScoresDto,
@@ -53,7 +54,7 @@ class SpanScoringAgent {}
 @Agent({
   name: "span-editor-agent",
   description: "Corrects the profile",
-  prompt: "Correct it.",
+  prompt: inline("Correct it."),
   model: "moonshotai/kimi-k2.6",
   input: { profile: CandidateProfileDto },
   output: CandidateProfileDto,
@@ -63,7 +64,7 @@ class SpanEditorAgent {}
 @Agent({
   name: "span-picker-agent",
   description: "Picks the job",
-  prompt: "Pick one.",
+  prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
   input: { scores: JobScoresDto, profile: CandidateProfileDto },
   output: JobPickDto,

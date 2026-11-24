@@ -13,6 +13,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type GuardrailHandler,
+  inline,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -40,7 +41,7 @@ export class EmailMaskPiiPolicy {}
 
 @Agent({
   name: "masked-held-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   guardrails: [AlwaysPassGuardrail],
@@ -50,7 +51,7 @@ export class MaskedHeldAgent {}
 
 @Agent({
   name: "plain-held-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   guardrails: [AlwaysPassGuardrail],

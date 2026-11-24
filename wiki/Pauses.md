@@ -109,7 +109,7 @@ export class RefundCardInputDto {
   decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
   prompt:
-    "The manager answered a refund approval in free text. Decide approve / reject and any changed amount.",
+    inline("The manager answered a refund approval in free text. Decide approve / reject and any changed amount."),
 })
 export class RefundReplyInterpreter {}
 
@@ -190,7 +190,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   `UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` — the interpreter's own, or
   the error's message — and `cause` when an error is behind it), and the pause stays `Pending`: ask
   for a clearer answer, or answer with a `decision`. A `reply` for a role without `replyInterpreter` is
-  `ReplyInterpreterMissingError` (`pause.no-reply-interpreter`), the pause untouched.
+  `ReplyInterpreterMissingError` (`pause.channel-interpreter-missing`), the pause untouched.
 - Assembly checks, all at once with the channel rules: `[name.not-kebab-case]`,
   `[reply-interpreter.not-an-interpreter]` (a `replyInterpreter` class without `@ReplyInterpreter`),
   `[reply-interpreter.no-interpret-method]`, `[channel.shared-interpreter]` (one class in two roles).
@@ -223,7 +223,7 @@ export class DeskDoneDto {
   description: "Reads whether a clerk's reply approves a deposit return",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "The clerk answered a deposit return.",
+  prompt: inline("The clerk answered a deposit return."),
 })
 export class DepositReplyInterpreter {}
 
@@ -305,7 +305,7 @@ export class BookExpenseTool {
 @Agent({
   name: "office-agent",
   description: "Returns deposits and books expenses",
-  prompt: "Do what is asked.",
+  prompt: inline("Do what is asked."),
   model: "moonshotai/kimi-k2.6",
   tools: [ReturnDepositTool, BookExpenseTool],
 })

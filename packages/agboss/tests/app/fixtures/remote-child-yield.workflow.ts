@@ -17,6 +17,7 @@ import {
   type ExecutionEndEvent,
   type ExecutionStartEvent,
   type Produced,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -165,7 +166,7 @@ export class ConfirmItemTool {
 @Agent({
   name: "yield-reviewer-agent",
   description: "Reviews one item, confirming it first when asked to",
-  prompt: "Review the item.",
+  prompt: inline("Review the item."),
   model: "moonshotai/kimi-k2.6",
   tools: [ConfirmItemTool],
   input: { item: ItemDto },

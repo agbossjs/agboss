@@ -23,6 +23,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../src/index.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import type { AssembledWorkflow } from "../src/workflow.js";
@@ -46,7 +47,12 @@ import { onStart } from "./helpers/flow.js";
 })
 class IbanPiiPolicy {}
 
-@Agent({ name: "clerk-agent", description: "Answers", prompt: "Answer.", model: "test/clerk" })
+@Agent({
+  name: "clerk-agent",
+  description: "Answers",
+  prompt: inline("Answer."),
+  model: "test/clerk",
+})
 class ClerkAgent {}
 
 @WorkflowStart({ name: "clerk-workflow-start", description: "Ask", input: WorkflowStartTextDto })
@@ -224,7 +230,7 @@ describe("#268 AC4: PII policies and their refusals", () => {
 @Agent({
   name: "own-note-agent",
   description: "Answers from its own note",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/own-note",
   memory: NoteMemory,
 })

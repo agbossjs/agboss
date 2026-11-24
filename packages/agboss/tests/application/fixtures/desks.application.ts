@@ -1,5 +1,12 @@
 import { Application } from "../../../src/application/application.js";
-import { Agent, Injectable, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
+import {
+  Agent,
+  Injectable,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  inline,
+} from "../../../src/index.js";
 import type { OnInit } from "../../../src/components/container/lifecycle.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -94,7 +101,7 @@ export class OrdersWorkflowFinish {}
 @Agent({
   name: "orders-agent",
   description: "Answers orders",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/alpha",
 })
 export class OrdersAgent {}
@@ -125,7 +132,7 @@ export class RefundsWorkflowFinish {}
 @Agent({
   name: "refunds-agent",
   description: "Answers refunds",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/beta",
 })
 export class RefundsAgent {}

@@ -8,6 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  inline,
 } from "../../../src/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { Application } from "../../../src/application/application.js";
@@ -77,7 +78,7 @@ export class ReserveAction {
 @Agent({
   name: "confirm-agent",
   description: "Confirms the reservation",
-  prompt: "Confirm the reservation.",
+  prompt: inline("Confirm the reservation."),
   model: "chaos/model",
   input: { message: WorkflowStartTextDto },
 })

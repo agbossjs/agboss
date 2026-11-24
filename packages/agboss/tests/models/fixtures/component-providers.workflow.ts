@@ -15,6 +15,7 @@ import {
   listOf,
   type Class,
   type Produced,
+  inline,
 } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -83,7 +84,7 @@ export function componentsApplication(levels: ComponentLevels): Class {
   @InputGuardrail({
     name: "lv-input-guardrail",
     description: "Names no model",
-    prompt: "Is it rude?",
+    prompt: inline("Is it rude?"),
     threshold: 0.5,
     refusal: "Be polite.",
     ...own,
@@ -104,7 +105,7 @@ export function componentsApplication(levels: ComponentLevels): Class {
   @Agent({
     name: "lv-agent",
     description: "Names no model",
-    prompt: "Answer.",
+    prompt: inline("Answer."),
     input: { message: WorkflowStartTextDto },
     output: AnswerDto,
     guardrails: [LvGuardrail],
@@ -123,7 +124,7 @@ export function componentsApplication(levels: ComponentLevels): Class {
     name: "lv-router",
     description: "Names no model",
     decidedBy: DecidedBy.Model,
-    prompt: "Pick.",
+    prompt: inline("Pick."),
     input: { message: WorkflowStartTextDto },
     routes: [
       { target: LvAgent, prompt: "Answer it" },
@@ -171,7 +172,7 @@ export function arbiterApplication(modelProvider?: Class): Class {
   @Agent({
     name: "arb-agent",
     description: "Answers",
-    prompt: "Answer.",
+    prompt: inline("Answer."),
     input: { message: WorkflowStartTextDto },
     output: AnswerDto,
     model: "alpha/small",
@@ -192,7 +193,7 @@ export function arbiterApplication(modelProvider?: Class): Class {
 
   @Arbiter({
     name: "arb-arbiter",
-    prompt: "Count it.",
+    prompt: inline("Count it."),
     criteria: [{ target: ArbAgent, prompt: "ok" }],
     ...(modelProvider === undefined ? {} : { modelProvider }),
   })

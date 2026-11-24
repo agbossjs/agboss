@@ -15,6 +15,7 @@ import {
   ShortlistDto,
   UnrelatedDto,
 } from "./dtos.js";
+import { inline } from "../../../src/index.js";
 
 /** #272 example 2a — a review loop: a node reached from two places has its own path. */
 
@@ -31,7 +32,7 @@ export class OfferWorkflowStart {}
 @Agent({
   name: "draft-agent",
   description: "Drafts the offer",
-  prompt: "Draft the offer.",
+  prompt: inline("Draft the offer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -43,7 +44,7 @@ export class DraftAgent {}
 @Agent({
   name: "reviewer-agent",
   description: "Reviews the draft",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
@@ -55,7 +56,7 @@ export class ReviewerAgent {}
 @Agent({
   name: "editor-agent",
   description: "Rewrites the draft by the review notes",
-  prompt: "Rewrite the draft.",
+  prompt: inline("Rewrite the draft."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
@@ -70,7 +71,7 @@ export class EditorAgent {}
 @Agent({
   name: "broken-agent",
   description: "Reads what no path gives",
-  prompt: "Read it.",
+  prompt: inline("Read it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     unrelated: UnrelatedDto,

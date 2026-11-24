@@ -10,6 +10,7 @@ import {
   provide,
   ComponentError,
   Tool,
+  inline,
 } from "../../src/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { toolOf } from "../../src/components/runtime.js";
@@ -99,7 +100,7 @@ describe("components — errors at assembly", () => {
       model: "test/alpha",
       price: testConfig.agents.alpha.price,
       tools: [],
-      prompt: "Hello {{unknown_var}}",
+      prompt: inline("Hello {{unknown_var}}"),
       promptVariables: {},
     })
     class Tester {}

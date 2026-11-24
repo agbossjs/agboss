@@ -1,5 +1,5 @@
 import type { PromptVariables } from "./prompt-variables.js";
-import type { PromptValue } from "./prompt-source.js";
+import type { PromptSource } from "./prompt-source.js";
 import { callerFile } from "./call-site.js";
 import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { GuardrailContent, GuardrailHandler } from "./guardrail-handler.js";
@@ -40,7 +40,7 @@ export interface GuardrailTextOptions<D extends readonly Token[] = readonly Toke
   /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
   readonly deps?: D;
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
-  readonly prompt?: PromptValue;
+  readonly prompt?: PromptSource;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
   readonly promptVariables?: PromptVariables;
@@ -65,7 +65,7 @@ export interface GuardrailComputedOptions<D extends readonly Token[] = readonly 
   /** Constructor dependencies (a `GuardrailRefusal` or `GuardrailHandler` class's services), in order. */
   readonly deps?: D;
   /** The yes / no question: yes blocks. Inline, and / or files next to the class. */
-  readonly prompt?: PromptValue;
+  readonly prompt?: PromptSource;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
   readonly promptVariables?: PromptVariables;

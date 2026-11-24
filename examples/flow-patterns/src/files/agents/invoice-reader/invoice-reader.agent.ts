@@ -1,4 +1,4 @@
-import { Agent, FileView, ModelFiles } from "@agboss/core";
+import { Agent, FileView, ModelFiles, inline } from "@agboss/core";
 import { megabytes } from "@agboss/core/units";
 import { InvoiceRequestDto } from "../../dto/invoice-request.dto.js";
 
@@ -10,7 +10,9 @@ import { InvoiceRequestDto } from "../../dto/invoice-request.dto.js";
 @Agent({
   name: "invoice-reader-agent",
   description: "Reads an invoice and its items",
-  prompt: "Read the invoice and its items. Give the invoice number and the total, one line.",
+  prompt: inline(
+    "Read the invoice and its items. Give the invoice number and the total, one line.",
+  ),
   model: "google/gemini-2.5-flash-lite",
   input: { request: InvoiceRequestDto },
   files: ModelFiles.of({

@@ -19,7 +19,7 @@ import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, inline } from "../../src/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { hours, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
@@ -134,7 +134,7 @@ function toolFlow(
   @Agent({
     name: `${name}-agent`,
     description: "d",
-    prompt: "Refund.",
+    prompt: inline("Refund."),
     model: "moonshotai/kimi-k2.6",
     tools: [SomeTool],
     input: { request: AgentRefundDto },

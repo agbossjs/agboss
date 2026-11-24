@@ -229,10 +229,11 @@ const hashedProvidersOf = (
   bundle: AssembledWorkflow,
 ): Pick<
   AppDeps,
-  "modelProviders" | "ownFileRedactor" | "ownFileTranscriber" | "replyInterpreters"
+  "modelProviders" | "ownFileRedactor" | "ownFileTranscriber" | "replyInterpreters" | "rerankers"
 > => ({
   modelProviders: bundle.modelProviders,
   replyInterpreters: bundle.replyInterpreters,
+  rerankers: bundle.rerankers,
   ownFileRedactor: bundle.ownFileRedactor,
   ownFileTranscriber: bundle.ownFileTranscriber,
 });

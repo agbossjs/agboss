@@ -15,6 +15,7 @@ import {
   WorkflowStart,
   type BudgetHandler,
   type Produced,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -133,7 +134,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 2 };
 @Agent({
   name: "spender-agent",
   description: "Answers with a costly call once the waiter waits",
-  prompt: "Hold for the waiter, then answer.",
+  prompt: inline("Hold for the waiter, then answer."),
   model: "test/spender",
   price,
   tools: [HoldForWaiterTool],
@@ -145,7 +146,7 @@ export class SpenderAgent {}
 @Agent({
   name: "waiter-agent",
   description: "Waits on a slow service",
-  prompt: "Wait.",
+  prompt: inline("Wait."),
   model: "test/waiter",
   price,
   tools: [WaitForAbortTool],
@@ -257,7 +258,7 @@ export class QuorumBudgetWorkflow {}
 @Agent({
   name: "task-agent",
   description: "Does one task",
-  prompt: "Do the task.",
+  prompt: inline("Do the task."),
   model: "test/task",
   price,
   tools: [HoldForWaiterTool, WaitForAbortTool],

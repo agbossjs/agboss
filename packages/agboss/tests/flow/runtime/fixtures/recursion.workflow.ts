@@ -16,6 +16,7 @@ import {
   WorkflowStart,
   type Produced,
   variant,
+  inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -80,7 +81,7 @@ export class TopicResearchWorkflowStart {}
 @Agent({
   name: "researcher-agent",
   description: "Researches one topic, or says it is too broad and lists its subtopics",
-  prompt: "Research the topic: report on it, or say it is too broad and list its subtopics.",
+  prompt: inline("Research the topic: report on it, or say it is too broad and list its subtopics."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto },
   output: oneOf(TopicReportDto, TopicTooBroadDto),
@@ -113,7 +114,7 @@ export class SubtopicsAction {
 @Agent({
   name: "merge-agent",
   description: "Merges the subtopics' reports into one report on the topic",
-  prompt: "Merge the reports into one report on the topic.",
+  prompt: inline("Merge the reports into one report on the topic."),
   model: "moonshotai/kimi-k2.6",
   input: {
     topic: TopicDto,
@@ -368,7 +369,7 @@ export class ChainWorkflowStart {}
 @Agent({
   name: "link-agent",
   description: "Ends the chain",
-  prompt: "End the chain.",
+  prompt: inline("End the chain."),
   model: "moonshotai/kimi-k2.6",
   input: { link: LinkDto },
   output: LinkDoneDto,
@@ -379,7 +380,7 @@ export class LinkAgent {}
   name: "link-router",
   description: "Goes one link further, or ends the chain",
   decidedBy: DecidedBy.Model,
-  prompt: "Go one link further, or end the chain.",
+  prompt: inline("Go one link further, or end the chain."),
   model: "typesafe/jev-1.13",
   input: { link: LinkDto },
   maxVisits: 1,

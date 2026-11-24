@@ -27,6 +27,7 @@ import {
   PurchaseQuestionDto,
   QuestionInbox,
 } from "./questions.fixture.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #712 — a question role as an agent's tool: a buyer agent decides itself whether to ask its
@@ -154,7 +155,7 @@ export class OrderTool {
 @Agent({
   name: "buyer-agent",
   description: "Buys what is asked, within the approver's limit",
-  prompt: "Ask the approver for a limit when the price is high, then order within it.",
+  prompt: inline("Ask the approver for a limit when the price is high, then order within it."),
   model: "test/buyer",
   input: { message: WorkflowStartTextDto },
   tools: [ApproverQuestion, OrderTool],
@@ -164,7 +165,7 @@ export class BuyerAgent {}
 @Agent({
   name: "owner-buyer-agent",
   description: "Asks the budget owner before it buys",
-  prompt: "Ask the budget owner for a limit.",
+  prompt: inline("Ask the budget owner for a limit."),
   model: "test/buyer",
   input: { message: WorkflowStartTextDto },
   tools: [BudgetOwnerQuestion],

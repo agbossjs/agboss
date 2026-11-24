@@ -12,6 +12,7 @@ import { WorkflowStartTextDto } from "./dtos.js";
 import { ArticleDraftDto } from "./launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "./review-dtos.js";
 import { CriticAgent, PlannerAgent, PlanResearcherAgent } from "./launch.fixture.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #1279 — `.inParallel([…])`: branches of any kind in one tuple, a branch's `.onError(E, skip())`
@@ -28,7 +29,7 @@ export class ParallelPanelWorkflowStart {}
 @Agent({
   name: "parallel-panel-writer-agent",
   description: "Writes from the research and a critique, when there is one",
-  prompt: "Write the article.",
+  prompt: inline("Write the article."),
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: PlanDto,
@@ -87,7 +88,7 @@ export class ParallelPanelRouter implements RouterHandler<ParallelPanelRouter> {
 @Agent({
   name: "chosen-panel-writer-agent",
   description: "Writes from whichever branches the router picked",
-  prompt: "Write the article.",
+  prompt: inline("Write the article."),
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: PlanDto,

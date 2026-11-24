@@ -11,7 +11,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { DraftChangesDto } from "./data-dtos.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, ShortlistDto } from "./dtos.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline } from "../../../src/index.js";
 
 /**
  * #299 S56 — earlier versions without tags: the review loop's reviewer reads
@@ -37,7 +37,7 @@ export class HistoryOfferWorkflowStart {}
 @Agent({
   name: "first-draft-agent",
   description: "Drafts the offer",
-  prompt: "Draft the offer.",
+  prompt: inline("Draft the offer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -70,7 +70,7 @@ export class ReviewDraftAction implements ActionHandler<ReviewDraftAction> {
 @Agent({
   name: "draft-editor-agent",
   description: "Rewrites the draft",
-  prompt: "Rewrite the draft.",
+  prompt: inline("Rewrite the draft."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,

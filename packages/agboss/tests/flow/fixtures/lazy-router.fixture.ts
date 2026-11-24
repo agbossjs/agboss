@@ -7,6 +7,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { Route } from "../../../src/flow/generated-types.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { ChargeResultDto } from "./credit-dtos.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #1271b — a router that names the finish and the agent declared BELOW it: the thunk `() => Target`
@@ -27,7 +28,7 @@ export class LazyWorkflowStart {}
   description: "Sends an order to the intake, ends on anything else",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick who handles the customer's message.",
+  prompt: inline("Pick who handles the customer's message."),
   input: { message: WorkflowStartTextDto },
   routes: [
     { target: () => LazyIntakeAgent, prompt: "The customer wants to place an order" },
@@ -39,7 +40,7 @@ export class LazyDeskRouter {}
 @Agent({
   name: "lazy-intake-agent",
   description: "Takes the order",
-  prompt: "Take the order.",
+  prompt: inline("Take the order."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: ChargeResultDto,

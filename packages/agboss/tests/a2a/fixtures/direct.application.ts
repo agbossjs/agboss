@@ -15,7 +15,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { EmptyEnvironment, type Produced } from "../../../src/index.js";
+import { EmptyEnvironment, type Produced, inline } from "../../../src/index.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -48,7 +48,7 @@ export class PriceLookupTool {
 @Agent({
   name: "quote-agent",
   description: "Answers a price question",
-  prompt: "Answer the price question; look prices up.",
+  prompt: inline("Answer the price question; look prices up."),
   model: "moonshotai/kimi-k2.6",
   tools: [PriceLookupTool],
 })

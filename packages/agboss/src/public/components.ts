@@ -13,7 +13,6 @@ export {
   type CodeGuardrailTextOptions,
   type GuardrailComputedOptions,
   type GuardrailRefusal,
-  type ModelGuardrailInstance,
   type GuardrailTextOptions,
   type InjectableOptions,
   type ToolHandler,
@@ -69,28 +68,21 @@ export {
   type PiiRefusal,
   type PiiReplacedPart,
   type PiiRule,
-  type PiiRuleCode,
   type PiiTarget,
   type PiiTargetDescriptor,
   type TokenizeAction,
 } from "../pii/index.js";
-export {
-  type DeclarativeJudgeClass,
-  type DeclarativeJudgeOptions,
-} from "../components/judge-declaration.js";
+export { type ModelJudgeOptions } from "../components/judge-declaration.js";
 export {
   type CodeJudgeOptions,
   type FailedJudgeVerdict,
   type FailedJudgeVerdictOptions,
-  type HybridJudgeModelOptions,
   Judge,
   type JudgeHandler,
   type JudgeInput,
-  type JudgedInput,
   type JudgedOutput,
   type JudgedValueOf,
   type JudgeMetrics,
-  type JudgeMethod,
   JudgeModel,
   type JudgeOptions,
   type JudgeOutputOf,
@@ -149,7 +141,6 @@ export {
   type PromptFilePath,
   type PromptPart,
   type PromptSource,
-  type PromptValue,
 } from "../components/prompt-source.js";
 export type { PromptVariables } from "../components/prompt-variables.js";
 export {

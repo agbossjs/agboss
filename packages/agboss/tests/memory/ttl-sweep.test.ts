@@ -12,6 +12,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -40,7 +41,12 @@ const workflowOf = (name: string, memory?: Class) => {
     output: WorkflowFinishTextDto,
   })
   class Finish {}
-  @Agent({ name: `${name}-agent`, description: "Answers", prompt: "Answer.", model: "test/chat" })
+  @Agent({
+    name: `${name}-agent`,
+    description: "Answers",
+    prompt: inline("Answer."),
+    model: "test/chat",
+  })
   class Replier {}
   @Workflow({
     name: `${name}-workflow`,

@@ -15,6 +15,7 @@ import {
   type ExecutionStartEvent,
   type ModelStartEvent,
   type ToolStartEvent,
+  inline,
 } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
@@ -89,7 +90,7 @@ export class Apply {
 @Agent({
   name: "searcher-agent",
   description: "Finds jobs",
-  prompt: "Find jobs. Return at most `limit` jobs.",
+  prompt: inline("Find jobs. Return at most `limit` jobs."),
   tools: [Lookup, Apply],
   model: "test/searcher",
   input: { search: SearchInDto },
@@ -172,7 +173,7 @@ export class JobSearchApplication {}
 @Agent({
   name: "typo-agent",
   description: "Names an input field in its instructions",
-  prompt: "Return at most {{input.limit}} jobs.",
+  prompt: inline("Return at most {{input.limit}} jobs."),
   model: "test/typo",
   input: { search: SearchInDto },
   output: ShortlistDto,

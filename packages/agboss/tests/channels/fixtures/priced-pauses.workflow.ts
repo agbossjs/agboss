@@ -5,6 +5,7 @@ import {
   SpendRecorder,
   Tool,
   Workflow,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd } from "../../../src/units/index.js";
@@ -53,7 +54,7 @@ export class PriceOrderTool {
 @Agent({
   name: "priced-refund-agent",
   description: "Prices one order, then refunds it",
-  prompt: "Price the order, then refund it.",
+  prompt: inline("Price the order, then refund it."),
   model: "moonshotai/kimi-k2.6",
   tools: [PriceOrderTool, RefundTool],
   input: { request: RefundRequestDto },

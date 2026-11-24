@@ -14,6 +14,7 @@ import {
   type ExecutionLease,
   type OnDestroy,
   type Produced,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
@@ -139,7 +140,7 @@ export class SlowTool {
 @Agent({
   name: "worker-agent",
   description: "Calls the slow tool",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [SlowTool],
   model: "test/worker",
   input: { message: WorkflowStartTextDto },

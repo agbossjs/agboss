@@ -16,6 +16,7 @@ import {
   WorkflowStart,
   JudgeVerdict,
   type JudgeHandler,
+  inline,
 } from "../../../src/index.js";
 import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
 import {
@@ -43,7 +44,7 @@ export class NowhereJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "nowhere-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Answers on a model no listed provider serves",
   model: "nowhere/agent",
   judges: [NowhereJudge],
@@ -52,7 +53,7 @@ export class NowhereAgent {}
 
 @Agent({
   name: "local-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Answers on the local server",
   model: "local/llama",
 })
@@ -76,7 +77,7 @@ export class ResolutionFinish {}
   name: "nowhere-router",
   description: "Picks the agent, on a chat model no listed provider serves",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who answers.",
+  prompt: inline("Pick who answers."),
   model: "nowhere/router",
   input: { message: WorkflowStartTextDto },
   routes: [{ prompt: "Anything", target: NowhereAgent }],

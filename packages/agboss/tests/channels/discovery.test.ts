@@ -10,7 +10,7 @@ import { Injectable, Tool } from "../../src/components/decorators.js";
 import { Integer } from "../../src/dto/index.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, inline } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -230,7 +230,7 @@ describe("#267 AC8 (PR 1 part): one interpreter belongs to one role", () => {
     @Agent({
       name: "replies-agent",
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "test/m",
       input: { message: WorkflowStartTextDto },
       output: RefundCardOutputDto,

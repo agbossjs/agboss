@@ -9,6 +9,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import type { StepDescriptor } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -134,7 +135,7 @@ export class Slow {
 @Agent({
   name: "clerk-agent",
   description: "Looks things up, charges cards and waits",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [Probe, Charge, Wait, Slow],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },

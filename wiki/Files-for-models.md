@@ -12,13 +12,14 @@ import {
   FileSource,
   FileView,
   ModelFiles,
+  inline,
 } from "@agboss/core";
 import { megabytes } from "@agboss/core/units";
 
 @Agent({
   name: "invoice-reader-agent",
   description: "Reads an invoice and its items",
-  prompt: "Read the invoice and its items.",
+  prompt: inline("Read the invoice and its items."),
   model: "google/gemini-2.5-flash-lite",
   files: ModelFiles.of({
     sources: [FileSource.Input, FileSource.ToolResults, FileSource.History],

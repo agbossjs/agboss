@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { inline } from "../../../src/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../../src/dto/standard/framework.js";
 import type { DtoClass } from "../../../src/dto/types.js";
@@ -97,7 +98,7 @@ function agentNode(index: number, spec: AgentSpec): FlowNode {
   const options = {
     name: `p${String(index)}-agent`,
     description: "A random agent",
-    prompt: "Do it.",
+    prompt: inline("Do it."),
     model: "moonshotai/kimi-k2.6",
     output: dtoAt(spec.output),
   };

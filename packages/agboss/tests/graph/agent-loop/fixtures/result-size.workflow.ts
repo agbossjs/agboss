@@ -8,6 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../../src/index.js";
 import { Rag } from "../../../../src/components/decorators.js";
 import type { ToolEndEvent } from "../../../../src/core/observability.js";
@@ -133,7 +134,7 @@ export class ToolEndLog {
 @Agent({
   name: "research-agent",
   description: "Reads pages",
-  prompt: "Read the pages you are asked about.",
+  prompt: inline("Read the pages you are asked about."),
   model: "test/research",
   tools: [FetchPageTool, ReadNotesTool, BrokenPageTool],
 })
@@ -142,7 +143,7 @@ export class ResearchAgent {}
 @Agent({
   name: "context-agent",
   description: "Answers from the pages",
-  prompt: "Answer from the pages.",
+  prompt: inline("Answer from the pages."),
   model: "test/research",
   rag: [PagesRag],
 })
@@ -224,7 +225,7 @@ export class ZeroBoundTool {
 @Agent({
   name: "zero-bound-agent",
   description: "Uses the zero-bound tool",
-  prompt: "Use the tool.",
+  prompt: inline("Use the tool."),
   model: "test/research",
   tools: [ZeroBoundTool],
 })

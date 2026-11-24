@@ -20,6 +20,7 @@ import {
   PiiPolicy,
   SqliteDriver,
   secret,
+  inline,
 } from "../../src/index.js";
 import { Logger, LogLevel, type LogEntry } from "../../src/infrastructure/logger.js";
 import { TEST_PREVIOUS_PSEUDONYM_KEY, TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
@@ -405,7 +406,7 @@ describe("#1301b: [pii.secret-required]", () => {
     @Agent({
       name: "token-field-agent",
       description: "a",
-      prompt: "p",
+      prompt: inline("p"),
       model: "test/m",
       price: { inputPerMTok: 1, outputPerMTok: 1 },
       input: { who: TokenFieldDto },

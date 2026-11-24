@@ -56,6 +56,7 @@ describe("#1283: a decision of the injected ArbiterModel", () => {
       "desk-arbiter",
       { kind: "jev", model: "typesafe/jev-1.13" },
       deps,
+      "How to judge.",
     );
 
     const read = await model.metered(call).decide({ state: "s", questions });
@@ -74,7 +75,12 @@ describe("#1283: a decision of the injected ArbiterModel", () => {
     const deps = decisions(() => Promise.resolve({ answers: {}, usage: record(1) }));
     const stop = new Error("budget spent");
     const call = callOf({ beforeCall: () => Promise.reject(stop) });
-    const model = createArbiterModels("desk-arbiter", { kind: "jev", model: "m" }, deps);
+    const model = createArbiterModels(
+      "desk-arbiter",
+      { kind: "jev", model: "m" },
+      deps,
+      "How to judge.",
+    );
 
     await expect(model.metered(call).decide({ state: "s", questions })).rejects.toBe(stop);
 
@@ -86,7 +92,12 @@ describe("#1283: a decision of the injected ArbiterModel", () => {
     const failure = withDecisionSpend(new Error("answer does not fit"), record(0.5)) as Error;
     const deps = decisions(() => Promise.reject(failure));
     const call = callOf();
-    const model = createArbiterModels("desk-arbiter", { kind: "jev", model: "m" }, deps);
+    const model = createArbiterModels(
+      "desk-arbiter",
+      { kind: "jev", model: "m" },
+      deps,
+      "How to judge.",
+    );
 
     await expect(model.metered(call).decide({ state: "s", questions })).rejects.toBe(failure);
 
@@ -99,6 +110,7 @@ describe("#1283: a decision of the injected ArbiterModel", () => {
       "desk-arbiter",
       { kind: "llm", model: "chat" },
       decisions(() => Promise.reject(new Error("unused"))),
+      "How to judge.",
     );
     await expect(chat.metered(call).decide({ state: "s", questions })).rejects.toBeInstanceOf(
       ModelKindError,
@@ -108,6 +120,7 @@ describe("#1283: a decision of the injected ArbiterModel", () => {
       "desk-arbiter",
       { kind: "jev", model: "m" },
       { gateway: {} as never, chatDefaults: { temperature: 0 } },
+      "How to judge.",
     );
     await expect(none.metered(call).decide({ state: "s", questions })).rejects.toThrow(
       "arbiter:desk-arbiter: the model gateway has no decisions (m)",
@@ -125,7 +138,12 @@ describe("#1283: a decision of the injected ArbiterModel", () => {
       }),
     );
     const call = callOf({ reading });
-    const model = createArbiterModels("desk-arbiter", { kind: "jev", model: "m" }, deps);
+    const model = createArbiterModels(
+      "desk-arbiter",
+      { kind: "jev", model: "m" },
+      deps,
+      "How to judge.",
+    );
 
     await model.metered(call).decide({ state: "mail a@b.c", questions });
 
@@ -157,7 +175,12 @@ describe("#1283: a chat call of the injected ArbiterModel", () => {
       new AIMessage({ content: "yes, fine", response_metadata: { usage: { cost: 0.25 } } }),
     );
     const call = callOf();
-    const model = createArbiterModels("desk-arbiter", { kind: "llm", model: "chat" }, deps);
+    const model = createArbiterModels(
+      "desk-arbiter",
+      { kind: "llm", model: "chat" },
+      deps,
+      "How to judge.",
+    );
 
     const text = await model.metered(call).invoke("is it fine?");
 
@@ -174,11 +197,21 @@ describe("#1283: a chat call of the injected ArbiterModel", () => {
     const { deps, invoke } = chatting(new AIMessage({ content: "x" }));
     const stop = new Error("budget spent");
     const stopped = callOf({ beforeCall: () => Promise.reject(stop) });
-    const chat = createArbiterModels("desk-arbiter", { kind: "llm", model: "chat" }, deps);
+    const chat = createArbiterModels(
+      "desk-arbiter",
+      { kind: "llm", model: "chat" },
+      deps,
+      "How to judge.",
+    );
     await expect(chat.metered(stopped).invoke("q")).rejects.toBe(stop);
     expect(invoke).not.toHaveBeenCalled();
 
-    const decision = createArbiterModels("desk-arbiter", { kind: "jev", model: "m" }, deps);
+    const decision = createArbiterModels(
+      "desk-arbiter",
+      { kind: "jev", model: "m" },
+      deps,
+      "How to judge.",
+    );
     await expect(decision.metered(callOf()).invoke("q")).rejects.toBeInstanceOf(ModelKindError);
   });
 
@@ -188,7 +221,12 @@ describe("#1283: a chat call of the injected ArbiterModel", () => {
     });
     const { deps } = chatting(failure);
     const call = callOf();
-    const model = createArbiterModels("desk-arbiter", { kind: "llm", model: "chat" }, deps);
+    const model = createArbiterModels(
+      "desk-arbiter",
+      { kind: "llm", model: "chat" },
+      deps,
+      "How to judge.",
+    );
 
     await expect(model.metered(call).invoke("q")).rejects.toBe(failure);
   });

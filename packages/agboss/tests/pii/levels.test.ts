@@ -10,6 +10,7 @@ import {
   WorkflowStart,
   secret,
   type PiiRefusal,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -192,7 +193,7 @@ class LevelFinish {}
 @Agent({
   name: "lv-agent",
   description: "d",
-  prompt: "p",
+  prompt: inline("p"),
   model: "test/lv",
   excludePiiPolicies: [GovernmentPiiPolicy],
 })

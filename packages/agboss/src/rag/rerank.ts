@@ -41,6 +41,8 @@ export interface BoundReranker {
   readonly candidates: number;
   /** A model reranker reads a candidate's first this many characters (default 1200). */
   readonly maxCandidateLength?: number | undefined;
+  /** What a model reranker is told besides the ranking task: its `prompt`, read at assembly (#1347). */
+  readonly instructions?: string | undefined;
   readonly onFailure: RerankFailurePolicy;
   readonly source: RerankerSource;
 }
@@ -150,7 +152,13 @@ const failedSpendOf = (error: unknown): readonly UsageRecord[] =>
 const handlerOf = (bound: BoundReranker, reading: RerankReading | undefined): RerankerHandler =>
   bound.source.kind === "code"
     ? bound.source.instance()
-    : modelRerankerOf(bound.reranker, bound.source.binding(), reading, bound.maxCandidateLength);
+    : modelRerankerOf(
+        bound.reranker,
+        bound.source.binding(),
+        reading,
+        bound.maxCandidateLength,
+        bound.instructions,
+      );
 
 /** What a model reranker's model reads and what masking it cost (#708). */
 interface MaskedRerank {

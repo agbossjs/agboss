@@ -11,6 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type OnStart,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -141,7 +142,7 @@ export class SlowLookup {
 @Agent({
   name: "clock-clerk-agent",
   description: "Stamps and looks up",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [Stamp, SlowLookup],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },

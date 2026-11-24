@@ -8,6 +8,7 @@ import {
   WorkflowStart,
   type Produced,
   Action,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -52,7 +53,7 @@ export class RefundPanelWorkflowStart {}
 @Agent({
   name: "policy-agent",
   description: "Checks the refund policy",
-  prompt: "Score the refund.",
+  prompt: inline("Score the refund."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool],
   input: { request: RefundRequestDto },
@@ -63,7 +64,7 @@ export class PolicyAgent {}
 @Agent({
   name: "risk-agent",
   description: "Checks the refund's risk",
-  prompt: "Score the refund.",
+  prompt: inline("Score the refund."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool],
   input: { request: RefundRequestDto },
@@ -74,7 +75,7 @@ export class RiskAgent {}
 @Agent({
   name: "fraud-agent",
   description: "Checks the refund for fraud",
-  prompt: "Score the refund.",
+  prompt: inline("Score the refund."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool, WaitTool],
   input: { request: RefundRequestDto },

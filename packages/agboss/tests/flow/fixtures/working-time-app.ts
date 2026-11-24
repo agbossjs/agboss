@@ -17,6 +17,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
 import { AgentRefundDoneDto, AgentRefundDto } from "./agent-expiry.fixture.js";
 import { onStart } from "./paths.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #944: an application with one question role (its times and calendar) and a workflow that asks it —
@@ -181,7 +182,7 @@ export function workingToolApp(
   @Agent({
     name: `${name}-agent`,
     description: "d",
-    prompt: "Refund.",
+    prompt: inline("Refund."),
     model: "moonshotai/kimi-k2.6",
     tools: [SomeTool],
     input: { request: AgentRefundDto },

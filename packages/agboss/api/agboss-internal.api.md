@@ -49,6 +49,10 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
     readonly ownFileRedactor?: Class | undefined;
     readonly ownFileTranscriber?: Class | undefined;
     readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
+    readonly rerankers?: readonly {
+        readonly name: string;
+        readonly prompt?: string;
+    }[] | undefined;
     readonly tracing?: ExecutionTracing | undefined;
     // (undocumented)
     readonly turns: TurnRecords;
@@ -210,6 +214,7 @@ export interface AssembledWorkflow<TName extends string = string> {
         readonly name: string;
         readonly model: string;
         readonly modelProvider?: string;
+        readonly prompt?: string;
     }[];
     readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
     readonly routers: readonly LoadedRouter[];
@@ -1671,6 +1676,7 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 export interface WorkflowServices {
     readonly container?: ContainerOptions;
     readonly contexts?: RuntimeContexts;
+    readonly rerankInstructions?: (reranker: string) => string;
     readonly rerankModel?: (reranker: string, model: string, modelProvider?: string) => ModelBinding;
     readonly router: (name: string) => RouterEngine;
 }

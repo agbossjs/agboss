@@ -2,7 +2,8 @@ import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-err
 import { modelNamedBy, type ModelCascade } from "../models/model-cascade.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { BoundReranker } from "../rag/rerank.js";
-import { isCodeRerankerClass } from "../rag/reranker.decorator.js";
+import { isCodeRerankerClass, type RecordedRerankerMeta } from "../rag/reranker.decorator.js";
+import type { PromptLoader } from "./prompt-render.js";
 import { RerankFailurePolicy } from "../rag/types.js";
 import type { WorkflowServices } from "../workflow.js";
 import type { Class } from "./injection.js";
@@ -14,6 +15,8 @@ export interface ResolvedRerankerModel {
   readonly name: string;
   readonly model: string;
   readonly modelProvider?: string;
+  /** Its `prompt` as assembly read it (#1347); `""` when it has none. */
+  readonly prompt?: string;
 }
 
 /**
@@ -51,6 +54,7 @@ function rerankerModelOf(
 export function rerankerModelsOf(
   rags: readonly Class[],
   cascade: ModelCascade = {},
+  prompts: ReadonlyMap<string, string> = new Map(),
 ): readonly ResolvedRerankerModel[] {
   const found = new Map<string, ResolvedRerankerModel | RuleViolation>();
   for (const rag of rags) {
@@ -62,7 +66,40 @@ export function rerankerModelsOf(
   const all = [...found.values()];
   const violations = all.filter((one): one is RuleViolation => "code" in one);
   if (violations.length > 0) throw new GraphRuleError({ violations });
-  return all.filter((one): one is ResolvedRerankerModel => !("code" in one));
+  return all
+    .filter((one): one is ResolvedRerankerModel => !("code" in one))
+    .map((one) => {
+      const prompt = prompts.get(one.name) ?? "";
+      return prompt === "" ? one : { ...one, prompt };
+    });
+}
+
+/**
+ * Every model reranker's `prompt`, read at assembly like any prompt (#1347): a `./` file relative to
+ * the file that declared the reranker, `inline(…)`, or a list of them, with the workflow's variables.
+ * A problem is the loader's, reported with the agent prompts' at once. By the reranker's name.
+ */
+export async function rerankerPromptsOf(
+  rags: readonly Class[],
+  loader: PromptLoader,
+): Promise<ReadonlyMap<string, string>> {
+  const found = new Map<string, RecordedRerankerMeta>();
+  for (const rag of rags) {
+    const reranked = rerankedBy(ragMeta(rag));
+    if (reranked === undefined || isCodeRerankerClass(reranked.cls)) continue;
+    found.set(reranked.meta.name, reranked.meta);
+  }
+  const loaded = await Promise.all(
+    [...found].map(async ([name, meta]): Promise<[string, string]> => [
+      name,
+      await loader.load({
+        label: `@RagReranker "${name}"`,
+        options: { prompt: meta.prompt },
+        source: meta.source,
+      }),
+    ]),
+  );
+  return new Map(loaded);
 }
 
 /** A knowledge base's reranker as the core runs it; none without `reranker`. */
@@ -90,6 +127,7 @@ export function boundRerankerOf(
     reranker: reranker.name,
     candidates: reranker.candidates,
     maxCandidateLength: reranker.maxCandidateLength,
+    instructions: services.rerankInstructions?.(reranker.name) ?? "",
     onFailure: reranker.onFailure ?? RerankFailurePolicy.FailStep,
     source: isCode
       ? { kind: "code", instance: () => instance(cls) as never }

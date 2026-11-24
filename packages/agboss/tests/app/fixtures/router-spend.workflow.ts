@@ -6,6 +6,7 @@ import {
   Workflow,
   WorkflowStart,
   type BudgetHandler,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -46,7 +47,7 @@ export class RoutedChargeWorkflowStart {}
   description: "Sends the order to its charge, or stops",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Charge the order, or stop.",
+  prompt: inline("Charge the order, or stop."),
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
   routes: [

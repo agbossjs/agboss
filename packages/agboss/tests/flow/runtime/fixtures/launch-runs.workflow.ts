@@ -13,6 +13,7 @@ import {
   WorkflowStart,
   type Produced,
   Action,
+  inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -46,7 +47,7 @@ export class PlanLoopWorkflowStart {}
 @Agent({
   name: "loop-planner-agent",
   description: "Plans",
-  prompt: "Plan.",
+  prompt: inline("Plan."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 2,
   input: { message: WorkflowStartTextDto },
@@ -57,7 +58,7 @@ export class LoopPlannerAgent {}
 @Agent({
   name: "loop-critic-agent",
   description: "Criticises the plan",
-  prompt: "Criticise.",
+  prompt: inline("Criticise."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: CritiqueDto,
@@ -154,7 +155,7 @@ export class ConfirmItemTool {
 @Agent({
   name: "item-clerk-agent",
   description: "Handles one item",
-  prompt: "Handle the item.",
+  prompt: inline("Handle the item."),
   model: "moonshotai/kimi-k2.6",
   tools: [ConfirmItemTool],
   input: { item: ItemDto },
@@ -197,7 +198,7 @@ export class TiredWorkflowStart {}
 @Agent({
   name: "tired-planner-agent",
   description: "Plans",
-  prompt: "Plan.",
+  prompt: inline("Plan."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 2,
   input: { message: WorkflowStartTextDto },
@@ -209,7 +210,7 @@ export class TiredPlannerAgent {}
 @Agent({
   name: "tired-critic-agent",
   description: "Criticises the plan, once per execution",
-  prompt: "Criticise.",
+  prompt: inline("Criticise."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 1,
   input: { plan: PlanDto },

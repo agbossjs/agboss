@@ -15,6 +15,7 @@ import {
   type PiiMatch,
   type PiiPolicyHandler,
   type PiiRefusal,
+  inline,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { DatabaseStorage } from "../../src/storage/index.js";
@@ -127,7 +128,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 @Agent({
   name: "support-agent",
   description: "Answers customers",
-  prompt: "Answer the customer.",
+  prompt: inline("Answer the customer."),
   model: "test/support",
   price,
   tools: [SendEmail],
@@ -137,7 +138,7 @@ export class SupportAgent {}
 @Agent({
   name: "open-agent",
   description: "Sees contact details",
-  prompt: "Answer the customer.",
+  prompt: inline("Answer the customer."),
   model: "test/open",
   price,
   excludePiiPolicies: [ContactPiiPolicy],

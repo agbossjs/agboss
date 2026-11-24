@@ -14,6 +14,7 @@ import {
   WorkflowSettings,
   WorkflowStart,
   type WorkflowDefinition,
+  inline,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { CostReport } from "../../src/finops/usage.js";
@@ -43,7 +44,7 @@ class TicketStart {}
 @Agent({
   name: "ticket-writer-agent",
   description: "Writes ticket replies",
-  prompt: "Reply to the ticket.",
+  prompt: inline("Reply to the ticket."),
   model: "test/writer",
   input: { ticket: TicketDto },
 })

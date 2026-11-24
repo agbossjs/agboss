@@ -6,6 +6,7 @@ import {
   Tool,
   Workflow,
   WorkflowStart,
+  inline,
 } from "../../../../src/index.js";
 import { onStart } from "../../../helpers/flow.js";
 import { BatchDoneWorkflowFinish, BatchDoneAction } from "./tree-batch.workflow.js";
@@ -34,7 +35,7 @@ export class ConfirmTaskTool {
 @Agent({
   name: "task-checker-agent",
   description: "Checks one task, asking for a confirmation when it must",
-  prompt: "Check the task.",
+  prompt: inline("Check the task."),
   model: "moonshotai/kimi-k2.6",
   tools: [ConfirmTaskTool],
   input: { task: TaskDto },

@@ -8,6 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   TokenLimit,
+  inline,
 } from "../../../src/index.js";
 import {
   JudgeModel,
@@ -55,7 +56,7 @@ export class Grounded implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes an answer",
   model: "local/llama",
   judges: [Grounded],
@@ -116,7 +117,7 @@ export class Modelless implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "careless-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Gated by a judge without a model",
   model: "local/llama",
   judges: [Modelless],

@@ -5,6 +5,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { onStart } from "./paths.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #272 S4 — the 32-shape threshold of `InputOf`: a start whose map has 5 optional fields brings
@@ -60,7 +61,7 @@ export class SixPartsWorkflowStart {}
 @Agent({
   name: "five-parts-agent",
   description: "Sums five parts up",
-  prompt: "Sum the parts up.",
+  prompt: inline("Sum the parts up."),
   model: "moonshotai/kimi-k2.6",
   input: fiveParts,
   output: SummaryDto,
@@ -70,7 +71,7 @@ export class FivePartsAgent {}
 @Agent({
   name: "six-parts-agent",
   description: "Sums six parts up",
-  prompt: "Sum the parts up.",
+  prompt: inline("Sum the parts up."),
   model: "moonshotai/kimi-k2.6",
   input: sixParts,
   output: SummaryDto,

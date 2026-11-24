@@ -27,6 +27,7 @@ import {
 import { EditorAgent, NotifyRecruiterAction, OfferWorkflow } from "./fixtures/offer.fixture.js";
 import { OrderWorkflowFinish, OrderWorkflowStart } from "./fixtures/order.fixture.js";
 import { reviewerAgentOptions } from "./fixtures/reviewer-agent.options.js";
+import { inline } from "../../src/index.js";
 
 /** What the v2 decorators record (#272 → Decorators v2, #270 → typed input / output). */
 
@@ -215,7 +216,7 @@ describe("AC13: the name is explicit, never derived from the class", () => {
     @Agent({
       name: "score-summary-agent",
       description: "Sums the scores up",
-      prompt: "Sum up.",
+      prompt: inline("Sum up."),
       model: "moonshotai/kimi-k2.6",
     })
     class RenamedLaterAgent {}
@@ -230,7 +231,7 @@ describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
     @Agent({
       name: "researcher-agent",
       description: "Researches",
-      prompt: "Research.",
+      prompt: inline("Research."),
       model: "moonshotai/kimi-k2.6",
       reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
       rag: [EditorAgent],

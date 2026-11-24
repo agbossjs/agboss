@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createApp, PromptError } from "../../src/index.js";
+import { createApp, inline, PromptError } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
@@ -60,7 +60,7 @@ describe("#199 AC1: every prompt is read and checked at assembly", () => {
   });
 
   it("an inline prompt that is just a .md name fails — it would be sent as text", async () => {
-    const { application } = workflowWith({ agent: { prompt: "scout.prompt.md" } });
+    const { application } = workflowWith({ agent: { prompt: inline("scout.prompt.md") } });
 
     expect(await problemsOf(application)).toEqual([
       '[prompt.path-as-text] @Agent "scout-agent": prompt "scout.prompt.md" is a file path, not prompt text — use prompt: "./scout.prompt.md"',

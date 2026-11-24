@@ -1141,7 +1141,7 @@ understood, a model that gives no answer, an answer the role rejects, a crash â€
 `UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` says why, `cause` is the error
 behind it, if any) and the pause stays pending, so the webhook can ask again or answer with a `decision`; a
 `reply` for a role without an interpreter is `ReplyInterpreterMissingError`
-(`pause.no-reply-interpreter`), the pause untouched.
+(`pause.channel-interpreter-missing`), the pause untouched.
 
 <!-- snippet-context
 import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "@agboss/core";
@@ -1159,7 +1159,7 @@ export class RefundCardInputDto {
   description: "Turns a manager's free-text reply into a refund decision",
   decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
-  prompt: "The manager answered a refund approval in free text. Decide approve / reject.",
+  prompt: inline("The manager answered a refund approval in free text. Decide approve / reject."),
 })
 export class RefundReplyInterpreter {}
 
@@ -1191,7 +1191,7 @@ export class DepositReturnDto {
   description: "Reads whether a clerk's reply approves a deposit return",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "The clerk answered a deposit return.",
+  prompt: inline("The clerk answered a deposit return."),
 })
 export class DepositReplyInterpreter {}
 
@@ -1790,7 +1790,7 @@ export class RefusalTextService {
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
-  prompt: "Does the message ask for legal advice?",
+  prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13",
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService],
@@ -1810,7 +1810,7 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 @OutputGuardrail({
   name: "no-legal-advice-guardrail",
   description: "Blocks answers that give legal advice",
-  prompt: "Does the answer give legal advice?",
+  prompt: inline("Does the answer give legal advice?"),
   threshold: 0.8,
   refusal: "I can't give legal advice. Please contact a lawyer.",
 })

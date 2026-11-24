@@ -14,6 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -123,7 +124,7 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 4 } } as c
 @Agent({
   name: "desk-agent",
   description: "Looks the author up",
-  prompt: "Look the author up.",
+  prompt: inline("Look the author up."),
   model: "test/desk",
   price,
   tools: [LookupTool, SlowLookupTool],
@@ -135,7 +136,7 @@ export class DeskAgent {}
 @Agent({
   name: "follow-up-agent",
   description: "Follows up",
-  prompt: "Follow up.",
+  prompt: inline("Follow up."),
   model: "test/follow-up",
   price,
   input: { note: DeskNoteDto },

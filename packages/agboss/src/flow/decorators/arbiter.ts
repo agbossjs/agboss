@@ -2,6 +2,7 @@ import "../../polyfills/symbol-metadata.js";
 import type { BaseMessageLike } from "@langchain/core/messages";
 import { callerFile } from "../../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
+import type { PromptSource } from "../../components/prompt-source.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../../llm/decisions.js";
 import { METADATA_KEY } from "../../polyfills/symbol-metadata.js";
 import type { NodeKind } from "../ast.js";
@@ -42,8 +43,8 @@ export interface ModelArbiterOptions {
   readonly model?: string;
   /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
   readonly modelProvider?: Class;
-  /** How to judge; never stands in for a missing criterion. */
-  readonly prompt: string;
+  /** How to judge: a `.prompt.md` file next to the class (`./…`), `inline(…)` or a list of them; never stands in for a missing criterion. */
+  readonly prompt: PromptSource;
   /** One per target of the launch it is attached to. */
   readonly criteria: readonly [ArbiterCriterion, ...ArbiterCriterion[]];
   readonly deps?: never;

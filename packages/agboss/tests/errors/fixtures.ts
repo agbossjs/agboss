@@ -11,6 +11,7 @@ import {
   type BudgetHandler,
   BudgetExceededError,
   LimitExceededError,
+  inline,
 } from "../../src/index.js";
 import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -57,7 +58,7 @@ const defaults = {
 
 @Agent({
   name: "buyer-agent",
-  prompt: "Buy what is asked.",
+  prompt: inline("Buy what is asked."),
   description: "Buys things",
   model: "test/buyer",
   price,
@@ -69,7 +70,7 @@ export class Buyer {}
 
 @Agent({
   name: "checker-agent",
-  prompt: "Check the purchase.",
+  prompt: inline("Check the purchase."),
   description: "Checks purchases",
   model: "test/checker",
   price,

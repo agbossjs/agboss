@@ -19,6 +19,7 @@ import {
   toolCallsOf,
   type JudgeHandler,
   type JudgeInput,
+  inline,
 } from "../../../src/index.js";
 import { Integer, Enum, Text } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "./dtos.js";
@@ -157,7 +158,7 @@ export class DeleteOrderTool {
 @Agent({
   name: "desk-agent",
   description: "Handles refunds",
-  prompt: "Refund broken orders.",
+  prompt: inline("Refund broken orders."),
   model: "test/desk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
   input: { message: WorkflowStartTextDto },

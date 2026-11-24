@@ -12,6 +12,7 @@ import {
   WorkflowSettings,
   type WorkflowDefinition,
   Tool,
+  inline,
 } from "../../src/index.js";
 import { connectMcp, McpEndpoint, type McpSessionOptions } from "../../src/mcp/index.js";
 import { plainApp } from "../helpers/mcp-plain-app.js";
@@ -88,7 +89,7 @@ class Broken {
 
 @Agent({
   name: "clerk-agent",
-  prompt: "Answer questions about orders and keep notes.",
+  prompt: inline("Answer questions about orders and keep notes."),
   description: "Orders and notes",
   model: "test/clerk",
   price: { inputPerMTok: 1, outputPerMTok: 2 },

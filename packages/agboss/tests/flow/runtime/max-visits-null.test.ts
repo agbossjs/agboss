@@ -23,11 +23,12 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { onAgent, caseOf, onStart } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 @Agent({
   name: "null-bound-edit-agent",
   description: "Edits the draft",
-  prompt: "Edit it.",
+  prompt: inline("Edit it."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto },
   output: OfferDraftDto,
@@ -38,7 +39,7 @@ class NullBoundEditAgent {}
 @Agent({
   name: "null-bound-review-agent",
   description: "Reviews the draft",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto },
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),

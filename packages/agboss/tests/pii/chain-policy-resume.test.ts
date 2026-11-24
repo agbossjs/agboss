@@ -26,6 +26,7 @@ import {
   WorkflowStart,
   type PiiMatch,
   type PiiPolicyHandler,
+  inline,
 } from "../../src/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { childSourcesIn, configSnapshot } from "../../src/run/versions.js";
@@ -64,7 +65,7 @@ const OwnMask = policyOf("cr-own-pii-policy", PiiFileAction.Mask);
 @Agent({
   name: "cr-mailer-agent",
   description: "Sends the emails it is asked to",
-  prompt: "Send the email you are asked to send.",
+  prompt: inline("Send the email you are asked to send."),
   tools: [SendEmail],
   model: "test/cr-mailer",
 })

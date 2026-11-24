@@ -17,6 +17,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { onAgent, caseOf, onStart } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 /** The graph rules that stay (#272 AC11, AC14): all at once, before any model call. */
 
@@ -90,7 +91,7 @@ class WrongKindsWorkflow {}
 @Agent({
   name: "draft-kit-agent",
   description: "A second class under a taken name",
-  prompt: "Draft it.",
+  prompt: inline("Draft it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,

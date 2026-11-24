@@ -908,7 +908,7 @@ export const offerPaths = [
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
+import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, onStart, inline } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto, listOf, optional } from "@agboss/core/dto";
 
 export class CompanyDto {
@@ -966,7 +966,7 @@ export class SupportWorkflowFinish {}
   description: "Picks everyone needed",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick everyone needed for the customer's message.",
+  prompt: inline("Pick everyone needed for the customer's message."),
   input: { message: WorkflowStartTextDto },
   routes: [
     { target: OrderAgent, spawn: SpawnPolicy.Always },
@@ -1639,7 +1639,7 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   understood, no answer, an invalid one, a crash) → `UninterpretableReplyError`
   (`pause.uninterpretable-reply`, `reason`, `cause` when an error is behind it), the
   pause stays pending; a role without one → `ReplyInterpreterMissingError`
-  (`pause.no-reply-interpreter`); `[reply-interpreter.not-an-interpreter]`,
+  (`pause.channel-interpreter-missing`); `[reply-interpreter.not-an-interpreter]`,
   `[reply-interpreter.no-interpret-method]` at assembly.
 - **Observers are registered only in `@Application({ observers: [...] })`** (#261), not discovered
   and never in `@Workflow`: an `@Observer({ name?, workflows?, agents?, deps? })` class with a
@@ -2834,7 +2834,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   `step.child` (`ChildExecutionFailedError`, #263) / `step.tool-blocked` (`ToolBlockedError`, #384),
   `limit.depth` (`DepthLimitExceededError`, #264),
   `step.memory` (`StepError.Memory`, #1303),
-  `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.no-reply-interpreter`,
+  `pause.unknown`, `pause.wrong-answerer`, `pause.uninterpretable-reply`, `pause.channel-interpreter-missing`,
   `execution.cancelled`, `app.stopping` — `ApplicationStoppingError`, `execute` / `resume` after
   `app.close()`, an `onExecutionRejected`, …); a new error
   class gets a `static code`, and **one shape (#906, #890 G8)**: it is made from one options object

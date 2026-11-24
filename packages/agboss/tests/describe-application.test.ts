@@ -19,6 +19,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../src/index.js";
 import { ImplementationReason } from "../src/application/implementations.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
@@ -29,7 +30,7 @@ import { RecordingCostLedgerRepository } from "./application/fixtures/desks.appl
 @Agent({
   name: "teller-agent",
   description: "Tells",
-  prompt: "Tell.",
+  prompt: inline("Tell."),
   model: "test/teller",
   maxVisits: 2,
 })

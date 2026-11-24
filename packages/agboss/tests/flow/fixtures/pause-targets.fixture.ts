@@ -26,6 +26,7 @@ import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #1307a / #1310c — the pause targets in their new names, for the generated types (`PauseTargets`,
@@ -172,7 +173,7 @@ export class PtNoteTool {
 @Agent({
   name: "pt-payer-agent",
   description: "Pays out",
-  prompt: "Pay out.",
+  prompt: inline("Pay out."),
   model: "test/payer",
   input: { message: WorkflowStartTextDto },
   output: PtPayoutDoneDto,

@@ -13,6 +13,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
@@ -120,7 +121,7 @@ export class ProbeWorkflowStart {}
 @Agent({
   name: "probe-agent",
   description: "Answers",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
 })
 export class ProbeAgent {}

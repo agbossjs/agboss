@@ -13,6 +13,7 @@ import { shapeLabel } from "../flow/analyse/labels.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import { arbiterPromptHashOf } from "../flow/runtime/model-component-keys.js";
+import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 
 /**
  * The flow of a workflow as data (#268 S92 / S93, `agboss describe --json`): every edge as the
@@ -112,7 +113,10 @@ export const errorHandlersOf = (graph: RuntimeGraph): readonly ErrorHandlerSnaps
   );
 
 /** An arbiter with its hashes: a model one's prompt and criteria. */
-function arbiterSnapshotOf(arbiter: ArbiterClass): ArbiterSnapshot {
+function arbiterSnapshotOf(
+  arbiter: ArbiterClass,
+  uses: readonly ModelArbiterUse[],
+): ArbiterSnapshot {
   const options = arbiterOf(arbiter)?.options;
   const name = options?.name ?? arbiter.name;
   const base = { name, kind: ComponentKind.Arbiter, schemaHash: undefined };
@@ -122,7 +126,7 @@ function arbiterSnapshotOf(arbiter: ArbiterClass): ArbiterSnapshot {
     ...base,
     decidedBy: DecidedBy.Model,
     model: options.model,
-    promptHash: arbiterPromptHashOf(arbiter),
+    promptHash: arbiterPromptHashOf(arbiter, uses),
   };
 }
 
@@ -142,7 +146,11 @@ function quorumOf(quorum: Quorum): QuorumSnapshot {
   return { kind: quorum.kind, groups, ...deadline };
 }
 
-const launchOf = (launch: FlowLaunch, quorum: Quorum | undefined): LaunchSnapshot => ({
+const launchOf = (
+  launch: FlowLaunch,
+  quorum: Quorum | undefined,
+  uses: readonly ModelArbiterUse[],
+): LaunchSnapshot => ({
   launcher: launch.launcher,
   targets: launch.listed,
   isPerItem: launch.items !== undefined,
@@ -152,9 +160,12 @@ const launchOf = (launch: FlowLaunch, quorum: Quorum | undefined): LaunchSnapsho
   ...(quorum === undefined ? {} : { quorum: quorumOf(quorum) }),
   ...(launch.arbitratedBy === undefined
     ? {}
-    : { arbitratedBy: arbiterSnapshotOf(launch.arbitratedBy) }),
+    : { arbitratedBy: arbiterSnapshotOf(launch.arbitratedBy, uses) }),
 });
 
 /** Every launch of the graph. */
-export const launchesOfGraph = (graph: RuntimeGraph): readonly LaunchSnapshot[] =>
-  graph.launches.map((launch) => launchOf(launch.launch, launch.quorum));
+export const launchesOfGraph = (
+  graph: RuntimeGraph,
+  uses: readonly ModelArbiterUse[] = [],
+): readonly LaunchSnapshot[] =>
+  graph.launches.map((launch) => launchOf(launch.launch, launch.quorum, uses));

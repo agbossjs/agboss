@@ -12,6 +12,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, Route } from "../../../src/flow/generated-types.js";
 import type { RouterHandler } from "../../../src/flow/handlers.js";
 import { SupportIntentDto, TopicAnswerDto } from "./credit-dtos.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #280 — a code router with `spawn` / `failure` on its routes, the options of a parallel launch
@@ -30,7 +31,7 @@ export class TopicsWorkflowStart {}
 @Agent({
   name: "order-topic-agent",
   description: "Answers about the order itself",
-  prompt: "Answer about the order.",
+  prompt: inline("Answer about the order."),
   model: "moonshotai/kimi-k2.6",
   input: {
     intent: SupportIntentDto,
@@ -42,7 +43,7 @@ export class OrderTopicAgent {}
 @Agent({
   name: "refund-topic-agent",
   description: "Answers about refunds",
-  prompt: "Answer about refunds.",
+  prompt: inline("Answer about refunds."),
   model: "moonshotai/kimi-k2.6",
   input: {
     intent: SupportIntentDto,
@@ -54,7 +55,7 @@ export class RefundTopicAgent {}
 @Agent({
   name: "delivery-topic-agent",
   description: "Answers about the delivery",
-  prompt: "Answer about the delivery.",
+  prompt: inline("Answer about the delivery."),
   model: "moonshotai/kimi-k2.6",
   input: {
     intent: SupportIntentDto,

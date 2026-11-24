@@ -8,6 +8,7 @@ import {
   WorkflowStart,
   type Produced,
   Action,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -44,7 +45,7 @@ export class PayoutWorkflowStart {}
 @Agent({
   name: "payout-confirm-agent",
   description: "Confirms the order with the customer",
-  prompt: "Confirm the order.",
+  prompt: inline("Confirm the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [ConfirmOrderTool],
   input: { request: RefundRequestDto },
@@ -55,7 +56,7 @@ export class PayoutConfirmAgent {}
 @Agent({
   name: "payout-refund-agent",
   description: "Refunds the order",
-  prompt: "Refund the order.",
+  prompt: inline("Refund the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool],
   input: { request: RefundRequestDto },

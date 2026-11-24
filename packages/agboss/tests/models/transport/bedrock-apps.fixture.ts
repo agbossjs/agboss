@@ -8,6 +8,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
@@ -80,13 +81,18 @@ export interface BedrockDesk {
  * agent with a tool, #1231) on a model.
  */
 export function workflowsOn(model: string, prefix: string): BedrockDesk {
-  @Agent({ name: `${prefix}-agent`, description: "Answers", prompt: "Answer the message.", model })
+  @Agent({
+    name: `${prefix}-agent`,
+    description: "Answers",
+    prompt: inline("Answer the message."),
+    model,
+  })
   class TextAgent {}
 
   @Agent({
     name: `${prefix}-verdict-agent`,
     description: "Gives a verdict",
-    prompt: "Give a verdict on the message.",
+    prompt: inline("Give a verdict on the message."),
     model,
     output: VerdictDto,
   })
@@ -107,7 +113,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Agent({
     name: `${prefix}-lookup-agent`,
     description: "Answers, looking things up",
-    prompt: "Answer the message; look things up when you need to.",
+    prompt: inline("Answer the message; look things up when you need to."),
     model,
     tools: [LookupTool],
   })

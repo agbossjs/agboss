@@ -113,7 +113,7 @@ export class TicketWorkflowStart {}
 ```
 
 ```ts file=src/ticket/agents/ticket-triage/ticket-triage.agent.ts
-import { Agent, optional } from "@agboss/core";
+import { Agent, optional, inline } from "@agboss/core";
 import { CustomerDto } from "../../dto/customer.dto.js";
 import { TicketDto } from "../../dto/ticket.dto.js";
 import { TriageDto } from "../../dto/triage.dto.js";
@@ -121,7 +121,7 @@ import { TriageDto } from "../../dto/triage.dto.js";
 @Agent({
   name: "ticket-triage-agent",
   description: "Sorts the ticket into a queue",
-  prompt: "Sort the ticket into a queue; urgent when the customer cannot work.",
+  prompt: inline("Sort the ticket into a queue; urgent when the customer cannot work."),
   model: "moonshotai/kimi-k2.6",
   input: { ticket: TicketDto, customer: optional(CustomerDto) },
   output: TriageDto,
@@ -253,14 +253,14 @@ export class CreditWorkflowStart {}
 ```
 
 ```ts file=src/credit/agents/order-intake/order-intake.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 
 @Agent({
   name: "order-intake-agent",
   description: "Turns the message into an order",
-  prompt: "Read the order out of the message.",
+  prompt: inline("Read the order out of the message."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: CreditOrderDto,
@@ -269,26 +269,26 @@ export class OrderIntakeAgent {}
 ```
 
 ```ts file=src/credit/agents/credit-question/credit-question.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 
 @Agent({
   name: "credit-question-agent",
   description: "Answers a question about credit terms",
-  prompt: "Answer the question about our credit terms in two sentences.",
+  prompt: inline("Answer the question about our credit terms in two sentences."),
   model: "moonshotai/kimi-k2.6",
 }) // a text agent: no output — it answers text
 export class CreditQuestionAgent {}
 ```
 
 ```ts file=src/credit/agents/credit-approval/credit-approval.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CreditApprovalDto } from "../../dto/credit-approval.dto.js";
 import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 
 @Agent({
   name: "credit-approval-agent",
   description: "Approves a large order",
-  prompt: "Approve the order if the customer's history allows it.",
+  prompt: inline("Approve the order if the customer's history allows it."),
   model: "moonshotai/kimi-k2.6",
   input: { order: CreditOrderDto },
   output: CreditApprovalDto,
@@ -346,7 +346,7 @@ export class OrderHeldWorkflowFinish {}
 ```
 
 ```ts file=src/credit/routers/credit-desk/credit-desk.router.ts
-import { DecidedBy, Router } from "@agboss/core";
+import { DecidedBy, Router, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { CreditQuestionAgent } from "../../agents/credit-question/credit-question.agent.js";
 import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.js";
@@ -356,7 +356,7 @@ import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.j
   description: "Sends an order to intake, a question to the answering agent",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick who handles the customer's message.",
+  prompt: inline("Pick who handles the customer's message."),
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
   routes: [
@@ -511,14 +511,14 @@ export class OfferWorkflowStart {}
 ```
 
 ```ts file=src/offer/agents/offer-draft/offer-draft.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CandidateShortlistDto } from "../../dto/candidate-shortlist.dto.js";
 import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 
 @Agent({
   name: "offer-draft-agent",
   description: "Writes the first draft of the offer",
-  prompt: "Write the offer for the candidate.",
+  prompt: inline("Write the offer for the candidate."),
   model: "moonshotai/kimi-k2.6",
   input: { shortlist: CandidateShortlistDto },
   output: OfferDraftDto,
@@ -527,7 +527,7 @@ export class OfferDraftAgent {}
 ```
 
 ```ts file=src/offer/agents/offer-reviewer/offer-reviewer.agent.ts
-import { Agent, historyOf, oneOf } from "@agboss/core";
+import { Agent, historyOf, oneOf, inline } from "@agboss/core";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { DraftApprovedDto } from "../../dto/draft-approved.dto.js";
 import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
@@ -535,7 +535,7 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 @Agent({
   name: "offer-reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Approve the draft, or say what to change. Compare it with the earlier versions.",
+  prompt: inline("Approve the draft, or say what to change. Compare it with the earlier versions."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: historyOf(OfferDraftDto, { maxPrevious: 2 }) }, // { current, previous } — the last two before
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
@@ -545,14 +545,14 @@ export class OfferReviewerAgent {}
 ```
 
 ```ts file=src/offer/agents/offer-editor/offer-editor.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 
 @Agent({
   name: "offer-editor-agent",
   description: "Rewrites the draft as asked",
-  prompt: "Rewrite the draft so it meets the requested changes.",
+  prompt: inline("Rewrite the draft so it meets the requested changes."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
   output: OfferDraftDto,
@@ -761,14 +761,14 @@ export class ArticlePublishWorkflowStart {}
 ```
 
 ```ts file=src/review/agents/section-splitter/section-splitter.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ArticleSectionDto } from "../../dto/article-section.dto.js";
 
 @Agent({
   name: "section-splitter-agent",
   description: "Splits the article into sections",
-  prompt: "Split the article into its sections.",
+  prompt: inline("Split the article into its sections."),
   model: "moonshotai/kimi-k2.6",
   input: { article: WorkflowStartTextDto },
   output: listOf(ArticleSectionDto),
@@ -777,14 +777,14 @@ export class SectionSplitterAgent {}
 ```
 
 ```ts file=src/review/agents/section-reviewer/section-reviewer.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ArticleSectionDto } from "../../dto/article-section.dto.js";
 import { SectionReviewDto } from "../../dto/section-review.dto.js";
 
 @Agent({
   name: "section-reviewer-agent",
   description: "Reviews one section",
-  prompt: "Say what to fix in this section.",
+  prompt: inline("Say what to fix in this section."),
   model: "moonshotai/kimi-k2.6",
   input: { section: ArticleSectionDto }, // per item: reads the item's class
   output: SectionReviewDto,
@@ -793,14 +793,14 @@ export class SectionReviewerAgent {}
 ```
 
 ```ts file=src/review/agents/style-critic/style-critic.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { StyleNotesDto } from "../../dto/style-notes.dto.js";
 
 @Agent({
   name: "style-critic-agent",
   description: "Checks the style",
-  prompt: "Note what to change in the style.",
+  prompt: inline("Note what to change in the style."),
   model: "moonshotai/kimi-k2.6",
   input: { article: WorkflowStartTextDto },
   output: StyleNotesDto,
@@ -809,14 +809,14 @@ export class StyleCriticAgent {}
 ```
 
 ```ts file=src/review/agents/fact-checker/fact-checker.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { FactCheckDto } from "../../dto/fact-check.dto.js";
 
 @Agent({
   name: "fact-checker-agent",
   description: "Checks the claims",
-  prompt: "Check every claim of the article.",
+  prompt: inline("Check every claim of the article."),
   model: "moonshotai/kimi-k2.6",
   input: { article: WorkflowStartTextDto },
   output: FactCheckDto,
@@ -1023,14 +1023,14 @@ export class SupportLaunchWorkflowStart {}
 ```
 
 ```ts file=src/support/agents/order-lookup/order-lookup.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OrderLookupDto } from "../../dto/order-lookup.dto.js";
 
 @Agent({
   name: "order-lookup-agent",
   description: "Looks the order up",
-  prompt: "Say where the order is.",
+  prompt: inline("Say where the order is."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: OrderLookupDto,
@@ -1039,14 +1039,14 @@ export class OrderLookupAgent {}
 ```
 
 ```ts file=src/support/agents/refund-terms/refund-terms.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { RefundTermsDto } from "../../dto/refund-terms.dto.js";
 
 @Agent({
   name: "refund-terms-agent",
   description: "Quotes the refund terms",
-  prompt: "Quote the refund terms that apply.",
+  prompt: inline("Quote the refund terms that apply."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: RefundTermsDto,
@@ -1055,14 +1055,14 @@ export class RefundTermsAgent {}
 ```
 
 ```ts file=src/support/agents/loyalty-offer/loyalty-offer.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferDto } from "../../dto/loyalty-offer.dto.js";
 
 @Agent({
   name: "loyalty-offer-agent",
   description: "Finds an offer for the customer",
-  prompt: "Find one offer for the customer.",
+  prompt: inline("Find one offer for the customer."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: LoyaltyOfferDto,
@@ -1071,7 +1071,7 @@ export class LoyaltyOfferAgent {}
 ```
 
 ```ts file=src/support/agents/support-reply/support-reply.agent.ts
-import { Agent, optional } from "@agboss/core";
+import { Agent, optional, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferDto } from "../../dto/loyalty-offer.dto.js";
 import { OrderLookupDto } from "../../dto/order-lookup.dto.js";
@@ -1081,7 +1081,7 @@ import { SupportReplyDto } from "../../dto/support-reply.dto.js";
 @Agent({
   name: "support-reply-agent",
   description: "Writes the reply from what was found",
-  prompt: "Reply to the customer from the findings.",
+  prompt: inline("Reply to the customer from the findings."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -1103,7 +1103,7 @@ export class SupportReplyWorkflowFinish {}
 ```
 
 ```ts file=src/support/routers/support-launch/support-launch.router.ts
-import { DecidedBy, FailurePolicy, Router, SpawnPolicy } from "@agboss/core";
+import { DecidedBy, FailurePolicy, Router, SpawnPolicy, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferAgent } from "../../agents/loyalty-offer/loyalty-offer.agent.js";
 import { OrderLookupAgent } from "../../agents/order-lookup/order-lookup.agent.js";
@@ -1114,7 +1114,7 @@ import { RefundTermsAgent } from "../../agents/refund-terms/refund-terms.agent.j
   description: "Picks everyone the customer's message needs",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick everyone needed to answer the customer's message.",
+  prompt: inline("Pick everyone needed to answer the customer's message."),
   input: { message: WorkflowStartTextDto },
   routes: [
     { target: OrderLookupAgent, spawn: SpawnPolicy.Always }, // always launched: no prompt
@@ -1222,14 +1222,14 @@ export class PanelWorkflowStart {}
 ```
 
 ```ts file=src/panel/agents/skills-panel/skills-panel.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "skills-panel-agent",
   description: "Scores the technical skills",
-  prompt: "Score the technical skills from 1 to 10.",
+  prompt: inline("Score the technical skills from 1 to 10."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: PanelCandidateDto },
   output: PanelScoreDto,
@@ -1238,14 +1238,14 @@ export class SkillsPanelAgent {}
 ```
 
 ```ts file=src/panel/agents/culture-panel/culture-panel.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "culture-panel-agent",
   description: "Scores the team fit",
-  prompt: "Score the team fit from 1 to 10.",
+  prompt: inline("Score the team fit from 1 to 10."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: PanelCandidateDto },
   output: PanelScoreDto,
@@ -1254,14 +1254,14 @@ export class CulturePanelAgent {}
 ```
 
 ```ts file=src/panel/agents/risk-panel/risk-panel.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "risk-panel-agent",
   description: "Scores the hiring risk",
-  prompt: "Score the hiring risk from 1 (high) to 10 (low).",
+  prompt: inline("Score the hiring risk from 1 (high) to 10 (low)."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: PanelCandidateDto },
   output: PanelScoreDto,
@@ -1270,14 +1270,14 @@ export class RiskPanelAgent {}
 ```
 
 ```ts file=src/panel/agents/panel-verdict/panel-verdict.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 import { PanelVerdictDto } from "../../dto/panel-verdict.dto.js";
 
 @Agent({
   name: "panel-verdict-agent",
   description: "Decides from the counted scores",
-  prompt: "Decide whether to hire from the scores.",
+  prompt: inline("Decide whether to hire from the scores."),
   model: "moonshotai/kimi-k2.6",
   input: { scores: listOf(PanelScoreDto) },
   output: PanelVerdictDto,
@@ -1326,7 +1326,7 @@ export class ScoreRangeArbiter {
 ```
 
 ```ts file=src/panel/arbiters/reasoned-score/reasoned-score.arbiter.ts
-import { Arbiter } from "@agboss/core";
+import { Arbiter, inline } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
@@ -1335,7 +1335,7 @@ import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.j
 @Arbiter({
   name: "reasoned-score-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: SkillsPanelAgent, prompt: "The reason names a concrete technical skill" },
     { target: CulturePanelAgent, prompt: "The reason names a concrete trait of the team" },
@@ -1496,7 +1496,7 @@ export class DealScreenAgent {}
 ```
 
 ```ts file=src/deal/agents/deal-report/deal-report.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { DealCritiqueDto } from "../../dto/deal-critique.dto.js";
 import { DealReportDto } from "../../dto/deal-report.dto.js";
 import { LegalReviewDto } from "../../dto/legal-review.dto.js";
@@ -1504,7 +1504,7 @@ import { LegalReviewDto } from "../../dto/legal-review.dto.js";
 @Agent({
   name: "deal-report-agent",
   description: "Writes the full review",
-  prompt: "Write the review from the legal check and the critiques.",
+  prompt: inline("Write the review from the legal check and the critiques."),
   model: "moonshotai/kimi-k2.6",
   input: { legal: LegalReviewDto, critiques: listOf(DealCritiqueDto) },
   output: DealReportDto,
@@ -1657,7 +1657,7 @@ export class VendorCheckWorkflowStart {}
 ```
 
 ```ts file=src/vendor/agents/vendor-checker/vendor-checker.agent.ts
-import { Agent, oneOf } from "@agboss/core";
+import { Agent, oneOf, inline } from "@agboss/core";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
 import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 import { VendorDto } from "../../dto/vendor.dto.js";
@@ -1665,7 +1665,7 @@ import { VendorDto } from "../../dto/vendor.dto.js";
 @Agent({
   name: "vendor-checker-agent",
   description: "Scores a vendor, or rejects it",
-  prompt: "Score the vendor from 1 to 10, or reject it with a reason.",
+  prompt: inline("Score the vendor from 1 to 10, or reject it with a reason."),
   model: "moonshotai/kimi-k2.6",
   input: { vendor: VendorDto },
   output: oneOf(VendorScoreDto, VendorRejectedDto),
@@ -1769,14 +1769,14 @@ export class SingleVendorWorkflowStart {}
 ```
 
 ```ts file=src/vendor/agents/vendor-finder/vendor-finder.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorDto } from "../../dto/vendor.dto.js";
 
 @Agent({
   name: "vendor-finder-agent",
   description: "Finds vendors for the request",
-  prompt: "List the vendors that can deliver the request.",
+  prompt: inline("List the vendors that can deliver the request."),
   model: "moonshotai/kimi-k2.6",
   input: { request: WorkflowStartTextDto },
   output: listOf(VendorDto),
@@ -1785,7 +1785,7 @@ export class VendorFinderAgent {}
 ```
 
 ```ts file=src/vendor/agents/vendor-ranker/vendor-ranker.agent.ts
-import { Agent, listOf, oneOf } from "@agboss/core";
+import { Agent, listOf, oneOf, inline } from "@agboss/core";
 import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
 import { VendorRankingDto } from "../../dto/vendor-ranking.dto.js";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
@@ -1794,7 +1794,7 @@ import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 @Agent({
   name: "vendor-ranker-agent",
   description: "Ranks the checked vendors",
-  prompt: "Rank the scored vendors; mention the rejected and failed ones.",
+  prompt: inline("Rank the scored vendors; mention the rejected and failed ones."),
   model: "moonshotai/kimi-k2.6",
   input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) },
   output: VendorRankingDto,
@@ -2125,7 +2125,7 @@ export class TopicResearchWorkflowStart {}
 ```
 
 ```ts file=src/topic/agents/topic-researcher/topic-researcher.agent.ts
-import { Agent, oneOf } from "@agboss/core";
+import { Agent, oneOf, inline } from "@agboss/core";
 import { TopicReportDto } from "../../dto/topic-report.dto.js";
 import { TopicTooBroadDto } from "../../dto/topic-too-broad.dto.js";
 import { TopicDto } from "../../dto/topic.dto.js";
@@ -2133,7 +2133,7 @@ import { TopicDto } from "../../dto/topic.dto.js";
 @Agent({
   name: "topic-researcher-agent",
   description: "Reports on a topic, or says it is too broad",
-  prompt: "Report on the topic, or say it is too broad to cover at once.",
+  prompt: inline("Report on the topic, or say it is too broad to cover at once."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto },
   output: oneOf(TopicReportDto, TopicTooBroadDto), // on the last level TopicTooBroadDto leaves the schema
@@ -2156,7 +2156,7 @@ export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
 ```
 
 ```ts file=src/topic/agents/topic-merge/topic-merge.agent.ts
-import { Agent, listOf, oneOf } from "@agboss/core";
+import { Agent, listOf, oneOf, inline } from "@agboss/core";
 import { TopicFailedDto } from "../../dto/topic-failed.dto.js";
 import { TopicReportDto } from "../../dto/topic-report.dto.js";
 import { TopicDto } from "../../dto/topic.dto.js";
@@ -2164,7 +2164,7 @@ import { TopicDto } from "../../dto/topic.dto.js";
 @Agent({
   name: "topic-merge-agent",
   description: "Merges the subtopics' reports",
-  prompt: "Merge the reports into one; note the subtopics that failed.",
+  prompt: inline("Merge the reports into one; note the subtopics that failed."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto, parts: listOf(oneOf(TopicReportDto, TopicFailedDto)) },
   output: TopicReportDto,

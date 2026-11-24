@@ -1,4 +1,4 @@
-import { Agent, FileView, ModelFiles } from "@agboss/core";
+import { Agent, FileView, ModelFiles, inline } from "@agboss/core";
 import { IdCheckRequestDto } from "../../dto/id-check-request.dto.js";
 import { IdCardPiiPolicy } from "../../pii-policies/id-card.pii-policy.js";
 
@@ -10,7 +10,9 @@ import { IdCardPiiPolicy } from "../../pii-policies/id-card.pii-policy.js";
 @Agent({
   name: "kyc-agent",
   description: "Checks the kind of an ID photo on a redacted copy",
-  prompt: "Say what kind of document the photo shows and whether it looks intact. One line.",
+  prompt: inline(
+    "Say what kind of document the photo shows and whether it looks intact. One line.",
+  ),
   model: "google/gemini-2.5-flash-lite",
   input: { request: IdCheckRequestDto },
   piiPolicies: [IdCardPiiPolicy],

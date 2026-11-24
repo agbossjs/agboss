@@ -1,6 +1,6 @@
 /** #120 PR 2: `testUnit` — one guardrail on one text, its model scripted, in a step's frame. */
 import { describe, expect, it } from "vitest";
-import { GuardFailedError, GraphRuleError, InputGuardrail } from "../../../src/index.js";
+import { GuardFailedError, GraphRuleError, InputGuardrail, inline } from "../../../src/index.js";
 import { decideWith, failWith, ModelFailure, testUnit } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import { LegalAdviceGuardrail } from "../fixtures/units.js";
@@ -48,7 +48,7 @@ describe("testUnit", () => {
     @InputGuardrail({
       name: "Legal_One",
       description: "Misnamed",
-      prompt: "Legal?",
+      prompt: inline("Legal?"),
       threshold: 0.5,
       refusal: "No.",
     })

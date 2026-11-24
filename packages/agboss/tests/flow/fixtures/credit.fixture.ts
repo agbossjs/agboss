@@ -14,7 +14,7 @@ import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./credit-dto
 import { WorkflowStartTextDto } from "./dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline } from "../../../src/index.js";
 
 /** #280 — the credit-limit flow: a code router inside a model router's route. */
 
@@ -39,7 +39,7 @@ export class CreditWorkflowStart {}
 @Agent({
   name: "order-intake-agent",
   description: "Reads the order from the message",
-  prompt: "Read the order.",
+  prompt: inline("Read the order."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -51,7 +51,7 @@ export class OrderIntakeAgent {}
 @Agent({
   name: "approval-agent",
   description: "Approves a large order",
-  prompt: "Approve the order or not.",
+  prompt: inline("Approve the order or not."),
   model: "moonshotai/kimi-k2.6",
   input: {
     order: CreditOrderDto,
@@ -132,7 +132,7 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
   description: "Sends an order to the intake, ends on anything else",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick who handles the customer's message.",
+  prompt: inline("Pick who handles the customer's message."),
   input: {
     message: WorkflowStartTextDto,
   },

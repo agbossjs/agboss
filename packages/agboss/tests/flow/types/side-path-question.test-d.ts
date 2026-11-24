@@ -4,10 +4,11 @@ import type { AfterStep, SideHead } from "../../../src/flow/builder-types.js";
 import type { SideClaimsOf } from "../../../src/flow/one-of-types.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { SpendingLimitAnswerDto, SpendingLimitQuestion } from "../fixtures/questions.fixture.js";
+import { inline } from "../../../src/index.js";
 
 /** #933 AC1: the side-path starter takes a question role only, and `` follows it. */
 
-@Agent({ name: "not-a-question-agent", description: "d", prompt: "p", model: "m" })
+@Agent({ name: "not-a-question-agent", description: "d", prompt: inline("p"), model: "m" })
 class NotAQuestionAgent {}
 
 describe("#933 AC1: toQuestion types", () => {

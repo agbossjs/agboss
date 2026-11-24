@@ -18,6 +18,7 @@ import {
   TurnLimit,
   Ttl,
   Workflow,
+  inline,
 } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import type { CompactionEndEvent, CompactionStartEvent } from "../../src/index.js";
@@ -205,7 +206,7 @@ class NotAMemory {}
 @Agent({
   name: "odd-agent",
   description: "Settings no memory takes",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/odd",
   memory: NotAMemory,
 })

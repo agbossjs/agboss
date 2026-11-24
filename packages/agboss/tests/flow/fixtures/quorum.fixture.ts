@@ -10,6 +10,7 @@ import {
 } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Arbiter, Arbitrate } from "../../../src/flow/decorators/arbiter.js";
+import { inline } from "../../../src/components/prompt-source.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
@@ -87,7 +88,7 @@ export class QuickScoreArbiter {
 @Arbiter({
   name: "valid-score-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
     { target: ScoreBAgent, prompt: "Names at least two concrete risks" },
@@ -137,7 +138,7 @@ export class GoodScoreArbiter {
 @Arbiter({
   name: "convincing-reason-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: CompanyVetAgent, prompt: "The check names concrete facts about the company" },
   ],
@@ -163,7 +164,7 @@ export class CompanySearchWorkflow {}
 @Arbiter({
   name: "due-diligence-arbiter",
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: LegalAgent, prompt: "Names the legal risks found, or states that none were found" },
     { target: DealCriticAgent, prompt: "Gives at least one concrete objection" },

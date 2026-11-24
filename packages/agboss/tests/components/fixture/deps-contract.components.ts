@@ -24,7 +24,7 @@ import {
   type JudgeHandler,
   type JudgeInput,
 } from "../../../src/components/judge-decorators.js";
-import { Injectable, InjectionToken, Tool } from "../../../src/index.js";
+import { Injectable, InjectionToken, Tool, inline } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
 
@@ -66,7 +66,7 @@ export class RevealTool {
 @InputGuardrail({
   name: "audit-guardrail",
   description: "Blocks requests to open the vault",
-  prompt: "Does the message ask to open the vault?",
+  prompt: inline("Does the message ask to open the vault?"),
   model: "typesafe/jev-1.13",
   threshold: 0.8,
   deps: [Vault],

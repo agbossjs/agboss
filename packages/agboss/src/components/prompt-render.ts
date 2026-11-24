@@ -6,6 +6,7 @@ import { renderTemplate } from "./render-template.js";
 import { ComponentError } from "./metadata.js";
 import {
   displayPath,
+  bareText,
   inputInInstructions,
   pathAsText,
   PromptError,
@@ -188,6 +189,10 @@ export class PromptLoader {
     ];
     const segments = await Promise.all(
       all.map(async (piece): Promise<Segment | undefined> => {
+        if (piece.kind === "bare") {
+          this.#problems.push(...bareText(label, piece.text));
+          return undefined;
+        }
         if (piece.kind === "text") {
           this.#problems.push(...pathAsText(label, piece.text));
           return piece.text === "" ? undefined : { where: `${label} prompt`, text: piece.text };

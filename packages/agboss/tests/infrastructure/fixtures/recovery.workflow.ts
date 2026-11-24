@@ -19,6 +19,7 @@ import {
   type ExecutionErrorEvent,
   type ExecutionLease,
   type ExecutionResumeEvent,
+  inline,
 } from "../../../src/index.js";
 import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -172,7 +173,7 @@ export class Charge {
 @Agent({
   name: "clerk-agent",
   description: "Steps, holds and charges",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [Step, Hold, Charge],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },

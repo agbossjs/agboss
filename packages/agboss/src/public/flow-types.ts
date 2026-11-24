@@ -7,7 +7,20 @@
  * import loads.
  */
 export { type Resolved, type ResolvedAll } from "../components/injection.js";
-export { type GuardrailDecorator } from "../components/policy-decorators.js";
+export {
+  type GuardrailDecorator,
+  type ModelGuardrailInstance,
+} from "../components/policy-decorators.js";
+export type { ExtraRuleCode, PauseTargetRuleCode } from "../graph/extra-rule-codes.js";
+export type { PiiRuleCode } from "../pii/pii-rule-codes.js";
+export { type PauseTargetHooks } from "../channels/pause-targets.js";
+export { type DeclarativeJudgeClass } from "../components/judge-declaration.js";
+export {
+  type HybridJudgeModelOptions,
+  type JudgedBase,
+  type JudgeMethod,
+} from "../components/judge-decorators.js";
+export { type RagRerankerBase } from "../rag/reranker.decorator.js";
 export { type ComponentSource, type StartSource } from "../flow/ast.js";
 export {
   type ArbitrableKind,

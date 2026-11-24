@@ -8,6 +8,7 @@ import {
   Workflow,
   WorkflowStart,
   type BudgetHandler,
+  inline,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -37,7 +38,7 @@ export class Redeem {}
 @Agent({
   name: "voucher-clerk-agent",
   description: "Redeems vouchers",
-  prompt: "Redeem the voucher.",
+  prompt: inline("Redeem the voucher."),
   tools: [Lookup, Apply],
   model: "test/clerk",
   input: { voucher: VoucherDto },

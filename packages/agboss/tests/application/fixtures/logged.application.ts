@@ -15,6 +15,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
@@ -86,7 +87,7 @@ export class SendNote {
 @Agent({
   name: "scribe-agent",
   description: "Writes notes",
-  prompt: "Write.",
+  prompt: inline("Write."),
   model: "test/scribe",
 })
 export class ScribeAgent {}
@@ -94,7 +95,7 @@ export class ScribeAgent {}
 @Agent({
   name: "sender-agent",
   description: "Sends notes",
-  prompt: "Send.",
+  prompt: inline("Send."),
   model: "test/sender",
   tools: [SendNote],
 })

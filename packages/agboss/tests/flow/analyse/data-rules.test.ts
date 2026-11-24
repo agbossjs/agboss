@@ -20,13 +20,14 @@ import {
 } from "../fixtures/kit.fixture.js";
 import { onAction, route, onStart } from "../fixtures/paths.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
+import { inline } from "../../../src/index.js";
 
 /** The data rules of #270 (AC7, AC19, AC22) on the abstract scopes. */
 
 @Agent({
   name: "needs-unrelated-agent",
   description: "Reads what no path gives",
-  prompt: "Read it.",
+  prompt: inline("Read it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -47,7 +48,7 @@ class MissingWorkflow {}
 @Agent({
   name: "redraft-kit-agent",
   description: "Drafts again from the shortlist, ignoring the draft",
-  prompt: "Draft it again.",
+  prompt: inline("Draft it again."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -101,7 +102,7 @@ class ReadOnOneBranchWorkflow {}
 @Agent({
   name: "drafts-agent",
   description: "Drafts several offers",
-  prompt: "Draft them.",
+  prompt: inline("Draft them."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,

@@ -11,6 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   secret,
+  inline,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -37,7 +38,7 @@ export class NamesPiiPolicy {}
 @Agent({
   name: "desk-agent",
   description: "Answers",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/desk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
   piiPolicies: [NamesPiiPolicy],
@@ -69,7 +70,7 @@ export class HandOverFinish {}
   name: "desk-router",
   description: "Sends the message on",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who answers.",
+  prompt: inline("Pick who answers."),
   model: "typesafe/jev-1.13",
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,

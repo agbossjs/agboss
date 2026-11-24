@@ -5,9 +5,7 @@ import { ragPromptTexts } from "../prompts/rag.js";
 import { routerLaunchPromptTexts } from "../prompts/router-launch.js";
 import { arbiterPromptTexts } from "../prompts/arbiter.js";
 import { guardrailPromptTexts } from "../prompts/guardrail.js";
-import { arbiterClassesOf, modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
-import { arbiterOf, isDeclarativeArbiter } from "../flow/decorators/arbiter.js";
-import { declarationOf } from "../flow/decorators/declaration.js";
+import { arbiterModelsOf, arbitersOf, arbiterTexts } from "./arbiter-snapshot.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { routerPromptTexts } from "../routers/index.js";
 import { versionOf } from "../turns/index.js";
@@ -20,7 +18,12 @@ import { componentModels, withoutOperational } from "./operational-config.js";
 import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js";
 import { guardrailSnapshot, toolInterceptorSnapshot } from "./policy-snapshots.js";
 import { transportSnapshot } from "./transport-snapshot.js";
-import { guardrailModels, guardrailPrompts, interpreterPrompts } from "./prompt-snapshot.js";
+import {
+  guardrailModels,
+  guardrailPrompts,
+  interpreterPrompts,
+  rerankerPrompts,
+} from "./prompt-snapshot.js";
 import { fileProcessorSnapshot } from "./file-snapshot.js";
 import { handedDownSnapshot } from "./pii-snapshot.js";
 import type { Class } from "../components/injection.js";
@@ -30,7 +33,7 @@ import {
   elementFingerprintsOf,
   type FingerprintDeps,
 } from "./fingerprints.js";
-import { normalisePromptText, promptTextOf } from "../components/prompt-render.js";
+import { promptTextOf } from "../components/prompt-render.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import {
   modelGuardrailsOf,
@@ -52,23 +55,6 @@ const routerTexts = (routers: readonly LoadedRouter[]) =>
     routes: router.routes.map((route) => ({ ...route, condition: hashedText(route.condition) })),
   }));
 
-/** The model arbiters with their resolved models (#1313); an execution without them reads the declared ones. */
-const arbitersOf = (deps: Pick<AgentExecutionDeps<string>, "arbiters" | "graph">) =>
-  deps.arbiters ?? modelArbitersOf(deps.graph.launches);
-
-/** The model arbiters' texts (#279): their prompt and each agent's criterion, by name. */
-function arbiterTexts(graph: RuntimeGraph) {
-  return arbiterClassesOf(graph.launches).flatMap((arbiter) => {
-    const options = arbiterOf(arbiter)?.options;
-    if (options === undefined || !isDeclarativeArbiter(options)) return [];
-    const criteria = options.criteria.map(({ target, prompt }) => ({
-      target: declarationOf(target)?.options.name ?? target.name,
-      prompt: normalisePromptText(prompt),
-    }));
-    return [{ name: options.name, prompt: normalisePromptText(options.prompt), criteria }];
-  });
-}
-
 /** What one workflow's snapshot is made of: its assembly (`AssembledWorkflow`) or its run deps. */
 export type SnapshotSource<TName extends string = string> = Pick<
   AgentExecutionDeps<TName>,
@@ -82,6 +68,7 @@ export type SnapshotSource<TName extends string = string> = Pick<
   | "ownFileRedactor"
   | "ownFileTranscriber"
   | "replyInterpreters"
+  | "rerankers"
 > & {
   readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
   readonly pii?: FingerprintDeps["pii"];
@@ -127,6 +114,8 @@ const ownSnapshot = <TName extends string>(
   ...memorySnapshot(deps.memories),
   // the reply interpreters' instructions (#1347c): only a workflow that has a model one
   ...interpreterPrompts(deps.replyInterpreters),
+  // the model rerankers' prompts (#1347): only a workflow that has one
+  ...rerankerPrompts(deps.rerankers),
   // the guardrails (#120): only a workflow that has one, so the others keep their hash
   ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
   // the tool interceptors (#384): only a workflow that has one, so the others keep their hash
@@ -237,14 +226,18 @@ export function executionVersions<TName extends string>(
       ...framePrompts(deps.graph, deps.memories, guardrails),
       ...compactionPrompts(deps.memories),
       // model arbiters (#279): only a workflow that has one
-      ...(arbiterTexts(deps.graph).length === 0 ? {} : { arbiters: arbiterTexts(deps.graph) }),
+      ...(arbiterTexts(deps.graph).length === 0
+        ? {}
+        : { arbiters: arbiterTexts(deps.graph, arbitersOf(deps)) }),
       ...guardrailPrompts(guardrails),
       ...interpreterPrompts(deps.replyInterpreters),
+      ...rerankerPrompts(deps.rerankers),
     }),
     modelVersion: versionOf({
       defaults: operational.defaults,
       routers: deps.routers.map(({ name, model }) => ({ name, model })),
-      ...(arbitersOf(deps).length === 0 ? {} : { arbiters: arbitersOf(deps) }),
+      // the arbiters' models, never their prompts: those are the prompt version's
+      ...(arbitersOf(deps).length === 0 ? {} : { arbiters: arbiterModelsOf(deps) }),
       agents: operational.agents,
       // every other model-backed component too: the judges' and the compactions' models
       ...componentModels(operational),

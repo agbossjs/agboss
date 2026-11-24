@@ -98,14 +98,14 @@ export class OfferLetterWorkflowStart {}
 ```
 
 ```ts file=offers/src/agents/letter-writer/letter-writer.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
 import { OfferRequestDto } from "../../dto/offer-request.dto.js";
 
 @Agent({
   name: "letter-writer-agent",
   description: "Writes the first offer letter",
-  prompt: "Write a warm, short offer letter.",
+  prompt: inline("Write a warm, short offer letter."),
   model: "moonshotai/kimi-k2.6",
   input: { request: OfferRequestDto },
   output: OfferLetterDto,
@@ -114,7 +114,7 @@ export class LetterWriterAgent {}
 ```
 
 ```ts file=offers/src/agents/letter-reviewer/letter-reviewer.agent.ts
-import { Agent, historyOf, oneOf } from "@agboss/core";
+import { Agent, historyOf, oneOf, inline } from "@agboss/core";
 import { LetterApprovedDto } from "../../dto/letter-approved.dto.js";
 import { LetterChangesDto } from "../../dto/letter-changes.dto.js";
 import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
@@ -122,7 +122,7 @@ import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
 @Agent({
   name: "letter-reviewer-agent",
   description: "Approves the letter or asks for changes",
-  prompt: "Approve the letter, or say what to change. Do not ask again for what earlier versions fixed.",
+  prompt: inline("Approve the letter, or say what to change. Do not ask again for what earlier versions fixed."),
   model: "moonshotai/kimi-k2.6",
   input: { letter: historyOf(OfferLetterDto, { maxPrevious: 2 }) },
   output: oneOf(LetterChangesDto, LetterApprovedDto),
@@ -132,14 +132,14 @@ export class LetterReviewerAgent {}
 ```
 
 ```ts file=offers/src/agents/letter-editor/letter-editor.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { LetterChangesDto } from "../../dto/letter-changes.dto.js";
 import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
 
 @Agent({
   name: "letter-editor-agent",
   description: "Rewrites the letter as asked",
-  prompt: "Rewrite the letter so it meets every requested change.",
+  prompt: inline("Rewrite the letter so it meets every requested change."),
   model: "moonshotai/kimi-k2.6",
   input: { letter: OfferLetterDto, changes: LetterChangesDto },
   output: OfferLetterDto,
@@ -493,14 +493,14 @@ export class SupplierCheckWorkflowStart {}
 ```
 
 ```ts file=sourcing/src/agents/supplier-checker/supplier-checker.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
 import { SupplierDto } from "../../dto/supplier.dto.js";
 
 @Agent({
   name: "supplier-checker-agent",
   description: "Scores one supplier",
-  prompt: "Score the supplier's fit from 1 to 10.",
+  prompt: inline("Score the supplier's fit from 1 to 10."),
   model: "moonshotai/kimi-k2.6",
   input: { supplier: SupplierDto },
   output: SupplierScoreDto,
@@ -628,14 +628,14 @@ export class SourcingWorkflowStart {}
 ```
 
 ```ts file=sourcing/src/agents/supplier-finder/supplier-finder.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupplierDto } from "../../dto/supplier.dto.js";
 
 @Agent({
   name: "supplier-finder-agent",
   description: "Lists suppliers for the request",
-  prompt: "List the suppliers that can deliver the request.",
+  prompt: inline("List the suppliers that can deliver the request."),
   model: "moonshotai/kimi-k2.6",
   input: { request: WorkflowStartTextDto },
   output: listOf(SupplierDto),
@@ -644,7 +644,7 @@ export class SupplierFinderAgent {}
 ```
 
 ```ts file=sourcing/src/agents/supplier-shortlist/supplier-shortlist.agent.ts
-import { Agent, listOf, oneOf } from "@agboss/core";
+import { Agent, listOf, oneOf, inline } from "@agboss/core";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
 import { SupplierUncheckedDto } from "../../dto/supplier-unchecked.dto.js";
@@ -652,7 +652,7 @@ import { SupplierUncheckedDto } from "../../dto/supplier-unchecked.dto.js";
 @Agent({
   name: "supplier-shortlist-agent",
   description: "Picks the best checked supplier",
-  prompt: "Pick the best scored supplier and its price; ignore the unchecked ones.",
+  prompt: inline("Pick the best scored supplier and its price; ignore the unchecked ones."),
   model: "moonshotai/kimi-k2.6",
   input: { checks: listOf(oneOf(SupplierScoreDto, SupplierUncheckedDto)) },
   output: SupplierShortlistDto,
@@ -741,7 +741,7 @@ export class PlacePurchaseTool {
 ```
 
 ```ts file=sourcing/src/agents/purchase/purchase.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { PurchaseSummaryDto } from "../../dto/purchase-summary.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
@@ -750,7 +750,7 @@ import { PlacePurchaseTool } from "../../tools/place-purchase.tool.js";
 @Agent({
   name: "purchase-agent",
   description: "Places the order and sums it up",
-  prompt: "Place the order for the shortlisted supplier with place-purchase-tool, then sum it up.",
+  prompt: inline("Place the order for the shortlisted supplier with place-purchase-tool, then sum it up."),
   model: "moonshotai/kimi-k2.6",
   input: { shortlist: SupplierShortlistDto, reviews: listOf(PurchaseReviewDto) },
   output: PurchaseSummaryDto,
@@ -1107,14 +1107,14 @@ export class HelpdeskWorkflowStart {}
 ```
 
 ```ts file=helpdesk/src/agents/helpdesk/helpdesk.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { SearchKbTool } from "../../mcp/search-kb.mcp.js";
 import { AskBillingTool } from "../../tools/ask-billing.tool.js";
 
 @Agent({
   name: "helpdesk-agent",
   description: "Answers from the knowledge base and the billing desk",
-  prompt: "Answer the question. Search articles with search-kb-tool; ask billing with ask-billing-tool.",
+  prompt: inline("Answer the question. Search articles with search-kb-tool; ask billing with ask-billing-tool."),
   model: "moonshotai/kimi-k2.6",
   tools: [SearchKbTool, AskBillingTool],
   maxToolCalls: 4,
@@ -1476,12 +1476,12 @@ export class ApplicantPiiPolicy {}
 ```
 
 ```ts file=loans/src/guardrails/out-of-scope/out-of-scope.guardrail.ts
-import { InputGuardrail } from "@agboss/core";
+import { InputGuardrail, inline } from "@agboss/core";
 
 @InputGuardrail({
   name: "out-of-scope-guardrail",
   description: "Refuses requests that are not about a loan application",
-  prompt: "Is the message about something other than applying for a loan?",
+  prompt: inline("Is the message about something other than applying for a loan?"),
   model: "typesafe/jev-1.13",
   threshold: 0.8,
   refusal: "I can only help with loan applications.",
@@ -1641,7 +1641,7 @@ export class CreditScoreTool {
 ```
 
 ```ts file=loans/src/agents/underwriter/underwriter.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { LoanApplicationDto } from "../../dto/loan-application.dto.js";
 import { LoanDecisionDto } from "../../dto/loan-decision.dto.js";
 import { CreditScoreTool } from "../../tools/credit-score.tool.js";
@@ -1649,7 +1649,7 @@ import { CreditScoreTool } from "../../tools/credit-score.tool.js";
 @Agent({
   name: "underwriter-agent",
   description: "Pre-approves or declines a loan",
-  prompt: "Look the credit score up with credit-score-tool, then pre-approve or decline with a rate.",
+  prompt: inline("Look the credit score up with credit-score-tool, then pre-approve or decline with a rate."),
   model: "moonshotai/kimi-k2.6",
   input: { application: LoanApplicationDto },
   output: LoanDecisionDto,

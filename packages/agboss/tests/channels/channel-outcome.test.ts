@@ -14,6 +14,7 @@ import {
   PausedExecutionRepository,
   PauseResolution,
   PauseStatus,
+  inline,
 } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -85,7 +86,7 @@ function applicationWith(name: string, channel: Class): Class {
   @Agent({
     name: "refund-clerk-agent",
     description: "d",
-    prompt: "p",
+    prompt: inline("p"),
     model: "test/m",
     input: { message: WorkflowStartTextDto },
     output: RefundCardOutputDto,

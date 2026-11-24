@@ -17,6 +17,7 @@ import {
   type JudgeInput,
   type StepDescriptor,
   type WorkflowDescriptor,
+  inline,
 } from "../../../../src/index.js";
 import { onAgent, route, onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
@@ -113,7 +114,7 @@ export class PickyJudge implements JudgeHandler<DraftDto> {
 
 const writer = {
   description: "Writes the draft with notes",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "test/writer",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
   maxVisits: 3,
@@ -180,7 +181,7 @@ export class PublishedFinish {}
   name: "review-router",
   description: "Sends the draft back or publishes it",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the draft good?",
+  prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
   input: { draft: DraftDto },
   maxVisits: 4,
@@ -260,7 +261,7 @@ export class LazyAuditService {
 @Agent({
   name: "quick-writer-agent",
   description: "Writes a draft",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "test/writer",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
   input: { message: WorkflowStartTextDto },

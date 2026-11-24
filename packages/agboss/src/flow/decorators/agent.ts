@@ -1,5 +1,5 @@
 import type { PromptVariables } from "../../components/prompt-variables.js";
-import type { PromptValue } from "../../components/prompt-source.js";
+import type { PromptSource } from "../../components/prompt-source.js";
 import type { ModelFiles } from "../../files/model-files.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
@@ -21,7 +21,7 @@ export interface AgentOptions {
   /** Ends with `-agent` (`draft-reviewer-agent`); explicit, it keys records and checkpoints. */
   readonly name: string;
   readonly description: string;
-  readonly prompt?: PromptValue;
+  readonly prompt?: PromptSource;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt (the same bytes in every execution). */
   readonly promptVariables?: PromptVariables;

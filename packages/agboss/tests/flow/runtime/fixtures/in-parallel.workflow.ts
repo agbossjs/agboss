@@ -12,6 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -86,7 +87,7 @@ export class SecondAction {
 @Agent({
   name: "third-agent",
   description: "Answers",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: ThirdDto,
@@ -283,7 +284,7 @@ export class ChooserApplication {}
   description: "Picks which of two actions run, by its model",
   decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
-  prompt: "Pick each action the message asks for.",
+  prompt: inline("Pick each action the message asks for."),
   input: { message: WorkflowStartTextDto },
   routes: [
     { target: ChosenAAction, prompt: "The message asks for a" },

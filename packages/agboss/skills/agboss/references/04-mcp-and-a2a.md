@@ -206,14 +206,14 @@ export class AskOrderDeskTool {
 ```
 
 ```ts file=src/support/agents/support/support.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { SearchIssuesTool } from "../../mcp/search-issues.mcp.js";
 import { AskOrderDeskTool } from "../../tools/ask-order-desk.tool.js";
 
 @Agent({
   name: "support-agent",
   description: "Answers from the issue tracker and the order desk",
-  prompt: "Answer the question. Search issues with search-issues-tool; ask the order desk about orders.",
+  prompt: inline("Answer the question. Search issues with search-issues-tool; ask the order desk about orders."),
   model: "moonshotai/kimi-k2.6",
   tools: [SearchIssuesTool, AskOrderDeskTool],
   maxToolCalls: 5,

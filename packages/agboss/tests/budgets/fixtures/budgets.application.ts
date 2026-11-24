@@ -12,6 +12,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -80,7 +81,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 @Agent({
   name: "drafter-agent",
   description: "Drafts",
-  prompt: "Draft it.",
+  prompt: inline("Draft it."),
   model: "test/drafter",
   price,
   output: DraftDto,
@@ -90,7 +91,7 @@ export class DrafterAgent {}
 @Agent({
   name: "reviewer-agent",
   description: "Reviews",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "test/reviewer",
   price,
   input: { draft: DraftDto },

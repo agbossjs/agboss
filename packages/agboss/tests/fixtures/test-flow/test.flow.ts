@@ -5,6 +5,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { FlowPath } from "../../../src/flow/ast.js";
 import { route, onStart } from "../../helpers/flow.js";
+import { inline } from "../../../src/index.js";
 
 const price = { inputPerMTok: 3, outputPerMTok: 6 };
 
@@ -19,7 +20,7 @@ export class TestChat {}
 @Agent({
   name: "alpha-agent",
   description: "Handles alpha work",
-  prompt: "You are alpha.",
+  prompt: inline("You are alpha."),
   model: "test/alpha",
   price,
 })
@@ -28,7 +29,7 @@ export class Alpha {}
 @Agent({
   name: "beta-agent",
   description: "Handles beta work",
-  prompt: "You are beta.",
+  prompt: inline("You are beta."),
   model: "test/beta",
   price,
 })
@@ -59,7 +60,7 @@ export const ROUTES = {
   name: "main-router",
   description: "Sends the task to an agent, or ends",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who handles the task.",
+  prompt: inline("Pick who handles the task."),
   model: "test/router",
   input: { message: WorkflowStartTextDto },
   maxVisits: 10,

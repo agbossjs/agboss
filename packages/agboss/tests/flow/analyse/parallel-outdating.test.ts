@@ -13,6 +13,7 @@ import { onStart } from "../fixtures/paths.js";
 import type { PathSource } from "../../../src/flow/ast.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #271 AC9 (rule 10, S13), built by #273 PR 1: a parallel branch sees the scope at the launch, and a
@@ -33,7 +34,7 @@ class OutlineDto {
 @Agent({
   name: "replanner-agent",
   description: "Writes a new plan",
-  prompt: "Replan.",
+  prompt: inline("Replan."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: PlanDto,
@@ -43,7 +44,7 @@ class ReplannerAgent {}
 @Agent({
   name: "plan-reader-agent",
   description: "Researches the plan",
-  prompt: "Research.",
+  prompt: inline("Research."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: ResearchDto,
@@ -53,7 +54,7 @@ class PlanReaderAgent {}
 @Agent({
   name: "brief-agent",
   description: "Writes a brief from the plan",
-  prompt: "Brief.",
+  prompt: inline("Brief."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: BriefDto,
@@ -63,7 +64,7 @@ class BriefAgent {}
 @Agent({
   name: "brief-reader-agent",
   description: "Outlines the brief",
-  prompt: "Outline.",
+  prompt: inline("Outline."),
   model: "moonshotai/kimi-k2.6",
   input: { brief: BriefDto },
   output: OutlineDto,
@@ -73,7 +74,7 @@ class BriefReaderAgent {}
 @Agent({
   name: "critique-agent",
   description: "Criticises the plan",
-  prompt: "Criticise.",
+  prompt: inline("Criticise."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: CritiqueDto,
@@ -83,7 +84,7 @@ class CritiqueAgent {}
 @Agent({
   name: "company-planner-agent",
   description: "Plans per company",
-  prompt: "Plan the company.",
+  prompt: inline("Plan the company."),
   model: "moonshotai/kimi-k2.6",
   input: { company: CompanyDto, plan: PlanDto },
   output: PlanDto,
@@ -93,7 +94,7 @@ class CompanyPlannerAgent {}
 @Agent({
   name: "companies-agent",
   description: "Lists companies for the plan",
-  prompt: "List.",
+  prompt: inline("List."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: listOf(CompanyDto),
@@ -127,7 +128,7 @@ class ResearchAction {
 @Agent({
   name: "summary-agent",
   description: "Sums everything up",
-  prompt: "Sum up.",
+  prompt: inline("Sum up."),
   model: "moonshotai/kimi-k2.6",
   output: ArticleDraftDto,
 })

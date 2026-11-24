@@ -40,6 +40,8 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
   readonly ownFileTranscriber?: Class | undefined;
   /** Its reply interpreters (#267): a model one's rendered instructions are part of its prompt version (#1347c). */
   readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
+  /** Its model rerankers' prompts, as assembly read them: part of its prompt version (#1347). */
+  readonly rerankers?: readonly { readonly name: string; readonly prompt?: string }[] | undefined;
 }
 
 /**

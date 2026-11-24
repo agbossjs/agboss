@@ -13,6 +13,7 @@ import {
   type ChannelAsk,
   type Produced,
   Action,
+  inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -65,7 +66,7 @@ export class AskGuestTool {
 @Agent({
   name: "guest-agent",
   description: "Confirms the room with the guest",
-  prompt: "Ask the guest, then say what is reserved.",
+  prompt: inline("Ask the guest, then say what is reserved."),
   model: "moonshotai/kimi-k2.6",
   input: { room: RoomDto },
   output: ReservedDto,

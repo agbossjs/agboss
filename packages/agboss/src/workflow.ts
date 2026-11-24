@@ -38,6 +38,8 @@ export interface WorkflowServices {
    * workflow's chat defaults; absent where no gateway is (describe, the CLI's index).
    */
   readonly rerankModel?: (reranker: string, model: string, modelProvider?: string) => ModelBinding;
+  /** A model `@RagReranker`'s `prompt` as assembly read it (#1347); absent: none. */
+  readonly rerankInstructions?: (reranker: string) => string;
 }
 
 /** Tools as a list, or a factory when they need core services. */
@@ -87,6 +89,8 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly name: string;
     readonly model: string;
     readonly modelProvider?: string;
+    /** Its `prompt` as assembly read it (#1347). */
+    readonly prompt?: string;
   }[];
   /** Every knowledge base of the workflow (for `npm run rag:index`). */
   readonly knowledgeBases?: (services: WorkflowServices) => readonly {

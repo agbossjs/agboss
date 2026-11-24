@@ -1,6 +1,6 @@
 import type { PromptVariables } from "../components/prompt-variables.js";
 import { callerFile } from "../components/call-site.js";
-import type { PromptValue } from "../components/prompt-source.js";
+import type { PromptSource } from "../components/prompt-source.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import type { InputOf, OutputOf } from "../flow/generated-types.js";
@@ -69,10 +69,15 @@ export interface ModelChannelInterpreterOptions {
   /** Kebab-case; the class name in kebab-case when left out. */
   readonly name?: string;
   readonly description?: string;
-  /** A chat model (one answer tool); a decision model only for an approval. */
-  readonly model: string;
+  /**
+   * A chat model (one answer tool); a decision model only for an approval. Left out: the default
+   * model of its provider (#1313).
+   */
+  readonly model?: string;
+  /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
+  readonly modelProvider?: Class;
   /** How to read a reply; static — the question and the reply come in the input message. */
-  readonly prompt?: PromptValue;
+  readonly prompt?: PromptSource;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
   readonly promptVariables?: PromptVariables;
@@ -86,6 +91,7 @@ export interface CodeChannelInterpreterOptions<TDeps extends readonly Token[] = 
   /** Constructor dependencies, in order; compiler-checked. */
   readonly deps?: TDeps;
   readonly model?: never;
+  readonly modelProvider?: never;
   readonly prompt?: never;
   readonly promptUrls?: never;
   readonly promptVariables?: never;
@@ -102,24 +108,28 @@ export type ChannelInterpreterDecorator<TDeps extends readonly Token[]> = <
   value: TClass,
 ) => TClass;
 
-/** An interpreter its chat model decides. */
-export function ChannelInterpreter(
-  options: ModelChannelInterpreterOptions,
-): ChannelInterpreterDecorator<[]>;
 /** An interpreter its class decides: `interpret(input)`, `deps` in its constructor. */
 export function ChannelInterpreter<const TDeps extends readonly Token[] = []>(
   options?: CodeChannelInterpreterOptions<TDeps>,
 ): ChannelInterpreterDecorator<TDeps>;
+/** An interpreter its chat model decides: an empty class with a `prompt` (and, optionally, its `model` and `modelProvider`). */
+export function ChannelInterpreter(
+  options: ModelChannelInterpreterOptions,
+): ChannelInterpreterDecorator<[]>;
 export function ChannelInterpreter(
   options: ChannelInterpreterOptions = {},
 ): <TClass extends Class>(value: TClass) => TClass {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
     const name = resolvedName(options.name, value);
-    // a model one names its `model`; a class with `interpret` decides by code
-    const isModel = options.model !== undefined;
+    // a model one has a `prompt` (or names its model or provider); a class with `interpret` decides by code
+    const isModel =
+      options.prompt !== undefined ||
+      options.promptUrls !== undefined ||
+      options.model !== undefined ||
+      options.modelProvider !== undefined;
     const named = isModel
-      ? { ...options, name, decidedBy: DecidedBy.Model as const, model: options.model }
+      ? { ...options, name, decidedBy: DecidedBy.Model as const }
       : { ...options, name, decidedBy: DecidedBy.Code as const };
     const declaration = {
       options: named,

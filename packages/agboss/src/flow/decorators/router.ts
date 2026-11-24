@@ -1,5 +1,5 @@
 import type { PromptVariables } from "../../components/prompt-variables.js";
-import type { PromptValue } from "../../components/prompt-source.js";
+import type { PromptSource } from "../../components/prompt-source.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
@@ -95,7 +95,7 @@ export interface ModelRouterOptions {
   /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
   readonly modelProvider?: Class;
   /** How to choose: inline, and / or files next to the router (read at assembly). */
-  readonly prompt?: PromptValue;
+  readonly prompt?: PromptSource;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of the prompt. */
   readonly promptVariables?: PromptVariables;

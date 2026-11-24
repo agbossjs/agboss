@@ -6,6 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -28,7 +29,7 @@ const defaults = {
 })
 export class NotesFinish {}
 
-@Agent({ name: "drafting-agent", prompt: "Draft.", description: "Drafts", model: "local/llama" })
+@Agent({ name: "drafting-agent", prompt: inline("Draft."), description: "Drafts", model: "local/llama" })
 export class DraftingAgent {}
 
 @WorkflowStart({
@@ -51,7 +52,7 @@ export class DraftingWorkflow {}
 
 @Agent({
   name: "polishing-agent",
-  prompt: "Polish.",
+  prompt: inline("Polish."),
   description: "Polishes",
   model: "moonshotai/kimi-k2.6",
 })

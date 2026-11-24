@@ -15,6 +15,7 @@ import {
   Router,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { Reasoning } from "../../../src/models/index.js";
 import { route, onStart } from "../../helpers/flow.js";
@@ -212,7 +213,7 @@ export class NoReply {}
   name: "main-router",
   description: "Sends the message to an agent, or ends",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who handles the message.",
+  prompt: inline("Pick who handles the message."),
   model: "typesafe/jev-1.13",
   input: { message: WorkflowStartTextDto },
   maxVisits: 4,

@@ -14,6 +14,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
+  inline,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -67,7 +68,7 @@ export class NotifyTool {
 @Agent({
   name: "intake-agent",
   description: "Takes the request",
-  prompt: "Take the request.",
+  prompt: inline("Take the request."),
   model: "test/intake",
   price,
   tools: [SendEmail],
@@ -79,7 +80,7 @@ export class IntakeAgent {}
 @Agent({
   name: "notifier-agent",
   description: "Notifies",
-  prompt: "Notify.",
+  prompt: inline("Notify."),
   model: "test/notifier",
   price,
   tools: [NotifyTool],
@@ -91,7 +92,7 @@ export class NotifierAgent {}
 @Agent({
   name: "closing-agent",
   description: "Closes the request",
-  prompt: "Close the request.",
+  prompt: inline("Close the request."),
   model: "test/closing",
   price,
   input: { intake: IntakeDto, answer: NoteDto },
@@ -102,7 +103,7 @@ export class ClosingAgent {}
 @Agent({
   name: "recovery-agent",
   description: "Says what failed",
-  prompt: "Say what failed.",
+  prompt: inline("Say what failed."),
   model: "test/recovery",
   price,
 })
@@ -112,7 +113,7 @@ export class RecoveryAgent {}
 @Agent({
   name: "list-recovery-agent",
   description: "Says what failed",
-  prompt: "Say what failed.",
+  prompt: inline("Say what failed."),
   model: "test/recovery",
   price,
   input: { messages: listOf(WorkflowStartTextDto) },
@@ -123,7 +124,7 @@ export class ListRecoveryAgent {}
 @Agent({
   name: "list-summary-agent",
   description: "Sums the answers up",
-  prompt: "Sum up.",
+  prompt: inline("Sum up."),
   model: "test/summary",
   price,
   input: { answers: listOf(NoteDto) },

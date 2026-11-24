@@ -6,6 +6,7 @@ export type PromptProblemCode =
   | "prompt.unknown-variable"
   | "prompt.missing-file"
   | "prompt.path-as-text"
+  | "prompt.bare-text"
   | "prompt.input-in-instructions"
   | "prompt.secret-in-instructions"
   | "prompt.invalid-variable"
@@ -96,6 +97,17 @@ export function pathAsText(owner: string, prompt: string | undefined): PromptPro
     {
       code: "prompt.path-as-text",
       message: `${owner}: prompt "${text}" is a file path, not prompt text — use prompt: "./${text}"`,
+    },
+  ];
+}
+
+/** A bare string that is no file path: a prompt written in the code is `inline("…")`. */
+export function bareText(owner: string, text: string): PromptProblem[] {
+  const shown = text.length > 40 ? `${text.slice(0, 40)}…` : text;
+  return [
+    {
+      code: "prompt.bare-text",
+      message: `${owner}: prompt "${shown}" is neither a file path (./, ../ or /) nor inline(…) — wrap the text in inline("…")`,
     },
   ];
 }

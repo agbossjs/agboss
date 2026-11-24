@@ -74,14 +74,14 @@ export class ClaimWorkflowStart {}
 ```
 
 ```ts file=src/claims/agents/claim-assessor/claim-assessor.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ClaimAssessmentDto } from "../../dto/claim-assessment.dto.js";
 
 @Agent({
   name: "claim-assessor-agent",
   description: "Assesses a claim",
-  prompt: "Assess the claim in three sentences.",
+  prompt: inline("Assess the claim in three sentences."),
   model: "moonshotai/kimi-k2.6",
   input: { claim: WorkflowStartTextDto },
   output: ClaimAssessmentDto,

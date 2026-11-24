@@ -8,6 +8,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -55,7 +56,7 @@ export class RemoteCappedWorkflow {}
 @Agent({
   name: "remote-spender-agent",
   description: "Checks one item, at a cost",
-  prompt: "Check the item.",
+  prompt: inline("Check the item."),
   model: "moonshotai/kimi-k2.6",
   input: { item: ItemDto },
   output: ItemResultDto,

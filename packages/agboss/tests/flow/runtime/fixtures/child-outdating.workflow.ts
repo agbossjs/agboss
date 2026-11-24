@@ -7,6 +7,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Produced,
+  inline,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -31,7 +32,7 @@ export class PickLoopWorkflowStart {}
 @Agent({
   name: "item-picker-agent",
   description: "Picks an item",
-  prompt: "Pick an item.",
+  prompt: inline("Pick an item."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 2,
   input: { message: WorkflowStartTextDto },

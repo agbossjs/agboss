@@ -14,7 +14,11 @@ import { modelResolverOf, type ModelResolver } from "../models/model-resolver.js
 import type { WorkflowDefaults, WorkflowOptions } from "../flow/decorators/workflow.js";
 import type { Class, Provider } from "./injection.js";
 import { componentOf } from "./metadata.js";
-import { rerankerModelsOf } from "./rag-reranker.js";
+import { rerankerModelsOf, rerankerPromptsOf } from "./rag-reranker.js";
+import { arbiterPromptsOf } from "../flow/runtime/launch/arbiter-prompts.js";
+import type { PromptLoader } from "./prompt-render.js";
+import { checkProviderClasses } from "./assemble-checks.js";
+import { judgesOf, type AssembledJudges } from "./judge-parts.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { AssembledReplyInterpreter } from "../channels/discovery.js";
 
@@ -134,6 +138,8 @@ interface WorkflowModelParts {
   readonly graph: RuntimeGraph;
   /** Resolved every model of the workflow through its cascade so far (#1313). */
   readonly resolver: ModelResolver;
+  /** The model arbiters' prompts as assembly read them, by arbiter name (#1347). */
+  readonly modelPrompts: ModelPrompts;
 }
 
 /** The workflow's model parts: its policies', interpreters' and rerankers' models resolved with its cascade (#1313). */
@@ -141,10 +147,10 @@ export const workflowModelPartsOf = (
   parts: WorkflowModelParts,
   users: Omit<ModelUsers, "rerankers"> & { readonly rags: Parameters<typeof rerankerModelsOf>[0] },
 ): ReturnType<typeof modelPartsOf> => {
-  const { owner, bundle, agents, config, routers, graph, resolver } = parts;
+  const { owner, bundle, agents, config, routers, graph, resolver, modelPrompts } = parts;
   const { rags, ...rest } = users;
   // every model through its cascade; a model that resolves to nothing fails the assembly here
-  const arbiters = modelArbitersOf(graph.launches, resolver);
+  const arbiters = modelArbitersOf(graph.launches, resolver, modelPrompts.arbiterPrompts);
   resolver.check();
   const base = modelCascadeOf(bundle, agents);
   // the providers the components named and the cascade's own are all subject to the provider rules
@@ -153,7 +159,11 @@ export const workflowModelPartsOf = (
     owner,
     { config, routers },
     graph,
-    { ...rest, rerankers: rerankerModelsOf(rags, bundle.modelCascade ?? {}), arbiters },
+    {
+      ...rest,
+      rerankers: rerankerModelsOf(rags, bundle.modelCascade ?? {}, modelPrompts.rerankerPrompts),
+      arbiters,
+    },
     cascade,
   );
 };
@@ -165,3 +175,34 @@ export const cascadedConfigOf = (
   agents: readonly AgentMeta[],
   resolver: ModelResolver,
 ): AgentsConfigOf<string> => withModelProviders(config, modelCascadeOf(bundle, agents), resolver);
+
+/** The model arbiters' and rerankers' prompts as assembly read them, by component name (#1347). */
+export interface ModelPrompts {
+  readonly arbiterPrompts: ReadonlyMap<string, string>;
+  readonly rerankerPrompts: ReadonlyMap<string, string>;
+}
+
+/** The model arbiters' and model rerankers' prompts, read at assembly like every prompt (#1347). */
+export async function modelPromptsOf(
+  graph: RuntimeGraph,
+  rags: readonly Class[],
+  loader: PromptLoader,
+): Promise<ModelPrompts> {
+  return {
+    arbiterPrompts: await arbiterPromptsOf(graph.launches, loader),
+    rerankerPrompts: await rerankerPromptsOf(rags, loader),
+  };
+}
+
+/** The workflow's provider classes, checked before the graph; then its judges and the arbiters' and rerankers' prompts. */
+export async function checkedJudgesOf(
+  bundle: WorkflowMeta,
+  agents: readonly AgentMeta[],
+  loader: PromptLoader,
+  graph: RuntimeGraph,
+  rags: readonly Class[],
+): Promise<{ readonly judges: AssembledJudges; readonly modelPrompts: ModelPrompts }> {
+  checkProviderClasses(bundle);
+  const judges = await judgesOf(agents, loader);
+  return { judges, modelPrompts: await modelPromptsOf(graph, rags, loader) };
+}

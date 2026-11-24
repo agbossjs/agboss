@@ -21,6 +21,7 @@ import {
   WorkingCalendar,
   secret,
   type Class,
+  inline,
 } from "../../src/index.js";
 import { arbiterOf } from "../../src/flow/decorators/arbiter.js";
 import { ReplyInterpreter, replyInterpreterOf } from "../../src/channels/channel-role.decorator.js";
@@ -65,7 +66,7 @@ class TenantScope {
   }
 }
 
-@InputGuardrail({ prompt: "Is it rude?", model: "test/gr", threshold: 0.5, refusal: "No." })
+@InputGuardrail({ prompt: inline("Is it rude?"), model: "test/gr", threshold: 0.5, refusal: "No." })
 class RudeWords {}
 
 @PiiPolicy({

@@ -14,6 +14,7 @@ import {
   WorkflowStart,
   type JudgeHandler,
   type JudgeInput,
+  inline,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -36,7 +37,7 @@ export class AuditJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "audit-writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes an answer",
   model: "local/llama",
   judges: [AuditJudge],

@@ -16,6 +16,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import type { Produced } from "../../../src/index.js";
 import { TckInputQuestion } from "../../a2a-tck/tck.application.js";
 import { LedgerReadTool } from "./direct-rules.fixture.js";
+import { inline } from "../../../src/index.js";
 
 interface Message {
   readonly message: Produced<WorkflowStartTextDto, unknown>;
@@ -44,19 +45,19 @@ export class PlainTool {
 @Agent({
   name: "asking-agent",
   description: "Asks its caller, asks for approval, calls a class of no decorator",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   tools: [TckInputQuestion, ApprovedReadTool, PlainTool as never],
 })
 export class AskingAgent {}
 
-@Agent({ name: "plain-agent", description: "Tools: none", prompt: "Answer.", model: "x/y" })
+@Agent({ name: "plain-agent", description: "Tools: none", prompt: inline("Answer."), model: "x/y" })
 export class PlainAgent {}
 
 @Agent({
   name: "first-ledger-agent",
   description: "Reads the ledger",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "x/y",
   tools: [LedgerReadTool],
 })
@@ -65,7 +66,7 @@ export class FirstLedgerAgent {}
 @Agent({
   name: "second-ledger-agent",
   description: "Reads the ledger too",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "x/y",
   tools: [LedgerReadTool],
 })

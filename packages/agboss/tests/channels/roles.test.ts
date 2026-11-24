@@ -19,7 +19,7 @@ import { Text } from "../../src/dto/index.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, inline } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -65,7 +65,7 @@ function applicationWith(name: string, tools: readonly (typeof ChargeTool)[]) {
   @Agent({
     name: `${name}-agent`,
     description: "d",
-    prompt: "p",
+    prompt: inline("p"),
     model: "test/m",
     input: { message: WorkflowStartTextDto },
     output: RefundCardOutputDto,

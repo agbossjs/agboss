@@ -18,6 +18,7 @@ import {
   QualityGateError,
   Workflow,
   type JudgeHandler,
+  inline,
 } from "../../src/index.js";
 import { replyWith, testUnit, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -93,7 +94,7 @@ class NamedModelJudge implements JudgeHandler<PlainTextDto> {
 function gatedBy(judge: typeof NamedModelJudge, name: string) {
   @Agent({
     name: `${name}-agent`,
-    prompt: "Write.",
+    prompt: inline("Write."),
     description: "Gated",
     model: "local/llama",
     judges: [judge],

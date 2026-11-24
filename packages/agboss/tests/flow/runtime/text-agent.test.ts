@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../../src/components/assemble.js";
-import { Agent, GraphRuleError, Workflow, WorkflowFinish } from "../../../src/index.js";
+import { Agent, GraphRuleError, Workflow, WorkflowFinish, inline } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { Alpha, TestAnswer, TestChat, TestMain } from "../../fixtures/test-flow/test.flow.js";
@@ -17,7 +17,12 @@ class SummaryDto {
 @WorkflowFinish({ name: "summary-workflow-finish", description: "A summary", output: SummaryDto })
 class SummaryFinish {}
 
-@Agent({ name: "chatty-agent", description: "Answers with text", prompt: "Chat.", model: "test/c" })
+@Agent({
+  name: "chatty-agent",
+  description: "Answers with text",
+  prompt: inline("Chat."),
+  model: "test/c",
+})
 class ChattyAgent {}
 
 /** A text agent may lead only to a finish of `WorkflowFinishTextDto`. */

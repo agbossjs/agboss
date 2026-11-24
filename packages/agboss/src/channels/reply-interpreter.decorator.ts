@@ -1,5 +1,5 @@
 import type { PromptVariables } from "../components/prompt-variables.js";
-import type { PromptValue } from "../components/prompt-source.js";
+import type { PromptSource } from "../components/prompt-source.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { DecidedBy } from "../flow/decorators/router.js";
@@ -33,7 +33,7 @@ export interface ModelReplyInterpreterOptions {
   /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
   readonly modelProvider?: Class;
   /** How to read a reply; static — the question and the reply come in the input message. */
-  readonly prompt?: PromptValue;
+  readonly prompt?: PromptSource;
   readonly promptUrls?: readonly string[];
   /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
   readonly promptVariables?: PromptVariables;

@@ -9,6 +9,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -74,7 +75,7 @@ export class LoopHoldTool {
 @Agent({
   name: "loop-pay-agent",
   description: "Pays for its answer in several model calls",
-  prompt: "Answer the item.",
+  prompt: inline("Answer the item."),
   model: "moonshotai/kimi-k2.6",
   tools: [LoopHoldTool],
   input: { item: ItemDto },

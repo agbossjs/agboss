@@ -22,6 +22,11 @@ export type {
   RerankOptions,
   RerankResult,
 } from "./types.js";
-export { RagReranker, type RagRerankerOptions } from "./reranker.decorator.js";
+export {
+  RagReranker,
+  type CodeRagRerankerOptions,
+  type ModelRagRerankerOptions,
+  type RagRerankerOptions,
+} from "./reranker.decorator.js";
 export { SqliteFtsRagSource, type SqliteFtsOptions } from "./sqlite-fts.js";
 export type { SqliteFtsDirectory, SqliteFtsDirectoryKey } from "./sqlite-fts-directory.js";

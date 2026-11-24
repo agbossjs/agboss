@@ -11,6 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type ValuesOutdatedEvent,
+  inline,
 } from "../../../../src/index.js";
 import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
 import { onAgent, caseOf, route, onStart } from "../../../helpers/flow.js";
@@ -75,7 +76,7 @@ export class LoopWorkflowStart {}
 @Agent({
   name: "loop-researcher-agent",
   description: "Researches the topic",
-  prompt: "Research the topic.",
+  prompt: inline("Research the topic."),
   model: "moonshotai/kimi-k2.6",
   input: { request: ArticleRequestDto },
   output: ResearchDto,
@@ -85,7 +86,7 @@ export class LoopResearcherAgent {}
 @Agent({
   name: "loop-writer-agent",
   description: "Writes the draft, or rewrites it from the notes",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 8,
   input: {
@@ -100,7 +101,7 @@ export class LoopWriterAgent {}
 @Agent({
   name: "loop-reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 8,
   tools: [AskEditorTool],
@@ -112,7 +113,7 @@ export class LoopReviewerAgent {}
 @Agent({
   name: "loop-publisher-agent",
   description: "Publishes the approved draft",
-  prompt: "Publish the draft.",
+  prompt: inline("Publish the draft."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: DraftDto, approval: ApprovalDto },
   output: ArticleDto,
@@ -165,7 +166,7 @@ export class JobsWorkflowStart {}
 @Agent({
   name: "profile-agent",
   description: "Builds the candidate's profile",
-  prompt: "Build the profile.",
+  prompt: inline("Build the profile."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { message: WorkflowStartTextDto },
@@ -176,7 +177,7 @@ export class ProfileAgent {}
 @Agent({
   name: "search-agent",
   description: "Finds jobs for the profile",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { profile: CandidateProfileDto },
@@ -187,7 +188,7 @@ export class SearchAgent {}
 @Agent({
   name: "score-agent",
   description: "Scores the jobs",
-  prompt: "Score the jobs.",
+  prompt: inline("Score the jobs."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { jobs: JobListDto },
@@ -204,7 +205,7 @@ export class AdviceDto {
 @Agent({
   name: "advice-agent",
   description: "Advises on the jobs",
-  prompt: "Advise.",
+  prompt: inline("Advise."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   output: AdviceDto,
@@ -214,7 +215,7 @@ export class AdviceAgent {}
 @Agent({
   name: "pick-agent",
   description: "Picks the job to apply for",
-  prompt: "Pick a job.",
+  prompt: inline("Pick a job."),
   model: "moonshotai/kimi-k2.6",
   maxVisits: 3,
   input: { scores: JobScoresDto, advice: AdviceDto },
@@ -229,7 +230,7 @@ export class JobsWorkflowFinish {}
   name: "jobs-router",
   description: "Starts over with a new profile, or stops",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the pick good?",
+  prompt: inline("Is the pick good?"),
   model: "typesafe/jev-1.13",
   maxVisits: 3,
   input: { pick: JobPickDto },

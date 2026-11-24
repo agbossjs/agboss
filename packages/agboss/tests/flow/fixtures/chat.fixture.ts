@@ -8,7 +8,7 @@ import { oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { OpeningsDto, ProfileDto, ResumeMissingDto, WorkflowStartTextDto } from "./dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline } from "../../../src/index.js";
 
 /** #272 example 1 — chat: a router in a loop. */
 
@@ -22,7 +22,7 @@ export class IntakeWorkflowStart {}
 @Agent({
   name: "profiler-agent",
   description: "Reads the resume into a profile",
-  prompt: "Read the resume.",
+  prompt: inline("Read the resume."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -34,7 +34,7 @@ export class ProfilerAgent {}
 @Agent({
   name: "scout-agent",
   description: "Finds openings for the profile",
-  prompt: "Find openings.",
+  prompt: inline("Find openings."),
   model: "moonshotai/kimi-k2.6",
   input: {
     // the router may route to the scout before the profiler ran (#270 [input.missing-on-path])
@@ -70,7 +70,7 @@ export class NoReplyWorkflowFinish {}
   description: "Sends the message to the step that handles it, or ends the execution",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick who handles the customer's message next.",
+  prompt: inline("Pick who handles the customer's message next."),
   input: {
     message: WorkflowStartTextDto,
   },

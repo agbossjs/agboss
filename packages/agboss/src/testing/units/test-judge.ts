@@ -2,6 +2,7 @@ import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import { verdictOfJudge } from "../../judges/declarative-judge.js";
 import type {
+  AnyJudgeInput,
   JudgedOutput,
   JudgeOutputOf,
   JudgeVerdict,
@@ -26,10 +27,15 @@ import type { FileContent } from "../../files/file-bytes.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
 /** A judge's input with `toolCalls` (#395) and `files` (#899) optional: `[]` when not given. */
-export type JudgeRunnerInput<TOutput> = JudgedOutput<TOutput> & {
-  readonly toolCalls?: readonly ToolCallRecord[];
-  readonly files?: readonly FileContent[];
-};
+export type JudgeRunnerInput<TOutput> =
+  JudgedOutput<TOutput> extends infer TInput
+    ? TInput extends unknown
+      ? Omit<TInput, "toolCalls" | "files"> & {
+          readonly toolCalls?: readonly ToolCallRecord[];
+          readonly files?: readonly FileContent[];
+        }
+      : never
+    : never;
 
 /**
  * One judge on an agent's output: `await runJudge({ output, task, attempt })` → `{ output, spend }` —
@@ -94,7 +100,7 @@ export function judgeUnit<
       ...given,
       toolCalls: given.toolCalls ?? [],
       files: given.files ?? [],
-    };
+    } as unknown as AnyJudgeInput;
     // the container creates the class itself: an instance of the judge, `judge` included
     const handler = site.instanceOf(judge) as RunnableJudge;
     const frame = {

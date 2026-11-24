@@ -9,6 +9,7 @@ import {
   JudgeVerdict,
   type JudgeHandler,
   type JudgeInput,
+  inline,
 } from "../../src/index.js";
 import { PlainTextDto, Text } from "../../src/dto/index.js";
 
@@ -32,21 +33,21 @@ const text = { model: "local/llama", judges: [FlowJudge], maxRetries: 1 } as con
 @Agent({
   name: "editor-agent",
   description: "Edits the shape",
-  prompt: "Edit.",
+  prompt: inline("Edit."),
   input: { shape: ShapeDto },
   ...text,
 })
 export class Editor {}
 
 /** The writer of a child workflow: a text agent with a model judge. */
-@Agent({ name: "child-writer-agent", description: "Writes", prompt: "Write.", ...text })
+@Agent({ name: "child-writer-agent", description: "Writes", prompt: inline("Write."), ...text })
 export class ChildWriter {}
 
 /** Answers through an answer tool: it streams no text. */
 @Agent({
   name: "shaper-agent",
   description: "Answers with a DTO",
-  prompt: "Shape.",
+  prompt: inline("Shape."),
   model: "local/llama",
   output: ShapeDto,
 })
@@ -71,7 +72,7 @@ export class ShapeJudge implements JudgeHandler<ShapeDto> {
 @Agent({
   name: "launch-shape-agent",
   description: "A shape",
-  prompt: "Shape.",
+  prompt: inline("Shape."),
   model: "local/llama",
   output: ShapeDto,
   judges: [ShapeJudge],
@@ -81,7 +82,7 @@ export class LaunchShape {}
 @Agent({
   name: "launch-color-agent",
   description: "A color",
-  prompt: "Color.",
+  prompt: inline("Color."),
   model: "local/llama",
   output: ColorDto,
 })
@@ -90,7 +91,7 @@ export class LaunchColor {}
 @Agent({
   name: "closer-agent",
   description: "Closes",
-  prompt: "Close.",
+  prompt: inline("Close."),
   model: "local/llama",
   input: { shape: ShapeDto, color: ColorDto },
 })

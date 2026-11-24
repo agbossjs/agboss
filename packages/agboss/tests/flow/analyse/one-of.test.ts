@@ -26,6 +26,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { onStart, side, toAction, toAgent, toFinish } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * `.toOneOf([…branches])` names no DTO: each branch takes the variant its entry consumer reads,
@@ -35,7 +36,7 @@ import { onStart, side, toAction, toAgent, toFinish } from "../fixtures/paths.js
 @Agent({
   name: "changes-edit-agent",
   description: "Edits the draft by the reviewer's notes",
-  prompt: "Edit it.",
+  prompt: inline("Edit it."),
   model: "moonshotai/kimi-k2.6",
   input: { changes: ChangesRequestedDto, draft: OfferDraftDto },
   output: OfferDraftDto,
@@ -45,7 +46,7 @@ class ChangesEditAgent {}
 @Agent({
   name: "second-edit-agent",
   description: "Edits the draft too",
-  prompt: "Edit it.",
+  prompt: inline("Edit it."),
   model: "moonshotai/kimi-k2.6",
   input: { changes: ChangesRequestedDto },
   output: OfferDraftDto,
@@ -88,7 +89,7 @@ class BothKitAction {
 @Agent({
   name: "triage-kit-agent",
   description: "Three outcomes",
-  prompt: "Triage it.",
+  prompt: inline("Triage it."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto },
   output: oneOf(ChangesRequestedDto, DraftApprovedDto, ResumeMissingDto),

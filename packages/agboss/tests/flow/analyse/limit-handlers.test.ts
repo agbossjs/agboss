@@ -32,6 +32,7 @@ import {
 } from "../fixtures/children.fixture.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { caseOf, onStart, toAction, toAgent, toFinish } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
 
 /**
  * #263 AC12: a side path that can catch a limit leads only to actions and finishes —
@@ -57,7 +58,7 @@ const errorsOf = (flow: Flow) =>
 @Agent({
   name: "apology-agent",
   description: "Writes an apology instead of the offer",
-  prompt: "Apologise.",
+  prompt: inline("Apologise."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: JobOfferDto,

@@ -116,20 +116,30 @@ export interface ModelArbiterUse {
   readonly modelProvider?: string;
   /** The provider has no `cost`: its calls are `CostSource.Unpriced` (#1313). */
   readonly unpriced?: true;
+  /** Its `prompt` as assembly read it (#1347); `""` for a use made without one. */
+  readonly prompt: string;
 }
 
 /**
  * The model arbiters of the graph's launches; with a `resolver`, each model through its cascade
- * (its own provider, its workflow's, its application's, #1313).
+ * (its own provider, its workflow's, its application's, #1313); `prompts` are the texts assembly
+ * read, by arbiter name.
  */
 export const modelArbitersOf = (
   launches: readonly RuntimeLaunch[],
   resolver?: ModelResolver,
+  prompts: ReadonlyMap<string, string> = new Map(),
 ): readonly ModelArbiterUse[] =>
   arbiterClassesOf(launches).flatMap((arbiter): ModelArbiterUse[] => {
     const options = arbiterOf(arbiter)?.options;
     if (options === undefined || !hasArbiterModel(options)) return [];
     const key = `arbiters.${options.name}`;
     const own = { model: options.model, provider: options.modelProvider, isRequired: true };
-    return [{ name: options.name, ...componentModelOf(resolver, key, own) }];
+    return [
+      {
+        name: options.name,
+        ...componentModelOf(resolver, key, own),
+        prompt: prompts.get(options.name) ?? "",
+      },
+    ];
   });

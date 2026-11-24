@@ -5,6 +5,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -24,7 +25,7 @@ export class ChunkDraftDto {
 @Agent({
   name: "chunk-worker-agent",
   description: "Summarises a chunk",
-  prompt: "Summarise the chunk.",
+  prompt: inline("Summarise the chunk."),
   model: "test/chunk-worker",
   input: { task: WorkflowStartTextDto },
   output: ChunkDraftDto,

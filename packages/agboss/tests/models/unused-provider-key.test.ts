@@ -7,7 +7,14 @@
  */
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { Action, Agent, EmptyEnvironment, Workflow, WorkflowStart } from "../../src/index.js";
+import {
+  Action,
+  Agent,
+  EmptyEnvironment,
+  Workflow,
+  WorkflowStart,
+  inline,
+} from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
@@ -55,7 +62,7 @@ class ModelFreeApplication {}
 @Agent({
   name: "note-writer-agent",
   description: "Writes a reply to the note",
-  prompt: "Reply to the note.",
+  prompt: inline("Reply to the note."),
   model: "test/writer",
   input: { note: NoteDto },
 })

@@ -19,6 +19,7 @@ import {
   type IdempotencyRunStatus,
   type OutboundCallSendStatus,
   type Produced,
+  inline,
 } from "../../../src/index.js";
 import { hours, minutes } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -210,7 +211,7 @@ export class SendChargeAction {
 
 @Agent({
   name: "cashier-agent",
-  prompt: "Charge the customer's order with charge-order-tool.",
+  prompt: inline("Charge the customer's order with charge-order-tool."),
   description: "Charges orders",
   model: "local/llama",
   tools: [ChargeOrderTool, SendChargeTool],

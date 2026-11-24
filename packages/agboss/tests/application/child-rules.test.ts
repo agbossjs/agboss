@@ -11,6 +11,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
+  inline,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -106,7 +107,7 @@ const textAgent = (
   model = "moonshotai/kimi-k2.6",
   tools: readonly ToolHandlerClass[] = [],
 ): Class => {
-  @Agent({ name, description: "Answers", prompt: "Answer.", model, tools: [...tools] })
+  @Agent({ name, description: "Answers", prompt: inline("Answer."), model, tools: [...tools] })
   class TextAgent {}
   return TextAgent;
 };

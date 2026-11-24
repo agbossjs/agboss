@@ -14,6 +14,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type GuardrailRefusal,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -36,7 +37,7 @@ const JEV = "typesafe/jev-1.13";
 @InputGuardrail({
   name: "Rude_One",
   description: "Misnamed",
-  prompt: "Is it rude?",
+  prompt: inline("Is it rude?"),
   model: JEV,
   threshold: 0.5,
   refusal: "Be polite.",
@@ -46,7 +47,7 @@ class MisnamedGuardrail {}
 @InputGuardrail({
   name: "twice-guardrail",
   description: "A text and a method",
-  prompt: "Is it rude?",
+  prompt: inline("Is it rude?"),
   model: JEV,
   threshold: 0.5,
   refusal: "Be polite.",
@@ -61,7 +62,7 @@ class TwiceGuardrail implements GuardrailRefusal {
 @InputGuardrail({
   name: "silent-guardrail",
   description: "Neither",
-  prompt: "Is it rude?",
+  prompt: inline("Is it rude?"),
   model: JEV,
   threshold: 0.5,
 })
@@ -230,7 +231,7 @@ class GuardedFinish {}
 @Agent({
   name: "gr-agent",
   description: "d",
-  prompt: "p",
+  prompt: inline("p"),
   model: "test/gr",
   guardrails: [MisnamedGuardrail],
   excludeGuardrails: [LegalAdviceGuardrail],
@@ -241,7 +242,7 @@ class GuardedAgent {}
   name: "gr-router",
   description: "r",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick.",
+  prompt: inline("Pick."),
   model: JEV,
   input: { message: WorkflowStartTextDto },
   guardrails: [NoLegalAdviceGuardrail],

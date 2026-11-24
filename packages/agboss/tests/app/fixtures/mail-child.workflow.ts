@@ -8,6 +8,7 @@ import {
   WorkflowFinish,
   WorkflowSettings,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -61,7 +62,7 @@ export class MailHold {
 @Agent({
   name: "mailer-agent",
   description: "Sends the emails it is asked to",
-  prompt: "Send the email you are asked to send.",
+  prompt: inline("Send the email you are asked to send."),
   tools: [MailHold, SendEmail],
   model: "test/mailer",
 })
@@ -71,7 +72,7 @@ export class ChildMailerV1 {}
 @Agent({
   name: "mailer-agent",
   description: "Sends the emails it is asked to",
-  prompt: "Send the email you are asked to send, and sign it.",
+  prompt: inline("Send the email you are asked to send, and sign it."),
   tools: [MailHold, SendEmail],
   model: "test/mailer",
 })

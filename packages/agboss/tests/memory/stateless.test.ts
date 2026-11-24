@@ -13,6 +13,7 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type LogEntry,
+  inline,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
@@ -43,7 +44,12 @@ class ChatStart {}
 })
 class ChatFinish {}
 
-@Agent({ name: "chat-agent", description: "Answers", prompt: "Answer.", model: "test/chat" })
+@Agent({
+  name: "chat-agent",
+  description: "Answers",
+  prompt: inline("Answer."),
+  model: "test/chat",
+})
 class ChatAgent {}
 
 @Workflow({

@@ -7,6 +7,7 @@ import {
   WorkflowStart,
   type Produced,
   Action,
+  inline,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -48,7 +49,7 @@ export class RefundOneWorkflowFinish {}
 @Agent({
   name: "child-refund-agent",
   description: "Handles one order",
-  prompt: "Handle the order.",
+  prompt: inline("Handle the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool, ConfirmOrderTool],
   input: { request: RefundRequestDto },

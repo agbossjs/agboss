@@ -71,14 +71,14 @@ export class DeskWorkflowStart {}
 ```
 
 ```ts file=src/desk/agents/desk/desk.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 
 @Agent({
   name: "desk-agent",
   description: "Answers the customer",
-  prompt: "Answer the customer in two sentences.",
+  prompt: inline("Answer the customer in two sentences."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: DeskAnswerDto,

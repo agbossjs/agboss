@@ -6,6 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -32,7 +33,7 @@ export class PricedModels {}
 
 @Agent({
   name: "free-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "On the free provider",
   modelProvider: FreeModels,
 })
@@ -40,7 +41,7 @@ export class FreeAgent {}
 
 @Agent({
   name: "paid-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "On the paid provider",
   modelProvider: PricedModels,
 })

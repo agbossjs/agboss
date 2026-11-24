@@ -16,6 +16,7 @@ import {
   ToolCallStatus,
   type JudgeHandler,
   type JudgeInput,
+  inline,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import {
@@ -92,7 +93,7 @@ export class ScriptedModelProvider implements ModelProviderHandler {
 @Agent({
   name: "lookup-agent",
   description: "Looks orders up",
-  prompt: "Look the order up.",
+  prompt: inline("Look the order up."),
   model: "cli/desk",
   input: { message: AskDto },
   tools: [LookupTool],

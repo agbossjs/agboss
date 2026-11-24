@@ -22,7 +22,7 @@ import {
   type JudgeHandler,
 } from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
-import { Action, Agent, InjectionToken, provide, Tool } from "../../src/index.js";
+import { Action, Agent, InjectionToken, provide, Tool, inline } from "../../src/index.js";
 import { PlainTextDto } from "../../src/dto/index.js";
 import { onStart } from "../helpers/flow.js";
 import { Text } from "../../src/dto/index.js";
@@ -42,7 +42,7 @@ const notRegistered = (consumer: string): string =>
 @InputGuardrail({
   name: "needs-guardrail",
   description: "Needs a missing value",
-  prompt: "Is it bad?",
+  prompt: inline("Is it bad?"),
   model: "typesafe/jev-1.13",
   threshold: 0.9,
   deps: [MISSING],

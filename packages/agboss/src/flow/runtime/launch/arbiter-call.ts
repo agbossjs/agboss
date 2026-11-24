@@ -35,6 +35,8 @@ export interface ArbiterCall {
 
 /** A model arbiter's two uses: its declarative `criteria` judging, and the injectable model of its code. */
 export interface ArbiterModels extends DeclarativeArbiterModel {
+  /** The arbiter's `prompt` as assembly read it: how its model judges (#1347). */
+  readonly instructions: string;
   /** The `ArbiterModel` of one judged answer, its spend into `call.spent`. */
   readonly metered: (call: ArbiterCall) => ArbiterModel;
 }
@@ -119,9 +121,11 @@ export function createArbiterModels(
   name: string,
   model: RouterModel,
   deps: LaunchDeciderDeps,
+  instructions: string,
 ): ArbiterModels {
   return {
     ...createArbiterModel(name, model, deps),
+    instructions,
     metered: (call) => ({
       model: model.model,
       invoke: invokeOf(name, model, deps, call),

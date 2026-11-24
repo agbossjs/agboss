@@ -14,6 +14,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../src/index.js";
 import { FilePolicy } from "../../src/files/file-policy.js";
 import { FileDto } from "../../src/dto/standard/file.js";
@@ -85,7 +86,7 @@ const SCAN: FileDto = {
 @Agent({
   name: "reader-agent",
   description: "Reads a document",
-  prompt: "Read the document.",
+  prompt: inline("Read the document."),
   model: "local/reader",
   input: { request: ReadRequestDto },
   tools: [ScanTool],

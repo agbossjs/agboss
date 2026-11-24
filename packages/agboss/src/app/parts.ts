@@ -79,6 +79,8 @@ export const servicesFor = (
   contexts,
   container,
   rerankModel: rerankerBindingOf(bundle.config, gateway),
+  rerankInstructions: (reranker) =>
+    bundle.rerankers?.find((found) => found.name === reranker)?.prompt ?? "",
 });
 
 /** Context-mode knowledge bases per agent, when the workflow has any. */

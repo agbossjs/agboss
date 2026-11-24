@@ -14,6 +14,7 @@ import {
 } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onAction, onAgent, route, onStart } from "./paths.js";
+import { inline } from "../../../src/index.js";
 
 /** #270 — the support desk: a router, an optional loyalty offer, a finish reading `fast` or `expert`. */
 
@@ -27,7 +28,7 @@ export class SupportWorkflowStart {}
 @Agent({
   name: "order-agent",
   description: "Looks the customer's order up",
-  prompt: "Look the order up.",
+  prompt: inline("Look the order up."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -39,7 +40,7 @@ export class OrderAgent {}
 @Agent({
   name: "fast-answer-agent",
   description: "Writes a quick reply",
-  prompt: "Reply quickly.",
+  prompt: inline("Reply quickly."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -52,7 +53,7 @@ export class FastAnswerAgent {}
 @Agent({
   name: "loyalty-agent",
   description: "Finds an offer for a loyal customer",
-  prompt: "Find an offer.",
+  prompt: inline("Find an offer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     order: OrderStatusDto,
@@ -64,7 +65,7 @@ export class LoyaltyAgent {}
 @Agent({
   name: "expert-answer-agent",
   description: "Writes a careful reply",
-  prompt: "Reply carefully.",
+  prompt: inline("Reply carefully."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,

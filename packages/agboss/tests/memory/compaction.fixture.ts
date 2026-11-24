@@ -109,7 +109,7 @@ export class DeskHandOver {}
 @Agent({
   name: "answer-agent",
   description: "Answers",
-  prompt: "Answer the message.",
+  prompt: inline("Answer the message."),
   model: "test/answer",
 })
 export class AnswerAgent {}
@@ -118,7 +118,7 @@ export class AnswerAgent {}
 @Agent({
   name: "contact-agent",
   description: "Writes to the contacts it is given",
-  prompt: "Write to the contact.",
+  prompt: inline("Write to the contact."),
   model: "test/contact",
   excludePiiPolicies: [ContactPiiPolicy],
 })
@@ -129,7 +129,7 @@ export class ContactAgent {}
   name: "help-router",
   description: "Sends the message on",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who answers.",
+  prompt: inline("Pick who answers."),
   model: JEV,
   input: { message: WorkflowStartTextDto },
   routes: [
@@ -164,7 +164,7 @@ export class HelpDeskApplication {}
 @Agent({
   name: "note-agent",
   description: "Answers from its note",
-  prompt: "Answer the message.",
+  prompt: inline("Answer the message."),
   model: "test/note",
 })
 export class NoteAgent {}
@@ -190,7 +190,7 @@ export class NotesDeskApplication {}
 @Agent({
   name: "archive-agent",
   description: "Answers from the whole thread",
-  prompt: "Answer the message.",
+  prompt: inline("Answer the message."),
   model: "test/archive",
   memory: AllTurnsMemory,
 })
@@ -200,7 +200,7 @@ export class ArchiveAgent {}
   name: "window-router",
   description: "Sends the message on",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who answers.",
+  prompt: inline("Pick who answers."),
   model: JEV,
   input: { message: WorkflowStartTextDto },
   routes: [
@@ -250,7 +250,7 @@ export class EagerMemory {}
 @Agent({
   name: "eager-agent",
   description: "Answers from the summary only",
-  prompt: "Answer the message.",
+  prompt: inline("Answer the message."),
   model: "test/eager",
 })
 export class EagerAgent {}

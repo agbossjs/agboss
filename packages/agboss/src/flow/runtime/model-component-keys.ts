@@ -15,7 +15,7 @@ import { arbiterOf, isDeclarativeArbiter } from "../decorators/arbiter.js";
 import { agentMetasOf } from "./agents.js";
 import type { RuntimeGraph } from "./graph-model.js";
 import { describedShapeOf, dtoSchemaHashOf } from "./join-keys.js";
-import { arbiterClassesOf } from "./launch/runtime-launch.js";
+import { arbiterClassesOf, type ModelArbiterUse } from "./launch/runtime-launch.js";
 import { ComponentKind, type ComponentRecord } from "./records.js";
 
 /**
@@ -35,6 +35,8 @@ export interface ModelComponentSource {
   readonly memories?: AssembledMemories | undefined;
   readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
   readonly pii?: AssembledPii | undefined;
+  /** The model arbiters with the prompts assembly read (#1347). */
+  readonly arbiters?: readonly ModelArbiterUse[] | undefined;
 }
 
 const recordOf = (
@@ -60,20 +62,27 @@ const judgeRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
   );
 
 /** The hash of a model arbiter's texts — its prompt and each agent's criterion — as describe gives it. */
-export function arbiterPromptHashOf(arbiter: ArbiterClass): string | undefined {
+export function arbiterPromptHashOf(
+  arbiter: ArbiterClass,
+  uses: readonly ModelArbiterUse[] = [],
+): string | undefined {
   const options = arbiterOf(arbiter)?.options;
   if (options === undefined || !isDeclarativeArbiter(options)) return undefined;
   const criteria = options.criteria.map(({ target, prompt }) => ({
     target: nameOf(target),
     prompt: normalisePromptText(prompt),
   }));
-  return versionOf({ prompt: normalisePromptText(options.prompt), criteria });
+  const prompt = uses.find((use) => use.name === options.name)?.prompt ?? "";
+  return versionOf({ prompt: normalisePromptText(prompt), criteria });
 }
 
-const arbiterRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
+const arbiterRecordsOf = (
+  graph: RuntimeGraph,
+  uses: readonly ModelArbiterUse[] | undefined,
+): ComponentRecord[] =>
   arbiterClassesOf(graph.launches).flatMap((arbiter) => {
     const name = arbiterOf(arbiter)?.options.name;
-    const promptHash = arbiterPromptHashOf(arbiter);
+    const promptHash = arbiterPromptHashOf(arbiter, uses);
     return name === undefined || promptHash === undefined
       ? []
       : [recordOf(name, ComponentKind.Arbiter, promptHash, undefined)];
@@ -138,7 +147,7 @@ export function modelComponentRecordsOf(source: ModelComponentSource): readonly 
   const records = [
     ...judgeRecordsOf(source.graph),
     ...guardrailRecordsOf(source.guardrails),
-    ...arbiterRecordsOf(source.graph),
+    ...arbiterRecordsOf(source.graph, source.arbiters),
     ...memoryRecordsOf(source.memories),
     ...interpreterRecordsOf(source.replyInterpreters),
     ...piiRecordsOf(source.pii),
