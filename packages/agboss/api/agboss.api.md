@@ -2943,9 +2943,11 @@ export interface ExecutionCancelledErrorOptions extends AGBossErrorOptions {
 
 // @public
 export abstract class ExecutionContext {
+    readonly application: ApplicationContext;
     readonly depth: number;
     readonly executionId: string;
     readonly executionOf: (workflow: WorkflowClass) => this | undefined;
+    readonly handledError: HandledErrorRecord | undefined;
     readonly itemIndex: number | undefined;
     readonly onInterrupted: (cleanup: InterruptCleanup) => void;
     readonly origin: ExecutionOrigin | undefined;
@@ -3741,7 +3743,7 @@ export interface ExternalTaskOptions<TDeps extends readonly Token[] = readonly T
 }
 
 // @public
-type ExtraRuleCode = A2AEndpointRuleCode | EvalRuleCode | FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
+type ExtraRuleCode = A2AEndpointRuleCode | ContextRuleCode | EvalRuleCode | FileRuleCode | ModelProviderRuleCode | ParallelLaunchRuleCode | PauseTargetRuleCode | PiiRuleCode | StorageRuleCode;
 
 // @public
 export interface FailedHealthCheckResult {

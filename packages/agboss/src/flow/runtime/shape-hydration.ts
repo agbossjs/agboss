@@ -3,6 +3,7 @@ import { strictMatchOf } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
 import type { InputFieldShape } from "../decorators/declaration.js";
 import { Wrapper } from "../dto-wrappers.js";
+import { Metadata, trackValue } from "../metadata.js";
 import type { RuntimeGraph } from "./graph-model.js";
 
 /**
@@ -48,7 +49,7 @@ export function hydratedValue(
  */
 export function hydratedForShape(shape: InputFieldShape, value: unknown): unknown {
   if (value === undefined || value === null) return value;
-  if (typeof shape === "function") return hydrated(shape, value);
+  if (typeof shape === "function") return keepingFacts(value, hydrated(shape, value));
   switch (shape.kind) {
     case Wrapper.Optional:
       return hydratedForShape(shape.inner, value);
@@ -61,7 +62,14 @@ export function hydratedForShape(shape: InputFieldShape, value: unknown): unknow
   }
 }
 
+/** A hydrated copy of a value a test gave with `Metadata.with(…)` keeps what was stated about it. */
+function keepingFacts(original: unknown, copy: unknown): unknown {
+  if (typeof original !== "object" || original === null || copy === original) return copy;
+  const facts = Metadata.of(original);
+  return facts === undefined ? copy : trackValue(copy, facts);
+}
+
 function hydratedItem(variants: readonly [DtoClass, ...DtoClass[]], item: unknown): unknown {
   const dto = variants.length === 1 ? variants[0] : strictMatchOf(variants, item);
-  return dto === undefined ? item : hydrated(dto, item);
+  return dto === undefined ? item : keepingFacts(item, hydrated(dto, item));
 }

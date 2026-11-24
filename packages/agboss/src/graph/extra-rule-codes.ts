@@ -38,9 +38,13 @@ export type PauseTargetRuleCode =
 export type ParallelLaunchRuleCode =
   "launch.skip-differs" | "launch.for-each-item-no-list" | "launch.max-items-handler-required";
 
+/** A field of a context subclass that shadows one the framework sets (#1316f). */
+export type ContextRuleCode = "context.reserved-field";
+
 /** The rule codes that live beside their feature, not in the one list. */
 export type ExtraRuleCode =
   | A2AEndpointRuleCode
+  | ContextRuleCode
   | EvalRuleCode
   | FileRuleCode
   | ModelProviderRuleCode

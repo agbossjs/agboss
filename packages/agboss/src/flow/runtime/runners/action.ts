@@ -128,6 +128,7 @@ function inStepFrame(
   const spec: FrameSpec = {
     execution: Object.freeze({ ...parent.execution, signal }),
     step: parent.step,
+    ...(parent.handledError === undefined ? {} : { handledError: parent.handledError }),
     services: parent.services,
   };
   return runInFrame(spec, work);

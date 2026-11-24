@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import type { App } from "../../../src/app/types.js";
 import { ExecutionContext, ExecutionContextUnavailableError } from "../../../src/index.js";
+import { testExecutionContext } from "../../../src/testing/index.js";
 import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -226,5 +227,14 @@ describe("#280 AC8 (S18): data only, read-only, closed with its step", () => {
     expect(strays).toHaveLength(2);
     for (const stray of strays) expect(stray).toBeInstanceOf(ExecutionContextUnavailableError);
     expect(seen.toolSteps.map((step) => step.callId)).toHaveLength(2);
+  });
+});
+
+describe("#1316f: executionContext.application", () => {
+  it("is the application of the tenant, on a test context too", () => {
+    const context = testExecutionContext();
+
+    expect(context.application).toBe(context.tenant.application);
+    expect(context.application.name).toBe("test-application");
   });
 });

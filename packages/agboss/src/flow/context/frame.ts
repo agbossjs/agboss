@@ -1,3 +1,4 @@
+import type { HandledErrorRecord } from "../runtime/child-records.js";
 import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import type { InterruptReason } from "../../app/interrupt-types.js";
 import {
@@ -215,6 +216,8 @@ export interface FrameSpec {
   readonly execution: ExecutionFacts;
   readonly step: StepDescriptor;
   readonly services?: FrameServices;
+  /** The failure the `.onError` side path this step runs on took in (#1316f); `undefined` off a side path. */
+  readonly handledError?: HandledErrorRecord;
 }
 
 /** An open (or closed) frame. */

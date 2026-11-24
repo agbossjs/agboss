@@ -4,6 +4,7 @@ import { nodeEventOf } from "../observers/execution-event.js";
 import { extractRunContext } from "../../core/run-context.js";
 import { runInFrame, type FrameServices } from "../context/frame.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
+import { handledErrorFrame } from "./handled-error-frame.js";
 import { checkVisit, countsAsStep, sidePathAfter, type ExecutionLimits } from "./limits.js";
 import {
   recordsOf,
@@ -173,6 +174,7 @@ function visitFrameOf(
   const base = stepFrameOf(node, state, config, deps);
   return {
     ...base,
+    ...handledErrorFrame(state, node),
     services: {
       ...services,
       input: () => readInput(deps.graph, node, state).fields,

@@ -1,3 +1,4 @@
+import type { HandledErrorRecord } from "./child-records.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { callerOfSpend } from "../../finops/explicit-caller.js";
@@ -47,6 +48,8 @@ export interface SidePathRecord {
   readonly isAfterLimit: boolean;
   /** The keys of the entries open when it was entered: the undos it owes (#340). */
   readonly owed: readonly string[];
+  /** The failure it took in (#1316f): what `executionContext.handledError` reads on it, in its branches too. */
+  readonly handled?: HandledErrorRecord;
 }
 
 /** The side path `node`'s visit is on; `undefined` off any side path. */
@@ -69,13 +72,16 @@ export function sidePathEntered(
   error: ErrorRecord,
   to: string,
   from?: RuntimeNode,
+  handled?: HandledErrorRecord,
 ): { readonly sidePath: SidePathRecord } {
   const on = from === undefined ? undefined : sidePathOf(state, from);
   const owed = state.compensations
     .filter((entry) => entry.status === CompensationEntryStatus.Open)
     .map((entry) => entry.key);
   const isAfterLimit = isLimit(error) || on?.isAfterLimit === true;
-  return { sidePath: { next: to, isAfterLimit, owed } };
+  return {
+    sidePath: { next: to, isAfterLimit, owed, ...(handled === undefined ? {} : { handled }) },
+  };
 }
 
 /** What a visit that succeeded leaves: its side path on to `next`, none past a launch or off it. */

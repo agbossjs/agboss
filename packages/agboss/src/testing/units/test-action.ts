@@ -2,7 +2,11 @@ import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import { NodeKind } from "../../flow/ast.js";
-import { declarationOf, type InputFields } from "../../flow/decorators/declaration.js";
+import {
+  declarationOf,
+  type InputFieldShape,
+  type InputFields,
+} from "../../flow/decorators/declaration.js";
 import type { ExecuteMethod } from "../../flow/decorators/action.js";
 import { hydratedForShape } from "../../flow/runtime/shape-hydration.js";
 import { checkedActionValue } from "../../flow/runtime/runners/action.js";
@@ -37,13 +41,27 @@ function actionOptionsOf(action: Class) {
   return declaration.options;
 }
 
+/** A field's value, or the `value` of the `Produced` record(s) a test wraps it in, hydrated by the field's shape. */
+function hydratedField(shape: InputFieldShape, value: unknown): unknown {
+  const produced = (item: unknown): item is { readonly value: unknown } =>
+    typeof item === "object" && item !== null && "producer" in item && "value" in item;
+  if (produced(value)) return { ...value, value: hydratedForShape(shape, value.value) };
+  if (Array.isArray(value) && value.every(produced)) {
+    return value.map((item) => ({
+      ...item,
+      value: (hydratedForShape(shape, [item.value]) as readonly unknown[])[0],
+    }));
+  }
+  return hydratedForShape(shape, value);
+}
+
 /** The input's fields as the flow hands them over: instances of their classes (#1288). */
 function hydratedInputOf(shapes: InputFields | undefined, input: unknown): unknown {
   if (shapes === undefined || typeof input !== "object" || input === null) return input;
   return Object.fromEntries(
     Object.entries(input).map(([key, value]) => {
       const shape = shapes[key];
-      return [key, shape === undefined ? value : hydratedForShape(shape, value)];
+      return [key, shape === undefined ? value : hydratedField(shape, value)];
     }),
   );
 }

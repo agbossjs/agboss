@@ -208,7 +208,10 @@ export function testExecutionContext<
   const context = Object.create(executionType.prototype) as TExecution & {
     readonly tenant: TTenant;
   };
-  Object.assign(context, executionDataOf(options), values, { tenant });
+  Object.assign(context, executionDataOf(options), values, {
+    tenant,
+    application: tenant.application,
+  });
   const lease = testFenceLeaseOf(options.fence ?? {}, {
     tenantId: tenant.tenantId,
     executionId: options.executionId ?? "test-execution",

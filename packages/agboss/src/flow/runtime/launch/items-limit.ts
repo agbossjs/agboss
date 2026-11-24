@@ -38,10 +38,11 @@ export function itemsOverflowOf(
   const record = errorRecordOf(error);
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw error;
+  const handled = handledErrorOf(records, record, node.id, handler.to);
   return {
     lastError: record,
     next: handler.to,
-    handledErrors: [handledErrorOf(records, record, node.id, handler.to)],
-    ...sidePathEntered(state, record, handler.to, node),
+    handledErrors: [handled],
+    ...sidePathEntered(state, record, handler.to, node, handled),
   };
 }

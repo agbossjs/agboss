@@ -1,6 +1,8 @@
 import type { InterruptCleanup } from "./interrupt-cleanup.js";
 import type { Class } from "../../components/injection.js";
+import type { HandledErrorRecord } from "../runtime/child-records.js";
 import type { ComponentRecord } from "../runtime/records.js";
+import type { ApplicationContext } from "./application-context.js";
 import type { TenantContext } from "./tenant-context.js";
 
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
@@ -93,6 +95,13 @@ export abstract class ExecutionContext {
    * project's subclass when the application declares one — and through it `tenant.application`.
    */
   declare readonly tenant: TenantContext;
+  /** The running instance (#1316f): the one `ApplicationContext`, the same as `tenant.application`. */
+  declare readonly application: ApplicationContext;
+  /**
+   * The failure the `.onError` side path this step runs on took in (#1316f): `error`, the node it
+   * failed at and the one that took it; the same in the branches of a launch on that path; `undefined` off a side path.
+   */
+  declare readonly handledError: HandledErrorRecord | undefined;
   /** Aborted by `app.cancel(threadId)` or by the caller's own `signal`. */
   declare readonly signal: AbortSignal;
   declare readonly workflow: WorkflowDescriptor;

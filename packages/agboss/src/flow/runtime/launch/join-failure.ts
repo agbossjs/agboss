@@ -46,7 +46,7 @@ async function failedJoin(
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw cause;
   const handled = handledErrorOf(failed.deps, record, failed.node, handler.to);
-  const entered = sidePathEntered(failed.state, record, handler.to);
+  const entered = sidePathEntered(failed.state, record, handler.to, undefined, handled);
   const settled = await settledValues(launch, handler, failed);
   return { ...settled, lastError: record, next: handler.to, handledErrors: [handled], ...entered };
 }

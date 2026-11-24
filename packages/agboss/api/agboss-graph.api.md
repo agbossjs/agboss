@@ -10,6 +10,9 @@ import { inspect } from 'node:util';
 export type A2AEndpointRuleCode = "a2a.ttl-invalid" | "a2a.duplicate-skill";
 
 // @public
+export type ContextRuleCode = "context.reserved-field";
+
+// @public
 export type ExecutionId = string & {
     readonly __brand: "ExecutionId";
 };

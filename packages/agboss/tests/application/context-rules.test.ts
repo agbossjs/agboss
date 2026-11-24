@@ -41,6 +41,19 @@ class PlanTenantContext extends TenantContext {
   plan!: string;
 }
 
+class SpoofedTenantContext extends TenantContext {
+  @Text() tenantId!: string;
+}
+
+class SpoofedExecutionContext extends ExecutionContext {
+  @Text() ownerId!: string;
+  @Text() handledError!: string;
+}
+
+class OwnFieldsTenantContext extends TenantContext {
+  @Text() region!: string;
+}
+
 class UndecoratedExecutionContext extends ExecutionContext {
   userId!: string;
 }
@@ -73,6 +86,36 @@ class UnitsWorkflow {}
   tenantContext: PlanTenantContext,
 })
 class PlanApplication {}
+
+@Application({
+  name: "spoofed-tenant-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [PlainWorkflow],
+  budgets: TEST_BUDGETS,
+  tenantContext: SpoofedTenantContext,
+})
+class SpoofedTenantApplication {}
+
+@Application({
+  name: "spoofed-execution-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [PlainWorkflow],
+  budgets: TEST_BUDGETS,
+  executionContext: SpoofedExecutionContext,
+})
+class SpoofedExecutionApplication {}
+
+@Application({
+  name: "own-fields-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [PlainWorkflow],
+  budgets: TEST_BUDGETS,
+  tenantContext: OwnFieldsTenantContext,
+})
+class OwnFieldsApplication {}
 
 @Application({
   name: "undecorated-application",
@@ -115,6 +158,36 @@ describe("#261 AC4: the declared context classes are checked at the application'
         message: "PlanTenantContext.plan has a prompt — no model reads a context; remove it",
       },
     ]);
+  });
+
+  it("a tenant field that shadows tenantId fails the assembly with [context.reserved-field] (#1316f)", async () => {
+    const error: unknown = await applicationOf(SpoofedTenantApplication).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(GraphRuleError);
+    expect((error as GraphRuleError).violations).toMatchObject([
+      {
+        code: "context.reserved-field",
+        message:
+          "SpoofedTenantContext.tenantId shadows a field the framework sets on every context — rename it",
+      },
+    ]);
+  });
+
+  it("an execution field that shadows ownerId or handledError fails it too", async () => {
+    const error: unknown = await applicationOf(SpoofedExecutionApplication).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect((error as GraphRuleError).violations.map((found) => found.message)).toEqual([
+      "SpoofedExecutionContext.ownerId shadows a field the framework sets on every context — rename it",
+      "SpoofedExecutionContext.handledError shadows a field the framework sets on every context — rename it",
+    ]);
+  });
+
+  it("a field of the project's own passes", async () => {
+    await expect(applicationOf(OwnFieldsApplication)).resolves.toBeDefined();
   });
 
   it("a context field without a decorator fails the assembly, naming it", async () => {

@@ -15,6 +15,7 @@ import type { BranchTicket, LaunchTicket } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { readInput } from "../scope.js";
+import { handledErrorFrame } from "../handled-error-frame.js";
 import { countedServiceSpend } from "../limits.js";
 import type { ScheduledBranch } from "./branch-schedule.js";
 
@@ -238,6 +239,7 @@ export function branchFrameOf(run: BranchFrameRun, view: ExecutionStateType): Br
   const input = () => readInput(deps.graph, node, view).fields;
   const frame = {
     ...withBudgetStop(stepFrameAt(site, view, config, deps), budgetStop),
+    ...handledErrorFrame(view, node, true),
     services: { reportUsage, recordChild, keepPiiTokens, keepCompensations, input },
   };
   return { config, frame, signal, ...(budgetStop === undefined ? {} : { budgetStop }) };

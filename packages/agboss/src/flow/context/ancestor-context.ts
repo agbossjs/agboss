@@ -17,6 +17,7 @@ function ownValues(facts: ExecutionFacts, step: StepDescriptor): Readonly<Record
     threadId: facts.threadId,
     ownerId: facts.ownerId,
     tenant: facts.tenant,
+    application: facts.tenant.application,
     signal: facts.signal,
     workflow: facts.workflow,
     step,
