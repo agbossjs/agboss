@@ -18,7 +18,7 @@ import { ExecutionCancelledError } from "../../../../src/core/errors.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { onStart, toAction } from "../../../helpers/flow.js";
+import { onStart, toAction, toWorkflow } from "../../../helpers/flow.js";
 import {
   ChargeCardAction,
   ConfirmSeatAction,
@@ -213,7 +213,8 @@ export class RoomsReservedAction {
     readonly rooms: readonly Produced<RoomDto, unknown>[];
   }): Promise<ReservedDto> {
     return {
-      summary: input.rooms.map((room) => room.value.roomId)
+      summary: input.rooms
+        .map((room) => room.value.roomId)
         .join(", "),
     };
   }
@@ -232,7 +233,7 @@ export class RoomsReservedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(UnwindManyWorkflowStart)
-      .toParallelWorkflows(UnwindRoomWorkflow, { maxConcurrency: 2, maxItems: 5 })
+      .forEachItem(toWorkflow(UnwindRoomWorkflow), { takeFirst: 5, maxConcurrency: 2 })
       .join()
       .toAction(RoomsReservedAction)
       .toFinish(RoomsReservedWorkflowFinish),
@@ -255,8 +256,11 @@ export class UnwindParentWorkflowStart {}
     onStart(UnwindParentWorkflowStart)
       .toAction(ReserveSeatAction)
       .toWorkflow(UnwindRoomWorkflow)
-      .onError(StepFailedError, toAction(ReleaseSeatAction)
-        .toFinish(NotReservedWorkflowFinish))
+      .onError(
+        StepFailedError,
+        toAction(ReleaseSeatAction)
+          .toFinish(NotReservedWorkflowFinish),
+      )
       .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],

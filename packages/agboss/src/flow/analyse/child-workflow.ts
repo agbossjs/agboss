@@ -63,12 +63,10 @@ function startOf(component: Class, declaration: WorkflowStartDeclaration): Child
   return { name, component, fields };
 }
 
-/** Every step of a path and of its sub-paths (cases, routes, side paths). */
+/** Every step of a path and of its sub-paths (routes, branches, side paths). */
 function allSteps(steps: readonly Step[]): readonly Step[] {
   return steps.flatMap((step): readonly Step[] => {
     switch (step.kind) {
-      case StepKind.Switch:
-        return [step, ...step.cases.flatMap((branch) => allSteps(branch.path.steps))];
       case StepKind.OneOf:
         return [step, ...step.branches.flatMap((branch) => allSteps(branch.steps))];
       case StepKind.OnFinish:
@@ -154,7 +152,6 @@ function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
 function stepClassesOf(steps: readonly Step[]): readonly Class[] {
   return allSteps(steps).flatMap((step): readonly Class[] => {
     if (step.kind === StepKind.To) return [step.target];
-    if (step.kind === StepKind.Launch) return step.targets;
     if (step.kind === StepKind.InParallel) return step.branches.map((branch) => branch.target);
     if (step.kind === StepKind.ForEachItem) return [step.branch.target];
     if (step.kind === StepKind.Join && step.quorum?.kind === QuorumKind.Groups)
@@ -169,7 +166,7 @@ export function flowClassesOf(flow: readonly FlowPath[]): readonly Class[] {
 }
 
 /**
- * The workflow classes a flow launches: `.toWorkflow(W)`, `route(W)`, `.toParallelWorkflows(W, …)` —
+ * The workflow classes a flow launches: `.toWorkflow(W)`, `.onRoute(toWorkflow(W))`, `.forEachItem(toWorkflow(W), …)` —
  * never `self`, the workflow the flow belongs to, when given (a recursion, #264, #1287).
  */
 export const childClassesOf = (flow: readonly FlowPath[], self?: Class): readonly Class[] =>

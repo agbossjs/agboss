@@ -13,7 +13,7 @@ import {
 import { optional } from "../../../../src/flow/dto-wrappers.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../../src/index.js";
 import { usd, type Usd } from "../../../../src/units/index.js";
-import { onAgent, route, onStart, toFinish, toAction } from "../../../helpers/flow.js";
+import { onAgent, onStart, toFinish, toAction, toAgent } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -88,8 +88,12 @@ export class GateRouter {}
   name: "edit-workflow",
   version: "1.0.0",
   flow: [
-    onStart(EditStart).toAgent(EditorAgent),
-    onAgent(EditorAgent).toRouter(GateRouter).chooseOne(route(EditorAgent), route(DoneFinish)),
+    onStart(EditStart)
+      .toAgent(EditorAgent),
+    onAgent(EditorAgent)
+      .toRouter(GateRouter)
+      .onRoute(toAgent(EditorAgent))
+      .onRoute(toFinish(DoneFinish)),
   ],
 })
 export class EditWorkflow {}
@@ -126,11 +130,17 @@ export class PatientGateRouter {}
   name: "patient-edit-workflow",
   version: "1.0.0",
   flow: [
-    onStart(EditStart).toAgent(PatientEditorAgent),
+    onStart(EditStart)
+      .toAgent(PatientEditorAgent),
     onAgent(PatientEditorAgent)
-      .onError(VisitsLimitExceededError, toAction(GaveUpAction).toFinish(GaveUpFinish))
+      .onError(
+        VisitsLimitExceededError,
+        toAction(GaveUpAction)
+          .toFinish(GaveUpFinish),
+      )
       .toRouter(PatientGateRouter)
-      .chooseOne(route(PatientEditorAgent), route(DoneFinish)),
+      .onRoute(toAgent(PatientEditorAgent))
+      .onRoute(toFinish(DoneFinish)),
   ],
 })
 export class PatientEditWorkflow {}
@@ -145,12 +155,21 @@ export class PatientEditWorkflow {}
 export class PatientEditApplication {}
 
 const editPaths = [
-  onStart(EditStart).toAgent(EditorAgent),
-  onAgent(EditorAgent).toRouter(GateRouter).chooseOne(route(EditorAgent), route(DoneFinish)),
+  onStart(EditStart)
+    .toAgent(EditorAgent),
+  onAgent(EditorAgent)
+    .toRouter(GateRouter)
+    .onRoute(toAgent(EditorAgent))
+    .onRoute(toFinish(DoneFinish)),
 ];
 
 /** The loop with 3 steps per execution (`@Workflow({ executionLimits: { maxSteps } })`). */
-@Workflow({ name: "short-edit-workflow", version: "1.0.0", executionLimits: { maxSteps: 3 }, flow: editPaths })
+@Workflow({
+  name: "short-edit-workflow",
+  version: "1.0.0",
+  executionLimits: { maxSteps: 3 },
+  flow: editPaths,
+})
 export class ShortEditWorkflow {}
 
 @Application({

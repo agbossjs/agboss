@@ -181,7 +181,11 @@ export class BuyerWorkflowFinish {}
 @Workflow({
   name: "buyer-workflow",
   version: "1.0.0",
-  flow: [onStart(BuyerWorkflowStart).toAgent(BuyerAgent).toFinish(BuyerWorkflowFinish)],
+  flow: [
+    onStart(BuyerWorkflowStart)
+      .toAgent(BuyerAgent)
+      .toFinish(BuyerWorkflowFinish),
+  ],
   providers: [BuyerDesk],
 })
 export class BuyerWorkflow {}
@@ -204,7 +208,9 @@ export class OwnerBuyerWorkflowFinish {}
   name: "owner-buyer-workflow",
   version: "1.0.0",
   flow: [
-    onStart(OwnerBuyerWorkflowStart).toAgent(OwnerBuyerAgent).toFinish(OwnerBuyerWorkflowFinish),
+    onStart(OwnerBuyerWorkflowStart)
+      .toAgent(OwnerBuyerAgent)
+      .toFinish(OwnerBuyerWorkflowFinish),
   ],
   providers: [QuestionInbox],
 })

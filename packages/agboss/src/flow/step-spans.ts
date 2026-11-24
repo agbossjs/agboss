@@ -39,7 +39,6 @@ export const stepSpanOf = (step: Step): SourceSpan | undefined => spans.get(step
  * drawn, never when the step is written — a target may be a thunk of a class declared below.
  */
 function targetsOf(step: Step): readonly unknown[] {
-  if ("targets" in step) return step.targets;
   if ("branches" in step && step.kind === StepKind.InParallel)
     return step.branches.map((branch) => branch.target);
   if ("branch" in step) return [step.branch.target];

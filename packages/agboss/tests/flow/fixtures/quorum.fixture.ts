@@ -1,7 +1,6 @@
 import {
   onAction,
   onAgent,
-  route,
   onStart,
   toAction,
   toAgent,
@@ -102,7 +101,7 @@ export class ValidScoreArbiter {}
   version: "1.0.0",
   flow: [
     onStart(CandidateReviewWorkflowStart)
-      .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
+      .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)])
       .arbitratedBy(ValidScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
       .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
@@ -117,7 +116,7 @@ export class CandidateReviewWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(FitReviewWorkflowStart)
-      .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent)
+      .inParallel([toAgent(SkillsScoreAgent), toAgent(CultureScoreAgent), toAgent(SalaryFitAgent)])
       .joinQuorum({ min: 2 })
       .toAgent(FitSummaryAgent)
       .toFinish(FitSummaryWorkflowFinish),
@@ -152,7 +151,7 @@ export class ConvincingReasonArbiter {}
   flow: [
     onStart(CompanySearchWorkflowStart)
       .toAgent(BoardSearchAgent)
-      .toParallelAgents(CompanyVetAgent, { maxItems: 50 })
+      .forEachItem(toAgent(CompanyVetAgent), { takeFirst: 50 })
       .arbitratedBy(ConvincingReasonArbiter)
       .joinQuorum({ min: 5, deadline: minutes(2) })
       .toAgent(CompanyShortlistAgent)
@@ -179,12 +178,14 @@ export class DueDiligenceArbiter {}
   version: "1.0.0",
   flow: [
     onStart(DealWorkflowStart)
-      .toParallelAgents(
-        LegalAgent,
-        DealCriticAgent,
-        DealCriticAgent,
-        AuditorAgent,
-        FastScreenAgent,
+      .inParallel(
+        [
+          toAgent(LegalAgent),
+          toAgent(DealCriticAgent),
+          toAgent(DealCriticAgent),
+          toAgent(AuditorAgent),
+          toAgent(FastScreenAgent),
+        ],
         { maxConcurrency: 4 },
       )
       .arbitratedBy(DueDiligenceArbiter)
@@ -194,21 +195,23 @@ export class DueDiligenceArbiter {}
       .onGroup(
         [AuditorAgent],
         { priority: 1 },
-        toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish),
+        toAction(OpenDealRoomAction)
+          .toFinish(DealRoomOpenedWorkflowFinish),
       )
       .onGroup(
         [DealCriticAgent, DealCriticAgent],
         { priority: 2 },
-        toRouter(SecondOpinionRouter).chooseOne(
-          route(FullReviewAgent),
-          route(NotifyReviewerAction),
-        ),
+        toRouter(SecondOpinionRouter)
+          .onRoute(toAgent(FullReviewAgent))
+          .onRoute(toAction(NotifyReviewerAction)),
       )
       .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish)),
 
-    onAgent(FullReviewAgent).toFinish(DueDiligenceReportWorkflowFinish),
+    onAgent(FullReviewAgent)
+      .toFinish(DueDiligenceReportWorkflowFinish),
 
-    onAction(NotifyReviewerAction).toFinish(ReviewerNotifiedWorkflowFinish),
+    onAction(NotifyReviewerAction)
+      .toFinish(ReviewerNotifiedWorkflowFinish),
   ],
 })
 export class DueDiligenceWorkflow {}

@@ -196,7 +196,11 @@ export function workingToolApp(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [onStart(SomeStart).toAgent(SomeAgent).toFinish(SomeFinish)],
+    flow: [
+      onStart(SomeStart)
+        .toAgent(SomeAgent)
+        .toFinish(SomeFinish),
+    ],
   })
   class SomeWorkflow {}
   @Application({

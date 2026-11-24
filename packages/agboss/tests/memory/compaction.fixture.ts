@@ -23,7 +23,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 
 const JEV = "typesafe/jev-1.13";
 
@@ -145,7 +145,8 @@ export class HelpRouter {}
   flow: [
     onStart(DeskStart)
       .toRouter(HelpRouter)
-      .chooseOne(route(AnswerAgent).toFinish(DeskAnswer), route(ContactAgent).toFinish(DeskAnswer)),
+      .onRoute(toAgent(AnswerAgent).toFinish(DeskAnswer))
+      .onRoute(toAgent(ContactAgent).toFinish(DeskAnswer)),
   ],
   memory: QueueMemory,
 })
@@ -216,7 +217,8 @@ export class WindowRouter {}
   flow: [
     onStart(DeskStart)
       .toRouter(WindowRouter)
-      .chooseOne(route(ArchiveAgent).toFinish(DeskAnswer), route(DeskHandOver)),
+      .onRoute(toAgent(ArchiveAgent).toFinish(DeskAnswer))
+      .onRoute(toFinish(DeskHandOver)),
   ],
   memory: WindowOnlyMemory,
 })

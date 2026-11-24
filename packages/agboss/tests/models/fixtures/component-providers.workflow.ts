@@ -22,7 +22,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/in
 import { Application } from "../../../src/application/application.js";
 import { ModelCost, ModelProvider, OpenAiCompatibleDriver } from "../../../src/models/index.js";
 import { seconds, usd } from "../../../src/units/index.js";
-import { onStart, route } from "../../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 export class AnswerDto {
@@ -150,7 +150,11 @@ export function componentsApplication(levels: ComponentLevels): Class {
     flow: [
       onStart(LvStart)
         .toRouter(LvRouter)
-        .chooseOne(route(LvAgent).toFinish(LvFinish), route(LvStop)),
+        .onRoute(
+          toAgent(LvAgent)
+            .toFinish(LvFinish),
+        )
+        .onRoute(toFinish(LvStop)),
     ],
     piiPolicies: [LvPii],
     ...(levels.workflowProvider === undefined ? {} : { modelProvider: levels.workflowProvider }),
@@ -226,7 +230,7 @@ export function arbiterApplication(modelProvider?: Class): Class {
     version: "1.0.0",
     flow: [
       onStart(ArbStart)
-        .toParallelAgents(ArbAgent, ArbAgent)
+        .inParallel([toAgent(ArbAgent), toAgent(ArbAgent)])
         .arbitratedBy(ArbArbiter)
         .joinQuorum({ min: 2 })
         .toAction(ArbAction)

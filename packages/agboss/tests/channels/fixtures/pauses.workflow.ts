@@ -38,7 +38,7 @@ import { minutes } from "../../../src/units/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
 
 /**
  * #267 PR 2 — pauses and resume: a refund approval answered through its channel (a finance desk
@@ -461,7 +461,11 @@ export class DeskClerkAgent {}
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
-  flow: [onStart(DeskWorkflowStart).toAgent(DeskClerkAgent).toFinish(DeskWorkflowFinish)],
+  flow: [
+    onStart(DeskWorkflowStart)
+      .toAgent(DeskClerkAgent)
+      .toFinish(DeskWorkflowFinish),
+  ],
 })
 export class DeskWorkflow {}
 
@@ -501,7 +505,9 @@ export class BatchAction {
     readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
   }): Promise<BatchSummaryDto> {
     return {
-      text: input.refunds.map((refund) => refund.value.orderId).join(", "),
+      text: input.refunds
+        .map((refund) => refund.value.orderId)
+        .join(", "),
     };
   }
 }
@@ -519,7 +525,7 @@ export class BatchWorkflowFinish {}
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(BatchWorkflowStart)
-      .toParallelAgents(BatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })
+      .forEachItem(toAgent(BatchRefundAgent), { takeFirst: 5, maxConcurrency: 3 })
       .join()
       .toAction(BatchAction)
       .toFinish(BatchWorkflowFinish),
@@ -580,7 +586,7 @@ export class AuditWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(AuditWorkflowStart)
-      .toParallelAgents(AuditRefundAgent, AuditCheckAgent)
+      .inParallel([toAgent(AuditRefundAgent), toAgent(AuditCheckAgent)])
       .join()
       .toAction(AuditAction)
       .toFinish(AuditWorkflowFinish),

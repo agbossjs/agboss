@@ -31,7 +31,7 @@ import {
   ReviewRankerAgent,
 } from "../fixtures/children.fixture.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
-import { caseOf, onStart, toAction, toAgent, toFinish } from "../fixtures/paths.js";
+import { onStart, toAction, toAgent, toFinish, toWorkflow } from "../fixtures/paths.js";
 import { inline } from "../../../src/index.js";
 
 /**
@@ -84,11 +84,11 @@ const reviewed = (error: ErrorClass, side: PathBuilder) =>
     .toAgent(CompanyPickerAgent)
     .toWorkflow(CompanyReviewWorkflow)
     .onError(error, side)
-    .switch(
-      caseOf(CompanyGradeDto).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
-      caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
-      caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
-    );
+    .toOneOf([
+      toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
+      toFinish(NoOfferRejectedWorkflowFinish),
+      toFinish(NoOfferFailedWorkflowFinish),
+    ]);
 
 const apology = () => toAgent(ApologyAgent).toFinish(JobOfferWorkflowFinish);
 
@@ -137,7 +137,7 @@ describe("#263 AC12: limit handler uses model", () => {
   it("the join's .onError(LimitExceededError, …) leading to an agent", () => {
     const joined = onStart(JobOfferWorkflowStart)
       .toAgent(CompanyFinderAgent)
-      .toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 })
+      .forEachItem(toWorkflow(CompanyReviewWorkflow), { takeFirst: 5 })
       .join()
       .onError(LimitExceededError, apology())
       .toAgent(ReviewRankerAgent)
@@ -146,7 +146,7 @@ describe("#263 AC12: limit handler uses model", () => {
       {
         code: "graph.limit-handler-uses-model",
         message:
-          "the join of company-finder-agent → toParallelWorkflows(company-review-workflow): .onError(LimitExceededError, …) can catch a limit and reaches apology-agent — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)",
+          "the join of company-finder-agent → forEachItem(company-review-workflow): .onError(LimitExceededError, …) can catch a limit and reaches apology-agent — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)",
       },
     ]);
   });

@@ -1,6 +1,6 @@
 /**
  * #1150 AC6–AC8 — assembly checks a child's PII policies on every static way into it (`.toWorkflow`,
- * `.toParallelWorkflows`, `route`): an exclusion names an inherited policy — the application's, its
+ * `.forEachItem`, `route`): an exclusion names an inherited policy — the application's, its
  * workflow's or an ancestor's —, a conflict between an ancestor's and the child's lists is
  * `[pii.conflicting-rules]` naming the way; `agboss describe` and the start log show each way's
  * effective sets and every exclusion.
@@ -29,7 +29,7 @@ import type { FrameworkLog } from "../../src/infrastructure/logger.js";
 import { listOf } from "../../src/flow/dto-wrappers.js";
 import { effectivePiiPolicies } from "../../src/pii/effective-policies.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { onStart } from "../helpers/flow.js";
+import { onStart, toWorkflow } from "../helpers/flow.js";
 import { ChainApplication, ChildSecretPiiPolicy, RootSecretPiiPolicy } from "./chain.fixture.js";
 import { ContactPiiPolicy, GovernmentPiiPolicy } from "./pii.fixture.js";
 
@@ -152,13 +152,13 @@ class ConflictRootFinish {}
 @Agent({ name: "cc-summary-agent", description: "d", prompt: inline("p"), model: "test/cc" })
 class ConflictSummaryAgent {}
 
-/** Its child per item: the edge `.toParallelWorkflows` is a way in too. */
+/** Its child per item: the edge `.forEachItem` is a way in too. */
 @Workflow({
   name: "cc-root-workflow",
   version: "1.0.0",
   flow: [
     onStart(ConflictRootStart)
-      .toParallelWorkflows(ConflictChildWorkflow, { maxItems: 2 })
+      .forEachItem(toWorkflow(ConflictChildWorkflow), { takeFirst: 2 })
       .join()
       .toAgent(ConflictSummaryAgent)
       .toFinish(ConflictRootFinish),

@@ -36,7 +36,7 @@ function answerLabel(answer: unknown): string {
 }
 
 /**
- * The node id of the one target `route()` chose after `.chooseOne(…)`; anything else — a list, a
+ * The node id of the one target `route()` chose after `.onRoute(…)`; anything else — a list, a
  * class outside its routes (a cast) — is `RouterDecisionError`.
  */
 function chosenRoute(
@@ -54,7 +54,7 @@ function chosenRoute(
     });
   if (name !== undefined && node.exits.routes.has(name)) return name;
   const why = Array.isArray(answer)
-    ? "after .chooseOne(…) it returns one target, not a list"
+    ? "after .onRoute(…) it returns one target, not a list"
     : `not one of its routes (${routes.join(", ")})`;
   throw new RouterDecisionError({
     ...step,

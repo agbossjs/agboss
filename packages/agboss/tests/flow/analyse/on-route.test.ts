@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
-import { caseOf, onRouter, onStart, toAgent, toFinish } from "../../../src/flow/builder.js";
+import { onRouter, onStart, toAgent, toFinish, toRouter } from "../../../src/flow/builder.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import {
   AskResumeWorkflowFinish,
@@ -23,10 +23,7 @@ import { ProfileDto, ResumeMissingDto } from "../fixtures/dtos.js";
     onStart(IntakeWorkflowStart).toRouter(MainRouter),
     onRouter(MainRouter)
       .onRoute(
-        toAgent(ProfilerAgent).switch(
-          caseOf(ProfileDto).toRouter(MainRouter),
-          caseOf(ResumeMissingDto).toFinish(AskResumeWorkflowFinish),
-        ),
+        toAgent(ProfilerAgent).toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
       )
       .onRoute(toAgent(ScoutAgent).toFinish(ChatWorkflowFinish))
       .onRoute(toFinish(NoReplyWorkflowFinish)),

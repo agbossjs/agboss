@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
-import { FlowSyntaxError, toAction } from "../../src/flow/builder.js";
+import { FlowSyntaxError, toAction, toRouter, toAgent } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
 import { flowLines } from "../../src/flow/print.js";
@@ -18,10 +18,13 @@ import {
   NotifyOperatorAction,
   PlanResearcherAgent,
   PlannerAgent,
+  RefundPolicyAgent,
   ResearchWorkflow,
   ScreeningFailedWorkflowFinish,
   ScreeningWorkflow,
   SendReceiptAction,
+  UpdateCrmAction,
+  ReserveGoodsAction,
 } from "./fixtures/launch.fixture.js";
 import { onAgent, onAction, onRouter, onStart, toFinish } from "./fixtures/paths.js";
 
@@ -36,12 +39,15 @@ const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
 const stepsOf = (workflow: abstract new () => unknown) => flowOf(workflow)[0]?.steps ?? [];
 
 describe("#273: a launch and its join in the AST", () => {
-  it("different agents: the targets as listed, repeats kept, maxConcurrency", () => {
-    const launch = stepsOf(ResearchWorkflow).find((step) => step.kind === StepKind.Launch);
-    expect(launch).toEqual({
-      kind: StepKind.Launch,
-      targetKind: NodeKind.Agent,
-      targets: [PlanResearcherAgent, CriticAgent, CriticAgent],
+  it("different agents: the branches as listed, repeats kept, maxConcurrency", () => {
+    const launch = stepsOf(ResearchWorkflow).find((step) => step.kind === StepKind.InParallel);
+    expect(launch).toMatchObject({
+      kind: StepKind.InParallel,
+      branches: [
+        { target: PlanResearcherAgent, targetKind: NodeKind.Agent, skip: [] },
+        { target: CriticAgent, targetKind: NodeKind.Agent, skip: [] },
+        { target: CriticAgent, targetKind: NodeKind.Agent, skip: [] },
+      ],
       maxConcurrency: 3,
     });
   });
@@ -61,27 +67,37 @@ describe("#273: a launch and its join in the AST", () => {
     });
   });
 
-  it("one target after a list keeps its maxItems; whether it runs per item is the analyser's (#1270)", () => {
-    const launch = stepsOf(ScreeningWorkflow).find((step) => step.kind === StepKind.Launch);
-    expect(launch).toMatchObject({ targets: [CompanyAuditAgent], maxItems: 50 });
-    expect(launch).not.toHaveProperty("perItem");
+  it("one target per item keeps its takeFirst; whether it has a list to run over is the analyser's", () => {
+    const launch = stepsOf(ScreeningWorkflow).find((step) => step.kind === StepKind.ForEachItem);
+    expect(launch).toMatchObject({
+      branch: { target: CompanyAuditAgent, targetKind: NodeKind.Agent },
+      takeFirst: 50,
+      maxConcurrency: 3,
+    });
+    expect(launch).not.toHaveProperty("maxItems");
   });
 
   it("parallel actions without output: the join has no values", () => {
     const steps = stepsOf(CheckoutWorkflow);
     expect(steps.map((step) => step.kind)).toEqual([
       StepKind.To,
-      StepKind.Launch,
+      StepKind.InParallel,
       StepKind.Join,
       StepKind.To,
     ]);
-    expect(steps[1]).toMatchObject({ targetKind: NodeKind.Action, targets: expect.any(Array) });
+    expect(steps[1]).toMatchObject({
+      branches: [
+        { targetKind: NodeKind.Action },
+        { targetKind: NodeKind.Action },
+        { targetKind: NodeKind.Action },
+      ],
+    });
     expect(steps[2]).toEqual({ kind: StepKind.Join, onError: [] });
   });
 });
 
 describe("#273: the order around a launch holds for untyped code too (FlowSyntaxError)", () => {
-  const launched = () => onAgent(PlannerAgent).toParallelAgents(PlanResearcherAgent);
+  const launched = () => onAgent(PlannerAgent).inParallel([toAgent(PlanResearcherAgent)]);
 
   it("a launch is followed by .join()", () => {
     expect(() => launched().toAgent(CriticAgent)).toThrow(FlowSyntaxError);
@@ -102,38 +118,33 @@ describe("#273: the order around a launch holds for untyped code too (FlowSyntax
     expect(() =>
       launched().onError(LimitExceededError, toFinish(ScreeningFailedWorkflowFinish)),
     ).toThrow("a parallel launch is followed by .join()");
-    expect(() => launched().join().toParallelAgents(CriticAgent)).toThrow(
-      "after .join() the path goes on with",
-    );
-  });
-
-  it("targets are classes, the options last, the limits positive integers", () => {
-    const planned = () => onAgent(PlannerAgent);
-    expect(() => planned().toParallelAgents()).toThrow("takes one or more component classes");
-    expect(() => planned().toParallelAgents("critic")).toThrow(
-      "takes one or more component classes",
-    );
-    expect(() => planned().toParallelAgents(CriticAgent, { maxConcurrency: 0 })).toThrow(
-      "toParallelAgents(…, { maxConcurrency }) takes a positive integer",
-    );
-    expect(() => planned().toParallelAgents(CriticAgent, { maxItems: 1.5 })).toThrow(
-      "toParallelAgents(…, { maxItems }) takes a positive integer",
-    );
-    expect(() => planned().toParallelAgents(CriticAgent, null)).toThrow(
-      "takes component classes, then { maxConcurrency, maxItems }",
-    );
-  });
-
-  it("a router launches agents only", () => {
-    expect(() => onRouter(HelpDeskRouter).toParallelActions(SendReceiptAction)).toThrow(
-      "a router launches agents only",
-    );
     expect(() =>
-      onStart(HelpDeskWorkflowStart).toRouter(HelpDeskRouter).toParallelActions(SendReceiptAction),
-    ).toThrow("a router launches agents only");
-    expect(onAction(ChargePaymentAction).toParallelActions(SendReceiptAction).steps).toHaveLength(
-      1,
+      launched()
+        .join()
+        .inParallel([toAgent(CriticAgent)]),
+    ).toThrow("after .join() the path goes on with");
+  });
+
+  it("branches are classes, the options last, the limits positive integers", () => {
+    const planned = () => onAgent(PlannerAgent);
+    expect(() => planned().inParallel([])).toThrow("takes an array of one or more branches");
+    expect(() => planned().inParallel([toAgent(CriticAgent)], { maxConcurrency: 0 })).toThrow(
+      "(…, { maxConcurrency }) takes a positive integer",
     );
+    expect(() => planned().forEachItem(toAgent(CriticAgent), { takeFirst: 1.5 })).toThrow(
+      "(…, { takeFirst }) takes a positive integer",
+    );
+  });
+
+  it("a router's launch is a branch of .inParallel([…]): toRouter(R).chooseMany([…])", () => {
+    expect(
+      onStart(HelpDeskWorkflowStart).inParallel([
+        toRouter(HelpDeskRouter).chooseMany([toAgent(RefundPolicyAgent)]),
+      ]).steps,
+    ).toHaveLength(1);
+    expect(
+      onAction(ChargePaymentAction).inParallel([toAction(SendReceiptAction)]).steps,
+    ).toHaveLength(1);
   });
 });
 
@@ -142,7 +153,7 @@ describe("#273: describe prints launches and joins in the grammar", () => {
     expect(flowLines(flowOf(ScreeningWorkflow))).toEqual([
       "onStart(ScreeningWorkflowStart)",
       "  .toAgent(ScreeningAgent)",
-      "  .toParallelAgents(CompanyAuditAgent, { maxConcurrency: 3, maxItems: 50 })",
+      "  .forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 50, maxConcurrency: 3 })",
       "  .join()",
       "  .onError(LimitExceededError, toAction(NotifyOperatorAction)",
       "    .toFinish(ScreeningFailedWorkflowFinish))",
@@ -153,10 +164,10 @@ describe("#273: describe prints launches and joins in the grammar", () => {
 
   it("a router's launch and parallel actions", () => {
     expect(flowLines(flowOf(HelpDeskWorkflow))).toContain(
-      "  .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)",
+      "  .inParallel([toAgent(OrderLookupAgent), toAgent(LoyaltyOfferAgent).onError(StepError, skip()), toRouter(HelpDeskRouter).chooseMany([toAgent(RefundPolicyAgent)])])",
     );
     expect(flowLines(flowOf(CheckoutWorkflow))).toContain(
-      "  .toParallelActions(SendReceiptAction, UpdateCrmAction, ReserveGoodsAction, { maxConcurrency: 3 })",
+      "  .inParallel([toAction(SendReceiptAction), toAction(UpdateCrmAction), toAction(ReserveGoodsAction)], { maxConcurrency: 3 })",
     );
   });
 });

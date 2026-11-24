@@ -18,7 +18,7 @@ import { isExpiredPause } from "./expired-branch.js";
 /**
  * How a branch that threw ended (#273 S21, #279): `Cancelled` when its launch was aborted first (a
  * sibling failed, the quorum was decided, the deadline passed) or its pause was withdrawn (#267); `Skipped` for its own step failure
- * under `FailurePolicy.Skip` — or under a quorum, where a failed branch only leaves its place empty;
+ * under `.onError(E, skip())` — or under a quorum, where a failed branch only leaves its place empty;
  * `Failed` for anything else (a limit, an `ArbiterError`), which aborts the launch. A hand-over and a
  * cancel of the execution are no outcome of the branch: they stop the whole execution.
  */

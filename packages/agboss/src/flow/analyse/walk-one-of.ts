@@ -5,7 +5,7 @@ import type { ComponentName } from "../registry.js";
 import { EdgeKind, outputOf, valueWrite } from "./flow-graph.js";
 import type { NodeTable } from "./nodes.js";
 import { resolveOneOf } from "./one-of.js";
-import { variantsOf } from "./rules/switch.js";
+import { variantsOf } from "./rules/one-of.js";
 import type { Cursor } from "./walk-cursor.js";
 import type { BranchSite, OneOfSite } from "./walked-flow.js";
 

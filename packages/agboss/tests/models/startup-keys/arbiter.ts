@@ -11,7 +11,7 @@ import {
   inline,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
 
 export class AnswerDto {
   @Text({ prompt: "an answer" })
@@ -66,7 +66,7 @@ export function arbiterWorkflow(model: string): Class {
     version: "1.0.0",
     flow: [
       onStart(AnsStart)
-        .toParallelAgents(AnsAgent, AnsAgent)
+        .inParallel([toAgent(AnsAgent), toAgent(AnsAgent)])
         .arbitratedBy(AnsArbiter)
         .joinQuorum({ min: 2 })
         .toAction(AnsAction)

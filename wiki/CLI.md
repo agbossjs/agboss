@@ -40,7 +40,7 @@ application — it runs offline, [Testing](Testing)). Files follow the
 `workflow-finishes/text.workflow-finish.ts` (`TextWorkflowFinish`, `<workflow>-text-workflow-finish`)
 — names carry the workflow, so a second workflow never clashes; a text-only MCP server tool replies
 with `PlainTextDto`. The workflow is one path ([Workflow](Workflow)):
-`onStart(TextWorkflowStart).toRouter(MainRouter).chooseOne(route(TriageAgent).toFinish(TextWorkflowFinish), …)`
+`onStart(TextWorkflowStart).toRouter(MainRouter).onRoute(toAgent(TriageAgent).toFinish(TextWorkflowFinish))…`
 — the main router chooses the agent that answers, each agent's text finishes the run. The scripts run
 a workflow by its start's full name (`"chat": "agboss chat --start support-desk-text-workflow-start"`,
 `run` the same), so they keep working when the application gets more workflows; `npm run types`
@@ -122,7 +122,7 @@ Each part is **wired** (the TypeScript Compiler API edits the `@Agent` / `@Workf
 `@Application` arrays, the flow and imports): a new agent joins the main router's choice — a route
 `{ prompt: "Handles invoices", target: BillingAgent }` in `routers/main.router.ts`'s `routes`, and
 `route(BillingAgent).toFinish(TextWorkflowFinish)` after the last `route(…)` of
-`.toRouter(MainRouter).chooseOne(…)`. A new router gets the answer route only and is **not** put into
+`.toRouter(MainRouter).onRoute(…)`. A new router gets the answer route only and is **not** put into
 the flow — where it sits is your choice. `generate workflow` writes the workflow in a folder beside
 the application file (`src/onboarding/`, its test there too) and lists its class in
 `@Application({ workflows })` — a name the application already has is a conflict (exit 4). At its
@@ -480,7 +480,7 @@ on every run. Since #791 the CLI does not install `@langchain/langgraph-cli`: it
 needed it.
 
 What Studio shows (S37): a child workflow is a **subgraph inside its parent** — entered by an edge
-(`.toWorkflow(W)`, `route(W)`) or one per item (`.toParallelWorkflows(W, …)`), its steps drawn as
+(`.toWorkflow(W)`, `route(W)`) or one per item (`.forEachItem(toWorkflow(W), …)`), its steps drawn as
 `vendor-check-workflow:vendor-checker-agent` in the parent's graph — and also a graph of its own
 (it runs alone through its own starts). A workflow launching itself (`() => Self`) is the node of its own name, never its own
 subgraph; `getGraphAsync({ xray: true })` marks it `recursive: maxDepth N` in the node's metadata,

@@ -103,14 +103,22 @@ export class ReadingWorkflowFinish {}
 @Workflow({
   name: "review-workflow",
   version: "1.0.0",
-  flow: [onStart(ReviewWorkflowStart).toAgent(LegalReviewAgent).toFinish(ReviewWorkflowFinish)],
+  flow: [
+    onStart(ReviewWorkflowStart)
+      .toAgent(LegalReviewAgent)
+      .toFinish(ReviewWorkflowFinish),
+  ],
 })
 export class ReviewWorkflow {}
 
 @Workflow({
   name: "reading-workflow",
   version: "1.0.0",
-  flow: [onStart(ReadingWorkflowStart).toAgent(ClauseReaderAgent).toFinish(ReadingWorkflowFinish)],
+  flow: [
+    onStart(ReadingWorkflowStart)
+      .toAgent(ClauseReaderAgent)
+      .toFinish(ReadingWorkflowFinish),
+  ],
 })
 export class ReadingWorkflow {}
 

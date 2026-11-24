@@ -4,8 +4,6 @@ import type { UsageRecord } from "../../finops/usage.js";
 import type { HistoryOf } from "../../flow/dto-wrappers.js";
 import {
   routesOf,
-  spawnPolicyOf,
-  SpawnPolicy,
   type ModelRouterOptions,
   type RouterOptions,
 } from "../../flow/decorators/router.js";
@@ -38,41 +36,40 @@ const nameOf = (target: Class): string => declarationOf(target)?.options.name ??
 /** The visit of a unit runner's router: its first. */
 const visitOf = (router: string) => ({ nodeId: router, visitNumber: 1 });
 
-/** Whether its routes are a launch's (a model router's routes then state `spawn`). */
-const isLaunch = (options: ModelRouterOptions): boolean =>
-  options.routes.some((route) => route.spawn !== undefined);
+/** The targets a launch leaves to the router: all its routes'. */
+const routeTargetsOf = (options: RouterOptions): readonly Class[] =>
+  routesOf(options).map((route) => route.target);
 
-const hasAlwaysRoute = (options: RouterOptions): boolean =>
-  routesOf(options).some((route) => spawnPolicyOf(options, route) === SpawnPolicy.Always);
+/**
+ * Whether a unit's scripted answers are a launch's: a `decideWith(…)`, or a `routeTo(…)` of none or
+ * of several targets — a router unit knows no flow, so the script says whether it chooses one route.
+ */
+export const isLaunchScript = (model: unknown): boolean =>
+  (Array.isArray(model) ? (model as readonly unknown[]) : [model]).some(
+    (turn) =>
+      typeof turn === "object" &&
+      turn !== null &&
+      "kind" in turn &&
+      (turn.kind === "decide" ||
+        (turn.kind === "route" &&
+          "targets" in turn &&
+          Array.isArray(turn.targets) &&
+          turn.targets.length !== 1)),
+  );
 
-/** The targets a launch leaves to the router: its `OnDemand` routes'. */
-const onDemandTargetsOf = (options: RouterOptions): readonly Class[] =>
-  routesOf(options)
-    .filter((route) => spawnPolicyOf(options, route) === SpawnPolicy.OnDemand)
-    .map((route) => route.target);
-
-/** A launch that would run nothing: no `OnDemand` target chosen and no `Always` route. */
-function checkLaunched(options: RouterOptions, launched: readonly Class[]): void {
-  if (launched.length > 0 || hasAlwaysRoute(options)) return;
-  const reason =
-    "it launched none of its OnDemand routes and has no Always route — nothing would run";
-  throw new RouterDecisionError({ ...visitOf(options.name), reason });
-}
-
-/** A code router's answer as its step accepts it: one of its routes, or a list of `OnDemand` ones. */
+/** A code router's answer as its step accepts it: one of its routes (`.onRoute(…)`), or a list of them (`chooseMany([…])`). */
 export function checkedCodeAnswer(options: RouterOptions, answer: unknown): unknown {
   const step = visitOf(options.name);
   if (Array.isArray(answer)) {
-    const allowed = onDemandTargetsOf(options);
+    const allowed = routeTargetsOf(options);
     const outside = (answer as readonly unknown[]).find(
       (target) => !allowed.some((cls) => cls === target),
     );
     if (outside !== undefined)
       throw new RouterDecisionError({
         ...step,
-        reason: "route() returned a target outside its OnDemand routes",
+        reason: "route() returned a target outside its routes",
       });
-    checkLaunched(options, answer as readonly Class[]);
     return answer;
   }
   if (routesOf(options).some((route) => route.target === answer)) return answer;
@@ -139,10 +136,10 @@ interface DecisionSite {
 const usageOf = (usage: UsageRecord | undefined): readonly UsageRecord[] =>
   usage === undefined ? [] : [usage];
 
-/** Before a launch: its `OnDemand` routes, one yes/no each. */
+/** In a `chooseMany([…])` launch: its routes, one yes/no each. */
 async function launchDecision(site: DecisionSite): Promise<ModelDecision> {
   const { options, router } = site;
-  const questions = onDemandTargetsOf(options).map((target) => ({
+  const questions = routeTargetsOf(options).map((target) => ({
     target: nameOf(target),
     prompt: router.routes.find((route) => route.option === nameOf(target))?.condition ?? "",
   }));
@@ -150,11 +147,10 @@ async function launchDecision(site: DecisionSite): Promise<ModelDecision> {
   const outcome = await flowLaunchDeciderFactory(site.deps)(router).decide(request);
   if (outcome.kind === "failed") throw routerFailureOf(visitOf(options.name), outcome);
   const launched = outcome.launched.flatMap((name) => targetNamed(options, name) ?? []);
-  checkLaunched(options, launched);
   return { answer: launched, usage: usageOf(outcome.usage) };
 }
 
-/** After `.chooseOne(…)`: one of its routes. */
+/** After `.onRoute(…)`: one of its routes. */
 async function routeDecision(site: DecisionSite): Promise<ModelDecision> {
   const { options, router } = site;
   const step = visitOf(options.name);
@@ -175,15 +171,16 @@ async function routeDecision(site: DecisionSite): Promise<ModelDecision> {
 }
 
 /**
- * A model router's decision on the runner's scripts: one route after `.chooseOne(…)`
- * (`routeTo(X)`), its `OnDemand` routes before a launch (`decideWith({ "<target>": 0.9 })` or
- * `routeTo(…)`). A router without its own model decides on a decision model, as
+ * A model router's decision on the runner's scripts: one route after `.onRoute(…)`
+ * (`routeTo(X)`), the routes of a `chooseMany([…])` launch when `isLaunch` (`decideWith({ "<target>":
+ * 0.9 })`, or `routeTo(…)` of none or several). A router without its own model decides on a decision model, as
  * `defaults.router.model` (Jev) does.
  */
 export async function modelDecision(
   site: UnitSite,
   declaration: ModelRouterDeclaration,
   input: unknown,
+  isLaunch: boolean,
 ): Promise<ModelDecision> {
   const { options } = declaration;
   const loader = new PromptLoader();
@@ -191,7 +188,5 @@ export async function modelDecision(
   loader.throwIfAny();
   const decision = { options, router, message: messageOf(options, input) };
   const deps = unitRouterDeps(site.gateway);
-  return isLaunch(options)
-    ? launchDecision({ ...decision, deps })
-    : routeDecision({ ...decision, deps });
+  return isLaunch ? launchDecision({ ...decision, deps }) : routeDecision({ ...decision, deps });
 }

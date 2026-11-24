@@ -7,7 +7,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import {
@@ -37,10 +37,7 @@ export class MetricsBatchWorkflowStart {}
   executionLimits: { maxConcurrency: 30 },
   flow: [
     onStart(MetricsBatchWorkflowStart)
-      .toParallelWorkflows(RemoteItemWorkflow, {
-        maxConcurrency: 20,
-        maxItems: 20,
-      })
+      .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 20, maxConcurrency: 20 })
       .join()
       .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),

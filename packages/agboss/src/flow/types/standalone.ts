@@ -15,7 +15,7 @@ import {
   startOutputText,
   valueText,
 } from "./shapes.js";
-import { RouteForm, routeTargetsOf } from "./tables.js";
+import { routeTargetsOf } from "./tables.js";
 import { Wrapper } from "../dto-wrappers.js";
 
 /**
@@ -93,9 +93,7 @@ function writeRouter(
   tables: StandaloneTables,
 ): void {
   tables.inputs.set(options.name, inputText(options.input, names));
-  const targets = routeTargetsOf(options, RouteForm.One).map(
-    (target) => `typeof ${names.ref(target)}`,
-  );
+  const targets = routeTargetsOf(options).map((target) => `typeof ${names.ref(target)}`);
   const route = targets.length === 0 ? "never" : [...new Set(targets)].sort().join(" | ");
   tables.routes.set(options.name, route);
   tables.routerAnswers.set(options.name, routerAnswerOf(route));

@@ -1,12 +1,8 @@
-import { onStart, toAction } from "../../../src/flow/builder.js";
+import { onStart, skip, toAction, toAgent, toRouter } from "../../../src/flow/builder.js";
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import {
-  DecidedBy,
-  FailurePolicy,
-  Router,
-  SpawnPolicy,
-} from "../../../src/flow/decorators/router.js";
+import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -105,7 +101,9 @@ export class ArticleDraftWorkflowFinish {}
   flow: [
     onStart(ResearchWorkflowStart)
       .toAgent(PlannerAgent)
-      .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
+      .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)], {
+        maxConcurrency: 3,
+      })
       .join()
       .toAgent(ArticleWriterAgent)
       .toFinish(ArticleDraftWorkflowFinish),
@@ -192,11 +190,12 @@ export class ScreeningFailedWorkflowFinish {}
   flow: [
     onStart(ScreeningWorkflowStart)
       .toAgent(ScreeningAgent)
-      .toParallelAgents(CompanyAuditAgent, { maxConcurrency: 3, maxItems: 50 })
+      .forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 50, maxConcurrency: 3 })
       .join()
       .onError(
         LimitExceededError,
-        toAction(NotifyOperatorAction).toFinish(ScreeningFailedWorkflowFinish),
+        toAction(NotifyOperatorAction)
+          .toFinish(ScreeningFailedWorkflowFinish),
       )
       .toAgent(RankerAgent)
       .toFinish(RankingWorkflowFinish),
@@ -282,9 +281,10 @@ export class PaymentWorkflowFinish {}
   flow: [
     onStart(CheckoutWorkflowStart)
       .toAction(ChargePaymentAction)
-      .toParallelActions(SendReceiptAction, UpdateCrmAction, ReserveGoodsAction, {
-        maxConcurrency: 3,
-      })
+      .inParallel(
+        [toAction(SendReceiptAction), toAction(UpdateCrmAction), toAction(ReserveGoodsAction)],
+        { maxConcurrency: 3 },
+      )
       .join() // three side effects without output: nothing to name
       .toFinish(PaymentWorkflowFinish), // reads PaymentDto from the path
   ],
@@ -345,15 +345,7 @@ export class LoyaltyOfferAgent {}
   input: {
     message: WorkflowStartTextDto,
   },
-  routes: [
-    { target: OrderLookupAgent, spawn: SpawnPolicy.Always },
-    {
-      target: RefundPolicyAgent,
-      spawn: SpawnPolicy.OnDemand,
-      prompt: "The message is about returns",
-    },
-    { target: LoyaltyOfferAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
-  ],
+  routes: [{ target: RefundPolicyAgent, prompt: "The message is about returns" }],
 })
 export class HelpDeskRouter {}
 
@@ -384,8 +376,13 @@ export class HelpDeskWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(HelpDeskWorkflowStart)
-      .toRouter(HelpDeskRouter)
-      .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)
+      .inParallel([
+        toAgent(OrderLookupAgent),
+        toAgent(LoyaltyOfferAgent)
+          .onError(StepError, skip()),
+        toRouter(HelpDeskRouter)
+          .chooseMany([toAgent(RefundPolicyAgent)]),
+      ])
       .join()
       .toAgent(AnswerAgent)
       .toFinish(HelpDeskWorkflowFinish),
@@ -409,7 +406,7 @@ export class OffersWorkflowStart {}
   input: {
     message: WorkflowStartTextDto,
   },
-  routes: [{ target: RefundPolicyAgent, spawn: SpawnPolicy.Always }, { target: LoyaltyOfferAgent }],
+  routes: [LoyaltyOfferAgent],
 })
 export class OffersRouter implements RouterHandler<OffersRouter> {
   route(input: InputOf<OffersRouter>): RouterAnswerOf<OffersRouter> {
@@ -442,8 +439,11 @@ export class OffersWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OffersWorkflowStart)
-      .toRouter(OffersRouter)
-      .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
+      .inParallel([
+        toAgent(RefundPolicyAgent),
+        toRouter(OffersRouter)
+          .chooseMany([toAgent(LoyaltyOfferAgent)]),
+      ])
       .join()
       .toAgent(OffersAnswerAgent)
       .toFinish(OffersWorkflowFinish),

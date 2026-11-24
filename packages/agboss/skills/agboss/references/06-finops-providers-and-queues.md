@@ -600,7 +600,7 @@ export class InvoiceWorkflowFinish {}
 ```
 
 ```ts file=src/billing/workflows/invoice/invoice.workflow.ts
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { InvoiceAgent } from "../../agents/invoice/invoice.agent.js";
 import { InvoiceDraftDto } from "../../dto/invoice-draft.dto.js";

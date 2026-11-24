@@ -23,7 +23,7 @@ import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { decideWith, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, onStart } from "../helpers/flow.js";
+import { execute, onStart, toAgent } from "../helpers/flow.js";
 import { requestText, tokensIn } from "./boundary.helpers.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 
@@ -90,7 +90,7 @@ class OwnersFinish {}
   version: "1.0.0",
   flow: [
     onStart(OwnersStart)
-      .toParallelAgents(ContactAnswerAgent, ContactAnswerAgent)
+      .inParallel([toAgent(ContactAnswerAgent), toAgent(ContactAnswerAgent)])
       .arbitratedBy(ContactArbiter)
       .joinQuorum({ min: 2 })
       .toAction(OwnersAction)

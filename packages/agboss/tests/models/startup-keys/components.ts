@@ -42,7 +42,7 @@ import { Rag, RagReranker, RagScope, RagSource } from "../../../src/rag/index.js
 import type { RagRetrieval } from "../../../src/rag/index.js";
 import type { ModelUseKind } from "../../../src/models/uses.js";
 import { arbiterWorkflow, AnswerDto } from "./arbiter.js";
-import { route, onStart } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
 
 /** The model each kind of model use is given: the keyless `local/llama`, or the one under test. */
 export type KindModels = Readonly<Record<ModelUseKind, string>>;
@@ -200,10 +200,8 @@ export function everyKindWorkflows(models: KindModels): {
     flow: [
       onStart(DeskStart)
         .toRouter(DeskRouter)
-        .chooseOne(
-          route(DeskAgent).toFinish(DeskFinish),
-          route(DeskReaderAgent).toFinish(DeskFinish),
-        ),
+        .onRoute(toAgent(DeskAgent).toFinish(DeskFinish))
+        .onRoute(toAgent(DeskReaderAgent).toFinish(DeskFinish)),
     ],
     defaults: {
       models: { temperature: 0, maxTokens: TokenLimit.ModelMax },

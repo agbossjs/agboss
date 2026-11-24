@@ -1,5 +1,10 @@
 import { onEffectCommit } from "../../../src/infrastructure/in-memory-effect-writes.js";
-import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import {
+  Integer,
+  Text,
+  WorkflowFinishTextDto,
+  WorkflowStartTextDto,
+} from "../../../src/dto/index.js";
 import { listOf } from "../../../src/index.js";
 import {
   Action,
@@ -19,7 +24,7 @@ import {
 import { hours, minutes } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
@@ -230,7 +235,11 @@ export class CashierFinish {}
 @Workflow({
   name: "cashier-workflow",
   version: "1.0.0",
-  flow: [onStart(CashierStart).toAgent(CashierAgent).toFinish(CashierFinish)],
+  flow: [
+    onStart(CashierStart)
+      .toAgent(CashierAgent)
+      .toFinish(CashierFinish),
+  ],
   defaults: { models: { temperature: 0 } },
   providers: [PaymentGateway],
 })
@@ -253,7 +262,11 @@ export class OrderChargedFinish {}
 @Workflow({
   name: "charge-order-workflow",
   version: "1.0.0",
-  flow: [onStart(ChargeOrderStart).toAction(ChargeOrderAction).toFinish(OrderChargedFinish)],
+  flow: [
+    onStart(ChargeOrderStart)
+      .toAction(ChargeOrderAction)
+      .toFinish(OrderChargedFinish),
+  ],
 })
 export class ChargeOrderWorkflow {}
 
@@ -274,7 +287,11 @@ export class ChargeSentFinish {}
 @Workflow({
   name: "send-charge-workflow",
   version: "1.0.0",
-  flow: [onStart(SendChargeStart).toAction(SendChargeAction).toFinish(ChargeSentFinish)],
+  flow: [
+    onStart(SendChargeStart)
+      .toAction(SendChargeAction)
+      .toFinish(ChargeSentFinish),
+  ],
   providers: [PaymentGateway],
 })
 export class SendChargeWorkflow {}
@@ -302,7 +319,9 @@ export class ChargesSentAction {
     readonly results: readonly Produced<ChargeResultDto, unknown>[];
   }): Promise<ChargeSummaryDto> {
     return {
-      chargeIds: input.results.map((result) => result.value.chargeId).join(", "),
+      chargeIds: input.results
+        .map((result) => result.value.chargeId)
+        .join(", "),
     };
   }
 }
@@ -320,7 +339,7 @@ export class ChargesSentFinish {}
   version: "1.0.0",
   flow: [
     onStart(SendChargesStart)
-      .toParallelActions(SendChargeAction, { maxItems: 4 })
+      .forEachItem(toAction(SendChargeAction), { takeFirst: 4 })
       .join()
       .toAction(ChargesSentAction)
       .toFinish(ChargesSentFinish),

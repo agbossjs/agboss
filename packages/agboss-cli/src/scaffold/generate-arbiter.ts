@@ -16,7 +16,7 @@ import type { Changes, FileToWrite } from "./write.js";
 
 /**
  * `agboss g arbiter <name>-arbiter --workflow <name>-workflow [--agent <name>-agent]` (#279 S77 i): a code arbiter for the agents of a
- * launch — the flow's one `.inParallel([…])` / `.forEachItem(…)` / `.toParallelAgents(…)`, or the one launching `--agent` — with one
+ * launch — the flow's one `.inParallel([…])` / `.forEachItem(…)`, or the one launching `--agent` — with one
  * `@OnAnswer(Agent) from<Agent>(answer)` method per distinct agent class, each accepting every
  * answer until it is written. It is not put into the flow: where it sits (`.arbitratedBy(…)`) is a
  * choice.
@@ -41,15 +41,14 @@ function agentOfBranch(branch: ts.Expression): readonly string[] {
   return agent !== undefined && ts.isIdentifier(agent) ? [agent.text] : [];
 }
 
-/** The agent classes of every launch of the flow — `.inParallel([toAgent(A), …])`, `.forEachItem(toAgent(A), …)`, `.toParallelAgents(…)` — repeats removed, as listed. */
+/** The agent classes of every launch of the flow — `.inParallel([toAgent(A), …])`, `.forEachItem(toAgent(A), …)` — repeats removed, as listed. */
 function launchesOf(source: ts.SourceFile): readonly (readonly string[])[] {
   const launches: string[][] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isCallExpression(node)) {
       const [first] = node.arguments;
-      const agents = isCallOf(node, "toParallelAgents")
-        ? node.arguments.flatMap((arg) => (ts.isIdentifier(arg) ? [arg.text] : []))
-        : isCallOf(node, "inParallel") && first !== undefined && ts.isArrayLiteralExpression(first)
+      const agents =
+        isCallOf(node, "inParallel") && first !== undefined && ts.isArrayLiteralExpression(first)
           ? first.elements.flatMap(agentOfBranch)
           : isCallOf(node, "forEachItem") && first !== undefined
             ? agentOfBranch(first)
@@ -75,7 +74,7 @@ function launchFor(graph: WorkflowGraph, agent: string | undefined): readonly st
   if (found !== undefined) return found;
   const why =
     launches.length === 0
-      ? "has no agents' launch (.inParallel([…]), .forEachItem(…) or .toParallelAgents(…)) to judge"
+      ? "has no agents' launch (.inParallel([…]) or .forEachItem(…)) to judge"
       : wanted === undefined
         ? `has ${String(launches.length)} agents' launches — name one of its agents with --agent <full name>`
         : `launches no ${wanted}`;

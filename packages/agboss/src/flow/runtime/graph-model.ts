@@ -40,12 +40,12 @@ import { expiresInOfQuestion, questionExpiriesOf } from "../analyse/question-exp
 /** A node's ways out. */
 export interface NodeExits {
   readonly next?: FlowEdge;
-  /** `caseOf(XDto)…` by the DTO class name. */
+  /** a `.toOneOf([…])` branch by the DTO class name. */
   readonly cases: ReadonlyMap<string, FlowEdge>;
-  /** `route(X)…` by the target's node id. */
+  /** `.onRoute(toAgent(X)…)` by the target's node id. */
   readonly routes: ReadonlyMap<string, FlowEdge>;
   readonly errors: readonly FlowEdge[];
-  /** Its parallel launches (#273), by the variant whose `caseOf(…)` launches (`""` outside one). */
+  /** Its parallel launches (#273), by the variant whose a `.toOneOf([…])` branch launches (`""` outside one). */
   readonly launches: ReadonlyMap<string, RuntimeLaunch>;
 }
 

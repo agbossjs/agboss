@@ -18,7 +18,7 @@ import {
   inline,
 } from "../../../src/index.js";
 import { Reasoning } from "../../../src/models/index.js";
-import { route, onStart } from "../../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { McpServer, McpServerClient } from "../../../src/mcp/index.js";
 import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
@@ -100,7 +100,8 @@ export const NOTES_DIR = tmpdir();
 
 const FILESYSTEM_SERVER = join(
   dirname(
-    createRequire(import.meta.url).resolve("@modelcontextprotocol/server-filesystem/package.json"),
+    createRequire(import.meta.url)
+      .resolve("@modelcontextprotocol/server-filesystem/package.json"),
   ),
   "dist",
   "index.js",
@@ -234,7 +235,15 @@ export class MainRouter {}
   flow: [
     onStart(ChatStart)
       .toRouter(MainRouter)
-      .chooseOne(route(Support).toFinish(Reply), route(Writer).toFinish(Reply), route(NoReply)),
+      .onRoute(
+        toAgent(Support)
+          .toFinish(Reply),
+      )
+      .onRoute(
+        toAgent(Writer)
+          .toFinish(Reply),
+      )
+      .onRoute(toFinish(NoReply)),
   ],
   defaults: {
     models: {

@@ -1,4 +1,4 @@
-import { onStart, StepFailedError, toFinish, Workflow } from "@agboss/core";
+import { onStart, StepFailedError, toFinish, Workflow, toAgent } from "@agboss/core";
 import { EditorialPlanAction } from "../../actions/editorial-plan.action.js";
 import { ReviewReportAction } from "../../actions/review-report.action.js";
 import { FactCheckerAgent } from "../../agents/fact-checker/fact-checker.agent.js";
@@ -21,10 +21,13 @@ import { ReviewWorkflowStart } from "./review.workflow-start.js";
   flow: [
     onStart(ReviewWorkflowStart)
       .toAgent(SectionSplitterAgent)
-      .toParallelAgents(SectionReviewerAgent, { maxConcurrency: 3, maxItems: 20 })
+      .forEachItem(toAgent(SectionReviewerAgent), { takeFirst: 20, maxConcurrency: 3 })
       .join()
       .toAction(EditorialPlanAction)
-      .toParallelAgents(StyleCriticAgent, FactCheckerAgent, FactCheckerAgent, { maxConcurrency: 2 })
+      .inParallel(
+        [toAgent(StyleCriticAgent), toAgent(FactCheckerAgent), toAgent(FactCheckerAgent)],
+        { maxConcurrency: 2 },
+      )
       .join()
       .onError(StepFailedError, toFinish(ReviewIncompleteWorkflowFinish))
       .toAction(ReviewReportAction)

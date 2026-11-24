@@ -96,25 +96,25 @@ class SkillsReaderAgent {}
 
 /** The fit launch, its quorum and the values it names. */
 const fitLaunch = () =>
-  onStart(FitReviewWorkflowStart).toParallelAgents(
-    SkillsScoreAgent,
-    CultureScoreAgent,
-    SalaryFitAgent,
-  );
+  onStart(FitReviewWorkflowStart).inParallel([
+    toAgent(SkillsScoreAgent),
+    toAgent(CultureScoreAgent),
+    toAgent(SalaryFitAgent),
+  ]);
 const searched = () =>
   onStart(CompanySearchWorkflowStart)
     .toAgent(BoardSearchAgent)
-    .toParallelAgents(CompanyVetAgent, { maxItems: 50 });
+    .forEachItem(toAgent(CompanyVetAgent), { takeFirst: 50 });
 const shortlisted = (joined: ReturnType<typeof searched>) =>
   joined.toAgent(CompanyShortlistAgent).toFinish(CompanyShortlistWorkflowFinish);
 
 const dealLaunch = () =>
-  onStart(DealWorkflowStart).toParallelAgents(
-    LegalAgent,
-    DealCriticAgent,
-    DealCriticAgent,
-    FastScreenAgent,
-  );
+  onStart(DealWorkflowStart).inParallel([
+    toAgent(LegalAgent),
+    toAgent(DealCriticAgent),
+    toAgent(DealCriticAgent),
+    toAgent(FastScreenAgent),
+  ]);
 const reviewPath = () => onAgent(FullReviewAgent).toFinish(DueDiligenceReportWorkflowFinish);
 
 describe("#279: the issue's quorums pass the analyser", () => {
@@ -176,7 +176,7 @@ describe("#279 AC8: only counted answers enter the scope — what a consumer may
   it("a counted answer nobody reads is flow.unused-output", () => {
     const flow = [
       onStart(FitReviewWorkflowStart)
-        .toParallelAgents(ScoreAAgent, ScoreBAgent, SkillsScoreAgent)
+        .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(SkillsScoreAgent)])
         .joinQuorum({ min: 2 })
         .toAgent(FitSummaryAgent)
         .toFinish(FitSummaryWorkflowFinish),
@@ -197,7 +197,7 @@ describe("#279: an impossible quorum fails assembly", () => {
       {
         code: "flow.quorum-impossible",
         message:
-          "fit-review-workflow-start → toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ min: 4 }) needs 4 counted answers, but the launch runs 3 agents — lower min, or launch more",
+          "fit-review-workflow-start → inParallel(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ min: 4 }) needs 4 counted answers, but the launch runs 3 agents — lower min, or launch more",
       },
     ]);
   });
@@ -321,7 +321,7 @@ class UndecoratedArbiter {
 
 const scored = (arbiter: unknown) => [
   onStart(FitReviewWorkflowStart)
-    .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
+    .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)])
     .arbitratedBy(arbiter)
     .joinQuorum({ min: 2 })
     .toAgent(FitSummaryAgent)
@@ -335,7 +335,7 @@ const arbiterErrorsOf = (arbiter: unknown) =>
     .map(({ code, message }) => ({ code, message }));
 
 const LAUNCH =
-  "fit-review-workflow-start → toParallelAgents(score-a-agent, score-b-agent, score-c-agent)";
+  "fit-review-workflow-start → inParallel(score-a-agent, score-b-agent, score-c-agent)";
 
 describe("#279 AC5: a model arbiter covers every agent of its launch by a criterion", () => {
   it("unhandled agent, agent not in the launch, two criteria for one agent", () => {
@@ -460,7 +460,7 @@ describe("#1282: an arbiter of an .inParallel([…]) or .forEachItem(…) launch
       .toFinish(FitSummaryWorkflowFinish),
   ];
 
-  it("judges the branches of .inParallel([…]) as it does those of .toParallelAgents(…)", () => {
+  it("judges the branches of .inParallel([…]) as it does those of .inParallel(…)", () => {
     const flow = parallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)]);
 
     expect(errorsOf(flow).filter(({ code }) => code.startsWith("arbiter."))).toEqual([]);
@@ -507,7 +507,7 @@ describe("#1306: [calendar.required-for-working-duration]", () => {
       {
         code: "calendar.required-for-working-duration",
         message:
-          "fit-review-workflow-start → toParallelAgents(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ deadline: 5 working days }) is working time and needs the calendar that counts it — add calendar: YourWorkingCalendar (a @WorkingCalendar class)",
+          "fit-review-workflow-start → inParallel(skills-score-agent, culture-score-agent, salary-fit-agent): .joinQuorum({ deadline: 5 working days }) is working time and needs the calendar that counts it — add calendar: YourWorkingCalendar (a @WorkingCalendar class)",
       },
     ]);
   });
@@ -531,7 +531,7 @@ describe("#1306: [calendar.required-for-working-duration]", () => {
   it("the same rule holds for .joinQuorumGroups(…)", () => {
     const groups = (options: object) => [
       onStart(FitReviewWorkflowStart)
-        .toParallelAgents(SkillsScoreAgent, CultureScoreAgent)
+        .inParallel([toAgent(SkillsScoreAgent), toAgent(CultureScoreAgent)])
         .joinQuorumGroups(options)
         .onGroup([SkillsScoreAgent], toAgent(FitSummaryAgent).toFinish(FitSummaryWorkflowFinish))
         .onGroup([CultureScoreAgent], toAgent(FitSummaryAgent).toFinish(FitSummaryWorkflowFinish)),

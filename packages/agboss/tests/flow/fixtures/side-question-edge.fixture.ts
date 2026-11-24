@@ -180,7 +180,9 @@ export const sharedEdgeFlow = (
   startClass: abstract new () => unknown,
   role: abstract new () => unknown,
 ): PathBuilder<PathSource>[] => [
-  onStart(startClass).toAction(DraftQuestionAction).toExternalTask(role),
+  onStart(startClass)
+    .toAction(DraftQuestionAction)
+    .toExternalTask(role),
   onExternalTask(role)
     .toAction(FailFirstPlaceAction)
     .onError(StepFailedError, toExternalTask(role))
@@ -198,7 +200,9 @@ export const inlineTwiceEdgeFlow = (
     .toAction(FailFirstPlaceAction)
     .onError(
       StepFailedError,
-      toExternalTask(role).toAction(PlacePurchaseAction).toFinish(PurchaseWorkflowFinish),
+      toExternalTask(role)
+        .toAction(PlacePurchaseAction)
+        .toFinish(PurchaseWorkflowFinish),
     )
     .toFinish(PurchaseWorkflowFinish),
 ];

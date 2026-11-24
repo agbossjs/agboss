@@ -8,7 +8,7 @@ import { isTextAgent, outputOf, valueWrite, type FlowNode, type ValueWrite } fro
  * What a step gives, read from its own declaration (#1270): a start its `input` (one value, or one
  * per field of its map), an agent, action, question role or child workflow its `output`, a text
  * agent its reply as `WorkflowFinishTextDto` (#270 AC10). A router and a step without `output` give
- * nothing; a `oneOf(…)` output gives nothing itself — each case of its `.switch(…)` writes its class.
+ * nothing; a `oneOf(…)` output gives nothing itself — each case of its `.toOneOf([…])` writes its class.
  */
 
 /** The values a start gives: its input DTO or list, or one value per field of its map. */

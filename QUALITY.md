@@ -84,7 +84,7 @@ holds from its type**, not guess it from the name.
 
 - **The workflow file is the graph.** `@Workflow({ flow: [...] })` is a list of paths —
   `onStart(…)` / `onAgent(…)` / `onRouter(…)` / `onAction(…)` with `.toAgent` / `.toRouter` /
-  `.toAction` / `.toFinish`, `.chooseOne(route(…)…)`, `.switch(caseOf(…)…)` and `.onError(…)`
+  `.toAction` / `.toFinish`, `.onRoute(…)`, `.toOneOf([…])` and `.onError(…)`
   (CLAUDE.md → The flow: paths); nodes are `@WorkflowStart`, `@Router`, `@Agent`, `@Action`,
   `@WorkflowFinish`. Each node reads its `input` from the path's scope; `.agboss/types.d.ts`
   (`agboss check`) types it.
@@ -123,7 +123,7 @@ holds from its type**, not guess it from the name.
 - **`@Router` = how + what.** `decidedBy` says who chooses: a model router's `prompt` /
   `promptUrls` say how, its `routes` what each choice means (`{ prompt, target }`, the text
   required); a code router's `route(input)` (`implements RouterHandler<Self>`) decides by types,
-  never by matching text. `.chooseOne(route(…)…)` in the flow lists exactly those targets
+  never by matching text. `.onRoute(…)` in the flow lists exactly those targets
   (`[router.routes-mismatch]`). A route
   **to a workflow finish** is worded as a stop instruction ("Stop and send the answer: …") — worded as
   "the answer is ready", Jev kept sending the turn back to the last agent (#116).

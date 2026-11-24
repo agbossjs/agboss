@@ -103,13 +103,11 @@ describe("describe a workflow", () => {
       "flow",
       "  onStart(TestChat)",
       "    .toRouter(MainRouter)",
-      "    .chooseOne(",
-      "      route(NoAnswer),",
-      "      route(Researcher)",
-      "        .toFinish(TestAnswer),",
-      "      route(Coder)",
-      "        .toFinish(TestAnswer)",
-      "    )",
+      "    .onRoute(toFinish(NoAnswer))",
+      "    .onRoute(toAgent(Researcher)",
+      "      .toFinish(TestAnswer))",
+      "    .onRoute(toAgent(Coder)",
+      "      .toFinish(TestAnswer))",
     ]);
     expect(section("inputs", "routers")).toEqual([
       "inputs",
@@ -123,7 +121,7 @@ describe("describe a workflow", () => {
     const lines = describeWorkflow(story);
 
     expect(lines).not.toContain("about");
-    expect(lines).toEqual(expect.arrayContaining(["      caseOf(DraftChangesDto)"]));
+    expect(lines).toEqual(expect.arrayContaining(["    .toOneOf(["]));
     expect(lines).toContain(
       "  publisher-agent ← draft: story-writer-agent, approval: story-reviewer-agent",
     );

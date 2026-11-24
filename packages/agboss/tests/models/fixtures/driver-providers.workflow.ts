@@ -201,7 +201,11 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
 @Workflow({
   name: "fast-workflow",
   version: "1.0.0",
-  flow: [onStart(FastStart).toAgent(FastAgent).toFinish(FastFinish)],
+  flow: [
+    onStart(FastStart)
+      .toAgent(FastAgent)
+      .toFinish(FastFinish),
+  ],
   defaults,
   memory: Window1Memory,
 })
@@ -210,7 +214,11 @@ export class FastWorkflow {}
 @Workflow({
   name: "plain-workflow",
   version: "1.0.0",
-  flow: [onStart(PlainStart).toAgent(PlainAgent).toFinish(PlainFinish)],
+  flow: [
+    onStart(PlainStart)
+      .toAgent(PlainAgent)
+      .toFinish(PlainFinish),
+  ],
   defaults,
   memory: Window1Memory,
 })
@@ -219,7 +227,11 @@ export class PlainWorkflow {}
 @Workflow({
   name: "own-workflow",
   version: "1.0.0",
-  flow: [onStart(OwnStart).toAgent(OwnAgent).toFinish(OwnFinish)],
+  flow: [
+    onStart(OwnStart)
+      .toAgent(OwnAgent)
+      .toFinish(OwnFinish),
+  ],
   defaults,
   memory: Window1Memory,
 })
@@ -228,7 +240,11 @@ export class OwnWorkflow {}
 @Workflow({
   name: "literal-workflow",
   version: "1.0.0",
-  flow: [onStart(LiteralStart).toAgent(LiteralAgent).toFinish(LiteralFinish)],
+  flow: [
+    onStart(LiteralStart)
+      .toAgent(LiteralAgent)
+      .toFinish(LiteralFinish),
+  ],
   defaults,
   memory: Window1Memory,
 })
@@ -260,7 +276,11 @@ export class UnlistedApplication {}
 @Workflow({
   name: "bare-workflow",
   version: "1.0.0",
-  flow: [onStart(BareStart).toAgent(PlainAgent).toFinish(BareFinish)],
+  flow: [
+    onStart(BareStart)
+      .toAgent(PlainAgent)
+      .toFinish(BareFinish),
+  ],
   defaults,
   memory: Window1Memory,
   modelProvider: BareChatModels,
@@ -280,7 +300,11 @@ export class BareApplication {}
 @Workflow({
   name: "no-provider-workflow",
   version: "1.0.0",
-  flow: [onStart(NopStart).toAgent(FastAgent).toFinish(NopFinish)],
+  flow: [
+    onStart(NopStart)
+      .toAgent(FastAgent)
+      .toFinish(NopFinish),
+  ],
   defaults,
   memory: Window1Memory,
 })
@@ -300,7 +324,11 @@ export class NoProviderApplication {}
 @Workflow({
   name: "decision-provider-workflow",
   version: "1.0.0",
-  flow: [onStart(DecStart).toAgent(LiteralAgent).toFinish(DecFinish)],
+  flow: [
+    onStart(DecStart)
+      .toAgent(LiteralAgent)
+      .toFinish(DecFinish),
+  ],
   defaults,
   memory: Window1Memory,
   modelProvider: DecisionModels,

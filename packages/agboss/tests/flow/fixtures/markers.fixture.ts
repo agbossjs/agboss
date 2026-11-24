@@ -1,4 +1,4 @@
-import { caseOf, onStart } from "../../../src/flow/builder.js";
+import { onStart, toFinish } from "../../../src/flow/builder.js";
 import { Text } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -59,10 +59,7 @@ export class RejectedWorkflowFinish {}
 export const verdictPaths = [
   onStart(VerdictWorkflowStart)
     .toAgent(VerdictAgent)
-    .switch(
-      caseOf(ApprovedVerdictDto).toFinish(ApprovedWorkflowFinish),
-      caseOf(RejectedVerdictDto).toFinish(RejectedWorkflowFinish),
-    ),
+    .toOneOf([toFinish(ApprovedWorkflowFinish), toFinish(RejectedWorkflowFinish)]),
 ] as const;
 
 @Workflow({

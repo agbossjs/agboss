@@ -14,7 +14,7 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../../flow/fixtures/dtos.js";
 import { BatchWorkflow } from "../../../flow/runtime/fixtures/tree-batch.workflow.js";
 import { CountdownWorkflow } from "../../../flow/runtime/fixtures/recursion.workflow.js";
-import { onAction, onStart, route } from "../../../helpers/flow.js";
+import { onAction, onStart, toAction, toFinish } from "../../../helpers/flow.js";
 
 /**
  * #1318c: the workflows whose limits and history keep-time the profiles of this directory change —
@@ -57,7 +57,7 @@ export class LimitsSpinFinish {}
   decidedBy: DecidedBy.Code,
   maxVisits: 100,
   input: { spin: LimitsDto },
-  routes: [{ target: LimitsSpinAction }, { target: LimitsSpinFinish }],
+  routes: [LimitsSpinAction, LimitsSpinFinish],
 })
 export class LimitsSpinRouter {
   route(): unknown {
@@ -74,7 +74,8 @@ export class LimitsSpinRouter {
     onStart(LimitsSpinStart).toAction(LimitsSpinAction),
     onAction(LimitsSpinAction)
       .toRouter(LimitsSpinRouter)
-      .chooseOne(route(LimitsSpinAction), route(LimitsSpinFinish)),
+      .onRoute(toAction(LimitsSpinAction))
+      .onRoute(toFinish(LimitsSpinFinish)),
   ],
 })
 export class LimitsSpinWorkflow {}

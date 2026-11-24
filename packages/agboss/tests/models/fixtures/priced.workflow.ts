@@ -52,7 +52,12 @@ export class Answer {}
 @Workflow({
   name: "priced-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(Summariser).toAgent(Writer).toFinish(Answer)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(Summariser)
+      .toAgent(Writer)
+      .toFinish(Answer),
+  ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },

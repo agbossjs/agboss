@@ -187,14 +187,15 @@ export class FanOutLog {
   version: "1.0.0",
   flow: [
     onStart(ItemsWorkflowStart)
-      .toParallelActions(ProcessItemAction, { maxConcurrency: 2, maxItems: 4 })
+      .forEachItem(toAction(ProcessItemAction), { takeFirst: 4, maxConcurrency: 2 })
       .join()
       .onError(ItemFailedError, toAction(ItemsFailedAction))
       // never taken: a cancel of the execution stops it whole (S21)
       .onError(ExecutionCancelledError, toAction(ItemsFailedAction))
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
-    onAction(ItemsFailedAction).toFinish(ItemsFailedWorkflowFinish),
+    onAction(ItemsFailedAction)
+      .toFinish(ItemsFailedWorkflowFinish),
   ],
 })
 export class FanOutWorkflow {}
@@ -215,7 +216,7 @@ export class FanOutApplication {}
   version: "1.0.0",
   flow: [
     onStart(ItemsWorkflowStart)
-      .toParallelActions(ProcessItemAction, { maxItems: 4 })
+      .forEachItem(toAction(ProcessItemAction), { takeFirst: 4 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
@@ -246,7 +247,7 @@ export class ItemResultsWorkflowFinish {}
   executionLimits: { maxSteps: 10 },
   flow: [
     onStart(ItemsWorkflowStart)
-      .toParallelActions(ProcessItemAction, { maxItems: 4 })
+      .forEachItem(toAction(ProcessItemAction), { takeFirst: 4 })
       .join()
       .toFinish(ItemResultsWorkflowFinish),
   ],
@@ -323,7 +324,7 @@ export class StampsWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OneItemWorkflowStart)
-      .toParallelActions(StampAction, StampAction)
+      .inParallel([toAction(StampAction), toAction(StampAction)])
       .join()
       .toAction(StampsAction)
       .toFinish(StampsWorkflowFinish),

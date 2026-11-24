@@ -295,14 +295,22 @@ export class FencePayWorkflow {}
   placement: ChildPlacement.AnyWorker,
   name: "fence-child-workflow",
   version: "1.0.0",
-  flow: [onStart(FenceChildStart).toAction(ChargeTextAction).toFinish(FenceChildFinish)],
+  flow: [
+    onStart(FenceChildStart)
+      .toAction(ChargeTextAction)
+      .toFinish(FenceChildFinish),
+  ],
 })
 export class FenceChildWorkflow {}
 
 @Workflow({
   name: "fence-far-workflow",
   version: "1.0.0",
-  flow: [onStart(FenceFarStart).toWorkflow(FenceChildWorkflow).toFinish(FenceFarFinish)],
+  flow: [
+    onStart(FenceFarStart)
+      .toWorkflow(FenceChildWorkflow)
+      .toFinish(FenceFarFinish),
+  ],
 })
 export class FenceFarWorkflow {}
 

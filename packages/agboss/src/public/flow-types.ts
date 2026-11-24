@@ -1,8 +1,8 @@
 /**
  * The types the flow DSL and the decorators are made of (#895, @beta: type machinery, not a
- * contract): what the signatures of `onStart`, `onAgent`, `route`,
- * `.toParallelWorkflows(…)`, `@Router`, `@WorkflowFinish` & co. compute with — `FlowTypes.IsOneOf`,
- * `FlowTypes.IsPerItem`, … A type error names them; no code of yours writes them, so their names may
+ * contract): what the signatures of `onStart`, `onAgent`,
+ * `.inParallel([…])`, `@Router`, `@WorkflowFinish` & co. compute with — `FlowTypes.IsOneOf`,
+ * `FlowTypes.IsSeveral`, … A type error names them; no code of yours writes them, so their names may
  * change in any release. Types only: re-exported as the namespace `FlowTypes`, no module the root
  * import loads.
  */
@@ -32,7 +32,6 @@ export {
   type TrackedAnswerOf,
 } from "../flow/decorators/arbiter.js";
 export {
-  type CaseValueOf,
   type SkipHandling,
   type SkipOf,
   type IsOneOf,
@@ -43,10 +42,7 @@ export {
   type KindLabels,
   type OutputContinuation,
   type ValueContinuation,
-  type RouteTargetKind,
-  type RouteTargetLabel,
   type StepContinuation,
-  type SwitchCheck,
   type TargetCheck,
   type WrongKind,
 } from "../flow/builder-types.js";
@@ -79,11 +75,8 @@ export {
   type BranchesCheck,
   type ItemsCheck,
   type ErrorInstance,
-  type IsPerItem,
   type IsSeveral,
   type LastValue,
-  type LaunchArguments,
-  type LaunchCheck,
 } from "../flow/launch-types.js";
 export { type OnGroup } from "../flow/quorum-types.js";
 export { type ClassOf, type UnwrapTarget } from "../flow/target-ref.js";

@@ -40,11 +40,9 @@ const FLOW_OF = (agents: readonly string[]): string =>
   [
     "  onStart(TextWorkflowStart)",
     "    .toRouter(MainRouter)",
-    "    .chooseOne(",
     agents
-      .map((agent) => `      route(${agent})\n        .toFinish(TextWorkflowFinish)`)
-      .join(",\n"),
-    "    )",
+      .map((agent) => `    .onRoute(toAgent(${agent})\n      .toFinish(TextWorkflowFinish))`)
+      .join("\n"),
   ].join("\n");
 
 const scripts = (): Record<string, string> =>
@@ -183,7 +181,7 @@ describe("agboss create / agboss generate end to end", () => {
     const out = check();
 
     expect(out).toMatch(/billing-agent .*\n\s+Handles invoices/);
-    // a new agent joins the router's choice — a route in the main router and in its chooseOne
+    // a new agent joins the router's choice — a route in the main router and an .onRoute(…) in the flow
     expect(out).toContain(FLOW_OF(["TriageAgent", "AnswererAgent", "BillingAgent"]));
     expect(readFileSync(join(project, "src/routers/main/main.router.ts"), "utf8")).toContain(
       '{ prompt: "Handles invoices", target: BillingAgent }',

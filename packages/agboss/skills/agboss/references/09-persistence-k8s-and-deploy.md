@@ -105,6 +105,8 @@ import {
   ResumeDecision,
   type IncompatibleResume,
   type WorkflowDefinition,
+  toAgent,
+  toFinish,
 } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ClaimAssessorAgent } from "../../agents/claim-assessor/claim-assessor.agent.js";

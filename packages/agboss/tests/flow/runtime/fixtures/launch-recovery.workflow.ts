@@ -12,7 +12,7 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
-import { onStart } from "../../../helpers/flow.js";
+import { onStart, toAction } from "../../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
@@ -67,7 +67,7 @@ export class RecoverableItemAction {
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(ItemsWorkflowStart)
-      .toParallelActions(RecoverableItemAction, { maxItems: 10 })
+      .forEachItem(toAction(RecoverableItemAction), { takeFirst: 10 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),

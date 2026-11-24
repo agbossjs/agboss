@@ -23,7 +23,7 @@ import { Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
-import { route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 
 /** What a caller sends: a document and a note. */
 export class ReadRequestDto {
@@ -98,7 +98,7 @@ export class ReaderAgent {}
   description: "Sends the document on",
   decidedBy: DecidedBy.Code,
   input: { request: ReadRequestDto },
-  routes: [{ target: ReaderAgent }],
+  routes: [ReaderAgent],
 })
 export class ReaderRouter {
   route(): unknown {
@@ -130,7 +130,7 @@ export class ReaderFilePolicy {}
   flow: [
     onStart(ReaderStart)
       .toRouter(ReaderRouter)
-      .chooseOne(route(ReaderAgent).toFinish(ReaderFinish)),
+      .onRoute(toAgent(ReaderAgent).toFinish(ReaderFinish)),
   ],
   defaults: { models: { temperature: 0 } },
 })

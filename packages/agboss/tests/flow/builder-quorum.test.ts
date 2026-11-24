@@ -39,7 +39,8 @@ const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
   return declaration.options.flow;
 };
 
-const launched = () => onStart(FitReviewWorkflowStart).toParallelAgents(ScoreAAgent, ScoreBAgent);
+const launched = () =>
+  onStart(FitReviewWorkflowStart).inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent)]);
 
 const lastJoin = (steps: FlowPath["steps"]): JoinStep | undefined =>
   steps.flatMap((step) => (step.kind === StepKind.Join ? [step] : [])).pop();
@@ -49,10 +50,9 @@ describe("#279: the AST of quorums", () => {
     const path = launched()
       .arbitratedBy(GoodScoreArbiter)
       .joinQuorum({ min: 1, max: 2, deadline: seconds(30) });
-    const launch = path.steps.find((step) => step.kind === StepKind.Launch);
-    expect(launch?.kind === StepKind.Launch ? launch.arbitratedBy : undefined).toBe(
-      GoodScoreArbiter,
-    );
+    expect(path.steps.find((step) => step.kind === StepKind.InParallel)).toMatchObject({
+      arbitratedBy: GoodScoreArbiter,
+    });
     const parallel = onStart(FitReviewWorkflowStart)
       .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent)])
       .arbitratedBy(ValidScoreArbiter)
@@ -109,14 +109,6 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
       "right after",
     ],
     [
-      "arbitratedBy after actions",
-      () =>
-        onStart(FitReviewWorkflowStart)
-          .toParallelActions(OpenDealRoomAction)
-          .arbitratedBy(GoodScoreArbiter),
-      "judges answers",
-    ],
-    [
       "arbitratedBy twice: one arbiter decides a launch",
       () => launched().arbitratedBy(GoodScoreArbiter).arbitratedBy(ValidScoreArbiter),
       "once per launch",
@@ -128,14 +120,6 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
           .forEachItem(toAgent(ScoreAAgent), { takeFirst: 2 })
           .joinQuorumGroups(),
       "one target per item",
-    ],
-    [
-      "a quorum of actions",
-      () =>
-        onStart(FitReviewWorkflowStart)
-          .toParallelActions(OpenDealRoomAction)
-          .joinQuorum({ min: 1 }),
-      "agents' answers",
     ],
     ["arbitratedBy of a non-class", () => launched().arbitratedBy("x"), "one @Arbiter class"],
     ["groups with min", () => launched().joinQuorumGroups({ min: 1 }), "do not apply"],

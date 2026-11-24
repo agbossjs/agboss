@@ -21,7 +21,7 @@ import { DatabaseStorage } from "../../../../src/storage/storage-decorators.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../../../src/models/index.js";
 import { hours, minutes, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { onStart, route } from "../../../helpers/flow.js";
+import { onStart, toAgent } from "../../../helpers/flow.js";
 
 /** The application's models: `default`, `fast` and `slow`. */
 @ModelProvider({
@@ -157,7 +157,7 @@ class ShelfGuardrail {}
   memory: ShelfMemory,
   guardrails: [ShelfGuardrail],
   flow: [
-    onStart(ShelfStart).toRouter(ShelfRouter).chooseOne(route(ShelfAgent).toFinish(ShelfFinish)),
+    onStart(ShelfStart).toRouter(ShelfRouter).onRoute(toAgent(ShelfAgent).toFinish(ShelfFinish)),
   ],
 })
 export class ShelfWorkflow {}

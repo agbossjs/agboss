@@ -102,14 +102,14 @@ export declare namespace AGBossTypes {
     readonly [notGenerated]?: never;
   }
 
-  /** The targets a router decides on (`Route<R>`, #280): its `SpawnPolicy.Always` routes left out. */
+  /** The targets a router decides on (`Route<R>`, #280): every route of the router. */
   export interface Routes {
     readonly [notGenerated]?: never;
   }
 
   /**
    * What a router answers, by name: a code router's `route()` (#280), a model router's scripted
-   * `routeTo(…)` in tests (#262) — one target after `.chooseOne(…)`; after `.toParallelAgents(…)`
+   * `routeTo(…)` in tests (#262) — one target after `.onRoute(…)`; after `.inParallel(…)`
    * (#273) a list, `readonly Route<R>[]`, which may be empty (#1279).
    */
   export interface RouterAnswers {

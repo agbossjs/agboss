@@ -6,7 +6,7 @@ import {
   type Produced,
   Action,
 } from "../../../../src/index.js";
-import { onStart } from "../../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import { GroupDoneDto, TaskDoneDto, TaskDto, TaskWorkflow } from "./tree-task.workflow.js";
 
 /** #264 PR 2 — trees of tasks under a cap of 2, a cap of 1, and a launch stricter than the cap. */
@@ -46,7 +46,7 @@ export class BatchDoneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(BatchWorkflowStart)
-      .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
+      .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
@@ -68,7 +68,7 @@ export class SerialBatchWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SerialBatchWorkflowStart)
-      .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 1, maxItems: 10 })
+      .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 1 })
       .join()
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
@@ -89,7 +89,7 @@ export class SingleFileWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SingleFileWorkflowStart)
-      .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
+      .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),

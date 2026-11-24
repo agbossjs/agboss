@@ -1,4 +1,4 @@
-import { onAgent, caseOf, onStart, toAction } from "../../../src/flow/builder.js";
+import { onAgent, onStart, toAction, toAgent } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -122,18 +122,22 @@ export class OfferFailedWorkflowFinish {}
 export class OfferSentWorkflowFinish {}
 
 export const offerPaths = [
-  onStart(OfferWorkflowStart).toAgent(DraftAgent).toAgent(ReviewerAgent),
+  onStart(OfferWorkflowStart)
+    .toAgent(DraftAgent)
+    .toAgent(ReviewerAgent),
 
-  onAgent(ReviewerAgent).switch(
-    caseOf(ChangesRequestedDto)
-      .toAgent(EditorAgent)
-      .onError(
-        VisitsLimitExceededError,
-        toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
-      )
-      .toAgent(ReviewerAgent),
-    caseOf(DraftApprovedDto).toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
-  ),
+  onAgent(ReviewerAgent)
+    .toOneOf([
+      toAgent(EditorAgent)
+        .onError(
+          VisitsLimitExceededError,
+          toAction(NotifyRecruiterAction)
+            .toFinish(OfferFailedWorkflowFinish),
+        )
+        .toAgent(ReviewerAgent),
+      toAction(SendOfferAction)
+        .toFinish(OfferSentWorkflowFinish),
+    ]),
 ] as const;
 
 @Workflow({

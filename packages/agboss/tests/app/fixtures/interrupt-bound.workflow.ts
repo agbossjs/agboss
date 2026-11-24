@@ -91,7 +91,11 @@ export class BoundFinish {}
   name: "bound-workflow",
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
-  flow: [onStart(BoundStart).toAgent(BoundAgent).toFinish(BoundFinish)],
+  flow: [
+    onStart(BoundStart)
+      .toAgent(BoundAgent)
+      .toFinish(BoundFinish),
+  ],
 })
 export class BoundWorkflow {}
 

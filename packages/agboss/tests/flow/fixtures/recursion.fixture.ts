@@ -1,4 +1,11 @@
-import { onAction, caseOf, route, onStart, toAction } from "../../../src/flow/builder.js";
+import {
+  onAction,
+  onStart,
+  toAction,
+  toWorkflow,
+  toAgent,
+  toFinish,
+} from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -13,7 +20,7 @@ import { Integer, List, Text } from "../../../src/dto/index.js";
 import { inline } from "../../../src/index.js";
 
 /**
- * #264 — the issue's recursive topic research in the typed builder: `toParallelWorkflows(() => Self, …)` as a per-item
+ * #264 — the issue's recursive topic research in the typed builder: `forEachItem(() => Self, …)` as a per-item
  * launch's target (its join typed as the workflow's own finishes), and as a route of a model and a
  * code router (`Route<R>` names the workflow itself).
  */
@@ -116,17 +123,20 @@ export class ResearchFailedWorkflowFinish {}
     onStart(DeepResearchWorkflowStart)
       .toAgent(TopicResearcherAgent)
       .onError(StepFailedError, toAction(FailTopicAction))
-      .switch(
-        caseOf(ResearchReportDto).toFinish(ResearchReportWorkflowFinish),
-        caseOf(ResearchTooBroadDto)
-          .toAction(SplitTopicAction)
-          .toParallelWorkflows(() => DeepResearchWorkflow, { maxConcurrency: 3, maxItems: 5 })
+      .toOneOf([
+        toFinish(ResearchReportWorkflowFinish),
+        toAction(SplitTopicAction)
+          .forEachItem(
+            toWorkflow(() => DeepResearchWorkflow),
+            { takeFirst: 5, maxConcurrency: 3 },
+          )
           .join()
           .toAgent(ReportMergerAgent)
           .onError(StepFailedError, toAction(FailTopicAction))
           .toFinish(ResearchReportWorkflowFinish),
-      ),
-    onAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
+      ]),
+    onAction(FailTopicAction)
+      .toFinish(ResearchFailedWorkflowFinish),
   ],
   executionLimits: { maxDepth: 4 },
 })
@@ -155,7 +165,7 @@ export class OutlineAgent {}
   description: "One level deeper, or outline here",
   decidedBy: DecidedBy.Code,
   input: { topic: ResearchTopicDto },
-  routes: [{ target: () => OutlineWorkflow }, { target: OutlineAgent }],
+  routes: [() => OutlineWorkflow, OutlineAgent],
 })
 export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
   route(input: InputOf<OutlineDepthRouter>): Route<OutlineDepthRouter> {
@@ -170,15 +180,19 @@ export class OutlineDepthRouter implements RouterHandler<OutlineDepthRouter> {
   flow: [
     onStart(OutlineWorkflowStart)
       .toRouter(OutlineDepthRouter)
-      .chooseOne(
-        route(() => OutlineWorkflow).switch(
-          caseOf(ResearchReportDto).toFinish(ResearchReportWorkflowFinish),
-          caseOf(ResearchFailedDto).toFinish(ResearchFailedWorkflowFinish),
-        ),
-        route(OutlineAgent)
+      .onRoute(
+        toWorkflow(() => OutlineWorkflow)
+          .toOneOf([
+            toFinish(ResearchReportWorkflowFinish),
+            toFinish(ResearchFailedWorkflowFinish),
+          ]),
+      )
+      .onRoute(
+        toAgent(OutlineAgent)
           .onError(
             StepFailedError,
-            toAction(FailTopicAction).toFinish(ResearchFailedWorkflowFinish),
+            toAction(FailTopicAction)
+              .toFinish(ResearchFailedWorkflowFinish),
           )
           .toFinish(ResearchReportWorkflowFinish),
       ),

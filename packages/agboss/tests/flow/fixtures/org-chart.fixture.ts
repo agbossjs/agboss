@@ -1,10 +1,10 @@
 import {
-  caseOf,
-  route,
   onStart,
   toAction,
   toWorkflow,
   onWorkflow,
+  toAgent,
+  toFinish,
 } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -124,19 +124,22 @@ export class OrgChartFailedWorkflowFinish {}
   flow: [
     onStart(OrgChartWorkflowStart)
       .toAgent(OrgMapperAgent)
-      .switch(
-        caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-        caseOf(OrgSplitDto)
-          .toAction(SplitUnitAction)
-          .toParallelWorkflows(() => OrgChartWorkflow, { maxConcurrency: 2, maxItems: 4 })
+      .toOneOf([
+        toFinish(TeamChartWorkflowFinish),
+        toAction(SplitUnitAction)
+          .forEachItem(
+            toWorkflow(() => OrgChartWorkflow),
+            { takeFirst: 4, maxConcurrency: 2 },
+          )
           .join()
           .onError(
             LimitExceededError,
-            toAction(MarkUnitFailedAction).toFinish(OrgChartFailedWorkflowFinish),
+            toAction(MarkUnitFailedAction)
+              .toFinish(OrgChartFailedWorkflowFinish),
           )
           .toAgent(ChartMergerAgent)
           .toFinish(TeamChartWorkflowFinish),
-      ),
+      ]),
   ],
   executionLimits: { maxDepth: 3 },
 })
@@ -165,7 +168,7 @@ export class UnitPickerAgent {}
   description: "One level deeper, or chart here",
   decidedBy: DecidedBy.Code,
   input: { unit: OrgUnitDto },
-  routes: [{ target: () => OrgDrillWorkflow }, { target: UnitPickerAgent }],
+  routes: [() => OrgDrillWorkflow, UnitPickerAgent],
 })
 export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
   route(input: InputOf<OrgDepthRouter>): Route<OrgDepthRouter> {
@@ -179,22 +182,18 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
   flow: [
     onStart(OrgDrillWorkflowStart)
       .toRouter(OrgDepthRouter)
-      .chooseOne(
-        route(() => OrgDrillWorkflow),
-        route(UnitPickerAgent).switch(
-          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-          caseOf(OrgUnitDto).toWorkflow(() => OrgDrillWorkflow),
-        ),
+      .onRoute(toWorkflow(() => OrgDrillWorkflow))
+      .onRoute(
+        toAgent(UnitPickerAgent)
+          .toOneOf([toFinish(TeamChartWorkflowFinish), toWorkflow(() => OrgDrillWorkflow)]),
       ),
     onWorkflow(() => OrgDrillWorkflow)
       .onError(
         StepFailedError,
-        toAction(MarkUnitFailedAction).toFinish(OrgChartFailedWorkflowFinish),
+        toAction(MarkUnitFailedAction)
+          .toFinish(OrgChartFailedWorkflowFinish),
       )
-      .switch(
-        caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-        caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
-      ),
+      .toOneOf([toFinish(TeamChartWorkflowFinish), toFinish(OrgChartFailedWorkflowFinish)]),
   ],
   executionLimits: { maxDepth: 3 },
 })
@@ -225,10 +224,8 @@ export class UnitCharterAgent {}
       .toAgent(UnitCharterAgent)
       .onError(
         StepFailedError,
-        toWorkflow(() => OrgRetryWorkflow).switch(
-          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-          caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
-        ),
+        toWorkflow(() => OrgRetryWorkflow)
+          .toOneOf([toFinish(TeamChartWorkflowFinish), toFinish(OrgChartFailedWorkflowFinish)]),
       )
       .toFinish(TeamChartWorkflowFinish),
   ],

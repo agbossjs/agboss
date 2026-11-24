@@ -5,15 +5,7 @@ import { promptTextOf } from "../components/prompt-render.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import type { RagScope } from "../rag/types.js";
 import { NodeKind } from "../flow/ast.js";
-import {
-  DecidedBy,
-  failurePolicyOf,
-  isCodeRouter,
-  routesOf,
-  spawnPolicyOf,
-  type FailurePolicy,
-  type SpawnPolicy,
-} from "../flow/decorators/router.js";
+import { DecidedBy, isCodeRouter, routesOf } from "../flow/decorators/router.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import {
@@ -85,8 +77,6 @@ export interface AgentSnapshot {
 export interface RouteSnapshot {
   readonly target: string;
   readonly prompt?: string;
-  readonly spawn: SpawnPolicy;
-  readonly failure: FailurePolicy;
 }
 
 /** A router's internals. */
@@ -182,8 +172,6 @@ function routerOf(
     return {
       target,
       ...(prompt === undefined ? {} : { prompt }),
-      spawn: spawnPolicyOf(options, route),
-      failure: failurePolicyOf(route),
     };
   });
   if (isCodeRouter(options) || loaded === undefined) return { decidedBy: DecidedBy.Code, routes };

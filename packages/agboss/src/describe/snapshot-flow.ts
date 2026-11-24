@@ -20,7 +20,7 @@ import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 
 /**
  * The flow of a workflow as data (#268 S92 / S93, `agboss describe --json`): every edge as the
- * analyser built it — `.to…` steps, `caseOf(…)` cases, `route(…)` routes, launches and joins with
+ * analyser built it — `.to…` steps, a `.toOneOf([…])` branch cases, `.onRoute(…)` routes, launches and joins with
  * what each puts on the path —, the `.onError` table, and
  * every launch with its quorum and arbiter tree, each arbiter with its hashes.
  */
@@ -28,7 +28,7 @@ import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 /** One value an edge puts on the path: its shape. */
 export interface EdgeValueSnapshot {
   readonly value: string;
-  /** Written by `caseOf(…)`: the switch chose the edge by it. */
+  /** Written by a `.toOneOf([…])` branch: the switch chose the edge by it. */
   readonly isCase?: true;
 }
 

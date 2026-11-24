@@ -8,7 +8,11 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 @Workflow({
   name: "no-environment-workflow",
   version: "1.0.0",
-  flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
+  flow: [
+    onStart(ChatStart)
+      .toAgent(Clerk)
+      .toFinish(Reply),
+  ],
   defaults: settingsDefaults,
   providers: [ApiClient],
 })

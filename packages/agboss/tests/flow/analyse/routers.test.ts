@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
-import { launchViolations } from "../../../src/flow/analyse/rules/router-launch.js";
-import { NodeKind } from "../../../src/flow/ast.js";
-import { declarationOf, type RouterDeclaration } from "../../../src/flow/decorators/declaration.js";
-import { DecidedBy, Router, SpawnPolicy } from "../../../src/flow/decorators/router.js";
+import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { OfferDraftDto } from "../fixtures/dtos.js";
 import {
@@ -16,25 +13,32 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { CreditWorkflow } from "../fixtures/credit.fixture.js";
-import { route, onRouter, onStart } from "../fixtures/paths.js";
+import { inline } from "../../../src/index.js";
+import { onRouter, onStart, toAgent, toFinish } from "../fixtures/paths.js";
 import { TopicsWorkflow } from "../fixtures/topics.fixture.js";
 
 /** Router rules (#272 AC6, #270, #280): routes as sets, input, model. */
 
 const entry = () => onStart(SecondKitWorkflowStart).toRouter(KitRouter);
-const editAgain = () => route(EditKitAgent).toRouter(KitRouter);
+const editAgain = () => toAgent(EditKitAgent).toRouter(KitRouter);
 
 @Workflow({
   name: "reordered-routes-workflow",
   version: "1.0.0",
-  flow: [entry(), onRouter(KitRouter).chooseOne(route(DraftKitWorkflowFinish), editAgain())],
+  flow: [
+    entry(),
+    onRouter(KitRouter).onRoute(toFinish(DraftKitWorkflowFinish)).onRoute(editAgain()),
+  ],
 })
 class ReorderedRoutesWorkflow {}
 
 @Workflow({
   name: "mismatched-routes-workflow",
   version: "1.0.0",
-  flow: [entry(), onRouter(KitRouter).chooseOne(editAgain(), route(SentKitWorkflowFinish))],
+  flow: [
+    entry(),
+    onRouter(KitRouter).onRoute(editAgain()).onRoute(toFinish(SentKitWorkflowFinish)),
+  ],
 })
 class MismatchedRoutesWorkflow {}
 
@@ -43,11 +47,10 @@ class MismatchedRoutesWorkflow {}
   version: "1.0.0",
   flow: [
     entry(),
-    onRouter(KitRouter).chooseOne(
-      route(DraftKitWorkflowFinish),
-      route(DraftKitWorkflowFinish),
-      editAgain(),
-    ),
+    onRouter(KitRouter)
+      .onRoute(toFinish(DraftKitWorkflowFinish))
+      .onRoute(toFinish(DraftKitWorkflowFinish))
+      .onRoute(editAgain()),
   ],
 })
 class DuplicateRouteWorkflow {}
@@ -65,7 +68,7 @@ class DuplicateRouteWorkflow {}
 class BlindRouter {}
 
 const blindPaths = [
-  onStart(SecondKitWorkflowStart).toRouter(BlindRouter).chooseOne(route(DraftKitWorkflowFinish)),
+  onStart(SecondKitWorkflowStart).toRouter(BlindRouter).onRoute(toFinish(DraftKitWorkflowFinish)),
 ];
 
 @Workflow({ name: "blind-router-workflow", version: "1.0.0", flow: blindPaths })
@@ -74,7 +77,9 @@ class BlindRouterWorkflow {}
 @Workflow({
   name: "choose-after-agent-workflow",
   version: "1.0.0",
-  flow: [onStart(KitWorkflowStart).toAgent(DraftKitAgent).chooseOne(route(DraftKitWorkflowFinish))],
+  flow: [
+    onStart(KitWorkflowStart).toAgent(DraftKitAgent).onRoute(toFinish(DraftKitWorkflowFinish)),
+  ],
 })
 class ChooseAfterAgentWorkflow {}
 
@@ -90,7 +95,7 @@ describe("AC6: routes mismatch as sets", () => {
     expect(errorsOf(MismatchedRoutesWorkflow)).toContainEqual({
       code: "router.routes-mismatch",
       message:
-        "mismatched-routes-workflow: kit-router: the flow's routes and @Router({ routes }) differ — not in @Router({ routes }): sent-kit-workflow-finish; missing in .chooseOne(…): draft-kit-workflow-finish",
+        "mismatched-routes-workflow: kit-router: the flow's routes and @Router({ routes }) differ — not in @Router({ routes }): sent-kit-workflow-finish; missing in .onRoute(…): draft-kit-workflow-finish",
     });
   });
 
@@ -99,7 +104,7 @@ describe("AC6: routes mismatch as sets", () => {
       {
         code: "router.duplicate-route",
         message:
-          "duplicate-route-workflow: kit-router: route(…) to draft-kit-workflow-finish is listed twice in .chooseOne(…) — list each target once",
+          "duplicate-route-workflow: kit-router: draft-kit-workflow-finish is listed twice in .onRoute(…) — list each target once",
       },
     ]);
   });
@@ -121,37 +126,21 @@ describe("AC11: router assembly rules — input and model (#270, #280)", () => {
     ]);
   });
 
-  it(".chooseOne(…) only follows a router", () => {
+  it(".onRoute(…) only follows a router", () => {
     expect(errorsOf(ChooseAfterAgentWorkflow)).toContainEqual({
       code: "graph.choose-from-non-router",
       message:
-        "choose-after-agent-workflow: draft-kit-agent is not a router — .chooseOne(…) follows .toRouter(…) or onRouter(…)",
+        "choose-after-agent-workflow: draft-kit-agent is not a router — .onRoute(…) follows .toRouter(…) or onRouter(…)",
     });
   });
 });
-
-@Router({
-  name: "always-router",
-  description: "Launches everything itself",
-  decidedBy: DecidedBy.Code,
-  input: { draft: OfferDraftDto },
-  routes: [
-    { target: DraftKitWorkflowFinish, spawn: SpawnPolicy.Always },
-    { target: SentKitWorkflowFinish, spawn: SpawnPolicy.Always },
-  ],
-})
-class AlwaysRouter {
-  route(): undefined {
-    return undefined;
-  }
-}
 
 @Router({
   name: "blind-code-router",
   description: "Reads nothing",
   decidedBy: DecidedBy.Code,
   input: {},
-  routes: [{ target: DraftKitWorkflowFinish }],
+  routes: [DraftKitWorkflowFinish],
 })
 class BlindCodeRouter {
   route(): typeof DraftKitWorkflowFinish {
@@ -165,10 +154,32 @@ class BlindCodeRouter {
   flow: [
     onStart(SecondKitWorkflowStart)
       .toRouter(BlindCodeRouter)
-      .chooseOne(route(DraftKitWorkflowFinish)),
+      .onRoute(toFinish(DraftKitWorkflowFinish)),
   ],
 })
 class BlindCodeRouterWorkflow {}
+
+@Router({
+  name: "promptless-router",
+  description: "A route without a prompt",
+  decidedBy: DecidedBy.Model,
+  model: "typesafe/jev-1.13",
+  prompt: inline("Pick one."),
+  input: { draft: OfferDraftDto },
+  routes: [{ target: DraftKitWorkflowFinish, prompt: " " }],
+})
+class PromptlessRouter {}
+
+@Workflow({
+  name: "promptless-router-workflow",
+  version: "1.0.0",
+  flow: [
+    onStart(SecondKitWorkflowStart)
+      .toRouter(PromptlessRouter)
+      .onRoute(toFinish(DraftKitWorkflowFinish)),
+  ],
+})
+class PromptlessRouterWorkflow {}
 
 describe("#280: router rules for both kinds", () => {
   it("AC1: the credit flow — a code router inside a model router's route — passes", () => {
@@ -185,43 +196,17 @@ describe("#280: router rules for both kinds", () => {
     ]);
   });
 
-  it("AC3 / AC16: spawn and failure on both kinds fail with .chooseOne(…)", () => {
-    expect(errorsOf(TopicsWorkflow)).toEqual([
+  it("a code router with flat routes, one .onRoute(…) each, passes", () => {
+    expect(errorsOf(TopicsWorkflow)).toEqual([]);
+  });
+
+  it("a model router's route without a prompt fails: the model decides each route by its prompt", () => {
+    expect(errorsOf(PromptlessRouterWorkflow)).toEqual([
       {
-        code: "router.policy-with-choose-one",
+        code: "router.no-prompt",
         message:
-          "topics-workflow: topics-router: spawn / failure on the routes to order-topic-agent, refund-topic-agent apply to a parallel launch (.toParallelAgents(…)) — remove them for .chooseOne(…)",
+          "promptless-router-workflow: promptless-router: the routes to draft-kit-workflow-finish have no prompt — the model decides each by its prompt; write one",
       },
     ]);
-  });
-
-  it("AC16: before a launch, all routes Always — the router decides nothing", () => {
-    expect(launchViolations("always-router", routerDeclarationOf(AlwaysRouter))).toEqual([
-      expect.objectContaining({ code: "router.all-routes-always" }),
-    ]);
-  });
-
-  it("#273 S50: a model router's routes state spawn before a launch; a code router's default OnDemand", () => {
-    expect(launchViolations("kit-router", routerDeclarationOf(KitRouter))).toEqual([
-      {
-        code: "router.spawn-required",
-        message:
-          "kit-router: before .toParallelAgents(…) every route of a model router says spawn: SpawnPolicy.Always or SpawnPolicy.OnDemand — missing on edit-kit-agent, draft-kit-workflow-finish",
-        nodes: ["kit-router"],
-      },
-    ]);
-    expect(launchViolations("blind-code-router", routerDeclarationOf(BlindCodeRouter))).toEqual([]);
-  });
-
-  it("with .chooseOne(…) spawn policies do not apply: no all-routes-always for a model router", () => {
-    expect(errorsOf(ReorderedRoutesWorkflow).map((found) => found.code)).not.toContain(
-      "router.all-routes-always",
-    );
   });
 });
-
-function routerDeclarationOf(router: abstract new () => unknown): RouterDeclaration {
-  const declaration = declarationOf(router);
-  if (declaration?.kind !== NodeKind.Router) throw new TypeError("not a router");
-  return declaration;
-}

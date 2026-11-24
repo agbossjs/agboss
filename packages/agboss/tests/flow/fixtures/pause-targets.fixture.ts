@@ -190,7 +190,11 @@ export class PtPayoutWorkflowFinish {}
 @Workflow({
   name: "pt-payout-workflow",
   version: "1.0.0",
-  flow: [onStart(PtPayoutWorkflowStart).toAgent(PtPayerAgent).toFinish(PtPayoutWorkflowFinish)],
+  flow: [
+    onStart(PtPayoutWorkflowStart)
+      .toAgent(PtPayerAgent)
+      .toFinish(PtPayoutWorkflowFinish),
+  ],
 })
 export class PtPayoutWorkflow {}
 

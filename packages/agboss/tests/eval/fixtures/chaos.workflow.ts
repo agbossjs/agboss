@@ -112,7 +112,11 @@ export class ReleasedWorkflowFinish {}
     onStart(ChaosWorkflowStart)
       .toAction(ReserveAction)
       .toAgent(ConfirmAgent)
-      .onError(StepFailedError, toAction(ReleaseAction).toFinish(ReleasedWorkflowFinish))
+      .onError(
+        StepFailedError,
+        toAction(ReleaseAction)
+          .toFinish(ReleasedWorkflowFinish),
+      )
       .toFinish(ConfirmedWorkflowFinish),
   ],
   providers: [ChaosDesk],

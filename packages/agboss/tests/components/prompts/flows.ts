@@ -4,7 +4,7 @@ import type { PromptSource } from "../../../src/components/prompt-source.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
-import { route, onStart } from "../../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../../fixtures/test-flow/test.flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 
@@ -55,7 +55,11 @@ export function workflowWith(prompts: FlowPrompts): {
     flow: [
       onStart(TestChat)
         .toRouter(Main)
-        .chooseOne(route(Scout).toFinish(TestAnswer), route(NoAnswer)),
+        .onRoute(
+          toAgent(Scout)
+            .toFinish(TestAnswer),
+        )
+        .onRoute(toFinish(NoAnswer)),
     ],
     promptVariables: { boards: "LinkedIn, AllJobs", boardCount: "2" },
   })

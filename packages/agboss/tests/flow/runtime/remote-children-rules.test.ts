@@ -13,7 +13,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { ItemDto } from "./fixtures/fan-out.workflow.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { flowLines } from "../../../src/flow/print.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import {
   ItemReviewedWorkflowFinish,
   ItemReviewWorkflow,
@@ -85,14 +85,14 @@ describe("#1286: placement is the child's, never the flow's", () => {
     const lines = flowLines(
       [
         onStart(RemoteOneWorkflowStart)
-          .toParallelWorkflows(RemoteItemWorkflow, { maxItems: 3 })
+          .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 3 })
           .join()
           .toFinish(RemoteOneCheckedWorkflowFinish),
       ],
       (cls) => cls.name,
     );
 
-    expect(lines).toContain("  .toParallelWorkflows(RemoteItemWorkflow, { maxItems: 3 })");
+    expect(lines).toContain("  .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 3 })");
   });
 
   it("the child's own placement wins over the application's default, which wins over the process", () => {

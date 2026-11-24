@@ -13,7 +13,7 @@ import {
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { Reasoning } from "../../../src/models/index.js";
-import { onAgent, route, onStart } from "../../helpers/flow.js";
+import { onAgent, onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -92,11 +92,13 @@ export class Unused {}
   name: "code-review-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TaskStart).toAgent(Coder),
+    onStart(TaskStart)
+      .toAgent(Coder),
     onAgent(Coder)
       .toAgent(Reviewer) // the review is about this code (#271)
       .toRouter(ReviewGate)
-      .chooseOne(route(Coder), route(PullRequest)),
+      .onRoute(toAgent(Coder))
+      .onRoute(toFinish(PullRequest)),
   ],
   defaults: {
     models: {

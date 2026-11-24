@@ -96,13 +96,13 @@ describe("#262 AC8: replyWith is checked against the agent's output", () => {
 });
 
 describe("#262 AC8 (Q55): routeTo is checked against Route<R>", () => {
-  it("after chooseOne: exactly one target of the router's routes", () => {
+  it("after .onRoute(…): exactly one target of the router's routes", () => {
     mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent), routeTo(NoReplyWorkflowFinish));
     // @ts-expect-error — not a route of main-router
     mockLlm(MainRouter).thenReturn(routeTo(VerdictAgent));
-    // @ts-expect-error — chooseOne takes exactly one target
+    // @ts-expect-error — .onRoute(…) takes exactly one target
     mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent, ProfilerAgent));
-    // @ts-expect-error — chooseOne takes exactly one target
+    // @ts-expect-error — .onRoute(…) takes exactly one target
     mockLlm(MainRouter).thenReturn(routeTo());
     // @ts-expect-error — a router is not an agent: no replyWith
     mockLlm(MainRouter).thenReturn(replyWith("scout"));

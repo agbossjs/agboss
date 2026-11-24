@@ -427,7 +427,7 @@ export class DeskWorkflowFinish {}
 ```
 
 ```ts file=src/desk/workflows/desk/desk.workflow.ts
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "../../agents/support/support.agent.js";
 import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
@@ -956,7 +956,7 @@ export class HoldSeatAction implements ActionHandler<HoldSeatAction> {
 ```
 
 ```ts file=src/booking/workflows/seat/seat.workflow.ts
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, toAction, toFinish } from "@agboss/core";
 import { HoldSeatAction } from "../../actions/hold-seat.action.js";
 import { IssueTicketAction } from "../../actions/issue-ticket.action.js";
 import { SeatHoldDto } from "../../dto/seat-hold.dto.js";

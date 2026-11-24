@@ -16,7 +16,7 @@ import type { ScopeRecords, ScopeValueRecord, VariantElement } from "./records.j
 export interface ChildEntrySite {
   readonly graph: RuntimeGraph;
   readonly node: RuntimeNode;
-  /** A per-item run of a launch (`.toParallelWorkflows`): the launching node. */
+  /** A per-item run of a launch (`.forEachItem`): the launching node. */
   readonly launcher?: string;
   /** The node visited before (a single child): the edge's other end. */
   readonly previous?: string;

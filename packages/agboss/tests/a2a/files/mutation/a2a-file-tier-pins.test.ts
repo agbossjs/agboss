@@ -18,7 +18,7 @@ import { WorkflowFinish } from "../../../../src/flow/decorators/workflow-finish.
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import type { Bytes } from "../../../../src/units/index.js";
 import { oneOf, variant, type Variant } from "../../../../src/flow/dto-wrappers.js";
-import { caseOf, onStart } from "../../../helpers/flow.js";
+import { onStart, toFinish } from "../../../helpers/flow.js";
 import {
   FileReviewFinish,
   FilesA2AExpose,
@@ -252,10 +252,7 @@ class MixedPolicy {}
   flow: [
     onStart(FileReviewWorkflowStart)
       .toAction(MixedAction)
-      .switch(
-        caseOf(ReviewResultDto).toFinish(FileReviewFinish),
-        caseOf(TextDto).toFinish(MixedTextFinish),
-      ),
+      .toOneOf([toFinish(FileReviewFinish), toFinish(MixedTextFinish)]),
   ],
 })
 class MixedWorkflow {}

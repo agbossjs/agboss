@@ -10,8 +10,8 @@ import {
 } from "./flow-graph.js";
 
 /**
- * Where a workflow recurses (#264): the branches of its graph — a `.switch(caseOf(…))` after a step,
- * a `.chooseOne(route(…))` after a router — and, of each, the options whose path launches
+ * Where a workflow recurses (#264): the branches of its graph — a `.toOneOf([…])` after a step,
+ * an `.onRoute(…)` after a router — and, of each, the options whose path launches
  * the workflow itself (`toWorkflow(() => Self)`, #1287) before any other branch decides. A path is followed through its next steps and its
  * launches and joins, never into `.onError` side paths, and it stops at the next branch: a choice
  * made further on is that branch's own. What the runtime does with them on the last level
@@ -67,7 +67,7 @@ const variantOf = (edge: FlowEdge): string | undefined => {
 const optionOf = (edge: FlowEdge): string | undefined =>
   edge.kind === EdgeKind.Route ? edge.to : variantOf(edge);
 
-/** Whether a node branches: some edge leaving it is a `caseOf(…)` or a `route(…)` option. */
+/** Whether a node branches: some edge leaving it is a `.toOneOf([…])` or an `.onRoute(…)` option. */
 const isBranch = (edges: readonly FlowEdge[]): boolean =>
   edges.some((edge) => FOLLOWED.has(edge.kind) && optionOf(edge) !== undefined);
 
@@ -136,6 +136,6 @@ export function recursionOf(graph: FlowGraph, maxDepth: number | undefined): Rec
 export const lastLevelOptionsOf = (branch: RecursiveBranch): readonly string[] =>
   branch.options.filter((option) => !branch.recursive.includes(option));
 
-/** Whether a branch is a router's `.chooseOne(…)` (its options are routes), else a `.switch(…)`. */
+/** Whether a branch is a router's `.onRoute(…)`s (its options are routes), else a `.toOneOf([…])`. */
 export const isRouterBranch = (branch: RecursiveBranch): boolean =>
   branch.decider === RecursionDecider.ModelRouter || branch.decider === RecursionDecider.CodeRouter;

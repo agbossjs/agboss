@@ -43,10 +43,10 @@ describe("a code router's answer is checked against its routes", () => {
     });
   });
 
-  test("a list after .chooseOne(…) is RouterDecisionError", async ({ app }) => {
+  test("a list after .onRoute(…) is RouterDecisionError", async ({ app }) => {
     await expect(execute(app, AskWorkflowStart, ask("list"))).rejects.toMatchObject({
       code: "step.router.invalid-decision",
-      reason: "route() returned a list of 1: after .chooseOne(…) it returns one target, not a list",
+      reason: "route() returned a list of 1: after .onRoute(…) it returns one target, not a list",
     });
   });
 

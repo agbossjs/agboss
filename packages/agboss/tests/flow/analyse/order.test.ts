@@ -18,7 +18,7 @@ import {
   SendOfferAction,
   VisitsLimitExceededError,
 } from "../fixtures/offer.fixture.js";
-import { onAction, onAgent, caseOf, route, onStart, toAction } from "../fixtures/paths.js";
+import { onAction, onAgent, onStart, toAction, toAgent } from "../fixtures/paths.js";
 import {
   AnswerRouter,
   ExpertAnswerAgent,
@@ -42,11 +42,9 @@ import {
     onStart(SupportWorkflowStart)
       .toAgent(OrderAgent)
       .toRouter(AnswerRouter)
-      .chooseOne(
-        route(ExpertAnswerAgent),
-        route(LoyaltyAgent).toAgent(ExpertAnswerAgent),
-        route(FastAnswerAgent).toAction(SupportAction),
-      ),
+      .onRoute(toAgent(ExpertAnswerAgent))
+      .onRoute(toAgent(LoyaltyAgent).toAgent(ExpertAnswerAgent))
+      .onRoute(toAgent(FastAnswerAgent).toAction(SupportAction)),
   ],
 })
 class ReorderedSupportWorkflow {}
@@ -55,16 +53,15 @@ class ReorderedSupportWorkflow {}
   name: "offer-workflow",
   version: "1.0.0",
   flow: [
-    onAgent(ReviewerAgent).switch(
-      caseOf(DraftApprovedDto).toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
-      caseOf(ChangesRequestedDto)
-        .toAgent(EditorAgent)
+    onAgent(ReviewerAgent).toOneOf([
+      toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
+      toAgent(EditorAgent)
         .onError(
           VisitsLimitExceededError,
           toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
         )
         .toAgent(ReviewerAgent),
-    ),
+    ]),
     onStart(OfferWorkflowStart).toAgent(DraftAgent).toAgent(ReviewerAgent),
   ],
 })

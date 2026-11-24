@@ -2,10 +2,8 @@ import {
   Agent,
   DecidedBy,
   EmptyEnvironment,
-  FailurePolicy,
   optional,
   Router,
-  SpawnPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -30,7 +28,8 @@ import {
   RefundPolicyAgent,
 } from "../../fixtures/launch.fixture.js";
 import { RefundPolicyDto } from "../../fixtures/launch-dtos.js";
-import { onStart } from "../../../helpers/flow.js";
+import { onStart, skip, toAgent, toRouter } from "../../../helpers/flow.js";
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
 
 /**
  * #273 PR 2 — routers before a launch, beside the issue's help desk: a chat-model router whose
@@ -54,12 +53,8 @@ export class PickyWorkflowStart {}
   prompt: inline("Pick everyone needed for the customer's message."),
   input: { message: WorkflowStartTextDto },
   routes: [
-    {
-      target: RefundPolicyAgent,
-      spawn: SpawnPolicy.OnDemand,
-      prompt: "The message is about returns",
-    },
-    { target: LoyaltyOfferAgent, spawn: SpawnPolicy.OnDemand, prompt: "The customer is loyal" },
+    { target: RefundPolicyAgent, prompt: "The message is about returns" },
+    { target: LoyaltyOfferAgent, prompt: "The customer is loyal" },
   ],
 })
 export class PickyRouter {}
@@ -90,8 +85,10 @@ export class PickyWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PickyWorkflowStart)
-      .toRouter(PickyRouter)
-      .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
+      .inParallel([
+        toRouter(PickyRouter)
+          .chooseMany([toAgent(RefundPolicyAgent), toAgent(LoyaltyOfferAgent)]),
+      ])
       .join()
       .toAgent(PickyAnswerAgent)
       .toFinish(PickyWorkflowFinish),
@@ -121,10 +118,7 @@ export class StrictWorkflowStart {}
   description: "Answers as told",
   decidedBy: DecidedBy.Code,
   input: { message: WorkflowStartTextDto },
-  routes: [
-    { target: RefundPolicyAgent },
-    { target: LoyaltyOfferAgent, failure: FailurePolicy.Skip },
-  ],
+  routes: [RefundPolicyAgent, LoyaltyOfferAgent],
 })
 export class StrictRouter {
   route(input: { readonly message: Produced<WorkflowStartTextDto, unknown> }): unknown {
@@ -146,8 +140,14 @@ export class StrictRouter {
   version: "1.0.0",
   flow: [
     onStart(StrictWorkflowStart)
-      .toRouter(StrictRouter)
-      .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
+      .inParallel([
+        toRouter(StrictRouter)
+          .chooseMany([
+            toAgent(RefundPolicyAgent),
+            toAgent(LoyaltyOfferAgent)
+              .onError(StepError, skip()),
+          ]),
+      ])
       .join()
       .toAgent(PickyAnswerAgent)
       .toFinish(PickyWorkflowFinish),
@@ -191,10 +191,16 @@ export class BudgetAnswerAgent {}
   version: "1.0.0",
   flow: [
     onStart(BudgetDeskWorkflowStart)
-      .toRouter(HelpDeskRouter)
-      .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent, {
-        maxConcurrency: 1,
-      })
+      .inParallel(
+        [
+          toAgent(OrderLookupAgent),
+          toAgent(LoyaltyOfferAgent)
+            .onError(StepError, skip()),
+          toRouter(HelpDeskRouter)
+            .chooseMany([toAgent(RefundPolicyAgent)]),
+        ],
+        { maxConcurrency: 1 },
+      )
       .join()
       .toAgent(BudgetAnswerAgent)
       .toFinish(HelpDeskWorkflowFinish),

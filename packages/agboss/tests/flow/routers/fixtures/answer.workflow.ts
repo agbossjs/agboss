@@ -10,7 +10,7 @@ import {
   WorkflowStart,
 } from "../../../../src/index.js";
 import { LimitExceededError } from "../../../../src/graph/limits.js";
-import { route, onStart, toFinish } from "../../../helpers/flow.js";
+import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -112,7 +112,7 @@ const answerOf = (answer: Answer): unknown => {
   description: "Answers what the input says",
   decidedBy: DecidedBy.Code,
   input: { ask: AskDto },
-  routes: [{ target: LeftAction }, { target: RightAction }],
+  routes: [LeftAction, RightAction],
 })
 export class AskRouter {
   route(input: { readonly ask: { readonly value: AskDto } }): unknown {
@@ -127,9 +127,13 @@ export class AskRouter {
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(LedgerDownError, toFinish(HeldWorkflowFinish))
-      .chooseOne(
-        route(LeftAction).toFinish(DoneWorkflowFinish),
-        route(RightAction).toFinish(DoneWorkflowFinish),
+      .onRoute(
+        toAction(LeftAction)
+          .toFinish(DoneWorkflowFinish),
+      )
+      .onRoute(
+        toAction(RightAction)
+          .toFinish(DoneWorkflowFinish),
       ),
   ],
 })
@@ -152,9 +156,13 @@ export class AskApplication {}
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(RouterFailedError, toFinish(RefusedWorkflowFinish))
-      .chooseOne(
-        route(LeftAction).toFinish(DoneWorkflowFinish),
-        route(RightAction).toFinish(DoneWorkflowFinish),
+      .onRoute(
+        toAction(LeftAction)
+          .toFinish(DoneWorkflowFinish),
+      )
+      .onRoute(
+        toAction(RightAction)
+          .toFinish(DoneWorkflowFinish),
       ),
   ],
 })

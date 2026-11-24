@@ -27,7 +27,7 @@ import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { caseOf, route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { ContactPiiPolicy } from "./pii.fixture.js";
 
 export const ROOT_SECRET = "ROOT-7731";
@@ -152,7 +152,8 @@ export class ChainChildStart {}
   flow: [
     onStart(ChainChildStart)
       .toRouter(ChainChildRouter)
-      .chooseOne(route(ChainChildAgent).toFinish(ChainChildFinish), route(ChainChildDirectFinish)),
+      .onRoute(toAgent(ChainChildAgent).toFinish(ChainChildFinish))
+      .onRoute(toFinish(ChainChildDirectFinish)),
   ],
   piiPolicies: [ChildSecretPiiPolicy],
 })
@@ -271,10 +272,7 @@ export class ChainRootDirectFinish {}
   flow: [
     onStart(ChainRootStart)
       .toWorkflow(ChainChildWorkflow)
-      .switch(
-        caseOf(WorkflowFinishTextDto).toFinish(ChainRootFinish),
-        caseOf(WorkflowStartTextDto).toFinish(ChainRootDirectFinish),
-      ),
+      .toOneOf([toFinish(ChainRootFinish), toFinish(ChainRootDirectFinish)]),
     onStart(ChainPeekRootStart).toWorkflow(ChainPeekWorkflow).toFinish(ChainRootFinish),
     onStart(ChainOpenRootStart).toWorkflow(ChainOpenWorkflow).toFinish(ChainRootFinish),
     onStart(ChainFarRootStart).toWorkflow(ChainFarWorkflow).toFinish(ChainRootFinish),

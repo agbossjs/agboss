@@ -47,7 +47,11 @@ export class DraftingStart {}
 @Workflow({
   name: "drafting-workflow",
   version: "1.0.0",
-  flow: [onStart(DraftingStart).toAgent(DraftingAgent).toFinish(NotesFinish)],
+  flow: [
+    onStart(DraftingStart)
+      .toAgent(DraftingAgent)
+      .toFinish(NotesFinish),
+  ],
   defaults,
   memory: Window1Memory,
 })
@@ -71,7 +75,11 @@ export class PolishingStart {}
 @Workflow({
   name: "polishing-workflow",
   version: "1.0.0",
-  flow: [onStart(PolishingStart).toAgent(PolishingAgent).toFinish(NotesFinish)],
+  flow: [
+    onStart(PolishingStart)
+      .toAgent(PolishingAgent)
+      .toFinish(NotesFinish),
+  ],
   defaults,
   memory: Window1Memory,
 })

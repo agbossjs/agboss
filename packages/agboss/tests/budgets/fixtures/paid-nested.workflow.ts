@@ -49,7 +49,11 @@ export class PaidRefundWorkflowFinish {}
     onStart(PaidRefundWorkflowStart)
       .toAction(BookOrderAction)
       .toAction(DeclineOrderAction)
-      .onError(OrderDeclinedError, toAction(RefundOrderAction).toFinish(RefundedWorkflowFinish))
+      .onError(
+        OrderDeclinedError,
+        toAction(RefundOrderAction)
+          .toFinish(RefundedWorkflowFinish),
+      )
       .toAction(NoteOrderAction)
       .toFinish(PaidRefundWorkflowFinish),
   ],

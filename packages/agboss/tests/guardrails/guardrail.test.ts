@@ -25,7 +25,7 @@ import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { guardrailViolations } from "../../src/guardrails/checks.js";
 import { effectiveGuardrails, GuardedElementKind } from "../../src/guardrails/levels.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import {
   LegalAdviceGuardrail,
   NoLegalAdviceGuardrail,
@@ -256,7 +256,7 @@ class GuardedRouter {}
   flow: [
     onStart(GuardedStart)
       .toRouter(GuardedRouter)
-      .chooseOne(route(GuardedAgent).toFinish(GuardedFinish)),
+      .onRoute(toAgent(GuardedAgent).toFinish(GuardedFinish)),
   ],
   guardrails: [PromptInjectionGuardrail],
 })

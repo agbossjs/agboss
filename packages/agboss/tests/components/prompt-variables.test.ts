@@ -26,7 +26,7 @@ import type { Class } from "../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { testConfig, testDefaults } from "../helpers.js";
-import { onStart, route } from "../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../fixtures/test-flow/test.flow.js";
 
 /** #1347c: `promptVariables` cascade (application → workflow → component), `env(…)` values, no secrets. */
@@ -89,7 +89,8 @@ function applicationWith(levels: Levels): Class {
     flow: [
       onStart(TestChat)
         .toRouter(Main)
-        .chooseOne(route(Scout).toFinish(TestAnswer), route(NoAnswer)),
+        .onRoute(toAgent(Scout).toFinish(TestAnswer))
+        .onRoute(toFinish(NoAnswer)),
     ],
     promptVariables: levels.workflow as never,
   })

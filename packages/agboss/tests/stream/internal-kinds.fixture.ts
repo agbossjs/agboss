@@ -19,7 +19,7 @@ import {
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 
 @OutputGuardrail({
@@ -123,7 +123,7 @@ class OwnersFinish {}
   version: "1.0.0",
   flow: [
     onStart(OwnersStart)
-      .toParallelAgents(OwnerAgent, OwnerAgent)
+      .inParallel([toAgent(OwnerAgent), toAgent(OwnerAgent)])
       .arbitratedBy(ChatArbiter)
       .joinQuorum({ min: 2 })
       .toAction(OwnersAction)

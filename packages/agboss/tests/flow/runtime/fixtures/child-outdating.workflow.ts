@@ -12,7 +12,7 @@ import {
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
-import { onAgent, route, onStart } from "../../../helpers/flow.js";
+import { onAgent, onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "./fan-out.workflow.js";
 import { ItemCheckWorkflow, ShopExecutionContext, ShopTenantContext } from "./children.workflow.js";
 
@@ -53,7 +53,7 @@ export class PickedWorkflowFinish {}
   decidedBy: DecidedBy.Code,
   maxVisits: 2,
   input: { result: ItemResultDto },
-  routes: [{ target: ItemPickerAgent }, { target: PickedWorkflowFinish }],
+  routes: [ItemPickerAgent, PickedWorkflowFinish],
 })
 export class PickAgainRouter {
   route(input: { readonly result: Produced<ItemResultDto, unknown> }): unknown {
@@ -65,11 +65,13 @@ export class PickAgainRouter {
   name: "pick-loop-workflow",
   version: "1.0.0",
   flow: [
-    onStart(PickLoopWorkflowStart).toAgent(ItemPickerAgent),
+    onStart(PickLoopWorkflowStart)
+      .toAgent(ItemPickerAgent),
     onAgent(ItemPickerAgent)
       .toWorkflow(ItemCheckWorkflow)
       .toRouter(PickAgainRouter)
-      .chooseOne(route(ItemPickerAgent), route(PickedWorkflowFinish)),
+      .onRoute(toAgent(ItemPickerAgent))
+      .onRoute(toFinish(PickedWorkflowFinish)),
   ],
 })
 export class PickLoopWorkflow {}

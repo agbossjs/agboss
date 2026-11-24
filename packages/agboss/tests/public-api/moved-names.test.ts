@@ -111,7 +111,7 @@ describe("#895: the type machinery is one @beta namespace per entry", () => {
     [
       "agboss",
       "FlowTypes",
-      "IsOneOf IsUnion IsSeveral IsPerItem Resolved LastValue KindOf NameOf",
+      "IsOneOf IsUnion IsSeveral Resolved LastValue KindOf NameOf",
       "index.ts",
     ],
     [

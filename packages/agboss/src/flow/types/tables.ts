@@ -3,7 +3,7 @@ import type { FlowAnalysis } from "../analyse/analyse.js";
 import { EdgeKind, type FlowNode } from "../analyse/flow-graph.js";
 import type { Class } from "../../components/injection.js";
 import { NodeKind } from "../ast.js";
-import { onDemandRoutesOf, routesOf, type RouterOptions } from "../decorators/router.js";
+import { routesOf, type RouterOptions } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
 import { TablesImport, type ImportTable } from "./imports.js";
 import { childInputEntry, inputEntry, nodeInput } from "./inputs.js";
@@ -16,7 +16,7 @@ import { offPathUndoActions } from "./undo-actions.js";
  * `ProducerOutputs` (what each start, agent and action gives on its path), `Inputs` (`InputOf<X>`),
  * `Outputs` (`OutputOf<X>`: what an action or a finish returns), `WorkflowStarts` (input and output
  * per start), `Routes` (`Route<R>`: the targets a router decides on — every route after
- * `.chooseOne(…)`, the `OnDemand` ones before a launch, #280), `RouterAnswers` (what a code
+ * `.onRoute(…)`, every route in a `chooseMany([…])` launch, #280), `RouterAnswers` (what a code
  * router's `route()` returns, and what a model router's scripted `routeTo(…)` gives, #262). A
  * component in
  * several workflows gets one entry: the input shapes and the reachable finishes of all of them.
@@ -24,19 +24,15 @@ import { offPathUndoActions } from "./undo-actions.js";
 
 /** How a router's choice continues in the flow, so what its `route()` returns (#280). */
 export enum RouteForm {
-  /** `.chooseOne(…)`: one target. */
+  /** `.onRoute(…)`: one target. */
   One = "one",
-  /** `.toParallelAgents(…)` (#273): the `OnDemand` targets to launch; `[]` only with an `Always` route. */
+  /** `toRouter(R).chooseMany([…])` (#1279): the targets to launch, `[]` included. */
   List = "list",
 }
 
-/**
- * `Route<R>` in a form: every target after `.chooseOne(…)` (spawn policies apply to launches only);
- * before a launch the `OnDemand` ones — `Always` left out, by the kind's default too (#273, #280).
- */
-export function routeTargetsOf(options: RouterOptions, form: RouteForm): readonly Class[] {
-  const routes = form === RouteForm.One ? routesOf(options) : onDemandRoutesOf(options);
-  return routes.map((route) => route.target);
+/** `Route<R>`: every target of the router, in either form (#273, #280). */
+export function routeTargetsOf(options: RouterOptions): readonly Class[] {
+  return routesOf(options).map((route) => route.target);
 }
 
 /** What `route()` returns in a form: `Route<R>`, or a list of it, which may be empty (`chooseMany`, #1279). */
@@ -139,7 +135,7 @@ function writeNode(
     case NodeKind.Router: {
       const { options } = declaration;
       const form = tables.launchingRouters.has(name) ? RouteForm.List : RouteForm.One;
-      const targets = routeTargetsOf(options, form).map((target) => `typeof ${names.ref(target)}`);
+      const targets = routeTargetsOf(options).map((target) => `typeof ${names.ref(target)}`);
       const route = targets.length === 0 ? "never" : [...new Set(targets)].sort().join(" | ");
       tables.routes.set(name, route);
       // a code router's `route()` returns it; a model router's scripted `routeTo(…)` gives it (#262)

@@ -34,7 +34,7 @@ import {
 } from "../../../flow/fixtures/launch.fixture.js";
 import { ArticleDraftDto } from "../../../flow/fixtures/launch-dtos.js";
 import { CritiqueDto, ResearchDto } from "../../../flow/fixtures/review-dtos.js";
-import { onStart, toAction } from "../../../flow/fixtures/paths.js";
+import { onStart, toAction, toAgent } from "../../../flow/fixtures/paths.js";
 import { MAX_SCOPES_PER_NODE } from "../../../../src/flow/analyse/dataflow.js";
 import { toFinish } from "../../../flow/fixtures/paths.js";
 import { inline } from "../../../../src/index.js";
@@ -135,7 +135,7 @@ describe("#1366: several values where one field reads", () => {
 const joinedInto = (reader: abstract new () => unknown): Flow => [
   onStart(ResearchWorkflowStart)
     .toAgent(PlannerAgent)
-    .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent)
+    .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)])
     .join()
     .toAgent(reader)
     .toFinish(ArticleDraftWorkflowFinish),
@@ -203,7 +203,9 @@ describe("#1366: a side path of a join error reads a settled answer", () => {
     const flow: Flow = [
       onStart(ResearchWorkflowStart)
         .toAgent(PlannerAgent)
-        .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
+        .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)], {
+          maxConcurrency: 3,
+        })
         .join()
         .onError(
           PauseExpiredError,

@@ -2,7 +2,7 @@ import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { SpendRecorder } from "../../../src/components/spend-recorder.js";
 import { Integer, Text } from "../../../src/dto/index.js";
-import { caseOf, route, onStart } from "../../../src/flow/builder.js";
+import { onStart, toAction, toFinish } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -109,7 +109,7 @@ export class ManualQuoteWorkflowFinish {}
   input: {
     request: QuoteRequestDto,
   },
-  routes: [{ target: PriceQuoteAction }, { target: ManualQuoteWorkflowFinish }],
+  routes: [PriceQuoteAction, ManualQuoteWorkflowFinish],
   deps: [PriceListService],
 })
 export class QuoteSizeRouter implements RouterHandler<QuoteSizeRouter> {
@@ -126,13 +126,11 @@ export class QuoteSizeRouter implements RouterHandler<QuoteSizeRouter> {
 export const quotePaths = [
   onStart(QuoteWorkflowStart)
     .toRouter(QuoteSizeRouter)
-    .chooseOne(
-      route(PriceQuoteAction).switch(
-        caseOf(QuoteDto).toFinish(QuoteWorkflowFinish),
-        caseOf(QuoteRefusedDto).toFinish(QuoteRefusedWorkflowFinish),
-      ),
-      route(ManualQuoteWorkflowFinish),
-    ),
+    .onRoute(
+      toAction(PriceQuoteAction)
+        .toOneOf([toFinish(QuoteWorkflowFinish), toFinish(QuoteRefusedWorkflowFinish)]),
+    )
+    .onRoute(toFinish(ManualQuoteWorkflowFinish)),
 ] as const;
 
 @Workflow({

@@ -22,10 +22,14 @@ import {
   version: "1.0.0",
   flow: [
     onStart(ItemsWorkflowStart)
-      .forEachItem(toAction(ProcessItemAction).onError(StepFailedError, skip()), {
-        takeFirst: 3,
-        maxConcurrency: 2,
-      })
+      .forEachItem(
+        toAction(ProcessItemAction)
+          .onError(StepFailedError, skip()),
+        {
+          takeFirst: 3,
+          maxConcurrency: 2,
+        },
+      )
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
@@ -51,7 +55,11 @@ export class TakeFirstApplication {}
     onStart(ItemsWorkflowStart)
       .forEachItem(toAction(ProcessItemAction), { maxItems: 3 })
       .join()
-      .onError(LimitError.Items, toAction(ItemsFailedAction).toFinish(ItemsFailedWorkflowFinish))
+      .onError(
+        LimitError.Items,
+        toAction(ItemsFailedAction)
+          .toFinish(ItemsFailedWorkflowFinish),
+      )
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],

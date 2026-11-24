@@ -187,9 +187,9 @@ export const SKILL_COVERAGE: SkillCoverage = {
   ],
   "references/02-flow-dsl-all-combinations.md": [
     ...["Workflow", "WorkflowStart", "WorkflowFinish", "WorkflowStartTextDto"],
-    ...["onStart", "onAgent", "onAction", "onWorkflow", "route", "caseOf"],
+    ...["onStart", "onAgent", "onAction", "onWorkflow", "onRouter"],
     ...["toAction", "toAgent", "toRouter", "toWorkflow", "toFinish"],
-    ...["oneOf", "listOf", "optional", "historyOf", "variant", "SpawnPolicy", "FailurePolicy"],
+    ...["oneOf", "listOf", "optional", "historyOf", "variant", "skip"],
     ...["Arbiter", "Arbitrate", "ArbiterAnswerOf", "BranchVerdict", "BranchStatus"],
     ...["PaidStepError", "StepFailedError", "AgentFailedError", "AgentAnswerInvalidError"],
     ...["QualityGateError", "ActionFailedError", "RouterFailedError", "RouterDecisionError"],

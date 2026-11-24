@@ -9,7 +9,7 @@ read the reference each part points to.
 | Recipe                                                | Shows                                                                                                                                             |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. An offer review loop                               | `oneOf` + `switch`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                                |
-| 2. Sourcing: children per item, a quorum, an approval | `.toParallelWorkflows`, a soft child failure, `.arbitratedBy(…)`, `.joinQuorum`, a channel role, `app.resume`                                     |
+| 2. Sourcing: children per item, a quorum, an approval | `.forEachItem(toWorkflow(…))`, a soft child failure, `.arbitratedBy(…)`, `.joinQuorum`, a channel role, `app.resume`                              |
 | 3. A help desk on MCP and A2A, streamed               | `@McpServer` behind a tool, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                           |
 | 4. A production multi-tenant application              | tenant context, budgets, model providers with a fallback and `TenantWeighted`, PII, a guardrail, SQLite, health, undo, unit and integration tests |
 
@@ -215,7 +215,7 @@ const SIGN_OFF_SALARY = 200_000;
   description: "Mails an ordinary offer, holds a large one for sign-off",
   decidedBy: DecidedBy.Code,
   input: { request: OfferRequestDto },
-  routes: [{ target: MailOfferAction }, { target: OfferForSignOffWorkflowFinish }],
+  routes: [MailOfferAction, OfferForSignOffWorkflowFinish],
 })
 export class OfferSizeRouter implements RouterHandler<OfferSizeRouter> {
   route(input: InputOf<OfferSizeRouter>): Route<OfferSizeRouter> {
@@ -227,7 +227,17 @@ export class OfferSizeRouter implements RouterHandler<OfferSizeRouter> {
 The workflow wires them:
 
 ```ts file=offers/src/workflows/offer-letter/offer-letter.workflow.ts
-import { VisitsLimitExceededError, Workflow, onAgent, caseOf, oneOf, route, onStart, toFinish } from "@agboss/core";
+import {
+  VisitsLimitExceededError,
+  Workflow,
+  onAgent,
+  oneOf,
+  onStart,
+  toFinish,
+  toAgent,
+  toRouter,
+  toAction,
+} from "@agboss/core";
 import { MailOfferAction } from "../../actions/mail-offer.action.js";
 import { LetterEditorAgent } from "../../agents/letter-editor/letter-editor.agent.js";
 import { LetterReviewerAgent } from "../../agents/letter-reviewer/letter-reviewer.agent.js";
@@ -254,20 +264,18 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
       .toAgent(LetterReviewerAgent),
 
     onAgent(LetterReviewerAgent)
-      .switch(
-        caseOf(LetterChangesDto)
-          .toAgent(LetterEditorAgent)
+      .toOneOf([
+        toAgent(LetterEditorAgent)
           .onError(VisitsLimitExceededError, toFinish(OfferStuckWorkflowFinish)) // no model past a limit
           .toAgent(LetterReviewerAgent),
-        caseOf(LetterApprovedDto)
-          .toRouter(OfferSizeRouter)
-          .chooseOne(
-            route(MailOfferAction)
+        toRouter(OfferSizeRouter)
+          .onRoute(
+            toAction(MailOfferAction)
               .onError(MailerUnavailableError, toFinish(OfferForSignOffWorkflowFinish)) // through ActionFailedError's cause
               .toFinish(OfferMailedWorkflowFinish),
-            route(OfferForSignOffWorkflowFinish),
-          ),
-      ),
+          )
+          .onRoute(toFinish(OfferForSignOffWorkflowFinish)),
+      ]),
   ],
   executionLimits: { maxSteps: 8 },
   providers: [OfferMailerService],
@@ -540,7 +548,7 @@ export class SupplierUncheckedWorkflowFinish {}
 
 ```ts file=sourcing/src/workflows/supplier-check/supplier-check.workflow.ts
 // the child: one supplier; its own failure becomes a result class, so one bad item never cancels the rest
-import { StepFailedError, Workflow, onStart, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish } from "@agboss/core";
 import { MarkSupplierUncheckedAction } from "../../actions/mark-supplier-unchecked.action.js";
 import { SupplierCheckerAgent } from "../../agents/supplier-checker/supplier-checker.agent.js";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
@@ -779,7 +787,16 @@ export class PurchaseUnreviewedWorkflowFinish {}
 The parent workflow:
 
 ```ts file=sourcing/src/workflows/sourcing/sourcing.workflow.ts
-import { QuorumNotReachedError, Workflow, listOf, oneOf, onStart, toFinish } from "@agboss/core";
+import {
+  QuorumNotReachedError,
+  Workflow,
+  listOf,
+  oneOf,
+  onStart,
+  toFinish,
+  toAgent,
+  toWorkflow,
+} from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { minutes } from "@agboss/core/units";
 import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
@@ -806,10 +823,10 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
   flow: [
     onStart(SourcingWorkflowStart)
       .toAgent(SupplierFinderAgent)
-      .toParallelWorkflows(SupplierCheckWorkflow, { maxConcurrency: 3, maxItems: 10 })
+      .forEachItem(toWorkflow(SupplierCheckWorkflow), { takeFirst: 10, maxConcurrency: 3 })
       .join()
       .toAgent(SupplierShortlistAgent)
-      .toParallelAgents(PriceReviewAgent, RiskReviewAgent, TermsReviewAgent)
+      .inParallel([toAgent(PriceReviewAgent), toAgent(RiskReviewAgent), toAgent(TermsReviewAgent)])
       .arbitratedBy(ReviewRangeArbiter) // one arbiter judges every review
       .joinQuorum({ min: 2, max: 3, deadline: minutes(2) })
       .onError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
@@ -1131,7 +1148,7 @@ export class HelpdeskWorkflowFinish {}
 ```
 
 ```ts file=helpdesk/src/workflows/helpdesk/helpdesk.workflow.ts
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { BillingDeskA2AAgent } from "../../a2a/billing-desk.a2a-agent.js";
 import { HelpdeskAgent } from "../../agents/helpdesk/helpdesk.agent.js";
@@ -1771,7 +1788,7 @@ export class FundsLedgerHealthCheck {
 The workflow:
 
 ```ts file=loans/src/workflows/loan/loan.workflow.ts
-import { StepFailedError, Workflow, onStart, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish } from "@agboss/core";
 import { ReleaseFundsAction } from "../../actions/release-funds.action.js";
 import { ReserveFundsAction } from "../../actions/reserve-funds.action.js";
 import { SendLoanOfferAction } from "../../actions/send-loan-offer.action.js";

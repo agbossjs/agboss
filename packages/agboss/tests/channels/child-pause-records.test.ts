@@ -2,7 +2,7 @@
  * #267 S124 c (PR 4): a child execution's record lists the pauses its own steps asked —
  * `ChildExecutionRecord.pauses`, in `result.children` and `result.record.children` alike — while the
  * root's `record.pauses` keeps the whole tree's. A single child (`.toWorkflow`) and a per-item one
- * (`.toParallelWorkflows`, one child per line, each pausing on its own).
+ * (`.forEachItem`, one child per line, each pausing on its own).
  */
 import { beforeEach, describe, expect } from "vitest";
 import { PauseResolution, type ChildExecutionRecord, type PendingPause } from "../../src/index.js";

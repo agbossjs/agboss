@@ -14,7 +14,7 @@ import { EmptyEnvironment } from "../../../src/index.js";
 import { Integer, List, PlainTextDto, Text, type DtoClass } from "../../../src/dto/index.js";
 import { isVariant, listOf, oneOf, type VariantOf } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { caseOf, onStart } from "../../helpers/flow.js";
+import { onStart, toFinish, toAgent } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 
@@ -95,7 +95,11 @@ export class ReportWorkflowFinish {}
 @Workflow({
   name: "typed-judge-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(ScoutAgent).toFinish(ReportWorkflowFinish)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(ScoutAgent)
+      .toFinish(ReportWorkflowFinish),
+  ],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })
@@ -177,10 +181,7 @@ export class RefusalWorkflowFinish {}
   flow: [
     onStart(TaskStart)
       .toAgent(ScreenerAgent)
-      .switch(
-        caseOf(OfferDto).toFinish(OfferWorkflowFinish),
-        caseOf(RefusalDto).toFinish(RefusalWorkflowFinish),
-      ),
+      .toOneOf([toFinish(OfferWorkflowFinish), toFinish(RefusalWorkflowFinish)]),
   ],
   defaults: DEFAULTS,
   providers: [VariantLog],
@@ -261,10 +262,11 @@ export class ListJudgedScoutAgent {}
   flow: [
     onStart(TaskStart)
       .toAgent(OfferJudgedScreenerAgent)
-      .switch(
-        caseOf(OfferDto).toFinish(OfferWorkflowFinish),
-        caseOf(RefusalDto).toAgent(ReportJudgedWriterAgent).toFinish(Reply),
-      ),
+      .toOneOf([
+        toFinish(OfferWorkflowFinish),
+        toAgent(ReportJudgedWriterAgent)
+          .toFinish(Reply),
+      ]),
   ],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
@@ -275,7 +277,11 @@ export class WrongReplyWorkflow {}
 @Workflow({
   name: "wrong-report-reply-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(TextJudgedScoutAgent).toFinish(ReportWorkflowFinish)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(TextJudgedScoutAgent)
+      .toFinish(ReportWorkflowFinish),
+  ],
   defaults: DEFAULTS,
 })
 export class WrongReportReplyWorkflow {}
@@ -295,7 +301,10 @@ export class JobsSummaryAgent {}
   name: "wrong-list-reply-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TaskStart).toAgent(ListJudgedScoutAgent).toAgent(JobsSummaryAgent).toFinish(Reply),
+    onStart(TaskStart)
+      .toAgent(ListJudgedScoutAgent)
+      .toAgent(JobsSummaryAgent)
+      .toFinish(Reply),
   ],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
@@ -350,7 +359,12 @@ export class JobsScoutAgent {}
 @Workflow({
   name: "list-judge-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(JobsScoutAgent).toAgent(JobsSummaryAgent).toFinish(Reply)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(JobsScoutAgent)
+      .toAgent(JobsSummaryAgent)
+      .toFinish(Reply),
+  ],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })
@@ -416,7 +430,10 @@ export class DecisionsSummaryAgent {}
   name: "variant-list-judge-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TaskStart).toAgent(PanelScreenerAgent).toAgent(DecisionsSummaryAgent).toFinish(Reply),
+    onStart(TaskStart)
+      .toAgent(PanelScreenerAgent)
+      .toAgent(DecisionsSummaryAgent)
+      .toFinish(Reply),
   ],
   defaults: DEFAULTS,
   providers: [VariantLog],
@@ -447,7 +464,11 @@ export class ListJudgedReporterAgent {}
 @Workflow({
   name: "wrong-value-reply-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(ListJudgedReporterAgent).toFinish(ReportWorkflowFinish)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(ListJudgedReporterAgent)
+      .toFinish(ReportWorkflowFinish),
+  ],
   defaults: DEFAULTS,
   providers: [JobSearch, VariantLog],
 })

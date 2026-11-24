@@ -1,4 +1,12 @@
-import { onAction, caseOf, onStart, StepFailedError, toAction, Workflow } from "@agboss/core";
+import {
+  onAction,
+  onStart,
+  StepFailedError,
+  toAction,
+  Workflow,
+  toWorkflow,
+  toFinish,
+} from "@agboss/core";
 import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
 import { SubtopicsAction } from "../../actions/subtopics.action.js";
 import { MergeAgent } from "../../agents/merge/merge.agent.js";
@@ -22,17 +30,19 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
     onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
-      .switch(
-        caseOf(TopicReportDto)
-          .toFinish(TopicReportWorkflowFinish),
-        caseOf(TopicTooBroadDto) // left out of the schema on the last level
-          .toAction(SubtopicsAction)
-          .toParallelWorkflows(() => TopicResearchWorkflow, { maxConcurrency: 3, maxItems: 5 })
+      .toOneOf([
+        toFinish(TopicReportWorkflowFinish),
+        // the action reads the too-broad topic: left out of the schema on the last level
+        toAction(SubtopicsAction)
+          .forEachItem(
+            toWorkflow(() => TopicResearchWorkflow),
+            { takeFirst: 5, maxConcurrency: 3 },
+          )
           .join()
           .toAgent(MergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
           .toFinish(TopicReportWorkflowFinish),
-      ),
+      ]),
 
     // two ways in (the researcher's error, the merge's error): its own path
     onAction(MarkTopicFailedAction)

@@ -1,11 +1,6 @@
-import { route, onStart } from "../../../src/flow/builder.js";
+import { onStart, toAgent } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import {
-  DecidedBy,
-  FailurePolicy,
-  Router,
-  SpawnPolicy,
-} from "../../../src/flow/decorators/router.js";
+import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -14,12 +9,7 @@ import type { RouterHandler } from "../../../src/flow/handlers.js";
 import { SupportIntentDto, TopicAnswerDto } from "./credit-dtos.js";
 import { inline } from "../../../src/index.js";
 
-/**
- * #280 — a code router with `spawn` / `failure` on its routes, the options of a parallel launch
- * (#273). Until `.toParallelAgents(…)` exists every flow continues a router with `.chooseOne(…)`, so
- * this workflow fails assembly with `[router.policy-with-choose-one]`; its types are still written
- * (after `.chooseOne(…)` `Route<TopicsRouter>` is every target — spawn policies apply to launches).
- */
+/** #280 — a code router with flat routes, continued with one `.onRoute(…)` per route. */
 
 @WorkflowStart({
   name: "topics-workflow-start",
@@ -78,11 +68,7 @@ export class TopicsWorkflowFinish {}
   input: {
     intent: SupportIntentDto,
   },
-  routes: [
-    { target: OrderTopicAgent, spawn: SpawnPolicy.Always }, // launched by the framework
-    { target: RefundTopicAgent, failure: FailurePolicy.Skip },
-    { target: DeliveryTopicAgent },
-  ],
+  routes: [OrderTopicAgent, RefundTopicAgent, DeliveryTopicAgent],
 })
 export class TopicsRouter implements RouterHandler<TopicsRouter> {
   route(input: InputOf<TopicsRouter>): Route<TopicsRouter> {
@@ -96,10 +82,17 @@ export class TopicsRouter implements RouterHandler<TopicsRouter> {
   flow: [
     onStart(TopicsWorkflowStart)
       .toRouter(TopicsRouter)
-      .chooseOne(
-        route(OrderTopicAgent).toFinish(TopicsWorkflowFinish),
-        route(RefundTopicAgent).toFinish(TopicsWorkflowFinish),
-        route(DeliveryTopicAgent).toFinish(TopicsWorkflowFinish),
+      .onRoute(
+        toAgent(OrderTopicAgent)
+          .toFinish(TopicsWorkflowFinish),
+      )
+      .onRoute(
+        toAgent(RefundTopicAgent)
+          .toFinish(TopicsWorkflowFinish),
+      )
+      .onRoute(
+        toAgent(DeliveryTopicAgent)
+          .toFinish(TopicsWorkflowFinish),
       ),
   ],
 })

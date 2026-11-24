@@ -15,7 +15,7 @@ import {
   ScreeningFailedWorkflowFinish,
 } from "../fixtures/launch.fixture.js";
 import { CritiqueDto, ResearchDto } from "../fixtures/review-dtos.js";
-import { onStart, toAction, toFinish } from "../fixtures/paths.js";
+import { onStart, toAction, toFinish, toAgent } from "../fixtures/paths.js";
 
 /**
  * #945 V3.6 — the settled answers on the error path: the `EdgeKind.JoinError` edge makes each branch
@@ -56,7 +56,9 @@ function codesOf(sidePath: ReturnType<typeof toAction>): readonly string[] {
   const flow: Flow = [
     onStart(ResearchWorkflowStart)
       .toAgent(PlannerAgent)
-      .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
+      .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)], {
+        maxConcurrency: 3,
+      })
       .join()
       .onError(PauseExpiredError, sidePath)
       .toAgent(ArticleWriterAgent)

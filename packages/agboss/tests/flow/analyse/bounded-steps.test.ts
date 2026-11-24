@@ -22,7 +22,7 @@ import {
   VisitsLimitExceededError,
   offerPaths,
 } from "../fixtures/offer.fixture.js";
-import { onAgent, caseOf, onStart, toAction } from "../fixtures/paths.js";
+import { onAgent, onStart, toAction, toAgent } from "../fixtures/paths.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
 import { inline } from "../../../src/index.js";
 
@@ -55,13 +55,12 @@ const reviewPaths = (
   handled = VisitsLimitExceededError as abstract new (...args: never[]) => Error,
 ) => [
   onStart(OfferWorkflowStart).toAgent(DraftAgent).toAgent(OfficerAgent),
-  onAgent(OfficerAgent).switch(
-    caseOf(ChangesRequestedDto)
-      .toAgent(RewriterAgent)
+  onAgent(OfficerAgent).toOneOf([
+    toAgent(RewriterAgent)
       .onError(handled, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))
       .toAgent(OfficerAgent),
-    caseOf(DraftApprovedDto).toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
-  ),
+    toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
+  ]),
 ];
 
 function reviewWith(maxSteps: number, handled?: abstract new (...args: never[]) => Error) {

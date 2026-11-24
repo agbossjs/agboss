@@ -82,7 +82,7 @@ export interface GraphDeps<TName extends string> {
   readonly routers: readonly LoadedRouter[];
   /** The decision engine of a router: its own model (Jev or a chat model). */
   readonly routerFor: (router: LoadedRouter) => RouterEngine;
-  /** A model router's decisions before a parallel launch (#273 S23): its `OnDemand` routes. */
+  /** A model router's decisions before a parallel launch (#273 S23): its routes of a `chooseMany([…])`. */
   readonly launchDecisionFor?: (router: LoadedRouter) => LaunchDecider;
   /** The model arbiters with their models resolved through the cascade (part of the run's versions). */
   readonly arbiters?: readonly ModelArbiterUse[];

@@ -9,7 +9,7 @@ import {
 } from "../../../index.js";
 import type { Class } from "../../../components/injection.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
-import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
+import { fromSource, subPathFrom, type PathBuilder } from "../../../flow/path-builder.js";
 import { FaultChargeAction, FaultReserveAction } from "./order.actions.js";
 import { FaultBatchDto, FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
@@ -26,6 +26,10 @@ import { FaultPayAction } from "./pay.action.js";
  */
 const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
+
+const toWorkflow = (target: Class): PathBuilder<undefined> =>
+  subPathFrom({ kind: "side" })
+    .toWorkflow(target);
 
 @WorkflowStart({
   name: "fault-order-workflow-start",
@@ -88,10 +92,7 @@ export class FaultBatchWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(FaultBatchWorkflowStart)
-      .toParallelWorkflows(FaultOrderWorkflow, {
-        maxConcurrency: 4,
-        maxItems: 8,
-      })
+      .forEachItem(toWorkflow(FaultOrderWorkflow), { takeFirst: 8, maxConcurrency: 4 })
       .join()
       .toAction(FaultBatchAction)
       .toFinish(FaultBatchWorkflowFinish),

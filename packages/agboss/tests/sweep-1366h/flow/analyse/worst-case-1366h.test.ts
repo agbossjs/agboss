@@ -19,12 +19,10 @@ import { NodeKind } from "../../../../src/flow/ast.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import { declarationOf } from "../../../../src/flow/decorators/declaration.js";
-import { caseOf as caseWhen } from "../../../helpers/flow.js";
+import { toWorkflow } from "../../../helpers/flow.js";
 import {
   CountdownAction,
   CountdownWorkflowStart,
-  CountDoneDto,
-  CountDto,
 } from "../../../flow/runtime/fixtures/recursion.workflow.js";
 import { CompanyDto } from "../../../flow/fixtures/data-dtos.js";
 import { CompanyReviewWorkflow } from "../../../flow/fixtures/children.fixture.js";
@@ -65,7 +63,7 @@ const workflowNode = (name: string, component: abstract new () => unknown): Flow
 
 const launchOf = (more: Record<string, unknown>) => ({
   launcher: "A",
-  call: "toParallelWorkflows",
+  call: "forEachItem",
   listed: ["W"],
   branches: [],
   isRouterLaunch: false,
@@ -104,8 +102,8 @@ describe("#1366: a per-item child launch", () => {
       concurrentExecutions: 3,
       depth: 1,
       parts: [
-        "maxItems 5 on A → toParallelWorkflows(W)",
-        "maxConcurrency 2 on A → toParallelWorkflows(W)",
+        "maxItems 5 on A → forEachItem(W)",
+        "maxConcurrency 2 on A → forEachItem(W)",
         "5 × W",
       ],
     });
@@ -126,7 +124,7 @@ describe("#1366: a per-item child launch", () => {
     expect(worst).toMatchObject({
       executions: 6,
       concurrentExecutions: 6,
-      parts: ["maxItems 5 on A → toParallelWorkflows(W)", "5 × W"],
+      parts: ["maxItems 5 on A → forEachItem(W)", "5 × W"],
     });
     expect(worst.children[0]).toMatchObject({ count: 5, atOnce: 5, maxItems: 5 });
     expect(worst.children[0]).not.toHaveProperty("maxConcurrency");
@@ -138,7 +136,7 @@ describe("#1366: a per-item child launch", () => {
     expect(worst).toMatchObject({
       executions: 2,
       concurrentExecutions: 2,
-      parts: ["maxConcurrency 4 on A → toParallelWorkflows(W)", "1 × W"],
+      parts: ["maxConcurrency 4 on A → forEachItem(W)", "1 × W"],
     });
     expect(worst.children[0]).toMatchObject({ count: 1, atOnce: 1, maxConcurrency: 4 });
     expect(worst.children[0]).not.toHaveProperty("maxItems");
@@ -159,7 +157,7 @@ describe("#1366: a launch that is not per item", () => {
       [
         edge("S", "A"),
         edge("A", "B", EdgeKind.Join, {
-          launch: launchOf({ call: "toParallelAgents", listed: ["B"], maxConcurrency: 3 }),
+          launch: launchOf({ call: "inParallel", listed: ["B"], maxConcurrency: 3 }),
         }),
       ],
       ["S"],
@@ -169,7 +167,7 @@ describe("#1366: a launch that is not per item", () => {
       executions: 1,
       concurrentExecutions: 1,
       depth: 0,
-      parts: ["maxConcurrency 3 on A → toParallelAgents(B)"],
+      parts: ["maxConcurrency 3 on A → inParallel(B)"],
       children: [],
     });
   });
@@ -180,13 +178,13 @@ describe("#1366: a launch that is not per item", () => {
       [
         edge("S", "A"),
         edge("A", "B", EdgeKind.Join, {
-          launch: launchOf({ call: "toParallelAgents", listed: ["B"], items: {}, maxItems: 7 }),
+          launch: launchOf({ call: "inParallel", listed: ["B"], items: {}, maxItems: 7 }),
         }),
       ],
       ["S"],
     );
 
-    expect(caseOf(graph).parts).toEqual(["maxItems 7 on A → toParallelAgents(B)"]);
+    expect(caseOf(graph).parts).toEqual(["maxItems 7 on A → inParallel(B)"]);
   });
 
   it("a call that launches nothing has no children, no parts and depth 0", () => {
@@ -341,7 +339,7 @@ describe("#1366: the start log's line", () => {
 const throughBoth = (self: () => abstract new () => unknown, other: abstract new () => unknown) => [
   pathStart(CountdownWorkflowStart)
     .toAction(CountdownAction)
-    .switch(caseWhen(CountDto).toWorkflow(self), caseWhen(CountDoneDto).toWorkflow(other)),
+    .toOneOf([toWorkflow(self), toWorkflow(other)]),
 ];
 
 describe("#1366: a workflow that launches itself inside a loop of workflows", () => {

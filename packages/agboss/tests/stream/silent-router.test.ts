@@ -15,7 +15,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import type { ExecutionStreamEvent } from "../../src/run/types.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, route, onStart } from "../helpers/flow.js";
+import { execute, onStart, toAgent, toFinish } from "../helpers/flow.js";
 import {
   answer,
   BedrockModelProvider,
@@ -60,7 +60,8 @@ class AuditChatRouter {}
   flow: [
     onStart(ChatStart)
       .toRouter(AuditChatRouter)
-      .chooseOne(route(RoutedAgent).toFinish(Reply), route(HandOver)),
+      .onRoute(toAgent(RoutedAgent).toFinish(Reply))
+      .onRoute(toFinish(HandOver)),
   ],
   defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })

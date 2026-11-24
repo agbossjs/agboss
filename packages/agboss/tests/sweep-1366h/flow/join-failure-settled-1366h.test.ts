@@ -38,7 +38,6 @@ vi.mock("../../../src/flow/runtime/workflow-keys.js", async (original) => ({
 const { failedJoined, failureRecordOf, failingRecordOf } =
   await import("../../../src/flow/runtime/launch/join-failure.js");
 const { BranchStatus } = await import("../../../src/flow/runtime/launch/records.js");
-const { FailurePolicy } = await import("../../../src/flow/decorators/router.js");
 
 const failure = { name: "Error", code: "Error", lineage: [], message: "boom" };
 const failedRecord = {
@@ -248,7 +247,7 @@ describe("#1366: the failing records", () => {
       status: BranchStatus.Expired,
       read: [],
     });
-    const ticket = { branches: [{ node: "a", nodeId: "a", failure: FailurePolicy.Skip }] };
+    const ticket = { branches: [{ node: "a", nodeId: "a", skip: ["*"] }] };
     expect(failingRecordOf({} as never, ticket as never, [expired(5)] as never)).toStrictEqual(
       expired(5),
     );

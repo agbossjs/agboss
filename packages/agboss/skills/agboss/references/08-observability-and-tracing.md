@@ -118,7 +118,7 @@ export class DeskWorkflowFinish {}
 ```
 
 ```ts file=src/desk/workflows/desk/desk.workflow.ts
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, toAgent, toAction, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OpenTicketAction } from "../../actions/open-ticket.action.js";
 import { DeskAgent } from "../../agents/desk/desk.agent.js";

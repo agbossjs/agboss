@@ -32,7 +32,7 @@ import {
 } from "../../src/index.js";
 import type { AssembledWorkflow } from "../../src/workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
 
@@ -85,7 +85,7 @@ class OwnRouter {}
 const flowThrough = (router: Class) => [
   onStart(AskWorkflowStart)
     .toRouter(router)
-    .chooseOne(route(HelperAgent).toFinish(AnswerWorkflowFinish)),
+    .onRoute(toAgent(HelperAgent).toFinish(AnswerWorkflowFinish)),
 ];
 
 /** No model of its own: it takes `defaults.guardrail.model`. */

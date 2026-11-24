@@ -8,7 +8,6 @@ import { usd } from "../../../src/units/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { PaidStepError } from "../../../src/graph/errors.js";
-import { FailurePolicy } from "../../../src/flow/decorators/router.js";
 import { branchNode } from "../../../src/flow/runtime/launch/branch-runner.js";
 import { BranchStatus } from "../../../src/flow/runtime/launch/records.js";
 import { abortLaunch, settledEnd } from "../../../src/flow/runtime/launch/branch-settle.js";
@@ -31,7 +30,7 @@ vi.mock("../../../src/flow/runtime/launch/branch-view.js", () => ({
     launch: { joinNodeId: "join" },
     ticket: { launchId: "L1", deadlineAt: 1000 },
   })),
-  branchTicketOf: vi.fn(() => ({ index: 2, nodeId: "n", failure: "fail-fast" })),
+  branchTicketOf: vi.fn(() => ({ index: 2, nodeId: "n" })),
   scheduledOf: vi.fn(() => "scheduled"),
   branchStateOf: vi.fn(
     (state: { usage: unknown[] }, _launch: unknown, _ticket: unknown, spent: unknown[]) => ({
@@ -363,26 +362,14 @@ describe("#1366: a branch that failed carries the spend its error holds and its 
       "a branch that expired in a plain launch follows it: aborts",
       BranchStatus.Expired,
       false,
-      "fail-fast",
+      "none",
       true,
     ],
-    ["an expired branch of a quorum is dropped", BranchStatus.Expired, true, "fail-fast", false],
-    [
-      "an expired branch under Skip is dropped",
-      BranchStatus.Expired,
-      false,
-      FailurePolicy.Skip,
-      false,
-    ],
-    ["a skipped branch is dropped", BranchStatus.Skipped, false, "fail-fast", false],
-    [
-      "a cancelled branch is no failure of its own",
-      BranchStatus.Cancelled,
-      false,
-      "fail-fast",
-      false,
-    ],
-  ])("%s", async (_name, status, isQuorum, failure, aborts) => {
+    ["an expired branch of a quorum is dropped", BranchStatus.Expired, true, "none", false],
+    ["an expired branch under skip() is dropped", BranchStatus.Expired, false, "skip", false],
+    ["a skipped branch is dropped", BranchStatus.Skipped, false, "none", false],
+    ["a cancelled branch is no failure of its own", BranchStatus.Cancelled, false, "none", false],
+  ])("%s", async (_name, status, isQuorum, skips, aborts) => {
     const live = liveOf({
       quorum: isQuorum
         ? {
@@ -394,7 +381,11 @@ describe("#1366: a branch that failed carries the spend its error holds and its 
     });
     const made = failing(paid(), status, live);
     const { branchTicketOf } = await import("../../../src/flow/runtime/launch/branch-view.js");
-    vi.mocked(branchTicketOf).mockReturnValue({ index: 2, nodeId: "n", failure } as never);
+    vi.mocked(branchTicketOf).mockReturnValue({
+      index: 2,
+      nodeId: "n",
+      ...(skips === "skip" ? { skip: ["*"] } : {}),
+    } as never);
 
     const out = await made.node(stateOf() as never, undefined);
 

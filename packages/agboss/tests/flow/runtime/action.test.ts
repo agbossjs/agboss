@@ -6,6 +6,7 @@ import {
   reported,
   ReportFinish,
   ReportFinishAction,
+  TakeBugAction,
   TicketStart,
   TriageApplication,
 } from "./fixtures/triage.workflow.js";
@@ -24,7 +25,13 @@ describe("#272: an @Action runs execute(input) with its fields from the path sco
     const bug = await execute(app, TicketStart, { text: "it crashes", kind: "bug" });
     const question = await execute(app, TicketStart, { text: "how?", kind: "question" });
 
-    expect(bug).toFollowPath([TicketStart, ClassifyAction, ReportFinishAction, ReportFinish]);
+    expect(bug).toFollowPath([
+      TicketStart,
+      ClassifyAction,
+      TakeBugAction,
+      ReportFinishAction,
+      ReportFinish,
+    ]);
     expect(bug).toFinishWith(ReportFinish, { text: "a bug" });
     expect(question).toFinishWith(ReportFinish, { text: "a question" });
     expect(reported).toEqual([

@@ -61,7 +61,7 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 
 <!--
 ```ts file=job-scout.ts
-import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, TerminalUserChannel, route, Router, onStart, Workflow, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, TerminalUserChannel, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish } from "@agboss/core";
 import { List, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 const model = "moonshotai/kimi-k2.6";
@@ -123,14 +123,20 @@ export class MainRouter {}
   flow: [
     onStart(ChatWorkflowStart)
       .toRouter(MainRouter)
-      .chooseOne(
-        route(Scout)
+      .onRoute(
+        toAgent(Scout)
           .toFinish(ChatWorkflowFinish),
-        route(Shortlist)
+      )
+      .onRoute(
+        toAction(Shortlist)
           .toFinish(ChatWorkflowFinish),
-        route(Writer)
+      )
+      .onRoute(
+        toAgent(Writer)
           .toFinish(ChatWorkflowFinish),
-        route(Reviewer)
+      )
+      .onRoute(
+        toAgent(Reviewer)
           .toFinish(ChatWorkflowFinish),
       ),
   ],
@@ -253,7 +259,7 @@ mockLlm(Reviewer).thenReturn(failWith(ModelFailure.Timeout));
 | `replyWith(Dto, value, { cost? })`                  | an agent with `output` answers through its answer tool (`answer-<dto>`): a class of its output — a class outside its `oneOf` does not compile (#262); a list output with an array; `cost` is the execution's spend |
 | `callTool(Tool, args)`                            | the agent's model calls a tool — `args` typed by the tool's input DTO; with generated types (`agboss check`) a tool the agent does not list (its `tools`, a tool-mode knowledge base's `search-<rag>-tool`) does not compile (#679) |
 | `callTools(callTool(A, a), callTool(B, b), …)`    | one move calling several tools at once (#508): each call its own task — at once under `TestConcurrency.Real`; one of the agent's typed turns like `callTool`, no cast (#679), each call of a tool it lists |
-| `routeTo(...targets)`, `routeTo(Target, { reason?, confidence?, cost? })` | what the router's model chose, checked against `Route<R>` (#262, Q55): exactly one target after `.chooseOne(…)`; before `.toParallelAgents(…)` the `OnDemand` targets it launches — `routeTo()` only with an `Always` route, an `Always` target does not compile |
+| `routeTo(...targets)`, `routeTo(Target, { reason?, confidence?, cost? })` | what the router's model chose, checked against `Route<R>` (#262, Q55): exactly one target after `.onRoute(…)`; before `.inParallel([toAgent(…)])` the `OnDemand` targets it launches — `routeTo()` only with an `Always` route, an `Always` target does not compile |
 | `decideWith(answers, { cost? })`                  | a decision model answers by question id (a judge, a model arbiter, a router before a launch) |
 | `waitFor(seconds(31))`                            | not a call of its own: the next turn answers only after that long on the test's clock (`clock.advance`) |
 | `streamWith(["3 jobs ", "found"], { cost? })`      | a text answer a streaming run hears chunk by chunk (#1311); a call that does not stream gets the chunks joined, as `replyWith` would give it |
@@ -349,7 +355,7 @@ waits never answers: script only what it gets to.
 
 ### Parallel launches
 
-A router before `.toParallelAgents(…)` (#273) decides its `OnDemand` routes with one yes/no per
+A router before `.inParallel([toAgent(…)])` (#273) decides its `OnDemand` routes with one yes/no per
 route: script it with `routeTo(...)` — the `OnDemand` targets it launches, `routeTo()` for none
 (only with an `Always` route) — or with `decideWith`, P(yes) per target `name`; on a decision
 model and on a chat model alike (for a chat model, above 0.5 is `true` in its answer tool):
@@ -1092,7 +1098,7 @@ it("looks the order up in the book it is given", async () => {
 - **`testUnit`**: a code router's `route(input)` on its container, at no cost; a model router's
   texts loaded (`prompt`, the route prompts, checked like at assembly) and its input
   message built from the fields, its model answering from `model` — `routeTo(X)` after
-  `.chooseOne(…)`, `decideWith({ "<target>": 0.9 })` / `routeTo(…)` for the `OnDemand` routes of a
+  `.onRoute(…)`, `decideWith({ "<target>": 0.9 })` / `routeTo(…)` for the `OnDemand` routes of a
   launch; a target outside its routes is `RouterDecisionError`, a failed call `RouterFailedError`.
   A model router without its own `model` decides on a decision model, as `defaults.router` does.
 - **`testUnit`**: a code arbiter's `@Arbitrate(Target)` method gets the answer, tracked as the target

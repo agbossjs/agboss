@@ -11,7 +11,7 @@ Four mistakes a direct port makes, each prevented by one step:
 1. **One "God DTO" for the whole state**, every field optional — the paths then say nothing and every
    node reads everything. Step 1 slices the state into one narrow DTO per thing a node produces.
 2. **One `@Router` per `addConditionalEdges`**, even where the edge only reads what an agent just
-   decided. An agent's own decision is its output: `output: oneOf(A, B)` + `.switch(caseOf(A)…, caseOf(B)…)`.
+   decided. An agent's own decision is its output: `output: oneOf(A, B)` + `.toOneOf([…])`.
    A `@Router` is for a decision of its own — by code (`DecidedBy.Code`) or a classifier model
    (`DecidedBy.Model`).
 3. **A review loop without `historyOf`** — `[input.outdated-on-path]` on the reviewer. Step 2 says
@@ -81,28 +81,28 @@ The result — one row per DTO, its producer and its readers — is the plan for
 
 ## Step 2 — The translation table
 
-| LangGraph (TypeScript / Python)                                | AGBoss                                                                                                                                                                                                |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Annotation.Root({…})` / `TypedDict` state                     | narrow DTO classes (`@agboss/core/dto`: `@Text`, `@Integer`, `@List`, `@Nested`, …), one per producer — Step 1                                                                                        |
-| `new StateGraph(State)…compile()` / `builder.compile()`        | `@Workflow({ name, version, flow: [paths] })`, listed in `@Application({ workflows })`; `createApp(App)` in production, `testWith(App)` in tests                                                      |
-| `START`, entry input                                           | `@WorkflowStart({ input: XDto })`; `app.execute(Start, input)`                                                                                                                                        |
-| `END`                                                          | a `@WorkflowFinish({ output: XDto })` — one per way the graph ends; every path ends in one                                                                                                            |
-| an LLM node, `createReactAgent`, `model.bindTools`, `ToolNode` | `@Agent({ prompt, model, input, output, tools })` + `@Tool` classes; `output` replaces `withStructuredOutput` and its parsing                                                                         |
-| a node of plain code (DB, HTTP, a transform)                   | `@Action({ input, output, deps })` + `ActionHandler`; a side effect to undo on failure: `compensateWith` / `committedBy`                                                                              |
-| `addConditionalEdges` reading what an LLM node just decided    | that agent's `output: oneOf(A, B)` + `.switch(caseOf(A)…, caseOf(B)…)`                                                                                                                                |
-| `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).chooseOne(route(X)…, …)`                                                           |
-| `addConditionalEdges` with an LLM classifier                   | `@Router({ decidedBy: DecidedBy.Model, prompt, model, routes: [{ prompt, target }] })` — a decision model or a chat model                                                                             |
-| a cycle `critic → editor → critic`                             | the reviewer in its own path `onAgent(Reviewer)…`; `caseOf(ChangesDto)`; `historyOf(DraftDto, { maxPrevious })` to read earlier versions                                                              |
-| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ executionLimits: { maxSteps } })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                        |
-| `new Send(node, item)` per list item                           | `.toParallelAgents(Agent, { maxConcurrency, maxItems })` after a step whose output is `listOf(ItemDto)` (or `.toParallelWorkflows(Child, …)`) then `.join()` (the join gives `listOf(OutDto)`)        |
-| `Send` to several different nodes, "first N answers win"       | `.toParallelAgents(A, B, C)` + `.join()`, or `.arbitratedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                                              |
-| a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                              |
-| a subgraph                                                     | a child `@Workflow`: `.toWorkflow(Child)`, its own scope (only its start's input), its finishes' outputs as the step's result                                                                         |
-| `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ channel: Role })` whose call needs an answer: a `@ChannelRole` (`extends ChannelOf<Self>`) and its `@Channel` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })` |
-| `thread_id` in `configurable`                                  | `app.execute(Start, input, { threadId, ownerId })`                                                                                                                                                    |
-| `MessagesAnnotation`, a messages reducer                       | across executions, the thread's turns: each agent sees its `@Memory`'s last `uncompactedTurns`, older ones through its compaction; within one, an agent's tool loop keeps its own messages            |
-| `MemorySaver`, `PostgresSaver`                                 | infrastructure in `@Application({ providers })`: `SqliteCheckpointSaver`, `SqlitePausedExecutionRepository`, … (in-memory by default)                                                                 |
-| `streamMode: "updates"`                                        | `app.execute(…, { onStream })`; observers in `@Application({ observers })` for events                                                                                                                 |
+| LangGraph (TypeScript / Python)                                | AGBoss                                                                                                                                                                                                  |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Annotation.Root({…})` / `TypedDict` state                     | narrow DTO classes (`@agboss/core/dto`: `@Text`, `@Integer`, `@List`, `@Nested`, …), one per producer — Step 1                                                                                          |
+| `new StateGraph(State)…compile()` / `builder.compile()`        | `@Workflow({ name, version, flow: [paths] })`, listed in `@Application({ workflows })`; `createApp(App)` in production, `testWith(App)` in tests                                                        |
+| `START`, entry input                                           | `@WorkflowStart({ input: XDto })`; `app.execute(Start, input)`                                                                                                                                          |
+| `END`                                                          | a `@WorkflowFinish({ output: XDto })` — one per way the graph ends; every path ends in one                                                                                                              |
+| an LLM node, `createReactAgent`, `model.bindTools`, `ToolNode` | `@Agent({ prompt, model, input, output, tools })` + `@Tool` classes; `output` replaces `withStructuredOutput` and its parsing                                                                           |
+| a node of plain code (DB, HTTP, a transform)                   | `@Action({ input, output, deps })` + `ActionHandler`; a side effect to undo on failure: `compensateWith` / `committedBy`                                                                                |
+| `addConditionalEdges` reading what an LLM node just decided    | that agent's `output: oneOf(A, B)` + `.toOneOf([…])`                                                                                                                                                    |
+| `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).onRoute(toAgent(X)…).onRoute(…)`                                                     |
+| `addConditionalEdges` with an LLM classifier                   | `@Router({ decidedBy: DecidedBy.Model, prompt, model, routes: [{ prompt, target }] })` — a decision model or a chat model                                                                               |
+| a cycle `critic → editor → critic`                             | the reviewer in its own path `onAgent(Reviewer)…`; a `.toOneOf([…])` branch reading `ChangesDto`; `historyOf(DraftDto, { maxPrevious })` to read earlier versions                                       |
+| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ executionLimits: { maxSteps } })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                          |
+| `new Send(node, item)` per list item                           | `.forEachItem(toAgent(Agent), { takeFirst, maxConcurrency })` after a step whose output is `listOf(ItemDto)` (or `.forEachItem(toWorkflow(Child), …)`) then `.join()` (the join gives `listOf(OutDto)`) |
+| `Send` to several different nodes, "first N answers win"       | `.inParallel([toAgent(A), toAgent(B), toAgent(C)])` + `.join()`, or `.arbitratedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                         |
+| a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                                |
+| a subgraph                                                     | a child `@Workflow`: `.toWorkflow(Child)`, its own scope (only its start's input), its finishes' outputs as the step's result                                                                           |
+| `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ channel: Role })` whose call needs an answer: a `@ChannelRole` (`extends ChannelOf<Self>`) and its `@Channel` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })`   |
+| `thread_id` in `configurable`                                  | `app.execute(Start, input, { threadId, ownerId })`                                                                                                                                                      |
+| `MessagesAnnotation`, a messages reducer                       | across executions, the thread's turns: each agent sees its `@Memory`'s last `uncompactedTurns`, older ones through its compaction; within one, an agent's tool loop keeps its own messages              |
+| `MemorySaver`, `PostgresSaver`                                 | infrastructure in `@Application({ providers })`: `SqliteCheckpointSaver`, `SqlitePausedExecutionRepository`, … (in-memory by default)                                                                   |
+| `streamMode: "updates"`                                        | `app.execute(…, { onStream })`; observers in `@Application({ observers })` for events                                                                                                                   |
 
 There is no pause step in an AGBoss flow: a pause is always a tool call through a channel. An
 `interrupt()` inside plain code therefore becomes a tool an agent calls (as in Step 3's sign-off
@@ -688,7 +688,7 @@ const REFUND_SIGN_OFF_CENTS = 10_000;
   description: "Issues a small refund at once, sends a large one for sign-off",
   decidedBy: DecidedBy.Code,
   input: { draft: ReplyDraftDto },
-  routes: [{ target: IssueRefundAction }, { target: RefundSignOffAgent }],
+  routes: [IssueRefundAction, RefundSignOffAgent],
 })
 export class RefundSizeRouter implements RouterHandler<RefundSizeRouter> {
   route(input: InputOf<RefundSizeRouter>): Route<RefundSizeRouter> {
@@ -702,7 +702,18 @@ writer and from the editor). The `Send` fan-out is a per-item launch, the reduce
 review edge is the reviewer's `oneOf` output; `revisions >= 3 → END` is the editor's `maxVisits`:
 
 ```ts file=src/support/workflows/support/support.workflow.ts
-import { VisitsLimitExceededError, Workflow, onAgent, caseOf, listOf, oneOf, route, onStart, toFinish } from "@agboss/core";
+import {
+  VisitsLimitExceededError,
+  Workflow,
+  onAgent,
+  listOf,
+  oneOf,
+  onStart,
+  toFinish,
+  toAgent,
+  toRouter,
+  toAction,
+} from "@agboss/core";
 import { IssueRefundAction } from "../../actions/issue-refund.action.js";
 import { OrderResearcherAgent } from "../../agents/order-researcher/order-researcher.agent.js";
 import { RefundSignOffAgent } from "../../agents/refund-sign-off/refund-sign-off.agent.js";
@@ -732,30 +743,31 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
   flow: [
     onStart(SupportWorkflowStart)
       .toRouter(SupportTriageRouter)
-      .chooseOne(
-        route(ResearchPlannerAgent)
-          .toParallelAgents(OrderResearcherAgent, { maxConcurrency: 3, maxItems: 5 }) // new Send(…) per question
+      .onRoute(
+        toAgent(ResearchPlannerAgent)
+          .forEachItem(toAgent(OrderResearcherAgent), { takeFirst: 5, maxConcurrency: 3 }) // new Send(…) per question
           .join() // the reducer's concatenated findings
           .toAgent(ReplyWriterAgent)
           .toAgent(ReplyReviewerAgent),
-        route(HandOverWorkflowFinish),
-      ),
+      )
+      .onRoute(toFinish(HandOverWorkflowFinish)),
 
     onAgent(ReplyReviewerAgent)
-      .switch(
-        caseOf(ChangesRequestedDto) // the changes are about this draft
-          .toAgent(ReplyEditorAgent)
+      .toOneOf([
+        // the editor reads the requested changes: that tells this branch apart
+        toAgent(ReplyEditorAgent)
           .onError(VisitsLimitExceededError, toFinish(ReplyStuckWorkflowFinish))
           .toAgent(ReplyReviewerAgent),
-        caseOf(ReplyApprovedDto)
-          .toRouter(RefundSizeRouter)
-          .chooseOne(
-            route(IssueRefundAction)
+        toRouter(RefundSizeRouter)
+          .onRoute(
+            toAction(IssueRefundAction)
               .toFinish(RefundIssuedWorkflowFinish),
-            route(RefundSignOffAgent)
+          )
+          .onRoute(
+            toAgent(RefundSignOffAgent)
               .toFinish(RefundIssuedWorkflowFinish),
           ),
-      ),
+      ]),
   ],
   executionLimits: { maxSteps: 16 },
   providers: [OrderBookService, RefundApiService],
@@ -830,17 +842,17 @@ Run `npx agboss check` after the first files exist and after every change. A Lan
 compiles whatever its nodes read; an AGBoss flow is checked path by path, so a port surfaces latent
 bugs as rule codes — fix each in the design, never by widening a DTO:
 
-| Code                             | What it found in the old graph                                                                | The fix                                                                           |
-| -------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `[input.missing-on-path]`        | a node read a key no node before it wrote on every path (`write`'s first `draft`, `critique`) | split the node (writer / editor), or read the field only where a path brings it   |
-| `[input.outdated-on-path]`       | a node read a value built from an older version of what was rewritten since (stale critique)  | renew it on that path, `historyOf(Dto, { maxPrevious })` for the earlier versions |
-| `[flow.unused-output]`           | a key written and read by nobody                                                              | drop it from the DTO, or read it below                                            |
-| `[launch.max-items-required]`    | a `Send` per item with no bound — a long list fanned out without limit                        | `maxItems` (and `maxConcurrency`) on the launch                                   |
-| `[launch.item-not-read]`         | the parallel node does not read the item it is launched for                                   | an `input` field of the item's DTO                                                |
-| `[flow.shared-node-inline]`      | a node reached from two places was continued inline                                           | its own path `onAgent(X)…`, every path into it ending `.toAgent(X)`               |
-| `[router.routes-mismatch]`       | a conditional edge's targets and the router's `chooseOne` differ                              | one `route(…)` per `@Router` route                                                |
-| `[prompt.input-in-instructions]` | state interpolated into the prompt                                                            | an `input` field; the prompt stays static                                         |
-| `[limits.max-steps-too-low]`     | `recursionLimit` was the only bound                                                           | a `maxSteps` the longest path fits, `maxVisits` on each node of a loop            |
+| Code                                  | What it found in the old graph                                                                | The fix                                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `[input.missing-on-path]`             | a node read a key no node before it wrote on every path (`write`'s first `draft`, `critique`) | split the node (writer / editor), or read the field only where a path brings it      |
+| `[input.outdated-on-path]`            | a node read a value built from an older version of what was rewritten since (stale critique)  | renew it on that path, `historyOf(Dto, { maxPrevious })` for the earlier versions    |
+| `[flow.unused-output]`                | a key written and read by nobody                                                              | drop it from the DTO, or read it below                                               |
+| `[launch.max-items-handler-required]` | a `Send` per item with a `maxItems` bound and nobody catching `LimitError.Items`              | `.onError(LimitError.Items, …)`; or `takeFirst` (and `maxConcurrency`) on the launch |
+| `[launch.item-not-read]`              | the parallel node does not read the item it is launched for                                   | an `input` field of the item's DTO                                                   |
+| `[flow.shared-node-inline]`           | a node reached from two places was continued inline                                           | its own path `onAgent(X)…`, every path into it ending `.toAgent(X)`                  |
+| `[router.routes-mismatch]`            | a conditional edge's targets and the router's `.onRoute(…)`s differ                           | one `.onRoute(…)` per `@Router` route                                                |
+| `[prompt.input-in-instructions]`      | state interpolated into the prompt                                                            | an `input` field; the prompt stays static                                            |
+| `[limits.max-steps-too-low]`          | `recursionLimit` was the only bound                                                           | a `maxSteps` the longest path fits, `maxVisits` on each node of a loop               |
 
 Then `npx agboss describe`: the flow as assembled, each node's inputs with their producers — check it
 reads like the old graph's intent, not like its edges.

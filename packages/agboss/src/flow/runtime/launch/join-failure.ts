@@ -2,7 +2,6 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { errorRecordOf, RecordedError, type ErrorRecord } from "../../../core/error-record.js";
 import { valueWrite, type FlowEdge } from "../../analyse/flow-graph.js";
 import { compensationsOfFailedJoin, type CompensationEntry } from "../../compensation.js";
-import { FailurePolicy } from "../../decorators/router.js";
 import { isSkippedBranch } from "./branch-skip.js";
 import { errorHandlerOf } from "../graph-model.js";
 import { sidePathEntered } from "../limits.js";
@@ -182,8 +181,8 @@ export async function failedQuorum(
 
 /**
  * The record the launch fails with: the first `Failed` branch — or, in a plain `.join()` whose
- * branch follows `FailFast`, an `Expired` one (#945); under a quorum or `Skip` an expired branch is
- * no failure.
+ * branch no `skip()` names, an `Expired` one (#945); under a quorum or a `skip()` an expired branch
+ * is no failure.
  */
 export function failingRecordOf(
   launch: RuntimeLaunch,
@@ -196,7 +195,7 @@ export function failingRecordOf(
     (record) =>
       record.status === BranchStatus.Expired &&
       !isSkippedBranch(
-        ticket.branches[record.index] ?? { failure: FailurePolicy.FailFast },
+        ticket.branches[record.index] ?? {},
         record.error ?? failureRecordOf(record),
       ),
   );

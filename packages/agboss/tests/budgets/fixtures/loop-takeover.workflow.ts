@@ -94,7 +94,11 @@ export class LoopPaidWorkflowFinish {}
   placement: ChildPlacement.AnyWorker,
   name: "loop-pay-workflow",
   version: "1.0.0",
-  flow: [onStart(LoopPayWorkflowStart).toAgent(LoopPayAgent).toFinish(LoopPaidWorkflowFinish)],
+  flow: [
+    onStart(LoopPayWorkflowStart)
+      .toAgent(LoopPayAgent)
+      .toFinish(LoopPaidWorkflowFinish),
+  ],
 })
 export class LoopPayWorkflow {}
 
@@ -108,7 +112,9 @@ export class LoopParentWorkflowFinish {}
   name: "loop-parent-workflow",
   version: "1.0.0",
   flow: [
-    onStart(LoopParentWorkflowStart).toWorkflow(LoopPayWorkflow).toFinish(LoopParentWorkflowFinish),
+    onStart(LoopParentWorkflowStart)
+      .toWorkflow(LoopPayWorkflow)
+      .toFinish(LoopParentWorkflowFinish),
   ],
 })
 export class LoopParentWorkflow {}

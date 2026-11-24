@@ -498,17 +498,17 @@ describe("#1366: the way out of a visit, and what the visit writes", () => {
     expect(out).toMatchObject({ next: "case-a" });
   });
 
-  it("a variant it has none for, or no class at all, fails the visit with what the switch lacks", async () => {
+  it("a variant it has none for, or no class at all, fails the visit with what the toOneOf lacks", async () => {
     const withCases = casesNode([["A", { to: "case-a" }]]);
     const unknown = await run(withCases, { read: [], value: { variant: "Z" } }, setup().deps);
     const none = await run(withCases, { read: [] }, setup().deps);
 
     expect(unknown.error).toBeInstanceOf(OutputInvalidError);
     expect((unknown.error as Error).message).toBe(
-      "n gave Z, which its switch has no caseOf(…) for",
+      "n gave Z, which its .toOneOf([…]) has no branch for",
     );
     expect((none.error as Error).message).toBe(
-      "n gave no class, which its switch has no caseOf(…) for",
+      "n gave no class, which its .toOneOf([…]) has no branch for",
     );
   });
 

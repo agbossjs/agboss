@@ -3,7 +3,7 @@ import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import {
   BatchDoneWorkflowFinish,
   BatchWorkflow,
@@ -37,7 +37,7 @@ function tree(cap: number | undefined, child: Workflowish = TaskWorkflow): Workf
     version: "1.0.0",
     flow: [
       onStart(BatchWorkflowStart)
-        .toParallelWorkflows(child, { maxItems: 10 })
+        .forEachItem(toWorkflow(child), { takeFirst: 10 })
         .join()
         .toAction(BatchDoneAction)
         .toFinish(BatchDoneWorkflowFinish),

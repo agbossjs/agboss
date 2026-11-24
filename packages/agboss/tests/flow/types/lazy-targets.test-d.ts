@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from "vitest";
-import type { ChosenRouterRoute, CodeRouterRoute } from "../../../src/flow/decorators/router.js";
+import type { ChosenRouterRoute, CodeRouterOptions } from "../../../src/flow/decorators/router.js";
 import type { TargetRef, UnwrapTarget } from "../../../src/flow/target-ref.js";
 import {
   LazyDeskRouter,
@@ -12,7 +12,7 @@ import {
 describe("#1271b: lazy router targets", () => {
   it("a route takes a class and a thunk of a class", () => {
     expectTypeOf<ChosenRouterRoute["target"]>().toEqualTypeOf<TargetRef>();
-    expectTypeOf<CodeRouterRoute["target"]>().toEqualTypeOf<TargetRef>();
+    expectTypeOf<CodeRouterOptions["routes"][number]>().toEqualTypeOf<TargetRef>();
     expectTypeOf(LazyIntakeAgent).toExtend<ChosenRouterRoute["target"]>();
     expectTypeOf(() => LazyIntakeAgent).toExtend<ChosenRouterRoute["target"]>();
   });

@@ -35,7 +35,7 @@ const parse = (text: string, file: string): ts.SourceFile =>
 
 /**
  * What an array element wires, by identifier (#197): `X` → X, `{ prompt, target: X }` → X,
- * `{ use: X, mode }` → X, `route(X, "…")` → X; anything else by its text.
+ * `{ use: X, mode }` → X, `toAgent(X)` → X; anything else by its text.
  */
 export function identityOf(element: ts.Expression): string {
   if (ts.isIdentifier(element)) return element.text;

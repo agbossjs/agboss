@@ -19,7 +19,7 @@ import {
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { CostCounter } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import {
   ItemDto,
@@ -225,9 +225,7 @@ export class SiblingItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SiblingItemsWorkflowStart)
-      .toParallelWorkflows(SiblingItemWorkflow, {
-        maxItems: 2,
-      })
+      .forEachItem(toWorkflow(SiblingItemWorkflow), { takeFirst: 2 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),

@@ -106,7 +106,7 @@ export class JobFitJudge {}
 
 ```ts file=src/job-scout.workflow.ts
 // src/job-scout.workflow.ts — the paths, defaults and providers; money is the application's budgets
-import { Workflow, route, onStart } from "@agboss/core";
+import { Workflow, onStart, toRouter, toFinish, toAgent } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @Workflow({
@@ -115,10 +115,12 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
   flow: [
     onStart(ChatWorkflowStart)
       .toRouter(MainRouter) // picks one of its @Router({ routes })
-      .chooseOne(
-        route(ProfilerAgent)
+      .onRoute(
+        toAgent(ProfilerAgent)
           .toFinish(ChatWorkflowFinish),
-        route(ScoutAgent)
+      )
+      .onRoute(
+        toAgent(ScoutAgent)
           .toFinish(ChatWorkflowFinish),
       ),
   ],
@@ -322,16 +324,13 @@ export class ReminderService {
 }
 ```
 
-A rule needs no model: `@Router({ decidedBy: DecidedBy.Code, routes: [{ target: A }, { target: B }] })`
+A rule needs no model: `@Router({ decidedBy: DecidedBy.Code, routes: [A, B] })`
 on a class that `implements RouterHandler<Self>` decides in `route(input)`, returning one of its
-targets (`Route<Self>`) — no model call, cost 0, the same flow. Routes may carry the options of a
-parallel launch (#273): `spawn` (stated on every route of a model router before a launch —
-`SpawnPolicy.Always` or `SpawnPolicy.OnDemand`; `OnDemand` by default on a code router's) and
-`failure` (`FailurePolicy.FailFast` by default)
+targets (`Route<Self>`) — no model call, cost 0, the same flow. A router in a launch is a branch,
+`toRouter(R).chooseMany([…])` (#1279), and `.onError(E, skip())` on a branch lets a failed one drop out
 ([Wiki → Routers](https://github.com/agbossjs/agboss/wiki/Routers)).
 
-Several steps at once are a **parallel launch** (#273): `.toParallelAgents(ResearcherAgent,
-CriticAgent, CriticAgent, { maxConcurrency: 3 })` or `.toParallelActions(…)`, always followed by
+Several steps at once are a **parallel launch** (#273): `.inParallel([toAgent(ResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)], { maxConcurrency: 3 })` or `.inParallel([toAction(…)])`, always followed by
 `.join()`, whose values — one per class the branches give — are derived from them; one agent right
 after a step whose output is `listOf(CompanyDto)` runs once
 per item (`{ maxItems }` required; a longer list is truncated, never an error — `result.launches`
@@ -358,22 +357,20 @@ A whole **workflow is a step** too (#263): `.toWorkflow(CompanyCheckWorkflow)` r
 outputs", runnable and testable on its own. Its start is chosen by the class of what comes in (one
 start, else the one taking the chain's current value; `[graph.no-matching-start]` /
 `[graph.ambiguous-start]` otherwise), its scope starts with that input only, and its result is
-branched by class — `.switch(caseOf(…)…)` over its `oneOf(CompanyScoreDto, CompanyRejectedDto)`, one
-case per finish output class. `.toParallelWorkflows(CompanyCheckWorkflow, { maxConcurrency: 3,
-maxItems: 50 })` runs one child per item, joined into `listOf(oneOf(…))`; a child
-reached from two places has its own path `onWorkflow(W).onError(…).switch(…)`.
+branched by class — `.toOneOf([…])` over its `oneOf(CompanyScoreDto, CompanyRejectedDto)`, one
+case per finish output class. `.forEachItem(toWorkflow(CompanyCheckWorkflow), { takeFirst: 50, maxConcurrency: 3 })` runs one child per item, joined into `listOf(oneOf(…))`; a child
+reached from two places has its own path `onWorkflow(W).onError(…).toOneOf([…])`.
 At run time each child is an execution of its own — its id, steps and `maxSteps`, no history —
 inside its parent's checkpoint and budgets; an uncaught failure of its own fails the parent's step
 with `ChildExecutionFailedError`, and `result.children` holds the nested records
 ([Wiki → Workflow-as-a-step](https://github.com/agbossjs/agboss/wiki/Workflow-as-a-step)).
 
 A workflow may **launch itself** (#264, #1287): a thunk of its own class stands for it in
-`.toWorkflow(() => Self)`, `route(() => Self)` or `.toParallelWorkflows(() => Self, { maxItems
-})` — a topic too broad for one report researched subtopic by subtopic by the same workflow. A
+`.toWorkflow(() => Self)`, `route(() => Self)` or `.forEachItem(toWorkflow(() => Self), { takeFirst: maxItems })` — a topic too broad for one report researched subtopic by subtopic by the same workflow. A
 recursive workflow sets `@Workflow({ executionLimits: { maxDepth: 3 } })` (`[graph.recursion-without-depth]`); the root is
 at depth 1 (`executionContext.depth`, and each child record's `depth`), so the last level is
 `depth === maxDepth`. There the framework stops it, never the prompt: an agent's `oneOf` variant
-whose `caseOf(…)` launches the workflow itself leaves its response schema, a model router does not see such
+whose `.toOneOf([…])` branch launches the workflow itself leaves its response schema, a model router does not see such
 a route, a code router returning one fails with `RouterDecisionError` — so every such branch keeps a
 way out (`[graph.recursion-without-exit]`); a launch decided by code past `maxDepth` does not start
 and fails its step with `ChildExecutionFailedError` caused by `DepthLimitExceededError`
@@ -473,8 +470,8 @@ of another version, which Claude Code prefers, is `[skills.shadowed]`. A problem
 ### In-Repository Example
 
 [`examples/flow-patterns`](https://github.com/agbossjs/agboss/tree/main/examples/flow-patterns) — the flow's patterns with scripted tests only
-(no model key): `src/offer/` a review loop (`onAgent(ReviewerAgent).switch(…)`,
-`caseOf(ChangesRequestedDto)`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
+(no model key): `src/offer/` a review loop (`onAgent(ReviewerAgent).toOneOf([…])`,
+a branch that reads `ChangesRequestedDto`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
 parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies),
 `src/topic/` a workflow that researches its subtopics itself (`() => TopicResearchWorkflow`, `maxDepth`, #264).
@@ -495,7 +492,7 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
   `@PiiPolicy`, `@ChannelRole`, `@Memory`,
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
   `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`onStart`,
-  `onAgent`, `onRouter`, `onAction`, `route`, `caseOf`, `toAgent`, `toAction`, `toWorkflow`, `toParallelWorkflows`, `toFinish`, `ChildPlacement`, …),
+  `onAgent`, `onRouter`, `onAction`, `toAgent`, `toAction`, `toWorkflow`, `forEachItem`, `inParallel`, `toFinish`, `ChildPlacement`, …),
   `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts and SQLite / in-memory repositories (`Clock`,
   `IdGenerator`, `ChildExecutionQueueRepository`, `ExecutionHistoryRepository`, `MeshRequestRepository`, …),
   `Decision`, observers, errors and types
@@ -847,8 +844,8 @@ one choice question over the routes, options sorted so declaration order never c
 container and infrastructure, models by script, MCP servers stubbed, the network blocked, a
 `VirtualClock`. Scripts are typed by the generated `.agboss/types.d.ts` (`agboss check`, #262):
 `replyWith(XDto, fields)` must be a class of the agent's output (a class outside its `oneOf` does
-not compile), `routeTo(…)` a target of the router's routes — exactly one after `.chooseOne(…)`, the
-`OnDemand` targets it launches before `.toParallelAgents(…)` (`routeTo()` only with an `Always`
+not compile), `routeTo(…)` a target of the router's routes — exactly one after `.onRoute(…)`, the
+`OnDemand` targets it launches before `.inParallel([…])` (`routeTo()` only with an `Always`
 route). `when(…)` binds turns to the node's input values, at any depth: a deep partial of each
 field's `value` (the producer is not compared), `undefined` for an absent field, a `listOf` field by
 length and position, a `oneOf` element as `variant(XDto, { … })`; a call no script matches fails the

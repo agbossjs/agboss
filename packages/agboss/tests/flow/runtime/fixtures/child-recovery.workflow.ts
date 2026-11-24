@@ -12,7 +12,7 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
-import { onStart } from "../../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
@@ -65,7 +65,7 @@ export class HoldItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(HoldItemsWorkflowStart)
-      .toParallelWorkflows(HoldCheckWorkflow, { maxItems: 10 })
+      .forEachItem(toWorkflow(HoldCheckWorkflow), { takeFirst: 10 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),

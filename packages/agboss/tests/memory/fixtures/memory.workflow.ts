@@ -88,7 +88,13 @@ const MODEL_PROVIDERS = [DecisionsModelProvider, LocalModelProvider];
 @Workflow({
   name: "memory-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(Recaller).toAgent(Windowed).toAgent(Noter).toFinish(Answer)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(Recaller)
+      .toAgent(Windowed)
+      .toAgent(Noter)
+      .toFinish(Answer),
+  ],
   defaults: DEFAULTS,
   memory: Window4Memory,
 })
@@ -124,7 +130,11 @@ export class DeskMemory {}
 @Workflow({
   name: "compacting-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(Recaller).toFinish(Recalled)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(Recaller)
+      .toFinish(Recalled),
+  ],
   defaults: DEFAULTS,
   memory: DeskMemory,
 })

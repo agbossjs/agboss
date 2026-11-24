@@ -78,9 +78,15 @@ export class SyncFinish {}
   name: "sync-workflow",
   version: "1.0.0",
   flow: [
-    onStart(SyncStart).toAction(ShoutAction).toFinish(SyncFinish),
-    onStart(ThrowStart).toAction(SyncThrowAction).toFinish(SyncFinish),
-    onStart(HangStart).toAction(HangingAction).toFinish(SyncFinish),
+    onStart(SyncStart)
+      .toAction(ShoutAction)
+      .toFinish(SyncFinish),
+    onStart(ThrowStart)
+      .toAction(SyncThrowAction)
+      .toFinish(SyncFinish),
+    onStart(HangStart)
+      .toAction(HangingAction)
+      .toFinish(SyncFinish),
   ],
 })
 export class SyncWorkflow {}

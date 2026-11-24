@@ -34,7 +34,7 @@ import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import { oneOf, variant, type Variant } from "../../src/flow/dto-wrappers.js";
 import { EmptyEnvironment, type Produced } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { caseOf, onStart } from "../helpers/flow.js";
+import { onStart, toFinish, toExternalTask } from "../helpers/flow.js";
 import { HttpAuthResult, type HttpAuthRequest, HttpAuthenticator } from "../../src/index.js";
 
 /** The header the TCK adapter (`tck-serve.ts`) names a message's scenario in. */
@@ -219,15 +219,12 @@ export class TckFilePolicy {}
   flow: [
     onStart(TckWorkflowStart)
       .toAction(TckScenarioAction)
-      .switch(
-        caseOf(WorkflowFinishTextDto).toFinish(TckTextFinish),
-        caseOf(WorkflowFinishFileDto).toFinish(TckFileFinish),
-        caseOf(TckDataDto).toFinish(TckDataFinish),
-        caseOf(TckAskDto)
-          .toExternalTask(TckInputQuestion)
-          .toAction(TckAnsweredAction)
-          .toFinish(TckTextFinish),
-      ),
+      .toOneOf([
+        toFinish(TckTextFinish),
+        toFinish(TckFileFinish),
+        toFinish(TckDataFinish),
+        toExternalTask(TckInputQuestion).toAction(TckAnsweredAction).toFinish(TckTextFinish),
+      ]),
   ],
 })
 export class TckWorkflow {}

@@ -10,10 +10,12 @@ import {
   KitWorkflowStart,
   ReviewKitAgent,
   SendKitAction,
+  TakeApprovalKitAction,
+  TakeChangesKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { OrderWorkflow } from "../fixtures/order.fixture.js";
-import { onAgent, caseOf, onStart, onWorkflow } from "../fixtures/paths.js";
+import { onAgent, onStart, onWorkflow, toAgent, toAction, toFinish } from "../fixtures/paths.js";
 import {
   CompanyGradeDto,
   CompanyRejectedDto,
@@ -35,8 +37,8 @@ import {
 
 const reviewSwitch = () =>
   [
-    caseOf(ChangesRequestedDto).toAgent(EditKitAgent).toAgent(ReviewKitAgent),
-    caseOf(DraftApprovedDto).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+    toAction(TakeChangesKitAction).toAgent(EditKitAgent).toAgent(ReviewKitAgent),
+    toAction(TakeApprovalKitAction).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
   ] as const;
 
 @Workflow({
@@ -46,7 +48,7 @@ const reviewSwitch = () =>
     onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
       .toAgent(ReviewKitAgent)
-      .switch(...reviewSwitch()),
+      .toOneOf(reviewSwitch()),
   ],
 })
 class InlineSharedWorkflow {}
@@ -56,7 +58,7 @@ class InlineSharedWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
-    onAgent(ReviewKitAgent).switch(...reviewSwitch()),
+    onAgent(ReviewKitAgent).toOneOf(reviewSwitch()),
   ],
 })
 class OwnPathWorkflow {}
@@ -130,9 +132,9 @@ describe("#263 AC4: child inline / own path", () => {
   const REVIEWED = oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto);
   const reviewCases = () =>
     [
-      caseOf(CompanyGradeDto).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
-      caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
-      caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
+      toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
+      toFinish(NoOfferRejectedWorkflowFinish),
+      toFinish(NoOfferFailedWorkflowFinish),
     ] as const;
   const picked = () => onStart(PickedOfferWorkflowStart).toAgent(CompanyPickerAgent);
   const linked = () => onStart(LinkOfferWorkflowStart);
@@ -142,7 +144,7 @@ describe("#263 AC4: child inline / own path", () => {
     version: "1.0.0",
     flow: [
       picked().toWorkflow(CompanyReviewWorkflow),
-      onWorkflow(CompanyReviewWorkflow).switch(...reviewCases()),
+      onWorkflow(CompanyReviewWorkflow).toOneOf(reviewCases()),
     ],
   })
   class ChildSingleOwnPathWorkflow {}
@@ -151,9 +153,7 @@ describe("#263 AC4: child inline / own path", () => {
     name: "child-shared-inline-workflow",
     version: "1.0.0",
     flow: [
-      picked()
-        .toWorkflow(CompanyReviewWorkflow)
-        .switch(...reviewCases()),
+      picked().toWorkflow(CompanyReviewWorkflow).toOneOf(reviewCases()),
       linked().toWorkflow(CompanyReviewWorkflow),
     ],
   })

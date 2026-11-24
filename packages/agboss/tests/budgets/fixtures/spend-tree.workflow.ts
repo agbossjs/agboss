@@ -6,7 +6,7 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { caseOf, onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow, toFinish } from "../../helpers/flow.js";
 import {
   HoldItemAction,
   PayAfterAction,
@@ -44,7 +44,11 @@ export class SpendItemWorkflowFinish {}
 @Workflow({
   name: "spend-item-workflow",
   version: "1.0.0",
-  flow: [onStart(SpendItemWorkflowStart).toAction(PayItemAction).toFinish(SpendItemWorkflowFinish)],
+  flow: [
+    onStart(SpendItemWorkflowStart)
+      .toAction(PayItemAction)
+      .toFinish(SpendItemWorkflowFinish),
+  ],
 })
 export class SpendItemWorkflow {}
 
@@ -91,21 +95,18 @@ export class SpendTreeWorkflowFinish {}
   flow: [
     onStart(SpendTreeWorkflowStart)
       .toAction(PayLevelAction)
-      .toParallelWorkflows(SpendItemWorkflow, { maxItems: 4 })
+      .forEachItem(toWorkflow(SpendItemWorkflow), { takeFirst: 4 })
       .join()
       .toAction(RemoteItemsAction)
-      .toParallelWorkflows(SpendRemoteItemWorkflow, {
-        maxItems: 4,
-      })
+      .forEachItem(toWorkflow(SpendRemoteItemWorkflow), { takeFirst: 4 })
       .join()
       .toAction(PayAfterAction)
-      .switch(
-        caseOf(SpendNodeDto)
-          .toWorkflow(() => SpendTreeWorkflow)
+      .toOneOf([
+        toWorkflow(() => SpendTreeWorkflow)
           .toAction(PayCloseAction)
           .toFinish(SpendTreeWorkflowFinish),
-        caseOf(SpendNoteDto).toFinish(SpendTreeWorkflowFinish),
-      ),
+        toFinish(SpendTreeWorkflowFinish),
+      ]),
   ],
   executionLimits: { maxDepth: 3 },
 })
@@ -132,21 +133,18 @@ export class RemoteSpendTreeWorkflowFinish {}
   flow: [
     onStart(RemoteSpendTreeWorkflowStart)
       .toAction(PayLevelAction)
-      .toParallelWorkflows(SpendItemWorkflow, { maxItems: 4 })
+      .forEachItem(toWorkflow(SpendItemWorkflow), { takeFirst: 4 })
       .join()
       .toAction(RemoteItemsAction)
-      .toParallelWorkflows(SpendRemoteItemWorkflow, {
-        maxItems: 4,
-      })
+      .forEachItem(toWorkflow(SpendRemoteItemWorkflow), { takeFirst: 4 })
       .join()
       .toAction(PayAfterAction)
-      .switch(
-        caseOf(SpendNodeDto)
-          .toWorkflow(() => RemoteSpendTreeWorkflow)
+      .toOneOf([
+        toWorkflow(() => RemoteSpendTreeWorkflow)
           .toAction(PayCloseAction)
           .toFinish(RemoteSpendTreeWorkflowFinish),
-        caseOf(SpendNoteDto).toFinish(RemoteSpendTreeWorkflowFinish),
-      ),
+        toFinish(RemoteSpendTreeWorkflowFinish),
+      ]),
   ],
   executionLimits: { maxDepth: 3 },
 })

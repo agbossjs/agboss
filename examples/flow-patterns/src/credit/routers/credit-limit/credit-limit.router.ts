@@ -22,7 +22,7 @@ import { CreditService } from "../../services/credit.service.js";
   input: {
     order: CreditOrderDto,
   },
-  routes: [{ target: ApprovalAgent }, { target: ChargeCardAction }],
+  routes: [ApprovalAgent, ChargeCardAction],
   deps: [ExecutionContext, CreditService],
 })
 export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {

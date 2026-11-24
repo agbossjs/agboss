@@ -1,4 +1,4 @@
-import { Workflow, onStart, toFinish } from "@agboss/core";
+import { Workflow, onStart, toFinish, toAction } from "@agboss/core";
 import { BookFlightAction } from "../../actions/book-flight.action.js";
 import { BookHotelAction } from "../../actions/book-hotel.action.js";
 import { TripBookedAction } from "../../actions/trip-booked.action.js";
@@ -18,7 +18,7 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(TripWorkflowStart)
-      .toParallelActions(BookFlightAction, BookHotelAction)
+      .inParallel([toAction(BookFlightAction), toAction(BookHotelAction)])
       .join()
       .onError(
         BookingFailedError, // the hotel failed: the finished flight is cancelled before this path runs

@@ -2,11 +2,11 @@ import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { OneOfProblem } from "../one-of.js";
 import { childClassOf, EdgeKind, outputOf } from "../flow-graph.js";
 import { childWorkflowOf } from "../child-workflow.js";
-import type { OutputShape } from "../../dto-wrappers.js";
+import type { DtoClass } from "../../../dto/types.js";
+import { Wrapper, type OutputShape } from "../../dto-wrappers.js";
 import type { ComponentName } from "../../registry.js";
 import { NodeKind } from "../../ast.js";
 import { classLabel, shapeLabel } from "../labels.js";
-import { variantsOf } from "./switch.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
@@ -16,6 +16,12 @@ import type { AnalysisContext } from "./context.js";
  * A transition right after a step with a `oneOf` output, without a `.toOneOf(…)`, is
  * `[flow.one-of-not-exhaustive]` too.
  */
+
+/** The classes of a `oneOf(…)` output; none for any other shape. */
+export const variantsOf = (output: OutputShape | undefined): readonly DtoClass[] =>
+  output !== undefined && typeof output !== "function" && output.kind === Wrapper.OneOf
+    ? output.variants
+    : [];
 
 const givesOf = (output: OutputShape | undefined): string =>
   output === undefined ? "has no output" : `gives ${shapeLabel(output)}`;

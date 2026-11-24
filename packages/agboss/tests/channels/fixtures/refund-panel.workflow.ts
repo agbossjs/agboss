@@ -20,7 +20,7 @@ import {
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { seconds } from "../../../src/units/index.js";
-import { onStart, toAction } from "../../helpers/flow.js";
+import { onStart, toAction, toAgent } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   FinanceDeskRefundApprovalChannel,
@@ -89,7 +89,9 @@ interface RefundScoresInput {
 }
 
 const scoresOf = (input: RefundScoresInput): BatchSummaryDto => ({
-  text: input.scores.map((score) => String(score.value.score)).join(", "),
+  text: input.scores
+    .map((score) => String(score.value.score))
+    .join(", "),
 });
 
 @Action({
@@ -135,7 +137,7 @@ export class RefundEscalatedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(RefundPanelWorkflowStart)
-      .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
+      .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent), toAgent(FraudAgent)])
       .joinQuorum({ min: 2 })
       .toAction(RefundDecidedAction)
       .toFinish(RefundDecidedWorkflowFinish),
@@ -155,17 +157,19 @@ export class RefundGroupsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RefundGroupsWorkflowStart)
-      .toParallelAgents(PolicyAgent, RiskAgent)
+      .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent)])
       .joinQuorumGroups()
       .onGroup(
         [PolicyAgent],
         { priority: 1 },
-        toAction(RefundDecidedAction).toFinish(RefundDecidedWorkflowFinish),
+        toAction(RefundDecidedAction)
+          .toFinish(RefundDecidedWorkflowFinish),
       )
       .onGroup(
         [RiskAgent],
         { priority: 2 },
-        toAction(RefundEscalatedAction).toFinish(RefundEscalatedWorkflowFinish),
+        toAction(RefundEscalatedAction)
+          .toFinish(RefundEscalatedWorkflowFinish),
       ),
   ],
 })
@@ -194,7 +198,7 @@ export class RefundRecoveryWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RefundRecoveryWorkflowStart)
-      .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
+      .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent), toAgent(FraudAgent)])
       .joinQuorum({ min: 1, max: 3, deadline: seconds(300) })
       .toAction(RefundDecidedAction)
       .toFinish(RefundDecidedWorkflowFinish),

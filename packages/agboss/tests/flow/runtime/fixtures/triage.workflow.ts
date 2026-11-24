@@ -9,7 +9,7 @@ import {
   WorkflowStart,
   type Produced,
 } from "../../../../src/index.js";
-import { caseOf, onAction, onStart } from "../../../helpers/flow.js";
+import { onAction, onStart, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -74,24 +74,51 @@ export class ReportFinishAction {
   }
 }
 
+/** The bug branch of the triage: it reads the bug, which tells the branch apart. */
+@Action({
+  name: "take-bug-action",
+  description: "Takes the bug",
+  input: { bug: BugDto },
+})
+export class TakeBugAction {
+  execute(): void {
+    // the report below reads the same variant
+  }
+}
+
+/** The question branch: it reads the question. */
+@Action({
+  name: "take-question-action",
+  description: "Takes the question",
+  input: { question: QuestionDto },
+})
+export class TakeQuestionAction {
+  execute(): void {
+    // the report below reads the same variant
+  }
+}
+
 @WorkflowFinish({ name: "report-workflow-finish", description: "The report", output: ReportDto })
 export class ReportFinish {}
 
 @WorkflowStart({ name: "ticket-workflow-start", description: "A ticket", input: TicketDto })
 export class TicketStart {}
 
-/** ticket → classify → switch on the variant → report. */
+/** ticket → classify → a branch per variant → report. */
 @Workflow({
   name: "triage-workflow",
   version: "1.0.0",
   flow: [
     onStart(TicketStart)
       .toAction(ClassifyAction)
-      .switch(
-        caseOf(BugDto).toAction(ReportFinishAction),
-        caseOf(QuestionDto).toAction(ReportFinishAction),
-      ),
-    onAction(ReportFinishAction).toFinish(ReportFinish),
+      .toOneOf([
+        toAction(TakeBugAction)
+          .toAction(ReportFinishAction),
+        toAction(TakeQuestionAction)
+          .toAction(ReportFinishAction),
+      ]),
+    onAction(ReportFinishAction)
+      .toFinish(ReportFinish),
   ],
 })
 export class TriageWorkflow {}

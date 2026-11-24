@@ -238,7 +238,7 @@ describe("#120 AC10, #1303: @Memory at assembly", () => {
       description: "A code router with a window",
       decidedBy: DecidedBy.Code,
       input: { message: WorkflowStartTextDto },
-      routes: [{ target: DeskAnswer }],
+      routes: [DeskAnswer],
       // @ts-expect-error -- a code router reads no thread memory
       memory: Window2Memory,
     });

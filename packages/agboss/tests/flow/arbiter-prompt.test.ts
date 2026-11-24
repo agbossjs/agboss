@@ -26,7 +26,7 @@ import { workflowOf } from "../../src/testing/workflow-of.js";
 import { arbiterPromptHashOf } from "../../src/flow/runtime/model-component-keys.js";
 import { unitArbiterUsesOf } from "../../src/flow/runtime/launch/arbiter-prompts.js";
 import { fakeDeps, testDefaults } from "../helpers.js";
-import { onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 
 class AnsDto {
   @Text({ prompt: "a" }) a!: string;
@@ -82,7 +82,7 @@ function workflowWith(prompt: PromptSource) {
     defaults: testDefaults,
     flow: [
       onStart(AnsStart)
-        .toParallelAgents(AnsAgent, AnsAgent)
+        .inParallel([toAgent(AnsAgent), toAgent(AnsAgent)])
         .arbitratedBy(AnsArbiter)
         .joinQuorum({ min: 2 })
         .toAction(AnsAction)

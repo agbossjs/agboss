@@ -1,4 +1,4 @@
-import { onStart, Workflow } from "@agboss/core";
+import { onStart, Workflow, toWorkflow } from "@agboss/core";
 import { VendorFinderAgent } from "../../agents/vendor-finder/vendor-finder.agent.js";
 import { VendorRankerAgent } from "../../agents/vendor-ranker/vendor-ranker.agent.js";
 import { VendorCheckWorkflow } from "../vendor-check/vendor-check.workflow.js";
@@ -17,7 +17,7 @@ import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.
   flow: [
     onStart(VendorScreeningWorkflowStart)
       .toAgent(VendorFinderAgent)
-      .toParallelWorkflows(VendorCheckWorkflow, { maxConcurrency: 3, maxItems: 20 })
+      .forEachItem(toWorkflow(VendorCheckWorkflow), { takeFirst: 20, maxConcurrency: 3 })
       .join()
       .toAgent(VendorRankerAgent)
       .toFinish(VendorRankingWorkflowFinish),

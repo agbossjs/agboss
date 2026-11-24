@@ -156,7 +156,7 @@ function reportRest(
     const label = branchLabel(step.branches[at] ?? { steps: [] }, at);
     const message =
       `${label} reads no variant and ${left} for it — one branch may read none (it takes the ` +
-      "variant left), for condition-based routing use .toRouter(R).chooseOne(…)";
+      "variant left), for condition-based routing use .toRouter(R).onRoute(…)";
     findings.push({ problem: OneOfProblem.Ambiguous, message });
   }
 }

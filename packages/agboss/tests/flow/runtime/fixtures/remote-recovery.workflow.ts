@@ -17,7 +17,7 @@ import {
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
 import { RecordingLogger } from "../../../helpers/log.js";
-import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
+import { onStart, toFinish, toAction, toWorkflow } from "../../../helpers/flow.js";
 import { ItemDto, SummaryWorkflowFinish, SummaryAction } from "./fan-out.workflow.js";
 import {
   ChecksFailedWorkflowFinish,
@@ -96,13 +96,12 @@ export class RemoteHoldItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteHoldItemsWorkflowStart)
-      .toParallelWorkflows(RemoteHoldCheckWorkflow, {
-        maxItems: 10,
-      })
+      .forEachItem(toWorkflow(RemoteHoldCheckWorkflow), { takeFirst: 10 })
       .join()
       .onError(
         ChildExecutionFailedError,
-        toAction(ChecksFailedAction).toFinish(ChecksFailedWorkflowFinish),
+        toAction(ChecksFailedAction)
+          .toFinish(ChecksFailedWorkflowFinish),
       )
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
@@ -140,10 +139,7 @@ export class RemoteReviewItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteReviewItemsWorkflowStart)
-      .toParallelWorkflows(ItemReviewWorkflow, {
-        maxConcurrency: 2,
-        maxItems: 10,
-      })
+      .forEachItem(toWorkflow(ItemReviewWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
       .toAction(ReviewsSummaryAction)
       .toFinish(ReviewsSummaryWorkflowFinish),

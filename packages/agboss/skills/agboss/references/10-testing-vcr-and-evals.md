@@ -289,7 +289,7 @@ import { RejectedWorkflowFinish } from "../../workflows/screening/rejected.workf
   description: "Saves a hire, ends on a rejection",
   decidedBy: DecidedBy.Code,
   input: { verdict: VerdictDto },
-  routes: [{ target: SaveHireAction }, { target: RejectedWorkflowFinish }],
+  routes: [SaveHireAction, RejectedWorkflowFinish],
 })
 export class HireRouter implements RouterHandler<HireRouter> {
   route(input: InputOf<HireRouter>): Route<HireRouter> {
@@ -408,7 +408,7 @@ export class RejectedWorkflowFinish {}
 ```
 
 ```ts file=src/screening/workflows/screening/screening.workflow.ts
-import { Workflow, route, onStart } from "@agboss/core";
+import { Workflow, onStart, toAgent, toAction, toRouter, toFinish } from "@agboss/core";
 import { HireRouter } from "../../routers/hire/hire.router.js";
 import { SaveHireAction } from "../../actions/save-hire.action.js";
 import { CultureAgent } from "../../agents/culture/culture.agent.js";
@@ -431,16 +431,16 @@ import { ScreeningWorkflowStart } from "./screening.workflow-start.js";
   version: "1.0.0",
   flow: [
     onStart(ScreeningWorkflowStart)
-      .toParallelAgents(SkillsAgent, CultureAgent)
+      .inParallel([toAgent(SkillsAgent), toAgent(CultureAgent)])
       .arbitratedBy(HasNotesArbiter)
       .joinQuorum({ min: 2 })
       .toAgent(VerdictAgent)
       .toRouter(HireRouter)
-      .chooseOne(
-        route(SaveHireAction)
+      .onRoute(
+        toAction(SaveHireAction)
           .toFinish(HiredWorkflowFinish),
-        route(RejectedWorkflowFinish),
-      ),
+      )
+      .onRoute(toFinish(RejectedWorkflowFinish)),
   ],
   executionLimits: { maxSteps: 8 },
   providers: [CandidateArchiveService, HiringStoreService],
@@ -955,7 +955,7 @@ export class RentalDeclinedWorkflowFinish {}
 ```
 
 ```ts file=src/rental/workflows/rental/rental.workflow.ts
-import { Workflow, onStart, toAction } from "@agboss/core";
+import { Workflow, onStart, toAction, toFinish } from "@agboss/core";
 import { CancelCarAction } from "../../actions/cancel-car.action.js";
 import { ChargeDepositAction } from "../../actions/charge-deposit.action.js";
 import { ReserveCarAction } from "../../actions/reserve-car.action.js";

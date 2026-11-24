@@ -8,7 +8,7 @@ import {
   WorkflowStart,
   inline,
 } from "../../../src/index.js";
-import { route, onStart, toAction } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import {
   BookOrderAction,
   DeclineOrderAction,
@@ -55,7 +55,7 @@ export class PaidActionWorkflow {}
   description: "Sends the order to its note",
   decidedBy: DecidedBy.Code,
   input: { order: OrderDto },
-  routes: [{ target: NoteOrderAction }],
+  routes: [NoteOrderAction],
 })
 export class PaidOrderRouter {
   route(): unknown {
@@ -75,7 +75,10 @@ export class PaidRouterWorkflowFinish {}
     onStart(PaidRouterWorkflowStart)
       .toAction(OverspendOrderAction)
       .toRouter(PaidOrderRouter)
-      .chooseOne(route(NoteOrderAction).toFinish(PaidRouterWorkflowFinish)),
+      .onRoute(
+        toAction(NoteOrderAction)
+          .toFinish(PaidRouterWorkflowFinish),
+      ),
   ],
 })
 export class PaidRouterWorkflow {}
@@ -142,7 +145,8 @@ export class DeclinedNotedWorkflowFinish {}
       .toAction(DeclineOrderAction)
       .onError(
         OrderDeclinedError,
-        toAction(NotifyOrderAction).toFinish(DeclinedNotedWorkflowFinish),
+        toAction(NotifyOrderAction)
+          .toFinish(DeclinedNotedWorkflowFinish),
       )
       .toAction(NoteOrderAction)
       .toFinish(PaidDeclinedWorkflowFinish),
@@ -165,7 +169,11 @@ export class OverBudgetWorkflowFinish {}
     onStart(PaidLimitWorkflowStart)
       .toAction(OverspendOrderAction)
       .toAction(NoteOrderAction)
-      .onError(BudgetExceededError, toAction(NotifyOrderAction).toFinish(OverBudgetWorkflowFinish))
+      .onError(
+        BudgetExceededError,
+        toAction(NotifyOrderAction)
+          .toFinish(OverBudgetWorkflowFinish),
+      )
       .toFinish(PaidLimitWorkflowFinish),
   ],
 })

@@ -25,14 +25,14 @@ import { shapeLabel } from "./labels.js";
 export enum EdgeKind {
   /** `.to…(X)` after a step. */
   Next = "next",
-  /** `caseOf(XDto)…` of a `.switch(…)`: the variant enters the scope on this edge. */
+  /** a `.toOneOf([…])` branch: the variant enters the scope on this edge. */
   Case = "case",
-  /** `route(X)` of a `.chooseOne(…)`. */
+  /** `route(X)` of a `.onRoute(…)`. */
   Route = "route",
   /** `.onError(E, toAction(X)…)`: the step failed, so it wrote nothing. */
   Error = "error",
   /**
-   * `.toParallelAgents(X)`, `.toParallelWorkflows(W, …)`: to one branch of a launch, with the scope
+   * `.inParallel(X)`, `.forEachItem(W, …)`: to one branch of a launch, with the scope
    * at the launch (#273, #263).
    */
   Launch = "launch",
@@ -46,12 +46,12 @@ export enum EdgeKind {
 }
 
 /**
- * One value an edge puts into the path scope: a step's own value or a `caseOf(…)` variant (a
+ * One value an edge puts into the path scope: a step's own value or a a `.toOneOf([…])` branch variant (a
  * `oneOf(…)` output writes nothing itself: each case writes its class).
  */
 export interface ValueWrite {
   readonly shape: ValueShape;
-  /** Written by `caseOf(XDto)`: the switch read it to choose the branch (#270 AC19). */
+  /** Written by a `.toOneOf([…])` branch: the switch read it to choose the branch (#270 AC19). */
   readonly isCase: boolean;
   /**
    * A typed slice (#1288b): `listOf(V)` cut from the polymorphic `listOf(A, B, …)` the same step
@@ -66,17 +66,17 @@ export const valueWrite = (shape: ValueShape, isCase: boolean): ValueWrite => ({
 /** One target of a launch (#273): its node, how many copies, and whether it may be missing. */
 export interface LaunchBranch {
   readonly node: ComponentName;
-  /** How many times the launch lists it (`toParallelAgents(CriticAgent, CriticAgent)`: 2). */
+  /** How many times the launch lists it (`.inParallel([toAgent(A), toAgent(A)])`: 2). */
   readonly copies: number;
   /** What it is: a launch may mix kinds (#1279). */
   readonly kind: ParallelTargetKind;
-  /** `.onError(E, skip())` (#1279): the error classes that drop it out of the join; a router route's `Skip` is `StepFailedError`. */
+  /** `.onError(E, skip())` (#1279): the error classes that drop it out of the join. */
   readonly skip: readonly ErrorClass[];
   /** Listed with different `skip()`s: `[launch.skip-differs]`. */
   readonly skipDiffers?: true;
-  /** Its router route is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip`, or it is `skip()`ped: the join may lack it. */
+  /** A branch a router chooses, or one that is `skip()`ped: the join may lack it. */
   readonly isOptional: boolean;
-  /** Its router route is `SpawnPolicy.Always` + `FailurePolicy.FailFast` (or no router): it runs. */
+  /** Neither chosen by a router nor `skip()`ped: it runs. */
   readonly alwaysRuns: boolean;
 }
 
@@ -84,10 +84,10 @@ export interface LaunchBranch {
 export interface FlowLaunch {
   /** The launching step: an agent, an action, a start or a router. */
   readonly launcher: ComponentName;
-  /** How a message names the launch's call: `toParallelAgents`, `inParallel`, `forEachItem`. */
+  /** How a message names the launch's call: `inParallel`, `forEachItem`. */
   readonly call: string;
-  /** `.inParallel([…])` / `.forEachItem(…)`; absent for the older `.toParallel…(…)`. */
-  readonly form?: "in-parallel" | "for-each-item";
+  /** `.inParallel([…])` / `.forEachItem(…)`. */
+  readonly form: "in-parallel" | "for-each-item";
   /** Distinct targets, in the order first listed. */
   readonly branches: readonly LaunchBranch[];
   /** The targets as listed, repeats included. */
@@ -101,7 +101,7 @@ export interface FlowLaunch {
   readonly takeFirst?: number;
   /** `toRouter(R).chooseMany([…])` (#1279b): the router `launcher` is, and the targets it picks among. */
   readonly chooser?: { readonly routes: readonly ComponentName[] };
-  /** Launched right after a router: its routes' policies apply. */
+  /** A `toRouter(R).chooseMany([…])` launch: the router decides which branches run. */
   readonly isRouterLaunch: boolean;
   /** `.arbitratedBy(A)` (#279, #1282): the one arbiter each answer passes. */
   readonly arbitratedBy?: ArbiterClass;
@@ -137,7 +137,7 @@ export interface FlowEdge {
    */
   readonly writes: readonly ValueWrite[];
   /**
-   * `EdgeKind.Case`: what the runtime picks the branch by — the class name of the DTO a `.switch` /
+   * `EdgeKind.Case`: what the runtime picks the branch by — the class name of the DTO a
    * `.toOneOf` branch takes, the component name of the child finish an `.onFinish(F, …)` takes (#1275).
    */
   readonly caseKey?: string;

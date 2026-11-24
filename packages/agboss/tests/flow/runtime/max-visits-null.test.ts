@@ -20,9 +20,11 @@ import {
   DraftKitAgent,
   KitWorkflowStart,
   SendKitAction,
+  TakeApprovalKitAction,
+  TakeChangesKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { onAgent, caseOf, onStart } from "../fixtures/paths.js";
+import { onAgent, onStart, toAgent, toAction } from "../fixtures/paths.js";
 import { inline } from "../../../src/index.js";
 
 @Agent({
@@ -51,10 +53,10 @@ class NullBoundReviewAgent {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(NullBoundReviewAgent),
-    onAgent(NullBoundReviewAgent).switch(
-      caseOf(ChangesRequestedDto).toAgent(NullBoundEditAgent).toAgent(NullBoundReviewAgent),
-      caseOf(DraftApprovedDto).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
-    ),
+    onAgent(NullBoundReviewAgent).toOneOf([
+      toAction(TakeChangesKitAction).toAgent(NullBoundEditAgent).toAgent(NullBoundReviewAgent),
+      toAction(TakeApprovalKitAction).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+    ]),
   ],
 })
 class NullBoundLoopWorkflow {}

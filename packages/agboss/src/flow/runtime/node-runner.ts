@@ -26,7 +26,7 @@ export interface NodeOutcome {
   readonly value?: NodeValue;
   /** The node id a router chose. */
   readonly route?: string;
-  /** The `OnDemand` targets (node ids) a router before a launch chose to launch (#273). */
+  /** The routes (node ids) a router of `chooseMany([…])` chose to launch (#273). */
   readonly launch?: readonly string[];
   /** A finish: the execution's output DTO. */
   readonly finish?: { readonly output: unknown };

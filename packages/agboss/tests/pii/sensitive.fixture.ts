@@ -17,7 +17,7 @@ import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 
 /** Who the execution talks to: identity, marked for PII. */
@@ -103,7 +103,8 @@ export class DeskRouter {}
   flow: [
     onStart(DeskStart)
       .toRouter(DeskRouter)
-      .chooseOne(route(DeskAgent).toFinish(DeskFinish), route(HandOverFinish)),
+      .onRoute(toAgent(DeskAgent).toFinish(DeskFinish))
+      .onRoute(toFinish(HandOverFinish)),
   ],
   defaults: { models: { temperature: 0 } },
 })

@@ -261,7 +261,7 @@ describe("AC12: one arbiter per launch — hybrid, inParallel, forEachItem, canc
   );
 
   arbitrated(
-    ".inParallel([…]) takes .arbitratedBy(A) and a quorum, as .toParallelAgents does (#1282)",
+    ".inParallel([…]) takes .arbitratedBy(A) and a quorum, as .inParallel does (#1282)",
     async ({ app, mockLlm }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(11));
       mockLlm(RisksPanelAgent).thenReturn(score(6));

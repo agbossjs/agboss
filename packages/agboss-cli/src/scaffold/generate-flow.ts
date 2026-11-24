@@ -20,7 +20,7 @@ import type { Changes } from "./write.js";
 const classNames = (graph: WorkflowGraph, decorator: string): string[] =>
   ofKind(graph, decorator).map((c) => c.className);
 
-/** The router that chooses the agents: its `.toRouter(R).chooseOne(route(…)…)` in the flow (#272). */
+/** The router that chooses the agents: its `.toRouter(R).onRoute(…)`s in the flow (#272). */
 function starRouterOf(graph: WorkflowGraph): Component {
   const routers = ofKind(graph, "Router").filter(
     (r) => starCalls(graph.flow, r.className) !== undefined,
@@ -29,7 +29,7 @@ function starRouterOf(graph: WorkflowGraph): Component {
   if (router === undefined || routers.length > 1) {
     const found = routers.length === 0 ? "no" : routers.map((r) => r.className).join(", ");
     throw new ScaffoldError(
-      `${graph.module.path}: expected one router choosing the agents (.toRouter(Router).chooseOne(route(…)…)), found ${found} — add the agent by hand`,
+      `${graph.module.path}: expected one router choosing the agents (.toRouter(Router).onRoute(…)), found ${found} — add the agent by hand`,
     );
   }
   return router;
@@ -38,7 +38,7 @@ function starRouterOf(graph: WorkflowGraph): Component {
 /**
  * `agboss g agent <name>-agent --workflow <name>-workflow`: the agent and its prompt next to the workflow's agents; the
  * agent joins the router's choice — a route in `@Router({ routes })` (before a finish route) and
- * `route(Agent).toFinish(Finish)` in the flow's `chooseOne(…)`, the two lists the same (#272 AC6).
+ * `.onRoute(toAgent(Agent).toFinish(Finish))` in the flow, the two lists the same (#272 AC6).
  * Resolved from the workflow module, whatever the layout.
  */
 export function planAgent(root: string, name: string, o: GenerateOptions): Changes {

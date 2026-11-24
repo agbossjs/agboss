@@ -262,10 +262,7 @@ describe("#1366: the routers of a node", () => {
 
     expect(router).toStrictEqual({
       decidedBy: "code",
-      routes: [
-        { target: "outline-workflow", spawn: expect.anything(), failure: expect.anything() },
-        { target: "outline-agent", spawn: expect.anything(), failure: expect.anything() },
-      ],
+      routes: [{ target: "outline-workflow" }, { target: "outline-agent" }],
     });
   });
 

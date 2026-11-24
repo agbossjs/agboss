@@ -1,4 +1,4 @@
-import { onStart, route } from "../../../src/flow/builder.js";
+import { onStart, toAgent, toFinish } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -64,13 +64,19 @@ export class LazyOrderFinish {}
 /** What the router decides on, by its generated table: the same type with or without a thunk. */
 export type LazyDeskRoute = Route<LazyDeskRouter>;
 
-const desk = onStart(LazyWorkflowStart).toRouter(LazyDeskRouter);
+const desk = onStart(LazyWorkflowStart)
+  .toRouter(LazyDeskRouter);
 
 @Workflow({
   name: "lazy-workflow",
   version: "1.0.0",
   flow: [
-    desk.chooseOne(route(LazyIntakeAgent).toFinish(LazyOrderFinish), route(LazyNoOrderFinish)),
+    desk
+      .onRoute(
+        toAgent(LazyIntakeAgent)
+          .toFinish(LazyOrderFinish),
+      )
+      .onRoute(toFinish(LazyNoOrderFinish)),
   ],
 })
 export class LazyWorkflow {}

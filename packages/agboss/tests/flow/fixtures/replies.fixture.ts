@@ -34,7 +34,7 @@ import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/i
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { onStart } from "./paths.js";
+import { onStart, toWorkflow } from "./paths.js";
 
 /**
  * #267 PR 3 — free-text replies: a payout approved by a finance desk that passes the manager's
@@ -365,7 +365,11 @@ export class TreasuryWorkflowFinish {}
 @Workflow({
   name: "treasury-workflow",
   version: "1.0.0",
-  flow: [onStart(TreasuryWorkflowStart).toAgent(TreasurerAgent).toFinish(TreasuryWorkflowFinish)],
+  flow: [
+    onStart(TreasuryWorkflowStart)
+      .toAgent(TreasurerAgent)
+      .toFinish(TreasuryWorkflowFinish),
+  ],
   defaults: { tools: { maxToolCalls: 3 } },
   memory: Window2Memory,
   providers: [ExpenseButtonCodes],
@@ -413,7 +417,11 @@ export class TreasuryBatchWorkflowStart {}
 })
 export class SplitRequestsAction implements ActionHandler<SplitRequestsAction> {
   execute(input: InputOf<SplitRequestsAction>): Promise<OutputOf<SplitRequestsAction>> {
-    return Promise.resolve(input.message.value.text.split("\n").map((text) => ({ text })));
+    return Promise.resolve(
+      input.message.value.text
+        .split("\n")
+        .map((text) => ({ text })),
+    );
   }
 }
 
@@ -440,7 +448,7 @@ export class TreasuryBatchWorkflowFinish {}
   flow: [
     onStart(TreasuryBatchWorkflowStart)
       .toAction(SplitRequestsAction)
-      .toParallelWorkflows(TreasuryWorkflow, { maxConcurrency: 2, maxItems: 3 })
+      .forEachItem(toWorkflow(TreasuryWorkflow), { takeFirst: 3, maxConcurrency: 2 })
       .join()
       .toAgent(BatchSummaryAgent)
       .toFinish(TreasuryBatchWorkflowFinish),

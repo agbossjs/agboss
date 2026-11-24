@@ -5,19 +5,19 @@ Read this before you design a workflow, split one, or write its DTOs. The flow g
 
 ## Pick the primitive
 
-| The step must…                                                         | Use                                                                             | Not                                            |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------- |
-| understand or write language, decide on meaning, use tools in a loop   | `@Agent` — a model, a prompt, `tools`, an `output` DTO                          | an action that calls a model by hand           |
-| run deterministic code on the path: save, charge, compute, call an API | `@Action` — `execute(input)`, no model, cost 0 unless it records spend          | a tool nobody but the flow calls               |
-| be callable by an agent zero, one or many times inside its turn        | `@Tool` in the agent's `tools`                                                  | an action (the flow calls it exactly once)     |
-| choose the next step **by data** (a number, a flag, a lookup)          | `@Router({ decidedBy: DecidedBy.Code })` + `route(input)`                       | a model router asked "is total > 1000?"        |
-| choose the next step **by meaning** of text it has not produced        | `@Router({ decidedBy: DecidedBy.Model, model: "typesafe/jev-1.13" })`           | a chat agent whose only job is to pick         |
-| let the agent that did the work say which outcome it is                | `output: oneOf(ADto, BDto)` + `.switch(caseOf(…)…)`                             | a second model call through a router after it  |
-| repeat a sub-process per item, give it its own branches and failures   | a child `@Workflow` (`.toWorkflow(W)`, `.toParallelWorkflows(W, { maxItems })`) | one giant flow with copied paths               |
-| ask several agents and combine their answers                           | `.toParallelAgents(…)` + `.join()` / `.joinQuorum(…)` (reference 02)            | one agent prompted to "think as three experts" |
-| wait for a person or a system before a side effect                     | a `@Tool({ channel })` (reference 05)                                           | an action that polls                           |
-| stop unsafe input or output                                            | `@InputGuardrail` / `@OutputGuardrail` (reference 07)                           | an agent prompt that says "refuse if …"        |
-| check an answer's quality and retry it                                 | `@Judge` in the agent's `judges` (reference 03)                                 | a reviewer agent for a yes / no check          |
+| The step must…                                                         | Use                                                                                  | Not                                            |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| understand or write language, decide on meaning, use tools in a loop   | `@Agent` — a model, a prompt, `tools`, an `output` DTO                               | an action that calls a model by hand           |
+| run deterministic code on the path: save, charge, compute, call an API | `@Action` — `execute(input)`, no model, cost 0 unless it records spend               | a tool nobody but the flow calls               |
+| be callable by an agent zero, one or many times inside its turn        | `@Tool` in the agent's `tools`                                                       | an action (the flow calls it exactly once)     |
+| choose the next step **by data** (a number, a flag, a lookup)          | `@Router({ decidedBy: DecidedBy.Code })` + `route(input)`                            | a model router asked "is total > 1000?"        |
+| choose the next step **by meaning** of text it has not produced        | `@Router({ decidedBy: DecidedBy.Model, model: "typesafe/jev-1.13" })`                | a chat agent whose only job is to pick         |
+| let the agent that did the work say which outcome it is                | `output: oneOf(ADto, BDto)` + `.toOneOf([…])`                                        | a second model call through a router after it  |
+| repeat a sub-process per item, give it its own branches and failures   | a child `@Workflow` (`.toWorkflow(W)`, `.forEachItem(toWorkflow(W), { takeFirst })`) | one giant flow with copied paths               |
+| ask several agents and combine their answers                           | `.inParallel([…])` + `.join()` / `.joinQuorum(…)` (reference 02)                     | one agent prompted to "think as three experts" |
+| wait for a person or a system before a side effect                     | a `@Tool({ channel })` (reference 05)                                                | an action that polls                           |
+| stop unsafe input or output                                            | `@InputGuardrail` / `@OutputGuardrail` (reference 07)                                | an agent prompt that says "refuse if …"        |
+| check an answer's quality and retry it                                 | `@Judge` in the agent's `judges` (reference 03)                                      | a reviewer agent for a yes / no check          |
 
 Rules of thumb:
 
@@ -201,7 +201,7 @@ const MAX_SAVED_JOBS = 10;
   description: "Saves a short list, hands a long one to a person",
   decidedBy: DecidedBy.Code,
   input: { shortlist: ShortlistDto },
-  routes: [{ target: SaveShortlistAction }, { target: TooManyJobsWorkflowFinish }],
+  routes: [SaveShortlistAction, TooManyJobsWorkflowFinish],
 })
 export class ShortlistSizeRouter implements RouterHandler<ShortlistSizeRouter> {
   route(input: InputOf<ShortlistSizeRouter>): Route<ShortlistSizeRouter> {
@@ -226,7 +226,7 @@ export class JobSearchWorkflowStart {}
 
 ```ts file=src/shortlist/workflows/shortlist/shortlist.workflow.ts
 // workflows/shortlist/shortlist.workflow.ts — the paths: one call per line
-import { Workflow, caseOf, oneOf, route, onStart } from "@agboss/core";
+import { Workflow, oneOf, onStart, toAgent, toRouter, toFinish, toAction } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SaveShortlistAction } from "../../actions/save-shortlist.action.js";
 import { ScreeningAgent } from "../../agents/screening/screening.agent.js";
@@ -246,17 +246,15 @@ import { TooManyJobsWorkflowFinish } from "./too-many-jobs.workflow-finish.js";
   flow: [
     onStart(JobSearchWorkflowStart)
       .toAgent(ScreeningAgent)
-      .switch(
-        caseOf(ShortlistDto)
-          .toRouter(ShortlistSizeRouter)
-          .chooseOne(
-            route(SaveShortlistAction)
+      .toOneOf([
+        toRouter(ShortlistSizeRouter)
+          .onRoute(
+            toAction(SaveShortlistAction)
               .toFinish(ShortlistSavedWorkflowFinish),
-            route(TooManyJobsWorkflowFinish),
-          ),
-        caseOf(NoMatchDto)
-          .toFinish(NoMatchWorkflowFinish),
-      ),
+          )
+          .onRoute(toFinish(TooManyJobsWorkflowFinish)),
+        toFinish(NoMatchWorkflowFinish),
+      ]),
   ],
   executionLimits: { maxSteps: 3 },
   providers: [ShortlistStoreService],
@@ -322,7 +320,7 @@ export class ShortlistApplication {}
 What this shows:
 
 - **The scope, not arguments.** `SaveShortlistAction` and `ShortlistSizeRouter` read `shortlist`
-  because the step's `oneOf(ShortlistDto, NoMatchDto)` output and `caseOf(ShortlistDto)` put a `ShortlistDto`
+  because the step's `oneOf(ShortlistDto, NoMatchDto)` output and the `.toOneOf([…])` branch that reads it put a `ShortlistDto`
   on that path; a field no path brings is `[input.missing-on-path]`. Each input field arrives as
   `{ producer, value }` — `input.shortlist.value.jobs`.
 - **A marker class for an outcome.** `NoMatchDto` has no fields: the class is the answer, and the
@@ -396,7 +394,7 @@ export class ScreeningResultDto {
 // ✓ instead: ShortlistDto | NoMatchDto as `oneOf(…)`, ShortlistSavedDto after the save
 ```
 
-A God DTO hides the branches from the flow (no `switch`, no `[flow.switch-not-exhaustive]`),
+A God DTO hides the branches from the flow (no `switch`, no `[flow.one-of-not-exhaustive]`),
 forces `if (x.found)` checks in every reader, and makes outdating (reference 02) useless.
 
 ## Files, images and large blobs

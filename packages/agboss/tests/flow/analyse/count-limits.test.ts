@@ -28,7 +28,7 @@ import {
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { onAgent, caseOf, onStart } from "../fixtures/paths.js";
+import { onAgent, onStart, toAgent, toAction } from "../fixtures/paths.js";
 
 const BAD: readonly (readonly [string, unknown, string])[] = [
   ["NaN", Number.NaN, "NaN"],
@@ -63,7 +63,7 @@ function loopOf(
     description: "Edits the draft",
     prompt: inline("Edit it."),
     model: "moonshotai/kimi-k2.6",
-    input: { draft: OfferDraftDto },
+    input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
     output: OfferDraftDto,
     executionLimits: editor as never,
   })
@@ -84,10 +84,10 @@ function loopOf(
     version: "1.0.0",
     flow: [
       onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(LimitReviewAgent),
-      onAgent(LimitReviewAgent).switch(
-        caseOf(ChangesRequestedDto).toAgent(LimitEditAgent).toAgent(LimitReviewAgent),
-        caseOf(DraftApprovedDto).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
-      ),
+      onAgent(LimitReviewAgent).toOneOf([
+        toAgent(LimitEditAgent).toAgent(LimitReviewAgent),
+        toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+      ]),
     ],
     ...workflow,
   })

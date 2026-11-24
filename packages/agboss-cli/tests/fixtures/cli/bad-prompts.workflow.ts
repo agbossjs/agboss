@@ -10,7 +10,7 @@ import {
 } from "../../../../agboss/src/index.js";
 import { WorkflowStartTextDto } from "../../../../agboss/src/dto/index.js";
 import { testDefaults } from "../../../../agboss/tests/helpers.js";
-import { route, onStart } from "../../../../agboss/tests/helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../../../agboss/tests/helpers/flow.js";
 import {
   NoAnswer,
   TestAnswer,
@@ -48,7 +48,13 @@ export class Main {}
   version: "1.0.0",
   defaults: testDefaults,
   flow: [
-    onStart(TestChat).toRouter(Main).chooseOne(route(Scout).toFinish(TestAnswer), route(NoAnswer)),
+    onStart(TestChat)
+      .toRouter(Main)
+      .onRoute(
+        toAgent(Scout)
+          .toFinish(TestAnswer),
+      )
+      .onRoute(toFinish(NoAnswer)),
   ],
   promptVariables: { boards: "LinkedIn, AllJobs" },
 })

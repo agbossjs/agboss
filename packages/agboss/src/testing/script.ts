@@ -124,10 +124,10 @@ export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCa
 
 /**
  * What a model router chose (Q55), checked against the router `mockLlm(R)` scripts: after
- * `.chooseOne(…)` exactly one target — `routeTo(ProfilerAgent)`, `routeTo(ChatWorkflowFinish, {
- * cost })`; before `.toParallelAgents(…)` the `OnDemand` targets it launches — `routeTo()` (only
- * with an `Always` route), `routeTo(CultureScoreAgent)`. A target outside the router's routes, an
- * `Always` target or a wrong count does not compile.
+ * `.onRoute(…)` exactly one target — `routeTo(ProfilerAgent)`, `routeTo(ChatWorkflowFinish, {
+ * cost })`; in `toRouter(R).chooseMany([…])` the targets it launches — `routeTo()` (none),
+ * `routeTo(CultureScoreAgent)`. A target outside the router's routes or a wrong count does not
+ * compile.
  */
 export function routeTo<const TTargets extends readonly Class[]>(
   ...targets: TTargets

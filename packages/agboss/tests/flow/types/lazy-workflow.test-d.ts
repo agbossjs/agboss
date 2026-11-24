@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
-import { caseOf, onStart, onWorkflow, toAction, toWorkflow } from "../../../src/flow/builder.js";
+import { onStart, onWorkflow, toAction, toWorkflow, toFinish } from "../../../src/flow/builder.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import type { InputOf } from "../../../src/flow/generated-types.js";
 import type { ClassOf } from "../../../src/flow/target-ref.js";
@@ -37,18 +37,18 @@ describe("#1287: a thunk is a workflow target", () => {
       .toAgent(UnitCharterAgent)
       .onError(
         StepFailedError,
-        toWorkflow(() => OrgRetryWorkflow).switch(
-          caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-          caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
-        ),
+        toWorkflow(() => OrgRetryWorkflow).toOneOf([
+          toFinish(TeamChartWorkflowFinish),
+          toFinish(OrgChartFailedWorkflowFinish),
+        ]),
       )
       .toFinish(TeamChartWorkflowFinish);
     const outcomes = [
-      caseOf(TeamChartDto).toFinish(TeamChartWorkflowFinish),
-      caseOf(OrgChartFailedDto).toFinish(OrgChartFailedWorkflowFinish),
+      toFinish(TeamChartWorkflowFinish),
+      toFinish(OrgChartFailedWorkflowFinish),
     ] as const;
-    onWorkflow(() => OrgDrillWorkflow).switch(...outcomes);
-    onWorkflow(OrgDrillWorkflow).switch(...outcomes);
+    onWorkflow(() => OrgDrillWorkflow).toOneOf(outcomes);
+    onWorkflow(OrgDrillWorkflow).toOneOf(outcomes);
 
     expectTypeOf(retry).toHaveProperty("steps");
   });

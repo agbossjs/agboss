@@ -20,12 +20,7 @@ export type QuestionExpiries = ReadonlyMap<Class, readonly (TimeSpan | undefined
 
 function collect(steps: readonly Step[], found: Map<Class, (TimeSpan | undefined)[]>): void {
   for (const step of steps) {
-    if (
-      step.kind === StepKind.Launch ||
-      step.kind === StepKind.InParallel ||
-      step.kind === StepKind.ForEachItem
-    )
-      continue;
+    if (step.kind === StepKind.InParallel || step.kind === StepKind.ForEachItem) continue;
     if (step.kind === StepKind.To) {
       if (step.targetKind !== NodeKind.Question) continue;
       found.set(step.target, [...(found.get(step.target) ?? []), step.expiresIn]);

@@ -84,14 +84,19 @@ const defaults = {
 @Workflow({
   name: "payments-workflow",
   version: "1.0.0",
-  flow: [onStart(ChatStart).toAgent(Cashier).toFinish(Reply)],
+  flow: [
+    onStart(ChatStart)
+      .toAgent(Cashier)
+      .toFinish(Reply),
+  ],
   defaults,
   memory: Window2Memory,
   providers: [ApprovalDesk, PaymentLog],
 })
 export class Payments implements WorkflowDefinition {
   settings(): WorkflowSettings {
-    return WorkflowSettings.builder().build();
+    return WorkflowSettings.builder()
+      .build();
   }
 }
 
@@ -146,7 +151,12 @@ export class Editor {}
 @Workflow({
   name: "capped-workflow",
   version: "1.0.0",
-  flow: [onStart(ChatStart).toAgent(Drafter).toAgent(Editor).toFinish(Reply)],
+  flow: [
+    onStart(ChatStart)
+      .toAgent(Drafter)
+      .toAgent(Editor)
+      .toFinish(Reply),
+  ],
   defaults,
   memory: Window2Memory,
 })

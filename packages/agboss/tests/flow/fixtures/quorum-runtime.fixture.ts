@@ -54,7 +54,7 @@ const PANEL = [SkillsPanelAgent, RisksPanelAgent, HirePanelAgent] as const;
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(...PANEL)
+      .inParallel(PANEL.map((agent) => toAgent(agent)))
       .joinQuorum({ min: 2 })
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
@@ -67,7 +67,7 @@ export class QuickPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(...PANEL)
+      .inParallel(PANEL.map((agent) => toAgent(agent)))
       .arbitratedBy(InRangeArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
       .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
@@ -83,7 +83,7 @@ export class CheckedPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(...PANEL)
+      .inParallel(PANEL.map((agent) => toAgent(agent)))
       .arbitratedBy(InRangeArbiter)
       .joinQuorum({ min: 2 })
       .toAgent(PanelSummaryAgent)
@@ -97,7 +97,7 @@ export class StrictPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(...PANEL)
+      .inParallel(PANEL.map((agent) => toAgent(agent)))
       .arbitratedBy(PanelModelArbiter)
       .joinQuorum({ min: 2, max: 3 })
       .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
@@ -112,7 +112,7 @@ export class ModelPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(...PANEL)
+      .inParallel(PANEL.map((agent) => toAgent(agent)))
       .arbitratedBy(PanelChatArbiter)
       .joinQuorum({ min: 2, max: 3 })
       .toAgent(PanelSummaryAgent)
@@ -127,7 +127,7 @@ export class ChatPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(...PANEL)
+      .inParallel(PANEL.map((agent) => toAgent(agent)))
       .arbitratedBy(HybridPanelArbiter)
       .joinQuorum({ min: 1, max: 3 })
       .onError(ArbiterError, toFinish(PanelUnjudgedWorkflowFinish))
@@ -176,7 +176,7 @@ export class EachItemPanelWorkflow {}
   executionLimits: { maxSteps: 10 },
   flow: [
     onStart(PanelItemsWorkflowStart)
-      .toParallelAgents(SkillsPanelAgent, { maxItems: 5 })
+      .forEachItem(toAgent(SkillsPanelAgent), { takeFirst: 5 })
       .arbitratedBy(EvenItemArbiter)
       .joinQuorum({ min: 3 })
       .toAgent(PanelSummaryAgent)
@@ -190,7 +190,7 @@ export class ItemPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(SkillsPanelAgent, SkillsPanelAgent, SkillsPanelAgent)
+      .inParallel([toAgent(SkillsPanelAgent), toAgent(SkillsPanelAgent), toAgent(SkillsPanelAgent)])
       .arbitratedBy(CopyArbiter)
       .joinQuorum({ min: 2, max: 3 })
       .onError(QuorumNotReachedError, toFinish(PanelFailedWorkflowFinish))
@@ -206,7 +206,7 @@ export class CopiesPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(PanelWorkflowStart)
-      .toParallelAgents(...PANEL)
+      .inParallel(PANEL.map((agent) => toAgent(agent)))
       .joinQuorum({ min: 2, max: 3, deadline: seconds(300) })
       .toAgent(PanelSummaryAgent)
       .toFinish(PanelReviewWorkflowFinish),
@@ -219,13 +219,14 @@ export class RecoveryPanelWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(DealPanelWorkflowStart)
-      .toParallelAgents(LegalPanelAgent, CriticPanelAgent, FastPanelAgent)
+      .inParallel([toAgent(LegalPanelAgent), toAgent(CriticPanelAgent), toAgent(FastPanelAgent)])
       .joinQuorumGroups({ deadline: seconds(60) })
       .onError(QuorumNotReachedError, toFinish(NoQuorumPanelWorkflowFinish))
       .onGroup(
         [LegalPanelAgent, CriticPanelAgent],
         { priority: 1 },
-        toAgent(DealReportPanelAgent).toFinish(DealReportPanelWorkflowFinish),
+        toAgent(DealReportPanelAgent)
+          .toFinish(DealReportPanelWorkflowFinish),
       )
       .onGroup([CriticPanelAgent], { priority: 2 }, toFinish(SecondOpinionPanelWorkflowFinish))
       .onGroup([FastPanelAgent], { priority: 3 }, toFinish(QuickRejectPanelWorkflowFinish)),

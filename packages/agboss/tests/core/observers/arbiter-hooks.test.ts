@@ -25,7 +25,7 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { decideWith, replyWith, testWith } from "../../../src/testing/index.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { execute, onStart } from "../../helpers/flow.js";
+import { execute, onStart, toAgent } from "../../helpers/flow.js";
 
 const EMAIL = "alice@example.com";
 
@@ -85,7 +85,7 @@ class RotaFinish {}
   version: "1.0.0",
   flow: [
     onStart(RotaStart)
-      .toParallelAgents(RotaAnswerAgent, RotaAnswerAgent)
+      .inParallel([toAgent(RotaAnswerAgent), toAgent(RotaAnswerAgent)])
       .arbitratedBy(RotaArbiter)
       .joinQuorum({ min: 2 })
       .toAction(RotaOwnersAction)

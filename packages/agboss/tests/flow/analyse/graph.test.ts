@@ -14,9 +14,11 @@ import {
   ReviewKitAgent,
   SecondKitWorkflowStart,
   SendKitAction,
+  TakeApprovalKitAction,
+  TakeChangesKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { onAgent, caseOf, onStart } from "../fixtures/paths.js";
+import { onAgent, onStart, toAgent, toAction } from "../fixtures/paths.js";
 import { inline } from "../../../src/index.js";
 
 /** The graph rules that stay (#272 AC11, AC14): all at once, before any model call. */
@@ -26,10 +28,10 @@ const codesOf = (workflow: abstract new () => unknown): readonly string[] =>
 
 const reviewPaths = (editor: typeof EditKitAgent | typeof PolishKitAgent) => [
   onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
-  onAgent(ReviewKitAgent).switch(
-    caseOf(ChangesRequestedDto).toAgent(editor).toAgent(ReviewKitAgent),
-    caseOf(DraftApprovedDto).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
-  ),
+  onAgent(ReviewKitAgent).toOneOf([
+    toAction(TakeChangesKitAction).toAgent(editor).toAgent(ReviewKitAgent),
+    toAction(TakeApprovalKitAction).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+  ]),
 ];
 
 @Workflow({ name: "bounded-loop-workflow", version: "1.0.0", flow: reviewPaths(EditKitAgent) })
@@ -44,10 +46,10 @@ class UnboundedLoopWorkflow {}
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
     onStart(SecondKitWorkflowStart).toAgent(EditKitAgent),
-    onAgent(ReviewKitAgent).switch(
-      caseOf(ChangesRequestedDto).toAgent(EditKitAgent),
-      caseOf(DraftApprovedDto).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
-    ),
+    onAgent(ReviewKitAgent).toOneOf([
+      toAction(TakeChangesKitAction).toAgent(EditKitAgent),
+      toAction(TakeApprovalKitAction).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+    ]),
     onAgent(EditKitAgent).toAgent(ReviewKitAgent),
   ],
 })
@@ -58,10 +60,10 @@ class TwoEntryCycleWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
-    onAgent(ReviewKitAgent).switch(
-      caseOf(ChangesRequestedDto).toAgent(PolishKitAgent).toAgent(ReviewKitAgent),
-      caseOf(DraftApprovedDto).toAction(SendKitAction),
-    ),
+    onAgent(ReviewKitAgent).toOneOf([
+      toAction(TakeChangesKitAction).toAgent(PolishKitAgent).toAgent(ReviewKitAgent),
+      toAction(TakeApprovalKitAction).toAction(SendKitAction),
+    ]),
     onAgent(EditKitAgent).toFinish(DraftKitWorkflowFinish).toFinish(DraftKitWorkflowFinish),
   ],
 })
@@ -132,7 +134,7 @@ describe("AC11: assembly reports all errors at once, before any model call", () 
       expect.arrayContaining([
         "broken-workflow: edit-kit-agent is not reachable from any workflow start — lead a path to it, or remove it from the flow",
         "broken-workflow: the path stops at send-kit-action — continue it with .to…(…), or end it with .toFinish(…); every path ends in a finish or at a shared node",
-        "broken-workflow: draft-kit-workflow-finish is a finish — nothing follows .toFinish(…) or route(…) of a finish",
+        "broken-workflow: draft-kit-workflow-finish is a finish — nothing follows .toFinish(…) or .onRoute(toFinish(…)) of a finish",
       ]),
     );
   });
@@ -142,8 +144,8 @@ describe("AC11: assembly reports all errors at once, before any model call", () 
       expect.objectContaining({
         code: "graph.cycle-without-max-visits",
         message:
-          "unbounded-loop-workflow: the cycle through polish-kit-agent, review-kit-agent has no maxVisits — set maxVisits on one of its agents or routers",
-        nodes: ["polish-kit-agent", "review-kit-agent"],
+          "unbounded-loop-workflow: the cycle through polish-kit-agent, review-kit-agent, take-changes-kit-action has no maxVisits — set maxVisits on one of its agents or routers",
+        nodes: ["polish-kit-agent", "review-kit-agent", "take-changes-kit-action"],
       }),
     ]);
   });

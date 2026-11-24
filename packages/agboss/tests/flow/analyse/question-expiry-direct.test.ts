@@ -68,18 +68,17 @@ describe("#1366: the mentions of a question", () => {
     ]);
   });
 
-  it("reads the sub-paths of a switch, a router, an onError, a join and a quorum group", () => {
+  it("reads the sub-paths of a router, an onError, a join and a quorum group", () => {
     const sub = (...steps: object[]) => ({ steps });
     const flow = flowOf(
       pathOf(
-        { kind: StepKind.Switch, cases: [{ path: sub(ask(hours(1))) }] },
-        { kind: StepKind.ChooseOne, routes: [{ path: sub(ask(hours(2))) }] },
+        { kind: StepKind.ChooseOne, routes: [{ path: sub(ask(hours(1))) }] },
+        { kind: StepKind.OneOf, branches: [sub(ask(hours(2)))] },
         { kind: StepKind.OnError, path: sub(ask(hours(3))) },
         {
           kind: StepKind.Join,
           onError: [{ path: sub(ask(hours(4))) }],
         },
-        { kind: StepKind.Launch },
       ),
     );
 

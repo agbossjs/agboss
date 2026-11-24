@@ -91,7 +91,11 @@ function declineCheckOf(where: string, placement: ChildPlacement): Class {
     name: `decline-check-${where}-workflow`,
     version: "1.0.0",
     placement,
-    flow: [onStart(Start).toAction(DeclinableChargeAction).toFinish(Finish)],
+    flow: [
+      onStart(Start)
+        .toAction(DeclinableChargeAction)
+        .toFinish(Finish),
+    ],
   })
   class Check {}
   return Check;

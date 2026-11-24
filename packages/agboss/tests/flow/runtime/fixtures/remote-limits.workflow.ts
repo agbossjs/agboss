@@ -12,7 +12,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { onStart } from "../../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import { ItemDto, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
 import {
   RemoteChecksWorkflowFinish,
@@ -41,10 +41,7 @@ export class RemoteCappedWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(RemoteCappedWorkflowStart)
-      .toParallelWorkflows(RemoteItemWorkflow, {
-        maxConcurrency: 6,
-        maxItems: 10,
-      })
+      .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 10, maxConcurrency: 6 })
       .join()
       .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),

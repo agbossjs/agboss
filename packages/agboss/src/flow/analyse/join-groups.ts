@@ -22,7 +22,7 @@ import { slotOfValue, writtenValue, type SlotKey } from "./scope.js";
 /**
  * What the join of a launch gives (#273): one value per class the branches give — `listOf(XDto)`
  * for a repeated agent, two agents with one `output` and a per-item launch; `optional(XDto)` for a
- * branch whose router route is `OnDemand` or `Skip`; nothing for an action without `output`. A
+ * branch a router chooses or a `skip()` drops; nothing for an action without `output`. A
  * branch whose output no join value can carry (a list of lists, a lone `oneOf`) is a problem.
  */
 
@@ -87,7 +87,7 @@ function groupOf(launch: FlowLaunch, gathered: Gathered): JoinGroup {
       slot,
       producers,
       isSeveral,
-      problem: `${names} gives ${label} — a join takes one class per branch; branch it with .switch(…) on its agent instead`,
+      problem: `${names} gives ${label} — a join takes one class per branch; branch it with .toOneOf([…]) on its agent instead`,
     };
   const [branch] = branches;
   return withShape(producers, branch?.isOptional === true ? optional(output) : output, false);
@@ -120,7 +120,7 @@ export function producersOfSlot(
   return group?.producers ?? launch.branches.map((branch) => branch.node).sort();
 }
 
-/** How a message names a launch: `planner-agent → toParallelAgents(researcher-agent, critic-agent)`. */
+/** How a message names a launch: `planner-agent → inParallel(researcher-agent, critic-agent)`. */
 export function launchLabel(launch: FlowLaunch): string {
   return `${launch.launcher} → ${launch.call}(${launch.listed.join(", ")})`;
 }

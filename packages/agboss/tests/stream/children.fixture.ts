@@ -11,7 +11,7 @@ import {
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { onStart } from "../helpers/flow.js";
+import { onStart, toWorkflow } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { ChildWriter } from "./agents.fixture.js";
 
@@ -90,7 +90,7 @@ class FanFinish {}
   version: "1.0.0",
   flow: [
     onStart(FanStart)
-      .toParallelWorkflows(ChildWriterWorkflow, { maxItems: 4 })
+      .forEachItem(toWorkflow(ChildWriterWorkflow), { takeFirst: 4 })
       .join()
       .toAction(FanAction)
       .toFinish(FanFinish),

@@ -37,7 +37,7 @@ function depthViolations(context: AnalysisContext, recursion: Recursion): RuleVi
 }
 
 const optionLabel = (branch: RecursiveBranch, option: string): string =>
-  isRouterBranch(branch) ? `route(${option})` : `caseOf(${option})`;
+  isRouterBranch(branch) ? `.onRoute(${option})` : `.toOneOf([…]) branch ${option}`;
 
 function exitViolations(recursion: Recursion): RuleViolation[] {
   return recursion.branches
@@ -46,7 +46,7 @@ function exitViolations(recursion: Recursion): RuleViolation[] {
       const options = branch.recursive.map((option) => optionLabel(branch, option)).join(", ");
       const message =
         `${branch.node}: every way on (${options}) launches the workflow itself — on the last level ` +
-        "(depth === maxDepth) none is left; add a caseOf(…) or route(…) that does not recurse";
+        "(depth === maxDepth) none is left; add a branch or a route that does not recurse";
       return violation("graph.recursion-without-exit", message, [branch.node]);
     });
 }

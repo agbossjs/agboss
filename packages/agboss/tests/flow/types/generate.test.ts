@@ -15,7 +15,7 @@ import {
 import { loadFlowProject } from "../../../src/loader/load-flow.js";
 import { MAX_EXACT_INPUT_SHAPES } from "../../../src/flow/types/inputs.js";
 import { RouteForm, routerAnswerText, routeTargetsOf } from "../../../src/flow/types/tables.js";
-import { DecidedBy, SpawnPolicy, type RouterOptions } from "../../../src/flow/decorators/router.js";
+import { type RouterOptions } from "../../../src/flow/decorators/router.js";
 import { ChargeResultDto, SupportIntentDto } from "../fixtures/credit-dtos.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Text } from "../../../src/dto/index.js";
@@ -34,16 +34,6 @@ const routerOptionsOf = (router: Class): RouterOptions => {
 
 const TopicsRouterOptions = routerOptionsOf(TopicsRouter);
 
-const LaunchingModelRouterOptions: RouterOptions = {
-  name: "launching-router",
-  description: "A model router before a launch",
-  decidedBy: DecidedBy.Model,
-  input: { intent: SupportIntentDto },
-  routes: [
-    { target: OrderTopicAgent, prompt: "The order" }, // no spawn: Always (the model router's default)
-    { target: RefundTopicAgent, spawn: SpawnPolicy.OnDemand, prompt: "Refunds" },
-  ],
-};
 import { FIXTURE_WORKFLOWS } from "./fixture-workflows.js";
 import { applicationDeclarationOf } from "../../../src/application/application.js";
 
@@ -118,8 +108,7 @@ describe("#270 AC13: agboss check generates .agboss/types.d.ts for the fixtures"
       "launch.item-not-read",
       "flow.unused-output",
       "input.missing-on-path",
-      "router.policy-with-choose-one",
-    ]); // the broken workflows are broken on purpose; topics-workflow keeps policies on .chooseOne(…)
+    ]); // the broken workflows are broken on purpose
     await expect(generated.text).toMatchFileSnapshot("./__snapshots__/fixtures.types.d.ts.snap");
   }, 240_000); // loads every fixture module, as the check:types step below does (#1228: see below)
 
@@ -206,17 +195,15 @@ describe("#280: Route<R> and what route() returns", () => {
     );
   });
 
-  it("before a launch Route<R> leaves Always out, by each kind's default", () => {
-    expect(routeTargetsOf(TopicsRouterOptions, RouteForm.List)).toEqual([
+  it("Route<R> is every target of the router, in either form", () => {
+    expect(routeTargetsOf(TopicsRouterOptions)).toEqual([
+      OrderTopicAgent,
       RefundTopicAgent,
       DeliveryTopicAgent,
     ]);
-    expect(routeTargetsOf(TopicsRouterOptions, RouteForm.One)).toHaveLength(3);
-    // a model router's route without spawn is Always: only the explicit OnDemand one is chosen
-    expect(routeTargetsOf(LaunchingModelRouterOptions, RouteForm.List)).toEqual([RefundTopicAgent]);
   });
 
-  it("one target after .chooseOne(…); a list before a launch, which may be empty (#1279)", () => {
+  it("one target after .onRoute(…); a list in toRouter(R).chooseMany([…]), which may be empty (#1279)", () => {
     const route = "typeof A | typeof B";
 
     expect(routerAnswerText(route, RouteForm.One)).toBe(route);

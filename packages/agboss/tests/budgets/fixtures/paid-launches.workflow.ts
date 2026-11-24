@@ -6,7 +6,7 @@ import {
   type Produced,
   Action,
 } from "../../../src/index.js";
-import { caseOf, onStart } from "../../helpers/flow.js";
+import { onStart, toAction, toWorkflow, toFinish } from "../../helpers/flow.js";
 import {
   ChargeOrderAction,
   HoldOrderAction,
@@ -39,7 +39,9 @@ export class NoteChildWorkflowFinish {}
   name: "note-child-workflow",
   version: "1.0.0",
   flow: [
-    onStart(NoteChildWorkflowStart).toAction(NoteOrderAction).toFinish(NoteChildWorkflowFinish),
+    onStart(NoteChildWorkflowStart)
+      .toAction(NoteOrderAction)
+      .toFinish(NoteChildWorkflowFinish),
   ],
 })
 export class NoteChildWorkflow {}
@@ -79,7 +81,9 @@ export class PaidItemsAction {
     readonly notes: readonly Produced<OrderNoteDto, unknown>[];
   }): Promise<OrderNoteDto> {
     return {
-      note: input.notes.map((note) => note.value.note).join("; "),
+      note: input.notes
+        .map((note) => note.value.note)
+        .join("; "),
     };
   }
 }
@@ -98,7 +102,7 @@ export class PaidItemsWorkflowFinish {}
   flow: [
     onStart(PaidItemsWorkflowStart)
       .toAction(OverspendOrdersAction)
-      .toParallelWorkflows(NoteChildWorkflow, { maxItems: 3 })
+      .forEachItem(toWorkflow(NoteChildWorkflow), { takeFirst: 3 })
       .join()
       .toAction(PaidItemsAction)
       .toFinish(PaidItemsWorkflowFinish),
@@ -118,12 +122,11 @@ export class PaidLevelWorkflowFinish {}
   flow: [
     onStart(PaidLevelWorkflowStart)
       .toAction(LevelOrderAction)
-      .switch(
-        caseOf(OrderDto)
-          .toWorkflow(() => PaidLevelWorkflow)
+      .toOneOf([
+        toWorkflow(() => PaidLevelWorkflow)
           .toFinish(PaidLevelWorkflowFinish),
-        caseOf(OrderNoteDto).toFinish(PaidLevelWorkflowFinish),
-      ),
+        toFinish(PaidLevelWorkflowFinish),
+      ]),
   ],
   executionLimits: { maxDepth: 2 },
 })
@@ -141,7 +144,7 @@ export class PaidLaunchWorkflowFinish {}
   flow: [
     onStart(PaidLaunchWorkflowStart)
       .toAction(OverspendOrderAction)
-      .toParallelActions(NoteOrderAction, MemoOrderAction)
+      .inParallel([toAction(NoteOrderAction), toAction(MemoOrderAction)])
       .join()
       .toFinish(PaidLaunchWorkflowFinish),
   ],
@@ -159,7 +162,7 @@ export class PaidRaceWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PaidRaceWorkflowStart)
-      .toParallelActions(ChargeOrderAction, NoteOrderAction)
+      .inParallel([toAction(ChargeOrderAction), toAction(NoteOrderAction)])
       .join()
       .toFinish(PaidRaceWorkflowFinish),
   ],

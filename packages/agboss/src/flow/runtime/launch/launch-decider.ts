@@ -19,7 +19,7 @@ import { decisionSpendOf } from "../../../finops/failed-decision.js";
 import { chargedCall, reportToFrame } from "../../../finops/charged-call.js";
 
 /**
- * How a model router decides the `OnDemand` routes of a parallel launch (#273 S23): one model
+ * How a model router decides the routes of a `chooseMany([…])` launch (#273 S23): one model
  * call, one independent yes/no question per route — its text the route's prompt — keyed by the
  * target's `name` in the order of `@Router({ routes })`. A decision model answers one `decide` with
  * a `Decision.boolean` per route; a chat model one answer tool with a boolean field per route (its keys
@@ -39,7 +39,7 @@ export interface DecisionVoice {
   readonly tool: { readonly name: string; readonly description: string };
 }
 
-/** One `OnDemand` route as a question. */
+/** One route as a question. */
 export interface LaunchQuestion {
   /** The target's `name`: the question's key. */
   readonly target: string;

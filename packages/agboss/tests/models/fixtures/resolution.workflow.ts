@@ -25,7 +25,7 @@ import {
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { route, onStart } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { DecisionsModelProvider } from "../../../src/models/index.js";
 import { LocalMirrorModelProvider, LocalModelProvider } from "../providers.fixture.js";
@@ -107,7 +107,10 @@ export class NowhereMemory {}
   flow: [
     onStart(ResolutionStart)
       .toRouter(NowhereRouter)
-      .chooseOne(route(NowhereAgent).toFinish(ResolutionFinish)),
+      .onRoute(
+        toAgent(NowhereAgent)
+          .toFinish(ResolutionFinish),
+      ),
   ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
@@ -141,7 +144,11 @@ export class LocalStart {}
 @Workflow({
   name: "local-workflow",
   version: "1.0.0",
-  flow: [onStart(LocalStart).toAgent(LocalAgent).toFinish(ResolutionFinish)],
+  flow: [
+    onStart(LocalStart)
+      .toAgent(LocalAgent)
+      .toFinish(ResolutionFinish),
+  ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },
@@ -189,7 +196,11 @@ export class NotInfrastructure {}
 @Workflow({
   name: "misplaced-provider-workflow",
   version: "1.0.0",
-  flow: [onStart(LocalStart).toAgent(LocalAgent).toFinish(ResolutionFinish)],
+  flow: [
+    onStart(LocalStart)
+      .toAgent(LocalAgent)
+      .toFinish(ResolutionFinish),
+  ],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "typesafe/jev-1.13" },

@@ -9,7 +9,7 @@ import { componentModelOf, type ModelResolver } from "../../models/model-resolve
 /**
  * The model routers of a workflow with their texts loaded (#272): how to choose (`prompt`) and what each route means (its prompt) — static, so the vendors' caches hold them;
  * the router's `input` reaches its model in the input message. A code router (#280) has no texts.
- * After `.chooseOne(…)` every route is a choice; hiding a launch's `Always` routes is #273's.
+ * After `.onRoute(…)` every route is a choice; hiding a launch's `Always` routes is #273's.
  */
 
 export type ModelRouterDeclaration = Declared<NodeKind.Router, ModelRouterOptions>;

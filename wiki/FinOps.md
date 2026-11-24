@@ -298,8 +298,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
   execution fails and its open undos run; the spend so far is in the ledger and the failed record).
 - **Which steps are held back** (#634): every one that can spend or have an effect — an agent, a
   router (a code one too), an action, a child workflow (`.toWorkflow`, one per item, an
-  `AnyWorker` one), a level of a recursion, each branch of a launch (`.toParallelAgents`,
-  `.toParallelActions`, `.toParallelWorkflows`, a quorum's), the action of a side path an error of
+  `AnyWorker` one), a level of a recursion, each branch of a launch (`.inParallel([…])`,
+  `.inParallel([…])`, `.forEachItem(toWorkflow(…))`, a quorum's), the action of a side path an error of
   the step took. An action that pays past the budget is followed by nothing paid: a chain of paid
   actions stops at the first one after the budget ran out. Never held back:
 
@@ -333,8 +333,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
   model call is cancelled (its partial cost is unknown and not recorded), a tool waiting on the
   signal stops, and the sibling's loop fails at its next check with `BudgetExceededError` and its
   spend so far. The branches fail with that error and the launch with it — the same for
-  `.toParallelAgents`, `.toParallelActions` (the action's `executionContext.signal`),
-  `.toParallelWorkflows` (the children's model and tool calls) and quorums — into
+  `.inParallel([…])`, `.inParallel([…])` (the action's `executionContext.signal`),
+  `.forEachItem(toWorkflow(…))` (the children's model and tool calls) and quorums — into
   `.onError(BudgetExceededError, toAction(…)… | toFinish(…))`, a side path without a model
   (`[graph.limit-handler-uses-model]`), else the execution fails. A branch that started after the
   budget was exhausted is not aborted: it stops at its own check before it runs — an action's branch
@@ -342,7 +342,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
 
 ```ts no-check: a fragment of a flow
 onStart(ReviewWorkflowStart)
-  .toParallelAgents(StyleAgent, FactsAgent, LegalAgent)
+  .inParallel([toAgent(StyleAgent), toAgent(FactsAgent), toAgent(LegalAgent)])
   .join()
   .onError(
     BudgetExceededError, // a branch's call exhausted a budget: the others were stopped at once
@@ -350,7 +350,7 @@ onStart(ReviewWorkflowStart)
       .toFinish(ReviewStoppedWorkflowFinish),
   )
   .toAgent(SummaryAgent)
-  .toFinish(ReviewWorkflowFinish)
+  .toFinish(ReviewWorkflowFinish);
 ```
 
 - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —

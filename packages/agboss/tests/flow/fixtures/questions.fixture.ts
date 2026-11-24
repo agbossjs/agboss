@@ -23,7 +23,7 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiAction } from "../../../src/pii/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { caseOf, onExternalTask, onStart, toFinish } from "./paths.js";
+import { onExternalTask, onStart, toFinish, toExternalTask } from "./paths.js";
 import { QuestionFailedError } from "../../../src/flow/runtime/errors.js";
 import { inline } from "../../../src/index.js";
 
@@ -270,10 +270,7 @@ export class OwnerPurchaseWorkflowFinish {}
       .toExternalTask(BudgetOwnerQuestion),
     onExternalTask(BudgetOwnerQuestion)
       .toAction(CheckLimitAction)
-      .switch(
-        caseOf(PurchasePlacedDto).toFinish(OwnerPurchaseWorkflowFinish),
-        caseOf(PurchaseQuestionDto).toExternalTask(BudgetOwnerQuestion),
-      ),
+      .toOneOf([toFinish(OwnerPurchaseWorkflowFinish), toExternalTask(BudgetOwnerQuestion)]),
   ],
   providers: [QuestionInbox],
 })

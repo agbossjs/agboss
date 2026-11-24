@@ -289,7 +289,7 @@ export class SupportWorkflowFinish {}
 ```
 
 ```ts file=src/support/workflows/support/support.workflow.ts
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OrderDeskA2AAgent } from "../../a2a/order-desk.a2a-agent.js";
 import { SupportHttpAuthenticator } from "../../a2a/support.http-authenticator.js";

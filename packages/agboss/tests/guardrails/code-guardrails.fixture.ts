@@ -30,7 +30,7 @@ import { Enum, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 
 /** The tenant's own field: which shop it is (its blocklist). */
 export class ShopTenantContext extends TenantContext {
@@ -191,11 +191,9 @@ export class ShopRouter {}
   flow: [
     onStart(ShopStart)
       .toRouter(ShopRouter)
-      .chooseOne(
-        route(SalesAgent).toFinish(ShopAnswer),
-        route(NotesAgent).toFinish(ShopAnswer),
-        route(FragileAgent).toFinish(ShopAnswer),
-      ),
+      .onRoute(toAgent(SalesAgent).toFinish(ShopAnswer))
+      .onRoute(toAgent(NotesAgent).toFinish(ShopAnswer))
+      .onRoute(toAgent(FragileAgent).toFinish(ShopAnswer)),
   ],
   guardrails: [CardNumberGuardrail],
   providers: [BlocklistService],

@@ -1,4 +1,4 @@
-import { onAction, caseOf, onStart } from "../../../src/flow/builder.js";
+import { onAction, onStart, toAgent, toAction } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -94,7 +94,9 @@ export class DraftHistoryAction {
   async execute(input: InputOf<DraftHistoryAction>): Promise<OutputOf<DraftHistoryAction>> {
     const { current, previous } = input.drafts;
     return {
-      changes: [...previous, current].map((draft) => draft.value.text).join(" → "),
+      changes: [...previous, current]
+        .map((draft) => draft.value.text)
+        .join(" → "),
     };
   }
 }
@@ -107,11 +109,16 @@ export class DraftHistoryAction {
 export class DraftHistoryWorkflowFinish {}
 
 export const historyPaths = [
-  onStart(HistoryOfferWorkflowStart).toAgent(FirstDraftAgent).toAction(ReviewDraftAction),
-  onAction(ReviewDraftAction).switch(
-    caseOf(ChangesRequestedDto).toAgent(DraftEditorAgent).toAction(ReviewDraftAction),
-    caseOf(DraftApprovedDto).toAction(DraftHistoryAction).toFinish(DraftHistoryWorkflowFinish),
-  ),
+  onStart(HistoryOfferWorkflowStart)
+    .toAgent(FirstDraftAgent)
+    .toAction(ReviewDraftAction),
+  onAction(ReviewDraftAction)
+    .toOneOf([
+      toAgent(DraftEditorAgent)
+        .toAction(ReviewDraftAction),
+      toAction(DraftHistoryAction)
+        .toFinish(DraftHistoryWorkflowFinish),
+    ]),
 ] as const;
 
 @Workflow({

@@ -4,7 +4,7 @@ import { declarationOf, type RouterDeclaration } from "../../../src/flow/decorat
 import { DecidedBy, Router, routesOf } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { resolveTarget } from "../../../src/flow/target-ref.js";
-import { routeTargetsOf, RouteForm } from "../../../src/flow/types/tables.js";
+import { routeTargetsOf } from "../../../src/flow/types/tables.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 import {
   LazyDeskRouter,
@@ -14,7 +14,7 @@ import {
   LazyWorkflow,
   LazyWorkflowStart,
 } from "../fixtures/lazy-router.fixture.js";
-import { onStart, route } from "../fixtures/paths.js";
+import { onStart, toAgent, toFinish } from "../fixtures/paths.js";
 
 /**
  * #1271b: `@Router({ routes })` takes `Class | (() => Class)` — the thunk for a target declared below
@@ -81,7 +81,7 @@ describe("#1271b: a router with thunk targets is one router", () => {
   });
 
   it("Route<R> lists the classes: the generated table never sees an arrow function", () => {
-    expect(routeTargetsOf(routerOptionsOf(LazyDeskRouter), RouteForm.One)).toEqual([
+    expect(routeTargetsOf(routerOptionsOf(LazyDeskRouter))).toEqual([
       LazyIntakeAgent,
       LazyNoOrderFinish,
     ]);
@@ -98,7 +98,8 @@ describe("#1271b: a router with thunk targets is one router", () => {
       flow: [
         onStart(LazyWorkflowStart)
           .toRouter(LazyDeskRouter)
-          .chooseOne(route(LazyIntakeAgent).toFinish(LazyOrderFinish), route(LazyOrderFinish)),
+          .onRoute(toAgent(LazyIntakeAgent).toFinish(LazyOrderFinish))
+          .onRoute(toFinish(LazyOrderFinish)),
       ],
     })
     class LazyMismatchWorkflow {

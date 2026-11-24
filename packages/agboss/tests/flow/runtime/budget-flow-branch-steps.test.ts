@@ -4,7 +4,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { CostReport } from "../../../src/finops/usage.js";
-import { FailurePolicy } from "../../../src/flow/decorators/router.js";
 import {
   ChildExecutionStatus,
   type EndedChildRecord,
@@ -101,7 +100,6 @@ describe("#1366: the visit a branch brings back", () => {
         copyNumber: 2,
         visitNumber: 1,
         stepsBefore: 0,
-        failure: FailurePolicy.FailFast,
       },
       children: [endedChild],
       piiTokens: { a: "1" },

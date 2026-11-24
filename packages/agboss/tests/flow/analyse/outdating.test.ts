@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { statesOf } from "../../../src/flow/analyse/dataflow.js";
 import { slotOf, SlotStatus, type SlotKey } from "../../../src/flow/analyse/scope.js";
+import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -12,7 +13,7 @@ import type { ComponentName } from "../../../src/flow/registry.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto, WorkflowStartTextDto } from "../fixtures/dtos.js";
-import { onAgent, caseOf, route, onRouter, onStart } from "../fixtures/paths.js";
+import { onAgent, onRouter, onStart, toAction, toAgent, toRouter } from "../fixtures/paths.js";
 import {
   ApprovalDto,
   CandidateProfileDto,
@@ -74,20 +75,45 @@ const messagesOf = (workflow: object, code: string): readonly string[] =>
 })
 class EditorRouter {}
 
+/** The reviewer's approving branch: it reads the approval, so the branch is told apart by it. */
+@Action({
+  name: "approve-story-action",
+  description: "Takes the approval",
+  input: { approval: ApprovalDto },
+})
+class ApproveStoryAction {
+  execute(): void {
+    // takes the value its branch is told apart by
+  }
+}
+
+/** The reviewer's revising branch: it reads the requested changes. */
+@Action({
+  name: "revise-story-action",
+  description: "Takes the requested changes",
+  input: { changes: DraftChangesDto },
+})
+class ReviseStoryAction {
+  execute(): void {
+    // takes the value its branch is told apart by
+  }
+}
+
 @Workflow({
   name: "hub-workflow",
   version: "1.0.0",
   flow: [
     onStart(StoryWorkflowStart).toRouter(EditorRouter),
-    onRouter(EditorRouter).chooseOne(
-      route(ResearcherAgent).toRouter(EditorRouter),
-      route(StoryWriterAgent).toRouter(EditorRouter),
-      route(StoryReviewerAgent).switch(
-        caseOf(ApprovalDto).toRouter(EditorRouter),
-        caseOf(DraftChangesDto).toRouter(EditorRouter),
-      ),
-      route(PublisherAgent).toFinish(StoryWorkflowFinish),
-    ),
+    onRouter(EditorRouter)
+      .onRoute(toAgent(ResearcherAgent).toRouter(EditorRouter))
+      .onRoute(toAgent(StoryWriterAgent).toRouter(EditorRouter))
+      .onRoute(
+        toAgent(StoryReviewerAgent).toOneOf([
+          toAction(ApproveStoryAction).toRouter(EditorRouter),
+          toAction(ReviseStoryAction).toRouter(EditorRouter),
+        ]),
+      )
+      .onRoute(toAgent(PublisherAgent).toFinish(StoryWorkflowFinish)),
   ],
 })
 class HubWorkflow {}
@@ -191,7 +217,7 @@ class JobsRouter {}
       .toAgent(JobScoringAgent)
       .toAgent(ProfileEditorAgent)
       .toRouter(JobsRouter)
-      .chooseOne(route(JobPickerAgent).toFinish(PickWorkflowFinish)),
+      .onRoute(toAgent(JobPickerAgent).toFinish(PickWorkflowFinish)),
   ],
 })
 class StaleRouterWorkflow {}
@@ -232,7 +258,7 @@ describe("#271 AC5: [input.missing-on-path] counts current values; the hub graph
         "story-workflow-start → editor-router → story-reviewer-agent",
     );
     expect(outdated.find((text) => text.includes("publisher-agent.approval"))).toMatch(
-      /publisher-agent\.approval \(ApprovalDto\) is outdated on the path .*story-reviewer-agent → editor-router → story-writer-agent → editor-router → publisher-agent \(built from DraftDto, replaced by story-writer-agent\)/,
+      /publisher-agent\.approval \(ApprovalDto\) is outdated on the path .*story-reviewer-agent → .*editor-router → story-writer-agent → editor-router → publisher-agent \(built from DraftDto, replaced by story-writer-agent\)/,
     );
     expect(checkWorkflow(StoryWorkflow)).toMatchObject({ errors: [] });
   });
@@ -348,13 +374,11 @@ const gateWorkflow = (name: string, publisher: object): object => {
     flow: [
       onStart(StoryWorkflowStart).toAgent(GateWriterAgent),
       onAgent(GateWriterAgent).toRouter(gate as never),
-      onRouter(gate as never).chooseOne(
-        route(StoryReviewerAgent).switch(
-          caseOf(DraftChangesDto).toAgent(GateWriterAgent),
-          caseOf(ApprovalDto).toRouter(gate as never),
-        ),
-        route(publisher as never).toFinish(StoryWorkflowFinish),
-      ),
+      onRouter(gate as never)
+        .onRoute(
+          toAgent(StoryReviewerAgent).toOneOf([toAgent(GateWriterAgent), toRouter(gate as never)]),
+        )
+        .onRoute(toAgent(publisher as never).toFinish(StoryWorkflowFinish)),
     ],
   })
   class GateWorkflow {}
@@ -430,10 +454,9 @@ const pickLoop = (name: string, picker: object): object => {
     flow: [
       onStart(ThreadWorkflowStart).toAgent(picker as never),
       onAgent(picker as never).toRouter(PickRouter),
-      onRouter(PickRouter).chooseOne(
-        route(picker as never),
-        route(ProfileEditorAgent).toFinish(PickWorkflowFinish),
-      ),
+      onRouter(PickRouter)
+        .onRoute(toAgent(picker as never))
+        .onRoute(toAgent(ProfileEditorAgent).toFinish(PickWorkflowFinish)),
     ],
   })
   class PickLoopWorkflow {}
@@ -480,10 +503,10 @@ class LoopReviewerAgent {}
     onStart(StoryWorkflowStart).toAgent(GateWriterAgent),
     onAgent(GateWriterAgent)
       .toAgent(LoopReviewerAgent)
-      .switch(
-        caseOf(DraftChangesDto).toAgent(GateWriterAgent),
-        caseOf(ApprovalDto).toAgent(ProfileEditorAgent).toFinish(StoryWorkflowFinish),
-      ),
+      .toOneOf([
+        toAgent(GateWriterAgent),
+        toAgent(ProfileEditorAgent).toFinish(StoryWorkflowFinish),
+      ]),
   ],
 })
 class BrokenReviewWorkflow {}
@@ -580,12 +603,12 @@ class ReplanRouter {}
     onAgent(OuterPlannerAgent).toAgent(NotesDraftAgent),
     onAgent(NotesDraftAgent)
       .toAgent(InnerReviewerAgent)
-      .switch(
-        caseOf(DraftChangesDto).toAgent(NotesDraftAgent),
-        caseOf(ApprovalDto)
-          .toRouter(ReplanRouter)
-          .chooseOne(route(OuterPlannerAgent), route(PublisherAgent).toFinish(StoryWorkflowFinish)),
-      ),
+      .toOneOf([
+        toAgent(NotesDraftAgent),
+        toRouter(ReplanRouter)
+          .onRoute(toAgent(OuterPlannerAgent))
+          .onRoute(toAgent(PublisherAgent).toFinish(StoryWorkflowFinish)),
+      ]),
   ],
 })
 class OneWriterWorkflow {}
@@ -596,12 +619,12 @@ class OneWriterWorkflow {}
   flow: [
     onStart(StoryWorkflowStart).toAgent(OuterPlannerAgent),
     onAgent(OuterPlannerAgent).toAgent(PlanDraftAgent).toAgent(InnerReviewerAgent),
-    onAgent(InnerReviewerAgent).switch(
-      caseOf(DraftChangesDto).toAgent(RewriteAgent).toAgent(InnerReviewerAgent),
-      caseOf(ApprovalDto)
-        .toRouter(ReplanRouter)
-        .chooseOne(route(OuterPlannerAgent), route(PublisherAgent).toFinish(StoryWorkflowFinish)),
-    ),
+    onAgent(InnerReviewerAgent).toOneOf([
+      toAgent(RewriteAgent).toAgent(InnerReviewerAgent),
+      toRouter(ReplanRouter)
+        .onRoute(toAgent(OuterPlannerAgent))
+        .onRoute(toAgent(PublisherAgent).toFinish(StoryWorkflowFinish)),
+    ]),
   ],
 })
 class TwoWritersWorkflow {}

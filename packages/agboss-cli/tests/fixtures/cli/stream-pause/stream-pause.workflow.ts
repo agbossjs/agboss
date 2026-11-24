@@ -90,7 +90,11 @@ export class PauseClerk {}
 @Workflow({
   name: "pause-workflow",
   version: "1.0.0",
-  flow: [onStart(PauseAskStart).toAgent(PauseClerk).toFinish(PauseAnswerFinish)],
+  flow: [
+    onStart(PauseAskStart)
+      .toAgent(PauseClerk)
+      .toFinish(PauseAnswerFinish),
+  ],
   defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })
 export class PauseWorkflow {}

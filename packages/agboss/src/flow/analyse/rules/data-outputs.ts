@@ -20,7 +20,7 @@ import type { AnalysisContext } from "./context.js";
  * on at least one path, a node that reads it before a newer value overwrites it, else
  * `[flow.unused-output]` (a dead store fails; a value read on one path and overwritten unread on
  * another passes). A value is identified by its producer and slot — one class is one node, so a
- * producer returns in one place. `caseOf(XDto)` is a read (the switch chose by it).
+ * producer returns in one place. a `.toOneOf([…])` branch is a read (the switch chose by it).
  */
 
 /** `producer|slot`: which value was read. */

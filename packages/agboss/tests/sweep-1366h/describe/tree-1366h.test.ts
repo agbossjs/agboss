@@ -11,7 +11,7 @@ import { describedTreeOf, treeLines } from "../../../src/describe/tree.js";
 import { WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "../../flow/fixtures/dtos.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -39,7 +39,7 @@ const applicationOver = async (...workflows: Class[]) => {
 };
 
 /** A workflow that splits a request and launches the treasury once per line, with these options. */
-const perItemWorkflow = (name: string, options: { maxItems: number; maxConcurrency?: number }) => {
+const perItemWorkflow = (name: string, options: { takeFirst: number; maxConcurrency?: number }) => {
   @WorkflowStart({
     name: `${name}-workflow-start`,
     description: "Lines",
@@ -58,7 +58,7 @@ const perItemWorkflow = (name: string, options: { maxItems: number; maxConcurren
     flow: [
       onStart(Start)
         .toAction(SplitRequestsAction)
-        .toParallelWorkflows(TreasuryWorkflow, options)
+        .forEachItem(toWorkflow(TreasuryWorkflow), options)
         .join()
         .toAgent(BatchSummaryAgent)
         .toFinish(Finish),
@@ -73,8 +73,8 @@ describe("#1366: the launch of a child in the tree", () => {
     const tree = describedTreeOf(
       await applicationOver(
         TreasuryWorkflow,
-        perItemWorkflow("items", { maxItems: 4 }),
-        perItemWorkflow("slots", { maxItems: 6, maxConcurrency: 2 }),
+        perItemWorkflow("items", { takeFirst: 4 }),
+        perItemWorkflow("slots", { takeFirst: 6, maxConcurrency: 2 }),
       ),
     );
 
@@ -91,8 +91,8 @@ describe("#1366: the launch of a child in the tree", () => {
     const lines = treeLines(
       await applicationOver(
         TreasuryWorkflow,
-        perItemWorkflow("items", { maxItems: 4 }),
-        perItemWorkflow("both", { maxItems: 5, maxConcurrency: 3 }),
+        perItemWorkflow("items", { takeFirst: 4 }),
+        perItemWorkflow("both", { takeFirst: 5, maxConcurrency: 3 }),
       ),
     );
 

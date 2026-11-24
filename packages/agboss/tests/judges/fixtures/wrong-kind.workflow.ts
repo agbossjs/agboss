@@ -8,7 +8,7 @@ import {
 import { LUNA } from "./decision-judged.workflow.js";
 import { PlainTextDto, Text } from "../../../src/dto/index.js";
 import { DecidedBy, WorkflowFinish } from "../../../src/index.js";
-import { route, onStart } from "../../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -60,7 +60,11 @@ export class DecisionJudged {}
 @Workflow({
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(ChatJudged).toFinish(Reply)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(ChatJudged)
+      .toFinish(Reply),
+  ],
   defaults: DEFAULTS,
 })
 export class ChatDeciderDesk {}
@@ -78,7 +82,11 @@ export class ChatDeciderDeskApplication {}
 @Workflow({
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
-  flow: [onStart(TaskStart).toAgent(DecisionJudged).toFinish(Reply)],
+  flow: [
+    onStart(TaskStart)
+      .toAgent(DecisionJudged)
+      .toFinish(Reply),
+  ],
   defaults: DEFAULTS,
 })
 export class DecisionChatterDesk {}
@@ -141,7 +149,11 @@ export class Triage {}
     onStart(TaskStart)
       .toAgent(Intake)
       .toRouter(Triage)
-      .chooseOne(route(Coder).toFinish(Reply), route(AsIs)),
+      .onRoute(
+        toAgent(Coder)
+          .toFinish(Reply),
+      )
+      .onRoute(toFinish(AsIs)),
   ],
   defaults: DEFAULTS,
 })

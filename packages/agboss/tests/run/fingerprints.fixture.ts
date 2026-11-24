@@ -27,7 +27,7 @@ import { Application } from "../../src/application/application.js";
 import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 
 /** What one variant changes; nothing set = the base desk. */
 export interface DeskVariant {
@@ -152,7 +152,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
     name: "desk-workflow",
     version: "1.0.0",
     flow: [
-      onStart(DeskStart).toRouter(HelpRouter).chooseOne(route(AnswerAgent).toFinish(DeskAnswer)),
+      onStart(DeskStart).toRouter(HelpRouter).onRoute(toAgent(AnswerAgent).toFinish(DeskAnswer)),
     ],
     memory: memoryOf(variant),
   })

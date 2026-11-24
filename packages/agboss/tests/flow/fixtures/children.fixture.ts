@@ -1,11 +1,12 @@
 import {
   onAction,
   onAgent,
-  caseOf,
   onStart,
   toAction,
   toFinish,
   onWorkflow,
+  toWorkflow,
+  toAgent,
 } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -122,23 +123,26 @@ export class CompanyReviewFailedWorkflowFinish {}
   name: "company-review-workflow",
   version: "1.0.0",
   flow: [
-    onStart(CompanyReviewWorkflowStart).toAgent(CompanyReviewerAgent),
+    onStart(CompanyReviewWorkflowStart)
+      .toAgent(CompanyReviewerAgent),
 
-    onStart(CompanyLinkReviewWorkflowStart).toAgent(CompanyReviewerAgent),
+    onStart(CompanyLinkReviewWorkflowStart)
+      .toAgent(CompanyReviewerAgent),
 
     // two ways in (two starts) → its own path
-    onAgent(CompanyReviewerAgent).switch(
-      caseOf(PromisingCompanyDto)
-        .toAgent(DeepDiveAgent)
-        .onError(StepFailedError, toAction(MarkReviewFailedAction))
-        .toAgent(GraderAgent)
-        .onError(StepFailedError, toAction(MarkReviewFailedAction))
-        .toFinish(CompanyGradedWorkflowFinish),
-      caseOf(CompanyRejectedDto).toFinish(CompanyRejectedWorkflowFinish),
-    ),
+    onAgent(CompanyReviewerAgent)
+      .toOneOf([
+        toAgent(DeepDiveAgent)
+          .onError(StepFailedError, toAction(MarkReviewFailedAction))
+          .toAgent(GraderAgent)
+          .onError(StepFailedError, toAction(MarkReviewFailedAction))
+          .toFinish(CompanyGradedWorkflowFinish),
+        toFinish(CompanyRejectedWorkflowFinish),
+      ]),
 
     // two ways in (two onError side paths) → its own path: the soft failure of a per-item child
-    onAction(MarkReviewFailedAction).toFinish(CompanyReviewFailedWorkflowFinish),
+    onAction(MarkReviewFailedAction)
+      .toFinish(CompanyReviewFailedWorkflowFinish),
   ],
   executionLimits: { maxSteps: 10 },
 })
@@ -204,11 +208,12 @@ export class ScreeningStoppedWorkflowFinish {}
   flow: [
     onStart(CompanyScreeningWorkflowStart)
       .toAgent(CompanyFinderAgent) // each element enters company-review-workflow-start
-      .toParallelWorkflows(CompanyReviewWorkflow, { maxConcurrency: 3, maxItems: 50 })
+      .forEachItem(toWorkflow(CompanyReviewWorkflow), { takeFirst: 50, maxConcurrency: 3 })
       .join()
       .onError(
         LimitExceededError,
-        toAction(NotifyReviewStoppedAction).toFinish(ScreeningStoppedWorkflowFinish),
+        toAction(NotifyReviewStoppedAction)
+          .toFinish(ScreeningStoppedWorkflowFinish),
       )
       .toAgent(ReviewRankerAgent)
       .toFinish(GradedShortlistWorkflowFinish),
@@ -281,11 +286,12 @@ export class ReviewErrorWorkflowFinish {}
       .toAgent(CompanyPickerAgent) // enters company-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
-      .switch(
-        caseOf(CompanyGradeDto).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
-        caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
-        caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
-      ),
+      .toOneOf([
+        toAgent(JobOfferAgent)
+          .toFinish(JobOfferWorkflowFinish),
+        toFinish(NoOfferRejectedWorkflowFinish),
+        toFinish(NoOfferFailedWorkflowFinish),
+      ]),
   ],
 })
 export class JobOfferWorkflow {}
@@ -320,11 +326,12 @@ export class LinkOfferWorkflowStart {}
     // two ways in → its own path
     onWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
-      .switch(
-        caseOf(CompanyGradeDto).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
-        caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
-        caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
-      ),
+      .toOneOf([
+        toAgent(JobOfferAgent)
+          .toFinish(JobOfferWorkflowFinish),
+        toFinish(NoOfferRejectedWorkflowFinish),
+        toFinish(NoOfferFailedWorkflowFinish),
+      ]),
   ],
 })
 export class LinkOfferWorkflow {}

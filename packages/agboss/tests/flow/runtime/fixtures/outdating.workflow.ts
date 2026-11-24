@@ -14,7 +14,7 @@ import {
   inline,
 } from "../../../../src/index.js";
 import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
-import { onAgent, caseOf, route, onStart } from "../../../helpers/flow.js";
+import { onAgent, onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { DraftChangesDto } from "../../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto } from "../../fixtures/dtos.js";
 import {
@@ -130,13 +130,16 @@ export class LoopWorkflowFinish {}
   memory: Window5Memory,
   executionLimits: { maxSteps: 30 },
   flow: [
-    onStart(LoopWorkflowStart).toAgent(LoopResearcherAgent).toAgent(LoopWriterAgent),
+    onStart(LoopWorkflowStart)
+      .toAgent(LoopResearcherAgent)
+      .toAgent(LoopWriterAgent),
     onAgent(LoopWriterAgent)
       .toAgent(LoopReviewerAgent)
-      .switch(
-        caseOf(DraftChangesDto).toAgent(LoopWriterAgent),
-        caseOf(ApprovalDto).toAgent(LoopPublisherAgent).toFinish(LoopWorkflowFinish),
-      ),
+      .toOneOf([
+        toAgent(LoopWriterAgent),
+        toAgent(LoopPublisherAgent)
+          .toFinish(LoopWorkflowFinish),
+      ]),
   ],
 })
 export class LoopWorkflow {}
@@ -243,14 +246,16 @@ export class JobsRouter {}
   memory: Window5Memory,
   executionLimits: { maxSteps: 20 },
   flow: [
-    onStart(JobsWorkflowStart).toAgent(ProfileAgent),
+    onStart(JobsWorkflowStart)
+      .toAgent(ProfileAgent),
     onAgent(ProfileAgent)
       .toAgent(SearchAgent)
       .toAgent(ScoreAgent)
       .toAgent(AdviceAgent)
       .toAgent(PickAgent)
       .toRouter(JobsRouter)
-      .chooseOne(route(ProfileAgent), route(JobsWorkflowFinish)),
+      .onRoute(toAgent(ProfileAgent))
+      .onRoute(toFinish(JobsWorkflowFinish)),
   ],
 })
 export class JobsWorkflow {}

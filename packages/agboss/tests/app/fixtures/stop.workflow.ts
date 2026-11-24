@@ -129,10 +129,12 @@ export class GateFinish {}
   version: "1.0.0",
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   providers: [Settle],
-  flow: [onStart(GateStart)
-    .toAgent(GateAgent)
-    .toAction(Settle)
-    .toFinish(GateFinish)],
+  flow: [
+    onStart(GateStart)
+      .toAgent(GateAgent)
+      .toAction(Settle)
+      .toFinish(GateFinish),
+  ],
 })
 export class GateWorkflow {}
 

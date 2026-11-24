@@ -13,7 +13,7 @@ import type { ModelRouterDeclaration } from "../../flow/runtime/routers.js";
 import { TestSetupError } from "../errors.js";
 import type { RecordedInputOf } from "../script-types.js";
 import { routerKeyOf } from "../scripted-gateway.js";
-import { checkedCodeAnswer, modelDecision } from "./router-unit.js";
+import { checkedCodeAnswer, isLaunchScript, modelDecision } from "./router-unit.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
@@ -46,8 +46,8 @@ function routerOf(router: Class): UnitRouter {
  * target outside its routes is `RouterDecisionError`). A code router (`DecidedBy.Code`) is created
  * by its own container (`deps`, `overrides`, the `environment`) and its `route(input)` runs in the
  * frame of its step, at no cost; a model router's texts are loaded and its model answers from
- * `model` — `routeTo(X)` after `.chooseOne(…)`, `decideWith(…)` / `routeTo(…)` for the `OnDemand`
- * routes of a launch — its spend as `router:<name>`.
+ * `model` — `routeTo(X)` after `.onRoute(…)`, `decideWith(…)` / `routeTo(…)` of none or several
+ * for the routes of a `chooseMany([…])` launch — its spend as `router:<name>`.
  */
 export function routerUnit<
   TRouter extends Class,
@@ -75,7 +75,7 @@ export function routerUnit<
         const answer: unknown = await instance.route(input);
         return checkedCodeAnswer(declared, answer) as RouterAnswerOf<InstanceType<TRouter>>;
       }
-      const decided = await modelDecision(site, unit.model, input);
+      const decided = await modelDecision(site, unit.model, input, isLaunchScript(options.model));
       spent.push(...decided.usage);
       // the answer checked against its routes: what the generated `RouterAnswerOf<R>` names
       const answer: unknown = decided.answer;

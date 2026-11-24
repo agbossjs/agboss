@@ -1,5 +1,4 @@
 import type { Class } from "../../../src/components/injection.js";
-import type { DtoClass } from "../../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
 import type { ValueShape } from "../../../src/flow/dto-wrappers.js";
 import {
@@ -33,22 +32,33 @@ export const onWorkflow = (source: Class): PathBuilder<PathSource> =>
 export const onExternalTask = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Question, source);
 
-export const route = (target: Class): PathBuilder => subPathFrom({ kind: "route", target });
-
-export const caseOf = (dto: DtoClass): PathBuilder => subPathFrom({ kind: "case", dto });
-
 /** A side path of `.onError(E, …)` with nothing in it yet. */
 export const side = (): PathBuilder => subPathFrom({ kind: "side" });
 
-export const toAction = (target: Class): PathBuilder => side().toAction(target);
+export { skip } from "../../../src/flow/parallel-step.js";
 
-export const toAgent = (target: Class): PathBuilder => side().toAgent(target);
+export const toAction = (target: Class): PathBuilder =>
+  side()
+    .toAction(target);
 
-export const toFinish = (target: Class): PathBuilder => side().toFinish(target);
+export const toRouter = (target: Class): PathBuilder =>
+  side()
+    .toRouter(target);
+
+export const toAgent = (target: Class): PathBuilder =>
+  side()
+    .toAgent(target);
+
+export const toFinish = (target: Class): PathBuilder =>
+  side()
+    .toFinish(target);
 
 /** The side path `.onError(E, toExternalTask(Q)…)` (#910). */
 export const toExternalTask = (target: Class, options?: unknown): PathBuilder =>
-  side().toExternalTask(target, options);
+  side()
+    .toExternalTask(target, options);
 
 /** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
-export const toWorkflow = (target: Class): PathBuilder => side().toWorkflow(target);
+export const toWorkflow = (target: Class): PathBuilder =>
+  side()
+    .toWorkflow(target);

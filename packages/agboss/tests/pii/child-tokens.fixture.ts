@@ -20,7 +20,7 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { onStart, toAgent } from "../helpers/flow.js";
+import { onStart, toAgent, toWorkflow } from "../helpers/flow.js";
 import { ContactPiiPolicy, Outbox, SendEmail } from "./pii.fixture.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
@@ -287,7 +287,7 @@ export class FailedListRecoveredFinish {}
   version: "1.0.0",
   flow: [
     onStart(FailedListStart)
-      .toParallelWorkflows(FailingNotifyWorkflow, { maxConcurrency: 1, maxItems: 1 })
+      .forEachItem(toWorkflow(FailingNotifyWorkflow), { takeFirst: 1, maxConcurrency: 1 })
       .join()
       .onError(
         ChildExecutionFailedError,

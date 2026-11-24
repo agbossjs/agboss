@@ -60,13 +60,13 @@ export function visitWrite(
 /** What a node gave with all that the visit spent: its own usage and what its code paid services. */
 export type SpentOutcome = NodeOutcome & { readonly usage: readonly UsageRecord[] };
 
-/** The branch of a `.switch` / `.toOneOf` / `.onFinish`: by the class the step gave, else by the finish a child ended at. */
+/** The branch of a `.toOneOf` / `.onFinish`: by the class the step gave, else by the finish a child ended at. */
 function caseExitOf(node: RuntimeNode, outcome: NodeOutcome): FlowEdge {
   const variant = outcome.value?.variant ?? "";
   const branch = node.exits.cases.get(variant) ?? node.exits.cases.get(outcome.value?.finish ?? "");
   if (branch !== undefined) return branch;
   throw new OutputInvalidError({
-    message: `${node.id} gave ${variant || "no class"}, which its switch has no caseOf(…) for`,
+    message: `${node.id} gave ${variant || "no class"}, which its .toOneOf([…]) has no branch for`,
   });
 }
 

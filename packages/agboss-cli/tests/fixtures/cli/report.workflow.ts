@@ -19,7 +19,7 @@ import { WorkflowStart } from "../../../../agboss/src/flow/decorators/workflow-s
 import { listOf } from "../../../../agboss/src/flow/dto-wrappers.js";
 import { Text } from "../../../../agboss/src/dto/index.js";
 import type { Usd } from "../../../../agboss/src/units/index.js";
-import { onStart } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart, toWorkflow } from "../../../../agboss/tests/flow/fixtures/paths.js";
 
 /** One item of the batch. */
 export class ReportItemDto {
@@ -67,7 +67,9 @@ export class ItemReportWorkflowFinish {}
   name: "item-report-workflow",
   version: "1.0.0",
   flow: [
-    onStart(ItemReportWorkflowStart).toAgent(ItemReporterAgent).toFinish(ItemReportWorkflowFinish),
+    onStart(ItemReportWorkflowStart)
+      .toAgent(ItemReporterAgent)
+      .toFinish(ItemReportWorkflowFinish),
   ],
 })
 export class ItemReportWorkflow {}
@@ -114,7 +116,7 @@ export class BatchReportWorkflowFinish {}
   flow: [
     onStart(BatchReportWorkflowStart)
       .toAction(PickItemsAction)
-      .toParallelWorkflows(ItemReportWorkflow, { maxConcurrency: 4, maxItems: 50 })
+      .forEachItem(toWorkflow(ItemReportWorkflow), { takeFirst: 50, maxConcurrency: 4 })
       .join()
       .toAgent(BatchReporterAgent)
       .toFinish(BatchReportWorkflowFinish),

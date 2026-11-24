@@ -23,7 +23,7 @@ import { Enum, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, onStart } from "../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 
 /** The execution's own field: the sender's language. */
 export class ClinicExecutionContext extends ExecutionContext {
@@ -150,11 +150,9 @@ export class TriageRouter {}
   flow: [
     onStart(ClinicStart)
       .toRouter(TriageRouter)
-      .chooseOne(
-        route(AdviceAgent).toFinish(ClinicAnswer),
-        route(NotesAgent).toFinish(ClinicAnswer),
-        route(ClinicHandOver),
-      ),
+      .onRoute(toAgent(AdviceAgent).toFinish(ClinicAnswer))
+      .onRoute(toAgent(NotesAgent).toFinish(ClinicAnswer))
+      .onRoute(toFinish(ClinicHandOver)),
   ],
   guardrails: [NoLegalAdviceGuardrail],
   providers: [RefusalTextService],

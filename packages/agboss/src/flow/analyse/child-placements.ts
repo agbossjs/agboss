@@ -6,7 +6,6 @@ import {
   type FlowPath,
   type ForEachItemStep,
   type InParallelStep,
-  type LaunchStep,
   type Step,
   type SubPath,
   type ToStep,
@@ -20,7 +19,7 @@ import { ChildPlacement, isQueued } from "../child-placement.js";
  * Never the parent's: a child inherits nothing from the workflow that launches it.
  */
 
-/** The child workflow classes a flow names: `.toWorkflow(W)`, `.toParallelWorkflows(W, …)`, a route. */
+/** The child workflow classes a flow names: `.toWorkflow(W)`, a `.forEachItem(toWorkflow(W), …)` branch, a route. */
 class ChildWalk {
   readonly found = new Set<Class>();
 
@@ -29,7 +28,7 @@ class ChildWalk {
   }
 
   private step(step: Step): void {
-    if (step.kind === StepKind.To || step.kind === StepKind.Launch) this.mention(step);
+    if (step.kind === StepKind.To) this.mention(step);
     else if (step.kind === StepKind.InParallel || step.kind === StepKind.ForEachItem)
       this.mentionBranches(step);
     else this.branches(step);
@@ -41,16 +40,12 @@ class ChildWalk {
       if (branch.targetKind === NodeKind.Workflow) this.found.add(branch.target);
   }
 
-  private mention(step: ToStep | LaunchStep): void {
-    if (step.targetKind !== NodeKind.Workflow) return;
-    const targets = step.kind === StepKind.To ? [step.target] : step.targets;
-    for (const target of targets) this.found.add(target);
+  private mention(step: ToStep): void {
+    if (step.targetKind === NodeKind.Workflow) this.found.add(step.target);
   }
 
   /** The sub-paths of a step; a route to a child workflow names it too. */
-  private branches(
-    step: Exclude<Step, ToStep | LaunchStep | InParallelStep | ForEachItemStep>,
-  ): void {
+  private branches(step: Exclude<Step, ToStep | InParallelStep | ForEachItemStep>): void {
     for (const path of subPathsOf(step)) this.steps(path.steps);
     if (step.kind !== StepKind.ChooseOne) return;
     for (const route of step.routes)
@@ -60,13 +55,11 @@ class ChildWalk {
 
 /** The sub-paths a step holds. */
 export function subPathsOf(
-  step: Exclude<Step, ToStep | LaunchStep | InParallelStep | ForEachItemStep>,
+  step: Exclude<Step, ToStep | InParallelStep | ForEachItemStep>,
 ): readonly SubPath[] {
   switch (step.kind) {
     case StepKind.ChooseOne:
       return step.routes.map((route) => route.path);
-    case StepKind.Switch:
-      return step.cases.map((branch) => branch.path);
     case StepKind.OneOf:
       return step.branches;
     case StepKind.OnFinish:

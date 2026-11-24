@@ -14,17 +14,15 @@ import { launchLabel } from "../join-groups.js";
 import { dtoLabel, shapeLabel } from "../labels.js";
 import { slotOfDto } from "../scope.js";
 import type { AnalysisContext } from "./context.js";
-import { launchViolations } from "./router-launch.js";
 import { routeSetViolations, type RouteListing } from "./routers.js";
 
 /**
- * The launch rules (#273): a per-item launch has `maxItems` (`[launch.max-items-required]`) and
- * only it (`[launch.max-items-without-list]`), and its target reads the item
- * (`[launch.item-not-read]`); a branch is continued by its join only (`[launch.branch-continued]`);
- * a join's value is one the branches' outputs can give (`[launch.unjoinable-output]`); a router's
- * launch lists its routes (`[router.routes-mismatch]`) and follows the routes' launch rules
- * (`launchViolations`). Policies exist only on a router's routes, so a launch from an agent, a
- * start or an action has none.
+ * The launch rules (#273, #1279, #1280): `.forEachItem(…)` follows a step that gives a list and its
+ * target reads the item (`[launch.item-not-read]`); a `{ maxItems }` launch has its handler
+ * (`[launch.max-items-handler-required]`); a branch is continued by its join only
+ * (`[launch.branch-continued]`); a join's value is one the branches' outputs can give
+ * (`[launch.unjoinable-output]`); `toRouter(R).chooseMany([…])` lists the router's routes
+ * (`[router.routes-mismatch]`).
  */
 
 /** The rules of `.inParallel([…])` and `.forEachItem(…)` (#1279, #1280). */
@@ -73,40 +71,21 @@ function hasItemsHandler(context: AnalysisContext, launch: FlowLaunch): boolean 
 }
 
 function widthViolations(context: AnalysisContext, launch: FlowLaunch): readonly RuleViolation[] {
-  if (launch.form !== undefined) return parallelViolations(context, launch);
-  const label = launchLabel(launch);
-  const nodes = [launch.launcher];
-  const { items, maxItems } = launch;
-  if (items === undefined)
-    return maxItems === undefined
-      ? []
-      : [
-          violation(
-            "launch.max-items-without-list",
-            `${label}: { maxItems } bounds a per-item launch — one target right after a step that gives a list; remove it here`,
-            nodes,
-          ),
-        ];
-  const list = shapeLabel(items);
-  const found: RuleViolation[] = [];
-  if (maxItems === undefined)
-    found.push(
-      violation(
-        "launch.max-items-required",
-        `${label}: a per-item launch runs once per item of ${list} — set { maxItems } to bound how many run`,
-        nodes,
-      ),
-    );
-  const { element } = items;
+  const found = [...parallelViolations(context, launch)];
+  const { items } = launch;
   const [branch] = launch.branches;
   // a child workflow takes its item through a start (`[graph.no-matching-start]`, #263)
-  if (typeof element !== "function" || branch === undefined) return found;
+  if (launch.form !== "for-each-item" || items === undefined || branch === undefined) return found;
   if (branch.kind === NodeKind.Workflow) return found;
+  const { element } = items;
+  if (typeof element !== "function") return found;
   const reads = (context.fields.get(branch.node) ?? []).some(
     (field) => field.slot === slotOfDto(element),
   );
   if (!reads) {
+    const label = launchLabel(launch);
     const item = dtoLabel(element);
+    const list = shapeLabel(items);
     const message = `${branch.node} runs once per ${item} of ${list} (${label}), but reads no ${item} — add an input field of type ${item}`;
     found.push(violation("launch.item-not-read", message, [branch.node]));
   }
@@ -144,7 +123,6 @@ function joinViolations(join: JoinEdge): readonly RuleViolation[] {
 const groupLabel = (join: JoinEdge): string =>
   `${launchLabel(join.launch)} .onGroup([${join.group?.targets.join(", ") ?? ""}], …)`;
 
-const ROUTER_LAUNCH: RouteListing = { call: ".toParallelAgents(…)", item: "" };
 const CHOOSE_MANY: RouteListing = { call: ".chooseMany([…])", item: "" };
 
 function routerLaunchViolations(
@@ -156,10 +134,7 @@ function routerLaunchViolations(
   // `toRouter(R).chooseMany([…])` (#1279b): the branches are R's routes, all chosen by it
   if (launch.chooser !== undefined)
     return routeSetViolations(router, router.declaration, launch.chooser.routes, CHOOSE_MANY);
-  return [
-    ...routeSetViolations(router, router.declaration, launch.listed, ROUTER_LAUNCH),
-    ...launchViolations(router.name, router.declaration),
-  ];
+  return [];
 }
 
 const joinsOf = (edges: readonly FlowEdge[]): readonly JoinEdge[] =>

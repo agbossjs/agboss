@@ -1,5 +1,4 @@
 import type { Class } from "../components/injection.js";
-import type { DtoClass } from "../dto/types.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
 
 /**
@@ -7,8 +6,8 @@ import type { Milliseconds, WorkingDuration } from "../units/index.js";
  * per path. The builder (`builder.ts`) writes it; the analyser (PR 2) and the runtime (PR 4) read it.
  * Parallel launches and their joins (#273) are steps too; a child workflow (#263) is a node of kind
  * `Workflow`, entered by `.toWorkflow(W)` (a `ToStep`) or launched per item by
- * `.toParallelWorkflows(W, …)` (a `LaunchStep`); a quorum (#279) is a join that counts the answers
- * its launch's arbiter accepts (`LaunchStep.arbitratedBy`, `JoinStep.quorum`).
+ * `.forEachItem(toWorkflow(W), …)`; a quorum (#279) is a join that counts the answers
+ * its launch's arbiter accepts (`arbitratedBy`, `JoinStep.quorum`).
  */
 
 /** What a node of the graph is. The values are the kind suffixes of component names. */
@@ -26,18 +25,12 @@ export enum NodeKind {
 /** What a step of a path does. */
 export enum StepKind {
   To = "to",
-  Switch = "switch",
   /** `.toOneOf([…branches])` (#1275): the DTO-free branching of a `oneOf(…)` output. */
   OneOf = "one-of",
   /** `.onFinish(ChildFinish, subPath)` (#1275b): one finish of the child workflow the step before is. */
   OnFinish = "on-finish",
   ChooseOne = "choose-one",
   OnError = "on-error",
-  /**
-   * `.toParallelAgents(…)` / `.toParallelActions(…)` (#273), `.toParallelWorkflows(W, …)` (#263):
-   * branches launched at once.
-   */
-  Launch = "launch",
   /** `.join()` after a launch, with its `.onError(…)` handlers. */
   Join = "join",
   /** `.inParallel([…branches])` (#1279): branches of any kind launched at once. */
@@ -79,17 +72,6 @@ export interface ToStep {
   readonly chooses?: readonly ParallelBranchStep[];
 }
 
-/** One `caseOf(XDto)…` of a `.switch(…)`. */
-export interface SwitchCase {
-  readonly dto: DtoClass;
-  readonly path: SubPath;
-}
-
-export interface SwitchStep {
-  readonly kind: StepKind.Switch;
-  readonly cases: readonly SwitchCase[];
-}
-
 /**
  * `.toOneOf([toAction(A)…, toFinish(F)])` (#1275): one side path per variant of the `oneOf(…)` the
  * step before gives. A branch names no DTO — its variant is the one its entry consumer reads
@@ -110,7 +92,7 @@ export interface OnFinishStep {
   readonly path: SubPath;
 }
 
-/** One `route(X)…` of a `.chooseOne(…)`: its target and what follows it. */
+/** One `route(X)…` of a `.onRoute(…)`: its target and what follows it. */
 export interface ChooseOneRoute {
   readonly target: Class;
   readonly path: SubPath;
@@ -130,31 +112,6 @@ export interface OnErrorStep {
 
 /** An `@Arbiter` class (#279): decides whether an answer of a launch counts. */
 export type ArbiterClass = Class;
-
-/** What a launch runs (#273): agents, actions, or a child workflow per item (#263). */
-export type LaunchTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow;
-
-/**
- * `.toParallelAgents(A, B, …, { maxConcurrency, maxItems })` (#273): each listed target runs once
- * (repeats are copies); with one target right after a step whose output is a list it runs once per
- * item of that list. `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263) runs one
- * child workflow per item — always per item, one target.
- */
-export interface LaunchStep {
-  readonly kind: StepKind.Launch;
-  readonly targetKind: LaunchTargetKind;
-  /** As listed, repeats included. */
-  readonly targets: readonly Class[];
-  /** At most this many branches in progress at once; a limit only. */
-  readonly maxConcurrency?: number;
-  /** A per-item launch takes the first `maxItems` items (`[launch.max-items-required]`). */
-  readonly maxItems?: number;
-  /**
-   * `.arbitratedBy(A)` after it (#279, #1282): the one arbiter every branch's answer passes before a
-   * quorum counts it — it runs inside the branch. Agents only, before a quorum join.
-   */
-  readonly arbitratedBy?: ArbiterClass;
-}
 
 /** What a branch of `.inParallel([…])` / `.forEachItem(…)` runs (#1279): any component a path enters. */
 export type ParallelTargetKind =
@@ -275,17 +232,15 @@ export interface JoinStep {
 
 export type Step =
   | ToStep
-  | SwitchStep
   | OneOfStep
   | OnFinishStep
   | ChooseOneStep
   | OnErrorStep
-  | LaunchStep
   | InParallelStep
   | ForEachItemStep
   | JoinStep;
 
-/** The steps inside `route(X)…`, `caseOf(D)…`, a `.toOneOf([…])` branch or the side path of `.onError`. */
+/** The steps inside an `.onRoute(…)`, a `.toOneOf([…])` branch or the side path of `.onError`. */
 export interface SubPath {
   readonly steps: readonly Step[];
 }

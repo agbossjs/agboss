@@ -110,7 +110,7 @@ function brokenRules(flow: WorkflowOptions["flow"]): readonly string[] {
 const launched = onStart(HeldBranchWorkflowStart)
   .toAction(BookOrderAction)
   .toAction(CheckOrderAction)
-  .toParallelActions(RefundOrderAction, MemoOrderAction)
+  .inParallel([toAction(RefundOrderAction), toAction(MemoOrderAction)])
   .join();
 
 describe("#683: no side path takes the held branch's failure with the booking open", () => {
@@ -139,7 +139,7 @@ describe("#683: no side path takes the held branch's failure with the booking op
         .onError(
           OrderDeclinedError,
           toAction(TellOrderAction)
-            .toParallelActions(RefundOrderAction, MemoOrderAction)
+            .inParallel([toAction(RefundOrderAction), toAction(MemoOrderAction)])
             .join()
             .toFinish(HeldBranchWorkflowFinish),
         )

@@ -12,7 +12,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart, toFinish, toAction } from "../../helpers/flow.js";
+import { onStart, toFinish, toAction, toAgent } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   ConfirmOrderTool,
@@ -119,11 +119,12 @@ const providers = [
   version: "1.0.0",
   flow: [
     onStart(PayoutWorkflowStart)
-      .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
+      .inParallel([toAgent(PayoutConfirmAgent), toAgent(PayoutRefundAgent)])
       .join()
       .onError(
         PaymentDeclinedError,
-        toAction(PayoutDeclinedAction).toFinish(PayoutDeclinedWorkflowFinish),
+        toAction(PayoutDeclinedAction)
+          .toFinish(PayoutDeclinedWorkflowFinish),
       )
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
@@ -148,11 +149,12 @@ export class PayoutsApplication {}
   version: "1.0.0",
   flow: [
     onStart(PayoutWorkflowStart)
-      .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
+      .inParallel([toAgent(PayoutConfirmAgent), toAgent(PayoutRefundAgent)])
       .join()
       .onError(
         StepFailedError,
-        toAction(PayoutDeclinedAction).toFinish(PayoutDeclinedWorkflowFinish),
+        toAction(PayoutDeclinedAction)
+          .toFinish(PayoutDeclinedWorkflowFinish),
       )
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
@@ -177,7 +179,7 @@ export class PayoutStepsApplication {}
   version: "1.0.0",
   flow: [
     onStart(PayoutWorkflowStart)
-      .toParallelAgents(PayoutConfirmAgent, PayoutRefundAgent)
+      .inParallel([toAgent(PayoutConfirmAgent), toAgent(PayoutRefundAgent)])
       .join()
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),

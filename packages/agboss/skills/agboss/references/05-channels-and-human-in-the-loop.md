@@ -209,7 +209,7 @@ export class RefundWorkflowFinish {}
 ```
 
 ```ts file=src/refunds/workflows/refund/refund.workflow.ts
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { RefundAgent } from "../../agents/refund/refund.agent.js";
 import { SlackClientService } from "../../services/slack-client.service.js";
@@ -411,7 +411,7 @@ export class PurchaseWorkflowFinish {}
 ```
 
 ```ts file=src/purchases/workflows/purchase/purchase.workflow.ts
-import { Workflow, onStart } from "@agboss/core";
+import { Workflow, onStart, toFinish, toExternalTask } from "@agboss/core";
 import { SpendingLimitQuestion } from "../../channels/spending-limit.channel-role.js";
 import { PurchaseDto } from "../../dto/purchase.dto.js";
 import { SpendingLimitDto } from "../../dto/spending-limit.dto.js";
@@ -622,8 +622,8 @@ assignees })` (returns a `WorkingWeek.of(…)` or `WorkingWeek.anyOf([…])`, th
   (its error `step.pause-expired` stays in `result.launches`). A pause asked in a quorum branch is
   bound by the quorum's deadline (`PauseExpiryBound.Quorum`): at it the tree wakes by itself and the
   quorum decides — an expired branch did not vote, never fails the launch, whatever its
-  `FailurePolicy`; `QuorumNotReachedError.expired` lists the node ids that expired. In a plain
-  `.join()` an expired branch follows its `FailurePolicy`: `Skip` drops it, `FailFast` fails the
+  its `skip()`; `QuorumNotReachedError.expired` lists the node ids that expired. In a plain
+  `.join()` an expired branch follows its `.onError(E, skip())`: a skipped one is dropped, else it fails the
   launch with its `PauseExpiredError` for `.onError(…)`, and the branches still waiting are
   withdrawn. The side path of `.onError(…)` reads the answers already settled as `optional(XDto)`
   inputs of its first step (a per-item list stays a list); each branch that had answered hears

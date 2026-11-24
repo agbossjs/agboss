@@ -169,7 +169,7 @@ describe("#1366: what a side path after a limit reaches", () => {
 });
 
 describe("#1366: a join's handler", () => {
-  const launch = { launcher: "L", call: "toParallelAgents", listed: ["B1", "B2"], branches: [] };
+  const launch = { launcher: "L", call: "inParallel", listed: ["B1", "B2"], branches: [] };
   const joined = (error: unknown, after: readonly (readonly [string, NodeKind])[]) => ({
     graph: graphOf(
       [
@@ -190,7 +190,7 @@ describe("#1366: a join's handler", () => {
     expect(rules(joined(LimitExceededError, [["M", NodeKind.Agent]]))).toEqual([
       {
         code: "graph.limit-handler-uses-model",
-        message: `the join of L → toParallelAgents(B1, B2): .onError(LimitExceededError, …) can catch a limit and reaches M${TAIL}`,
+        message: `the join of L → inParallel(B1, B2): .onError(LimitExceededError, …) can catch a limit and reaches M${TAIL}`,
         nodes: ["L", "M"],
       },
     ]);

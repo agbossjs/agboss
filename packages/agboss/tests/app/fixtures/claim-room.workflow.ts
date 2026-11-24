@@ -11,7 +11,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
@@ -130,7 +130,8 @@ export class ClaimRoomBatchAction {
     readonly results: readonly Produced<ItemResultDto, unknown>[];
   }): Promise<SummaryDto> {
     return {
-      text: input.results.map((result) => result.value.name)
+      text: input.results
+        .map((result) => result.value.name)
         .join(", "),
     };
   }
@@ -150,10 +151,7 @@ export class ClaimRoomBatchWorkflowFinish {}
   executionLimits: { maxConcurrency: 30 },
   flow: [
     onStart(ClaimRoomBatchWorkflowStart)
-      .toParallelWorkflows(ClaimRoomItemWorkflow, {
-        maxConcurrency: 12,
-        maxItems: 12,
-      })
+      .forEachItem(toWorkflow(ClaimRoomItemWorkflow), { takeFirst: 12, maxConcurrency: 12 })
       .join()
       .toAction(ClaimRoomBatchAction)
       .toFinish(ClaimRoomBatchWorkflowFinish),

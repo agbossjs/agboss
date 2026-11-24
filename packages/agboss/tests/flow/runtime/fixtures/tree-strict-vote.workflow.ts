@@ -10,7 +10,7 @@ import {
   Action,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
-import { route, onStart } from "../../../helpers/flow.js";
+import { onStart, toWorkflow, toAgent } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,
   TaskDoneDto,
@@ -41,7 +41,7 @@ export class StrictVoteWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(StrictVoteWorkflowStart)
-      .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
+      .inParallel([toAgent(FirstVoterAgent), toAgent(SecondVoterAgent)])
       .joinQuorum({ min: 2, deadline: seconds(30) })
       .toAction(VotedAction)
       .toFinish(VotedWorkflowFinish),
@@ -55,7 +55,7 @@ export class StrictVoteWorkflow {}
   description: "Works on a task, or has it voted on",
   decidedBy: DecidedBy.Code,
   input: { task: TaskDto },
-  routes: [{ target: TaskWorkflow }, { target: StrictVoteWorkflow }],
+  routes: [TaskWorkflow, StrictVoteWorkflow],
 })
 export class StrictTaskKindRouter {
   route(input: { readonly task: Produced<TaskDto, unknown> }): unknown {
@@ -72,9 +72,13 @@ export class StrictMixedWorkflowStart {}
   flow: [
     onStart(StrictMixedWorkflowStart)
       .toRouter(StrictTaskKindRouter)
-      .chooseOne(
-        route(TaskWorkflow).toFinish(TaskDoneWorkflowFinish),
-        route(StrictVoteWorkflow).toFinish(MixedVotedWorkflowFinish),
+      .onRoute(
+        toWorkflow(TaskWorkflow)
+          .toFinish(TaskDoneWorkflowFinish),
+      )
+      .onRoute(
+        toWorkflow(StrictVoteWorkflow)
+          .toFinish(MixedVotedWorkflowFinish),
       ),
   ],
 })
@@ -114,7 +118,7 @@ export class StrictVotingDoneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(StrictVotingWorkflowStart)
-      .toParallelWorkflows(StrictMixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
+      .forEachItem(toWorkflow(StrictMixedWorkflow), { takeFirst: 5, maxConcurrency: 5 })
       .join()
       .toAction(StrictVotingDoneAction)
       .toFinish(StrictVotingDoneWorkflowFinish),

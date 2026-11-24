@@ -15,7 +15,7 @@ import { onStart, onWorkflow, toWorkflow } from "../../helpers/flow.js";
 
 /**
  * #1287: `.toWorkflow(() => W)`, `onWorkflow(() => W)`, `toWorkflow(() => W)` of a side path and
- * `.toParallelWorkflows(() => W, …)` take a thunk, read when the flow is analysed — never while the
+ * `.forEachItem(() => W, …)` take a thunk, read when the flow is analysed — never while the
  * path is built, where the class below the decorator does not exist yet.
  */
 
@@ -32,10 +32,9 @@ describe("#1287: a thunk is not read while the path is built", () => {
     expect(() => onWorkflow(neverReached)).not.toThrow();
     expect(() => toWorkflow(neverReached)).not.toThrow();
     expect(() =>
-      onStart(CountdownWorkflowStart).toParallelWorkflows(neverReached, { maxItems: 2 }),
+      onStart(CountdownWorkflowStart).forEachItem(toWorkflow(neverReached), { takeFirst: 2 }),
     ).not.toThrow();
     expect(() => fromComponent(NodeKind.Workflow, neverReached)).not.toThrow();
-    expect(() => subPathFrom({ kind: "route", target: neverReached })).not.toThrow();
   });
 
   it("the class is read once, on first use, and kept", () => {

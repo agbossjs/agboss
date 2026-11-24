@@ -613,7 +613,7 @@ declare module "../src/flow/generated-types.js" {
       "history-offer-workflow-start": ShortlistDto;
       "hybrid-panel-workflow": CandidateDto;
       "intake-workflow-start": WorkflowStartTextDto;
-      "item-blind-agent": { readonly __error: "[launch.item-not-read] broken-screening-workflow: item-blind-agent runs once per CompanyDto of listOf(CompanyDto) (screening-agent → toParallelAgents(item-blind-agent)), but reads no CompanyDto — add an input field of type CompanyDto" };
+      "item-blind-agent": { readonly __error: "[launch.item-not-read] broken-screening-workflow: item-blind-agent runs once per CompanyDto of listOf(CompanyDto) (screening-agent → forEachItem(item-blind-agent)), but reads no CompanyDto — add an input field of type CompanyDto" };
       "item-panel-workflow": readonly CandidateDto[];
       "job-offer-agent": { grade: Produced<CompanyGradeDto, typeof CompanyReviewWorkflow | typeof TwinGradeWorkflow> };
       "job-offer-workflow": WorkflowStartTextDto;

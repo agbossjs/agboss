@@ -129,7 +129,9 @@ export class UndoOneWorkflowFinish {}
   name: "undo-one-workflow",
   version: "1.0.0",
   flow: [
-    onStart(UndoOneWorkflowStart).toWorkflow(UndoChildWorkflow).toFinish(UndoOneWorkflowFinish),
+    onStart(UndoOneWorkflowStart)
+      .toWorkflow(UndoChildWorkflow)
+      .toFinish(UndoOneWorkflowFinish),
   ],
 })
 export class UndoOneWorkflow {}

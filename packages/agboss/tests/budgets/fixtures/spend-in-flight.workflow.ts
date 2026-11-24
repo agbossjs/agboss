@@ -21,7 +21,7 @@ import {
 import type { CostCounter } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import {
   ItemDto,
@@ -81,8 +81,11 @@ export async function holdsParentPay(records: readonly UsageRecord[]): Promise<v
 
 /** Notes a checkpoint write that holds the parent's `parent-pay` before the ledger has it. */
 const watched = (kind: string, written: unknown): void => {
-  if (!inFlight.isParentPayWritten && JSON.stringify(written)
-    .includes("action:parent-pay-action"))
+  if (
+    !inFlight.isParentPayWritten &&
+    JSON.stringify(written)
+      .includes("action:parent-pay-action")
+  )
     inFlight.durableBeforeLedger.push(kind);
 };
 
@@ -228,9 +231,7 @@ export class AnyPayItemsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(LocalPayItemsWorkflowStart)
-      .toParallelWorkflows(LocalPayItemWorkflow, {
-        maxItems: 2,
-      })
+      .forEachItem(toWorkflow(LocalPayItemWorkflow), { takeFirst: 2 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
@@ -243,9 +244,7 @@ export class LocalPayItemsWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(AnyPayItemsWorkflowStart)
-      .toParallelWorkflows(AnyPayItemWorkflow, {
-        maxItems: 2,
-      })
+      .forEachItem(toWorkflow(AnyPayItemWorkflow), { takeFirst: 2 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),

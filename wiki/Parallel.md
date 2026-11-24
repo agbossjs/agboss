@@ -165,7 +165,7 @@ Options are always an object: `.joinQuorum(2)` does not compile and the untyped 
 `.arbitratedBy(…).join()` does not compile; nothing follows `.joinQuorumGroups(…)` but its
 `.onError(E, <side path>)` — written **right after the join, before the first `.onGroup(…)`**, never after
 one — and its `.onGroup(…)`s: the join is not a path until it has at least one. A quorum follows `.inParallel([…])`, `.forEachItem(…)` (`.joinQuorum(…)`
-only: every item runs one target, so there are no groups) and `.toParallelAgents(…)`.
+only: every item runs one target, so there are no groups) and `.inParallel([…])`.
 
 ## Groups
 
@@ -205,9 +205,9 @@ make it optional(SkillsScoreDto) or listOf(SkillsScoreDto)
 ## Expiry of a branch's pause (#945)
 
 A branch whose pause expired ends `BranchStatus.Expired` (`step.pause-expired` in `result.launches`), not
-`Cancelled` or `Skipped`. In a quorum it did not vote and is no failure whatever the `FailurePolicy`; the quorum's
+`Cancelled` or `Skipped`. In a quorum it did not vote and is no failure whatever it skips; the quorum's
 deadline binds its pauses, so the tree wakes by itself at it, and `QuorumNotReachedError.expired` names the
-branches that expired. In a plain `.join()` it follows the `FailurePolicy`: `Skip` drops it, `FailFast` fails the
+branches that expired. In a plain `.join()` it follows the branch's `.onError(E, skip())`: a skipped one is dropped, else it fails the
 launch with its `PauseExpiredError`; the `.onError(…)` side path reads the answers already settled as
 `optional(…)` inputs (see [Pauses](Pauses#expiry-in-parallel-launches-945)).
 

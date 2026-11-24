@@ -8,19 +8,16 @@ import {
   type OnFinishStep,
   type OnErrorStep,
   type Step,
-  type SwitchStep,
   type ToStep,
 } from "../ast.js";
 import type { ComponentName } from "../registry.js";
 import {
   EdgeKind,
   edgeKey,
-  valueWrite,
   type FlowEdge,
   type FlowGraph,
   type FlowLaunch,
 } from "./flow-graph.js";
-import { dtoLabel } from "./labels.js";
 import {
   MentionKind,
   type BranchSite,
@@ -29,7 +26,6 @@ import {
   type QuorumSite,
   type OneOfSite,
   type Placement,
-  type SwitchSite,
   type WalkedFlow,
 } from "./walked-flow.js";
 import { NodeTable } from "./nodes.js";
@@ -42,7 +38,7 @@ import { isGroupsJoin } from "./walk-quorum.js";
 /**
  * Walks the paths of a flow once (#272 PR 2): builds the graph (nodes, edges with what each step
  * returns), and records what the syntactic rules read — where every node is mentioned (placement),
- * how deep (depth), and every `switch` / `chooseOne` / `onError` with the node it follows.
+ * how deep (depth), and every `onRoute` / `onError` with the node it follows.
  */
 
 class FlowWalker implements LaunchRecorder, BranchRecorder {
@@ -50,7 +46,6 @@ class FlowWalker implements LaunchRecorder, BranchRecorder {
   readonly starts: ComponentName[] = [];
   readonly mentions: Mention[] = [];
   readonly placements: Placement[] = [];
-  readonly switches: SwitchSite[] = [];
   readonly oneOfs: OneOfSite[] = [];
   readonly onFinishes: BranchSite<OnFinishStep>[] = [];
   readonly choices: BranchSite<ChooseOneStep>[] = [];
@@ -91,9 +86,6 @@ class FlowWalker implements LaunchRecorder, BranchRecorder {
     switch (step.kind) {
       case StepKind.To:
         return this.enter(step, cursor, isFollowed);
-      case StepKind.Switch:
-        this.walkSwitch(step, cursor);
-        return cursor;
       case StepKind.OneOf:
         walkOneOf(this, step, cursor, (steps, inner) => this.walkSteps(steps, inner));
         return cursor;
@@ -122,7 +114,7 @@ class FlowWalker implements LaunchRecorder, BranchRecorder {
     this.placements.push({ node: target, depth: cursor.depth, path: cursor.path });
     this.mentions.push({ node: target, kind: MentionKind.Entry, isContinued });
     if (isContinued && this.table.node(target).kind === NodeKind.Finish) {
-      const message = `${target} is a finish — nothing follows .toFinish(…) or route(…) of a finish`;
+      const message = `${target} is a finish — nothing follows .toFinish(…) or .onRoute(toFinish(…)) of a finish`;
       this.violations.push(violation("graph.next-after-workflow-finish", message, [target]));
     }
     const from = cursor.current;
@@ -139,25 +131,6 @@ class FlowWalker implements LaunchRecorder, BranchRecorder {
       ...(join === undefined ? {} : { join }),
       ...(settled === undefined ? {} : { settled }),
     });
-  }
-
-  private walkSwitch(step: SwitchStep, cursor: Cursor): void {
-    if (cursor.current === undefined) return;
-    this.switches.push({ node: cursor.current, step });
-    for (const branch of step.cases) {
-      const inner: Cursor = {
-        current: cursor.current,
-        writes: [valueWrite(branch.dto, true)],
-        entry: EdgeKind.Case,
-        caseKey: branch.dto.name,
-        path: cursor.path,
-        depth: cursor.depth + 1,
-      };
-      if (!this.walkSteps(branch.path.steps, inner)) {
-        const message = `${cursor.current}: caseOf(${dtoLabel(branch.dto)}) leads nowhere — continue it with .to…(…)`;
-        this.violations.push(violation("graph.dead-end", message, [cursor.current]));
-      }
-    }
   }
 
   private walkChooseOne(step: ChooseOneStep, cursor: Cursor): void {
@@ -204,7 +177,6 @@ export function walkFlow(flow: readonly FlowPath[], self?: Class): WalkedFlow {
     graph,
     mentions: walker.mentions,
     placements: walker.placements,
-    switches: walker.switches,
     oneOfs: walker.oneOfs,
     onFinishes: walker.onFinishes,
     choices: walker.choices,

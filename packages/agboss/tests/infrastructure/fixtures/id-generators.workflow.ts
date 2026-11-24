@@ -134,7 +134,10 @@ export class EchoWorkflowFinish {}
 @Workflow({
   name: "echo-workflow",
   version: "1.0.0",
-  flow: [onStart(EchoWorkflowStart).toFinish(EchoWorkflowFinish)],
+  flow: [
+    onStart(EchoWorkflowStart)
+      .toFinish(EchoWorkflowFinish),
+  ],
   providers: [PrefixedIdGenerator],
 })
 export class EchoWorkflow {}

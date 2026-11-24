@@ -1,18 +1,11 @@
 import type { Class } from "../components/injection.js";
-import type { DtoClass } from "../dto/types.js";
 import type { QuestionStepOptions } from "./child-placement.js";
 import { NodeKind } from "./ast.js";
 import type {
   AfterStep,
-  AfterValue,
   BuiltPath,
-  CaseHead,
-  CasePath,
   KindCheck,
   KindLabel,
-  RouteContinuation,
-  RouteTargetKind,
-  RouteTargetLabel,
   SideHead,
   SidePath,
   SourceHead,
@@ -35,7 +28,7 @@ import type { ClassOf, TargetRef } from "./target-ref.js";
 
 /**
  * The path builder (#272): `onStart(S)…`, `onAgent(X)…`, `onRouter(R)…`, `onAction(X)…`, `onWorkflow(W)…`
- * (#263), `onExternalTask(Q)…` (#659) begin a flow path; `route(X)…`, `caseOf(D)…` and the side-path starters `toAction(X)…`, `toAgent(A)…`,
+ * (#263), `onExternalTask(Q)…` (#659) begin a flow path; the side-path starters `toAction(X)…`, `toAgent(A)…`,
  * `toRouter(R)…`, `toExternalTask(Q)…` (#910), `toWorkflow(W)…` (#263 S85), `toFinish(F)` of `.onError(E, …)` and `.onGroup([…], …)` of `.joinQuorumGroups(…)`
  * (#279, #1284) begin a sub-path and return the same builder.
  */
@@ -59,7 +52,7 @@ export function onAgent(source: Class): unknown {
   return fromComponent(NodeKind.Agent, source);
 }
 
-/** The own path of a router reached from two or more places: `onRouter(R).chooseOne(…)`. */
+/** The own path of a router reached from two or more places: `onRouter(R).onRoute(…)`. */
 export function onRouter<const TClass extends Class>(
   source: TClass & KindCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>,
 ): AfterStep<InstanceType<TClass>, SourceHead>;
@@ -77,7 +70,7 @@ export function onAction(source: Class): unknown {
 
 /**
  * The own path of a child workflow reached from two or more places (#263):
- * `onWorkflow(W).onError(…).switch(…)`.
+ * `onWorkflow(W).onError(…).onFinish(F, …)`.
  */
 export function onWorkflow<const TRef extends TargetRef>(
   source: TRef & KindCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
@@ -95,24 +88,6 @@ export function onExternalTask<const TClass extends Class>(
 ): AfterStep<InstanceType<TClass>, SourceHead>;
 export function onExternalTask(source: Class): unknown {
   return fromComponent(NodeKind.Question, source);
-}
-
-/** One target of `.chooseOne(…)` and what follows it. */
-export function route<const TRef extends TargetRef>(
-  target: TRef & TargetCheck<ClassOf<TRef>, RouteTargetKind, RouteTargetLabel>,
-): RouteContinuation<InstanceType<ClassOf<TRef>>>;
-export function route(target: TargetRef): PathBuilder<undefined> {
-  return subPathFrom({ kind: "route", target });
-}
-
-/**
- * One case of `.switch(…)`: the class of the `oneOf` result, put on the path.
- */
-export function caseOf<const TDto extends DtoClass>(
-  dto: TDto,
-): AfterValue<InstanceType<TDto>, CaseHead<InstanceType<TDto>>>;
-export function caseOf(dto: DtoClass): CasePath {
-  return subPathFrom({ kind: "case", dto });
 }
 
 /** A side path of `.onError(E, …)`. */
@@ -134,7 +109,7 @@ export function toAgent(target: Class): unknown {
   return sidePath().toAgent(target);
 }
 
-/** The side path `.onError(E, toRouter(R).chooseOne(…))`. */
+/** The side path `.onError(E, toRouter(R).onRoute(…))`. */
 export function toRouter<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>,
 ): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;

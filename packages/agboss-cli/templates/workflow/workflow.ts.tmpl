@@ -1,4 +1,4 @@
-import { Workflow, route, onStart } from "@agboss/core";
+import { Workflow, onStart, toAgent } from "@agboss/core";
 import { TextWorkflowStart } from "./text.workflow-start.js";
 import { TextWorkflowFinish } from "./text.workflow-finish.js";
 import { {{routerClass}} } from "{{routerFrom}}";
@@ -12,9 +12,7 @@ import { {{routerClass}} } from "{{routerFrom}}";
   flow: [
     onStart(TextWorkflowStart)
       .toRouter({{routerClass}})
-      .chooseOne(
-{{routes}}
-      ),
+{{routes}},
   ],
   defaults: {
     // reasoning and caching: the model provider's (model-providers/, listed in the application),

@@ -29,7 +29,7 @@ import { EmptyEnvironment, type Produced } from "../../../src/index.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { caseOf, onStart } from "../../helpers/flow.js";
+import { onStart, toFinish, toExternalTask } from "../../helpers/flow.js";
 import { BearerAuthenticator } from "./bearer-authenticator.js";
 
 /** What a caller sends: a document, maybe more pages, and a note ("ask" pauses first). */
@@ -190,13 +190,10 @@ export class StoredFileReviewPolicy {}
 export const fileReviewFlow = [
   onStart(FileReviewWorkflowStart)
     .toAction(FileReviewAction)
-    .switch(
-      caseOf(ReviewResultDto).toFinish(FileReviewFinish),
-      caseOf(ReviewAskDto)
-        .toExternalTask(FileReviewQuestion)
-        .toAction(FileAnsweredAction)
-        .toFinish(FileReturnedFinish),
-    ),
+    .toOneOf([
+      toFinish(FileReviewFinish),
+      toExternalTask(FileReviewQuestion).toAction(FileAnsweredAction).toFinish(FileReturnedFinish),
+    ]),
 ] as const;
 
 @Workflow({

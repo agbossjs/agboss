@@ -1,6 +1,6 @@
 import { EmptyEnvironment, listOf, Workflow, WorkflowStart } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import {
   MortalExecutionLeaseRepository,
@@ -36,7 +36,7 @@ export class ItemsWorkflowStart {}
   executionLimits: { maxSteps: 30 },
   flow: [
     onStart(ItemsWorkflowStart)
-      .toParallelActions(WorkAction, { maxConcurrency: 20, maxItems: 20 })
+      .forEachItem(toAction(WorkAction), { takeFirst: 20, maxConcurrency: 20 })
       .join()
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),

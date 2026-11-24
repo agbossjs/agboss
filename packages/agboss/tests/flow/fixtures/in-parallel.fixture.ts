@@ -53,9 +53,16 @@ export class ParallelPanelWorkflowFinish {}
   flow: [
     onStart(ParallelPanelWorkflowStart)
       .toAgent(PlannerAgent)
-      .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent).onError(StepError, skip())], {
-        maxConcurrency: 2,
-      })
+      .inParallel(
+        [
+          toAgent(PlanResearcherAgent),
+          toAgent(CriticAgent)
+            .onError(StepError, skip()),
+        ],
+        {
+          maxConcurrency: 2,
+        },
+      )
       .join()
       .toAgent(ParallelPanelWriterAgent)
       .toFinish(ParallelPanelWorkflowFinish),
@@ -101,10 +108,12 @@ export class ChosenPanelWriterAgent {}
     onStart(ParallelPanelWorkflowStart)
       .toAgent(PlannerAgent)
       .inParallel([
-        toRouter(ParallelPanelRouter).chooseMany([
-          toAgent(PlanResearcherAgent),
-          toAgent(CriticAgent).onError(StepError, skip()),
-        ]),
+        toRouter(ParallelPanelRouter)
+          .chooseMany([
+            toAgent(PlanResearcherAgent),
+            toAgent(CriticAgent)
+              .onError(StepError, skip()),
+          ]),
       ])
       .join()
       .toAgent(ChosenPanelWriterAgent)

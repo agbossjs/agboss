@@ -90,7 +90,7 @@ describe("AC6: .toWorkflow(() => Self) by code past maxDepth", () => {
   });
 });
 
-describe("AC6: .toParallelWorkflows(() => Self) by code past maxDepth", () => {
+describe("AC6: .forEachItem(() => Self) by code past maxDepth", () => {
   real(
     "each level-2 child's launch is refused; its .onError finishes it",
     async ({ app, mockAction }) => {

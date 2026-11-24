@@ -20,7 +20,7 @@ import { NO_VARIANT, type RuntimeLaunch } from "./runtime-launch.js";
 
 /**
  * The launching step's way out (#273): the launch it takes — its own, or its variant's inside a
- * `.switch(…)` — the edge its values are written on, and what comes next: its branches (one `Send`
+ * `.toOneOf([…])` — the edge its values are written on, and what comes next: its branches (one `Send`
  * each, the conditional edge reads `LAUNCH_NEXT`), or straight its join when nothing was launched
  * (an empty list).
  */

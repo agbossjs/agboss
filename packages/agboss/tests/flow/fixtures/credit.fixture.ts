@@ -1,5 +1,5 @@
 import { Injectable } from "../../../src/components/decorators.js";
-import { onAction, route, onStart, toFinish } from "../../../src/flow/builder.js";
+import { onAction, onStart, toFinish, toAgent, toAction } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -106,7 +106,7 @@ export const creditDecisions: { nodeId: string; visitNumber: number; key: string
   input: {
     order: CreditOrderDto,
   },
-  routes: [{ target: ApprovalAgent }, { target: ChargeCardAction }],
+  routes: [ApprovalAgent, ChargeCardAction],
   deps: [ExecutionContext, CreditService],
 })
 export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
@@ -146,16 +146,21 @@ export class DeskRouter {}
 export const creditPaths = [
   onStart(CreditWorkflowStart)
     .toRouter(DeskRouter)
-    .chooseOne(
-      route(OrderIntakeAgent)
+    .onRoute(
+      toAgent(OrderIntakeAgent)
         .toRouter(CreditLimitRouter)
         .onError(CreditServiceUnavailableError, toFinish(OrderHeldWorkflowFinish))
-        .chooseOne(route(ApprovalAgent).toAction(ChargeCardAction), route(ChargeCardAction)),
-      route(NoOrderWorkflowFinish),
-    ),
+        .onRoute(
+          toAgent(ApprovalAgent)
+            .toAction(ChargeCardAction),
+        )
+        .onRoute(toAction(ChargeCardAction)),
+    )
+    .onRoute(toFinish(NoOrderWorkflowFinish)),
 
   // two ways in (ApprovalAgent, CreditLimitRouter) → its own path
-  onAction(ChargeCardAction).toFinish(CreditWorkflowFinish),
+  onAction(ChargeCardAction)
+    .toFinish(CreditWorkflowFinish),
 ] as const;
 
 @Workflow({
@@ -194,13 +199,18 @@ export class CreditLimitByModelRouter {}
 export const creditByModelPaths = [
   onStart(CreditWorkflowStart)
     .toRouter(DeskRouter)
-    .chooseOne(
-      route(OrderIntakeAgent)
+    .onRoute(
+      toAgent(OrderIntakeAgent)
         .toRouter(CreditLimitByModelRouter)
-        .chooseOne(route(ApprovalAgent).toAction(ChargeCardAction), route(ChargeCardAction)),
-      route(NoOrderWorkflowFinish),
-    ),
-  onAction(ChargeCardAction).toFinish(CreditWorkflowFinish),
+        .onRoute(
+          toAgent(ApprovalAgent)
+            .toAction(ChargeCardAction),
+        )
+        .onRoute(toAction(ChargeCardAction)),
+    )
+    .onRoute(toFinish(NoOrderWorkflowFinish)),
+  onAction(ChargeCardAction)
+    .toFinish(CreditWorkflowFinish),
 ] as const;
 
 @Workflow({

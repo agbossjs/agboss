@@ -6,7 +6,7 @@ import type { ExecutionStateType } from "./state.js";
 
 /**
  * The child's value: its finish's output, with the class of the output when the child gives several
- * (`.switch` / `.toOneOf` pick by it) and the finish it ended at (`.onFinish(F, …)` picks by it, #1275b).
+ * (`.toOneOf` pick by it) and the finish it ended at (`.onFinish(F, …)` picks by it, #1275b).
  */
 export function valueOf(child: ChildGraph, state: ExecutionStateType): NodeOutcome["value"] {
   const finish = child.deps.graph.nodes.get(state.finish)?.declaration;

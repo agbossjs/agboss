@@ -2,20 +2,17 @@ import type { Class } from "../components/injection.js";
 import {
   NodeKind,
   StepKind,
-  type ChooseOneRoute,
   type ErrorClass,
-  type LaunchTargetKind,
   QuorumKind,
   type PathSource,
   type Quorum,
   type Step,
   type SubPath,
-  type SwitchCase,
   type ToStep,
 } from "./ast.js";
-import { caseOfPath, oneOfStepOf, onFinishStepOf, routeOf, routeOfPath } from "./branch-step.js";
+import { oneOfStepOf, onFinishStepOf, routeOf } from "./branch-step.js";
 import * as parallel from "./parallel-step.js";
-import { FlowSyntaxError, launchOrderProblem, launchStepOf, siteOf } from "./launch-step.js";
+import { FlowSyntaxError, launchOrderProblem } from "./launch-step.js";
 import {
   arbitratedByOf,
   arbitratingLaunch,
@@ -113,10 +110,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.to(target, NodeKind.Workflow);
   }
 
-  switch(...cases: readonly PathBuilder[]): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.Switch, cases: cases.map((path) => path.asCase()) });
-  }
-
   /** `.toOneOf([toAction(A)…, toFinish(F)])` (#1275): the branches of a `oneOf(…)` output. */
   toOneOf(branches: unknown): PathBuilder<TSource> {
     return this.then(oneOfStepOf(branches, (path, call) => PathBuilder.sideOf(path, call)));
@@ -125,10 +118,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   /** `.onFinish(KycFraudFinish, toAction(X)…)` (#1275b): the side path one finish of a child takes. */
   onFinish(finish: unknown, path: unknown): PathBuilder<TSource> {
     return this.then(onFinishStepOf(finish, path, (side, call) => PathBuilder.sideOf(side, call)));
-  }
-
-  chooseOne(...routes: readonly PathBuilder[]): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.ChooseOne, routes: routes.map((path) => path.asRoute()) });
   }
 
   /**
@@ -185,19 +174,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.then(parallel.forEachItemStepOf(step, options, PathBuilder.branchOf));
   }
 
-  toParallelAgents(...args: readonly unknown[]): PathBuilder<TSource> {
-    return this.launch(NodeKind.Agent, args);
-  }
-
-  toParallelActions(...args: readonly unknown[]): PathBuilder<TSource> {
-    return this.launch(NodeKind.Action, args);
-  }
-
-  /** `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263): one child per item of the list. */
-  toParallelWorkflows(...args: readonly unknown[]): PathBuilder<TSource> {
-    return this.launch(NodeKind.Workflow, args);
-  }
-
   /** A join step, with the quorum of `.joinQuorum(…)` / `.joinQuorumGroups(…)` when it has one. */
   private joined(quorum?: Quorum): PathBuilder<TSource> {
     return this.then({
@@ -238,20 +214,8 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.withLast(withGroup(join, group));
   }
 
-  private launch(targetKind: LaunchTargetKind, args: readonly unknown[]): PathBuilder<TSource> {
-    return this.then(launchStepOf(targetKind, args, siteOf(this.last, this.source)));
-  }
-
   private subPath(): SubPath {
     return Object.freeze({ steps: this.steps });
-  }
-
-  private asCase(): SwitchCase {
-    return caseOfPath(this.start, this.subPath());
-  }
-
-  private asRoute(): ChooseOneRoute {
-    return routeOfPath(this.start, this.subPath());
   }
 
   /** A side path of `call` (`.toOneOf([…])`, `.onFinish(F, …)`), or a syntax error. */

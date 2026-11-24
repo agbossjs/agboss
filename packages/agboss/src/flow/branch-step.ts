@@ -7,11 +7,8 @@ import {
   type OneOfStep,
   type OnFinishStep,
   type SubPath,
-  type SwitchCase,
 } from "./ast.js";
 import { FlowSyntaxError } from "./launch-step.js";
-import type { PathStart } from "./path-start.js";
-import { withTarget } from "./target-ref.js";
 
 /**
  * The branching steps that name no DTO (#1275): `.toOneOf([…side paths])` for a `oneOf(…)` output and
@@ -58,16 +55,4 @@ export function routeOf(path: unknown, side: SideOf): ChooseOneRoute {
   return Object.freeze(
     Object.defineProperty(route, "target", { enumerable: true, get: () => first.target }),
   ) as ChooseOneRoute;
-}
-
-/** A `caseOf(Dto)…` path as one case of `.switch(…)`. */
-export function caseOfPath(start: PathStart, path: SubPath): SwitchCase {
-  if (start.kind !== "case") throw syntaxError(".switch(…) takes caseOf(…) paths");
-  return Object.freeze({ dto: start.dto, path });
-}
-
-/** A `route(X)…` path as one route of `.chooseOne(…)`. */
-export function routeOfPath(start: PathStart, path: SubPath): ChooseOneRoute {
-  if (start.kind !== "route") throw syntaxError(".chooseOne(…) takes route(…) paths");
-  return Object.freeze(withTarget("target", start.target, { path }));
 }

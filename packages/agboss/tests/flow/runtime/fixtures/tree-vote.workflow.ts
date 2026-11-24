@@ -14,7 +14,7 @@ import {
   inline,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
-import { caseOf, route, onStart, toFinish, toAction } from "../../../helpers/flow.js";
+import { onStart, toFinish, toAction, toWorkflow, toAgent } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,
   TaskDoneDto,
@@ -114,9 +114,13 @@ export class NotVotedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(VoteWorkflowStart)
-      .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
+      .inParallel([toAgent(FirstVoterAgent), toAgent(SecondVoterAgent)])
       .joinQuorum({ min: 2, deadline: seconds(30) })
-      .onError(QuorumNotReachedError, toAction(NotVotedAction).toFinish(NotVotedWorkflowFinish))
+      .onError(
+        QuorumNotReachedError,
+        toAction(NotVotedAction)
+          .toFinish(NotVotedWorkflowFinish),
+      )
       .toAction(VotedAction)
       .toFinish(VotedWorkflowFinish),
   ],
@@ -129,7 +133,7 @@ export class VoteWorkflow {}
   description: "Works on a task, or has it voted on",
   decidedBy: DecidedBy.Code,
   input: { task: TaskDto },
-  routes: [{ target: TaskWorkflow }, { target: VoteWorkflow }],
+  routes: [TaskWorkflow, VoteWorkflow],
 })
 export class TaskKindRouter {
   route(input: { readonly task: Produced<TaskDto, unknown> }): unknown {
@@ -156,12 +160,13 @@ export class MixedNotVotedWorkflowFinish {}
   flow: [
     onStart(MixedWorkflowStart)
       .toRouter(TaskKindRouter)
-      .chooseOne(
-        route(TaskWorkflow).toFinish(TaskDoneWorkflowFinish),
-        route(VoteWorkflow).switch(
-          caseOf(NotVotedDto).toFinish(MixedNotVotedWorkflowFinish),
-          caseOf(VotedDto).toFinish(MixedVotedWorkflowFinish),
-        ),
+      .onRoute(
+        toWorkflow(TaskWorkflow)
+          .toFinish(TaskDoneWorkflowFinish),
+      )
+      .onRoute(
+        toWorkflow(VoteWorkflow)
+          .toOneOf([toFinish(MixedNotVotedWorkflowFinish), toFinish(MixedVotedWorkflowFinish)]),
       ),
   ],
 })
@@ -201,7 +206,7 @@ export class VotingDoneWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(VotingWorkflowStart)
-      .toParallelWorkflows(MixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
+      .forEachItem(toWorkflow(MixedWorkflow), { takeFirst: 5, maxConcurrency: 5 })
       .join()
       .toAction(VotingDoneAction)
       .toFinish(VotingDoneWorkflowFinish),

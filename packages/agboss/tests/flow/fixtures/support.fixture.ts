@@ -13,7 +13,7 @@ import {
   OrderStatusDto,
 } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { onAction, onAgent, route, onStart } from "./paths.js";
+import { onAction, onAgent, onStart, toAgent } from "./paths.js";
 import { inline } from "../../../src/index.js";
 
 /** #270 — the support desk: a router, an optional loyalty offer, a finish reading `fast` or `expert`. */
@@ -118,13 +118,19 @@ export const supportPaths = [
   onStart(SupportWorkflowStart)
     .toAgent(OrderAgent)
     .toRouter(AnswerRouter)
-    .chooseOne(
-      route(FastAnswerAgent).toAction(SupportAction),
-      route(LoyaltyAgent).toAgent(ExpertAnswerAgent),
-      route(ExpertAnswerAgent),
-    ),
-  onAgent(ExpertAnswerAgent).toAction(SupportAction),
-  onAction(SupportAction).toFinish(SupportWorkflowFinish),
+    .onRoute(
+      toAgent(FastAnswerAgent)
+        .toAction(SupportAction),
+    )
+    .onRoute(
+      toAgent(LoyaltyAgent)
+        .toAgent(ExpertAnswerAgent),
+    )
+    .onRoute(toAgent(ExpertAnswerAgent)),
+  onAgent(ExpertAnswerAgent)
+    .toAction(SupportAction),
+  onAction(SupportAction)
+    .toFinish(SupportWorkflowFinish),
 ];
 
 @Workflow({

@@ -21,7 +21,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   ItemDto,
@@ -193,7 +193,9 @@ export class YieldCheckedWorkflowFinish {}
   name: "yield-check-workflow",
   version: "1.0.0",
   flow: [
-    onStart(YieldCheckWorkflowStart).toAction(GatedItemAction).toFinish(YieldCheckedWorkflowFinish),
+    onStart(YieldCheckWorkflowStart)
+      .toAction(GatedItemAction)
+      .toFinish(YieldCheckedWorkflowFinish),
   ],
 })
 export class YieldCheckWorkflow {}
@@ -243,7 +245,9 @@ export class YieldOneWorkflowFinish {}
   name: "yield-one-workflow",
   version: "1.0.0",
   flow: [
-    onStart(YieldOneWorkflowStart).toWorkflow(YieldCheckWorkflow).toFinish(YieldOneWorkflowFinish),
+    onStart(YieldOneWorkflowStart)
+      .toWorkflow(YieldCheckWorkflow)
+      .toFinish(YieldOneWorkflowFinish),
   ],
 })
 export class YieldOneWorkflow {}
@@ -260,10 +264,7 @@ export class YieldReviewsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(YieldReviewsWorkflowStart)
-      .toParallelWorkflows(YieldReviewWorkflow, {
-        maxConcurrency: 2,
-        maxItems: 5,
-      })
+      .forEachItem(toWorkflow(YieldReviewWorkflow), { takeFirst: 5, maxConcurrency: 2 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),

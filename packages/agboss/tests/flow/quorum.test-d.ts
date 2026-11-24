@@ -51,23 +51,27 @@ import { GoodScoreArbiter, ValidScoreArbiter } from "./fixtures/quorum.fixture.j
 /** #279 — quorums at compile time: what may follow a launch, arbiters, groups. */
 
 const scores = () =>
-  onStart(CandidateReviewWorkflowStart).toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent);
+  onStart(CandidateReviewWorkflowStart).inParallel([
+    toAgent(ScoreAAgent),
+    toAgent(ScoreBAgent),
+    toAgent(ScoreCAgent),
+  ]);
 const fit = () =>
-  onStart(FitReviewWorkflowStart).toParallelAgents(
-    SkillsScoreAgent,
-    CultureScoreAgent,
-    SalaryFitAgent,
-  );
+  onStart(FitReviewWorkflowStart).inParallel([
+    toAgent(SkillsScoreAgent),
+    toAgent(CultureScoreAgent),
+    toAgent(SalaryFitAgent),
+  ]);
 const deal = () =>
-  onStart(DealWorkflowStart).toParallelAgents(
-    LegalAgent,
-    DealCriticAgent,
-    DealCriticAgent,
-    AuditorAgent,
-    FastScreenAgent,
-    {
-      maxConcurrency: 4,
-    },
+  onStart(DealWorkflowStart).inParallel(
+    [
+      toAgent(LegalAgent),
+      toAgent(DealCriticAgent),
+      toAgent(DealCriticAgent),
+      toAgent(AuditorAgent),
+      toAgent(FastScreenAgent),
+    ],
+    { maxConcurrency: 4 },
   );
 
 class OfficeCalendar {

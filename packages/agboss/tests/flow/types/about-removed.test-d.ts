@@ -1,7 +1,6 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { RuleCode } from "../../../src/graph/rule-codes.js";
 import type { ValueWrite } from "../../../src/flow/analyse/flow-graph.js";
-import type { SwitchCase } from "../../../src/flow/ast.js";
 import { OutdatedReason, type ScopeValueRecord } from "../../../src/flow/runtime/records.js";
 // @ts-expect-error — `ReturnsOptions` ({ about }) is gone (#1277)
 import type { ReturnsOptions } from "../../../src/public/flow.js";
@@ -11,7 +10,6 @@ describe("#1277: { about } is gone", () => {
   it("no record, write, step or reason carries an about", () => {
     expectTypeOf<ScopeValueRecord>().not.toHaveProperty("about");
     expectTypeOf<ValueWrite>().not.toHaveProperty("about");
-    expectTypeOf<SwitchCase>().not.toHaveProperty("about");
     expectTypeOf<keyof typeof OutdatedReason>().toEqualTypeOf<"Replaced" | "BuiltFromReplaced">();
   });
 

@@ -19,7 +19,7 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { CritiqueDto, PlanDto } from "../../fixtures/review-dtos.js";
-import { onAgent, route, onStart, toFinish } from "../../../helpers/flow.js";
+import { onAgent, onStart, toFinish, toAgent, toAction } from "../../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
@@ -94,7 +94,7 @@ export class CritiquesWorkflowFinish {}
   decidedBy: DecidedBy.Code,
   maxVisits: 2,
   input: { critiques: listOf(CritiqueDto) },
-  routes: [{ target: LoopPlannerAgent }, { target: CritiquesAction }],
+  routes: [LoopPlannerAgent, CritiquesAction],
 })
 export class PlanLoopRouter {
   route(input: { readonly critiques: readonly Produced<CritiqueDto, unknown>[] }): unknown {
@@ -107,12 +107,17 @@ export class PlanLoopRouter {
   name: "plan-loop-workflow",
   version: "1.0.0",
   flow: [
-    onStart(PlanLoopWorkflowStart).toAgent(LoopPlannerAgent),
+    onStart(PlanLoopWorkflowStart)
+      .toAgent(LoopPlannerAgent),
     onAgent(LoopPlannerAgent)
-      .toParallelAgents(LoopCriticAgent, LoopCriticAgent)
+      .inParallel([toAgent(LoopCriticAgent), toAgent(LoopCriticAgent)])
       .join()
       .toRouter(PlanLoopRouter)
-      .chooseOne(route(LoopPlannerAgent), route(CritiquesAction).toFinish(CritiquesWorkflowFinish)),
+      .onRoute(toAgent(LoopPlannerAgent))
+      .onRoute(
+        toAction(CritiquesAction)
+          .toFinish(CritiquesWorkflowFinish),
+      ),
   ],
 })
 export class PlanLoopWorkflow {}
@@ -164,7 +169,7 @@ export class ItemClerkAgent {}
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(ItemsWorkflowStart)
-      .toParallelAgents(ItemClerkAgent, { maxConcurrency: 2, maxItems: 10 })
+      .forEachItem(toAgent(ItemClerkAgent), { takeFirst: 10, maxConcurrency: 2 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
@@ -222,7 +227,7 @@ export class TiredWorkflowFinish {}
   decidedBy: DecidedBy.Code,
   maxVisits: 2,
   input: { critiques: listOf(CritiqueDto) },
-  routes: [{ target: TiredPlannerAgent }, { target: CritiquesAction }],
+  routes: [TiredPlannerAgent, CritiquesAction],
 })
 export class TiredLoopRouter {
   route(input: { readonly critiques: readonly Produced<CritiqueDto, unknown>[] }): unknown {
@@ -235,15 +240,17 @@ export class TiredLoopRouter {
   name: "tired-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TiredWorkflowStart).toAgent(TiredPlannerAgent),
+    onStart(TiredWorkflowStart)
+      .toAgent(TiredPlannerAgent),
     onAgent(TiredPlannerAgent)
-      .toParallelAgents(TiredCriticAgent, TiredCriticAgent)
+      .inParallel([toAgent(TiredCriticAgent), toAgent(TiredCriticAgent)])
       .join()
       .onError(VisitsLimitExceededError, toFinish(TiredWorkflowFinish))
       .toRouter(TiredLoopRouter)
-      .chooseOne(
-        route(TiredPlannerAgent),
-        route(CritiquesAction).toFinish(CritiquesWorkflowFinish),
+      .onRoute(toAgent(TiredPlannerAgent))
+      .onRoute(
+        toAction(CritiquesAction)
+          .toFinish(CritiquesWorkflowFinish),
       ),
   ],
 })

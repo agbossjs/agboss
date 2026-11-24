@@ -20,7 +20,7 @@ import {
   type WorkflowDescriptor,
   inline,
 } from "../../../../src/index.js";
-import { onAgent, route, onStart } from "../../../helpers/flow.js";
+import { onAgent, onStart, toAgent, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
@@ -199,10 +199,15 @@ export class ReviewRouter {}
   version: "2.1.0",
   providers: [PublishAction],
   flow: [
-    onStart(ContextStart).toAgent(WriterAgent),
+    onStart(ContextStart)
+      .toAgent(WriterAgent),
     onAgent(WriterAgent)
       .toRouter(ReviewRouter)
-      .chooseOne(route(WriterAgent), route(PublishAction).toFinish(PublishedFinish)),
+      .onRoute(toAgent(WriterAgent))
+      .onRoute(
+        toAction(PublishAction)
+          .toFinish(PublishedFinish),
+      ),
   ],
 })
 export class ContextWorkflow {}
@@ -221,7 +226,11 @@ export class ContextApplication {}
   name: "judged-context-workflow",
   version: "1.0.0",
   defaults: { router: { model: "typesafe/jev-1.13" } },
-  flow: [onStart(ContextStart).toAgent(JudgedWriterAgent).toFinish(PublishedFinish)],
+  flow: [
+    onStart(ContextStart)
+      .toAgent(JudgedWriterAgent)
+      .toFinish(PublishedFinish),
+  ],
 })
 export class JudgedContextWorkflow {}
 
@@ -266,7 +275,11 @@ export class QuickWriterAgent {}
   name: "audit-workflow",
   version: "1.0.0",
   providers: [LazyAuditService],
-  flow: [onStart(ContextStart).toAgent(QuickWriterAgent).toFinish(PublishedFinish)],
+  flow: [
+    onStart(ContextStart)
+      .toAgent(QuickWriterAgent)
+      .toFinish(PublishedFinish),
+  ],
 })
 export class AuditWorkflow {}
 
@@ -284,7 +297,11 @@ export class AuditApplication {}
   name: "eager-audit-workflow",
   version: "1.0.0",
   providers: [EagerAuditService],
-  flow: [onStart(ContextStart).toAgent(QuickWriterAgent).toFinish(PublishedFinish)],
+  flow: [
+    onStart(ContextStart)
+      .toAgent(QuickWriterAgent)
+      .toFinish(PublishedFinish),
+  ],
 })
 export class EagerAuditWorkflow {}
 

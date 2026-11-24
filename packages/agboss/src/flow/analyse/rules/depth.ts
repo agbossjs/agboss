@@ -6,7 +6,7 @@ import type { AnalysisContext } from "./context.js";
 
 /**
  * `[flow.path-too-deep]` (#272 AC10): nesting is counted inside each path, reset at every path start;
- * each `switch` case, `chooseOne` route and `onError` side path is one level. More levels than
+ * each `toOneOf` branch, `onRoute` route and `onError` side path is one level. More levels than
  * `executionLimits.maxPathDepth` (4) is a warning — an error under `--strict`. One per path, at its
  * deepest node (the deepest, then the first by name: the same whatever the order of branches).
  */

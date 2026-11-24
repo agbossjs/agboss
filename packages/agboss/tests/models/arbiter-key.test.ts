@@ -21,7 +21,7 @@ import {
   TestOpenRouterProvider,
 } from "./providers.fixture.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import { providerStub } from "./stub.js";
 
 class AnsDto {
@@ -75,7 +75,7 @@ class AnsFinish {}
   version: "1.0.0",
   flow: [
     onStart(AnsStart)
-      .toParallelAgents(AnsAgent, AnsAgent)
+      .inParallel([toAgent(AnsAgent), toAgent(AnsAgent)])
       .arbitratedBy(AnsArbiter)
       .joinQuorum({ min: 2 })
       .toAction(AnsAction)

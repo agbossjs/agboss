@@ -10,7 +10,7 @@ import { limitViolations } from "../../src/application/limit-rules.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { Workflow, type WorkflowOptions } from "../../src/flow/decorators/workflow.js";
 import { FlowSyntaxError } from "../../src/flow/launch-step.js";
-import { onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import { KitWorkflowStart, SentKitWorkflowFinish } from "./fixtures/kit.fixture.js";
 import { FitReviewWorkflowStart, ScoreAAgent, ScoreBAgent } from "./fixtures/quorum-agents.js";
 
@@ -27,7 +27,8 @@ const NOT_COUNTS: readonly (readonly [string, unknown])[] = [
   ["infinity", Number.POSITIVE_INFINITY],
 ];
 
-const launched = () => onStart(FitReviewWorkflowStart).toParallelAgents(ScoreAAgent, ScoreBAgent);
+const launched = () =>
+  onStart(FitReviewWorkflowStart).inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent)]);
 
 const messageOf = (work: () => unknown): string => {
   try {
@@ -42,15 +43,17 @@ const messageOf = (work: () => unknown): string => {
 describe("#1373: the flow builder refuses a launch's and a quorum's limits that are no counts", () => {
   it.each(NOT_COUNTS)("%s as maxItems and as maxConcurrency", (_kind, value) => {
     const items = messageOf(() =>
-      onStart(FitReviewWorkflowStart).toParallelAgents(ScoreAAgent, { maxItems: value as never }),
+      onStart(FitReviewWorkflowStart).forEachItem(toAgent(ScoreAAgent), {
+        takeFirst: value as never,
+      }),
     );
     const concurrency = messageOf(() =>
-      onStart(FitReviewWorkflowStart).toParallelAgents(ScoreAAgent, {
+      onStart(FitReviewWorkflowStart).inParallel([toAgent(ScoreAAgent)], {
         maxConcurrency: value as never,
       }),
     );
 
-    expect(items).toContain("{ maxItems }) takes a positive integer");
+    expect(items).toContain("{ takeFirst }) takes a positive integer");
     expect(concurrency).toContain("{ maxConcurrency }) takes a positive integer");
     expect(items + concurrency).not.toContain(TEXT);
   });

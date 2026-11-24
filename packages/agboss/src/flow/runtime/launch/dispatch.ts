@@ -1,17 +1,7 @@
 import { isStrictItems, itemBoundOf } from "../../analyse/flow-graph.js";
 import { slotOfValue } from "../../analyse/scope.js";
-import { NodeKind } from "../../ast.js";
 import { isStepKind } from "../limits.js";
 import { idempotencyKeyOf } from "../../context/idempotency.js";
-import { declarationOf } from "../../decorators/declaration.js";
-import {
-  failurePolicyOf,
-  FailurePolicy,
-  routesOf,
-  spawnPolicyOf,
-  SpawnPolicy,
-  type AnyRouterRoute,
-} from "../../decorators/router.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import type { ScopeRecords } from "../records.js";
 import { skipCodesOf } from "./branch-skip.js";
@@ -19,10 +9,10 @@ import type { BranchTicket, LaunchTicket } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
 /**
- * Which branches a launch dispatches (#273 S20, S23): each listed target once, in listed order —
+ * Which branches a launch dispatches (#273 S20, S23, #1279, #1280): each listed target once, in listed order —
  * copies of a repeated agent numbered from 1 (`critic-agent#1`, `critic-agent#2`) — or, per item,
  * the first `maxItems` items of the list the launching step wrote, in list order (the rest dropped
- * without an error, recorded); after a router, its `Always` targets and the `OnDemand` ones it
+ * without an error, recorded); under `chooseMany([…])`, the siblings of the router and the routes it
  * chose. Every branch of a launch is the same visit of its node (copies and items are told apart
  * by `copyNumber` and `itemIndex`); steps are counted here, in dispatch order, so they are the same
  * however the branches finish — and again after a resume.
@@ -40,40 +30,26 @@ export interface DispatchSite {
   /** Visits per node and the steps, the launching step's own visit included. */
   readonly visits: Readonly<Record<string, number>>;
   readonly steps: number;
-  /** A router's `OnDemand` targets to launch (node ids); undefined for any other launcher. */
+  /** A router's chosen routes to launch (node ids); undefined for any other launcher. */
   readonly chosen?: readonly string[];
 }
 
-/** One branch before its counters: which node, which copy or item, its policy. */
+/** One branch before its counters: which node, which copy or item, what it skips. */
 interface Planned {
   readonly node: string;
   readonly nodeId: string;
   readonly copyNumber: number;
   readonly itemIndex?: number;
-  readonly failure: FailurePolicy;
   readonly skip: readonly string[];
 }
 
-const routeOf = (launcher: RuntimeNode, node: string): AnyRouterRoute | undefined => {
-  const { declaration } = launcher;
-  if (declaration.kind !== NodeKind.Router) return undefined;
-  return routesOf(declaration.options).find(
-    (route) => declarationOf(route.target)?.options.name === node,
-  );
-};
-
-/** Whether a listed target runs: always, unless a router left its `OnDemand` route out. */
-function isLaunched(site: DispatchSite, node: string, route: AnyRouterRoute | undefined): boolean {
+/** Whether a listed target runs: always, unless it is a route of `chooseMany([…])` its router left out. */
+function isLaunched(site: DispatchSite, node: string): boolean {
   const { chooser } = site.launch.launch;
-  // `chooseMany([…])` (#1279b): the router's routes run when it chose them, the siblings always
-  if (chooser !== undefined)
-    return (
-      !(chooser.routes as readonly string[]).includes(node) || site.chosen?.includes(node) === true
-    );
-  const { declaration } = site.launcher;
-  if (route === undefined || declaration.kind !== NodeKind.Router) return true;
-  if (spawnPolicyOf(declaration.options, route) === SpawnPolicy.Always) return true;
-  return site.chosen?.includes(node) === true;
+  if (chooser === undefined) return true;
+  return (
+    !(chooser.routes as readonly string[]).includes(node) || site.chosen?.includes(node) === true
+  );
 }
 
 function listedBranches(site: DispatchSite): readonly Planned[] {
@@ -82,15 +58,13 @@ function listedBranches(site: DispatchSite): readonly Planned[] {
   return listed.flatMap((node): readonly Planned[] => {
     const copyNumber = (seen.get(node) ?? 0) + 1;
     seen.set(node, copyNumber);
-    const route = routeOf(site.launcher, node);
-    if (!isLaunched(site, node, route)) return [];
+    if (!isLaunched(site, node)) return [];
     const isRepeated = listed.filter((name) => name === node).length > 1;
-    const failure = route === undefined ? FailurePolicy.FailFast : failurePolicyOf(route);
     const nodeId = isRepeated ? `${node}#${String(copyNumber)}` : node;
     const skip = skipCodesOf(
       site.launch.launch.branches.find((branch) => branch.node === node)?.skip ?? [],
     );
-    return [{ node, nodeId, copyNumber, failure, skip }];
+    return [{ node, nodeId, copyNumber, skip }];
   });
 }
 
@@ -110,7 +84,6 @@ function itemBranches(site: DispatchSite, taken: number): readonly Planned[] {
     nodeId: branch.node,
     copyNumber: 1,
     itemIndex,
-    failure: FailurePolicy.FailFast,
     skip: skipCodesOf(branch.skip),
   }));
 }

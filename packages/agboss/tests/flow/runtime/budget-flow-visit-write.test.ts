@@ -167,16 +167,16 @@ describe("#1366: the edge a visit leaves by", () => {
     expect(leave(exits({ cases }), { usage: [] })).toBe(none);
   });
 
-  it("a class the switch has no caseOf for fails the output, naming it, or 'no class'", () => {
+  it("a class the toOneOf has no branch for fails the output, naming it, or 'no class'", () => {
     const cases = new Map([["ADto", { to: "a" }]]);
 
     expect(() => leave(exits({ cases }), { value: { variant: "BDto" }, usage: [] })).toThrow(
       new OutputInvalidError({
-        message: "clerk gave BDto, which its switch has no caseOf(…) for",
+        message: "clerk gave BDto, which its .toOneOf([…]) has no branch for",
       }),
     );
     expect(() => leave(exits({ cases }), { usage: [] })).toThrow(
-      "clerk gave no class, which its switch has no caseOf(…) for",
+      "clerk gave no class, which its .toOneOf([…]) has no branch for",
     );
   });
 

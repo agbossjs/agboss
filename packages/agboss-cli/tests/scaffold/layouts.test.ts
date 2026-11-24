@@ -93,7 +93,7 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
     const described = agbossIn(project, ["describe"]);
     expect(described.ok, described.out).toBe(true);
     expect(described.out).toContain(
-      "      route(OnboardingAssistantAgent)\n        .toFinish(TextWorkflowFinish),\n      route(BillingAgent)\n        .toFinish(TextWorkflowFinish)\n    )",
+      "    .onRoute(toAgent(OnboardingAssistantAgent)\n      .toFinish(TextWorkflowFinish))\n    .onRoute(toAgent(BillingAgent)\n      .toFinish(TextWorkflowFinish))",
     );
     expect(described.out).toContain("· read-tickets-tool (local) ← TicketsServer");
     expect(described.out).toContain("rag: policies-rag (k 3, shared)");
@@ -115,7 +115,7 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
     );
 
     await expect(applyChanges(project, again)).rejects.toThrow(
-      `Already exists: src/agents/billing/billing.agent.ts, src/agents/billing/billing.prompt.md. Already wired: ${module}: BillingAgent already in OnboardingMainRouter's chooseOne(…); ${router}: BillingAgent already in routes. Nothing was written — rerun with --force to regenerate the files and keep the existing wiring`,
+      `Already exists: src/agents/billing/billing.agent.ts, src/agents/billing/billing.prompt.md. Already wired: ${module}: BillingAgent already in OnboardingMainRouter's .onRoute(…)s; ${router}: BillingAgent already in routes. Nothing was written — rerun with --force to regenerate the files and keep the existing wiring`,
     );
 
     const forced = agbossIn(project, [
@@ -132,7 +132,7 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
     expect(forced.ok, forced.out).toBe(true);
     const envelope = JSON.parse(forced.stdout) as { warnings: string[]; modified: string[] };
     expect(envelope.warnings.slice(0, 2)).toEqual([
-      `skipped: ${module}: BillingAgent already in OnboardingMainRouter's chooseOne(…)`,
+      `skipped: ${module}: BillingAgent already in OnboardingMainRouter's .onRoute(…)s`,
       `skipped: ${router}: BillingAgent already in routes`,
     ]);
     // #237: the agent's own wiring (tools, MCP tool, knowledge base) is kept, not wiped

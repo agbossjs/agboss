@@ -10,7 +10,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
 import { RecordingCostLedger } from "../../helpers.js";
 import {
   BatchWorkflowFinish,
@@ -86,7 +86,7 @@ export function costLedger(): SeenCostLedgerRepository {
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(BatchWorkflowStart)
-      .toParallelAgents(PricedRefundAgent, { maxConcurrency: 3, maxItems: 5 })
+      .forEachItem(toAgent(PricedRefundAgent), { takeFirst: 5, maxConcurrency: 3 })
       .join()
       .toAction(BatchAction)
       .toFinish(BatchWorkflowFinish),

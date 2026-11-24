@@ -1,4 +1,4 @@
-import { caseOf, route, onRouter, onStart } from "../../../src/flow/builder.js";
+import { onRouter, onStart, toAgent, toFinish, toRouter } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -84,16 +84,19 @@ export class NoReplyWorkflowFinish {}
 export class MainRouter {}
 
 export const chatPaths = [
-  onStart(IntakeWorkflowStart).toRouter(MainRouter),
+  onStart(IntakeWorkflowStart)
+    .toRouter(MainRouter),
 
-  onRouter(MainRouter).chooseOne(
-    route(ProfilerAgent).switch(
-      caseOf(ProfileDto).toRouter(MainRouter),
-      caseOf(ResumeMissingDto).toFinish(AskResumeWorkflowFinish),
-    ),
-    route(ScoutAgent).toFinish(ChatWorkflowFinish),
-    route(NoReplyWorkflowFinish),
-  ),
+  onRouter(MainRouter)
+    .onRoute(
+      toAgent(ProfilerAgent)
+        .toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
+    )
+    .onRoute(
+      toAgent(ScoutAgent)
+        .toFinish(ChatWorkflowFinish),
+    )
+    .onRoute(toFinish(NoReplyWorkflowFinish)),
 ] as const;
 
 @Workflow({

@@ -71,7 +71,7 @@ export class AskWorkflowFinish {}
 -->
 
 ```ts
-import { EmptyEnvironment } from "@agboss/core";
+import { EmptyEnvironment, toFinish } from "@agboss/core";
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",

@@ -78,7 +78,7 @@ describe("#268 AC7: studioOf(Application) — every workflow, children inside th
     );
   });
 
-  it("a child per item (.toParallelWorkflows) is a subgraph of its parent too", async () => {
+  it("a child per item (.forEachItem) is a subgraph of its parent too", async () => {
     const ids = Object.keys(
       await drawnNodes(CompanyReviewApplication, "company-screening-workflow"),
     );

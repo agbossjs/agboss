@@ -81,6 +81,34 @@ export class EditKitAgent {}
 })
 export class PolishKitAgent {}
 
+/** A branch of the review's `.toOneOf([…])` that takes the requested changes: it tells the branch apart. */
+@Action({
+  name: "take-changes-kit-action",
+  description: "Takes the changes the review asked for",
+  input: {
+    changes: ChangesRequestedDto,
+  },
+})
+export class TakeChangesKitAction {
+  execute(): void {
+    // takes the value its branch is told apart by
+  }
+}
+
+/** The other branch: it takes the approval. */
+@Action({
+  name: "take-approval-kit-action",
+  description: "Takes the approval",
+  input: {
+    approved: DraftApprovedDto,
+  },
+})
+export class TakeApprovalKitAction {
+  execute(): void {
+    // takes the value its branch is told apart by
+  }
+}
+
 @Action({
   name: "send-kit-action",
   description: "Sends the offer",

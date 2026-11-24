@@ -69,7 +69,7 @@ beforeEach(resetParallelBudget);
 
 describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () => {
   testWith(ParallelBudgetApplication, SPENDER_FIRST)(
-    "toParallelAgents: the spender's call crosses the execution budget, the waiter's tool is aborted",
+    "inParallel: the spender's call crosses the execution budget, the waiter's tool is aborted",
     async ({ app, mockLlm }) => {
       mockLlm(SpenderAgent).thenReturn(hold, spend(0.06));
       mockLlm(WaiterAgent).thenReturn(wait); // no further turn: its loop never calls again
@@ -111,7 +111,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
       step(TaskWorkflow, { "task-workflow-start": { name: "wait" } }),
     ]),
   })(
-    "toParallelWorkflows: one child's call crosses the root's budget, its sibling child is aborted",
+    "forEachItem: one child's call crosses the root's budget, its sibling child is aborted",
     async ({ app, mockLlm }) => {
       mockLlm(TaskAgent)
         .when({ task: { name: "spend" } })
@@ -133,7 +133,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
       step(TaskAction, { task: { name: "wait" } }),
     ]),
   })(
-    "toParallelActions: one action's service spend crosses the budget, its sibling's signal aborts",
+    "inParallel: one action's service spend crosses the budget, its sibling's signal aborts",
     async ({ app }) => {
       const result = await execute(app, TasksWorkflowStart, [{ name: "wait" }, { name: "spend" }]);
 

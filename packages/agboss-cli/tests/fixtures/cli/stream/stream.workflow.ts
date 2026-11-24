@@ -42,7 +42,11 @@ export class AnsweringAgent {}
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
-  flow: [onStart(AskWorkflowStart).toAgent(AnsweringAgent).toFinish(AnswerWorkflowFinish)],
+  flow: [
+    onStart(AskWorkflowStart)
+      .toAgent(AnsweringAgent)
+      .toFinish(AnswerWorkflowFinish),
+  ],
   defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })
 export class AskWorkflow {}

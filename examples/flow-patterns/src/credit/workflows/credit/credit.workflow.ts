@@ -1,4 +1,4 @@
-import { onAction, route, onStart, toFinish, Workflow } from "@agboss/core";
+import { onAction, onStart, toFinish, Workflow, toAgent, toAction } from "@agboss/core";
 import { ChargeCardAction } from "../../actions/charge-card.action.js";
 import { ApprovalAgent } from "../../agents/approval/approval.agent.js";
 import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.js";
@@ -24,17 +24,17 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
   flow: [
     onStart(CreditWorkflowStart)
       .toRouter(DeskRouter)
-      .chooseOne(
-        route(OrderIntakeAgent)
+      .onRoute(
+        toAgent(OrderIntakeAgent)
           .toRouter(CreditLimitRouter)
           .onError(CreditServiceUnavailableError, toFinish(OrderHeldWorkflowFinish))
-          .chooseOne(
-            route(ApprovalAgent)
+          .onRoute(
+            toAgent(ApprovalAgent)
               .toAction(ChargeCardAction),
-            route(ChargeCardAction),
-          ),
-        route(NoOrderWorkflowFinish),
-      ),
+          )
+          .onRoute(toAction(ChargeCardAction)),
+      )
+      .onRoute(toFinish(NoOrderWorkflowFinish)),
 
     // two ways in (ApprovalAgent, CreditLimitRouter): the charge's path is its own
     onAction(ChargeCardAction)

@@ -36,7 +36,7 @@ export const produced = <TProducer, TValue>(
   description: "Answers outside its routes",
   decidedBy: DecidedBy.Code,
   input: { request: QuoteRequestDto },
-  routes: [{ target: PriceQuoteAction }],
+  routes: [PriceQuoteAction],
 })
 export class OffRouteRouter {
   route(): typeof ManualQuoteWorkflowFinish {

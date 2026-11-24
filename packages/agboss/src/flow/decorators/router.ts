@@ -20,64 +20,22 @@ export enum DecidedBy {
 }
 
 /**
- * Whether a router's target is launched by the framework or chosen by the router (#273, #280):
- * only before `.toParallelAgents(…)`; with `.chooseOne(…)` it fails assembly and every route is a
- * choice. The default per kind: `Always` on a model router's route, `OnDemand` on a code router's.
- */
-export enum SpawnPolicy {
-  /** Launched by the framework next to the chosen ones; never returned by `route()`. */
-  Always = "always",
-  /** Launched when the router chooses it. */
-  OnDemand = "on-demand",
-}
-
-/** What a failed agent of a parallel launch does to the launch (#273): only before `.toParallelAgents(…)`. */
-export enum FailurePolicy {
-  /** The launch fails (the default, both kinds). */
-  FailFast = "fail-fast",
-  /** The failed agent drops out of the join; the execution goes on. */
-  Skip = "skip",
-}
-
-/**
- * A model router's route with its `prompt`: what choosing it means. After `.chooseOne(…)` its model
- * chooses among these; in a launch a route without `spawn` is `Always` (the default) and an
- * explicit `spawn: SpawnPolicy.OnDemand` one is decided by the model.
+ * A model router's route with its `prompt`: what choosing it means. After `.onRoute(…)` its model
+ * chooses among these; in `toRouter(R).chooseMany([…])` it picks the ones that run.
  */
 export interface ChosenRouterRoute {
   /**
-   * An agent, an action, another router or a finish — the same targets as `chooseOne(route(…))`;
+   * An agent, an action, another router or a finish — the same targets as `.onRoute(…)`;
    * `() => Finish` for a class declared below this one (the temporal dead zone, #1271).
    */
   readonly target: TargetRef;
   /** A route to a finish is worded as a stop instruction ("Stop and send the answer: …"). */
   readonly prompt: string;
-  readonly spawn?: SpawnPolicy.OnDemand;
-  readonly failure?: FailurePolicy;
-}
-
-/** A route the framework launches itself (`spawn: SpawnPolicy.Always`): no model sees it. */
-export interface AlwaysRouterRoute {
-  readonly target: TargetRef;
-  readonly spawn: SpawnPolicy.Always;
-  readonly failure?: FailurePolicy;
-  readonly prompt?: never;
-}
-
-/** One route of a model router (`DecidedBy.Model`). */
-export type RouterRoute = ChosenRouterRoute | AlwaysRouterRoute;
-
-/** One route of a code router (`DecidedBy.Code`): its `route()` says when; no prompt; `OnDemand` by default. */
-export interface CodeRouterRoute {
-  readonly target: TargetRef;
-  readonly spawn?: SpawnPolicy;
-  readonly failure?: FailurePolicy;
-  readonly prompt?: never;
 }
 
 /**
  * `@Router({ decidedBy: DecidedBy.Model })` — how its model chooses (`prompt`, the route prompts);
- * the flow lists the targets (`.chooseOne(route(…)…)`) and the two lists match (`[router.routes-mismatch]`).
+ * the flow lists the targets (`.onRoute(toAgent(A)…)`) and the two lists match (`[router.routes-mismatch]`).
  */
 export interface ModelRouterOptions {
   /** Ends with `-router` (`main-router`). */
@@ -88,7 +46,7 @@ export interface ModelRouterOptions {
   /** Visits per execution; one more fails before it decides (`VisitsLimitExceededError`). */
   readonly maxVisits?: number;
   readonly decidedBy: DecidedBy.Model;
-  readonly routes: readonly [RouterRoute, ...RouterRoute[]];
+  readonly routes: readonly [ChosenRouterRoute, ...ChosenRouterRoute[]];
   /**
    * A decision model or a chat model: a vendor name, or a role of its provider (`"fast"`). Left
    * out: `defaults.router.model`, else the default model of its provider (#1313).
@@ -123,11 +81,8 @@ export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Tok
   /** Visits per execution; one more fails before it decides (`VisitsLimitExceededError`). */
   readonly maxVisits?: number;
   readonly decidedBy: DecidedBy.Code;
-  /**
-   * The targets `route()` picks among: a class, or `() => Class` for one declared below (#1279b);
-   * `{ target, spawn?, failure? }` is the form of a launch right after the router, until it goes.
-   */
-  readonly routes: readonly [CodeRouterRoute | TargetRef, ...(CodeRouterRoute | TargetRef)[]];
+  /** The targets `route()` picks among: a class, or `() => Class` for one declared below (#1279b). */
+  readonly routes: readonly [TargetRef, ...TargetRef[]];
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: TDeps;
   readonly model?: never;
@@ -212,8 +167,6 @@ export const isCodeRouter = (options: RouterOptions): options is CodeRouterOptio
 export interface AnyRouterRoute {
   readonly target: Class;
   readonly prompt?: string | undefined;
-  readonly spawn?: SpawnPolicy | undefined;
-  readonly failure?: FailurePolicy | undefined;
 }
 
 /**
@@ -225,18 +178,3 @@ export const routesOf = (options: RouterOptions): readonly AnyRouterRoute[] =>
     const written = typeof route === "function" ? { target: route } : route;
     return { ...written, target: resolveTarget(written.target) };
   });
-
-/**
- * A route's spawn policy in a launch (#273, #280): as written, else the kind's default — `Always`
- * for a model router's route, `OnDemand` for a code router's.
- */
-export const spawnPolicyOf = (options: RouterOptions, route: AnyRouterRoute): SpawnPolicy =>
-  route.spawn ?? (isCodeRouter(options) ? SpawnPolicy.OnDemand : SpawnPolicy.Always);
-
-/** A route's failure policy in a launch: as written, else `FailFast` (both kinds). */
-export const failurePolicyOf = (route: AnyRouterRoute): FailurePolicy =>
-  route.failure ?? FailurePolicy.FailFast;
-
-/** The routes a launch leaves to the router: its `OnDemand` ones (by the kind's default too). */
-export const onDemandRoutesOf = (options: RouterOptions): readonly AnyRouterRoute[] =>
-  routesOf(options).filter((route) => spawnPolicyOf(options, route) === SpawnPolicy.OnDemand);

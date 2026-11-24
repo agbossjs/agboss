@@ -55,7 +55,7 @@ export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
 /** What a component gives: `XDto`, `listOf(…)` or `oneOf(…)` — never `optional(…)`. */
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
 
-/** What a step gives (#299, S54): a value shape, or the `oneOf(…)` a `.switch` branches. */
+/** What a step gives (#299, S54): a value shape, or the `oneOf(…)` a `.toOneOf([…])` branches. */
 export type ReturnedShape = ValueShape | OneOfWrapper;
 
 /** `historyOf(XDto, { maxPrevious })`'s options. */

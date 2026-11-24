@@ -1,5 +1,4 @@
 import type { ErrorRecord } from "../../../core/error-record.js";
-import type { FailurePolicy } from "../../decorators/router.js";
 import type { NodeValue } from "../scope.js";
 
 /**
@@ -13,15 +12,15 @@ import type { NodeValue } from "../scope.js";
 export enum BranchStatus {
   /** It ran to its end: its value goes to the join. */
   Finished = "finished",
-  /** It failed: the launch fails (`FailFast`, or anything but a step failure under `Skip`). */
+  /** It failed: the launch fails (unless a `.onError(E, skip())` of its own drops it). */
   Failed = "failed",
-  /** It failed on its own step under `FailurePolicy.Skip` (S21): it drops out of the join. */
+  /** It failed with an error its `.onError(E, skip())` names (S21): it drops out of the join. */
   Skipped = "skipped",
   /** A sibling failed first: the launch's `AbortController` stopped it, or it never started. */
   Cancelled = "cancelled",
   /**
    * Its pause passed its deadline (its own, the run's or the quorum's) without an answer (#945): in
-   * a quorum it did not vote; in a plain launch it follows the launch's `FailurePolicy`.
+   * a quorum it did not vote; in a plain launch it fails the launch unless its `skip()` names the expiry.
    */
   Expired = "expired",
 }
@@ -57,8 +56,6 @@ export interface BranchTicket {
   readonly visitNumber: number;
   /** The execution's steps before this branch's visit (`maxSteps`), counted in dispatch order. */
   readonly stepsBefore: number;
-  /** Its route's failure policy (a router's launch); `FailFast` everywhere else. */
-  readonly failure: FailurePolicy;
   /** `.onError(E, skip())` (#1279): the error codes that drop this branch out of the join. */
   readonly skip?: readonly string[];
 }
@@ -145,14 +142,14 @@ export interface QuorumGroupRecord {
 /**
  * One launch of an execution (`result.launches`): its id, how many items (a per-item launch) or
  * listed targets there were and how many were launched — `{ items: 200, taken: 50 }` after
- * `maxItems: 50`, or the `OnDemand` routes a router left out — and how each branch ended.
+ * `maxItems: 50`, or the routes a `chooseMany([…])` router left out — and how each branch ended.
  */
 export interface LaunchRecord {
   /** `${executionId}:${nodeId}:${visitNumber}` of the launching step. */
   readonly launch: string;
   /** The list's length (a per-item launch), or how many targets the launch lists. */
   readonly items: number;
-  /** How many branches were launched: at most `maxItems`; a router's `OnDemand` "no" left out. */
+  /** How many branches were launched: at most `maxItems`; a router's "no" left out. */
   readonly taken: number;
   /** Every launched branch, in the join's order. */
   readonly branches: readonly BranchRecord[];

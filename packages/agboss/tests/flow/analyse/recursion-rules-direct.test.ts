@@ -99,13 +99,13 @@ describe("#1366: the exit of a recursive branch", () => {
       }),
     );
   const tail =
-    " — on the last level (depth === maxDepth) none is left; add a caseOf(…) or route(…) that does not recurse";
+    " — on the last level (depth === maxDepth) none is left; add a branch or a route that does not recurse";
 
   it("names a switch whose every case recurses, by its cases", () => {
     expect(rules(branch(RecursionDecider.Agent, ["AaDto", "BbDto"], ["AaDto", "BbDto"]))).toEqual([
       {
         code: "graph.recursion-without-exit",
-        message: `chooser: every way on (caseOf(AaDto), caseOf(BbDto)) launches the workflow itself${tail.replace(" — ", " — ")}`,
+        message: `chooser: every way on (.toOneOf([…]) branch AaDto, .toOneOf([…]) branch BbDto) launches the workflow itself${tail.replace(" — ", " — ")}`,
         nodes: ["chooser"],
       },
     ]);
@@ -114,7 +114,7 @@ describe("#1366: the exit of a recursive branch", () => {
   it("names a router whose every route recurses, by its routes, either kind of router", () => {
     for (const decider of [RecursionDecider.ModelRouter, RecursionDecider.CodeRouter]) {
       expect(rules(branch(decider, ["r1", "r2"], ["r1", "r2"])).map((one) => one.message)).toEqual([
-        `chooser: every way on (route(r1), route(r2)) launches the workflow itself${tail}`,
+        `chooser: every way on (.onRoute(r1), .onRoute(r2)) launches the workflow itself${tail}`,
       ]);
     }
   });

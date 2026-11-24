@@ -3,7 +3,7 @@ import { EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../..
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { onStart } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { Closer, Editor, LaunchColor, LaunchShape, ShapeDto, Shaper } from "./agents.fixture.js";
 
@@ -60,7 +60,7 @@ class LaunchFinish {}
   version: "1.0.0",
   flow: [
     onStart(LaunchStart)
-      .toParallelAgents(LaunchShape, LaunchColor)
+      .inParallel([toAgent(LaunchShape), toAgent(LaunchColor)])
       .join()
       .toAgent(Closer)
       .toFinish(LaunchFinish),

@@ -9,7 +9,7 @@ import {
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { caseOf, route, onStart, toAction } from "../../../helpers/flow.js";
+import { onStart, toAction, toWorkflow, toAgent, toFinish } from "../../../helpers/flow.js";
 import {
   ChainDoneWorkflowFinish,
   CountDoneDto,
@@ -45,19 +45,16 @@ export class RemoteCountdownWorkflowStart {}
   flow: [
     onStart(RemoteCountdownWorkflowStart)
       .toAction(CountdownAction)
-      .switch(
-        caseOf(CountDto)
-          .toWorkflow(() => RemoteCountdownWorkflow)
+      .toOneOf([
+        toWorkflow(() => RemoteCountdownWorkflow)
           .onError(
             LimitExceededError,
-            toAction(DepthStoppedAction).toFinish(CountStoppedWorkflowFinish),
+            toAction(DepthStoppedAction)
+              .toFinish(CountStoppedWorkflowFinish),
           )
-          .switch(
-            caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
-            caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
-          ),
-        caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
-      ),
+          .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
+        toFinish(CountDoneWorkflowFinish),
+      ]),
   ],
   executionLimits: { maxDepth: 3 },
 })
@@ -77,7 +74,7 @@ export class RemoteChainWorkflowStart {}
   decidedBy: DecidedBy.Code,
   input: { link: LinkDto },
   maxVisits: 1,
-  routes: [{ target: () => RemoteChainWorkflow }, { target: LinkAgent }],
+  routes: [() => RemoteChainWorkflow, LinkAgent],
 })
 export class RemoteDeeperRouter {
   route(): unknown {
@@ -92,9 +89,13 @@ export class RemoteDeeperRouter {
   flow: [
     onStart(RemoteChainWorkflowStart)
       .toRouter(RemoteDeeperRouter)
-      .chooseOne(
-        route(() => RemoteChainWorkflow).toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent).toFinish(ChainDoneWorkflowFinish),
+      .onRoute(
+        toWorkflow(() => RemoteChainWorkflow)
+          .toFinish(ChainDoneWorkflowFinish),
+      )
+      .onRoute(
+        toAgent(LinkAgent)
+          .toFinish(ChainDoneWorkflowFinish),
       ),
   ],
   executionLimits: { maxDepth: 2 },

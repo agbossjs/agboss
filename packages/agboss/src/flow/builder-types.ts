@@ -11,16 +11,16 @@ import type {
 } from "./generated-types.js";
 import type { QuestionStepOptions } from "./child-placement.js";
 import type { Skip } from "./parallel-step.js";
-import type { ChooseManyOf, Launches, RouterLaunches } from "./launch-types.js";
+import type { ChooseManyOf, ParallelLaunches } from "./launch-types.js";
 import type { SideClaimsOf, OneOfCheck, WithFinishes } from "./one-of-types.js";
 import type { RouteMore, RoutesOf } from "./route-types.js";
 import type { ClassOf, TargetRef } from "./target-ref.js";
 
 /**
  * The types of the path builder (#272 S3). A builder carries, in its type, how its path starts
- * (`SourceHead` for a flow path, `RouteHead` / `CaseHead` / `SideHead` for sub-paths) and the
+ * (`SourceHead` for a flow path, `SideHead` for sub-paths) and the
  * value the chain carries; each state offers only the steps the grammar allows there. Kinds,
- * what a step gives (#1270: derived from its declaration) and `caseOf(…)` are checked against the
+ * what a step gives (#1270: derived from its declaration) are checked against the
  * generated `.agboss/types.d.ts`.
  */
 
@@ -29,12 +29,6 @@ declare const pathValue: unique symbol;
 
 export interface SourceHead {
   readonly source: true;
-}
-export interface RouteHead {
-  readonly route: true;
-}
-export interface CaseHead<TValue> {
-  readonly case: TValue;
 }
 /**
  * A side path (`.onError`, `.toOneOf`, `.onFinish`, `.onRoute`): `TClaims` are the DTOs its entry consumer
@@ -47,17 +41,13 @@ export interface SideHead<TClaims = unknown, TStart = unknown> {
   /** The class the side path starts with (`toAgent(A)…` → `typeof A`): what `.onRoute(…)` subtracts. */
   readonly start?: TStart;
 }
-export type PathHead = SourceHead | RouteHead | CaseHead<unknown> | SideHead;
+export type PathHead = SourceHead | SideHead;
 
 /** A path as built so far: a `FlowPath` from a source, a `SubPath` otherwise, its head in its type. */
 export type BuiltPath<THead extends PathHead> = (THead extends SourceHead ? FlowPath : SubPath) & {
   readonly [pathHead]?: THead;
 };
 
-/** Any route of `.chooseOne(…)`. */
-export type RoutePath = BuiltPath<RouteHead>;
-/** Any case of `.switch(…)`. */
-export type CasePath = BuiltPath<CaseHead<unknown>>;
 /** Any side path of `.onError(…)`. */
 export type SidePath = BuiltPath<SideHead>;
 
@@ -73,13 +63,6 @@ export interface KindLabels {
 }
 
 export type KindLabel<TKind extends NodeKind> = KindLabels[TKind];
-
-/** The label of a route target. */
-export type RouteTargetLabel =
-  "a route target (an agent, an action, a router, a child workflow or a finish)";
-
-export type RouteTargetKind =
-  NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Finish | NodeKind.Workflow;
 
 export interface WrongKind<TName extends string, TLabel extends string> {
   readonly __error: `${TName} is not ${TLabel}`;
@@ -111,19 +94,6 @@ export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel ext
       ? InputCheck<InstanceType<TClass>>
       : TResult
     : never;
-
-/** The values of the cases of a `.switch(…)`. */
-export type CaseValueOf<TPath> = TPath extends { readonly [pathHead]?: CaseHead<infer T> }
-  ? T
-  : never;
-
-export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
-  CaseValueOf<TCases[number]>,
-] extends [TOutput]
-  ? [TOutput] extends [CaseValueOf<TCases[number]>]
-    ? unknown
-    : { readonly __error: "the switch is not exhaustive — one caseOf(…) per class of the output" }
-  : { readonly __error: "a caseOf(…) names a class the step does not give" };
 
 /** The head after entering `TInstance`: a side path still without claims takes this step's. */
 export type NextHead<THead extends PathHead, TInstance> =
@@ -177,7 +147,7 @@ export type IsUnion<TValue, TAll = TValue> = TValue extends unknown
 
 /**
  * After the value a step gives (#1270: derived from its declaration — nothing is written for it):
- * a `oneOf(…)` is branched by `.switch(…)`, any other goes on with a transition or a launch (#273).
+ * a `oneOf(…)` is branched by `.toOneOf([…])`, any other goes on with a transition or a launch (#273).
  */
 export type ValueContinuation<TValue, THead extends PathHead> =
   IsOneOf<TValue> extends true
@@ -190,13 +160,13 @@ export type OutputContinuation<TOutput, THead extends PathHead> = [TOutput] exte
 ]
   ? TOutput
   : [TOutput] extends [NoOutput]
-    ? Transitions<THead> & Launches<never, THead>
+    ? Transitions<THead> & ParallelLaunches<never, THead>
     : ValueContinuation<TOutput, THead>;
 
 /** After a value: the next transition, or a parallel launch (#273). */
 export type AfterValue<TValue, THead extends PathHead> = BuiltPath<THead> &
   Transitions<THead> &
-  Launches<TValue, THead> & { readonly [pathValue]?: TValue };
+  ParallelLaunches<TValue, THead> & { readonly [pathValue]?: TValue };
 
 export interface Transitions<THead extends PathHead> {
   toAgent<const TClass extends Class>(
@@ -221,8 +191,7 @@ export interface Transitions<THead extends PathHead> {
   ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   /**
    * One child execution of `W` (#263) — the class, or `() => W` for one declared below (#1287, its own
-   * `@Workflow` included): it enters through the start whose input takes the chain's value, gives one of its finishes' outputs — one class, or a `oneOf(…)` and a `.switch(…)` with
-   * one case per class — and its failure is caught by `.onError(…)` right after.
+   * `@Workflow` included): it enters through the start whose input takes the chain's value, gives one of its finishes' outputs — one class, or a `oneOf(…)` and a `.onFinish(F, …)` per finish — and its failure is caught by `.onError(…)` right after.
    */
   toWorkflow<const TRef extends TargetRef>(
     target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
@@ -236,9 +205,6 @@ export interface Switching<TOutput, THead extends PathHead> {
    */
   toOneOf<const TBranches extends readonly [SidePath, SidePath, ...SidePath[]]>(
     branches: TBranches & OneOfCheck<TBranches, TOutput>,
-  ): BuiltPath<THead>;
-  switch<const TCases extends readonly [CasePath, ...CasePath[]]>(
-    ...cases: TCases & SwitchCheck<TCases, TOutput>
   ): BuiltPath<THead>;
 }
 
@@ -258,23 +224,15 @@ export type SkipOf<TInstance, THead extends PathHead> = THead extends SideHead
   : unknown;
 
 /**
- * After a router: its `.onError(…)`, then its choice — `.onRoute(subPath)` once per route (#1278),
- * `.chooseOne(…)` or a launch (#273). `TRemaining` are the routes not yet named.
+ * After a router: its `.onError(…)`, then its choice — `.onRoute(subPath)` once per route (#1278). `TRemaining` are the routes not yet named.
  */
 export interface RouterStep<
   THead extends PathHead,
   TInstance = unknown,
   TRemaining = RoutesOf<TInstance>,
->
-  extends RouterLaunches<THead>, RouteMore<THead, TRemaining> {
+> extends RouteMore<THead, TRemaining> {
   onError(
     error: ErrorClass,
     path: SidePath,
   ): BuiltPath<THead> & RouterStep<THead, TInstance, TRemaining>;
-  chooseOne(...routes: readonly [RoutePath, ...RoutePath[]]): BuiltPath<THead>;
 }
-
-/** What `route(X)` continues with: nothing after a finish, else the target's step. */
-export type RouteContinuation<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish]
-  ? BuiltPath<RouteHead>
-  : AfterStep<TInstance, RouteHead>;

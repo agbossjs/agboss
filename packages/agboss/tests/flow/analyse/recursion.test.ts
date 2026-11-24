@@ -5,7 +5,7 @@ import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/wor
 import type { Class } from "../../../src/components/injection.js";
 import { inputLines } from "../../../src/describe/inputs.js";
 import { recursionLines } from "../../../src/describe/recursion.js";
-import { caseOf, onStart, onWorkflow } from "../../helpers/flow.js";
+import { onStart, onWorkflow, toFinish, toWorkflow } from "../../helpers/flow.js";
 import {
   ChainWorkflow,
   CountdownAction,
@@ -55,10 +55,10 @@ const messagesOf = (target: abstract new () => unknown, code: string): readonly 
 const countdown = (self: () => Class): Flow => [
   onStart(CountdownWorkflowStart)
     .toAction(CountdownAction)
-    .switch(
-      caseOf(CountDto).toWorkflow(self).toFinish(CountDoneWorkflowFinish),
-      caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
-    ),
+    .toOneOf([
+      toWorkflow(self).toFinish(CountDoneWorkflowFinish),
+      toFinish(CountDoneWorkflowFinish),
+    ]),
 ];
 
 describe("a workflow launching itself: the workflow itself as a node", () => {
@@ -157,21 +157,19 @@ describe("AC2: [graph.recursion-without-depth], mutual recursion", () => {
 });
 
 describe("AC5: [graph.recursion-without-exit]", () => {
-  it("every case of a switch launches the workflow itself", () => {
+  it("every branch of a toOneOf launches the workflow itself", () => {
     const flowOf = (self: () => Class): Flow => [
       onStart(CountdownWorkflowStart)
         .toAction(CountdownAction)
-        .switch(caseOf(CountDto).toWorkflow(self), caseOf(CountDoneDto).toWorkflow(self)),
-      onWorkflow(self).switch(
-        caseOf(CountDoneDto).toFinish(CountDoneWorkflowFinish),
-        caseOf(CountStoppedDto).toFinish(CountStoppedWorkflowFinish),
-      ),
+        .toOneOf([toWorkflow(self), toWorkflow(self)]),
+      onWorkflow(self).toOneOf([
+        toFinish(CountDoneWorkflowFinish),
+        toFinish(CountStoppedWorkflowFinish),
+      ]),
     ];
 
     expect(messagesOf(recursive(flowOf, 2), "graph.recursion-without-exit")).toEqual([
-      expect.stringContaining(
-        "countdown-action: every way on (caseOf(CountDoneDto), caseOf(CountDto)) launches the workflow itself",
-      ),
+      expect.stringContaining("countdown-action: every way on (.toOneOf([…]) branch"),
     ]);
   });
 

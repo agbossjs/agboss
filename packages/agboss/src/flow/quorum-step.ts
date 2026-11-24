@@ -3,7 +3,6 @@ import type { Class } from "../components/injection.js";
 import { isWorkingDuration, type Milliseconds, type WorkingDuration } from "../units/index.js";
 import { MAX_SPAN_DAYS, MAX_SPAN_MS, spanText, type TimeSpan } from "../units/working-time.js";
 import {
-  NodeKind,
   QuorumKind,
   StepKind,
   type ArbiterClass,
@@ -12,7 +11,6 @@ import {
   type GroupsQuorum,
   type InParallelStep,
   type JoinStep,
-  type LaunchStep,
   type QuorumGroup,
   type Step,
   type SubPath,
@@ -37,17 +35,11 @@ export function arbitratedByOf(arbiter: unknown): ArbiterClass {
 }
 
 /** The launch `.arbitratedBy(…)` extends: right after a launch that gives answers a quorum counts. */
-export function arbitratingLaunch(
-  previous: Step | undefined,
-): LaunchStep | InParallelStep | ForEachItemStep {
+export function arbitratingLaunch(previous: Step | undefined): InParallelStep | ForEachItemStep {
   if (!isLaunching(previous))
     throw new FlowSyntaxError({
       message:
-        ".arbitratedBy(…) stands right after .inParallel([…]), .forEachItem(…) or .toParallelAgents(…), before .joinQuorum(…) / .joinQuorumGroups(…)",
-    });
-  if (previous.kind === StepKind.Launch && previous.targetKind !== NodeKind.Agent)
-    throw new FlowSyntaxError({
-      message: ".arbitratedBy(…) judges answers — after .inParallel([…]) or .toParallelAgents(…)",
+        ".arbitratedBy(…) stands right after .inParallel([…]) or .forEachItem(…), before .joinQuorum(…) / .joinQuorumGroups(…)",
     });
   if (previous.arbitratedBy !== undefined)
     throw new FlowSyntaxError({

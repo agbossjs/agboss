@@ -392,7 +392,7 @@ export class MainRouter {}
 
 ```ts file=src/desk/desk.workflow.ts
 // desk.workflow.ts — the module: the paths (`flow`), defaults, memory, providers; money: the application's budgets
-import { Workflow, route, onStart } from "@agboss/core";
+import { Workflow, onStart, toRouter, toFinish, toAgent } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupportAgent } from "./agents/support.agent.js";
 import { MainRouter } from "./routers/main.router.js";
@@ -407,12 +407,12 @@ import { ChatWorkflowStart } from "./workflow-starts/chat.workflow-start.js";
   flow: [
     onStart(ChatWorkflowStart) // what the step put on the path: its scope
       .toRouter(MainRouter)
-      .chooseOne(
-        // one route per @Router route, each continued to its end
-        route(SupportAgent)
+      // one route per @Router route, each continued to its end
+      .onRoute(
+        toAgent(SupportAgent)
           .toFinish(ChatWorkflowFinish),
-        route(HandOverWorkflowFinish),
-      ),
+      )
+      .onRoute(toFinish(HandOverWorkflowFinish)),
   ],
   defaults: { tools: { maxToolCalls: 4 } }, // over the application's
   executionLimits: { maxSteps: 4 },
@@ -528,7 +528,7 @@ export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts
 ```
 
 **Adding an agent** = its `agents/<name>.agent.ts` (+ `<name>.prompt.md`), one route in its
-router's `routes`, and its path in the router's `chooseOne(…)` (`route(NewAgent).toFinish(…)`).
+router's `routes`, and its path as an `.onRoute(…)` of the router (`.onRoute(toAgent(NewAgent).toFinish(…))`).
 **Adding a tool** = `tools/<name>.dto.ts` + `tools/<name>.tool.ts`, listed in an agent's `tools`; a
 service it needs goes in `providers`. `agboss generate <kind> <full name> --workflow <workflow's
 full name>` writes and wires both, then regenerates the types (#268 AC8: `agboss generate agent
@@ -552,52 +552,52 @@ one LangGraph `StateGraph` and checked at assembly. A path reads left to right:
   (its **scope**: later nodes read their `input` fields from it, `[input.missing-on-path]` when no
   path brings one) is derived from its declaration (#1270; there is no `.returns`): a start its
   `input` (one value per field of a map), an agent, action, question role or child workflow its
-  `output`, a text agent its reply as `WorkflowFinishTextDto`; `.chooseOne(route(X)…)` — the router's
-  choice, one `route(…)` per `@Router` route; `.switch(caseOf(A)…)` — a branch
+  `output`, a text agent its reply as `WorkflowFinishTextDto`; `.onRoute(toAgent(X)…)` — the router's
+  choice, one `.onRoute(…)` per `@Router` route; `.toOneOf([…])` — a branch
   per variant of a step's `oneOf(…)` output; `.onError(ErrorClass, toAction(…)… | toAgent(…)… | toExternalTask(…)… | toWorkflow(…)… | toFinish(…))` — the side
   path when the step before throws that class (its subclasses, or an error caused by it), written
   right after that step.
-- **Parallel launches (#273):** `.toParallelAgents(A, B, B, { maxConcurrency })` /
-  `.toParallelActions(…)` — each listed target runs once (a repeat is a copy), targets of that kind
-  only; with one target right after a step whose output is `listOf(XDto)` it runs once per item (`{ maxItems }`
-  required, `[launch.max-items-required]`; the target reads an `XDto` field, `[launch.item-not-read]`).
+- **Parallel launches (#273):** `.inParallel([toAgent(A), toAgent(B), toAgent(B)], { maxConcurrency })` — each listed target runs once (a repeat is a copy), targets of that kind
+  only; `.forEachItem(toAgent(A), { takeFirst | maxItems, maxConcurrency })` right after a step whose output is `listOf(XDto)` runs
+  it once per item (the target reads an `XDto` field, `[launch.item-not-read]`; `takeFirst` drops the rest, recorded, `maxItems` throws `LimitError.Items` past it,
+  handled by `.onError(LimitError.Items, …)` after the join).
   A launch is followed by `.join()` (else it does not compile; `.onError` is not offered between a
   launch and its join), then the join's `.onError(E, side path)`; the join gives one value per class the branches give —
   `listOf(XDto)` for copies, two agents with one `output` and per-item runs, `optional(XDto)` for a
-  router route that is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip` — derived from the branches
+  branch a router chooses or a `skip()` drops — derived from the branches
   (`[launch.unjoinable-output]` when none can carry it); actions without `output` give nothing, so
   `.join()` goes on with `.to…(…)`. A branch
   sees the scope at the launch, its siblings' values only after the join; a branch renewing what a
-  sibling read is `[launch.branch-outdates-sibling]` (#271). After `.toRouter(R)` the launch lists
-  R's routes; a model router's routes state `spawn` (`[router.spawn-required]`, an `Always` route
-  has no prompt, `[router.prompt-on-always]`), a code router's `route()` returns the `OnDemand`
-  agents as a list. At run time (#273 PR 2) each branch is one LangGraph `Send` of one superstep;
+  sibling read is `[launch.branch-outdates-sibling]` (#271). A router in a launch is a branch,
+  `toRouter(R).chooseMany([toAgent(A), …])`, the list R's routes (`[router.routes-mismatch]`; a model router's
+  route has its prompt, `[router.no-prompt]`); a code router's `route()` returns the agents to launch as a
+  list, `[]` included. At run time (#273 PR 2) each branch is one LangGraph `Send` of one superstep;
   `maxConcurrency` is a sliding window (a branch frees its slot when it ends, fails or pauses); a
-  per-item launch takes the first `maxItems` items in list order — never an error: `result.launches`
+  per-item launch with `takeFirst` takes the first items in list order — never an error: `result.launches`
   (`{ launch, items, taken, branches }`, `BranchStatus`) and `onLaunchItemsTruncated` show it. A
   copy is `critic-agent#2` in `result.path`, traces and events (`step.copyNumber` from 1, a per-item
   run's `step.itemIndex` from 0; every run of one launch is one visit of its node, so all share its
   `visitNumber` and `maxVisits` counts launches); the join's lists keep listed / item order. A failed branch aborts
   its siblings (`FailFast`) and the join takes `.onError(E, …)` (class and cause chain) or fails
-  the execution with the branch's error; `FailurePolicy.Skip` drops only a `StepFailedError`, a
-  limit in a `Skip` branch fails the launch, and `app.cancel` cancels the whole execution — never a
-  branch outcome, never taken by `.onError` (S21). A model router before a
-  launch decides its `OnDemand` routes in one call — a `Decision.boolean` per route on a decision
+  the execution with the branch's error; `.onError(E, skip())` on a branch drops only a `StepFailedError`, a
+  limit in a `skip()` branch fails the launch, and `app.cancel` cancels the whole execution — never a
+  branch outcome, never taken by `.onError` (S21). A model router in a
+  `chooseMany([…])` decides its routes in one call — a `Decision.boolean` per route on a decision
   model, one answer tool with a boolean per route on a chat model (tests: `decideWith({ "<target
-name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S23).
+name>": 0.9 })`); all no launches none of them (`[]` is an answer, S23).
 - **Child workflows (#263):** a step may be an ordinary `@Workflow` of the application —
-  `.toWorkflow(W)` (one child), `route(W)`, or `.toParallelWorkflows(W, { maxConcurrency, maxItems })`
-  (one child per item, right after a step whose output is `listOf(ItemDto)`, `maxItems` required, then `.join()`).
+  `.toWorkflow(W)` (one child), `.onRoute(toWorkflow(W))`, or `.forEachItem(toWorkflow(W), { takeFirst, maxConcurrency })`
+  (one child per item, right after a step whose output is `listOf(ItemDto)`, then `.join()`).
   Each edge picks the child's start by class, never by name: a child with one start is entered
   through it; else the start with a required field of the item's type (per item) or of the chain's
-  current value (the step's output or `caseOf` right before) — of several, the one whose other required
+  current value (the step's output right before) — of several, the one whose other required
   fields are on the parent's path; none → `[graph.no-matching-start]` (the starts and their inputs
   listed), two → `[graph.ambiguous-start]` (fix: a subclass as one start's input) — both compile
   errors too, through the child's generated `Inputs` entry. `agboss describe` prints each edge's start.
   The child's scope starts with its start input only (`[input.missing-on-path]` per edge for the
   chosen start's required fields; its optional ones may be missing); its result is one of its
-  finishes' outputs — one class continues the path, several are a `oneOf(…)` and `.switch(caseOf(…)…)` with one
-  case per class (two finishes of one class are one case; a case counts as read), and
+  finishes' outputs — one class continues the path, several are a `oneOf(…)` and `.onFinish(F, …)` per finish or `.toOneOf([…])` with one
+  branch per class (two finishes of one class are one branch), and
   after a per-item launch the join gives `listOf(oneOf(…))` (S53: one polymorphic list). Errors:
   `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`, and right after the join (the
   join's own handler). A per-item child with no finish reachable from one of its
@@ -673,7 +673,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   a side path took; observer events carry `parentExecutionId` / `rootExecutionId`.
 - **Recursion (#264, #1287):** a workflow launches itself by a thunk of its own class — a decorator's
   arguments are evaluated before its class exists, `() => Self` is read later, at assembly — a child
-  like any other: `.toWorkflow(() => Self)`, `route(() => Self)`, `.toParallelWorkflows(() => Self,
+  like any other: `.toWorkflow(() => Self)`, `.onRoute(toWorkflow(() => Self))`, `.forEachItem(toWorkflow(() => Self),
 { maxItems })`, the node of the workflow's own name (one class = one node; its own path
   `onWorkflow(() => Self)…` from two places). `toWorkflow` / `onWorkflow` take `Class | (() => Class)`
   (`TargetRef`, `resolveTarget`, `UnwrapTarget` in `src/flow/target-ref.ts`, shared with `@Router` routes);
@@ -683,7 +683,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   of its own name, marked `recursive: maxDepth N` in its `getGraphAsync` metadata). `@Workflow({ executionLimits: { maxDepth } })` is required (`[graph.recursion-without-depth]`);
   `executionContext.depth` is 1 at the root, each child record has its `depth`, the last level is
   `depth === maxDepth` — no model sees the depth, a domain level is an `input` field (`TopicDto.level`).
-  The **soft stop** on the last level: of a branch (`.switch` / `.chooseOne`) the options whose path
+  The **soft stop** on the last level: of a branch (`.toOneOf` / `.onRoute`) the options whose path
   launches the workflow itself before the next branch are not offered — an agent's variants leave its
   response schema (a second cache prefix for that level), a model router's routes are hidden, a code
   router returning one is `RouterDecisionError`; each such branch keeps one that does not recurse
@@ -724,7 +724,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   shutdown timeout and recovered elsewhere. A full instance reports `isBusy: true` (not `isReady`) on
   its `HealthReport`, orthogonal to `status`, and its recovery sweep starts at most its free slots' worth of recoveries per look;
   `agboss describe` prints `maxConcurrentSteps 32 (set)` (`--json`: `maxConcurrentSteps`).
-- **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
+- **Quorums (#279):** after `.inParallel([…])` a join may count answers instead of waiting for
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
   `deadline` in units: `seconds()`, `minutes()`, `hours()`) or `.joinQuorumGroups({ deadline })`
   followed by `.onGroup([A, B], { priority: 1 }, subPath)` per group (#1284: `.onError(E, …)` right after the
@@ -734,7 +734,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `.arbitratedBy(X)` between the launch and the quorum (`.arbitratedBy(…).join()` does not compile):
   one arbiter per launch (#1282: no `anyOf`, no and / or — the rule and its escalation from code to a
   model live in the class), after `.inParallel([…])`, `.forEachItem(…)` (`.joinQuorum(…)` only) or
-  `.toParallelAgents(…)`. `criteria: [{ target, prompt }]` with `model` and `prompt` — a model arbiter, one
+  `.inParallel([…])`. `criteria: [{ target, prompt }]` with `model` and `prompt` — a model arbiter, one
   entry per target of the launch; `@Arbitrate(A, B, …) isMeaningful(answer: XDto): boolean` — an
   arbiter of code, a method per one or more targets (copy / item through `deps: [ExecutionContext]`);
   `deps: [ArbiterModel]` (+ `model`) lets that code ask its own model where it must (charged under
@@ -833,7 +833,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `onValuesOutdated` event per cascade (Wiki → Path-scope).
 
 <!-- snippet-context
-import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, caseOf, onStart, toAction, inline } from "@agboss/core";
+import { Action, Agent, VisitsLimitExceededError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, inline } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { oneOf } from "@agboss/core";
 
@@ -892,24 +892,23 @@ export const offerPaths = [
     .toAgent(ReviewerAgent),
 
   onAgent(ReviewerAgent)
-    .switch(
-      caseOf(ChangesRequestedDto) // the changes are about this draft
-        .toAgent(EditorAgent)
+    .toOneOf([
+      // the editor reads the requested changes: that tells this branch apart
+      toAgent(EditorAgent)
         .onError(
           VisitsLimitExceededError, // the editor's maxVisits spent: tell the recruiter, finish
           toAction(NotifyRecruiterAction)
             .toFinish(OfferFailedWorkflowFinish),
         )
         .toAgent(ReviewerAgent),
-      caseOf(DraftApprovedDto)
-        .toAction(SendOfferAction)
+      toAction(SendOfferAction)
         .toFinish(OfferSentWorkflowFinish),
-    ),
+    ]),
 ] as const;
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, FailurePolicy, Router, SpawnPolicy, Workflow, WorkflowFinish, WorkflowStart, onStart, inline } from "@agboss/core";
+import { Agent, DecidedBy, Router, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, skip, toAgent, toRouter } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, optional } from "@agboss/core";
 
@@ -970,11 +969,7 @@ export class SupportWorkflowFinish {}
   model: "typesafe/jev-1.13",
   prompt: inline("Pick everyone needed for the customer's message."),
   input: { message: WorkflowStartTextDto },
-  routes: [
-    { target: OrderAgent, spawn: SpawnPolicy.Always },
-    { target: RefundPolicyAgent, spawn: SpawnPolicy.OnDemand, prompt: "The message is about returns" },
-    { target: LoyaltyAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
-  ],
+  routes: [{ target: RefundPolicyAgent, prompt: "The message is about returns" }],
 })
 export class SupportRouter {}
 // @snippet
@@ -987,15 +982,20 @@ export const launchPaths = [
   // one agent per item of a list: its join gives one value per item
   onStart(ScreeningWorkflowStart)
     .toAgent(ScreeningAgent)
-    .toParallelAgents(CompanyCheckAgent, { maxConcurrency: 3, maxItems: 50 })
+    .forEachItem(toAgent(CompanyCheckAgent), { takeFirst: 50, maxConcurrency: 3 })
     .join()
     .toAgent(RankerAgent)
     .toFinish(RankingWorkflowFinish),
 
-  // a router decides who is launched; OnDemand / Skip routes give optional(…) values
+  // a router decides which of its routes are launched, the rest run anyway; a chosen or skipped branch gives an optional(…) value
   onStart(SupportWorkflowStart)
-    .toRouter(SupportRouter)
-    .toParallelAgents(OrderAgent, RefundPolicyAgent, LoyaltyAgent)
+    .inParallel([
+      toAgent(OrderAgent),
+      toAgent(LoyaltyAgent)
+        .onError(StepFailedError, skip()),
+      toRouter(SupportRouter)
+        .chooseMany([toAgent(RefundPolicyAgent)]),
+    ])
     .join()
     .toAgent(AnswerAgent)
     .toFinish(SupportWorkflowFinish),
@@ -1003,7 +1003,7 @@ export const launchPaths = [
 ```
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, caseOf, onStart, toAction, inline } from "@agboss/core";
+import { Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAction, inline } from "@agboss/core";
 import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 import { listOf, oneOf } from "@agboss/core";
 
@@ -1069,12 +1069,7 @@ export class VendorScreeningWorkflow {}
         toAction(MarkVendorFailedAction)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )
-      .switch(
-        caseOf(VendorScoreDto)
-          .toFinish(VendorScoredWorkflowFinish),
-        caseOf(VendorRejectedDto)
-          .toFinish(VendorRejectedWorkflowFinish),
-      ),
+      .toOneOf([toFinish(VendorScoredWorkflowFinish), toFinish(VendorRejectedWorkflowFinish)]),
   ],
 })
 export class VendorCheckWorkflow {}
@@ -1084,7 +1079,7 @@ export const childPaths = [
   // of the child's finish output classes
   onStart(VendorScreeningWorkflowStart)
     .toAgent(VendorFinderAgent)
-    .toParallelWorkflows(VendorCheckWorkflow, { maxConcurrency: 3, maxItems: 50 })
+    .forEachItem(toWorkflow(VendorCheckWorkflow), { takeFirst: 50, maxConcurrency: 3 })
     .join()
     .toAgent(VendorRankerAgent)
     .toFinish(VendorRankingWorkflowFinish),
@@ -1229,9 +1224,8 @@ export const quorumPaths = [
   `deps: [ExecutionContext]`) returns `Route<Self>`, the generated union of its targets — no model
   call, cost 0, a target outside `routes` does not compile. Options are discriminated by
   `decidedBy` (`model` / `prompt` / a route `prompt` on a code router do not compile); both kinds
-  take `input` (non-empty, `[router.empty-input]`), `maxVisits` and, on routes, `spawn` /
-  `failure` — options of a parallel launch (#273; defaults `Always` + `FailFast`, a code router's
-  route `OnDemand`), an assembly error with `.chooseOne(…)` (`[router.policy-with-choose-one]`). A router that fails **fails the run** unless an
+  take `input` (non-empty, `[router.empty-input]`) and `maxVisits`; a model router's route is `{ target, prompt }`, a code
+  router's a class. In `.inParallel([…])` a router is a branch, `toRouter(R).chooseMany([…])`. A router that fails **fails the run** unless an
   `.onError(…)` right after it takes it: `RouterFailedError` (`step.router`: `route()` threw or
   the model call failed, the original as `cause` — `.onError(DomainError, …)` catches it through
   the cause) or `RouterDecisionError` (`step.router.invalid-decision`, a `RouterFailedError`: an
@@ -2901,7 +2895,7 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   lets them go — a zombie writer on the `VirtualClock`); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value, { cost })` (a structured answer, a class of the agent's output: checked by
   the generated types, #262), `callTool(Tool, args)` (args typed by the tool's input DTO),
-  `routeTo(...targets)` (`Route<R>`: one target after `.chooseOne(…)`, the `OnDemand` ones before a
+  `routeTo(...targets)` (`Route<R>`: one target after `.onRoute(…)`, the `OnDemand` ones before a
   launch, `routeTo()` only with an `Always` route), `decideWith(answers)` (a decision judge),
   `failWith(ModelFailure.Timeout)`, `waitFor(seconds(31))` (the next turn after that long on the
   clock); the network is blocked. `mockLlm(X).when(PartialValues<InputOf<X>>)` binds turns to the
@@ -3032,7 +3026,7 @@ page. Locally: `scripts/wiki.sh check`. Snippet conventions (README, CLAUDE, Wik
   workflow snippet is loaded to write its types: its classes are real (exported), not `declare`d.
 - ` ```ts no-check: <reason> ` opts a block out — the reason is required; use it sparingly.
 - **One call per line in flow chains** (#289): `onStart(A)` / `.toAgent(B)` / `.toFinish(C)`, also
-  `route(X)` / `.toFinish(F)`. `*.workflow.ts` and the flow fixtures (`FLOW_FILES` in
+  `.onRoute(toAgent(X))` / `.toFinish(F)`. `*.workflow.ts` and the flow fixtures (`FLOW_FILES` in
   `scripts/flow-style.mjs` = `.prettierignore`) are formatted by `make fmt`
   (`node scripts/format-flows.mjs`), not Prettier, and checked by ESLint
   (`@stylistic/newline-per-chained-call` + the formatting rules Prettier no longer applies there);
@@ -3146,7 +3140,7 @@ packages/agboss/        the framework (npm package `@agboss/core`; builds to dis
     workflow.ts     the assembled workflow type
     config/         typed config schema, profiles (YAML overlays), defaults resolution
     rag/            knowledge-base source (RagSource) + reference SQLite FTS5 source
-    flow/           the paths (#272): builder.ts (start/agent/router/action/route/caseOf/to…), ast.ts,
+    flow/           the paths (#272): builder.ts (onStart/onAgent/onRouter/onAction/to…), ast.ts,
                     decorators/ (@WorkflowStart @Router @Agent @Action @WorkflowFinish @Workflow),
                     dto-wrappers.ts, handlers.ts, print.ts (the grammar printed); analyse/ (path walk,
                     scope and data flow, rules/), types/ (`.agboss/types.d.ts` generation),

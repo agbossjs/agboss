@@ -22,7 +22,7 @@ export const finishRoute = (target: string, from: string): RouteSpec => ({
 
 const quoted = (text: string): string => text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
-/** `route(BillingAgent, "Handles invoices")` — how `agboss` writes a route. */
+/** `{ prompt: "Handles invoices", target: BillingAgent }` — how `agboss` writes a route. */
 export const routeLine = (target: string, text: string): string =>
   `{ prompt: "${quoted(text)}", target: ${target} }`;
 

@@ -44,15 +44,7 @@ import {
   CompanyCheckWorkflow,
   CompanyScoreWorkflowFinish,
 } from "../fixtures/starts.fixture.js";
-import {
-  onAgent,
-  caseOf,
-  route,
-  onStart,
-  toFinish,
-  toWorkflow,
-  toAction,
-} from "../fixtures/paths.js";
+import { onAgent, onStart, toAction, toAgent, toFinish, toWorkflow } from "../fixtures/paths.js";
 import { inline } from "../../../src/index.js";
 
 /** #263 PR 1 — child workflows in the analyser: the start per edge, outputs, scope, warnings. */
@@ -199,9 +191,9 @@ const REVIEWED = oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedD
 
 const reviewCases = () =>
   [
-    caseOf(CompanyGradeDto).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
-    caseOf(CompanyRejectedDto).toFinish(NoOfferRejectedWorkflowFinish),
-    caseOf(CompanyReviewFailedDto).toFinish(NoOfferFailedWorkflowFinish),
+    toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
+    toFinish(NoOfferRejectedWorkflowFinish),
+    toFinish(NoOfferFailedWorkflowFinish),
   ] as const;
 
 const graded = (path: ReturnType<typeof picked>) =>
@@ -267,7 +259,7 @@ describe("#263 AC2: the start, chosen per edge", () => {
   it("no matching: no start takes the chain's value — the starts and their inputs listed", () => {
     const path = onStart(JobOfferWorkflowStart)
       .toWorkflow(CompanyReviewWorkflow)
-      .switch(...reviewCases());
+      .toOneOf(reviewCases());
     expect(errorsOf([path])).toContainEqual({
       code: "graph.no-matching-start",
       message:
@@ -279,7 +271,7 @@ describe("#263 AC2: the start, chosen per edge", () => {
     const path = onStart(JobOfferWorkflowStart)
       .toAction(LogRequestAction)
       .toWorkflow(CompanyReviewWorkflow)
-      .switch(...reviewCases());
+      .toOneOf(reviewCases());
     const [problem] = errorsOf([path]).filter((found) => found.code === "graph.no-matching-start");
     expect(problem?.message).toContain(
       "log-request-action → company-review-workflow: the path into it brings no value to choose one of its starts by",
@@ -332,7 +324,7 @@ describe("#263 AC18 / AC21: list and map start inputs", () => {
   it("map input filled by item + path: the item fills its field, the rest from the scope or absent", () => {
     const perItem = (path: ReturnType<typeof found>) =>
       path
-        .toParallelWorkflows(CompanyCheckWorkflow, { maxItems: 5 })
+        .forEachItem(toWorkflow(CompanyCheckWorkflow), { takeFirst: 5 })
         .join()
         .toAgent(ScoreListAgent)
         .toFinish(GradedShortlistWorkflowFinish);
@@ -351,31 +343,15 @@ describe("#263 AC18 / AC21: list and map start inputs", () => {
 });
 
 describe("#263 AC3 / AC17: the child's output — one case per finish output class", () => {
-  const switched = (cases: readonly ReturnType<typeof caseOf>[]) =>
-    picked()
-      .toWorkflow(CompanyReviewWorkflow)
-      .switch(...cases);
+  const switched = (cases: readonly ReturnType<typeof toFinish>[]) =>
+    picked().toWorkflow(CompanyReviewWorkflow).toOneOf(cases);
 
-  it("switch exhaustive over finish classes: a missing class and a class no finish gives", () => {
+  it("toOneOf exhaustive over finish classes: a missing branch", () => {
     const [grade, rejected] = reviewCases();
-    const unknown = caseOf(JobOfferDto).toFinish(JobOfferWorkflowFinish);
-    expect(errorsOf([switched([grade, rejected, unknown])])).toEqual(
-      expect.arrayContaining([
-        {
-          code: "flow.switch-not-exhaustive",
-          message:
-            "company-review-workflow gives oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto) — add caseOf(CompanyReviewFailedDto)… to its switch",
-        },
-        {
-          code: "flow.switch-unknown-case",
-          message:
-            "caseOf(JobOfferDto): company-review-workflow does not give JobOfferDto — it gives oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto)",
-        },
-      ]),
-    );
+    expect(codesOf([switched([grade, rejected])])).toContain("flow.one-of-not-exhaustive");
   });
 
-  it("a oneOf output is switched; a single class needs no switch", () => {
+  it("a oneOf output is branched; a single class needs no .toOneOf", () => {
     const unwritten = picked()
       .toWorkflow(CompanyReviewWorkflow)
       .toAgent(JobOfferAgent)
@@ -386,7 +362,7 @@ describe("#263 AC3 / AC17: the child's output — one case per finish output cla
 
   it("caseOf after a child counts as read: a finish that does not read the case passes", () => {
     const [grade, , failed] = reviewCases();
-    const unread = caseOf(CompanyRejectedDto).toFinish(ReviewErrorWorkflowFinish);
+    const unread = toFinish(ReviewErrorWorkflowFinish);
     expect(codesOf([switched([grade, unread, failed])])).toEqual([]);
   });
 });
@@ -429,7 +405,7 @@ describe("#263 AC7: the child's scope is its start input", () => {
 describe("#263 AC11: a per-item child with no way to fail softly", () => {
   const perItem = (child: abstract new () => unknown) =>
     found()
-      .toParallelWorkflows(child, { maxConcurrency: 2, maxItems: 5 })
+      .forEachItem(toWorkflow(child), { takeFirst: 5, maxConcurrency: 2 })
       .join()
       .toAgent(GradeListAgent)
       .toFinish(GradedShortlistWorkflowFinish);
@@ -439,7 +415,7 @@ describe("#263 AC11: a per-item child with no way to fail softly", () => {
     const warning = {
       code: "graph.child-without-failure-finish",
       message:
-        "company-finder-agent → toParallelWorkflows(solo-grade-workflow): solo-grade-workflow has no finish reachable from an .onError side path — one failed item will cancel all the others (FailFast); to skip failed items, catch errors in the child and end at a finish",
+        "company-finder-agent → forEachItem(solo-grade-workflow): solo-grade-workflow has no finish reachable from an .onError side path — one failed item will cancel all the others (FailFast); to skip failed items, catch errors in the child and end at a finish",
     };
     const plain = checkWorkflow(parent);
     const strict = checkWorkflow(parent, { strict: true });
@@ -485,9 +461,7 @@ class GradeListAgent {}
 
 describe("#263: the child's node in the graph", () => {
   it("a child mentioned as another kind is [graph.wrong-kind]", () => {
-    const path = picked()
-      .toAgent(CompanyReviewWorkflow)
-      .switch(...reviewCases());
+    const path = picked().toAgent(CompanyReviewWorkflow).toOneOf(reviewCases());
     expect(errorsOf([path])).toContainEqual({
       code: "graph.wrong-kind",
       message:
@@ -498,10 +472,10 @@ describe("#263: the child's node in the graph", () => {
   it("route(W): a router's route enters a child; with one start it needs no value on the edge", () => {
     const path = picked()
       .toRouter(ReviewDeskRouter)
-      .chooseOne(
-        route(SoloGradeWorkflow).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
-        route(ReviewErrorWorkflowFinish),
-      );
+      .onRoute(
+        toWorkflow(SoloGradeWorkflow).toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
+      )
+      .onRoute(toFinish(ReviewErrorWorkflowFinish));
     const { analysis, errors } = checked([path]);
     expect(errors).toEqual([]);
     expect(analysis === undefined ? [] : childLines(analysis)).toEqual([

@@ -18,7 +18,7 @@ import {
   type LedgerEntry,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { OrderDto } from "./paid-steps.dto.js";
 
@@ -145,7 +145,7 @@ export class LostAnswerWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(LostAnswerWorkflowStart)
-      .toParallelActions(PayThriceAction, WorkAction)
+      .inParallel([toAction(PayThriceAction), toAction(WorkAction)])
       .join()
       .toAction(LostAnswerAction)
       .toFinish(LostAnswerWorkflowFinish),

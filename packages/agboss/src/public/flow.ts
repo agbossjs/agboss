@@ -1,15 +1,13 @@
 /**
  * The workflow's graph (the root entry, #272): the path builder (`start`, `agent`, `router`, `action`,
- * `workflow`, `question`, `route`, `caseOf`, the side-path starters), the decorators
+ * `workflow`, `question`, the side-path starters), the decorators
  * with their `<Kind>Options`, the handler contracts, the DTO wrappers, the tables
  * `.agboss/types.d.ts` fills and their lookups, and the workflow settings and limits.
  */
 export {
   onAction,
   onAgent,
-  caseOf,
   onExternalTask,
-  route,
   onRouter,
   onStart,
   toAction,
@@ -35,13 +33,8 @@ export type {
   AfterStep,
   AfterValue,
   BuiltPath,
-  CaseHead,
-  CasePath,
   ErrorHandling,
   PathHead,
-  RouteContinuation,
-  RouteHead,
-  RoutePath,
   RouterStep,
   SideHead,
   SidePath,
@@ -51,17 +44,7 @@ export type {
   Transitions,
 } from "../flow/builder-types.js";
 export type { RouteCheck, RouteMore, RoutesOf, RouteStep } from "../flow/route-types.js";
-export type {
-  AgentsLaunched,
-  JoinErrorHandling,
-  Joined,
-  Launched,
-  ChildLaunchCheck,
-  LaunchOptions,
-  Launches,
-  RouterLaunches,
-  WorkflowLaunchOptions,
-} from "../flow/launch-types.js";
+export type { AgentsLaunched, JoinErrorHandling, Joined, Launched } from "../flow/launch-types.js";
 export type {
   FixedArbitratedQuorums,
   GroupsJoined,
@@ -86,8 +69,6 @@ export {
   type GroupsQuorum,
   type JoinErrorHandler,
   type JoinStep,
-  type LaunchStep,
-  type LaunchTargetKind,
   type OneOfStep,
   type OnFinishStep,
   type OnErrorStep,
@@ -96,8 +77,6 @@ export {
   type QuorumGroup,
   type Step,
   type SubPath,
-  type SwitchCase,
-  type SwitchStep,
   type ToStep,
 } from "../flow/ast.js";
 export { Agent, type AgentExecutionLimits, type AgentOptions } from "../flow/decorators/agent.js";
@@ -118,15 +97,11 @@ export {
 } from "../flow/decorators/arbiter.js";
 export {
   DecidedBy,
-  FailurePolicy,
   Router,
-  SpawnPolicy,
   type CodeRouterOptions,
   type RouteChecked,
-  type CodeRouterRoute,
   type ModelRouterOptions,
   type RouterOptions,
-  type RouterRoute,
 } from "../flow/decorators/router.js";
 export { WorkflowStart, type WorkflowStartOptions } from "../flow/decorators/workflow-start.js";
 export { WorkflowFinish, type WorkflowFinishOptions } from "../flow/decorators/workflow-finish.js";

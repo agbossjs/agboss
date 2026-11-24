@@ -29,7 +29,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
-import { onAgent, route, onStart } from "../fixtures/paths.js";
+import { onAgent, onStart, toAgent } from "../fixtures/paths.js";
 import {
   FastAnswerAgent,
   LoyaltyAgent,
@@ -116,11 +116,9 @@ class StrictRouter {}
     onStart(SupportWorkflowStart)
       .toAgent(OrderAgent)
       .toRouter(StrictRouter)
-      .chooseOne(
-        route(FastAnswerAgent).toAgent(StrictExpertAgent),
-        route(LoyaltyAgent).toAgent(StrictExpertAgent),
-        route(StrictExpertAgent),
-      ),
+      .onRoute(toAgent(FastAnswerAgent).toAgent(StrictExpertAgent))
+      .onRoute(toAgent(LoyaltyAgent).toAgent(StrictExpertAgent))
+      .onRoute(toAgent(StrictExpertAgent)),
     onAgent(StrictExpertAgent).toAction(SupportAction).toFinish(SupportWorkflowFinish),
   ],
 })

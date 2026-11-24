@@ -1,5 +1,4 @@
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { StepFailedError } from "../../graph/errors.js";
 import {
   NodeKind,
   QuorumKind,
@@ -7,32 +6,16 @@ import {
   type ForEachItemStep,
   type InParallelStep,
   type JoinStep,
-  type LaunchStep,
-  type ParallelTargetKind,
   type Step,
   type ToStep,
 } from "../ast.js";
-import { LAUNCH_CALLS } from "../launch-step.js";
-import { chooserOf, itemsOf, parallelLaunchOf } from "./walk-parallel.js";
-import { declarationOf } from "../decorators/declaration.js";
-import {
-  failurePolicyOf,
-  FailurePolicy,
-  routesOf,
-  spawnPolicyOf,
-  SpawnPolicy,
-  type AnyRouterRoute,
-  type RouterOptions,
-} from "../decorators/router.js";
-import type { ComponentName } from "../registry.js";
+import { chooserOf, parallelLaunchOf } from "./walk-parallel.js";
 import {
   EdgeKind,
   valueWrite,
   type FlowEdge,
   type FlowLaunch,
-  type FlowNode,
   type JoinEdge,
-  type LaunchBranch,
   type ValueWrite,
 } from "./flow-graph.js";
 import { joinGroupsOf, valuesOfGroups, type NodeLookup } from "./join-groups.js";
@@ -49,66 +32,9 @@ import {
 } from "./walked-flow.js";
 
 /**
- * How the walk reads a launch and its join (#273): the distinct targets with their copies and — on
- * a router's launch — their routes' policies, the list a per-item launch runs over, the item its
- * branches read, and the values written after `.join()`.
+ * How the walk reads a launch and its join (#273, #1279, #1280): the values a branch reads besides
+ * the scope at the launch (a per-item run's item), and the values written after `.join()`.
  */
-
-/** The route of a router for one target, when it declares one. */
-function routeFor(options: RouterOptions, target: ComponentName): AnyRouterRoute | undefined {
-  return routesOf(options).find((route) => declarationOf(route.target)?.options.name === target);
-}
-
-/** One distinct target: the router's policies of its route, or `Always` + `FailFast`. */
-function branchOf(
-  launcher: FlowNode,
-  node: ComponentName,
-  copies: number,
-  kind: ParallelTargetKind,
-): LaunchBranch {
-  const { declaration } = launcher;
-  if (declaration.kind !== NodeKind.Router)
-    return { node, kind, skip: [], copies, isOptional: false, alwaysRuns: true };
-  const route = routeFor(declaration.options, node);
-  const spawn =
-    route === undefined ? SpawnPolicy.Always : spawnPolicyOf(declaration.options, route);
-  const failure = route === undefined ? FailurePolicy.FailFast : failurePolicyOf(route);
-  const isSkipped = failure === FailurePolicy.Skip;
-  const isOnDemand = spawn === SpawnPolicy.OnDemand;
-  return {
-    node,
-    kind,
-    skip: isSkipped ? [StepFailedError] : [],
-    copies,
-    isOptional: isSkipped || isOnDemand,
-    alwaysRuns: !isSkipped && !isOnDemand,
-  };
-}
-
-/** The launch of `step` from `launcher` with the values `writes`; undefined when no target resolves. */
-export function launchOf(
-  table: NodeTable,
-  launcher: FlowNode,
-  step: LaunchStep,
-  writes: readonly ValueWrite[],
-): FlowLaunch | undefined {
-  const listed = step.targets.flatMap((target) => table.resolve(target, step.targetKind) ?? []);
-  if (listed.length === 0) return undefined;
-  const copies = new Map<ComponentName, number>();
-  for (const name of listed) copies.set(name, (copies.get(name) ?? 0) + 1);
-  const items = step.targets.length === 1 ? itemsOf(writes) : undefined;
-  return {
-    launcher: launcher.name,
-    call: LAUNCH_CALLS[step.targetKind],
-    branches: [...copies].map(([node, count]) => branchOf(launcher, node, count, step.targetKind)),
-    listed,
-    ...(items === undefined ? {} : { items }),
-    ...(step.maxConcurrency === undefined ? {} : { maxConcurrency: step.maxConcurrency }),
-    ...(step.maxItems === undefined ? {} : { maxItems: step.maxItems }),
-    isRouterLaunch: launcher.kind === NodeKind.Router,
-    ...(step.arbitratedBy === undefined ? {} : { arbitratedBy: step.arbitratedBy }),
-  };
-}
 
 /** What a branch of the launch reads besides the scope at the launch: a per-item run's item. */
 export function itemWrites(launch: FlowLaunch): readonly ValueWrite[] {
@@ -147,7 +73,7 @@ export interface LaunchRecorder {
 /** A launch: one edge to each distinct target, the scope at the launch (+ its item) on it. */
 export function walkLaunch(
   walker: LaunchRecorder,
-  step: LaunchStep | InParallelStep | ForEachItemStep,
+  step: InParallelStep | ForEachItemStep,
   cursor: Cursor,
 ): Cursor {
   const router = step.kind === StepKind.InParallel ? chooserOf(step) : undefined;
@@ -163,10 +89,7 @@ export function walkLaunch(
   const { current } = at;
   if (current === undefined) return at;
   const launcher = walker.table.node(current);
-  const launch =
-    step.kind === StepKind.Launch
-      ? launchOf(walker.table, launcher, step, at.writes)
-      : parallelLaunchOf(walker.table, launcher, step, at.writes);
+  const launch = parallelLaunchOf(walker.table, launcher, step, at.writes);
   if (launch === undefined) return at;
   walker.launches.push(launch);
   for (const node of launch.listed) {

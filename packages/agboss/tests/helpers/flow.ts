@@ -1,6 +1,5 @@
 import type { App, ExecutionOptions, ExecutionOutput, ResumeRequest } from "../../src/app/types.js";
 import type { Class } from "../../src/components/injection.js";
-import type { DtoClass } from "../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../src/flow/ast.js";
 import {
   fromComponent,
@@ -32,18 +31,28 @@ export const onAction = (source: Class): PathBuilder<PathSource> =>
 export const onWorkflow = (source: TargetRef): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Workflow, source);
 
-export const route = (target: TargetRef): PathBuilder<undefined> =>
-  subPathFrom({ kind: "route", target });
-
-export const caseOf = (dto: DtoClass): PathBuilder<undefined> => subPathFrom({ kind: "case", dto });
+export { skip } from "../../src/flow/parallel-step.js";
 
 const side = (): PathBuilder<undefined> => subPathFrom({ kind: "side" });
 
-export const toAction = (target: Class): PathBuilder<undefined> => side().toAction(target);
-export const toAgent = (target: Class): PathBuilder<undefined> => side().toAgent(target);
-export const toRouter = (target: Class): PathBuilder<undefined> => side().toRouter(target);
-export const toFinish = (target: Class): PathBuilder<undefined> => side().toFinish(target);
-export const toWorkflow = (target: TargetRef): PathBuilder<undefined> => side().toWorkflow(target);
+export const toAction = (target: Class): PathBuilder<undefined> =>
+  side()
+    .toAction(target);
+export const toAgent = (target: Class): PathBuilder<undefined> =>
+  side()
+    .toAgent(target);
+export const toRouter = (target: Class): PathBuilder<undefined> =>
+  side()
+    .toRouter(target);
+export const toExternalTask = (target: Class): PathBuilder<undefined> =>
+  side()
+    .toExternalTask(target);
+export const toFinish = (target: Class): PathBuilder<undefined> =>
+  side()
+    .toFinish(target);
+export const toWorkflow = (target: TargetRef): PathBuilder<undefined> =>
+  side()
+    .toWorkflow(target);
 
 /** `app.execute` on a start whose types are not generated: the input is checked at run time only. */
 export const execute = (

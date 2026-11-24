@@ -12,7 +12,6 @@ import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error
 import { PauseWithdrawnError } from "../../../src/flow/runtime/pause.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { LimitExceededError } from "../../../src/graph/limits.js";
-import { FailurePolicy } from "../../../src/flow/decorators/router.js";
 import { ArbiterError } from "../../../src/flow/runtime/launch/quorum-errors.js";
 import {
   BranchErrors,
@@ -28,12 +27,12 @@ const stepFailed = (): Error => Object.create(StepFailedError.prototype) as Erro
 const arbiterFailed = (): Error => Object.create(ArbiterError.prototype) as Error;
 const expired = (): Error => Object.create(PauseExpiredError.prototype) as Error;
 
-function siteOf(options: { aborted?: boolean; failure?: FailurePolicy; isQuorum?: boolean } = {}) {
+function siteOf(options: { aborted?: boolean; skip?: readonly string[]; isQuorum?: boolean } = {}) {
   const controller = new AbortController();
   if (options.aborted === true) controller.abort();
   return {
     live: { controller },
-    ticket: { failure: options.failure ?? FailurePolicy.FailFast },
+    ticket: { skip: options.skip ?? [] },
     isQuorum: options.isQuorum ?? false,
   } as never;
 }
@@ -54,21 +53,15 @@ describe("#1366: the status of a branch that threw", () => {
     );
   });
 
-  it("an arbiter's error, or anything that is no step failure: failed — whatever the policy", () => {
-    expect(failedStatusOf(siteOf({ failure: FailurePolicy.Skip }), arbiterFailed())).toBe(
-      BranchStatus.Failed,
-    );
+  it("an arbiter's error, or anything that is no step failure: failed — whatever it skips", () => {
+    expect(failedStatusOf(siteOf({ skip: ["*"] }), arbiterFailed())).toBe(BranchStatus.Failed);
     expect(failedStatusOf(siteOf({ isQuorum: true }), arbiterFailed())).toBe(BranchStatus.Failed);
-    expect(failedStatusOf(siteOf({ failure: FailurePolicy.Skip }), new Error("a limit"))).toBe(
-      BranchStatus.Failed,
-    );
+    expect(failedStatusOf(siteOf({ skip: ["*"] }), new Error("a limit"))).toBe(BranchStatus.Failed);
     expect(failedStatusOf(siteOf({ isQuorum: true }), "plain text")).toBe(BranchStatus.Failed);
   });
 
-  it("a step failure: skipped under Skip or in a quorum, else failed", () => {
-    expect(failedStatusOf(siteOf({ failure: FailurePolicy.Skip }), stepFailed())).toBe(
-      BranchStatus.Skipped,
-    );
+  it("a step failure: skipped under skip() or in a quorum, else failed", () => {
+    expect(failedStatusOf(siteOf({ skip: ["*"] }), stepFailed())).toBe(BranchStatus.Skipped);
     expect(failedStatusOf(siteOf({ isQuorum: true }), stepFailed())).toBe(BranchStatus.Skipped);
     expect(failedStatusOf(siteOf(), stepFailed())).toBe(BranchStatus.Failed);
   });

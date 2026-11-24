@@ -18,7 +18,7 @@ export {
 export { type ToolInputOf, type ToolOutputOf, type UnionToIntersection } from "../tools/index.js";
 export { type AgentSettings, type AgentSettingsOf } from "../config/types.js";
 export { type UnavailableRead } from "../flow/context/errors.js";
-export { type AlwaysRouterRoute, type ChosenRouterRoute } from "../flow/decorators/router.js";
+export { type ChosenRouterRoute } from "../flow/decorators/router.js";
 export { type TargetRef } from "../flow/target-ref.js";
 export { type WorkflowStartInput } from "../flow/decorators/workflow-start.js";
 export {

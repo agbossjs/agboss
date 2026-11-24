@@ -28,7 +28,11 @@ export class Greeter {}
 @Workflow({
   name: "observed-workflow",
   version: "1.0.0",
-  flow: [onStart(ChatStart).toAgent(Greeter).toFinish(Reply)],
+  flow: [
+    onStart(ChatStart)
+      .toAgent(Greeter)
+      .toFinish(Reply),
+  ],
   defaults: settingsDefaults,
 })
 export class ObservedApp {}

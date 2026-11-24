@@ -2,9 +2,7 @@ import {
   Agent,
   Channel,
   DecidedBy,
-  FailurePolicy,
   Router,
-  SpawnPolicy,
   ChannelOf,
   ChannelOutcome,
   ChannelRole,
@@ -27,7 +25,8 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { onStart, toAction, toFinish } from "../../helpers/flow.js";
+import { onStart, skip, toAction, toFinish, toAgent, toRouter } from "../../helpers/flow.js";
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { hours, minutes } from "../../../src/units/index.js";
 import { FraudAgent, PolicyAgent, RefundScoreDto, RiskAgent } from "./refund-panel.workflow.js";
@@ -91,7 +90,9 @@ interface ScoresInput {
 const record = (input: ScoresInput): RefundDoneDto => {
   qe.finished.push(input.scores.map((score) => String(score.value.score)));
   return {
-    orderId: input.scores.map((score) => String(score.value.score)).join(","),
+    orderId: input.scores
+      .map((score) => String(score.value.score))
+      .join(","),
   };
 };
 
@@ -146,7 +147,7 @@ export class QuorumExpirySecondWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryWorkflowStart)
-      .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
+      .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent), toAgent(FraudAgent)])
       .joinQuorum({ min: 2, max: 3, deadline: hours(1) })
       .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
@@ -167,7 +168,7 @@ export class QuorumExpiryOneWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryOneWorkflowStart)
-      .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent)
+      .inParallel([toAgent(PolicyAgent), toAgent(RiskAgent), toAgent(FraudAgent)])
       .joinQuorum({ min: 1, max: 3, deadline: hours(1) })
       .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
@@ -259,7 +260,7 @@ export class QuorumExpiryShortWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryShortWorkflowStart)
-      .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, ShortFraudAgent)
+      .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(ShortFraudAgent)])
       .joinQuorum({ min: 2, max: 3, deadline: hours(1) })
       .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
@@ -279,7 +280,7 @@ export class QuorumExpiryShortOneWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryShortOneWorkflowStart)
-      .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, ShortFraudAgent)
+      .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(ShortFraudAgent)])
       .joinQuorum({ min: 1, max: 3, deadline: hours(1) })
       .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
@@ -310,17 +311,24 @@ export class QuorumExpiryGroupsWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(QuorumExpiryGroupsWorkflowStart)
-      .toParallelAgents(PolicyAgent, RiskAgent, FraudAgent, QuickScoreAgent)
+      .inParallel([
+        toAgent(PolicyAgent),
+        toAgent(RiskAgent),
+        toAgent(FraudAgent),
+        toAgent(QuickScoreAgent),
+      ])
       .joinQuorumGroups({ deadline: hours(1) })
       .onGroup(
         [PolicyAgent, RiskAgent, FraudAgent],
         { priority: 1 },
-        toAction(QuorumExpiryAction).toFinish(QuorumExpiryWorkflowFinish),
+        toAction(QuorumExpiryAction)
+          .toFinish(QuorumExpiryWorkflowFinish),
       )
       .onGroup(
         [QuickScoreAgent],
         { priority: 2 },
-        toAction(QuorumExpirySecondAction).toFinish(QuorumExpirySecondWorkflowFinish),
+        toAction(QuorumExpirySecondAction)
+          .toFinish(QuorumExpirySecondWorkflowFinish),
       ),
   ],
 })
@@ -346,7 +354,7 @@ export class PlainExpiryEscalatedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(PlainExpiryWorkflowStart)
-      .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
+      .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(PolicyAgent)])
       .join()
       .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),
@@ -367,7 +375,7 @@ export class PlainExpiryHandledWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(PlainExpiryHandledWorkflowStart)
-      .toParallelAgents(ShortPolicyAgent, ShortRiskAgent, PolicyAgent)
+      .inParallel([toAgent(ShortPolicyAgent), toAgent(ShortRiskAgent), toAgent(PolicyAgent)])
       .join()
       .onError(PauseExpiredError, toFinish(PlainExpiryEscalatedWorkflowFinish))
       .toAction(QuorumExpiryAction)
@@ -378,15 +386,13 @@ export class PlainExpiryHandledWorkflow {}
 
 @Router({
   name: "skip-panel-router",
-  description: "Launches both desks; the short policy desk's failure drops it",
+  description:
+    "Launches the policy desk, and the risk desk when the order is risky; the policy desk's failure drops it",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
   prompt: inline("Pick the desks the order needs."),
   input: { request: RefundRequestDto },
-  routes: [
-    { target: ShortPolicyAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
-    { target: ShortRiskAgent, spawn: SpawnPolicy.OnDemand, prompt: "The order is risky" },
-  ],
+  routes: [{ target: ShortRiskAgent, prompt: "The order is risky" }],
 })
 export class SkipPanelRouter {}
 
@@ -403,8 +409,12 @@ export class SkipExpiryWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(SkipExpiryWorkflowStart)
-      .toRouter(SkipPanelRouter)
-      .toParallelAgents(ShortPolicyAgent, ShortRiskAgent)
+      .inParallel([
+        toAgent(ShortPolicyAgent)
+          .onError(StepError, skip()),
+        toRouter(SkipPanelRouter)
+          .chooseMany([toAgent(ShortRiskAgent)]),
+      ])
       .join()
       .toAction(QuorumExpiryAction)
       .toFinish(QuorumExpiryWorkflowFinish),

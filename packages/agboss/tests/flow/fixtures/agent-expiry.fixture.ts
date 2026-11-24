@@ -36,7 +36,7 @@ import {
   ManagerChannel,
   ManagerQuestion,
 } from "./expiry.fixture.js";
-import { onStart, toAction } from "./paths.js";
+import { onStart, toAction, toAgent } from "./paths.js";
 
 /**
  * #941 AC5 — an agent whose tool calls wait for an approval with a deadline: a refund approved by a
@@ -192,7 +192,8 @@ export class EscalateRefundAction implements ActionHandler<EscalateRefundAction>
       .toAgent(ExpiryRefundAgent)
       .onError(
         PauseExpiredError,
-        toAction(EscalateRefundAction).toFinish(AgentExpiryWorkflowFinish),
+        toAction(EscalateRefundAction)
+          .toFinish(AgentExpiryWorkflowFinish),
       )
       .toFinish(AgentExpiryWorkflowFinish),
   ],
@@ -211,7 +212,9 @@ export class AgentBareWorkflowStart {}
   name: "agent-bare-workflow",
   version: "1.0.0",
   flow: [
-    onStart(AgentBareWorkflowStart).toAgent(ExpiryRefundAgent).toFinish(AgentExpiryWorkflowFinish),
+    onStart(AgentBareWorkflowStart)
+      .toAgent(ExpiryRefundAgent)
+      .toFinish(AgentExpiryWorkflowFinish),
   ],
 })
 export class AgentBareWorkflow {}
@@ -269,7 +272,7 @@ export class AgentBatchWorkflowFinish {}
   executionLimits: { maxSteps: 20 },
   flow: [
     onStart(AgentBatchWorkflowStart)
-      .toParallelAgents(ExpiryBatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })
+      .forEachItem(toAgent(ExpiryBatchRefundAgent), { takeFirst: 5, maxConcurrency: 3 })
       .join()
       .toAction(AgentBatchAction)
       .toFinish(AgentBatchWorkflowFinish),
@@ -342,7 +345,7 @@ export class AgentGatedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(AgentGatedWorkflowStart)
-      .toParallelAgents(ExpiryRefundAgent, ExpiryHoldAgent)
+      .inParallel([toAgent(ExpiryRefundAgent), toAgent(ExpiryHoldAgent)])
       .join()
       .toAction(AgentGatedAction)
       .toFinish(AgentGatedWorkflowFinish),

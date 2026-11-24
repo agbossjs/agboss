@@ -18,7 +18,7 @@ import {
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { onAction, route, onStart } from "../fixtures/paths.js";
+import { onAction, onStart, toAgent, toAction } from "../fixtures/paths.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
 import { inline } from "../../../src/index.js";
 
@@ -91,10 +91,8 @@ class BranchRouter {}
     onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
       .toRouter(BranchRouter)
-      .chooseOne(
-        route(SendKitAction).toFinish(SentKitWorkflowFinish),
-        route(RedraftKitAgent).toFinish(DraftKitWorkflowFinish),
-      ),
+      .onRoute(toAction(SendKitAction).toFinish(SentKitWorkflowFinish))
+      .onRoute(toAgent(RedraftKitAgent).toFinish(DraftKitWorkflowFinish)),
   ],
 })
 class ReadOnOneBranchWorkflow {}
@@ -152,7 +150,8 @@ class ShortlistKitWorkflowFinish {}
   flow: [
     onStart(KitWorkflowStart)
       .toRouter(DraftsRouter)
-      .chooseOne(route(DraftsAgent).toAction(CollectDraftsAction), route(CollectDraftsAction)),
+      .onRoute(toAgent(DraftsAgent).toAction(CollectDraftsAction))
+      .onRoute(toAction(CollectDraftsAction)),
     onAction(CollectDraftsAction).toFinish(ShortlistKitWorkflowFinish),
   ],
 })

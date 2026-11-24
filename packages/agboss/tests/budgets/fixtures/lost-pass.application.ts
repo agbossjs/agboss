@@ -28,7 +28,7 @@ import {
 import type { CostReport } from "../../../src/finops/usage.js";
 import type { Usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
 
 /**
  * #853 — a step whose pass is lost mid model call: one agent (its model scripted, the first call
@@ -251,7 +251,7 @@ export class MergeReportAction {
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
     onStart(LostBranchWorkflowStart)
-      .toParallelAgents(DrafterAgent, CheckerAgent)
+      .inParallel([toAgent(DrafterAgent), toAgent(CheckerAgent)])
       .join()
       .toAction(MergeReportAction)
       .toFinish(LostBranchWorkflowFinish),

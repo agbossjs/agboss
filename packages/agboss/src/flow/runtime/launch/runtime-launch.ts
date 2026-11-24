@@ -13,7 +13,7 @@ import {
  * A parallel launch as the runtime runs it (#273 S20): the launching node, its branch nodes, the
  * values the launching step writes before the branches start, the join's way on and its
  * `.onError(…)` side paths, and the LangGraph node that joins it. A node launches from one
- * place, or from several `caseOf(…)` branches — then each variant has its own launch. A quorum join
+ * place, or from several a `.toOneOf([…])` branch branches — then each variant has its own launch. A quorum join
  * (#279) has its quorum; `.joinQuorumGroups(…)` one way on per group.
  */
 
@@ -27,12 +27,12 @@ export interface RuntimeGroup {
 
 /** One launch of the graph. */
 export interface RuntimeLaunch {
-  /** Its key in the graph: the launcher, plus the variant of a launch inside `caseOf(…)`. */
+  /** Its key in the graph: the launcher, plus the variant of a launch inside a `.toOneOf([…])` branch. */
   readonly key: string;
   /** The LangGraph node that joins it: not a component, never in `result.path`. */
   readonly joinNodeId: string;
   readonly launch: FlowLaunch;
-  /** The variant (DTO class name) whose `caseOf(…)` launches it; undefined outside a switch. */
+  /** The variant (DTO class name) whose a `.toOneOf([…])` branch launches it; undefined outside a switch. */
   readonly variant?: string;
   /** What the launching step writes at the launch: what its declaration gives (a branch's item excluded). */
   readonly writes: readonly ValueWrite[];

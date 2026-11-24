@@ -278,7 +278,11 @@ export class SeatConfirmedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(UndoWorkflowStart)
-      .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
+      .inParallel([
+        toAction(ReserveSeatAction),
+        toAction(ReserveRoomAction),
+        toAction(ChargeCardAction),
+      ])
       .join()
       .onError(UndoDeskError, toFinish(NotReservedWorkflowFinish))
       .toAction(ReservedAction)
@@ -294,7 +298,11 @@ export class UndoWorkflow {}
   version: "1.0.0",
   flow: [
     onStart(UndoUnhandledWorkflowStart)
-      .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
+      .inParallel([
+        toAction(ReserveSeatAction),
+        toAction(ReserveRoomAction),
+        toAction(ChargeCardAction),
+      ])
       .join()
       .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
@@ -319,8 +327,11 @@ export class UndoUnhandledWorkflow {}
         UndoDeskError,
         toAction(ReleaseRoomAction)
           .toAction(ReleaseSeatAction)
-          .onError(UndoDeskError, toAction(NotifyDeskAction)
-            .toFinish(NotReservedWorkflowFinish))
+          .onError(
+            UndoDeskError,
+            toAction(NotifyDeskAction)
+              .toFinish(NotReservedWorkflowFinish),
+          )
           .toFinish(NotReservedWorkflowFinish),
       )
       .toAction(ConfirmSeatAction)

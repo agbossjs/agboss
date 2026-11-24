@@ -1,4 +1,4 @@
-import { onAgent, caseOf, route, onStart } from "../../../src/flow/builder.js";
+import { onAgent, onStart, toAgent, toFinish } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -88,14 +88,17 @@ export class PublisherAgent {}
 export class StoryWorkflowFinish {}
 
 export const storyPaths = [
-  onStart(StoryWorkflowStart).toAgent(ResearcherAgent).toAgent(StoryWriterAgent),
+  onStart(StoryWorkflowStart)
+    .toAgent(ResearcherAgent)
+    .toAgent(StoryWriterAgent),
 
   onAgent(StoryWriterAgent)
     .toAgent(StoryReviewerAgent)
-    .switch(
-      caseOf(DraftChangesDto).toAgent(StoryWriterAgent),
-      caseOf(ApprovalDto).toAgent(PublisherAgent).toFinish(StoryWorkflowFinish),
-    ),
+    .toOneOf([
+      toAgent(StoryWriterAgent),
+      toAgent(PublisherAgent)
+        .toFinish(StoryWorkflowFinish),
+    ]),
 ] as const;
 
 @Workflow({
@@ -170,11 +173,13 @@ export class CritiqueRouter {}
   name: "polish-workflow",
   version: "1.0.0",
   flow: [
-    onStart(StoryWorkflowStart).toAgent(PolishAgent),
+    onStart(StoryWorkflowStart)
+      .toAgent(PolishAgent),
     onAgent(PolishAgent)
       .toAction(CritiqueAction)
       .toRouter(CritiqueRouter)
-      .chooseOne(route(PolishAgent), route(PolishedWorkflowFinish)),
+      .onRoute(toAgent(PolishAgent))
+      .onRoute(toFinish(PolishedWorkflowFinish)),
   ],
 })
 export class PolishWorkflow {}

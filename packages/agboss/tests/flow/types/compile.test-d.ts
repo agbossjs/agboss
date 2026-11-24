@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { FlowPath } from "../../../src/flow/ast.js";
-import { onAgent, caseOf, onStart, toAction, toAgent } from "../../../src/flow/builder.js";
+import { onAgent, onStart, toAction, toAgent, toFinish } from "../../../src/flow/builder.js";
 import {
   historyOf,
   oneOf,
@@ -92,10 +92,7 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     const reviewed = onAgent(ReviewerAgent);
     // @ts-expect-error — after comes its .switch, not a transition
     reviewed.toAgent(EditorAgent);
-    reviewed.switch(
-      caseOf(ChangesRequestedDto).toAgent(EditorAgent),
-      caseOf(DraftApprovedDto).toAction(SendOfferAction),
-    );
+    reviewed.toOneOf([toAgent(EditorAgent), toAction(SendOfferAction)]);
   });
 
   it("1275a: a oneOf output is branched by .toOneOf([…side paths]) — no DTO named", () => {
@@ -106,7 +103,7 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
     // @ts-expect-error — the branches are an array, not arguments
     reviewed.toOneOf(toAgent(EditorAgent), toAction(SendOfferAction));
     // @ts-expect-error — a caseOf(…) path is not a side path
-    reviewed.toOneOf([caseOf(ChangesRequestedDto).toAgent(EditorAgent), toAgent(EditorAgent)]);
+    reviewed.toOneOf([toAgent(EditorAgent), toAgent(EditorAgent)]);
     // @ts-expect-error — a step that gives one class has nothing to branch
     onAgent(DraftAgent).toOneOf([toAgent(EditorAgent), toAction(SendOfferAction)]);
     // @ts-expect-error — a transition right after a oneOf output is not offered
@@ -191,15 +188,9 @@ describe("#270 AC6, #299 S54: returns and caseOf against ProducerOutputs", () =>
 describe("S39: DTO brands tell two DTOs of the same shape apart", () => {
   it("a case for one of two same-shaped DTOs twice does not compile", () => {
     const verdict = onAgent(VerdictAgent);
-    verdict.switch(
-      caseOf(ApprovedVerdictDto).toFinish(ApprovedWorkflowFinish),
-      caseOf(RejectedVerdictDto).toFinish(RejectedWorkflowFinish),
-    );
-    verdict.switch(
-      // @ts-expect-error — the switch is not exhaustive: RejectedVerdictDto has no case
-      caseOf(ApprovedVerdictDto).toFinish(ApprovedWorkflowFinish),
-      caseOf(ApprovedVerdictDto).toFinish(RejectedWorkflowFinish),
-    );
+    verdict.toOneOf([toFinish(ApprovedWorkflowFinish), toFinish(RejectedWorkflowFinish)]);
+    // @ts-expect-error — the branches are not exhaustive: RejectedVerdictDto has none
+    verdict.toOneOf([toFinish(ApprovedWorkflowFinish), toFinish(ApprovedWorkflowFinish)]);
     expectTypeOf<ApprovedVerdictDto>().not.toEqualTypeOf<RejectedVerdictDto>();
     expectTypeOf<AGBossTypes.DtoBrands["ApprovedVerdictDto"]>().toEqualTypeOf<ApprovedVerdictDto>();
   });

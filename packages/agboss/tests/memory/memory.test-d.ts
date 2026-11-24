@@ -126,7 +126,7 @@ describe("#1303 types", () => {
       description: "d",
       decidedBy: DecidedBy.Code,
       input: { message: WorkflowStartTextDto },
-      routes: [{ target: DeskAnswer }],
+      routes: [DeskAnswer],
       // @ts-expect-error -- a code router reads no thread memory
       memory: NoMemory,
     });

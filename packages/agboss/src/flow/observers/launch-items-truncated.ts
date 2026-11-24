@@ -10,6 +10,6 @@ export interface LaunchItemsTruncatedEvent extends NodeEvent {
   readonly launch: string;
   /** How many items the list had. */
   readonly items: number;
-  /** How many were launched: the launch's `takeFirst` (or the older `maxItems` of a per-item `.toParallel…`). */
+  /** How many were launched: the launch's `takeFirst` (or its `maxItems`). */
   readonly takeFirst: number;
 }

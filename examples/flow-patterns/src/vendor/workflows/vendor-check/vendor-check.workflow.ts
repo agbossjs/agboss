@@ -1,4 +1,4 @@
-import { caseOf, onStart, StepFailedError, toAction, Workflow } from "@agboss/core";
+import { onStart, StepFailedError, toAction, Workflow, toFinish } from "@agboss/core";
 import { MarkVendorFailedAction } from "../../actions/mark-vendor-failed.action.js";
 import { VendorCheckerAgent } from "../../agents/vendor-checker/vendor-checker.agent.js";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
@@ -25,12 +25,7 @@ import { VendorCheckWorkflowStart } from "./vendor-check.workflow-start.js";
         toAction(MarkVendorFailedAction)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )
-      .switch(
-        caseOf(VendorScoreDto)
-          .toFinish(VendorScoredWorkflowFinish),
-        caseOf(VendorRejectedDto)
-          .toFinish(VendorRejectedWorkflowFinish),
-      ),
+      .toOneOf([toFinish(VendorScoredWorkflowFinish), toFinish(VendorRejectedWorkflowFinish)]),
   ],
 })
 export class VendorCheckWorkflow {}

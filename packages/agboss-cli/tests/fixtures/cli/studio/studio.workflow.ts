@@ -11,7 +11,7 @@ import { Text } from "../../../../../agboss/src/dto/index.js";
 import { listOf } from "../../../../../agboss/src/flow/dto-wrappers.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { SplitWorkflow } from "../../../../../agboss/tests/flow/runtime/fixtures/recursion.workflow.js";
-import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
+import { onStart, toWorkflow } from "../../../../../agboss/tests/helpers/flow.js";
 import { StudioEnvironment } from "./environments/app.environment.js";
 
 export class StudioItemDto {
@@ -105,7 +105,7 @@ export class SummaryWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(StudioItemsWorkflowStart)
-      .toParallelWorkflows(StudioItemWorkflow, { maxConcurrency: 2, maxItems: 10 })
+      .forEachItem(toWorkflow(StudioItemWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
       .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),

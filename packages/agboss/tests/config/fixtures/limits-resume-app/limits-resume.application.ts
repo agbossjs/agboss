@@ -9,7 +9,7 @@ import {
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../../flow/fixtures/dtos.js";
-import { onStart } from "../../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import {
   BatchDoneAction,
   BatchDoneWorkflowFinish,
@@ -52,7 +52,7 @@ export class TaskPlannerAgent {}
   flow: [
     onStart(GatedBatchWorkflowStart)
       .toAgent(TaskPlannerAgent)
-      .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
+      .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),

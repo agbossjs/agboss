@@ -10,7 +10,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { caseOf, route, onStart, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish, toAction, toWorkflow } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { hours } from "../../../src/units/index.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
@@ -87,7 +87,7 @@ export class OnceJoinWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceJoinWorkflowStart)
-      .toParallelActions(PaidBookingAction, GatedItemAction)
+      .inParallel([toAction(PaidBookingAction), toAction(GatedItemAction)])
       .join()
       .toAction(ConfirmBookingAction)
       .toFinish(OnceJoinWorkflowFinish),
@@ -113,7 +113,7 @@ export class OnceJoinSideFailedWorkflowFinish {}
   version: "1.0.0",
   flow: [
     onStart(OnceJoinSideWorkflowStart)
-      .toParallelActions(PaidBookingAction, GatedItemAction)
+      .inParallel([toAction(PaidBookingAction), toAction(GatedItemAction)])
       .join()
       .onError(StepFailedError, toFinish(OnceJoinSideFailedWorkflowFinish))
       .toAction(ConfirmBookingAction)
@@ -131,7 +131,9 @@ export class OnceLocalWorkflowFinish {}
   name: "once-local-workflow",
   version: "1.0.0",
   flow: [
-    onStart(OnceLocalWorkflowStart).toWorkflow(OnceRootWorkflow).toFinish(OnceLocalWorkflowFinish),
+    onStart(OnceLocalWorkflowStart)
+      .toWorkflow(OnceRootWorkflow)
+      .toFinish(OnceLocalWorkflowFinish),
   ],
 })
 export class OnceLocalWorkflow {}
@@ -163,7 +165,7 @@ export class OnceBudgetWorkflowFinish {}
   description: "Sends the checked item on",
   decidedBy: DecidedBy.Code,
   input: { result: ItemResultDto },
-  routes: [{ target: ConfirmBookingAction }],
+  routes: [ConfirmBookingAction],
 })
 export class OnceBudgetRouter {
   route(): unknown {
@@ -180,7 +182,10 @@ export class OnceBudgetRouter {
       .toAction(PaidBookingAction)
       .toAction(OverspendAction)
       .toRouter(OnceBudgetRouter)
-      .chooseOne(route(ConfirmBookingAction).toFinish(OnceBudgetWorkflowFinish)),
+      .onRoute(
+        toAction(ConfirmBookingAction)
+          .toFinish(OnceBudgetWorkflowFinish),
+      ),
   ],
 })
 export class OnceBudgetWorkflow {}
@@ -224,7 +229,7 @@ export class OnceBranchWorkflowFinish {}
     onStart(OnceBranchWorkflowStart)
       .toAction(PaidBookingAction)
       .toAction(OverspendAction)
-      .toParallelActions(RefundBookingAction, ConfirmBookingAction)
+      .inParallel([toAction(RefundBookingAction), toAction(ConfirmBookingAction)])
       .join()
       .toFinish(OnceBranchWorkflowFinish),
   ],
@@ -244,12 +249,11 @@ export class OnceLevelWorkflowFinish {}
     onStart(OnceLevelWorkflowStart)
       .toAction(PaidBookingAction)
       .toAction(LevelItemAction)
-      .switch(
-        caseOf(ItemDto)
-          .toWorkflow(() => OnceLevelWorkflow)
+      .toOneOf([
+        toWorkflow(() => OnceLevelWorkflow)
           .toFinish(OnceLevelWorkflowFinish),
-        caseOf(ItemResultDto).toFinish(OnceLevelWorkflowFinish),
-      ),
+        toFinish(OnceLevelWorkflowFinish),
+      ]),
   ],
   executionLimits: { maxDepth: 2 },
 })

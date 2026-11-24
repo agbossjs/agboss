@@ -150,7 +150,9 @@ export class NearChildWorkflow {}
   name: "far-child-workflow",
   version: "1.0.0",
   flow: [
-    onStart(FarChildWorkflowStart).toAction(ScopeFarChildAction).toFinish(FarChildWorkflowFinish),
+    onStart(FarChildWorkflowStart)
+      .toAction(ScopeFarChildAction)
+      .toFinish(FarChildWorkflowFinish),
   ],
 })
 export class FarChildWorkflow {}
@@ -191,7 +193,9 @@ export class NearParentWorkflow {}
   name: "far-parent-workflow",
   version: "1.0.0",
   flow: [
-    onStart(FarParentWorkflowStart).toWorkflow(FarChildWorkflow).toFinish(FarParentWorkflowFinish),
+    onStart(FarParentWorkflowStart)
+      .toWorkflow(FarChildWorkflow)
+      .toFinish(FarParentWorkflowFinish),
   ],
 })
 export class FarParentWorkflow {}

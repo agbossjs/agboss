@@ -4,7 +4,7 @@ import type { ArbiterClass, ErrorClass } from "./ast.js";
 import type { BuiltPath, PathHead, SidePath, Transitions } from "./builder-types.js";
 
 /**
- * The types of quorums (#279): after `.inParallel([…])` (or `.toParallelAgents(…)`) the launch takes
+ * The types of quorums (#279): after `.inParallel([…])` or `.forEachItem(…)` the launch takes
  * `.arbitratedBy(A)` — one `@Arbiter` class (#1282; then never `.join()`) — and a quorum join —
  * `.joinQuorum({ min, max, deadline })`, which goes on with `.onError(…)` and a transition, or
  * `.joinQuorumGroups({ deadline })` and its `.onGroup([…], options?, subPath)`s, whose groups continue

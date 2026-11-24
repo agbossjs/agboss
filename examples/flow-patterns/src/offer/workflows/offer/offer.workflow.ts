@@ -1,11 +1,4 @@
-import {
-  onAgent,
-  caseOf,
-  onStart,
-  toAction,
-  VisitsLimitExceededError,
-  Workflow,
-} from "@agboss/core";
+import { onAgent, onStart, toAction, VisitsLimitExceededError, Workflow } from "@agboss/core";
 import { NotifyRecruiterAction } from "../../actions/notify-recruiter.action.js";
 import { SendOfferAction } from "../../actions/send-offer.action.js";
 import { DraftAgent } from "../../agents/draft/draft.agent.js";
@@ -21,7 +14,7 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
 
 /**
  * A review loop (#272, CLAUDE.md → The flow: paths): draft → reviewer, then reviewer → editor →
- * reviewer until it approves. The reviewer is reached from two places, so its `switch` is a path
+ * reviewer until it approves. The reviewer is reached from two places, so its `.toOneOf([…])` is a path
  * of its own; the editor's `maxVisits` spent is taken by `.onError(VisitsLimitExceededError, …)`.
  */
 @Workflow({
@@ -33,19 +26,18 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
       .toAgent(ReviewerAgent),
 
     onAgent(ReviewerAgent)
-      .switch(
-        caseOf(ChangesRequestedDto) // the changes are about this draft
-          .toAgent(EditorAgent)
+      .toOneOf([
+        // the editor reads the requested changes: that tells this branch apart
+        toAgent(EditorAgent)
           .onError(
             VisitsLimitExceededError, // the editor's maxVisits spent: tell the recruiter, finish
             toAction(NotifyRecruiterAction)
               .toFinish(OfferFailedWorkflowFinish),
           )
           .toAgent(ReviewerAgent),
-        caseOf(DraftApprovedDto)
-          .toAction(SendOfferAction)
+        toAction(SendOfferAction)
           .toFinish(OfferSentWorkflowFinish),
-      ),
+      ]),
   ],
   executionLimits: { maxSteps: 12 },
   providers: [RecruiterInbox, OfferMailer],

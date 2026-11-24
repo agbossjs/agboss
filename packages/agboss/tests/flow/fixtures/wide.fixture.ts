@@ -87,8 +87,12 @@ const parts = Object.values(sixParts);
   name: "parts-workflow",
   version: "1.0.0",
   flow: [
-    onStart(FivePartsWorkflowStart).toAgent(FivePartsAgent).toFinish(SummaryWorkflowFinish),
-    onStart(SixPartsWorkflowStart).toAgent(SixPartsAgent).toFinish(SummaryWorkflowFinish),
+    onStart(FivePartsWorkflowStart)
+      .toAgent(FivePartsAgent)
+      .toFinish(SummaryWorkflowFinish),
+    onStart(SixPartsWorkflowStart)
+      .toAgent(SixPartsAgent)
+      .toFinish(SummaryWorkflowFinish),
   ],
 })
 export class PartsWorkflow {}

@@ -47,7 +47,7 @@ import { withTaken } from "../compensation/held-entries.js";
  * semaphore when it starts and frees it in `finally` — when it ends, fails, is cancelled or pauses —
  * checks the limits for its own visit, runs its node in its own frame (copy id, copy number, item),
  * and writes how it ended as a record: `Finished` with its value, `Skipped` for a step failure under
- * `FailurePolicy.Skip`, `Failed` (which aborts the launch, so its siblings end `Cancelled`) for
+ * `.onError(E, skip())`, `Failed` (which aborts the launch, so its siblings end `Cancelled`) for
  * anything else — a limit too. Under a quorum (#279) its arbiter chain runs in the same slot and
  * frame, and the record carries the answer's verdict. A pause, a hand-over and a cancel of the
  * execution pass through LangGraph; everything else meets at the join.

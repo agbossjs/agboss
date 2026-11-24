@@ -205,7 +205,7 @@ export interface StepsRange {
 
 /**
  * The most steps a join's branches can take (#273): every copy, a per-item launch `maxItems` times;
- * undefined for a per-item launch without `maxItems` (`[launch.max-items-required]`).
+ * undefined for a per-item launch without `maxItems`.
  */
 export function mostRunning(graph: FlowGraph, edge: FlowEdge): number | undefined {
   const launch = edge.kind === EdgeKind.Join ? edge.launch : undefined;

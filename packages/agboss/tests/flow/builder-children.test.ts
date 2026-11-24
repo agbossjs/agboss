@@ -14,7 +14,7 @@ import {
   LinkOfferWorkflow,
 } from "./fixtures/children.fixture.js";
 import { HelpDeskRouter } from "./fixtures/launch.fixture.js";
-import { onRouter, onStart } from "./fixtures/paths.js";
+import { onRouter, onStart, toWorkflow } from "./fixtures/paths.js";
 
 /** #263 PR 1 — child workflows in the AST: what the builder writes, what it refuses, the printout. */
 
@@ -37,40 +37,31 @@ describe("#263: a child workflow in the AST", () => {
     expect(own?.source).toEqual({ kind: NodeKind.Workflow, node: CompanyReviewWorkflow });
   });
 
-  it("toParallelWorkflows: one child per item, its options as written", () => {
+  it("forEachItem(toWorkflow(W), …): one child per item, its options as written", () => {
     const launch = flowOf(CompanyScreeningWorkflow)[0]?.steps.find(
-      (step) => step.kind === StepKind.Launch,
+      (step) => step.kind === StepKind.ForEachItem,
     );
-    expect(launch).toEqual({
-      kind: StepKind.Launch,
-      targetKind: NodeKind.Workflow,
-      targets: [CompanyReviewWorkflow],
+    expect(launch).toMatchObject({
+      kind: StepKind.ForEachItem,
+      branch: { target: CompanyReviewWorkflow, targetKind: NodeKind.Workflow, skip: [] },
       maxConcurrency: 3,
-      maxItems: 50,
+      takeFirst: 50,
     });
   });
 
-  it("refused: two children, after a router, a missing join", () => {
-    expect(() =>
-      found().toParallelWorkflows(CompanyReviewWorkflow, CompanyReviewWorkflow, { maxItems: 5 }),
-    ).toThrow(
-      "toParallelWorkflows(W, { maxConcurrency, maxItems }) launches one child workflow class",
-    );
-    expect(() =>
-      onRouter(HelpDeskRouter).toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 }),
-    ).toThrow("a router launches agents only — .toParallelAgents(…), not toParallelWorkflows(…)");
+  it("refused: a missing join", () => {
     expect(() =>
       found()
-        .toParallelWorkflows(CompanyReviewWorkflow, { maxItems: 5 })
+        .forEachItem(toWorkflow(CompanyReviewWorkflow), { takeFirst: 5 })
         .toAgent(CompanyPickerAgent),
     ).toThrow("a parallel launch is followed by .join()");
   });
 
-  it("describe / print: the flow in its grammar — toWorkflow, onWorkflow(W), toParallelWorkflows", () => {
+  it("describe / print: the flow in its grammar — toWorkflow, onWorkflow(W), forEachItem(toWorkflow(W))", () => {
     expect(flowLines(flowOf(CompanyScreeningWorkflow)).slice(0, 4)).toEqual([
       "onStart(CompanyScreeningWorkflowStart)",
       "  .toAgent(CompanyFinderAgent)",
-      "  .toParallelWorkflows(CompanyReviewWorkflow, { maxConcurrency: 3, maxItems: 50 })",
+      "  .forEachItem(toWorkflow(CompanyReviewWorkflow), { takeFirst: 50, maxConcurrency: 3 })",
       "  .join()",
     ]);
     expect(flowLines(flowOf(LinkOfferWorkflow))).toEqual(

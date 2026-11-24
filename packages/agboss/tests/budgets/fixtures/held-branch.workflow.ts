@@ -11,7 +11,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { onStart } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import { CheckOrderAction, ExemptionsLog } from "./paid-exemptions.actions.js";
 import {
@@ -49,7 +49,7 @@ export class HeldBranchWorkflowFinish {}
     onStart(HeldBranchWorkflowStart)
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
-      .toParallelActions(RefundOrderAction, MemoOrderAction)
+      .inParallel([toAction(RefundOrderAction), toAction(MemoOrderAction)])
       .join()
       .toFinish(HeldBranchWorkflowFinish),
   ],
@@ -88,7 +88,7 @@ export class HeldItemsWorkflowFinish {}
     onStart(HeldItemsWorkflowStart)
       .toAction(BookOrderAction)
       .toAction(SplitOrderAction)
-      .toParallelActions(RefundOrderAction, { maxItems: 2 })
+      .forEachItem(toAction(RefundOrderAction), { takeFirst: 2 })
       .join()
       .toFinish(HeldItemsWorkflowFinish),
   ],
@@ -122,7 +122,9 @@ export class HeldAnyWorkflowFinish {}
   name: "held-any-workflow",
   version: "1.0.0",
   flow: [
-    onStart(HeldAnyWorkflowStart).toWorkflow(HeldBranchWorkflow).toFinish(HeldAnyWorkflowFinish),
+    onStart(HeldAnyWorkflowStart)
+      .toWorkflow(HeldBranchWorkflow)
+      .toFinish(HeldAnyWorkflowFinish),
   ],
 })
 export class HeldAnyWorkflow {}

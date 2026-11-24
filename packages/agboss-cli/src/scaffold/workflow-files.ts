@@ -119,6 +119,10 @@ const srcDirFrom = (at: WorkflowPlacement): string =>
  * their tools and tests, its MCP server and knowledge base, the module and its test. Names are
  * full names: the workflow's ends with `-workflow`, an agent's with `-agent`, a tool's with `-tool`.
  */
+/** The flow's `.onRoute(…)` of one agent: it answers, and the workflow ends. */
+const routeOf = (a: { readonly names: { readonly pascal: string } }): string =>
+  `      .onRoute(toAgent(${a.names.pascal}Agent)\n        .toFinish(TextWorkflowFinish))`;
+
 export function planWorkflow(spec: WorkflowSpec, at: WorkflowPlacement): FileToWrite[] {
   const workflow = fullNameOf(spec.name, "workflow");
   const { dir } = at;
@@ -150,9 +154,7 @@ export function planWorkflow(spec: WorkflowSpec, at: WorkflowPlacement): FileToW
     routerClass: `${routerNames.pascal}Router`,
     routerFrom: importPath(modulePath, router.path),
     imports: moduleImports(modulePath, srcDir, agents, service),
-    routes: agents
-      .map((a) => `        route(${a.names.pascal}Agent)\n          .toFinish(TextWorkflowFinish),`)
-      .join("\n"),
+    routes: agents.map(routeOf).join("\n"),
     providers: service === undefined ? "" : "  providers: [ApiService],\n",
   });
   return [

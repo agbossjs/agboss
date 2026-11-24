@@ -462,7 +462,7 @@ it is removed **at the models only**: `excludePiiPolicies` on an agent or a rout
 inherited ancestor's policy, and `@Workflow({ excludePiiPolicies })` on a child removes one for every
 model of that workflow (its agents, routers, reply interpreters, compactions). Observability always
 masks with the whole chain — an exclusion never reaches a trace. Assembly checks every static way
-into a child (`.toWorkflow`, `.toParallelWorkflows`, `route`): an exclusion that names no policy of
+into a child (`.toWorkflow`, `.forEachItem(toWorkflow(…))`, `.onRoute`): an exclusion that names no policy of
 the application, its workflow or a workflow that launches it is `[pii.exclude-not-inherited]`; an
 ancestor's rule that conflicts with the child's is `[pii.conflicting-rules]` naming the way
 (`cc-child-workflow (under cc-root-workflow): email is …`) — an exclusion resolves a conflict at

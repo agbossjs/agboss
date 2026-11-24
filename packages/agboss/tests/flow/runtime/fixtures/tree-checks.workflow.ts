@@ -1,7 +1,7 @@
 import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
 import { Text } from "../../../../src/dto/index.js";
 import { Agent, listOf, Tool, Workflow, WorkflowStart, inline } from "../../../../src/index.js";
-import { onStart } from "../../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import { BatchDoneWorkflowFinish, BatchDoneAction } from "./tree-batch.workflow.js";
 import { TaskDoneDto, TaskDoneWorkflowFinish, TaskDto } from "./tree-task.workflow.js";
 
@@ -43,7 +43,9 @@ export class TaskCheckWorkflowStart {}
   name: "task-check-workflow",
   version: "1.0.0",
   flow: [
-    onStart(TaskCheckWorkflowStart).toAgent(TaskCheckerAgent).toFinish(TaskDoneWorkflowFinish),
+    onStart(TaskCheckWorkflowStart)
+      .toAgent(TaskCheckerAgent)
+      .toFinish(TaskDoneWorkflowFinish),
   ],
 })
 export class TaskCheckWorkflow {}
@@ -60,7 +62,7 @@ export class ChecksWorkflowStart {}
   version: "1.0.0",
   flow: [
     onStart(ChecksWorkflowStart)
-      .toParallelWorkflows(TaskCheckWorkflow, { maxConcurrency: 5, maxItems: 10 })
+      .forEachItem(toWorkflow(TaskCheckWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
       .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),

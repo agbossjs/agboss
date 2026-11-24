@@ -4,7 +4,12 @@
 // the untyped builder: this package has no generated types for the framework's fixtures
 import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
-import { route, onRouter, onStart } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import {
+  onRouter,
+  onStart,
+  toAgent,
+  toFinish,
+} from "../../../../agboss/tests/flow/fixtures/paths.js";
 import { Workflow } from "../../../../agboss/src/flow/decorators/workflow.js";
 import { OfferDraftDto } from "../../../../agboss/tests/flow/fixtures/dtos.js";
 import {
@@ -25,11 +30,11 @@ export { OfferDraftDto };
     onStart(SecondKitWorkflowStart)
       .toRouter(KitRouter),
     onRouter(KitRouter)
-      .chooseOne(
-        route(EditKitAgent)
+      .onRoute(
+        toAgent(EditKitAgent)
           .toRouter(KitRouter),
-        route(DraftKitWorkflowFinish),
-      ),
+      )
+      .onRoute(toFinish(DraftKitWorkflowFinish)),
   ],
 })
 export class StepsBelowWorkflow {}

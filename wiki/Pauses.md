@@ -585,7 +585,7 @@ throws (not cancelled) fails the asking agent's step: `AgentFailedError`, the ch
 
 **A pause inside a child is its branch's** (#337): a pause records the launch branches it waits
 under — its own step and every step that launched one of its executions — so a `FailFast` failure
-withdraws a sibling **child's** pause under `.toParallelWorkflows(…)` too, at any depth, and the
+withdraws a sibling **child's** pause under `.forEachItem(toWorkflow(…), …)` too, at any depth, and the
 execution fails (or takes its `.onError(…)`) in the same call instead of resting paused.
 
 **A decided quorum drops its waiting branches** (#337, [Parallel → Quorums](Parallel#pause-resume-recovery)):
@@ -799,8 +799,8 @@ applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExec
 A pause asked in a **quorum** branch is bound by the quorum's deadline (`PauseExpiryBound.Quorum`, the smaller of
 it and the pause's own and the run's): at it the tree wakes by itself — no answer, no resume — and the quorum
 decides. The branch ends `BranchStatus.Expired`: it did not vote, never fails the launch, whatever its
-`FailurePolicy`; `QuorumNotReachedError.expired` names the branches that expired. In a plain `.join()` an expired
-branch follows its `FailurePolicy`: `Skip` drops it, `FailFast` fails the launch with the branch's
+its `skip()`; `QuorumNotReachedError.expired` names the branches that expired. In a plain `.join()` an expired
+branch follows its `.onError(E, skip())`: a skipped one is dropped, else it fails the launch with the branch's
 `PauseExpiredError` for `.onError(PauseExpiredError, …)` and withdraws the branches still waiting. The side
 path reads the answers already settled — each branch output as an `optional(XDto)` input of its first step —
 so it continues or escalates without asking anyone again. Each branch that had answered hears
@@ -850,6 +850,8 @@ import {
   type ChannelAsk,
   type InputOf,
   type OutputOf,
+  toAction,
+  toFinish,
 } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { hours } from "@agboss/core/units";

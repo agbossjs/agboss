@@ -35,7 +35,7 @@ import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy
 import { minutes, seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { caseOf, onStart } from "./paths.js";
+import { onStart, toFinish } from "./paths.js";
 
 /**
  * #396 PR 2 — a refunds desk to run eval suites on: one text agent with three tools, the project's
@@ -190,10 +190,7 @@ export class HandOverWorkflowFinish {}
   flow: [
     onStart(DeskWorkflowStart)
       .toAgent(DeskAgent)
-      .switch(
-        caseOf(DeskAnswerDto).toFinish(DeskWorkflowFinish),
-        caseOf(HandOverDto).toFinish(HandOverWorkflowFinish),
-      ),
+      .toOneOf([toFinish(DeskWorkflowFinish), toFinish(HandOverWorkflowFinish)]),
   ],
   memory: Window5Memory,
   providers: [RefundLedger],

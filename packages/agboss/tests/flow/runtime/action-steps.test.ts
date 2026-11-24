@@ -12,7 +12,7 @@ import {
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { testWith } from "../../../src/testing/index.js";
-import { execute, onAction, onStart, route, toAction, toFinish } from "../../helpers/flow.js";
+import { execute, onAction, onStart, toAction, toFinish } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 
@@ -74,7 +74,7 @@ class SpinRecoverAction {
   decidedBy: DecidedBy.Code,
   maxVisits: 100,
   input: { spin: SpinDto },
-  routes: [{ target: SpinAction }, { target: SpinFinish }],
+  routes: [SpinAction, SpinFinish],
 })
 class SpinRouter {
   route(): unknown {
@@ -84,7 +84,10 @@ class SpinRouter {
 
 const loop = [
   onStart(SpinStart).toAction(SpinAction),
-  onAction(SpinAction).toRouter(SpinRouter).chooseOne(route(SpinAction), route(SpinFinish)),
+  onAction(SpinAction)
+    .toRouter(SpinRouter)
+    .onRoute(toAction(SpinAction))
+    .onRoute(toFinish(SpinFinish)),
 ];
 
 /** No `maxSteps`: the default is (1 action + 1 router) × 3 = 6. */
@@ -109,7 +112,8 @@ class SpinShortWorkflow {}
     onAction(SpinAction)
       .toRouter(SpinRouter)
       .onError(StepsLimitExceededError, toAction(SpinRecoverAction).toFinish(SpinRecoveredFinish))
-      .chooseOne(route(SpinAction), route(SpinFinish)),
+      .onRoute(toAction(SpinAction))
+      .onRoute(toFinish(SpinFinish)),
   ],
 })
 class SpinRecoveringWorkflow {}

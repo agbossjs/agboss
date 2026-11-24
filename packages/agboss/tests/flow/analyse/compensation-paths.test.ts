@@ -143,7 +143,7 @@ describe("#339 AC2: a failed join's side path owes what was open before the laun
   const joined = (side: PathBuilder): Flow => [
     onStart(TripWorkflowStart)
       .toAction(BookTripAction)
-      .toParallelActions(ChargeAction, NotifyAgencyAction)
+      .inParallel([toAction(ChargeAction), toAction(NotifyAgencyAction)])
       .join()
       .onError(StepFailedError, side)
       .toAction(ConfirmTripAction)
@@ -155,7 +155,7 @@ describe("#339 AC2: a failed join's side path owes what was open before the laun
       {
         code: "flow.uncompensated-action",
         message:
-          "the .onError(StepFailedError, …) side path after the join of book-trip-action → toParallelActions(charge-action, notify-agency-action) reaches trip-not-booked-workflow-finish without cancel-booking-action (compensates book-trip-action); add it to the side path, or commit the action before it",
+          "the .onError(StepFailedError, …) side path after the join of book-trip-action → inParallel(charge-action, notify-agency-action) reaches trip-not-booked-workflow-finish without cancel-booking-action (compensates book-trip-action); add it to the side path, or commit the action before it",
       },
     ]);
     const undone = toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish);
