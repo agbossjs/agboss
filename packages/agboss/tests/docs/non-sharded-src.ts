@@ -74,6 +74,11 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/a2a/a2a-decorator.ts"],
   ),
   ...reviewed("the A2A decorators, rules and card checks: declarations and build-time checks", [
+    "src/a2a/a2a-card-source.ts",
+    "src/a2a/client/a2a-agent-config.ts",
+    "src/a2a/client/a2a-call-bounds.ts",
+    "src/a2a/client/a2a-client-cache.ts",
+    "src/a2a/client/a2a-client-reads.ts",
     "src/a2a/a2a-endpoint.decorator.ts",
     "src/a2a/a2a-exports.ts",
     "src/a2a/a2a-expose.decorator.ts",

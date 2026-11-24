@@ -99,7 +99,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     target: { application: `${peerName}-application`, skill: `${peerName}-workflow-start` },
     input: WorkflowStartTextDto,
     output: PeerReply,
-    ...(spec.price === undefined ? {} : { price: spec.price }),
+    ...(spec.price === undefined ? {} : { costPerCall: spec.price }),
   })
   class PeerA2AAgent extends A2AClient<WorkflowStartTextDto, PeerReply> {}
 

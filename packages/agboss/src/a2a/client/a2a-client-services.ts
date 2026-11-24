@@ -19,6 +19,8 @@ export interface A2AClientServices {
   readonly clock: Clock;
   /** The application's `Files` (#859): a stored file an input forwards is read through it. */
   readonly files?: () => Files;
+  /** The application's environment: what an agent's `defineEnv` references are read from. */
+  readonly env?: NodeJS.ProcessEnv;
   /** What rides a call beyond the core protocol; none → the AGBoss mesh (`AGBOSS_MESH`). */
   readonly mesh?: A2AMeshSeam;
 }
@@ -38,11 +40,15 @@ export const a2aClientServicesOf = (context: ApplicationContext): A2AClientServi
   byContext.get(context);
 
 /** Remembers what an application instance's A2A calls use: its `Idempotency` (on first use), its `Clock`. */
-export function rememberA2AClientServicesOf(app: Pick<AnyTenantApp, "resolve">): void {
+export function rememberA2AClientServicesOf(
+  app: Pick<AnyTenantApp, "resolve">,
+  env?: NodeJS.ProcessEnv,
+): void {
   rememberA2AClientServices(app.resolve(ApplicationContext), {
     outboundCalls: () => app.resolve(Idempotency),
     clock: app.resolve(Clock),
     files: () => app.resolve(Files),
+    ...(env === undefined ? {} : { env }),
   });
 }
 

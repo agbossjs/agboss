@@ -82,6 +82,6 @@ export function meshSettingsFor(
   };
   rememberContextMeshSettings(context, settings);
   // #809: the client side — what an A2A client's calls use (OutboundCalls, the Clock), by frame
-  rememberA2AClientServicesOf(app);
+  rememberA2AClientServicesOf(app, processEnv);
   return settings;
 }

@@ -161,7 +161,7 @@ import { OrderQuestionDto } from "../dto/order-question.dto.js";
   target: { application: "orders-application", skill: "order-desk-workflow-start" },
   input: OrderQuestionDto, // the target skill's input
   output: OrderDeskReplyDto, // its finish's output
-  price: usd(0.002), // per call: the step records the larger of it and a trusted peer's report
+  costPerCall: usd(0.002), // per call, charged once (a failure after the send too): the step records the larger of it and a trusted peer's report
   deps: [ExecutionContext],
 })
 export class OrderDeskA2AAgent extends A2AClient<OrderQuestionDto, OrderDeskReplyDto> {
@@ -383,7 +383,7 @@ import { SupportWorkflow } from "./support/workflows/support/support.workflow.js
 export class SupportApplication {}
 ```
 
-- `@A2AAgent({ name, url, target?, input?, output?, price?, mesh?, allowedOrigins?, deps })`
+- `@A2AAgent({ name, url, target?, input?, output?, costPerCall?, mesh?, allowedOrigins?, deps })`
   (`A2AAgentConfig`; `target` an `A2ATarget { application?, skill?, finishes? }` — `skill` was `start`) on a class
   that `extends A2AClient<In, Out>` calls any A2A v1.0 agent (#809, on the official `@a2a-js/sdk`): the
   card is read from `<url>/.well-known/agent-card.json` on first use (`cardTtl`, 5 min) and checked — an

@@ -44,7 +44,7 @@ describe("#1366 @A2AAgent's record", () => {
       target: { application: "peer-application", skill: "ask" },
       input: QuestionDto,
       output: AnswerDto,
-      price: usd(0.05),
+      costPerCall: usd(0.05),
       mesh: A2AMesh.Required,
       allowedOrigins: origins,
     })
@@ -56,7 +56,7 @@ describe("#1366 @A2AAgent's record", () => {
       target: { application: "peer-application", skill: "ask" },
       input: QuestionDto,
       output: AnswerDto,
-      price: usd(0.05),
+      costPerCall: usd(0.05),
       mesh: A2AMesh.Required,
       allowedOrigins: ["http://a.invalid", "http://b.invalid"],
       deps: [],

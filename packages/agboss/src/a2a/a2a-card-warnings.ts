@@ -16,7 +16,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
  *   the application's name — so it is only a warning: a caller that searches by tag finds nothing
  *   specific.
  * - `[a2a.unpriced-foreign-peer]`: an `@A2AAgent` without `target.application` (a peer that is not
- *   an AGBoss application) and without a `price` (every application has budgets). A foreign peer
+ *   an AGBoss application) and without a `costPerCall` (every application has budgets). A foreign peer
  *   sends no run report, so its spend is invisible to those budgets unless the contract's price is
  *   charged.
  */
@@ -58,12 +58,12 @@ function unpricedForeignWarnings(sources: WarningSources): AssemblyWarning[] {
   return a2aAgentsOf(sources).flatMap((agent): AssemblyWarning[] => {
     const meta = componentOf(agent);
     if (meta?.kind !== "a2a-agent") return [];
-    const { name, target, price } = meta.meta;
-    if (target?.application !== undefined || price !== undefined) return [];
+    const { name, target, costPerCall } = meta.meta;
+    if (target?.application !== undefined || costPerCall !== undefined) return [];
     return [
       {
         code: "a2a.unpriced-foreign-peer",
-        message: `${name} calls a peer that is not an AGBoss application and has no price — its spend is invisible to the application's budgets; set @A2AAgent({ price: usd(…) })`,
+        message: `${name} calls a peer that is not an AGBoss application and has no costPerCall — its spend is invisible to the application's budgets; set @A2AAgent({ costPerCall: usd(…) })`,
       },
     ];
   });

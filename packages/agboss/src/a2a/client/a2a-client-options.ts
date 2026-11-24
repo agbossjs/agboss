@@ -3,9 +3,10 @@ import type { Message, StreamResponse, Task } from "@a2a-js/sdk";
 import type { Class } from "../../components/injection.js";
 import { nestedFileFieldsOf } from "../../dto/standard/file.js";
 import type { FileDto } from "../../dto/standard/file.js";
-import { checkedPrice } from "../a2a-rules.js";
+import { checkedCostPerCall } from "../a2a-rules.js";
 import { ComponentError, componentOf } from "../../components/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
+import type { A2AAgentMeta } from "../a2a-decorator.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { Milliseconds, Usd } from "../../units/index.js";
@@ -32,8 +33,10 @@ export interface A2AClientContract {
   readonly finishes?: readonly string[];
   readonly input?: DtoClass;
   readonly output?: DtoClass;
-  /** What one call costs, charged to the calling step's budgets (the mesh's report may raise it). */
-  readonly price?: Usd;
+  /** What one call costs, charged once to the calling step's budgets (the mesh's report may raise it). */
+  readonly costPerCall?: Usd;
+  /** How long a call waits for the task at most, unless the call says; default none beyond the execution's deadline. */
+  readonly timeout?: Milliseconds;
   /** Whether the agent must declare the AGBoss mesh; default `Required` with an `application`. */
   readonly mesh?: A2AMesh;
 }
@@ -101,8 +104,8 @@ export interface A2ATaskResult {
   readonly peer: A2ARemotePeer;
 }
 
-/** The url `@A2AAgent` recorded on the class being constructed. */
-export function urlOf(target: object, name: string): string {
+/** The url `@A2AAgent` recorded on the class being constructed: a text or a reference. */
+export function urlOf(target: object, name: string): A2AAgentMeta["url"] {
   const meta = componentOf(target);
   if (meta?.kind !== "a2a-agent") {
     throw new ComponentError({
@@ -121,20 +124,27 @@ function definedOf<T extends object>(fields: { readonly [K in keyof T]: T[K] | u
 export function contractOfClass(target: object): A2AClientContract | undefined {
   const meta = componentOf(target);
   if (meta?.kind !== "a2a-agent") return undefined;
-  const { target: callee, input, output, price, mesh } = meta.meta;
+  const { target: callee, input, output, costPerCall, timeout, mesh } = meta.meta;
   return definedOf<A2AClientContract>({
     application: callee?.application,
     skill: callee?.skill,
     finishes: callee?.finishes,
     input,
     output,
-    price,
+    costPerCall,
+    timeout,
     mesh,
   });
 }
 
+/** The headers `@A2AAgent({ headers })` recorded on the class, if any. */
+export function headersOfClass(target: object): NonNullable<A2AAgentMeta["headers"]> {
+  const meta = componentOf(target);
+  return meta?.kind === "a2a-agent" ? (meta.meta.headers ?? {}) : {};
+}
+
 /** The origins `@A2AAgent({ allowedOrigins })` recorded on the class, if any. */
-export function allowedOriginsOfClass(target: object): readonly string[] {
+export function allowedOriginsOfClass(target: object): NonNullable<A2AAgentMeta["allowedOrigins"]> {
   const meta = componentOf(target);
   return meta?.kind === "a2a-agent" ? (meta.meta.allowedOrigins ?? []) : [];
 }
@@ -153,14 +163,14 @@ export function checkedCallTimeout(agent: string, timeout: number | undefined): 
     throw new ComponentError({ message: `[a2a.timeout-invalid] ${agent}: a call's ${problem}` });
 }
 
-/** A call's `key` and `timeout` and its contract's `price`, checked before anything is sent or charged; the key. */
+/** A call's `key` and `timeout` and its contract's `costPerCall`, checked before anything is sent or charged; the key. */
 export function checkedCall(
   agent: string,
   call: A2AClientCall,
-  price: unknown,
+  costPerCall: unknown,
 ): string | undefined {
   checkedCallTimeout(agent, call.timeout);
-  checkedPrice(agent, price);
+  checkedCostPerCall(agent, costPerCall);
   return checkedCallKey(agent, call.key);
 }
 

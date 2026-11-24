@@ -32,7 +32,7 @@ class NotAnExpose {
 @A2AAgent({ name: "foreign-a2a-agent", url: "http://f.invalid" })
 class ForeignAgent extends A2AClient {}
 
-@A2AAgent({ name: "priced-a2a-agent", url: "http://p.invalid", price: usd(0.01) })
+@A2AAgent({ name: "priced-a2a-agent", url: "http://p.invalid", costPerCall: usd(0.01) })
 class PricedAgent extends A2AClient {}
 
 @A2AAgent({

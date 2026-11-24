@@ -76,7 +76,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
     ...(spec.target === undefined ? {} : { target: spec.target }),
     input: WorkflowStartTextDto,
     output: ReplyDto,
-    ...(spec.price === undefined ? {} : { price: spec.price }),
+    ...(spec.price === undefined ? {} : { costPerCall: spec.price }),
     ...(spec.mesh === undefined ? {} : { mesh: spec.mesh }),
   })
   class PeerA2AAgent extends A2AClient<WorkflowStartTextDto, ReplyDto> {

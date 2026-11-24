@@ -1,5 +1,5 @@
 /**
- * #1366 (ledger-a2a-client shard) — `[a2a.price-invalid]` looks at every `@A2AAgent` an application's assembly can
+ * #1366 (ledger-a2a-client shard) — `[a2a.cost-per-call-invalid]` looks at every `@A2AAgent` an application's assembly can
  * reach, wherever it is provided: the application's own `providers`, a listed workflow's, and a child workflow's that
  * only a listed workflow launches. A place the check does not look at leaves a negative price unrefused at assembly.
  */
@@ -35,7 +35,7 @@ let count = 0;
 async function codesOf(place: Place, price: unknown): Promise<readonly string[]> {
   count += 1;
   const n = String(count);
-  @A2AAgent({ name: `placed-${n}-a2a-agent`, url: AGENT_URL, price: price as never })
+  @A2AAgent({ name: `placed-${n}-a2a-agent`, url: AGENT_URL, costPerCall: price as never })
   class PlacedA2AAgent extends A2AClient {}
 
   const token = new InjectionToken<A2AClient>(`placed-${n}-token`);
@@ -105,20 +105,20 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
   return [];
 }
 
-describe("#1366: [a2a.price-invalid] reaches an @A2AAgent wherever it is provided", () => {
+describe("#1366: [a2a.cost-per-call-invalid] reaches an @A2AAgent wherever it is provided", () => {
   it.each(PLACES)("a negative price provided by the %s is refused at assembly", async (place) => {
     const codes = await codesOf(place, -1);
-    expect(codes.filter((code) => code === "a2a.price-invalid")).toHaveLength(1);
+    expect(codes.filter((code) => code === "a2a.cost-per-call-invalid")).toHaveLength(1);
   });
 
   it.each(PLACES)("a priced agent provided by the %s is accepted", async (place) => {
-    expect(await codesOf(place, usd(0.25))).not.toContain("a2a.price-invalid");
+    expect(await codesOf(place, usd(0.25))).not.toContain("a2a.cost-per-call-invalid");
   });
 });
 
 describe("#1366: a class listed as a workflow that is none is a rule violation, not a crash", () => {
-  it("[application.not-a-workflow] and [a2a.price-invalid] are both reported", async () => {
-    @A2AAgent({ name: "beside-a2a-agent", url: AGENT_URL, price: -1 as never })
+  it("[application.not-a-workflow] and [a2a.cost-per-call-invalid] are both reported", async () => {
+    @A2AAgent({ name: "beside-a2a-agent", url: AGENT_URL, costPerCall: -1 as never })
     class BesideA2AAgent extends A2AClient {}
     class NotAWorkflow {
       readonly plain = true;
@@ -141,6 +141,6 @@ describe("#1366: a class listed as a workflow that is none is a rule violation, 
     expect(error).toBeInstanceOf(GraphRuleError);
     const codes = (error as GraphRuleError).violations.map((found) => found.code);
     expect(codes).toContain("application.not-a-workflow");
-    expect(codes.filter((code) => code === "a2a.price-invalid")).toHaveLength(1);
+    expect(codes.filter((code) => code === "a2a.cost-per-call-invalid")).toHaveLength(1);
   });
 });

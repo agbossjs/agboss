@@ -92,7 +92,7 @@ function setup(options: { taskId?: string | undefined; isRefused?: boolean } = {
   const price = usd(0.25);
   const client = new A2AClient({
     url: "https://peer.example",
-    contract: { price, application: "peer-app", skill: "skill-1", finishes: ["f"] },
+    contract: { costPerCall: price, application: "peer-app", skill: "skill-1", finishes: ["f"] },
   });
   return { client, order, wire, cards, activation, accepted, waited, clock, seam, price };
 }
@@ -138,11 +138,11 @@ describe("#1366: a call charges the peer's price at the accept and settles after
       const made = setup();
       const client = new A2AClient({
         url: "https://peer.example",
-        contract: { price: price as never, application: "peer-app" },
+        contract: { costPerCall: price as never, application: "peer-app" },
       });
 
       await expect(client.send("hi")).rejects.toThrow(
-        /^\[a2a\.price-invalid\] A2AClient: price is /,
+        /^\[a2a\.cost-per-call-invalid\] A2AClient: costPerCall is /,
       );
 
       expect(made.cards.wireOf).not.toHaveBeenCalled();
@@ -152,11 +152,11 @@ describe("#1366: a call charges the peer's price at the accept and settles after
     },
   );
 
-  it("#1382: a price of 0 is a price: the call goes through", async () => {
+  it("#1382: a price of 0 is a costPerCall: the call goes through", async () => {
     const made = setup();
     const client = new A2AClient({
       url: "https://peer.example",
-      contract: { price: usd(0), application: "peer-app" },
+      contract: { costPerCall: usd(0), application: "peer-app" },
     });
 
     await client.send("hi");
@@ -242,7 +242,7 @@ describe("#1366: a call charges the peer's price at the accept and settles after
 
     expect(activatedMeshOf).toHaveBeenCalledWith(made.wire, {
       agent: "A2AClient",
-      contract: expect.objectContaining({ price: made.price }),
+      contract: expect.objectContaining({ costPerCall: made.price }),
       seam: made.seam,
     });
     const given: Record<string, unknown> = { ...vi.mocked(accept).mock.calls[0]?.[0] };

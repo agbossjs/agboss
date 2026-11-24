@@ -138,12 +138,12 @@ function a2aImportOf(client: Class, parts: readonly WorkflowParts[], dtos: Dtos)
   const component = componentOf(client);
   if (component?.kind !== "a2a-agent") return [];
   const meta = component.meta;
-  const { name, target, input, output, price } = meta;
+  const { name, target, input, output, costPerCall } = meta;
   const base = {
     kind: "a2a" as const,
     client: name,
     usedBy: usesOf(client, parts),
-    price: price ?? null,
+    price: costPerCall ?? null,
   };
   if (target?.application === undefined) return [foreignImportOf(base, meta, dtos)];
   if (input === undefined || output === undefined) return [];

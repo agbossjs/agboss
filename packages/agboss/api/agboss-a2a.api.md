@@ -29,11 +29,13 @@ export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D ex
 // @public
 export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = [], TPorts extends InjectAs = readonly []> = {
     readonly name: string;
-    readonly url: string;
+    readonly url: string | EnvRef<string>;
+    readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | BearerAuth>>;
+    readonly timeout?: Milliseconds;
     readonly target?: A2ATarget;
-    readonly price?: Usd;
+    readonly costPerCall?: Usd;
     readonly mesh?: A2AMesh;
-    readonly allowedOrigins?: readonly string[];
+    readonly allowedOrigins?: readonly (string | EnvRef<string>)[];
     readonly deps?: D;
     readonly injectAs?: TPorts;
 } & ({
@@ -47,9 +49,13 @@ export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClas
 // @public
 export interface A2AAgentMeta {
     // (undocumented)
-    readonly allowedOrigins?: readonly string[];
+    readonly allowedOrigins?: readonly (string | EnvRef<string>)[];
+    // (undocumented)
+    readonly costPerCall?: Usd;
     // (undocumented)
     readonly deps: readonly Token[];
+    // (undocumented)
+    readonly headers?: A2AAgentConfig["headers"];
     // (undocumented)
     readonly input?: DtoClass;
     // (undocumented)
@@ -59,11 +65,11 @@ export interface A2AAgentMeta {
     // (undocumented)
     readonly output?: DtoClass;
     // (undocumented)
-    readonly price?: Usd;
-    // (undocumented)
     readonly target?: A2ATarget;
     // (undocumented)
-    readonly url: string;
+    readonly timeout?: Milliseconds;
+    // (undocumented)
+    readonly url: string | EnvRef<string>;
 }
 
 // @public
@@ -142,13 +148,12 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     readonly contract: A2AClientContract | undefined;
     // (undocumented)
     downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array>;
-    execute(input: TIn, call?: A2AClientCall): Promise<TOut>;
-    protected getHeaders(): Promise<Record<string, string>>;
+    execute(input: TIn, given?: A2AClientCall): Promise<TOut>;
+    protected getHeaders(): Record<string, string> | Promise<Record<string, string>>;
     getTask(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
     reply(taskId: string, answer: A2AMessageInput, call?: A2AClientCall): Promise<A2ATaskResult>;
     send(message: A2AMessageInput, call?: A2AClientCall): Promise<A2ATaskResult>;
-    // (undocumented)
-    readonly url: string;
+    get url(): string;
 }
 
 // @public
@@ -163,14 +168,15 @@ export interface A2AClientCall {
 // @public
 export interface A2AClientContract {
     readonly application?: string;
+    readonly costPerCall?: Usd;
     readonly finishes?: readonly string[];
     // (undocumented)
     readonly input?: DtoClass;
     readonly mesh?: A2AMesh;
     // (undocumented)
     readonly output?: DtoClass;
-    readonly price?: Usd;
     readonly skill?: string;
+    readonly timeout?: Milliseconds;
 }
 
 // @public
@@ -915,10 +921,12 @@ export { TaskState }
 // src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "code".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "name".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "url".
+// src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "headers".
+// src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "target".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "input".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "output".
-// src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "price".
+// src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "costPerCall".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "mesh".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "allowedOrigins".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "deps".
@@ -974,7 +982,6 @@ export { TaskState }
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "text".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "data".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/client/a2a-client.ts - (ae-undocumented) Missing documentation for "url".
 // src/a2a/client/a2a-client.ts - (ae-undocumented) Missing documentation for "downloadFile".
 // src/a2a/client/a2a-download.ts - (ae-undocumented) Missing documentation for "signal".
 // src/a2a/client/a2a-finish.ts - (ae-undocumented) Missing documentation for "agent".

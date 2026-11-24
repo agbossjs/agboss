@@ -40,7 +40,7 @@ export class InvoiceAnswerDto {
   target: { application: "billing-application", skill: "billing-workflow-start" },
   input: InvoiceQuestionDto,
   output: InvoiceAnswerDto,
-  price: usd(0.05),
+  costPerCall: usd(0.05),
 })
 export class BillingDeskA2AAgent extends A2AClient<InvoiceQuestionDto, InvoiceAnswerDto> {}
 
@@ -92,7 +92,8 @@ const kbTools = { search: { input: SearchQueryDto, output: SearchHitDto } };
 })
 export class KbServer extends McpServerClient<typeof kbTools> {}
 
-@Tool({ name: "search-kb-tool",
+@Tool({
+  name: "search-kb-tool",
   description: "Searches the knowledge base",
   input: SearchQueryDto,
   output: SearchHitDto,

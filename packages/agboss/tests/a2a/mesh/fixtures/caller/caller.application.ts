@@ -150,7 +150,7 @@ const routed: typeof fetch = async (input, init) => {
   target: { application: PEER_APPLICATION, skill: "ask-workflow-start" },
   input: WorkflowStartTextDto,
   output: WorkflowFinishTextDto,
-  price: usd(PRICE),
+  costPerCall: usd(PRICE),
 })
 export class PeerA2AAgent extends A2AClient<WorkflowStartTextDto, WorkflowFinishTextDto> {
   constructor() {

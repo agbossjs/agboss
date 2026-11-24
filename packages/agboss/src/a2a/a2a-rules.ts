@@ -92,7 +92,7 @@ function createdClassOf(provider: Provider): Class | undefined {
 
 /**
  * The classes the application and its workflows (and the child workflows they launch) provide — listed, or given
- * for a token with `provide(TOKEN, Class)`. `[a2a.price-invalid]` and the contract names are checked on these.
+ * for a token with `provide(TOKEN, Class)`. `[a2a.cost-per-call-invalid]` and the contract names are checked on these.
  */
 function providersOf(options: ApplicationOptions): ReadonlySet<Class> {
   const ofWorkflows = withChildWorkflows(options.workflows)
@@ -141,29 +141,29 @@ function targetFinishesViolations(meta: A2AAgentMeta, where: string): RuleViolat
  * An A2A contract's price (#1382) is a finite number of dollars from 0 (`usd(...)`), or none. Anything else
  * — `NaN`, `Infinity`, a negative number, a word, `null`, an object — reaches a contract from untyped code,
  * a config file or parsed JSON; a negative one is not charged at the accept and is added to the settle's
- * charge, a `NaN` one throws after the peer accepted the task. `[a2a.price-invalid]` refuses it at assembly
+ * charge, a `NaN` one throws after the peer accepted the task. `[a2a.cost-per-call-invalid]` refuses it at assembly
  * (`@A2AAgent`) and, before anything is sent, at the call (a client built with a `contract`). The message names
  * the value by its kind, never by its text. Why `price` is no price a contract can hold: none when it is one
  * (or none is set).
  */
-export const priceProblemOf = (price: unknown): string | undefined =>
+export const costPerCallProblemOf = (price: unknown): string | undefined =>
   price === undefined || (isFiniteNumber(price) && price >= 0)
     ? undefined
-    : `price is ${shownLimit(price)}, not a finite number of dollars from 0 — usd(...) sets it; leave it out for no price`;
+    : `costPerCall is ${shownLimit(price)}, not a finite number of dollars from 0 — usd(...) sets it; leave it out for no cost`;
 
 /** Refuses a contract's `price` that is no finite number from 0, before the call sends or charges anything. */
-export function checkedPrice(agent: string, price: unknown): void {
-  const problem = priceProblemOf(price);
+export function checkedCostPerCall(agent: string, price: unknown): void {
+  const problem = costPerCallProblemOf(price);
   if (problem !== undefined)
-    throw new ComponentError({ message: `[a2a.price-invalid] ${agent}: ${problem}` });
+    throw new ComponentError({ message: `[a2a.cost-per-call-invalid] ${agent}: ${problem}` });
 }
 
-/** `[a2a.price-invalid]` at assembly (#1382): the agent's `price` is a finite number of dollars from 0, or none. */
-function priceViolations(meta: A2AAgentMeta, where: string): RuleViolation[] {
-  const problem = priceProblemOf(meta.price);
+/** `[a2a.cost-per-call-invalid]` at assembly (#1382): the agent's `price` is a finite number of dollars from 0, or none. */
+function costPerCallViolations(meta: A2AAgentMeta, where: string): RuleViolation[] {
+  const problem = costPerCallProblemOf(meta.costPerCall);
   return problem === undefined
     ? []
-    : [violation("a2a.price-invalid", `${meta.name}'s ${problem}`, [where])];
+    : [violation("a2a.cost-per-call-invalid", `${meta.name}'s ${problem}`, [where])];
 }
 
 function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
@@ -176,7 +176,7 @@ function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
     return [
       ...contractNameViolations(name, "@A2AAgent", where),
       ...targetFinishesViolations(meta.meta, where),
-      ...priceViolations(meta.meta, where),
+      ...costPerCallViolations(meta.meta, where),
     ];
   });
 }

@@ -23,7 +23,7 @@ import {
 @A2AAgent({ name: "weather-a2a-agent", url: "http://weather.invalid" })
 class WeatherA2AAgent extends A2AClient {}
 
-@A2AAgent({ name: "paid-a2a-agent", url: "http://paid.invalid", price: usd(0.01) })
+@A2AAgent({ name: "paid-a2a-agent", url: "http://paid.invalid", costPerCall: usd(0.01) })
 class PaidA2AAgent extends A2AClient {}
 
 function applicationWith(

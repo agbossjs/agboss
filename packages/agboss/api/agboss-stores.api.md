@@ -2113,6 +2113,7 @@ export class SqliteConnection implements OnDestroy {
     ensureSchema(name: string, ddl: string): void;
     gate<TValue>(work: () => TValue, options?: {
         readonly isPriority?: boolean;
+        readonly isRenewal?: boolean;
     }): TValue | Promise<Awaited<TValue>>;
     held<TValue>(work: (handle: SqliteTransactionHandle) => TValue | Promise<TValue>, cap?: Milliseconds): Promise<TValue>;
     get isInTransaction(): boolean;
@@ -2122,6 +2123,7 @@ export class SqliteConnection implements OnDestroy {
     requireTransaction(): SqliteTransactionHandle;
     serve<TValue>(work: () => TValue, options?: {
         readonly isPriority?: boolean;
+        readonly isRenewal?: boolean;
     }): Promise<Awaited<TValue>>;
     transaction<TResult>(work: () => TResult): TResult;
 }

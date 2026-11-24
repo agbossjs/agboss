@@ -36,7 +36,9 @@ export function a2aAgentLines(assembled: AssembledApplication): string[] {
     const mesh =
       meta.meta.mesh ??
       (target?.application === undefined ? A2AMesh.IfSupported : A2AMesh.Required);
-    return [`  ${name} → ${calleeOf(url, target)} · ${meshOf(mesh)}`];
+    return [
+      `  ${name} → ${calleeOf(typeof url === "string" ? url : "(from the environment)", target)} · ${meshOf(mesh)}`,
+    ];
   });
   return lines.length === 0 ? [] : ["a2a agents", ...lines];
 }

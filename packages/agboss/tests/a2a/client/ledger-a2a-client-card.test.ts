@@ -43,7 +43,7 @@ describe("#1366: a task of an agent whose card declares no capabilities", () => 
 describe("#1366: the headers a client has of its own", () => {
   class OpenClient extends A2AClient {
     own(): Promise<Record<string, string>> {
-      return this.getHeaders();
+      return Promise.resolve(this.getHeaders());
     }
   }
 
