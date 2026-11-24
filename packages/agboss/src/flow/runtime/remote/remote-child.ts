@@ -45,7 +45,7 @@ export interface RemoteChildren {
   readonly defaultPlacement?: ChildPlacement | undefined;
   /**
    * How long an `OtherWorker` child may wait for a worker other than this instance to claim it
-   * before its parent fails with `ChildWorkerUnavailableError` (#1286, D9).
+   * before its parent fails with `StepError.ChildWorkerUnavailable` (#1286, D9).
    */
   readonly claimTimeout: Milliseconds;
   /** Yields the holder's lease in `ExecutionLeaseRepository` while waiting for remote children (#333 PR 4). */

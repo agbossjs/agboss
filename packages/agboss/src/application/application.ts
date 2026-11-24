@@ -28,6 +28,17 @@ export interface IsolatedWorkerOptions {
   readonly entry: string;
 }
 
+/** `@Application({ executionLimits })`: the limits of what the instance runs. */
+export interface ApplicationExecutionLimits {
+  /**
+   * How long a child with `ChildPlacement.OtherWorker` waits for a worker other than the one that
+   * launched it (#1286, D9): when none claims it in time its parent's step fails with
+   * `StepError.ChildWorkerUnavailable` — it never runs on the launching instance. Default `minutes(1)`;
+   * at most 24 hours (`[limits.timeout-invalid]`, #1141).
+   */
+  readonly childClaimTimeout?: Milliseconds;
+}
+
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
  * `testWith(App)` take. It lists the top-level workflows, the infrastructure (`providers`: a
@@ -149,13 +160,8 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * bound. Default `seconds(15)`; at most 24 hours (`[limits.timeout-invalid]`, #1141).
    */
   readonly compensationTimeout?: Milliseconds;
-  /**
-   * How long a child with `ChildPlacement.OtherWorker` waits for a worker other than the one that
-   * launched it (#1286, D9): when none claims it in time its parent's step fails with
-   * `ChildWorkerUnavailableError` — it never runs on the launching instance. Default `minutes(1)`;
-   * at most 24 hours (`[limits.timeout-invalid]`, #1141).
-   */
-  readonly childClaimTimeout?: Milliseconds;
+  /** The application's runtime limits, grouped (#1318c moves the others here). See `ApplicationExecutionLimits`. */
+  readonly executionLimits?: ApplicationExecutionLimits;
   /**
    * Where the processes of the children with `ChildPlacement.IsolatedWorker` start (#1286b, D9),
    * required when a workflow of the application runs with it (`[application.isolated-worker-invalid]`).

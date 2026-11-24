@@ -12,7 +12,7 @@ import type {
 import type { QuestionStepOptions } from "./child-placement.js";
 import type { Skip } from "./parallel-step.js";
 import type { ChooseManyOf, Launches, RouterLaunches } from "./launch-types.js";
-import type { ClaimsOf, OneOfCheck, WithFinishes } from "./one-of-types.js";
+import type { SideClaimsOf, OneOfCheck, WithFinishes } from "./one-of-types.js";
 import type { RouteMore, RoutesOf } from "./route-types.js";
 import type { ClassOf, TargetRef } from "./target-ref.js";
 
@@ -140,7 +140,7 @@ export type SwitchCheck<TCases extends readonly CasePath[], TOutput> = [
 export type NextHead<THead extends PathHead, TInstance> =
   THead extends SideHead<infer TClaims, infer TStart>
     ? [TClaims] extends [never]
-      ? SideHead<ClaimsOf<TInstance>, TStart>
+      ? SideHead<SideClaimsOf<TInstance>, TStart>
       : THead
     : THead;
 

@@ -5,6 +5,8 @@ import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import { NodeKind } from "../ast.js";
 import { resolveTarget, type TargetRef } from "../target-ref.js";
+import type { InputOf, MissingGeneratedTypes } from "../generated-types.js";
+import type { RouterHandler } from "../handlers.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
 /** Who decides a router's route (#280): its model, or its class's `route(input)`. */
@@ -163,11 +165,27 @@ export type ModelRouterDecorator = <TClass extends new () => object>(
   value: TClass & NoRouteMethod<TClass>,
 ) => TClass;
 
+/**
+ * A code router's `route` is checked against the generated types of its own class (#1279): the
+ * parameter `InputOf<Self>`, the return `RouterAnswerOf<Self>` (or its promise) — the contract of
+ * `RouterHandler<Self>`. Before `agboss check` has written the types nothing is known to check.
+ */
+export type RouteChecked<TClass extends Class> =
+  InstanceType<TClass> extends infer TSelf
+    ? [InputOf<TSelf>] extends [MissingGeneratedTypes]
+      ? unknown
+      : TSelf extends RouterHandler<TSelf>
+        ? unknown
+        : {
+            readonly __error: "route() must take InputOf<Self> and return RouterAnswerOf<Self> — see RouterHandler<Self>";
+          }
+    : never;
+
 /** The decorator of a code router: the class implements `route(input)`, its constructor takes `deps`. */
 export type CodeRouterDecorator<TDeps extends readonly Token[]> = <
   TClass extends new (...args: ResolvedAll<TDeps>) => RouteMethod,
 >(
-  value: TClass,
+  value: TClass & RouteChecked<TClass>,
 ) => TClass;
 
 /** A router its model decides (`DecidedBy.Model`): the class has no `route()`. */

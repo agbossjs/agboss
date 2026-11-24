@@ -19,7 +19,7 @@ import { providersOf } from "./listed-providers.js";
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
 /** The child workflows of the application that run with `IsolatedWorker`. */
-function isolatedChildrenOf(options: ApplicationOptions): readonly Class[] {
+export function isolatedChildrenOf(options: ApplicationOptions): readonly Class[] {
   const applicationDefault = options.defaults?.workflows?.placement;
   const children = new Set<Class>();
   for (const workflow of withChildWorkflows(options.workflows)) {
@@ -42,7 +42,7 @@ function queueViolations(options: ApplicationOptions): RuleViolation[] {
   return [
     violation(
       "application.isolated-worker-invalid",
-      "an IsolatedWorker child runs in a process of its own, which reaches the child queue only through a store the processes share — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) in @Application({ providers })",
+      "an IsolatedWorker child runs in a process of its own, which reaches the child queue only through a store the processes share — use @Application({ storage }) with a database the processes share (SqliteDriver, PostgresDriver, …), or list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) in @Application({ providers })",
       [options.name],
     ),
   ];

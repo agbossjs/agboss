@@ -68,6 +68,8 @@ const sqlite = (
 ): DatabaseDriver => {
   const settings: Record<string, unknown> = { kind: "sqlite" };
   if (typeof path === "function") {
+    // the file is the process's own, not a place the operator chose: an isolated worker is handed it
+    settings.isTemporary = true;
     // a getter: the file is made once, by the first instance that resolves the settings
     Object.defineProperty(settings, "path", { enumerable: true, get: path });
   } else settings.path = path;
@@ -90,7 +92,19 @@ const sqlite = (
 const temporary: string[] = [];
 let isCleaning = false;
 
+/** The file an isolated worker's process shares with the instance that forked it (#1286b), set by `adoptTemporaryFile`. */
+let adopted: string | undefined;
+
+/**
+ * In the fork of an isolated worker: every `SqliteDriver.inMemory()` of this process is the supervisor's
+ * temporary file, so that the fork and its supervisor read one database (#1286b).
+ */
+export function adoptTemporaryFile(path: string): void {
+  adopted = path;
+}
+
 function temporaryFile(): string {
+  if (adopted !== undefined) return adopted;
   const folder = mkdtempSync(join(tmpdir(), "agboss-sqlite-"));
   temporary.push(folder);
   if (!isCleaning) {

@@ -11,6 +11,8 @@ import { leasingOf, type Infrastructure } from "../infrastructure/contracts.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
+import { driverOf } from "../storage/storage-assembly.js";
+import { StorageRole } from "../storage/storage-driver.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { InstanceSeams } from "./instance-seams.js";
 import type { StepsAtStop } from "./instance-steps.js";
@@ -105,6 +107,15 @@ export function childWorkersOf(
   return { stop: async () => (await started).stop() };
 }
 
+/** The temporary SQLite file the instance's database is, when it is one: what its forks open too (#1286b). */
+function temporaryDatabasePathOf(assembled: AssembledApplication): string | undefined {
+  const meta = assembled.storage?.database?.meta;
+  const driver = driverOf(meta, StorageRole.Database);
+  const settings: Record<string, unknown> = { ...driver?.settings };
+  if (settings.isTemporary !== true) return undefined;
+  return typeof settings.path === "string" ? settings.path : undefined;
+}
+
 /**
  * The instance's supervisor of isolated workers (#1286b): only when the application sets
  * `isolatedWorker`, and never in a fork — a fork runs its one child and starts nothing.
@@ -128,6 +139,7 @@ export function isolatedSupervisorOf(
         entry,
         environmentName: parts.isolated?.environmentName,
         profile: assembled.profileSelection,
+        databasePath: temporaryDatabasePathOf(assembled),
       },
       launch: parts.isolated?.launch ?? fork.launchFork,
       slots: parts.stepSlots,

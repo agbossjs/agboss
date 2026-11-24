@@ -21,6 +21,7 @@ import {
   type ApplicationDeclaration,
   type ApplicationOptions,
 } from "./application.js";
+import { withIsolatedStorage } from "./isolated-storage.js";
 
 /**
  * The application's options as the selected profiles leave them: the classes a profile replaces
@@ -28,14 +29,20 @@ import {
  * A fresh object — the `@Application` declaration is never changed, so two assemblies of one class
  * under two profiles never see each other.
  */
-function effectiveOptionsOf(
+async function effectiveOptionsOf(
   declaration: Pick<ApplicationDeclaration, "options" | "written">,
   folded: FoldedConfig,
-): ApplicationOptions {
-  if (Object.keys(folded.replacements).length === 0) return declaration.options;
+): Promise<ApplicationOptions> {
+  // a profile that replaces `storage` is the application's own choice: no temporary file then
+  const written =
+    folded.replacements.storage === undefined
+      ? await withIsolatedStorage(declaration.written)
+      : declaration.written;
+  if (written === declaration.written && Object.keys(folded.replacements).length === 0)
+    return declaration.options;
   // the replaced lists go through the same step as the declared ones: a replaced `storage` replaces
   // its stores in `providers`, a replaced `channels` its channels
-  return declaredOptionsOf({ ...declaration.written, ...folded.replacements });
+  return declaredOptionsOf({ ...written, ...folded.replacements });
 }
 
 /** The providers the application's workflows can reach, by their `name`. */
@@ -95,7 +102,7 @@ export async function appliedProfilesOf(
   return {
     folded,
     source: declaration.source,
-    options: effectiveOptionsOf(declaration, folded),
+    options: await effectiveOptionsOf(declaration, folded),
     patchOf: (workflow) =>
       workflowPatchOf(folded, workflowDeclarationOf(workflow).options.name, use),
     use,

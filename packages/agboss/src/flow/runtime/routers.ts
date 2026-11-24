@@ -68,6 +68,7 @@ export async function loadRouter(
       model: options.model,
       fallback: defaultModel,
       provider: options.modelProvider,
+      isRequired: true,
     }),
     ...(options.maxVisits === undefined ? {} : { maxVisits: options.maxVisits }),
     instructions: await loader.load({ label, options, source, variables }),

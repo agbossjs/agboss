@@ -2,7 +2,7 @@ import type { Class } from "../../../components/injection.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { NodeKind, type ChooseOneStep } from "../../ast.js";
 import { declarationOf, type RouterDeclaration } from "../../decorators/declaration.js";
-import { isCodeRouter, routesOf } from "../../decorators/router.js";
+import { routesOf } from "../../decorators/router.js";
 import type { FlowNode } from "../flow-graph.js";
 import { classLabel } from "../labels.js";
 import type { BranchSite } from "../walked-flow.js";
@@ -12,8 +12,8 @@ import type { AnalysisContext } from "./context.js";
  * Router rules (#272 AC6, #270, #280): the targets of `.chooseOne(route(…)…)` and of
  * `@Router({ routes })` are the same set (order does not matter) — `[router.routes-mismatch]`; a
  * target listed twice — `[router.duplicate-route]`; `input` required and non-empty —
- * `[router.empty-input]`; a model router's model of its own or `defaults.router.model` —
- * `[router.no-model]`; `spawn` / `failure` only before a launch (`.toParallelAgents(…)`, #273), never
+ * `[router.empty-input]`; a model router's model comes from the model cascade
+ * (`[model.missing]`, #1279); `spawn` / `failure` only before a launch (`.toParallelAgents(…)`, #273), never
  * with `.chooseOne(…)` — `[router.policy-with-choose-one]`; `.chooseOne(…)` only after a router —
  * `[graph.choose-from-non-router]`. Before a launch the routes' own rules are `launchViolations`
  * (`router-launch.ts`, applied by the launch rules, #273).
@@ -107,17 +107,6 @@ function declarationRules(
   if (Object.keys(options.input).length === 0) {
     const message = `${router.name} has an empty input — declare what it chooses by: input: { message: XDto }`;
     found.push(violation("router.empty-input", message, [router.name]));
-  }
-  // a provider in the cascade supplies the model nothing else names (#1313)
-  const hasModel =
-    options.model !== undefined ||
-    context.workflow.defaults?.router?.model !== undefined ||
-    options.modelProvider !== undefined ||
-    context.workflow.modelProvider !== undefined ||
-    context.options.applicationModelProvider !== undefined;
-  if (!isCodeRouter(options) && !hasModel) {
-    const message = `${router.name} uses DecidedBy.Model but has no model — set model or defaults.router.model`;
-    found.push(violation("router.no-model", message, [router.name]));
   }
   return found;
 }

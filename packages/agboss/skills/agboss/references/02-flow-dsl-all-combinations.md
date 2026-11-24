@@ -445,7 +445,7 @@ export class CreditWorkflow {}
   (the original as `cause`, so `.onError(CreditServiceUnavailableError, …)` catches it) or
   `RouterDecisionError` (an answer outside its routes; a `RouterFailedError` too, never retried).
 - `.onError` stands right after the step, before `.chooseOne(…)`.
-- A model router without `model` takes `defaults.router.model` (`[router.no-model]`); its `input`
+- A model router without `model` takes `defaults.router.model` (none anywhere: `[model.missing-provider]`); its `input`
   is never empty (`[router.empty-input]`); `spawn` / `failure` on its routes are for launches only
   (`[router.policy-with-choose-one]`).
 

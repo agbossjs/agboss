@@ -4,7 +4,10 @@
  * file URL or an absolute path. The shard `assembly-rules` mutates `isolated-worker-rules.ts` whole.
  */
 import { describe, expect, it } from "vitest";
-import type { ApplicationOptions } from "../../src/application/application.js";
+import { declaredOptionsOf, type ApplicationOptions } from "../../src/application/application.js";
+import { withIsolatedStorage } from "../../src/application/isolated-storage.js";
+import { InMemoryDatabaseStorage } from "../../src/storage/in-memory-storage.js";
+import { assembledStorageOf } from "../../src/storage/storage-assembly.js";
 import { isolatedWorkerViolations } from "../../src/application/isolated-worker-rules.js";
 import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment, SqliteChildExecutionQueueRepository } from "../../src/index.js";
@@ -14,6 +17,10 @@ import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import { ItemDto } from "../flow/runtime/fixtures/fan-out.workflow.js";
 import { onStart } from "../helpers/flow.js";
+
+/** A database the application chose itself. */
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
+class SqliteDatabaseStub {}
 
 const NAME = "isolated-application";
 
@@ -111,5 +118,46 @@ describe("#1286b: isolatedWorkerViolations", () => {
 
       expect(found.map((one) => one.code)).toEqual(["application.isolated-worker-invalid"]);
     }
+  });
+});
+
+describe("#1286b (D9): the temporary file in place of in-memory storage", () => {
+  const isolated = (rest: Partial<ApplicationOptions>) =>
+    options({
+      workflows: [parentWith(ChildPlacement.IsolatedWorker)],
+      isolatedWorker: { entry: "file:///app/main.js" },
+      ...rest,
+    });
+  const declaredOf = async (one: ApplicationOptions) =>
+    declaredOptionsOf(await withIsolatedStorage(one));
+
+  it("an application with no storage and an isolated child gets a shared temporary SQLite file", async () => {
+    const declared = await declaredOf(isolated({}));
+
+    expect(isolatedWorkerViolations(declared)).toEqual([]);
+    expect(declared.providers).toContain(SqliteChildExecutionQueueRepository);
+  });
+
+  it("InMemoryDatabaseStorage is replaced the same way", async () => {
+    const declared = await declaredOf(isolated({ storage: { database: InMemoryDatabaseStorage } }));
+
+    expect(isolatedWorkerViolations(declared)).toEqual([]);
+  });
+
+  it("one application's passes share one file; a second application has its own", async () => {
+    const first = isolated({});
+    const databaseOf = async (one: ApplicationOptions) =>
+      assembledStorageOf((await withIsolatedStorage(one)).storage)?.database?.cls;
+
+    expect(await databaseOf(first)).toBe(await databaseOf({ ...first }));
+    expect(await databaseOf(first)).not.toBe(await databaseOf(isolated({})));
+  });
+
+  it("a database the application chose is never replaced; no isolated child, no file", async () => {
+    const chosen = isolated({ storage: { database: SqliteDatabaseStub } });
+    const plain = options({ workflows: [parentWith(undefined)] });
+
+    expect((await withIsolatedStorage(chosen)).storage).toBe(chosen.storage);
+    expect(await withIsolatedStorage(plain)).toBe(plain);
   });
 });

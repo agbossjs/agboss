@@ -487,8 +487,8 @@ export const anyInstancePaths = [
   `@Application({ defaults: { workflows: { placement } } })`, else `ChildPlacement.CurrentProcess`; a
   child never inherits its parent's. The members: `CurrentProcess` (inside the parent's step),
   `AnyWorker` (any live worker claims it), `OtherWorker` (a worker other than the launching instance;
-  with none, the parent's step fails with `ChildWorkerUnavailableError` after
-  `@Application({ childClaimTimeout })`, default one minute) and `IsolatedWorker` (a process of its
+  with none, the parent's step fails with `StepError.ChildWorkerUnavailable` (`step.child-worker-unavailable`) after
+  `@Application({ executionLimits: { childClaimTimeout } })`, default one minute) and `IsolatedWorker` (a process of its
   own: `@Application({ isolatedWorker: { entry: import.meta.url } })` is required, the module a forked
   process loads — its default export is the `@Application` class —, and the child queue must be a
   shared store, `[application.isolated-worker-invalid]`; the instance forks one process per child, a

@@ -625,7 +625,7 @@ name>": 0.9 })`); all no without an `Always` route → `RouterDecisionError` (S2
   version (S4 D6). **On any instance (#333 PR 2–4, S6–S9):** `@Workflow({ placement:
 ChildPlacement.AnyWorker })` on the child (#1286: never on the flow; else `@Application({ defaults: {
 workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never claimed by the instance that
-  queued it and fails the parent's step with `ChildWorkerUnavailableError` after `childClaimTimeout`;
+  queued it and fails the parent's step with `StepError.ChildWorkerUnavailable` (`step.child-worker-unavailable`) after `executionLimits.childClaimTimeout`;
   `IsolatedWorker` runs in a forked process of its own — `@Application({ isolatedWorker: { entry } })`, `app/remote/isolated-supervisor.ts` forks, the fork's one worker claims the child by its id with `claimIsolatedWorkerByTenantIdAndExecutionId`, `[application.isolated-worker-invalid]` — #1286b; a timed-out `OtherWorker` child's row is withdrawn atomically, `withdrawByTenantIdAndExecutionIdIfQueued`, #1286a) — the parent's node queues the child in the application's
   `ChildExecutionQueueRepository` (`flow/runtime/remote/`) and waits inside its step on its row
   (woken in-process by its worker, after the worker has completed the row and announced the child's
@@ -1496,7 +1496,7 @@ PostgresConnection)`; `SqliteConnection` declares `sqlitePath` so), one field of
 - **Defaults cascade (#261):** `@Application({ defaults })` → `@Workflow({ defaults })` → the
   component's own field, merged field by field — the most specific level that sets a field wins,
   nothing set → the built-in. `defaults.router.model` is the model of `DecidedBy.Model` routers
-  without their own (`[router.no-model]`), `defaults.guardrail.model` the guardrails' — separate, a
+  without their own (none anywhere: `[model.missing-provider]`), `defaults.guardrail.model` the guardrails' — separate, a
   guardrail never takes the router's (`[model.missing-provider]`); `agboss describe` shows each router's
   and agent's value and where it came from (`(own)`, `(desk-application)`, `(built-in)`).
 - **Components keep no state:** another instance may continue an execution after a pause, so a

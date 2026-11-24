@@ -81,7 +81,7 @@ export { type CacheSetting, type ModelSettings, type Thinking } from "../config/
 export {
   type CheckClaims,
   type ClaimedDtosOf,
-  type ClaimsOf,
+  type SideClaimsOf,
   type FinishesOf,
   type FieldDto,
   type FinishHandling,

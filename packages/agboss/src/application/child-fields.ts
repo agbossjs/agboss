@@ -11,7 +11,7 @@ export function childFieldsOf(options: ApplicationOptions): {
 } {
   const placement = options.defaults?.workflows?.placement;
   return {
-    childClaimTimeout: options.childClaimTimeout ?? CHILD_CLAIM_TIMEOUT,
+    childClaimTimeout: options.executionLimits?.childClaimTimeout ?? CHILD_CLAIM_TIMEOUT,
     ...(placement === undefined ? {} : { childPlacement: placement }),
     ...(options.isolatedWorker === undefined ? {} : { isolatedWorker: options.isolatedWorker }),
   };

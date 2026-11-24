@@ -186,6 +186,19 @@ class RouterOnlyApplication {}
 })
 class BareApplication {}
 
+/** A model router and no model anywhere: the cascade's rule, not a router's own (#1279). */
+@Workflow({ name: "bare-router-workflow", version: "1.0.0", flow: flowThrough(AskRouter) })
+class BareRouterWorkflow {}
+
+@Application({
+  name: "bare-router-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [BareRouterWorkflow],
+  budgets: TEST_BUDGETS,
+})
+class BareRouterApplication {}
+
 const assembled = async (application: Class): Promise<AssembledWorkflow> => {
   const [workflow] = (await applicationOf(application)).workflows;
   if (workflow === undefined) throw new Error("no workflow");
@@ -300,9 +313,9 @@ describe("#261 AC12: router and guardrail models separate", () => {
     ]);
   });
 
-  it("no router model anywhere → [router.no-model] (the flow's rules come first)", async () => {
-    expect(await violationsOf(BareApplication)).toEqual([
-      "[router.no-model] bare-workflow: ask-router uses DecidedBy.Model but has no model — set model or defaults.router.model",
+  it("no router model anywhere → [model.missing-provider], the cascade's rule (#1279)", async () => {
+    expect(await violationsOf(BareRouterApplication)).toEqual([
+      "[model.missing-provider] bare-router-workflow routers.ask-router: names no model and no modelProvider is set — name a model, or set modelProvider on the component, its @Workflow or its @Application",
     ]);
   });
 });

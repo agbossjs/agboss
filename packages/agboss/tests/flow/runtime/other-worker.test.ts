@@ -28,7 +28,7 @@ describe("#1286 D9: OtherWorker with no other live worker", () => {
   const alone = testWith(OtherWorkerApplication);
 
   alone(
-    "the parent's step fails with ChildWorkerUnavailableError after childClaimTimeout; the child never ran here",
+    "the parent's step fails with StepError.ChildWorkerUnavailable after childClaimTimeout; the child never ran here",
     async ({ apps, clock }) => {
       const app = first(apps);
       const call = execute(app, OtherWorkerRootWorkflowStart, item);

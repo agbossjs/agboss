@@ -287,17 +287,16 @@ classes follow the same convention (`SupportAgent`) without a check.
 
 ### Routers
 
-| Code                              | Means                                                                     | Before → after                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `[router.routes-mismatch]`        | the flow's `route(…)` list differs from `@Router({ routes })`             | a route for `BillingAgent` with no `route(BillingAgent)` → add `route(BillingAgent)…` to `chooseOne` |
-| `[router.duplicate-route]`        | a target listed twice in `routes` or in the flow                          | `route(X)` twice → once                                                                              |
-| `[router.empty-input]`            | a router with `input: {}`                                                 | `input: {}` → `input: { message: WorkflowStartTextDto }`                                             |
-| `[router.no-model]`               | a `DecidedBy.Model` router with no `model` and no `defaults.router.model` | add `model: "typesafe/jev-1.13"` or `defaults: { router: { model } }` on the application             |
-| `[router.no-prompt]`              | an `OnDemand` route before a launch has no prompt                         | `{ target: X, spawn: SpawnPolicy.OnDemand }` → add `prompt: "The message is about …"`                |
-| `[router.prompt-on-always]`       | an `Always` route has a prompt no model reads                             | `{ spawn: SpawnPolicy.Always, prompt: "…" }` → remove the `prompt`                                   |
-| `[router.spawn-required]`         | a model router's route before a launch does not state `spawn`             | `{ target: X, prompt: "…" }` → `{ target: X, spawn: SpawnPolicy.OnDemand, prompt: "…" }`             |
-| `[router.all-routes-always]`      | before a launch every route is `Always`: the router decides nothing       | set `SpawnPolicy.OnDemand` on the routes it chooses, or drop the router and launch directly          |
-| `[router.policy-with-choose-one]` | `spawn` / `failure` on routes of a `.chooseOne(…)` router                 | `{ target: X, failure: FailurePolicy.Skip }` with `chooseOne` → remove the policy                    |
+| Code                              | Means                                                               | Before → after                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `[router.routes-mismatch]`        | the flow's `route(…)` list differs from `@Router({ routes })`       | a route for `BillingAgent` with no `route(BillingAgent)` → add `route(BillingAgent)…` to `chooseOne` |
+| `[router.duplicate-route]`        | a target listed twice in `routes` or in the flow                    | `route(X)` twice → once                                                                              |
+| `[router.empty-input]`            | a router with `input: {}`                                           | `input: {}` → `input: { message: WorkflowStartTextDto }`                                             |
+| `[router.no-prompt]`              | an `OnDemand` route before a launch has no prompt                   | `{ target: X, spawn: SpawnPolicy.OnDemand }` → add `prompt: "The message is about …"`                |
+| `[router.prompt-on-always]`       | an `Always` route has a prompt no model reads                       | `{ spawn: SpawnPolicy.Always, prompt: "…" }` → remove the `prompt`                                   |
+| `[router.spawn-required]`         | a model router's route before a launch does not state `spawn`       | `{ target: X, prompt: "…" }` → `{ target: X, spawn: SpawnPolicy.OnDemand, prompt: "…" }`             |
+| `[router.all-routes-always]`      | before a launch every route is `Always`: the router decides nothing | set `SpawnPolicy.OnDemand` on the routes it chooses, or drop the router and launch directly          |
+| `[router.policy-with-choose-one]` | `spawn` / `failure` on routes of a `.chooseOne(…)` router           | `{ target: X, failure: FailurePolicy.Skip }` with `chooseOne` → remove the policy                    |
 
 ### Parallel launches and quorums
 

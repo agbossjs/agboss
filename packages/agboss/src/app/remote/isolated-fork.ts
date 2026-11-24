@@ -21,6 +21,7 @@ const Spec = z.object({
   executionId: z.string().min(1),
   environmentName: z.string().optional(),
   profile: z.union([z.string(), z.array(z.string())]).optional(),
+  databasePath: z.string().min(1).optional(),
 });
 
 /** The spec of the fork a process was started for; `undefined` when it was started for none. */

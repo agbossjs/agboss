@@ -23,6 +23,7 @@ import {
   SpawnPolicy,
   type CodeRouterOptions,
   type ModelRouterOptions,
+  type RouteChecked,
 } from "../../src/flow/decorators/router.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import type { WorkflowStartOptions } from "../../src/flow/decorators/workflow-start.js";
@@ -38,6 +39,7 @@ import {
   type HistoryOptions,
   type ValueOf,
 } from "../../src/flow/dto-wrappers.js";
+import { agbossComponent, type NodeKind } from "../../src/flow/generated-types.js";
 import type {
   InputOf,
   MissingGeneratedTypes,
@@ -643,18 +645,29 @@ describe("#280 AC1, AC2: code routers — options by decidedBy, route(input) typ
     >();
   });
 
-  it("return [] only with Always: the list forms route() returns before a launch (#273)", () => {
+  it("a list answer may be empty: chooseMany picks none (#1279)", () => {
     type OnDemand = typeof DeliveryTopicAgent | typeof RefundTopicAgent;
-    // what `routerAnswerText(…, RouteForm.List, …)` writes, without and with an Always route
-    type WithoutAlways = readonly [OnDemand, ...OnDemand[]];
-    type WithAlways = readonly OnDemand[];
-    // @ts-expect-error — without an Always route the list is never empty
-    const none: WithoutAlways = [];
-    const some: WithoutAlways = [RefundTopicAgent];
-    const empty: WithAlways = [];
+    // what `routerAnswerText(…, RouteForm.List)` writes
+    type Answer = readonly OnDemand[];
+    const none: Answer = [];
+    const some: Answer = [RefundTopicAgent];
     expectTypeOf(none).not.toBeAny();
     expectTypeOf(some).not.toBeAny();
-    expectTypeOf(empty).not.toBeAny();
+  });
+
+  it("the decorator checks route() against the generated types of its class (#1279)", () => {
+    // a class carrying the brand of a generated router, whose route() answers what it must not
+    class WrongAnswer {
+      readonly [agbossComponent]?: {
+        readonly name: "credit-limit-router";
+        readonly kind: NodeKind.Router;
+      };
+      route(): string {
+        return "draft";
+      }
+    }
+    expectTypeOf<RouteChecked<typeof CreditLimitRouter>>().toEqualTypeOf<unknown>();
+    expectTypeOf<RouteChecked<typeof WrongAnswer>>().toHaveProperty("__error");
   });
 
   it("a code router has route() and deps checked against its constructor", () => {

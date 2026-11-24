@@ -1,7 +1,9 @@
 import { ExecutionRecordStatus } from "../../../infrastructure/execution-record.repository.js";
 import type { QueuedChildExecution } from "../../../infrastructure/child-execution-queue.repository.js";
 import { ChildPlacement } from "../../child-placement.js";
-import { ChildWorkerUnavailableError } from "../child-errors.js";
+import { StepError } from "../../../core/error-families/step-errors.js";
+import { stepCoordinatesOf } from "../../../graph/errors.js";
+import { ComponentKind } from "../records.js";
 import { encodedRun, type RemoteChildRun } from "./remote-child-run.js";
 import type { RemoteChildSite } from "./remote-child.js";
 
@@ -26,10 +28,13 @@ export async function lostToClaim(
     site.executionId,
   );
   if (!isWithdrawn) return true;
-  throw new ChildWorkerUnavailableError({
+  throw new StepError.ChildWorkerUnavailable({
+    ...stepCoordinatesOf(site.workflow, ComponentKind.Workflow),
     childExecutionId: site.executionId,
     workflow: site.workflow,
     waitedMs,
+    message: `Child workflow "${site.workflow}" (execution ${site.executionId}) was claimed by no other worker in ${String(waitedMs)} ms: ChildPlacement.OtherWorker never runs on the instance that launched it`,
+    details: { childExecutionId: site.executionId, workflow: site.workflow, waitedMs },
   });
 }
 

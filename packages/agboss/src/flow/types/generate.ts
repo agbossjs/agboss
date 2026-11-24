@@ -131,9 +131,6 @@ function checkedWorkflows(
     return checkWorkflow(workflow, {
       ...options,
       ...(owner?.defaults === undefined ? {} : { applicationDefaults: owner.defaults }),
-      ...(owner?.modelProvider === undefined
-        ? {}
-        : { applicationModelProvider: owner.modelProvider }),
     });
   });
   return { all, owners, checks };

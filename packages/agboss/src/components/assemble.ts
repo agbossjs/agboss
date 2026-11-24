@@ -135,12 +135,10 @@ function analysedModule(
   owner: WorkflowOwner | undefined,
 ): { readonly bundle: WorkflowMeta; readonly analysis: FlowAnalysis } {
   const applicationDefaults = owner?.defaults;
-  const applicationModelProvider = owner?.modelProvider;
   return {
     bundle: withApplicationDefaults(moduleOf(workflow), workflow, owner),
     analysis: analyseWorkflow(workflow, {
       ...(applicationDefaults === undefined ? {} : { applicationDefaults }),
-      ...(applicationModelProvider === undefined ? {} : { applicationModelProvider }),
     }),
   };
 }

@@ -23,7 +23,6 @@ export {
 } from "../flow/builder.js";
 export {
   Metadata,
-  type MetadataFacade,
   type MetadataOptions,
   type Tracked,
   type Untracked,
@@ -124,6 +123,7 @@ export {
   Router,
   SpawnPolicy,
   type CodeRouterOptions,
+  type RouteChecked,
   type CodeRouterRoute,
   type ModelRouterOptions,
   type RouterOptions,

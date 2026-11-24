@@ -34,6 +34,8 @@ export interface ForkSpec {
   readonly environmentName?: string | undefined;
   /** The profiles `createApp({ profile })` named, as given; absent = the default one. */
   readonly profile?: ProfileSelection | undefined;
+  /** The temporary SQLite file the instance's database is (`SqliteDriver.inMemory()`): the fork opens the same one. */
+  readonly databasePath?: string | undefined;
 }
 
 /** One started process. */

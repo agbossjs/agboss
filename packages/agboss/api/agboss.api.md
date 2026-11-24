@@ -735,17 +735,22 @@ export interface ApplicationDefaults extends WorkflowDefaults {
 }
 
 // @public
+export interface ApplicationExecutionLimits {
+    readonly childClaimTimeout?: Milliseconds;
+}
+
+// @public
 export interface ApplicationOptions<TEnvironment = unknown> {
     readonly budgets?: readonly Class[];
     readonly channelListeners?: readonly Class[];
     readonly channels?: readonly Class[];
     readonly channelSelectors?: readonly Class[];
-    readonly childClaimTimeout?: Milliseconds;
     readonly compensationTimeout?: Milliseconds;
     readonly defaults?: ApplicationDefaults;
     readonly endpoints?: readonly Class[];
     readonly environment: Class<TEnvironment>;
     readonly executionContext?: ExecutionContextClass;
+    readonly executionLimits?: ApplicationExecutionLimits;
     readonly guardrails?: readonly Class[];
     readonly healthChecks?: readonly Class[];
     readonly isolatedWorker?: IsolatedWorkerOptions;
@@ -1654,26 +1659,6 @@ export enum ChildPlacement {
 }
 
 // @public
-export class ChildWorkerUnavailableError extends AGBossError {
-    constructor(options: ChildWorkerUnavailableErrorOptions);
-    // (undocumented)
-    readonly childExecutionId: string;
-    // (undocumented)
-    static readonly code: "step.child.worker-unavailable";
-    // (undocumented)
-    readonly code: typeof ChildWorkerUnavailableError.code;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface ChildWorkerUnavailableErrorOptions {
-    readonly childExecutionId: string;
-    readonly waitedMs: number;
-    readonly workflow: string;
-}
-
-// @public
 export interface ChildWorkflowDefaults {
     readonly placement?: ChildPlacement;
 }
@@ -1746,9 +1731,6 @@ export interface ChosenRouterRoute {
 type ClaimedDtosOf<TInput> = TInput extends GeneratedTypeError ? never : TInput extends MissingGeneratedTypes ? never : typeof agbossDto extends keyof TInput ? TInput : TInput extends object ? {
     [K in keyof TInput]-?: FieldDto<TInput[K]>;
 }[keyof TInput] : never;
-
-// @public
-type ClaimsOf<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish] ? PlainDto<OutputOf<TInstance>> extends infer TOut ? [TOut] extends [GeneratedTypeError | MissingGeneratedTypes] ? never : TOut extends readonly unknown[] ? never : TOut : never : ClaimedDtosOf<InputOf<TInstance>>;
 
 // @public
 type ClaimsOfPath<TPath> = TPath extends {
@@ -1883,7 +1865,7 @@ export interface CodeReplyInterpreterOptions<TDeps extends readonly Token[] = re
 }
 
 // @public
-type CodeRouterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => RouteMethod>(value: TClass) => TClass;
+type CodeRouterDecorator<TDeps extends readonly Token[]> = <TClass extends new (...args: ResolvedAll<TDeps>) => RouteMethod>(value: TClass & RouteChecked<TClass>) => TClass;
 
 // @public
 export interface CodeRouterOptions<TDeps extends readonly Token[] = readonly Token[]> {
@@ -4385,7 +4367,7 @@ declare namespace FlowTypes {
         Thinking,
         CheckClaims,
         ClaimedDtosOf,
-        ClaimsOf,
+        SideClaimsOf,
         FinishesOf,
         FieldDto,
         FinishHandling,
@@ -6318,23 +6300,20 @@ export interface MessageErrorOptions extends AGBossErrorOptions {
     readonly message: string;
 }
 
-// @public (undocumented)
-export const Metadata: MetadataFacade;
-
 // @public
-export interface MetadataFacade {
+export abstract class Metadata {
     // (undocumented)
-    ancestors(value: object): readonly ValueMetadata[];
-    createdBy<TValue extends Tracked<object>>(value: TValue): TValue[typeof valueMetadata];
+    static ancestors(value: object): readonly ValueMetadata[];
+    static createdBy<TValue extends Tracked<object>>(value: TValue): TValue[typeof valueMetadata];
     // (undocumented)
-    createdBy(value: object): Class | undefined;
+    static createdBy(value: object): Class | undefined;
     // (undocumented)
-    has(value: object): value is Tracked<object>;
+    static has(value: object): value is Tracked<object>;
     // (undocumented)
-    of<TComponent extends Class>(value: Tracked<object, TComponent>): ValueMetadata<TComponent>;
+    static of<TComponent extends Class>(value: Tracked<object, TComponent>): ValueMetadata<TComponent>;
     // (undocumented)
-    of(value: object): ValueMetadata | undefined;
-    with<TValue extends object, TComponent extends Class>(value: TValue, options: MetadataOptions<TComponent>): Tracked<TValue, TComponent>;
+    static of(value: object): ValueMetadata | undefined;
+    static with<TValue extends object, TComponent extends Class>(value: TValue, options: MetadataOptions<TComponent>): Tracked<TValue, TComponent>;
 }
 
 // @public
@@ -6700,7 +6679,7 @@ export interface NewThread {
 export type NewTurn = Omit<Turn, "id" | "createdAt">;
 
 // @public
-type NextHead<THead extends PathHead, TInstance> = THead extends SideHead<infer TClaims, infer TStart> ? [TClaims] extends [never] ? SideHead<ClaimsOf<TInstance>, TStart> : THead : THead;
+type NextHead<THead extends PathHead, TInstance> = THead extends SideHead<infer TClaims, infer TStart> ? [TClaims] extends [never] ? SideHead<SideClaimsOf<TInstance>, TStart> : THead : THead;
 
 // @public
 interface NoAnswerToJudge {
@@ -8961,6 +8940,11 @@ export type RouteCheck<TPath, TRemaining> = [StartOfPath<TPath>] extends [never]
 };
 
 // @public
+export type RouteChecked<TClass extends Class> = InstanceType<TClass> extends infer TSelf ? [InputOf<TSelf>] extends [MissingGeneratedTypes] ? unknown : TSelf extends RouterHandler<TSelf> ? unknown : {
+    readonly __error: "route() must take InputOf<Self> and return RouterAnswerOf<Self> — see RouterHandler<Self>";
+} : never;
+
+// @public
 export type RouteContinuation<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish] ? BuiltPath<RouteHead> : AfterStep<TInstance, RouteHead>;
 
 // @public (undocumented)
@@ -9153,7 +9137,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.endpoint-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.cost-per-call-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-endpoint" | "application.duplicate-endpoint" | "application.endpoint-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.endpoint-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.cost-per-call-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-endpoint" | "application.duplicate-endpoint" | "application.endpoint-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.unserved" | "model.ambiguous-provider" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -9270,6 +9254,9 @@ export interface ServiceSpend {
     readonly service: string;
     readonly tokens?: Partial<TokenUsage>;
 }
+
+// @public
+type SideClaimsOf<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish] ? PlainDto<OutputOf<TInstance>> extends infer TOut ? [TOut] extends [GeneratedTypeError | MissingGeneratedTypes] ? never : TOut extends readonly unknown[] ? never : TOut : never : ClaimedDtosOf<InputOf<TInstance>>;
 
 // @public
 export interface SideHead<TClaims = unknown, TStart = unknown> {
@@ -9788,7 +9775,7 @@ export interface StepDescriptor extends StepRecord {
 }
 
 // @public
-export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionOutcomeUnknown | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.Guardrail | StepError.ToolBlocked | StepError.ToolTimeout | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
+export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionOutcomeUnknown | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.ChildWorkerUnavailable | StepError.Guardrail | StepError.ToolBlocked | StepError.ToolTimeout | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
 
 // @public
 export namespace StepError {
@@ -9812,6 +9799,11 @@ export namespace StepError {
     export type Child = PaidErrorVariant<StepErrorKind.Child, "step.child"> & StepCoordinates & {
         readonly childExecutionId: string;
         readonly workflow: WorkflowRecord;
+    };
+    export type ChildWorkerUnavailable = PaidErrorVariant<StepErrorKind.ChildWorkerUnavailable, "step.child-worker-unavailable"> & StepCoordinates & {
+        readonly childExecutionId: string;
+        readonly workflow: string;
+        readonly waitedMs: number;
     };
     export type ExternalTask = PaidErrorVariant<StepErrorKind.ExternalTask, "step.external-task"> & StepCoordinates & {
         readonly externalTask: string;
@@ -9884,6 +9876,7 @@ export const StepError: FamilyConstructor<StepError, {
     Arbiter: StepError.Arbiter;
     QuorumNotReached: StepError.QuorumNotReached;
     Child: StepError.Child;
+    ChildWorkerUnavailable: StepError.ChildWorkerUnavailable;
     Guardrail: StepError.Guardrail;
     ToolBlocked: StepError.ToolBlocked;
     ToolTimeout: StepError.ToolTimeout;
@@ -9907,6 +9900,8 @@ export enum StepErrorKind {
     Arbiter = "arbiter",
     // (undocumented)
     Child = "child",
+    // (undocumented)
+    ChildWorkerUnavailable = "child-worker-unavailable",
     // (undocumented)
     ExternalTask = "external-task",
     // (undocumented)
@@ -10460,16 +10455,16 @@ export interface TimeWindow {
 }
 
 // @public
-export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>, options?: QuestionStepOptions): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
 export type Token = Class | InjectionToken<unknown> | EnvContract;
@@ -10725,7 +10720,7 @@ export interface ToolTimeoutErrorOptions {
 }
 
 // @public
-export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
 export interface ToStep {
@@ -10746,7 +10741,7 @@ export function totalCost(records: readonly {
 }[]): Usd;
 
 // @public
-export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>>;
+export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<SideClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>>;
 
 // @public
 export interface TraceLinkContext {
@@ -11924,6 +11919,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Arbiter".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "QuorumNotReached".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Child".
+// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ChildWorkerUnavailable".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Guardrail".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ToolBlocked".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ToolTimeout".
@@ -12439,7 +12435,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "has".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "createdBy".
 // src/flow/metadata.ts - (ae-undocumented) Missing documentation for "ancestors".
-// src/flow/metadata.ts - (ae-undocumented) Missing documentation for "Metadata".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "previousToken".
 // src/flow/observers/audit-log.ts - (ae-undocumented) Missing documentation for "reason".
@@ -12470,10 +12465,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/flow/runtime/child-errors.ts - (ae-undocumented) Missing documentation for "childExecutionId".
 // src/flow/runtime/depth-limit.ts - (ae-undocumented) Missing documentation for "path".
 // src/flow/runtime/depth-limit.ts - (ae-undocumented) Missing documentation for "cause".
 // src/flow/runtime/depth-limit.ts - (ae-undocumented) Missing documentation for "code".

@@ -143,8 +143,8 @@ removed. See [Memory Management](Memory-Management).
 `{ model: "typesafe/jev-1.13" }` — a decision model or a chat model; there is no `kind`, the model
 registry knows which it is. A `DecidedBy.Model` router without its own `model` uses it, its own
 `model` wins, `DecidedBy.Code` routers ignore it; a model router with no model anywhere fails
-assembly: `[router.no-model] main-router uses DecidedBy.Model but has no model — set model or
-defaults.router.model` — see [Routers](Routers). `ROUTER_FACTORY` routers and eval's judge use it
+assembly: `[model.missing-provider] <workflow> routers.main-router: names no model and no modelProvider is set …`
+(the model cascade's rule, as for an agent) — see [Routers](Routers). `ROUTER_FACTORY` routers and eval's judge use it
 too.
 
 ## `defaults.guardrail` — the model for guardrails

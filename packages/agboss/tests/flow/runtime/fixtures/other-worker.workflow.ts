@@ -2,7 +2,7 @@ import {
   Action,
   ApplicationContext,
   ChildPlacement,
-  ChildWorkerUnavailableError,
+  StepError,
   EmptyEnvironment,
   Workflow,
   WorkflowFinish,
@@ -17,7 +17,7 @@ import { ItemDto, ItemResultDto } from "./fan-out.workflow.js";
 
 /**
  * #1286 — a child with `ChildPlacement.OtherWorker`: claimed by a worker other than the instance that
- * launched it, and a failure of its parent's step (`ChildWorkerUnavailableError`) when none claims
+ * launched it, and a failure of its parent's step (`StepError.ChildWorkerUnavailable`) when none claims
  * it within `childClaimTimeout` (D9).
  */
 
@@ -87,7 +87,7 @@ export class OtherWorkerUnavailableWorkflowFinish {}
   flow: [
     onStart(OtherWorkerRootWorkflowStart)
       .toWorkflow(OtherWorkerItemWorkflow)
-      .onError(ChildWorkerUnavailableError, toFinish(OtherWorkerUnavailableWorkflowFinish))
+      .onError(StepError, toFinish(OtherWorkerUnavailableWorkflowFinish))
       .toFinish(OtherWorkerItemWorkflowFinish),
   ],
 })
@@ -98,7 +98,7 @@ export class OtherWorkerRootWorkflow {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OtherWorkerRootWorkflow],
-  childClaimTimeout: seconds(5),
+  executionLimits: { childClaimTimeout: seconds(5) },
   budgets: TEST_BUDGETS,
 })
 export class OtherWorkerApplication {}

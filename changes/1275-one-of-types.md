@@ -4,7 +4,7 @@ issue: 1275
 ---
 
 **`.toOneOf([…])` and `.onFinish(…)` are exhaustive at compile time** (#1275c). A side path now
-carries in its type the DTOs its entry consumer reads (`SideHead<TClaims>`, `ClaimsOf`,
+carries in its type the DTOs its entry consumer reads (`SideHead<TClaims>`, `SideClaimsOf`,
 `ClaimedDtosOf`; leading steps that read nothing are skipped). `.toOneOf([…])` does not compile when
 a branch reads several variants, two branches read one, a variant has no branch, or more than one
 branch reads none (`OneOfCheck`). A child's `.onFinish(ChildFinish, …)` chain is a path only when

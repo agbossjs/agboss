@@ -1,7 +1,7 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { toExternalTask } from "../../../src/flow/builder.js";
 import type { AfterStep, SideHead } from "../../../src/flow/builder-types.js";
-import type { ClaimsOf } from "../../../src/flow/one-of-types.js";
+import type { SideClaimsOf } from "../../../src/flow/one-of-types.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { SpendingLimitAnswerDto, SpendingLimitQuestion } from "../fixtures/questions.fixture.js";
 
@@ -15,7 +15,7 @@ describe("#933 AC1: toQuestion types", () => {
     expectTypeOf(toExternalTask(SpendingLimitQuestion)).toEqualTypeOf<
       AfterStep<
         SpendingLimitQuestion,
-        SideHead<ClaimsOf<SpendingLimitQuestion>, typeof SpendingLimitQuestion>
+        SideHead<SideClaimsOf<SpendingLimitQuestion>, typeof SpendingLimitQuestion>
       >
     >();
   });

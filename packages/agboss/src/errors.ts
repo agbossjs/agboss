@@ -93,9 +93,7 @@ export { PiiRefusedError, type PiiRefusedErrorOptions } from "./pii/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export {
   ChildExecutionFailedError,
-  ChildWorkerUnavailableError,
   type ChildExecutionFailedErrorOptions,
-  type ChildWorkerUnavailableErrorOptions,
 } from "./flow/runtime/child-errors.js";
 export {
   DepthLimitExceededError,

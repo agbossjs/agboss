@@ -108,8 +108,7 @@ export declare namespace AGBossTypes {
   /**
    * What a router answers, by name: a code router's `route()` (#280), a model router's scripted
    * `routeTo(…)` in tests (#262) — one target after `.chooseOne(…)`; after `.toParallelAgents(…)`
-   * (#273) a list — `readonly [Route<R>, ...Route<R>[]]` without an `Always` route, so `[]` does
-   * not compile.
+   * (#273) a list, `readonly Route<R>[]`, which may be empty (#1279).
    */
   export interface RouterAnswers {
     readonly [notGenerated]?: never;

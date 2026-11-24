@@ -72,14 +72,6 @@ const blindPaths = [
 class BlindRouterWorkflow {}
 
 @Workflow({
-  name: "default-model-workflow",
-  version: "1.0.0",
-  flow: blindPaths,
-  defaults: { router: { model: "typesafe/jev-1.13" } },
-})
-class DefaultModelWorkflow {}
-
-@Workflow({
   name: "choose-after-agent-workflow",
   version: "1.0.0",
   flow: [onStart(KitWorkflowStart).toAgent(DraftKitAgent).chooseOne(route(DraftKitWorkflowFinish))],
@@ -114,7 +106,7 @@ describe("AC6: routes mismatch as sets", () => {
 });
 
 describe("AC11: router assembly rules — input and model (#270, #280)", () => {
-  it("an empty input, a target listed twice in routes and no model fail", () => {
+  it("an empty input and a target listed twice in routes fail", () => {
     expect(errorsOf(BlindRouterWorkflow)).toEqual([
       {
         code: "router.duplicate-route",
@@ -126,18 +118,7 @@ describe("AC11: router assembly rules — input and model (#270, #280)", () => {
         message:
           "blind-router-workflow: blind-router has an empty input — declare what it chooses by: input: { message: XDto }",
       },
-      {
-        code: "router.no-model",
-        message:
-          "blind-router-workflow: blind-router uses DecidedBy.Model but has no model — set model or defaults.router.model",
-      },
     ]);
-  });
-
-  it("defaults.router.model gives a router its model", () => {
-    expect(errorsOf(DefaultModelWorkflow).map((found) => found.code)).not.toContain(
-      "router.no-model",
-    );
   });
 
   it(".chooseOne(…) only follows a router", () => {

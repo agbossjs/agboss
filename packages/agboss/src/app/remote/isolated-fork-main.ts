@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import { builtApplicationOf } from "../../application/create-app.js";
+import { adoptTemporaryFile } from "../../storage/drivers.js";
 import { FORK_ENV, forkSpecOf } from "./isolated-fork.js";
 
 /**
@@ -16,6 +17,7 @@ const spec = forkSpecOf(process.env);
 if (spec === undefined)
   throw new Error(`${FORK_ENV} is not set: this module is started by a supervisor`);
 Reflect.deleteProperty(process.env, FORK_ENV);
+if (spec.databasePath !== undefined) adoptTemporaryFile(spec.databasePath);
 
 const entry = spec.entry.startsWith("file:") ? spec.entry : pathToFileURL(spec.entry).href;
 const loaded = (await lazyLoad(import(entry))) as { readonly default?: unknown };

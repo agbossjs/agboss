@@ -116,35 +116,42 @@ function describedBy(options: MetadataOptions): ValueMetadata {
  * action's result). `createdBy` is the creator's class, so `Metadata.createdBy(item) ===
  * LookupVendorAction` and an exhaustive `switch` on it both work.
  */
-export interface MetadataFacade {
-  of<TComponent extends Class>(value: Tracked<object, TComponent>): ValueMetadata<TComponent>;
-  of(value: object): ValueMetadata | undefined;
-  has(value: object): value is Tracked<object>;
-  /** The class that gave `value`; for a value that is one of several tracked kinds (`@Arbitrate(A, B)`), `typeof A | typeof B`. */
-  createdBy<TValue extends Tracked<object>>(value: TValue): TValue[typeof valueMetadata];
-  createdBy(value: object): Class | undefined;
-  ancestors(value: object): readonly ValueMetadata[];
-  /** A copy of `value` (its prototype kept) that states its metadata; `value` itself is never branded. */
-  with<TValue extends object, TComponent extends Class>(
-    value: TValue,
-    options: MetadataOptions<TComponent>,
-  ): Tracked<TValue, TComponent>;
-}
+// the spec makes it a class of static methods: one name that is both the call site and the type
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
+export abstract class Metadata {
+  static of<TComponent extends Class>(
+    value: Tracked<object, TComponent>,
+  ): ValueMetadata<TComponent>;
+  static of(value: object): ValueMetadata | undefined;
+  static of(value: object): ValueMetadata | undefined {
+    return of(value);
+  }
 
-export const Metadata: MetadataFacade = Object.freeze({
-  of,
-  has: (value: object): value is Tracked<object> => of(value) !== undefined,
-  createdBy: (value: object) => of(value)?.createdBy,
-  ancestors,
-  with: <TValue extends object, TComponent extends Class>(
+  static has(value: object): value is Tracked<object> {
+    return of(value) !== undefined;
+  }
+
+  /** The class that gave `value`; for a value that is one of several tracked kinds (`@Arbitrate(A, B)`), `typeof A | typeof B`. */
+  static createdBy<TValue extends Tracked<object>>(value: TValue): TValue[typeof valueMetadata];
+  static createdBy(value: object): Class | undefined;
+  static createdBy(value: object): Class | undefined {
+    return of(value)?.createdBy;
+  }
+
+  static ancestors(value: object): readonly ValueMetadata[] {
+    return ancestors(value);
+  }
+
+  /** A copy of `value` (its prototype kept) that states its metadata; `value` itself is never branded. */
+  static with<TValue extends object, TComponent extends Class>(
     value: TValue,
     options: MetadataOptions<TComponent>,
-  ): Tracked<TValue, TComponent> => {
+  ): Tracked<TValue, TComponent> {
     const copy = cloneOf(value);
     metadataOf.set(copy, describedBy(options));
     return copy as Tracked<TValue, TComponent>;
-  },
-} as MetadataFacade);
+  }
+}
 
 /**
  * The runtime's side: records where `value` came from. A value another visit already recorded is

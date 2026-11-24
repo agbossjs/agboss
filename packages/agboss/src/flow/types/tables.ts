@@ -39,11 +39,11 @@ export function routeTargetsOf(options: RouterOptions, form: RouteForm): readonl
   return routes.map((route) => route.target);
 }
 
-/** What `route()` returns in a form: `Route<R>`, or a list of it — non-empty without an `Always` route. */
-export function routerAnswerText(route: string, form: RouteForm, hasAlways: boolean): string {
+/** What `route()` returns in a form: `Route<R>`, or a list of it, which may be empty (`chooseMany`, #1279). */
+export function routerAnswerText(route: string, form: RouteForm): string {
   if (form === RouteForm.One) return route;
   const element = route.includes(" | ") ? `(${route})` : route;
-  return hasAlways ? `readonly ${element}[]` : `readonly [${element}, ...${element}[]]`;
+  return `readonly ${element}[]`;
 }
 
 /** One analysed workflow and the rule violations found in it. */
@@ -142,9 +142,8 @@ function writeNode(
       const targets = routeTargetsOf(options, form).map((target) => `typeof ${names.ref(target)}`);
       const route = targets.length === 0 ? "never" : [...new Set(targets)].sort().join(" | ");
       tables.routes.set(name, route);
-      const hasAlways = onDemandRoutesOf(options).length < routesOf(options).length;
       // a code router's `route()` returns it; a model router's scripted `routeTo(…)` gives it (#262)
-      tables.routerAnswers.set(name, routerAnswerText(route, form, hasAlways));
+      tables.routerAnswers.set(name, routerAnswerText(route, form));
       return;
     }
     case NodeKind.Workflow:

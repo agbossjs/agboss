@@ -6,8 +6,8 @@ issue: 1286
 **`ChildPlacement.{CurrentProcess, AnyWorker, OtherWorker, IsolatedWorker}` on `@Workflow` and
 `@Application`, not on the flow** (#1286a). Renamed: `ParentInstance` -> `CurrentProcess`,
 `AnyInstance` -> `AnyWorker`; added `OtherWorker` (claimed only by a worker other than the launching
-instance; with none, the parent's step fails with `ChildWorkerUnavailableError` after
-`@Application({ childClaimTimeout })`, default one minute) and `IsolatedWorker` (a process of its
+instance; with none, the parent's step fails with `StepError.ChildWorkerUnavailable` (`step.child-worker-unavailable`) after
+`@Application({ executionLimits: { childClaimTimeout } })`, default one minute) and `IsolatedWorker` (a process of its
 own, #1286b: `@Application({ isolatedWorker: { entry } })` names the module a forked process loads;
 the instance forks one process per child, a worker with its own `instanceId` that claims that child
 by its id; each fork holds one of the instance's step slots). The placement is the child's own

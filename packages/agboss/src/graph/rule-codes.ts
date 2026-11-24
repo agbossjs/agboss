@@ -34,7 +34,6 @@ export type RuleCode =
   | "input.outdated-on-path"
   | "router.duplicate-route"
   | "router.empty-input"
-  | "router.no-model"
   | "router.policy-with-choose-one"
   | "router.all-routes-always"
   // parallel launches (#273 PR 1), reported by `src/flow/analyse`

@@ -18,6 +18,7 @@ export enum StepErrorKind {
   Arbiter = "arbiter",
   QuorumNotReached = "quorum-not-reached",
   Child = "child",
+  ChildWorkerUnavailable = "child-worker-unavailable",
   Guardrail = "guardrail",
   ToolBlocked = "tool-blocked",
   ToolTimeout = "tool-timeout",
@@ -41,6 +42,7 @@ export type StepError =
   | StepError.Arbiter
   | StepError.QuorumNotReached
   | StepError.Child
+  | StepError.ChildWorkerUnavailable
   | StepError.Guardrail
   | StepError.ToolBlocked
   | StepError.ToolTimeout
@@ -110,6 +112,19 @@ export declare namespace StepError {
   /** A child workflow failed. */
   export type Child = PaidErrorVariant<StepErrorKind.Child, "step.child"> &
     StepCoordinates & { readonly childExecutionId: string; readonly workflow: WorkflowRecord };
+  /**
+   * A child with `ChildPlacement.OtherWorker` was claimed by no live worker besides the instance that
+   * launched it within `childClaimTimeout`: it never ran there (#1286, D9). The parent's step fails.
+   */
+  export type ChildWorkerUnavailable = PaidErrorVariant<
+    StepErrorKind.ChildWorkerUnavailable,
+    "step.child-worker-unavailable"
+  > &
+    StepCoordinates & {
+      readonly childExecutionId: string;
+      readonly workflow: string;
+      readonly waitedMs: number;
+    };
   /** A guardrail's check failed. */
   export type Guardrail = PaidErrorVariant<StepErrorKind.Guardrail, "step.guardrail"> &
     StepCoordinates & { readonly guardrail: string };
@@ -165,6 +180,7 @@ export const StepError: FamilyConstructor<
     Arbiter: StepError.Arbiter;
     QuorumNotReached: StepError.QuorumNotReached;
     Child: StepError.Child;
+    ChildWorkerUnavailable: StepError.ChildWorkerUnavailable;
     Guardrail: StepError.Guardrail;
     ToolBlocked: StepError.ToolBlocked;
     ToolTimeout: StepError.ToolTimeout;
@@ -200,6 +216,10 @@ export const StepError: FamilyConstructor<
     Arbiter: ["an arbiter failed"],
     QuorumNotReached: ["a quorum cannot be reached", "step.quorum"],
     Child: ["a child workflow failed"],
+    ChildWorkerUnavailable: [
+      "a child was claimed by no other worker in time",
+      "step.child-worker-unavailable",
+    ],
     Guardrail: ["a guardrail's check failed"],
     ToolBlocked: ["a tool call was blocked by an interceptor"],
     ToolTimeout: ["a tool ran past its timeout"],

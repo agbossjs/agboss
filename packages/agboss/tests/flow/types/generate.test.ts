@@ -225,15 +225,12 @@ describe("#280: Route<R> and what route() returns", () => {
     expect(routeTargetsOf(LaunchingModelRouterOptions, RouteForm.List)).toEqual([RefundTopicAgent]);
   });
 
-  it("one target after .chooseOne(…); a list before a launch, non-empty without Always", () => {
+  it("one target after .chooseOne(…); a list before a launch, which may be empty (#1279)", () => {
     const route = "typeof A | typeof B";
 
-    expect(routerAnswerText(route, RouteForm.One, false)).toBe(route);
-    expect(routerAnswerText(route, RouteForm.List, false)).toBe(
-      "readonly [(typeof A | typeof B), ...(typeof A | typeof B)[]]",
-    );
-    expect(routerAnswerText(route, RouteForm.List, true)).toBe("readonly (typeof A | typeof B)[]");
-    expect(routerAnswerText("typeof A", RouteForm.List, true)).toBe("readonly typeof A[]");
+    expect(routerAnswerText(route, RouteForm.One)).toBe(route);
+    expect(routerAnswerText(route, RouteForm.List)).toBe("readonly (typeof A | typeof B)[]");
+    expect(routerAnswerText("typeof A", RouteForm.List)).toBe("readonly typeof A[]");
   });
 });
 

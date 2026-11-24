@@ -13,6 +13,7 @@ import "./polyfills/symbol-metadata.js";
 export * from "./public/components.js";
 export * from "./public/flow.js";
 export * from "./public/observers.js";
+export * from "./public/application-limits.js";
 export * from "./public/pause-notices.js";
 export * from "./public/pause-targets.js";
 export * from "./public/calendar.js";

@@ -28,4 +28,10 @@ describe("#1274a: Tracked, Untracked and Metadata", () => {
     expectTypeOf<Untracked<Tracked<NoteDto, typeof WriterAgent>>>().toExtend<NoteDto>();
     expectTypeOf<NoteDto>().not.toExtend<Tracked<NoteDto>>();
   });
+
+  it("Metadata is an abstract class with static methods (#1274)", () => {
+    expectTypeOf<typeof Metadata.has>().guards.toEqualTypeOf<Tracked<object>>();
+    // @ts-expect-error an abstract class is never constructed
+    new Metadata();
+  });
 });

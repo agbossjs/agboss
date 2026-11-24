@@ -18,7 +18,7 @@ import type {
   SourceHead,
   TargetCheck,
 } from "./builder-types.js";
-import type { ClaimsOf } from "./one-of-types.js";
+import type { SideClaimsOf } from "./one-of-types.js";
 import type {
   BranchesCheck,
   BranchCheck,
@@ -123,7 +123,7 @@ const sidePath = (): PathBuilder<undefined> => subPathFrom({ kind: "side" });
 /** The side path `.onError(E, toAction(X)…)`. */
 export function toAction<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>,
-): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 export function toAction(target: Class): unknown {
   return sidePath().toAction(target);
 }
@@ -131,7 +131,7 @@ export function toAction(target: Class): unknown {
 /** The side path `.onError(E, toAgent(A)…)`. */
 export function toAgent<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>,
-): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 export function toAgent(target: Class): unknown {
   return sidePath().toAgent(target);
 }
@@ -139,7 +139,7 @@ export function toAgent(target: Class): unknown {
 /** The side path `.onError(E, toRouter(R).chooseOne(…))`. */
 export function toRouter<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>,
-): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 export function toRouter(target: Class): unknown {
   return sidePath().toRouter(target);
 }
@@ -153,7 +153,7 @@ export function toRouter(target: Class): unknown {
 export function toExternalTask<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
   options?: QuestionStepOptions,
-): AfterStep<InstanceType<TClass>, SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 export function toExternalTask(target: Class, options?: unknown): unknown {
   return sidePath().toExternalTask(target, options);
 }
@@ -168,7 +168,7 @@ export function toWorkflow<const TRef extends TargetRef>(
   target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
 ): AfterStep<
   InstanceType<ClassOf<TRef>>,
-  SideHead<ClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>
+  SideHead<SideClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>
 >;
 export function toWorkflow(target: TargetRef): unknown {
   return sidePath().toWorkflow(target);
@@ -177,7 +177,7 @@ export function toWorkflow(target: TargetRef): unknown {
 /** The side path `.onError(E, toFinish(F))`: the failure ends the execution at a finish. */
 export function toFinish<const TClass extends Class>(
   target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>,
-): BuiltPath<SideHead<ClaimsOf<InstanceType<TClass>>, TClass>>;
+): BuiltPath<SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 export function toFinish(target: Class): unknown {
   return sidePath().toFinish(target);
 }

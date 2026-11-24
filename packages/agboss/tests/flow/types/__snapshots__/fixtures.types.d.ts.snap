@@ -1045,7 +1045,7 @@ declare module "../src/flow/generated-types.js" {
       "offers-router": readonly typeof LoyaltyOfferAgent[];
       "org-depth-router": typeof OrgDrillWorkflow | typeof UnitPickerAgent;
       "outline-depth-router": typeof OutlineAgent | typeof OutlineWorkflow;
-      "parallel-panel-router": readonly [(typeof CriticAgent | typeof PlanResearcherAgent), ...(typeof CriticAgent | typeof PlanResearcherAgent)[]];
+      "parallel-panel-router": readonly (typeof CriticAgent | typeof PlanResearcherAgent)[];
       "quote-size-router": typeof ManualQuoteWorkflowFinish | typeof PriceQuoteAction;
       "second-opinion-router": typeof FullReviewAgent | typeof NotifyReviewerAction;
       "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;

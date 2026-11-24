@@ -46,7 +46,7 @@ export type ClaimedDtosOf<TInput> = TInput extends GeneratedTypeError
         : never;
 
 /** What the entry consumer of a path starting with `TInstance` reads: a finish its output. */
-export type ClaimsOf<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish]
+export type SideClaimsOf<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish]
   ? PlainDto<OutputOf<TInstance>> extends infer TOut
     ? [TOut] extends [GeneratedTypeError | MissingGeneratedTypes]
       ? never

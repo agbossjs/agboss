@@ -18,7 +18,7 @@ paths into it still win), for every workflow.
 
 Removed: `ThisWorkflow`, `ThisWorkflowOutputs` (the generated table and its type), `ThisWorkflowCheck`,
 `ThisWorkflowClaim`, `ThisWorkflowStep`, `ThisWorkflowJoined`, `ThisWorkflowLaunched`,
-`ThisWorkflowSwitching`, `ThisWorkflowName`, `WithClaims`, `ClaimsOf`, `ClaimsCheck`, `EntryOf`,
+`ThisWorkflowSwitching`, `ThisWorkflowName`, `WithClaims`, `ClaimsCheck`, `EntryOf`,
 `ChildLaunched`, the `claims` parameter of `SourceHead`, `RouteHead`, `CaseHead`, `SideHead` and
 `GroupHead`, and the recursion's `describe` wording `ThisWorkflow, recursive` (now `recursive,
 maxDepth N`). A flow that names its own class is no longer `[graph.mutual-recursion]`: that is the
