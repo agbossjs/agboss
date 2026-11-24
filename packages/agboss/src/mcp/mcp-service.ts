@@ -23,6 +23,16 @@ import { MESH_REFUSAL_TEXT, MeshRefusalCode } from "../mesh/mesh-verification.js
 import { bodyWithin } from "../a2a/server/a2a-http-io.js";
 import { kilobytes } from "../units/index.js";
 
+/** What an `McpService` knows of where it is served (#1320). */
+export interface McpServiceOptions {
+  /**
+   * The public URL the service is reached at (an environment text field in practice): its origin is what a
+   * peer's signature must name, so a signature made for another server is no signature here. Required
+   * whenever the application has a `@Mesh`.
+   */
+  readonly publicUrl?: string;
+}
+
 export interface McpSession {
   readonly sessionId: string;
   close(): Promise<void>;
@@ -39,10 +49,12 @@ export class McpService {
     string,
     { transport: SseTransport; session: McpSessionOptions }
   >();
+  private readonly origin: string | undefined;
 
   constructor(
     private readonly app: App,
     private readonly config: Class,
+    serving: McpServiceOptions = {},
   ) {
     const options = mcpServerOptionsOf(config);
     if (!options) {
@@ -52,11 +64,25 @@ export class McpService {
     // a mesh that admits only peers gates every endpoint it serves: one the application does not
     // list has no gate — it is not served (#1320)
     const mesh = meshSettingsOf(app);
+    this.origin = originOf(serving.publicUrl);
     if (mesh?.inboundMode === MeshInboundMode.Strict && !mesh.exposes.includes(config)) {
       throw new ConfigError.Environment({
         message: `[application.expose-unlisted] ${config.name} is not in @Application({ exposes }): under a Strict @Mesh an endpoint is served only through the mesh's gate`,
       });
     }
+  }
+
+  /**
+   * The origin an HTTP request must have been signed for: under a `@Mesh` the service has to know it
+   * (stdio and in-memory transports have no HTTP and need none) — without it nothing is served.
+   */
+  private originForHttp(): string | undefined {
+    if (this.origin === undefined && meshSettingsOf(this.app) !== undefined) {
+      throw new ConfigError.Environment({
+        message: `[mcp.public-url-required] ${this.config.name}: under a @Mesh an MCP service over HTTP needs createMcpService(app, config, { publicUrl }): a peer's signature must be made for this server`,
+      });
+    }
+    return this.origin;
   }
 
   private createServerInstance(session: McpSessionOptions): McpServer {
@@ -122,7 +148,13 @@ export class McpService {
     messageEndpoint: string,
     session: McpSessionOptions = {},
   ): Promise<McpSession | undefined> {
-    const admitted = await admitMcpHttp(this.app, this.config, { req, res, body: "" }, session);
+    const admitted = await admitMcpHttp(
+      this.app,
+      this.config,
+      { req, res, body: "" },
+      session,
+      this.originForHttp(),
+    );
     if (admitted === undefined) return undefined;
     const served = admitted.session;
     const server = this.createServerInstance(served);
@@ -144,45 +176,88 @@ export class McpService {
   }
 
   /**
-   * Forwards a POSTed JSON-RPC message to the correct SSE session. With a `@Mesh`, this request is
-   * checked as well — its own signature, once — and must come from the peer that opened the session.
+   * Forwards a POSTed JSON-RPC message to the correct SSE session. Each message is admitted on its own
+   * (#1320): with a `@Mesh` it carries its own signature, checked once against this request; a session
+   * opened by a peer takes only that peer's signed messages, and any session takes only its own caller's
+   * (`caller`: what the host's authenticator says of THIS request, as it did for `handleSse`) — a session
+   * id someone else learned is no way into it.
    */
   public async handleMessage(
     req: IncomingMessage,
     res: ServerResponse,
     sessionId: string,
     parsedBody?: unknown,
+    caller: McpSessionOptions = {},
   ): Promise<void> {
-    const session = this.activeTransports.get(sessionId);
-    if (!session) {
+    const stored = this.activeTransports.get(sessionId);
+    if (!stored) {
       res.statusCode = 404;
       res.end("Session not found");
       return;
     }
     if (meshSettingsOf(this.app) === undefined) {
-      await session.transport.handlePostMessage(req, res, parsedBody);
+      if (!isSameCaller(caller, stored.session)) {
+        notFound(res);
+        return;
+      }
+      await stored.transport.handlePostMessage(req, res, parsedBody);
       return;
     }
     const raw = await bodyWithin(req, res, kilobytes(1024));
     if (raw === undefined) return;
+    // the message's own identity: from its verified decision alone, never the stored session's
     const admitted = await admitMcpHttp(
       this.app,
       this.config,
       { req, res, body: raw },
-      session.session,
+      {},
+      this.originForHttp(),
     );
     if (admitted === undefined) return;
-    if (admitted.session.peer !== session.session.peer) {
-      const code = MeshRefusalCode.RequestMismatch;
-      res
-        .writeHead(403, { "content-type": "application/json" })
-        .end(JSON.stringify({ code, error: MESH_REFUSAL_TEXT[code] }));
+    const messageIdentity = admitted.session.peer === undefined ? caller : admitted.session;
+    if (admitted.session.peer !== stored.session.peer) {
+      mismatch(res);
       return;
     }
-    await session.transport.handlePostMessage(req, res, JSON.parse(raw) as unknown);
+    if (!isSameCaller(messageIdentity, stored.session)) {
+      notFound(res);
+      return;
+    }
+    await stored.transport.handlePostMessage(req, res, JSON.parse(raw) as unknown);
   }
 }
 
-export function createMcpService(app: App, config: Class): McpService {
-  return new McpService(app, config);
+const mismatch = (res: ServerResponse): void => {
+  const code = MeshRefusalCode.RequestMismatch;
+  res
+    .writeHead(403, { "content-type": "application/json" })
+    .end(JSON.stringify({ code, error: MESH_REFUSAL_TEXT[code] }));
+};
+
+/** A caller that is not the session's is told what a stranger is: there is no such session. */
+const notFound = (res: ServerResponse): void => {
+  res.statusCode = 404;
+  res.end("Session not found");
+};
+
+/** Whether `a` is the identity `b` was opened for: the same peer, owner and tenant. */
+const isSameCaller = (a: McpSessionOptions, b: McpSessionOptions): boolean =>
+  a.peer === b.peer && a.ownerId === b.ownerId && a.tenant?.tenantId === b.tenant?.tenantId;
+
+/** The origin of a service's `publicUrl`; `undefined` when none is given. */
+function originOf(publicUrl: string | undefined): string | undefined {
+  if (publicUrl === undefined) return undefined;
+  try {
+    const url = new URL(publicUrl);
+    if (url.protocol === "http:" || url.protocol === "https:") return url.origin;
+  } catch {
+    // reported below, without the value
+  }
+  throw new ConfigError.Environment({
+    message: "[mcp.public-url-invalid] createMcpService's publicUrl is not an absolute http(s) URL",
+  });
+}
+
+export function createMcpService(app: App, config: Class, options?: McpServiceOptions): McpService {
+  return new McpService(app, config, options);
 }

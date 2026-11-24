@@ -14,7 +14,7 @@ export type ArgumentsOf<TTool extends ServerTool> = TTool extends {
 } ? InstanceType<TInput> : undefined;
 
 // @public (undocumented)
-export function createMcpService(app: App, config: Class): McpService;
+export function createMcpService(app: App, config: Class, options?: McpServiceOptions): McpService;
 
 // @public
 export type McpCallArguments<TTool extends ServerTool> = ArgumentsOf<TTool> extends undefined ? [options?: McpCallOptions] : [args: ArgumentsOf<TTool>, options?: McpCallOptions];
@@ -116,11 +116,16 @@ export interface McpServerTarget {
 
 // @public
 export class McpService {
-    constructor(app: App, config: Class);
+    constructor(app: App, config: Class, serving?: McpServiceOptions);
     connect(transport: Transport, session?: McpSessionOptions): Promise<void>;
     connectStdio(): Promise<void>;
-    handleMessage(req: IncomingMessage, res: ServerResponse, sessionId: string, parsedBody?: unknown): Promise<void>;
+    handleMessage(req: IncomingMessage, res: ServerResponse, sessionId: string, parsedBody?: unknown, caller?: McpSessionOptions): Promise<void>;
     handleSse(req: IncomingMessage, res: ServerResponse, messageEndpoint: string, session?: McpSessionOptions): Promise<McpSession | undefined>;
+}
+
+// @public
+export interface McpServiceOptions {
+    readonly publicUrl?: string;
 }
 
 // @public (undocumented)

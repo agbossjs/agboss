@@ -25,12 +25,16 @@ const headerOf = (req: IncomingMessage): string | undefined => {
   return Array.isArray(value) ? value.join(",") : value;
 };
 
-/** Checks one HTTP request to `endpoint`; `undefined` once refused (the answer is written). */
+/**
+ * Checks one HTTP request to `endpoint`; `undefined` once refused (the answer is written). `origin` is
+ * the origin the service is reached at: the signature must have been made for it.
+ */
 export async function admitMcpHttp(
   app: object,
   endpoint: Class,
   request: { readonly req: IncomingMessage; readonly res: ServerResponse; readonly body: string },
   session: McpSessionOptions,
+  origin?: string,
 ): Promise<McpHttpAdmission | undefined> {
   const settings = meshSettingsOf(app);
   if (settings === undefined) return { session };
@@ -42,6 +46,7 @@ export async function admitMcpHttp(
       method: req.method ?? "POST",
       path: req.url ?? "/",
       body: request.body,
+      origin,
     },
     endpoint,
   );
