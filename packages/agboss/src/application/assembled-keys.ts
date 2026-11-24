@@ -2,6 +2,7 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { ApplicationOptions } from "./application.js";
 import type { AssembledApplication } from "./assemble.js";
+import { assembledStorageOf } from "../storage/storage-assembly.js";
 import { listedClassesOf } from "./application-rules.js";
 import { declaredKeysOf, type DeclaredKeys } from "./key-field-rules.js";
 
@@ -61,6 +62,8 @@ export function idempotencyKeyViolations(
   workflows: readonly AssembledWorkflow[],
 ): RuleViolation[] {
   if (options.idempotencyKeyField !== undefined) return [];
+  if (assembledStorageOf(options.storage)?.database?.meta.idempotencySecret !== undefined)
+    return [];
   const use = workflows.find(
     (workflow) => workflow.businessKeyWriter !== undefined,
   )?.businessKeyWriter;

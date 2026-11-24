@@ -1,23 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
-import {
-  Action,
-  ExecutionContext,
-  FencedEffects,
-  SqliteCheckpointSaver,
-  SqliteConnection,
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqliteFencedEffectRepository,
-  SqlitePausedExecutionRepository,
-  Workflow,
-  WorkflowFinish,
-  WorkflowStart,
-  effectKeyOf,
-  type Produced,
-} from "../../../../src/index.js";
+import { Action, ExecutionContext, FencedEffects, SqliteCheckpointSaver, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqliteFencedEffectRepository, SqlitePausedExecutionRepository, Workflow, WorkflowFinish, WorkflowStart, effectKeyOf, type Produced } from "../../../../src/index.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";

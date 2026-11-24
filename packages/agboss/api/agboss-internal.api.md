@@ -131,14 +131,14 @@ export interface ApplicationStart {
 export const applicationWarningsOf: (assembled: AssembledApplication) => readonly AssemblyWarning[];
 
 // @public
-export interface AssembledApplication extends AssembledKeyFields {
+export interface AssembledApplication extends AssembledKeyFields, StorageFields {
     readonly a2aFileRetention: Milliseconds;
     readonly a2aFiles?: A2AFileOptions;
     readonly a2aMessageRetention: Milliseconds;
     readonly a2aTaskRetention: Milliseconds;
     // (undocumented)
     readonly application: Class;
-    readonly auditLogRetention: Milliseconds;
+    readonly auditLogRetention?: Milliseconds | undefined;
     // (undocumented)
     readonly budgets: readonly Class[];
     readonly compensationTimeout: Milliseconds;
@@ -149,7 +149,7 @@ export interface AssembledApplication extends AssembledKeyFields {
     readonly exposes: readonly Class[];
     readonly fencedEffects: FencedEffectSettings;
     readonly healthChecks: readonly Class[];
-    readonly ledgerEntryRetention: Milliseconds;
+    readonly ledgerEntryRetention?: Milliseconds | undefined;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
     readonly mesh?: MeshOptions;
@@ -493,6 +493,7 @@ export interface DescribedApplication {
     // (undocumented)
     readonly observers: readonly string[];
     readonly pauseListeners: readonly DescribedPauseListener[];
+    readonly storage?: readonly StorageLine[];
     // (undocumented)
     readonly version: string;
     // (undocumented)

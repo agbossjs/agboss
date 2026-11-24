@@ -21,6 +21,8 @@ export const TEST_PSEUDONYM_KEY = "agboss-test-pseudonym-key";
 export interface ApplicationKeySource {
   readonly application: string;
   readonly field?: string | undefined;
+  /** The variable of `@DatabaseStorage({ piiSecret })` (#1321), instead of an environment field. */
+  readonly secretVariable?: string | undefined;
   readonly environment: Environment;
   readonly env: NodeJS.ProcessEnv;
   /** Every PII policy class of the application's workflows. */
@@ -70,6 +72,15 @@ function namedKeyMissing(source: ApplicationKeySource, field: string): Environme
 
 /** The application's key; none when it sets none and nothing needs one. */
 export function applicationPseudonymKeyOf(source: ApplicationKeySource): string | undefined {
+  if (source.secretVariable !== undefined) {
+    const key = variableIn(source.env, source.secretVariable);
+    if (key !== undefined) return key;
+    if (source.fallback !== undefined) return source.fallback;
+    throw new EnvironmentError({
+      code: EnvironmentErrorCode.MissingVariables,
+      message: `${source.application}: @DatabaseStorage({ piiSecret }) has no value — ${source.secretVariable} is not set`,
+    });
+  }
   const key = source.field === undefined ? undefined : keyValueOf(source, source.field);
   if (key !== undefined) return key;
   if (source.fallback !== undefined) return source.fallback;

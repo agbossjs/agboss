@@ -18,10 +18,10 @@ import {
   OutboundCallEventOutcome,
   OutboundCallSendStatus,
   OutboundCallStatus,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteOutboundCallRepository,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";

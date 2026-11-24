@@ -3,7 +3,6 @@ import {
   env,
   SqliteCheckpointSaver,
   SqliteChildExecutionQueueRepository,
-  SqliteConnection,
   SqliteCostLedgerRepository,
   SqliteExecutionHistoryRepository,
   SqliteExecutionAuditLogRepository,
@@ -14,6 +13,7 @@ import {
   SqliteOutboundCallRepository,
   SqlitePausedExecutionRepository,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { SqliteA2ATaskRepository } from "../../src/a2a/index.js";
 import { FaultStoreTime, type FaultStoreSet } from "../../src/testing/faults/index.js";
 

@@ -19,6 +19,7 @@ import {
   keyFieldsOf,
   type AssembledKeyFields,
 } from "./assembled-keys.js";
+import { storageFieldsOf, type StorageFields } from "../storage/storage-fields.js";
 import { crossWorkflowViolations } from "./workflow-rules.js";
 import type { ExecutionContextClass, TenantContextClass } from "../flow/context/context-values.js";
 import { ExecutionContext } from "../flow/context/execution-context.js";
@@ -53,7 +54,7 @@ const meshOptionsOf = (
  */
 
 /** An assembled application: what `createApp` and `testWith` build an app instance from. */
-export interface AssembledApplication extends AssembledKeyFields {
+export interface AssembledApplication extends AssembledKeyFields, StorageFields {
   readonly application: Class;
   readonly name: string;
   readonly version: string;
@@ -79,7 +80,7 @@ export interface AssembledApplication extends AssembledKeyFields {
   /** How long a root execution's history is kept (`retention.executionRecords`, #401); unset = not kept. */
   readonly executionRecordRetention?: Milliseconds;
   /** How long a row of the audit log is kept (`retention.auditLog`, #501). */
-  readonly auditLogRetention: Milliseconds;
+  readonly auditLogRetention?: Milliseconds | undefined;
   /** How long a finished A2A task is kept (`retention.a2aTasks`, #807). */
   readonly a2aTaskRetention: Milliseconds;
   /** How long an A2A task's files are kept once it is over (`retention.a2aFiles`, #859). */
@@ -87,7 +88,7 @@ export interface AssembledApplication extends AssembledKeyFields {
   /** How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860). */
   readonly a2aMessageRetention: Milliseconds;
   /** How long an entry of the cost ledger is kept (`retention.costLedgerEntries`, #771). */
-  readonly ledgerEntryRetention: Milliseconds;
+  readonly ledgerEntryRetention?: Milliseconds | undefined;
   /** How long a trusted mesh request's answer is kept (`retention.meshAnswers`, #398). */
   readonly meshAnswerRetention: Milliseconds;
   /** Each automatic undo action's bound (`@Application({ compensationTimeout })`, #340). */
@@ -243,6 +244,7 @@ export async function applicationOf(
     workflows: assembled,
     shutdownTimeout: options.shutdownTimeout ?? SHUTDOWN_TIMEOUT,
     ...assembledRetentionsOf(retention),
+    ...storageFieldsOf(options.storage),
     compensationTimeout: options.compensationTimeout ?? COMPENSATION_TIMEOUT,
     fencedEffects: new FencedEffectSettings({
       ...options.fencedEffects,

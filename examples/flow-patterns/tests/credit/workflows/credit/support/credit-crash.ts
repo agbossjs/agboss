@@ -2,7 +2,6 @@ import {
   ApplicationContext,
   ExecutionContext,
   Injectable,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   FencedEffects,
   StoreClock,
@@ -11,6 +10,7 @@ import {
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 import type { Milliseconds } from "@agboss/core/units";
 import {
   PaymentLedgerRepository,

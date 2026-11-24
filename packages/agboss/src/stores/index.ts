@@ -101,3 +101,24 @@ export {
   type StoreErrorOfKind,
   type StoreErrorStatics,
 } from "../core/error-families/store-errors.js";
+
+// the SQLite connection a store of your own extends beside (#1321): bound to `@DatabaseStorage`'s `SqliteDriver`
+export { SqliteConnection } from "../infrastructure/sqlite/sqlite-connection.js";
+// storage drivers (#1321): what `PostgresDriver`, `MongoDriver` and `RedisDriver` are made with, and the
+// settings a connection reads once its application started
+export {
+  defineStorageDriver,
+  StorageRole,
+  type ClusterDriver,
+  type DatabaseDriver,
+  type DriverSettings,
+  type ObjectDriver,
+  type StorageDriver,
+  type StorageDriverSpec,
+} from "../storage/storage-driver.js";
+export {
+  CLUSTER_SETTINGS,
+  DATABASE_SETTINGS,
+  OBJECT_SETTINGS,
+  type ResolvedSettings,
+} from "../storage/settings.js";

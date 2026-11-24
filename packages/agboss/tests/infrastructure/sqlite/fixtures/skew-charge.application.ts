@@ -4,10 +4,10 @@ import {
   StoreClock,
   StoreTimeSource,
   Injectable,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteOutboundCallRepository,
 } from "../../../../src/index.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";

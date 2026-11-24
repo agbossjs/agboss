@@ -7,6 +7,7 @@ import type { ModelDetection } from "../pii/runtime-policy.js";
 import { resolveListed } from "./application-container.js";
 import { applicationPseudonymKeyOf, type ApplicationKeySource } from "../pii/application-key.js";
 import { newPiiKey } from "../pii/tokens.js";
+import { variableOfSecretRef } from "../environments/secret.js";
 import type { AssembledApplication } from "./assemble.js";
 
 /** The key an instance makes PII tokens with, and whether it is its own (S94). */
@@ -33,6 +34,10 @@ export function applicationPiiKeyOf(
     ...source,
     application: assembled.name,
     field: assembled.piiKeyField,
+    secretVariable:
+      assembled.storage?.database?.meta.piiSecret === undefined
+        ? undefined
+        : variableOfSecretRef(assembled.storage.database.meta.piiSecret),
     policies,
   });
   return key === undefined

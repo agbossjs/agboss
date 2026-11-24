@@ -1,5 +1,4 @@
-import type { FileRuleCode } from "../files/file-rule-codes.js";
-import type { PiiRuleCode } from "../pii/pii-rule-codes.js";
+import type { ExtraRuleCode } from "./extra-rule-codes.js";
 /** Codes of the assembly rules — stable, for people and for tests. */
 export type RuleCode =
   | "graph.not-a-node"
@@ -230,7 +229,5 @@ export type RuleCode =
   | "eval.judge-wrong-reply"
   // child placement (#333 PR 2): one placement per child in a flow
   | "flow.conflicting-placement"
-  // PII policies (#120 PR 1, #1301), reported at each workflow's assembly
-  | PiiRuleCode
   // an agent's files for its model (#899)
-  | FileRuleCode;
+  | ExtraRuleCode;

@@ -3,12 +3,12 @@ import {
   ExecutionRecordStatus,
   IdGenerator,
   Injectable,
-  SqliteConnection,
   SqliteExecutionRecordRepository,
   SqlitePausedExecutionRepository,
   ApplicationContext,
   type TurnOutcome,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import {
   NO_RECIPIENTS,
   PauseResolution,

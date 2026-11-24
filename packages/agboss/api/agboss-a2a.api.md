@@ -1127,7 +1127,7 @@ export class InMemoryA2AFileRepository extends A2AFileRepository {
 
 // @public
 export class LocalDiskA2AFileRepository extends A2AFileRepository {
-    constructor(applicationContext: ApplicationContext);
+    constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
     // (undocumented)
     deleteByOwner(owner: A2AFileOwner): Promise<void>;
     // (undocumented)
@@ -1177,7 +1177,7 @@ export interface ResolvedA2ACallerResolution<TStart extends Class> {
 
 // @public
 export class S3A2AFileRepository extends A2AFileRepository {
-    constructor(applicationContext: ApplicationContext, clock: Clock, fetcher?: typeof fetch);
+    constructor(applicationContext: ApplicationContext, clock: Clock, settings: ResolvedSettings | undefined, fetcher?: typeof fetch);
     // (undocumented)
     deleteByOwner(owner: A2AFileOwner): Promise<void>;
     // (undocumented)

@@ -18,6 +18,7 @@ import type { ObserverClass } from "../core/observer-hooks.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { MeshOptions } from "../mesh/mesh-options.js";
 import type { RetentionOptions } from "./retention.js";
+import { withStorageProviders, type ApplicationStorage } from "../storage/storage-assembly.js";
 
 /**
  * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
@@ -43,6 +44,15 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    * instance for every workflow, like a class a workflow lists.
    */
   readonly providers?: readonly Provider[];
+  /**
+   * Where the application's rows go (#1321): `storage: AppDatabaseStorage`, or `storage: { database,
+   * cluster?, objects? }` — `@DatabaseStorage`, `@ClusterStorage` and `@ObjectStorage` classes, each
+   * holding its driver (`SqliteDriver`, `PostgresDriver`, `RedisDriver`, `S3Driver`, …). The stores
+   * come from the drivers: a store class listed in `providers` beside it is
+   * `[storage.providers-conflict]`. `auditLogTtl` and `ledgerEntriesTtl` of the database are where
+   * `retention.auditLog` and `retention.costLedgerEntries` were.
+   */
+  readonly storage?: ApplicationStorage;
   /** Every `@Budget` of the application (`config/budget.config.ts`). */
   readonly budgets?: readonly Class[];
   /**
@@ -252,7 +262,8 @@ export function Application<TEnvironment>(options: ApplicationOptions<TEnvironme
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
     // kept as the application's options: the contract's field types are a compile-time check only
-    const declared = options as ApplicationOptions;
+    // `storage` becomes the stores in `providers`: everything downstream reads one list
+    const declared = withStorageProviders(options as ApplicationOptions);
     applications.set(
       value,
       source === undefined ? { options: declared } : { options: declared, source },

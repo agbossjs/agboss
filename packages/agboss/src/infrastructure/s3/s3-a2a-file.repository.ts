@@ -1,4 +1,6 @@
 import { Injectable } from "../../components/decorators.js";
+import { ConfigError } from "../../core/error-families/config-errors.js";
+import { OBJECT_SETTINGS, type ResolvedSettings } from "../../storage/settings.js";
 import { EnvironmentField } from "../../environments/contract.js";
 import { Secret } from "../../environments/secret.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
@@ -38,7 +40,11 @@ import {
 const METADATA_READ = 16 * 1024;
 
 /** What the store reads from the environment. */
-function locationOf(context: ApplicationContext): S3Location & { readonly prefix: string } {
+function locationOf(
+  context: ApplicationContext,
+  settings: ResolvedSettings | undefined,
+): S3Location & { readonly prefix: string } {
+  if (settings !== undefined) return locationOfSettings(settings);
   const text = (name: string): string | undefined => {
     const value: unknown = Reflect.get(context.environment, name);
     if (value instanceof Secret) return value.reveal();
@@ -62,6 +68,34 @@ function locationOf(context: ApplicationContext): S3Location & { readonly prefix
   };
 }
 
+/** The location an `@ObjectStorage({ driver: S3Driver(…) })` resolved to. */
+function locationOfSettings(settings: ResolvedSettings): S3Location & { readonly prefix: string } {
+  if (settings.kind !== "s3")
+    throw new ConfigError.Option({
+      message: `S3A2AFileRepository is on the object storage's ${settings.kind} driver, not S3Driver`,
+    });
+  const text = (name: string): string | undefined => {
+    const value = settings[name];
+    if (value instanceof Secret) return value.reveal();
+    return typeof value === "string" && value !== "" ? value : undefined;
+  };
+  const required = (name: string): string => {
+    const value = text(name);
+    if (value === undefined) throw new ConfigError.Option({ message: `S3Driver needs ${name}` });
+    return value;
+  };
+  return {
+    bucket: required("bucket"),
+    region: required("region"),
+    endpoint: text("endpoint"),
+    credentials: {
+      accessKeyId: required("accessKeyId"),
+      secretAccessKey: required("secretAccessKey"),
+    },
+    prefix: checkedPrefix(text("prefix") ?? "agboss-a2a-files/"),
+  };
+}
+
 /** The prefix, if it leaves room for every key (#904). */
 function checkedPrefix(prefix: string): string {
   const problem = prefixProblemOf(prefix);
@@ -80,7 +114,7 @@ function checkedPrefix(prefix: string): string {
  * the retention.
  */
 @Injectable({
-  deps: [ApplicationContext, Clock],
+  deps: [ApplicationContext, Clock, OBJECT_SETTINGS],
   environmentFields: {
     a2aS3Bucket: EnvironmentField.text(),
     a2aS3Region: EnvironmentField.text(),
@@ -96,9 +130,14 @@ export class S3A2AFileRepository extends A2AFileRepository {
   readonly #client: S3Client;
   readonly #prefix: string;
 
-  constructor(applicationContext: ApplicationContext, clock: Clock, fetcher: typeof fetch = fetch) {
+  constructor(
+    applicationContext: ApplicationContext,
+    clock: Clock,
+    settings: ResolvedSettings | undefined,
+    fetcher: typeof fetch = fetch,
+  ) {
     super();
-    const location = locationOf(applicationContext);
+    const location = locationOf(applicationContext, settings);
     this.#client = new S3Client(location, clock, fetcher);
     this.#prefix = location.prefix;
   }

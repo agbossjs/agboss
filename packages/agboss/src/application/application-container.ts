@@ -36,6 +36,8 @@ import {
 import { StoreBounds } from "../app/store-bounds.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { containerProvidersOf } from "../models/resolution.js";
+import { settingsEntriesOf, type ResolvedStorage } from "../storage/settings.js";
+import { resolvedStorageOfOptions } from "../storage/storage-fields.js";
 import { applicationDeclarationOf, applicationsListing } from "./application.js";
 
 /** What the shared container of an application instance is built from besides its providers. */
@@ -68,6 +70,8 @@ export interface ApplicationContainerSources {
   readonly fencedEffects?: FencedEffectSettings | undefined;
   /** `@Application({ outboundCalls })` (#505), as `OutboundCalls` and its store read it. */
   readonly outboundCalls?: OutboundCallSettings | undefined;
+  /** The storage components' drivers' settings, resolved (#1321): what the connections read. */
+  readonly storage?: ResolvedStorage | undefined;
 }
 
 /** The parts every container of one application instance shares (one instance per class). */
@@ -87,6 +91,7 @@ export function applicationContainerOf(
       [StoreClock, sources.storeClock ?? new StoreClock(StoreTimeSource.Database, clock)],
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
+      ...settingsEntriesOf(sources.storage),
       [FencedEffectSettings, sources.fencedEffects ?? new FencedEffectSettings()],
       // no assembled settings (a store opened on its own): fail closed, every request masked (#795)
       [
@@ -238,11 +243,16 @@ export function standaloneInfrastructure(
   const modules = [applicationProvidersOf(bundle)];
   const container = onCreate === undefined ? {} : { onCreate };
   const clock = clockOf(modules, container);
+  const storage = resolvedStorageOfOptions(
+    listingApplicationOf(bundle)?.options.storage,
+    process.env,
+  );
   return resolveInfrastructure(
     applicationContainerOf(
       {
         modules,
         clock,
+        storage,
         contexts: contextsOutsideExecution(bundle.config, options.environment, clock),
       },
       container,

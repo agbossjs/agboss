@@ -5,11 +5,8 @@
  * failed and did not start — not that the tree was handed over and will be continued.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import {
-  ExecutionLeaseLostError,
-  SqliteConnection,
-  StoreCallTimeoutError,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreCallTimeoutError } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import { processHoldPoints } from "../../src/testing/faults/hold-points.js";
 import { seconds } from "../../src/units/index.js";

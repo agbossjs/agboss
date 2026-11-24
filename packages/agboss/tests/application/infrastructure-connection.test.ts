@@ -24,11 +24,11 @@ import {
   Injectable,
   OutboundCallSendStatus,
   OutboundCallStatus,
-  SqliteConnection,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { execute, onStart } from "../helpers/flow.js";

@@ -572,7 +572,8 @@ export interface ClaimNoteRow {
 
 ```ts file=src/claims/repositories/claim-notes.repository.ts
 import { readFileSync } from "node:fs";
-import { Injectable, SqliteConnection } from "@agboss/core";
+import { Injectable } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 import type { ClaimNoteRow } from "../schemas/claim-note.schema.js";
 
 @Injectable({ deps: [SqliteConnection] })
@@ -615,14 +616,8 @@ export class LeaseAuditService {
 ```
 
 ```ts file=src/claims/repositories/audited-lease.repository.ts
-import {
-  ApplicationContext,
-  Injectable,
-  SqliteConnection,
-  SqliteExecutionLeaseRepository,
-  StoreClock,
-  type ExecutionLease,
-} from "@agboss/core";
+import { ApplicationContext, Injectable, SqliteExecutionLeaseRepository, StoreClock, type ExecutionLease } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 import type { Milliseconds } from "@agboss/core/units";
 import { LeaseAuditService } from "../services/lease-audit.service.js";
 

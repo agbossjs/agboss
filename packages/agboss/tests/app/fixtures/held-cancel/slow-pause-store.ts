@@ -1,5 +1,6 @@
 import { Clock, Injectable } from "../../../../src/index.js";
-import { SqliteConnection, SqlitePausedExecutionRepository } from "../../../../src/index.js";
+import { SqlitePausedExecutionRepository } from "../../../../src/index.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { seconds } from "../../../../src/units/index.js";
 
 /**

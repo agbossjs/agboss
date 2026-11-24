@@ -7,9 +7,9 @@ import {
   SqliteExecutionTreeRepository,
   SqliteFencedEffectRepository,
   SqliteOutboundCallRepository,
-  SqliteConnection,
   SqlitePausedExecutionRepository,
 } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 import { DecisionsModelProvider, OpenRouterModelProvider } from "@agboss/core/models";
 import { OffsiteBookingWorkflow } from "./approvals/workflows/offsite-booking/offsite-booking.workflow.js";
 import { TerminalPurchaseApprovalChannel } from "./approvals/channels/terminal-purchase-approval.channel.js";

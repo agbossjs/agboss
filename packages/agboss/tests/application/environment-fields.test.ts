@@ -18,8 +18,8 @@ import {
   GraphRuleError,
   Injectable,
   Secret,
-  SqliteConnection,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { depsOf } from "../../src/components/container/container.js";

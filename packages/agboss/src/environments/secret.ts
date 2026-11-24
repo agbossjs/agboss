@@ -98,3 +98,7 @@ export const secret: SecretReader = Object.assign(
       new OptionalSecretReference(variable) as OptionalSecretRef,
   },
 );
+
+/** The process variable of a `secret(…)` or `secret.optional(…)` reference. */
+export const variableOfSecretRef = (ref: SecretRef | OptionalSecretRef): string =>
+  ref instanceof Secret ? variableOfSecret(ref) : ref.variable;

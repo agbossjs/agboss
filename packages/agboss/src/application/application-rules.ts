@@ -45,6 +45,8 @@ import { a2aFileStoreViolations } from "../a2a/a2a-file-store-rule.js";
 import { nestedFileFieldViolations } from "../a2a/a2a-nested-file-rule.js";
 import { limitViolations } from "./limit-rules.js";
 import { keyFieldViolations } from "./key-field-rules.js";
+import { storageOwnedClassesOf } from "../storage/storage-assembly.js";
+import { storageViolations } from "../storage/storage-rules.js";
 
 /**
  * The rules of an `@Application` itself (#261), read from its declaration: its `name` and class end
@@ -121,7 +123,10 @@ function budgetViolations(options: ApplicationOptions): RuleViolation[] {
  * environment) — a class given for a token too (#891: `provide(EXECUTION_ID_STORE, Class)`).
  */
 export const listedClassesOf = (options: ApplicationOptions): readonly Class[] => [
-  ...createdClassesOf(providersOf(options)),
+  // the storage components' stores read their driver's settings, not the environment (#1321)
+  ...createdClassesOf(providersOf(options)).filter(
+    (cls) => !storageOwnedClassesOf(options).has(cls),
+  ),
   ...withChildWorkflows(options.workflows)
     .filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow)
     .flatMap((workflow) => createdClassesOf(providersOf(moduleOf(workflow)))),
@@ -190,6 +195,7 @@ export function applicationRuleViolations(
     ...pauseListenerRuleViolations(options.name, options.providers),
     ...workingCalendarViolations(options.name, options.workingCalendar, listedClassesOf(options)),
     ...workingCalendarNameViolations(options.name, listedClassesOf(options)),
+    ...storageViolations(options.name, options),
     ...limitViolations(options),
     ...fencedEffectsViolations(options.name, options.fencedEffects),
     ...outboundCallsViolations(options.name, options.outboundCalls),

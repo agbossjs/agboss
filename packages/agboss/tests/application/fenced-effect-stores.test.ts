@@ -22,10 +22,10 @@ import {
   FencedEffectStoreMismatchError,
   InMemoryFencedEffectRepository,
   Injectable,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";

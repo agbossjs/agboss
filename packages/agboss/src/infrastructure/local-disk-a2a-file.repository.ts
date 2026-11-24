@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { link, mkdir, readdir, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Injectable } from "../components/decorators.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import { OBJECT_SETTINGS, type ResolvedSettings } from "../storage/settings.js";
 import { EnvironmentField } from "../environments/contract.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import {
@@ -42,7 +44,7 @@ const parsedOf = (text: string): A2AFileMetadata => {
  * leases are shared and files are large.
  */
 @Injectable({
-  deps: [ApplicationContext],
+  deps: [ApplicationContext, OBJECT_SETTINGS],
   environmentFields: { a2aFilesPath: EnvironmentField.text() },
 })
 export class LocalDiskA2AFileRepository extends A2AFileRepository {
@@ -51,9 +53,16 @@ export class LocalDiskA2AFileRepository extends A2AFileRepository {
   /** The folder the files are kept in. */
   readonly folder: string;
 
-  constructor(applicationContext: ApplicationContext) {
+  constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings) {
     super();
-    const folder: unknown = Reflect.get(applicationContext.environment, "a2aFilesPath");
+    if (settings !== undefined && settings.kind !== "local-disk")
+      throw new ConfigError.Option({
+        message: `LocalDiskA2AFileRepository is on the object storage's ${settings.kind} driver, not LocalDiskDriver`,
+      });
+    const folder: unknown =
+      settings === undefined
+        ? Reflect.get(applicationContext.environment, "a2aFilesPath")
+        : settings.directory;
     if (typeof folder !== "string" || folder === "")
       throw new Error(
         "LocalDiskA2AFileRepository needs a2aFilesPath: string in the environment — the folder the files are kept in",

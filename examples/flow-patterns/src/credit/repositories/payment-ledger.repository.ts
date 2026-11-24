@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
-import { Injectable, SqliteConnection } from "@agboss/core";
+import { Injectable } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 
 /** The DDL of the ledger's table, applied once per connection. */
 const SCHEMA: string = readFileSync(new URL("../sql/payment-charges.sql", import.meta.url), "utf8");

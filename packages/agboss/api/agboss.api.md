@@ -731,6 +731,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly providers?: readonly Provider[];
     readonly retention?: RetentionOptions;
     readonly shutdownTimeout?: Milliseconds;
+    readonly storage?: ApplicationStorage;
     readonly tenantContext?: TenantContextClass;
     readonly toolInterceptors?: readonly Class[];
     readonly uncompactedTurns?: UncompactedTurns;
@@ -758,6 +759,17 @@ export class ApplicationStoppingError extends AGBossError {
     readonly code: typeof ApplicationStoppingError.code;
     // (undocumented)
     name: string;
+}
+
+// @public
+export type ApplicationStorage = Class | ApplicationStorageOptions;
+
+// @public
+export interface ApplicationStorageOptions {
+    readonly cluster?: Class;
+    // (undocumented)
+    readonly database: Class;
+    readonly objects?: Class;
 }
 
 // @public
@@ -1504,6 +1516,21 @@ export interface CloseOptions {
 }
 
 // @public
+export type ClusterDriver = StorageDriver<StorageRole.Cluster>;
+
+// @public
+export function ClusterStorage(options: ClusterStorageOptions): <TClass extends Class>(value: TClass) => TClass;
+
+// @public
+export interface ClusterStorageOptions {
+    // (undocumented)
+    readonly description?: string;
+    readonly driver: ClusterDriver;
+    // (undocumented)
+    readonly name?: string;
+}
+
+// @public
 export interface CodeArbiterOptions<TDeps extends readonly Token[] = readonly Token[]> {
     // (undocumented)
     readonly criteria?: never;
@@ -2191,6 +2218,25 @@ export interface CustomPiiPolicyOptions<D extends readonly Token[] = readonly To
     readonly name?: string;
     // (undocumented)
     readonly rules?: never;
+}
+
+// @public
+export type DatabaseDriver = StorageDriver<StorageRole.Database>;
+
+// @public
+export function DatabaseStorage(options: DatabaseStorageOptions): <TClass extends Class>(value: TClass) => TClass;
+
+// @public
+export interface DatabaseStorageOptions {
+    readonly auditLogTtl: Milliseconds | Ttl.Forever | Ttl.None;
+    // (undocumented)
+    readonly description?: string;
+    readonly driver: DatabaseDriver;
+    readonly idempotencySecret?: SecretRef;
+    readonly ledgerEntriesTtl: Milliseconds | Ttl.Forever;
+    readonly name?: string;
+    readonly piiSecret?: SecretRef;
+    readonly previousIdempotencySecret?: SecretRef | OptionalSecretRef;
 }
 
 // @public
@@ -3467,6 +3513,9 @@ export interface ExtendPauseRequest {
 }
 
 // @public
+export type ExtraRuleCode = FileRuleCode | PiiRuleCode | StorageRuleCode;
+
+// @public
 export interface FailedHealthCheckResult {
     readonly [healthCheckResult]: true;
     // (undocumented)
@@ -4704,6 +4753,10 @@ export class InMemoryA2ATaskRepository extends A2ATaskRepository {
 }
 
 // @public
+export class InMemoryDatabaseStorage {
+}
+
+// @public
 export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMemoryFencedEffectTransaction> {
     // (undocumented)
     deleteByStoredAtBefore(cutoff: Date): Promise<void>;
@@ -4714,6 +4767,9 @@ export class InMemoryFencedEffectRepository extends FencedEffectRepository<InMem
     // (undocumented)
     static readonly store: StoreDescriptor;
 }
+
+// @public
+export function InMemoryObjectDriver(): ObjectDriver;
 
 // @public
 export class InMemoryOutboundCallRepository extends OutboundCallRepository {
@@ -5470,6 +5526,14 @@ export function loadWorkflowClass(path: string, options?: {
 }): Promise<Class>;
 
 // @public
+export function LocalDiskDriver(options: LocalDiskDriverOptions): ObjectDriver;
+
+// @public
+export interface LocalDiskDriverOptions {
+    readonly directory: string | EnvRef<string>;
+}
+
+// @public
 export interface LogEntry {
     readonly code: string;
     readonly executionId?: string;
@@ -6186,6 +6250,21 @@ export interface NotUnderstoodReply {
 export interface NotUnderstoodReplyOptions {
     // (undocumented)
     readonly reason: string;
+}
+
+// @public
+export type ObjectDriver = StorageDriver<StorageRole.Objects>;
+
+// @public
+export function ObjectStorage(options: ObjectStorageOptions): <TClass extends Class>(value: TClass) => TClass;
+
+// @public
+export interface ObjectStorageOptions {
+    // (undocumented)
+    readonly description?: string;
+    readonly driver: ObjectDriver;
+    // (undocumented)
+    readonly name?: string;
 }
 
 // @public (undocumented)
@@ -8705,7 +8784,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | PiiRuleCode | FileRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -8715,6 +8794,20 @@ export interface RuleViolation {
     readonly message: string;
     // (undocumented)
     readonly nodes: readonly string[];
+}
+
+// @public
+export function S3Driver(options: S3DriverOptions): ObjectDriver;
+
+// @public
+export interface S3DriverOptions {
+    readonly accessKeyId?: SecretRef;
+    // (undocumented)
+    readonly bucket: string | EnvRef<string>;
+    readonly endpoint?: string | EnvRef<string>;
+    readonly prefix?: string | EnvRef<string>;
+    readonly region?: string | EnvRef<string>;
+    readonly secretAccessKey?: SecretRef;
 }
 
 // @public
@@ -8904,20 +8997,6 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
 }
 
 // @public
-export class SqliteConnection implements OnDestroy {
-    constructor(applicationContext: ApplicationContext);
-    addColumn(table: string, column: string, definition: string): void;
-    columnsOf(table: string): readonly string[];
-    get database(): DatabaseSync;
-    ensureSchema(name: string, ddl: string): void;
-    onDestroy(): void;
-    readonly path: string;
-    ping(): Promise<void>;
-    transaction<TResult>(work: () => TResult): TResult;
-    uniqueIndexesOf(table: string): readonly string[];
-}
-
-// @public
 export class SqliteCostLedgerRepository extends CostLedgerRepository {
     constructor(connection: SqliteConnection);
     // (undocumented)
@@ -8932,6 +9011,20 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
     // (undocumented)
     saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
+}
+
+// @public
+export function SqliteDriver(options: SqliteDriverOptions): DatabaseDriver;
+
+// @public (undocumented)
+export namespace SqliteDriver {
+    var // (undocumented)
+    inMemory: () => DatabaseDriver;
+}
+
+// @public
+export interface SqliteDriverOptions {
+    readonly path: string | EnvRef<string>;
 }
 
 // @public
@@ -9559,6 +9652,9 @@ export interface StepValues<TInstance> extends ValuesSource {
     // (undocumented)
     readonly label: NameOf<TInstance>;
 }
+
+// @public
+export type StorageRuleCode = "storage.not-a-storage" | "storage.driver-invalid" | "storage.database-required" | "storage.cluster-needs-durable-lease-store" | "storage.providers-conflict" | "storage.retention-conflict" | "storage.key-conflict" | "storage.secret-shared" | "storage.ttl-invalid";
 
 // @public
 export class StoreCallTimeoutError extends StoreOutcomeUnknownError {
@@ -12653,6 +12749,15 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/run/types.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "turnId".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "data".
+// src/storage/drivers.ts - (ae-undocumented) Missing documentation for "inMemory".
+// src/storage/drivers.ts - (ae-undocumented) Missing documentation for "SqliteDriver".
+// src/storage/drivers.ts - (ae-undocumented) Missing documentation for "bucket".
+// src/storage/storage-assembly.ts - (ae-undocumented) Missing documentation for "database".
+// src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "description".
+// src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "name".
+// src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "description".
+// src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "name".
+// src/storage/storage-decorators.ts - (ae-undocumented) Missing documentation for "description".
 // src/tool-interceptors/decision.ts - (ae-undocumented) Missing documentation for "beforeToolCall".
 // src/tools/define-tool.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/tools/define-tool.ts - (ae-undocumented) Missing documentation for "cause".

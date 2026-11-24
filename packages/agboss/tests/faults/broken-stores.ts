@@ -6,7 +6,6 @@ import {
   SqliteOutboundCallRepository,
   StoreClock,
   Injectable,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
   ApplicationContext,
@@ -15,6 +14,7 @@ import {
   type FencedEffectOutcome,
   type FencedEffectWork,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { type OutboundCallIntent } from "../../src/stores/index.js";
 import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
 import type { Milliseconds } from "../../src/units/index.js";

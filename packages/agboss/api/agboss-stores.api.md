@@ -6,6 +6,7 @@
 
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type { CheckpointTuple } from '@langchain/langgraph';
+import type { DatabaseSync } from 'node:sqlite';
 import type { MessageContent } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 
@@ -410,6 +411,12 @@ export interface ChildLaunchRecord {
 export const closedAtOf: (pause: PauseRecord) => string | undefined;
 
 // @public
+export const CLUSTER_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
+
+// @public
+export type ClusterDriver = StorageDriver<StorageRole.Cluster>;
+
+// @public
 export interface Compacted {
     readonly compaction: string;
     readonly fromTurn: number;
@@ -584,10 +591,27 @@ export enum CostSource {
 }
 
 // @public
+export const DATABASE_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
+
+// @public
+export type DatabaseDriver = StorageDriver<StorageRole.Database>;
+
+// @public
+export function defineStorageDriver<TRole extends StorageRole>(spec: StorageDriverSpec<TRole>): StorageDriver<TRole>;
+
+// @public
 export const DIRECT_MESSAGE_CLAIM = "";
 
 // @public
 export const directMessageClaimOf: (message: NewA2ADirectMessage) => A2AMessageRecord;
+
+// @public
+export interface DriverSettings {
+    // (undocumented)
+    readonly [option: string]: unknown;
+    // (undocumented)
+    readonly kind: string;
+}
 
 // @public
 export type EffectKey = EffectKeyFields & EffectKeyMark;
@@ -1314,6 +1338,12 @@ export const NO_RECIPIENTS: PauseRecipients;
 export const NO_STEP = -2;
 
 // @public
+export const OBJECT_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
+
+// @public
+export type ObjectDriver = StorageDriver<StorageRole.Objects>;
+
+// @public
 export const originalStepKeyOf: (pause: ReplacementKeyed) => string;
 
 // @public
@@ -1953,6 +1983,13 @@ export function replacementStepKeyOf(pause: ReplacementKeyed, taken: ReadonlySet
 export function replayedFromOf(key: EffectKey, stored: StoredKeyFacts): FencedEffectOrigin | undefined;
 
 // @public
+export interface ResolvedSettings {
+    // (undocumented)
+    readonly [option: string]: unknown;
+    readonly kind: string;
+}
+
+// @public
 export interface ResumeVersions {
     // (undocumented)
     readonly configHash: string;
@@ -1992,6 +2029,20 @@ export interface SetAsideMailbox {
 }
 
 // @public
+export class SqliteConnection implements OnDestroy {
+    constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
+    addColumn(table: string, column: string, definition: string): void;
+    columnsOf(table: string): readonly string[];
+    get database(): DatabaseSync;
+    ensureSchema(name: string, ddl: string): void;
+    onDestroy(): void;
+    readonly path: string;
+    ping(): Promise<void>;
+    transaction<TResult>(work: () => TResult): TResult;
+    uniqueIndexesOf(table: string): readonly string[];
+}
+
+// @public
 export interface StepHandedOverRecord extends ExecutionAuditEventBase {
     // (undocumented)
     readonly kind: ExecutionAuditEventKind.HandedOver;
@@ -2022,6 +2073,30 @@ export interface StepRecord {
     readonly toolLoopIteration: number | undefined;
     readonly validationAttempts: number;
     readonly visitNumber: number;
+}
+
+// @public
+export interface StorageDriver<TRole extends StorageRole = StorageRole> {
+    // (undocumented)
+    readonly [driverBrand]: true;
+    readonly backend: string;
+    readonly coordinationStores?: readonly Class[] | undefined;
+    readonly describes: string;
+    readonly leaseStore?: Class | undefined;
+    readonly providers: readonly Provider[];
+    // (undocumented)
+    readonly role: TRole;
+    readonly settings: DriverSettings;
+}
+
+// @public
+export type StorageDriverSpec<TRole extends StorageRole> = Omit<StorageDriver<TRole>, typeof driverBrand>;
+
+// @public
+export enum StorageRole {
+    Cluster = "cluster",
+    Database = "database",
+    Objects = "objects"
 }
 
 // @public
@@ -2710,6 +2785,11 @@ export interface WrittenLedgerMark {
 // src/run/types.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "turnId".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "data".
+// src/storage/settings.ts - (ae-undocumented) Missing documentation for "__index".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "kind".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "__index".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "[driverBrand]".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "role".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "agent".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "content".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "Turn".

@@ -21,11 +21,11 @@ import {
   InMemoryFencedEffectRepository,
   Injectable,
   LeaseCheck,
-  SqliteConnection,
   type StoreDescriptor,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import {
   PostgresLeases,
   storesApplication,

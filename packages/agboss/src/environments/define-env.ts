@@ -1,7 +1,13 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { EnvContract, EnvSpec, InferEnv, ReservedEnvKey, SecretRef } from "./env-ref.js";
 import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
-import { OptionalSecretReference, resolvedSecret, Secret, variableOfSecret } from "./secret.js";
+import {
+  isResolvedSecret,
+  OptionalSecretReference,
+  resolvedSecret,
+  Secret,
+  variableOfSecret,
+} from "./secret.js";
 import { VariablePresence, VariableReference } from "./variables.js";
 
 /**
@@ -164,3 +170,47 @@ const overriddenOf = (ref: unknown, value: unknown): unknown =>
   typeof value === "string" && (ref instanceof Secret || ref instanceof OptionalSecretReference)
     ? resolvedSecret("(override)", value)
     : value;
+
+/** Whether `value` is an object literal (or one without a prototype): what a settings object is. */
+const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" &&
+  value !== null &&
+  [Object.prototype, null].includes(Object.getPrototypeOf(value) as object | null);
+
+/** One reference of a settings object as its value; any other value as it is. */
+function resolvedReferenceOf(
+  path: string,
+  value: unknown,
+  processEnv: NodeJS.ProcessEnv,
+  problems: Problems,
+): unknown {
+  if (value instanceof Secret && isResolvedSecret(value)) return value;
+  if (isReference(value)) return valueOf(path, value, processEnv, problems);
+  if (Array.isArray(value))
+    return value.map((item, index) =>
+      resolvedReferenceOf(`${path}[${String(index)}]`, item, processEnv, problems),
+    );
+  if (!isPlainObject(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, inner]) => [
+      key,
+      resolvedReferenceOf(`${path}.${key}`, inner, processEnv, problems),
+    ]),
+  );
+}
+
+/**
+ * The settings of a storage driver (#1321) with every `env(…)` / `secret(…)` reference in them (at any
+ * depth of its plain objects and lists) replaced by its value, read from `processEnv` once, when the
+ * application starts: every problem at once, naming variables and never values.
+ */
+export function resolveReferences(
+  settings: Readonly<Record<string, unknown>>,
+  processEnv: NodeJS.ProcessEnv,
+  what: string,
+): Readonly<Record<string, unknown>> {
+  const problems = new Problems();
+  const resolved = resolvedReferenceOf(what, settings, processEnv, problems);
+  problems.throwIfAny();
+  return Object.freeze(resolved);
+}

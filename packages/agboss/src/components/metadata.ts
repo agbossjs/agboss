@@ -124,7 +124,20 @@ export type ComponentMeta =
       readonly kind: "working-calendar";
       readonly meta: import("../calendar/working-calendar.js").WorkingCalendarMeta;
     }
-  | { readonly kind: "a2a-agent"; readonly meta: import("../a2a/a2a-decorator.js").A2AAgentMeta };
+  | { readonly kind: "a2a-agent"; readonly meta: import("../a2a/a2a-decorator.js").A2AAgentMeta }
+  /** `@DatabaseStorage` / `@ClusterStorage` / `@ObjectStorage` (#1321): where the rows go, listed in `@Application({ storage })`. */
+  | {
+      readonly kind: "database-storage";
+      readonly meta: import("../storage/storage-decorators.js").DatabaseStorageMeta;
+    }
+  | {
+      readonly kind: "cluster-storage";
+      readonly meta: import("../storage/storage-decorators.js").ClusterStorageMeta;
+    }
+  | {
+      readonly kind: "object-storage";
+      readonly meta: import("../storage/storage-decorators.js").ObjectStorageMeta;
+    };
 
 /** Decorator metadata per class. Symbol.metadata is not available at runtime on Node 26. */
 const components = new WeakMap<object, ComponentMeta>();
@@ -183,4 +196,7 @@ const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "health-check": "HealthCheck",
   "pause-listener": "PauseListener",
   "working-calendar": "WorkingCalendar",
+  "database-storage": "DatabaseStorage",
+  "cluster-storage": "ClusterStorage",
+  "object-storage": "ObjectStorage",
 };

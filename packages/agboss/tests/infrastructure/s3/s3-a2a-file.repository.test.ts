@@ -54,7 +54,7 @@ a2aFileContract({
     bucket = new FakeS3();
   },
   instance: ({ clock }) =>
-    new S3A2AFileRepository(contextOf(ENVIRONMENT, PROCESS_ENV), clock, bucket.fetcher),
+    new S3A2AFileRepository(contextOf(ENVIRONMENT, PROCESS_ENV), clock, undefined, bucket.fetcher),
 });
 
 describe("#859: S3A2AFileRepository", () => {
@@ -90,6 +90,7 @@ describe("#859: S3A2AFileRepository", () => {
     const store = new S3A2AFileRepository(
       contextOf(ENVIRONMENT, PROCESS_ENV),
       new VirtualClock(),
+      undefined,
       s3.fetcher,
     );
     const at = new Date("2026-01-05T09:00:00.000Z");
@@ -121,8 +122,8 @@ describe("#859: S3A2AFileRepository", () => {
   });
 
   it("names the environment field it misses, never a value", () => {
-    expect(() => new S3A2AFileRepository(contextOf({ a2aS3Region: "x" }), {} as never)).toThrow(
-      "S3A2AFileRepository needs a2aS3Bucket in the environment",
-    );
+    expect(
+      () => new S3A2AFileRepository(contextOf({ a2aS3Region: "x" }), {} as never, undefined),
+    ).toThrow("S3A2AFileRepository needs a2aS3Bucket in the environment");
   });
 });

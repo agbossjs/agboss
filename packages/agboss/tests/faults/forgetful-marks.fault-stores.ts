@@ -1,10 +1,10 @@
 import {
   Injectable,
-  SqliteConnection,
   SqliteExecutionTreeRepository,
   type ExecutionTree,
   type ExecutionTreeValue,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import type { FaultStoreSet } from "../../src/testing/faults/index.js";
 import { faultStores as sqlite } from "./sqlite.fault-stores.js";
 

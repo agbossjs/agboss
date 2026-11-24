@@ -1,7 +1,8 @@
 import { Injectable } from "../../src/components/decorators.js";
 import { ApplicationContext } from "../../src/flow/context/application-context.js";
 import { StoreClock, StoreTimeSource, systemClock } from "../../src/infrastructure/clock.js";
-import { SqliteConnection, SqliteExecutionLeaseRepository } from "../../src/index.js";
+import { SqliteExecutionLeaseRepository } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { FaultStoreTime } from "../../src/testing/faults/index.js";
 import { faultStores as sqlite, sqliteFaultStoreClasses } from "./sqlite.fault-stores.js";
 

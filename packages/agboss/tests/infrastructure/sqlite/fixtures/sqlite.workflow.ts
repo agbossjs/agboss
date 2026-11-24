@@ -4,21 +4,8 @@ import { join } from "node:path";
 import { afterAll, beforeEach } from "vitest";
 import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
 import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
-import {
-  ApplicationContext,
-  Clock,
-  Injectable,
-  SqliteCheckpointSaver,
-  SqliteConnection,
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-  Workflow,
-  type ExecutionLease,
-} from "../../../../src/index.js";
+import { ApplicationContext, Clock, Injectable, SqliteCheckpointSaver, SqliteCostLedgerRepository, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqliteExecutionTreeRepository, SqlitePausedExecutionRepository, SqliteRateLimitRepository, Workflow, type ExecutionLease } from "../../../../src/index.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds, type Milliseconds } from "../../../../src/units/index.js";
 import { UnwindLog, UnwindWorkflow } from "../../../flow/runtime/fixtures/unwind.workflow.js";

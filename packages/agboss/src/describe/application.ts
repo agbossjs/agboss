@@ -7,6 +7,7 @@ import {
   ImplementationReason,
   type ImplementationChoice,
 } from "../application/implementations.js";
+import { storageLinesOf, type StorageLine } from "../storage/storage-assembly.js";
 import { assemblyWarningsOf, warningText, type AssemblyWarning } from "../application/start-log.js";
 import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
@@ -69,6 +70,8 @@ export interface DescribedApplication {
   /** Every workflow it runs: the listed ones, then the children they launch. */
   readonly workflows: readonly string[];
   readonly implementations: readonly ImplementationChoice[];
+  /** `@Application({ storage })` (#1321): each storage component with its driver; absent = none declared. */
+  readonly storage?: readonly StorageLine[];
   readonly modelProviders: readonly DescribedModelProvider[];
   readonly budgets: readonly DescribedBudget[];
   readonly executionBudgets: readonly DescribedExecutionBudget[];
@@ -146,6 +149,7 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
     version: assembled.version,
     workflows: assembled.workflows.map((workflow) => workflow.config.name),
     implementations: implementationsOf(assembled.providers),
+    ...(assembled.storage === undefined ? {} : { storage: storageLinesOf(assembled.storage) }),
     modelProviders: modelProvidersOfApplication(assembled),
     budgets: budgets.map((meta) => describedBudget(meta, nameOf)),
     executionBudgets: assembled.workflows.map((workflow) =>
@@ -222,6 +226,14 @@ const pauseListenerLines = (described: DescribedApplication): string[] =>
 /** The application's implementations, model providers, budgets, observers and warnings. */
 export function applicationLines(described: DescribedApplication): string[] {
   return [
+    ...(described.storage === undefined
+      ? []
+      : [
+          "storage",
+          ...described.storage.map(
+            (line) => `  ${line.role}: ${line.name} → ${line.describes} (${line.backend})`,
+          ),
+        ]),
     "implementations",
     ...described.implementations.map((choice) => `  ${implementationLine(choice)}`),
     "model providers",

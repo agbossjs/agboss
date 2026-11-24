@@ -1,5 +1,5 @@
 import { describe, expect } from "vitest";
-import { SqliteConnection } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 import { testWith } from "@agboss/core/testing";
 import { PaymentLedgerRepository } from "../../../src/credit/repositories/payment-ledger.repository.js";
 import { FlowPatternsApplication } from "../../../src/flow-patterns.application.js";

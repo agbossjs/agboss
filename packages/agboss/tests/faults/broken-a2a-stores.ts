@@ -5,7 +5,6 @@ import {
   IdGenerator,
   Injectable,
   SqliteExecutionRecordRepository,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
@@ -15,6 +14,7 @@ import {
   type ExecutionTreeValue,
   type Turn,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
 import type { ExecutionIdentity } from "../../src/infrastructure/execution-lease.repository.js";
 import {

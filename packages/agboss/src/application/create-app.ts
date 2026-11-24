@@ -19,6 +19,7 @@ import { gatedInfrastructure } from "./lease-gate.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { instanceAppOf } from "./compose-app.js";
 import { closeOnStopSignals } from "./stop-signals.js";
+import { sourcesOf } from "./instance-sources.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
 import { productionOptionsOf } from "./app-options.js";
 import type { InstanceSeams } from "./instance-seams.js";
@@ -163,7 +164,8 @@ export async function buildApplication(
   // the clock first: the contexts read their start from it
   const clock = seams.clock ?? clockOf(assembled.modules, { ...options.container, onCreate });
   const contexts = contextsOf(assembled, options, seams, clock);
-  const sources = { modules: assembled.modules, clock, contexts, idGenerator: seams.idGenerator };
+  const processEnv = options.processEnv ?? process.env;
+  const sources = sourcesOf(assembled, { clock, contexts, seams, processEnv });
   const { database, reused: instances, quiet, storeClock, idempotencyTestKeys: testKeys } = seams;
   const shared = applicationContainerOf(
     {
@@ -176,7 +178,6 @@ export async function buildApplication(
   const container: ContainerOptions = { ...options.container, application: shared };
   const resolved = resolveInfrastructure(shared, { ...container, onCreate });
   const infrastructure = gatedInfrastructure(resolved, seams.leaseGate);
-  const processEnv = options.processEnv ?? process.env;
   const environment = options.environment ?? NO_ENVIRONMENT_VALUES;
   // a test's instances share a fixed PII key when the application sets none (#120, #334)
   const fallback = seams.piiTestKey;

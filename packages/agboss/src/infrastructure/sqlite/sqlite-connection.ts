@@ -3,6 +3,8 @@ import { dirname } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
+import { DATABASE_SETTINGS, type ResolvedSettings } from "../../storage/settings.js";
+import { sqliteSettingsOf } from "./sqlite-settings.js";
 import type { Class } from "../../components/injection.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import type { OnDestroy } from "../../components/container/lifecycle.js";
@@ -135,7 +137,7 @@ export function inImmediateTransaction<TResult>(
  * ApplicationContext]`, #847: a `Clock` does not pass for its `StoreClock`).
  */
 @Injectable({
-  deps: [ApplicationContext],
+  deps: [ApplicationContext, DATABASE_SETTINGS],
   environmentFields: { sqlitePath: EnvironmentField.text() },
 })
 export class SqliteConnection implements OnDestroy {
@@ -144,8 +146,10 @@ export class SqliteConnection implements OnDestroy {
   readonly #database: DatabaseSync;
   readonly #prepared = new Set<string>();
 
-  constructor(applicationContext: ApplicationContext) {
-    const parsed = SqliteEnvironment.safeParse(applicationContext.environment);
+  constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings) {
+    const parsed = SqliteEnvironment.safeParse(
+      settings === undefined ? applicationContext.environment : sqliteSettingsOf(settings),
+    );
     if (!parsed.success) {
       // Stryker disable next-line StringLiteral: equivalent: the environment has the one field, so there is one issue and nothing to join
       const problems = parsed.error.issues.map((issue) => issue.message).join("; ");

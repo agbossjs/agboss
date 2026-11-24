@@ -9,6 +9,7 @@ import {
 } from "../injection.js";
 import { isEnvContract } from "../../environments/define-env.js";
 import { ComponentError } from "../metadata.js";
+import { STORAGE_SETTINGS_TOKENS } from "../../storage/settings.js";
 
 /**
  * What the one container of an application instance holds (#261): the providers of every workflow,
@@ -67,6 +68,8 @@ export class Registrations {
     core: ReadonlyMap<Token, unknown>,
     private readonly defaults: ReadonlyMap<Class, Class> = new Map(),
   ) {
+    // an application with no storage component: the settings tokens are there, empty (#1321)
+    for (const token of STORAGE_SETTINGS_TOKENS) this.#values.set(token, undefined);
     for (const [token, value] of core) this.#values.set(token, value);
     for (const module of modules) {
       const owner = ownerOf(module);
