@@ -4,6 +4,7 @@ import type { EnvContract } from "../environments/env-ref.js";
 import type { Class } from "../components/injection.js";
 import type { LoadedProfile } from "./config-files.js";
 import { deepMerge } from "./deep-merge.js";
+import { TYPESCRIPT_ONLY_WORKFLOW_KEYS } from "./define-config.js";
 import type { BudgetOverlay } from "../budgets/budget-overlay.js";
 import type { ComponentModelOverride } from "../models/model-cascade.js";
 import type {
@@ -19,7 +20,16 @@ export interface FoldedWorkflow {
   /** The models of its model routers, by node name (provider as a class or a name). */
   readonly routers: Readonly<Record<string, ComponentModelConfig>>;
   readonly modelProvider?: Class | undefined;
+  /** The classes it stands in for the workflow's own `budget`, `memory` and `filePolicy`. */
+  readonly slots: WorkflowSlots;
   readonly prompts: Readonly<Record<string, string>>;
+}
+
+/** The classes a profile gives one workflow in place of its `@Workflow({ budget, memory, filePolicy })`. */
+export interface WorkflowSlots {
+  readonly budget?: Class | undefined;
+  readonly memory?: Class | undefined;
+  readonly filePolicy?: Class | undefined;
 }
 
 /** The infrastructure classes of an application a profile replaces whole (the last profile that sets one wins). */
@@ -126,7 +136,10 @@ function budgetsOf(layers: readonly LoadedProfile[]): Readonly<Record<string, Bu
 const constantsOf = (one: WorkflowConfig): WorkflowOverlay =>
   Object.fromEntries(
     Object.entries(one).filter(
-      ([key]) => key !== "prompts" && key !== "modelProvider" && key !== "routers",
+      ([key]) =>
+        key !== "prompts" &&
+        key !== "routers" &&
+        !(TYPESCRIPT_ONLY_WORKFLOW_KEYS as readonly string[]).includes(key),
     ),
   );
 
@@ -141,6 +154,7 @@ function layerOf(layer: LoadedProfile): FoldedLayer {
           overlay: constantsOf(one),
           routers: one.routers ?? {},
           modelProvider: one.modelProvider,
+          slots: { budget: one.budget, memory: one.memory, filePolicy: one.filePolicy },
           prompts: layer.promptTexts[name] ?? {},
         },
       ]),

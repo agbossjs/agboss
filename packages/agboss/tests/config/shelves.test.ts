@@ -6,10 +6,12 @@ import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { budgetsOf } from "../../src/application/create-app.js";
 import { configJsonSchemaOf } from "../../src/config/config-json-schema.js";
+import { BudgetScope } from "../../src/index.js";
 import { budgetOf } from "../../src/budgets/budget.js";
 import { limitsOf as limitsOf2 } from "../../src/budgets/budget-spend.js";
 import type { BudgetHandler } from "../../src/budgets/budget.js";
 import { budgetsOfExecution } from "../../src/budgets/budget-check.js";
+import { standaloneBudgetsOf } from "../../src/application/application-container.js";
 import { describedApplicationOf } from "../../src/describe/application.js";
 import { ProfileError, ProfileErrorReason } from "../../src/config/profile-error.js";
 import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
@@ -18,11 +20,18 @@ import {
   ShelfApplication,
   ShelfAttachedBudget,
   ShelfListedBudget,
+  ShelfSlotBudget,
   ShelfWorkflow,
 } from "./fixtures/shelves-app/shelves.application.js";
 
 const assembled = (profile?: string) =>
   applicationOf(ShelfApplication, profile === undefined ? {} : { profile });
+
+const firstOf = (app: Awaited<ReturnType<typeof assembled>>) => {
+  const [workflow] = app.workflows;
+  if (workflow === undefined) throw new Error("the application has no workflow");
+  return workflow;
+};
 
 const failure = async (attempt: Promise<unknown>): Promise<ProfileError> => {
   try {
@@ -170,5 +179,76 @@ describe("the component model shelves", () => {
     const error = await failure(assembled("ghost-provider"));
 
     expect(error.message).toMatch(/not-a-provider|no such model provider/);
+  });
+});
+
+describe("a budget on every path", () => {
+  const seenOn = (listing: ReturnType<typeof budgetsOf> | undefined) =>
+    budgetsOfExecution(
+      {
+        budgets: listing?.budgets ?? [],
+        attached: listing?.attached,
+        budgetOverlays: listing?.budgetOverlays,
+      },
+      ShelfWorkflow,
+    ).map((one) => [one.meta.name, one.meta.maxSpend, one.meta.maxTokens]);
+
+  it("a run on its own (eval, replay, compare) counts the limits the profile gives, as the application does", async () => {
+    const app = await assembled("tight");
+    const standalone = standaloneBudgetsOf(firstOf(app));
+
+    expect(seenOn(standalone)).toEqual(seenOn(budgetsOf(app)));
+    expect(seenOn(standalone)).toContainEqual(["shelf-attached-budget", usd(0.5), 100_000]);
+    expect(seenOn(standalone)).toContainEqual(["shelf-listed-budget", undefined, 50]);
+  });
+
+  it("a run on its own under no profile counts the declared limits", async () => {
+    const app = await assembled();
+
+    expect(seenOn(standaloneBudgetsOf(firstOf(app)))).toContainEqual([
+      "shelf-attached-budget",
+      usd(5),
+      100_000,
+    ]);
+  });
+});
+
+describe("the budget class slot of a workflow", () => {
+  it("replaces the declared budget on every path: the listing, the attached ones, the execution's, a run on its own, describe", async () => {
+    const app = await assembled("slotted");
+    const listing = budgetsOf(app);
+    const names = (classes: readonly (typeof ShelfSlotBudget)[] | undefined) =>
+      (classes ?? []).map((cls) => budgetOf(cls)?.name);
+    const standalone = standaloneBudgetsOf(firstOf(app));
+    const execution = (from: typeof listing | undefined) =>
+      budgetsOfExecution(
+        {
+          budgets: from?.budgets ?? [],
+          attached: from?.attached,
+          budgetOverlays: from?.budgetOverlays,
+        },
+        ShelfWorkflow,
+      ).find((one) => one.meta.scope === BudgetScope.Execution);
+
+    expect(names(listing.attached)).toEqual(["shelf-slot-budget"]);
+    expect(names(listing.budgets)).not.toContain("shelf-attached-budget");
+    expect(execution(listing)?.meta).toMatchObject({
+      name: "shelf-slot-budget",
+      maxSpend: usd(0.1),
+    });
+    expect(execution(standalone)?.meta).toMatchObject({
+      name: "shelf-slot-budget",
+      maxSpend: usd(0.1),
+    });
+    expect(describedApplicationOf(app).executionBudgets).toEqual([
+      { workflow: "shelf-workflow", name: "shelf-slot-budget", isOwn: true },
+    ]);
+    expect(limitsOf(ShelfSlotBudget)).toEqual({ maxSpend: usd(1), maxTokens: undefined });
+  });
+
+  it("refuses a class that is no @Budget, naming its path", async () => {
+    const error = await failure(assembled("wrong-slot"));
+
+    expect(error.message).toMatch(/workflows\.shelf-workflow\.budget is no @Budget class/);
   });
 });

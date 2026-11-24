@@ -44,6 +44,14 @@ export class ShelfOtherModels {}
 })
 export class ShelfAttachedBudget {}
 
+/** A budget only a profile attaches to the workflow: the application never lists it. */
+@Budget({
+  name: "shelf-slot-budget",
+  scope: BudgetScope.Execution,
+  maxSpend: usd(1),
+})
+export class ShelfSlotBudget {}
+
 /** An application budget the application lists, declared with a token cap only. */
 @Budget({
   name: "shelf-listed-budget",

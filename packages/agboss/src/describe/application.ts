@@ -97,8 +97,9 @@ function executionBudgetOf(
   workflow: Class,
   name: string,
   attachedByAny: readonly Class[],
+  budgetOverlays: AssembledApplication["budgetOverlays"],
 ): DescribedExecutionBudget {
-  const found = executionBudgetFor(budgets, workflow, attachedByAny);
+  const found = executionBudgetFor(budgets, workflow, attachedByAny, budgetOverlays);
   return found === undefined
     ? { workflow: name, isOwn: false }
     : { workflow: name, name: found.meta.name, isOwn: found.isOwn };
@@ -143,6 +144,7 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
           workflows: assembled.workflows.map((one) => one.graph.type),
           budgetOverlays: assembled.budgetOverlays,
         }),
+        assembled.budgetOverlays,
       ),
     ),
     observers: assembled.observers.map(tokenName),

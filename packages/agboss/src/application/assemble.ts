@@ -160,7 +160,8 @@ async function assembleWorkflows(
   for (const workflow of workflows) {
     try {
       const own = { ...owner, patch: profiles.patchOf(workflow) };
-      assembled.push(await workflowOf(workflow, modules, own, contexts, assembly.processEnv));
+      const bundle = await workflowOf(workflow, modules, own, contexts, assembly.processEnv);
+      assembled.push(P.withBudgetOverlays(bundle, profiles));
     } catch (error) {
       if (!(error instanceof GraphRuleError)) throw error;
       errors.push(error);

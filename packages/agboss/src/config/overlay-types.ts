@@ -49,6 +49,12 @@ export interface WorkflowConfig extends Omit<WorkflowOverlay, "routers"> {
   readonly routers?: Readonly<Record<string, ComponentModelConfig>>;
   /** The `@ModelProvider` this workflow's components resolve to, instead of its own. */
   readonly modelProvider?: Class;
+  /** The `@Budget` that caps this workflow's executions, instead of its `@Workflow({ budget })`. */
+  readonly budget?: Class;
+  /** The `@Memory` of this workflow's agents and routers, instead of its `@Workflow({ memory })`. */
+  readonly memory?: Class;
+  /** The `@FilePolicy` of this workflow's files, instead of its `@Workflow({ filePolicy })`. */
+  readonly filePolicy?: Class;
 }
 
 /** What a profile changes of one `@ModelProvider`, by its `name`. */

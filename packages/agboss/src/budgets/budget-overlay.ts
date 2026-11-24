@@ -15,8 +15,24 @@ export interface BudgetOverlay {
   readonly maxTokens?: number | EnvRef<number>;
 }
 
-/** The overlays of the selected profiles by budget `name`, later profiles already folded in. */
-export type BudgetOverlays = ReadonlyMap<string, BudgetOverlay>;
+/**
+ * What the selected profiles change of an application's budgets, later profiles already folded in:
+ * the limits by budget `name` (the map itself), and the `budget` a profile gives a workflow in place
+ * of its `@Workflow({ budget })` (`slots`, by workflow class). One object, so every reader that holds
+ * the limits holds the slots too.
+ */
+export class BudgetOverlays extends Map<string, BudgetOverlay> {
+  /** The `@Budget` class a profile attaches to a workflow instead of the declared one. */
+  readonly slots: ReadonlyMap<Class, Class>;
+
+  constructor(
+    limits: Iterable<readonly [string, BudgetOverlay]>,
+    slots: ReadonlyMap<Class, Class>,
+  ) {
+    super(limits);
+    this.slots = slots;
+  }
+}
 
 /** What the assembly passes to every reader of an application's budgets, so each sees the same limits. */
 export interface OverlaidBudgets {

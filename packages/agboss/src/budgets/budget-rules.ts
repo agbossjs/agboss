@@ -22,7 +22,12 @@ export interface BudgetedApplication extends OverlaidBudgets {
 }
 
 /** The `@Budget` class a workflow attaches with `@Workflow({ budget })`, if it does. */
-export const attachedBudgetOf = (workflow: Class): Class | undefined => {
+export const attachedBudgetOf = (
+  workflow: Class,
+  overlays?: OverlaidBudgets["budgetOverlays"],
+): Class | undefined => {
+  const slot = overlays?.slots.get(workflow);
+  if (slot !== undefined) return slot;
   const declaration = declarationOf(workflow);
   return declaration?.kind === NodeKind.Workflow ? declaration.options.budget : undefined;
 };
@@ -40,7 +45,7 @@ export const budgetsOfApplication = (
   const overlays = application.budgetOverlays;
   const listed = (application.budgets ?? []).map((budget) => overlaidBudget(budget, overlays));
   const attached = (application.workflows ?? []).flatMap((workflow) => {
-    const budget = attachedBudgetOf(workflow);
+    const budget = attachedBudgetOf(workflow, overlays);
     return budget === undefined ? [] : [overlaidBudget(budget, overlays)];
   });
   // a listed class stays as listed (a class listed twice is still a duplicate); an attached one once
@@ -55,7 +60,7 @@ export const attachedBudgetsOf = (
 ): readonly Class[] => [
   ...new Set(
     (application.workflows ?? []).flatMap((workflow) => {
-      const budget = attachedBudgetOf(workflow);
+      const budget = attachedBudgetOf(workflow, application.budgetOverlays);
       return budget === undefined ? [] : [overlaidBudget(budget, application.budgetOverlays)];
     }),
   ),
@@ -72,7 +77,7 @@ export function executionBudgetFor(
   budgetOverlays?: OverlaidBudgets["budgetOverlays"],
 ): { readonly meta: BudgetMeta; readonly isOwn: boolean } | undefined {
   const execution = metas.filter((meta) => meta.scope === BudgetScope.Execution);
-  const attachedClass = attachedBudgetOf(workflow);
+  const attachedClass = attachedBudgetOf(workflow, budgetOverlays);
   const attached =
     attachedClass === undefined ? undefined : overlaidBudget(attachedClass, budgetOverlays);
   const attachedMeta = attached === undefined ? undefined : budgetOf(attached);
@@ -128,8 +133,12 @@ function duplicateDefault(application: string, defaults: readonly BudgetMeta[]):
 }
 
 /** Whether `workflow` has its own execution budget: one with `workflow: X`, or one it attaches. */
-const isCovered = (workflow: Class, execution: readonly BudgetMeta[]): boolean => {
-  const attached = attachedBudgetOf(workflow);
+const isCovered = (
+  workflow: Class,
+  execution: readonly BudgetMeta[],
+  overlays: OverlaidBudgets["budgetOverlays"],
+): boolean => {
+  const attached = attachedBudgetOf(workflow, overlays);
   const attachedMeta = attached === undefined ? undefined : budgetOf(attached);
   return (
     attachedMeta?.scope === BudgetScope.Execution ||
@@ -145,7 +154,7 @@ function uncovered(
   if (execution.some((meta) => meta.workflow === undefined && !isAttached(meta, application)))
     return [];
   return application.workflows
-    .filter((workflow) => !isCovered(workflow, execution))
+    .filter((workflow) => !isCovered(workflow, execution, application.budgetOverlays))
     .map((workflow) => {
       const name = workflowNameOf(workflow);
       return violation(
@@ -159,7 +168,7 @@ function uncovered(
 /** Whether `meta` is a budget some workflow of `application` attaches (it is then that workflow's own, not a default). */
 const isAttached = (meta: BudgetMeta, application: BudgetedApplication): boolean =>
   application.workflows.some((workflow) => {
-    const attached = attachedBudgetOf(workflow);
+    const attached = attachedBudgetOf(workflow, application.budgetOverlays);
     return attached !== undefined && budgetOf(attached)?.name === meta.name;
   });
 

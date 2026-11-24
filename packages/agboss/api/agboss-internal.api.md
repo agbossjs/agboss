@@ -182,6 +182,7 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
 // @public
 export interface AssembledWorkflow<TName extends string = string> {
     readonly arbiters?: readonly ModelArbiterUse[];
+    readonly budgetOverlays?: BudgetOverlays | undefined;
     readonly businessKeyWriter?: BusinessKeyWriterUse;
     readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
     // (undocumented)

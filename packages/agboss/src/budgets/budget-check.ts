@@ -163,7 +163,7 @@ export function budgetsOfExecution(
   }: Pick<ApplicationBudgets, "budgets" | "attached" | "budgetOverlays">,
   workflow: Class,
 ): readonly ListedBudget[] {
-  const attachedClass = attachedBudgetOf(workflow);
+  const attachedClass = attachedBudgetOf(workflow, budgetOverlays);
   const attached =
     attachedClass === undefined ? [] : listed([overlaidBudget(attachedClass, budgetOverlays)]);
   const all = listed(budgets);

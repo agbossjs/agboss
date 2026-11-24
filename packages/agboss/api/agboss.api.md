@@ -10968,6 +10968,9 @@ export type WorkflowClass = Class;
 
 // @public
 export interface WorkflowConfig extends Omit<WorkflowOverlay, "routers"> {
+    readonly budget?: Class;
+    readonly filePolicy?: Class;
+    readonly memory?: Class;
     readonly modelProvider?: Class;
     readonly routers?: Readonly<Record<string, ComponentModelConfig>>;
 }

@@ -1,7 +1,7 @@
 import type { Class } from "../components/injection.js";
 import type { ComponentModelOverrides } from "../models/model-cascade.js";
 import { deepMerge } from "./deep-merge.js";
-import type { FoldedConfig, FoldedWorkflow } from "./fold-config.js";
+import type { FoldedConfig, FoldedWorkflow, WorkflowSlots } from "./fold-config.js";
 import type { ModelProviderOverlay, WorkflowOverlay } from "./overlay-types.js";
 import { ProfileError, ProfileErrorReason } from "./profile-error.js";
 import { checkComponentModels, modelsOf, type WorkflowModels } from "./component-models.js";
@@ -22,6 +22,8 @@ export class OverlayUse {
 /** What the folded profiles change of one workflow, ready to apply while it is assembled. */
 export interface WorkflowPatch {
   readonly modelProvider: Class | undefined;
+  /** The classes profiles give the workflow in place of its own `budget`, `memory` and `filePolicy`. */
+  readonly slots: WorkflowSlots;
   /** The models profiles change of single components: the shelves, and this workflow's routers. */
   readonly componentModels: ComponentModelOverrides;
   /** The providers' overlays: the model names the cascade resolves through. */
@@ -141,6 +143,16 @@ function promptsOf(
   return result;
 }
 
+/** The classes the profiles give a workflow: per profile `"*"` then its own, a later one winning per slot. */
+export function slotsOf(folded: FoldedConfig, workflow: string): WorkflowSlots {
+  const found: { -readonly [K in keyof WorkflowSlots]: WorkflowSlots[K] } = {};
+  for (const overlay of overlaysOf(folded, workflow)) {
+    for (const key of ["budget", "memory", "filePolicy"] as const)
+      found[key] = overlay.slots[key] ?? found[key];
+  }
+  return found;
+}
+
 /** The patch of one workflow; the use is recorded so a left-over key can be named afterwards. */
 export function workflowPatchOf(
   folded: FoldedConfig,
@@ -161,6 +173,7 @@ export function workflowPatchOf(
     .flatMap((one) => (one?.modelProvider === undefined ? [] : [one.modelProvider]));
   return {
     modelProvider: providers.at(-1),
+    slots: slotsOf(folded, workflow),
     componentModels,
     providers: folded.modelProviders,
     config: (config) => configOf(config, folded, use),

@@ -203,9 +203,13 @@ export function standaloneBudgetsOf(bundle: AssembledWorkflow): BudgetListing | 
   const declaration = listingApplicationOf(bundle);
   if (declaration === undefined) return undefined;
   const { options } = declaration;
+  // the profile the workflow was assembled under: its limits and its attached budgets, as the application counts them
+  const { budgetOverlays } = bundle;
+  const overlaid = { ...options, budgetOverlays };
   return {
-    budgets: budgetsOfApplication(options),
-    attached: attachedBudgetsOf(options),
+    budgets: budgetsOfApplication(overlaid),
+    attached: attachedBudgetsOf(overlaid),
+    ...(budgetOverlays === undefined ? {} : { budgetOverlays }),
     applicationName: options.name,
   };
 }
