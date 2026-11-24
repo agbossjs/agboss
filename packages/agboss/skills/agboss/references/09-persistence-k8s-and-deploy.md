@@ -147,18 +147,18 @@ export class ClaimsApiService {
 ```
 
 ```ts file=src/claims/health-checks/claims-api.health-check.ts
-import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "@agboss/core";
+import { HealthCheck, HealthCheckResult } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { ClaimsApiService } from "../services/claims-api.service.js";
 
 @HealthCheck({ name: "claims-api-health-check", timeout: seconds(2), deps: [ClaimsApiService] })
-export class ClaimsApiHealthCheck implements HealthCheckHandler {
+export class ClaimsApiHealthCheck {
   constructor(private readonly claimsApiService: ClaimsApiService) {}
 
   async check(): Promise<HealthCheckResult> {
     return (await this.claimsApiService.ping())
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.degraded({ reason: "claims API is slow" }); // still serves
+      : HealthCheckResult.degraded("claims API is slow"); // still serves
   }
 }
 ```
@@ -251,11 +251,11 @@ export class ClaimsApplication {}
 ```
 
 The process: `createApp` closes the app on SIGTERM / SIGINT by itself; the project's server maps the
-probes to its endpoints (`Unhealthy` → 503, anything else 200 — a `Degraded` instance still serves):
+probes to its endpoints (liveness: `report.isAlive`; readiness: `report.isReady` — 503 when `Unhealthy` or busy, 200 otherwise; a `Degraded` instance still serves):
 
 ```ts file=src/http/server.ts
 import { createServer } from "node:http";
-import { HealthStatus, createApp, type HealthReport } from "@agboss/core";
+import { createApp, type HealthReport } from "@agboss/core";
 import { ClaimsApplication } from "../claims.application.js";
 import { ClaimWorkflowStart } from "../claims/workflows/claim/claim.workflow-start.js";
 
@@ -268,7 +268,7 @@ createServer((request, response) => {
   const probe = probeOf(request.url);
   if (probe !== undefined) {
     void probe.then((report: HealthReport) => {
-      response.writeHead(report.status === HealthStatus.Unhealthy ? 503 : 200, {
+      response.writeHead(report.isReady ? 200 : 503, {
         "content-type": "application/json",
       });
       response.end(JSON.stringify(report));
@@ -283,17 +283,17 @@ createServer((request, response) => {
 
 ## Health probes
 
-`app.checkLiveness()` / `app.checkReadiness()` → `HealthReport { status, components }` — never a
+`app.checkLiveness()` / `app.checkReadiness()` → `HealthReport { status, components, isBusy, isAlive, isReady }` — never a
 rejection; `status` is the worst component's `HealthStatus.Healthy | Degraded | Unhealthy`, each
 `HealthComponentReport { name, kind: HealthComponentKind, status, reason?, duration }`.
 
-| Probe     | Components                                                                                                                                                                                                                                                                    |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| liveness  | no I/O: the application (`Unhealthy`, `stopping` from `app.close()` on) and the recovery loop (`Unhealthy` when its last sweep ended over 90 s ago)                                                                                                                           |
-| readiness | liveness's, every store's `ping()` (`seconds(2)` each), every model provider's circuit breaker (open → `Degraded`), the step slots when `maxConcurrentSteps` is set (all busy → `Degraded`), every `@HealthCheck` of `@Application({ healthChecks })` under its own `timeout` |
+| Probe     | Components                                                                                                                                                                                           |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| liveness  | no I/O: the application (`Unhealthy`, `stopping` from `app.close()` on) and the recovery loop (`Unhealthy` when its last sweep ended over 90 s ago)                                                  |
+| readiness | liveness's, every store's `ping()` (`seconds(2)` each), every model provider's circuit breaker (open → `Degraded`), every `@HealthCheck` of `@Application({ healthChecks })` under its own `timeout` |
 
-A check that throws or times out is that component's `Unhealthy`. `HealthCheckResult.healthy()` /
-`.degraded({ reason })` / `.unhealthy({ reason })` are the only results (a plain object does not
+A check that throws or times out is that component's `Unhealthy` (`check(ctx)` gets `HealthCheckContext`: its `signal` aborts at the timeout). `HealthCheckResult.healthy()` /
+`.degraded(reason)` / `.unhealthy(reason)` are the only results (a plain object does not
 compile); `[health.not-a-health-check]`, `[health.duplicate-name]`.
 
 ## Metrics for autoscaling (#485)
@@ -374,7 +374,7 @@ FingerprintPolicy.None` (a compile error without), `{ businessKey }` alone is a 
 - **The cap on steps.** `@Application({ maxConcurrentSteps })` (a whole number from 1,
   `[limits.max-concurrent-steps-invalid]`; unset → no cap) bounds the agent, router and action steps
   one instance runs at once over every tree and tenant — a queue, never an error; readiness is
-  `Degraded` while every slot is busy, and the recovery sweep starts at most its free slots' worth.
+  `isBusy` (so not `isReady`) while every slot is taken, and the recovery sweep starts at most its free slots' worth.
 - **PII tokens** are the same on every instance only with `@Application({ piiKeyField })` (reference 07).
 
 ## A graceful stop

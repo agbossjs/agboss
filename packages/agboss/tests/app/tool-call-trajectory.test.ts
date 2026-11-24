@@ -225,7 +225,7 @@ describe("testJudge", () => {
   it("takes no toolCalls: the judge reads none", async () => {
     const { output } = await testJudge(LookedUpJudge)(reply);
 
-    expect(output).toEqual(JudgeVerdict.failed({ reason: "Look the order up first." }));
+    expect(output).toEqual(JudgeVerdict.failed("Look the order up first."));
   });
 
   it("passes the toolCalls it is given", async () => {

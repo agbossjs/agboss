@@ -20,7 +20,7 @@ export class DeskAnswerJudge implements JudgeHandler<WorkflowFinishTextDto> {
     return Promise.resolve(
       WHEREABOUTS.test(reply.text)
         ? JudgeVerdict.passed({ metrics })
-        : JudgeVerdict.failed({ reason: "the answer does not say where the order is", metrics }),
+        : JudgeVerdict.failed("the answer does not say where the order is", { metrics }),
     );
   }
 }

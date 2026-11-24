@@ -22,7 +22,7 @@ Which primitive to pick: `01-composition-and-architecture.md`; the flow: `02-flo
 | `@InputGuardrail` / `@OutputGuardrail` (`guardrails/<name>/<name>.guardrail.ts`)                | code: `InputGuardrailHandler` / `OutputGuardrailHandler`       | `name`, `description`, `decidedBy`; model: `model`, `prompt`, `refusalMessage`; code: `deps`                                                                                                                                                                                                                                                                                                                                      |
 | `@ReplyInterpreter` (`reply-interpreters/<name>/<name>.reply-interpreter.ts`)                   | —                                                              | `name?`, `model`, `prompt` / `promptUrls`, `decision`                                                                                                                                                                                                                                                                                                                                                                             |
 | `@Budget` (`budgets/<name>.budget.ts`)                                                          | `BudgetHandler`: `maxSpend()`                                  | `name` (`-budget`), `scope`, `period`, `deps`                                                                                                                                                                                                                                                                                                                                                                                     |
-| `@HealthCheck` (`health-checks/<name>.health-check.ts`)                                         | `HealthCheckHandler`: `check()`                                | `name?`, `timeout`, `deps`                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `@HealthCheck` (`health-checks/<name>.health-check.ts`)                                         | `check(ctx?: HealthCheckContext)`                              | `name?`, `timeout?` (5 s), `deps`                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `@ToolInterceptor` (`tool-interceptors/<name>.tool-interceptor.ts`)                             | `BeforeToolCall` and / or `AfterToolCall`                      | `name?`, `description?`, `deps`                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `@Injectable` service (`services/<name>.service.ts`)                                            | domain / API / filesystem orchestration (no direct DB/SQL)     | `deps` (`services/` holds **only** `*.service.ts`)                                                                                                                                                                                                                                                                                                                                                                                |
 | `@Injectable` repository (`repositories/<name>.repository.ts`)                                  | direct DB access via typed ORM (e.g. Drizzle) or store impl    | `deps` (uses `schemas/<name>.schema.ts` & `sql/<name>.sql`, zero string-interpolated SQL)                                                                                                                                                                                                                                                                                                                                         |
@@ -335,7 +335,7 @@ export class CitesSourceJudge implements JudgeHandler<DeskAnswerDto> {
     });
     return answers.cites.probability >= 0.5
       ? JudgeVerdict.passed({ metrics: { cites: answers.cites.probability } })
-      : JudgeVerdict.failed({ reason: "cite a [source] for every claim" }); // read by the retry
+      : JudgeVerdict.failed("cite a [source] for every claim"); // read by the retry
   }
 }
 ```
@@ -378,19 +378,20 @@ search-help-center-rag-tool, and cite every claim as [source].
 
 ```ts file=src/desk/health-checks/crm.health-check.ts
 // health-checks/crm.health-check.ts — a readiness component of the project
-import { HealthCheck, HealthCheckResult, type HealthCheckHandler } from "@agboss/core";
+import { HealthCheck, HealthCheckResult, type HealthCheckContext } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CrmClientService } from "../services/crm-client.service.js";
 
 @HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClientService] })
-export class CrmHealthCheck implements HealthCheckHandler {
+export class CrmHealthCheck {
   constructor(private readonly crmClientService: CrmClientService) {}
 
-  async check(): Promise<HealthCheckResult> {
+  async check(ctx: HealthCheckContext): Promise<HealthCheckResult> {
+    // ctx.signal aborts when the check passes its timeout
     const isReachable: boolean = await this.crmClientService.ping();
     return isReachable
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+      : HealthCheckResult.unhealthy("CRM is unreachable");
   }
 }
 ```
@@ -586,7 +587,7 @@ Injected like any dependency, read only while a step runs (outside → `Executio
   `isVariant(input, OfferDto)` (`input.variant` is the class the answer validated as); a
   `listOf(oneOf(…))` reply's items are `VariantOf<A | B>` (`{ variant, value }`, narrowed with
   `isVariant(item, A)`).
-- Verdicts only through `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed({ reason })`; when
+- Verdicts only through `JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason)`; when
   `maxRetries` are spent the step fails with `QualityGateError` (`rejections: [{ judge, reason }]`).
 
 <!-- snippet-context
@@ -610,7 +611,7 @@ export class OfferRangeJudge implements JudgeHandler<OfferDto | RefusalDto> {
     return Promise.resolve(
       input.reply.salary > 0 // narrowed: input.reply is an OfferDto here
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed({ reason: "the salary must be positive" }),
+        : JudgeVerdict.failed("the salary must be positive"),
     );
   }
 }

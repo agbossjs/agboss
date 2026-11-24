@@ -185,7 +185,7 @@ export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
     });
     return answers.reasoned.probability >= 0.5
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "give a reason that supports the decision" });
+      : JudgeVerdict.failed("give a reason that supports the decision");
   }
 }
 ```
@@ -202,7 +202,7 @@ export class ShortReasonJudge implements JudgeHandler<VerdictDto> {
     return Promise.resolve(
       reply.reason.trim() !== "" && words <= 30
         ? JudgeVerdict.passed({ metrics: { words } })
-        : JudgeVerdict.failed({ reason: "give the reason in one sentence, at most 30 words" }),
+        : JudgeVerdict.failed("give the reason in one sentence, at most 30 words"),
     );
   }
 }
@@ -219,7 +219,7 @@ export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
     return Promise.resolve(
       reply.hireId.startsWith("hire-")
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed({ reason: `not a hire id: ${reply.hireId}` }),
+        : JudgeVerdict.failed(`not a hire id: ${reply.hireId}`),
     );
   }
 }

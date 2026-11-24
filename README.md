@@ -831,7 +831,7 @@ has `variant` as that one class; a `listOf(oneOf(A, B))` judge reads
 fails assembly with `[judge.wrong-reply]`: a text agent with a DTO judge, a DTO agent with another
 class, a `oneOf` variant the judge does not cover, a list agent with a judge of one value or the
 other way round. A verdict is built with `JudgeVerdict.passed({ metrics? })` or
-`JudgeVerdict.failed({ reason, metrics? })` — the only way; a failed verdict's `reason` goes back to
+`JudgeVerdict.failed(reason, { metrics? })` — the only way; a failed verdict's `reason` goes back to
 the agent for its retry, and once `maxRetries` retries are spent the run throws `QualityGateError`
 (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`). A judge without a model
 fails at app start (`[judge.no-model]`).
@@ -896,7 +896,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
   async judge({ reply, task }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
     const [first] = reply.jobs;
     if (first === undefined || !(await this.jobSearch.exists(first.url))) {
-      return JudgeVerdict.failed({ reason: "the first job does not exist" });
+      return JudgeVerdict.failed("the first job does not exist");
     }
     const a = await this.judgeModel.decide({
       state: { task, jobs: reply.jobs.map((job) => job.title), results: this.jobSearch.lastResults() },
@@ -912,7 +912,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
     // a.grounded.probability: number; a.tone.choice: "neutral" | "pushy"; a.quality.score: number
     return a.grounded.probability > 0.7 && a.tone.choice === "neutral"
       ? JudgeVerdict.passed({ metrics: { quality: a.quality.score } })
-      : JudgeVerdict.failed({ reason: "Only report jobs from the search results, neutrally." });
+      : JudgeVerdict.failed("Only report jobs from the search results, neutrally.");
   }
 }
 ```
@@ -948,13 +948,13 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
       return Promise.resolve(
         input.reply.salary > 0
           ? JudgeVerdict.passed()
-          : JudgeVerdict.failed({ reason: "an offer pays something" }),
+          : JudgeVerdict.failed("an offer pays something"),
       );
     }
     // input.reply is a RefusalDto
     return Promise.resolve(
       input.reply.why.trim() === ""
-        ? JudgeVerdict.failed({ reason: "a refusal says why" })
+        ? JudgeVerdict.failed("a refusal says why")
         : JudgeVerdict.passed(),
     );
   }
@@ -1756,7 +1756,7 @@ component's (`HealthStatus.Healthy | Degraded | Unhealthy`), each component has 
 ([Wiki → Health-checks](https://github.com/agbossjs/agboss/wiki/Health-checks)).
 
 <!-- snippet-context
-import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthCheckHandler, type HealthReport } from "@agboss/core";
+import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthReport } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 @Injectable()
 export class CrmClient {
@@ -1769,14 +1769,14 @@ declare const app: App;
 
 ```ts
 @HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClient] })
-export class CrmHealthCheck implements HealthCheckHandler {
+export class CrmHealthCheck {
   constructor(private readonly crmClient: CrmClient) {}
 
   async check(): Promise<HealthCheckResult> {
     const isReachable: boolean = await this.crmClient.ping();
     return isReachable
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+      : HealthCheckResult.unhealthy("CRM is unreachable");
   }
 }
 

@@ -18,7 +18,7 @@ export class FlowJudge implements JudgeHandler<PlainTextDto> {
 
   async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const said = await this.judgeModel.invoke(`Is this fine? ${reply.text}`);
-    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "no" });
+    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("no");
   }
 }
 
@@ -63,7 +63,7 @@ export class ShapeJudge implements JudgeHandler<ShapeDto> {
 
   async judge({ reply }: JudgeInput<ShapeDto>): Promise<JudgeVerdict> {
     const said = await this.judgeModel.invoke(`Is this shape fine? ${reply.shape}`);
-    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "no" });
+    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("no");
   }
 }
 

@@ -32,7 +32,7 @@ constructor — `deps: [JudgeModel]`, each call going to the model of the judge 
 through `deps: [ExecutionContext]` (the judged agent is `step.component`).
 
 A verdict is built only with **`JudgeVerdict.passed({ metrics? })`** or
-**`JudgeVerdict.failed({ reason, metrics? })`** — a plain object does not compile (one way). A
+**`JudgeVerdict.failed(reason, { metrics? })`** — a plain object does not compile (one way). A
 failed verdict's `reason` is what the agent reads before its retry.
 
 ```ts file=judges/correctness.judge.ts
@@ -60,7 +60,7 @@ export class CorrectnessJudge implements JudgeHandler<PlainTextDto> {
     );
     return verdict.trim().startsWith("PASS")
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: verdict, metrics: { attempt } });
+      : JudgeVerdict.failed(verdict, { metrics: { attempt } });
   }
 }
 ```
@@ -99,7 +99,7 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
     });
     return a.grounded.probability > 0.7 && a.quality.score >= 1
       ? JudgeVerdict.passed({ metrics: { quality: a.quality.score } })
-      : JudgeVerdict.failed({ reason: "Only state facts you can support, and answer the whole task." });
+      : JudgeVerdict.failed("Only state facts you can support, and answer the whole task.");
   }
 }
 ```
@@ -138,7 +138,7 @@ export class OneSentenceJudge implements JudgeHandler<PlainTextDto> {
     return Promise.resolve(
       sentences <= 1
         ? JudgeVerdict.passed({ metrics: { sentences, tenant } })
-        : JudgeVerdict.failed({ reason: "answer in one sentence" }),
+        : JudgeVerdict.failed("answer in one sentence"),
     );
   }
 }
@@ -201,7 +201,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
     const found: boolean = first !== undefined && (await this.jobSearch.exists(first.url));
     return found
       ? JudgeVerdict.passed({ metrics: { jobs: reply.jobs.length } })
-      : JudgeVerdict.failed({ reason: "the first job does not exist" });
+      : JudgeVerdict.failed("the first job does not exist");
   }
 }
 ```
@@ -240,13 +240,13 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
       return Promise.resolve(
         input.reply.salary > 0
           ? JudgeVerdict.passed({ metrics: { salary: input.reply.salary } })
-          : JudgeVerdict.failed({ reason: "an offer pays something" }),
+          : JudgeVerdict.failed("an offer pays something"),
       );
     }
     // input.variant is RefusalDto, input.reply a RefusalDto
     return Promise.resolve(
       input.reply.why.trim() === ""
-        ? JudgeVerdict.failed({ reason: "a refusal says why" })
+        ? JudgeVerdict.failed("a refusal says why")
         : JudgeVerdict.passed(),
     );
   }
@@ -290,7 +290,7 @@ export class DecisionsJudge implements JudgeHandler<Decisions> {
     return Promise.resolve(
       salaries.length <= 1
         ? JudgeVerdict.passed({ metrics: { offers: salaries.length } })
-        : JudgeVerdict.failed({ reason: "make at most one offer" }),
+        : JudgeVerdict.failed("make at most one offer"),
     );
   }
 }
@@ -313,7 +313,7 @@ export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
     );
     return found.length > 0 && found.every(Boolean)
       ? JudgeVerdict.passed({ metrics: { jobs: reply.length } })
-      : JudgeVerdict.failed({ reason: "every job must still be posted" });
+      : JudgeVerdict.failed("every job must still be posted");
   }
 }
 ```
@@ -359,7 +359,7 @@ export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
     return Promise.resolve(
       named
         ? JudgeVerdict.passed({ metrics: { lookups: found.length } })
-        : JudgeVerdict.failed({ reason: "State the status the order lookup returned." }),
+        : JudgeVerdict.failed("State the status the order lookup returned."),
     );
   }
 }

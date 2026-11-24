@@ -15,7 +15,7 @@ import {
 import { seconds, type Milliseconds } from "../../src/units/index.js";
 import { MAX_TIMEOUT, timerProblemOf } from "../../src/units/timer-limits.js";
 
-class Handler implements HealthCheckHandler {
+class Handler {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }
@@ -58,7 +58,7 @@ describe("#1366: healthCheckRuleViolations", () => {
     expect(found([Undecorated, MisnamedCheck])).toEqual([
       {
         code: "health.not-a-health-check",
-        message: `Undecorated in ${APP}'s healthChecks has no @HealthCheck({ name, timeout }) decorator`,
+        message: `Undecorated in ${APP}'s healthChecks has no @HealthCheck() decorator`,
         nodes: [APP],
       },
       {

@@ -3857,7 +3857,6 @@ export interface FailedJudgeVerdict {
 // @public
 export interface FailedJudgeVerdictOptions {
     readonly metrics?: JudgeMetrics;
-    readonly reason: string;
 }
 
 // @public
@@ -4651,11 +4650,16 @@ export enum HandOverSite {
 export type HasTenantContext<TApp> = unknown extends TApp ? true : TApp extends TenantContextBranded<infer THas> ? [THas] extends [false] ? false : true : true;
 
 // @public
-export function HealthCheck<const TDeps extends readonly Token[] = []>(options: HealthCheckOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => HealthCheckHandler>(value: TClass) => TClass;
+export function HealthCheck<const TDeps extends readonly Token[] = []>(options?: HealthCheckOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => HealthCheckHandler>(value: TClass) => TClass;
+
+// @public
+export interface HealthCheckContext {
+    readonly signal: AbortSignal;
+}
 
 // @public
 export interface HealthCheckHandler {
-    readonly check: () => Promise<HealthCheckResult>;
+    check(ctx: HealthCheckContext): HealthCheckResult | Promise<HealthCheckResult>;
 }
 
 // @public
@@ -4664,7 +4668,7 @@ export interface HealthCheckOptions<TDeps extends readonly Token[] = readonly To
     // (undocumented)
     readonly description?: string;
     readonly name?: string;
-    readonly timeout: Milliseconds;
+    readonly timeout?: Milliseconds;
 }
 
 // @public
@@ -4673,15 +4677,9 @@ export type HealthCheckResult = HealthyCheckResult | FailedHealthCheckResult;
 // @public
 export const HealthCheckResult: {
     readonly healthy: () => HealthyCheckResult;
-    readonly degraded: (options: HealthCheckResultOptions) => FailedHealthCheckResult;
-    readonly unhealthy: (options: HealthCheckResultOptions) => FailedHealthCheckResult;
+    readonly degraded: (reason: string) => FailedHealthCheckResult;
+    readonly unhealthy: (reason: string) => FailedHealthCheckResult;
 };
-
-// @public
-export interface HealthCheckResultOptions {
-    // (undocumented)
-    readonly reason: string;
-}
 
 // @public
 export enum HealthComponentKind {
@@ -4690,7 +4688,6 @@ export enum HealthComponentKind {
     PauseTimers = "pause-timers",
     Project = "project",
     RecoveryLoop = "recovery-loop",
-    StepSlots = "step-slots",
     Store = "store"
 }
 
@@ -4709,6 +4706,9 @@ export interface HealthComponentReport {
 export interface HealthReport {
     // (undocumented)
     readonly components: readonly HealthComponentReport[];
+    readonly isAlive: boolean;
+    readonly isBusy: boolean;
+    readonly isReady: boolean;
     // (undocumented)
     readonly status: HealthStatus;
 }
@@ -5380,7 +5380,7 @@ export type JudgeVerdict = PassedJudgeVerdict | FailedJudgeVerdict;
 // @public
 export const JudgeVerdict: {
     readonly passed: (options?: PassedJudgeVerdictOptions) => PassedJudgeVerdict;
-    readonly failed: (options: FailedJudgeVerdictOptions) => FailedJudgeVerdict;
+    readonly failed: (reason: string, options?: FailedJudgeVerdictOptions) => FailedJudgeVerdict;
 };
 
 // @public
@@ -5774,6 +5774,7 @@ export abstract class Logger {
 
 // @public
 export enum LogLevel {
+    Debug = "debug",
     Error = "error",
     Info = "info",
     Warn = "warn"
@@ -12328,7 +12329,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/health/health-check.ts - (ae-undocumented) Missing documentation for "components".
 // src/health/health-check.ts - (ae-undocumented) Missing documentation for "status".
 // src/health/health-check.ts - (ae-undocumented) Missing documentation for "status".
-// src/health/health-check.ts - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts - (ae-undocumented) Missing documentation for "reason".
 // src/health/health-check.ts - (ae-undocumented) Missing documentation for "description".
 // src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "tenantId".

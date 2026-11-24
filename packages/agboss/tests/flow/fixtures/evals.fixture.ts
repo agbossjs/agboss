@@ -134,7 +134,7 @@ export class QuotesLookupJudge implements JudgeHandler<WorkflowFinishTextDto> {
     return Promise.resolve(
       status !== "" && reply.text.includes(status)
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed({ reason: "the answer does not quote the lookup" }),
+        : JudgeVerdict.failed("the answer does not quote the lookup"),
     );
   }
 }

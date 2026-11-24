@@ -23,8 +23,7 @@ import {
 
 const test = testWith(BusySlotsApplication);
 
-const slotsOf = (report: HealthReport): HealthStatus | undefined =>
-  report.components.find((component) => component.kind === HealthComponentKind.StepSlots)?.status;
+const slotsOf = (report: HealthReport): boolean => report.isBusy;
 
 /** Two chunks whose agents each wait 5 s on the clock in their model call, holding a step slot. */
 const chunkTurns = [waitFor(seconds(5))] as const;
@@ -61,7 +60,7 @@ describe("#646 AC1: advance right after execute", () => {
     await clock.advance(seconds(5));
     const done = await Promise.all([first, second]);
 
-    expect(slotsOf(busy)).toBe(HealthStatus.Degraded);
+    expect(slotsOf(busy)).toBe(true);
     expect(done[0]).toFinishWith(ChunkWorkflowFinish, { summary: "slot-1 done" });
     expect(done[1]).toFinishWith(ChunkWorkflowFinish, { summary: "slot-2 done" });
   });
@@ -84,7 +83,7 @@ describe("#646 AC1: advance right after execute", () => {
     await clock.advance(seconds(5));
     const done = await Promise.all([first, second]);
 
-    expect(slotsOf(busy)).toBe(HealthStatus.Degraded);
+    expect(slotsOf(busy)).toBe(true);
     expect(done.map((result) => result.finish)).toMatchObject([
       { name: "chunk-workflow-finish" },
       { name: "chunk-workflow-finish" },

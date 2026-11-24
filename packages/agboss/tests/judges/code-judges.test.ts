@@ -103,7 +103,7 @@ class InjectedModelJudge implements JudgeHandler<PlainTextDto> {
   async judge(): Promise<JudgeVerdict> {
     return (await this.judgeModel.invoke("ok?")) === "yes"
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "no" });
+      : JudgeVerdict.failed("no");
   }
 }
 
@@ -184,7 +184,7 @@ describe("#396: testJudge on a code judge", () => {
 
     expect(passed.output).toEqual(JudgeVerdict.passed({ metrics: { words: 3, tenantId: "acme" } }));
     expect(passed.spend).toMatchObject({ calls: 0, totalUsd: usd(0), trace: [] });
-    expect(failed.output).toEqual(JudgeVerdict.failed({ reason: "never say guarantee" }));
+    expect(failed.output).toEqual(JudgeVerdict.failed("never say guarantee"));
   });
 
   it("a model script for a code judge is a mistake in the test", () => {

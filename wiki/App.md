@@ -444,7 +444,8 @@ then raised again, so the process ends as it would have without the app. `testWi
 
 ## `app.checkLiveness()` / `app.checkReadiness()`
 
-The instance's probes (#300) → `HealthReport { status, components }`, never a rejection.
+The instance's probes (#300) → `HealthReport { status, components, isBusy, isAlive, isReady }`, never a rejection
+(`isBusy`: every step slot taken; `isAlive`: not `Unhealthy`; `isReady`: alive and not busy — 200, else 503).
 Liveness reads only the instance itself: `Unhealthy` (`stopping`) from `app.close()` on, and when
 its recovery loop is stuck. Readiness adds every store's `ping()`, the model providers' circuit
 breakers (open → `Degraded`) and the project's `@HealthCheck`s of `@Application({ healthChecks })`.

@@ -24,7 +24,7 @@ export class A2AJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
   async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const said = await this.judgeModel.invoke(`RUBRIC ${reply.text}`);
-    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "no" });
+    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("no");
   }
 }
 

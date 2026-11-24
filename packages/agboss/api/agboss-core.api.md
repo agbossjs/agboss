@@ -299,7 +299,7 @@ export type JudgeVerdict = PassedJudgeVerdict | FailedJudgeVerdict;
 // @public
 export const JudgeVerdict: {
     readonly passed: (options?: PassedJudgeVerdictOptions) => PassedJudgeVerdict;
-    readonly failed: (options: FailedJudgeVerdictOptions) => FailedJudgeVerdict;
+    readonly failed: (reason: string, options?: FailedJudgeVerdictOptions) => FailedJudgeVerdict;
 };
 
 // @public

@@ -54,7 +54,7 @@ describe("testJudge", () => {
 
     const { output } = await runJudge(input);
 
-    expect(output).toEqual(JudgeVerdict.failed({ reason: "cite the source of every claim" }));
+    expect(output).toEqual(JudgeVerdict.failed("cite the source of every claim"));
   });
 
   it("a chat judge reads its model's reply", async () => {
@@ -99,7 +99,7 @@ describe("testJudge", () => {
       attempt: 1,
     });
 
-    expect(output).toEqual(JudgeVerdict.failed({ reason: "the first job does not exist" }));
+    expect(output).toEqual(JudgeVerdict.failed("the first job does not exist"));
   });
 
   it("a reply of another shape does not compile", async () => {

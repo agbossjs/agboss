@@ -24,7 +24,7 @@ export class ChatDecider implements JudgeHandler<PlainTextDto> {
       state: reply.text,
       questions: { ok: Decision.boolean("The reply is fine") },
     });
-    return a.ok.probability > 0.5 ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "not fine" });
+    return a.ok.probability > 0.5 ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
   }
 }
 
@@ -35,7 +35,7 @@ export class DecisionChatter implements JudgeHandler<PlainTextDto> {
 
   async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const fine = (await this.judgeModel.invoke(`Is this fine? ${reply.text}`)) === "yes";
-    return fine ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "not fine" });
+    return fine ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
   }
 }
 

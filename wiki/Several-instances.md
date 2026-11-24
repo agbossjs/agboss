@@ -1802,10 +1802,10 @@ export class DeskApplication {}
   for each child it claimed that holds no slot at the moment (before its first step, between two)
   — a child at work is counted once, by the slot it holds (#767). An instance of 32 free slots
   keeps 32 children at work while the queue has more, and never claims more children than its slots.
-- **Readiness**: a full instance reports the component `step-slots`
-  ([`HealthComponentKind.StepSlots`](Health-checks#the-report)) as `Degraded` —
-  `"32 of 32 step slots busy, 7 steps waiting"` — and `Healthy` again once a slot frees; liveness is
-  not affected. A load balancer that reads readiness sends new requests to the other instances.
+- **Readiness**: a full instance reports `isBusy: true` on its `HealthReport` (and `isReady: false`,
+  `isAlive` unchanged) until a slot frees — `status` stays what its components say, so a `Degraded`
+  one is never hidden by a full queue. A load balancer that reads `isReady` sends new requests to
+  the other instances.
 - `agboss describe` prints `maxConcurrentSteps 32 (set)` (or `none (not set)`); `describe --json` has
   `application.maxConcurrentSteps` (`null` when unset).
 - The slots are in-process (one `StepSlots` per `createApp`); they are not shared through a store —

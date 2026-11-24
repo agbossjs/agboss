@@ -43,7 +43,7 @@ export class AnswerGrounded implements JudgeHandler<PlainTextDto> {
     const grounded: number = a.grounded.probability;
     return grounded > 0.7 && tone === "neutral"
       ? JudgeVerdict.passed({ metrics: { quality, grounded } })
-      : JudgeVerdict.failed({ reason: "Only state facts from the task, neutrally." });
+      : JudgeVerdict.failed("Only state facts from the task, neutrally.");
   }
 }
 
@@ -59,7 +59,7 @@ export class LooksRight implements JudgeHandler<PlainTextDto> {
     });
     return a.matches.probability >= 0.5
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "Describe the chart." });
+      : JudgeVerdict.failed("Describe the chart.");
   }
 }
 

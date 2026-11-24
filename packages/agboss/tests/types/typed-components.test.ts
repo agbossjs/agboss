@@ -87,9 +87,7 @@ describe("#262 S115: a judge judges the reply it declares, with a built verdict"
     class Mismatched {
       judge(input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
         return Promise.resolve(
-          input.reply.text === ""
-            ? JudgeVerdict.failed({ reason: "empty" })
-            : JudgeVerdict.passed(),
+          input.reply.text === "" ? JudgeVerdict.failed("empty") : JudgeVerdict.passed(),
         );
       }
     }
@@ -122,9 +120,7 @@ describe("#262 S125: a oneOf judge reads its variant", () => {
         reply,
       }: JudgeInput<readonly VariantOf<SalaryDto | ReasonDto>[]>): Promise<JudgeVerdict> {
         const paid = reply.some((item) => isVariant(item, SalaryDto) && item.value.salary > 0);
-        return Promise.resolve(
-          paid ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "unpaid" }),
-        );
+        return Promise.resolve(paid ? JudgeVerdict.passed() : JudgeVerdict.failed("unpaid"));
       }
     }
 

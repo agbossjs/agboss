@@ -15,7 +15,6 @@ import {
   HealthCheckResult,
   HealthStatus,
   nameOf,
-  type HealthCheckHandler,
 } from "../../src/index.js";
 import { seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -33,28 +32,28 @@ async function violationsOf(application: Class): Promise<string[]> {
 }
 
 @HealthCheck({ name: "queue-health-check", timeout: seconds(1) })
-class QueueHealthCheck implements HealthCheckHandler {
+class QueueHealthCheck {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }
 }
 
 @HealthCheck({ name: "queue-health-check", timeout: seconds(1) })
-class SecondQueueHealthCheck implements HealthCheckHandler {
+class SecondQueueHealthCheck {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }
 }
 
 @HealthCheck({ name: "Queue_Probe", timeout: seconds(1) })
-class MisnamedHealthCheck implements HealthCheckHandler {
+class MisnamedHealthCheck {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }
 }
 
 /** Has the method, not the decorator. */
-class UndecoratedHealthCheck implements HealthCheckHandler {
+class UndecoratedHealthCheck {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }
@@ -79,7 +78,7 @@ describe("#300: the health checks' assembly rules", () => {
   it("fails with every violation at once: undecorated, misnamed, a name twice", async () => {
     expect(await violationsOf(CheckedApplication)).toEqual([
       '[name.not-kebab-case] "Queue_Probe" on @HealthCheck — a name is kebab-case: "queue-probe"',
-      "[health.not-a-health-check] UndecoratedHealthCheck in checked-application's healthChecks has no @HealthCheck({ name, timeout }) decorator",
+      "[health.not-a-health-check] UndecoratedHealthCheck in checked-application's healthChecks has no @HealthCheck() decorator",
       '[health.duplicate-name] "queue-health-check" names QueueHealthCheck and SecondQueueHealthCheck in checked-application\'s healthChecks — give each its own name',
     ]);
   });
@@ -87,13 +86,13 @@ describe("#300: the health checks' assembly rules", () => {
   it("deps are checked against the constructor (compile time)", () => {
     // @ts-expect-error — the constructor needs a CrmClient, `deps` names none
     @HealthCheck({ name: "crm-without-deps-health-check", timeout: seconds(1) })
-    class CrmWithoutDepsHealthCheck implements HealthCheckHandler {
+    class CrmWithoutDepsHealthCheck {
       constructor(private readonly crmClient: CrmClient) {}
 
       async check(): Promise<HealthCheckResult> {
         return (await this.crmClient.ping())
           ? HealthCheckResult.healthy()
-          : HealthCheckResult.unhealthy({ reason: "down" });
+          : HealthCheckResult.unhealthy("down");
       }
     }
 
@@ -107,11 +106,11 @@ describe("#300: the health checks' assembly rules", () => {
 
 describe("#300: HealthCheckResult", () => {
   it("is built frozen by its builders: healthy, degraded and unhealthy with a reason", () => {
-    const degraded = HealthCheckResult.degraded({ reason: "slow" });
+    const degraded = HealthCheckResult.degraded("slow");
 
     expect(HealthCheckResult.healthy()).toEqual({ status: HealthStatus.Healthy });
     expect(degraded).toEqual({ status: HealthStatus.Degraded, reason: "slow" });
-    expect(HealthCheckResult.unhealthy({ reason: "down" })).toEqual({
+    expect(HealthCheckResult.unhealthy("down")).toEqual({
       status: HealthStatus.Unhealthy,
       reason: "down",
     });

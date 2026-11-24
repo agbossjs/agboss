@@ -50,7 +50,7 @@ class RefundedJudge implements JudgeHandler<RefundCardOutputDto> {
     return Promise.resolve(
       reply.status.startsWith("refunded")
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed({ reason: "no refund reported" }),
+        : JudgeVerdict.failed("no refund reported"),
     );
   }
 }

@@ -12,7 +12,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type HealthCheckHandler,
 } from "../../../src/index.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
@@ -61,21 +60,21 @@ export class CrmClient {
 }
 
 @HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClient] })
-export class CrmHealthCheck implements HealthCheckHandler {
+export class CrmHealthCheck {
   constructor(private readonly crmClient: CrmClient) {}
 
   async check(): Promise<HealthCheckResult> {
     const isReachable: boolean = await this.crmClient.ping();
     return isReachable
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+      : HealthCheckResult.unhealthy("CRM is unreachable");
   }
 }
 
 @HealthCheck({ name: "search-health-check", timeout: seconds(1) })
-export class SearchHealthCheck implements HealthCheckHandler {
+export class SearchHealthCheck {
   check(): Promise<HealthCheckResult> {
-    return Promise.resolve(HealthCheckResult.degraded({ reason: "a replica is down" }));
+    return Promise.resolve(HealthCheckResult.degraded("a replica is down"));
   }
 }
 

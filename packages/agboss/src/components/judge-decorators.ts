@@ -155,10 +155,8 @@ export interface PassedJudgeVerdictOptions {
   readonly metrics?: JudgeMetrics;
 }
 
-/** `JudgeVerdict.failed({ reason, metrics? })` — the options of a failed verdict. */
+/** `JudgeVerdict.failed(reason, { metrics? })` — the options of a failed verdict. */
 export interface FailedJudgeVerdictOptions {
-  /** What is wrong with the reply: the agent reads it before its retry. */
-  readonly reason: string;
   /** What the judge measured, for reports. */
   readonly metrics?: JudgeMetrics;
 }
@@ -174,10 +172,10 @@ export const JudgeVerdict = {
     return Object.freeze(verdict) as PassedJudgeVerdict;
   },
   /** The reply fails this judge: `reason` goes back to the agent for its retry. */
-  failed(options: FailedJudgeVerdictOptions): FailedJudgeVerdict {
+  failed(reason: string, options: FailedJudgeVerdictOptions = {}): FailedJudgeVerdict {
     const verdict = {
       passed: false,
-      reason: options.reason,
+      reason,
       ...metricsOf(options.metrics),
     } as const;
     return Object.freeze(verdict) as FailedJudgeVerdict;
@@ -186,7 +184,7 @@ export const JudgeVerdict = {
 
 /** What a `@Judge` class implements: `JudgeHandler<JobReportDto>` judges a `JobReportDto` reply. */
 export interface JudgeHandler<TReply> {
-  /** Judges one reply of the agent: `JudgeVerdict.passed(…)` or `JudgeVerdict.failed({ reason })`. */
+  /** Judges one reply of the agent: `JudgeVerdict.passed(…)` or `JudgeVerdict.failed(reason)`. */
   judge: (input: JudgeInput<TReply>) => Promise<JudgeVerdict>;
 }
 

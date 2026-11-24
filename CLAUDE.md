@@ -712,9 +712,8 @@ ChildPlacement.AnyInstance })`, the same on `.toParallelWorkflows(W, { …, plac
   `createApp`, loaded lazily) with the same claim and queue order (`runtime/launch/slot-queue.ts`:
   closing a branch first, then the deepest, aged on the `Clock`); never an error. A step waiting in
   a provider's rate-limit queue keeps its slot; a waiter at `app.close()` is interrupted at the
-  shutdown timeout and recovered elsewhere. A full instance is `Degraded` in readiness (component
-  `step-slots`, `HealthComponentKind.StepSlots`, `reason: "32 of 32 step slots busy, 7 steps
-waiting"`) and its recovery sweep starts at most its free slots' worth of recoveries per look;
+  shutdown timeout and recovered elsewhere. A full instance reports `isBusy: true` (not `isReady`) on
+  its `HealthReport`, orthogonal to `status`, and its recovery sweep starts at most its free slots' worth of recoveries per look;
   `agboss describe` prints `maxConcurrentSteps 32 (set)` (`--json`: `maxConcurrentSteps`).
 - **Quorums (#279):** after `.toParallelAgents(…)` a join may count answers instead of waiting for
   all — `.joinQuorum({ min, max, deadline })` (options always an object; `max` defaults to `min`,
@@ -2208,7 +2207,7 @@ class the answer validated as, from the answer tool the agent used (never guesse
 `listOf(oneOf(…))` judge has none of its own, only its items'. an agent whose `output` its judge does not judge (a
 text agent with a DTO judge, a `oneOf` variant it does not cover, a list agent with a judge of one
 value or the other way round) fails assembly with `[judge.wrong-reply]`. Verdicts are built only with
-`JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed({ reason, metrics? })`; a failed one's
+`JudgeVerdict.passed({ metrics? })` / `JudgeVerdict.failed(reason, { metrics? })`; a failed one's
 `reason` goes back to the agent for its retry, and when retries are spent the run throws
 `QualityGateError` (`rejections: [{ judge, reason }]`). `testJudge(Judge, …)({ variant, reply,
 task, attempt })` takes `reply` as a plain object, typed by the judge (a `variant` with another
@@ -2669,19 +2668,17 @@ ModelProvider | Project | StepSlots, status, reason?, duration }`) — the proje
   sweep intervals ago on the `Clock`). Readiness: liveness's components, every store's `ping()`
   (the #265 contracts, the checkpoint saver — one without `ping()` is read for a thread that does not
   exist), every model provider's circuit breaker from `RateLimitRepository` (open → `Degraded`, never
-  a model call), the instance's step slots when `maxConcurrentSteps` is set (`Degraded` while none
-  is free, #332) and every `@HealthCheck` of `@Application({ healthChecks })` — at once, each under
+  a model call) and every `@HealthCheck` of `@Application({ healthChecks })` — at once, each under
   its timeout (stores and providers `seconds(2)`) on the `Clock`. A check that throws or times out
   is that component's `Unhealthy` (`reason`: the error's message, `timed out after 2 s`); neither
-  call rejects. `@HealthCheck({ name?, timeout, deps? })` (`[name.not-kebab-case]`;
-  `[health.not-a-health-check]`, `[health.duplicate-name]`) + `implements HealthCheckHandler`,
-  created by the container; `check()` returns `HealthCheckResult.healthy()` / `.degraded({ reason
-})` / `.unhealthy({ reason })` (branded: a plain object does not compile). The probes load on first
+  call rejects. `HealthReport.isBusy` (every step slot taken, never without a cap), `isAlive` (`status` is not `Unhealthy`) and `isReady` (alive and not busy: 200, else 503) are orthogonal to `status`. `@HealthCheck({ name?, timeout?, deps? })` (`timeout` default `seconds(5)`; `[name.not-kebab-case]`;
+  `[health.not-a-health-check]`, `[health.duplicate-name]`), no `implements`, created by the container;
+  `check(ctx?: HealthCheckContext)` (sync or async; `ctx.signal` aborts at the timeout) returns `HealthCheckResult.healthy()` / `.degraded(reason)` / `.unhealthy(reason)` (branded: a plain object does not compile). The probes load on first
   use (`src/health/application-health.ts`); `testWith`'s `app` has both, also during and after
   `close()`.
 
 <!-- snippet-context
-import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthCheckHandler, type HealthReport } from "@agboss/core";
+import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthReport } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 @Injectable()
 export class CrmClient {
@@ -2694,14 +2691,14 @@ declare const app: App;
 
 ```ts
 @HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClient] })
-export class CrmHealthCheck implements HealthCheckHandler {
+export class CrmHealthCheck {
   constructor(private readonly crmClient: CrmClient) {}
 
   async check(): Promise<HealthCheckResult> {
     const isReachable: boolean = await this.crmClient.ping();
     return isReachable
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+      : HealthCheckResult.unhealthy("CRM is unreachable");
   }
 }
 

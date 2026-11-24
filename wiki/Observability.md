@@ -600,6 +600,8 @@ no budget amount), nothing per tenant — two kinds of lines, then the startup w
 More at start is the project's own: a component with `OnStart` logs what it wants (a budget is a
 component and can be injected).
 
+`LogLevel.Debug` is the fourth level, for a developer's own sink: the framework itself writes none.
+
 **While it runs**, only problems of the system: `LogLevel.Warn` at risk (`execution.recovered`,
 `recovery.incompatible`, `observer.failed`, `pause.notice-failed`, `pause.notice-recipient-unknown`,
 `pause.expiry-handler-failed`, `pause.expiry-failed`, `pause.reminder-failed`, `pause.reassign-send-failed`,

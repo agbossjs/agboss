@@ -1066,7 +1066,7 @@ it("looks the order up in the book it is given", async () => {
   does not compile (#262 S115, S125); the injected `JudgeModel` is the judge's own model
   answering from `model` — `decideWith(…)` on a decision model, `replyWith(…)` on a chat model; the
   wrong call for its kind is `ModelKindError`, as at run time. The output is the verdict,
-  `JudgeVerdict.passed(…)` / `JudgeVerdict.failed({ reason })`. A code judge (`decidedBy:
+  `JudgeVerdict.passed(…)` / `JudgeVerdict.failed(reason)`. A code judge (`decidedBy:
   DecidedBy.Code`, #396) runs its `judge(input)` alone: no `model` (one is a `TestSetupError`), no
   spend; the judge's assembly rules apply (`[judge.model-on-code-judge]`).
 - **`testCompaction`** (#395 PR 5) — a `CompactionRunner` — checks the compaction's rules first, then
@@ -1111,7 +1111,7 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
     });
     return answers.grounded.probability > 0.5
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "ground every claim in the task" });
+      : JudgeVerdict.failed("ground every claim in the task");
   }
 }
 @PiiPolicy({

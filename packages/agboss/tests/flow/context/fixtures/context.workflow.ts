@@ -108,7 +108,7 @@ export class PickyJudge implements JudgeHandler<DraftDto> {
       `${this.judgeModel.model}:${this.executionContext.step.nodeId}:${String(attempt)}`,
     );
     return Promise.resolve(
-      attempt === 0 ? JudgeVerdict.failed({ reason: "again" }) : JudgeVerdict.passed(),
+      attempt === 0 ? JudgeVerdict.failed("again") : JudgeVerdict.passed(),
     );
   }
 }

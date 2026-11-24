@@ -48,7 +48,7 @@ export class Grounded implements JudgeHandler<PlainTextDto> {
     );
     return verdict.startsWith("PASS")
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: verdict.replace(/^FAIL:\s*/u, "") });
+      : JudgeVerdict.failed(verdict.replace(/^FAIL:\s*/u, ""));
   }
 }
 

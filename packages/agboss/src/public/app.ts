@@ -25,7 +25,7 @@ export {
   type FailedHealthCheckResult,
   type HealthCheckHandler,
   type HealthCheckOptions,
-  type HealthCheckResultOptions,
+  type HealthCheckContext,
   type HealthComponentReport,
   type HealthReport,
   type HealthyCheckResult,

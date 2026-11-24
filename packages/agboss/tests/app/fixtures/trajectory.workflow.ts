@@ -85,7 +85,7 @@ export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
     return Promise.resolve(
       lookups.length > 0
         ? JudgeVerdict.passed({ metrics: { lookups: lookups.length } })
-        : JudgeVerdict.failed({ reason: "Look the order up first." }),
+        : JudgeVerdict.failed("Look the order up first."),
     );
   }
 }

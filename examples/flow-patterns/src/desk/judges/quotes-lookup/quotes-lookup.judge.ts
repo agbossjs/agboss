@@ -29,7 +29,7 @@ export class QuotesLookupJudge implements JudgeHandler<PlainTextDto> {
     return Promise.resolve(
       missing.length === 0
         ? JudgeVerdict.passed({ metrics: { lookups: looked.length } })
-        : JudgeVerdict.failed({ reason: "name the order you looked up in the answer" }),
+        : JudgeVerdict.failed("name the order you looked up in the answer"),
     );
   }
 }

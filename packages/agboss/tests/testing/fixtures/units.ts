@@ -133,7 +133,7 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
     });
     return answers.grounded.probability > 0.5
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "cite the source of every claim" });
+      : JudgeVerdict.failed("cite the source of every claim");
   }
 }
 
@@ -150,7 +150,7 @@ export class ToneJudge implements JudgeHandler<PlainTextDto> {
     const said = await this.judgeModel.invoke(
       `Is this polite? Answer PASS or FAIL.\n${reply.text}`,
     );
-    return said.trim() === "PASS" ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "rude" });
+    return said.trim() === "PASS" ? JudgeVerdict.passed() : JudgeVerdict.failed("rude");
   }
 }
 

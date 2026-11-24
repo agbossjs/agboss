@@ -56,7 +56,7 @@ export class NoBannedWordsJudge implements JudgeHandler<PlainTextDto> {
     return Promise.resolve(
       found.length === 0
         ? JudgeVerdict.passed({ metrics: { words: reply.text.split(" ").length, tenantId } })
-        : JudgeVerdict.failed({ reason: `never say ${found.join(", ")}` }),
+        : JudgeVerdict.failed(`never say ${found.join(", ")}`),
     );
   }
 }
@@ -149,6 +149,6 @@ export class SecondOpinionJudge implements JudgeHandler<PlainTextDto> {
         ? tried.reason.message
         : "answered",
     );
-    return JudgeVerdict.failed({ reason: outcomes.join(" | ") });
+    return JudgeVerdict.failed(outcomes.join(" | "));
   }
 }

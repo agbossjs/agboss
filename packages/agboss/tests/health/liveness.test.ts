@@ -23,6 +23,9 @@ describe("#300 AC1: liveness", () => {
 
     expect(report).toEqual({
       status: HealthStatus.Healthy,
+      isBusy: false,
+      isAlive: true,
+      isReady: true,
       components: [
         {
           name: "plain-probe-application",

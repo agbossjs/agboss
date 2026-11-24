@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { HealthComponentKind, HealthStatus, type HealthReport } from "../../src/index.js";
+import { HealthStatus } from "../../src/index.js";
 import { TestConcurrency, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -9,16 +9,12 @@ import { PlainProbeApplication } from "./fixtures/health.application.js";
 
 /**
  * #332 AC4 — readiness reads the instance's step slots (`@Application({ maxConcurrentSteps })`):
- * the component `step-slots` is `Degraded` while every slot is busy (its reason: busy, of, waiting)
- * and `Healthy` once one frees; liveness never reads them; no cap → no component.
+ * `isBusy` is true while every slot is busy (and `isReady` false), clear once one frees; `status`
+ * is not touched; no cap → never busy.
  */
 
 const test = testWith(StepCapApplication, { concurrency: TestConcurrency.Real });
 const plain = testWith(PlainProbeApplication);
-
-/** The report's step slots, when it has them. */
-const stepSlotsOf = (report: HealthReport): HealthReport["components"][number] | undefined =>
-  report.components.find((component) => component.kind === HealthComponentKind.StepSlots);
 
 /** Resolves once `count` tasks are at work. */
 async function untilWorking(count: number): Promise<void> {
@@ -40,7 +36,7 @@ const tasks = (count: number, wait: number) =>
 beforeEach(resetTreeLog);
 
 describe("#332 AC4: the step slots in readiness", () => {
-  test("Degraded while all 4 are busy, Healthy once one frees; liveness stays Healthy", async ({
+  test("isBusy while all 4 are busy, clear once one frees; status and liveness are not touched", async ({
     app,
     clock,
   }) => {
@@ -55,30 +51,23 @@ describe("#332 AC4: the step slots in readiness", () => {
     await execution;
     const freed = await app.checkReadiness();
 
-    expect(stepSlotsOf(idle)).toEqual({
-      name: "step-slots",
-      kind: HealthComponentKind.StepSlots,
+    expect(idle).toMatchObject({ isBusy: false, isAlive: true, isReady: true });
+    expect(busy).toMatchObject({
       status: HealthStatus.Healthy,
-      duration: 0,
+      isBusy: true,
+      isAlive: true,
+      isReady: false,
     });
-    expect(stepSlotsOf(busy)).toEqual({
-      name: "step-slots",
-      kind: HealthComponentKind.StepSlots,
-      status: HealthStatus.Degraded,
-      reason: "4 of 4 step slots busy, 3 steps waiting",
-      duration: 0,
-    });
-    expect(busy.status).toBe(HealthStatus.Degraded);
-    expect(live.status).toBe(HealthStatus.Healthy);
-    expect(stepSlotsOf(live)).toBeUndefined();
-    expect(stepSlotsOf(freed)?.status).toBe(HealthStatus.Healthy);
+    expect(live).toMatchObject({ status: HealthStatus.Healthy, isBusy: true, isReady: false });
+    expect(busy.components.map((component) => component.kind)).not.toContain("step-slots");
+    expect(freed).toMatchObject({ isBusy: false, isReady: true });
   });
 });
 
-describe("#332: no cap, no component", () => {
-  plain("an application without maxConcurrentSteps reports no step slots", async ({ app }) => {
+describe("#332: no cap, never busy", () => {
+  plain("an application without maxConcurrentSteps is never busy", async ({ app }) => {
     const report = await app.checkReadiness();
 
-    expect(stepSlotsOf(report)).toBeUndefined();
+    expect(report).toMatchObject({ isBusy: false, isAlive: true, isReady: true });
   });
 });

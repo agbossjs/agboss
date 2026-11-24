@@ -222,9 +222,7 @@ export class RefundRecordedJudge implements JudgeHandler<DeskAnswerDto> {
     return Promise.resolve(
       refunds === 1 && entries === 1
         ? JudgeVerdict.passed({ metrics: { entries, plan } })
-        : JudgeVerdict.failed({
-            reason: `${String(refunds)} refund call(s), ${String(entries)} entries`,
-          }),
+        : JudgeVerdict.failed(`${String(refunds)} refund call(s), ${String(entries)} entries`),
     );
   }
 }
@@ -244,7 +242,7 @@ export class AnswerGroundedJudge implements JudgeHandler<DeskAnswerDto> {
     const answer = await this.judgeModel.invoke(`Is this grounded? ${reply.text}`);
     return answer.trim() === "yes"
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "not grounded" });
+      : JudgeVerdict.failed("not grounded");
   }
 }
 

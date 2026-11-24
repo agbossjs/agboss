@@ -1775,18 +1775,17 @@ export class LoanNotOfferedWorkflowFinish {}
 
 ```ts file=loans/src/health-checks/funds-ledger.health-check.ts
 import { HealthCheck, HealthCheckResult } from "@agboss/core";
-import type { HealthCheckHandler } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { FundsLedgerService } from "../services/funds-ledger.service.js";
 
 @HealthCheck({ name: "funds-ledger-health-check", timeout: seconds(2), deps: [FundsLedgerService] })
-export class FundsLedgerHealthCheck implements HealthCheckHandler {
+export class FundsLedgerHealthCheck {
   constructor(private readonly fundsLedgerService: FundsLedgerService) {}
 
   async check(): Promise<HealthCheckResult> {
     return (await this.fundsLedgerService.ping())
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.unhealthy({ reason: "the funds ledger is unreachable" });
+      : HealthCheckResult.unhealthy("the funds ledger is unreachable");
   }
 }
 ```

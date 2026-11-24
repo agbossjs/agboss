@@ -18,13 +18,7 @@ import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SystemClock } from "../../src/infrastructure/clock.js";
 import { outboundCallsViolations } from "../../src/infrastructure/fenced-effect-settings.js";
 import { meshContextValuesOf } from "../../src/mesh/mesh-context-values.js";
-import {
-  EmptyEnvironment,
-  HealthCheck,
-  HealthCheckResult,
-  Tool,
-  type HealthCheckHandler,
-} from "../../src/index.js";
+import { EmptyEnvironment, HealthCheck, HealthCheckResult, Tool } from "../../src/index.js";
 import {
   ModelCost,
   ModelProvider,
@@ -128,14 +122,14 @@ describe("#1141: @Application timers", () => {
 });
 
 @HealthCheck({ name: "long-health-check", timeout: over(MAX_TIMEOUT) })
-class LongHealthCheck implements HealthCheckHandler {
+class LongHealthCheck {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }
 }
 
 @HealthCheck({ name: "capped-health-check", timeout: MAX_TIMEOUT })
-class CappedHealthCheck implements HealthCheckHandler {
+class CappedHealthCheck {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }

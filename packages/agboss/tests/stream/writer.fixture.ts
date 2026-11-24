@@ -30,9 +30,7 @@ export class AuditJudge implements JudgeHandler<PlainTextDto> {
 
   async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const said = await this.judgeModel.invoke(`INTERNAL RUBRIC. Is this fine? ${reply.text}`);
-    return said.startsWith("PASS")
-      ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "not fine" });
+    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
   }
 }
 

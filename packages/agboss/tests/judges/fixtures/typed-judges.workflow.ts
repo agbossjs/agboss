@@ -74,11 +74,11 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
   async judge({ variant, reply }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
     this.variantLog.seen(variant);
     const [first] = reply.jobs;
-    if (first === undefined) return JudgeVerdict.failed({ reason: "the report has no jobs" });
+    if (first === undefined) return JudgeVerdict.failed("the report has no jobs");
     const found: boolean = await this.jobSearch.exists(first.url);
     return found
       ? JudgeVerdict.passed({ metrics: { jobs: reply.jobs.length, model: this.judgeModel.model } })
-      : JudgeVerdict.failed({ reason: "the first job does not exist" });
+      : JudgeVerdict.failed("the first job does not exist");
   }
 }
 
@@ -155,13 +155,13 @@ export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
       return Promise.resolve(
         salary > 0
           ? JudgeVerdict.passed({ metrics: { salary } })
-          : JudgeVerdict.failed({ reason: "an offer pays something" }),
+          : JudgeVerdict.failed("an offer pays something"),
       );
     }
     return Promise.resolve(
       input.reply.why.trim().length > 0
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed({ reason: "a refusal says why" }),
+        : JudgeVerdict.failed("a refusal says why"),
     );
   }
 }
@@ -224,7 +224,7 @@ export class OfferOnlyJudge implements JudgeHandler<OfferDto> {
 export class TextJudge implements JudgeHandler<PlainTextDto> {
   judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     return Promise.resolve(
-      reply.text.length > 0 ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "empty" }),
+      reply.text.length > 0 ? JudgeVerdict.passed() : JudgeVerdict.failed("empty"),
     );
   }
 }
@@ -356,7 +356,7 @@ export class JobsJudge implements JudgeHandler<readonly JobDto[]> {
     );
     return found.length > 0 && found.every(Boolean)
       ? JudgeVerdict.passed({ metrics: { jobs: reply.length } })
-      : JudgeVerdict.failed({ reason: "every job must still be posted" });
+      : JudgeVerdict.failed("every job must still be posted");
   }
 }
 
@@ -416,7 +416,7 @@ export class DecisionsJudge implements JudgeHandler<Decisions> {
     return Promise.resolve(
       salaries.length <= 1
         ? JudgeVerdict.passed({ metrics: { offers: salaries.length } })
-        : JudgeVerdict.failed({ reason: "make at most one offer" }),
+        : JudgeVerdict.failed("make at most one offer"),
     );
   }
 }
