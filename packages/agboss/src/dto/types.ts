@@ -30,8 +30,8 @@ export type ScalarKind =
 export type FieldKind = ScalarKind | "one-of" | "list-of" | "nested";
 
 /**
- * A sensitive field's action (#120): `sensitive: PiiAction.replaceWithToken()` — a masking action
- * only (`replaceWithKind`, `replacePart`, `replaceWithToken`); `blockWithRefusal` does not compile.
+ * A sensitive field's action (#120): `sensitive: PiiAction.tokenize()` — a masking action
+ * only (`mask()`, `mask(part)`, `tokenize()`); `block` does not compile.
  */
 export type Sensitivity = MaskingPiiAction;
 

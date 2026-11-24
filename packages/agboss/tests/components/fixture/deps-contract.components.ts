@@ -77,7 +77,7 @@ export class AuditGuardrail implements GuardrailRefusal {
   }
 }
 
-@PiiPolicy({ name: "mask-secret-pii-policy", action: PiiAction.replaceWithKind(), deps: [Vault] })
+@PiiPolicy({ name: "mask-secret-pii-policy", action: PiiAction.mask(), deps: [Vault] })
 export class MaskSecret implements PiiPolicyHandler {
   constructor(private readonly vault: Vault) {}
   findMatches(text: string): readonly PiiMatch[] {

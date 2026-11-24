@@ -248,7 +248,7 @@ export async function createWorkflowDeps(
   const connect = options.connectMcp ?? connectConfigured(options.transport);
   const mcp = await connect(bundle, config, env);
   throwIfViolated(redactorValuesViolations(bundle, config, contexts));
-  const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts.piiKey);
+  const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts);
   const tracing = await tracingOf(env, pii.observability, traceRouteOf(config.name, parts));
   const components = componentsAtStart(bundle, services);
   const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);

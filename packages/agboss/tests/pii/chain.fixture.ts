@@ -47,14 +47,14 @@ const matchesOf = (text: string, value: string): readonly PiiMatch[] => {
   return found;
 };
 
-@PiiPolicy({ name: "root-secret-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "root-secret-pii-policy", action: PiiAction.mask() })
 export class RootSecretPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {
     return matchesOf(text, ROOT_SECRET);
   }
 }
 
-@PiiPolicy({ name: "child-secret-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "child-secret-pii-policy", action: PiiAction.mask() })
 export class ChildSecretPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {
     return matchesOf(text, CHILD_SECRET);

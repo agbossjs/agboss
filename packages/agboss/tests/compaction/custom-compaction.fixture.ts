@@ -11,13 +11,11 @@ import {
   CompactionStrategy,
   ExecutionContext,
   Injectable,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   type CompactionHandler,
   type CompactionInput,
   type CompactionTurn,
@@ -80,7 +78,7 @@ export class OtherGraphMemoryCompaction implements CompactionHandler {
 @PiiPolicy({
   name: "graph-contact-pii-policy",
   description: "Hides email addresses",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class GraphContactPiiPolicy {}
 

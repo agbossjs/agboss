@@ -110,7 +110,7 @@ async function regionsAsked(
   options: RedactOptions,
   maxRegions: number,
 ): Promise<{ readonly regions: readonly Region[]; readonly usage: UsageRecord }> {
-  const kinds = options.targets.map(String);
+  const kinds = options.targets.map((target) => target.id);
   const known = new Set<string>([...kinds, ...(options.values.length > 0 ? ["value"] : [])]);
   const mediaType = MEDIA_TYPES[image.format];
   let response;
@@ -197,9 +197,9 @@ export async function redacted(
       cause,
     });
   }
-  const kinds = new Set<string>(Object.values(PiiKind));
-  const found = [...new Set(regions.map((region) => region.target))].filter(
-    (target): target is PiiKind => kinds.has(target),
+  // a region's target is one asked for (`regionsOf` refuses any other): a kind's id or "value"
+  const found = [...new Set(regions.map((region) => region.target))].flatMap(
+    (target) => PiiKind.fromId(target) ?? [],
   );
   const copy: FileContent = {
     mediaType: MEDIA_TYPES[image.format],

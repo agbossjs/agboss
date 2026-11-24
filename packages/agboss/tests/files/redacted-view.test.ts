@@ -9,12 +9,10 @@ import {
   FileView,
   Injectable,
   ModelFiles,
-  PiiAction,
   PiiFileAction,
   PiiKind,
   PiiPolicy,
   PiiRefusedError,
-  pii,
   type FileContent,
   type RedactionResult,
   type RedactOptions,
@@ -30,7 +28,7 @@ import { FETCHABLE, FetchTool, inline, PNG_BYTES, readerApplication } from "./re
 @PiiPolicy({
   name: "redact-cards-pii-policy",
   description: "Hides cards; the files are masked",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.Mask,
 })
 class CardsPolicy {}
@@ -38,7 +36,7 @@ class CardsPolicy {}
 @PiiPolicy({
   name: "redact-ssn-pii-policy",
   description: "Refuses a social security number",
-  rules: [pii(PiiKind.UsSsn, PiiAction.blockWithRefusal({ refusal: "No SSN please." }))],
+  rules: [PiiKind.UsSsn.block("No SSN please.")],
   // a block rule refuses an image whole by default (tests/files/redaction-safety.test.ts); here a model judges
   files: PiiFileAction.RedactWithModel,
 })

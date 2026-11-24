@@ -110,7 +110,7 @@ export const ExecutionState = Annotation.Root({
   /** One record per visit of a node (#395 C3), in the order the visits ended (`record.steps`). */
   stepRecords: Annotation<ExecutionStepRecord[]>({ reducer: append, default: () => [] }),
   /**
-   * The PII token map (#120 S38): token → value of every `replaceWithToken()` the model boundary
+   * The PII token map (#120 S38): token → value of every `tokenize()` the model boundary
    * made — tokens are deterministic, so branches merge by key; kept by a pause, a resume and recovery.
    */
   piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),

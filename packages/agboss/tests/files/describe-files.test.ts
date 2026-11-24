@@ -10,14 +10,14 @@ import { describeServices } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import { elementFingerprintsOf } from "../../src/run/fingerprints.js";
 import { AnswerFiles, FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
-import { PiiAction, PiiFileAction, PiiKind, PiiPolicy, pii } from "../../src/index.js";
+import { PiiFileAction, PiiKind, PiiPolicy } from "../../src/index.js";
 import { megabytes } from "../../src/units/index.js";
 import { readerApplication } from "./reader.factory.js";
 
 @PiiPolicy({
   name: "describe-masks-pii-policy",
   description: "Hides cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.Mask,
 })
 class MaskingPolicy {}
@@ -25,7 +25,7 @@ class MaskingPolicy {}
 @PiiPolicy({
   name: "describe-masks-pii-policy",
   description: "Hides cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.AllowOriginal,
 })
 class OpeningPolicy {}

@@ -44,7 +44,7 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
 
   it("nested and listed DTOs are masked too; arguments without a DTO stay as they are", () => {
     class Holder {
-      @Text({ sensitive: PiiAction.replaceWithKind() })
+      @Text({ sensitive: PiiAction.mask() })
       name!: string;
     }
     class Order {

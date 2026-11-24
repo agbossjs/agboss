@@ -55,7 +55,7 @@ describe("#120 PR 4: the fingerprint covers what an element's model reads outsid
       piiPolicies: [
         {
           name: "contact-pii-policy",
-          rules: [{ target: "email", action: { kind: "replace-with-token" } }],
+          rules: [{ target: "email", action: { kind: "tokenize" } }],
         },
       ],
       judges: [{ name: "polite-judge", model: "test/judge" }],
@@ -66,7 +66,7 @@ describe("#120 PR 4: the fingerprint covers what an element's model reads outsid
       piiPolicies: [
         {
           name: "contact-pii-policy",
-          rules: [{ target: "email", action: { kind: "replace-with-token" } }],
+          rules: [{ target: "email", action: { kind: "tokenize" } }],
         },
       ],
     });
@@ -82,7 +82,7 @@ describe("#120 PR 4: the fingerprint covers what an element's model reads outsid
     });
   });
 
-  it("a policy's action, a replacePart pattern by its text, changes the fingerprint", async () => {
+  it("a policy's action, a mask(part) pattern by its text, changes the fingerprint", async () => {
     const partial = await elementOf({ isPolicyPartial: true }, "answer-agent");
 
     expect(await configHashOf({ isPolicyPartial: true })).not.toBe(await configHashOf());

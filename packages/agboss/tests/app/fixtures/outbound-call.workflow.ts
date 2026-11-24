@@ -7,14 +7,12 @@ import {
   OutboundCallReconciliation,
   OutboundCallUnreconciledError,
   OutboundCalls,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   effectKeyOf,
-  pii,
   type OnOutboundCall,
   type OutboundCallEvent,
   type OutboundCallSendStatus,
@@ -90,7 +88,7 @@ export class ChargeReceiptDto {
 @PiiPolicy({
   name: "email-pii-policy",
   description: "Hides e-mail addresses in what is stored",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class EmailPiiPolicy {}
 

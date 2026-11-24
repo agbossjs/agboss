@@ -42,7 +42,7 @@ function redactorAnswering(answer: (file: FileContent) => FileContent = (file) =
   return { asked, events, over };
 }
 
-const refusal = new PiiRefusedError({ kind: PiiKind.UsSsn, refusal: "No SSN please." });
+const refusal = new PiiRefusedError({ kind: PiiKind.UsSsn.id, refusal: "No SSN please." });
 
 describe("what stops a file before any redactor is asked", () => {
   it("a type no redactor takes has no redacted view, and no model is asked", async () => {

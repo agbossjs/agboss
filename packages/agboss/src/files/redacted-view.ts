@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { isOfMediaType } from "../a2a/files/a2a-media-check.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { InlineA2AFileRepository } from "../infrastructure/a2a-file.repository.js";
-import { PiiKind } from "../pii/kinds.js";
+import { kindsOf } from "../pii/kinds.js";
 import { fileContentOf, sha256Of, type FileContent } from "./file-bytes.js";
 import { FileRedactionFailedError } from "./file-errors.js";
 import { originalPieces, type MadeEntry } from "./file-pieces.js";
@@ -170,8 +170,8 @@ export async function redactedViewOf(
   batch.beforeModelCall();
   const result = await runtime.redact(content, asked);
   const spent = result.usage === undefined ? [] : [result.usage];
-  for (const target of result.found) {
-    const refusal = await mask.refusalForKind(target as PiiKind);
+  for (const kind of result.found.flatMap(kindsOf)) {
+    const refusal = await mask.refusalForKind(kind);
     if (refusal !== undefined) throw refusal;
   }
   const copy = checkedCopy(batch, result.file);

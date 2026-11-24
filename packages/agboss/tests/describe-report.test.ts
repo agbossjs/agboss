@@ -18,13 +18,11 @@ import { EmptyEnvironment } from "../src/environments/empty.js";
 import { PauseAnswerer } from "../src/channels/channel-role.decorator.js";
 import {
   Agent,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
 } from "../src/index.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import type { AssembledWorkflow } from "../src/workflow.js";
@@ -44,10 +42,7 @@ import { onStart } from "./helpers/flow.js";
 @PiiPolicy({
   name: "iban-pii-policy",
   description: "Refuses bank account numbers",
-  rules: [
-    pii(PiiKind.Iban, PiiAction.blockWithRefusal({ refusal: "Please do not send an IBAN." })),
-    pii(PiiKind.Email, PiiAction.replaceWithKind()),
-  ],
+  rules: [PiiKind.Iban.block("Please do not send an IBAN."), PiiKind.Email.mask()],
 })
 class IbanPiiPolicy {}
 
@@ -207,10 +202,10 @@ describe("#268 AC4: PII policies and their refusals", () => {
         [
           {
             target: "iban",
-            action: "blockWithRefusal()",
+            action: "block()",
             refusal: '"Please do not send an IBAN."',
           },
-          { target: "email", action: "replaceWithKind()" },
+          { target: "email", action: "mask()" },
         ],
       ],
       [
@@ -218,14 +213,14 @@ describe("#268 AC4: PII policies and their refusals", () => {
         [
           {
             target: "card-number",
-            action: "blockWithRefusal()",
+            action: "block()",
             refusal: "CardPiiPolicy.refusal()",
           },
         ],
       ],
     ]);
     expect(describeApplication(clerk)).toContain(
-      '  iban-pii-policy — iban: blockWithRefusal() · refusal: "Please do not send an IBAN.", email: replaceWithKind() · on clerk-agent · masks logs and traces',
+      '  iban-pii-policy — iban: block() · refusal: "Please do not send an IBAN.", email: mask() · on clerk-agent · masks logs and traces',
     );
   });
 });

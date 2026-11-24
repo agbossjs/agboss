@@ -119,7 +119,7 @@ describe("#120 AC7: observability is masked by the whole list", () => {
 });
 
 class ShopTenantContext extends TenantContext {
-  @Text({ sensitive: PiiAction.replaceWithKind() })
+  @Text({ sensitive: PiiAction.mask() })
   owner!: string;
 }
 
@@ -132,7 +132,7 @@ describe("#120 AC7: a trace's spans", () => {
   it("hides the execution's PII channels and sensitive context fields in a state", async () => {
     const state = {
       piiTokens: { "<email:aaaaaa>": EMAIL },
-      piiValues: [{ value: "Dana", label: "owner", action: PiiAction.replaceWithKind() }],
+      piiValues: [{ value: "Dana", label: "owner", action: PiiAction.mask() }],
       contexts: { tenant: { tenantId: "acme", owner: "Dana" }, execution: {} },
     };
     const shown = await mask.traceData(JSON.stringify(state));

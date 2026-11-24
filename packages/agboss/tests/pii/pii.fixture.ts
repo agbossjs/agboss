@@ -11,7 +11,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   secret,
   type PiiMatch,
   type PiiPolicyHandler,
@@ -30,10 +29,7 @@ export const PII_KEY_VARIABLE = "PII_TEST_PSEUDONYM_KEY";
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details from models",
-  rules: [
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-    pii(PiiKind.Phone, PiiAction.replacePart({ keepLast: 2 })),
-  ],
+  rules: [PiiKind.Email.tokenize(), PiiKind.Phone.mask({ keepLast: 2 })],
   pseudonymKey: secret(PII_KEY_VARIABLE),
 })
 export class ContactPiiPolicy {}
@@ -41,19 +37,19 @@ export class ContactPiiPolicy {}
 @PiiPolicy({
   name: "card-pii-policy",
   description: "Refuses card numbers",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal())],
+  rules: [PiiKind.CardNumber.block()],
   pseudonymKey: secret(PII_KEY_VARIABLE),
 })
 export class CardPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
-    return `Please do not send a ${kind}.`;
+    return `Please do not send a ${kind.id}.`;
   }
 }
 
 @PiiPolicy({
   name: "government-pii-policy",
   description: "Hides government ids",
-  rules: [pii(PiiGroup.Government, PiiAction.replaceWithKind())],
+  rules: [PiiGroup.Government.mask()],
   pseudonymKey: secret(PII_KEY_VARIABLE),
 })
 export class GovernmentPiiPolicy {}
@@ -66,7 +62,7 @@ export class EmployeeDirectory {
 
 @PiiPolicy({
   name: "employee-id-pii-policy",
-  action: PiiAction.replaceWithKind(),
+  action: PiiAction.mask(),
   deps: [EmployeeDirectory],
 })
 export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
@@ -99,7 +95,7 @@ export class EmailSent {
   @Text({ prompt: "what happened" })
   status!: string;
 
-  @Text({ prompt: "the account", sensitive: PiiAction.replaceWithToken() })
+  @Text({ prompt: "the account", sensitive: PiiAction.tokenize() })
   account!: string;
 }
 

@@ -43,7 +43,7 @@ export class ApproverAnswerDto {
   @Integer({ prompt: "the most it may cost, in dollars", min: 0 })
   limitUsd!: number;
 
-  @Text({ prompt: "who approved", optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ prompt: "who approved", optional: true, sensitive: PiiAction.mask() })
   approverEmail?: string;
 }
 

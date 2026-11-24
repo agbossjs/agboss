@@ -108,7 +108,7 @@ export class PagesRag {
 }
 
 /** A project detector that records what it reads: masking must read only the kept part. */
-@PiiPolicy({ name: "recording-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "recording-pii-policy", action: PiiAction.mask() })
 export class RecordingPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {
     piiReads.push(text);

@@ -660,7 +660,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 52 mutants, 42 killed in the final run; the 14 that had lived in the first run each got a test (8), an equivalence reason (0) or was classed message text (6); covered by tests/sweep-1366h/graph/errors-1366h.test.ts, tests/testing/vcr-stale.test.ts, tests/public-api/error-options.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/graph/errors.ts"],
   ),
-  ...reviewed("union type of the assembly rule codes", ["src/graph/rule-codes.ts"]),
+  ...reviewed("union type of the assembly rule codes", [
+    "src/graph/rule-codes.ts",
+    "src/pii/pii-rule-codes.ts",
+  ]),
   ...reviewed("the guardrails of model text: semantic checks, not payment guarantees", [
     "src/guardrails/assembly.ts",
     "src/guardrails/checks.ts",

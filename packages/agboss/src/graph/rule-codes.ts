@@ -1,4 +1,5 @@
 import type { FileRuleCode } from "../files/file-rule-codes.js";
+import type { PiiRuleCode } from "../pii/pii-rule-codes.js";
 /** Codes of the assembly rules — stable, for people and for tests. */
 export type RuleCode =
   | "graph.not-a-node"
@@ -219,13 +220,6 @@ export type RuleCode =
   | "reply-interpreter.no-interpret-method"
   | "di.missing-implementation"
   | "di.ambiguous-implementation"
-  // PII policies (#120 PR 1), reported at each workflow's assembly
-  | "pii.not-a-policy"
-  | "pii.exclude-not-inherited"
-  | "pii.conflicting-rules"
-  | "pii.missing-refusal"
-  | "pii.unused-refusal"
-  | "pii.kind-needs-model"
   // typed judges (#262 PR 4, S115): every class an agent answers with is one its judges judge
   | "judge.wrong-reply"
   // a judge of its own model family (#396 PR 5): a warning, an error under --strict
@@ -236,5 +230,7 @@ export type RuleCode =
   | "eval.judge-wrong-reply"
   // child placement (#333 PR 2): one placement per child in a flow
   | "flow.conflicting-placement"
+  // PII policies (#120 PR 1, #1301), reported at each workflow's assembly
+  | PiiRuleCode
   // an agent's files for its model (#899)
   | FileRuleCode;

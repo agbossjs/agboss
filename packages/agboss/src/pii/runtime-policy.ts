@@ -1,5 +1,5 @@
 import type { UsageRecord } from "../finops/usage.js";
-import type { BlockWithRefusalAction, AnyPiiAction } from "./actions.js";
+import { PiiAction, type AnyPiiAction, type BlockAction } from "./actions.js";
 import { findFormatRanges } from "./detectors/find.js";
 import { MODEL_ONLY_KINDS, type PiiKind } from "./kinds.js";
 import type { PiiFinding } from "./masking.js";
@@ -27,10 +27,17 @@ export enum DetectionMode {
   WithoutModel = "without-model",
 }
 
-/** A kind the model found: its range. */
+/**
+ * A value the model found: its range and kind. No kind — the model named one of no id — is masked
+ * all the same (`<pii>`), and so is a kind the policy names no rule for: what the policy cannot
+ * place is never let through (#1301).
+ */
 export interface ModelFoundRange extends PiiMatch {
-  readonly kind: PiiKind;
+  readonly kind?: PiiKind | undefined;
 }
+
+/** The label of a value the model found under a kind of no id: `<pii>`. */
+export const UNKNOWN_KIND_LABEL = "pii";
 
 /** What a model search gave: the ranges and what the call cost. */
 export interface ModelDetected {
@@ -57,7 +64,7 @@ export interface RuntimePiiPolicy {
   /** What the formats (and a project's detector that answers at once) find — for the log. */
   findNow(text: string): readonly PiiFinding[];
   /** The text a block rule sends: its own, or the class's `refusal(kind)`. */
-  refusalOf(kind: PiiKind | undefined, action: BlockWithRefusalAction): Promise<string>;
+  refusalOf(kind: PiiKind | undefined, action: BlockAction): Promise<string>;
 }
 
 /** What a runtime policy is built from. */
@@ -77,6 +84,9 @@ const hasRefusal = (instance: unknown): instance is PiiRefusal =>
   instance !== null &&
   "refusal" in instance &&
   typeof instance.refusal === "function";
+
+/** What a value the model found and no rule names becomes: masked, one-way. */
+const UNKNOWN_KIND_ACTION = PiiAction.mask();
 
 const NO_SEARCH: PolicySearch = { findings: [], usage: [] };
 
@@ -117,12 +127,23 @@ function declarativePolicy(
   const formatKinds = new Set([...actions.keys()].filter((kind) => !MODEL_ONLY_KINDS.has(kind)));
   const modelKinds = [...actions.keys()].filter((kind) => MODEL_ONLY_KINDS.has(kind));
   const findingOf = (range: ModelFoundRange & { readonly rank?: number }): PiiFinding[] => {
-    const action = actions.get(range.kind);
-    if (action === undefined) return [];
     const { start, end, kind } = range;
-    return [
-      { start, end, kind, label: kind, action, policy: meta.name, key, rank: range.rank ?? 99 },
-    ];
+    const rank = range.rank ?? 99;
+    if (kind === undefined)
+      return [
+        {
+          start,
+          end,
+          label: UNKNOWN_KIND_LABEL,
+          action: UNKNOWN_KIND_ACTION,
+          policy: meta.name,
+          key,
+          rank,
+        },
+      ];
+    // a kind the policy names none of (the model's answer beyond what it was asked): masked
+    const action = actions.get(kind) ?? UNKNOWN_KIND_ACTION;
+    return [{ start, end, kind, label: kind.id, action, policy: meta.name, key, rank }];
   };
   const findNow = (text: string): PiiFinding[] =>
     findFormatRanges(text, formatKinds).flatMap(findingOf);

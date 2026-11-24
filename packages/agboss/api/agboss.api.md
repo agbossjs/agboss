@@ -659,7 +659,7 @@ export interface AnyOfArbiters {
 }
 
 // @public
-export type AnyPiiAction = MaskingPiiAction | BlockWithRefusalAction;
+export type AnyPiiAction = MaskingPiiAction | BlockAction;
 
 // @public
 export interface App {
@@ -883,9 +883,9 @@ export interface BindToolOptions {
 }
 
 // @public
-export interface BlockWithRefusalAction {
+export interface BlockAction {
     // (undocumented)
-    readonly kind: PiiActionKind.BlockWithRefusal;
+    readonly kind: PiiActionKind.Block;
     // (undocumented)
     readonly refusal?: string;
 }
@@ -5473,7 +5473,21 @@ export enum LogLevel {
 }
 
 // @public
-export type MaskingPiiAction = ReplaceWithKindAction | ReplacePartAction | ReplaceWithTokenAction;
+export interface MaskAction {
+    // (undocumented)
+    readonly kind: PiiActionKind.Mask;
+}
+
+// @public
+export type MaskingPiiAction = MaskAction | MaskPartAction | TokenizeAction;
+
+// @public
+export interface MaskPartAction {
+    // (undocumented)
+    readonly kind: PiiActionKind.MaskPart;
+    // (undocumented)
+    readonly part: PiiPartOptions;
+}
 
 // @public
 export const MAX_DECISION_QUESTIONS = 200;
@@ -7676,26 +7690,21 @@ export interface PeriodBudgetOptions<TDeps extends readonly Token[]> {
 }
 
 // @public
-export const pii: (target: PiiTarget, action: AnyPiiAction) => PiiRule;
-
-// @public
 export const PiiAction: {
-    readonly replaceWithKind: () => ReplaceWithKindAction;
-    readonly replacePart: (part: PiiPartOptions) => ReplacePartAction;
-    readonly replaceWithToken: () => ReplaceWithTokenAction;
-    readonly blockWithRefusal: (options?: PiiRefusalOptions) => BlockWithRefusalAction;
+    readonly mask: {
+        (): MaskAction;
+        (part: PiiPartOptions): MaskPartAction;
+    };
+    readonly tokenize: () => TokenizeAction;
+    readonly block: (refusal?: string) => BlockAction;
 };
 
 // @public
 export enum PiiActionKind {
-    // (undocumented)
-    BlockWithRefusal = "block-with-refusal",
-    // (undocumented)
-    ReplacePart = "replace-part",
-    // (undocumented)
-    ReplaceWithKind = "replace-with-kind",
-    // (undocumented)
-    ReplaceWithToken = "replace-with-token"
+    Block = "block",
+    Mask = "mask",
+    MaskPart = "mask-part",
+    Tokenize = "tokenize"
 }
 
 // @public
@@ -7742,19 +7751,21 @@ export enum PiiFileAction {
 }
 
 // @public
-export enum PiiGroup {
-    // (undocumented)
-    Contact = "contact",
-    // (undocumented)
-    Credentials = "credentials",
-    // (undocumented)
-    Financial = "financial",
-    // (undocumented)
-    Government = "government",
-    // (undocumented)
-    Identity = "identity",
-    // (undocumented)
-    Network = "network"
+export type PiiGroup = PiiGroupDescriptor;
+
+// @public
+export const PiiGroup: {
+    readonly Contact: PiiGroup;
+    readonly Identity: PiiGroup;
+    readonly Government: PiiGroup;
+    readonly Financial: PiiGroup;
+    readonly Network: PiiGroup;
+    readonly Credentials: PiiGroup;
+};
+
+// @public
+export interface PiiGroupDescriptor extends PiiTargetDescriptor {
+    readonly kinds: readonly PiiKindDescriptor[];
 }
 
 // @public
@@ -7769,57 +7780,41 @@ export interface PiiKeptPart {
 }
 
 // @public
-export enum PiiKind {
-    // (undocumented)
-    ApiKey = "api-key",
-    // (undocumented)
-    BankAccount = "bank-account",
-    // (undocumented)
-    CardNumber = "card-number",
-    // (undocumented)
-    DateOfBirth = "date-of-birth",
-    // (undocumented)
-    DriverLicense = "driver-license",
-    // (undocumented)
-    Email = "email",
-    // (undocumented)
-    GeoCoordinates = "geo-coordinates",
-    // (undocumented)
-    Iban = "iban",
-    // (undocumented)
-    IpAddress = "ip-address",
-    // (undocumented)
-    IsraeliId = "israeli-id",
-    // (undocumented)
-    Jwt = "jwt",
-    // (undocumented)
-    MacAddress = "mac-address",
-    // (undocumented)
-    NationalId = "national-id",
-    // (undocumented)
-    PassportNumber = "passport-number",
-    // (undocumented)
-    Password = "password",
-    // (undocumented)
-    PersonName = "person-name",
-    // (undocumented)
-    Phone = "phone",
-    // (undocumented)
-    PostalCode = "postal-code",
-    // (undocumented)
-    PrivateKey = "private-key",
-    // (undocumented)
-    StreetAddress = "street-address",
-    // (undocumented)
-    SwiftBic = "swift-bic",
-    // (undocumented)
-    UkNino = "uk-nino",
-    // (undocumented)
-    UsEin = "us-ein",
-    // (undocumented)
-    UsItin = "us-itin",
-    // (undocumented)
-    UsSsn = "us-ssn"
+export type PiiKind = PiiKindDescriptor;
+
+// @public
+export const PiiKind: {
+    readonly Email: PiiKind;
+    readonly Phone: PiiKind;
+    readonly StreetAddress: PiiKind;
+    readonly PostalCode: PiiKind;
+    readonly PersonName: PiiKind;
+    readonly DateOfBirth: PiiKind;
+    readonly UsSsn: PiiKind;
+    readonly UsItin: PiiKind;
+    readonly UkNino: PiiKind;
+    readonly IsraeliId: PiiKind;
+    readonly PassportNumber: PiiKind;
+    readonly DriverLicense: PiiKind;
+    readonly NationalId: PiiKind;
+    readonly CardNumber: PiiKind;
+    readonly Iban: PiiKind;
+    readonly SwiftBic: PiiKind;
+    readonly BankAccount: PiiKind;
+    readonly UsEin: PiiKind;
+    readonly IpAddress: PiiKind;
+    readonly MacAddress: PiiKind;
+    readonly GeoCoordinates: PiiKind;
+    readonly ApiKey: PiiKind;
+    readonly Jwt: PiiKind;
+    readonly PrivateKey: PiiKind;
+    readonly Password: PiiKind;
+    readonly fromId: (id: string) => PiiKind | undefined;
+};
+
+// @public
+export interface PiiKindDescriptor extends PiiTargetDescriptor {
+    readonly group: PiiGroupDescriptor;
 }
 
 // @public
@@ -7849,12 +7844,6 @@ export interface PiiPolicyHandler {
 export interface PiiRefusal {
     // (undocumented)
     readonly refusal: (kind: PiiKind) => string | Promise<string>;
-}
-
-// @public
-export interface PiiRefusalOptions {
-    // (undocumented)
-    readonly refusal: string;
 }
 
 // @public
@@ -7906,7 +7895,21 @@ export interface PiiRule {
 }
 
 // @public
+export type PiiRuleCode = "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.duplicate-target" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model";
+
+// @public
 export type PiiTarget = PiiKind | PiiGroup;
+
+// @public
+export interface PiiTargetDescriptor {
+    [Symbol.toPrimitive](): string;
+    block(refusal?: string): PiiRule;
+    readonly id: string;
+    mask(part?: PiiPartOptions): PiiRule;
+    toJSON(): string;
+    tokenize(): PiiRule;
+    toString(): string;
+}
 
 // @public
 export interface PlainErrorOptions {
@@ -8297,26 +8300,6 @@ export interface RedactOptions {
     // (undocumented)
     readonly tenantId: string;
     readonly values: readonly string[];
-}
-
-// @public
-export interface ReplacePartAction {
-    // (undocumented)
-    readonly kind: PiiActionKind.ReplacePart;
-    // (undocumented)
-    readonly part: PiiPartOptions;
-}
-
-// @public
-export interface ReplaceWithKindAction {
-    // (undocumented)
-    readonly kind: PiiActionKind.ReplaceWithKind;
-}
-
-// @public
-export interface ReplaceWithTokenAction {
-    // (undocumented)
-    readonly kind: PiiActionKind.ReplaceWithToken;
 }
 
 // @public
@@ -8722,7 +8705,7 @@ type RouteTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Router | Node
 type RouteTargetLabel = "a route target (an agent, an action, a router, a child workflow or a finish)";
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "pii.not-a-policy" | "pii.exclude-not-inherited" | "pii.conflicting-rules" | "pii.missing-refusal" | "pii.unused-refusal" | "pii.kind-needs-model" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | FileRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.switch-not-exhaustive" | "flow.switch-unknown-case" | "flow.duplicate-error-handler" | "flow.returns-mismatch" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "router.no-model" | "router.policy-with-choose-one" | "router.all-routes-always" | "router.spawn-required" | "router.prompt-on-always" | "launch.join-required" | "launch.max-items-required" | "launch.max-items-without-list" | "launch.item-not-read" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "flow.quorum-return-not-optional" | "arbiter.not-an-arbiter" | "arbiter.unhandled-agent" | "arbiter.unknown-agent" | "arbiter.duplicate-agent" | "arbiter.answer-method-on-model" | "arbiter.method-name" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.fenced-effects-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.idempotency-key-shared" | "application.pii-key-shared" | "a2a.expose-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.price-invalid" | "application.outbound-calls-invalid" | "application.retention-invalid" | "mesh.signing-key-missing" | "mesh.unknown-peer-key" | "mesh.duplicate-peer" | "application.not-an-expose" | "application.duplicate-expose" | "application.expose-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "pause-listener.not-a-handler" | "pause-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.no-model" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.tenancy-required" | "rag.not-a-reranker" | "reranker.missing-handler" | "reranker.decision-model" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "compaction.not-a-compaction" | "compaction.invalid-setting" | "compaction.decision-model" | "compaction.uncompacted-turns-invalid" | "compaction.missing-handler" | "model.unserved" | "model.ambiguous-provider" | "model.price-invalid" | "model-provider.both-modes" | "model-provider.circuit-breaker-required" | "model-provider.request-fields-missing" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "channel.expires-in-invalid" | "channel.remind-before-invalid" | "channel.remind-before-exceeds-expiry" | "channel.remind-before-below-tick" | "channel.remind-before-working-without-working-expiry" | "channel.working-time-without-calendar" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "tool.expires-in-without-channel" | "question.expires-in-conflict" | "reply-interpreter.not-an-interpreter" | "reply-interpreter.decision-model" | "reply-interpreter.no-interpret-method" | "di.missing-implementation" | "di.ambiguous-implementation" | "judge.wrong-reply" | "judge.same-model-family" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-reply" | "flow.conflicting-placement" | PiiRuleCode | FileRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -9994,6 +9977,12 @@ export function toFinish<const TClass extends Class>(target: TClass & TargetChec
 
 // @public
 export type Token = Class | InjectionToken<unknown> | EnvContract;
+
+// @public
+export interface TokenizeAction {
+    // (undocumented)
+    readonly kind: PiiActionKind.Tokenize;
+}
 
 // @public
 export enum TokenLimit {
@@ -12584,10 +12573,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
-// src/pii/actions.ts - (ae-undocumented) Missing documentation for "ReplaceWithKind".
-// src/pii/actions.ts - (ae-undocumented) Missing documentation for "ReplacePart".
-// src/pii/actions.ts - (ae-undocumented) Missing documentation for "ReplaceWithToken".
-// src/pii/actions.ts - (ae-undocumented) Missing documentation for "BlockWithRefusal".
 // src/pii/actions.ts - (ae-undocumented) Missing documentation for "keepFirst".
 // src/pii/actions.ts - (ae-undocumented) Missing documentation for "keepLast".
 // src/pii/actions.ts - (ae-undocumented) Missing documentation for "pattern".
@@ -12601,7 +12586,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pii/actions.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pii/actions.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pii/actions.ts - (ae-undocumented) Missing documentation for "refusal".
-// src/pii/actions.ts - (ae-undocumented) Missing documentation for "refusal".
 // src/pii/detectors/model.ts - (ae-undocumented) Missing documentation for "code".
 // src/pii/detectors/model.ts - (ae-undocumented) Missing documentation for "code".
 // src/pii/detectors/model.ts - (ae-undocumented) Missing documentation for "name".
@@ -12610,37 +12594,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/pii/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/pii/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/pii/errors.ts - (ae-undocumented) Missing documentation for "name".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Email".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Phone".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "StreetAddress".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "PostalCode".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "PersonName".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "DateOfBirth".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "UsSsn".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "UsItin".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "UkNino".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "IsraeliId".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "PassportNumber".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "DriverLicense".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "NationalId".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "CardNumber".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Iban".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "SwiftBic".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "BankAccount".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "UsEin".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "IpAddress".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "MacAddress".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "GeoCoordinates".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "ApiKey".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Jwt".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "PrivateKey".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Password".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Contact".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Identity".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Government".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Financial".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Network".
-// src/pii/kinds.ts - (ae-undocumented) Missing documentation for "Credentials".
 // src/pii/pii-policy.decorator.ts - (ae-undocumented) Missing documentation for "target".
 // src/pii/pii-policy.decorator.ts - (ae-undocumented) Missing documentation for "action".
 // src/pii/pii-policy.decorator.ts - (ae-undocumented) Missing documentation for "start".

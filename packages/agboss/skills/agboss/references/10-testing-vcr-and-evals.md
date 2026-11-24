@@ -240,12 +240,12 @@ export class BiasGuardrail {}
 ```
 
 ```ts file=src/screening/pii-policies/contact.pii-policy.ts
-import { PiiAction, PiiKind, PiiPolicy, pii } from "@agboss/core";
+import { PiiKind, PiiPolicy } from "@agboss/core";
 
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides candidates' emails",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class ContactPiiPolicy {}
 ```

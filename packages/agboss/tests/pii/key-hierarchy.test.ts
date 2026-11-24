@@ -38,7 +38,7 @@ const sha256Hex = (text: string): string => createHash("sha256").update(text).di
 const DANA: SensitiveValue = {
   value: "dana@example.com",
   label: "email",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
 };
 
 describe("#1269: one key per purpose, derived by HKDF-SHA256", () => {

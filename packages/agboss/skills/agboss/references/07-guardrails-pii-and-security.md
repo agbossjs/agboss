@@ -4,15 +4,15 @@ Read this when unsafe input must be refused before a model reads it, an answer m
 before it leaves an agent, or personal data must never reach a model as is. Quality checks that
 retry an answer are judges (`03-components-di-and-lifecycle.md`); guardrails only block.
 
-| Need                                                               | Use                                                                            |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| refuse a request before the model reads it                         | `@InputGuardrail` — a yes / no question; P(yes) ≥ `threshold` blocks           |
-| stop an answer before it leaves the agent                          | `@OutputGuardrail`                                                             |
-| block by a rule in code (a deny list, a regex), no model           | `decidedBy: DecidedBy.Code` + `implements GuardrailHandler` (`check(text)`)    |
-| hide contact, government, financial or credential data from models | a declarative `@PiiPolicy({ rules: [pii(PiiKind…, PiiAction…)] })`             |
-| hide your own identifiers (employee ids, case numbers)             | `@PiiPolicy({ action, deps })` + `implements PiiPolicyHandler` (`findMatches`) |
-| mask one DTO or context field wherever it goes                     | `sensitive: PiiAction.replaceWithToken()` on its decorator                     |
-| refuse a message that contains a card number                       | `pii(PiiKind.CardNumber, PiiAction.blockWithRefusal(…))`                       |
+| Need                                                               | Use                                                                               |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| refuse a request before the model reads it                         | `@InputGuardrail` — a yes / no question; P(yes) ≥ `threshold` blocks              |
+| stop an answer before it leaves the agent                          | `@OutputGuardrail`                                                                |
+| block by a rule in code (a deny list, a regex), no model           | `decidedBy: DecidedBy.Code` + `implements GuardrailHandler` (`check(text)`)       |
+| hide contact, government, financial or credential data from models | a declarative `@PiiPolicy({ rules: [PiiKind….mask() / .tokenize() / .block()] })` |
+| hide your own identifiers (employee ids, case numbers)             | `@PiiPolicy({ action, deps })` + `implements PiiPolicyHandler` (`findMatches`)    |
+| mask one DTO or context field wherever it goes                     | `sensitive: PiiAction.tokenize()` on its decorator                                |
+| refuse a message that contains a card number                       | `PiiKind.CardNumber.block("…")`                                                   |
 
 ## Guardrails
 
@@ -179,20 +179,20 @@ try {
 
 ```ts file=src/clinic/pii-policies/contact.pii-policy.ts
 // declarative: only the kinds a rule names are found
-import { PiiAction, PiiGroup, PiiKind, PiiPolicy, pii, type PiiRefusal } from "@agboss/core";
+import { PiiGroup, PiiKind, PiiPolicy, type PiiRefusal } from "@agboss/core";
 
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details and refuses card numbers",
   rules: [
-    pii(PiiGroup.Contact, PiiAction.replaceWithKind()), // <phone>, <postal-code>, …
-    pii(PiiKind.Email, PiiAction.replaceWithToken()), // a kind rule beats its group: <email:7f3a91>
-    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal()), // the text: refusal(kind) below
+    PiiGroup.Contact.mask(), // <phone>, <postal-code>, …
+    PiiKind.Email.tokenize(), // a kind rule beats its group: <email:7f3a91>
+    PiiKind.CardNumber.block(), // the text: refusal(kind) below
   ],
 })
 export class ContactPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
-    return `Please do not send a ${kind} here.`;
+    return `Please do not send a ${kind.id} here.`;
   }
 }
 ```
@@ -218,7 +218,7 @@ import { PatientRegistryService } from "../services/patient-registry.service.js"
 
 @PiiPolicy({
   name: "patient-id-pii-policy",
-  action: PiiAction.replaceWithToken(), // the model reads <patient-id:…>
+  action: PiiAction.tokenize(), // the model reads <patient-id:…>
   deps: [PatientRegistryService],
 })
 export class PatientIdPiiPolicy implements PiiPolicyHandler {
@@ -254,7 +254,7 @@ export class PatientMessageDto {
   @Text({ prompt: "the patient's message" })
   text!: string;
 
-  @Text({ prompt: "the patient's name", sensitive: PiiAction.replaceWithToken() }) // masked wherever it goes
+  @Text({ prompt: "the patient's name", sensitive: PiiAction.tokenize() }) // masked wherever it goes
   patientName!: string;
 }
 ```
@@ -431,7 +431,7 @@ How PII masking works — the **model boundary** (S38):
   message, tool results — and its move is **revealed before any DTO is validated**: a tool gets the
   real `alice@example.com`, an `@Email` field validates the address. Code — actions, finishes, code
   routers, channels, tools — always holds real values; so do the scope and the checkpoint.
-- Only `replaceWithToken()` is reversible (HMAC-SHA256; its map is the checkpoint's `piiTokens`
+- Only `tokenize()` is reversible (HMAC-SHA256; its map is the checkpoint's `piiTokens`
   channel, surviving pauses, resumes and recovery). A token a model invents (no map knows it) is an
   invalid answer: the model reads why and answers again.
 - **Block rules**: in what comes in or in an answer → the execution fails with `PiiRefusedError`
@@ -447,9 +447,9 @@ How PII masking works — the **model boundary** (S38):
 - **The key**: a policy's own `pseudonymKey: secret("…")`, else `@Application({ piiKeyField })`.
   Neither → a key per root execution and the warning `[application.pii-instance-key]`.
 
-Actions: `PiiAction.replaceWithKind()` → `<israeli-id>`; `replacePart({ keepLast: 4 })` /
-`replacePart({ keepDomain: true })` / `replacePart({ pattern })` → `•••• 4242`;
-`replaceWithToken()` → `<email:7f3a91>`; `blockWithRefusal({ refusal })` or `blockWithRefusal()` with
+Actions: `PiiAction.mask()` → `<israeli-id>`; `mask({ keepLast: 4 })` /
+`mask({ keepDomain: true })` / `mask({ pattern })` → `•••• 4242`;
+`tokenize()` → `<email:7f3a91>`; `block("…")` or `block()` with
 `implements PiiRefusal`.
 
 ## Testing
@@ -510,7 +510,8 @@ asserts it. A key field (`piiKeyField`, `idempotencyKeyField`) or a policy's `ps
 | `[guardrail.exclude-not-inherited]` / `[pii.exclude-not-inherited]` | excluding what the element does not inherit → remove the exclude                                  |
 | `[guardrail.not-a-guardrail]` / `[pii.not-a-policy]`                | a class without the decorator in a list → decorate it                                             |
 | `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                                |
-| `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `blockWithRefusal()` without `refusal(kind)` / a `refusal` nobody uses                            |
+| `[pii.duplicate-target]`                                            | one policy names a kind or a group in two rules → one rule per target                             |
+| `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `block()` without `refusal(kind)` / a `refusal` nobody uses                                       |
 | `[pii.kind-needs-model]`                                            | a kind without a format and no `detectWithModel` → add it, or drop the kind                       |
 | `[pii.original-file]` / `[pii.redacted-needs-kinds]`                | `FileView.Original` under a masking policy / `Redacted` under your own detector → see Files above |
 | `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ piiKeyField })`                   |

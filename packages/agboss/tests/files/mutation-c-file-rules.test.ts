@@ -14,7 +14,7 @@ import {
   ModelFiles,
   type ModelFilesOptions,
 } from "../../src/files/model-files.js";
-import { PiiAction, PiiFileAction, PiiKind, PiiPolicy, pii } from "../../src/index.js";
+import { PiiAction, PiiFileAction, PiiKind, PiiPolicy } from "../../src/index.js";
 import type { PiiMatch, PiiPolicyHandler } from "../../src/index.js";
 import type { RuleViolation } from "../../src/graph/rule-error.js";
 import { kilobytes } from "../../src/units/index.js";
@@ -25,33 +25,33 @@ const bytesOf = (count: number) => kilobytes(count / 1024);
 @PiiPolicy({
   name: "rules-cards-pii-policy",
   description: "Hides cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
 })
 class CardsPolicy {}
 
 @PiiPolicy({
   name: "rules-emails-pii-policy",
   description: "Hides emails",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 class EmailsPolicy {}
 
 @PiiPolicy({
   name: "rules-open-pii-policy",
   description: "Hides cards, lets the original through",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.AllowOriginal,
 })
 class OpenPolicy {}
 
-@PiiPolicy({ name: "rules-staff-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "rules-staff-pii-policy", action: PiiAction.mask() })
 class StaffPolicy implements PiiPolicyHandler {
   findMatches(): readonly PiiMatch[] {
     return [];
   }
 }
 
-@PiiPolicy({ name: "rules-badge-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "rules-badge-pii-policy", action: PiiAction.mask() })
 class BadgePolicy implements PiiPolicyHandler {
   findMatches(): readonly PiiMatch[] {
     return [];

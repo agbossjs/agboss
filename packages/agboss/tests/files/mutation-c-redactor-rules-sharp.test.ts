@@ -9,11 +9,9 @@ import { FileRedactor } from "../../src/files/file-redactor.js";
 import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import {
   Injectable,
-  PiiAction,
   PiiFileAction,
   PiiKind,
   PiiPolicy,
-  pii,
   type RedactionResult,
 } from "../../src/index.js";
 import type { RuleViolation } from "../../src/graph/rule-error.js";
@@ -24,7 +22,7 @@ vi.mock("../../src/files/sharp-check.js", () => ({ isSharpResolvable: () => fals
 @PiiPolicy({
   name: "sharp-cards-pii-policy",
   description: "Hides cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.Mask,
 })
 class CardsPolicy {}

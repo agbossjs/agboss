@@ -267,7 +267,7 @@ kept, keyed by the policies that masked it. `FileView.Original` starts only wher
 A `@PiiPolicy` says which personal data the models never see as is, and what happens to it
 (#120). Two forms, one decorator:
 
-- **declarative** — `@PiiPolicy({ name, description, rules: [pii(Kind | Group, Action)],
+- **declarative** — `@PiiPolicy({ name, description, rules: [Kind.verb() | Group.verb()],
   detectWithModel?, pseudonymKey? })`, `name?` (kebab-case, the class name by default); without a
   `pseudonymKey` its tokens use the application's;
 - **a project's own detector** (S59, S61) — `@PiiPolicy({ name, action, deps? })` +
@@ -282,7 +282,6 @@ import {
   PiiGroup,
   PiiKind,
   PiiPolicy,
-  pii,
   secret,
   type PiiMatch,
   type PiiPolicyHandler,
@@ -295,16 +294,16 @@ import {
   name: "contact-pii-policy",
   description: "Hides contact details from models",
   rules: [
-    pii(PiiGroup.Contact, PiiAction.replaceWithKind()),
-    pii(PiiKind.Email, PiiAction.replacePart({ keepDomain: true })), // a kind rule beats its group
-    pii(PiiKind.Phone, PiiAction.replaceWithToken()),
-    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal()), // the text: refusal(kind)
+    PiiGroup.Contact.mask(),
+    PiiKind.Email.mask({ keepDomain: true }), // a kind rule beats its group
+    PiiKind.Phone.tokenize(),
+    PiiKind.CardNumber.block(), // the text: refusal(kind)
   ],
   pseudonymKey: secret("PII_PSEUDONYM_KEY"), // optional: absent → the application's key
 })
 export class ContactPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
-    return `Please do not send a ${kind}.`;
+    return `Please do not send a ${kind.id}.`;
   }
 }
 
@@ -318,7 +317,7 @@ export class EmployeeDirectory {
 
 @PiiPolicy({
   name: "employee-id-pii-policy",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
   deps: [EmployeeDirectory],
 })
 export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
@@ -356,13 +355,13 @@ model checked against the providers' `serves`) finds them, and a rule naming one
 
 | Action                                             | The model reads           | Reversible |
 | -------------------------------------------------- | ------------------------- | ---------- |
-| `PiiAction.replaceWithKind()`                      | `<israeli-id>`            | no         |
-| `PiiAction.replacePart({ keepFirst?, keepLast?, keepDomain? })` | `•••• 4242`, `d•••@acme.com` | no |
-| `PiiAction.replacePart({ pattern })`               | every match as `••••`     | no         |
-| `PiiAction.replaceWithToken()`                     | `<email:7f3a91>`          | yes        |
-| `PiiAction.blockWithRefusal({ refusal })` / `()`   | — refused                 | —          |
+| `PiiAction.mask()`                      | `<israeli-id>`            | no         |
+| `PiiAction.mask({ keepFirst?, keepLast?, keepDomain? })` | `•••• 4242`, `d•••@acme.com` | no |
+| `PiiAction.mask({ pattern })`               | every match as `••••`     | no         |
+| `PiiAction.tokenize()`                     | `<email:7f3a91>`          | yes        |
+| `PiiAction.block("…")` / `block()` | — refused                 | —          |
 
-`replacePart` takes either what to keep or what to replace — both does not compile. A token is the
+`mask(part)` takes either what to keep or what to replace — both does not compile. A token is the
 first hex digits of the HMAC-SHA256 of the normalised value under the pseudonym key derived from
 `pseudonymKey` ([the key hierarchy](#the-pii-key-hierarchy) below), so one value is one token
 everywhere (longer when a prefix is taken in the execution). The key comes from one of two places:
@@ -373,7 +372,7 @@ everywhere (longer when a prefix is taken in the execution). The key comes from 
   instance, so tokens match across machines. Sensitive fields and project detectors always use it.
   Not set and not needed, each root execution makes a key of its own — kept in its checkpoint,
   handed to its children, the same on whichever instance continues it (#334) — and the application
-  warns `[application.pii-instance-key]` (S94). `blockWithRefusal()` without
+  warns `[application.pii-instance-key]` (S94). `block()` without
 a text takes `refusal(kind)` of the class (`implements PiiRefusal`, its services through `deps`);
 none → `[pii.missing-refusal]`, a method no rule uses → `[pii.unused-refusal]`. A block rule in an
 incoming message or in an answer fails the execution with `PiiRefusedError` (`pii.refused`,
@@ -389,7 +388,7 @@ hash, so a digest of a guessable value (a phone number, a name) is no oracle for
 
 | Purpose | Label (`info`) | Root | What it keys |
 | --- | --- | --- | --- |
-| Pseudonyms | `agboss/pii/pseudonym/v2` | a policy's `pseudonymKey`; else the application's key; else the execution's own (#334) | `replaceWithToken()` and `sensitive` tokens, `<email:7f3a91>` |
+| Pseudonyms | `agboss/pii/pseudonym/v2` | a policy's `pseudonymKey`; else the application's key; else the execution's own (#334) | `tokenize()` and `sensitive` tokens, `<email:7f3a91>` |
 | Policy hash | `agboss/pii/policy-hash/v2` | the application's key (else the instance's) | what a set of policies masks with — its rules, its token key's id, the execution's sensitive values: a cached file transcription's key ([Files for models](Files-for-models)) |
 | File cache | `agboss/files/cache-key/v2` | the application's key (else the instance's) | a cached redacted copy's key: the policies and the exact values the redactor was told |
 | Mask cache | `agboss/pii/mask-cache/v2` | the application's key (else the instance's) | an agent's loop's masked texts (`piiMasked`), by the text |
@@ -427,7 +426,8 @@ reused — the conversation is masked again, in the new tokens, so one model cal
 `excludePiiPolicies` on an agent or a router removes an inherited one for its own model and tools
 (excluding one that is not inherited is `[pii.exclude-not-inherited]`). After adding up, two
 policies with different actions for one kind are `[pii.conflicting-rules]`, naming the kind, the
-actions and the policies — no "strictest wins". Logs, traces, events and `result.record` are
+actions and the policies — no "strictest wins". Inside one policy each kind or group has one rule:
+naming it twice is `[pii.duplicate-target]`. Logs, traces, events and `result.record` are
 always masked by the application's and the workflow's lists ([Observability](Observability)).
 
 **A child workflow under its chain (#1150).** A child is masked by the union of its chain's lists —
@@ -479,13 +479,13 @@ scope, `outdatedValues`, the checkpoint and every step's code (actions, finishes
 arbiters, channels) hold real values; encrypting a store is that store's concern. A router's model
 reads its input masked too.
 
-Only `replaceWithToken` values are stored: the execution's `piiTokens` channel (token → value, in
+Only `tokenize()` values are stored: the execution's `piiTokens` channel (token → value, in
 the checkpoint) — branches merge it by key, and it survives a pause, a resume and a recovery.
 
 ### Sensitive fields
 
 `sensitive: PiiAction.…` on a DTO field applies one masking action to a field without a format of
-its own (`WorkflowStartTextDto.author` is `replaceWithToken()`); on the identity fields of a
+its own (`WorkflowStartTextDto.author` is `tokenize()`); on the identity fields of a
 `TenantContext` / `ExecutionContext` subclass the values are masked wherever they appear in what a
 model reads ([Context and authorization](Context-And-Authorization)). A channel shows a token or a
 kind field as `<field-name>`.

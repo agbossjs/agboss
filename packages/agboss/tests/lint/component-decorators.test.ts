@@ -84,7 +84,7 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     "beforeToolCall(): void",
   ),
   PiiPolicy: statefulClass(
-    '@PiiPolicy({ name: "order-id-pii-policy", description: "d", action: PiiAction.replaceWithKind() })',
+    '@PiiPolicy({ name: "order-id-pii-policy", description: "d", action: PiiAction.mask() })',
     "findMatches(): void",
   ),
   Judge: statefulClass(

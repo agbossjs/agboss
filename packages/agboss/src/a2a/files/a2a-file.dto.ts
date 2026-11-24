@@ -42,7 +42,7 @@ export class A2AFileDto {
     prompt: "the file's bytes, base64",
     optional: true,
     pattern: /^[A-Za-z0-9+/]*={0,2}$/,
-    sensitive: PiiAction.replaceWithKind(),
+    sensitive: PiiAction.mask(),
   })
   inline?: string;
 }

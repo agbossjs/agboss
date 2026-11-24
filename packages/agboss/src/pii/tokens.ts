@@ -2,11 +2,11 @@ import { createHmac, randomBytes } from "node:crypto";
 import { PiiKeyPurpose, purposeDigestOf } from "./key-hierarchy.js";
 
 /**
- * The tokens of `replaceWithToken()` (#120 S38): `<email:7f3a91>` — the first hex digits of the
+ * The tokens of `tokenize()` (#120 S38): `<email:7f3a91>` — the first hex digits of the
  * HMAC-SHA256 of the normalised value under the pseudonym key derived from the policy's
  * `pseudonymKey` (#1269: `PiiKeyPurpose.Pseudonym`, never the key itself), so one value is one token
  * everywhere. The token → value map is the execution's `piiTokens` channel (in its checkpoint);
- * only these tokens are revealed, `replaceWithKind()` / `replacePart()` are one-way.
+ * only these tokens are revealed, `mask()` / `mask()` are one-way.
  */
 
 /**

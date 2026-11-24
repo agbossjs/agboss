@@ -17,7 +17,7 @@ class Task {
   @List(Text, { optional: true, maxItems: 3 })
   labels?: string[];
 
-  @Text({ sensitive: PiiAction.replaceWithKind() })
+  @Text({ sensitive: PiiAction.mask() })
   owner!: string;
 }
 

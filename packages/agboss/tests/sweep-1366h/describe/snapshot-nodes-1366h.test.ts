@@ -12,7 +12,7 @@ import { DEFAULT_MAX_TOKENS } from "../../../src/config/types.js";
 import { nodesOf, type NodeSnapshot } from "../../../src/describe/snapshot-nodes.js";
 import type { AssembledWorkflow } from "../../../src/workflow.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
-import { PiiAction, PiiKind, pii } from "../../../src/pii/index.js";
+import { PiiKind } from "../../../src/pii/index.js";
 import { OutlineWorkflow } from "../../flow/fixtures/recursion.fixture.js";
 import { NotesDeskApplication } from "../../compaction/compaction.fixture.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -179,7 +179,7 @@ describe("#1366: a node's own facts", () => {
 @PiiPolicy({
   name: "card-numbers-pii-policy",
   description: "Hides card numbers",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 class CardNumbersPolicy {}
 

@@ -25,7 +25,7 @@ import {
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
-import { PiiAction, PiiKind, pii } from "../../../src/pii/index.js";
+import { PiiKind } from "../../../src/pii/index.js";
 import { onStart, toFinish } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
@@ -211,7 +211,7 @@ export class StrictClerkWorkflow {}
 @PiiPolicy({
   name: "order-pii-policy",
   description: "Hides e-mail addresses",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class OrderPiiPolicy {}
 

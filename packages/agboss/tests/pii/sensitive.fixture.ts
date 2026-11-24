@@ -10,7 +10,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   secret,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -22,14 +21,14 @@ import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 
 /** Who the execution talks to: identity, marked for PII. */
 export class ShopExecutionContext extends ExecutionContext {
-  @Text({ optional: true, sensitive: PiiAction.replaceWithToken() })
+  @Text({ optional: true, sensitive: PiiAction.tokenize() })
   userId?: string;
 }
 
 @PiiPolicy({
   name: "names-pii-policy",
   description: "Finds names with a model",
-  rules: [pii(PiiKind.PersonName, PiiAction.replaceWithKind())],
+  rules: [PiiKind.PersonName.mask()],
   detectWithModel: "test/pii-detector",
   pseudonymKey: secret(PII_KEY_VARIABLE),
 })

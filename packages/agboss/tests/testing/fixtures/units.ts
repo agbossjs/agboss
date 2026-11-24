@@ -18,7 +18,6 @@ import {
   SpendRecorder,
   TenantContext,
   Tool,
-  pii,
   type GuardrailRefusal,
   type JudgeHandler,
   type JudgeInput,
@@ -210,24 +209,21 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details",
-  rules: [
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-    pii(PiiKind.Phone, PiiAction.replacePart({ keepLast: 2 })),
-  ],
+  rules: [PiiKind.Email.tokenize(), PiiKind.Phone.mask({ keepLast: 2 })],
 })
 export class ContactPiiPolicy {}
 
 @PiiPolicy({
   name: "card-pii-policy",
   description: "Refuses card numbers",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "No cards here." }))],
+  rules: [PiiKind.CardNumber.block("No cards here.")],
 })
 export class CardPiiPolicy {}
 
 @PiiPolicy({
   name: "name-pii-policy",
   description: "Finds people's names with a model",
-  rules: [pii(PiiKind.PersonName, PiiAction.replaceWithKind())],
+  rules: [PiiKind.PersonName.mask()],
   detectWithModel: "moonshotai/kimi-k2.6",
 })
 export class NamePiiPolicy {}
@@ -242,7 +238,7 @@ export class StaffDirectory {
 
 @PiiPolicy({
   name: "staff-id-pii-policy",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
   deps: [StaffDirectory],
 })
 export class StaffIdPiiPolicy implements PiiPolicyHandler {
@@ -260,7 +256,7 @@ export class StaffIdPiiPolicy implements PiiPolicyHandler {
 @PiiPolicy({
   name: "Contact_Policy",
   description: "Misnamed",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class MisnamedPolicy {}
 

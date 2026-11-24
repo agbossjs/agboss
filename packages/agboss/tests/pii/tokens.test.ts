@@ -41,11 +41,11 @@ describe("#120: tokens survive a pause, a resume and a recovery", () => {
 });
 
 describe("#120: what is stored", () => {
-  test("replaceWithKind and replacePart make no tokens", () => {
+  test("mask() and mask(part) make no tokens", () => {
     const text = "call 555 and 000000018";
     const findings = [
-      { start: 5, end: 8, label: "phone", action: PiiAction.replacePart({ keepLast: 1 }) },
-      { start: 13, end: 22, label: "israeli-id", action: PiiAction.replaceWithKind() },
+      { start: 5, end: 8, label: "phone", action: PiiAction.mask({ keepLast: 1 }) },
+      { start: 13, end: 22, label: "israeli-id", action: PiiAction.mask() },
     ].map((item) => ({ ...item, policy: "p", key: "k", rank: 0 }));
 
     expect(maskedText(text, findings, {})).toEqual({

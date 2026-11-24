@@ -48,7 +48,7 @@ guardrails
 tool interceptors
   desk-audit-tool-interceptor — before, after · on desk-agent: order-status-tool, close-account-tool
 pii policies
-  customer-id-pii-policy — findMatches(): replaceWithToken() · on desk-agent · masks logs and traces
+  customer-id-pii-policy — findMatches(): tokenize() · on desk-agent · masks logs and traces
 memory
   case-notes-compaction — strategy: custom (CaseNotesCompaction.compact()) every 1 turns · older than 2 turns
 pause     on — tools with channel wait for external signal

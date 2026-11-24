@@ -1,6 +1,6 @@
 /** #120 AC3: only the kinds the rules name, a kind rule over a group rule, the longest span. */
 import { describe, expect, it } from "vitest";
-import { PiiAction, PiiGroup, PiiKind, PiiPolicy, pii, secret } from "../../src/index.js";
+import { PiiGroup, PiiKind, PiiPolicy, secret } from "../../src/index.js";
 import { componentOf } from "../../src/components/metadata.js";
 import type { Class } from "../../src/components/injection.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
@@ -26,7 +26,7 @@ const masked = async (set: PiiPolicySet, text: string): Promise<string> =>
 @PiiPolicy({
   name: "email-pii-policy",
   description: "Emails only",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
   pseudonymKey: KEY,
 })
 class EmailPiiPolicy {}
@@ -34,10 +34,7 @@ class EmailPiiPolicy {}
 @PiiPolicy({
   name: "contact-group-pii-policy",
   description: "Contact by group, emails by token",
-  rules: [
-    pii(PiiGroup.Contact, PiiAction.replaceWithKind()),
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-  ],
+  rules: [PiiGroup.Contact.mask(), PiiKind.Email.tokenize()],
   pseudonymKey: KEY,
 })
 class ContactGroupPiiPolicy {}
@@ -46,10 +43,10 @@ class ContactGroupPiiPolicy {}
   name: "financial-pii-policy",
   description: "Financial and network data",
   rules: [
-    pii(PiiGroup.Financial, PiiAction.replaceWithKind()),
-    pii(PiiGroup.Network, PiiAction.replaceWithKind()),
-    pii(PiiGroup.Credentials, PiiAction.replaceWithKind()),
-    pii(PiiGroup.Government, PiiAction.replaceWithKind()),
+    PiiGroup.Financial.mask(),
+    PiiGroup.Network.mask(),
+    PiiGroup.Credentials.mask(),
+    PiiGroup.Government.mask(),
   ],
   pseudonymKey: KEY,
 })

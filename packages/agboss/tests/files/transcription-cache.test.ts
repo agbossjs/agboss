@@ -13,7 +13,7 @@ import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { PiiAction, type AnyPiiAction } from "../../src/pii/actions.js";
 import { PiiKind } from "../../src/pii/kinds.js";
-import { pii } from "../../src/pii/pii-policy.decorator.js";
+import {} from "../../src/pii/pii-policy.decorator.js";
 import type { PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
 import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -51,11 +51,11 @@ const runtime: FileRuntime = {
   }),
 };
 
-const policy = (name: string, action: AnyPiiAction = PiiAction.replaceWithKind()) => {
+const policy = (name: string, action: AnyPiiAction = PiiAction.mask()) => {
   const meta: PiiPolicyMeta = {
     name,
     description: name,
-    rules: [pii(PiiKind.CardNumber, action)],
+    rules: [{ target: PiiKind.CardNumber, action }],
     deps: [],
   };
   return runtimePolicyOf({ meta, instance: {}, key: "k" });
@@ -123,7 +123,7 @@ describe("the cache key names the policies that masked the text", () => {
   it("a block rule in the transcript refuses before anything is cached or sent", async () => {
     transcriptions = 0;
     const blocking = new PiiPolicySet(
-      [policy("blocking-pii-policy", PiiAction.blockWithRefusal({ refusal: "No cards." }))],
+      [policy("blocking-pii-policy", PiiAction.block("No cards."))],
       "field-key",
     );
 

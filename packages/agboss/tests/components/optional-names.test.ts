@@ -14,13 +14,11 @@ import {
   Judge,
   JudgeVerdict,
   PauseListener,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   ToolCallDecision,
   ToolInterceptor,
   WorkingCalendar,
-  pii,
   secret,
   type Class,
 } from "../../src/index.js";
@@ -71,7 +69,7 @@ class TenantScope {
 class RudeWords {}
 
 @PiiPolicy({
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
   pseudonymKey: secret("PII_KEY"),
 })
 class ContactDetails {}

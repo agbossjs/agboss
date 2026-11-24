@@ -1093,14 +1093,14 @@ it("looks the order up in the book it is given", async () => {
   / `execution` as given) — never a thrown `GuardrailBlockedError`. A guardrail without its own
   `model` decides on a decision model, as `defaults.guardrail.model` does.
 - **`testPii`** checks the policies' own rules first (`[name.not-kebab-case]`,
-  `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
+  `[pii.duplicate-target]`, `[pii.conflicting-rules]`, …: one `GraphRuleError` with all of them), then
   `mask(text)` gives what a model would read — tokens made with a fixed test key and kept across
   calls, as an execution's `piiTokens` are; a block rule rejects with `PiiRefusedError` — and
   `reveal(text)` what its answer becomes; a `detectWithModel` policy answers from `model`
   (`replyWith('{"found":[{"kind":"person-name","text":"Anna Smith"}]}')`).
 
 <!-- snippet-context
-import { Decision, Injectable, Judge, JudgeModel, JudgeVerdict, PiiAction, PiiKind, PiiPolicy, pii, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { Decision, Injectable, Judge, JudgeModel, JudgeVerdict, PiiAction, PiiKind, PiiPolicy, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { PlainTextDto } from "@agboss/core/dto";
 @Judge({ name: "grounded-judge", model: "typesafe/jev-1.13", reply: PlainTextDto, deps: [JudgeModel] })
 export class GroundedJudge implements JudgeHandler<PlainTextDto> {
@@ -1118,7 +1118,7 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class ContactPiiPolicy {}
 -->

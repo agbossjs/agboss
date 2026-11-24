@@ -125,7 +125,7 @@ export interface MaskedModelText {
 }
 
 /**
- * One text into a model through the policies (a router's request): a `blockWithRefusal` value in it
+ * One text into a model through the policies (a router's request): a `block` value in it
  * fails the execution with `PiiRefusedError`.
  */
 export async function maskedModelText(

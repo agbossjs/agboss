@@ -15,7 +15,7 @@ import type { AssembledWorkflow } from "../workflow.js";
 export interface DescribedPiiRule {
   /** The kind or group (`email`, `contact`), or `findMatches()` for a project's own detector. */
   readonly target: string;
-  /** `replaceWithToken()`, `replacePart({"keepLast":4})`, `blockWithRefusal()`. */
+  /** `tokenize()`, `mask({"keepLast":4})`, `block()`. */
   readonly action: string;
   /** A block rule's refusal: its text, or `ClassName.refusal()`; absent for a masking rule. */
   readonly refusal?: string;
@@ -37,13 +37,13 @@ export interface DescribedPiiPolicy {
 
 /** A block rule's refusal: the rule's own text, else the class's `refusal(kind)`. */
 function refusalOf(cls: Class, action: AnyPiiAction): string | undefined {
-  if (action.kind !== PiiActionKind.BlockWithRefusal) return undefined;
+  if (action.kind !== PiiActionKind.Block) return undefined;
   return action.refusal === undefined ? `${cls.name}.refusal()` : JSON.stringify(action.refusal);
 }
 
 /** A block rule is shown by its kind; the refusal is its own field. */
 const ruleActionText = (action: AnyPiiAction): string =>
-  action.kind === PiiActionKind.BlockWithRefusal ? "blockWithRefusal()" : actionText(action);
+  action.kind === PiiActionKind.Block ? "block()" : actionText(action);
 
 function rulesOf(cls: Class): readonly DescribedPiiRule[] {
   const meta = piiPolicyMetaOf(cls);
@@ -52,7 +52,7 @@ function rulesOf(cls: Class): readonly DescribedPiiRule[] {
   return meta.rules.map((rule) => {
     const refusal = refusalOf(cls, rule.action);
     return {
-      target: rule.target,
+      target: rule.target.id,
       action: ruleActionText(rule.action),
       ...(refusal === undefined ? {} : { refusal }),
     };

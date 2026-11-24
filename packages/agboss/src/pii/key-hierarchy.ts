@@ -16,7 +16,7 @@ import { createHmac, hkdfSync } from "node:crypto";
 
 /** The purposes, each the HKDF `info` its key is derived under. A label is never reused: a new scheme is a new label. */
 export enum PiiKeyPurpose {
-  /** `replaceWithToken()` tokens and `sensitive` fields' tokens: `<label:hex>`. */
+  /** `tokenize()` tokens and `sensitive` fields' tokens: `<label:hex>`. */
   Pseudonym = "agboss/pii/pseudonym/v2",
   /** What a policy set masks with (`PiiPolicySet.fingerprint`): a cached transcription's key. */
   PolicyHash = "agboss/pii/policy-hash/v2",

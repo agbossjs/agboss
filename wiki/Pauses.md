@@ -171,9 +171,9 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { answeredBy
   their ledger at once and in the execution's `spend` when the step takes the answer — once — and is
   traced under the pause's execution (cost caller `reply-interpreter:<name>`). Its model reads the
   question and the reply through the application's and the workflow's PII policies (#120), like an
-  agent's: a `replaceWithToken()` value is a token for the model, its answer is revealed before it is
+  agent's: a `tokenize()` value is a token for the model, its answer is revealed before it is
   validated (the tool gets the real value), a token no map knows is a decline (the pause stays
-  `Pending`), a `blockWithRefusal` value in them throws `PiiRefusedError`.
+  `Pending`), a `block` value in them throws `PiiRefusedError`.
 - **`DecidedBy.Code`** — `implements ReplyInterpreterHandler<Self>`: `interpret(input:
   InputOf<Self>)` returns its outcome (#267 S124 b), sync or as a promise —
   `ReplyInterpretation.understood(decision)` (`OutputOf<Self>`, validated like any decision) or

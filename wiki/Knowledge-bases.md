@@ -298,7 +298,7 @@ candidate fails the cases that retrieve, never falls back to the retrieval's own
 sources — as the reading agent's own model does: through that agent's PII policies (the application's,
 the workflow's and the agent's own), with its execution's sensitive values and key. In context mode the
 reading agent is the one the knowledge block is for, in tool mode the one that searches. A candidate
-holding `alice@example.com` under a `replaceWithToken()` rule reaches the reranker's model as
+holding `alice@example.com` under a `tokenize()` rule reaches the reranker's model as
 `<email:7f3a91>`; the reranked passage reaches the agent as retrieved, its own boundary masking it as
 before. A block rule in a candidate refuses as it would at the agent's own model — the search call
 refused (the model reads `Tool error: the call was refused: …`), in context mode the execution

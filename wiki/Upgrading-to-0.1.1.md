@@ -37,6 +37,25 @@ A disconnect no longer cancels a run: the task goes on, and `GetTask` / `Subscri
 A client resends an ambiguous accept only to an AGBoss peer, within the retention its card declares
 — never to a foreign peer.
 
+## PII rules — three verbs on the kind (#1301)
+
+A declarative `@PiiPolicy` writes each rule on its kind or group; `pii(…)` and the `replace…` /
+`blockWithRefusal` names are gone, with no alias. Tokens do not change: a token's label is still
+the kind's id (`<email:7f3a91>`).
+
+| 0.1.0 | 0.1.1 |
+| --- | --- |
+| `pii(PiiKind.Email, PiiAction.replaceWithKind())` | `PiiKind.Email.mask()` |
+| `pii(PiiKind.CardNumber, PiiAction.replacePart({ keepLast: 4 }))` | `PiiKind.CardNumber.mask({ keepLast: 4 })` |
+| `pii(PiiKind.Phone, PiiAction.replaceWithToken())` | `PiiKind.Phone.tokenize()` |
+| `pii(PiiKind.UsSsn, PiiAction.blockWithRefusal({ refusal: "…" }))` | `PiiKind.UsSsn.block("…")` |
+| `pii(PiiGroup.Contact, …)` | `PiiGroup.Contact.mask()` (and the other verbs) |
+| `sensitive: PiiAction.replaceWithToken()`, `action: PiiAction.replaceWithKind()` | `PiiAction.tokenize()`, `PiiAction.mask()` |
+| `PiiActionKind.ReplaceWithKind` / `ReplacePart` / `ReplaceWithToken` / `BlockWithRefusal` | `Mask` / `MaskPart` / `Tokenize` / `Block` |
+| `PiiRefusalOptions`, `ReplaceWithKindAction`, `ReplacePartAction`, `ReplaceWithTokenAction`, `BlockWithRefusalAction` | removed; `MaskAction`, `MaskPartAction`, `TokenizeAction`, `BlockAction` |
+| `refusal(kind)` reading `kind` as a string | `kind.id` (a `PiiKind` is a descriptor; `PiiKind.fromId(id)` reads one back) |
+| one kind in two rules of a policy | `[pii.duplicate-target]` at assembly: one rule per kind or group |
+
 ## PII tokens change once (#1269)
 
 Every use of the PII key now has a key of its own, derived by HKDF-SHA256

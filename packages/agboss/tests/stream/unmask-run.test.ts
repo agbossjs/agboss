@@ -96,7 +96,7 @@ describe("#1007 AC2: a made-up token is never shown as written", () => {
 });
 
 describe("#1007 AC3: stream and output agree for every PII action", () => {
-  writer("replaceWithToken: the revealed address", async ({ app, mockLlm }) => {
+  writer("tokenize: the revealed address", async ({ app, mockLlm }) => {
     mockLlm(AuditWriter).thenReturn(replyWith("probe"));
     mockLlm(AuditJudge).thenReturnAlways(replyWith("PASS"));
     await execute(app, AuditStart, { text: `Mail ${EMAIL}, bo@acme.com` });
@@ -117,7 +117,7 @@ describe("#1007 AC3: stream and output agree for every PII action", () => {
   });
 
   writer(
-    "replacePart: what the model writes of the masked number is the output",
+    "mask(part): what the model writes of the masked number is the output",
     async ({ app, mockLlm }) => {
       chunks.size = 2;
       mockLlm(AuditWriter).thenReturn(replyWith("Call me: ********67 <ok>"));
@@ -136,7 +136,7 @@ describe("#1007 AC3: stream and output agree for every PII action", () => {
     },
   );
 
-  desk("replaceWithKind: the kind the model wrote is the output", async ({ app, mockLlm }) => {
+  desk("mask: the kind the model wrote is the output", async ({ app, mockLlm }) => {
     chunks.size = 3;
     mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
     mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));

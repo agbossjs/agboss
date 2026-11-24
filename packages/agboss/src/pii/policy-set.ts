@@ -74,12 +74,12 @@ export class PiiPolicySet {
   }
 
   /**
-   * Whether a policy has a block rule (`blockWithRefusal`): an answer that holds such a value is
+   * Whether a policy has a block rule (`block`): an answer that holds such a value is
    * refused, so what streams of it waits for that check (#1006).
    */
   get blocks(): boolean {
     return this.policies.some((policy) =>
-      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.BlockWithRefusal),
+      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.Block),
     );
   }
 
@@ -183,7 +183,7 @@ export class PiiPolicySet {
   } {
     const kinds = new Set<PiiKind>(this.policies.flatMap((policy) => [...policy.actions.keys()]));
     const blocking = this.policies.filter((policy) =>
-      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.BlockWithRefusal),
+      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.Block),
     );
     return {
       kinds: [...kinds],
@@ -192,7 +192,7 @@ export class PiiPolicySet {
         ...new Set(
           blocking.flatMap((policy) =>
             [...policy.actions].flatMap(([kind, action]) =>
-              action.kind === PiiActionKind.BlockWithRefusal ? [kind] : [],
+              action.kind === PiiActionKind.Block ? [kind] : [],
             ),
           ),
         ),
@@ -210,8 +210,11 @@ export class PiiPolicySet {
   async refusalForKind(kind: PiiKind): Promise<PiiRefusedError | undefined> {
     for (const policy of this.policies) {
       const action = policy.actions.get(kind);
-      if (action?.kind === PiiActionKind.BlockWithRefusal)
-        return new PiiRefusedError({ kind, refusal: await policy.refusalOf(kind, action) });
+      if (action?.kind === PiiActionKind.Block)
+        return new PiiRefusedError({
+          kind: kind.id,
+          refusal: await policy.refusalOf(kind, action),
+        });
     }
     return undefined;
   }
@@ -222,7 +225,7 @@ export class PiiPolicySet {
     usage: readonly UsageRecord[],
   ): Promise<PiiRefusedError | undefined> {
     const [finding] = blocked;
-    if (finding?.action.kind !== PiiActionKind.BlockWithRefusal) return undefined;
+    if (finding?.action.kind !== PiiActionKind.Block) return undefined;
     const policy = this.policies.find((candidate) => candidate.name === finding.policy);
     const refusal = (await policy?.refusalOf(finding.kind, finding.action)) ?? "";
     return new PiiRefusedError({ kind: finding.label, refusal, usage });

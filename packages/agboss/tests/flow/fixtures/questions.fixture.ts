@@ -40,7 +40,7 @@ export class PurchaseQuestionDto {
   @Integer({ prompt: "its price in dollars", min: 0 })
   priceUsd!: number;
 
-  @Text({ prompt: "who asks", optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ prompt: "who asks", optional: true, sensitive: PiiAction.mask() })
   requester?: string;
 }
 

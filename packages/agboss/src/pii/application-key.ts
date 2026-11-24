@@ -35,9 +35,9 @@ export function policiesNeedingTheKey(policies: readonly Class[]): readonly stri
     const meta = piiPolicyMetaOf(cls);
     if (meta === undefined) return [];
     const tokens = isCustomPolicy(meta)
-      ? meta.action.kind === PiiActionKind.ReplaceWithToken
+      ? meta.action.kind === PiiActionKind.Tokenize
       : meta.pseudonymKey === undefined &&
-        meta.rules.some((rule) => rule.action.kind === PiiActionKind.ReplaceWithToken);
+        meta.rules.some((rule) => rule.action.kind === PiiActionKind.Tokenize);
     return tokens ? [meta.name] : [];
   });
 }

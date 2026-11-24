@@ -144,7 +144,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
   "references/07-guardrails-pii-and-security.md": [
     ...["InputGuardrail", "OutputGuardrail", "GuardrailRefusal", "GuardrailBlockedError"],
     ...["GuardFailedError", "PiiPolicy", "PiiPolicyHandler", "PiiMatch", "PiiRefusal", "PiiAction"],
-    ...["PiiKind", "PiiGroup", "pii", "PiiRefusedError", "PiiDetectionFailedError", "secret"],
+    ...["PiiKind", "PiiGroup", "PiiRefusedError", "PiiDetectionFailedError", "secret"],
     ...["testGuardrail", "testPii", "decideWith", "ExecutionContext"],
     ...["DecidedBy", "GuardrailHandler", "GuardrailVerdict", "TenantContext"],
   ],

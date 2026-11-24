@@ -1498,16 +1498,16 @@ export class LoansOpenRouterModelProvider extends OpenRouterProvider {
 The safety — a PII policy and a guardrail:
 
 ```ts file=loans/src/pii-policies/applicant.pii-policy.ts
-import { PiiAction, PiiKind, PiiPolicy, pii } from "@agboss/core";
+import { PiiKind, PiiPolicy } from "@agboss/core";
 
 @PiiPolicy({
   name: "applicant-pii-policy",
   description: "Hides the applicant's identifiers and contacts from models",
   rules: [
-    pii(PiiKind.IsraeliId, PiiAction.replaceWithToken()), // the model reads <israeli-id:…>; tools get the real id
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-    pii(PiiKind.Phone, PiiAction.replacePart({ keepLast: 2 })),
-    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "Please do not send card numbers here." })),
+    PiiKind.IsraeliId.tokenize(), // the model reads <israeli-id:…>; tools get the real id
+    PiiKind.Email.tokenize(),
+    PiiKind.Phone.mask({ keepLast: 2 }),
+    PiiKind.CardNumber.block("Please do not send card numbers here."),
   ],
 })
 export class ApplicantPiiPolicy {}

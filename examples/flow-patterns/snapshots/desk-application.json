@@ -242,7 +242,7 @@
             "rules": [
               {
                 "target": "findMatches()",
-                "action": "replaceWithToken()"
+                "action": "tokenize()"
               }
             ],
             "elements": [

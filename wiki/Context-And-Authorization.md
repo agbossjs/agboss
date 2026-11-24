@@ -114,8 +114,8 @@ executionContext: ClinicExecutionContext })`.
   so `this.clinicExecutionContext.tenant.units` is typed.
 - **Identity, never secrets:** the levels hold who we interact with (ids, roles, licence numbers),
   never access tokens, passwords or API keys. Identity that must not reach a model, a log or a trace
-  is marked `sensitive: PiiAction.…` (#120 — a masking action only: `replaceWithKind()`,
-  `replacePart(…)`, `replaceWithToken()`; `blockWithRefusal` does not compile there): its value is
+  is marked `sensitive: PiiAction.…` (#120 — a masking action only: `mask()`,
+  `mask(…)`, `tokenize()`; `block` does not compile there): its value is
   masked wherever it appears in what a model reads, and the context fields in a trace of the state
   are masked too ([Guards → PII policies](Guards#pii-policies)); a service gets a secret from the identity when it needs one
   (`credentialService.tokenFor(clinicianId)`), so it is never checkpointed, never inherited and
@@ -134,7 +134,7 @@ export class UnitDto {
 }
 
 export class ClinicianDto {
-  @Text({ sensitive: PiiAction.replaceWithToken() }) // the model sees <clinician-id:…>
+  @Text({ sensitive: PiiAction.tokenize() }) // the model sees <clinician-id:…>
   clinicianId!: string;
 }
 
@@ -316,7 +316,7 @@ real `401` / `403`, nothing run, never the default tenant (#387, #808,
 resume through either takes the tenant's id; an A2A `CancelTask` cancels only the caller's own task.
 
 Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's `sensitive`
-fields through their action — `replacePart(…)` as written, a token or a kind as `<field-name>`
+fields through their action — `mask(…)` as written, a token or a kind as `<field-name>`
 (#120); the tool itself still gets them whole.
 
 ## In unit tests

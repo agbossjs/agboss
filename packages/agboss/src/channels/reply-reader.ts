@@ -30,7 +30,7 @@ import type { ToolBinding } from "../flow/runtime/answer-tools.js";
  * `reply-interpreter:<name>` — its instructions after the framework's system text, the question and
  * the reply in the input message, one answer tool of the role's answer DTO; no answer is a decline.
  * Its model reads them through the application's PII policies and its answer is revealed before
- * validation, like an agent's (#120): a token no map knows is a decline, a `blockWithRefusal` value
+ * validation, like an agent's (#120): a token no map knows is a decline, a `block` value
  * in them throws `PiiRefusedError`. Either kind reads in the pause's execution frame — its step's
  * `ExecutionContext`, its tenant for the rate limits.
  */

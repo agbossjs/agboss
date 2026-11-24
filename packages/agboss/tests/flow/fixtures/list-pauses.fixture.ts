@@ -11,7 +11,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
-import { PiiAction, PiiKind, PiiPolicy, pii } from "../../../src/index.js";
+import { PiiKind, PiiPolicy } from "../../../src/index.js";
 import { hours } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { onStart } from "./paths.js";
@@ -119,14 +119,14 @@ export class ListOpenChannel extends ListOpenQuestion {
 @PiiPolicy({
   name: "list-email-pii-policy",
   description: "Hides emails everywhere (the application's)",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class ListEmailPiiPolicy {}
 
 @PiiPolicy({
   name: "list-ssn-pii-policy",
   description: "Hides social security numbers in the manager's workflow only",
-  rules: [pii(PiiKind.UsSsn, PiiAction.replaceWithKind())],
+  rules: [PiiKind.UsSsn.mask()],
 })
 export class ListSsnPiiPolicy {}
 

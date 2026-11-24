@@ -5,13 +5,11 @@
  */
 import {
   Agent,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -34,7 +32,7 @@ import {
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides email addresses from models",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class ContactPiiPolicy {}
 

@@ -1986,13 +1986,13 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   `retention.a2aTasks` / `a2aMessages` / `a2aFiles`; `A2AStatus`, `A2AEvent`, `A2AExecutionRequest`
   and `A2AExecutionResponse` are gone.
 - **PII policies (#120, S38):** a declarative `@PiiPolicy` — `name?` (kebab-case, default: the class name),
-  `description?`, `rules: [pii(kind or group, action)]`, `detectWithModel?`, `pseudonymKey?` — or a
+  `description?`, `rules: [PiiKind.X.mask() | .mask(part) | .tokenize() | .block(refusal?), PiiGroup.Y.…]` (each target once, `[pii.duplicate-target]`), `detectWithModel?`, `pseudonymKey?` — or a
   project's own detector — `@PiiPolicy({ name, action, deps })` + `implements PiiPolicyHandler`
   (`findMatches(text)` → `PiiMatch { start, end }`). Only the kinds a rule names are found (formats
   validated: Luhn, IBAN, Israeli ID, SSN rules; names and addresses by `detectWithModel`); a kind
-  rule beats a group rule, the longest span wins. Actions: `replaceWithKind()` → `<israeli-id>`,
-  `replacePart({ keepLast } | { pattern })` → `•••• 4242`, `replaceWithToken()` → `<email:7f3a91>`
-  (HMAC-SHA256, the only reversible one), `blockWithRefusal({ refusal })` or `blockWithRefusal()`
+  rule beats a group rule, the longest span wins. Actions: `mask()` → `<israeli-id>`,
+  `mask({ keepLast } | { pattern })` → `•••• 4242`, `tokenize()` → `<email:7f3a91>`
+  (HMAC-SHA256, the only reversible one), `block("…")` or `block()`
   with `implements PiiRefusal` (`[pii.missing-refusal]` / `[pii.unused-refusal]`). Listed in
   `piiPolicies` of `@Application` → `@Workflow` → `@Agent` / `@Router` — lists add up,
   `excludePiiPolicies` removes one for that element (`[pii.exclude-not-inherited]`), two actions
@@ -2031,7 +2031,7 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   the application's (or the instance's) key, never an execution's own.
 
 <!-- snippet-context
-import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "@agboss/core";
+import { Agent, PiiAction, PiiKind, PiiPolicy, secret } from "@agboss/core";
 -->
 
 ```ts
@@ -2039,8 +2039,8 @@ import { Agent, PiiAction, PiiKind, PiiPolicy, pii, secret } from "@agboss/core"
   name: "contact-pii-policy",
   description: "Hides contact details from models",
   rules: [
-    pii(PiiKind.Email, PiiAction.replaceWithToken()), // the model sees <email:7f3a91>, a tool the address
-    pii(PiiKind.Phone, PiiAction.replacePart({ keepLast: 2 })),
+    PiiKind.Email.tokenize(), // the model sees <email:7f3a91>, a tool the address
+    PiiKind.Phone.mask({ keepLast: 2 }),
   ],
   pseudonymKey: secret("PII_PSEUDONYM_KEY"),
 })
@@ -2428,7 +2428,7 @@ export class ShopTenantContext extends TenantContext {
 }
 
 export class ShopExecutionContext extends ExecutionContext {
-  @Text({ sensitive: PiiAction.replaceWithToken() }) // identity, masked for models, logs, traces (#120)
+  @Text({ sensitive: PiiAction.tokenize() }) // identity, masked for models, logs, traces (#120)
   userId!: string;
 }
 

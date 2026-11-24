@@ -19,7 +19,6 @@ import {
   PiiKind,
   PiiPolicy,
   TenantContext,
-  pii,
   type RedactionResult,
 } from "../../src/index.js";
 import type { RuleViolation } from "../../src/graph/rule-error.js";
@@ -30,7 +29,7 @@ import { readerApplication, type ReaderOptions } from "./reader.factory.js";
 @PiiPolicy({
   name: "redactor-rules-cards-pii-policy",
   description: "Hides cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.Mask,
 })
 class CardsPolicy {}
@@ -180,7 +179,7 @@ describe("[files.redacted-needs-store]", () => {
 });
 
 class PersonContext extends ExecutionContext {
-  @Text({ optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ optional: true, sensitive: PiiAction.mask() })
   person?: string;
 }
 
@@ -195,7 +194,7 @@ class PlainTenant extends TenantContext {
 }
 
 class SensitiveTenant extends TenantContext {
-  @Text({ optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ optional: true, sensitive: PiiAction.mask() })
   owner?: string;
 }
 

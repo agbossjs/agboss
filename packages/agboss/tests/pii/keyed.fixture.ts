@@ -7,7 +7,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   secret,
   type PiiMatch,
   type PiiPolicyHandler,
@@ -22,7 +21,7 @@ import { EmployeeDirectory, PII_KEY_VARIABLE } from "./pii.fixture.js";
 /** Employee ids by token: a project's detector, with the application's key. */
 @PiiPolicy({
   name: "employee-token-pii-policy",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
   deps: [EmployeeDirectory],
 })
 export class EmployeeTokenPiiPolicy implements PiiPolicyHandler {
@@ -40,7 +39,7 @@ export class EmployeeTokenPiiPolicy implements PiiPolicyHandler {
 @PiiPolicy({
   name: "own-key-pii-policy",
   description: "Emails, with a key of its own",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
   pseudonymKey: secret(PII_KEY_VARIABLE),
 })
 export class OwnKeyPiiPolicy {}
@@ -49,7 +48,7 @@ export class OwnKeyPiiPolicy {}
 @PiiPolicy({
   name: "app-key-pii-policy",
   description: "Phones, with the application's key",
-  rules: [pii(PiiKind.Phone, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Phone.tokenize()],
 })
 export class AppKeyPiiPolicy {}
 

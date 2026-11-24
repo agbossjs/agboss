@@ -8,9 +8,9 @@ import type { PiiKind, PiiTarget } from "./kinds.js";
 /**
  * `@PiiPolicy` (#120): which personal data its models and tools never see as is, and what happens
  * to it. Two forms, one decorator:
- * - declarative — `rules: [pii(PiiKind.Email, PiiAction.replaceWithToken()), …]`; only the kinds
- *   the rules name are detected, a kind rule beats a group rule, names and addresses in free text
- *   are found by `detectWithModel`;
+ * - declarative — `rules: [PiiKind.Email.tokenize(), PiiGroup.Contact.mask(), …]`; only the kinds
+ *   the rules name are detected, each target named once (`[pii.duplicate-target]`), a kind rule
+ *   beats a group rule, names and addresses in free text are found by `detectWithModel`;
  * - a project's own detector (S59, S61) — `{ name, action, deps }` + `implements PiiPolicyHandler`:
  *   `findMatches(text)` gives the ranges, the framework applies `action` to each.
  * Listed in `piiPolicies: [...]` of `@Application`, `@Workflow`, `@Agent` and `@Router` (lists add
@@ -31,14 +31,14 @@ export enum PiiFileAction {
   RedactWithModel = "redact-with-model",
 }
 
-/** One rule: a kind or a group, and what happens to its values. */
+/**
+ * One rule: a kind or a group, and what happens to its values — made by the target's verb,
+ * `PiiKind.Email.mask({ keepDomain: true })`.
+ */
 export interface PiiRule {
   readonly target: PiiTarget;
   readonly action: AnyPiiAction;
 }
-
-/** `pii(PiiKind.Email, PiiAction.replacePart({ keepDomain: true }))`. */
-export const pii = (target: PiiTarget, action: AnyPiiAction): PiiRule => ({ target, action });
 
 /** A range of the text that is personal data: `[start, end)`. */
 export interface PiiMatch {
@@ -52,7 +52,7 @@ export interface PiiPolicyHandler {
 }
 
 /**
- * The text of a `blockWithRefusal()` rule without its own: computed for the kind that matched (the
+ * The text of a `block()` rule without its own: computed for the kind that matched (the
  * sender's language, a CMS), the execution through `deps: [ExecutionContext]`.
  */
 export interface PiiRefusal {
@@ -78,7 +78,7 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
   /** A chat model that finds names, street addresses and the other kinds without a format. */
   readonly detectWithModel?: string;
   /**
-   * The HMAC key of its `replaceWithToken()` rules: `secret("PII_PSEUDONYM_KEY")`, read when the app
+   * The HMAC key of its `tokenize()` rules: `secret("PII_PSEUDONYM_KEY")`, read when the app
    * starts; absent → the application's (`@Application({ piiKeyField })`).
    */
   readonly pseudonymKey?: Secret;

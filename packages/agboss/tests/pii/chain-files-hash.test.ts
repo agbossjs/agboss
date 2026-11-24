@@ -33,7 +33,7 @@ const none = (): readonly PiiMatch[] => [];
 /** A parent's policy that lets the original files through to the models (#899). */
 @PiiPolicy({
   name: "fh-parent-files-pii-policy",
-  action: PiiAction.replaceWithKind(),
+  action: PiiAction.mask(),
   files: PiiFileAction.AllowOriginal,
 })
 class ParentFilesPiiPolicy implements PiiPolicyHandler {
@@ -43,7 +43,7 @@ class ParentFilesPiiPolicy implements PiiPolicyHandler {
 /** The child's own policy, masking files. */
 @PiiPolicy({
   name: "fh-own-pii-policy",
-  action: PiiAction.replaceWithKind(),
+  action: PiiAction.mask(),
   files: PiiFileAction.Mask,
 })
 class OwnMaskPiiPolicy implements PiiPolicyHandler {
@@ -53,7 +53,7 @@ class OwnMaskPiiPolicy implements PiiPolicyHandler {
 /** The same policy (by name) with another file action: what changing the declaration is. */
 @PiiPolicy({
   name: "fh-own-pii-policy",
-  action: PiiAction.replaceWithKind(),
+  action: PiiAction.mask(),
   files: PiiFileAction.AllowOriginal,
 })
 class OwnAllowPiiPolicy implements PiiPolicyHandler {

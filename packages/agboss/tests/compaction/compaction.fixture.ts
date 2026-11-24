@@ -10,7 +10,6 @@ import {
   CompactionStrategy,
   DecidedBy,
   TokenLimit,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Router,
@@ -18,7 +17,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -31,7 +29,7 @@ const JEV = "typesafe/jev-1.13";
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides email addresses from models",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class ContactPiiPolicy {}
 

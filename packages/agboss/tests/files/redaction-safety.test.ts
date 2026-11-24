@@ -22,7 +22,6 @@ import {
   PiiKind,
   PiiPolicy,
   PiiRefusedError,
-  pii,
   type FileContent,
   type RedactionResult,
   type RedactOptions,
@@ -41,7 +40,7 @@ import { inline, readerApplication } from "./reader.factory.js";
 @PiiPolicy({
   name: "safety-block-cards-pii-policy",
   description: "Refuses a card number in a file",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "No cards, please." }))],
+  rules: [PiiKind.CardNumber.block("No cards, please.")],
   files: PiiFileAction.Mask,
 })
 class BlockCardsPolicy {}
@@ -49,7 +48,7 @@ class BlockCardsPolicy {}
 @PiiPolicy({
   name: "safety-model-cards-pii-policy",
   description: "Refuses a card number; a model may judge an image",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "No cards, please." }))],
+  rules: [PiiKind.CardNumber.block("No cards, please.")],
   files: PiiFileAction.RedactWithModel,
 })
 class ModelCardsPolicy {}
@@ -57,7 +56,7 @@ class ModelCardsPolicy {}
 @PiiPolicy({
   name: "safety-hide-cards-pii-policy",
   description: "Hides a card number",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
 })
 class HideCardsPolicy {}
 
@@ -181,7 +180,7 @@ const SECRET = "Dana Cohen";
 
 /** Who the execution is about: a value PII policies hide wherever it appears. */
 class PersonContext extends ExecutionContext {
-  @Text({ optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ optional: true, sensitive: PiiAction.mask() })
   person?: string;
 }
 

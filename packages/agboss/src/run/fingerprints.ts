@@ -96,7 +96,7 @@ export function handedDownPiiOf(pii: FingerprintDeps["pii"]): readonly PiiPolicy
   return metas.map(piiPolicyFingerprint);
 }
 
-/** An action as plain data: a `replacePart({ pattern })` regular expression as its text. */
+/** An action as plain data: a `mask({ pattern })` regular expression as its text. */
 const actionFingerprint = (action: AnyPiiAction): Readonly<Record<string, unknown>> =>
   "part" in action && action.part.pattern !== undefined
     ? { ...action, part: { ...action.part, pattern: String(action.part.pattern) } }
@@ -113,7 +113,7 @@ function piiPolicyFingerprint(meta: PiiPolicyMeta): PiiPolicyFingerprint {
     name: meta.name,
     ...(meta.files === undefined ? {} : { files: meta.files }),
     rules: meta.rules.map((rule) => ({
-      target: rule.target,
+      target: rule.target.id,
       action: actionFingerprint(rule.action),
     })),
     ...(meta.detectWithModel === undefined ? {} : { detectWithModel: meta.detectWithModel }),

@@ -10,14 +10,12 @@ import {
   InputGuardrail,
   Injectable,
   OutputGuardrail,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Router,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   type GuardrailRefusal,
 } from "../../src/index.js";
 import { Enum, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -86,7 +84,7 @@ export class NoLegalAdviceGuardrail {}
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides email addresses from models",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class ContactPiiPolicy {}
 

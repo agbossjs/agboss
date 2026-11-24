@@ -11,14 +11,12 @@ import {
   DecidedBy,
   Judge,
   JudgeVerdict,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Router,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   type JudgeHandler,
   type JudgeHandlerClass,
 } from "../../src/index.js";
@@ -52,12 +50,9 @@ function policyOf(variant: DeskVariant): Class {
     name: "contact-pii-policy",
     description: "Hides email addresses from models",
     rules: [
-      pii(
-        PiiKind.Email,
-        variant.isPolicyPartial === true
-          ? PiiAction.replacePart({ pattern: /[a-z]+@/g })
-          : PiiAction.replaceWithToken(),
-      ),
+      variant.isPolicyPartial === true
+        ? PiiKind.Email.mask({ pattern: /[a-z]+@/g })
+        : PiiKind.Email.tokenize(),
     ],
   })
   class ContactPiiPolicy {}

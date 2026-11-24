@@ -56,7 +56,7 @@ class NeedsGuardrail implements GuardrailRefusal {
   }
 }
 
-@PiiPolicy({ name: "needs-pii-policy", action: PiiAction.replaceWithKind(), deps: [MISSING] })
+@PiiPolicy({ name: "needs-pii-policy", action: PiiAction.mask(), deps: [MISSING] })
 class NeedsPolicy implements PiiPolicyHandler {
   constructor(readonly value: string) {}
   findMatches(): readonly PiiMatch[] {

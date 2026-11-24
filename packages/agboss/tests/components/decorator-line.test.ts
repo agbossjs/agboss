@@ -17,7 +17,7 @@ import {
 } from "../../src/models/index.js";
 import type { ModelCapabilities } from "../../src/models/capabilities.js";
 import type { ProviderConnection } from "../../src/models/handler.js";
-import { PiiAction, PiiKind, PiiPolicy, Tool, pii, type PiiMatch } from "../../src/index.js";
+import { PiiAction, PiiKind, PiiPolicy, Tool, type PiiMatch } from "../../src/index.js";
 import { Rag, RagTenancy } from "../../src/rag/index.js";
 import { Text } from "../../src/dto/index.js";
 import type { RagRetrieval } from "../../src/rag/types.js";
@@ -57,7 +57,7 @@ export class NarrowLookupTool {
 }
 
 // @ts-expect-error -- findMatches gets any text, not only "x"
-@PiiPolicy({ name: "narrow-id-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "narrow-id-pii-policy", action: PiiAction.mask() })
 export class NarrowIdPiiPolicy {
   findMatches(text: "x"): readonly PiiMatch[] {
     return [{ start: 0, end: text.length }];
@@ -68,25 +68,22 @@ export class NarrowIdPiiPolicy {
 @PiiPolicy({
   name: "narrow-refusal-pii-policy",
   description: "Blocks IBANs and card numbers",
-  rules: [
-    pii(PiiKind.Iban, PiiAction.blockWithRefusal()),
-    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal()),
-  ],
+  rules: [PiiKind.Iban.block(), PiiKind.CardNumber.block()],
 })
 export class NarrowRefusalPiiPolicy {
-  refusal(kind: PiiKind.Iban): string {
-    return `no ${kind}`;
+  refusal(kind: PiiKind & { readonly id: "iban" }): string {
+    return `no ${kind.id}`;
   }
 }
 
 @PiiPolicy({
   name: "any-refusal-pii-policy",
   description: "Blocks IBANs",
-  rules: [pii(PiiKind.Iban, PiiAction.blockWithRefusal())],
+  rules: [PiiKind.Iban.block()],
 })
 export class AnyRefusalPiiPolicy {
   refusal(kind: PiiKind): string {
-    return `no ${kind}`;
+    return `no ${kind.id}`;
   }
 }
 

@@ -27,7 +27,7 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
-import { PiiAction, PiiKind, pii } from "../../../src/pii/index.js";
+import { PiiKind } from "../../../src/pii/index.js";
 import { minutes } from "../../../src/units/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
@@ -465,8 +465,8 @@ export class TreasuryBatchWorkflow {}
   name: "treasury-pii-policy",
   description: "Hides e-mail addresses, and phone numbers behind tokens",
   rules: [
-    pii(PiiKind.Email, PiiAction.replaceWithKind()),
-    pii(PiiKind.Phone, PiiAction.replaceWithToken()),
+    PiiKind.Email.mask(),
+    PiiKind.Phone.tokenize(),
   ],
 })
 export class TreasuryPiiPolicy {}

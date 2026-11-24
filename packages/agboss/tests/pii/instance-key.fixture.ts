@@ -58,7 +58,7 @@ export class LookedUpDto {
   @Text({ prompt: "what was found" })
   status!: string;
 
-  @Text({ prompt: "who it is about", sensitive: PiiAction.replaceWithToken() })
+  @Text({ prompt: "who it is about", sensitive: PiiAction.tokenize() })
   author!: string;
 }
 
@@ -108,7 +108,7 @@ export class DeskNoteDto {
   @Text({ prompt: "the note" })
   text!: string;
 
-  @Text({ prompt: "who it is about", sensitive: PiiAction.replaceWithToken() })
+  @Text({ prompt: "who it is about", sensitive: PiiAction.tokenize() })
   author!: string;
 }
 

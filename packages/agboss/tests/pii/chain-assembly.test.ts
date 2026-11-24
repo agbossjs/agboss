@@ -8,13 +8,11 @@
 import { describe, expect, it } from "vitest";
 import {
   Agent,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   secret,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -37,7 +35,7 @@ import { ContactPiiPolicy, GovernmentPiiPolicy } from "./pii.fixture.js";
 @PiiPolicy({
   name: "email-kind-chain-pii-policy",
   description: "Emails by kind",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
   pseudonymKey: secret("PII_UNIT_KEY"),
 })
 class EmailKindPiiPolicy {}
@@ -194,7 +192,7 @@ describe("#1150 AC7: assembly checks every way into a child", () => {
       .map((item) => item.message);
     expect(messages).toEqual(
       expect.arrayContaining([
-        "cc-child-workflow (under cc-root-workflow): email is replaceWithToken() in contact-pii-policy but replaceWithKind() in email-kind-chain-pii-policy",
+        "cc-child-workflow (under cc-root-workflow): email is tokenize() in contact-pii-policy but mask() in email-kind-chain-pii-policy",
       ]),
     );
   });

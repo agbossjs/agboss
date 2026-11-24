@@ -8,7 +8,7 @@ const CUSTOMER_ID = /\bCUS-\d{4}\b/gu;
  */
 @PiiPolicy({
   name: "customer-id-pii-policy",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
 })
 export class CustomerIdPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {

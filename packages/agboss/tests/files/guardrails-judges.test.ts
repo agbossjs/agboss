@@ -7,11 +7,9 @@ import { describe, expect } from "vitest";
 import {
   GuardFailedError,
   GuardrailBlockedError,
-  PiiAction,
   PiiFileAction,
   PiiKind,
   PiiPolicy,
-  pii,
 } from "../../src/index.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
 import {
@@ -370,7 +368,7 @@ describe("AC4: a judge reads the files the agent's model read", () => {
 @PiiPolicy({
   name: "mail-guardrail-pii-policy",
   description: "Hides emails; the original file may go through",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
   files: PiiFileAction.AllowOriginal,
 })
 class MailPolicy {}

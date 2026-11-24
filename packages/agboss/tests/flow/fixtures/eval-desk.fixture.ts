@@ -8,7 +8,6 @@ import {
   Judge,
   JudgeModel,
   JudgeVerdict,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   TenantContext,
@@ -16,7 +15,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   toolCallsOf,
   type JudgeHandler,
   type JudgeInput,
@@ -257,7 +255,7 @@ export class AnswerGroundedJudge implements JudgeHandler<DeskAnswerDto> {
 @PiiPolicy({
   name: "eval-email-pii-policy",
   description: "Hides email addresses",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class EvalEmailPiiPolicy {}
 

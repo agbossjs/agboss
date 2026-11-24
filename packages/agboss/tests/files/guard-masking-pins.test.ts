@@ -20,7 +20,7 @@ import type { FileRuntime } from "../../src/files/visit-files.js";
 import { judgedFilesOf } from "../../src/graph/agent-loop/judge-files.js";
 import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { PiiAction, PiiFileAction, PiiKind, PiiPolicy, pii } from "../../src/index.js";
+import { PiiFileAction, PiiKind, PiiPolicy } from "../../src/index.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { kilobytes, seconds } from "../../src/units/index.js";
@@ -41,7 +41,7 @@ const EMAIL = "bob@example.com";
 @PiiPolicy({
   name: "pins-mail-pii-policy",
   description: "Hides emails; the original file may go through",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
   files: PiiFileAction.AllowOriginal,
 })
 class MailPolicy {}

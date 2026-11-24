@@ -8,7 +8,7 @@ import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NO_FILES, type FileBatch, type FileRuntime } from "../../src/files/visit-files.js";
 import type { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
 import { InlineA2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
-import type { PiiKind } from "../../src/pii/kinds.js";
+import { PiiKind } from "../../src/pii/kinds.js";
 import type { PiiRefusedError } from "../../src/pii/errors.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
@@ -93,7 +93,7 @@ export function maskOf(over: MaskOver = {}): FileMask & { readonly refusedFor: P
     known: {},
     mask: () => Promise.reject(new Error("no masking")),
     redaction: {
-      kinds: over.kinds ?? ["card-number" as PiiKind],
+      kinds: over.kinds ?? [PiiKind.CardNumber],
       values: over.values ?? [],
       blocked: over.blocked ?? [],
       isModelChecked: over.isModelChecked ?? false,

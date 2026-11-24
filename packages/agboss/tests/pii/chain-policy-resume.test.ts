@@ -47,7 +47,7 @@ const none = (): readonly PiiMatch[] => [];
 
 /** A policy by name and file action: two of one name are one policy changed between deployments. */
 const policyOf = (name: string, files: PiiFileAction): Class => {
-  @PiiPolicy({ name, action: PiiAction.replaceWithKind(), files })
+  @PiiPolicy({ name, action: PiiAction.mask(), files })
   class ChainPolicy implements PiiPolicyHandler {
     findMatches = none;
   }

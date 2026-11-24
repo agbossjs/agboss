@@ -9,7 +9,6 @@ import {
   Judge,
   ModelFiles,
   JudgeVerdict,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Router,
@@ -19,7 +18,6 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Class,
-  pii,
   type JudgeHandler,
   type ToolHandler,
 } from "../../../src/index.js";
@@ -78,7 +76,7 @@ export function everyKindWorkflows(models: KindModels): {
   @PiiPolicy({
     name: "names-pii-policy",
     description: "Finds names with a model",
-    rules: [pii(PiiKind.PersonName, PiiAction.replaceWithKind())],
+    rules: [PiiKind.PersonName.mask()],
     detectWithModel: models.pii,
   })
   class NamesPiiPolicy {}

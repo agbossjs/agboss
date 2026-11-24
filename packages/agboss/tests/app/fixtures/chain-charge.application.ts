@@ -27,7 +27,7 @@ import {
 import { PaymentGateway } from "./payment-gateway.js";
 
 /** The order ids only the root workflows mask. */
-@PiiPolicy({ name: "order-id-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "order-id-pii-policy", action: PiiAction.mask() })
 export class OrderIdPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {
     const at = text.indexOf("order-7");

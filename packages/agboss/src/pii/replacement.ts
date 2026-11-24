@@ -28,7 +28,7 @@ function kept(value: string, keepFirst: number, keepLast: number): string {
 }
 
 /**
- * `replacePart(…)`: `{ keepLast: 4 }` → `•••• 4242`, `{ keepDomain: true }` → `d•••@acme.com`,
+ * `mask(…)`: `{ keepLast: 4 }` → `•••• 4242`, `{ keepDomain: true }` → `d•••@acme.com`,
  * `{ pattern }` → every match hidden. One-way: never stored, never revealed.
  */
 export function partReplaced(value: string, part: PiiPartOptions): string {

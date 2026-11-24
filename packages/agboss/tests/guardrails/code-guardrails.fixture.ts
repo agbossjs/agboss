@@ -11,7 +11,6 @@ import {
   InputGuardrail,
   Injectable,
   OutputGuardrail,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Router,
@@ -19,7 +18,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   type GuardrailEndEvent,
   type GuardrailHandler,
   type GuardrailRefusal,
@@ -127,7 +125,7 @@ export class BrokenGuardrail implements GuardrailHandler {
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides email addresses from models",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class ContactPiiPolicy {}
 

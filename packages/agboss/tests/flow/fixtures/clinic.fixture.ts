@@ -33,7 +33,7 @@ export class UnitDto {
 }
 
 export class ClinicianDto {
-  @Text({ sensitive: PiiAction.replaceWithKind() })
+  @Text({ sensitive: PiiAction.mask() })
   clinicianId!: string;
 }
 

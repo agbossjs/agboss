@@ -9,14 +9,12 @@ import {
   EmptyEnvironment,
   GuardrailVerdict,
   OutputGuardrail,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   type GuardrailHandler,
   type PiiRefusal,
   type ToolHandler,
@@ -43,7 +41,7 @@ export class ForbiddenWordGuardrail implements GuardrailHandler {
 @PiiPolicy({
   name: "audit-card-pii-policy",
   description: "Refuses card numbers",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal())],
+  rules: [PiiKind.CardNumber.block()],
 })
 export class AuditCardPiiPolicy implements PiiRefusal {
   refusal(): string {

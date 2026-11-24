@@ -22,11 +22,11 @@ export function tokenFieldMask(key: string, known: PiiTokenMap): TokenFieldMask 
   const tokens: Record<string, string> = {};
   const mask: FieldMask = (action, label, value) => {
     switch (action.kind) {
-      case PiiActionKind.ReplacePart:
+      case PiiActionKind.MaskPart:
         return partReplaced(value, action.part);
-      case PiiActionKind.ReplaceWithKind:
+      case PiiActionKind.Mask:
         return kindPlaceholder(label);
-      case PiiActionKind.ReplaceWithToken: {
+      case PiiActionKind.Tokenize: {
         const token = tokenOf(label, value, key, { ...known, ...tokens });
         tokens[token] = value;
         return token;

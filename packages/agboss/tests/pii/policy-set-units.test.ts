@@ -28,8 +28,8 @@ const record = (costUsd: number): UsageRecord => ({
   costSource: CostSource.Api,
 });
 
-const kindAction = { kind: PiiActionKind.ReplaceWithKind } as const;
-const blockAction = { kind: PiiActionKind.BlockWithRefusal } as const;
+const kindAction = { kind: PiiActionKind.Mask } as const;
+const blockAction = { kind: PiiActionKind.Block } as const;
 const finding = (changes: Partial<PiiFinding> = {}): PiiFinding => ({
   start: 0,
   end: 4,
@@ -70,7 +70,7 @@ const policyOf = (
     actions: new Map(changes.actions ?? []),
     find,
     findNow,
-    refusalOf: vi.fn((kind: string | undefined) => Promise.resolve(`refused ${String(kind)}`)),
+    refusalOf: vi.fn((kind: PiiKind | undefined) => Promise.resolve(`refused ${String(kind)}`)),
   };
   spies.set(policy, { find, findNow });
   return policy;
@@ -270,8 +270,8 @@ describe("#1366: the refusals of a set", () => {
 
     expect(refused).toBeInstanceOf(PiiRefusedError);
     expect(refused).toMatchObject({
-      kind: PiiKind.CardNumber,
-      refusal: `refused ${PiiKind.CardNumber}`,
+      kind: PiiKind.CardNumber.id,
+      refusal: `refused ${PiiKind.CardNumber.id}`,
     });
     expect(await set.refusalForKind(PiiKind.Email)).toBeUndefined();
     expect(await set.refusalForKind(PiiKind.Phone)).toBeUndefined();
@@ -291,7 +291,7 @@ describe("#1366: the refusals of a set", () => {
     expect(refused).toBeInstanceOf(PiiRefusedError);
     expect(refused).toMatchObject({
       kind: "card",
-      refusal: `refused ${PiiKind.CardNumber}`,
+      refusal: `refused ${PiiKind.CardNumber.id}`,
     });
     expect(refused?.usage.map((u) => u.costUsd)).toEqual([0.25]);
     expect(await set.refusalError([], [])).toBeUndefined();

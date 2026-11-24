@@ -1,6 +1,5 @@
 import {
   Agent,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   TenantContext,
@@ -9,7 +8,6 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   type ToolHandler,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -151,7 +149,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
 @PiiPolicy({
   name: "bedrock-contact-pii-policy",
   description: "Hides email addresses from models",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class BedrockContactPiiPolicy {}
 

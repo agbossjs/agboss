@@ -12,7 +12,7 @@ export interface PiiRefusedErrorOptions {
 }
 
 /**
- * A `blockWithRefusal` rule matched an incoming message or an answer (#120 AC5): the execution
+ * A `block` rule matched an incoming message or an answer (#120 AC5): the execution
  * fails and `refusal` is what goes out to the sender instead. In tool arguments or a tool result
  * the same rule rejects only that call.
  */

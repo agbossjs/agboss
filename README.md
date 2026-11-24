@@ -585,7 +585,7 @@ runs graphify.
 
 1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockOf`.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
-3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`replaceWithToken`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`replyToModel`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
+3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`replyToModel`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
 4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.toParallelAgents().acceptedBy().joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseClosedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
 5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyInstance`, `SqliteChildExecutionQueueRepository`, recursive `ThisWorkflow` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
 6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AExpose` and `@McpTool` / `@McpExpose`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
@@ -1232,7 +1232,7 @@ all there is (`weight`, a positive integer, default 1, is the tenant's share for
 own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
 per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
 step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's
-`sensitive` fields through their action (`replacePart` as written, a token or a kind as `<field>`,
+`sensitive` fields through their action (`mask(part)` as written, a token or a kind as `<field>`,
 #120); the tool itself still gets them whole.
 
 **Pauses (#267).** An execution may wait for several answers at once — one per tool call whose
@@ -2028,9 +2028,9 @@ or a router removes an inherited one with `excludePiiPolicies` — for its own m
 logs, traces, observer events and `result.record` stay masked by the application's and the
 workflow's lists. Masking happens only at the model boundary: what a model reads is masked, what
 it gives back is revealed before any DTO is validated, so the scope, the checkpoint, every tool,
-action and finish see real values. `replaceWithToken()` is the reversible one — a tool gets the
+action and finish see real values. `tokenize()` is the reversible one — a tool gets the
 address the model only saw as `<email:7f3a91>` (an HMAC of the value with `pseudonymKey`; the
-token map is kept in the execution's checkpoint). A `blockWithRefusal` rule fails the execution
+token map is kept in the execution's checkpoint). A `block` rule fails the execution
 with `PiiRefusedError` (`kind`, `refusal`) when the value comes in or is in an answer, and rejects
 only the call when it is in tool arguments or a tool result.
 
@@ -2041,7 +2041,6 @@ import {
   PiiGroup,
   PiiKind,
   PiiPolicy,
-  pii,
   secret,
   type PiiMatch,
   type PiiPolicyHandler,
@@ -2055,17 +2054,17 @@ import { Text } from "@agboss/core/dto";
   name: "customer-pii-policy",
   description: "Contact details hidden, cards refused, names found by a model",
   rules: [
-    pii(PiiGroup.Contact, PiiAction.replaceWithKind()), // phones, addresses, postal codes
-    pii(PiiKind.Email, PiiAction.replaceWithToken()), // a kind rule beats its group's
-    pii(PiiKind.PersonName, PiiAction.replaceWithKind()),
-    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal()), // the text from refusal(kind)
+    PiiGroup.Contact.mask(), // phones, addresses, postal codes
+    PiiKind.Email.tokenize(), // a kind rule beats its group's
+    PiiKind.PersonName.mask(),
+    PiiKind.CardNumber.block(), // the text from refusal(kind)
   ],
   detectWithModel: "moonshotai/kimi-k2.6",
   pseudonymKey: secret("PII_PSEUDONYM_KEY"),
 })
 export class CustomerPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
-    return `Please do not send a ${kind} here.`;
+    return `Please do not send a ${kind.id} here.`;
   }
 }
 
@@ -2077,7 +2076,7 @@ export class EmployeeDirectory {
 // a project's own detector: the framework applies `action` to every range it finds
 @PiiPolicy({
   name: "employee-id-pii-policy",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
   deps: [EmployeeDirectory],
 })
 export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
@@ -2093,13 +2092,13 @@ export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
 
 // a field without a format of its own: the same actions (masking ones only)
 export class TicketDto {
-  @Text({ prompt: "the customer's account", sensitive: PiiAction.replacePart({ keepLast: 4 }) })
+  @Text({ prompt: "the customer's account", sensitive: PiiAction.mask({ keepLast: 4 }) })
   account!: string;
 }
 ```
 
 Assembly checks the lists: `[pii.conflicting-rules]` (two policies with different actions for one
-kind, naming both), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
+kind, naming both), `[pii.duplicate-target]` (one policy naming a kind or a group in two rules), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
 `[pii.kind-needs-model]` (a name or an address without `detectWithModel`), `[pii.not-a-policy]`.
 Each `pseudonymKey` is read from its process variable when the app starts (a missing one fails the
 start). The application's own key, `@Application({ piiKeyField: "piiPseudonymKey" })`, names a

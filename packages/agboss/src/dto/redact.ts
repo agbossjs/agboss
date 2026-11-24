@@ -18,10 +18,10 @@ export const fieldLabelOf = (name: string): string =>
 
 /**
  * Where people see a value (a channel's request, a pending pause): one-way — a token field shows
- * as its placeholder, like `replaceWithKind()`.
+ * as its placeholder, like `mask()`.
  */
 export const displayMask: FieldMask = (action, label, value) =>
-  action.kind === PiiActionKind.ReplacePart
+  action.kind === PiiActionKind.MaskPart
     ? partReplaced(value, action.part)
     : kindPlaceholder(label);
 
