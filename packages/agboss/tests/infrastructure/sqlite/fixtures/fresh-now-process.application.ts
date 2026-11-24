@@ -12,7 +12,7 @@ import {
   WorkingCalendar,
   WorkingWeek,
   type WorkingCalendarHandler,
-  type WorkingTimeRequest,
+  type WorkingCalendarContext,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
@@ -36,7 +36,7 @@ const gate = new Promise<void>((resolve) => {
 
 @WorkingCalendar({ name: "real-slow-working-calendar" })
 class RealSlowCalendar implements WorkingCalendarHandler {
-  async addWorkingTime(request: WorkingTimeRequest): Promise<Date> {
+  async addWorkingTime(request: WorkingCalendarContext): Promise<Date> {
     if (fresh.slow) await sleep(3000);
     return WorkingWeek.of({
       timeZone: "UTC",

@@ -3,18 +3,37 @@ import { kebabNameProblem } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { PauseCalendar } from "./calendar-call.js";
 import {
+  DEFAULT_CALENDAR_TIMEOUT,
   isWorkingCalendarHandler,
   workingCalendarOf,
   type WorkingCalendarHandler,
+  type WorkingCalendarMeta,
   type WorkingCalendarSource,
 } from "./working-calendar.js";
-import { isWorkingWeek, workingWeekProblemsOf, WORKING_WEEK_NAME } from "./working-week.js";
+import {
+  isWorkingWeek,
+  WorkingWeek,
+  workingWeekProblemsOf,
+  WORKING_WEEK_NAME,
+} from "./working-week.js";
 
 /**
  * Where a calendar comes from (#944): `@Application({ workingCalendar })` the default,
- * `@ChannelRole({ workingCalendar })` the role's own — a `WorkingWeek.of(…)` grid, or a
- * `@WorkingCalendar` class listed in `providers`, created by the application's container.
+ * `@ChannelRole({ workingCalendar })` the role's own — a `WorkingWeek.of(…)` grid, a declarative
+ * `@WorkingCalendar({ week })` class, or a `@WorkingCalendar` class listed in `providers`, created
+ * by the application's container.
  */
+
+/** The grid of each declarative `@WorkingCalendar({ week })` class, made once. */
+const declared = new WeakMap<Class, WorkingCalendarHandler>();
+
+const declaredGridOf = (cls: Class, week: NonNullable<WorkingCalendarMeta["week"]>) => {
+  const kept = declared.get(cls);
+  if (kept !== undefined) return kept;
+  const made = WorkingWeek.of(week);
+  declared.set(cls, made);
+  return made;
+};
 
 const classNameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
@@ -30,21 +49,54 @@ export function pauseCalendarOf(
   resolve: (cls: Class) => unknown,
 ): PauseCalendar | undefined {
   if (source === undefined) return undefined;
+  const meta = typeof source === "function" ? workingCalendarOf(source) : undefined;
   const handler: WorkingCalendarHandler =
-    typeof source === "function" ? (resolve(source) as WorkingCalendarHandler) : source;
-  return { name: calendarNameOf(source), handler };
+    typeof source !== "function"
+      ? source
+      : meta?.week === undefined
+        ? (resolve(source) as WorkingCalendarHandler)
+        : declaredGridOf(source, meta.week);
+  return {
+    name: calendarNameOf(source),
+    handler,
+    timeout: meta?.timeout ?? DEFAULT_CALENDAR_TIMEOUT,
+  };
 }
 
-/** What a class is as a calendar: its problems, none when it is a listed `@WorkingCalendar` handler. */
+/** What a declarative `@WorkingCalendar({ week })` class is: the problems of its grid, and of any arithmetic of its own. */
+function declaredProblems(cls: Class, meta: WorkingCalendarMeta): readonly string[] {
+  const { prototype } = cls as { prototype: object };
+  const own = ["addWorkingTime", "resolveSchedule"].filter(
+    (method) => typeof Reflect.get(prototype, method) === "function",
+  );
+  return [
+    ...(meta.week === undefined ? [] : workingWeekProblemsOf(WorkingWeek.of(meta.week))),
+    ...own.map(
+      (method) =>
+        `${classNameOf(cls)} (@WorkingCalendar "${meta.name}") declares a week and has ${method}`,
+    ),
+  ];
+}
+
+/** What a class is as a calendar: its problems, none when it is a valid `@WorkingCalendar`. */
 function classProblems(cls: Class, listed: readonly Class[]): readonly string[] {
   const meta = workingCalendarOf(cls);
   if (meta === undefined)
     return [`${classNameOf(cls)} has no @WorkingCalendar({ name }) decorator`];
+  // a declared grid is no provider: nothing is created for it
+  if (meta.week !== undefined) return declaredProblems(cls, meta);
   const problems: string[] = [];
-  const { prototype } = cls as { prototype: Partial<WorkingCalendarHandler> };
-  if (typeof prototype.addWorkingTime !== "function")
+  const prototype = (cls as { prototype: object }).prototype;
+  const [isAdder, isResolver] = ["addWorkingTime", "resolveSchedule"].map(
+    (method) => typeof Reflect.get(prototype, method) === "function",
+  );
+  if (isAdder !== true && isResolver !== true)
     problems.push(
-      `${classNameOf(cls)} (@WorkingCalendar "${meta.name}") must implement addWorkingTime(request)`,
+      `${classNameOf(cls)} (@WorkingCalendar "${meta.name}") must implement resolveSchedule(ctx) or addWorkingTime(ctx), or declare a week`,
+    );
+  if (isAdder === true && isResolver === true)
+    problems.push(
+      `${classNameOf(cls)} (@WorkingCalendar "${meta.name}") implements both resolveSchedule and addWorkingTime — choose one`,
     );
   if (!listed.includes(cls))
     problems.push(
@@ -56,8 +108,9 @@ function classProblems(cls: Class, listed: readonly Class[]): readonly string[] 
 /**
  * `[working-calendar.invalid]` (#944): a calendar given as `owner`'s `workingCalendar` that cannot
  * work — a grid with an unknown time zone, no days, a bad interval, a break outside the hours, a
- * malformed holiday or no working minute in a week; a class that is no listed `@WorkingCalendar`
- * with `addWorkingTime`; anything else. A custom calendar cannot be checked further: it is checked
+ * malformed holiday or no working minute in a week; a `WorkingWeek.anyOf` of none or of a
+ * non-grid; a class that is no listed `@WorkingCalendar` with `resolveSchedule` or `addWorkingTime` (or a
+ * declared `week`); anything else. A custom calendar cannot be checked further: it is checked
  * at each call.
  */
 export function workingCalendarViolations(

@@ -1,19 +1,32 @@
-import type { WorkingCalendarHandler, WorkingTimeRequest } from "./working-calendar.js";
+import { isWorkingDuration, type WorkingDuration } from "../units/index.js";
+import type { WorkingCalendarContext, WorkingCalendarHandler } from "./working-calendar.js";
 import { checkedWeek, keyOf, type Minutes } from "./working-week-options.js";
-import { addDays, localDateAt, localEpochOf, offsetWindows, type LocalDate } from "./time-zones.js";
+import { localEpochOf, offsetWindows, type LocalDate } from "./time-zones.js";
+import { workingInstant } from "./working-add.js";
+import {
+  ABSOLUTE_DAY_LIMIT,
+  gridsOfCalendar,
+  isWorkingWeek,
+  merged,
+  recordCalendar,
+  weekReaches,
+  workingWeekProblemsOf,
+  WORKING_WEEK_NAME,
+  type Grid,
+  type Segment,
+} from "./working-grid.js";
+import { MAX_OFFSET } from "./working-walk.js";
+
+export { ABSOLUTE_DAY_LIMIT, isWorkingWeek, weekReaches, workingWeekProblemsOf, WORKING_WEEK_NAME };
 
 /**
  * The built-in working calendar (#944): a weekly grid in one time zone — working days, hours,
  * breaks and holidays. **Pointwise rule** (V3.5.1): an instant is working time when its local
  * wall-clock time in `timeZone`, on its local date, lies in some `hours` interval `[from, to)` and
  * in no `breaks` interval, and its local date is a working day and not a holiday. Working time
- * between two instants is the real elapsed time of the working instants between them — so a DST gap
- * inside hours simply has no instants, a fall-back overlap counts both occurrences of a local
- * minute, a break never grows and no interval is counted twice.
- *
- * Per local date the working set is computed as UTC segments — the stretches of constant offset
- * around the date, each local interval mapped into it — merged into a strictly increasing list of
- * disjoint segments; `add` walks them.
+ * between two instants is the real elapsed time of the working instants between them (see
+ * `working-walk.ts`). `WorkingWeek.anyOf(…)` merges several such grids — a pool of people in
+ * several zones, any of whom may answer.
  */
 
 /** A day of the week, as `Date#getDay` numbers it. */
@@ -27,8 +40,8 @@ export enum Weekday {
   Saturday = 6,
 }
 
-/** A local wall-clock interval, `"09:00"` – `"18:00"`. */
-export interface ClockInterval {
+/** A local wall-clock window, `"09:00"` – `"18:00"`. */
+export interface TimeWindow {
   readonly from: string;
   readonly to: string;
 }
@@ -38,108 +51,86 @@ export interface WorkingWeekOptions {
   /** IANA, checked with `Intl`: `Asia/Jerusalem`. */
   readonly timeZone: string;
   readonly days: readonly Weekday[];
-  /** Local intervals `[from, to)`, `from < to`, none overlapping; `to` may be `"24:00"`, the end of the date. */
-  readonly hours: readonly ClockInterval[];
-  /** Local intervals inside `hours` that are not working time. */
-  readonly breaks?: readonly ClockInterval[];
+  /** Local windows `[from, to)`, `from < to`, none overlapping; `to` may be `"24:00"`, the end of the date. */
+  readonly hours: readonly TimeWindow[];
+  /** Local windows inside `hours` that are not working time. */
+  readonly breaks?: readonly TimeWindow[];
   /** Local dates, `"2026-12-25"`, that are not working days. */
   readonly holidays?: readonly string[];
+  /**
+   * Whether a local date, `"2026-12-25"`, is not a working day: a holiday rule that does not go
+   * stale with the year (a holiday table, an HR service's answer). Asked once per date a walk crosses;
+   * must be synchronous and pure for the date. A calendar whose walk finds no working time in a
+   * year (`() => true`) fails with `RangeError`, never loops.
+   */
+  readonly isHoliday?: (localDate: string) => boolean;
 }
 
 const MINUTE = 60_000;
 const HOUR = 3_600_000;
-/** Every offset of every zone lies within ±14 h: the local date's UTC instants are within this of its local epoch. */
-const MAX_OFFSET = 15 * HOUR;
+/** No working time within this many consecutive days of a start fails the walk: a year (a year's leave is no stall). */
+const IDLE_FLOOR = 366;
 
-/** Why a grid is invalid, by calendar: read by the assembly (`[working-calendar.invalid]`). */
-const problemsOf = new WeakMap<object, readonly string[]>();
-
-/** The problems of a `WorkingWeek.of(…)` grid (`[working-calendar.invalid]`); none for any other calendar. */
-export const workingWeekProblemsOf = (calendar: object): readonly string[] =>
-  problemsOf.get(calendar) ?? [];
-
-/** The name an error of the built-in grid gives. */
-export const WORKING_WEEK_NAME = "working-week";
-
-/** The grids `WorkingWeek.of` made: told from a calendar of the project's own. */
-const grids = new WeakSet<object>();
-
-/** Whether a calendar is a grid `WorkingWeek.of` made. */
-export const isWorkingWeek = (calendar: object): boolean => grids.has(calendar);
-
-/** The longest walk, in calendar days, whatever the grid: 25 years (plus the holidays). */
-export const ABSOLUTE_DAY_LIMIT = 25 * 366;
-
-/** The working minutes a week of each grid has (a validated grid has at least one). */
-const weekly = new WeakMap<object, number>();
-
-/** How many holidays and working days a week each grid has (#1148): a holiday costs the walk up to 1 / days of a week. */
-const holidayShare = new WeakMap<object, { readonly holidays: number; readonly days: number }>();
-
-/**
- * Whether a grid can give `amount` ms of working time within `ABSOLUTE_DAY_LIMIT` calendar days —
- * estimated in O(1) from its weekly working minutes and its holidays: each holiday removes at most
- * one working day, a `1 / days` share of a week, and the walk needs that much more (#1148: a count
- * that never lets through what the walk would refuse; a holiday on a day the grid does not work
- * still counts, so it can refuse earlier than the walk would fail). True for any calendar that is
- * no grid (a custom calendar is checked at each call).
- *
- * The start of the walk is the day before `from` and the first week is partial, but the walk's
- * limit leaves that room: the estimate and the limit agree to the day, so a span that passes here
- * is reached, and the limit itself stays as the walk's last line (never a loop).
- */
-export function weekReaches(calendar: object, amount: number): boolean {
-  const minutes = weekly.get(calendar);
-  const share = holidayShare.get(calendar);
-  if (minutes === undefined || minutes === 0 || share === undefined) return true;
-  const weeks = Math.ceil(amount / (minutes * MINUTE)) + Math.ceil(share.holidays / share.days);
-  return weeks * 7 <= ABSOLUTE_DAY_LIMIT;
+/** The amount of working time asked is a working duration of positive finite amount. */
+function assertDuration(amount: unknown): asserts amount is WorkingDuration {
+  if (!isWorkingDuration(amount) || !Number.isFinite(amount.amount) || amount.amount <= 0)
+    throw new RangeError("the amount of working time is a positive finite working duration");
 }
 
-/** The amount of working time asked is a positive finite number. */
-function assertPositiveFinite(amount: number): void {
-  if (!Number.isFinite(amount) || amount <= 0)
-    throw new RangeError("the amount of working time is a positive finite number");
-}
-
-class WorkingWeekCalendar implements WorkingCalendarHandler {
-  readonly #zone: string;
+/** One weekly grid, in one zone. */
+class WorkingWeekCalendar implements WorkingCalendarHandler, Grid {
+  readonly zone: string;
+  readonly idleLimit: number;
+  readonly dayLimit: number;
   readonly #days: ReadonlySet<number>;
   readonly #holidays: ReadonlySet<string>;
+  readonly #isHoliday: ((localDate: string) => boolean) | undefined;
   readonly #working: readonly Minutes[];
-  readonly #idleLimit: number;
-  readonly #dayLimit: number;
 
   constructor(
     options: WorkingWeekOptions,
     private readonly estimates = true,
   ) {
     const { problems, working } = checkedWeek(options);
-    problemsOf.set(this, problems);
-    grids.add(this);
-    this.#zone = problems.length === 0 ? options.timeZone : "UTC";
-    this.#days = new Set(problems.length === 0 ? options.days : []);
-    this.#holidays = new Set(problems.length === 0 ? (options.holidays ?? []) : []);
-    this.#working = problems.length === 0 ? working : [];
+    const isValid = problems.length === 0;
+    this.zone = isValid ? options.timeZone : "UTC";
+    this.#days = new Set(isValid ? options.days : []);
+    this.#holidays = new Set(isValid ? (options.holidays ?? []) : []);
+    this.#isHoliday = isValid ? options.isHoliday : undefined;
+    this.#working = isValid ? working : [];
     // a validated grid has working time in every week: the weeks a holiday list can empty are finitely many
-    // (a grid that failed validation has none: its walk ends here, never in the day limit)
-    this.#idleLimit = (this.#holidays.size + 1) * 7 + 8;
+    // (a grid that failed validation has none: its walk ends here, never in the day limit); a year idle is
+    // the most a holiday rule or a long leave may cover
+    this.idleLimit = Math.max(IDLE_FLOOR, (this.#holidays.size + 1) * 7 + 8);
     // the walk's last line: an absolute number of calendar days, whatever the grid's density
-    this.#dayLimit = ABSOLUTE_DAY_LIMIT + this.#holidays.size;
-    holidayShare.set(this, { holidays: this.#holidays.size, days: Math.max(1, this.#days.size) });
-    weekly.set(
-      this,
-      this.#days.size * this.#working.reduce((sum, one) => sum + one.to - one.from, 0),
-    );
+    this.dayLimit = ABSOLUTE_DAY_LIMIT + this.#holidays.size;
+    const weeklyMinutes =
+      this.#days.size * this.#working.reduce((sum, one) => sum + one.to - one.from, 0);
+    recordCalendar(this, {
+      problems,
+      grids: [this],
+      reach: (amount) => this.#reaches(amount, weeklyMinutes),
+    });
+  }
+
+  /** The O(1) estimate (#1148): each holiday removes at most one working day, a `1 / days` share of a week. */
+  #reaches(amount: WorkingDuration, weeklyMinutes: number): boolean {
+    if (weeklyMinutes === 0) return true;
+    const days = Math.max(1, this.#days.size);
+    const perWeek = amount.unit === "days" ? days : weeklyMinutes * MINUTE;
+    const weeks = Math.ceil(amount.amount / perWeek) + Math.ceil(this.#holidays.size / days);
+    return weeks * 7 <= ABSOLUTE_DAY_LIMIT;
   }
 
   /** The disjoint UTC segments of the working time of a local date, ascending. */
-  #segmentsOf(date: LocalDate): readonly (readonly [number, number])[] {
+  segmentsOf(date: LocalDate): readonly Segment[] {
     const epoch = localEpochOf(date);
-    if (!this.#days.has(new Date(epoch).getUTCDay()) || this.#holidays.has(keyOf(date))) return [];
-    const found: [number, number][] = [];
+    const key = keyOf(date);
+    if (!this.#days.has(new Date(epoch).getUTCDay()) || this.#holidays.has(key)) return [];
+    if (this.#isHoliday?.(key) === true) return [];
+    const found: Segment[] = [];
     for (const window of offsetWindows(
-      this.#zone,
+      this.zone,
       epoch - MAX_OFFSET,
       epoch + 24 * HOUR + MAX_OFFSET,
     )) {
@@ -152,61 +143,59 @@ class WorkingWeekCalendar implements WorkingCalendarHandler {
     return merged(found);
   }
 
-  #assertWithinLimit(walked: number): void {
-    if (walked > this.#dayLimit)
-      throw new RangeError("the amount of working time reaches past the calendar's day limit");
-  }
-
-  #assertNotIdle(idle: number): void {
-    if (idle > this.#idleLimit)
-      throw new RangeError("the working week has no working time ahead of the start");
-  }
-
-  addWorkingTime(request: WorkingTimeRequest): Date {
-    const start = request.from.getTime();
-    let remaining: number = request.amount;
-    assertPositiveFinite(remaining);
-    if (this.estimates && !weekReaches(this, remaining))
+  addWorkingTime(request: WorkingCalendarContext): Date {
+    assertDuration(request.amount);
+    if (this.estimates && !weekReaches(this, request.amount))
       throw new RangeError(
         "the amount of working time is more than this calendar reaches in 25 years",
       );
-    // the date before the start's too: no segment of it ends after the start, but none is missed
-    let date = addDays(localDateAt(this.#zone, start), -1);
-    let pool: (readonly [number, number])[] = [];
-    let idle = 0;
-    // the whole walk is bounded, not only its idle stretches: a huge amount fails fast
-    for (let walked = 0; ; walked += 1) {
-      this.#assertWithinLimit(walked);
-      const segments = this.#segmentsOf(date);
-      idle = segments.length === 0 ? idle + 1 : 0;
-      this.#assertNotIdle(idle);
-      pool = [...pool, ...segments].sort((left, right) => left[0] - right[0]);
-      date = addDays(date, 1);
-      // no later date has an instant before this: what starts earlier is final, in order
-      const final = localEpochOf(date) - MAX_OFFSET;
-      while (pool[0] !== undefined && pool[0][0] < final) {
-        const [from, to] = pool.shift() ?? [0, 0];
-        const at = Math.max(from, start);
-        if (to <= at) continue;
-        if (remaining <= to - at) return new Date(Math.ceil(at + remaining));
-        remaining -= to - at;
-      }
-    }
+    return new Date(workingInstant([this], request.from.getTime(), request.amount, 1));
   }
 }
 
-/** Sorted, with the segments that touch or overlap joined: strictly increasing and disjoint. */
-function merged(
-  segments: readonly (readonly [number, number])[],
-): readonly (readonly [number, number])[] {
-  const sorted = [...segments].sort((left, right) => left[0] - right[0]);
-  const joined: [number, number][] = [];
-  for (const [from, to] of sorted) {
-    const last = joined[joined.length - 1];
-    if (last !== undefined && from <= last[1]) last[1] = Math.max(last[1], to);
-    else joined.push([from, to]);
+/** Several grids that work in parallel: a pool of people, any of whom may answer. */
+class AnyOfCalendar implements WorkingCalendarHandler {
+  constructor(schedules: readonly WorkingCalendarHandler[]) {
+    const problems = schedules.flatMap((schedule, index) =>
+      isWorkingWeek(schedule)
+        ? workingWeekProblemsOf(schedule).map((one) => `schedule ${String(index)}: ${one}`)
+        : [`schedule ${String(index)} is no WorkingWeek.of({ … }) or WorkingWeek.anyOf([…])`],
+    );
+    if (schedules.length === 0) problems.push("anyOf takes at least one schedule");
+    const grids = problems.length === 0 ? schedules.flatMap((one) => gridsOfCalendar(one)) : [];
+    recordCalendar(this, {
+      problems,
+      grids,
+      reach: (amount) => problems.length > 0 || schedules.some((one) => weekReaches(one, amount)),
+    });
   }
-  return joined;
+
+  addWorkingTime(request: WorkingCalendarContext): Date {
+    assertDuration(request.amount);
+    if (!weekReaches(this, request.amount))
+      throw new RangeError(
+        "the amount of working time is more than this calendar reaches in 25 years",
+      );
+    return new Date(
+      workingInstant(gridsOfCalendar(this), request.from.getTime(), request.amount, 1),
+    );
+  }
+}
+
+/**
+ * The instant `amount` of working time **before** `to` on a built-in calendar — where a reminder
+ * that is `remindBefore` of working time ahead of a deadline falls; `undefined` for a calendar of
+ * the project's own (it can only add). Throws `RangeError` as `addWorkingTime` does.
+ */
+export function workingTimeBefore(
+  calendar: object,
+  to: Date,
+  amount: WorkingDuration,
+): Date | undefined {
+  const grids = gridsOfCalendar(calendar);
+  if (grids.length === 0) return undefined;
+  assertDuration(amount);
+  return new Date(workingInstant(grids, to.getTime(), amount, -1));
 }
 
 /**
@@ -218,7 +207,11 @@ function merged(
 export const unestimatedWorkingWeek = (options: WorkingWeekOptions): WorkingCalendarHandler =>
   new WorkingWeekCalendar(options, false);
 
-/** The built-in working calendar: a weekly grid in a time zone. */
-export const WorkingWeek: { of(options: WorkingWeekOptions): WorkingCalendarHandler } = {
+/** The built-in working calendar: a weekly grid in a time zone, and the union of several. */
+export const WorkingWeek: {
+  of(options: WorkingWeekOptions): WorkingCalendarHandler;
+  anyOf(schedules: readonly WorkingCalendarHandler[]): WorkingCalendarHandler;
+} = {
   of: (options) => new WorkingWeekCalendar(options),
+  anyOf: (schedules) => new AnyOfCalendar(schedules),
 };

@@ -1308,11 +1308,27 @@ export abstract class RefundApprovalQuestion extends ChannelOf<RefundApprovalQue
 
 **Where a calendar comes from.** `@Application({ workingCalendar })` is the default; a role
 `@ChannelRole({ workingCalendar })` overrides it for its pauses (a concrete `@Channel` a tool names uses
-the application's). It is a built-in grid, `WorkingWeek.of(…)`, or a `@WorkingCalendar` class listed in
-`@Application({ providers })` — created by the application's container at start, one instance — that sees
-the tenant and the role and may read the application's own data (a holiday table); see [Configuration →
+the application's). It is a built-in grid, `WorkingWeek.of(…)`, a declarative `@WorkingCalendar({ week })`
+on an empty class, or a `@WorkingCalendar` class listed in `@Application({ providers })` — created by the
+application's container at start, one instance — that sees the tenant, the target and the assignees and may
+read the application's own data (a holiday table, an HR directory); see [Configuration →
 `workingCalendar`](Configuration#workingcalendar--the-calendar-of-working-time-deadlines-944). A working
 duration anywhere with no calendar for its role is `[channel.working-time-without-calendar]`.
+
+**Working days, and a schedule per assignee (#1310b).** `workDays(n)` counts **working days of the resolved
+schedule**, not 24 hours: a working day is one local date of the grid's zone with working time — however long
+its shifts — and a date with none (a weekend, a holiday) is skipped. A start in the middle of a shift counts
+the rest of that date in proportion (from 13:00 of a 09:00–17:00 day, half a day is left), a fractional last
+day advances `ceil(share × the date's working milliseconds)`, and a clock change makes a date shorter or
+longer, never less of a day. `workHours(n)` / `workMin(n)` count real working time as before. A calendar
+that is not a fixed grid implements `resolveSchedule(ctx)` and returns a `WorkingWeek.of(…)` — the core does
+the DST and interval arithmetic over it, for the people the pause is assigned to (`ctx.assignees`) and the
+tenant; `WorkingWeek.anyOf([…])` is a pool in several zones, any of whom may answer: working hours are
+counted over the **union** of the schedules (overlapping hours once), working days are the earliest of each
+schedule's own count, in its own zone. A holiday that must not go stale is a rule, `isHoliday(localDate)`
+(asked once per date a walk crosses), beside `holidays`. A schedule with no working time in a year (a rule
+that is always `true`) or an `anyOf([])` is refused: `[working-calendar.invalid]` at start for a declared
+week, `WorkingCalendarError` (`invalid-schedule`) at run time for a resolved one.
 
 **The grid's rule is pointwise.** An instant is working time when its local wall-clock time in `timeZone`,
 on its local date, lies in some `hours` interval `[from, to)` and in no `breaks` interval, and its local
@@ -1332,7 +1348,12 @@ frame. No working-time run deadline: `app.execute(…, { deadline })` stays wall
 smaller deadline wins and a tie goes to the run — a working deadline later than the run's is fine, the run's
 applies (`expiryBound` `RunDeadline`).
 
-**The reminder.** Both working: `remindAt = calendar.add(askedAt, expiresIn − remindBefore)`; a working
+**The reminder.** Both working, on a `WorkingWeek`-backed calendar (a grid, `resolveSchedule`, `anyOf`):
+`remindAt` is walked **back** `remindBefore` of working time from the deadline along the resolved schedule
+(so a deadline the run's or a quorum's bound pulled in never leaves the reminder past it), and the units
+need not match (`workHours(4)` before a `workDays(3)` deadline); for a calendar of the project's own that
+only adds, `remindAt = calendar.add(askedAt, expiresIn − remindBefore)` and the two must count in one unit
+(`mixed-units` otherwise). A working
 `expiresIn` with a plain `remindBefore`: `remindAt = expiresAt − remindBefore`; a **plain** `expiresIn` with a
 working `remindBefore` is `[channel.remind-before-working-without-working-expiry]` (a calendar can only add) —
 on the role and on every override site: a `.toExternalTask(Role, { expiresIn: hours(4) })` or `@Tool({ expiresIn:
@@ -1352,11 +1373,11 @@ is decided with the clock read after the calendar answered (and the store's comp
 instant as its `at`). A deadline that passed while the calendar computed is not moved — `PauseClosedError`,
 as for a plain extension, even when the expiry is still being handled (#1148).
 
-**A calendar that cannot answer fails closed.** A throw, a timeout (the tool timeout, on the application's
+**A calendar that cannot answer fails closed.** A throw, a timeout (the calendar's `timeout`, `sec(30)` unless it says otherwise, on the application's
 clock), an answer that is not a valid `Date`, or a date not after `from`: the step fails and **nobody is
 asked, no pause record is made** — `QuestionFailedError` (a question step) or `AgentFailedError` (an agent's
 approval or question tool) with a `WorkingCalendarError` as its `cause` (`pause.working-calendar`;
-`calendar` its name, `problem`: `calendar-failed` | `calendar-timeout` | `not-a-date` | `not-after-start`;
+`calendar` its name, `problem`: `calendar-failed` | `calendar-timeout` | `not-a-date` | `not-after-start` | `invalid-schedule` | `mixed-units`;
 its message never holds the calendar's own error text, which is the cause only in-process); logged as
 `pause.working-calendar-failed`. The step's re-entry asks the calendar again (no record was made). An
 extension that meets the same rejects with that `WorkingCalendarError`. There is no fallback to wall-clock

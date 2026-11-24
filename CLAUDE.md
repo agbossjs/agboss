@@ -2351,17 +2351,16 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   as run-bound (`effectiveBoundOf`, `infrastructure/pause-record.ts`: a tie goes to the run). Notices `extended` /
   `expiring` reach a channel's `onPauseExtended` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
   four hooks has a mailbox) and a listener's optional methods of the same names.
-  **Working time (#944):** `workingHours` / `workingMinutes` (concise `workHours` / `workMin` / `workDays` and `bytes` / `kb` / `mb` / `gb` / `tb`, `ms` / `sec` / `min` / `days` since #1314b-add) (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: ms }`;
-  `units/working-time.ts`: `amountOf`, `isSameSpan`, `spanText`) are accepted by `expiresIn` / `remindBefore` / `extendPause`. A calendar is a
-  `WorkingCalendarHandler` (`calendar/working-calendar.ts`: `@WorkingCalendar`, `WorkingCalendarError`): `WorkingWeek.of` (`calendar/working-week.ts`,
-  `time-zones.ts` — `Intl` offsets with `hourCycle: "h23"`; per local date the UTC segments of `hours \ breaks` over the offset windows around it,
-  merged; `addWorkingTime` walks the days with a pool ordered by start; an invalid grid keeps its problems in a WeakMap, read at assembly as
-  `[working-calendar.invalid]`) or a class resolved by the container. `channelPartsOf` gives each `PauseChannel` its `calendar` (the role's, else
+  **Working time (#944):** `workingHours` / `workingMinutes` (concise `workHours` / `workMin` / `workDays` and `bytes` / `kb` / `mb` / `gb` / `tb`, `ms` / `sec` / `min` / `days` since #1314b-add) (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: true, unit: "ms" | "days", amount }` — `workDays` is `unit: "days"`, a working day of the resolved schedule, never 24 hours (#1310b);
+  `units/working-time.ts`: `amountOf` (in the span's own unit), `unitOf`, `isSameSpan`, `spanText`) are accepted by `expiresIn` / `remindBefore` / `extendPause`. A calendar is a
+  `WorkingCalendarHandler` (`calendar/working-calendar.ts`: `@WorkingCalendar`, `WorkingCalendarError`): `WorkingWeek.of` / `WorkingWeek.anyOf` (`calendar/working-week.ts`, the grid class; `working-grid.ts`: the `Grid` seam, the registry of problems / grids / reach (`weekReaches`) read at assembly as
+  `[working-calendar.invalid]`; `working-walk.ts`: the walks — `walkMilliseconds` over the union of the grids a day at a time, `walkDays` per grid by local dates, both forward and (mirrored time) backward; `working-add.ts`: unit dispatch, `anyOf` days = earliest forward / latest back;
+  `time-zones.ts` — `Intl` offsets with `hourCycle: "h23"`; per local date the UTC segments of `hours \ breaks` over the offset windows around it, merged), a declarative `@WorkingCalendar({ week })` class (a grid made once per class, no instance), a class with `resolveSchedule(ctx)` (the core walks the schedule it returns; an invalid or empty one is `WorkingCalendarProblem.InvalidSchedule`) or a class with `addWorkingTime(ctx)`, resolved by the container; `WorkingCalendarContext` is `{ from, amount: WorkingDuration, tenantId, target?, assignees? }`. `channelPartsOf` gives each `PauseChannel` its `calendar` (the role's, else
   `@Application({ workingCalendar })`'s; `components/channel-parts.ts`, `calendar/calendar-source.ts`). `pauseStep` (`flow/runtime/pause.ts`) looks the
   step key up first when its `expiresIn` is working (`findByTenantIdAndRootExecutionIdAndStepKey`; a re-entry never calls the calendar), then
   `newRecordOf` (`flow/runtime/pause-record-made.ts`: `ownDeadlineOf`, `boundedDeadlineOf` — the run's deadline wall-clock, a tie to the run —,
   `reminderOf`: both working → `calendar.add(askedAt, expiresIn − remindBefore)`, kept only strictly between the ask and the clamped
-  `expiresAt`) asks `workingTimeAfter` (`calendar/calendar-call.ts`: the step's frame, `DEFAULT_TOOL_TIMEOUT` on the clock, a throw / timeout /
+  `expiresAt`) asks `workingTimeAfter` (`calendar/calendar-call.ts`: the step's frame, the calendar's own `timeout` (`sec(30)`) on the clock, `workingReminderAt` walks a working reminder back from the clamped deadline (a custom add-only calendar: forward, one unit, else `mixed-units`), a throw / timeout /
   non-`Date` / not-after-`from` → `WorkingCalendarError`, logged `pause.working-calendar-failed`) before `send`; the question runner and the agent
   approval wrap it in `QuestionFailedError` / `AgentFailedError`. `app.extendPause` (`app/pause-extension.ts`) asks the same in `pauseFrameOf`.
   Rules: `channels/working-time-rules.ts`. `app.cancel(threadId, { tenantId, ownerId })` aborts a

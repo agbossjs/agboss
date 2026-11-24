@@ -21,7 +21,7 @@ import {
 } from "../../src/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
-import { hours, minutes, workingHours, workingMinutes } from "../../src/units/index.js";
+import { hours, minutes, workDays, workingHours, workingMinutes } from "../../src/units/index.js";
 import { workingApp, workingToolApp } from "../flow/fixtures/working-time-app.js";
 import { ALL_DAYS, TEL_AVIV, WEEKDAYS } from "./helpers.js";
 
@@ -541,5 +541,128 @@ describe("#944: a span the grid cannot reach in 25 years is refused at start", (
     const app = await assemble(application);
     expect(app.warnings.filter((one) => one.includes("working"))).toEqual([]);
     await app.close();
+  });
+});
+
+describe("#1310b: declarative and schedule-resolving calendar classes", () => {
+  const assembles = async (application: Class): Promise<void> => {
+    const app = await assemble(application);
+    expect(app.warnings.filter((one) => one.includes("working-calendar"))).toEqual([]);
+    await app.close();
+  };
+
+  it("@WorkingCalendar({ week }) on an empty class assembles without being listed", async () => {
+    @WorkingCalendar({ name: "declared-office-calendar", week: TEL_AVIV })
+    class DeclaredOffice {}
+
+    await assembles(
+      workingApp("cal-declared", { role: { expiresIn: workingHours(2) }, calendar: DeclaredOffice })
+        .application,
+    );
+  });
+
+  it("[working-calendar.invalid]: a declared week with an unknown zone, or with arithmetic of its own", async () => {
+    @WorkingCalendar({
+      name: "mars-working-calendar",
+      week: { ...TEL_AVIV, timeZone: "Mars/Olympus" },
+    })
+    class Mars {}
+    // untyped (JS) code: the compiler refuses a week beside arithmetic of the class's own
+    // @ts-expect-error a declared week is the whole calendar
+    @WorkingCalendar({ name: "both-working-calendar", week: TEL_AVIV })
+    class Both {
+      addWorkingTime(): Date {
+        return new Date(0);
+      }
+    }
+
+    const mars = await violationsOf(
+      workingApp("cal-mars", { role: { expiresIn: workingHours(2) }, calendar: Mars }).application,
+    );
+    const both = await violationsOf(
+      workingApp("cal-both", { role: { expiresIn: workingHours(2) }, calendar: Both }).application,
+    );
+
+    expect(mars[0]).toMatchObject({ code: "working-calendar.invalid" });
+    expect(mars[0]?.message).toContain("timeZone");
+    expect(both[0]?.message).toContain("declares a week and has addWorkingTime");
+  });
+
+  it("a listed class with resolveSchedule assembles; one with both resolveSchedule and addWorkingTime is refused", async () => {
+    @WorkingCalendar({ name: "resolving-working-calendar" })
+    class Resolving {
+      resolveSchedule(): WorkingCalendarHandler {
+        return WorkingWeek.of(TEL_AVIV);
+      }
+    }
+    @WorkingCalendar({ name: "greedy-working-calendar" })
+    class Greedy {
+      resolveSchedule(): WorkingCalendarHandler {
+        return WorkingWeek.of(TEL_AVIV);
+      }
+
+      addWorkingTime(): Date {
+        return new Date(0);
+      }
+    }
+
+    await assembles(
+      workingApp("cal-resolving", {
+        role: { expiresIn: workingHours(2) },
+        calendar: Resolving,
+        providers: [Resolving],
+      }).application,
+    );
+    const greedy = await violationsOf(
+      workingApp("cal-greedy", {
+        role: { expiresIn: workingHours(2) },
+        calendar: Greedy,
+        providers: [Greedy],
+      }).application,
+    );
+    expect(greedy[0]?.message).toContain("choose one");
+  });
+
+  it("[working-calendar.invalid]: an anyOf of none, or of a calendar that is no grid", async () => {
+    const own: WorkingCalendarHandler = { addWorkingTime: () => new Date(0) };
+
+    const none = await violationsOf(
+      workingApp("cal-none", {
+        role: { expiresIn: workingHours(2) },
+        calendar: WorkingWeek.anyOf([]),
+      }).application,
+    );
+    const foreign = await violationsOf(
+      workingApp("cal-foreign", {
+        role: { expiresIn: workingHours(2) },
+        calendar: WorkingWeek.anyOf([own]),
+      }).application,
+    );
+
+    expect(none[0]?.message).toContain("anyOf takes at least one schedule");
+    expect(foreign[0]?.message).toContain("schedule 0 is no WorkingWeek");
+  });
+});
+
+describe("#1310b: a span of working days the grid cannot reach in 25 years is refused at start", () => {
+  it("a Monday-only week reaches 1300 Mondays: workDays(1400) is refused, workDays(1000) is not", async () => {
+    const monday = WorkingWeek.of({
+      timeZone: "UTC",
+      days: [Weekday.Monday],
+      hours: [{ from: "09:00", to: "10:00" }],
+    });
+
+    const refused = await violationsOf(
+      workingApp("cal-days-far", { role: { expiresIn: workDays(1400) }, calendar: monday })
+        .application,
+    );
+    expect(refused[0]).toMatchObject({ code: "working-calendar.invalid" });
+    expect(refused[0]?.message).toContain("1400 working days");
+
+    const reachable = await assemble(
+      workingApp("cal-days-near", { role: { expiresIn: workDays(1000) }, calendar: monday })
+        .application,
+    );
+    await reachable.close();
   });
 });

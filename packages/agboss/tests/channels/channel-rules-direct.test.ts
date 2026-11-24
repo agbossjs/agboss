@@ -17,7 +17,7 @@ import {
 } from "../../src/channels/channel-rules.js";
 import type { ChannelUse } from "../../src/channels/discovery.js";
 import type { Class } from "../../src/components/injection.js";
-import { hours, seconds, workingHours, workingMinutes } from "../../src/units/index.js";
+import { hours, seconds, workDays, workingHours, workingMinutes } from "../../src/units/index.js";
 import { MAX_SPAN_MS } from "../../src/units/working-time.js";
 import { PurchaseQuestionDto, SpendingLimitAnswerDto } from "../flow/fixtures/questions.fixture.js";
 
@@ -167,6 +167,15 @@ describe("#1366: the reminder of a role", () => {
     expect(isNotShorter(hours(1), "x")).toBe(false);
     expect(isNotShorter(hours(1), undefined)).toBe(false);
     expect(isNotShorter(hours(1), "1000")).toBe(false);
+  });
+
+  it("#1310b: working days compare with working days only: a day count is no hour count", () => {
+    expect(isNotShorter(workDays(2), workDays(2))).toBe(true);
+    expect(isNotShorter(workDays(3), workDays(2))).toBe(true);
+    expect(isNotShorter(workDays(1), workDays(2))).toBe(false);
+    // the calendar's schedule says how long a day is: not comparable here
+    expect(isNotShorter(workDays(1), workingHours(8))).toBe(false);
+    expect(isNotShorter(workingHours(100), workDays(1))).toBe(false);
   });
 
   it("reads isRemindBefore from the smallest positive number to 5 years", () => {

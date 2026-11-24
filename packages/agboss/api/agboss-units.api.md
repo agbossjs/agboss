@@ -94,7 +94,9 @@ export const workHours: (amount: number) => WorkingDuration;
 
 // @public
 export interface WorkingDuration {
-    readonly [workingDuration]: Milliseconds;
+    readonly [workingDuration]: true;
+    readonly amount: number;
+    readonly unit: WorkingUnit;
 }
 
 // @public
@@ -102,6 +104,9 @@ export const workingHours: (amount: number) => WorkingDuration;
 
 // @public
 export const workingMinutes: (amount: number) => WorkingDuration;
+
+// @public
+export type WorkingUnit = "ms" | "days";
 
 // @public
 export const workMin: (amount: number) => WorkingDuration;

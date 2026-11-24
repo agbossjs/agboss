@@ -4,7 +4,8 @@ import {
   type WorkingCalendarHandler,
   type WorkingWeekOptions,
 } from "../../src/index.js";
-import { milliseconds } from "./units.js";
+import type { WorkingDuration } from "../../src/units/index.js";
+import { workMs } from "./units.js";
 
 /** Tel Aviv's office: Sunday to Thursday, 09:00–18:00 with lunch 13:00–14:00 (#944 AC1). */
 export const TEL_AVIV: WorkingWeekOptions = {
@@ -40,9 +41,24 @@ export async function after(
 ): Promise<string> {
   const answer = await grid.addWorkingTime({
     from: new Date(from),
-    amount: milliseconds(amount),
+    amount: workMs(amount),
     tenantId: "default",
-    channel: "test-role",
+    target: "test-role",
+  });
+  return answer.toISOString();
+}
+
+/** The instant a working duration (`workDays(2)`, `workHours(3)`) after `from`, as an ISO instant. */
+export async function afterWork(
+  grid: WorkingCalendarHandler,
+  from: string,
+  amount: WorkingDuration,
+): Promise<string> {
+  const answer = await grid.addWorkingTime({
+    from: new Date(from),
+    amount,
+    tenantId: "default",
+    target: "test-target",
   });
   return answer.toISOString();
 }

@@ -11,7 +11,7 @@ import {
   deadlineOf,
   reminderOf,
 } from "../../src/flow/runtime/pause-record-made.js";
-import { hours, minutes, workingHours } from "../../src/units/index.js";
+import { hours, minutes, workingHours, type WorkingDuration } from "../../src/units/index.js";
 
 const T05 = "2026-01-01T00:05:00.000Z";
 const T10 = "2026-01-01T00:10:00.000Z";
@@ -87,8 +87,8 @@ describe("#1366: the deadline a pause expires at", () => {
 });
 
 describe("#1366: a working-time reminder", () => {
-  const add = (from: Date, amount: number): Promise<Date> =>
-    Promise.resolve(new Date(from.getTime() + amount));
+  const add = (from: Date, amount: WorkingDuration): Promise<Date> =>
+    Promise.resolve(new Date(from.getTime() + amount.amount));
 
   it("is the calendar's instant for the deadline's span less the lead, when it is before the deadline", async () => {
     const at = await reminderOf(
@@ -119,8 +119,8 @@ describe("#1366: a working-time reminder", () => {
 
   it("asks the calendar nothing when the lead is not positive", async () => {
     const asked: number[] = [];
-    const counting = (from: Date, amount: number): Promise<Date> => {
-      asked.push(amount);
+    const counting = (from: Date, amount: WorkingDuration): Promise<Date> => {
+      asked.push(amount.amount);
       return add(from, amount);
     };
     const whole = {

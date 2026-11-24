@@ -16,7 +16,7 @@ import {
   WorkingCalendarProblem,
   WorkingWeek,
   type WorkingCalendarHandler,
-  type WorkingTimeRequest,
+  type WorkingCalendarContext,
 } from "../../src/index.js";
 import { QuestionFailedError } from "../../src/flow/runtime/errors.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
@@ -52,7 +52,7 @@ class HolidayRepository {
 
 /** What the custom calendars were asked and where they ran. */
 const seen = {
-  requests: [] as WorkingTimeRequest[],
+  requests: [] as WorkingCalendarContext[],
   tenants: [] as (string | undefined)[],
 };
 
@@ -60,7 +60,7 @@ const seen = {
 class TenantHolidaysCalendar implements WorkingCalendarHandler {
   constructor(private readonly holidays: HolidayRepository) {}
 
-  addWorkingTime(request: WorkingTimeRequest): Date | Promise<Date> {
+  addWorkingTime(request: WorkingCalendarContext): Date | Promise<Date> {
     seen.requests.push(request);
     seen.tenants.push(currentFrame()?.execution.tenant.tenantId);
     const grid = WorkingWeek.of({
@@ -76,7 +76,7 @@ const flaky = { mode: "ok" as "ok" | "throw" | "hang" | "past" | "string", calls
 
 @WorkingCalendar({ name: "flaky-working-calendar" })
 class FlakyCalendar implements WorkingCalendarHandler {
-  addWorkingTime(request: WorkingTimeRequest): Date | Promise<Date> {
+  addWorkingTime(request: WorkingCalendarContext): Date | Promise<Date> {
     flaky.calls += 1;
     if (flaky.mode === "throw") throw new Error("the holiday table of Jane Doe is down");
     if (flaky.mode === "hang") return new Promise<Date>(() => undefined);
@@ -157,15 +157,15 @@ describe("#944 AC3: a tenant's own holiday table", () => {
       expect(seen.requests).toEqual([
         {
           from: new Date("2026-01-08T15:30:00.000Z"),
-          amount: hours(2),
+          amount: workingHours(2),
           tenantId: "acme",
-          channel: "hol-desk-question",
+          target: "hol-desk-question",
         },
         {
           from: new Date("2026-01-08T15:30:00.000Z"),
-          amount: hours(1.25),
+          amount: workingHours(1.25),
           tenantId: "acme",
-          channel: "hol-desk-question",
+          target: "hol-desk-question",
         },
       ]);
       expect(seen.tenants).toEqual(["acme", "acme"]);
@@ -210,7 +210,7 @@ describe("#944 AC3: a tenant's own holiday table", () => {
 
       expect(extension.expiresAt).toBe("2026-01-11T09:20:00.000Z");
       expect(seen.requests).toHaveLength(1);
-      expect(seen.requests[0]).toMatchObject({ amount: 30 * 60_000, tenantId: "default" });
+      expect(seen.requests[0]).toMatchObject({ amount: workingMinutes(30), tenantId: "default" });
       expect((await pauseOf(app, pauseId)).remindAt).toBeUndefined();
     },
   );
@@ -228,7 +228,7 @@ describe("#944 AC3: a tenant's own holiday table", () => {
       // now Sunday 09:00 IST + 3 h: 09:00–13:00 is 4 h → 12:00 IST; the reminder 3 h − 45 min = 2.25 h → 11:15 IST
       expect(extension.expiresAt).toBe("2026-01-11T10:00:00.000Z");
       expect((await pauseOf(app, pauseId)).remindAt).toBe("2026-01-11T09:15:00.000Z");
-      expect(seen.requests.map((one) => one.amount)).toEqual([hours(3), hours(2.25)]);
+      expect(seen.requests.map((one) => one.amount.amount)).toEqual([hours(3), hours(2.25)]);
     },
   );
 });

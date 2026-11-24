@@ -9,8 +9,9 @@ import {
 } from "../../infrastructure/pause-record.js";
 import type { PauseChannel, PauseQuestion } from "./pause.js";
 import { plainRecordOf } from "./records.js";
-import { isWorkingDuration } from "../../units/index.js";
-import { amountOf, type TimeSpan } from "../../units/working-time.js";
+import { isWorkingDuration, type WorkingDuration } from "../../units/index.js";
+import type { ReminderSpan } from "../../calendar/calendar-call.js";
+import type { TimeSpan } from "../../units/working-time.js";
 
 /** The record a pause step makes, and the branch keys it carries (#337): split from `pause.ts`. */
 
@@ -107,11 +108,18 @@ export function remindAtOf(
  */
 
 /** Adds working time to a start: the pause's calendar, asked. */
-export type AddWorkingTime = (from: Date, amount: number) => Promise<Date>;
+export type AddWorkingTime = (from: Date, amount: WorkingDuration) => Promise<Date>;
+
+/**
+ * Where a working reminder falls, by the pause's calendar (`workingReminderAt`): walked back from the
+ * deadline on a `WorkingWeek`-backed calendar, forward on a calendar of the project's own. Without
+ * one, `reminderOf` adds `expiresIn − remindBefore` to the start, in one unit only.
+ */
+export type RemindAt = (span: ReminderSpan) => Promise<Date | undefined>;
 
 /** The instant `span` runs out after `from`; the calendar is asked only for working time. */
 export async function instantAfter(span: TimeSpan, from: Date, add: AddWorkingTime): Promise<Date> {
-  return isWorkingDuration(span) ? add(from, amountOf(span)) : new Date(from.getTime() + span);
+  return isWorkingDuration(span) ? add(from, span) : new Date(from.getTime() + span);
 }
 
 /** The ISO instant an `expiresIn` runs out after `from`; `undefined` without one. */
@@ -128,24 +136,40 @@ export async function ownDeadlineOf(
 /**
  * The reminder of a pause asked (or extended) at `at` whose deadline is `expiresAt` (after the
  * run's or the quorum's bound clamped it): kept only strictly between `at` and `expiresAt`.
- * Working `remindBefore` counts working time before a working `expiresIn` (`calendar.add(at,
- * expiresIn − remindBefore)`, none — and no calendar call — when that is not positive); it
- * needs a working `expiresIn` (a calendar cannot subtract): none without one. A plain
- * `remindBefore` is `expiresAt − remindBefore` as in #942.
+ * A working `remindBefore` needs a working `expiresIn` (none without one). With `remind` — the
+ * pause's calendar — the reminder is walked back from the deadline (#1310b); without it, it is
+ * `calendar.add(at, expiresIn − remindBefore)` in one unit (none, and no calendar call, when that
+ * is not positive). A plain `remindBefore` is `expiresAt − remindBefore` as in #942.
  */
 export async function reminderOf(
   at: Date,
   deadline: { readonly expiresAt: string | undefined; readonly expiresIn: TimeSpan | undefined },
   remindBefore: TimeSpan | undefined,
   add: AddWorkingTime,
+  remind?: RemindAt,
 ): Promise<string | undefined> {
   const { expiresAt, expiresIn } = deadline;
   if (expiresAt === undefined || remindBefore === undefined) return undefined;
   if (!isWorkingDuration(remindBefore)) return remindAtOf(expiresAt, remindBefore, at);
   if (expiresIn === undefined || !isWorkingDuration(expiresIn)) return undefined;
-  const lead = amountOf(expiresIn) - amountOf(remindBefore);
-  if (lead <= 0) return undefined;
-  const remindAt = await add(at, lead);
+  if (remind !== undefined) {
+    const found = await remind({ at, expiresAt: new Date(expiresAt), expiresIn, remindBefore });
+    return found?.toISOString();
+  }
+  return addedReminderOf(at, expiresAt, { expiresIn, remindBefore }, add);
+}
+
+/** The reminder a calendar that can only add places: `expiresIn − remindBefore` after `at`, in one unit. */
+async function addedReminderOf(
+  at: Date,
+  expiresAt: string,
+  spans: { readonly expiresIn: WorkingDuration; readonly remindBefore: WorkingDuration },
+  add: AddWorkingTime,
+): Promise<string | undefined> {
+  const { expiresIn, remindBefore } = spans;
+  const lead = expiresIn.amount - remindBefore.amount;
+  if (expiresIn.unit !== remindBefore.unit || lead <= 0) return undefined;
+  const remindAt = await add(at, { ...expiresIn, amount: lead });
   return remindAt.getTime() > at.getTime() && remindAt.toISOString() < expiresAt
     ? remindAt.toISOString()
     : undefined;
@@ -158,6 +182,7 @@ export async function newRecordOf(
   question: PauseQuestion,
   clock: Clock,
   add: AddWorkingTime,
+  remind?: RemindAt,
 ): Promise<PauseRecord> {
   const { execution, step } = frame;
   const now = clock.now();
@@ -168,6 +193,7 @@ export async function newRecordOf(
     { expiresAt: deadline.expiresAt, expiresIn },
     channel.remindBefore,
     add,
+    remind,
   );
   return {
     pauseId: newPauseId(),

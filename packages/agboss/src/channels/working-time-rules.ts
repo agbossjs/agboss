@@ -1,5 +1,5 @@
 import { weekReaches } from "../calendar/working-week.js";
-import { amountOf, spanText } from "../units/working-time.js";
+import { spanText } from "../units/working-time.js";
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import type { Class } from "../components/injection.js";
 import { createdClassesOf } from "../components/injection.js";
@@ -89,7 +89,7 @@ function reachViolations(
     source !== undefined &&
     // a class calendar is no grid (checked at each call): `weekReaches` is true for it, so it is left out here
     !(source instanceof Function) &&
-    !weekReaches(source, amountOf(span))
+    !weekReaches(source, span)
       ? [
           violation(
             "working-calendar.invalid",

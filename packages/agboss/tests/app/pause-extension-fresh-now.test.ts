@@ -12,7 +12,7 @@ import {
   WorkingCalendar,
   WorkingWeek,
   type WorkingCalendarHandler,
-  type WorkingTimeRequest,
+  type WorkingCalendarContext,
 } from "../../src/index.js";
 import { PauseStatus } from "../../src/index.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
@@ -39,7 +39,7 @@ const slow = {
 
 @WorkingCalendar({ name: "slow-working-calendar" })
 class SlowCalendar implements WorkingCalendarHandler {
-  async addWorkingTime(request: WorkingTimeRequest): Promise<Date> {
+  async addWorkingTime(request: WorkingCalendarContext): Promise<Date> {
     const takes = slow.takes;
     slow.takes = undefined;
     if (takes !== undefined) await slow.clock?.advance(takes);

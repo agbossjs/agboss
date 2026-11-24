@@ -105,51 +105,65 @@ export const min = (amount: number): Milliseconds =>
 export const days = (amount: number): Milliseconds =>
   (nonNegative(amount, "days") * 86_400_000) as Milliseconds;
 
-/** The key a working duration keeps its amount under (a shared symbol: every copy of the package agrees). */
+/** The key that tells a working duration from any other object (a shared symbol: every copy of the package agrees). */
 const workingDuration: unique symbol = Symbol.for("agboss.units.working-duration");
 
+/** What a working duration counts in: working milliseconds, or whole working days of the resolved schedule. */
+export type WorkingUnit = "ms" | "days";
+
 /**
- * Working time (#944): a duration the pause's calendar counts — its working days, hours, breaks and
- * holidays — not the wall clock. Counted by the pause's calendar, not the wall clock.
+ * Working time (#944, #1310): a duration the pause's calendar counts — its working days, hours,
+ * breaks and holidays — not the wall clock. `unit` says what `amount` counts: `"ms"` working
+ * milliseconds (`workMin`, `workHours`), `"days"` working days of the calendar's schedule
+ * (`workDays`): a working day is one active working date, however long its shifts, so `workDays(2)`
+ * is two days of the schedule, never 48 hours.
  */
 export interface WorkingDuration {
-  /** The amount of working time, in milliseconds. */
-  readonly [workingDuration]: Milliseconds;
+  /** What tells a working duration from any other object. */
+  readonly [workingDuration]: true;
+  /** What `amount` counts: working milliseconds, or working days. */
+  readonly unit: WorkingUnit;
+  /** Working milliseconds for `"ms"`, working days for `"days"`; positive and finite. */
+  readonly amount: number;
 }
 
-function working(amount: number, unit: string, size: number): WorkingDuration {
+function working(amount: number, name: string, unit: WorkingUnit, size: number): WorkingDuration {
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new UnitError({
-      message: `${unit} must be a positive finite number, got ${shownLimit(amount)}`,
+      message: `${name} must be a positive finite number, got ${shownLimit(amount)}`,
     });
   }
-  return Object.freeze({ [workingDuration]: (amount * size) as Milliseconds });
+  return Object.freeze({ [workingDuration]: true as const, unit, amount: amount * size });
 }
 
 /** Working time given in hours: `expiresIn: workingHours(2)`. */
 export const workingHours = (amount: number): WorkingDuration =>
-  working(amount, "workingHours", 3_600_000);
+  working(amount, "workingHours", "ms", 3_600_000);
 
 /** Working time given in minutes: `remindBefore: workingMinutes(30)`. */
 export const workingMinutes = (amount: number): WorkingDuration =>
-  working(amount, "workingMinutes", 60_000);
+  working(amount, "workingMinutes", "ms", 60_000);
 
 /** Working time given in minutes: `remindBefore: workMin(30)`. */
-export const workMin = (amount: number): WorkingDuration => working(amount, "workMin", 60_000);
+export const workMin = (amount: number): WorkingDuration =>
+  working(amount, "workMin", "ms", 60_000);
 
 /** Working time given in hours: `expiresIn: workHours(2)`. */
 export const workHours = (amount: number): WorkingDuration =>
-  working(amount, "workHours", 3_600_000);
+  working(amount, "workHours", "ms", 3_600_000);
 
 /**
- * Working time given in days: `expiresIn: workDays(2)`. Until #1310b gives it calendar semantics a
- * working day counts as 24 hours of working time.
+ * Working time given in days: `expiresIn: workDays(2)`. A working day is one active working date of
+ * the pause's calendar, counted on its resolved schedule (not 24 hours): a day with no working time
+ * (a weekend, a holiday) is not counted, and a start in the middle of a shift counts the rest of
+ * that day in proportion.
  */
-export const workDays = (amount: number): WorkingDuration =>
-  working(amount, "workDays", 86_400_000);
+export const workDays = (amount: number): WorkingDuration => working(amount, "workDays", "days", 1);
 
 /** Whether a value is working time (`workingHours(…)` / `workingMinutes(…)`). */
 export const isWorkingDuration = (value: unknown): value is WorkingDuration =>
   typeof value === "object" &&
   value !== null &&
-  typeof Reflect.get(value, workingDuration) === "number";
+  Reflect.get(value, workingDuration) === true &&
+  (Reflect.get(value, "unit") === "ms" || Reflect.get(value, "unit") === "days") &&
+  typeof Reflect.get(value, "amount") === "number";

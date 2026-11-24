@@ -5,10 +5,15 @@ import {
   instantAfter,
   reminderOf,
   type AddWorkingTime,
+  type RemindAt,
 } from "../flow/runtime/pause-record-made.js";
 import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { FrameSpec } from "../flow/context/frame.js";
-import { workingTimeAfter } from "../calendar/calendar-call.js";
+import {
+  workingReminderAt,
+  workingTimeAfter,
+  type CalendarSite,
+} from "../calendar/calendar-call.js";
 import { isWorkingDuration } from "../units/index.js";
 import { spanText } from "../units/working-time.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
@@ -135,7 +140,7 @@ function calendarAdder(
   parts: ExtendParts,
   pause: PauseRecord,
   channel: PauseChannel | undefined,
-): AddWorkingTime {
+): { readonly add: AddWorkingTime; readonly remind: RemindAt } {
   const { deps, clock } = parts;
   let framed: Promise<FrameSpec> | undefined;
   const frameOf = async (): Promise<FrameSpec> =>
@@ -144,7 +149,7 @@ function calendarAdder(
       pause,
       await pauseTreeOf(deps, pause, await treeStateOf(deps, pause.rootExecutionId)),
     );
-  return async (from, amount) => {
+  const siteOf = async (): Promise<CalendarSite> => {
     if (channel?.calendar === undefined)
       return reject([
         {
@@ -153,8 +158,18 @@ function calendarAdder(
         },
       ]);
     framed ??= frameOf();
-    const site = { calendar: channel.calendar, tenantId: pause.tenantId, role: pause.channel };
-    return workingTimeAfter({ ...site, frame: await framed, clock, log: deps.log }, from, amount);
+    return {
+      calendar: channel.calendar,
+      tenantId: pause.tenantId,
+      role: pause.channel,
+      frame: await framed,
+      clock,
+      log: deps.log,
+    };
+  };
+  return {
+    add: async (from, amount) => workingTimeAfter(await siteOf(), from, amount),
+    remind: async (span) => workingReminderAt(await siteOf(), span),
   };
 }
 
@@ -189,7 +204,7 @@ export const extendPauseOf =
       const channel = channelOf(parts.deps, pause);
       assertSameKind(request, channel);
       const now = parts.clock.now();
-      const add = calendarAdder(parts, pause, channel);
+      const { add, remind } = calendarAdder(parts, pause, channel);
       const expiresAt = (await instantAfter(request.expiresIn, now, add)).toISOString();
       const previousExpiresAt = previousDeadlineOf(pause, expiresAt);
       const remindAt = await reminderOf(
@@ -197,6 +212,7 @@ export const extendPauseOf =
         { expiresAt, expiresIn: request.expiresIn },
         channel?.remindBefore,
         add,
+        remind,
       );
       // the calendar took time: whether the pause is still open is decided at this instant, not at
       // the call's start (#1148); the deadline itself keeps counting from `now`

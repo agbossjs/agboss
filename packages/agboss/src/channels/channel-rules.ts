@@ -1,6 +1,13 @@
 import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import { isWorkingDuration } from "../units/index.js";
-import { amountOf, MAX_SPAN_MS, spanText, type TimeSpan } from "../units/working-time.js";
+import {
+  amountOf,
+  MAX_SPAN_MS,
+  MAX_SPAN_DAYS,
+  spanText,
+  unitOf,
+  type TimeSpan,
+} from "../units/working-time.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { isCountLimit, shownLimit } from "../graph/count-limit.js";
@@ -128,8 +135,14 @@ const MIN_EXPIRES_IN_MS = 1000;
 const msOf = (span: unknown): string =>
   isWorkingDuration(span) ? spanText(span) : `${String(span)} ms`;
 
-/** Whether `value` is a finite amount of milliseconds in `[min, MAX_SPAN_MS]`, plain or working (#944). */
+/**
+ * Whether `value` is a finite amount of milliseconds in `[min, MAX_SPAN_MS]`, plain or working
+ * (#944) — or, for `workDays`, a positive number of working days up to `MAX_SPAN_DAYS` (a day count
+ * is no millisecond count: `min` does not apply to it).
+ */
 const isSpanBetween = (value: unknown, min: number): value is TimeSpan => {
+  if (isWorkingDuration(value) && value.unit === "days")
+    return Number.isFinite(value.amount) && value.amount > 0 && value.amount <= MAX_SPAN_DAYS;
   const amount =
     typeof value === "number" ? value : isWorkingDuration(value) ? amountOf(value) : Number.NaN;
   return Number.isFinite(amount) && amount >= min && amount <= MAX_SPAN_MS;
@@ -179,12 +192,14 @@ export const isRemindBefore = (value: unknown): value is TimeSpan =>
 
 /**
  * Whether a reminder is not shorter than the deadline it precedes: plain with plain, working with
- * working (#944) — a plain amount against working time is not comparable here (the wall-clock
- * time working time takes is the calendar's to say), so it is no problem of the role.
+ * working of the same unit (#944) — a plain amount against working time, or working days against
+ * working hours, is not comparable here (the wall-clock time working time takes is the calendar's
+ * to say), so it is no problem of the role.
  */
 export const isNotShorter = (remindBefore: TimeSpan, expiresIn: unknown): boolean =>
   (typeof expiresIn === "number" || isWorkingDuration(expiresIn)) &&
   isWorkingDuration(remindBefore) === isWorkingDuration(expiresIn) &&
+  unitOf(remindBefore) === unitOf(expiresIn as TimeSpan) &&
   amountOf(remindBefore) >= amountOf(expiresIn as TimeSpan);
 
 /**

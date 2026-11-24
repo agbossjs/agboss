@@ -17,14 +17,19 @@ import {
 } from "../../infrastructure/pause-record.js";
 import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
-import { newRecordOf } from "./pause-record-made.js";
+import { newRecordOf, type RemindAt } from "./pause-record-made.js";
 import { PauseExpirySignal } from "./pause-expiry-failure.js";
 import { askOfPause, assertSameQuestion, livePauseAfter } from "./pause-chain.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../../pause/index.js";
 import { pauseTallyOf } from "../../pause/pause-tally.js";
 import type { ComponentRecord } from "./records.js";
 import { isWorkingDuration, type Milliseconds, type WorkingDuration } from "../../units/index.js";
-import { workingTimeAfter, type PauseCalendar } from "../../calendar/calendar-call.js";
+import {
+  workingReminderAt,
+  workingTimeAfter,
+  type CalendarSite,
+  type PauseCalendar,
+} from "../../calendar/calendar-call.js";
 import type { FrameworkLog } from "../../infrastructure/logger.js";
 
 /**
@@ -210,33 +215,31 @@ export interface PauseStepSite {
  */
 async function openedPause(site: PauseStepSite, question: PauseQuestion): Promise<PauseRecord> {
   const { pauses, channel, frame } = site;
-  const { execution, step } = frame;
-  const { tenantId } = execution.tenant;
-  const rootExecutionId = rootFactsOf(execution).executionId;
+  const { tenantId } = frame.execution.tenant;
   const isWorking = isWorkingDuration(question.expiresIn ?? channel.expiresIn);
   if (isWorking) {
     const found = await pauses.findByTenantIdAndRootExecutionIdAndStepKey(
       tenantId,
-      rootExecutionId,
-      step.idempotencyKey,
+      rootFactsOf(frame.execution).executionId,
+      frame.step.idempotencyKey,
     );
     if (found !== undefined) return found;
   }
-  const add = (from: Date, amount: number): Promise<Date> =>
-    workingTimeAfter(
-      {
-        calendar: channel.calendar,
-        tenantId,
-        role: channel.name,
-        frame,
-        clock: site.clock,
-        interruption: site.signal,
-        log: site.log,
-      },
-      from,
-      amount,
-    );
-  return pauses.findOrCreateByStepKey(await newRecordOf(frame, channel, question, site.clock, add));
+  const calendarSite: CalendarSite = {
+    calendar: channel.calendar,
+    tenantId,
+    role: channel.name,
+    frame,
+    clock: site.clock,
+    interruption: site.signal,
+    log: site.log,
+  };
+  const add = (from: Date, amount: WorkingDuration): Promise<Date> =>
+    workingTimeAfter(calendarSite, from, amount);
+  const remind: RemindAt = (span) => workingReminderAt(calendarSite, span);
+  return pauses.findOrCreateByStepKey(
+    await newRecordOf(frame, channel, question, site.clock, add, remind),
+  );
 }
 
 /** Asks the step's question through its pause: the answer, or the step stops at `interrupt()`. */

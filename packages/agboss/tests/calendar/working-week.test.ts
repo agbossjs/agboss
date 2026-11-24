@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { Weekday } from "../../src/index.js";
+import { workMs } from "./units.js";
 import { after, ALL_DAYS, HOUR, MINUTE, TEL_AVIV, WEEKDAYS, week } from "./helpers.js";
 
 const tlv = week(TEL_AVIV);
@@ -173,9 +174,9 @@ describe("#944: the walk is bounded and fast", () => {
   const FIVE_YEARS = 5 * 366 * 24 * HOUR;
   const request = (amount: number) => ({
     from: new Date("2026-01-05T09:00:00.000Z"),
-    amount: amount as never,
+    amount: workMs(amount),
     tenantId: "default",
-    channel: "r",
+    target: "r",
   });
 
   it("a non-finite, NaN, zero or negative amount fails at once with a RangeError", () => {

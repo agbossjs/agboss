@@ -1668,14 +1668,6 @@ export abstract class Clock {
 }
 
 // @public
-export interface ClockInterval {
-    // (undocumented)
-    readonly from: string;
-    // (undocumented)
-    readonly to: string;
-}
-
-// @public
 export interface CloseOptions {
     readonly timeout?: Milliseconds;
 }
@@ -2527,6 +2519,14 @@ export interface DeclarativePiiPolicyOptions<D extends readonly Token[] = readon
 }
 
 // @public
+export interface DeclarativeWorkingCalendarOptions extends WorkingCalendarCommon {
+    // (undocumented)
+    readonly deps?: never;
+    // (undocumented)
+    readonly week: WorkingWeekOptions;
+}
+
+// @public
 export function defineEnv<const TSpec extends EnvSpec>(spec: {
     readonly [TKey in keyof TSpec]: TKey extends ReservedEnvKey ? never : TSpec[TKey];
 }): EnvContract<TSpec>;
@@ -2592,6 +2592,13 @@ export interface DuplicateExecutionIdErrorOptions {
     // (undocumented)
     readonly cause?: unknown;
     readonly generator: string;
+}
+
+// @public
+export interface DynamicWorkingCalendarOptions<TDeps extends readonly Token[] = readonly Token[]> extends WorkingCalendarCommon {
+    readonly deps?: TDeps;
+    // (undocumented)
+    readonly week?: never;
 }
 
 // @public
@@ -10207,6 +10214,14 @@ export interface TimeoutResolveContext<TTarget> {
 }
 
 // @public
+export interface TimeWindow {
+    // (undocumented)
+    readonly from: string;
+    // (undocumented)
+    readonly to: string;
+}
+
+// @public
 export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead>;
 
 // @public
@@ -11032,7 +11047,31 @@ export interface WorkflowStartOptions {
 }
 
 // @public
-export function WorkingCalendar<const TDeps extends readonly Token[] = []>(options: WorkingCalendarOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => WorkingCalendarHandler>(value: TClass) => TClass;
+export function WorkingCalendar(options: DeclarativeWorkingCalendarOptions): <TClass extends new () => {
+    resolveSchedule?: never;
+    addWorkingTime?: never;
+}>(value: TClass) => TClass;
+
+// @public (undocumented)
+export function WorkingCalendar<const TDeps extends readonly Token[] = []>(options: DynamicWorkingCalendarOptions<TDeps>): <TClass extends new (...args: ResolvedAll<TDeps>) => WorkingCalendarHandler | WorkingScheduleResolver>(value: TClass) => TClass;
+
+// @public
+export interface WorkingCalendarCommon {
+    // (undocumented)
+    readonly description?: string;
+    readonly name?: string;
+    readonly timeout?: Milliseconds;
+}
+
+// @public
+export interface WorkingCalendarContext {
+    readonly amount: WorkingDuration;
+    readonly assignees?: readonly string[];
+    readonly from: Date;
+    readonly target?: string;
+    // (undocumented)
+    readonly tenantId: string;
+}
 
 // @public
 export class WorkingCalendarError extends AGBossError {
@@ -11059,49 +11098,45 @@ export interface WorkingCalendarErrorOptions {
 
 // @public
 export interface WorkingCalendarHandler {
-    addWorkingTime(request: WorkingTimeRequest): Date | Promise<Date>;
+    addWorkingTime(request: WorkingCalendarContext): Date | Promise<Date>;
 }
 
 // @public
-export interface WorkingCalendarOptions<TDeps extends readonly Token[] = readonly Token[]> {
-    readonly deps?: TDeps;
-    // (undocumented)
-    readonly description?: string;
-    readonly name?: string;
-}
+export type WorkingCalendarOptions<TDeps extends readonly Token[] = readonly Token[]> = DeclarativeWorkingCalendarOptions | DynamicWorkingCalendarOptions<TDeps>;
 
 // @public
 export enum WorkingCalendarProblem {
     CalendarFailed = "calendar-failed",
     CalendarTimeout = "calendar-timeout",
+    InvalidSchedule = "invalid-schedule",
+    MixedUnits = "mixed-units",
     NotADate = "not-a-date",
     NotAfterStart = "not-after-start"
 }
 
 // @public
-export type WorkingCalendarSource = WorkingCalendarHandler | Class<WorkingCalendarHandler>;
+export type WorkingCalendarSource = WorkingCalendarHandler | Class;
 
 // @public
-export interface WorkingTimeRequest {
-    readonly amount: Milliseconds;
-    readonly channel: string;
-    readonly from: Date;
+export interface WorkingScheduleResolver {
     // (undocumented)
-    readonly tenantId: string;
+    resolveSchedule(request: WorkingCalendarContext): WorkingCalendarHandler | Promise<WorkingCalendarHandler>;
 }
 
 // @public
 export const WorkingWeek: {
     of(options: WorkingWeekOptions): WorkingCalendarHandler;
+    anyOf(schedules: readonly WorkingCalendarHandler[]): WorkingCalendarHandler;
 };
 
 // @public
 export interface WorkingWeekOptions {
-    readonly breaks?: readonly ClockInterval[];
+    readonly breaks?: readonly TimeWindow[];
     // (undocumented)
     readonly days: readonly Weekday[];
     readonly holidays?: readonly string[];
-    readonly hours: readonly ClockInterval[];
+    readonly hours: readonly TimeWindow[];
+    readonly isHoliday?: (localDate: string) => boolean;
     readonly timeZone: string;
 }
 
@@ -11298,7 +11333,12 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/budgets/execution-deadline.ts - (ae-undocumented) Missing documentation for "code".
 // src/budgets/execution-deadline.ts - (ae-undocumented) Missing documentation for "name".
 // src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "resolveSchedule".
 // src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "description".
+// src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "week".
+// src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "deps".
+// src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "week".
+// src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "WorkingCalendar".
 // src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "problem".
 // src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "code".
 // src/calendar/working-calendar.ts - (ae-undocumented) Missing documentation for "code".

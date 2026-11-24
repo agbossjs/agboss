@@ -16,7 +16,7 @@ import {
 import type { PauseChannel, PauseQuestion } from "../../../src/flow/runtime/pause.js";
 import { PauseKind } from "../../../src/infrastructure/pause-record.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
-import { hours, minutes, workingHours } from "../../../src/units/index.js";
+import { hours, minutes, workingHours, type WorkingDuration } from "../../../src/units/index.js";
 
 const ASKED = new Date("2026-01-01T00:00:00.000Z");
 
@@ -156,9 +156,9 @@ describe("#1366: the deadline fields hold only what is set", () => {
 describe("#1366: a working-time reminder asks the calendar only for a deadline", () => {
   it("asks nothing and is none when there is no deadline, whatever the lead", async () => {
     const asked: number[] = [];
-    const counting = (from: Date, amount: number): Promise<Date> => {
-      asked.push(amount);
-      return Promise.resolve(new Date(from.getTime() + amount));
+    const counting = (from: Date, amount: WorkingDuration): Promise<Date> => {
+      asked.push(amount.amount);
+      return Promise.resolve(new Date(from.getTime() + amount.amount));
     };
 
     const none = await reminderOf(
