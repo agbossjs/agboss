@@ -5,7 +5,7 @@ import { kilobytes, type Bytes, type Milliseconds } from "../../units/index.js";
 import { FilePayloadSource, fileSourceOf } from "../../dto/standard/file.js";
 import { fileUnavailable, FileUnavailableReason } from "../../files/file-errors.js";
 import type { FileDto } from "../../dto/standard/file.js";
-import type { Clock } from "../../infrastructure/clock.js";
+import { systemClock, type Clock } from "../../infrastructure/clock.js";
 import type { FileFetchSlots } from "../files/a2a-file-slots.js";
 
 export type { FileDto };
@@ -49,13 +49,10 @@ async function boundedBodyOf(response: Response, max: number): Promise<Uint8Arra
 /** The signal a download runs under: the caller's, the policy's timeout (on the clock), and `stop`. */
 function signalOf(download: A2ADownload, stop: AbortSignal): AbortSignal | undefined {
   if (download.timeout === undefined) return download.signal;
-  // no clock to run it on: the system's, so a set timeout is never skipped
-  if (download.clock === undefined) {
-    const system = AbortSignal.timeout(download.timeout);
-    return download.signal === undefined ? system : AbortSignal.any([download.signal, system]);
-  }
+  // no clock given: the system's, so a set timeout is never skipped
+  const clock = download.clock ?? systemClock;
   const timed = new AbortController();
-  void download.clock.sleep(download.timeout, stop).then(
+  void clock.sleep(download.timeout, stop).then(
     () => {
       if (!stop.aborted)
         timed.abort(new Error("the download took longer than the policy's fetchTimeout"));
@@ -107,16 +104,19 @@ async function fetchedBody(
   return boundedBodyOf(response, max);
 }
 
+/** An inline file is checked against its digest, so one with none is refused; only a file by url may come without. */
+function requireDigest(file: FileDto): void {
+  if (file.sha256 === undefined && fileSourceOf(file) !== FilePayloadSource.Url)
+    throw unavailable(FileUnavailableReason.DigestMissing);
+}
+
 /** A received file's bytes, as `A2AClient.downloadFile` says. */
 export async function downloadedFile(file: FileDto, download: A2ADownload): Promise<Uint8Array> {
   const max = download.maxSize ?? DEFAULT_MAX_SIZE;
   // a stored descriptor is another application's own: never a file the client received
   if (fileSourceOf(file) === FilePayloadSource.Stored)
     throw unavailable(FileUnavailableReason.NotFound);
-  // an inline file is checked against its digest, so one with none is refused; only a file by url
-  // may come without one
-  if (file.sha256 === undefined && fileSourceOf(file) !== FilePayloadSource.Url)
-    throw unavailable(FileUnavailableReason.DigestMissing);
+  requireDigest(file);
   const bytes =
     fileSourceOf(file) === FilePayloadSource.Url
       ? await fetchedOf(file.url ?? "", download, max)

@@ -1,7 +1,8 @@
 import { bytes as byteSize, kilobytes } from "../units/index.js";
 import type { FileDto } from "../dto/standard/file.js";
 import { isInlineFileStore, type FileRepository } from "../infrastructure/file.repository.js";
-import { FileRefusal, fileRefused } from "./file-errors.js";
+import { createHash } from "node:crypto";
+import { FileRefusal, fileRefused, fileUnavailable, FileUnavailableReason } from "./file-errors.js";
 import type { Milliseconds } from "../units/index.js";
 
 /**
@@ -50,6 +51,19 @@ export function filesToOffload(files: readonly FileDto[]): readonly FileDto[] {
 }
 
 /**
+ * Refuses (`FileRefusal.InlineTooLarge`) the inline files that are over the caps when the store keeps
+ * nothing (the inline default): nothing is written, so a caller checks before it writes anything.
+ */
+export function assertInlineFits(files: readonly FileDto[], store: FileRepository): void {
+  const leaving = filesToOffload(files);
+  if (leaving.length > 0 && isInlineFileStore(store))
+    throw fileRefused({
+      refusal: FileRefusal.InlineTooLarge,
+      sizeBytes: Math.max(...leaving.map(inlineSizeOf)),
+    });
+}
+
+/**
  * Brings the inline files of one payload under the cap, in place: each that must leave is saved in
  * the store under `<ownerId>.<sha256>` and its descriptor holds that `fileId` instead of `inline`.
  * With no file store, refuses before anything changes.
@@ -60,16 +74,11 @@ export async function offloadedInlineFiles(
 ): Promise<void> {
   const leaving = filesToOffload(files);
   if (leaving.length === 0) return;
-  if (isInlineFileStore(offload.store))
-    throw fileRefused({
-      refusal: FileRefusal.InlineTooLarge,
-      sizeBytes: Math.max(...leaving.map(inlineSizeOf)),
-    });
-  for (const file of leaving) {
-    const bytes = new Uint8Array(Buffer.from(file.inline ?? "", "base64"));
-    const { sha256 } = file;
-    if (sha256 === undefined)
-      throw fileRefused({ refusal: FileRefusal.InlineTooLarge, sizeBytes: bytes.byteLength });
+  assertInlineFits(files, offload.store);
+  // the digest is the bytes' own, never the caller's claim: a key from a claimed digest would let a
+  // caller poison another file's; every file is checked before the first is saved
+  const checked = leaving.map((file) => ownBytesOf(file));
+  for (const { file, bytes, sha256 } of checked) {
     const fileId = `${offload.ownerId}.${sha256}`;
     await offload.store.save({
       tenantId: offload.tenantId,
@@ -85,5 +94,25 @@ export async function offloadedInlineFiles(
     });
     delete file.inline;
     file.fileId = fileId;
+    file.sha256 = sha256;
+    file.sizeBytes = bytes.byteLength;
   }
+}
+
+const SHA256 = /^[0-9a-f]{64}$/;
+
+/** A file's decoded bytes with their own digest; a claimed digest or size that differs is refused. */
+function ownBytesOf(file: FileDto): {
+  readonly file: FileDto;
+  readonly bytes: Uint8Array;
+  readonly sha256: string;
+} {
+  const bytes = new Uint8Array(Buffer.from(file.inline ?? "", "base64"));
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const claimed = file.sha256;
+  const isDigestWrong = claimed !== undefined && (!SHA256.test(claimed) || claimed !== sha256);
+  const isSizeWrong = file.sizeBytes !== undefined && file.sizeBytes !== bytes.byteLength;
+  if (isDigestWrong || isSizeWrong)
+    throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
+  return { file, bytes, sha256 };
 }

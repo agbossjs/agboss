@@ -1,4 +1,4 @@
-import { callOf } from "./call-output.js";
+import { callOf, offloadedOutput } from "./call-output.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { recordReportedCost, type UsageRecord } from "../../finops/usage.js";
 import { callerOfSpend } from "../../finops/explicit-caller.js";
@@ -175,7 +175,7 @@ function runTask(
       { reportUsage, meshCall: mesh.services },
       () =>
         guardedCall(deps, tool, task, (args) =>
-          readingAgent(deps, task, () => callOf(tool, task, context, args)),
+          readingAgent(deps, task, () => offloadedOutput(deps, callOf(tool, task, context, args))),
         ),
       call.signal,
     ).finally(call.release);

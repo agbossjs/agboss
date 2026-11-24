@@ -49,8 +49,16 @@ Added: `FileRepository.{markOwnerCompleted, deleteExpired}`, `FileOwnerCompletio
 `Files.save` with no `FileRepository` refuses a file over 64 KB (`FileError.Refused`,
 `FileRefusal.InlineTooLarge`, no 0.1.0 grandfathering), and `offloadedInlineFiles` (src/files/inline-cap.ts)
 moves every inline file over 64 KB — then the largest until a payload's inline bytes fit 256 KB — into the
-store under `<ownerId>.<sha256>`, or refuses with no store. Wiring it into `app.execute`, `app.resume` and
-tool outputs belongs to the app lane (src/app/**), not yet done.
+store under `<ownerId>.<sha256>`, or refuses with no store. It is wired into `app.execute` (a start's
+input, refused before anything is written when there is no store; offloaded under the run after its thread
+is opened), a pause's answer (`app.resume`, before the answer is recorded; owned by the pause's root run) and
+a tool's output (a refusal is the tool's error). `fileDescriptorsIn` and `inlineFilesOf` (src/files/inline-offload.ts)
+find the descriptors in any value.
+
+**Every read path needs a digest.** A stored or inline file with no `sha256` fails closed everywhere its bytes
+become content — `Files.read`, an agent's model parts, guardrail and judge input, transcription, masking, the
+A2A serving of an output and `A2AClient.downloadFile` — with `FileUnavailableReason.DigestMissing`; only a url file
+may come without one. A download with a `fetchTimeout` and no clock now ends at the timeout (`AbortSignal.timeout`).
 
 **Orphans.** Files of an owner that was never marked completed (a crashed upload, an attempt that ran no
 tree) are removed by `FileRepository.deleteOrphans({ createdBefore, isLive })`: all the owner's files older

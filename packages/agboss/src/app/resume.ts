@@ -30,6 +30,7 @@ import { pauseTallyOf } from "../pause/pause-tally.js";
 import { pauseClosed } from "./pause-closed.js";
 import { answeredByOf, pauseOf } from "./pause-answerer.js";
 import { assertAnswerPermitted } from "./answer-permit.js";
+import type { InlineFiles } from "../files/inline-offload.js";
 import type { PermitAnswer } from "../channels/pause-contexts.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
@@ -100,6 +101,8 @@ export interface AnswerParts extends AnsweredRootParts {
   readonly notices?: PauseNotices | undefined;
   /** The pause's target's `permitAnswer` (#1307c); `undefined`: it has none. */
   readonly permits?: ((pause: PauseRecord) => PermitAnswer | undefined) | undefined;
+  /** The inline cap (#1316): the answer's inline files over it are offloaded, or refused with no store. */
+  readonly inline?: InlineFiles | undefined;
 }
 
 /** A recorded answer: the pause now `Resolved`, and its tree's run as it rests (if it rests). */
@@ -177,6 +180,13 @@ const answerOf = (
 /** Whose answer is recorded: a person's reply, or the decision a channel gave at once (#1193). */
 export type AnswerSource = PauseResolution.Replied | PauseResolution.Decided;
 
+/** The answer's inline files over the cap leave for the file store, owned by the pause's root run (#1316). */
+const offloadedAnswer = (parts: AnswerParts, pause: PauseRecord, decision: unknown) =>
+  parts.inline?.offload(decision, {
+    tenantId: pause.tenantId,
+    ownerId: pause.rootExecutionId,
+  });
+
 /**
  * The answer recorded on its pause by `answeredBy` (already checked, or a channel's own name — #946):
  * what `recordAnswer` does once it knows who answers. A channel's decision (`source` `Decided`) is
@@ -201,6 +211,7 @@ export async function recordedAnswer(
   // channel's own decision is the application's and is not asked of the hook
   if (source === PauseResolution.Replied)
     await assertAnswerPermitted(parts, pause, answeredBy, read.decision);
+  await offloadedAnswer(parts, pause, read.decision);
   const answer = answerOf(read, answeredBy, source);
   // the tree has work again before its answer is recorded (#850, paused-runs.ts)
   const isMarked = await markAnswered(parts, pause, run);

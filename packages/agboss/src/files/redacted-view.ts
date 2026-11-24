@@ -51,7 +51,8 @@ async function keptContentOf(batch: FileBatch, kept: KeptRedacted): Promise<File
     const bytes = new Uint8Array(Buffer.from(kept.inline, "base64"));
     const sha256 = sha256Of(bytes);
     // the kept copy is checked against the digest it was kept under, as a stored one is
-    if (sha256 !== kept.sha256) throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
+    if (sha256 !== kept.sha256)
+      throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
     return {
       mediaType: kept.mediaType,
       ...(kept.filename === undefined ? {} : { filename: kept.filename }),

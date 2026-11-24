@@ -73,6 +73,8 @@ export interface AgentLoopDeps {
   readonly observer?: ExecutionObserverManager;
   /** What it reads its files with (#899); absent: the agent did not opt in. */
   readonly fileRuntime?: FileRuntime | undefined;
+  /** Brings the inline files of a tool's output under the inline cap (#1316); absent: nothing is held to it. */
+  readonly inlineFiles?: ((value: unknown) => Promise<void>) | undefined;
 }
 
 /** One tool call of a move, with its id (assigned by the loop when the model gives none). */

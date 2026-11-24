@@ -1,5 +1,7 @@
 import { lazyLoad } from "../infrastructure/clock.js";
 import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
+import { FileRepository } from "../infrastructure/file.repository.js";
+import { inlineFilesOf } from "../files/inline-offload.js";
 import { newThreadOf } from "./new-thread.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
@@ -107,6 +109,7 @@ export async function buildApp(
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.turns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
   const newThread = newThreadOf(deps, owned);
+  const inline = inlineFilesOf(() => deps.container.get(FileRepository), clock, bundle.graph.type);
   const contexts = deps.contexts ?? contextsOutsideExecution(deps.config);
   let closed = false;
   let released = false;
@@ -121,7 +124,7 @@ export async function buildApp(
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError({ message: STOPPING });
   };
-  const resuming = { ...answers, ...replies, admit, accepting, moves, ownerOf };
+  const resuming = { ...answers, ...replies, admit, accepting, moves, ownerOf, inline };
   const resends = replacementSendsOf(resuming, { pauses, clock, deps });
   const app: WorkflowApp = {
     name: deps.config.name,
@@ -143,6 +146,7 @@ export async function buildApp(
         // #589: the owner is stored with the thread — a key's text, before anything is read
         checkedCallerId("ExecutionOptions", "ownerId", call.ownerId);
         const valid = checkedStart(start, input, bundle.graph);
+        inline.check(valid.input);
         // the contexts' values, checked before the first step and frozen (#261); the call chain
         // a mesh transport admitted, kept with them (#398)
         const values = meshContextValuesOf(contextValuesOf(contexts, call), call, clock.now());
@@ -174,6 +178,7 @@ export async function buildApp(
       const threadId = checked.isNew
         ? await newThread({ tenantId, threadId: call.threadId, ownerId: call.ownerId })
         : (call.threadId ?? "");
+      await inline.offloadNew(checked.input, { tenantId, ownerId: runId });
       const origin = values.mesh?.trusted?.origin;
       const tree = { runId, threadId, tenantId, startedVersion: deps.config.version, origin };
       await deps.observer.onExecutionStart(executionEventAt(tree, deps));
