@@ -248,7 +248,9 @@ A workflow is a folder of components, one class per file, wired by a `*.workflow
 budgets, and is what `createApp` and `testWith` take, and what the CLI works on — its path set once
 in `package.json` (`"agboss": { "application": "src/desk/desk.application.ts" }`), a workflow chosen
 by its start (`agboss chat --start chat-workflow-start`, #268); `agboss check` writes `.agboss/types.d.ts`, which types the paths, every node's input and
-`app.execute`. The shape every workflow follows — a support desk with one tool, one injected
+`app.execute`. It types every decorated class under `src/` (tests, `scripts/` and `bin/` left out), a
+workflow reaches it or not — a component under test, a tool-only application's router; the tables are the one namespace
+`AGBossTypes` (`AGBossTypes.Inputs`, `.Outputs`, …) and each class is branded `{ name, kind }`, which `NameOf` / `KindOf` read. The shape every workflow follows — a support desk with one tool, one injected
 service, one agent and a router:
 
 ```ts file=src/desk/tools/order-status.dto.ts
@@ -1573,12 +1575,12 @@ description, ask: AskDto, answer: AnswerDto, answerer, replyInterpreter?, maxVis
   once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
   checked before `send`), a `send` that throws or an invalid `decided(…)` is `QuestionFailedError`
   (`step.question`, `question` the step; `new QuestionFailedError({ question, cause })`) for `.onError` right after it; a tool naming a question role is
-  `[channel.wrong-tool]`; `ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`;
+  `[channel.wrong-tool]`; `AGBossTypes.ChannelRoles["…-question"]` is `{ ask: AskDto; answer: AnswerDto }`;
   `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitQuestion] })` — its model sees a tool named the role (input = `ask`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `answer` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `question`; no tool interceptors), `result.pending[i].step` the asking agent, the record's `kind` `question` and its `component` the role; `maxVisits` bounds one visit's calls (`VisitsLimitExceededError` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `AgentFailedError`; an approval role there is `[channel.approval-role-as-tool]`; `callTool(Role, ask)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. Its one implementation (`@Channel`, `extends` the role) is
   listed in `@Application({ providers })` — channel transport is infrastructure, never a workflow's
   provider; none → `[di.missing-implementation]`, two → `[di.ambiguous-implementation]`. A channel has
   one method, `send(ask: ChannelAsk<Role>): Promise<ChannelOutcome<Role>>` (`ask = { pauseId, value }`,
-  typed by the generated `ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
+  typed by the generated `AGBossTypes.ChannelRoles`): `ChannelOutcome.awaitReply()` pauses the execution until
   `app.resume({ pauseId, decision })`, `ChannelOutcome.decided(decision)` goes on at once (validated
   like a reply, its record closed at once: `Taken`, `PauseResolution.Decided`). The `pauseId` is made
   once per pause, before the first `send` — a retried `send` gets the same one (the channel's

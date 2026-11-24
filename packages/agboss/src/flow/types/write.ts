@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { RuleViolation } from "../../graph/rule-error.js";
+import { applicationDeclarationOf } from "../../application/application.js";
 import { loadFlowProject } from "../../loader/load-flow.js";
 import type { LoadedModule } from "../analyse/rules/context.js";
 import { GENERATED_TYPES_FILE, generateFlowTypes } from "./generate.js";
@@ -82,17 +83,23 @@ export async function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypes
   const outFile = join(request.project, request.outFile ?? GENERATED_TYPES_FILE);
   const typescript = request.typescript === undefined ? {} : { typescript: request.typescript };
   const project = await loadFlowProject(request.files, typescript);
-  const { workflows, applications } = project;
+  const { workflows, applications, components } = project;
   // in this repo the tables are the framework's sources (`tablesModule`): no package to import from
   const modules =
     request.tablesModule === undefined
       ? [...project.modules, ...(await packageModules())]
       : project.modules;
-  if (workflows.length === 0)
+  // a tool-only application (`workflows: []`) and a component under test are typed too (#1324g); an
+  // application that lists workflows no module exports is still `no-flow` (#376)
+  const isToolOnly = applications.some(
+    (application) => applicationDeclarationOf(application)?.options.workflows.length === 0,
+  );
+  if (workflows.length === 0 && !isToolOnly && components.length === 0)
     return { status: FlowTypesStatus.NoFlow, outFile, errors: [], warnings: [], notes: [] };
   const generated = generateFlowTypes({
     workflows,
     applications,
+    components,
     modules,
     outFile,
     ...(request.tablesModule === undefined ? {} : { tablesModule: request.tablesModule }),

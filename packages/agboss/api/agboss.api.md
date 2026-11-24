@@ -400,6 +400,65 @@ export interface AGBossErrorOptions {
 export const agbossTenantContext: unique symbol;
 
 // @public
+export namespace AGBossTypes {
+    export interface AgentTools {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface ChannelRoles {
+        // (undocumented)
+        readonly "auto-approve-channel": {
+            readonly ask: ToolCallApprovalAskDto;
+            readonly answer: ToolCallApprovalDecisionDto;
+        };
+        // (undocumented)
+        readonly "auto-reject-channel": {
+            readonly ask: ToolCallApprovalAskDto;
+            readonly answer: ToolCallApprovalDecisionDto;
+        };
+        // (undocumented)
+        readonly "terminal-user-channel": {
+            readonly ask: ToolCallApprovalAskDto;
+            readonly answer: ToolCallApprovalDecisionDto;
+        };
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface DtoBrands {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface Inputs {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface Outputs {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface PauseTargets {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface ProducerOutputs {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface RouterAnswers {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface Routes {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+    export interface WorkflowStarts {
+        // (undocumented)
+        readonly [notGenerated]?: never;
+    }
+}
+
+// @public
 export function Agent(options: AgentOptions): <TClass extends Class>(value: TClass) => TClass;
 
 // @public
@@ -611,13 +670,7 @@ export type AgentsLaunched<THead extends PathHead> = Launched<THead> & Quorums<T
 export type AgentStartEvent = StartEvent<string>;
 
 // @public
-export type AgentToolNamesOf<TSelf> = GeneratedEntry<AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
-
-// @public
-export interface AgentTools {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+export type AgentToolNamesOf<TSelf> = GeneratedEntry<AGBossTypes.AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
 
 // @public
 export interface AlwaysRouterRoute {
@@ -890,7 +943,9 @@ export type AuditLogHooks = OnExecutionLeaseTakeover & OnStepHandedOver & OnFenc
 // @public
 export class AutoApproveChannel {
     // (undocumented)
-    readonly [agbossComponent]?: "auto-approve-channel";
+    readonly [agbossComponent]?: {
+        readonly name: "auto-approve-channel";
+    };
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
@@ -898,7 +953,9 @@ export class AutoApproveChannel {
 // @public
 export class AutoRejectChannel {
     // (undocumented)
-    readonly [agbossComponent]?: "auto-reject-channel";
+    readonly [agbossComponent]?: {
+        readonly name: "auto-reject-channel";
+    };
     // (undocumented)
     send(): Promise<DecidedOutcome<Pick<ToolCallApprovalDecisionDto, "approved" | "reason">>>;
 }
@@ -1162,7 +1219,7 @@ export function Channel<const D extends readonly Token[] = []>(options: ChannelO
 }>(value: C) => C;
 
 // @public
-export type ChannelAnswerOf<TRole> = GeneratedEntry<ChannelRoles, TRole> extends {
+export type ChannelAnswerOf<TRole> = GeneratedEntry<AGBossTypes.ChannelRoles, TRole> extends {
     readonly answer: infer TAnswer;
 } ? TAnswer : MissingGeneratedTypes;
 
@@ -1416,7 +1473,7 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
 export type ChannelPauseTimeoutChangedEvent<TTarget> = ChannelPauseExtendedEvent<TTarget>;
 
 // @public
-export type ChannelQuestionOf<TRole> = GeneratedEntry<ChannelRoles, TRole> extends {
+export type ChannelQuestionOf<TRole> = GeneratedEntry<AGBossTypes.ChannelRoles, TRole> extends {
     readonly ask: infer TAsk;
 } ? TAsk : MissingGeneratedTypes;
 
@@ -1454,27 +1511,6 @@ export interface ChannelRoleBaseOptions {
 export type ChannelRoleOptions = (ChannelApprovalRoleOptions | ChannelQuestionRoleOptions) & ({
     readonly answerer: PauseAnswerer;
 } | Required<Pick<ChannelRoleBaseOptions, "answeredBy">>);
-
-// @public
-export interface ChannelRoles {
-    // (undocumented)
-    readonly "auto-approve-channel": {
-        readonly ask: ToolCallApprovalAskDto;
-        readonly answer: ToolCallApprovalDecisionDto;
-    };
-    // (undocumented)
-    readonly "auto-reject-channel": {
-        readonly ask: ToolCallApprovalAskDto;
-        readonly answer: ToolCallApprovalDecisionDto;
-    };
-    // (undocumented)
-    readonly "terminal-user-channel": {
-        readonly ask: ToolCallApprovalAskDto;
-        readonly answer: ToolCallApprovalDecisionDto;
-    };
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
 
 // @public
 export interface ChannelSelectContext<TTarget> {
@@ -2604,12 +2640,6 @@ export interface DepthLimitExceededErrorOptions {
     // (undocumented)
     readonly path: readonly string[];
     readonly workflow: WorkflowRecord;
-}
-
-// @public
-export interface DtoBrands {
-    // (undocumented)
-    readonly [notGenerated]?: never;
 }
 
 // @public
@@ -4180,7 +4210,7 @@ declare namespace FlowTypes {
         ExecutionOptionOf,
         GeneratedEntry,
         KindOf,
-        KindOfName,
+        InstanceOrSelf,
         NameOf,
         ProducerOutputOf,
         StartExecutionOf,
@@ -4965,13 +4995,10 @@ export function InputGuardrail<const D extends readonly Token[] = []>(options: C
 export function InputGuardrail<const D extends readonly Token[] = []>(options: CodeGuardrailComputedOptions<D>): GuardrailDecorator<D, GuardrailHandler & GuardrailRefusal>;
 
 // @public
-export type InputOf<TInstance> = GeneratedEntry<Inputs, TInstance>;
+export type InputOf<TInstance> = GeneratedEntry<AGBossTypes.Inputs, TInstance>;
 
 // @public
-export interface Inputs {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+type InstanceOrSelf<T> = T extends abstract new (...args: never[]) => infer TInstance ? TInstance : T;
 
 // @public
 export class InvalidA2APageTokenError extends AGBossError {
@@ -5331,10 +5358,11 @@ interface KindLabels {
 }
 
 // @public
-type KindOf<TInstance> = KindOfName<NameOf<TInstance>>;
-
-// @public
-type KindOfName<TName extends string> = TName extends `${string}-workflow-start` ? NodeKind.Start : TName extends `${string}-workflow-finish` ? NodeKind.Finish : TName extends `${string}-workflow` ? NodeKind.Workflow : TName extends `${string}-agent` ? NodeKind.Agent : TName extends `${string}-router` ? NodeKind.Router : TName extends `${string}-action` ? NodeKind.Action : TName extends `${string}-question` | `${string}-external-task` ? NodeKind.Question : never;
+type KindOf<T> = InstanceOrSelf<T> extends {
+    readonly [agbossComponent]?: {
+        readonly kind: infer TKind extends NodeKind;
+    };
+} ? NodeKind extends TKind ? never : TKind : never;
 
 // @public
 type LastValue<TValue> = IsSeveral<TValue> extends true ? TValue extends readonly [...unknown[], infer TLast] ? TLast : never : TValue;
@@ -6176,8 +6204,10 @@ export interface ModelUsage {
 }
 
 // @public
-type NameOf<TInstance> = TInstance extends {
-    readonly [agbossComponent]?: infer TName extends string;
+type NameOf<T> = InstanceOrSelf<T> extends {
+    readonly [agbossComponent]?: {
+        readonly name: infer TName extends string;
+    };
 } ? string extends TName ? never : TName : never;
 
 // @public (undocumented)
@@ -7247,13 +7277,7 @@ export class OutputInvalidError extends AGBossError {
 }
 
 // @public
-export type OutputOf<TInstance> = GeneratedEntry<Outputs, TInstance>;
-
-// @public
-export interface Outputs {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+export type OutputOf<TInstance> = GeneratedEntry<AGBossTypes.Outputs, TInstance>;
 
 // @public
 export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
@@ -7671,7 +7695,7 @@ export interface PauseExtensionContendedErrorOptions {
 }
 
 // @public
-export type PauseInputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<PauseTargets, TTarget> extends {
+export type PauseInputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<AGBossTypes.PauseTargets, TTarget> extends {
     readonly input: infer TInput;
 } ? TInput : MissingGeneratedTypes;
 
@@ -7776,7 +7800,7 @@ export interface PauseListenerOptions<TDeps extends readonly Token[] = readonly 
 }
 
 // @public
-export type PauseOutputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<PauseTargets, TTarget> extends {
+export type PauseOutputOf<TTarget> = [TTarget] extends [never] ? never : GeneratedEntry<AGBossTypes.PauseTargets, TTarget> extends {
     readonly output: infer TOutput;
 } ? TOutput : MissingGeneratedTypes;
 
@@ -7912,12 +7936,6 @@ export interface PauseTargetHooks {
 
 // @public
 export type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
-
-// @public
-export interface PauseTargets {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
 
 // @public
 export interface PauseToolCallSummary {
@@ -8255,13 +8273,7 @@ export interface ProducedValue<TValue, TProducer> {
 }
 
 // @public
-type ProducerOutputOf<TInstance> = GeneratedEntry<ProducerOutputs, TInstance>;
-
-// @public
-export interface ProducerOutputs {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+type ProducerOutputOf<TInstance> = GeneratedEntry<AGBossTypes.ProducerOutputs, TInstance>;
 
 // @public
 export interface ProfileComparison {
@@ -8800,7 +8812,7 @@ export interface RetentionOptions {
 export type ReturnedShape = ValueShape | OneOfWrapper;
 
 // @public
-export type Route<TInstance> = GeneratedEntry<Routes, TInstance>;
+export type Route<TInstance> = GeneratedEntry<AGBossTypes.Routes, TInstance>;
 
 // @public
 export function route<const TClass extends Class>(target: TClass & TargetCheck<TClass, RouteTargetKind, RouteTargetLabel>, ...options: RouteOptions<TClass>): RouteContinuation<InstanceType<TClass>>;
@@ -8861,13 +8873,7 @@ export function Router<const TDeps extends readonly Token[] = []>(options: CodeR
 export const ROUTER_FACTORY: InjectionToken<(name: string) => RouterEngine>;
 
 // @public
-export type RouterAnswerOf<TInstance> = GeneratedEntry<RouterAnswers, TInstance>;
-
-// @public
-export interface RouterAnswers {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
+export type RouterAnswerOf<TInstance> = GeneratedEntry<AGBossTypes.RouterAnswers, TInstance>;
 
 // @public
 export interface RouterDecided {
@@ -8986,12 +8992,6 @@ export interface RouterVisit {
     readonly component?: ComponentRecord;
     readonly nodeId: string;
     readonly visitNumber: number;
-}
-
-// @public
-export interface Routes {
-    // (undocumented)
-    readonly [notGenerated]?: never;
 }
 
 // @public (undocumented)
@@ -10134,7 +10134,9 @@ export interface TenantValues {
 // @public
 export class TerminalUserChannel {
     // (undocumented)
-    readonly [agbossComponent]?: "terminal-user-channel";
+    readonly [agbossComponent]?: {
+        readonly name: "terminal-user-channel";
+    };
     // (undocumented)
     send(ask: ChannelAsk<TerminalUserChannel>): Promise<ChannelOutcome<TerminalUserChannel>>;
 }
@@ -10169,7 +10171,10 @@ type Thinking = "default" | "none" | "minimal" | "low" | "medium" | "high" | "xh
 // @public
 export class ThisWorkflow {
     // (undocumented)
-    readonly [agbossComponent]?: "this-workflow";
+    readonly [agbossComponent]?: {
+        readonly name: "this-workflow";
+        readonly kind: NodeKind.Workflow;
+    };
 }
 
 // @public
@@ -11057,7 +11062,7 @@ export interface WorkflowSettingsBuilder {
 export function WorkflowStart(options: WorkflowStartOptions): <TClass extends Class>(value: TClass) => TClass;
 
 // @public
-type WorkflowStartEntry<TInstance> = GeneratedEntry<WorkflowStarts, TInstance>;
+type WorkflowStartEntry<TInstance> = GeneratedEntry<AGBossTypes.WorkflowStarts, TInstance>;
 
 // @public
 export type WorkflowStartInput = DtoClass | ListWrapper<DtoClass> | Readonly<Record<string, ValueShape>>;
@@ -11069,12 +11074,6 @@ export interface WorkflowStartOptions {
     // (undocumented)
     readonly input: WorkflowStartInput;
     readonly name: string;
-}
-
-// @public
-export interface WorkflowStarts {
-    // (undocumented)
-    readonly [notGenerated]?: never;
 }
 
 // @public
@@ -12221,10 +12220,10 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""terminal-user-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-approve-channel"".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for ""auto-reject-channel"".
+// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".

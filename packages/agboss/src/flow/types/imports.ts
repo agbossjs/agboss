@@ -14,6 +14,7 @@ import type { ClassLocator } from "./locate.js";
 /** What the generated file imports from the tables module. */
 export enum TablesImport {
   ComponentBrand = "agbossComponent",
+  NodeKind = "NodeKind",
   DtoBrand = "agbossDto",
   NoInput = "NoInput",
   NoOutput = "NoOutput",
@@ -58,6 +59,11 @@ export class ImportTable {
     readonly outFile: string,
   ) {}
 
+  /** An empty table over the same modules: a dry run of what a class needs (`unexported`). */
+  fork(): ImportTable {
+    return new ImportTable(this.locator, this.outFile);
+  }
+
   /** The identifier of a class in the generated file. */
   ref(component: Class): string {
     const known = this.imports.get(component);
@@ -91,6 +97,11 @@ export class ImportTable {
   /** Whether the file brands the class (every class it mentions but the plain ones). */
   isBranded(component: Class): boolean {
     return !this.plain.has(component);
+  }
+
+  /** Whether the file treats the class as a DTO (it names it in a type). */
+  isDto(component: Class): boolean {
+    return this.dtoClasses.has(component as DtoClass);
   }
 
   /** The identifier of a DTO class (branded by its class name, S39). */

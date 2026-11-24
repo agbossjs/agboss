@@ -3,7 +3,7 @@ import { componentOf } from "../../components/metadata.js";
 import type { Class } from "../../components/injection.js";
 import { RagMode } from "../../rag/types.js";
 import { NodeKind } from "../ast.js";
-import type { AgentDeclaration } from "../decorators/declaration.js";
+import { declarationOf, type AgentDeclaration } from "../decorators/declaration.js";
 import type { ImportTable } from "./imports.js";
 import type { AnalysedWorkflow, TypeTable } from "./tables.js";
 
@@ -68,5 +68,25 @@ export function agentToolsTableOf(
         tools.length === 0 ? "never" : tools.map((n) => JSON.stringify(n)).join(" | "),
       );
     }
+  return table;
+}
+
+/** The tools of the agents no workflow reaches (#1324g): a standalone agent's `AgentTools` entry. */
+export function standaloneAgentToolsOf(
+  components: readonly Class[],
+  reached: ReadonlySet<Class>,
+  names: ImportTable,
+): TypeTable {
+  const table = new Map<string, string>();
+  for (const component of components) {
+    const declaration = declarationOf(component);
+    if (reached.has(component) || declaration?.kind !== NodeKind.Agent) continue;
+    if (table.has(declaration.options.name)) continue;
+    const tools = toolNamesOf(declaration.options, names);
+    table.set(
+      declaration.options.name,
+      tools.length === 0 ? "never" : tools.map((n) => JSON.stringify(n)).join(" | "),
+    );
+  }
   return table;
 }
