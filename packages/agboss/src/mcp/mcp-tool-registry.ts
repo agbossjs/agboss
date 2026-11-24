@@ -148,6 +148,21 @@ function addWorkflowStart(registry: ToolRegistry, app: AnyTenantApp, exp: Class)
   });
 }
 
+/** The answer a `resume_workflow` call gives: exactly one of a `decision` (JSON text) or a free-text `reply`. */
+function resumeRequestOf(
+  pauseId: string,
+  input: Readonly<Record<string, unknown>>,
+):
+  | { readonly pauseId: string; readonly decision: unknown }
+  | { readonly pauseId: string; readonly reply: string } {
+  const { reply, decision } = input;
+  if ((reply === undefined) === (decision === undefined))
+    throw new Error("give a decision or a reply, not both and not neither");
+  if (reply === undefined) return { pauseId, decision: parseDecision(decision) };
+  if (typeof reply !== "string") throw new Error("reply must be a string");
+  return { pauseId, reply };
+}
+
 function addResumeTool(registry: ToolRegistry, app: AnyTenantApp): void {
   registry.tools.push(RESUME_TOOL);
   registry.handlers.set(RESUME_TOOL.name, (call) =>
@@ -156,7 +171,7 @@ function addResumeTool(registry: ToolRegistry, app: AnyTenantApp): void {
       if (typeof input.pauseId !== "string") throw new Error("pauseId must be a string");
       const { ownerId, tenant } = call.session;
       const options = { ownerId, tenantId: tenant?.tenantId, signal: call.signal };
-      const request = { pauseId: input.pauseId, decision: parseDecision(input.decision) };
+      const request = resumeRequestOf(input.pauseId, input);
       const result = await app.resume(request, options);
       return formatWorkflowOutput(result);
     }),

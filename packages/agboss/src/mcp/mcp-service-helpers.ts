@@ -69,7 +69,8 @@ export const callIdOf = (meta: unknown): string | undefined =>
 
 export const RESUME_TOOL: Tool = {
   name: "resume_workflow",
-  description: "Answer one pause of a paused workflow by its pause ID with the decision data.",
+  description:
+    "Answer one pause of a paused workflow by its pause ID, with the decision data or a free-text reply (exactly one).",
   inputSchema: {
     type: "object",
     properties: {
@@ -78,8 +79,13 @@ export const RESUME_TOOL: Tool = {
         type: "string",
         description: "The decision/data as a JSON string to pass back to the workflow.",
       },
+      reply: {
+        type: "string",
+        description:
+          "A free-text reply, read by the pause's channel interpreter instead of a decision.",
+      },
     },
-    required: ["pauseId", "decision"],
+    required: ["pauseId"],
   },
 };
 

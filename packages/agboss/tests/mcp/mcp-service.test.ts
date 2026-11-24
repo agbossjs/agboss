@@ -263,6 +263,39 @@ describe("McpService over an in-memory MCP transport", () => {
     expect(JSON.parse(textOf(resumed))).toEqual({ text: "Saved." });
   });
 
+  it("#1320e: resume_workflow takes a free-text reply or a decision, exactly one", async () => {
+    const book = new ScriptBook();
+    const stubs = new McpStubs(book);
+    stubs.stubOf("notes").thenReturn({ write_file: () => Promise.resolve({ content: "ok" }) });
+    book
+      .scriptOf("agent:clerk-agent")
+      .thenReturn(callTool(SaveNote, { title: "a", text: "b" }), replyWith("Saved."));
+    const client = await connected(book, stubs);
+    const started = await client.callTool({
+      name: "chat-workflow-start",
+      arguments: { text: "save a note" },
+    });
+    const paused = JSON.parse(textOf(started)) as PausedReply;
+    const pauseId = paused.pending[0]?.pauseId;
+
+    const both = await client.callTool({
+      name: "resume_workflow",
+      arguments: { pauseId, decision: "{}", reply: "yes" },
+    });
+    const neither = await client.callTool({ name: "resume_workflow", arguments: { pauseId } });
+    // a channel with no reply interpreter refuses the reply: it reached `app.resume` as a reply
+    const reply = await client.callTool({
+      name: "resume_workflow",
+      arguments: { pauseId, reply: "yes, save it" },
+    });
+
+    expect(both.isError).toBe(true);
+    expect(neither.isError).toBe(true);
+    expect(textOf(both)).toMatch(/not both/);
+    expect(reply.isError).toBe(true);
+    expect(textOf(reply)).toMatch(/interpreter/i);
+  });
+
   it("#261: a session runs in its caller's tenant and owner — the start and its resume alike", async () => {
     const book = new ScriptBook();
     const stubs = new McpStubs(book);
